@@ -47,6 +47,101 @@ doubles the sealing problem.
   TMP117 #1 on heater island · expansion connector  │     │
 ```
 
+### PCB outline draft (mechanical datum for layout)
+
+![Rev-A PCB outline and footprint dimensions](pcb-outline-draft.svg)
+
+Working KiCad design:
+[`o2-probe.kicad_pcb`](/Users/fab/dev/ee/hw/o2-probe/o2-probe.kicad_pcb)
+with [placement notes](/Users/fab/dev/ee/hw/o2-probe/PLACEMENT.md). The board is
+schematic-linked and electrically routed; provisional mechanical footprints are
+called out in the notes. Placement moved the cell datum from the first outline
+sketch's `y = 105` to `y = 93.5` so its pin row can stay close to the potted AFE.
+
+This is the **Rev-A placement envelope, not release geometry**. Use it to start
+the KiCad board and to make the thermal/partitioning constraints visible; freeze
+it only after a paper print plus a 1:1 dummy-board fit in the actual 32 mm tube,
+with the cable termination, expansion connector, cell, membrane carrier, and
+potting fixture installed.
+
+Coordinate system: view from the component side, cable end at `y = 0`, probe tip
+at `y = 125`, board centreline at `x = 10`. All dimensions below are mm.
+
+```
+                20.0
+       x=0  ┌──────────────┐  x=20
+            │ cable pads   │  y=0
+            │ protection   │
+            │ power / MCU  │  POTTED: y=0…82
+            │ RS485 / AFE  │
+            ├- - POT TO - -┤  y=82 datum
+            │  dam / neck  │  TRANSITION: y=82…86
+            ├──────────────┤
+            │ heater island│
+            │   ┌──────┐   │
+            │   │  O2  │   │  cell centre (10,93.5)
+            │   │ cell │   │  GAS: y=86…125
+            │   └──────┘   │
+            │ SHT45  Tgas  │
+            └──────────────┘  y=125
+                 tip
+```
+
+- **Outer `Edge.Cuts`:** 20.0 × 125.0 rounded rectangle, nominal corner radius
+  2.0. FR-4, 4 layers, 1.0 mm thickness; a different thickness is allowed only after
+  the tube chord/assembled-height check. The 20 mm width leaves nominal 4 mm
+  radial clearance per side in the ≈28 mm tube ID, but this is not a component
+  height allowance: verify the complete swept envelope in section and include
+  tube-ID tolerance, board bow, solder joints, coating, and potting flash.
+- **No PCB mounting holes in Rev A.** The board is located by the end-cap/potting
+  fixture and non-metallic tube guides. Do not add a screw beside the AFE or
+  create another axial leak path merely to retain the PCB.
+- **Potting datum:** `y = 82.0`, marked on both sides with `POT TO HERE` and an
+  unbroken transverse line on `F.SilkS`/`B.SilkS`. Reserve `y = 80…86` from
+  ordinary parts. The actual removable dam clamps around the PCB at this datum;
+  its seal land and the cable-side meniscus must finish at or beyond `y = 82`,
+  while every AFE high-impedance node remains on the potted side.
+- **Dam/thermal break, provisional:** two 1.0 mm-wide transverse routed slots in
+  the `y = 82…86` band, arranged symmetrically and leaving only deliberately
+  sized laminate bridges for the guarded cell traces, heater supply/return, and
+  mechanical strength. Do **not** copy arbitrary slot endpoints from this sketch:
+  layout sizes the bridges from routing plus the heater thermal model, and the
+  fab's minimum rout/slot rules. No unguarded copper crosses this band.
+- **Primary cell datum:** SGX-OX-ROHS-Mini body centre `(10.0, 93.5)`, body
+  envelope Ø14.4 + datasheet tolerance. Rotate it with the three-pin row toward
+  the dam/AFE. Start the footprint from the datasheet's 2.54 mm pin pitch and
+  2.50 mm pin-row offset, but verify a physical sample before ordering boards.
+  Keep a Ø15.0 courtyard free of unrelated parts and preserve access to the top
+  gas face.
+- **Rear gas port:** plated-copper-free routed aperture centred at
+  `(10.0, 93.5)`, coincident with the cell's rear port. The prototype uses
+  `D_PORT = 3.0`, an illustration-derived estimate explicitly accepted by Fab;
+  the Issue 2 datasheet does not dimension the port. This is the largest value
+  that retains 0.20 mm copper clearance to the 1.60 mm centre-pin pad 2.50 mm
+  away. Confirm it against a physical sample before production release. Mark both gas faces
+  `DO NOT OBSTRUCT`; solder mask/copper keepouts alone do not satisfy this.
+- **Heater island:** reserve approximately `x = 1…19`, `y = 86…108` for the
+  thermally bonded cell block, the two 2512 heaters, and TMP117 #1. Shape it with
+  longitudinal isolation slots that terminate in drilled/radiused ends, never
+  sharp internal corners. Exact neck width is a thermal/calculated layout result,
+  not an outline constant. Keep the cell aperture and both gas faces open.
+- **Gas-reference end:** reserve `y = 116…123` for inlet-side TMP117 #2 on its
+  own slotted tab, maximally separated from the heater island. Put the SHT45 in
+  the warmed cell chamber, adjacent to the island but with its gas opening and
+  rework path clear; it must not migrate to the unheated inlet merely because
+  that placement is easier. Leave at least 2 mm laminate to the `y = 125` edge
+  until the membrane carrier and fab edge-clearance are known.
+- **Cable end:** reserve the first 8 mm (`y = 0…8`) for four staggered solder
+  pads, water-blocking/strain-relief geometry, and polarity silkscreen. Copper
+  and components may not project beyond the outline. Expansion-connector height
+  is checked against the circular tube chord; use the documented pad-field
+  fallback if the Micro-Fit swept envelope does not close.
+- Put the outline, dam datum, cell centre, rear aperture, slot endpoints, and
+  maximum assembled-height/chord check into `DESIGN.md` as controlled dimensions.
+  `audit.py` must reject an open outline, moved/missing gas aperture, missing pot
+  line, copper in the routed slots, or a cell/heater island that bridges the
+  intended thermal neck outside its allowed bridges.
+
 - Gas zone: selective conformal coat (apertures clear); cannot be potted.
 - Potted zone: potted solid — covers LMP91000, the C/R/W traces, everything
   cable-ward. Potting is also the cable strain relief (no connectors buried).
@@ -79,7 +174,8 @@ doubles the sealing problem.
 - tmp117-probe rules carried over: **no I2C pullups on sensed islands; ADD0
   never floats.**
 - Tube target: 32 mm OD PVC-U pipe (ID ≈ 28 mm) clears the 14.4 mm cell can;
-  board ~20 × 110–130 mm; gas window = slots + ePTFE membrane + mesh
+  Rev-A outline draft = 20 × 125 mm (dimensioned above); gas window = slots +
+  ePTFE membrane + mesh
   (enclosure work). Cell faces marked DO NOT OBSTRUCT: the rear vent needs a
   **routed aperture through the PCB (or specified standoff + lateral gap)**,
   not merely a copper keepout — copper keepout provides no gas flow (Codex).
