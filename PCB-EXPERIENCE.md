@@ -51,6 +51,10 @@ are not routing residuals and were not hidden with exclusions.
   even though the footprint pads did not move. Query KiCad DRC for every item
   intersecting the new hole-clearance envelope, withdraw only those nets, and
   reroute them before promotion.
+- If a prototype aperture may need hand enlargement, reserve and audit a larger
+  no-trace envelope from the outset. Route nearby unrelated nets radially away,
+  keep the continuous plane intact, and state the separate pad-limited maximum:
+  trace clearance alone does not make the full construction circle drillable.
 - KRT may add a redundant same-net loop that boxes an adjacent pad. At U13,
   removing a three-segment redundant SDA loop freed the centre 3V3D dogbone;
   the exposed-pad return was locally doglegged, then KRT rejoined the two SDA

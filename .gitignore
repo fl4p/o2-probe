@@ -17,6 +17,7 @@ o2-probe-seed*
 o2-probe-signals-*
 o2-probe-placement.kicad_*
 o2-probe-port-*
+o2-probe-drill-clearance.kicad_*
 
 # Router search telemetry is transient except for the accepted bounded pass.
 krt*.json

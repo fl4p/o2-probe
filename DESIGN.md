@@ -72,6 +72,11 @@ Current generated result: 111 components, 348 assigned package pins, KiCad ERC
 - Rear-port aperture: 3.0 mm prototype estimate derived from the undimensioned
   Issue 2 illustration and explicitly accepted by the user; physical sample fit
   remains required for production release.
+- Rear-port drill-out routing envelope: no trace or via copper within 2.25 mm
+  of the port centre (Ø4.50 mm construction circle on `Dwgs.User`). This gives
+  hand-rework room without sacrificing a routed net. It is not permission to
+  drill Ø4.50: the inner edge of centre pin pad 2 is only 1.70 mm from the port
+  centre, so pad damage becomes possible above Ø3.40.
 - No mounting holes. Cable strain relief, dam/slot endpoints, island neck width,
   expansion-connector chord clearance, and gas-sensor carrier all require the
   tube/fixture fit check described in the plan and `PLACEMENT.md`.
@@ -138,8 +143,8 @@ slots, and gas-sensor locations. It is a four-layer, 1.0 mm board with one
 continuous internal GND plane. `audit_pcb.py` passes 111 footprints, 348
 numbered pad/net assignments, all controlled geometry, and 2,744 track/via
 objects in the initial 2.5 mm-aperture checkpoint. The promoted 3.0 mm-aperture
-reroute contains 2,792 track/via objects and retains the same zero-critical-DRC
-status.
+reroute with its Ø4.50 mm no-trace drill-out envelope contains 2,788 track/via
+objects and retains the same zero-critical-DRC status.
 
 The KRT-first completion pass closed every signal and rebuilt all GND taps.
 KiCad's strict DRC reports zero unconnected items, zero schematic-parity issues,
