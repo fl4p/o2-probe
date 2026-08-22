@@ -3,11 +3,11 @@
 ## Outcome
 
 The Rev-A PCB is now a schematic-linked, electrically complete four-layer
-KiCad board.  The accepted 111-component schematic transfers without parity
-errors: 111 footprints and 348 numbered pad/net assignments pass
+KiCad board.  The accepted 110-component schematic transfers without parity
+errors: 110 footprints and 343 numbered pad/net assignments pass
 `audit_pcb.py`.  KiCad's authoritative DRC reports zero unconnected items,
 zero schematic-parity issues, and zero copper, hole, edge, track-width, or
-silkscreen violations.  The remaining report entries are 31 real courtyard
+silkscreen violations.  The remaining report entries are 29 real courtyard
 overlaps and 110 library-copy mismatch warnings.  They keep the board out of
 fabrication release until the physical/assembly placement is reviewed; they
 are not routing residuals and were not hidden with exclusions.

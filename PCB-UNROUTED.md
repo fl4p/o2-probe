@@ -5,7 +5,7 @@ KiCad strict DRC on 2026-08-22 reports:
 - 0 unconnected items
 - 0 schematic-parity issues
 - 0 shorts, clearance, hole, edge, track-width, or silkscreen violations
-- 31 courtyard-overlap warnings
+- 29 courtyard-overlap warnings
 - 110 footprint-library copy mismatch warnings
 
 The former 45-item routing residual is closed. This file remains as a stable
