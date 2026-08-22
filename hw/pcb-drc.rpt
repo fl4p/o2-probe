@@ -1,8 +1,8 @@
 ** Drc report for o2-probe.kicad_pcb **
-** Created on 2026-08-22T11:52:27 **
-** Report includes: Errors, Warnings **
+** Created on 2026-08-22T15:55:14 **
+** Report includes: Errors, Warnings, Exclusions **
 
-** Found 141 DRC violations **
+** Found 139 DRC violations **
 [courtyards_overlap]: Courtyards overlap
     Rule: board setup constraints courtyard; error
     @(112.3000 mm, 54.5000 mm): Footprint J103
@@ -51,14 +51,6 @@
     Rule: board setup constraints courtyard; error
     @(101.0000 mm, 115.5000 mm): Footprint TP5
     @(110.0000 mm, 117.0000 mm): Footprint J2
-[courtyards_overlap]: Courtyards overlap
-    Rule: board setup constraints courtyard; error
-    @(118.5000 mm, 100.0000 mm): Footprint J4
-    @(118.0000 mm, 104.5000 mm): Footprint R11
-[courtyards_overlap]: Courtyards overlap
-    Rule: board setup constraints courtyard; error
-    @(118.5000 mm, 100.0000 mm): Footprint J4
-    @(117.4000 mm, 96.0000 mm): Footprint C26
 [courtyards_overlap]: Courtyards overlap
     Rule: board setup constraints courtyard; error
     @(101.0000 mm, 120.0000 mm): Footprint TP1

@@ -21,7 +21,7 @@ python3 audit_schematic.py
   -o o2-probe-schematic.pdf o2-probe.kicad_sch
 ```
 
-Current generated result: 111 components, 348 assigned package pins, KiCad ERC
+Current generated result: 110 components, 343 assigned package pins, KiCad ERC
 0 errors/0 warnings, and `schematic-audit.rpt` PASS.
 
 ## Electrical architecture
@@ -48,10 +48,9 @@ Current generated result: 111 components, 348 assigned package pins, KiCad ERC
 - J2 is the DNP sealed-side expansion connector for a future external CO2 head:
   switched 12 V, protected 3.3 V, I2C, interrupt, and spare UART. It is not the
   programming connector.
-- J3 is the pre-pot Tag-Connect SWD interface: VTREF, SWDIO, NRST, SWCLK/BOOT0,
-  GND, and SWO. J4 is a pre-pot DNP BOOT0/USART2/GND recovery pad field.
-  Post-pot firmware updates must use the RS-485 bootloader; the enclosure does
-  not expose J3 or J4.
+- J3 is the sole pre-pot programming/recovery interface: VTREF, SWDIO, NRST,
+  SWCLK/BOOT0, GND, and SWO. Post-pot firmware updates must use the RS-485
+  application bootloader; the enclosure does not expose J3.
 
 ## Address map
 
@@ -102,8 +101,7 @@ Current generated result: 111 components, 348 assigned package pins, KiCad ERC
   components, plus ADS1119 mean/offset at heater 0%, intermediate, and 100%
   duty. Do not qualify this filter using RMS noise alone.
 - J2 may become a sealed pad field if the Micro-Fit swept envelope does not fit
-  the actual tube. J4 should likewise become pogo pads rather than a fitted
-  pin-header before release.
+  the actual tube.
 - Confirm every exact MPN/package pin map, MCU alternate-function assignment,
   input protection rating, heater steady-state temperature, and component
   ambient rating in the independent review before PCB transfer.
@@ -137,24 +135,24 @@ archive.
 ## PCB capture status
 
 PCB completion date: 2026-08-22. `o2-probe.kicad_pcb` is linked to the current
-111-component schematic and preserves the controlled 20 x 125 mm R2 outline,
+110-component schematic and preserves the controlled 20 x 125 mm R2 outline,
 y=82 pot line, cell centre `(10, 93.5)`, draft rear aperture, six thermal/dam
 slots, and gas-sensor locations. It is a four-layer, 1.0 mm board with one
-continuous internal GND plane. `audit_pcb.py` passes 111 footprints, 348
+continuous internal GND plane. `audit_pcb.py` passes 110 footprints, 343
 numbered pad/net assignments, all controlled geometry, and 2,744 track/via
 objects in the initial 2.5 mm-aperture checkpoint. The promoted 3.0 mm-aperture
-reroute with its Ø4.50 mm no-trace drill-out envelope contains 2,788 track/via
+reroute with its Ø4.50 mm no-trace drill-out envelope contains 2,771 track/via
 objects and retains the same zero-critical-DRC status.
 
 The KRT-first completion pass closed every signal and rebuilt all GND taps.
 KiCad's strict DRC reports zero unconnected items, zero schematic-parity issues,
 and zero copper, hole, board-edge, track-width, or silkscreen errors. No finding
-is excluded or waived. The remaining 141 warnings are 31 courtyard overlaps
+is excluded or waived. The remaining 139 warnings are 29 courtyard overlaps
 and 110 footprint-library copy mismatches caused by generated/customized
 footprints. `PCB-UNROUTED.md` records the zero-connectivity endpoint and
 `PCB-EXPERIENCE.md` captures the reusable workflow.
 
-This is electrically complete but still **not a fabrication release**. The 31
+This is electrically complete but still **not a fabrication release**. The 29
 courtyard overlaps require physical assembly review/re-placement, and the
 fabrication gates below remain open.
 

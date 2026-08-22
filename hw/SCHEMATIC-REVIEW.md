@@ -296,10 +296,9 @@ listed above remain open.
 
 - C26=1 uF was added on 3V3D with an explicit placement note for MCU VREF+
   pin 5, completing the datasheet decoupling set together with C12–C14.
-- J4 is now five pins and includes pin 5 VTREF/3V3D; BOOT0, USART2 TX/RX and
-  GND remain present. This closes the fixture-power-reference omission. The
-  post-pot RS-485 updater still means a tested application bootloader, not an
-  assumed factory-ROM RS-485 protocol.
+- J4 was subsequently removed as redundant with the complete J3 SWD fixture.
+  The post-pot RS-485 updater still means a tested application bootloader, not
+  an assumed factory-ROM RS-485 protocol.
 - J2, F2, R12–R16 and D4–D6 now share the DNP default variant, removing the
   assembly ambiguity.
 - RH1/RH2 are two 280 ohm, 1 W `CRCW2512280RFKEG` parts in parallel. Ideal

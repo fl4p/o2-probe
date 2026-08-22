@@ -44,8 +44,8 @@ pin-row run; this placeholder cannot prove final trace length.
 - Front, cable to tip: cable pads; input protection; buck; digital/analogue
   rails; RS485 and MCU; programming; expansion connector; heater/guard/AFE/ADC;
   O₂ cell; SHT45; gas-reference TMP117 and DNP BMP390.
-- Back: expansion TVS, DNP bias/termination, BOOT/UART pads, three AFE test
-  points, two 2512 heater resistors, and cell-block TMP117.
+- Back: expansion TVS, DNP bias/termination, three AFE test points, two 2512
+  heater resistors, and cell-block TMP117.
 - Six NPTH routed slots model the two pot/thermal breaks, two heater-island side
   cuts, and the gas-reference sensor tab. Slot endpoints remain provisional.
 

@@ -63,7 +63,6 @@ PLACEMENT = [
     ("R3", "BIAS- DNP", "Resistor_SMD:R_0603_1608Metric", 9.0, 51.0, 0, "B", True),
     ("U6", "STM32G071CB", "Package_QFP:LQFP-48_7x7mm_P0.5mm", 13.5, 47.0, 0, "F", False),
     ("J3", "SWD TC2030", "Connector:Tag-Connect_TC2030-IDC-NL_2x03_P1.27mm_Vertical", 6.0, 57.0, 0, "F", False),
-    ("J4", "BOOT/UART", "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical", 17.5, 52.0, 0, "B", True),
     # Expansion connector and protection. Actual connector height remains a gate.
     ("J2", "EXPANSION", "Connector_Molex:Molex_Micro-Fit_3.0_43045-0815_2x04_P3.00mm_Vertical", 10.0, 69.0, 0, "F", False),
     ("D2", "EXP TVS", "Package_SO:TSSOP-8_3x3mm_P0.65mm", 3.0, 64.0, 90, "B", False),

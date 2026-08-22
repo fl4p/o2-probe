@@ -5,7 +5,7 @@ Status date: 2026-08-22
 ## Passed from design artefacts
 
 - Schematic ERC: 0 violations.
-- Schematic connectivity audit: PASS, 111 components and 93 nets.
+- Schematic connectivity audit: PASS, 110 components and 93 nets.
 - PCB schematic parity: 0 issues.
 - PCB electrical connectivity: 0 unconnected items.
 - PCB completion-critical DRC: 0 shorts, clearance, hole, edge, track-width,
@@ -17,7 +17,7 @@ Status date: 2026-08-22
 
 ### Assembly placement
 
-- Resolve and reroute the 31 courtyard overlaps reported in `pcb-drc.rpt`.
+- Resolve and reroute the 29 courtyard overlaps reported in `pcb-drc.rpt`.
 - Reconcile the 110 embedded-footprint/library-copy warnings by making the
   generated/project-local footprint source authoritative.
 
