@@ -1,0 +1,29 @@
+__pycache__/
+*.kicad_prl
+*.dsn
+*.ses
+*.bak*
+
+# Generated routing experiments and preserved checkpoints. The accepted board
+# is o2-probe.kicad_pcb; reproducibility lives in the generators and reports.
+o2-probe-candidate*
+o2-probe-closed*
+o2-probe-final.kicad_*
+o2-probe-krt*.kicad_*
+o2-probe-plane*.kicad_*
+o2-probe-prerouted*
+o2-probe-route*
+o2-probe-seed*
+o2-probe-signals-*
+o2-probe-placement.kicad_*
+o2-probe-port-*
+
+# Router search telemetry is transient except for the accepted bounded pass.
+krt*.json
+!krt-signals-final.json
+
+# Intermediate DRC experiments; retain pcb-drc.rpt/json and audit reports.
+*-drc.rpt
+pcb-drc-*.rpt
+pcb-drc-final.json
+!pcb-drc.rpt
