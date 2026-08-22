@@ -118,8 +118,12 @@ at `y = 125`, board centreline at `x = 10`. All dimensions below are mm.
   `D_PORT = 3.0`, an illustration-derived estimate explicitly accepted by Fab;
   the Issue 2 datasheet does not dimension the port. This is the largest value
   that retains 0.20 mm copper clearance to the 1.60 mm centre-pin pad 2.50 mm
-  away. Confirm it against a physical sample before production release. Mark both gas faces
-  `DO NOT OBSTRUCT`; solder mask/copper keepouts alone do not satisfy this.
+  away. Keep routed copper outside the Ø4.50 mm drill-out construction envelope
+  so prototype rework cannot immediately cut a trace; this larger circle is not
+  itself a permitted drill size because pad 2 begins at radius 1.70 mm. Confirm
+  the opening against a physical sample before production release. Mark both
+  gas faces `DO NOT OBSTRUCT`; solder mask/copper keepouts alone do not satisfy
+  this.
 - **Heater island:** reserve approximately `x = 1…19`, `y = 86…108` for the
   thermally bonded cell block, the two 2512 heaters, and TMP117 #1. Shape it with
   longitudinal isolation slots that terminate in drilled/radiused ends, never
