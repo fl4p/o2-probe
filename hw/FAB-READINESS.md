@@ -26,7 +26,11 @@ Status date: 2026-08-22
 The current SGX Issue 2 drawing defines the body and pins, but not the rear
 gas-port diameter. For this prototype, the user explicitly accepted a
 drawing-derived estimate and the aperture was increased from 2.5 to 3.0 mm.
-This retains 0.20 mm copper clearance to the nearest 1.60 mm pin pad. Before a
+This retains 0.20 mm copper clearance to the nearest 1.60 mm pin pad. Routed
+copper is also kept outside a Ø4.50 mm construction envelope around the port.
+That protects traces during careful prototype rework, but does not remove the
+centre-pin-pad limit: a drill above Ø3.40 can begin cutting pad 2, and Ø3.00 is
+the largest diameter retaining the audited 0.20 mm pad clearance. Before a
 production release of `SGX-OX-ROHS-Mini_DRAFT`:
 
 - measure the rear-port diameter and its offset from the body centre on the

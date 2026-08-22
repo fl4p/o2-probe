@@ -29,6 +29,7 @@ before schematic capture.
 | LMP91000 centre | `(10.5, 79.5) mm` |
 | LMP centre to cell pin row | 11.5 mm; target gas-side pad row to cell pin row ≈9.5 mm |
 | Gas-port pilot | Ø3.0 mm NPTH, user-accepted illustration-derived prototype estimate |
+| Gas-port routed-copper envelope | Ø4.5 mm, marked on `Dwgs.User`; pad 2 still limits safe drill diameter |
 
 The cell moved from the outline sketch's original `y = 105 mm` to `y = 93.5
 mm`. At 105 mm the cell pins were roughly 20 mm beyond the pot boundary, which

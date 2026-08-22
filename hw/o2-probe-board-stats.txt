@@ -4,9 +4,9 @@ O2 probe PCB statistics — 2026-08-22
 Board: 20.00 x 125.00 mm, 1.00 mm thick, four copper layers
 Footprints: 111 (52 front, 59 back)
 Pads: 370 (347 SMD, 10 NPTH)
-Track segments: 2521
-Through vias: 271
-Track/via objects: 2792
+Track segments: 2516
+Through vias: 272
+Track/via objects: 2788
 Zones: 1 continuous /GND plane on In2.Cu
 
 Advanced fabrication floor encoded in o2-probe.kicad_pro:
