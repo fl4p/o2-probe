@@ -31,7 +31,7 @@ Phase 2 links/copies this plan there.
 
 ## Architecture
 
-**One elongated 2-layer PCB, two zones split by a potting dam** (routed slot +
+**One elongated 4-layer PCB, two zones split by a potting dam** (routed slot +
 silkscreen "POT TO HERE" line). Two-PCB head/body was rejected: an inter-board
 connector adds a leakage path exactly where sub-µA integrity matters and
 doubles the sealing problem.
@@ -40,7 +40,7 @@ doubles the sealing problem.
 [cable]── POTTED ZONE ──────────────────────────────┬─dam─┬── GAS ZONE ─────[tip]
   pads → polyfuse/TVS/rev-pol PFET → buck 12→5 V    │slot │ SGX-OX cell (TH,
   3.3VD LDO → MCU STM32G071 (105 °C), RS485 xcvr    │     │  pins cross the dam)
-  3.3VA LDO → 2.5 V VREF → LMP91000 → ADS1115       │     │ SHT45-AD1F (slotted tab)
+  3.3VA LDO → 2.5 V VREF → LMP91000 → ADS1119       │     │ SHT45-AD1F (slotted tab)
   LMP91000 hard against dam, RE guard-ringed        │     │ TMP117 #2 (gas, iso tab)
   heater FET (12 V PWM) → 2×2512 resistors on       │     │ DNP BMP390
    cell-block copper island straddling the dam      │     │
@@ -58,11 +58,11 @@ schematic-linked and electrically routed; provisional mechanical footprints are
 called out in the notes. Placement moved the cell datum from the first outline
 sketch's `y = 105` to `y = 93.5` so its pin row can stay close to the potted AFE.
 
-This is the **Rev-A placement envelope, not release geometry**. Use it to start
-the KiCad board and to make the thermal/partitioning constraints visible; freeze
-it only after a paper print plus a 1:1 dummy-board fit in the actual 32 mm tube,
-with the cable termination, expansion connector, cell, membrane carrier, and
-potting fixture installed.
+The SVG is the early **Rev-A placement envelope, not release geometry**. The
+working KiCad board is authoritative for the bare-board first article. Freeze
+production geometry only after a paper print plus a 1:1 dummy-board fit in the
+actual 32 mm tube, with the cable termination, expansion connector, cell,
+membrane carrier, and potting fixture installed.
 
 Coordinate system: view from the component side, cable end at `y = 0`, probe tip
 at `y = 125`, board centreline at `x = 10`. All dimensions below are mm.
@@ -96,11 +96,13 @@ at `y = 125`, board centreline at `x = 10`. All dimensions below are mm.
 - **No PCB mounting holes in Rev A.** The board is located by the end-cap/potting
   fixture and non-metallic tube guides. Do not add a screw beside the AFE or
   create another axial leak path merely to retain the PCB.
-- **Potting datum:** `y = 82.0`, marked on both sides with `POT TO HERE` and an
-  unbroken transverse line on `F.SilkS`/`B.SilkS`. Reserve `y = 80…86` from
-  ordinary parts. The actual removable dam clamps around the PCB at this datum;
-  its seal land and the cable-side meniscus must finish at or beyond `y = 82`,
-  while every AFE high-impedance node remains on the potted side.
+- **Potting datum:** `y = 82.0`, controlled on both source legend layers with
+  `POT TO HERE` and an unbroken transverse line. Rev-A first articles omit
+  physical legend, so the included fabrication/assembly drawing and potting
+  fixture own this datum. Reserve `y = 80…86` from ordinary parts. The actual
+  removable dam clamps around the PCB at this datum; its seal land and the
+  cable-side meniscus must finish at or beyond `y = 82`, while every AFE
+  high-impedance node remains on the potted side.
 - **Dam/thermal break, provisional:** two 1.0 mm-wide transverse routed slots in
   the `y = 82…86` band, arranged symmetrically and leaving only deliberately
   sized laminate bridges for the guarded cell traces, heater supply/return, and
@@ -110,20 +112,16 @@ at `y = 125`, board centreline at `x = 10`. All dimensions below are mm.
 - **Primary cell datum:** SGX-OX-ROHS-Mini body centre `(10.0, 93.5)`, body
   envelope Ø14.4 + datasheet tolerance. Rotate it with the three-pin row toward
   the dam/AFE. Start the footprint from the datasheet's 2.54 mm pin pitch and
-  2.50 mm pin-row offset, but verify a physical sample before ordering boards.
+  2.50 mm pin-row offset, but verify a physical sample before production release.
   Keep a Ø15.0 courtyard free of unrelated parts and preserve access to the top
   gas face.
-- **Rear gas port:** plated-copper-free routed aperture centred at
-  `(10.0, 93.5)`, coincident with the cell's rear port. The prototype uses
-  `D_PORT = 3.0`, an illustration-derived estimate explicitly accepted by Fab;
-  the Issue 2 datasheet does not dimension the port. This is the largest value
-  that retains 0.20 mm copper clearance to the 1.60 mm centre-pin pad 2.50 mm
-  away. Keep routed copper outside the Ø4.50 mm drill-out construction envelope
-  so prototype rework cannot immediately cut a trace; this larger circle is not
-  itself a permitted drill size because pad 2 begins at radius 1.70 mm. Confirm
-  the opening against a physical sample before production release. Mark both
-  gas faces `DO NOT OBSTRUCT`; solder mask/copper keepouts alone do not satisfy
-  this.
+- **Rear gas path:** plated-copper-free 3 × 6 mm NPTH slot centred at
+  `(10.0, 96.0)`, offset gasward from the cell centre while spanning its rear
+  axis. The Issue 2 datasheet does not dimension the rear port, so this is an
+  explicit first-article fit/flow feature rather than an invented port diameter.
+  Confirm the opening against a physical sample before production release.
+  Mark the controlled drawing `DO NOT OBSTRUCT`; solder mask/copper keepouts
+  alone do not satisfy this.
 - **Heater island:** reserve approximately `x = 1…19`, `y = 86…108` for the
   thermally bonded cell block, the two 2512 heaters, and TMP117 #1. Shape it with
   longitudinal isolation slots that terminate in drilled/radiused ends, never
@@ -135,7 +133,10 @@ at `y = 125`, board centreline at `x = 10`. All dimensions below are mm.
   3.5 mm centre routing neck: 5.0 mm total direct FR-4 cross-section rather
   than 20.0 mm. Split the In2 GND fill across the same line and reconnect the
   filled inlet region through one explicit 0.25 mm bridge; a solid plane must
-  not bypass the mechanical barrier. Slots starting at TMP117 #2 and running
+  not bypass the mechanical barrier. Keep the TMP117 #2 exposed-pad land and
+  all of its copper gasward of the barrier. Audit the complete authorized
+  crossing bundle; do not allow redundant same-net crossings. Slots starting
+  at TMP117 #2 and running
   longitudinally toward the inlet are forbidden because they are parallel to
   the gradient and leave the heater-facing root intact. Put the SHT45 in the
   warmed cell chamber, adjacent to the island but with its gas opening and
@@ -316,7 +317,8 @@ verification discipline. Copy/adapt from `/Users/fab/dev/ee/hw/tmp117-probe/`:
 - `audit.py` + `--calibrate` inject-defect discipline — rewritten checks: RE
   guard continuity/clearance, dam-slot + potting silkscreen presence, heater
   neck cross-section, copper keepout under cell can, exact transverse TMP117
-  isolation slots and their single In2 bridge,
+  isolation slots, their single In2 bridge, the gasward exposed-pad land, and
+  the exact authorized copper-crossing set,
   cable-pads↔logic creepage, expansion-connector clearance to the potting
   line, SHT45 hand-rework accessibility (it's a maintenance consumable —
   replaced at cell-service intervals).
@@ -344,7 +346,7 @@ verification discipline. Copy/adapt from `/Users/fab/dev/ee/hw/tmp117-probe/`:
    derating. If tolerances don't close the cell's ±10 mV bias window →
    fallback discrete potentiostat (zero-drift op-amp pair) decided HERE. Also:
    STM32G071 105 °C order code + LCSC stock, RS485 xcvr, buck, LDOs, VREF,
-   ADS1115, SHT45-AD1F, BMP390, heater FET, **SGX-4OX-ROHS outline** (rear
+   ADS1119, SHT45-AD1F, BMP390, heater FET, **SGX-4OX-ROHS outline** (rear
    vent → combined footprint vs adapter), Sensirion "Handling Instructions
    SHT". Send the SGX CO₂-cross-sensitivity inquiry (whole OX family) now.
 2. **Scaffolding.** Create `o2-probe/`, copy scripts, DESIGN.md skeleton,
@@ -361,7 +363,7 @@ verification discipline. Copy/adapt from `/Users/fab/dev/ee/hw/tmp117-probe/`:
 
 - Every gate in §Scaffolding green; DESIGN.md status table complete.
 - AFE error budget closes: bias within ±10 mV incl. VREF + step tolerance;
-  0.1 % O₂ resolution at the ADS1115 with stated noise.
+  0.1 % O₂ resolution at the ADS1119 with stated noise.
 - Bench before pile (report's discriminating tests + Codex additions): 2-week
   saturated soak with condensation cycles; heater loop holds target RH/ΔT
   across the 0–4 K range; zero-check in N₂ (cell zero < 0.4 % vol spec);
@@ -376,7 +378,7 @@ verification discipline. Copy/adapt from `/Users/fab/dev/ee/hw/tmp117-probe/`:
 
 ## Codex review (2026-08-18) — disposition
 
-Adversarial review ran against this plan with the LMP91000/ADS1115/TMP117/
+Adversarial review ran against the initial plan with the LMP91000/ADS1115/TMP117/
 SHT4x/BMP390/K33 primary datasheets (full log:
 `codex-plan-review-2026-08-18.log` beside this file).
 Confirmed findings are integrated above; headline changes: fixed 2.5 V VREF
