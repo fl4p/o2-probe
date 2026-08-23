@@ -1,17 +1,15 @@
 # PCB connectivity completion report
 
-KiCad strict DRC on 2026-08-22 reports:
+KiCad 10.0.5 release DRC on 2026-08-23 reports:
 
+- 0 errors
 - 0 unconnected items
 - 0 schematic-parity issues
-- 0 shorts, clearance, hole, edge, track-width, or silkscreen violations
-- 29 courtyard-overlap warnings
-- 110 footprint-library copy mismatch warnings
+- 0 dangling tracks or vias
+- 0 placed-footprint/library mismatches
+- 28 courtyard-overlap warnings, locked as manual-assembly exceptions
 
-The former 45-item routing residual is closed. This file remains as a stable
-handoff location so downstream checks do not mistake an absent report for an
-unreviewed board.
-
-The courtyard warnings are an assembly/fabrication release gate, not unrouted
-electrical nets. They must be checked against physical parts and the enclosure
-before ordering boards; none has been waived or excluded from `pcb-drc.rpt`.
+The former routing residual is closed. The calibrated audit additionally proves
+the via-free CELL_RE route, driven guard, split ground plane, process floors,
+stackup, and controlled mechanical geometry. See `pcb-audit.rpt` and
+`ASSEMBLY-EXCEPTIONS.md`.

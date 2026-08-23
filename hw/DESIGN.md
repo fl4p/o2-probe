@@ -5,10 +5,9 @@
 `gen_sch.py` is the source of truth for the schematic. Do not hand-edit the
 generated `o2-probe.kicad_sch`; change the generator and regenerate it.
 
-The schematic is electrically captured but is not a fabrication release. The
-independent schematic review and the schematic-linked PCB are separate gates.
-The SGX cell rear port/pad fit and the BMP390 land pattern explicitly remain
-physical/datasheet verification gates.
+The schematic and PCB are released for a bare-board first article. This is not
+an automated-PCBA or production-qualified release; SGX cell fit, enclosure fit,
+manual assembly review, and bench qualification remain acceptance gates.
 
 Regenerate and verify with:
 
@@ -21,7 +20,7 @@ python3 audit_schematic.py
   -o o2-probe-schematic.pdf o2-probe.kicad_sch
 ```
 
-Current generated result: 110 components, 343 assigned package pins, KiCad ERC
+Current generated result: 109 components, 347 assigned package pins, KiCad ERC
 0 errors/0 warnings, and `schematic-audit.rpt` PASS.
 
 ## Electrical architecture
@@ -68,22 +67,19 @@ Current generated result: 110 components, 343 assigned package pins, KiCad ERC
 - Board: 20.0 x 125.0 mm, nominal 2.0 mm corner radius, initially 1.0 mm FR-4.
 - Potting datum: y=82.0 mm; ordinary-component exclusion y=80–86 mm.
 - Cell centre: (10.0, 93.5) mm; unrelated-part courtyard diameter 15.0 mm.
-- Rear-port aperture: 3.0 mm prototype estimate derived from the undimensioned
-  Issue 2 illustration and explicitly accepted by the user; physical sample fit
-  remains required for production release.
-- Rear-port drill-out routing envelope: no trace or via copper within 2.25 mm
-  of the port centre (Ø4.50 mm construction circle on `Dwgs.User`). This gives
-  hand-rework room without sacrificing a routed net. It is not permission to
-  drill Ø4.50: the inner edge of centre pin pad 2 is only 1.70 mm from the port
-  centre, so pad damage becomes possible above Ø3.40.
+- Rear-flow aperture: a 3.0 × 6.0 mm vertical NPTH routed slot centred 2.5 mm
+  gasward of the cell axis. It spans the axis and provides a first-article
+  airflow/fit window without inventing a rear-port diameter that DS-0637 Issue
+  2 does not specify. Physical sample fit remains required for production.
 - No mounting holes. Cable strain relief, dam/slot endpoints, island neck width,
   expansion-connector chord clearance, and gas-sensor carrier all require the
   tube/fixture fit check described in the plan and `PLACEMENT.md`.
 
 ## Release gates and provisional choices
 
-- Fit a physical SGX-OX-ROHS-Mini sample before releasing its footprint or rear
-  aperture. The present custom footprint is named `_DRAFT` on purpose.
+- Fit a physical SGX-OX-ROHS-Mini sample before production qualification. The
+  released first-article footprint is `SGX-OX-ROHS-Mini_ISS2`; the elongated
+  aperture is deliberately a prototype fit feature, not a datasheet dimension.
 - Independently recheck the BMP390 bottom-view numbering and land geometry. The
   DNP draft follows Bosch DS002 Figure 26 but has not been assembly-qualified.
 - D2 is one Littelfuse `SM712-02HTG` asymmetric RS-485 array in SOT-23:
@@ -126,7 +122,7 @@ checked after download.
 | Diodes AP63205 family DS41326 Rev. 3-2, <https://www.diodes.com/assets/Datasheets/AP63200-AP63201-AP63203-AP63205.pdf> | Direct official PDF retrieved and pin/application page rendered during independent review | Corrected and asserted TSOT-23-6 pin map |
 | Littelfuse SM712 series, <https://www.littelfuse.com/assetdocs/tvs-diode-array-spa-sm712-datasheet?assetguid=8313a28c-8802-4d47-a2a7-e30b5b1f67d8> | Official indexed datasheet result; exact `SM712-02HTG` topology selected | RS-485 cable-side TVS pin map and footprint |
 | Diodes SMBJ series, <https://www.diodes.com/assets/Datasheets/ds19002.pdf> | Official indexed datasheet result; exact `SMBJ15A-13-F` selected | Input TVS value and SMB/DO-214AA footprint |
-| SGX Sensortech `SGX-OX-ROHS-Mini`, DS-0637 Issue 2, 28-May-2026, <https://sgxsensortech.com/uploads/f_note/DS-0637-SGX-OX-ROHS-Mini_iss2.pdf> | Official product page rendered in Playwright and its exact manufacturer PDF retrieved; product drawing visually validated at 300 dpi | Body Ø14.40 mm, height 8.30 mm, three Ø0.64 mm pins at 2.54 mm pitch, pin-row offset 2.50 mm, general tolerance ±0.15 mm. The drawing does not dimension the rear gas port; the prototype uses a user-accepted 3.0 mm illustration-derived estimate. |
+| SGX Sensortech `SGX-OX-ROHS-Mini`, DS-0637 Issue 2, 28-May-2026, <https://sgxsensortech.com/uploads/f_note/DS-0637-SGX-OX-ROHS-Mini_iss2.pdf> | Official product page rendered in Playwright and its exact manufacturer PDF retrieved; product drawing visually validated at 300 dpi | Body Ø14.40 mm, height 8.30 mm, three Ø0.64 mm pins at 2.54 mm pitch, pin-row offset 2.50 mm, general tolerance ±0.15 mm. The drawing does not dimension the rear gas port; the first article uses a gasward-offset 3 × 6 mm fit/flow slot. |
 
 The retrieved PDFs were used as working evidence in `/tmp/o2-datasheets` and
 were not silently promoted into the repository as a permanent literature
@@ -134,29 +130,20 @@ archive.
 
 ## PCB capture status
 
-PCB completion date: 2026-08-22. `o2-probe.kicad_pcb` is linked to the current
-110-component schematic and preserves the controlled 20 x 125 mm R2 outline,
-y=82 pot line, cell centre `(10, 93.5)`, draft rear aperture, six thermal/dam
-slots, and gas-sensor locations. It is a four-layer, 1.0 mm board with one
-continuous internal GND plane. `audit_pcb.py` passes 110 footprints, 343
-numbered pad/net assignments, all controlled geometry, and 2,744 track/via
-objects in the initial 2.5 mm-aperture checkpoint. The promoted 3.0 mm-aperture
-reroute with its Ø4.50 mm no-trace drill-out envelope contains 2,771 track/via
-objects and retains the same zero-critical-DRC status.
+PCB first-article release date: 2026-08-23. `o2-probe.kicad_pcb` is linked to
+the current 109-footprint schematic and preserves the controlled 20 × 125 mm
+R2 outline, y=82 local pot line, cell centre `(10, 93.5)`, six routed slots,
+and gas-sensor locations. It is a four-layer, 1.0 mm board with an explicit
+ENIG/1 oz outer/0.5 oz inner nominal stackup.
 
-The KRT-first completion pass closed every signal and rebuilt all GND taps.
-KiCad's strict DRC reports zero unconnected items, zero schematic-parity issues,
-and zero copper, hole, board-edge, track-width, or silkscreen errors. No finding
-is excluded or waived. The remaining 139 warnings are 29 courtyard overlaps
-and 110 footprint-library copy mismatches caused by generated/customized
-footprints. `PCB-UNROUTED.md` records the zero-connectivity endpoint and
-`PCB-EXPERIENCE.md` captures the reusable workflow.
+The LMP91000 is on the potted side of the dam. CELL_RE is a single 9.652 mm
+F.Cu segment with no via or test point and is enclosed by a driven guard. In2
+GND is split through the potting transition and reconnects at one deliberate
+0.25 mm edge bridge. All placed footprints match their authoritative library
+copies.
 
-This is electrically complete but still **not a fabrication release**. The 29
-courtyard overlaps require physical assembly review/re-placement, and the
-fabrication gates below remain open.
-
-The fabrication gates above remain open in full: physical SGX rear-port/pad
-fit, gas aperture, tube chord and connector, potting/slot thermal geometry,
-exact generic passive/protection energy and temperature ratings, 1:1 fixture
-fit, and bench VREF stability/noise/startup.
+KiCad 10.0.5 reports 0 DRC errors, 0 unconnected items, and 0 parity issues.
+The calibrated PCB audit rejects 6/6 known-bad variants. The 28 exact courtyard
+pairs are manual-assembly exceptions; legend layers are not exported. See
+`FAB-READINESS.md`, `ASSEMBLY-EXCEPTIONS.md`, and `FAB-NOTES.md` for release
+scope and remaining qualification work.

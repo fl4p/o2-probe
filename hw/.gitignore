@@ -1,5 +1,7 @@
 __pycache__/
 *.kicad_prl
+o2-probe-backups/
+fab/
 *.dsn
 *.ses
 *.bak*
