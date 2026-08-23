@@ -129,9 +129,16 @@ at `y = 125`, board centreline at `x = 10`. All dimensions below are mm.
   longitudinal isolation slots that terminate in drilled/radiused ends, never
   sharp internal corners. Exact neck width is a thermal/calculated layout result,
   not an outline constant. Keep the cell aperture and both gas faces open.
-- **Gas-reference end:** reserve `y = 116…123` for inlet-side TMP117 #2 on its
-  own slotted tab, maximally separated from the heater island. Put the SHT45 in
-  the warmed cell chamber, adjacent to the island but with its gas opening and
+- **Gas-reference end:** put inlet-side TMP117 #2 gasward of a barrier that is
+  transverse to the actual heater-to-sensor heat-flow axis. Rev A fixes this as
+  two 7.5 × 0.8 mm slots at `y = 114.0`, leaving 0.75 mm edge webs and one
+  3.5 mm centre routing neck: 5.0 mm total direct FR-4 cross-section rather
+  than 20.0 mm. Split the In2 GND fill across the same line and reconnect the
+  filled inlet region through one explicit 0.25 mm bridge; a solid plane must
+  not bypass the mechanical barrier. Slots starting at TMP117 #2 and running
+  longitudinally toward the inlet are forbidden because they are parallel to
+  the gradient and leave the heater-facing root intact. Put the SHT45 in the
+  warmed cell chamber, adjacent to the island but with its gas opening and
   rework path clear; it must not migrate to the unheated inlet merely because
   that placement is easier. Leave at least 2 mm laminate to the `y = 125` edge
   until the membrane carrier and fab edge-clearance are known.
@@ -143,8 +150,9 @@ at `y = 125`, board centreline at `x = 10`. All dimensions below are mm.
 - Put the outline, dam datum, cell centre, rear aperture, slot endpoints, and
   maximum assembled-height/chord check into `DESIGN.md` as controlled dimensions.
   `audit.py` must reject an open outline, moved/missing gas aperture, missing pot
-  line, copper in the routed slots, or a cell/heater island that bridges the
-  intended thermal neck outside its allowed bridges.
+  line, copper in the routed slots, a longitudinal gas-reference slot
+  regression, a GND plane spanning either partition, or a cell/heater island
+  that bridges the intended thermal neck outside its allowed bridges.
 
 - Gas zone: selective conformal coat (apertures clear); cannot be potted.
 - Potted zone: potted solid — covers LMP91000, the C/R/W traces, everything
@@ -307,7 +315,8 @@ verification discipline. Copy/adapt from `/Users/fab/dev/ee/hw/tmp117-probe/`:
   `verify()` stays a gate).
 - `audit.py` + `--calibrate` inject-defect discipline — rewritten checks: RE
   guard continuity/clearance, dam-slot + potting silkscreen presence, heater
-  neck cross-section, copper keepout under cell can, TMP117 isolation slots,
+  neck cross-section, copper keepout under cell can, exact transverse TMP117
+  isolation slots and their single In2 bridge,
   cable-pads↔logic creepage, expansion-connector clearance to the potting
   line, SHT45 hand-rework accessibility (it's a maintenance consumable —
   replaced at cell-service intervals).
