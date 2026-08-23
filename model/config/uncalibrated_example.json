@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0",
+  "model_version": "0.1.0",
+  "geometry_revision": "o2_probe_rev_a.scad@2026-08-22",
+  "calibrated": false,
+  "geometry": {
+    "plenum_volume_cm3": {"value": 27.0, "unit": "cm3", "uncertainty": 3.0, "provenance": "assumed", "source": "CAD gross volume minus estimated board/cell displacement; measure before calibration"},
+    "free_membrane_area_mm2": {"value": 193.05, "unit": "mm2", "uncertainty": 10.0, "provenance": "assumed", "source": "CAD projected opening minus PP support-grid obstruction"},
+    "membrane_thickness_mm": {"value": 0.18, "unit": "mm", "uncertainty": 0.03, "provenance": "assumed", "source": "PMV15T vendor-published thickness and tolerance; not measured on the installed coupon"},
+    "rear_aperture_diameter_mm": {"value": 3.0, "unit": "mm", "uncertainty": 0.5, "provenance": "assumed", "source": "Rev-A illustration-derived PCB aperture"}
+  },
+  "thermal": {
+    "resistance_k_per_w": {"value": null, "unit": "K/W", "uncertainty": null, "provenance": "sensitivity_only", "source": "not measured"},
+    "capacitance_j_per_k": {"value": null, "unit": "J/K", "uncertainty": null, "provenance": "sensitivity_only", "source": "not measured"},
+    "membrane_coupling": {"value": null, "unit": "1", "uncertainty": null, "provenance": "sensitivity_only", "source": "requires temporary membrane/cold-spot thermometry"},
+    "settled_rate_k_per_s": 0.002,
+    "settled_dwell_s": 30.0
+  },
+  "gas": {
+    "window_conductance_mol_per_s": {"value": 0.000438, "unit": "mol/s", "uncertainty": 0.000219, "provenance": "sensitivity_only", "source": "central dry sensitivity case: A=193.05 mm2, L=0.18 mm, Deff=1e-5 m2/s, 101.325 kPa, 25 C"},
+    "area_conductance_mol_per_s_m2": {"value": 2.269, "unit": "mol/(s m2)", "uncertainty": 1.1345, "provenance": "sensitivity_only", "source": "derived from the same unmeasured dry sensitivity case"},
+    "access_resistance_s_per_mol": {"value": 0.0, "unit": "s/mol", "uncertainty": null, "provenance": "sensitivity_only", "source": "zero-access-resistance sensitivity case only"},
+    "area_model": "area_plus_access",
+    "access_tau_s": {"value": null, "unit": "s", "uncertainty": null, "provenance": "sensitivity_only", "source": "disabled until carrier residuals justify an added lag"},
+    "conductance_scope": "intrinsic_window",
+    "access_enabled": false,
+    "include_cell_consumption": true,
+    "electrons_per_o2": 4,
+    "consumption_availability_tau_s": 1.0
+  },
+  "cell": {
+    "tau_s": {"value": 4.343, "unit": "s", "uncertainty": null, "provenance": "sensitivity_only", "source": "first-order upper-bound scenario obtained from datasheet t90 < 10 s; not a fitted prior"},
+    "i_zero_ma": {"value": 0.0, "unit": "mA", "uncertainty": null, "provenance": "sensitivity_only", "source": "uncalibrated zero-current scenario"},
+    "k_ref_ma": {"value": 0.425, "unit": "mA", "uncertainty": 0.128, "provenance": "sensitivity_only", "source": "derived from nominal 0.1 +/- 0.03 mA in 20.95% O2 using the SGX logarithmic response"},
+    "temp_coeff_per_k": {"value": 0.0, "unit": "1/K", "uncertainty": null, "provenance": "sensitivity_only", "source": "temperature dependence not characterized"},
+    "reference_temp_c": 20.0,
+    "reference_pressure_kpa": 101.325,
+    "dynamic_domain": "normalized_output"
+  },
+  "controller": {
+    "target_delta_t_k": 2.0,
+    "kp_w_per_k": null,
+    "ki_w_per_k_s": null,
+    "sample_period_s": 1.0,
+    "max_power_w": 1.0,
+    "max_block_temp_c": 60.0
+  },
+  "regimes": {
+    "dry": {"conductance_multiplier": {"value": 1.0, "unit": "1", "uncertainty": null, "provenance": "assumed", "source": "definition of dry baseline"}, "protocol": "clean, dry installed carrier"},
+    "wet": {"conductance_multiplier": {"value": null, "unit": "1", "uncertainty": null, "provenance": "sensitivity_only", "source": "must be measured"}, "protocol": "external water-film protocol not yet defined"},
+    "fouled": {"conductance_multiplier": {"value": null, "unit": "1", "uncertainty": null, "provenance": "sensitivity_only", "source": "must be measured"}, "protocol": "compost exposure protocol not yet defined"}
+  },
+  "active_regime": "dry",
+  "solver": {"rtol": 1e-7, "atol": 1e-9, "max_step_s": 0.25}
+}

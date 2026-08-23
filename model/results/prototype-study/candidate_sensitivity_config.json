@@ -1,0 +1,176 @@
+{
+  "active_regime": "dry",
+  "calibrated": false,
+  "cell": {
+    "dynamic_domain": "normalized_output",
+    "i_zero_ma": {
+      "provenance": "sensitivity_only",
+      "source": "uncalibrated zero-current scenario",
+      "uncertainty": null,
+      "unit": "mA",
+      "value": 0.0
+    },
+    "k_ref_ma": {
+      "provenance": "sensitivity_only",
+      "source": "derived from nominal 0.1 +/- 0.03 mA in 20.95% O2 using the SGX logarithmic response",
+      "uncertainty": 0.128,
+      "unit": "mA",
+      "value": 0.425
+    },
+    "reference_pressure_kpa": 101.325,
+    "reference_temp_c": 20.0,
+    "tau_s": {
+      "provenance": "sensitivity_only",
+      "source": "first-order upper-bound scenario obtained from datasheet t90 < 10 s; not a fitted prior",
+      "uncertainty": null,
+      "unit": "s",
+      "value": 4.343
+    },
+    "temp_coeff_per_k": {
+      "provenance": "sensitivity_only",
+      "source": "temperature dependence not characterized",
+      "uncertainty": null,
+      "unit": "1/K",
+      "value": 0.0
+    }
+  },
+  "controller": {
+    "ki_w_per_k_s": null,
+    "kp_w_per_k": null,
+    "max_block_temp_c": 60.0,
+    "max_power_w": 1.0,
+    "sample_period_s": 1.0,
+    "target_delta_t_k": 2.0
+  },
+  "gas": {
+    "access_enabled": false,
+    "access_resistance_s_per_mol": {
+      "provenance": "sensitivity_only",
+      "source": "zero-access-resistance sensitivity case only",
+      "uncertainty": null,
+      "unit": "s/mol",
+      "value": 0.0
+    },
+    "access_tau_s": {
+      "provenance": "sensitivity_only",
+      "source": "disabled until carrier residuals justify an added lag",
+      "uncertainty": null,
+      "unit": "s",
+      "value": null
+    },
+    "area_conductance_mol_per_s_m2": {
+      "provenance": "sensitivity_only",
+      "source": "derived from the same unmeasured dry sensitivity case",
+      "uncertainty": 1.1345,
+      "unit": "mol/(s m2)",
+      "value": 2.269
+    },
+    "area_model": "area_plus_access",
+    "conductance_scope": "intrinsic_window",
+    "consumption_availability_tau_s": 1.0,
+    "electrons_per_o2": 4,
+    "include_cell_consumption": true,
+    "window_conductance_mol_per_s": {
+      "provenance": "sensitivity_only",
+      "source": "central dry sensitivity case: A=193.05 mm2, L=0.18 mm, Deff=1e-5 m2/s, 101.325 kPa, 25 C",
+      "uncertainty": 0.000219,
+      "unit": "mol/s",
+      "value": 0.000438
+    }
+  },
+  "geometry": {
+    "free_membrane_area_mm2": {
+      "provenance": "sensitivity_only",
+      "source": "prototype response study projected free area; measure completed supported cartridge",
+      "uncertainty": 6.0,
+      "unit": "mm2",
+      "value": 184.0
+    },
+    "membrane_thickness_mm": {
+      "provenance": "assumed",
+      "source": "PMV15T vendor-published thickness and tolerance; not measured on the installed coupon",
+      "uncertainty": 0.03,
+      "unit": "mm",
+      "value": 0.18
+    },
+    "plenum_volume_cm3": {
+      "provenance": "sensitivity_only",
+      "source": "prototype response study; verify by CAD fill-volume calculation and measurement",
+      "uncertainty": 0.10000000000000053,
+      "unit": "cm3",
+      "value": 4.9
+    },
+    "rear_aperture_diameter_mm": {
+      "provenance": "assumed",
+      "source": "Rev-A illustration-derived PCB aperture",
+      "uncertainty": 0.5,
+      "unit": "mm",
+      "value": 3.0
+    }
+  },
+  "geometry_revision": "dual_side_microplenum_candidate:sensitivity-concept",
+  "model_version": "0.1.0",
+  "regimes": {
+    "dry": {
+      "conductance_multiplier": {
+        "provenance": "assumed",
+        "source": "definition of dry baseline",
+        "uncertainty": null,
+        "unit": "1",
+        "value": 1.0
+      },
+      "protocol": "clean, dry installed carrier"
+    },
+    "fouled": {
+      "conductance_multiplier": {
+        "provenance": "sensitivity_only",
+        "source": "must be measured",
+        "uncertainty": null,
+        "unit": "1",
+        "value": null
+      },
+      "protocol": "compost exposure protocol not yet defined"
+    },
+    "wet": {
+      "conductance_multiplier": {
+        "provenance": "sensitivity_only",
+        "source": "must be measured",
+        "uncertainty": null,
+        "unit": "1",
+        "value": null
+      },
+      "protocol": "external water-film protocol not yet defined"
+    }
+  },
+  "schema_version": "1.0",
+  "solver": {
+    "atol": 1e-09,
+    "max_step_s": 0.25,
+    "rtol": 1e-07
+  },
+  "thermal": {
+    "capacitance_j_per_k": {
+      "provenance": "sensitivity_only",
+      "source": "not measured",
+      "uncertainty": null,
+      "unit": "J/K",
+      "value": null
+    },
+    "membrane_coupling": {
+      "provenance": "sensitivity_only",
+      "source": "requires temporary membrane/cold-spot thermometry",
+      "uncertainty": null,
+      "unit": "1",
+      "value": null
+    },
+    "resistance_k_per_w": {
+      "provenance": "sensitivity_only",
+      "source": "not measured",
+      "uncertainty": null,
+      "unit": "K/W",
+      "value": null
+    },
+    "settled_dwell_s": 30.0,
+    "settled_rate_k_per_s": 0.002
+  }
+}

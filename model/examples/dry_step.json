@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "experiment_id": "rev_a_dry_step_sensitivity",
+  "csv_path": "dry_step.csv",
+  "assembly_stage": "window",
+  "role": "simulation",
+  "orientation": "horizontal",
+  "regime": "dry",
+  "heater_mode": "prescribed_power",
+  "step_windows": [
+    {
+      "label": "nitrogen_to_air",
+      "start_s": 30,
+      "baseline_start_s": 10,
+      "baseline_end_s": 25,
+      "steady_start_s": 120,
+      "steady_end_s": 180
+    }
+  ]
+}

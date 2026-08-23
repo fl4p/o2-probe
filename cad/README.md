@@ -33,3 +33,26 @@ Before printing a functional enclosure, measure and update:
 
 The membrane surface in the CAD is visual geometry only. A printed plastic disc
 is not a substitute for the specified porous PTFE membrane.
+
+## Response candidate
+
+`o2_probe_response_candidate.scad` is a second, non-release communication model
+derived from the lumped response study. It moves the cell toward the board tip,
+uses a measured ≤5.0 cm³ local shrouded plenum, and replaces the remote axial disc
+with two recessed, supported 10 × 10 mm PMV15T coupons on keyed lower-side facets,
+one on each PCB side. The dry membrane face must be ≤0.25 mm from the local cavity.
+The gross coupon area is 200 mm²; the design gate is ≥180 mm² measured free
+area after supports. Dry-side carrier heaters are shown because the existing
+remote cell-island heater cannot be assumed to warm the membrane.
+
+Run `make response-candidate` to produce `exports/response-candidate.3mf` and
+`exports/response-candidate-preview.png`. The concept is not printable release
+geometry: window sealing, guard retention, board rearrangement, cable-side gas
+seal and actual effective volume still require detailed design and measurement.
+The two dark end-gasket frames make the required PCB-crossing seals explicit;
+one continuous bond/overmould fill closes and displaces the radial shroud/tube annulus
+zone. They do not constitute a released seal design. See
+`RESPONSE-CANDIDATE-VOLUME.md` for the end-land-corrected approximately
+4.99 cm³ first-order connected-void budget and the ≤5.0 cm³ measurement gate. The CAD
+also includes one 0.4 mm PP cross support per coupon, representing about
+184 mm² projected free area across both 10 × 10 mm apertures.

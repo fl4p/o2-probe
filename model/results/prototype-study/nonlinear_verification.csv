@@ -1,0 +1,7 @@
+design,case,volume_cm3,free_area_mm2,installed_conductance_scale,cell_tau_s,empirical_access_tau_s,t90_s,settling_time_2pct_s,steady_bias_o2_pct_wet,passes_settling_limit,transport_regime_equations,rh_input_pct,humidity_effect_modeled,transport_model
+existing_rev_a_axial,central,27.0,193.05,1.0,4.343,0.0,12.73602965119774,20.0,-5.9101008385908926e-05,True,dry,100.0,False,well_mixed_screening
+existing_rev_a_axial,hard,30.0,183.0,0.05,10.0,15.0,153.90217577719937,242.0,-0.0062831387797537275,False,dry,100.0,False,well_mixed_screening
+short_axial_microplenum,central,12.0,175.0,1.0,4.343,0.0,10.813894127547442,18.0,-6.519673496541145e-05,True,dry,100.0,False,well_mixed_screening
+short_axial_microplenum,hard,14.0,160.0,0.05,10.0,15.0,98.89393828396706,147.0,-0.0014310442295695225,False,dry,100.0,False,well_mixed_screening
+dual_side_microplenum_candidate,central,4.9,184.0,1.0,4.343,0.0,9.909471797642652,17.0,-6.200752955010103e-05,True,dry,100.0,False,well_mixed_screening
+dual_side_microplenum_candidate,hard,5.0,180.0,0.05,10.0,15.0,60.85498108501322,87.5,-0.0012676274246743446,True,dry,100.0,False,well_mixed_screening

@@ -1,0 +1,15 @@
+{
+  "experiment_manifest": "dry_step.json",
+  "axes": [
+    {
+      "parameter": "plenum_volume_cm3",
+      "values": [10.0, 20.0, 27.0, 40.0]
+    },
+    {
+      "parameter": "free_membrane_area_mm2",
+      "values": [50.0, 100.0, 150.0, 193.05]
+    }
+  ],
+  "metric": "settling_time_2pct_s",
+  "output_dt_s": 0.25
+}
