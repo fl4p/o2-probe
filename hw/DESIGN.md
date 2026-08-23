@@ -44,10 +44,13 @@ KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
   TX/RX pins, and PA7/ADC_IN7 measures `VA_MON`. These pin choices are
   generator-owned because they make the compact right-side MCU placement
   routable without changing the electrical functions.
-- One TMP117 measures the warm tip near the membrane carrier. Its ALERT is
-  wired directly to the MOSFET gate as a hardware-off clamp while the MCU PWM
-  drives the same gate through R28. SHT45 is the chamber RH/dew-point channel.
-  BMP390 remains an explicitly DNP pressure option at address 0x76.
+- One TMP117 measures the warm tip near the membrane carrier. Its open-drain
+  ALERT is wired directly to the MOSFET gate so a correctly configured active
+  alarm can pull the heater off while MCU PWM drives through R28; R29 provides
+  the passive default-off state. This is not credited as an autonomous
+  overtemperature cutoff until firmware configures and fault-tests the TMP117.
+  SHT45 is the chamber RH/dew-point channel. BMP390 remains an explicitly DNP
+  pressure option at address 0x76.
 - RH1/RH2 heat a manually soldered metal membrane-carrier ring through four J5
   lands. The ring is on switched `HEATER_LOW`, not GND, and must remain on the
   insulated dry side of the PTFE membrane stack.
