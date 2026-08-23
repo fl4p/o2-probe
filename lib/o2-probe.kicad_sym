@@ -2033,6 +2033,22 @@
 		)
 		(embedded_fonts no)
 	)
+	(symbol "HEATED_MEMBRANE_RING"
+		(pin_names (offset 0.508))
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(property "Reference" "J" (at -5.08 7.62 0) (effects (font (size 1.27 1.27))))
+		(property "Value" "HEATED_MEMBRANE_RING" (at 5.08 7.62 0) (effects (font (size 1.27 1.27)) (justify right)))
+		(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
+		(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
+		(property "Description" "Manual-solder metal membrane carrier and heat spreader" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
+		(symbol "HEATED_MEMBRANE_RING_0_1" (rectangle (start -5.08 5.08) (end 5.08 -5.08) (stroke (width 0.254) (type default)) (fill (type background))))
+		(symbol "HEATED_MEMBRANE_RING_1_1"
+			(pin passive line (at -7.62 0 0) (length 2.54) (name "HEATER_LOW" (effects (font (size 1.0 1.0)))) (number "1" (effects (font (size 1.0 1.0)))))
+		)
+		(embedded_fonts no)
+	)
 	(symbol "LMP91000"
 		(pin_names (offset 0.508))
 		(exclude_from_sim no)

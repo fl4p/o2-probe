@@ -4,50 +4,44 @@ Release class: first-article bare PCB only.
 
 ## Order parameters
 
-- Finished board: 20.00 × 119.00 mm, nominal R2 corners, 1.00 mm thick FR-4.
+- Finished board: 20.00 × 107.00 mm, nominal R2 corners, 1.00 mm FR-4.
 - Layer order: F.Cu / In1.Cu / In2.Cu / B.Cu.
 - Copper: 1 oz outer layers, 0.5 oz inner layers.
-- Finish: ENIG.
-- Solder mask: green, both sides.
-- Legend: none. No silkscreen Gerbers are included.
+- Finish: ENIG; green solder mask both sides; no legend Gerbers.
 - Impedance control: none.
-- Via treatment: tent standard vias both sides; no plugging, filling, or
-  capping requirement.
-- Minimum routed feature in supplied data: 0.09 mm trace, 0.15 mm clearance,
-  0.25/0.15 mm via/drill, 0.05 mm annular ring.
+- Standard vias: tent both sides; no general plugging/filling/capping request.
+- Minimum supplied feature: 0.09 mm trace, 0.15 mm clearance, 0.25/0.15 mm
+  via/drill, and 0.05 mm annular ring.
 
 The KiCad dielectric stack is a nominal 1.00 mm model, not an impedance coupon.
-The fabricator may adjust prepreg/core thicknesses to its standard four-layer
-1.00 mm process while preserving layer order, finished thickness, and copper
-weights.
+The fabricator may use its standard four-layer 1.00 mm dielectric construction
+while preserving layer order, finished thickness, and copper weights.
 
-The source `POT TO HERE` and `DO NOT OBSTRUCT` legend marks are included in the
-controlled multipage fabrication/assembly drawing, but not printed on these
-first-article boards. The potting fixture owns the y=82 datum, and the assembly
-traveller must keep the SGX slot and both gas faces unobstructed. Physical
-legend is a production-release item after the dense placement is cleaned.
+## Mechanical and ring data
 
-## Mechanical data
+- Edge.Cuts contains only the exact eight-primitive outer R2 contour. There are
+  zero board-native routed slots; do not add slots during CAM cleanup.
+- U11 contains the sole routed mechanical aperture: one 3.00 × 6.00 mm
+  gasward-offset NPTH oblong in the Excellon data. Do not convert it to a round
+  drill or resize it without engineering approval.
+- J5 has four paste-free, mask-open 5.00 × 1.50 mm solder lands: two positions,
+  each on front and back. Two 0.60/0.30 mm vias stitch the face pairs.
+- The user-supplied metal membrane-carrier ring is hand soldered after board
+  fabrication. It is not part of the bare-board CAM data.
+- J5 is switched `HEATER_LOW`, not ground. Assembly must keep the ring on the
+  dry side and electrically insulated from the membrane wet face, enclosure,
+  and accessible conductors.
+- PTH and NPTH drills are separate; the NPTH oblong uses route commands.
+- Do not panelise through the gas-side end or SGX aperture without review.
 
-- Six closed routed slots are part of Edge.Cuts. Their exact 24 line/arc
-  primitives are checked in both the KiCad board and plotted Gerber; the four
-  intentional 0.80 mm slots must not be widened or narrowed by CAM cleanup.
-- The U13 thermal barrier is the pair of transverse 7.50 × 0.80 mm slots at
-  local `y=114.0`. Preserve the 0.75 mm edge webs and 3.50 mm centre neck; do
-  not rotate the slots or substitute the rejected longitudinal geometry.
-- U11 contains one 3.00 × 6.00 mm gasward-offset NPTH routed slot. Do not
-  convert it to a round drill or reduce it without engineering approval.
-- PTH and NPTH drills are separated in the Excellon outputs. NPTH oblongs use
-  route commands.
-- Do not panelise through the gas-side end, sensor aperture, or potting slots
-  without an engineering review.
+The source `POT TO HERE` and `DO NOT OBSTRUCT` marks appear only in the
+controlled multipage drawing. The potting fixture owns local `y=82`, and the
+traveller must keep both gas faces and the SGX aperture unobstructed.
 
 ## Release contents
 
-The ZIP contains seven Gerbers (four copper, two mask, one outline), separated
-PTH/NPTH Excellon data, drill map/report, the controlled fabrication/assembly
-drawing including both source legend layers, DRC/audit evidence, manifest, and
-checksums. Fabricate from the ZIP, not from editor plot settings.
-
-First-article SGX fit, enclosure fit, manual assembly, and bench qualification
-are acceptance operations; see `FAB-READINESS.md`.
+The ZIP contains seven Gerbers, separated PTH/NPTH Excellon data, drill
+map/report, fabrication drawing, DRC/audit evidence, manifest, and checksums.
+Fabricate from that ZIP, not from editor plot settings. SGX fit, enclosure fit,
+ring assembly, and condensation/thermal qualification remain first-article
+acceptance operations; see `FAB-READINESS.md`.

@@ -1,0 +1,57 @@
+(footprint "Heater_Ring_Solder_Lands"
+	(version 20240108)
+	(generator "pcbnew")
+	(layer "F.Cu")
+	(descr "Four duplicated hand-solder lands for one dry-side heated membrane carrier ring")
+	(tags "heater ring hand solder membrane")
+	(property "Reference" "J5"
+		(at 0 -2.2 0)
+		(layer "F.Fab")
+		(effects (font (size 0.8 0.8) (thickness 0.12)))
+	)
+	(property "Value" "HEATED MEMBRANE RING"
+		(at 0 2.2 0)
+		(layer "F.Fab")
+		(effects (font (size 0.8 0.8) (thickness 0.12)))
+	)
+	(fp_rect
+		(start -7.85 -1)
+		(end 7.85 1)
+		(stroke (width 0.05) (type default))
+		(fill none)
+		(layer "F.CrtYd")
+	)
+	(fp_rect
+		(start -7.85 -1)
+		(end 7.85 1)
+		(stroke (width 0.05) (type default))
+		(fill none)
+		(layer "B.CrtYd")
+	)
+	(fp_line
+		(start -7.6 0)
+		(end 7.6 0)
+		(stroke (width 0.2) (type default))
+		(layer "F.Fab")
+	)
+	(pad "1" smd rect
+		(at -5.25 0)
+		(size 5 1.5)
+		(layers "F.Cu" "F.Mask")
+	)
+	(pad "1" smd rect
+		(at 5.25 0)
+		(size 5 1.5)
+		(layers "F.Cu" "F.Mask")
+	)
+	(pad "1" smd rect
+		(at -5.25 0)
+		(size 5 1.5)
+		(layers "B.Cu" "B.Mask")
+	)
+	(pad "1" smd rect
+		(at 5.25 0)
+		(size 5 1.5)
+		(layers "B.Cu" "B.Mask")
+	)
+)

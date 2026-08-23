@@ -20,8 +20,8 @@ python3 audit_schematic.py
   -o o2-probe-schematic.pdf o2-probe.kicad_sch
 ```
 
-Current generated result: 109 components, 347 assigned package pins, KiCad ERC
-0 errors/0 warnings, and `schematic-audit.rpt` PASS.
+Current generated result: 106 components, 336 assigned package pins, 92 nets,
+KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
 
 ## Electrical architecture
 
@@ -40,10 +40,17 @@ Current generated result: 109 components, 347 assigned package pins, KiCad ERC
   op-amp makes the approximately 0.91-times guard replica.
 - The processor is STM32G071CBT7. USART1 on PA9/PA10 drives the THVD1410 farm
   RS-485 port. USART2 on PA2/PA3 is reserved for the expansion/recovery path.
-- Two TMP117s measure the heated cell block and inlet gas. The cell TMP117 ALERT
-  is wired directly to the MOSFET gate as a hardware off clamp as well as to the
-  MCU control scheme. SHT45 is the chamber RH health channel. BMP390 is an
-  explicitly DNP pressure option at address 0x76.
+- PC6 drives `RS485_DE`, placing the direction-control GPIO beside the USART1
+  TX/RX pins, and PA7/ADC_IN7 measures `VA_MON`. These pin choices are
+  generator-owned because they make the compact right-side MCU placement
+  routable without changing the electrical functions.
+- One TMP117 measures the warm tip near the membrane carrier. Its ALERT is
+  wired directly to the MOSFET gate as a hardware-off clamp while the MCU PWM
+  drives the same gate through R28. SHT45 is the chamber RH/dew-point channel.
+  BMP390 remains an explicitly DNP pressure option at address 0x76.
+- RH1/RH2 heat a manually soldered metal membrane-carrier ring through four J5
+  lands. The ring is on switched `HEATER_LOW`, not GND, and must remain on the
+  insulated dry side of the PTFE membrane stack.
 - J2 is the DNP sealed-side expansion connector for a future external CO2 head:
   switched 12 V, protected 3.3 V, I2C, interrupt, and spare UART. It is not the
   programming connector.
@@ -58,22 +65,21 @@ Current generated result: 109 components, 347 assigned package pins, KiCad ERC
 | SHT45 | `0x44` fixed |
 | LMP91000 | `0x48` fixed |
 | TMP117 cell | `0x49`, ADD0 to V+ |
-| TMP117 gas | `0x4A`, ADD0 to SDA |
 | ADS1119 | `0x40`, A1=A0=GND |
 | BMP390 DNP | `0x76`, SDO=GND and CSB=VDDIO |
 
 ## Controlled mechanical datums
 
-- Board: 20.0 x 119.0 mm, nominal 2.0 mm corner radius, initially 1.0 mm FR-4.
+- Board: 20.0 x 107.0 mm, nominal 2.0 mm corner radius, initially 1.0 mm FR-4.
 - Potting datum: y=82.0 mm; ordinary-component exclusion y=80–86 mm.
 - Cell centre: (10.0, 93.5) mm; unrelated-part courtyard diameter 15.0 mm.
 - Rear-flow aperture: a 3.0 × 6.0 mm vertical NPTH routed slot centred 2.5 mm
   gasward of the cell axis. It spans the axis and provides a first-article
   airflow/fit window without inventing a rear-port diameter that DS-0637 Issue
   2 does not specify. Physical sample fit remains required for production.
-- No mounting holes. Cable strain relief, dam/slot endpoints, island neck width,
-  expansion-connector chord clearance, and gas-sensor carrier all require the
-  tube/fixture fit check described in the plan and `PLACEMENT.md`.
+- No mounting holes or board-native Edge.Cuts slots. Cable strain relief,
+  expansion-connector chord clearance, ring/membrane carrier, and gas volume
+  require the tube/fixture fit check described in the plan and `PLACEMENT.md`.
 
 ## Release gates and provisional choices
 
@@ -102,9 +108,9 @@ Current generated result: 109 components, 347 assigned package pins, KiCad ERC
   input protection rating, heater steady-state temperature, and component
   ambient rating in the independent review before PCB transfer.
 - Bare-board first articles may be ordered after schematic/PCB parity, DRC,
-  creepage, and routed-slot review pass. A 1:1 paper/tube coupon, real cell fit,
-  and potting-fixture interface review remain mandatory before production or
-  automated-assembly release.
+  exact outline/SGX-aperture validation, and ring-land review pass. A 1:1
+  board/ring/tube coupon, real cell fit, and potting-fixture interface review
+  remain mandatory before production or automated assembly.
 
 ## Source access log
 
@@ -132,33 +138,24 @@ archive.
 ## PCB capture status
 
 PCB first-article release date: 2026-08-23. `o2-probe.kicad_pcb` is linked to
-the current 109-footprint schematic and preserves the controlled 20 × 119 mm
-R2 outline, y=82 local pot line, cell centre `(10, 93.5)`, six routed slots,
-and gas-sensor locations. It is a four-layer, 1.0 mm board with an explicit
-ENIG/1 oz outer/0.5 oz inner nominal stackup.
+the 106-footprint schematic and preserves the exact 20 × 107 mm R2 outline,
+local y=82 pot line, and SGX centre `(10,93.5)`. The four-layer 1.0 mm stack is
+nominal ENIG with 1 oz outer and 0.5 oz inner copper.
 
-The U13 gas-reference barrier is the transverse pair at local `y=114.0`: two
-7.5 × 0.8 mm routed slots leave 0.75 mm edge webs and a 3.5 mm centre neck.
-They reduce the direct heater-to-U13 FR-4 cross-section from 20.0 to 5.0 mm.
-The previous longitudinal pair was rejected because it started at U13 and ran
-parallel to the heat path, so it did not interrupt heater conduction.
-TP7, the land connected to U13's exposed thermal pad, is lateral to U13 at
-local `(15,116)` on the gasward side; its one straight B.Cu connection does
-not cross the barrier. The DNP BMP390 option and its DNP C23/C24 support parts
-are heaterward of the barrier at local y=107.5–110, while fitted C22 remains
-with U13. Shortening the rounded gas end from local y=125 to y=119 removes
-6 mm from the nominal cell-centre-to-end distance; membrane-stack clearance
-still requires the enclosure coupon.
+The tip has no board-native slots and no second TMP117. RH1/RH2, Q2, U10, U12,
+and the DNP pressure option are aligned behind J5. J5 provides four exact
+5.0 × 1.5 mm front/back solder lands at local x=4.75/15.25, y=105.75; two vias
+and wide B.Cu connect them independently of the hand-soldered ring. The cell
+centre is 13.5 mm from the board end and U10 is 3.75 mm from the ring centre.
 
-The LMP91000 is on the potted side of the dam. CELL_RE is a single 9.652 mm
-F.Cu segment with no via or test point and is enclosed by a driven guard. In2
-GND is split through both the potting transition and the U13 thermal barrier;
-each split reconnects through one deliberate 0.25 mm In2 bridge. The U13-side
-region remains a filled GND plane without creating a broad copper heat strap.
-All placed footprints match their authoritative library copies.
+The dense digital cluster places U6 at local `(14.5,44.5)`, rotated 180° in
+the right-side lane beside U5. C8 moves to `(18,37.5)` to preserve a clean U6
+courtyard without separating the analog-LDO output bypass from U3.
 
-KiCad 10.0.5 reports 0 DRC errors, 0 unconnected items, and 0 parity issues.
-The calibrated PCB audit rejects 17/17 known-bad variants. The 28 exact courtyard
-pairs are manual-assembly exceptions; legend layers are not exported. See
+CELL_RE remains one 9.652 mm F.Cu segment with no via/test point and a driven
+guard. In2 is one filled GND plane across the slot-free board. KiCad 10.0.5
+reports 0 DRC errors, 0 unconnected items, and 0 parity issues; the calibrated
+audit rejects 17/17 known-bad variants. The 29 exact courtyard pairs are
+manual-assembly exceptions and legend layers are not exported. See
 `FAB-READINESS.md`, `ASSEMBLY-EXCEPTIONS.md`, and `FAB-NOTES.md` for release
 scope and remaining qualification work.

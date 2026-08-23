@@ -55,6 +55,8 @@ for comp in components:
         expected = ("Transistor_FET", "Q_NMOS_GSD")
     elif ref.startswith("TP"):
         expected = ("Connector", "TestPoint")
+    elif ref == "J5":
+        expected = ("o2-probe", "HEATED_MEMBRANE_RING")
     elif ref in ("J101", "J102", "J103", "J104"):
         expected = ("Connector_Generic", "Conn_01x01")
     if expected is not None and actual != expected:
@@ -90,8 +92,11 @@ required = {
     "VREF_WIPER": {"RV1.2", "RV1.3", "R21.1", "C9.1", "U4.3"},
     "SWDIO": {"U6.35", "J3.2"},
     "SWCLK_BOOT0": {"U6.36", "J3.4", "R9.1"},
+    "RS485_DE": {"U5.2", "U5.3", "R7.1", "U6.30"},
+    "VA_MON": {"R24.2", "R25.1", "R37.1", "U6.18"},
     "BUCK_BST": {"U1.6", "C2.1"},
     "BUCK_SW": {"U1.5", "C2.2", "L1.1"},
+    "HEATER_LOW": {"RH1.2", "RH2.2", "Q2.3", "J5.1"},
     "VREF_BUF": {"U4.1", "U4.2", "R31.1"},
     "+5V_ANALOG": {"R32.2", "C7.1", "C27.1", "U3.1", "U3.3"},
 }
@@ -100,6 +105,16 @@ for name, wanted in required.items():
     missing = sorted(wanted - actual)
     if missing:
         errors.append(f"{name} missing: {', '.join(missing)}")
+
+expected_mcu_pin_nets = {
+    "U6.18": "VA_MON",
+    "U6.30": "RS485_DE",
+    "U6.11": "unconnected-(U6-PA0-Pad11)",
+    "U6.12": "unconnected-(U6-PA1-Pad12)",
+}
+for node, expected_net in expected_mcu_pin_nets.items():
+    if pin_to_net.get(node) != expected_net:
+        errors.append(f"{node} is on {pin_to_net.get(node)}, expected {expected_net}")
 
 for node in ("J104.1", "D2.2", "J103.1", "D2.1", "U11.1", "U11.2", "U11.3"):
     if pin_to_net.get(node) == "GND":

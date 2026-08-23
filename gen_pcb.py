@@ -24,7 +24,7 @@ KI_FP = Path("/Applications/KiCad/KiCad.app/Contents/SharedSupport/footprints")
 PROJECT_FP = HERE / "lib" / "o2-probe.pretty"
 TMP117_FP = HERE.parent / "tmp117-probe" / "lib" / "tmp117-probe.pretty"
 ORG = pcbnew.VECTOR2I_MM(100, 50)
-W, L, R = 20.0, 119.0, 2.0
+W, L, R = 20.0, 107.0, 2.0
 POT_Y = 82.0
 
 
@@ -65,29 +65,6 @@ def text(board, value, x, y, layer=pcbnew.F_SilkS, size=.7, rot=0):
     t.SetHorizJustify(pcbnew.GR_TEXT_H_ALIGN_CENTER); board.Add(t)
 
 
-def slot(board, x, y, length, width, vertical=False):
-    """Closed routed slot on Edge.Cuts without a fake schematic footprint."""
-    if vertical:
-        # Generate a horizontal capsule in swapped coordinates.
-        return slot_xy_swapped(board, y, x, length, width)
-    x0,x1=x-length/2,x+length/2; y0,y1=y-width/2,y+width/2; rr=width/2
-    line(board,x0+rr,y0,x1-rr,y0,pcbnew.Edge_Cuts,.05)
-    arc(board,x1-rr,y0,x1,y,x1-rr,y1)
-    line(board,x1-rr,y1,x0+rr,y1,pcbnew.Edge_Cuts,.05)
-    arc(board,x0+rr,y1,x0,y,x0+rr,y0)
-
-
-def slot_xy_swapped(board, y, x, length, width):
-    y0,y1=y-length/2,y+length/2; x0,x1=x-width/2,x+width/2; rr=width/2
-    line(board,x0,y0+rr,x0,y1-rr,pcbnew.Edge_Cuts,.05)
-    # Three-point arcs, start -> midpoint -> end.
-    s=pcbnew.PCB_SHAPE(board); s.SetShape(pcbnew.SHAPE_T_ARC)
-    s.SetArcGeometry(pt(x0,y1-rr),pt(x,y1),pt(x1,y1-rr)); s.SetLayer(pcbnew.Edge_Cuts); s.SetWidth(mm(.05)); board.Add(s)
-    line(board,x1,y1-rr,x1,y0+rr,pcbnew.Edge_Cuts,.05)
-    s=pcbnew.PCB_SHAPE(board); s.SetShape(pcbnew.SHAPE_T_ARC)
-    s.SetArcGeometry(pt(x1,y0+rr),pt(x,y0),pt(x0,y0+rr)); s.SetLayer(pcbnew.Edge_Cuts); s.SetWidth(mm(.05)); board.Add(s)
-
-
 # Functional placement. Coordinates are board-local; the central 80--86 mm
 # dam and the 15 mm cell keepout are intentionally empty. Support parts stay
 # with their owning IC instead of being spread over a generic grid.
@@ -97,9 +74,11 @@ PLACEMENT = {
  "F1":(2.5,19.5,90,"F"), "D1":(6.5,19.5,90,"F"), "Q1":(11.5,19.5,90,"F"), "DZ1":(16.0,19.5,90,"F"), "R1":(18.0,21.5,90,"F"),
  "C1":(2.0,31.0,90,"F"), "U1":(4.5,27.5,0,"F"), "C2":(4.5,31.0,90,"F"), "L1":(10.5,27.5,0,"F"), "C3":(15.2,25.0,90,"F"), "C4":(17.5,30.0,90,"F"),
  "C5":(1.8,36.0,90,"F"), "U2":(4.5,36.0,0,"F"), "C6":(7.5,36.0,90,"F"),
- "R32":(10.0,34.5,90,"F"), "U3":(13.0,36.0,0,"F"), "C7":(16.2,34.5,90,"F"), "C27":(18.0,34.5,90,"F"), "C8":(16.8,38.5,90,"F"),
+ "R32":(10.0,34.5,90,"F"), "U3":(13.0,36.0,0,"F"), "C7":(16.2,34.5,90,"F"), "C27":(18.0,34.5,90,"F"), "C8":(18.0,37.5,90,"F"),
  "U5":(3.8,42.0,90,"F"), "R4":(7.4,39.0,0,"B"), "R5":(7.4,41.0,0,"B"), "R6":(7.4,43.0,0,"B"), "R7":(1.5,46.0,0,"B"), "C11":(6.8,46.0,0,"B"),
- "U6":(12.5,49.0,0,"F"), "C12":(9.0,46.0,0,"B"), "C13":(11.8,46.0,0,"B"), "C14":(14.6,46.0,0,"B"), "C26":(17.4,46.0,0,"B"),
+ # Right-side MCU lane beside U5. Rotation 180 faces RS-485 toward U5 and
+ # leaves the centre-left lane for SWD and low-speed fanout.
+ "U6":(14.5,44.5,180,"F"), "C12":(9.0,46.0,0,"B"), "C13":(11.8,46.0,0,"B"), "C14":(14.6,46.0,0,"B"), "C26":(17.4,46.0,0,"B"),
  "R8":(8.0,52.5,0,"B"), "C15":(10.8,52.5,180,"B"), "R9":(13.6,52.5,0,"B"), "R10":(16.0,54.5,0,"B"), "R11":(18.0,54.5,90,"B"),
  "R18":(9.0,54.5,0,"B"), "R19":(12.0,54.5,0,"B"),
  "J3":(4.5,56.5,0,"F"),
@@ -118,9 +97,14 @@ PLACEMENT = {
  "R38":(1.5,70.0,0,"B"), "C31":(4.0,70.0,0,"B"), "R34":(6.8,70.8,0,"B"), "R35":(9.8,70.8,0,"B"), "R36":(12.8,70.8,0,"B"), "C29":(15.8,70.8,0,"B"),
  "TP1":(1.0,70.0,0,"F"), "TP3":(1.0,73.5,0,"F"), "TP4":(19.0,73.5,0,"F"), "TP5":(1.0,65.5,0,"F"),
  "U11":(10.0,93.5,0,"F"),
- "RH1":(5.3,104.5,0,"B"), "RH2":(14.7,104.5,0,"B"), "U10":(10.0,104.0,90,"B"), "Q2":(10.0,108.0,90,"B"), "R28":(7.0,108.0,90,"B"), "R29":(13.0,108.0,90,"B"), "TP6":(10.0,101.0,0,"B"),
- "U12":(6.0,112.0,0,"F"), "C20":(8.0,112.0,90,"F"), "U13":(10.0,116.0,90,"F"), "C21":(12.0,116.0,90,"F"), "R30":(8.0,116.0,90,"F"), "TP7":(15.0,116.0,0,"B"),
- "U14":(16.0,110.0,0,"F"), "C22":(18.0,116.0,90,"F"), "C23":(15.0,107.5,90,"F"), "C24":(18.0,110.0,90,"F"),
+ # User-authored ring-tip floorplan, snapped and opened up for routing/rework.
+ # RH1/RH2 conduct into the HEATER_LOW ring lands; U10 measures the warm tip.
+ "RH1":(5.0,96.5,270,"B"), "RH2":(15.0,96.5,270,"B"),
+ "Q2":(10.0,101.25,270,"B"), "R28":(6.5,101.25,180,"B"), "R29":(13.5,101.25,180,"B"), "TP6":(8.3,103.0,180,"B"),
+ "U12":(3.5,101.5,0,"F"), "C20":(6.0,101.5,90,"F"),
+ "U10":(10.0,102.0,270,"F"), "C21":(12.5,102.5,90,"F"),
+ "U14":(16.5,101.0,0,"F"), "C23":(14.0,100.0,180,"F"), "C24":(14.0,102.0,180,"F"),
+ "J5":(10.0,105.75,0,"F"),
 }
 
 
@@ -156,12 +140,8 @@ def build():
     text(board,"POT TO HERE",10,81,pcbnew.F_SilkS,.7); text(board,"POT TO HERE",10,83,pcbnew.B_SilkS,.7)
     text(board,"CABLE",10,1.5,pcbnew.F_SilkS,.7); text(board,"GAS / DO NOT POT",10,109.5,pcbnew.F_SilkS,.65)
     text(board,"DO NOT OBSTRUCT",10,99.0,pcbnew.F_SilkS,.6)
-    # The dam slots keep the guarded AFE trace bridge central.  The two tip
-    # slots are transverse to heater-to-U13 heat flow; their 0.75 mm edge webs
-    # plus 3.5 mm centre neck leave 5.0 mm of direct FR-4 cross-section.
-    slot(board,3.75,84.0,5.5,1.0); slot(board,16.25,84.0,5.5,1.0)
-    slot(board,1.2,95.0,16.0,.8,True); slot(board,18.8,95.0,16.0,.8,True)
-    slot(board,4.5,114.0,7.5,.8); slot(board,15.5,114.0,7.5,.8)
+    # The heated-ring redesign deliberately has no board-native Edge.Cuts
+    # slots.  The SGX footprint's gas aperture remains a separate NPTH feature.
     # Nets must exist before pad assignment.
     netitems={}
     for name in nets:
@@ -190,16 +170,18 @@ def build():
         fps[ref]=fp
     for name,nodes in nets.items():
         for ref,pnum in nodes:
-            pad=fps[ref].FindPadByNumber(pnum)
-            if pad is None: raise SystemExit(f"footprint pad missing: {ref}.{pnum}")
-            pad.SetNet(netitems[name])
+            pads=[pad for pad in fps[ref].Pads() if pad.GetNumber() == pnum]
+            if not pads: raise SystemExit(f"footprint pad missing: {ref}.{pnum}")
+            for pad in pads: pad.SetNet(netitems[name])
     board.BuildConnectivity(); board.Save(str(OUT))
     # One-node KiCad "unconnected-(...)" nets are needed for schematic parity
     # but trigger a known Freerouting 2.1 null-target bug.  Omit only those
     # one-node pseudo-nets from the DSN seed; the saved KiCad board retains them.
     for name,nodes in nets.items():
         if name.startswith("unconnected-"):
-            for ref,pnum in nodes: fps[ref].FindPadByNumber(pnum).SetNetCode(0)
+            for ref,pnum in nodes:
+                for pad in fps[ref].Pads():
+                    if pad.GetNumber() == pnum: pad.SetNetCode(0)
     board.BuildConnectivity()
     if not pcbnew.ExportSpecctraDSN(board,str(DSN)): raise SystemExit("Specctra export failed")
     print(f"wrote {OUT}: {len(comps)} schematic footprints, {len(nets)} connected nets")
