@@ -31,6 +31,11 @@ the Gerbers and Excellon files that it places in the ZIP.
 - Two 7.5 × 0.8 mm transverse slots at local `y=114.0` interrupt the
   heater-to-U13 path. Their 0.75 mm edge webs and 3.5 mm centre neck reduce the
   direct FR-4 cross-section from 20.0 to 5.0 mm.
+- TP7 and every `/TMP_GAS_EP` segment stay gasward of that barrier, so the
+  exposed thermal pad does not create a direct copper strap to the heater side.
+- The audit locks the complete cross-barrier bundle: one each of 3V3D, SCL,
+  SDA, GND, and TGAS_ALERT. U12 joins SDA heaterward of the barrier instead of
+  adding a redundant second crossing.
 - The SGX footprint now follows DS-0637 Issue 2 for the Ø14.40 mm body, Ø0.64
   mm pins, 2.54 mm pitch, and 2.50 mm row offset. A gasward-offset 3 × 6 mm
   NPTH slot provides a first-article airflow/fit window without assuming an
@@ -39,10 +44,11 @@ the Gerbers and Excellon files that it places in the ZIP.
   mm finished thickness, 0.09 mm minimum track, 0.15 mm minimum clearance,
   0.25/0.15 mm minimum via/drill, 1 oz outer copper, 0.5 oz inner copper, and
   ENIG finish.
-- `audit_pcb.py --calibrate` rejects 8/8 deliberately broken variants,
+- `audit_pcb.py --calibrate` rejects 13/13 deliberately broken variants,
   including a CELL_RE via, missing guard, unsplit ground regression, 0.08 mm
-  track, moved U7, damaged U13 barrier, missing U13 GND neck, and missing
-  stackup.
+  track, moved U7, missing/unfilled GND regions, removed/deformed U13 barrier,
+  missing U13 GND neck, heater-side U13 or TP7, an added copper heat bypass,
+  and missing stackup.
 
 ## Reviewed warnings and release scope
 
@@ -51,9 +57,13 @@ assembly review items, not bare-board manufacturability errors. The exact pair
 allowlist is locked in `audit_pcb.py` and recorded in
 `ASSEMBLY-EXCEPTIONS.md`; any added or removed pair fails the release audit.
 
-Legend layers are deliberately absent from the fab ZIP. The remaining 34
-silkscreen warnings therefore do not describe an exported manufacturing layer.
+Physical legend Gerbers are deliberately absent from the fab ZIP. The remaining
+34 silkscreen warnings therefore do not describe a printed manufacturing layer.
 Mask, copper, holes, routing, outline, and connectivity have no warning waiver.
+The source legend is present in the included multipage fabrication/assembly
+drawing: its `POT TO HERE` and `DO NOT OBSTRUCT` marks are controlled traveller
+and fixture instructions for this no-legend first article. Physical legend must
+be cleaned and released before production.
 
 ## First-article acceptance gates
 

@@ -7,7 +7,7 @@ board released for bare-board first articles. The accepted 109-footprint
 schematic transfers without parity errors. KiCad reports 0 errors, 0
 unconnected items, and 0 parity issues; all placed/library mismatches are gone.
 The 28 courtyard pairs are locked manual-assembly exceptions and silkscreen is
-not exported. `audit_pcb.py --calibrate` rejects 8/8 known-bad variants.
+not exported. `audit_pcb.py --calibrate` rejects 13/13 known-bad variants.
 
 ## 2026-08-23 fabrication corrective pass
 
@@ -21,6 +21,9 @@ not exported. `audit_pcb.py --calibrate` rejects 8/8 known-bad variants.
   parallel to heater-to-sensor heat flow. Replace them with two transverse
   7.5 × 0.8 mm slots, leaving only 5.0 mm total direct FR-4 cross-section, and
   split In2 across the same barrier with one 0.25 mm bridge.
+- Move the U13 exposed-pad land TP7 gasward of the barrier and keep its entire
+  `/TMP_GAS_EP` route on the sensor side. A thin trace into the thermal pad is
+  still a heater coupling path even when the broad plane is correctly split.
 - Replace the illustration-derived round SGX pilot with a 3 × 6 mm gasward
   first-article NPTH slot while retaining the official Issue 2 body/pin geometry.
 - Resynchronise all 109 placed footprints from authoritative libraries and
