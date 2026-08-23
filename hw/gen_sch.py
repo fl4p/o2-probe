@@ -367,7 +367,7 @@ for ref,y,value,n in (
           footprint="Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief",
           note="One of four independent farm-bus cable solder pads")
     net(ref,1,n)
-add_passive("F1", 40.64, 30.48, "0.75A PTC", "Fuse:Fuse_1206_3216Metric", "+12V_RAW", "+12V_FUSED")
+add_passive("F1", 40.64, 30.48, "0.75A PTC", "o2-probe:PTC_1206_3216Metric", "+12V_RAW", "+12V_FUSED")
 add_passive("D1", 40.64, 43.18, "SMBJ15A-13-F", "Diode_SMD:D_SMB", "+12V_FUSED", "GND", mpn="SMBJ15A-13-F")
 place("Q1", PMOS, 62.23, 30.48, value="DMP3010L", footprint="Package_TO_SOT_SMD:SOT-23", mpn="DMP3010L-7")
 net("Q1",1,"VIN_GATE"); net("Q1",2,"+12V_SW"); net("Q1",3,"+12V_FUSED")
@@ -457,7 +457,7 @@ for p,n in enumerate(("3V3D","SWDIO","NRST","SWCLK_BOOT0","GND","SWO"),1): net("
 # --------------------------------------------------------------------------- expansion connector
 place("J2",CONN8,274.32,91.44,value="EXPANSION / K33",footprint="Connector_Molex:Molex_Micro-Fit_3.0_43045-0815_2x04_P3.00mm_Vertical",dnp=True,note="Tube-height gate; pad-field fallback permitted")
 for p,n in enumerate(("+12V_SW","GND","EXP_3V3","EXP_SDA","EXP_SCL","EXP_INT_OUT","EXP_TX","EXP_RX"),1): net("J2",p,n)
-add_passive("F2",251.46,78.74,"0.20A PTC DNP","Fuse:Fuse_1206_3216Metric","3V3D","EXP_3V3",dnp=True)
+add_passive("F2",251.46,78.74,"0.20A PTC DNP","o2-probe:PTC_1206_3216Metric","3V3D","EXP_3V3",dnp=True)
 for ref,y,a,b in (("R12",86.36,"I2C_SDA","EXP_SDA"),("R13",96.52,"I2C_SCL","EXP_SCL"),("R14",106.68,"EXP_INT","EXP_INT_OUT"),("R15",116.84,"UART2_TX","EXP_TX"),("R16",127.0,"UART2_RX","EXP_RX")):
     add_passive(ref,251.46,y,"33R DNP","Resistor_SMD:R_0603_1608Metric",a,b,dnp=True)
 place("D4",TVS3,302.26,86.36,value="TPD2E2U06 DNP",footprint="Package_TO_SOT_SMD:SOT-23",mpn="TPD2E2U06QDBZR",dnp=True)
@@ -474,7 +474,7 @@ nc("U7",5)
 add_passive("R17",20.32,149.86,"100k","Resistor_SMD:R_0603_1608Metric","AFE_MENB","GND")
 add_passive("C16",20.32,160.02,"100n","Capacitor_SMD:C_0402_1005Metric","3V3A","GND")
 add_passive("C17",20.32,170.18,"10n","Capacitor_SMD:C_0603_1608Metric","LMP_C1","LMP_C2")
-for ref,y,n in (("TP1",149.86,"CELL_WE"),("TP2",160.02,"CELL_RE"),("TP3",170.18,"CELL_CE")):
+for ref,y,n in (("TP1",149.86,"CELL_WE"),("TP3",170.18,"CELL_CE")):
     place(ref,TESTPOINT,76.2,y,value=n,footprint="TestPoint:TestPoint_Pad_D1.0mm",in_bom=False); net(ref,1,n)
 
 place("U8",ADS,111.76,162.56,value="ADS1119IRTER",footprint="Package_DFN_QFN:Texas_RTE0016D_WQFN-16-1EP_3x3mm_P0.5mm_EP0.8x0.8mm",mpn="ADS1119IRTER")
@@ -502,7 +502,9 @@ add_passive("R36",190.5,198.12,"1k","Resistor_SMD:R_0603_1608Metric","VREF_MON_R
 add_passive("C29",208.28,198.12,"100n","Capacitor_SMD:C_0402_1005Metric","ADC_VREF_MON","GND",
             note="Measure AIN1 with ADS1119 internal reference for VREF health diagnostics")
 
-place("U11",CELL,203.2,160.02,value="SGX-OX-ROHS-Mini",footprint="o2-probe:SGX-OX-ROHS-Mini_DRAFT",note="DRAFT footprint: rear port and sample fit remain a physical gate")
+place("U11",CELL,203.2,160.02,value="SGX-OX-ROHS-Mini",footprint="o2-probe:SGX-OX-ROHS-Mini_ISS2",
+      mpn="SGX-OX-ROHS-Mini",
+      note="DS-0637 Issue 2 pin/body geometry; elongated rear-flow aperture remains a first-article fit gate")
 net("U11",1,"CELL_CE"); net("U11",2,"CELL_RE"); net("U11",3,"CELL_WE")
 
 # --------------------------------------------------------------------------- chamber sensors / heater
