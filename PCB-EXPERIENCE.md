@@ -7,7 +7,7 @@ board released for bare-board first articles. The accepted 109-footprint
 schematic transfers without parity errors. KiCad reports 0 errors, 0
 unconnected items, and 0 parity issues; all placed/library mismatches are gone.
 The 28 courtyard pairs are locked manual-assembly exceptions and silkscreen is
-not exported. `audit_pcb.py --calibrate` rejects 15/15 known-bad variants.
+not exported. `audit_pcb.py --calibrate` rejects 17/17 known-bad variants.
 
 ## 2026-08-23 fabrication corrective pass
 
@@ -140,7 +140,8 @@ not exported. `audit_pcb.py --calibrate` rejects 15/15 known-bad variants.
   consume more axial space than their pad centres imply.  Check courtyard and
   hole envelopes before routing, especially on both sides of through-hole parts.
 - Keep the mechanical source deterministic.  The outer 20 x 119 mm R2 outline,
-  pot datum, cell centre, aperture, and six slots are assertions in
+  all three controlled In2 GND-zone outlines, pot datum, cell centre, aperture,
+  and six slots are exact assertions in
   `audit_pcb.py`, so a future electrical rearrangement cannot silently move a
   controlled enclosure interface.
 - Ground planes help connectivity but are not a substitute for deliberate
@@ -165,6 +166,6 @@ python3 make_fab.py
 
 That command applies/verifies project rules, runs ERC and both audits, records
 error and warning DRC JSON, plots the exact layer set, validates Gerber X2
-functions, outline dimensions, all six Edge.Cuts slot contours, and routed
+functions, the exact R2 outer contour, all six Edge.Cuts slot contours, and routed
 NPTH Excellon data, writes
 checksums, and builds `fab/o2-probe-rev-a-fab.zip`.

@@ -97,6 +97,30 @@ def expected_routed_slot_primitives() -> Counter:
     return expected
 
 
+def expected_outline_primitives() -> Counter:
+    """Exact Gerber primitives for the 20 x 119 mm R2 outer contour."""
+    expected = Counter()
+
+    def point(x: float, y: float):
+        return round(100.0 + x, 3), round(-(50.0 + y), 3)
+
+    def line(start, end):
+        expected[("line", frozenset((point(*start), point(*end))))] += 1
+
+    def arc(start, center, end):
+        expected[("arc", frozenset((point(*start), point(*end))), point(*center))] += 1
+
+    line((2.0, 0.0), (18.0, 0.0))
+    arc((18.0, 0.0), (17.999, 2.001), (20.0, 2.0))
+    line((20.0, 2.0), (20.0, 117.0))
+    arc((20.0, 117.0), (17.999, 116.999), (18.0, 119.0))
+    line((18.0, 119.0), (2.0, 119.0))
+    arc((2.0, 119.0), (2.001, 116.999), (0.0, 117.0))
+    line((0.0, 117.0), (0.0, 2.0))
+    arc((0.0, 2.0), (2.001, 2.001), (2.0, 0.0))
+    return expected
+
+
 def parse_gerber_primitives(text: str, x_fraction: int, y_fraction: int) -> Counter:
     """Parse the simple modal line/arc records emitted by KiCad Edge.Cuts."""
     primitives = Counter()
@@ -166,19 +190,20 @@ def validate_gerbers(directory: Path) -> dict[str, object]:
         raise SystemExit(f"plotted outline is {width:.3f} x {height:.3f} mm")
     primitives = parse_gerber_primitives(outline, x_frac, y_frac)
     expected_slots = expected_routed_slot_primitives()
-    plotted_slots = Counter({primitive: count for primitive, count in primitives.items()
-                             if primitive in expected_slots})
-    if sum(primitives.values()) != 32 or plotted_slots != expected_slots:
+    expected_outline = expected_outline_primitives()
+    expected_primitives = expected_slots + expected_outline
+    if primitives != expected_primitives:
         raise SystemExit(
-            "Edge.Cuts routed-slot contours differ: "
+            "Edge.Cuts outer/slot contours differ: "
             f"primitive_count={sum(primitives.values())}; "
-            f"added/changed={list((plotted_slots - expected_slots).elements())}; "
-            f"missing={list((expected_slots - plotted_slots).elements())}"
+            f"added/changed={list((primitives - expected_primitives).elements())}; "
+            f"missing={list((expected_primitives - primitives).elements())}"
         )
     return {
         "gerber_layers": sorted(actual),
         "plotted_outline_mm": [width, height],
         "edge_cuts_primitives": sum(primitives.values()),
+        "outer_outline_primitives": sum(expected_outline.values()),
         "routed_slot_contours": 6,
         "routed_slot_widths_mm": [0.8, 1.0],
     }
