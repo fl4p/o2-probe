@@ -1,7 +1,7 @@
 {
     "$schema": "https://schemas.kicad.org/drc.v1.json",
     "coordinate_units": "mm",
-    "date": "2026-08-23T18:39:49",
+    "date": "2026-08-24T00:44:01",
     "ignored_checks": [],
     "included_severities": [
         "error",
@@ -292,29 +292,6 @@
             "description": "Courtyards overlap",
             "items": [
                 {
-                    "description": "Footprint RH1",
-                    "pos": {
-                        "x": 105.3,
-                        "y": 154.5
-                    },
-                    "uuid": "2f739e1e-ecbe-4265-b550-8158d2e096e8"
-                },
-                {
-                    "description": "Footprint U10",
-                    "pos": {
-                        "x": 110.0,
-                        "y": 154.0
-                    },
-                    "uuid": "4c47f83d-2519-4712-8e8e-4acc49c20965"
-                }
-            ],
-            "severity": "warning",
-            "type": "courtyards_overlap"
-        },
-        {
-            "description": "Courtyards overlap",
-            "items": [
-                {
                     "description": "Footprint R2",
                     "pos": {
                         "x": 112.0,
@@ -387,17 +364,17 @@
                     "description": "Footprint U10",
                     "pos": {
                         "x": 110.0,
-                        "y": 154.0
+                        "y": 152.0
                     },
                     "uuid": "4c47f83d-2519-4712-8e8e-4acc49c20965"
                 },
                 {
-                    "description": "Footprint RH2",
+                    "description": "Footprint U11",
                     "pos": {
-                        "x": 114.7,
-                        "y": 154.5
+                        "x": 110.0,
+                        "y": 143.5
                     },
-                    "uuid": "b3d8465d-e290-4ede-b6aa-ed2e21466461"
+                    "uuid": "cb284199-193f-4778-b191-d4e4bbb6fd6e"
                 }
             ],
             "severity": "warning",
@@ -657,6 +634,52 @@
             "type": "courtyards_overlap"
         },
         {
+            "description": "Courtyards overlap",
+            "items": [
+                {
+                    "description": "Footprint TP6",
+                    "pos": {
+                        "x": 108.3,
+                        "y": 153.0
+                    },
+                    "uuid": "96b54014-8da0-444e-8416-2e8057387de4"
+                },
+                {
+                    "description": "Footprint Q2",
+                    "pos": {
+                        "x": 110.0,
+                        "y": 151.25
+                    },
+                    "uuid": "ffd51e9c-662a-4b5f-a026-d66b94dd0444"
+                }
+            ],
+            "severity": "warning",
+            "type": "courtyards_overlap"
+        },
+        {
+            "description": "Courtyards overlap",
+            "items": [
+                {
+                    "description": "Footprint C23",
+                    "pos": {
+                        "x": 114.0,
+                        "y": 150.0
+                    },
+                    "uuid": "9b843125-2371-41e5-aba3-9a235488b748"
+                },
+                {
+                    "description": "Footprint U11",
+                    "pos": {
+                        "x": 110.0,
+                        "y": 143.5
+                    },
+                    "uuid": "cb284199-193f-4778-b191-d4e4bbb6fd6e"
+                }
+            ],
+            "severity": "warning",
+            "type": "courtyards_overlap"
+        },
+        {
             "description": "Silkscreen clipped by board edge (board setup constraints silk clearance 0.1500 mm; actual 0.0000 mm)",
             "items": [
                 {
@@ -680,27 +703,27 @@
             "type": "silk_edge_clearance"
         },
         {
-            "description": "Silkscreen clipped by board edge (board setup constraints silk clearance 0.1500 mm; actual 0.0941 mm)",
+            "description": "Silkscreen clearance (board setup constraints silk clearance 0.1500 mm; actual 0.0000 mm)",
             "items": [
                 {
-                    "description": "Arc on Edge.Cuts",
+                    "description": "Segment of U7 on F.Silkscreen",
                     "pos": {
-                        "x": 106.0,
-                        "y": 134.0
+                        "x": 107.875,
+                        "y": 131.625
                     },
-                    "uuid": "d2d130c1-56ec-4a80-8ffc-cb2b2d414639"
+                    "uuid": "30297538-2721-4f6c-9802-8d57377b04de"
                 },
                 {
-                    "description": "PCB text 'POT TO HERE' on B.Silkscreen",
+                    "description": "PCB text 'POT TO HERE' on F.Silkscreen",
                     "pos": {
                         "x": 110.0,
-                        "y": 133.0
+                        "y": 131.0
                     },
-                    "uuid": "66b340ad-8d82-41ee-b5ed-b7d136ed2e00"
+                    "uuid": "a506c745-cb9b-486c-ac6c-134828d8dd36"
                 }
             ],
             "severity": "warning",
-            "type": "silk_edge_clearance"
+            "type": "silk_overlap"
         },
         {
             "description": "Silkscreen clearance (board setup constraints silk clearance 0.1500 mm; actual 0.0000 mm)",
@@ -887,121 +910,6 @@
             "type": "silk_overlap"
         },
         {
-            "description": "Silkscreen clearance (board setup constraints silk clearance 0.1500 mm; actual 0.0119 mm)",
-            "items": [
-                {
-                    "description": "Circle of U11 on F.Silkscreen",
-                    "pos": {
-                        "x": 110.0,
-                        "y": 143.5
-                    },
-                    "uuid": "a47be82c-b887-46cd-af62-1b799f4b793d"
-                },
-                {
-                    "description": "PCB text 'DO NOT OBSTRUCT' on F.Silkscreen",
-                    "pos": {
-                        "x": 110.0,
-                        "y": 149.0
-                    },
-                    "uuid": "f00dbea2-75d0-4fc6-b76f-b8874d799b53"
-                }
-            ],
-            "severity": "warning",
-            "type": "silk_overlap"
-        },
-        {
-            "description": "Silkscreen clearance (board setup constraints silk clearance 0.1500 mm; actual 0.0000 mm)",
-            "items": [
-                {
-                    "description": "PCB text 'GAS / DO NOT POT' on F.Silkscreen",
-                    "pos": {
-                        "x": 110.0,
-                        "y": 159.5
-                    },
-                    "uuid": "7491f537-7e6d-4f64-9e72-988dc645ecf9"
-                },
-                {
-                    "description": "Segment of U14 on F.Silkscreen",
-                    "pos": {
-                        "x": 115.0,
-                        "y": 159.0
-                    },
-                    "uuid": "bf853cf0-881a-4770-bb5c-db20a8c1e368"
-                }
-            ],
-            "severity": "warning",
-            "type": "silk_overlap"
-        },
-        {
-            "description": "Silkscreen clearance (board setup constraints silk clearance 0.1500 mm; actual 0.0027 mm)",
-            "items": [
-                {
-                    "description": "PCB text 'GAS / DO NOT POT' on F.Silkscreen",
-                    "pos": {
-                        "x": 110.0,
-                        "y": 159.5
-                    },
-                    "uuid": "7491f537-7e6d-4f64-9e72-988dc645ecf9"
-                },
-                {
-                    "description": "Segment of U14 on F.Silkscreen",
-                    "pos": {
-                        "x": 115.0,
-                        "y": 159.0
-                    },
-                    "uuid": "847ef52a-44b0-41fb-a21e-7b0367fa8fe8"
-                }
-            ],
-            "severity": "warning",
-            "type": "silk_overlap"
-        },
-        {
-            "description": "Silkscreen clearance (board setup constraints silk clearance 0.1500 mm; actual 0.0000 mm)",
-            "items": [
-                {
-                    "description": "Segment of U7 on F.Silkscreen",
-                    "pos": {
-                        "x": 107.875,
-                        "y": 131.625
-                    },
-                    "uuid": "30297538-2721-4f6c-9802-8d57377b04de"
-                },
-                {
-                    "description": "PCB text 'POT TO HERE' on F.Silkscreen",
-                    "pos": {
-                        "x": 110.0,
-                        "y": 131.0
-                    },
-                    "uuid": "a506c745-cb9b-486c-ac6c-134828d8dd36"
-                }
-            ],
-            "severity": "warning",
-            "type": "silk_overlap"
-        },
-        {
-            "description": "Silkscreen clearance (board setup constraints silk clearance 0.1500 mm; actual 0.0125 mm)",
-            "items": [
-                {
-                    "description": "Segment of U4 on F.Silkscreen",
-                    "pos": {
-                        "x": 104.61,
-                        "y": 125.39
-                    },
-                    "uuid": "6e196f48-3221-49f6-ab27-da65b6c39d62"
-                },
-                {
-                    "description": "Segment of R17 on F.Silkscreen",
-                    "pos": {
-                        "x": 104.4775,
-                        "y": 127.237258
-                    },
-                    "uuid": "ade092d4-a738-4cc0-8efb-328a4ec54f61"
-                }
-            ],
-            "severity": "warning",
-            "type": "silk_overlap"
-        },
-        {
             "description": "Silkscreen clearance (board setup constraints silk clearance 0.1500 mm; actual 0.0000 mm)",
             "items": [
                 {
@@ -1071,54 +979,62 @@
             "type": "silk_overlap"
         },
         {
-            "description": "Silkscreen clipped by solder mask",
+            "description": "Silkscreen clearance (board setup constraints silk clearance 0.1500 mm; actual 0.0000 mm)",
             "items": [
                 {
-                    "description": "Segment of J104 on F.Silkscreen",
+                    "description": "PCB text 'GAS / DO NOT POT' on F.Silkscreen",
                     "pos": {
-                        "x": 117.96,
-                        "y": 55.685
+                        "x": 110.0,
+                        "y": 136.8
                     },
-                    "uuid": "3b5373d6-f25d-4cd6-89e4-bee9fc143b3e"
+                    "uuid": "7491f537-7e6d-4f64-9e72-988dc645ecf9"
                 },
                 {
-                    "description": "Pad 1 [/RS485_B] of R3 on F.Cu",
+                    "description": "Circle of U11 on F.Silkscreen",
                     "pos": {
-                        "x": 117.5,
-                        "y": 59.825
+                        "x": 110.0,
+                        "y": 143.5
                     },
-                    "uuid": "4d0b5439-2c74-45a6-bf96-f4da9f268d5d"
+                    "uuid": "a47be82c-b887-46cd-af62-1b799f4b793d"
                 }
             ],
             "severity": "warning",
-            "type": "silk_over_copper"
+            "type": "silk_overlap"
         },
         {
-            "description": "Silkscreen clipped by solder mask",
+            "description": "Silkscreen clearance (board setup constraints silk clearance 0.1500 mm; actual 0.0125 mm)",
             "items": [
                 {
-                    "description": "Segment of J104 on F.Silkscreen",
+                    "description": "Segment of U4 on F.Silkscreen",
                     "pos": {
-                        "x": 117.96,
-                        "y": 55.685
+                        "x": 104.61,
+                        "y": 125.39
                     },
-                    "uuid": "3b5373d6-f25d-4cd6-89e4-bee9fc143b3e"
+                    "uuid": "6e196f48-3221-49f6-ab27-da65b6c39d62"
                 },
                 {
-                    "description": "Pad 2 [/RS485_B_CABLE] of R3 on F.Cu",
+                    "description": "Segment of R17 on F.Silkscreen",
                     "pos": {
-                        "x": 117.5,
-                        "y": 58.175
+                        "x": 104.4775,
+                        "y": 127.237258
                     },
-                    "uuid": "3c7adb1b-ce34-4e23-aa1c-d7622c4754bf"
+                    "uuid": "ade092d4-a738-4cc0-8efb-328a4ec54f61"
                 }
             ],
             "severity": "warning",
-            "type": "silk_over_copper"
+            "type": "silk_overlap"
         },
         {
-            "description": "Silkscreen clipped by solder mask",
+            "description": "Silkscreen clearance (board setup constraints silk clearance 0.1500 mm; actual 0.1498 mm)",
             "items": [
+                {
+                    "description": "Circle of U11 on F.Silkscreen",
+                    "pos": {
+                        "x": 110.0,
+                        "y": 143.5
+                    },
+                    "uuid": "a47be82c-b887-46cd-af62-1b799f4b793d"
+                },
                 {
                     "description": "PCB text 'DO NOT OBSTRUCT' on F.Silkscreen",
                     "pos": {
@@ -1126,64 +1042,102 @@
                         "y": 149.0
                     },
                     "uuid": "f00dbea2-75d0-4fc6-b76f-b8874d799b53"
-                },
-                {
-                    "description": "NPTH pad of U11",
-                    "pos": {
-                        "x": 110.0,
-                        "y": 146.0
-                    },
-                    "uuid": "becc2e3e-baf3-410e-bf0f-c1bc159cc6d2"
                 }
             ],
             "severity": "warning",
-            "type": "silk_over_copper"
+            "type": "silk_overlap"
         },
         {
-            "description": "Silkscreen clipped by solder mask",
+            "description": "Silkscreen clearance (board setup constraints silk clearance 0.1500 mm; actual 0.0898 mm)",
             "items": [
                 {
-                    "description": "PCB text 'GAS / DO NOT POT' on F.Silkscreen",
+                    "description": "Segment of U10 on F.Silkscreen",
                     "pos": {
-                        "x": 110.0,
-                        "y": 159.5
+                        "x": 109.025,
+                        "y": 150.8
                     },
-                    "uuid": "7491f537-7e6d-4f64-9e72-988dc645ecf9"
+                    "uuid": "64d59ba1-8486-4dcf-bcc2-e78cb1f564f8"
                 },
                 {
-                    "description": "Pad 10 [/3V3D] of U14 on F.Cu",
+                    "description": "Circle of U11 on F.Silkscreen",
                     "pos": {
-                        "x": 115.2375,
-                        "y": 159.5
+                        "x": 110.0,
+                        "y": 143.5
                     },
-                    "uuid": "6a765e43-de4e-40f4-b247-1054f00c41b1"
+                    "uuid": "a47be82c-b887-46cd-af62-1b799f4b793d"
                 }
             ],
             "severity": "warning",
-            "type": "silk_over_copper"
+            "type": "silk_overlap"
         },
         {
-            "description": "Silkscreen clipped by solder mask",
+            "description": "Silkscreen clearance (board setup constraints silk clearance 0.1500 mm; actual 0.0898 mm)",
             "items": [
                 {
-                    "description": "PCB text 'GAS / DO NOT POT' on F.Silkscreen",
+                    "description": "Circle of U11 on F.Silkscreen",
                     "pos": {
                         "x": 110.0,
-                        "y": 159.5
+                        "y": 143.5
                     },
-                    "uuid": "7491f537-7e6d-4f64-9e72-988dc645ecf9"
+                    "uuid": "a47be82c-b887-46cd-af62-1b799f4b793d"
                 },
                 {
-                    "description": "Pad 1 [/3V3D] of U14 on F.Cu",
+                    "description": "Segment of U10 on F.Silkscreen",
                     "pos": {
-                        "x": 115.75,
-                        "y": 159.2375
+                        "x": 110.975,
+                        "y": 150.8
                     },
-                    "uuid": "f251c613-ab64-48ae-bf5e-4e34a7979459"
+                    "uuid": "c2236986-200f-47cf-9eeb-45eaad3c7f33"
                 }
             ],
             "severity": "warning",
-            "type": "silk_over_copper"
+            "type": "silk_overlap"
+        },
+        {
+            "description": "Silkscreen clearance (board setup constraints silk clearance 0.1500 mm; actual 0.0866 mm)",
+            "items": [
+                {
+                    "description": "Circle of U10 on F.Silkscreen",
+                    "pos": {
+                        "x": 111.1,
+                        "y": 150.3
+                    },
+                    "uuid": "64f2334f-90aa-4027-9ed8-6b1039555767"
+                },
+                {
+                    "description": "Circle of U11 on F.Silkscreen",
+                    "pos": {
+                        "x": 110.0,
+                        "y": 143.5
+                    },
+                    "uuid": "a47be82c-b887-46cd-af62-1b799f4b793d"
+                }
+            ],
+            "severity": "warning",
+            "type": "silk_overlap"
+        },
+        {
+            "description": "Silkscreen clearance (board setup constraints silk clearance 0.1500 mm; actual 0.0097 mm)",
+            "items": [
+                {
+                    "description": "Segment of C23 on F.Silkscreen",
+                    "pos": {
+                        "x": 114.107836,
+                        "y": 149.64
+                    },
+                    "uuid": "70169075-aaed-4c74-801a-6be7fc70a369"
+                },
+                {
+                    "description": "Circle of U11 on F.Silkscreen",
+                    "pos": {
+                        "x": 110.0,
+                        "y": 143.5
+                    },
+                    "uuid": "a47be82c-b887-46cd-af62-1b799f4b793d"
+                }
+            ],
+            "severity": "warning",
+            "type": "silk_overlap"
         },
         {
             "description": "Silkscreen clipped by solder mask",
@@ -1258,20 +1212,20 @@
             "description": "Silkscreen clipped by solder mask",
             "items": [
                 {
-                    "description": "Segment of U4 on F.Silkscreen",
+                    "description": "Segment of J104 on F.Silkscreen",
                     "pos": {
-                        "x": 104.61,
-                        "y": 125.39
+                        "x": 117.96,
+                        "y": 55.685
                     },
-                    "uuid": "6e196f48-3221-49f6-ab27-da65b6c39d62"
+                    "uuid": "3b5373d6-f25d-4cd6-89e4-bee9fc143b3e"
                 },
                 {
-                    "description": "Pad 1 [/AFE_MENB] of R17 on F.Cu",
+                    "description": "Pad 1 [/RS485_B] of R3 on F.Cu",
                     "pos": {
-                        "x": 105.0,
-                        "y": 127.825
+                        "x": 117.5,
+                        "y": 59.825
                     },
-                    "uuid": "3a2f44f9-f3ff-41f5-bcb8-d854f208e4d6"
+                    "uuid": "4d0b5439-2c74-45a6-bf96-f4da9f268d5d"
                 }
             ],
             "severity": "warning",
@@ -1281,20 +1235,20 @@
             "description": "Silkscreen clipped by solder mask",
             "items": [
                 {
-                    "description": "Segment of U4 on F.Silkscreen",
+                    "description": "Segment of J104 on F.Silkscreen",
                     "pos": {
-                        "x": 104.61,
-                        "y": 125.39
+                        "x": 117.96,
+                        "y": 55.685
                     },
-                    "uuid": "6e196f48-3221-49f6-ab27-da65b6c39d62"
+                    "uuid": "3b5373d6-f25d-4cd6-89e4-bee9fc143b3e"
                 },
                 {
-                    "description": "Pad 2 [/GND] of R17 on F.Cu",
+                    "description": "Pad 2 [/RS485_B_CABLE] of R3 on F.Cu",
                     "pos": {
-                        "x": 105.0,
-                        "y": 126.175
+                        "x": 117.5,
+                        "y": 58.175
                     },
-                    "uuid": "4f5db247-ead7-4db8-92c0-abf0538d9adb"
+                    "uuid": "3c7adb1b-ce34-4e23-aa1c-d7622c4754bf"
                 }
             ],
             "severity": "warning",
@@ -1387,6 +1341,98 @@
                         "y": 118.0
                     },
                     "uuid": "064ba8d0-cb76-40a9-8b75-e5a4a5da807d"
+                }
+            ],
+            "severity": "warning",
+            "type": "silk_over_copper"
+        },
+        {
+            "description": "Silkscreen clipped by solder mask",
+            "items": [
+                {
+                    "description": "Segment of U4 on F.Silkscreen",
+                    "pos": {
+                        "x": 104.61,
+                        "y": 125.39
+                    },
+                    "uuid": "6e196f48-3221-49f6-ab27-da65b6c39d62"
+                },
+                {
+                    "description": "Pad 1 [/AFE_MENB] of R17 on F.Cu",
+                    "pos": {
+                        "x": 105.0,
+                        "y": 127.825
+                    },
+                    "uuid": "3a2f44f9-f3ff-41f5-bcb8-d854f208e4d6"
+                }
+            ],
+            "severity": "warning",
+            "type": "silk_over_copper"
+        },
+        {
+            "description": "Silkscreen clipped by solder mask",
+            "items": [
+                {
+                    "description": "Segment of U4 on F.Silkscreen",
+                    "pos": {
+                        "x": 104.61,
+                        "y": 125.39
+                    },
+                    "uuid": "6e196f48-3221-49f6-ab27-da65b6c39d62"
+                },
+                {
+                    "description": "Pad 2 [/GND] of R17 on F.Cu",
+                    "pos": {
+                        "x": 105.0,
+                        "y": 126.175
+                    },
+                    "uuid": "4f5db247-ead7-4db8-92c0-abf0538d9adb"
+                }
+            ],
+            "severity": "warning",
+            "type": "silk_over_copper"
+        },
+        {
+            "description": "Silkscreen clipped by solder mask",
+            "items": [
+                {
+                    "description": "PCB text 'DO NOT OBSTRUCT' on F.Silkscreen",
+                    "pos": {
+                        "x": 110.0,
+                        "y": 149.0
+                    },
+                    "uuid": "f00dbea2-75d0-4fc6-b76f-b8874d799b53"
+                },
+                {
+                    "description": "NPTH pad of U11",
+                    "pos": {
+                        "x": 110.0,
+                        "y": 146.0
+                    },
+                    "uuid": "becc2e3e-baf3-410e-bf0f-c1bc159cc6d2"
+                }
+            ],
+            "severity": "warning",
+            "type": "silk_over_copper"
+        },
+        {
+            "description": "Silkscreen clipped by solder mask",
+            "items": [
+                {
+                    "description": "Circle of U11 on F.Silkscreen",
+                    "pos": {
+                        "x": 110.0,
+                        "y": 143.5
+                    },
+                    "uuid": "a47be82c-b887-46cd-af62-1b799f4b793d"
+                },
+                {
+                    "description": "Pad 2 [/GND] of C23 on F.Cu",
+                    "pos": {
+                        "x": 113.52,
+                        "y": 150.0
+                    },
+                    "uuid": "23f846e4-4a9a-46fc-bbfd-49ae69b590f3"
                 }
             ],
             "severity": "warning",
@@ -1502,29 +1548,6 @@
                         "y": 120.0
                     },
                     "uuid": "fa11596a-2af8-4949-857c-f28801c3455f"
-                }
-            ],
-            "severity": "warning",
-            "type": "silk_over_copper"
-        },
-        {
-            "description": "Silkscreen clipped by solder mask",
-            "items": [
-                {
-                    "description": "Circle of U10 on B.Silkscreen",
-                    "pos": {
-                        "x": 111.1,
-                        "y": 155.7
-                    },
-                    "uuid": "64f2334f-90aa-4027-9ed8-6b1039555767"
-                },
-                {
-                    "description": "Pad 2 [/HEATER_LOW] of RH2 on B.Cu",
-                    "pos": {
-                        "x": 111.7375,
-                        "y": 154.5
-                    },
-                    "uuid": "d75fb6cb-cbe0-4d30-b553-6f6eff4824c2"
                 }
             ],
             "severity": "warning",

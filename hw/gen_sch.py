@@ -67,6 +67,10 @@ def symbol(name: str, pins: list[tuple[str, str, str]], ref_prefix="U", descript
 CONN4 = symbol("CONN_01x04", [(str(i), f"Pin_{i}", "passive") for i in range(1, 5)], "J", pitch=5.08)
 CONN6 = symbol("CONN_02x03", [(str(i), f"Pin_{i}", "passive") for i in range(1, 7)], "J", pitch=5.08)
 CONN8 = symbol("CONN_02x04", [(str(i), f"Pin_{i}", "passive") for i in range(1, 9)], "J", pitch=5.08)
+HEATED_RING = symbol(
+    "HEATED_MEMBRANE_RING", [("1", "HEATER_LOW", "passive")], "J",
+    description="Manual-solder metal membrane carrier and heat spreader",
+)
 # Connector pins are drawn on one side in physical pin order.  Besides reading
 # like the cable pinout, this prevents long adjacent right-side labels from
 # sharing the same connection stroke in KiCad's label renderer.
@@ -436,7 +440,10 @@ add_passive("R7",73.66,105.41,"47k","Resistor_SMD:R_0603_1608Metric","RS485_DE",
 add_passive("C11",73.66,82.55,"100n","Capacitor_SMD:C_0603_1608Metric","3V3D","GND")
 
 place("U6",MCU,111.76,99.06,value="STM32G071CBT7",footprint="Package_QFP:LQFP-48_7x7mm_P0.5mm",mpn="STM32G071CBT7")
-MCU_NETS = {4:"3V3D",5:"3V3D",6:"3V3D",7:"GND",10:"NRST",11:"VA_MON",12:"RS485_DE",13:"UART2_TX",14:"UART2_RX",19:"AFE_MENB",20:"ADC_DRDY",21:"EXP_INT",22:"TGAS_ALERT",28:"HEATER_PWM",29:"RS485_TX",32:"RS485_RX",35:"SWDIO",36:"SWCLK_BOOT0",42:"SWO",45:"I2C_SCL",46:"I2C_SDA"}
+# Group the three RS-485 controls at the MCU's left edge and bring the analog
+# rail monitor into PA7/ADC_IN7. These generator-owned assignments materially
+# shorten the compact placement's routes without changing functionality.
+MCU_NETS = {4:"3V3D",5:"3V3D",6:"3V3D",7:"GND",10:"NRST",13:"UART2_TX",14:"UART2_RX",18:"VA_MON",19:"AFE_MENB",20:"ADC_DRDY",21:"EXP_INT",28:"HEATER_PWM",29:"RS485_TX",30:"RS485_DE",32:"RS485_RX",35:"SWDIO",36:"SWCLK_BOOT0",42:"SWO",45:"I2C_SCL",46:"I2C_SDA"}
 for p in range(1,49):
     if p in MCU_NETS: net("U6",p,MCU_NETS[p])
     else: nc("U6",p)
@@ -507,17 +514,15 @@ place("U11",CELL,203.2,160.02,value="SGX-OX-ROHS-Mini",footprint="o2-probe:SGX-O
       note="DS-0637 Issue 2 pin/body geometry; elongated rear-flow aperture remains a first-article fit gate")
 net("U11",1,"CELL_CE"); net("U11",2,"CELL_RE"); net("U11",3,"CELL_WE")
 
-# --------------------------------------------------------------------------- chamber sensors / heater
+# --------------------------------------------------------------------------- chamber sensors / membrane-ring heater
 place("U10",TMP117,246.38,154.94,value="TMP117 CELL",footprint="tmp117-probe:TMP117_WSON-6-1EP_2x2mm_TI",mpn="TMP117AIDRVR")
 for p,n in {1:"I2C_SCL",2:"GND",3:"HEATER_GATE",4:"3V3D",5:"3V3D",6:"I2C_SDA",7:"TMP_CELL_EP"}.items(): net("U10",p,n)
-place("U13",TMP117,246.38,180.34,value="TMP117 GAS",footprint="tmp117-probe:TMP117_WSON-6-1EP_2x2mm_TI",mpn="TMP117AIDRVR")
-for p,n in {1:"I2C_SCL",2:"GND",3:"TGAS_ALERT",4:"I2C_SDA",5:"3V3D",6:"I2C_SDA",7:"TMP_GAS_EP"}.items(): net("U13",p,n)
 place("U12",SHT45,281.94,154.94,value="SHT45-AD1F",footprint="Sensor_Humidity:Sensirion_DFN-4_1.5x1.5mm_P0.8mm_SHT4x_NoCentralPad",mpn="SHT45-AD1F-R2")
 for p,n in {1:"I2C_SDA",2:"I2C_SCL",3:"3V3D",4:"GND"}.items(): net("U12",p,n)
-add_passive("C20",281.94,172.72,"100n","Capacitor_SMD:C_0402_1005Metric","3V3D","GND")
-add_passive("C21",261.62,195.58,"100n","Capacitor_SMD:C_0402_1005Metric","3V3D","GND")
-add_passive("C22",281.94,195.58,"100n","Capacitor_SMD:C_0402_1005Metric","3V3D","GND")
-add_passive("R30",302.26,195.58,"10k","Resistor_SMD:R_0603_1608Metric","TGAS_ALERT","3V3D")
+add_passive("C20",281.94,172.72,"100n","Capacitor_SMD:C_0402_1005Metric","3V3D","GND",
+            note="Local SHT45 supply bypass")
+add_passive("C21",261.62,195.58,"100n","Capacitor_SMD:C_0402_1005Metric","3V3D","GND",
+            note="Local TMP117 supply bypass")
 
 place("U14",BMP390,325.12,215.90,value="BMP390 DNP",footprint="o2-probe:BMP390_LGA10_DRAFT",mpn="BMP390",dnp=True,
       note="Optional pressure channel; footprint land geometry remains a release gate")
@@ -534,7 +539,10 @@ add_passive("R29",307.34,160.02,"100k","Resistor_SMD:R_0603_1608Metric","HEATER_
 add_passive("RH1",350.52,149.86,"280R 1W","Resistor_SMD:R_2512_6332Metric","+12V_SW","HEATER_LOW",mpn="CRCW2512280RFKEG")
 add_passive("RH2",350.52,165.1,"280R 1W","Resistor_SMD:R_2512_6332Metric","+12V_SW","HEATER_LOW",mpn="CRCW2512280RFKEG")
 place("TP6",TESTPOINT,350.52,180.34,value="TMP_CELL_EP",footprint="TestPoint:TestPoint_Pad_D1.0mm",in_bom=False); net("TP6",1,"TMP_CELL_EP")
-place("TP7",TESTPOINT,368.3,180.34,value="TMP_GAS_EP",footprint="TestPoint:TestPoint_Pad_D1.0mm",in_bom=False); net("TP7",1,"TMP_GAS_EP")
+place("J5",HEATED_RING,368.3,180.34,value="HEATED MEMBRANE RING",
+      footprint="o2-probe:Heater_Ring_Solder_Lands",
+      note="Manual-soldered dry-side metal membrane-carrier ring; duplicated lands are one HEATER_LOW node")
+net("J5",1,"HEATER_LOW")
 
 
 def symbol_block(lib_id: str) -> str:
@@ -630,6 +638,8 @@ def verify() -> None:
             expected_symbol[ref] = NMOS
         elif ref.startswith("TP"):
             expected_symbol[ref] = TESTPOINT
+        elif ref == "J5":
+            expected_symbol[ref] = HEATED_RING
         elif ref in ("J101", "J102", "J103", "J104"):
             expected_symbol[ref] = CONN1
     for ref, lib_id in expected_symbol.items():
@@ -646,7 +656,7 @@ def verify() -> None:
     # Locked interface/address facts.
     assert ASSIGNED[("U8","15")] == ASSIGNED[("U8","16")] == "GND"  # ADS1119 0x40
     assert ASSIGNED[("U10","4")] == "3V3D"                            # TMP117 0x49
-    assert ASSIGNED[("U13","4")] == "I2C_SDA"                         # TMP117 0x4A
+    assert ASSIGNED[("J5","1")] == "HEATER_LOW"                        # heated ring spreader
     assert ASSIGNED[("U7","2")] == "AFE_MENB" and ASSIGNED[("R17","2")] == "GND"
     assert ASSIGNED[("J3","2")] == "SWDIO" and ASSIGNED[("J3","4")] == "SWCLK_BOOT0"
     assert ASSIGNED[("Q2","1")] == ASSIGNED[("U10","3")] == "HEATER_GATE"

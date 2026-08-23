@@ -56,49 +56,8 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def expected_routed_slot_primitives() -> Counter:
-    """Exact Gerber line/arc primitives for the six Edge.Cuts capsules."""
-    expected = Counter()
-
-    def point(x: float, y: float):
-        # Gerber output preserves board X and negates board Y.
-        return round(100.0 + x, 3), round(-(50.0 + y), 3)
-
-    def line(start, end):
-        expected[("line", frozenset((point(*start), point(*end))))] += 1
-
-    def arc(start, center, end):
-        expected[("arc", frozenset((point(*start), point(*end))), point(*center))] += 1
-
-    def capsule(x, y, length, width, vertical=False):
-        if vertical:
-            x0, x1 = x - width / 2, x + width / 2
-            y0, y1 = y - length / 2, y + length / 2
-            radius = width / 2
-            line((x0, y0 + radius), (x0, y1 - radius))
-            arc((x0, y1 - radius), (x, y1 - radius), (x1, y1 - radius))
-            line((x1, y1 - radius), (x1, y0 + radius))
-            arc((x1, y0 + radius), (x, y0 + radius), (x0, y0 + radius))
-            return
-        x0, x1 = x - length / 2, x + length / 2
-        y0, y1 = y - width / 2, y + width / 2
-        radius = width / 2
-        line((x0 + radius, y0), (x1 - radius, y0))
-        arc((x1 - radius, y0), (x1 - radius, y), (x1 - radius, y1))
-        line((x1 - radius, y1), (x0 + radius, y1))
-        arc((x0 + radius, y1), (x0 + radius, y), (x0 + radius, y0))
-
-    capsule(3.75, 84.0, 5.5, 1.0)
-    capsule(16.25, 84.0, 5.5, 1.0)
-    capsule(1.2, 95.0, 16.0, 0.8, vertical=True)
-    capsule(18.8, 95.0, 16.0, 0.8, vertical=True)
-    capsule(4.5, 114.0, 7.5, 0.8)
-    capsule(15.5, 114.0, 7.5, 0.8)
-    return expected
-
-
 def expected_outline_primitives() -> Counter:
-    """Exact Gerber primitives for the 20 x 119 mm R2 outer contour."""
+    """Exact Gerber primitives for the slot-free 20 x 107 mm R2 contour."""
     expected = Counter()
 
     def point(x: float, y: float):
@@ -112,11 +71,11 @@ def expected_outline_primitives() -> Counter:
 
     line((2.0, 0.0), (18.0, 0.0))
     arc((18.0, 0.0), (17.999, 2.001), (20.0, 2.0))
-    line((20.0, 2.0), (20.0, 117.0))
-    arc((20.0, 117.0), (17.999, 116.999), (18.0, 119.0))
-    line((18.0, 119.0), (2.0, 119.0))
-    arc((2.0, 119.0), (2.001, 116.999), (0.0, 117.0))
-    line((0.0, 117.0), (0.0, 2.0))
+    line((20.0, 2.0), (20.0, 105.0))
+    arc((20.0, 105.0), (17.999, 104.999), (18.0, 107.0))
+    line((18.0, 107.0), (2.0, 107.0))
+    arc((2.0, 107.0), (2.001, 104.999), (0.0, 105.0))
+    line((0.0, 105.0), (0.0, 2.0))
     arc((0.0, 2.0), (2.001, 2.001), (2.0, 0.0))
     return expected
 
@@ -186,26 +145,23 @@ def validate_gerbers(directory: Path) -> dict[str, object]:
         raise SystemExit("Edge.Cuts Gerber has no coordinate records")
     xs, ys = zip(*points)
     width, height = max(xs) - min(xs), max(ys) - min(ys)
-    if abs(width - 20.0) > 0.01 or abs(height - 119.0) > 0.01:
+    if abs(width - 20.0) > 0.01 or abs(height - 107.0) > 0.01:
         raise SystemExit(f"plotted outline is {width:.3f} x {height:.3f} mm")
     primitives = parse_gerber_primitives(outline, x_frac, y_frac)
-    expected_slots = expected_routed_slot_primitives()
     expected_outline = expected_outline_primitives()
-    expected_primitives = expected_slots + expected_outline
-    if primitives != expected_primitives:
+    if primitives != expected_outline:
         raise SystemExit(
-            "Edge.Cuts outer/slot contours differ: "
+            "slot-free Edge.Cuts contour differs: "
             f"primitive_count={sum(primitives.values())}; "
-            f"added/changed={list((primitives - expected_primitives).elements())}; "
-            f"missing={list((expected_primitives - primitives).elements())}"
+            f"added/changed={list((primitives - expected_outline).elements())}; "
+            f"missing={list((expected_outline - primitives).elements())}"
         )
     return {
         "gerber_layers": sorted(actual),
         "plotted_outline_mm": [width, height],
         "edge_cuts_primitives": sum(primitives.values()),
         "outer_outline_primitives": sum(expected_outline.values()),
-        "routed_slot_contours": 6,
-        "routed_slot_widths_mm": [0.8, 1.0],
+        "board_native_routed_slot_contours": 0,
     }
 
 
@@ -338,7 +294,7 @@ def main() -> int:
     print(f"PASS: {ZIP}")
     print(f"SHA-256: {sha256(ZIP)}")
     print(f"files: {len(expected)}; Gerber outline: {validation['plotted_outline_mm'][0]:.2f} x "
-          f"{validation['plotted_outline_mm'][1]:.2f} mm; six Edge.Cuts contours and routed NPTH verified")
+          f"{validation['plotted_outline_mm'][1]:.2f} mm; slot-free Edge.Cuts and SGX routed NPTH verified")
     return 0
 
 

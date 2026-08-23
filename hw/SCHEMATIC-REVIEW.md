@@ -133,6 +133,10 @@ common 3V3D net, but no additional 1 uF part for VREF+. Add it and annotate the
 required pin-local placement. This is electrically small but should be fixed
 before PCB transfer if the PCB agent is expected to place final decoupling.
 
+The compact-layout pin map uses PC6 as the `RS485_DE` GPIO and PA7/ADC_IN7 for
+`VA_MON`; PA0 and PA1 are intentionally unused. This mapping must also be used
+by firmware.
+
 ### M2 — recovery/programming claims exceed what J4 alone guarantees
 
 J3 provides a viable pre-pot SWD set: VTREF, SWDIO, NRST, SWCLK/BOOT0, GND,
@@ -208,7 +212,7 @@ placement, provided the PCB remains explicitly non-fabrication:
 - LMP91000, ADS1119, THVD1410, BMP390, TMP117, SHT45 and STM32 LQFP48 package
   pin assignments inspected here are consistent with the cited primary pin
   tables; the AP63205 exception is the critical failure above.
-- ADS1119 A1=A0=GND selects 0x40; TMP117 straps select 0x49 and 0x4A; BMP390
+- ADS1119 A1=A0=GND selects 0x40; the sole TMP117 straps to 0x49; BMP390
   SDO=GND/CSB=VDDIO selects I2C 0x76. The stated I2C map has no collision.
 - THVD1410 `/RE` and DE share `RS485_DE`, with R7 pulldown, so the transceiver
   defaults to receive during MCU reset. Termination and bias are correctly DNP
