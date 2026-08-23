@@ -154,12 +154,14 @@ def build():
     outline(board)
     for ly in (pcbnew.F_SilkS,pcbnew.B_SilkS): line(board,.5,POT_Y,19.5,POT_Y,ly,.3)
     text(board,"POT TO HERE",10,81,pcbnew.F_SilkS,.7); text(board,"POT TO HERE",10,83,pcbnew.B_SilkS,.7)
-    text(board,"CABLE",10,1.5,pcbnew.F_SilkS,.7); text(board,"GAS / DO NOT POT",10,114.2,pcbnew.F_SilkS,.65)
+    text(board,"CABLE",10,1.5,pcbnew.F_SilkS,.7); text(board,"GAS / DO NOT POT",10,109.5,pcbnew.F_SilkS,.65)
     text(board,"DO NOT OBSTRUCT",10,99.0,pcbnew.F_SilkS,.6)
-    # Slots keep the AFE-side trace bridge central and form two thermal islands.
+    # The dam slots keep the guarded AFE trace bridge central.  The two tip
+    # slots are transverse to heater-to-U13 heat flow; their 0.75 mm edge webs
+    # plus 3.5 mm centre neck leave 5.0 mm of direct FR-4 cross-section.
     slot(board,3.75,84.0,5.5,1.0); slot(board,16.25,84.0,5.5,1.0)
     slot(board,1.2,95.0,16.0,.8,True); slot(board,18.8,95.0,16.0,.8,True)
-    slot(board,5.0,119.5,7.0,.8,True); slot(board,13.0,119.5,7.0,.8,True)
+    slot(board,4.5,114.0,7.5,.8); slot(board,15.5,114.0,7.5,.8)
     # Nets must exist before pad assignment.
     netitems={}
     for name in nets:

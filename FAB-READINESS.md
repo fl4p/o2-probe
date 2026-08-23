@@ -25,8 +25,12 @@ the Gerbers and Excellon files that it places in the ZIP.
   via and no test point. U7 is wholly on the potted side of the dam.
 - The low-impedance `GUARD_REPLICA` net now drives the F.Cu enclosure around
   the long CELL_RE run.
-- The In2 GND plane is split across the 3.5 mm potting transition and rejoins
-  through one deliberate 0.25 mm bridge at the board edge.
+- The In2 GND plane is split across both the 3.5 mm potting transition and the
+  U13 thermal barrier. Each region remains filled and rejoins through one
+  deliberate 0.25 mm bridge, avoiding a full-width copper heat strap to U13.
+- Two 7.5 × 0.8 mm transverse slots at local `y=114.0` interrupt the
+  heater-to-U13 path. Their 0.75 mm edge webs and 3.5 mm centre neck reduce the
+  direct FR-4 cross-section from 20.0 to 5.0 mm.
 - The SGX footprint now follows DS-0637 Issue 2 for the Ø14.40 mm body, Ø0.64
   mm pins, 2.54 mm pitch, and 2.50 mm row offset. A gasward-offset 3 × 6 mm
   NPTH slot provides a first-article airflow/fit window without assuming an
@@ -35,9 +39,10 @@ the Gerbers and Excellon files that it places in the ZIP.
   mm finished thickness, 0.09 mm minimum track, 0.15 mm minimum clearance,
   0.25/0.15 mm minimum via/drill, 1 oz outer copper, 0.5 oz inner copper, and
   ENIG finish.
-- `audit_pcb.py --calibrate` rejects 6/6 deliberately broken variants,
+- `audit_pcb.py --calibrate` rejects 8/8 deliberately broken variants,
   including a CELL_RE via, missing guard, unsplit ground regression, 0.08 mm
-  track, moved U7, and missing stackup.
+  track, moved U7, damaged U13 barrier, missing U13 GND neck, and missing
+  stackup.
 
 ## Reviewed warnings and release scope
 
@@ -46,7 +51,7 @@ assembly review items, not bare-board manufacturability errors. The exact pair
 allowlist is locked in `audit_pcb.py` and recorded in
 `ASSEMBLY-EXCEPTIONS.md`; any added or removed pair fails the release audit.
 
-Legend layers are deliberately absent from the fab ZIP. The remaining 36
+Legend layers are deliberately absent from the fab ZIP. The remaining 34
 silkscreen warnings therefore do not describe an exported manufacturing layer.
 Mask, copper, holes, routing, outline, and connectivity have no warning waiver.
 

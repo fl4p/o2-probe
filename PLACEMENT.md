@@ -50,8 +50,10 @@ pin-row run; this placeholder cannot prove final trace length.
   O₂ cell; SHT45; gas-reference TMP117 and DNP BMP390.
 - Back: expansion TVS, DNP bias/termination, three AFE test points, two 2512
   heater resistors, and cell-block TMP117.
-- Six NPTH routed slots model the two pot/thermal breaks, two heater-island side
-  cuts, and the gas-reference sensor tab. Slot endpoints remain provisional.
+- The draft used six NPTH routed slots, including a provisional longitudinal
+  gas-reference sensor tab. That U13 geometry was rejected because it ran
+  parallel to heater-to-sensor heat flow. The released board instead uses the
+  audited transverse barrier documented in `DESIGN.md` and `FAB-NOTES.md`.
 
 ## Footprints that are explicitly provisional
 
