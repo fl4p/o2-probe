@@ -7,7 +7,7 @@ board released for bare-board first articles. The accepted 106-footprint
 schematic transfers without parity errors. KiCad reports 0 errors, 0
 unconnected items, and 0 parity issues. The 29 courtyard pairs are locked
 manual-assembly exceptions and silkscreen is not exported.
-`audit_pcb.py --calibrate` rejects 17/17 known-bad variants.
+`audit_pcb.py --calibrate` rejects 20/20 known-bad variants.
 
 ## 2026-08-23 fabrication corrective pass
 
@@ -138,6 +138,16 @@ manual-assembly exceptions and silkscreen is not exported.
   the dedicated In2 plane and exact duplicate tracks/vias. The compact pass left
   one 0.0158 mm In2 `/GND` remnant; deleting it preserved 0/0/0 DRC and restored
   the intended zone-only plane.
+- A generic process-width check does not protect current paths. KRT left one
+  0.778 mm diagonal on `/+12V_SW` at the 0.09 mm signal floor between two
+  0.18 mm power segments. KiCad DRC was correctly clean, but that diagonal was
+  the series bottleneck. Widen it and calibrate an explicit per-net 0.18 mm
+  switched-supply floor rather than relying on the board-wide minimum.
+- Treat the KiCad CLI parity section as corroboration, not the sole oracle.
+  KiCad 10.0.5 can report zero parity findings after a footprint is deleted.
+  Export the schematic XML fresh, compare its complete reference set and every
+  numbered pad net against the PCB, and calibrate both a footprint deletion and
+  a pad-net mutation so that the independent contract is proven to fail closed.
 
 ## Lessons worth reusing
 

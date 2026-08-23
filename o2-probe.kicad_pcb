@@ -37725,7 +37725,7 @@
 	(segment
 		(start 101.9 96.1)
 		(end 101.35 95.55)
-		(width 0.09)
+		(width 0.18)
 		(layer "F.Cu")
 		(net "/+12V_SW")
 		(uuid "4fd1c7bd-fdf5-49e9-a976-0640302ffbff")

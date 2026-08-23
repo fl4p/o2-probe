@@ -19,7 +19,10 @@ Gerber/Excellon validation.
 
 - KiCad ERC has 0 violations; the schematic audit passes with 106 components,
   336 assigned pins, and 92 nets.
-- KiCad PCB DRC has 0 errors, 0 unconnected items, and 0 parity findings.
+- KiCad PCB DRC has 0 errors and 0 unconnected items. The release does not
+  rely on KiCad 10.0.5's parity result: `audit_pcb.py` independently compares
+  the exact schematic XML reference set and every numbered PCB pad net, with
+  zero mismatches on the release.
 - CELL_RE remains one 9.652 mm, 0.15 mm F.Cu segment from U7.13 to U11.2,
   without a via or test point; `GUARD_REPLICA` encloses the long run.
 - The board is exactly 20.00 × 107.00 × 1.00 mm with four copper layers and
@@ -32,7 +35,9 @@ Gerber/Excellon validation.
   positions, front and back, with two 0.60/0.30 mm stitch vias. PCB copper
   connects all lands; the metal ring is not an electrical jumper.
 - `HEATER_LOW` uses only ≥0.80 mm B.Cu in the tip. U10 sits 3.75 mm from the
-  ring centre and drives Q2 through a hardware-off gate network.
+  ring centre; R29 provides passive default-off, and the wired TMP117 ALERT
+  path is not credited as an overtemperature cutoff until configured and
+  fault-tested in firmware.
 - In2 is one exact filled GND plane across the slot-free board. Fitted U10 and
   U12 use dogbone ground vias rather than open via-in-pad construction.
 - Board rules and nominal stackup explicitly record the advanced-fab floor,
@@ -43,11 +48,12 @@ Gerber/Excellon validation.
 - The generator assigns `RS485_DE` to PC6 beside the USART1 TX/RX pins and
   `VA_MON` to PA7/ADC_IN7; PA0/PA1 are intentionally unused. Firmware must use
   this final pin map.
-- `audit_pcb.py --calibrate` rejects 17/17 deliberately broken variants,
+- `audit_pcb.py --calibrate` rejects 20/20 deliberately broken variants,
   including a CELL_RE via, missing guard/GND plane, reintroduced slot,
   deformed outline/GND/ring geometry, unfilled plane, missing ring stitch,
-  stale second-sensor copper, narrow heater/ordinary tracks, moved U7/U6,
-  exact duplicate copper, and missing stackup.
+  stale second-sensor copper, narrow heater/ordinary/switched-supply tracks,
+  moved U7/U6, exact duplicate copper, deleted schematic footprint, wrong pad
+  net, and missing stackup.
 - `make_fab.py` independently finds zero board-native slot contours in the
   Gerber and the one exact SGX routed NPTH in Excellon.
 

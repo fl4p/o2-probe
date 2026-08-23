@@ -438,6 +438,14 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
     check(errors, min_via >= 0.25 - 0.0001 and min_drill >= 0.15 - 0.0001,
           "MIN_VIA", f"minimum via/drill is {min_via:.3f}/{min_drill:.3f} mm")
 
+    switched_supply_tracks = [item for item in tracks if item.GetNetname() == "/+12V_SW"]
+    switched_supply_min = min((mm(item.GetWidth()) for item in switched_supply_tracks),
+                              default=0.0)
+    metrics["switched_supply_min_width_mm"] = switched_supply_min
+    check(errors, switched_supply_tracks and switched_supply_min >= 0.18 - 0.0001,
+          "POWER_TRACK_WIDTH",
+          f"/+12V_SW minimum track is {switched_supply_min:.4f} mm, want >=0.18 mm")
+
     track_signatures = Counter(
         (item.GetNetname(), item.GetLayer(), item.GetWidth(),
          frozenset(((item.GetStart().x, item.GetStart().y),
@@ -613,6 +621,12 @@ def calibrate(board_path: Path, board_text: str) -> list[str]:
         track = next(item for item in board.GetTracks() if not isinstance(item, pcbnew.PCB_VIA))
         track.SetWidth(pcbnew.FromMM(0.08))
 
+    def narrow_switched_supply(board) -> None:
+        track = next(item for item in board.GetTracks()
+                     if not isinstance(item, pcbnew.PCB_VIA)
+                     and item.GetNetname() == "/+12V_SW")
+        track.SetWidth(pcbnew.FromMM(0.09))
+
     def move_u7(board) -> None:
         footprint = next(fp for fp in board.Footprints() if fp.GetReference() == "U7")
         footprint.SetPosition(pcbnew.VECTOR2I_MM(110.0, 120.0))
@@ -632,6 +646,15 @@ def calibrate(board_path: Path, board_text: str) -> list[str]:
         item.SetWidth(source.GetWidth())
         board.Add(item)
 
+    def remove_schematic_footprint(board) -> None:
+        footprint = next(fp for fp in board.Footprints() if fp.GetReference() == "C1")
+        board.Remove(footprint)
+
+    def change_schematic_pad_net(board) -> None:
+        footprint = next(fp for fp in board.Footprints() if fp.GetReference() == "U6")
+        pad = next(pad for pad in footprint.Pads() if pad.GetNumber() == "18")
+        pad.SetNet(board.FindNet("/GND"))
+
     expect("CELL_RE via", "CELL_RE_VIA", add_cell_via)
     expect("missing guard", "GUARD_ZONE", remove_guard)
     expect("missing continuous GND plane", "GND_ZONE_COUNT", remove_gnd_zone)
@@ -645,9 +668,12 @@ def calibrate(board_path: Path, board_text: str) -> list[str]:
     expect("obsolete second-sensor copper", "OBSOLETE_TIP_COPPER", add_obsolete_tip_copper)
     expect("narrow heater-to-ring copper", "RING_HEATER_COPPER", narrow_ring_copper)
     expect("sub-process-width trace", "MIN_TRACK_WIDTH", narrow_track)
+    expect("narrow switched-heater supply", "POWER_TRACK_WIDTH", narrow_switched_supply)
     expect("remote AFE", "U7_PLACEMENT", move_u7)
     expect("moved compact MCU", "MCU_CLUSTER_PLACEMENT", move_compact_mcu)
     expect("exact duplicate copper", "DUPLICATE_COPPER", duplicate_track)
+    expect("schematic footprint deleted", "FOOTPRINT_SET", remove_schematic_footprint)
+    expect("schematic pad moved to wrong net", "PAD_NET", change_schematic_pad_net)
     expect("missing fab stackup", "STACKUP", lambda board: None, text="")
     return failures
 
@@ -675,7 +701,7 @@ def main() -> int:
         print(report.read_text(), end="")
         return 1
 
-    calibrated = "17/17 known-bad variants rejected" if args.calibrate else "not requested"
+    calibrated = "20/20 known-bad variants rejected" if args.calibrate else "not requested"
     report.write_text(
         "PASS: O2 probe fabrication audit\n"
         f"- 106 schematic footprints; 20.00 x 107.00 x 1.00 mm; four copper layers\n"
@@ -686,7 +712,8 @@ def main() -> int:
         f"TMP117-to-ring-center {metrics['tmp117_ring_distance_mm']:.3f} mm\n"
         f"- minimum track/via/drill {metrics['min_track_width_mm']:.2f}/"
         f"{metrics['min_via_diameter_mm']:.2f}/{metrics['min_via_drill_mm']:.2f} mm\n"
-        "- KiCad: 0 errors, 0 unconnected, 0 parity; "
+        f"- /+12V_SW minimum track {metrics['switched_supply_min_width_mm']:.2f} mm\n"
+        "- KiCad error DRC: 0 errors, 0 unconnected; independent XML-to-PCB parity: 0 mismatches; "
         f"reviewed warnings {dict(sorted(warnings.items()))}\n"
         f"- project rules: {settings_summary}\n"
         f"- calibration: {calibrated}\n"
