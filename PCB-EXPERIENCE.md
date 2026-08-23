@@ -2,15 +2,27 @@
 
 ## Outcome
 
-The Rev-A PCB is now a schematic-linked, electrically complete four-layer
-KiCad board.  The accepted 110-component schematic transfers without parity
-errors: 110 footprints and 343 numbered pad/net assignments pass
-`audit_pcb.py`.  KiCad's authoritative DRC reports zero unconnected items,
-zero schematic-parity issues, and zero copper, hole, edge, track-width, or
-silkscreen violations.  The remaining report entries are 29 real courtyard
-overlaps and 110 library-copy mismatch warnings.  They keep the board out of
-fabrication release until the physical/assembly placement is reviewed; they
-are not routing residuals and were not hidden with exclusions.
+The Rev-A PCB is a schematic-linked, electrically complete four-layer KiCad
+board released for bare-board first articles. The accepted 109-footprint
+schematic transfers without parity errors. KiCad reports 0 errors, 0
+unconnected items, and 0 parity issues; all placed/library mismatches are gone.
+The 28 courtyard pairs are locked manual-assembly exceptions and silkscreen is
+not exported. `audit_pcb.py --calibrate` rejects 6/6 known-bad variants.
+
+## 2026-08-23 fabrication corrective pass
+
+- Move U7 to the potted side immediately behind the dam. CELL_RE is now one
+  9.652 mm F.Cu segment with no via or test point.
+- Extend the low-impedance guard-replica net into a continuous F.Cu enclosure
+  around the long CELL_RE run.
+- Split In2 GND across the 3.5 mm potting transition and reconnect it with one
+  deliberate 0.25 mm bridge at the board edge.
+- Replace the illustration-derived round SGX pilot with a 3 × 6 mm gasward
+  first-article NPTH slot while retaining the official Issue 2 body/pin geometry.
+- Resynchronise all 109 placed footprints from authoritative libraries and
+  enable every KiCad DRC category. Route endpoint and dangling-stub warnings
+  were corrected, not suppressed.
+- Generate and independently inspect the Gerber/Excellon ZIP with `make_fab.py`.
 
 ## 2026-08-22 KiCadRoutingTools completion pass
 
@@ -43,18 +55,17 @@ are not routing residuals and were not hidden with exclusions.
   Reopen the written board, refill zones, and save again before DRC; otherwise
   stale fill appears to short every new through-via to the plane.
 - Use an explicit advanced-fabrication floor consistently. This board permits
-  0.075 mm minimum tracks, 0.25/0.15 mm vias, and 0.05 mm annular rings. These
+  0.09 mm minimum tracks, 0.25/0.15 mm vias, and 0.05 mm annular rings. These
   limits must be quoted to the fabricator, never inferred from emergency router
   geometry.
-- Treat an enlarged NPTH or slot as a copper change. Increasing the SGX rear
-  aperture from 2.5 to 3.0 mm invalidated nearby `/I2C_SDA` and `/3V3D` routes
+- Treat an enlarged NPTH or slot as a copper change. Introducing the SGX rear
+  flow slot invalidated nearby `/I2C_SDA` and `/3V3D` routes
   even though the footprint pads did not move. Query KiCad DRC for every item
   intersecting the new hole-clearance envelope, withdraw only those nets, and
   reroute them before promotion.
-- If a prototype aperture may need hand enlargement, reserve and audit a larger
-  no-trace envelope from the outset. Route nearby unrelated nets radially away,
-  keep the continuous plane intact, and state the separate pad-limited maximum:
-  trace clearance alone does not make the full construction circle drillable.
+- Do not infer an undimensioned gas-port diameter from a drawing. Preserve the
+  official pin/body geometry, use a clearly labelled first-article flow/fit
+  feature, and require a physical sample before production qualification.
 - KRT may add a redundant same-net loop that boxes an adjacent pad. At U13,
   removing a three-segment redundant SDA loop freed the centre 3V3D dogbone;
   the exposed-pad return was locally doglegged, then KRT rejoined the two SDA
@@ -86,7 +97,7 @@ are not routing residuals and were not hidden with exclusions.
   actionable KiCad report.
 - Clear placement-origin copper errors before routing. The accepted seed had
   zero shorts, ordinary clearance, hole, edge, and mask violations. Courtyard
-  overlaps remain a separate assembly release gate.
+  overlaps remain a separate manual-assembly review item.
 - A component grid is not functional placement.  In this board, C17 and the
   reference/RS-485 support parts landed tens of millimetres from the IC pins
   they serve.  The autorouter could make the picture look busy but could not
@@ -119,10 +130,9 @@ are not routing residuals and were not hidden with exclusions.
   cable-entry surge return, heater return, quiet analogue return, and via-stitch
   review.  Plane fill should be repeated only after those current paths are
   deliberately shaped.
-- A driven guard is a topology, not decorative copper.  The next manual pass
-  must route CELL_RE without vias or mask relief and place a continuous
-  GUARD_REPLICA trace/copper enclosure referenced to the low-impedance buffer.
-  Autorouted AFE traces are only a connectivity draft.
+- A driven guard is a topology, not decorative copper. Audit the low-impedance
+  source, its connected route/via, the guard zone, the enclosed sensitive run,
+  and the absence of vias or test-mask openings on the sensitive node.
 - Keep fabrication gates visible in the same status record as DRC.  Zero parity
   does not validate the SGX sample footprint/rear port, connector tube chord,
   potting dam, slot thermal neck, exact passive stress ratings, or VREF stability.
@@ -130,16 +140,10 @@ are not routing residuals and were not hidden with exclusions.
 ## Reproduction sequence
 
 ```sh
-# KiCad bundled Python is required by the pcbnew scripts.
-O2_PCB_OUT=o2-probe-seed.kicad_pcb python3 gen_pcb.py
-# Run KRT route.py on signals, then repair_planes.py for /GND. The exact
-# successful per-net scope and settings are retained in krt-signals-final.json.
-O2_PCB_IN=o2-probe-krt-final.kicad_pcb \
-  O2_PCB_OUT=o2-probe-final.kicad_pcb python3 finalize_pcb.py
-python3 audit_pcb.py
-kicad-cli pcb drc --severity-all --schematic-parity \
-  --exit-code-violations -o pcb-drc.rpt o2-probe.kicad_pcb
+python3 make_fab.py
 ```
 
-`gen_pcb.py` regenerates an unrouted seed. Set `O2_PCB_OUT`; never point it at
-the accepted `o2-probe.kicad_pcb` while investigating placement changes.
+That command applies/verifies project rules, runs ERC and both audits, records
+error and warning DRC JSON, plots the exact layer set, validates Gerber X2
+functions and outline dimensions, validates routed NPTH Excellon data, writes
+checksums, and builds `fab/o2-probe-rev-a-fab.zip`.

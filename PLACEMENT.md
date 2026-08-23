@@ -1,5 +1,10 @@
 # Rev-A footprint placement draft
 
+> **Superseded by the schematic-linked first-article release dated
+> 2026-08-23.** This file records the earlier placement study only. Fabricate
+> from `fab/o2-probe-rev-a-fab.zip`; current geometry and gates are in
+> `FAB-READINESS.md` and `FAB-NOTES.md`.
+
 This is an **unrouted mechanical placement study**, not a schematic-derived
 board. Its purpose is to force the enclosure, pot boundary, thermal slots,
 component heights, cell gas path, and rework access into one KiCad artefact
@@ -13,23 +18,22 @@ before schematic capture.
 - `o2-probe-placement-back-preview.svg` — solder-side plot, mirrored as viewed
   from outside the board.
 - `placement-drc.rpt` — placement DRC; zero violations as generated.
-- `lib/o2-probe.pretty/SGX-OX-ROHS-Mini_DRAFT.kicad_mod` — provisional cell
-  footprint.
+- `lib/o2-probe.pretty/SGX-OX-ROHS-Mini_ISS2.kicad_mod` — released
+  first-article cell footprint derived from DS-0637 Issue 2.
 
 ## Controlled datums
 
 | Item | Draft value |
 | --- | --- |
-| Board | 20.0 × 125.0 mm, R2.0 corners, 1.0 mm, 2 layers |
+| Board | 20.0 × 125.0 mm, R2.0 corners, 1.0 mm, 4 layers |
 | Board-local origin | cable-end left corner `(0, 0)` |
 | Pot line | `y = 82.0 mm` |
 | Gas zone | begins after transition at `y = 86.0 mm` |
 | Cell centre | `(10.0, 93.5) mm` |
 | Cell pin row | `y = 91.0 mm`, toward cable/AFE |
-| LMP91000 centre | `(10.5, 79.5) mm` |
-| LMP centre to cell pin row | 11.5 mm; target gas-side pad row to cell pin row ≈9.5 mm |
-| Gas-port pilot | Ø3.0 mm NPTH, user-accepted illustration-derived prototype estimate |
-| Gas-port routed-copper envelope | Ø4.5 mm, marked on `Dwgs.User`; pad 2 still limits safe drill diameter |
+| LMP91000 centre | `(10.0, 79.5) mm` |
+| LMP CELL_RE pad to cell RE pin | 9.652 mm |
+| Rear-flow first-article aperture | 3.0 × 6.0 mm vertical NPTH slot, centred 2.5 mm gasward |
 
 The cell moved from the outline sketch's original `y = 105 mm` to `y = 93.5
 mm`. At 105 mm the cell pins were roughly 20 mm beyond the pot boundary, which

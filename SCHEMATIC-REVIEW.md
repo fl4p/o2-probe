@@ -1,5 +1,9 @@
 # O2 probe Rev A — independent schematic review
 
+> Historical review record. Its original fail and 2026-08-21 re-review are
+> superseded by the 2026-08-23 first-article release evidence in
+> `FAB-READINESS.md`, `schematic-audit.rpt`, and `pcb-audit.rpt`.
+
 Review date: 2026-08-21  
 Reviewer: independent Codex agent  
 Scope: `PLAN.md`, `DESIGN.md`, `gen_sch.py`, generated schematic/netlists,
