@@ -13,7 +13,6 @@ o2-probe-closed*
 o2-probe-final.kicad_*
 o2-probe-krt*.kicad_*
 o2-probe-plane*.kicad_*
-o2-probe-prerouted*
 o2-probe-route*
 o2-probe-seed*
 o2-probe-signals-*
