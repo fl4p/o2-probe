@@ -118,6 +118,10 @@ gas_label = [
 assert len(gas_label) == 1, f"expected one gas-side label, found {len(gas_label)}"
 gas_label[0].SetPosition(point(10.0, 109.5))
 
+tp7 = next(footprint for footprint in board.Footprints() if footprint.GetReference() == "TP7")
+assert local_xy(tp7.GetPosition()) == (10.0, 112.5), "TP7 no longer has the rejected heater-side placement"
+tp7.SetPosition(point(10.0, 119.0))
+
 # Each 7.5 mm slot leaves 0.75 mm edge webs and a 3.5 mm centre neck.  The
 # combined direct FR-4 path is therefore 5.0 mm rather than the full 20 mm.
 slot(4.5, 114.0, 7.5, 0.8)
@@ -153,6 +157,15 @@ def remove_uuids(uuids):
     assert not missing, f"route migration UUIDs missing: {sorted(missing)}"
     for uuid in uuids:
         board.Remove(tracks[uuid])
+
+
+# Keep U13's exposed-pad test land on the gasward side.  The rejected route
+# crossed the barrier directly into the sensor's thermal pad.
+remove_uuids({"f09860d4-13c9-4964-85d4-b06872e7ffab"})
+gas_ep = board.FindNet("/TMP_GAS_EP")
+segment(gas_ep, pcbnew.B_Cu, (10.0, 116.0), (10.6, 116.6), 0.18)
+segment(gas_ep, pcbnew.B_Cu, (10.6, 116.6), (10.6, 118.4), 0.18)
+segment(gas_ep, pcbnew.B_Cu, (10.6, 118.4), (10.0, 119.0), 0.18)
 
 
 # 3V3D: move the one heater-to-tip crossing into the centre neck.
@@ -193,8 +206,9 @@ segment(scl, pcbnew.F_Cu, (6.8, 115.0), (6.8, 118.2), 0.09)
 segment(scl, pcbnew.F_Cu, (6.8, 118.2), (9.35, 118.2), 0.09)
 
 
-# U12's SDA branch still needs the existing U13 pad-6 via, but it no longer
-# crosses at x=5..7.  Move that branch to In1 and through the centre neck.
+# Join U12's SDA branch to the main trunk on the heater side. U13 pad 6 is
+# already joined to pad 4 gasward of the barrier, so a second SDA crossing
+# would be a redundant electrical loop and an avoidable copper heat path.
 remove_uuids({
     "6ba75dba-db29-46f8-808f-b1b208356097",
     "222d88fc-a030-4376-afc3-460e06f1223f",
@@ -202,9 +216,11 @@ remove_uuids({
 })
 sda = board.FindNet("/I2C_SDA")
 via(sda, (4.65, 112.95))
-segment(sda, pcbnew.In1_Cu, (4.65, 112.95), (8.55, 112.95), 0.09)
-segment(sda, pcbnew.In1_Cu, (8.55, 112.95), (9.55, 113.95), 0.09)
-segment(sda, pcbnew.In1_Cu, (9.55, 113.95), (9.55, 115.0), 0.09)
+segment(sda, pcbnew.B_Cu, (4.65, 112.95), (4.0, 112.3), 0.09)
+segment(sda, pcbnew.B_Cu, (4.0, 112.3), (4.0, 110.5), 0.09)
+segment(sda, pcbnew.B_Cu, (4.0, 110.5), (10.2, 110.5), 0.09)
+via(sda, (10.2, 110.5))
+segment(sda, pcbnew.F_Cu, (10.2, 110.5), (10.65, 110.5), 0.09)
 
 
 # ALERT: replace the right-slot crossing, then simplify the R30 branch so it
@@ -229,8 +245,8 @@ segment(alert, pcbnew.F_Cu, (11.2, 114.8), (11.4, 114.8), 0.18)
 segment(alert, pcbnew.F_Cu, (11.4, 114.8), (11.4, 115.2), 0.18)
 segment(alert, pcbnew.F_Cu, (11.4, 116.4), (11.4, 117.5), 0.18)
 via(alert, (11.4, 117.5), 0.45, 0.20)
-segment(alert, pcbnew.B_Cu, (11.4, 117.5), (8.0, 117.5), 0.18)
-segment(alert, pcbnew.B_Cu, (8.0, 117.5), (8.0, 116.3), 0.18)
+segment(alert, pcbnew.In1_Cu, (11.4, 117.5), (8.0, 117.5), 0.18)
+segment(alert, pcbnew.In1_Cu, (8.0, 117.5), (8.0, 116.3), 0.18)
 
 
 # Move C21's GND via clear of the right-hand slot and the adjacent 3V3D via.

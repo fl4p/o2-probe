@@ -5,4 +5,4 @@ PASS: O2 probe fabrication audit
 - minimum track/via/drill 0.09/0.25/0.15 mm
 - KiCad: 0 errors, 0 unconnected, 0 parity; reviewed warnings {'courtyards_overlap': 28, 'silk_edge_clearance': 2, 'silk_over_copper': 16, 'silk_overlap': 16}
 - project rules: 12 process rules; 62 enabled DRC severities; Default 0.15 mm clearance
-- calibration: 8/8 known-bad variants rejected
+- calibration: 13/13 known-bad variants rejected

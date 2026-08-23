@@ -161,7 +161,7 @@ def main() -> int:
         "--generate-map", "--map-format", "pdf", "--generate-report",
         "--report-path", TEMP / "o2-probe-drill-report.txt", BOARD)
     run(KICAD, "pcb", "export", "pdf", "-o", TEMP / "o2-probe-fab-drawing.pdf",
-        "--layers", "F.Fab,B.Fab,Edge.Cuts,Dwgs.User,Cmts.User",
+        "--layers", "F.Fab,B.Fab,F.Silkscreen,B.Silkscreen,Edge.Cuts,Dwgs.User,Cmts.User",
         "--mode-multipage", "--black-and-white", "--check-zones", BOARD)
 
     validation = {}
@@ -181,6 +181,8 @@ def main() -> int:
         "schematic": {"file": SCHEMATIC.name, "sha256": sha256(SCHEMATIC)},
         "layers": LAYERS,
         "silkscreen_exported": False,
+        "drawing_layers": ["F.Fab", "B.Fab", "F.Silkscreen", "B.Silkscreen",
+                           "Edge.Cuts", "Dwgs.User", "Cmts.User"],
         "validation": validation,
         "qualification_scope": "bare-board first article; not automated PCBA or production qualified",
     }

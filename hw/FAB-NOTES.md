@@ -21,6 +21,12 @@ The fabricator may adjust prepreg/core thicknesses to its standard four-layer
 1.00 mm process while preserving layer order, finished thickness, and copper
 weights.
 
+The source `POT TO HERE` and `DO NOT OBSTRUCT` legend marks are included in the
+controlled multipage fabrication/assembly drawing, but not printed on these
+first-article boards. The potting fixture owns the y=82 datum, and the assembly
+traveller must keep the SGX slot and both gas faces unobstructed. Physical
+legend is a production-release item after the dense placement is cleaned.
+
 ## Mechanical data
 
 - Six closed routed slots are part of Edge.Cuts.
@@ -37,8 +43,9 @@ weights.
 ## Release contents
 
 The ZIP contains seven Gerbers (four copper, two mask, one outline), separated
-PTH/NPTH Excellon data, drill map/report, fabrication drawing, DRC/audit evidence,
-manifest, and checksums. Fabricate from the ZIP, not from editor plot settings.
+PTH/NPTH Excellon data, drill map/report, the controlled fabrication/assembly
+drawing including both source legend layers, DRC/audit evidence, manifest, and
+checksums. Fabricate from the ZIP, not from editor plot settings.
 
 First-article SGX fit, enclosure fit, manual assembly, and bench qualification
 are acceptance operations; see `FAB-READINESS.md`.

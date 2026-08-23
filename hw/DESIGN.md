@@ -101,9 +101,10 @@ Current generated result: 109 components, 347 assigned package pins, KiCad ERC
 - Confirm every exact MPN/package pin map, MCU alternate-function assignment,
   input protection rating, heater steady-state temperature, and component
   ambient rating in the independent review before PCB transfer.
-- The board must not be ordered until schematic/PCB parity, DRC, creepage and
-  slot review, 1:1 paper fit, tube chord fit, cell sample fit, and potting-fixture
-  review all pass.
+- Bare-board first articles may be ordered after schematic/PCB parity, DRC,
+  creepage, and routed-slot review pass. A 1:1 paper/tube coupon, real cell fit,
+  and potting-fixture interface review remain mandatory before production or
+  automated-assembly release.
 
 ## Source access log
 
@@ -141,6 +142,8 @@ The U13 gas-reference barrier is the transverse pair at local `y=114.0`: two
 They reduce the direct heater-to-U13 FR-4 cross-section from 20.0 to 5.0 mm.
 The previous longitudinal pair was rejected because it started at U13 and ran
 parallel to the heat path, so it did not interrupt heater conduction.
+TP7, the land connected to U13's exposed thermal pad, is at local `(10,119)`
+on the gasward side; no `/TMP_GAS_EP` copper crosses the barrier.
 
 The LMP91000 is on the potted side of the dam. CELL_RE is a single 9.652 mm
 F.Cu segment with no via or test point and is enclosed by a driven guard. In2
@@ -150,7 +153,7 @@ region remains a filled GND plane without creating a broad copper heat strap.
 All placed footprints match their authoritative library copies.
 
 KiCad 10.0.5 reports 0 DRC errors, 0 unconnected items, and 0 parity issues.
-The calibrated PCB audit rejects 8/8 known-bad variants. The 28 exact courtyard
+The calibrated PCB audit rejects 13/13 known-bad variants. The 28 exact courtyard
 pairs are manual-assembly exceptions; legend layers are not exported. See
 `FAB-READINESS.md`, `ASSEMBLY-EXCEPTIONS.md`, and `FAB-NOTES.md` for release
 scope and remaining qualification work.
