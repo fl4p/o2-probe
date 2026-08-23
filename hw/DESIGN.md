@@ -136,14 +136,21 @@ R2 outline, y=82 local pot line, cell centre `(10, 93.5)`, six routed slots,
 and gas-sensor locations. It is a four-layer, 1.0 mm board with an explicit
 ENIG/1 oz outer/0.5 oz inner nominal stackup.
 
+The U13 gas-reference barrier is the transverse pair at local `y=114.0`: two
+7.5 × 0.8 mm routed slots leave 0.75 mm edge webs and a 3.5 mm centre neck.
+They reduce the direct heater-to-U13 FR-4 cross-section from 20.0 to 5.0 mm.
+The previous longitudinal pair was rejected because it started at U13 and ran
+parallel to the heat path, so it did not interrupt heater conduction.
+
 The LMP91000 is on the potted side of the dam. CELL_RE is a single 9.652 mm
 F.Cu segment with no via or test point and is enclosed by a driven guard. In2
-GND is split through the potting transition and reconnects at one deliberate
-0.25 mm edge bridge. All placed footprints match their authoritative library
-copies.
+GND is split through both the potting transition and the U13 thermal barrier;
+each split reconnects through one deliberate 0.25 mm In2 bridge. The U13-side
+region remains a filled GND plane without creating a broad copper heat strap.
+All placed footprints match their authoritative library copies.
 
 KiCad 10.0.5 reports 0 DRC errors, 0 unconnected items, and 0 parity issues.
-The calibrated PCB audit rejects 6/6 known-bad variants. The 28 exact courtyard
+The calibrated PCB audit rejects 8/8 known-bad variants. The 28 exact courtyard
 pairs are manual-assembly exceptions; legend layers are not exported. See
 `FAB-READINESS.md`, `ASSEMBLY-EXCEPTIONS.md`, and `FAB-NOTES.md` for release
 scope and remaining qualification work.

@@ -24,6 +24,9 @@ weights.
 ## Mechanical data
 
 - Six closed routed slots are part of Edge.Cuts.
+- The U13 thermal barrier is the pair of transverse 7.50 × 0.80 mm slots at
+  local `y=114.0`. Preserve the 0.75 mm edge webs and 3.50 mm centre neck; do
+  not rotate the slots or substitute the rejected longitudinal geometry.
 - U11 contains one 3.00 × 6.00 mm gasward-offset NPTH routed slot. Do not
   convert it to a round drill or reduce it without engineering approval.
 - PTH and NPTH drills are separated in the Excellon outputs. NPTH oblongs use

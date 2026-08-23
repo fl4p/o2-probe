@@ -7,7 +7,7 @@ board released for bare-board first articles. The accepted 109-footprint
 schematic transfers without parity errors. KiCad reports 0 errors, 0
 unconnected items, and 0 parity issues; all placed/library mismatches are gone.
 The 28 courtyard pairs are locked manual-assembly exceptions and silkscreen is
-not exported. `audit_pcb.py --calibrate` rejects 6/6 known-bad variants.
+not exported. `audit_pcb.py --calibrate` rejects 8/8 known-bad variants.
 
 ## 2026-08-23 fabrication corrective pass
 
@@ -17,6 +17,10 @@ not exported. `audit_pcb.py --calibrate` rejects 6/6 known-bad variants.
   around the long CELL_RE run.
 - Split In2 GND across the 3.5 mm potting transition and reconnect it with one
   deliberate 0.25 mm bridge at the board edge.
+- Reject the two longitudinal U13 slots: they began at the sensor and ran
+  parallel to heater-to-sensor heat flow. Replace them with two transverse
+  7.5 × 0.8 mm slots, leaving only 5.0 mm total direct FR-4 cross-section, and
+  split In2 across the same barrier with one 0.25 mm bridge.
 - Replace the illustration-derived round SGX pilot with a 3 × 6 mm gasward
   first-article NPTH slot while retaining the official Issue 2 body/pin geometry.
 - Resynchronise all 109 placed footprints from authoritative libraries and
@@ -82,6 +86,10 @@ not exported. `audit_pcb.py --calibrate` rejects 6/6 known-bad variants.
   up as extra schematic parts under `--schematic-parity`.  Closed Edge.Cuts
   capsules are the correct board-native representation and can be audited by
   count and datum.
+- A thermal slot is load-bearing only when it interrupts the actual heat-flow
+  path. Lock its orientation, residual neck/web widths, sensor/heater sides,
+  and every copper-plane crossing. A slot parallel to the gradient, or a solid
+  plane spanning the intended barrier, is decorative geometry.
 - Preserve KiCad's one-pad `unconnected-(...)` pseudo-nets on the saved board
   for parity, but remove them only from the temporary Specctra export.  Older
   Freerouting versions attempt to route them and can dereference a nonexistent
@@ -126,7 +134,9 @@ not exported. `audit_pcb.py --calibrate` rejects 6/6 known-bad variants.
   `audit_pcb.py`, so a future electrical rearrangement cannot silently move a
   controlled enclosure interface.
 - Ground planes help connectivity but are not a substitute for deliberate
-  return design.  The final routing pass still needs a manual buck hot-loop,
+  return or thermal design. The U13 tip retains its own In2 fill, but the fill
+  crosses the thermal barrier only through a 0.25 mm bridge. The final routing
+  pass still needs a manual buck hot-loop,
   cable-entry surge return, heater return, quiet analogue return, and via-stitch
   review.  Plane fill should be repeated only after those current paths are
   deliberately shaped.

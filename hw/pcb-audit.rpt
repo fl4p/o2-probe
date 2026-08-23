@@ -1,8 +1,8 @@
 PASS: O2 probe fabrication audit
 - 109 schematic footprints; 20.00 x 125.00 x 1.00 mm; four copper layers
 - CELL_RE: 9.652 mm single F.Cu segment, no via/testpoint; U7-to-cell pin distance 9.652 mm
-- driven F.Cu guard present; In2 GND split at potting boundary with one 0.25 mm bridge
+- driven F.Cu guard present; In2 GND split at potting and U13 thermal boundaries, each with one 0.25 mm bridge
 - minimum track/via/drill 0.09/0.25/0.15 mm
-- KiCad: 0 errors, 0 unconnected, 0 parity; reviewed warnings {'courtyards_overlap': 28, 'silk_edge_clearance': 2, 'silk_over_copper': 16, 'silk_overlap': 18}
+- KiCad: 0 errors, 0 unconnected, 0 parity; reviewed warnings {'courtyards_overlap': 28, 'silk_edge_clearance': 2, 'silk_over_copper': 16, 'silk_overlap': 16}
 - project rules: 12 process rules; 62 enabled DRC severities; Default 0.15 mm clearance
-- calibration: 6/6 known-bad variants rejected
+- calibration: 8/8 known-bad variants rejected
