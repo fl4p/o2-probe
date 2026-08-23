@@ -14,7 +14,7 @@ exploded = false;
 
 // Controlled PCB and cell dimensions.
 pcb_width = 20;
-pcb_length = 125;
+pcb_length = 119;
 pcb_thickness = 1;
 pcb_z = 5;
 pot_datum = pcb_z + 82;

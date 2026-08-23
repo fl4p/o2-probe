@@ -42,7 +42,7 @@ doubles the sealing problem.
   3.3VD LDO → MCU STM32G071 (105 °C), RS485 xcvr    │     │  pins cross the dam)
   3.3VA LDO → 2.5 V VREF → LMP91000 → ADS1119       │     │ SHT45-AD1F (slotted tab)
   LMP91000 hard against dam, RE guard-ringed        │     │ TMP117 #2 (gas, iso tab)
-  heater FET (12 V PWM) → 2×2512 resistors on       │     │ DNP BMP390
+  heater FET (12 V PWM) → 2×2512 resistors on       │     │ DNP BMP390 (heater side)
    cell-block copper island straddling the dam      │     │
   TMP117 #1 on heater island · expansion connector  │     │
 ```
@@ -65,7 +65,7 @@ actual 32 mm tube, with the cable termination, expansion connector, cell,
 membrane carrier, and potting fixture installed.
 
 Coordinate system: view from the component side, cable end at `y = 0`, probe tip
-at `y = 125`, board centreline at `x = 10`. All dimensions below are mm.
+at `y = 119`, board centreline at `x = 10`. All dimensions below are mm.
 
 ```
                 20.0
@@ -80,14 +80,14 @@ at `y = 125`, board centreline at `x = 10`. All dimensions below are mm.
             │ heater island│
             │   ┌──────┐   │
             │   │  O2  │   │  cell centre (10,93.5)
-            │   │ cell │   │  GAS: y=86…125
+            │   │ cell │   │  GAS: y=86…119
             │   └──────┘   │
             │ SHT45  Tgas  │
-            └──────────────┘  y=125
+            └──────────────┘  y=119
                  tip
 ```
 
-- **Outer `Edge.Cuts`:** 20.0 × 125.0 rounded rectangle, nominal corner radius
+- **Outer `Edge.Cuts`:** 20.0 × 119.0 rounded rectangle, nominal corner radius
   2.0. FR-4, 4 layers, 1.0 mm thickness; a different thickness is allowed only after
   the tube chord/assembled-height check. The 20 mm width leaves nominal 4 mm
   radial clearance per side in the ≈28 mm tube ID, but this is not a component
@@ -135,14 +135,18 @@ at `y = 125`, board centreline at `x = 10`. All dimensions below are mm.
   filled inlet region through one explicit 0.25 mm bridge; a solid plane must
   not bypass the mechanical barrier. Keep the TMP117 #2 exposed-pad land and
   all of its copper gasward of the barrier. Audit the complete authorized
-  crossing bundle; do not allow redundant same-net crossings. Slots starting
+  crossing bundle; do not allow redundant same-net crossings. Put the exposed-
+  pad land TP7 laterally at `(15,116)` so it consumes no axial tip length.
+  Keep fitted C22 with TMP117 #2. Put the DNP BMP390 and DNP C23/C24
+  heaterward of the barrier at local y=107.5–110. Slots starting
   at TMP117 #2 and running
   longitudinally toward the inlet are forbidden because they are parallel to
   the gradient and leave the heater-facing root intact. Put the SHT45 in the
   warmed cell chamber, adjacent to the island but with its gas opening and
   rework path clear; it must not migrate to the unheated inlet merely because
-  that placement is easier. Leave at least 2 mm laminate to the `y = 125` edge
-  until the membrane carrier and fab edge-clearance are known.
+  that placement is easier. The rounded end stops at `y = 119`, 6 mm shorter
+  than the superseded outline; verify membrane clearance and the remaining
+  laminate on the enclosure coupon.
 - **Cable end:** reserve the first 8 mm (`y = 0…8`) for four staggered solder
   pads, water-blocking/strain-relief geometry, and polarity silkscreen. Copper
   and components may not project beyond the outline. Expansion-connector height
@@ -187,7 +191,7 @@ at `y = 125`, board centreline at `x = 10`. All dimensions below are mm.
 - tmp117-probe rules carried over: **no I2C pullups on sensed islands; ADD0
   never floats.**
 - Tube target: 32 mm OD PVC-U pipe (ID ≈ 28 mm) clears the 14.4 mm cell can;
-  Rev-A outline draft = 20 × 125 mm (dimensioned above); gas window = slots +
+  Rev-A outline = 20 × 119 mm (dimensioned above); gas window = slots +
   ePTFE membrane + mesh
   (enclosure work). Cell faces marked DO NOT OBSTRUCT: the rear vent needs a
   **routed aperture through the PCB (or specified standoff + lateral gap)**,
@@ -357,7 +361,8 @@ verification discipline. Copy/adapt from `/Users/fab/dev/ee/hw/tmp117-probe/`:
 5. **Layout.** Zone partition, guard ring, dam, heater island, iso slots; buck
    far from AFE + LC post-filter; DRC + settings verify.
 6. **Audit.** Rewrite audit.py checks, `--calibrate`, record in DESIGN.md.
-7. **Fab outputs.** BOM/CPL/gerbers, JLCPCB flow.
+7. **Fab outputs.** BOM/CPL/Gerbers and capability confirmation from the
+   selected fabricator; do not infer JLCPCB or any other vendor.
 
 ## Verification
 

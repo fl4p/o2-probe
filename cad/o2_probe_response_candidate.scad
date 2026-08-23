@@ -19,7 +19,7 @@ tube_od = 32;
 tube_id = 28;
 tube_length = 135;
 pcb_width = 20;
-pcb_length = 125;
+pcb_length = 119;
 pcb_thickness = 1;
 pcb_z = 5;
 
