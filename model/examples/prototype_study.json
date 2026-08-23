@@ -22,13 +22,13 @@
   "designs": [
     {
       "name": "existing_rev_a_axial",
-      "description": "current axial PMV15T disc and approximately full pot-datum-to-tip plenum",
-      "volume_cm3": [24.0, 27.0, 30.0],
+      "description": "current shortened axial PMV15T disc and approximately full pot-datum-to-tip plenum",
+      "volume_cm3": [20.3, 23.3, 26.3],
       "free_area_mm2": [183.0, 193.05, 203.0],
-      "cell_to_membrane_distance_mm": [35.0, 42.0],
+      "cell_to_membrane_distance_mm": [29.0, 36.0],
       "transport_model": "axial_1d",
-      "axial_length_mm": 50.0,
-      "sensor_position": "cell centre z=98.5 mm in the 135 mm tube",
+      "axial_length_mm": 44.0,
+      "sensor_position": "cell centre z=98.5 mm in the 129 mm tube; membrane datum z=131 mm",
       "sensor_orientation": "cell axis normal to PCB; two gas faces lateral; rear routed aperture retained",
       "membrane_orientation": "single axial tip disc behind drained head",
       "heater_geometry": "remote PCB cell island; membrane coupling unmeasured"

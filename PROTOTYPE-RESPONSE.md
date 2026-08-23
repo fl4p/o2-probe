@@ -5,17 +5,22 @@ Status: uncalibrated sensitivity decision; geometry is not fabrication release.
 
 ## Result
 
-The existing axial Rev-A geometry is **not well mixed**. The corrected heater-off
-model represents a 50 mm closed axial gas domain and reads the sensor 38.5 mm
-behind the membrane. At the central, uncalibrated effective diffusivity
-`D_eff = 2e-5 m²/s`, it reaches t90 in about **135 s** and settles within 2% in
-about **220 s**. Across the `1e-5`–`3e-5 m²/s` sensitivity range, central-case
-settling is about **428–151 s**. None of these cases meets 120 s.
+The shortened axial Rev-A geometry is **not well mixed**. The corrected
+heater-off model represents a 44 mm closed axial gas domain and reads the
+sensor 32.5 mm behind the membrane. At the central, uncalibrated effective
+diffusivity `D_eff = 2e-5 m²/s`, it reaches t90 in about **105 s** and settles
+within 2% in about **171 s**. Across the `1e-5`–`3e-5 m²/s` sensitivity range,
+central-case settling is about **332–118 s**; only the highest-diffusivity
+central case reaches the 120 s screen.
 
-The former 20.0 s value assumed the entire enclosure volume mixed instantly.
+The 19.7 s value assumes the entire enclosure volume mixes instantly.
 It omitted the measured axial path and is not the original design's response
-prediction. It remains in the output only as an explicitly labeled idealized
+prediction. It remains in the output only as an explicitly labelled idealized
 well-mixed screening estimate.
+
+The effective-volume band is now 20.3–26.3 cm³ (23.3 cm³ nominal). It subtracts
+the 3.69 cm³ gross volume of the removed 6 mm of 28 mm-ID tube from the prior
+sensitivity band; it is not a measured or detailed CAD free-volume result.
 
 The response-oriented **build candidate after the 3-D spatial screen** is a compact recessed-coupon microplenum:
 

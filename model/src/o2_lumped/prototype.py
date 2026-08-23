@@ -233,6 +233,8 @@ def candidate_config(config: ModelConfig, design: PrototypeDesign) -> ModelConfi
 
 def render_prototype_report(config: ModelConfig, study: PrototypeStudy, results: PrototypeResults) -> str:
     recommended = results.recommended
+    baseline = next(design for design in study.designs if design.name == study.baseline_design)
+    baseline_distance = float(np.mean(baseline.cell_to_membrane_distance_mm))
     current = results.summary[results.summary.design == study.baseline_design].iloc[0]
     chosen = results.summary[results.summary.design == recommended.name].iloc[0]
     verified_chosen = results.nonlinear_verification[
@@ -266,7 +268,7 @@ Retain `{recommended.name}` as the response-oriented **build candidate**, not a 
 - membrane: {recommended.membrane_orientation};
 - heater: {recommended.heater_geometry}.
 
-The current Rev-A is **not well mixed**. With its 50 mm closed axial domain and the cell 38.5 mm behind the membrane, the heater-off 1-D finite-volume model gives t90={current_axial_reference.t90_s:.1f} s and 2% settling={current_axial_reference.settling_time_2pct_s:.1f} s at the reference effective diffusivity {study.reference_axial_diffusivity_m2_s:.2g} m²/s. Across the uncalibrated {min(study.axial_diffusivity_m2_s):.2g}–{max(study.axial_diffusivity_m2_s):.2g} m²/s range, central-case settling spans {current_axial_settling.min():.1f}–{current_axial_settling.max():.1f} s. The previously reported 20.0 s current-design result is only an idealized well-mixed estimate that omitted the axial path; it is not the original geometry's predicted response.
+The current Rev-A is **not well mixed**. With its {baseline.axial_length_mm:g} mm closed axial domain and the cell {baseline_distance:g} mm behind the membrane, the heater-off 1-D finite-volume model gives t90={current_axial_reference.t90_s:.1f} s and 2% settling={current_axial_reference.settling_time_2pct_s:.1f} s at the reference effective diffusivity {study.reference_axial_diffusivity_m2_s:.2g} m²/s. Across the uncalibrated {min(study.axial_diffusivity_m2_s):.2g}–{max(study.axial_diffusivity_m2_s):.2g} m²/s range, central-case settling spans {current_axial_settling.min():.1f}–{current_axial_settling.max():.1f} s. The {current.nominal_dry_no_access_settling_time_2pct_s:.1f} s current-design result is only an idealized well-mixed estimate that omitted the axial path; it is not the current geometry's predicted response.
 
 Under the deliberately hard **well-mixed volume/area sensitivity** (largest volume, smallest area, {min(study.installed_conductance_scales):g}× installed conductance, {max(study.cell_tau_s):g} s cell lag and {max(study.empirical_access_tau_s):g} s empirical access lag), the proposed dual-side concept's linearized 2% estimate is {chosen.worst_studied_settling_time_2pct_s:.1f} s and its nonlinear well-mixed check gives {verified_chosen.settling_time_2pct_s:.1f} s. The candidate's nominal-dry, no-access well-mixed estimate is {chosen.nominal_dry_no_access_settling_time_2pct_s:.1f} s. These screening numbers do not bound the spatial result. The separate `voxel` study represents the finite candidate geometry and is the governing numerical screen for its 1–2 minute target.
 
@@ -276,7 +278,7 @@ The axial model explicitly includes the existing design's domain length and sens
 
 ## Why this geometry
 
-The current axial membrane is about 38.5 mm from the cell and leaves roughly 27 cm³ effective gas volume. Its large membrane area makes the membrane/inventory time constant only a few seconds in the central sensitivity case; the explicit model shows the long axial diffusion path is the main response penalty. Moving the cell/window system into a local, filled or shrouded microplenum is intended to shorten that path while reducing inventory without deliberately restricting the membrane. Two drained side facets keep the membrane close to the cell's lateral gas faces and avoid an upward-facing liquid pocket. The routed rear PCB aperture remains mandatory.
+The current axial membrane is about {baseline_distance:g} mm from the cell and leaves roughly {current.volume_nominal_cm3:g} cm³ effective gas volume. Its large membrane area makes the membrane/inventory time constant only a few seconds in the central sensitivity case; the explicit model shows the long axial diffusion path is the main response penalty. Moving the cell/window system into a local, filled or shrouded microplenum is intended to shorten that path while reducing inventory without deliberately restricting the membrane. Two drained side facets keep the membrane close to the cell's lateral gas faces and avoid an upward-facing liquid pocket. The routed rear PCB aperture remains mandatory.
 
 Do not interpret the heater as an air pump. Heater power is absent from the gas-transfer equation because no calibrated power/orientation/convection law exists. Its job is condensation margin. With a maximum allowed block rise of {study.maximum_block_rise_k:g} K and desired membrane rise of {study.target_membrane_rise_k:g} K, measured membrane coupling must be at least η={minimum_eta:.2f}. A remote cell-island heater cannot be accepted if the measured coupling is lower; the proposed dry-side carrier-rim heater remains a concept until temporary cold-spot thermometry validates it. The one-node model provides only quasi-steady thermal screening.
 

@@ -56,6 +56,9 @@ def test_response_candidate_meets_well_mixed_hard_screening_case(example_config)
 
 def test_rev_a_axial_result_exceeds_well_mixed_screening(example_config):
     study = load_prototype_study(ROOT / "examples" / "prototype_study.json")
+    assert study.designs[0].axial_length_mm == 44.0
+    assert study.designs[0].cell_to_membrane_distance_mm == (29.0, 36.0)
+    assert study.designs[0].volume_cm3 == (20.3, 23.3, 26.3)
     study.designs = [study.designs[0]]
     study.axial_diffusivity_m2_s = [2e-5, 3e-5]
     study.response_dt_s = 1.0
@@ -74,8 +77,8 @@ def test_rev_a_axial_result_exceeds_well_mixed_screening(example_config):
         study.gas_temp_c,
     )
     well_mixed = cascade_metrics(well_mixed_tau, 0.0, min(study.cell_tau_s), 1.0)
-    assert central.t90_s == pytest.approx(135.0, abs=2.0)
-    assert central.settling_time_2pct_s > 200.0
+    assert central.t90_s == pytest.approx(104.0, abs=3.0)
+    assert central.settling_time_2pct_s > 160.0
     assert central.settling_time_2pct_s > 5.0 * well_mixed["settling_time_2pct_s"]
     assert central.steady_state_reached
     assert central.response_metrics_valid

@@ -90,11 +90,15 @@ is specified. The checked-in hard well-mixed screen combines 5% of central
 installed window conductance, a 10 s cell lag, and a 15 s empirical access lag.
 These are design stress values, not probabilities or measured compost degradation.
 
-For the existing Rev-A, the explicit heater-off domain is 50 mm long and the
-sensor is 38.5 mm behind the membrane. At the reference uncalibrated effective
-diffusivity `2e-5 m²/s`, it gives about 135 s to t90 and 220 s to the 2% band;
-the `1e-5`–`3e-5 m²/s` sweep spans about 428–151 s settling. The former 20 s
+For the shortened existing Rev-A, the explicit heater-off domain is 44 mm long
+and the sensor is 32.5 mm behind the membrane. At the reference uncalibrated
+effective diffusivity `2e-5 m²/s`, it gives about 105 s to t90 and 171 s to the
+2% band; the `1e-5`–`3e-5 m²/s` sweep spans about 332–118 s settling. The 19.7 s
 well-mixed result omitted this path and is not a prediction of the actual enclosure.
+The existing-design effective-volume sensitivity band is 20.3–26.3 cm³
+(23.3 cm³ nominal): the prior 24–30 cm³ band was reduced by the 3.69 cm³ gross
+volume of the removed 6 mm length of 28 mm-ID tube. It remains an unmeasured
+sensitivity range, not a CAD fill-volume result.
 
 The response-oriented candidate now targets a sealed and measured ≤5.0 cm³
 effective local plenum, ≥180 mm² supported free area, a Ø23 mm × 15.9 mm clear

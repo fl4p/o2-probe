@@ -1,4 +1,4 @@
 design,nominal_dry_no_access_settling_time_2pct_s,nominal_dry_no_access_t90_s,worst_studied_settling_time_2pct_s,worst_case_conductance_scale,all_studied_cases_pass,minimum_scale_passing_at_hard_geometry,volume_nominal_cm3,free_area_nominal_mm2,cell_to_membrane_distance_nominal_mm,transport_model,spatial_geometry_modeled,selection_basis
-existing_rev_a_axial,20.277833792400926,13.158671693854998,241.7710369391271,0.05,False,0.2,27.0,193.05,38.5,well_mixed_screening,False,volume_area_screening_only
+existing_rev_a_axial,19.672531978059112,12.624771176762419,216.10949198569966,0.05,False,0.2,23.3,193.05,32.5,well_mixed_screening,False,volume_area_screening_only
 short_axial_microplenum,18.313179917625973,11.322773930515911,146.87030753065144,0.05,False,0.1,12.0,175.0,18.0,well_mixed_screening,False,volume_area_screening_only
 dual_side_microplenum_candidate,17.457763850114823,10.467771454049835,87.6551023349268,0.05,True,0.05,4.9,184.0,7.5,well_mixed_screening,False,volume_area_screening_only
