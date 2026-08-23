@@ -6,6 +6,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import hashlib
 import json
+from collections import Counter
 from pathlib import Path
 import re
 import shutil
@@ -55,6 +56,87 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def expected_routed_slot_primitives() -> Counter:
+    """Exact Gerber line/arc primitives for the six Edge.Cuts capsules."""
+    expected = Counter()
+
+    def point(x: float, y: float):
+        # Gerber output preserves board X and negates board Y.
+        return round(100.0 + x, 3), round(-(50.0 + y), 3)
+
+    def line(start, end):
+        expected[("line", frozenset((point(*start), point(*end))))] += 1
+
+    def arc(start, center, end):
+        expected[("arc", frozenset((point(*start), point(*end))), point(*center))] += 1
+
+    def capsule(x, y, length, width, vertical=False):
+        if vertical:
+            x0, x1 = x - width / 2, x + width / 2
+            y0, y1 = y - length / 2, y + length / 2
+            radius = width / 2
+            line((x0, y0 + radius), (x0, y1 - radius))
+            arc((x0, y1 - radius), (x, y1 - radius), (x1, y1 - radius))
+            line((x1, y1 - radius), (x1, y0 + radius))
+            arc((x1, y0 + radius), (x, y0 + radius), (x0, y0 + radius))
+            return
+        x0, x1 = x - length / 2, x + length / 2
+        y0, y1 = y - width / 2, y + width / 2
+        radius = width / 2
+        line((x0 + radius, y0), (x1 - radius, y0))
+        arc((x1 - radius, y0), (x1 - radius, y), (x1 - radius, y1))
+        line((x1 - radius, y1), (x0 + radius, y1))
+        arc((x0 + radius, y1), (x0 + radius, y), (x0 + radius, y0))
+
+    capsule(3.75, 84.0, 5.5, 1.0)
+    capsule(16.25, 84.0, 5.5, 1.0)
+    capsule(1.2, 95.0, 16.0, 0.8, vertical=True)
+    capsule(18.8, 95.0, 16.0, 0.8, vertical=True)
+    capsule(4.5, 114.0, 7.5, 0.8)
+    capsule(15.5, 114.0, 7.5, 0.8)
+    return expected
+
+
+def parse_gerber_primitives(text: str, x_fraction: int, y_fraction: int) -> Counter:
+    """Parse the simple modal line/arc records emitted by KiCad Edge.Cuts."""
+    primitives = Counter()
+    mode = "line"
+    current = None
+    coordinate = re.compile(
+        r"X(-?\d+)Y(-?\d+)(?:I(-?\d+)J(-?\d+))?D0([12])\*"
+    )
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if line == "G01*":
+            mode = "line"
+            continue
+        if line in ("G02*", "G03*"):
+            mode = "arc"
+            continue
+        match = coordinate.fullmatch(line)
+        if not match:
+            continue
+        x, y, i, j, operation = match.groups()
+        target = (int(x) / 10**x_fraction, int(y) / 10**y_fraction)
+        if operation == "2":
+            current = target
+            continue
+        if current is None:
+            raise SystemExit("Edge.Cuts Gerber draws before setting a position")
+        start = tuple(round(value, 3) for value in current)
+        end = tuple(round(value, 3) for value in target)
+        if mode == "line":
+            primitives[("line", frozenset((start, end)))] += 1
+        else:
+            if i is None or j is None:
+                raise SystemExit("Edge.Cuts Gerber arc lacks I/J centre offsets")
+            center = (round(current[0] + int(i) / 10**x_fraction, 3),
+                      round(current[1] + int(j) / 10**y_fraction, 3))
+            primitives[("arc", frozenset((start, end)), center)] += 1
+        current = target
+    return primitives
+
+
 def validate_gerbers(directory: Path) -> dict[str, object]:
     actual = {path.name for path in directory.glob("*.gbr")}
     missing = GERBERS - actual
@@ -80,9 +162,26 @@ def validate_gerbers(directory: Path) -> dict[str, object]:
         raise SystemExit("Edge.Cuts Gerber has no coordinate records")
     xs, ys = zip(*points)
     width, height = max(xs) - min(xs), max(ys) - min(ys)
-    if abs(width - 20.0) > 0.01 or abs(height - 125.0) > 0.01:
+    if abs(width - 20.0) > 0.01 or abs(height - 119.0) > 0.01:
         raise SystemExit(f"plotted outline is {width:.3f} x {height:.3f} mm")
-    return {"gerber_layers": sorted(actual), "plotted_outline_mm": [width, height]}
+    primitives = parse_gerber_primitives(outline, x_frac, y_frac)
+    expected_slots = expected_routed_slot_primitives()
+    plotted_slots = Counter({primitive: count for primitive, count in primitives.items()
+                             if primitive in expected_slots})
+    if sum(primitives.values()) != 32 or plotted_slots != expected_slots:
+        raise SystemExit(
+            "Edge.Cuts routed-slot contours differ: "
+            f"primitive_count={sum(primitives.values())}; "
+            f"added/changed={list((plotted_slots - expected_slots).elements())}; "
+            f"missing={list((expected_slots - plotted_slots).elements())}"
+        )
+    return {
+        "gerber_layers": sorted(actual),
+        "plotted_outline_mm": [width, height],
+        "edge_cuts_primitives": sum(primitives.values()),
+        "routed_slot_contours": 6,
+        "routed_slot_widths_mm": [0.8, 1.0],
+    }
 
 
 def validate_drills(directory: Path) -> dict[str, object]:
@@ -214,7 +313,7 @@ def main() -> int:
     print(f"PASS: {ZIP}")
     print(f"SHA-256: {sha256(ZIP)}")
     print(f"files: {len(expected)}; Gerber outline: {validation['plotted_outline_mm'][0]:.2f} x "
-          f"{validation['plotted_outline_mm'][1]:.2f} mm; routed NPTH slots verified")
+          f"{validation['plotted_outline_mm'][1]:.2f} mm; six Edge.Cuts contours and routed NPTH verified")
     return 0
 
 

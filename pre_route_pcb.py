@@ -106,7 +106,7 @@ for xy in p3a_nodes:
 sda = net("/I2C_SDA")
 u7_sda = (106.80, 127.00)
 u8_sda = (116.25, 124.70)
-u14_sda = (117.40, 170.00)
+u14_sda = (117.40, 159.75)
 path(sda, pcbnew.F_Cu, [pad("U7", 4), u7_sda], .09)
 path(sda, pcbnew.F_Cu, [pad("U8", 13), u8_sda], .09)
 path(sda, pcbnew.F_Cu, [pad("U14", 4), u14_sda], .09)
@@ -123,7 +123,7 @@ for xy in sda_nodes:
     path(sda, pcbnew.B_Cu, [xy, (spine_x, xy[1])], .18)
 path(sda, pcbnew.B_Cu, [u7_sda, (106.0, u7_sda[1])], .18)
 path(sda, pcbnew.B_Cu, [u8_sda, (106.0, u8_sda[1])], .18)
-path(sda, pcbnew.B_Cu, [u14_sda, (116.0, u14_sda[1])], .18)
+path(sda, pcbnew.B_Cu, [u14_sda, (106.0, u14_sda[1])], .18)
 
 board.BuildConnectivity()
 pcbnew.SaveBoard(str(OUT), board)

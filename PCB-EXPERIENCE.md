@@ -7,7 +7,7 @@ board released for bare-board first articles. The accepted 109-footprint
 schematic transfers without parity errors. KiCad reports 0 errors, 0
 unconnected items, and 0 parity issues; all placed/library mismatches are gone.
 The 28 courtyard pairs are locked manual-assembly exceptions and silkscreen is
-not exported. `audit_pcb.py --calibrate` rejects 13/13 known-bad variants.
+not exported. `audit_pcb.py --calibrate` rejects 15/15 known-bad variants.
 
 ## 2026-08-23 fabrication corrective pass
 
@@ -30,6 +30,13 @@ not exported. `audit_pcb.py --calibrate` rejects 13/13 known-bad variants.
   enable every KiCad DRC category. Route endpoint and dangling-stub warnings
   were corrected, not suppressed.
 - Generate and independently inspect the Gerber/Excellon ZIP with `make_fab.py`.
+- Shorten the rounded gas end by 6 mm to 20 × 119 mm, move TP7 laterally beside
+  U13, and move the DNP BMP390/C23/C24 cluster heaterward of the barrier. Keep
+  fitted C22 with U13. This reduces the nominal O2-cell-to-end distance without
+  adding a copper crossing or changing any of the six routed slots.
+- Audit every one of the six slot contours in both the KiCad source and the
+  plotted Edge.Cuts Gerber. Audit pads, vias, zones, and copper graphics at the
+  U13 barrier in addition to ordinary tracks.
 
 ## 2026-08-22 KiCadRoutingTools completion pass
 
@@ -132,7 +139,7 @@ not exported. `audit_pcb.py --calibrate` rejects 13/13 known-bad variants.
   Micro-Fit connector, Tag-Connect holes, 2512 heaters, and component courtyards
   consume more axial space than their pad centres imply.  Check courtyard and
   hole envelopes before routing, especially on both sides of through-hole parts.
-- Keep the mechanical source deterministic.  The outer 20 x 125 mm R2 outline,
+- Keep the mechanical source deterministic.  The outer 20 x 119 mm R2 outline,
   pot datum, cell centre, aperture, and six slots are assertions in
   `audit_pcb.py`, so a future electrical rearrangement cannot silently move a
   controlled enclosure interface.
@@ -158,5 +165,6 @@ python3 make_fab.py
 
 That command applies/verifies project rules, runs ERC and both audits, records
 error and warning DRC JSON, plots the exact layer set, validates Gerber X2
-functions and outline dimensions, validates routed NPTH Excellon data, writes
+functions, outline dimensions, all six Edge.Cuts slot contours, and routed
+NPTH Excellon data, writes
 checksums, and builds `fab/o2-probe-rev-a-fab.zip`.

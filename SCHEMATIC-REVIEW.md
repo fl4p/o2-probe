@@ -316,7 +316,7 @@ listed above remain open.
 - `python3 audit_schematic.py`: PASS, 98 components and 88 nets.
 - Exported-net audit explicitly checks U1 pins 5/6 and their bootstrap/inductor
   nodes, D2 line pins, `VREF_BUF`, `VREF_TRIM`, cell nets, bus nets, and SWD.
-- Independent inspection of `gen_sch.py`, `o2-probe.xml` and `o2-probe.net`
+- Independent inspection of `gen_sch.py` and `o2-probe.xml`
   found the corrected topology represented in the generated artifacts.
 
 ### Re-review source access addition
