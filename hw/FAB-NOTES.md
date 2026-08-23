@@ -4,7 +4,7 @@ Release class: first-article bare PCB only.
 
 ## Order parameters
 
-- Finished board: 20.00 × 125.00 mm, nominal R2 corners, 1.00 mm thick FR-4.
+- Finished board: 20.00 × 119.00 mm, nominal R2 corners, 1.00 mm thick FR-4.
 - Layer order: F.Cu / In1.Cu / In2.Cu / B.Cu.
 - Copper: 1 oz outer layers, 0.5 oz inner layers.
 - Finish: ENIG.
@@ -29,7 +29,9 @@ legend is a production-release item after the dense placement is cleaned.
 
 ## Mechanical data
 
-- Six closed routed slots are part of Edge.Cuts.
+- Six closed routed slots are part of Edge.Cuts. Their exact 24 line/arc
+  primitives are checked in both the KiCad board and plotted Gerber; the four
+  intentional 0.80 mm slots must not be widened or narrowed by CAM cleanup.
 - The U13 thermal barrier is the pair of transverse 7.50 × 0.80 mm slots at
   local `y=114.0`. Preserve the 0.75 mm edge webs and 3.50 mm centre neck; do
   not rotate the slots or substitute the rejected longitudinal geometry.

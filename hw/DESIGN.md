@@ -64,7 +64,7 @@ Current generated result: 109 components, 347 assigned package pins, KiCad ERC
 
 ## Controlled mechanical datums
 
-- Board: 20.0 x 125.0 mm, nominal 2.0 mm corner radius, initially 1.0 mm FR-4.
+- Board: 20.0 x 119.0 mm, nominal 2.0 mm corner radius, initially 1.0 mm FR-4.
 - Potting datum: y=82.0 mm; ordinary-component exclusion y=80–86 mm.
 - Cell centre: (10.0, 93.5) mm; unrelated-part courtyard diameter 15.0 mm.
 - Rear-flow aperture: a 3.0 × 6.0 mm vertical NPTH routed slot centred 2.5 mm
@@ -132,7 +132,7 @@ archive.
 ## PCB capture status
 
 PCB first-article release date: 2026-08-23. `o2-probe.kicad_pcb` is linked to
-the current 109-footprint schematic and preserves the controlled 20 × 125 mm
+the current 109-footprint schematic and preserves the controlled 20 × 119 mm
 R2 outline, y=82 local pot line, cell centre `(10, 93.5)`, six routed slots,
 and gas-sensor locations. It is a four-layer, 1.0 mm board with an explicit
 ENIG/1 oz outer/0.5 oz inner nominal stackup.
@@ -142,8 +142,13 @@ The U13 gas-reference barrier is the transverse pair at local `y=114.0`: two
 They reduce the direct heater-to-U13 FR-4 cross-section from 20.0 to 5.0 mm.
 The previous longitudinal pair was rejected because it started at U13 and ran
 parallel to the heat path, so it did not interrupt heater conduction.
-TP7, the land connected to U13's exposed thermal pad, is at local `(10,119)`
-on the gasward side; no `/TMP_GAS_EP` copper crosses the barrier.
+TP7, the land connected to U13's exposed thermal pad, is lateral to U13 at
+local `(15,116)` on the gasward side; its one straight B.Cu connection does
+not cross the barrier. The DNP BMP390 option and its DNP C23/C24 support parts
+are heaterward of the barrier at local y=107.5–110, while fitted C22 remains
+with U13. Shortening the rounded gas end from local y=125 to y=119 removes
+6 mm from the nominal cell-centre-to-end distance; membrane-stack clearance
+still requires the enclosure coupon.
 
 The LMP91000 is on the potted side of the dam. CELL_RE is a single 9.652 mm
 F.Cu segment with no via or test point and is enclosed by a driven guard. In2
@@ -153,7 +158,7 @@ region remains a filled GND plane without creating a broad copper heat strap.
 All placed footprints match their authoritative library copies.
 
 KiCad 10.0.5 reports 0 DRC errors, 0 unconnected items, and 0 parity issues.
-The calibrated PCB audit rejects 13/13 known-bad variants. The 28 exact courtyard
+The calibrated PCB audit rejects 15/15 known-bad variants. The 28 exact courtyard
 pairs are manual-assembly exceptions; legend layers are not exported. See
 `FAB-READINESS.md`, `ASSEMBLY-EXCEPTIONS.md`, and `FAB-NOTES.md` for release
 scope and remaining qualification work.

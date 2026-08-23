@@ -67,6 +67,58 @@ def near(actual: float, wanted: float, tolerance: float = 0.01) -> bool:
     return abs(actual - wanted) <= tolerance
 
 
+def rounded_point(point) -> tuple[float, float]:
+    return tuple(round(value, 2) for value in xy(point))
+
+
+def edge_signature(item):
+    start = rounded_point(item.GetStart())
+    end = rounded_point(item.GetEnd())
+    midpoint = rounded_point(item.GetArcMid()) if item.GetShapeStr() == "Arc" else None
+    return item.GetShapeStr(), frozenset((start, end)), midpoint, round(mm(item.GetWidth()), 2)
+
+
+def expected_slot_geometry() -> Counter:
+    """Return the exact 24 Edge.Cuts primitives for all six routed slots."""
+    expected = Counter()
+
+    def absolute(local_point):
+        return round(100.0 + local_point[0], 2), round(50.0 + local_point[1], 2)
+
+    def line(start, end):
+        expected[("Line", frozenset((absolute(start), absolute(end))), None, 0.05)] += 1
+
+    def arc(start, midpoint, end):
+        expected[("Arc", frozenset((absolute(start), absolute(end))),
+                  absolute(midpoint), 0.05)] += 1
+
+    def capsule(x, y, length, width, vertical=False):
+        if vertical:
+            x0, x1 = x - width / 2, x + width / 2
+            y0, y1 = y - length / 2, y + length / 2
+            radius = width / 2
+            line((x0, y0 + radius), (x0, y1 - radius))
+            arc((x0, y1 - radius), (x, y1), (x1, y1 - radius))
+            line((x1, y1 - radius), (x1, y0 + radius))
+            arc((x1, y0 + radius), (x, y0), (x0, y0 + radius))
+            return
+        x0, x1 = x - length / 2, x + length / 2
+        y0, y1 = y - width / 2, y + width / 2
+        radius = width / 2
+        line((x0 + radius, y0), (x1 - radius, y0))
+        arc((x1 - radius, y0), (x1, y), (x1 - radius, y1))
+        line((x1 - radius, y1), (x0 + radius, y1))
+        arc((x0 + radius, y1), (x0, y), (x0 + radius, y0))
+
+    capsule(3.75, 84.0, 5.5, 1.0)
+    capsule(16.25, 84.0, 5.5, 1.0)
+    capsule(1.2, 95.0, 16.0, 0.8, vertical=True)
+    capsule(18.8, 95.0, 16.0, 0.8, vertical=True)
+    capsule(4.5, 114.0, 7.5, 0.8)
+    capsule(15.5, 114.0, 7.5, 0.8)
+    return expected
+
+
 def check(errors: list[str], condition: bool, code: str, detail: str) -> None:
     if not condition:
         errors.append(f"{code}: {detail}")
@@ -116,8 +168,8 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
     bbox = board.GetBoardEdgesBoundingBox()
     check(errors, near(mm(bbox.GetWidth()), 20.05), "OUTLINE_WIDTH",
           f"edge bounding box is {mm(bbox.GetWidth()):.3f} mm, want 20.05 including stroke")
-    check(errors, near(mm(bbox.GetHeight()), 125.05), "OUTLINE_HEIGHT",
-          f"edge bounding box is {mm(bbox.GetHeight()):.3f} mm, want 125.05 including stroke")
+    check(errors, near(mm(bbox.GetHeight()), 119.05), "OUTLINE_HEIGHT",
+          f"edge bounding box is {mm(bbox.GetHeight()):.3f} mm, want 119.05 including stroke")
     check(errors, near(mm(board.GetDesignSettings().GetBoardThickness()), 1.0),
           "BOARD_THICKNESS", "board is not 1.00 mm")
     check(errors, board.GetCopperLayerCount() == 4, "COPPER_LAYERS",
@@ -125,6 +177,23 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
     edge_items = [item for item in board.Drawings() if item.GetLayer() == pcbnew.Edge_Cuts]
     check(errors, len(edge_items) == 32, "EDGE_ITEM_COUNT",
           f"found {len(edge_items)}, want 8 outline + 24 routed-slot items")
+
+    # Inventory every slot, not only the thermal pair.  The exact contour
+    # check preserves both intentional 0.80 mm slot families and the 1.00 mm
+    # potting-dam slots independent of any particular fabrication vendor.
+    inner_edge_items = []
+    for item in edge_items:
+        points = [xy(item.GetStart()), xy(item.GetEnd())]
+        if item.GetShapeStr() == "Arc":
+            points.append(xy(item.GetArcMid()))
+        if not any(near(x, 100.0) or near(x, 120.0)
+                   or near(y, 50.0) or near(y, 169.0) for x, y in points):
+            inner_edge_items.append(item)
+    actual_slots = Counter(edge_signature(item) for item in inner_edge_items)
+    expected_slots = expected_slot_geometry()
+    check(errors, actual_slots == expected_slots, "ROUTED_SLOT_GEOMETRY",
+          f"added/changed={list((actual_slots - expected_slots).elements())}; "
+          f"missing={list((expected_slots - actual_slots).elements())}")
 
     # The U13 barrier must cross the heater-to-sensor axis.  The rejected
     # geometry used two y-directed slots starting at U13, which left the full
@@ -141,10 +210,10 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
     })
     actual_barrier = Counter()
     for item in edge_items:
-        start = tuple(round(value, 2) for value in xy(item.GetStart()))
-        end = tuple(round(value, 2) for value in xy(item.GetEnd()))
+        start = rounded_point(item.GetStart())
+        end = rounded_point(item.GetEnd())
         if 163.5 <= min(start[1], end[1]) and max(start[1], end[1]) <= 164.5:
-            midpoint = (tuple(round(value, 2) for value in xy(item.GetArcMid()))
+            midpoint = (rounded_point(item.GetArcMid())
                         if item.GetShapeStr() == "Arc" else None)
             actual_barrier[(item.GetShapeStr(), frozenset((start, end)), midpoint,
                             round(mm(item.GetWidth()), 2))] += 1
@@ -156,8 +225,11 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
         "RH1": ((105.3, 154.5), 180.0, "B.Cu"),
         "RH2": ((114.7, 154.5), 180.0, "B.Cu"),
         "U10": ((110.0, 154.0), 90.0, "B.Cu"),
+        "U14": ((116.0, 160.0), 0.0, "F.Cu"),
+        "C23": ((115.0, 157.5), 90.0, "F.Cu"),
+        "C24": ((118.0, 160.0), 90.0, "F.Cu"),
         "U13": ((110.0, 166.0), 90.0, "F.Cu"),
-        "TP7": ((110.0, 169.0), 180.0, "B.Cu"),
+        "TP7": ((115.0, 166.0), 180.0, "B.Cu"),
     }
     for ref, (wanted_position, wanted_angle, wanted_layer) in expected_thermal_placements.items():
         footprint = footprints.get(ref)
@@ -291,7 +363,7 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
         check(errors, sorted(ranges) == [
             (100.25, 119.75, 50.25, 131.75),
             (100.25, 119.75, 135.25, 163.25),
-            (100.25, 119.75, 164.75, 174.75),
+            (100.25, 119.75, 164.75, 168.75),
         ],
               "GND_TRANSITION_GAP", f"In2 zone extents are {sorted(ranges)}")
         check(errors,
@@ -334,15 +406,13 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
     tp7 = footprints.get("TP7")
     if tp7 is not None:
         check(errors, all(near(actual, wanted) for actual, wanted in
-                          zip(xy(tp7.GetPosition()), (110.0, 169.0))),
-              "TMP_GAS_EP_POSITION", f"TP7 is at {xy(tp7.GetPosition())}, want gasward (110, 169)")
+                          zip(xy(tp7.GetPosition()), (115.0, 166.0))),
+              "TMP_GAS_EP_POSITION", f"TP7 is at {xy(tp7.GetPosition())}, want lateral (115, 166)")
     gas_ep_items = [item for item in board.GetTracks() if item.GetNetname() == "/TMP_GAS_EP"]
     gas_ep_tracks = [item for item in gas_ep_items if not isinstance(item, pcbnew.PCB_VIA)]
     gas_ep_vias = [item for item in gas_ep_items if isinstance(item, pcbnew.PCB_VIA)]
     expected_gas_ep_tracks = Counter({
-        ((110.0, 166.0), (110.6, 166.6), "B.Cu", 0.18): 1,
-        ((110.6, 166.6), (110.6, 168.4), "B.Cu", 0.18): 1,
-        ((110.0, 169.0), (110.6, 168.4), "B.Cu", 0.18): 1,
+        ((110.0, 166.0), (115.0, 166.0), "B.Cu", 0.18): 1,
     })
     actual_gas_ep_tracks = Counter()
     for item in gas_ep_tracks:
@@ -391,6 +461,40 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
     check(errors, actual_crossings == expected_crossings, "THERMAL_COPPER_CROSSINGS",
           f"added/changed={list((actual_crossings - expected_crossings).elements())}; "
           f"missing={list((expected_crossings - actual_crossings).elements())}")
+
+    # Tracks are only one copper-item class.  Also reject a pad, via, zone,
+    # board graphic, or footprint copper graphic that spans the barrier and
+    # could silently bypass the audited trace bundle.
+    def spans_barrier(item) -> bool:
+        bounds = item.GetBoundingBox()
+        low = mm(bounds.GetY())
+        high = low + mm(bounds.GetHeight())
+        return low <= barrier_y <= high
+
+    nontrack_crossings = []
+    for footprint in board.Footprints():
+        for pad in footprint.Pads():
+            if any(pad.IsOnLayer(layer) for layer in
+                   (pcbnew.F_Cu, pcbnew.In1_Cu, pcbnew.In2_Cu, pcbnew.B_Cu)) \
+                    and spans_barrier(pad):
+                nontrack_crossings.append(f"pad {footprint.GetReference()}.{pad.GetNumber()}")
+        for graphic in footprint.GraphicalItems():
+            if pcbnew.IsCopperLayer(graphic.GetLayer()) and spans_barrier(graphic):
+                nontrack_crossings.append(
+                    f"footprint graphic {footprint.GetReference()} on {graphic.GetLayerName()}"
+                )
+    for item in board.GetTracks():
+        if isinstance(item, pcbnew.PCB_VIA) and spans_barrier(item):
+            nontrack_crossings.append(f"via {item.GetNetname()} at {xy(item.GetPosition())}")
+    for zone in board.Zones():
+        ys = [xy(zone.GetCornerPosition(index))[1] for index in range(zone.GetNumCorners())]
+        if ys and min(ys) <= barrier_y <= max(ys):
+            nontrack_crossings.append(f"zone {zone.GetNetname()} on {zone.GetLayerName()}")
+    for drawing in board.Drawings():
+        if pcbnew.IsCopperLayer(drawing.GetLayer()) and spans_barrier(drawing):
+            nontrack_crossings.append(f"board graphic on {drawing.GetLayerName()}")
+    check(errors, not nontrack_crossings, "THERMAL_NONTRACK_COPPER",
+          f"non-track copper spanning y={barrier_y}: {nontrack_crossings}")
 
     tracks = [item for item in board.GetTracks() if not isinstance(item, pcbnew.PCB_VIA)]
     vias = [item for item in board.GetTracks() if isinstance(item, pcbnew.PCB_VIA)]
@@ -507,6 +611,16 @@ def calibrate(board_path: Path, board_text: str) -> list[str]:
         )
         item.SetArcGeometry(item.GetStart(), pcbnew.VECTOR2I_MM(100.95, 164.0), item.GetEnd())
 
+    def deform_dam_slot(board) -> None:
+        item = next(
+            item for item in board.Drawings()
+            if item.GetLayer() == pcbnew.Edge_Cuts
+            and item.GetShapeStr() == "Arc"
+            and near(xy(item.GetArcMid())[0], 106.5)
+            and near(xy(item.GetArcMid())[1], 134.0)
+        )
+        item.SetArcGeometry(item.GetStart(), pcbnew.VECTOR2I_MM(106.4, 134.0), item.GetEnd())
+
     def unfill_gnd_zone(board) -> None:
         zone = next(zone for zone in board.Zones()
                     if zone.GetNetname() == "/GND" and zone.IsOnLayer(pcbnew.In2_Cu))
@@ -549,6 +663,15 @@ def calibrate(board_path: Path, board_text: str) -> list[str]:
         track.SetWidth(original.GetWidth())
         board.Add(track)
 
+    def add_nontrack_thermal_bypass(board) -> None:
+        drawing = pcbnew.PCB_SHAPE(board)
+        drawing.SetShape(pcbnew.SHAPE_T_SEGMENT)
+        drawing.SetStart(pcbnew.VECTOR2I_MM(117.0, 163.0))
+        drawing.SetEnd(pcbnew.VECTOR2I_MM(117.0, 165.0))
+        drawing.SetLayer(pcbnew.F_Cu)
+        drawing.SetWidth(pcbnew.FromMM(0.20))
+        board.Add(drawing)
+
     def narrow_track(board) -> None:
         track = next(item for item in board.GetTracks() if not isinstance(item, pcbnew.PCB_VIA))
         track.SetWidth(pcbnew.FromMM(0.08))
@@ -562,11 +685,13 @@ def calibrate(board_path: Path, board_text: str) -> list[str]:
     expect("continuous/unsplit plane regression", "GND_ZONE_SPLIT", remove_gnd_zone)
     expect("longitudinal/damaged U13 slot regression", "THERMAL_BARRIER_SLOTS", damage_thermal_barrier)
     expect("deformed U13 slot end", "THERMAL_BARRIER_SLOTS", deform_thermal_arc)
+    expect("deformed potting-dam slot", "ROUTED_SLOT_GEOMETRY", deform_dam_slot)
     expect("unfilled controlled ground zone", "GND_ZONE_FILL", unfill_gnd_zone)
     expect("missing U13 ground neck", "THERMAL_GND_BRIDGE_COUNT", remove_thermal_gnd_bridge)
     expect("heater-side gas thermal pad", "TMP_GAS_EP_POSITION", move_tp7_heaterward)
     expect("heater-side gas-reference sensor", "THERMAL_PLACEMENT", move_gas_sensor_heaterward)
     expect("extra copper thermal bypass", "THERMAL_COPPER_CROSSINGS", add_thermal_copper_bypass)
+    expect("non-track copper thermal bypass", "THERMAL_NONTRACK_COPPER", add_nontrack_thermal_bypass)
     expect("sub-process-width trace", "MIN_TRACK_WIDTH", narrow_track)
     expect("remote AFE", "U7_PLACEMENT", move_u7)
     expect("missing fab stackup", "STACKUP", lambda board: None, text="")
@@ -596,10 +721,10 @@ def main() -> int:
         print(report.read_text(), end="")
         return 1
 
-    calibrated = "13/13 known-bad variants rejected" if args.calibrate else "not requested"
+    calibrated = "15/15 known-bad variants rejected" if args.calibrate else "not requested"
     report.write_text(
         "PASS: O2 probe fabrication audit\n"
-        f"- 109 schematic footprints; 20.00 x 125.00 x 1.00 mm; four copper layers\n"
+        f"- 109 schematic footprints; 20.00 x 119.00 x 1.00 mm; four copper layers\n"
         f"- CELL_RE: {metrics['cell_re_trace_length_mm']:.3f} mm single F.Cu segment, no via/testpoint; "
         f"U7-to-cell pin distance {metrics['cell_re_pin_distance_mm']:.3f} mm\n"
         "- driven F.Cu guard present; In2 GND split at potting and U13 thermal boundaries, each with one 0.25 mm bridge\n"
