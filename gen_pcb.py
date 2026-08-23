@@ -105,7 +105,7 @@ PLACEMENT = {
  "J3":(4.5,56.5,0,"F"),
  "J2":(10.0,67.0,0,"F"), "F2":(17.5,62.0,90,"B"), "R12":(4.0,57.5,0,"B"), "R13":(6.8,59.0,0,"B"), "R14":(11.5,57.5,0,"B"), "R15":(14.5,57.5,0,"B"), "R16":(17.5,57.5,0,"B"),
  "D4":(3.0,60.0,90,"B"), "D5":(10.0,60.0,90,"B"), "D6":(17.0,60.0,90,"F"),
- "U4":(3.0,77.0,90,"F"), "RV1":(2.5,73.0,90,"B"), "U7":(9.5,77.0,0,"F"), "U8":(15.5,77.0,0,"F"),
+ "U4":(3.0,77.0,90,"F"), "RV1":(2.5,73.0,90,"B"), "U7":(10.0,79.5,270,"F"), "U8":(15.5,77.0,0,"F"),
  "C25":(1.2,68.0,0,"F"), "R20":(6.0,72.5,0,"B"), "R21":(9.2,72.5,0,"B"), "C9":(12.4,72.5,180,"B"), "R31":(15.6,72.5,0,"B"), "C10":(18.3,74.0,90,"B"),
  # Keep the back-side passives out from directly below U7/U8 perimeter pads;
  # through-via dogbones otherwise have no legal annulus/clearance corridor.
@@ -116,7 +116,7 @@ PLACEMENT = {
  # an unroutable supply/ADC escape at the converter itself.
  "R33":(6.0,64.0,0,"B"), "C28":(9.0,64.0,0,"B"), "R39":(12.4,78.5,0,"B"), "R37":(15.6,78.5,0,"B"), "C30":(17.8,70.5,90,"B"),
  "R38":(1.5,70.0,0,"B"), "C31":(4.0,70.0,0,"B"), "R34":(6.8,70.8,0,"B"), "R35":(9.8,70.8,0,"B"), "R36":(12.8,70.8,0,"B"), "C29":(15.8,70.8,0,"B"),
- "TP1":(1.0,70.0,0,"F"), "TP2":(19.0,70.0,0,"F"), "TP3":(1.0,73.5,0,"F"), "TP4":(19.0,73.5,0,"F"), "TP5":(1.0,65.5,0,"F"),
+ "TP1":(1.0,70.0,0,"F"), "TP3":(1.0,73.5,0,"F"), "TP4":(19.0,73.5,0,"F"), "TP5":(1.0,65.5,0,"F"),
  "U11":(10.0,93.5,0,"F"),
  "RH1":(5.3,104.5,0,"B"), "RH2":(14.7,104.5,0,"B"), "U10":(10.0,104.0,90,"B"), "Q2":(10.0,108.0,90,"B"), "R28":(7.0,108.0,90,"B"), "R29":(13.0,108.0,90,"B"), "TP6":(10.0,101.0,0,"B"),
  "U12":(6.0,112.0,0,"F"), "C20":(8.0,112.0,90,"F"), "U13":(10.0,116.0,90,"F"), "C21":(12.0,116.0,90,"F"), "R30":(8.0,116.0,90,"F"), "TP7":(10.0,112.5,0,"B"),
@@ -176,17 +176,16 @@ def build():
             if key not in ("Sheetname","Sheetfile","dnp"): fp.SetField(key,value)
         x,y,rot,side=pos[ref]; fp.SetPosition(pt(x,y)); fp.SetOrientationDegrees(rot)
         if side=="B": fp.Flip(fp.GetPosition(),False)
-        fp.Reference().SetLayer(pcbnew.B_SilkS if side=="B" else pcbnew.F_SilkS)
+        # Preserve library geometry byte-for-byte.  Deleting silkscreen from
+        # every placed copy made KiCad report 110 library mismatches and hid
+        # genuine library drift.  Identity stays on Fab; release Gerbers omit
+        # silkscreen because this probe has no assembly-print requirement.
+        fp.Reference().SetLayer(pcbnew.B_Fab if side=="B" else pcbnew.F_Fab)
         # Hide every footprint field, including custom MPN/description fields.
         # KiCad otherwise renders those fields on the board and produces an
         # unreadable wall of text despite reference/value already being hidden.
         for field in fp.GetFields(): field.SetVisible(False)
         fps[ref]=fp
-        # Library silkscreen is not allowed to create hundreds of false
-        # completion blockers on this very dense probe. Assembly identity is
-        # carried by fabrication drawings and the generated placement file.
-        for item in list(fp.GraphicalItems()):
-            if item.GetLayer() in (pcbnew.F_SilkS, pcbnew.B_SilkS): fp.Remove(item)
     for name,nodes in nets.items():
         for ref,pnum in nodes:
             pad=fps[ref].FindPadByNumber(pnum)

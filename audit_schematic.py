@@ -78,7 +78,9 @@ required = {
     "RS485_A": {"U5.6", "R2.1", "R4.1", "R5.2"},
     "RS485_B": {"U5.7", "R3.1", "R4.2", "R6.1"},
     "CELL_WE": {"U7.12", "U11.3", "TP1.1"},
-    "CELL_RE": {"U7.13", "U11.2", "TP2.1"},
+    # CELL_RE deliberately has no exposed test point: a test-point solder-mask
+    # aperture would violate the wet-leakage control for this high-impedance net.
+    "CELL_RE": {"U7.13", "U11.2"},
     "CELL_CE": {"U7.14", "U11.1", "TP3.1"},
     "VREF_TRIM": {"R31.2", "U7.11", "U8.7", "TP4.1", "R34.1"},
     "ADC_VREF_MON": {"U8.8", "R36.2", "C29.1"},
