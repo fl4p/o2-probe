@@ -119,6 +119,41 @@ def expected_slot_geometry() -> Counter:
     return expected
 
 
+def expected_outline_geometry() -> Counter:
+    """Return the exact eight primitives for the 20 x 119 mm R2 outline."""
+    expected = Counter()
+
+    def absolute(local_point):
+        return round(100.0 + local_point[0], 2), round(50.0 + local_point[1], 2)
+
+    def line(start, end):
+        expected[("Line", frozenset((absolute(start), absolute(end))), None, 0.05)] += 1
+
+    def arc(start, midpoint, end):
+        expected[("Arc", frozenset((absolute(start), absolute(end))),
+                  absolute(midpoint), 0.05)] += 1
+
+    line((2.0, 0.0), (18.0, 0.0))
+    arc((18.0, 0.0), (19.414, 0.586), (20.0, 2.0))
+    line((20.0, 2.0), (20.0, 117.0))
+    arc((20.0, 117.0), (19.414, 118.414), (18.0, 119.0))
+    line((18.0, 119.0), (2.0, 119.0))
+    arc((2.0, 119.0), (0.586, 118.414), (0.0, 117.0))
+    line((0.0, 117.0), (0.0, 2.0))
+    arc((0.0, 2.0), (0.586, 0.586), (2.0, 0.0))
+    return expected
+
+
+def canonical_polygon(points) -> tuple[tuple[float, float], ...]:
+    """Canonicalize a closed polygon independently of start and winding."""
+    vertices = [rounded_point(point) for point in points]
+    variants = []
+    for sequence in (vertices, list(reversed(vertices))):
+        variants.extend(tuple(sequence[index:] + sequence[:index])
+                        for index in range(len(sequence)))
+    return min(variants)
+
+
 def check(errors: list[str], condition: bool, code: str, detail: str) -> None:
     if not condition:
         errors.append(f"{code}: {detail}")
@@ -194,6 +229,12 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
     check(errors, actual_slots == expected_slots, "ROUTED_SLOT_GEOMETRY",
           f"added/changed={list((actual_slots - expected_slots).elements())}; "
           f"missing={list((expected_slots - actual_slots).elements())}")
+    outer_edge_items = [item for item in edge_items if item not in inner_edge_items]
+    actual_outline = Counter(edge_signature(item) for item in outer_edge_items)
+    expected_outline = expected_outline_geometry()
+    check(errors, actual_outline == expected_outline, "OUTLINE_GEOMETRY",
+          f"added/changed={list((actual_outline - expected_outline).elements())}; "
+          f"missing={list((expected_outline - actual_outline).elements())}")
 
     # The U13 barrier must cross the heater-to-sensor axis.  The rejected
     # geometry used two y-directed slots starting at U13, which left the full
@@ -354,6 +395,26 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
     check(errors, len(gnd_zones) == 3, "GND_ZONE_SPLIT",
           f"found {len(gnd_zones)} In2 GND zones, want potted, heater, and U13-tip zones")
     if len(gnd_zones) == 3:
+        actual_zone_outlines = Counter(
+            canonical_polygon([zone.GetCornerPosition(index)
+                               for index in range(zone.GetNumCorners())])
+            for zone in gnd_zones
+        )
+        expected_zone_outlines = Counter({
+            canonical_polygon([pcbnew.VECTOR2I_MM(x, y) for x, y in corners]): 1
+            for corners in (
+                ((100.25, 50.25), (119.75, 50.25),
+                 (119.75, 131.75), (100.25, 131.75)),
+                ((100.25, 135.25), (119.75, 135.25),
+                 (119.75, 163.25), (100.25, 163.25)),
+                ((100.25, 164.75), (119.75, 164.75),
+                 (119.75, 168.75), (100.25, 168.75)),
+            )
+        })
+        check(errors, actual_zone_outlines == expected_zone_outlines,
+              "GND_ZONE_GEOMETRY",
+              f"added/changed={list((actual_zone_outlines - expected_zone_outlines).elements())}; "
+              f"missing={list((expected_zone_outlines - actual_zone_outlines).elements())}")
         ranges = []
         for zone in gnd_zones:
             xs = [xy(zone.GetCornerPosition(index))[0] for index in range(zone.GetNumCorners())]
@@ -621,6 +682,32 @@ def calibrate(board_path: Path, board_text: str) -> list[str]:
         )
         item.SetArcGeometry(item.GetStart(), pcbnew.VECTOR2I_MM(106.4, 134.0), item.GetEnd())
 
+    def deform_outer_corner(board) -> None:
+        item = next(
+            item for item in board.Drawings()
+            if item.GetLayer() == pcbnew.Edge_Cuts
+            and item.GetShapeStr() == "Arc"
+            and near(xy(item.GetArcMid())[0], 119.414)
+            and near(xy(item.GetArcMid())[1], 50.586)
+        )
+        item.SetArcGeometry(item.GetStart(), pcbnew.VECTOR2I_MM(119.0, 51.0), item.GetEnd())
+
+    def notch_tip_gnd_zone(board) -> None:
+        zone = next(
+            zone for zone in board.Zones()
+            if zone.GetNetname() == "/GND"
+            and zone.IsOnLayer(pcbnew.In2_Cu)
+            and max(xy(zone.GetCornerPosition(index))[1]
+                    for index in range(zone.GetNumCorners())) > 168.0
+        )
+        outline = pcbnew.VECTOR_VECTOR2I()
+        for x, y in ((100.25, 164.75), (119.75, 164.75),
+                     (119.75, 168.75), (110.0, 168.75),
+                     (110.0, 167.5), (100.25, 167.5)):
+            outline.append(pcbnew.VECTOR2I_MM(x, y))
+        zone.Outline().RemoveAllContours()
+        zone.AddPolygon(outline)
+
     def unfill_gnd_zone(board) -> None:
         zone = next(zone for zone in board.Zones()
                     if zone.GetNetname() == "/GND" and zone.IsOnLayer(pcbnew.In2_Cu))
@@ -686,6 +773,8 @@ def calibrate(board_path: Path, board_text: str) -> list[str]:
     expect("longitudinal/damaged U13 slot regression", "THERMAL_BARRIER_SLOTS", damage_thermal_barrier)
     expect("deformed U13 slot end", "THERMAL_BARRIER_SLOTS", deform_thermal_arc)
     expect("deformed potting-dam slot", "ROUTED_SLOT_GEOMETRY", deform_dam_slot)
+    expect("deformed outer R2 corner", "OUTLINE_GEOMETRY", deform_outer_corner)
+    expect("notched tip GND zone", "GND_ZONE_GEOMETRY", notch_tip_gnd_zone)
     expect("unfilled controlled ground zone", "GND_ZONE_FILL", unfill_gnd_zone)
     expect("missing U13 ground neck", "THERMAL_GND_BRIDGE_COUNT", remove_thermal_gnd_bridge)
     expect("heater-side gas thermal pad", "TMP_GAS_EP_POSITION", move_tp7_heaterward)
@@ -721,7 +810,7 @@ def main() -> int:
         print(report.read_text(), end="")
         return 1
 
-    calibrated = "15/15 known-bad variants rejected" if args.calibrate else "not requested"
+    calibrated = "17/17 known-bad variants rejected" if args.calibrate else "not requested"
     report.write_text(
         "PASS: O2 probe fabrication audit\n"
         f"- 109 schematic footprints; 20.00 x 119.00 x 1.00 mm; four copper layers\n"

@@ -101,8 +101,9 @@ for xy in p3a_nodes:
     path(p3a, pcbnew.In2_Cu, [xy, (119.20, xy[1])], .25)
 
 
-# I2C SDA: use the back copper with two vertical spines around the gas-end
-# thermal slot.  U7/U8 escape outward on F.Cu before changing layers.
+# I2C SDA: use the centre neck through both routed-slot barriers, with a short
+# rightward dogleg around the SGX rear-flow aperture.  U7/U8 escape outward on
+# F.Cu before changing layers.
 sda = net("/I2C_SDA")
 u7_sda = (106.80, 127.00)
 u8_sda = (116.25, 124.70)
@@ -116,14 +117,15 @@ sda_nodes = [pad("U6", 46), pad("U12", 1), pad("U13", 4), pad("U13", 6),
              pad("U10", 6), pad("R12", 1), pad("R11", 1)]
 for xy in sda_nodes:
     via(sda, xy)
-path(sda, pcbnew.B_Cu, [(106.0, 94.8375), (106.0, 164.50),
-                        (116.0, 164.50), (116.0, 170.0)], .18)
+path(sda, pcbnew.B_Cu, [(106.0, 94.8375), (110.0, 94.8375),
+                        (110.0, 142.5), (112.0, 142.5),
+                        (112.0, 149.5), (110.0, 149.5),
+                        (110.0, 165.025)], .18)
 for xy in sda_nodes:
-    spine_x = 116.0 if xy[1] >= 166.0 else 106.0
-    path(sda, pcbnew.B_Cu, [xy, (spine_x, xy[1])], .18)
-path(sda, pcbnew.B_Cu, [u7_sda, (106.0, u7_sda[1])], .18)
-path(sda, pcbnew.B_Cu, [u8_sda, (106.0, u8_sda[1])], .18)
-path(sda, pcbnew.B_Cu, [u14_sda, (106.0, u14_sda[1])], .18)
+    path(sda, pcbnew.B_Cu, [xy, (110.0, xy[1])], .18)
+path(sda, pcbnew.B_Cu, [u7_sda, (110.0, u7_sda[1])], .18)
+path(sda, pcbnew.B_Cu, [u8_sda, (110.0, u8_sda[1])], .18)
+path(sda, pcbnew.B_Cu, [u14_sda, (110.0, u14_sda[1])], .18)
 
 board.BuildConnectivity()
 pcbnew.SaveBoard(str(OUT), board)

@@ -158,7 +158,7 @@ region remains a filled GND plane without creating a broad copper heat strap.
 All placed footprints match their authoritative library copies.
 
 KiCad 10.0.5 reports 0 DRC errors, 0 unconnected items, and 0 parity issues.
-The calibrated PCB audit rejects 15/15 known-bad variants. The 28 exact courtyard
+The calibrated PCB audit rejects 17/17 known-bad variants. The 28 exact courtyard
 pairs are manual-assembly exceptions; legend layers are not exported. See
 `FAB-READINESS.md`, `ASSEMBLY-EXCEPTIONS.md`, and `FAB-NOTES.md` for release
 scope and remaining qualification work.

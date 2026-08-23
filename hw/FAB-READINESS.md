@@ -49,12 +49,14 @@ the Gerbers and Excellon files that it places in the ZIP.
   mm finished thickness, 0.09 mm minimum track, 0.15 mm minimum clearance,
   0.25/0.15 mm minimum via/drill, 1 oz outer copper, 0.5 oz inner copper, and
   ENIG finish.
-- `audit_pcb.py --calibrate` rejects 15/15 deliberately broken variants,
+- `audit_pcb.py --calibrate` rejects 17/17 deliberately broken variants,
   including a CELL_RE via, missing guard, unsplit ground regression, 0.08 mm
   track, moved U7, missing/unfilled GND regions, removed/deformed U13 barrier,
   missing U13 GND neck, heater-side U13 or TP7, track and non-track copper heat
-  bypasses, a deformed non-thermal slot, and missing stackup. The release
-  builder separately validates all six exact contours in the Edge.Cuts Gerber.
+  bypasses, a deformed non-thermal slot, a deformed outer corner, a notched
+  controlled GND region, and missing stackup. The release builder separately
+  validates the exact R2 outer contour and all six contours in the Edge.Cuts
+  Gerber.
 
 ## Reviewed warnings and release scope
 
