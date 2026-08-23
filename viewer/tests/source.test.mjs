@@ -15,3 +15,13 @@ test("viewer exposes all requested mechanical parts", async () => {
     assert.match(source, new RegExp(label));
   assert.doesNotMatch(source, /Wieselhof/);
 });
+
+test("viewer uses the controlled shortened Rev-A datums", async () => {
+  const source = await readFile(new URL("../app/ProbeViewer.tsx", import.meta.url), "utf8");
+  assert.match(source, /Ø32 \/ Ø28 × 129 mm/);
+  assert.match(source, /20 × 119 mm PCB/);
+  assert.match(source, /tubeGeometry\(14, 16, 129\)/);
+  assert.match(source, /BoxGeometry\(20, 119, 1\)/);
+  assert.doesNotMatch(source, /20 × 125/);
+  assert.doesNotMatch(source, /135 mm long PVC-U sleeve/);
+});

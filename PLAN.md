@@ -47,20 +47,15 @@ doubles the sealing problem.
   TMP117 #1 on heater island · expansion connector  │     │
 ```
 
-### PCB outline draft (mechanical datum for layout)
-
-![Rev-A PCB outline and footprint dimensions](pcb-outline-draft.svg)
+### PCB outline (controlled layout datum)
 
 Working KiCad design:
 [`o2-probe.kicad_pcb`](/Users/fab/dev/ee/hw/o2-probe/o2-probe.kicad_pcb)
 with [placement notes](/Users/fab/dev/ee/hw/o2-probe/PLACEMENT.md). The board is
-schematic-linked and electrically routed; provisional mechanical footprints are
-called out in the notes. Placement moved the cell datum from the first outline
-sketch's `y = 105` to `y = 93.5` so its pin row can stay close to the potted AFE.
-
-The SVG is the early **Rev-A placement envelope, not release geometry**. The
-working KiCad board is authoritative for the bare-board first article. Freeze
-production geometry only after a paper print plus a 1:1 dummy-board fit in the
+schematic-linked and electrically routed; provisional mechanical interfaces are
+called out in the notes. The working KiCad board is authoritative for the
+bare-board first article. Freeze production geometry only after a paper print
+plus a 1:1 dummy-board fit in the
 actual 32 mm tube, with the cable termination, expansion connector, cell,
 membrane carrier, and potting fixture installed.
 
@@ -144,9 +139,11 @@ at `y = 119`, board centreline at `x = 10`. All dimensions below are mm.
   the gradient and leave the heater-facing root intact. Put the SHT45 in the
   warmed cell chamber, adjacent to the island but with its gas opening and
   rework path clear; it must not migrate to the unheated inlet merely because
-  that placement is easier. The rounded end stops at `y = 119`, 6 mm shorter
-  than the superseded outline; verify membrane clearance and the remaining
-  laminate on the enclosure coupon.
+  that placement is easier. The rounded end stops at `y = 119`, and the main
+  Rev-A enclosure body stops at 129 mm: both are 6 mm shorter than their
+  superseded datums. This preserves the prior 7 mm nominal board-end clearance
+  while reducing the cell-centre-to-membrane datum from 38.5 to 32.5 mm. Verify
+  that clearance and the remaining laminate on the enclosure coupon.
 - **Cable end:** reserve the first 8 mm (`y = 0…8`) for four staggered solder
   pads, water-blocking/strain-relief geometry, and polarity silkscreen. Copper
   and components may not project beyond the outline. Expansion-connector height

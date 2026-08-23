@@ -25,7 +25,12 @@ cell_height = 8.3;
 // Provisional enclosure interfaces.
 tube_od = 32;
 tube_id = 28;
-tube_length = 135;
+tube_length = 129;
+membrane_z = tube_length + 2;
+assert(abs(membrane_z - (pcb_z + pcb_length) - 7) < 0.001,
+       "Rev-A board-end-to-membrane clearance must remain 7 mm");
+assert(abs(membrane_z - cell_z - 32.5) < 0.001,
+       "Rev-A cell-centre-to-membrane datum must remain 32.5 mm");
 head_overlap = 10;
 head_od = 36;
 head_length = 40;
@@ -182,7 +187,7 @@ module assembly(explode=false) {
 
     color("#b7c1c9", 0.32) enclosure();
     translate([-e,0,0]) probe();
-    translate([e,0,tube_length+2]) membrane();
+    translate([e,0,membrane_z]) membrane();
     translate([e*1.25,0,tube_length-head_overlap]) color("#d96735") sensor_head();
     translate([-e*0.6,0,0]) color("#252b2f") cable_cap();
 }

@@ -3,7 +3,7 @@
 This directory contains a parametric mechanical study of the buried compost
 oxygen probe. The OpenSCAD source and browser model use the same Rev-A concept:
 
-- 32 mm OD / provisionally 28 mm ID PVC-U enclosure, 135 mm long;
+- 32 mm OD / provisionally 28 mm ID PVC-U enclosure, 129 mm long;
 - actual 20 × 119 × 1 mm PCB datum and SGX cell location;
 - removable PMV15T coupon carrier with PP support grid;
 - passive, drained and side-vented diffusion head with a coarse-debris guard;
@@ -17,9 +17,13 @@ colour-capable 3MF assembly.
 
 This is **not fabrication-release geometry**. The PCB dimensions, pot datum,
 cell centre and SGX body dimensions are controlled project values. The tube ID,
-135 mm body length, slip fits, membrane active area, carrier pocket, cable bore,
+129 mm body length, slip fits, membrane active area, carrier pocket, cable bore,
 head retention and guard details are provisional interfaces chosen to make a
 complete Rev-A fit model.
+
+The enclosure and PCB tip were shortened together by 6 mm. This preserves the
+previous 7 mm nominal board-end-to-membrane clearance while reducing the
+SGX-cell-centre-to-membrane datum from 38.5 mm to 32.5 mm.
 
 Before printing a functional enclosure, measure and update:
 
