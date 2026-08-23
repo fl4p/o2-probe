@@ -32,7 +32,7 @@ Question: How should condensation at the O2 probe PTFE membrane be modeled?
 - The response candidate calls for a dry-side carrier-rim heater and temporary cold-spot membrane thermometry.
 - A minimal dynamic extension can use the same surface-flux/sign convention as COMSOL: vapor-concentration driving force, a nonnegative liquid inventory, and latent heat feedback. Drainage and O2-conductance loss remain probe-specific empirical closures.
 - For saturated 40–60°C inlet gas, the Buck-1996 formula gives approximately 90.0–91.2% local RH at a surface 2 K warmer and 81.0–83.3% at +4 K. These are calculated screening values, not a wet-surface validation.
-- The model should use the minimum temperature over each PTFE coupon, carrier bottom edge, and any thermally bridged guard, not U10/U13 or average membrane temperature.
+- The model should use the minimum temperature over the PTFE membrane, carrier bottom edge, and any thermally bridged guard, not U10 or an average membrane temperature. U10 is an observable warm-tip node; its relationship to the membrane minimum must be identified experimentally for the soldered-ring geometry.
 - A nonnegative surface-water inventory is essential: after a cold startup creates condensate, crossing back above dew point starts evaporation but does not make the membrane instantly dry.
 - Direct droplets/leachate require a separate imposed liquid-load term; a condensation-only model cannot demonstrate resistance to gross wetting.
 
@@ -54,7 +54,7 @@ Use a calibrated hybrid model:
 
 ## Calibration/validation plan
 
-- Dry heater-power steps at multiple orientations and gas temperatures; temporary sensors at block, both coupon cold spots, carrier lower edge, tube/guard, and inlet gas; identify the thermal network and uncertainty.
+- Dry heater-power steps at multiple orientations and gas temperatures; temporary sensors at U10, both ring-land regions, membrane cold spots, carrier lower edge, tube/guard, and inlet gas; identify the thermal network and uncertainty.
 - Controlled saturated-gas sweeps through positive and negative dew margin; photograph droplet coverage and record condensation, drainage, and evaporation transients.
 - O2 concentration steps in dry, condensed, externally droplet-covered, drained, and condensate-aged states; identify wet coverage versus conductance.
 - Validate on held-out cold-start, heater-loss, ambient-temperature-step, orientation, and direct-liquid-load cases.

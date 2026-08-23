@@ -1,10 +1,11 @@
 # O₂ probe Rev-A 3D model
 
-This directory contains a parametric mechanical study of the buried compost
-oxygen probe. The OpenSCAD source and browser model use the same Rev-A concept:
+This directory contains a superseded parametric mechanical study of the buried
+compost oxygen probe. It is retained as enclosure research, not as the current
+PCB or ring-carrier source of truth. Its OpenSCAD files still model:
 
 - 32 mm OD / provisionally 28 mm ID PVC-U enclosure, 129 mm long;
-- actual 20 × 119 × 1 mm PCB datum and SGX cell location;
+- the obsolete 20 × 119 × 1 mm PCB envelope and SGX cell location;
 - removable PMV15T coupon carrier with PP support grid;
 - passive, drained and side-vented diffusion head with a coarse-debris guard;
 - cable-end cap with PCB slot and an offset 6.4 mm cable passage.
@@ -15,8 +16,10 @@ colour-capable 3MF assembly.
 
 ## Model status
 
-This is **not fabrication-release geometry**. The PCB dimensions, pot datum,
-cell centre and SGX body dimensions are controlled project values. The tube ID,
+This is **not fabrication-release geometry** and must not be used to infer the
+current 20 × 107 mm board end, soldered heater ring, or membrane spacing.
+Those are controlled by the KiCad project, `PLAN.md`, and a future 1:1 ring/tube
+coupon. The tube ID,
 129 mm body length, slip fits, membrane active area, carrier pocket, cable bore,
 head retention and guard details are provisional interfaces chosen to make a
 complete Rev-A fit model.

@@ -13,8 +13,9 @@ reference per the report's first-experiment plan.
 
 **Decisions locked with Fab:** LMP91000 AFE · probe-side MCU + RS485 Modbus
 (4-wire farm convention: brown +12 V, white GND, green A, yellow B) · single
-12 V feed (SDI-12-LB supply or PSU; design input 7–15 V) · closed-loop ΔT
-heater (RH-primary, PWM) · 2× TMP117 (cell block / surrounding gas) ·
+12 V feed (SDI-12-LB supply or PSU; design input 7–15 V) · closed-loop
+membrane-ring heater (RH-primary, PWM) · one TMP117 at the warm tip with a
+hardware heater-off ALERT path ·
 SHT45-AD1F (**polyimide** membrane variant — not PTFE; corrected per Codex
 review, matters for the NH₃ question) as a ±3–5 %RH condensation-margin
 **health channel**,
@@ -31,20 +32,18 @@ Phase 2 links/copies this plan there.
 
 ## Architecture
 
-**One elongated 4-layer PCB, two zones split by a potting dam** (routed slot +
-silkscreen "POT TO HERE" line). Two-PCB head/body was rejected: an inter-board
+**One elongated 4-layer PCB with potted and gas zones separated by an assembly
+potting datum** (silkscreen "POT TO HERE" line; no board-native slots).
+Two-PCB head/body was rejected: an inter-board
 connector adds a leakage path exactly where sub-µA integrity matters and
 doubles the sealing problem.
 
 ```
 [cable]── POTTED ZONE ──────────────────────────────┬─dam─┬── GAS ZONE ─────[tip]
-  pads → polyfuse/TVS/rev-pol PFET → buck 12→5 V    │slot │ SGX-OX cell (TH,
-  3.3VD LDO → MCU STM32G071 (105 °C), RS485 xcvr    │     │  pins cross the dam)
-  3.3VA LDO → 2.5 V VREF → LMP91000 → ADS1119       │     │ SHT45-AD1F (slotted tab)
-  LMP91000 hard against dam, RE guard-ringed        │     │ TMP117 #2 (gas, iso tab)
-  heater FET (12 V PWM) → 2×2512 resistors on       │     │ DNP BMP390 (heater side)
-   cell-block copper island straddling the dam      │     │
-  TMP117 #1 on heater island · expansion connector  │     │
+  pads → protection → buck/LDOs → MCU + RS485      │       │ SGX-OX cell (TH)
+  expansion + programming                             │       │ SHT45 + one TMP117
+  trimmed VREF → LMP91000 → ADS1119                │       │ 2×2512 + heater FET
+  driven guard around CELL_RE                         │       │ heated ring lands [tip]
 ```
 
 ### PCB outline (controlled layout datum)
@@ -60,7 +59,7 @@ actual 32 mm tube, with the cable termination, expansion connector, cell,
 membrane carrier, and potting fixture installed.
 
 Coordinate system: view from the component side, cable end at `y = 0`, probe tip
-at `y = 119`, board centreline at `x = 10`. All dimensions below are mm.
+at `y = 107`, board centreline at `x = 10`. All dimensions below are mm.
 
 ```
                 20.0
@@ -72,17 +71,18 @@ at `y = 119`, board centreline at `x = 10`. All dimensions below are mm.
             ├- - POT TO - -┤  y=82 datum
             │  dam / neck  │  TRANSITION: y=82…86
             ├──────────────┤
-            │ heater island│
+            │ heated tip   │
             │   ┌──────┐   │
             │   │  O2  │   │  cell centre (10,93.5)
-            │   │ cell │   │  GAS: y=86…119
+            │   │ cell │   │  GAS: y=86…107
             │   └──────┘   │
-            │ SHT45  Tgas  │
-            └──────────────┘  y=119
+            │ SHT45 TMP117 │
+            │  ring lands  │
+            └──────────────┘  y=107
                  tip
 ```
 
-- **Outer `Edge.Cuts`:** 20.0 × 119.0 rounded rectangle, nominal corner radius
+- **Outer `Edge.Cuts`:** 20.0 × 107.0 rounded rectangle, nominal corner radius
   2.0. FR-4, 4 layers, 1.0 mm thickness; a different thickness is allowed only after
   the tube chord/assembled-height check. The 20 mm width leaves nominal 4 mm
   radial clearance per side in the ≈28 mm tube ID, but this is not a component
@@ -98,12 +98,10 @@ at `y = 119`, board centreline at `x = 10`. All dimensions below are mm.
   removable dam clamps around the PCB at this datum; its seal land and the
   cable-side meniscus must finish at or beyond `y = 82`, while every AFE
   high-impedance node remains on the potted side.
-- **Dam/thermal break, provisional:** two 1.0 mm-wide transverse routed slots in
-  the `y = 82…86` band, arranged symmetrically and leaving only deliberately
-  sized laminate bridges for the guarded cell traces, heater supply/return, and
-  mechanical strength. Do **not** copy arbitrary slot endpoints from this sketch:
-  layout sizes the bridges from routing plus the heater thermal model, and the
-  fab's minimum rout/slot rules. No unguarded copper crosses this band.
+- **No board-native slots:** the potting boundary is an assembly datum, not an
+  `Edge.Cuts` feature. The four-layer board retains one continuous In2 GND
+  plane. The only routed mechanical aperture is the SGX footprint's 3 × 6 mm
+  NPTH rear-flow oblong described below.
 - **Primary cell datum:** SGX-OX-ROHS-Mini body centre `(10.0, 93.5)`, body
   envelope Ø14.4 + datasheet tolerance. Rotate it with the three-pin row toward
   the dam/AFE. Start the footprint from the datasheet's 2.54 mm pin pitch and
@@ -117,44 +115,33 @@ at `y = 119`, board centreline at `x = 10`. All dimensions below are mm.
   Confirm the opening against a physical sample before production release.
   Mark the controlled drawing `DO NOT OBSTRUCT`; solder mask/copper keepouts
   alone do not satisfy this.
-- **Heater island:** reserve approximately `x = 1…19`, `y = 86…108` for the
-  thermally bonded cell block, the two 2512 heaters, and TMP117 #1. Shape it with
-  longitudinal isolation slots that terminate in drilled/radiused ends, never
-  sharp internal corners. Exact neck width is a thermal/calculated layout result,
-  not an outline constant. Keep the cell aperture and both gas faces open.
-- **Gas-reference end:** put inlet-side TMP117 #2 gasward of a barrier that is
-  transverse to the actual heater-to-sensor heat-flow axis. Rev A fixes this as
-  two 7.5 × 0.8 mm slots at `y = 114.0`, leaving 0.75 mm edge webs and one
-  3.5 mm centre routing neck: 5.0 mm total direct FR-4 cross-section rather
-  than 20.0 mm. Split the In2 GND fill across the same line and reconnect the
-  filled inlet region through one explicit 0.25 mm bridge; a solid plane must
-  not bypass the mechanical barrier. Keep the TMP117 #2 exposed-pad land and
-  all of its copper gasward of the barrier. Audit the complete authorized
-  crossing bundle; do not allow redundant same-net crossings. Put the exposed-
-  pad land TP7 laterally at `(15,116)` so it consumes no axial tip length.
-  Keep fitted C22 with TMP117 #2. Put the DNP BMP390 and DNP C23/C24
-  heaterward of the barrier at local y=107.5–110. Slots starting
-  at TMP117 #2 and running
-  longitudinally toward the inlet are forbidden because they are parallel to
-  the gradient and leave the heater-facing root intact. Put the SHT45 in the
-  warmed cell chamber, adjacent to the island but with its gas opening and
-  rework path clear; it must not migrate to the unheated inlet merely because
-  that placement is easier. The rounded end stops at `y = 119`, and the main
-  Rev-A enclosure body stops at 129 mm: both are 6 mm shorter than their
-  superseded datums. This preserves the prior 7 mm nominal board-end clearance
-  while reducing the cell-centre-to-membrane datum from 38.5 to 32.5 mm. Verify
-  that clearance and the remaining laminate on the enclosure coupon.
+- **Heated-ring tip:** RH1 and RH2 sit on the back at `(5,96.5)` and
+  `(15,96.5)`. U12 is at `(3.5,101.5)`, U10 at `(10,102)`, and the DNP BMP390
+  option at `(16.5,101)`. J5 provides paired 5.0 × 1.5 mm mask-open,
+  paste-free lands on both faces, centred at `(4.75,105.75)` and
+  `(15.25,105.75)`. Each pair is via-stitched and all four lands are joined by
+  wide back copper on switched `HEATER_LOW`; the metal ring is a thermal
+  spreader, not an electrical jumper. It must remain on the insulated dry side
+  of the PTFE membrane stack.
+- **Warm-tip sensing:** there is one TMP117, 3.75 mm from the J5 centre. Its
+  ALERT directly clamps the heater gate off. It is not a substitute for
+  membrane cold-spot thermometry: qualification must temporarily instrument
+  the membrane/carrier minimum and identify its mapping from U10, heater power,
+  inlet state, and orientation.
+- **Short gas end:** the rounded end stops at `y = 107`; the SGX centre is
+  13.5 mm from that end. The enclosure, ring, and membrane carrier set the
+  actual cell-to-membrane distance. Verify it on a 1:1 tube coupon.
 - **Cable end:** reserve the first 8 mm (`y = 0…8`) for four staggered solder
   pads, water-blocking/strain-relief geometry, and polarity silkscreen. Copper
   and components may not project beyond the outline. Expansion-connector height
   is checked against the circular tube chord; use the documented pad-field
   fallback if the Micro-Fit swept envelope does not close.
-- Put the outline, dam datum, cell centre, rear aperture, slot endpoints, and
+- Put the outline, pot datum, cell centre, rear aperture, ring lands, and
   maximum assembled-height/chord check into `DESIGN.md` as controlled dimensions.
-  `audit.py` must reject an open outline, moved/missing gas aperture, missing pot
-  line, copper in the routed slots, a longitudinal gas-reference slot
-  regression, a GND plane spanning either partition, or a cell/heater island
-  that bridges the intended thermal neck outside its allowed bridges.
+  `audit_pcb.py` must reject an open/deformed outline, any board-native slot,
+  moved/missing gas aperture, missing pot line, stale second-sensor copper,
+  moved/deformed ring lands or stitches, narrow ring-heater copper, or a
+  missing/unfilled continuous GND plane.
 
 - Gas zone: selective conformal coat (apertures clear); cannot be potted.
 - Potted zone: potted solid — covers LMP91000, the C/R/W traces, everything
@@ -182,14 +169,16 @@ at `y = 119`, board centreline at `x = 10`. All dimensions below are mm.
   unstated — the vendor confirmation is necessary, not ceremonial; CE
   compliance is unspecified by SGX → bench-measure V_CE at 0 %/air/30 % over
   temperature.
-- Heater island: thermally necked from the rest of the board; TMP117 #1 on the
-  island closes the PI loop against TMP117 #2 (ΔT ≈ +2 K). ~140 Ω ∥ pair
-  → ~1 W ceiling at 12 V.
+- Membrane-ring heater: ~140 Ω effective RH1/RH2 load gives approximately
+  1 W ceiling at 12 V. U10 supplies warm-tip temperature and a hardware-off
+  limit; SHT45 supplies chamber RH/temperature. The release target is a
+  positive minimum membrane dew margin over a 0–4 K operating rise, established
+  by calibration rather than a two-sensor PCB ΔT assumption.
 - tmp117-probe rules carried over: **no I2C pullups on sensed islands; ADD0
   never floats.**
 - Tube target: 32 mm OD PVC-U pipe (ID ≈ 28 mm) clears the 14.4 mm cell can;
-  Rev-A outline = 20 × 119 mm (dimensioned above); gas window = slots +
-  ePTFE membrane + mesh
+  Rev-A outline = 20 × 107 mm (dimensioned above); gas window = heated
+  dry-side carrier ring + ePTFE membrane + mesh
   (enclosure work). Cell faces marked DO NOT OBSTRUCT: the rear vent needs a
   **routed aperture through the PCB (or specified standoff + lateral gap)**,
   not merely a copper keepout — copper keepout provides no gas flow (Codex).
@@ -208,9 +197,9 @@ at `y = 119`, board centreline at `x = 10`. All dimensions below are mm.
   **~56–58 °C**, not 60 (Codex). TEMP_OVER flag fires at the derated
   ceiling; > 60 °C cell temperature invalidates data per COMPOST-O2.md §6.
 
-**I2C map (conflict-checked):** 0x44 SHT45 · **0x48 LMP91000 (fixed)** →
-TMP117s at 0x49 (ADD0→V+) / 0x4A (ADD0→SDA) · ADS1119 (16 strap options —
-pick clear of 0x44/48/49/4A in Phase 1) · 0x76 DNP BMP390 (**SDO strapped
+**I2C map (conflict-checked):** 0x44 SHT45 · **0x48 LMP91000 (fixed)** ·
+TMP117 at 0x49 (ADD0→V+) · ADS1119 at 0x40 (A1=A0=GND) ·
+0x76 DNP BMP390 (**SDO strapped
 low, CSB defined** — must not float) · 0x68 reserved for K33 on expansion.
 **Bus at ≤100 kHz** (LMP91000 is standard-mode only). MENB MCU-controlled
 **with defined reset state** (pullup or tied), so I2C availability is
@@ -263,7 +252,7 @@ intermediate, and 100 % duty — not only heater-off.
 
 ## Firmware sketch (register map committed to DESIGN.md)
 
-Input regs: O2 raw (µA×100) · O2 compensated (%vol×100) · T_cell · T_gas
+Input regs: O2 raw (µA×100) · O2 compensated (%vol×100) · T_tip · T_chamber
 (0.01 °C) · RH_margin (0.01 %) · EXP data (e.g. K33 CO₂; 0xFFFF = absent) ·
 VREF/VOUT diag · pressure (0 if DNP) · heater duty · ΔT target · fault
 bitfield · uptime · settle-timer · fw version.
@@ -272,35 +261,25 @@ VIN_LOW · TEMP_OVER (T_gas > 60 °C, log-only) · DEW_SUSPECT ·
 EXP_PRESENT/EXP_FAIL (boot-time auto-probe of reserved addresses).
 Holding regs: slave addr, baud, ΔT setpoint, heater max duty, cal constants
 (log-linearity K, air-point), SHT45-pulse trigger.
-Heater control (revised after review discussion + Codex): **primary loop
+Heater control: **primary loop
 regulates measured chamber RH** (SHT45, hold ~85–90 % — the actual controlled
-quantity: condensation margin + the cell's 90 % continuous-RH spec), with the
-**ΔT loop (TMP117 pair) as clamp and fallback** — it takes over when the
-SHT45 is faulted, pulsing, or disagreeing with the TMP117s (which is itself a
-health signal). Psychrometric correction (Codex, arithmetic verified): +2 K
+quantity: condensation margin + the cell's 90 % continuous-RH spec). The one
+TMP117 provides an independent warm-tip limit and its ALERT is a hardware-off
+clamp. If SHT45 fails, firmware may run only a conservatively bounded fallback
+derived from the validated membrane thermal model; otherwise safe state is
+heater off and data invalid. Psychrometric screening: +2 K
 gives only ~90–91 % RH on saturated gas; 85 % needs ~3.1–3.7 K at 40–65 °C —
 **design the thermal path for a 0–4 K ΔT range**, not a fixed 2 K. **SHT45
 placement: in the warmed cell microclimate** (same heated volume as the
-cell), NOT at the inlet — an unheated inlet-mounted SHT45 reads ~100 % RH
-forever and rails the loop; TMP117 #2 at the inlet remains the unheated
-reference. **Cell cold-spot problem:** the island TMP117 measures copper, but
+cell), not at a remote unheated inlet. **Cold-spot problem:** U10 measures PCB
+copper, but
 the 5 g ABS cell couples via three pins and gas — the cell cap or vent can
-sit at dew point while the island reads +2 K; thermally bond cell body to the
-heated block and instrument the actual coldest cell surface during
+sit at dew point while the PCB reads warm. The ring directly heats the dry
+membrane carrier; instrument the actual coldest membrane/carrier surface during
 qualification. **Stuck-on safety (hardware, not firmware):** FET gate
 pulldown, watchdog-bounded enable, absolute cell-temperature cutoff, heater
-resistors safe at 100 % duty. TMP117 #2 is specified as *chamber-inlet gas temperature*, not pile
-temperature: it is heater-coupled and biased safe-high (dew point is set by
-the pile, so measured ΔT understates true margin); placement at the gas
-window, maximally far from the heater island, keeps coupling κ low — the loop
-tolerates partial coupling (settles at +2 K/(1−κ)) and only fails near κ≈1
-(HEATER_RUNAWAY detects that). Why a TMP117 *pair* rather than SHT45-T vs
-TMP117 #1: the ~2 K setpoint makes loop accuracy a *differential* question —
-two same-type TMP117s offset-zeroed in one isothermal soak before potting
-give ~±0.1–0.2 K ΔT accuracy, while a mixed SHT45/TMP117 pair stacks
-different absolute errors and tempcos (worst case ~±0.5 K ≈ 25 % of
-setpoint). Isothermal pair-calibration step added to the bench checklist. 1 Hz PI, ~1 kHz PWM, anti-windup, duty clamp;
-safe state = off on sensor fault. SHT45 heater-pulse routine (every 6–12 h + on demand): de-creep plus
+resistors and ring safe at 100 % duty. Use approximately 1 Hz PI, ~1 kHz PWM,
+anti-windup, and a duty clamp. SHT45 heater-pulse routine (every 6–12 h + on demand): de-creep plus
 dew detection — dry sensor recovers RH quickly post-pulse, wetted sensor shows
 the slow-recovery signature → DEW_SUSPECT classifier; pulse + settling window
 masked from the RH_margin channel; pulse duty limit per SHT4x datasheet
@@ -310,21 +289,19 @@ compensated.
 
 ## Scaffolding (reuse from tmp117-probe)
 
-Hand-drawn KiCad project (generators don't pay at ~60 components), keeping the
-verification discipline. Copy/adapt from `/Users/fab/dev/ee/hw/tmp117-probe/`:
+Generated schematic and deterministic PCB migration/routing, keeping the
+verification discipline established by `/Users/fab/dev/ee/hw/tmp117-probe/`:
 
 - `project_settings.py` — verbatim pattern (pcbnew `.kicad_pro` clobber guard;
   `verify()` stays a gate).
-- `audit.py` + `--calibrate` inject-defect discipline — rewritten checks: RE
-  guard continuity/clearance, dam-slot + potting silkscreen presence, heater
-  neck cross-section, copper keepout under cell can, exact transverse TMP117
-  isolation slots, their single In2 bridge, the gasward exposed-pad land, and
-  the exact authorized copper-crossing set,
+- `audit_pcb.py` + `--calibrate` inject-defect discipline — checks the RE
+  guard, exact slot-free outline and SGX NPTH, ring lands/stitches, heater
+  copper floor, continuous filled In2 GND plane, obsolete-sensor absence,
   cable-pads↔logic creepage, expansion-connector clearance to the potting
   line, SHT45 hand-rework accessibility (it's a maintenance consumable —
   replaced at cell-service intervals).
-- `gen_fp.py` — parametric custom footprints only (cell footprint incl.
-  possible combined Mini/4OX pattern, heater island, iso tabs).
+- Project-local footprints include the first-article SGX pattern and the
+  four-land heated-ring interface.
 - TMP117 symbol/footprint from `tmp117-probe/lib/`; everything else new in
   per-project `lib/o2-probe.{kicad_sym,pretty}` (repo convention: no shared
   lib table).
@@ -355,7 +332,7 @@ verification discipline. Copy/adapt from `/Users/fab/dev/ee/hw/tmp117-probe/`:
 3. **Symbols/footprints.** New parts + TMP117 reuse; cell footprint.
 4. **Schematic.** Blocks above; ERC gate; address/strapping asserted; AFE
    error-budget table written alongside.
-5. **Layout.** Zone partition, guard ring, dam, heater island, iso slots; buck
+5. **Layout.** Zone partition, guard ring, pot datum, compact heated-ring tip; buck
    far from AFE + LC post-filter; DRC + settings verify.
 6. **Audit.** Rewrite audit.py checks, `--calibrate`, record in DESIGN.md.
 7. **Fab outputs.** BOM/CPL/Gerbers and capability confirmation from the
@@ -369,7 +346,7 @@ verification discipline. Copy/adapt from `/Users/fab/dev/ee/hw/tmp117-probe/`:
 - Bench before pile (report's discriminating tests + Codex additions): 2-week
   saturated soak with condensation cycles; heater loop holds target RH/ΔT
   across the 0–4 K range; zero-check in N₂ (cell zero < 0.4 % vol spec);
-  air-point cal stability; TMP117 isothermal pair-zeroing; V_CE compliance
+  air-point cal stability; U10/ring/membrane thermal-map calibration; V_CE compliance
   measured at 0 %/air/30 % O₂ over temperature; cell orientation
   characterized (horizontal/vertical/inverted — SGX is silent; assert
   nothing untested); heater stuck-on case exercised; cable soak/capillary
@@ -392,10 +369,12 @@ rejected → driven guard at RE-replica potential; leakage threat re-scaled to
 nA/MΩ wet-surface class; deployment ceiling derated to ~56–58 °C; RS485
 bias/termination DNP + DE pulldown; bias supervision via register readback +
 rail monitor; rear-vent routed aperture; potting/cable/drainage/orientation/
-final-path-calibration requirements added. Codex confirmed as surviving: the
-I2C map and straps, 3-lead LMP91000 topology and current range, 7 kΩ TIA
-resolution/headroom, ~1 W heater ceiling with closed loop, the two-TMP117 +
-RH health-channel control structure, and the tmp117-probe audit discipline.
+final-path-calibration requirements added. The later 2026-08-23 ring-tip
+revision supersedes that review's two-TMP117/thermal-slot control structure:
+one TMP117 remains, all board-native slots are removed, and the membrane is
+heated directly through the manual-solder dry-side ring. The I2C map,
+3-lead LMP91000 topology/current range, 7 kΩ TIA headroom, ~1 W heater ceiling,
+RH health channel, and calibrated-audit discipline remain.
 
 ## Risks / open questions
 
