@@ -7,7 +7,7 @@ board released for bare-board first articles. The accepted 106-footprint
 schematic transfers without parity errors. KiCad reports 0 errors, 0
 unconnected items, and 0 parity issues. The 29 courtyard pairs are locked
 manual-assembly exceptions and silkscreen is not exported.
-`audit_pcb.py --calibrate` rejects 22/22 known-bad variants.
+`audit_pcb.py --calibrate` rejects 26/26 known-bad variants.
 
 ## 2026-08-23 fabrication corrective pass
 
@@ -56,10 +56,20 @@ manual-assembly exceptions and silkscreen is not exported.
   Edge.Cuts Gerber in the fabrication builder. The fab note must explicitly
   require both internal contours to be routed; a clean outer profile alone is
   insufficient release evidence.
-- Inventory every track, via, pad, and plane crossing at the barrier datum.
-  This board deliberately retains 12 track segments, two vias, no footprint
-  pads, and the clipped In2 GND region. The audit rejects added crossings so
-  later routing cannot silently erase the thermal intent.
+- Inventory every track, via, pad, zone, board copper graphic, and footprint
+  copper graphic crossing at the barrier datum. This board deliberately
+  retains 14 track segments, three vias, no footprint pads/graphics/zones, the
+  exact F.Cu driven-guard source zone and its three connected filled regions,
+  and the clipped In2 GND region. A “complete” crossing
+  inventory that names only tracks and a plane is incomplete; guard pours and
+  copper graphics can otherwise silently erase the thermal intent.
+- A zone source outline is design intent, not fabricated copper. KiCad removed
+  most of the narrow guard as disconnected islands while the source polygon,
+  `IsFilled()` flag, DRC, and old audit all looked healthy. Inspect
+  `GetFilledPolysList()` on the saved board and sample the actual rails on both
+  sides of the sensitive trace. This board now stitches three useful guard
+  regions with four vias and six short internal/bottom links; a calibrated
+  mutation disconnects a rail, refills, and proves the gate fails.
 
 ## 2026-08-23 density and MCU-cluster pass
 

@@ -6,7 +6,8 @@ KiCadRoutingTools passes. The earlier base used commit
 commit `1dd393eaaa895fd83d3acb40e603969f36542e0e`. The heated-ring revision is a
 deterministic local migration and route owned by `adopt_heated_ring_tip.py` and
 `route_heated_ring_tip.py`; `gen_pcb.py` owns final placement and outline while
-`gen_sch.py` owns the MCU pin map.
+`gen_sch.py` owns the MCU pin map. `repair_guard_fill.py` owns the four guard
+stitch vias and six short In1/B.Cu links added after the routed board exists.
 
 The release uses a 0.09 mm track floor, 0.15 mm clearance, and 0.25/0.15 mm
 advanced vias. Tip routing is separated by function:
@@ -22,6 +23,12 @@ advanced vias. Tip routing is separated by function:
 - The original diagonal `/I2C_SCL` B.Cu segment crosses the exact centre-neck
   opening without touching either capsule. Exact contour DRC, not a coarse
   rectangular bounding-box estimate, is the clearance oracle.
+- The exact F.Cu `GUARD_REPLICA` source zone spans the centre neck around
+  CELL_RE. Because CELL_RE and nearby signals fragment the pour, the release
+  retains three physically connected saved fill regions using four guard vias
+  and six short In1/B.Cu links. The barrier audit locks actual filled copper
+  together with the In2 fill, 14 crossing track segments, three vias, zero pads,
+  and zero copper graphics.
 - U10's exposed pad terminates at TP6 through a via inside the large test land.
 
 The compact MCU pass treats the right-side U6/C8 placement as generator-owned.
