@@ -131,6 +131,18 @@ manual-assembly exceptions and silkscreen is not exported.
   internal nanometre. Use `FromMM()` for deterministic route endpoints and
   compare shove coordinates at an engineering-relevant precision while still
   locking the complete segment graph.
+- Semantic idempotence is not enough for a source migration. Recreating an
+  already-correct Edge.Cuts contour changes its UUIDs and creates noisy source
+  churn even when DRC and Gerbers are identical. Recognize the complete exact
+  final primitive set and no-op; replace only absent or legacy geometry.
+- Keep the earliest board generator synchronized with later project-rule
+  enforcement. Encoding 0.20 mm only in `project_settings.py` left
+  `gen_pcb.py` filling under 0.25 mm, so a clean regeneration could not match
+  the accepted source even though the checked-in board was correct.
+- Exercise migrations against all documented input states: absent, legacy,
+  and already-final geometry. A bridge helper tested only on legacy/final
+  boards rejected the empty generator seed; fail closed on partial topology,
+  but allow the generator to create a wholly absent controlled feature.
 
 ## 2026-08-23 density and MCU-cluster pass
 

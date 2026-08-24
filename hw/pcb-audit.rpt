@@ -9,4 +9,4 @@ PASS: O2 probe fabrication audit
 - /+12V_SW minimum track 0.18 mm
 - KiCad error DRC: 0 errors, 0 unconnected; independent XML-to-PCB parity: 0 mismatches; reviewed warnings {'courtyards_overlap': 29, 'silk_edge_clearance': 2, 'silk_over_copper': 16, 'silk_overlap': 21}
 - project rules: 12 process rules; 62 enabled DRC severities; Default 0.15 mm clearance
-- calibration: not requested
+- calibration: 29/29 known-bad variants rejected

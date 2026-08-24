@@ -150,7 +150,7 @@ def build():
     board.GetDesignSettings().m_ViasMinSize=mm(.25)
     board.GetDesignSettings().m_MinThroughDrill=mm(.15)
     board.GetDesignSettings().m_ViasMinAnnularWidth=mm(.05)
-    board.GetDesignSettings().m_CopperEdgeClearance=mm(.25)
+    board.GetDesignSettings().m_CopperEdgeClearance=mm(.20)
     board.GetDesignSettings().m_HoleClearance=mm(.20)
     board.GetDesignSettings().m_NetSettings.GetDefaultNetclass().SetClearance(mm(.15))
     outline(board)
@@ -162,7 +162,7 @@ def build():
     text(board,"CABLE",10,1.5,pcbnew.F_SilkS,.7); text(board,"GAS / DO NOT POT",10,109.5,pcbnew.F_SilkS,.65)
     text(board,"DO NOT OBSTRUCT",10,99.0,pcbnew.F_SilkS,.6)
     # Two horizontal slots at absolute Y=134 mm reduce heat leakage from the
-    # gas-side ring region while retaining 1 mm edge webs and a 7 mm centre
+    # gas-side ring region while retaining 0.75 mm edge webs and a 5 mm centre
     # neck.  The 2.0 mm all-layer rule area removes plane copper across the
     # complete barrier. The SGX footprint's aperture remains a separate NPTH
     # feature.
