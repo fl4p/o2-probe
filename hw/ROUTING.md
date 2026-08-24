@@ -13,8 +13,11 @@ The release uses a 0.09 mm track floor, 0.15 mm clearance, and 0.25/0.15 mm
 advanced vias. Tip routing is separated by function:
 
 - `HEATER_LOW` uses at least 0.80 mm B.Cu from RH1/RH2 and Q2 to the ring.
-- J5's front/back lands are stitched with two 0.60/0.30 mm vias and joined by
-  board copper, so the metal ring is not an electrical jumper.
+- J5's two through-plated castellated slots join every copper layer and are
+  connected by 0.80 mm B.Cu, so the metal ring is not an electrical jumper.
+- The HEATER_PWM In1 tail is held inboard of the right J5 castellation; ordinary
+  tracks retain the global board-edge clearance and enter J5 from inside its
+  pads.
 - I²C lateral fanout uses separated In1 corridors with short F.Cu escapes.
 - The heater PWM follows the right edge and crosses below the sensor routes.
 - In2 is one filled GND zone clipped by the two y=134 mm thermal-break slots.

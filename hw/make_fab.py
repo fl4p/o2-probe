@@ -57,7 +57,7 @@ def sha256(path: Path) -> str:
 
 
 def expected_outline_primitives() -> Counter:
-    """Exact Gerber primitives for the outer 20 x 107 mm R2 contour."""
+    """Exact Gerber primitives for the square-tip 20 x 107 mm contour."""
     expected = Counter()
 
     def point(x: float, y: float):
@@ -71,11 +71,9 @@ def expected_outline_primitives() -> Counter:
 
     line((2.0, 0.0), (18.0, 0.0))
     arc((18.0, 0.0), (17.999, 2.001), (20.0, 2.0))
-    line((20.0, 2.0), (20.0, 105.0))
-    arc((20.0, 105.0), (17.999, 104.999), (18.0, 107.0))
-    line((18.0, 107.0), (2.0, 107.0))
-    arc((2.0, 107.0), (2.001, 104.999), (0.0, 105.0))
-    line((0.0, 105.0), (0.0, 2.0))
+    line((20.0, 2.0), (20.0, 107.0))
+    line((20.0, 107.0), (0.0, 107.0))
+    line((0.0, 107.0), (0.0, 2.0))
     arc((0.0, 2.0), (2.001, 2.001), (2.0, 0.0))
     return expected
 
@@ -279,9 +277,10 @@ def validate_drills(directory: Path) -> dict[str, object]:
         raise SystemExit("separate PTH/NPTH Excellon outputs are missing")
     pth_text = pth.read_text()
     npth_text = npth.read_text()
+    drill_report = (directory / "o2-probe-drill-report.txt").read_text()
     if "METRIC" not in pth_text or "METRIC" not in npth_text:
         raise SystemExit("drill outputs are not metric Excellon")
-    tool_match = re.search(r"T(\d+)C3(?:\.0+)?", npth_text)
+    tool_match = re.search(r"^T(\d+)C3(?:\.0+)?$", npth_text, re.MULTILINE)
     if not tool_match:
         raise SystemExit("NPTH data does not contain the 3.00 mm SGX slot tool")
     if "M15" not in npth_text or "G01" not in npth_text:
@@ -309,12 +308,55 @@ def validate_drills(directory: Path) -> dict[str, object]:
                        if route[0] == slot_tool and {route[1], route[2]} == expected_endpoints]
     if len(routes) != 1 or len(matching_routes) != 1:
         raise SystemExit(f"SGX routed slot geometry differs: routes={routes}")
+
+    ring_tool_match = re.search(r"^T(\d+)C1(?:\.0+)?$", pth_text, re.MULTILINE)
+    if not ring_tool_match:
+        raise SystemExit("PTH data does not contain the 1.00 mm ring-castellation tool")
+    ring_tool = f"T{int(ring_tool_match.group(1))}"
+    selected_tool = ""
+    route_start = None
+    routing = False
+    pth_routes = []
+    for line in pth_text.splitlines():
+        if re.fullmatch(r"T\d+", line):
+            selected_tool = line
+        match = coordinate.search(line)
+        if line.startswith("G00") and match:
+            route_start = tuple(map(float, match.groups()))
+        elif line == "M15":
+            routing = True
+        elif line.startswith("G01") and match and routing and route_start is not None:
+            pth_routes.append((selected_tool, route_start, tuple(map(float, match.groups()))))
+        elif line == "M16":
+            routing = False
+    expected_ring_routes = {
+        frozenset(((100.0, -155.0), (100.0, -156.0))),
+        frozenset(((120.0, -155.0), (120.0, -156.0))),
+    }
+    actual_ring_routes = {
+        frozenset((route[1], route[2]))
+        for route in pth_routes if route[0] == ring_tool
+    }
+    if len(pth_routes) != 2 or actual_ring_routes != expected_ring_routes:
+        raise SystemExit(f"ring PTH castellated-slot geometry differs: routes={pth_routes}")
+    if not re.search(
+        r"1\.000mm\s+0\.0394\"\s+\(2 holes\)\s+\(with 2 slots, castellated\)",
+        drill_report,
+    ):
+        raise SystemExit("drill report does not identify both 1.00 mm ring slots as castellated")
     return {
         "drill_files": [pth.name, npth.name],
         "npth_routed_slot_commands": True,
         "sgx_slot_tool_mm": 3.0,
         "sgx_slot_route_endpoints_mm": [[110.0, -144.5], [110.0, -147.5]],
         "sgx_slot_finished_size_mm": [3.0, 6.0],
+        "ring_castellation_plated_slot_commands": True,
+        "ring_castellation_tool_mm": 1.0,
+        "ring_castellation_route_endpoints_mm": [
+            [[100.0, -155.0], [100.0, -156.0]],
+            [[120.0, -155.0], [120.0, -156.0]],
+        ],
+        "ring_castellation_finished_size_mm": [1.0, 2.0],
     }
 
 
@@ -402,7 +444,7 @@ def main() -> int:
     print(f"SHA-256: {sha256(ZIP)}")
     print(f"files: {len(expected)}; Gerber outline: {validation['plotted_outline_mm'][0]:.2f} x "
           f"{validation['plotted_outline_mm'][1]:.2f} mm; two exact Y=134 Edge.Cuts slots "
-          "and SGX routed NPTH verified")
+          "plus two plated-slot ring castellations and SGX routed NPTH verified")
     return 0
 
 

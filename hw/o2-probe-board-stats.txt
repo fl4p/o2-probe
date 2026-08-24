@@ -1,13 +1,15 @@
-O2 probe PCB statistics — 2026-08-23
+O2 probe PCB statistics — 2026-08-24
 =====================================
 
-Board: 20.00 x 119.00 mm, 1.00 mm thick, four copper layers
-Footprints: 109 (51 front, 58 back)
-Pads: 364 (341 SMD, 10 NPTH)
-Track segments: 2392
-Through vias: 260
-Track/via objects: 2652
-Zones: one guard zone plus three controlled /GND regions on In2.Cu
+Board: 20.00 x 107.00 mm, 1.00 mm thick, four copper layers; square gas end
+Footprints: 106 (50 front, 56 back)
+Pads: 352 (327 SMD, 9 PTH including 2 castellated, 10 NPTH, 6 connection)
+Track segments: 2303
+Through vias: 237
+Track/via objects: 2540
+Zones: one physically stitched F.Cu guard plus one continuous /GND region on In2.Cu
+Mechanical routes: two 5.50 x 1.00 mm Edge.Cuts thermal slots, one 3.00 x
+6.00 mm SGX NPTH, and two 1.00 x 2.00 mm plated-slot J5 castellations
 
 Advanced fabrication floor encoded in o2-probe.kicad_pro:
 - minimum track width: 0.09 mm
@@ -19,6 +21,6 @@ KiCad strict DRC:
 - unconnected items: 0
 - schematic parity issues: 0
 - copper/hole/edge/track-width violations: 0
-- courtyard overlap warnings: 28 exact reviewed pairs
-- non-exported source-silkscreen warnings: 38
+- courtyard overlap warnings: 29 exact reviewed pairs
+- non-exported source-silkscreen warnings: 39
 - footprint-library copy mismatch warnings: 0

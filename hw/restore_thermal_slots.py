@@ -88,14 +88,14 @@ def main() -> int:
         and max(local_xy(item.GetStart())[1], local_xy(item.GetEnd())[1]) <= 84.6
     ]
     if slot_items:
-        if len(edge_items) != 16 or len(slot_items) != 8:
+        if len(edge_items) != 14 or len(slot_items) != 8:
             raise SystemExit(
                 f"unexpected existing Y=134 slot geometry: {len(edge_items)} Edge.Cuts, "
                 f"{len(slot_items)} slot-band items"
             )
     else:
-        if len(edge_items) != 8:
-            raise SystemExit(f"expected eight-item outer outline before migration, found {len(edge_items)} items")
+        if len(edge_items) != 6:
+            raise SystemExit(f"expected six-item square-tip outline before migration, found {len(edge_items)} items")
         for slot_spec in THERMAL_SLOTS:
             add_horizontal_slot(board, *slot_spec)
 

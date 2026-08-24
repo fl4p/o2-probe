@@ -12,6 +12,9 @@ import sys
 import xml.etree.ElementTree as ET
 
 try:
+    import wx
+
+    _APP = wx.AppConsole()
     import pcbnew
 except ImportError:
     sys.exit("run with KiCad's bundled Python")
@@ -53,9 +56,9 @@ def arc(board, sx, sy, mx, my, ex, ey):
 
 def outline(board):
     line(board,R,0,W-R,0,pcbnew.Edge_Cuts,.05); arc(board,W-R,0,W-.586,.586,W,R)
-    line(board,W,R,W,L-R,pcbnew.Edge_Cuts,.05); arc(board,W,L-R,W-.586,L-.586,W-R,L)
-    line(board,W-R,L,R,L,pcbnew.Edge_Cuts,.05); arc(board,R,L,.586,L-.586,0,L-R)
-    line(board,0,L-R,0,R,pcbnew.Edge_Cuts,.05); arc(board,0,R,.586,.586,R,0)
+    line(board,W,R,W,L,pcbnew.Edge_Cuts,.05)
+    line(board,W,L,0,L,pcbnew.Edge_Cuts,.05)
+    line(board,0,L,0,R,pcbnew.Edge_Cuts,.05); arc(board,0,R,.586,.586,R,0)
 
 
 def horizontal_slot(board, x, y, length, width):
@@ -116,7 +119,7 @@ PLACEMENT = {
  "U12":(3.5,101.5,0,"F"), "C20":(6.0,101.5,90,"F"),
  "U10":(10.0,102.0,270,"F"), "C21":(12.5,102.5,90,"F"),
  "U14":(16.5,101.0,0,"F"), "C23":(14.0,100.0,180,"F"), "C24":(14.0,102.0,180,"F"),
- "J5":(10.0,105.75,0,"F"),
+ "J5":(10.0,105.5,0,"F"),
 }
 
 

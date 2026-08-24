@@ -2,9 +2,10 @@
 """Adopt the user-authored heated-ring tip floorplan into the routed board.
 
 This one-way migration removes the obsolete gas-reference TMP117 circuit and
-obsolete tip-slot set, shortens the board to 107 mm, restores the two intended
-horizontal thermal-break slots at absolute Y=134 mm, installs the manual-solder
-ring lands, compacts the MCU beside the RS-485 transceiver, aligns the retained
+obsolete tip-slot set, shortens the board to 107 mm with a square gas-side end,
+restores the two intended horizontal thermal-break slots at absolute Y=134 mm,
+installs castellated manual-solder ring contacts, compacts the MCU beside the
+RS-485 transceiver, aligns the retained
 components to ``gen_pcb.py``, and replaces the formerly split In2 GND regions
 with one continuous plane. Local copper is completed separately after the
 mechanical migration is checked.
@@ -53,7 +54,7 @@ PLACEMENT = {
     "U14": (16.5, 101.0, 0.0, "F"),
     "C23": (14.0, 100.0, 180.0, "F"),
     "C24": (14.0, 102.0, 180.0, "F"),
-    "J5": (10.0, 105.75, 0.0, "F"),
+    "J5": (10.0, 105.5, 0.0, "F"),
 }
 
 
@@ -91,12 +92,9 @@ def add_outline(board) -> None:
     width, radius, length = 20.0, 2.0, NEW_LENGTH_MM
     edge_line(board, (radius, 0), (width - radius, 0))
     edge_arc(board, (width - radius, 0), (width - 0.586, 0.586), (width, radius))
-    edge_line(board, (width, radius), (width, length - radius))
-    edge_arc(board, (width, length - radius),
-             (width - 0.586, length - 0.586), (width - radius, length))
-    edge_line(board, (width - radius, length), (radius, length))
-    edge_arc(board, (radius, length), (0.586, length - 0.586), (0, length - radius))
-    edge_line(board, (0, length - radius), (0, radius))
+    edge_line(board, (width, radius), (width, length))
+    edge_line(board, (width, length), (0, length))
+    edge_line(board, (0, length), (0, radius))
     edge_arc(board, (0, radius), (0.586, 0.586), (radius, 0))
 
 
@@ -220,7 +218,7 @@ def main() -> int:
     for reference, spec in PLACEMENT.items():
         set_placement(footprints[reference], spec)
 
-    # Rebind every numbered pad, including all four duplicated J5 lands and the
+    # Rebind every numbered pad, including both duplicated-number J5 contacts and the
     # new one-node unconnected net on the MCU pin formerly used by U13 ALERT.
     # Also refresh schematic-owned custom fields; C20/C21 changed function in
     # this revision and must not retain their old thermal-sensor design notes.
@@ -244,7 +242,8 @@ def main() -> int:
             drawing.SetPosition(point(10.0, 86.8))
 
     # Every obsolete slot and the partially moved draft outline are removed
-    # together. Reconstruct the 20 x 107 mm R2 contour plus only the two
+    # together. Reconstruct the 20 x 107 mm contour with a rounded cable end
+    # and square gas end, plus only the two
     # user-requested horizontal thermal-break slots at absolute Y=134 mm.
     old_edges = [item for item in board.Drawings() if item.GetLayer() == pcbnew.Edge_Cuts]
     if len(old_edges) != 26:
