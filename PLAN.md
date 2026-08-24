@@ -372,11 +372,11 @@ nA/MΩ wet-surface class; deployment ceiling derated to ~56–58 °C; RS485
 bias/termination DNP + DE pulldown; bias supervision via register readback +
 rail monitor; rear-vent routed aperture; potting/cable/drainage/orientation/
 final-path-calibration requirements added. The later 2026-08-23 ring-tip
-revision supersedes that review's two-TMP117/thermal-slot control structure:
-one TMP117 remains, all board-native slots are removed, and the membrane is
-heated directly through the manual-solder dry-side ring. The I2C map,
-3-lead LMP91000 topology/current range, 7 kΩ TIA headroom, ~1 W heater ceiling,
-RH health channel, and calibrated-audit discipline remain.
+revision supersedes that review's two-TMP117/sensor-isolation control structure:
+one TMP117 remains, the two transverse y=134 thermal-break slots remain, and
+the membrane is heated directly through the manual-solder dry-side ring. The
+I2C map, 3-lead LMP91000 topology/current range, 7 kΩ TIA headroom, ~1 W heater
+ceiling, RH health channel, and calibrated-audit discipline remain.
 
 ## Risks / open questions
 
