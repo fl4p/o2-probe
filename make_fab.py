@@ -57,7 +57,7 @@ def sha256(path: Path) -> str:
 
 
 def expected_outline_primitives() -> Counter:
-    """Exact Gerber primitives for the slot-free 20 x 107 mm R2 contour."""
+    """Exact Gerber primitives for the outer 20 x 107 mm R2 contour."""
     expected = Counter()
 
     def point(x: float, y: float):
@@ -77,6 +77,28 @@ def expected_outline_primitives() -> Counter:
     arc((2.0, 107.0), (2.001, 104.999), (0.0, 105.0))
     line((0.0, 105.0), (0.0, 2.0))
     arc((0.0, 2.0), (2.001, 2.001), (2.0, 0.0))
+    return expected
+
+
+def expected_thermal_slot_primitives() -> Counter:
+    """Exact Gerber primitives for the two Y=134 mm thermal-break slots."""
+    expected = Counter()
+
+    def point(x: float, y: float):
+        return round(x, 3), round(-y, 3)
+
+    def line(start, end):
+        expected[("line", frozenset((point(*start), point(*end))))] += 1
+
+    def arc(start, center, end):
+        expected[("arc", frozenset((point(*start), point(*end))), point(*center))] += 1
+
+    for x in (103.75, 116.25):
+        x0, x1 = x - 2.75, x + 2.75
+        line((x0 + 0.5, 133.5), (x1 - 0.5, 133.5))
+        arc((x1 - 0.5, 133.5), (x1 - 0.5, 134.0), (x1 - 0.5, 134.5))
+        line((x1 - 0.5, 134.5), (x0 + 0.5, 134.5))
+        arc((x0 + 0.5, 134.5), (x0 + 0.5, 134.0), (x0 + 0.5, 133.5))
     return expected
 
 
@@ -149,19 +171,23 @@ def validate_gerbers(directory: Path) -> dict[str, object]:
         raise SystemExit(f"plotted outline is {width:.3f} x {height:.3f} mm")
     primitives = parse_gerber_primitives(outline, x_frac, y_frac)
     expected_outline = expected_outline_primitives()
-    if primitives != expected_outline:
+    expected_slots = expected_thermal_slot_primitives()
+    expected_edge_cuts = expected_outline + expected_slots
+    if primitives != expected_edge_cuts:
         raise SystemExit(
-            "slot-free Edge.Cuts contour differs: "
+            "Edge.Cuts outer/thermal-slot contour differs: "
             f"primitive_count={sum(primitives.values())}; "
-            f"added/changed={list((primitives - expected_outline).elements())}; "
-            f"missing={list((expected_outline - primitives).elements())}"
+            f"added/changed={list((primitives - expected_edge_cuts).elements())}; "
+            f"missing={list((expected_edge_cuts - primitives).elements())}"
         )
     return {
         "gerber_layers": sorted(actual),
         "plotted_outline_mm": [width, height],
         "edge_cuts_primitives": sum(primitives.values()),
         "outer_outline_primitives": sum(expected_outline.values()),
-        "board_native_routed_slot_contours": 0,
+        "board_native_routed_slot_contours": 2,
+        "thermal_slot_centers_mm": [[103.75, 134.0], [116.25, 134.0]],
+        "thermal_slot_finished_size_mm": [5.5, 1.0],
     }
 
 
@@ -294,7 +320,8 @@ def main() -> int:
     print(f"PASS: {ZIP}")
     print(f"SHA-256: {sha256(ZIP)}")
     print(f"files: {len(expected)}; Gerber outline: {validation['plotted_outline_mm'][0]:.2f} x "
-          f"{validation['plotted_outline_mm'][1]:.2f} mm; slot-free Edge.Cuts and SGX routed NPTH verified")
+          f"{validation['plotted_outline_mm'][1]:.2f} mm; two exact Y=134 Edge.Cuts slots "
+          "and SGX routed NPTH verified")
     return 0
 
 

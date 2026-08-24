@@ -1,6 +1,6 @@
 # O2 probe fabrication-readiness gate
 
-Status date: 2026-08-23
+Status date: 2026-08-24
 
 ## Decision
 
@@ -25,10 +25,12 @@ Gerber/Excellon validation.
   zero mismatches on the release.
 - CELL_RE remains one 9.652 mm, 0.15 mm F.Cu segment from U7.13 to U11.2,
   without a via or test point; `GUARD_REPLICA` encloses the long run.
-- The board is exactly 20.00 × 107.00 × 1.00 mm with four copper layers and
-  an eight-primitive R2 outline. No board-native Edge.Cuts slots remain.
-- The only routed mechanical aperture is U11's 3.00 × 6.00 mm gasward NPTH
-  oblong. The release validates its tool and exact route endpoints.
+- The board is exactly 20.00 × 107.00 × 1.00 mm with four copper layers, an
+  eight-primitive R2 outline, and two exact 5.50 × 1.00 mm horizontal
+  Edge.Cuts slots centred at absolute y=134.00 mm. They retain 1.00 mm edge
+  webs and a 7.00 mm centre neck.
+- U11's separate 3.00 × 6.00 mm gasward NPTH oblong remains in Excellon. The
+  release validates its tool and exact route endpoints independently.
 - The obsolete U13/C22/R30/TP7 second-temperature circuit and both of its
   dedicated nets are absent from the schematic, PCB, and release.
 - J5 is exactly four 5.00 × 1.50 mm paste-free mask-open lands at two
@@ -38,8 +40,9 @@ Gerber/Excellon validation.
   ring centre; R29 provides passive default-off, and the wired TMP117 ALERT
   path is not credited as an overtemperature cutoff until configured and
   fault-tested in firmware.
-- In2 is one exact filled GND plane across the slot-free board. Fitted U10 and
-  U12 use dogbone ground vias rather than open via-in-pad construction.
+- In2 is one exact filled GND zone whose fill is clipped by both slots and
+  remains connected through the retained edge webs and centre neck. Fitted
+  U10 and U12 use dogbone ground vias rather than open via-in-pad construction.
 - Board rules and nominal stackup explicitly record the advanced-fab floor,
   1 oz outer/0.5 oz inner copper, and ENIG.
 - U6 is locked to the dense right-side lane at local `(14.5,44.5)`, 180°,
@@ -48,21 +51,21 @@ Gerber/Excellon validation.
 - The generator assigns `RS485_DE` to PC6 beside the USART1 TX/RX pins and
   `VA_MON` to PA7/ADC_IN7; PA0/PA1 are intentionally unused. Firmware must use
   this final pin map.
-- `audit_pcb.py --calibrate` rejects 20/20 deliberately broken variants,
-  including a CELL_RE via, missing guard/GND plane, reintroduced slot,
-  deformed outline/GND/ring geometry, unfilled plane, missing ring stitch,
-  stale second-sensor copper, narrow heater/ordinary/switched-supply tracks,
+- `audit_pcb.py --calibrate` rejects 22/22 deliberately broken variants,
+  including a CELL_RE via, missing guard/GND plane, unexpected third slot,
+  deformed outline/thermal-slot/GND/ring geometry, unfilled plane, missing ring stitch,
+  stale second-sensor copper, unexpected barrier copper, narrow heater/ordinary/switched-supply tracks,
   moved U7/U6, exact duplicate copper, deleted schematic footprint, wrong pad
   net, and missing stackup.
-- `make_fab.py` independently finds zero board-native slot contours in the
-  Gerber and the one exact SGX routed NPTH in Excellon.
+- `make_fab.py` independently finds both exact thermal-slot contours in the
+  Edge.Cuts Gerber and the one exact SGX routed NPTH in Excellon.
 
 ## Reviewed warnings and scope
 
 KiCad reports 29 courtyard overlaps. Their exact pair set is locked in
 `audit_pcb.py` and listed in `ASSEMBLY-EXCEPTIONS.md`; they are hand-assembly
-review items, not bare-board errors. The remaining 38 legend warnings are 21
-silk overlaps, 16 silk-over-copper findings, and one silk-to-edge finding on
+review items, not bare-board errors. The remaining 39 legend warnings are 21
+silk overlaps, 16 silk-over-copper findings, and two silk-to-edge findings on
 layers intentionally omitted from the Gerber release. There are no waivers for
 copper, mask, holes, outline, connectivity, or schematic parity.
 

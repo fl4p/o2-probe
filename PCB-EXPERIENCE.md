@@ -7,7 +7,7 @@ board released for bare-board first articles. The accepted 106-footprint
 schematic transfers without parity errors. KiCad reports 0 errors, 0
 unconnected items, and 0 parity issues. The 29 courtyard pairs are locked
 manual-assembly exceptions and silkscreen is not exported.
-`audit_pcb.py --calibrate` rejects 20/20 known-bad variants.
+`audit_pcb.py --calibrate` rejects 22/22 known-bad variants.
 
 ## 2026-08-23 fabrication corrective pass
 
@@ -18,9 +18,9 @@ manual-assembly exceptions and silkscreen is not exported.
 - Reject the entire two-TMP117 thermal-barrier concept. The original horizontal
   slots did not isolate the sensor from the heater in the claimed gradient,
   and a remote gas-reference sensor did not measure membrane temperature.
-- Remove U13/C22/R30/TP7 and every board-native slot. Restore one continuous
-  In2 GND plane; on this design the plane is an intentional heat/return path
-  toward the membrane carrier, not a fictitious cold-island boundary.
+- Remove U13/C22/R30/TP7 and the obsolete sensor-isolation slot concept. This
+  was initially applied too broadly by also removing the transverse boundary
+  slots; the 2026-08-24 correction below restores those two distinct features.
 - Shorten the board to 20 × 107 mm and move the membrane heater to J5: four
   paste-free front/back lands for a hand-soldered metal carrier ring. Join all
   lands in PCB copper so the ring is not an electrical jumper.
@@ -34,8 +34,32 @@ manual-assembly exceptions and silkscreen is not exported.
   enable every KiCad DRC category. Route endpoint and dangling-stub warnings
   were corrected, not suppressed.
 - Generate and independently inspect the Gerber/Excellon ZIP with `make_fab.py`.
-- Audit the exact slot-free outer contour, one continuous GND zone, all four
-  J5 lands, two stitch vias, wide heater copper, and absence of obsolete nets.
+- Audit the exact outer contour, one continuous GND zone, all four J5 lands,
+  two stitch vias, wide heater copper, and absence of obsolete nets.
+
+## 2026-08-24 thermal-break slot correction
+
+- “Remove the slots” was interpreted too broadly. The rejected geometry was
+  the old second-sensor isolation concept; it did not authorize deleting the
+  two transverse boundary slots. Record slot function, axis, datum, finished
+  size, residual webs/neck, and which thermal regions it separates as separate
+  requirements so one shorthand instruction cannot collapse them together.
+- Restore two horizontal 5.5 × 1.0 mm capsules at absolute y=134.0 mm, centred
+  at x=103.75 and x=116.25 mm. They leave 1.0 mm side-edge webs and a 7.0 mm
+  centre neck. They are a partial axial thermal break between potted body and
+  gas-side tip, not an isolated heated island and not a second-sensor feature.
+- A coarse rectangular collision estimate falsely marked the original
+  diagonal `/I2C_SCL` route as conflicting. The exact capsule contours show
+  that it clears through the centre neck. Use exact routed-contour geometry
+  plus KiCad DRC before ripping up accepted copper near slots.
+- Lock the two closed contours in the board audit and independently parse the
+  Edge.Cuts Gerber in the fabrication builder. The fab note must explicitly
+  require both internal contours to be routed; a clean outer profile alone is
+  insufficient release evidence.
+- Inventory every track, via, pad, and plane crossing at the barrier datum.
+  This board deliberately retains 12 track segments, two vias, no footprint
+  pads, and the clipped In2 GND region. The audit rejects added crossings so
+  later routing cannot silently erase the thermal intent.
 
 ## 2026-08-23 density and MCU-cluster pass
 
@@ -158,7 +182,7 @@ manual-assembly exceptions and silkscreen is not exported.
   also participate in parity.
 - If a future revision genuinely needs a routed slot, do not model it as a
   helper footprint. Closed Edge.Cuts contours are the board-native form and
-  must be audited by exact primitive and datum. This revision has none.
+  must be audited by exact primitive and datum. This revision has two.
 - A thermal slot is load-bearing only when it interrupts the actual heat-flow
   path. Lock its orientation, residual neck/web widths, sensor/heater sides,
   and every copper-plane crossing. A slot parallel to the gradient, or a solid
@@ -226,5 +250,6 @@ python3 make_fab.py
 
 That command applies/verifies project rules, runs ERC and both audits, records
 error and warning DRC JSON, plots the exact layer set, validates Gerber X2
-functions, the exact slot-free R2 outer contour, and routed SGX NPTH Excellon
-data, writes checksums, and builds `fab/o2-probe-rev-a-fab.zip`.
+functions, the exact R2 outer contour, both thermal-break slot contours, and
+routed SGX NPTH Excellon data, writes checksums, and builds
+`fab/o2-probe-rev-a-fab.zip`.

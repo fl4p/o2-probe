@@ -26,6 +26,7 @@ TMP117_FP = HERE.parent / "tmp117-probe" / "lib" / "tmp117-probe.pretty"
 ORG = pcbnew.VECTOR2I_MM(100, 50)
 W, L, R = 20.0, 107.0, 2.0
 POT_Y = 82.0
+THERMAL_SLOTS = ((3.75, 84.0, 5.5, 1.0), (16.25, 84.0, 5.5, 1.0))
 
 
 def mm(v): return pcbnew.FromMM(v)
@@ -55,6 +56,17 @@ def outline(board):
     line(board,W,R,W,L-R,pcbnew.Edge_Cuts,.05); arc(board,W,L-R,W-.586,L-.586,W-R,L)
     line(board,W-R,L,R,L,pcbnew.Edge_Cuts,.05); arc(board,R,L,.586,L-.586,0,L-R)
     line(board,0,L-R,0,R,pcbnew.Edge_Cuts,.05); arc(board,0,R,.586,.586,R,0)
+
+
+def horizontal_slot(board, x, y, length, width):
+    """Add one exact horizontal Edge.Cuts capsule in board-local coordinates."""
+    x0, x1 = x - length / 2, x + length / 2
+    y0, y1 = y - width / 2, y + width / 2
+    radius = width / 2
+    line(board, x0 + radius, y0, x1 - radius, y0, pcbnew.Edge_Cuts, .05)
+    arc(board, x1 - radius, y0, x1, y, x1 - radius, y1)
+    line(board, x1 - radius, y1, x0 + radius, y1, pcbnew.Edge_Cuts, .05)
+    arc(board, x0 + radius, y1, x0, y, x0 + radius, y0)
 
 
 def text(board, value, x, y, layer=pcbnew.F_SilkS, size=.7, rot=0):
@@ -136,12 +148,15 @@ def build():
     board.GetDesignSettings().m_HoleClearance=mm(.20)
     board.GetDesignSettings().m_NetSettings.GetDefaultNetclass().SetClearance(mm(.15))
     outline(board)
+    for slot_spec in THERMAL_SLOTS:
+        horizontal_slot(board, *slot_spec)
     for ly in (pcbnew.F_SilkS,pcbnew.B_SilkS): line(board,.5,POT_Y,19.5,POT_Y,ly,.3)
     text(board,"POT TO HERE",10,81,pcbnew.F_SilkS,.7); text(board,"POT TO HERE",10,83,pcbnew.B_SilkS,.7)
     text(board,"CABLE",10,1.5,pcbnew.F_SilkS,.7); text(board,"GAS / DO NOT POT",10,109.5,pcbnew.F_SilkS,.65)
     text(board,"DO NOT OBSTRUCT",10,99.0,pcbnew.F_SilkS,.6)
-    # The heated-ring redesign deliberately has no board-native Edge.Cuts
-    # slots.  The SGX footprint's gas aperture remains a separate NPTH feature.
+    # Two horizontal slots at absolute Y=134 mm reduce heat leakage from the
+    # gas-side ring region while retaining 1 mm edge webs and a 7 mm centre
+    # neck. The SGX footprint's aperture remains a separate NPTH feature.
     # Nets must exist before pad assignment.
     netitems={}
     for name in nets:

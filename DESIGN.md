@@ -80,9 +80,11 @@ KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
   gasward of the cell axis. It spans the axis and provides a first-article
   airflow/fit window without inventing a rear-port diameter that DS-0637 Issue
   2 does not specify. Physical sample fit remains required for production.
-- No mounting holes or board-native Edge.Cuts slots. Cable strain relief,
-  expansion-connector chord clearance, ring/membrane carrier, and gas volume
-  require the tube/fixture fit check described in the plan and `PLACEMENT.md`.
+- No mounting holes. Two exact 5.5 × 1.0 mm horizontal Edge.Cuts slots at
+  absolute y=134 mm form a partial thermal break between the potted body and
+  gas-side tip while retaining 1 mm edge webs and a 7 mm centre neck. Cable
+  strain relief, expansion-connector chord clearance, ring/membrane carrier,
+  and gas volume require the tube/fixture fit check in `PLACEMENT.md`.
 
 ## Release gates and provisional choices
 
@@ -140,13 +142,15 @@ archive.
 
 ## PCB capture status
 
-PCB first-article release date: 2026-08-23. `o2-probe.kicad_pcb` is linked to
+PCB first-article release date: 2026-08-24. `o2-probe.kicad_pcb` is linked to
 the 106-footprint schematic and preserves the exact 20 × 107 mm R2 outline,
 local y=82 pot line, and SGX centre `(10,93.5)`. The four-layer 1.0 mm stack is
 nominal ENIG with 1 oz outer and 0.5 oz inner copper.
 
-The tip has no board-native slots and no second TMP117. RH1/RH2, Q2, U10, U12,
-and the DNP pressure option are aligned behind J5. J5 provides four exact
+The tip has no second TMP117. Two horizontal thermal-break slots are centred at
+local y=84.0, immediately gasward of the potting datum; they are not a sensor
+isolation feature. RH1/RH2, Q2, U10, U12, and the DNP pressure option are
+aligned behind J5. J5 provides four exact
 5.0 × 1.5 mm front/back solder lands at local x=4.75/15.25, y=105.75; two vias
 and wide B.Cu connect them independently of the hand-soldered ring. The cell
 centre is 13.5 mm from the board end and U10 is 3.75 mm from the ring centre.
@@ -156,9 +160,10 @@ the right-side lane beside U5. C8 moves to `(18,37.5)` to preserve a clean U6
 courtyard without separating the analog-LDO output bypass from U3.
 
 CELL_RE remains one 9.652 mm F.Cu segment with no via/test point and a driven
-guard. In2 is one filled GND plane across the slot-free board. KiCad 10.0.5
-reports 0 DRC errors, 0 unconnected items, and 0 parity issues; the calibrated
-audit rejects 17/17 known-bad variants. The 29 exact courtyard pairs are
+guard. In2 is one filled GND region clipped by the two slots and joined through
+the retained webs/neck. KiCad 10.0.5 reports 0 DRC errors, 0 unconnected items,
+and 0 parity issues; the calibrated audit rejects 22/22 known-bad variants. The
+29 exact courtyard pairs are
 manual-assembly exceptions and legend layers are not exported. See
 `FAB-READINESS.md`, `ASSEMBLY-EXCEPTIONS.md`, and `FAB-NOTES.md` for release
 scope and remaining qualification work.

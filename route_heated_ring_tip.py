@@ -85,9 +85,9 @@ def require_floorplan() -> None:
 def main() -> int:
     require_floorplan()
 
-    # The slot-free In2 plane is the low-impedance ground backbone.  Vias sit
-    # in ground pads where practical, which avoids threading return traces
-    # through the opposed-side heater footprints.
+    # In2 is the low-impedance ground backbone. Its zone fill is clipped by the
+    # two y=134 thermal-break slots but remains continuous through the retained
+    # centre neck and edge webs. Vias sit in ground pads where practical.
     segment("/GND", pcbnew.F_Cu, (6.0, 101.02), (4.2, 101.1), 0.20)
     path("/GND", pcbnew.F_Cu,
          ((4.2, 101.1), (4.8, 101.1), (4.8, 100.5)), 0.20)
