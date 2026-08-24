@@ -5,9 +5,9 @@
 The Rev-A PCB is a schematic-linked, electrically complete four-layer KiCad
 board released for bare-board first articles. The accepted 106-footprint
 schematic transfers without parity errors. KiCad reports 0 errors, 0
-unconnected items, and 0 parity issues. The 29 courtyard pairs are locked
+unconnected items, and 0 parity issues. The 27 courtyard pairs are locked
 manual-assembly exceptions and silkscreen is not exported.
-`audit_pcb.py --calibrate` rejects 29/29 known-bad variants.
+`audit_pcb.py --calibrate` rejects 31/31 known-bad variants.
 
 ## 2026-08-23 fabrication corrective pass
 
@@ -25,7 +25,7 @@ manual-assembly exceptions and silkscreen is not exported.
   final interface uses two castellated plated slots on the left/right tip edges
   for a hand-soldered metal carrier ring. Join both contacts in PCB copper so
   the ring is not an electrical jumper.
-- Put the one fitted TMP117 at local `(10,102)` near the ring, keep the SHT45
+- Put the one fitted TMP117 at local `(10,102.525)` near the ring, keep the SHT45
   for RH/dew-point estimation, and retain BMP390/C23/C24 only as a DNP option.
 - Route `HEATER_LOW` with ≥0.80 mm B.Cu; segregate I²C/gate/PWM corridors and
   keep open vias out of fitted U10/U12 pads.
@@ -143,6 +143,26 @@ manual-assembly exceptions and silkscreen is not exported.
   and already-final geometry. A bridge helper tested only on legacy/final
   boards rejected the empty generator seed; fail closed on partial topology,
   but allow the generator to create a wholly absent controlled feature.
+
+## 2026-08-24 sensor-aperture compaction
+
+- State aperture proximity as an edge-to-edge requirement. For U11, pad 2's
+  gas-side copper edge is at absolute y=141.80 mm; the 3 × 6 mm slot's nearest
+  edge is y=142.30 mm. The resulting 0.50 mm gap is unambiguous, while a bare
+  “slot 0.5 mm from the pads” instruction is not.
+- Preserve the qualified aperture size and move its centre by the exact delta.
+  Shifting the centre from y=146.00 to 145.30 mm keeps the 3 × 6 mm oblong and
+  changes the Excellon route endpoints from y=144.50/147.50 to
+  y=143.80/146.80 mm.
+- A mechanical-hole move is also a routing change. The previous 0.40 mm In1
+  heater feed passed 0.50 mm above the old slot and intersected the new hole.
+  Route it around the gas-side end at y=148.80 mm, then lock that detour in the
+  board audit and let KiCad DRC prove hole/copper clearance.
+- When adopting an interactive fine-pitch placement, compare every old route
+  against the moved exposed-pad land. Here U10's old 3V3D and SDA fan-outs
+  shorted the shifted EP even though the moved footprint looked plausible.
+  Keep the new placement, replace only the six local fan-outs, and prove zero
+  shorts and zero unconnected pads before updating the generator.
 
 ## 2026-08-23 density and MCU-cluster pass
 

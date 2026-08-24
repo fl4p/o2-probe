@@ -30,7 +30,7 @@
     (layers "*.Cu" "*.Mask"))
   (pad "3" thru_hole circle (at 2.54 -2.5) (size 1.6 1.6) (drill 0.9)
     (layers "*.Cu" "*.Mask"))
-  (pad "" np_thru_hole oval (at 0 2.5) (size 3.0 6.0) (drill oval 3.0 6.0)
+  (pad "" np_thru_hole oval (at 0 1.8) (size 3.0 6.0) (drill oval 3.0 6.0)
     (layers "*.Cu" "*.Mask"))
   (embedded_fonts no)
 )

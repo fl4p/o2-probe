@@ -35,8 +35,9 @@ while preserving layer order, finished thickness, and copper weights.
   0.15 mm In2 GND bridge are intentional. The slots and fill gap form a partial
   transverse thermal break, not a mechanically free island.
 - U11 contains a separate routed mechanical aperture: one 3.00 × 6.00 mm
-  gasward-offset NPTH oblong in the Excellon data. Do not convert it to a round
-  drill or resize it without engineering approval.
+  gasward-offset NPTH oblong centred at `(110.00,145.30)` mm in the Excellon
+  data. Its nearest edge is 0.50 mm from U11 pad-2 copper. Do not convert it to
+  a round drill, move it, or resize it without engineering approval.
 - J5 has two 2.00 × 3.00 mm through-hole pads centred at `(100.00,155.50)` and
   `(120.00,155.50)` mm. Each contains a 1.00 × 2.00 mm plated slot marked with
   KiCad's castellated-pad fabrication property. The finished left/right profile

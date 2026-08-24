@@ -10,7 +10,8 @@ deterministic local migration and route owned by `adopt_heated_ring_tip.py` and
 all-layer pour gap, heated-island spreader, and minimal GND bridge.
 `route_thermal_barrier.py` owns the local crossings. `repair_guard_fill.py`
 owns the four guard stitch vias and ten short In1/B.Cu links added after the
-routed board exists.
+routed board exists. `adopt_tip_reposition.py` owns the later U10/C23 compaction,
+six local U10 fan-outs, and the SGX-aperture/heater-feed shift.
 
 The release uses a 0.09 mm track floor, 0.15 mm clearance, 0.20 mm copper-to-
 edge clearance, and 0.25/0.15 mm advanced vias. Tip routing is separated by
@@ -24,7 +25,12 @@ function:
   tracks retain the global board-edge clearance and enter J5 from inside its
   pads.
 - I²C lateral fanout uses separated In1 corridors with short F.Cu escapes.
+- U10 is centred at local `(10,102.525)`; its old-row 3V3D/SDA fragments are
+  removed so no routed copper enters the moved exposed-pad land.
 - The heater PWM follows the right edge and crosses below the sensor routes.
+- The 0.40 mm In1 `+12V_SW` feed detours at absolute y=148.80 mm around the
+  gas-side end of U11's shifted NPTH slot. It may not return to the former
+  y=142.50 mm cross-slot route.
 - A full-width, all-four-layer rule area prevents zone fill across absolute
   y=133…135 mm. In2 GND therefore fills as two regions and remains electrically
   continuous only through one exact 0.15 mm three-segment jog in the left edge

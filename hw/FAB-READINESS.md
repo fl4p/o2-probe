@@ -35,8 +35,10 @@ Gerber/Excellon validation.
   and two exact 6.75 × 1.50 mm horizontal
   Edge.Cuts slots centred at absolute y=134.00 mm. They retain 0.75 mm edge
   webs and a 5.00 mm centre neck.
-- U11's separate 3.00 × 6.00 mm gasward NPTH oblong remains in Excellon. The
-  release validates its tool and exact route endpoints independently.
+- U11's separate 3.00 × 6.00 mm gasward NPTH oblong is centred at absolute
+  `(110.00,145.30)` mm, 0.50 mm from pad-2 copper. The release validates its
+  tool, exact route endpoints, pad gap, and the rerouted inner-layer heater
+  feed independently.
 - The obsolete U13/C22/R30/TP7 second-temperature circuit and both of its
   dedicated nets are absent from the schematic, PCB, and release.
 - J5 is exactly two 2.00 × 3.00 mm through-hole corner pads at the left/right
@@ -44,7 +46,7 @@ Gerber/Excellon validation.
   fabrication property and are bisected by the finished profile. PCB copper
   connects both contacts; the metal ring is not an electrical jumper.
 - `HEATER_LOW` uses only ≥0.80 mm B.Cu tracks in the tip and a solid B.Cu
-  heater-spreader zone covers the gas-side island. U10 sits 3.5 mm from the
+  heater-spreader zone covers the gas-side island. U10 sits 2.975 mm from the
   ring centre; R29 provides passive default-off, and the wired TMP117 ALERT
   path is not credited as an overtemperature cutoff until configured and
   fault-tested in firmware.
@@ -63,7 +65,7 @@ Gerber/Excellon validation.
 - The generator assigns `RS485_DE` to PC6 beside the USART1 TX/RX pins and
   `VA_MON` to PA7/ADC_IN7; PA0/PA1 are intentionally unused. Firmware must use
   this final pin map.
-- `audit_pcb.py --calibrate` rejects 29/29 deliberately broken variants,
+- `audit_pcb.py --calibrate` rejects 31/31 deliberately broken variants,
   including a CELL_RE via, missing guard/GND plane, unexpected third slot,
   deformed outline/thermal-slot/GND/guard/ring geometry, disconnected actual
   guard fill, unfilled plane, an unplated ring contact, stale second-sensor
@@ -81,7 +83,7 @@ Gerber/Excellon validation.
 
 ## Reviewed warnings and scope
 
-KiCad reports 29 courtyard overlaps. Their exact pair set is locked in
+KiCad reports 27 courtyard overlaps. Their exact pair set is locked in
 `audit_pcb.py` and listed in `ASSEMBLY-EXCEPTIONS.md`; they are hand-assembly
 review items, not bare-board errors. The remaining 39 legend warnings are 21
 silk overlaps, 16 silk-over-copper findings, and two silk-to-edge findings on
