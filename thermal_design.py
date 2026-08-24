@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from pathlib import Path
 
 import pcbnew
@@ -76,14 +77,50 @@ def thermal_slot_items(board) -> list:
     ]
 
 
-def replace_thermal_slots(board) -> None:
+def slot_signature(item):
+    start = absolute_xy(item.GetStart())
+    end = absolute_xy(item.GetEnd())
+    midpoint = absolute_xy(item.GetArcMid()) if item.GetShapeStr() == "Arc" else None
+    return (item.GetShapeStr(), frozenset((start, end)), midpoint,
+            round(pcbnew.ToMM(item.GetWidth()), 4))
+
+
+def expected_slot_signatures() -> Counter:
+    expected = Counter()
+
+    def absolute(local_point):
+        return (round(ORIGIN_X_MM + local_point[0], 4),
+                round(ORIGIN_Y_MM + local_point[1], 4))
+
+    def line(start, end):
+        expected[("Line", frozenset((absolute(start), absolute(end))), None, 0.05)] += 1
+
+    def arc(start, midpoint, end):
+        expected[("Arc", frozenset((absolute(start), absolute(end))),
+                  absolute(midpoint), 0.05)] += 1
+
+    for x, y, length, width in THERMAL_SLOTS:
+        x0, x1 = x - length / 2, x + length / 2
+        y0, y1 = y - width / 2, y + width / 2
+        radius = width / 2
+        line((x0 + radius, y0), (x1 - radius, y0))
+        arc((x1 - radius, y0), (x1, y), (x1 - radius, y1))
+        line((x1 - radius, y1), (x0 + radius, y1))
+        arc((x0 + radius, y1), (x0, y), (x0 + radius, y0))
+    return expected
+
+
+def replace_thermal_slots(board) -> bool:
     slots = thermal_slot_items(board)
     if len(slots) not in (0, 8):
         raise SystemExit(f"expected zero or eight thermal-slot primitives, found {len(slots)}")
+    if Counter(slot_signature(item) for item in slots) == expected_slot_signatures():
+        return False
     for item in slots:
         board.Delete(item)
     for slot in THERMAL_SLOTS:
         add_horizontal_slot(board, *slot)
+    return True
 
 
 def _polygon(points) -> pcbnew.SHAPE_LINE_CHAIN:
@@ -172,7 +209,7 @@ def ensure_gnd_bridge(board):
         for item in candidates:
             board.Delete(item)
         candidates = []
-    elif actual != wanted:
+    elif actual not in (set(), wanted):
         raise SystemExit(f"ambiguous thermal-barrier GND bridge: {sorted(map(sorted, actual))}")
     if not candidates:
         candidates = []

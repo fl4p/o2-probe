@@ -4,17 +4,18 @@ O2 probe PCB statistics — 2026-08-24
 Board: 20.00 x 107.00 mm, 1.00 mm thick, four copper layers; square gas end
 Footprints: 106 (50 front, 56 back)
 Pads: 352 (327 SMD, 9 PTH including 2 castellated, 10 NPTH, 6 connection)
-Track segments: 2308
+Track segments: 2323
 Through vias: 237
-Track/via objects: 2545
+Track/via objects: 2560
 Zones/rule areas: stitched F.Cu guard, split-fill In2.Cu /GND source, B.Cu
 /HEATER_LOW spreader, and one all-layer thermal-barrier pour gap
-Mechanical routes: two 5.50 x 1.50 mm Edge.Cuts thermal slots, one 3.00 x
+Mechanical routes: two 6.75 x 1.50 mm Edge.Cuts thermal slots, one 3.00 x
 6.00 mm SGX NPTH, and two 1.00 x 2.00 mm plated-slot J5 castellations
 
 Advanced fabrication floor encoded in o2-probe.kicad_pro:
 - minimum track width: 0.09 mm
 - minimum clearance: 0.15 mm
+- minimum copper-to-edge clearance: 0.20 mm
 - minimum through-via diameter/drill: 0.25/0.15 mm
 - minimum annular ring: 0.05 mm
 
