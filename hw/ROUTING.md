@@ -16,8 +16,12 @@ advanced vias. Tip routing is separated by function:
   board copper, so the metal ring is not an electrical jumper.
 - I²C lateral fanout uses separated In1 corridors with short F.Cu escapes.
 - The heater PWM follows the right edge and crosses below the sensor routes.
-- In2 is one filled GND plane across the complete slot-free board. Ground
-  dogbones keep process vias out of the fitted U10/U12 pads.
+- In2 is one filled GND zone clipped by the two y=134 mm thermal-break slots.
+  It remains electrically continuous through the 7 mm centre neck and 1 mm
+  edge webs; ground dogbones keep process vias out of fitted U10/U12 pads.
+- The original diagonal `/I2C_SCL` B.Cu segment crosses the exact centre-neck
+  opening without touching either capsule. Exact contour DRC, not a coarse
+  rectangular bounding-box estimate, is the clearance oracle.
 - U10's exposed pad terminates at TP6 through a via inside the large test land.
 
 The compact MCU pass treats the right-side U6/C8 placement as generator-owned.

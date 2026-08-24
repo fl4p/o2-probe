@@ -2,8 +2,8 @@
 """Fabrication gate for the accepted O2-probe PCB.
 
 This audit checks the schematic/PCB contract, the high-impedance cell-input
-geometry, the guarded potting transition, the slot-free heated-ring tip, the
-continuous ground plane, process limits, and KiCad DRC.  ``--calibrate`` also
+geometry, the guarded potting transition, the heated-ring thermal-break slots,
+the continuous ground region, process limits, and KiCad DRC.  ``--calibrate`` also
 mutates fresh in-memory copies and proves the load-bearing checks reject
 known-bad variants.
 """
@@ -105,6 +105,47 @@ def expected_outline_geometry() -> Counter:
     return expected
 
 
+def expected_thermal_slot_geometry() -> Counter:
+    """Return the exact primitives for two 5.5 x 1.0 mm Y=134 slots."""
+    expected = Counter()
+
+    def line(start, end):
+        expected[("Line", frozenset((start, end)), None, 0.05)] += 1
+
+    def arc(start, midpoint, end):
+        expected[("Arc", frozenset((start, end)), midpoint, 0.05)] += 1
+
+    for x in (103.75, 116.25):
+        x0, x1 = x - 2.75, x + 2.75
+        line((x0 + 0.5, 133.5), (x1 - 0.5, 133.5))
+        arc((x1 - 0.5, 133.5), (x1, 134.0), (x1 - 0.5, 134.5))
+        line((x1 - 0.5, 134.5), (x0 + 0.5, 134.5))
+        arc((x0 + 0.5, 134.5), (x0, 134.0), (x0 + 0.5, 133.5))
+    return expected
+
+
+def expected_thermal_barrier_track_crossings() -> Counter:
+    """Return the accepted routed copper that crosses the Y=134 centreline."""
+    expected = Counter()
+
+    def segment(net, layer, width, start, end):
+        expected[(net, layer, width, frozenset((start, end)))] += 1
+
+    segment("/I2C_SCL", "B.Cu", 0.09, (102.4, 129.1), (110.65, 137.35))
+    segment("/I2C_SDA", "F.Cu", 0.09, (112.75, 133.05), (111.25, 134.55))
+    segment("/CELL_WE", "F.Cu", 0.15, (106.7, 132.25), (109.55, 135.1))
+    segment("/CELL_RE", "F.Cu", 0.15, (111.0, 131.4), (110.0, 141.0))
+    segment("/CELL_CE", "In1.Cu", 0.15, (110.5, 132.45), (107.45, 135.5))
+    segment("/3V3D", "F.Cu", 0.15, (119.35, 134.45), (119.35, 131.55))
+    segment("/+12V_SW", "B.Cu", 0.18, (109.9, 133.6), (109.9, 136.15))
+    segment("/VA_MON", "F.Cu", 0.18, (109.65, 134.0), (109.75, 134.0))
+    segment("/VA_MON", "F.Cu", 0.18, (109.75, 134.0), (109.8, 134.05))
+    segment("/VA_MON", "F.Cu", 0.18, (108.35, 132.7), (109.65, 134.0))
+    segment("/VA_MON", "B.Cu", 0.18, (110.3, 134.05), (111.2, 133.15))
+    segment("/HEATER_PWM", "F.Cu", 0.18, (112.75, 134.35), (112.75, 133.65))
+    return expected
+
+
 def canonical_polygon(points) -> tuple[tuple[float, float], ...]:
     """Canonicalize a closed polygon independently of start and winding."""
     vertices = [rounded_point(point) for point in points]
@@ -171,13 +212,29 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
     check(errors, board.GetCopperLayerCount() == 4, "COPPER_LAYERS",
           f"found {board.GetCopperLayerCount()}, want four")
     edge_items = [item for item in board.Drawings() if item.GetLayer() == pcbnew.Edge_Cuts]
-    check(errors, len(edge_items) == 8, "EDGE_ITEM_COUNT",
-          f"found {len(edge_items)}, want the eight-item outer outline only")
-    actual_outline = Counter(edge_signature(item) for item in edge_items)
+    slot_items = [
+        item for item in edge_items
+        if 133.4 <= min(xy(item.GetStart())[1], xy(item.GetEnd())[1])
+        and max(xy(item.GetStart())[1], xy(item.GetEnd())[1]) <= 134.6
+    ]
+    outline_items = [item for item in edge_items if item not in slot_items]
+    check(errors, len(edge_items) == 16 and len(outline_items) == 8 and len(slot_items) == 8,
+          "EDGE_ITEM_COUNT",
+          f"found {len(edge_items)} total/{len(outline_items)} outer/{len(slot_items)} slot; "
+          "want 16/8/8")
+    actual_outline = Counter(edge_signature(item) for item in outline_items)
     expected_outline = expected_outline_geometry()
     check(errors, actual_outline == expected_outline, "OUTLINE_GEOMETRY",
           f"added/changed={list((actual_outline - expected_outline).elements())}; "
           f"missing={list((expected_outline - actual_outline).elements())}")
+    actual_slots = Counter(edge_signature(item) for item in slot_items)
+    expected_slots = expected_thermal_slot_geometry()
+    check(errors, actual_slots == expected_slots, "THERMAL_SLOT_GEOMETRY",
+          f"added/changed={list((actual_slots - expected_slots).elements())}; "
+          f"missing={list((expected_slots - actual_slots).elements())}")
+    metrics.update(thermal_slot_count=2.0, thermal_slot_length_mm=5.5,
+                   thermal_slot_width_mm=1.0, thermal_slot_edge_web_mm=1.0,
+                   thermal_slot_center_neck_mm=7.0)
     expected_tip_placements = {
         "RH1": ((105.0, 146.5), 270.0, "B.Cu"),
         "RH2": ((115.0, 146.5), 270.0, "B.Cu"),
@@ -428,6 +485,45 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
 
     tracks = [item for item in board.GetTracks() if not isinstance(item, pcbnew.PCB_VIA)]
     vias = [item for item in board.GetTracks() if isinstance(item, pcbnew.PCB_VIA)]
+    barrier_y = 134.0
+    crossing_tracks = [
+        item for item in tracks
+        if min(xy(item.GetStart())[1], xy(item.GetEnd())[1]) <= barrier_y
+        <= max(xy(item.GetStart())[1], xy(item.GetEnd())[1])
+    ]
+    actual_barrier_tracks = Counter(
+        (item.GetNetname(), item.GetLayerName(), round(mm(item.GetWidth()), 2),
+         frozenset((rounded_point(item.GetStart()), rounded_point(item.GetEnd()))))
+        for item in crossing_tracks
+    )
+    expected_barrier_tracks = expected_thermal_barrier_track_crossings()
+    check(errors, actual_barrier_tracks == expected_barrier_tracks,
+          "THERMAL_BARRIER_TRACKS",
+          f"added/changed={list((actual_barrier_tracks - expected_barrier_tracks).elements())}; "
+          f"missing={list((expected_barrier_tracks - actual_barrier_tracks).elements())}")
+    barrier_vias = Counter(
+        (item.GetNetname(), rounded_point(item.GetPosition()),
+         round(mm(item.GetWidth(pcbnew.F_Cu)), 2), round(mm(item.GetDrillValue()), 2))
+        for item in vias
+        if 133.5 <= xy(item.GetPosition())[1] <= 134.5
+    )
+    expected_barrier_vias = Counter({
+        ("/+12V_SW", (109.9, 133.6), 0.25, 0.15): 1,
+        ("/VA_MON", (110.3, 134.05), 0.25, 0.15): 1,
+    })
+    check(errors, barrier_vias == expected_barrier_vias, "THERMAL_BARRIER_VIAS",
+          f"added/changed={list((barrier_vias - expected_barrier_vias).elements())}; "
+          f"missing={list((expected_barrier_vias - barrier_vias).elements())}")
+    barrier_pads = [
+        (footprint.GetReference(), pad.GetNumber())
+        for footprint in board.Footprints() for pad in footprint.Pads()
+        if mm(pad.GetBoundingBox().GetTop()) <= barrier_y
+        <= mm(pad.GetBoundingBox().GetBottom())
+    ]
+    check(errors, not barrier_pads, "THERMAL_BARRIER_PADS",
+          f"footprint copper spans y=134: {barrier_pads}")
+    metrics.update(thermal_barrier_track_crossings=float(sum(actual_barrier_tracks.values())),
+                   thermal_barrier_vias=float(sum(barrier_vias.values())))
     min_track = min((mm(item.GetWidth()) for item in tracks), default=99.0)
     min_via = min((mm(item.GetWidth(pcbnew.F_Cu)) for item in vias), default=99.0)
     min_drill = min((mm(item.GetDrillValue()) for item in vias), default=99.0)
@@ -546,7 +642,7 @@ def calibrate(board_path: Path, board_text: str) -> list[str]:
         zone = next(zone for zone in board.Zones() if zone.GetNetname() == "/GND")
         zone.SetNetCode(0)
 
-    def add_board_native_slot(board) -> None:
+    def add_unexpected_slot(board) -> None:
         item = pcbnew.PCB_SHAPE(board)
         item.SetShape(pcbnew.SHAPE_T_SEGMENT)
         item.SetStart(pcbnew.VECTOR2I_MM(105.0, 145.0))
@@ -564,6 +660,16 @@ def calibrate(board_path: Path, board_text: str) -> list[str]:
             and near(xy(item.GetArcMid())[1], 50.586)
         )
         item.SetArcGeometry(item.GetStart(), pcbnew.VECTOR2I_MM(119.0, 51.0), item.GetEnd())
+
+    def deform_thermal_slot(board) -> None:
+        item = next(
+            item for item in board.Drawings()
+            if item.GetLayer() == pcbnew.Edge_Cuts
+            and item.GetShapeStr() == "Arc"
+            and near(xy(item.GetArcMid())[0], 106.5)
+            and near(xy(item.GetArcMid())[1], 134.0)
+        )
+        item.SetArcGeometry(item.GetStart(), pcbnew.VECTOR2I_MM(106.4, 134.0), item.GetEnd())
 
     def notch_gnd_zone(board) -> None:
         zone = next(
@@ -627,6 +733,15 @@ def calibrate(board_path: Path, board_text: str) -> list[str]:
                      and item.GetNetname() == "/+12V_SW")
         track.SetWidth(pcbnew.FromMM(0.09))
 
+    def add_thermal_barrier_crossing(board) -> None:
+        track = pcbnew.PCB_TRACK(board)
+        track.SetNet(board.FindNet("/3V3D"))
+        track.SetLayer(pcbnew.F_Cu)
+        track.SetStart(pcbnew.VECTOR2I_MM(110.0, 133.8))
+        track.SetEnd(pcbnew.VECTOR2I_MM(110.0, 134.2))
+        track.SetWidth(pcbnew.FromMM(0.15))
+        board.Add(track)
+
     def move_u7(board) -> None:
         footprint = next(fp for fp in board.Footprints() if fp.GetReference() == "U7")
         footprint.SetPosition(pcbnew.VECTOR2I_MM(110.0, 120.0))
@@ -658,8 +773,9 @@ def calibrate(board_path: Path, board_text: str) -> list[str]:
     expect("CELL_RE via", "CELL_RE_VIA", add_cell_via)
     expect("missing guard", "GUARD_ZONE", remove_guard)
     expect("missing continuous GND plane", "GND_ZONE_COUNT", remove_gnd_zone)
-    expect("reintroduced board-native slot", "EDGE_ITEM_COUNT", add_board_native_slot)
+    expect("unexpected third board-native slot", "EDGE_ITEM_COUNT", add_unexpected_slot)
     expect("deformed outer R2 corner", "OUTLINE_GEOMETRY", deform_outer_corner)
+    expect("deformed thermal-break slot", "THERMAL_SLOT_GEOMETRY", deform_thermal_slot)
     expect("notched continuous GND plane", "GND_ZONE_GEOMETRY", notch_gnd_zone)
     expect("unfilled controlled ground zone", "GND_ZONE_FILL", unfill_gnd_zone)
     expect("moved membrane ring", "TIP_PLACEMENT", move_ring)
@@ -669,6 +785,8 @@ def calibrate(board_path: Path, board_text: str) -> list[str]:
     expect("narrow heater-to-ring copper", "RING_HEATER_COPPER", narrow_ring_copper)
     expect("sub-process-width trace", "MIN_TRACK_WIDTH", narrow_track)
     expect("narrow switched-heater supply", "POWER_TRACK_WIDTH", narrow_switched_supply)
+    expect("unexpected thermal-barrier copper", "THERMAL_BARRIER_TRACKS",
+           add_thermal_barrier_crossing)
     expect("remote AFE", "U7_PLACEMENT", move_u7)
     expect("moved compact MCU", "MCU_CLUSTER_PLACEMENT", move_compact_mcu)
     expect("exact duplicate copper", "DUPLICATE_COPPER", duplicate_track)
@@ -701,13 +819,16 @@ def main() -> int:
         print(report.read_text(), end="")
         return 1
 
-    calibrated = "20/20 known-bad variants rejected" if args.calibrate else "not requested"
+    calibrated = "22/22 known-bad variants rejected" if args.calibrate else "not requested"
     report.write_text(
         "PASS: O2 probe fabrication audit\n"
         f"- 106 schematic footprints; 20.00 x 107.00 x 1.00 mm; four copper layers\n"
         f"- CELL_RE: {metrics['cell_re_trace_length_mm']:.3f} mm single F.Cu segment, no via/testpoint; "
         f"U7-to-cell pin distance {metrics['cell_re_pin_distance_mm']:.3f} mm\n"
-        "- no board-native routed slots; one exact filled In2 GND plane across the slot-free board\n"
+        "- two exact 5.50 x 1.00 mm horizontal Edge.Cuts slots at y=134.00 mm; "
+        "1.00 mm edge webs and 7.00 mm centre neck; one filled In2 GND region clipped by the slots; "
+        f"{int(metrics['thermal_barrier_track_crossings'])} routed crossings and "
+        f"{int(metrics['thermal_barrier_vias'])} vias locked\n"
         f"- heated ring: four exact 5.00 x 1.50 mm mask-only lands, two 0.60/0.30 mm stitches; "
         f"TMP117-to-ring-center {metrics['tmp117_ring_distance_mm']:.3f} mm\n"
         f"- minimum track/via/drill {metrics['min_track_width_mm']:.2f}/"

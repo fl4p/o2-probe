@@ -19,9 +19,14 @@ while preserving layer order, finished thickness, and copper weights.
 
 ## Mechanical and ring data
 
-- Edge.Cuts contains only the exact eight-primitive outer R2 contour. There are
-  zero board-native routed slots; do not add slots during CAM cleanup.
-- U11 contains the sole routed mechanical aperture: one 3.00 × 6.00 mm
+- Edge.Cuts contains the exact eight-primitive outer R2 contour plus two
+  5.50 × 1.00 mm horizontal internal routed slots centred at `(103.75,134.00)`
+  and `(116.25,134.00)` mm. Route both closed contours as shown; do not omit,
+  resize, join, or reinterpret them during CAM cleanup.
+- The slots leave 1.00 mm FR-4 webs at the side edges and a 7.00 mm centre
+  neck. They form a partial transverse thermal break, not a mechanically or
+  thermally isolated island.
+- U11 contains a separate routed mechanical aperture: one 3.00 × 6.00 mm
   gasward-offset NPTH oblong in the Excellon data. Do not convert it to a round
   drill or resize it without engineering approval.
 - J5 has four paste-free, mask-open 5.00 × 1.50 mm solder lands: two positions,

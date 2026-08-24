@@ -2,11 +2,12 @@
 """Adopt the user-authored heated-ring tip floorplan into the routed board.
 
 This one-way migration removes the obsolete gas-reference TMP117 circuit and
-all board-native Edge.Cuts slots, shortens the board to 107 mm, installs the
-manual-solder ring lands, compacts the MCU beside the RS-485 transceiver,
-aligns the retained components to ``gen_pcb.py``, and replaces the formerly
-split In2 GND regions with one continuous plane. Local copper is completed
-separately after the mechanical migration is checked.
+obsolete tip-slot set, shortens the board to 107 mm, restores the two intended
+horizontal thermal-break slots at absolute Y=134 mm, installs the manual-solder
+ring lands, compacts the MCU beside the RS-485 transceiver, aligns the retained
+components to ``gen_pcb.py``, and replaces the formerly split In2 GND regions
+with one continuous plane. Local copper is completed separately after the
+mechanical migration is checked.
 """
 
 from __future__ import annotations
@@ -34,6 +35,7 @@ XML = HERE / "o2-probe.xml"
 ORIGIN_X_MM = 100.0
 ORIGIN_Y_MM = 50.0
 NEW_LENGTH_MM = 107.0
+THERMAL_SLOTS = ((3.75, 84.0, 5.5, 1.0), (16.25, 84.0, 5.5, 1.0))
 
 PLACEMENT = {
     "C8": (18.0, 37.5, 90.0, "F"),
@@ -96,6 +98,16 @@ def add_outline(board) -> None:
     edge_arc(board, (radius, length), (0.586, length - 0.586), (0, length - radius))
     edge_line(board, (0, length - radius), (0, radius))
     edge_arc(board, (0, radius), (0.586, 0.586), (radius, 0))
+
+
+def add_horizontal_slot(board, x, y, length, width) -> None:
+    x0, x1 = x - length / 2, x + length / 2
+    y0, y1 = y - width / 2, y + width / 2
+    radius = width / 2
+    edge_line(board, (x0 + radius, y0), (x1 - radius, y0))
+    edge_arc(board, (x1 - radius, y0), (x1, y), (x1 - radius, y1))
+    edge_line(board, (x1 - radius, y1), (x0 + radius, y1))
+    edge_arc(board, (x0 + radius, y1), (x0, y), (x0 + radius, y0))
 
 
 def replace_zone_outline(zone, corners) -> None:
@@ -231,18 +243,21 @@ def main() -> int:
         if isinstance(drawing, pcbnew.PCB_TEXT) and drawing.GetText() == "GAS / DO NOT POT":
             drawing.SetPosition(point(10.0, 86.8))
 
-    # Every old board-native slot and the partially moved draft outline are
-    # removed together.  Reconstruct only the closed 20 x 107 mm R2 contour.
+    # Every obsolete slot and the partially moved draft outline are removed
+    # together. Reconstruct the 20 x 107 mm R2 contour plus only the two
+    # user-requested horizontal thermal-break slots at absolute Y=134 mm.
     old_edges = [item for item in board.Drawings() if item.GetLayer() == pcbnew.Edge_Cuts]
     if len(old_edges) != 26:
         raise SystemExit(f"expected 26 draft Edge.Cuts items, found {len(old_edges)}")
     for item in old_edges:
         board.Delete(item)
     add_outline(board)
+    for slot_spec in THERMAL_SLOTS:
+        add_horizontal_slot(board, *slot_spec)
 
-    # The slot-free ring design no longer has a thermal partition.  One solid
-    # In2 GND region improves return continuity and conducts heat toward the
-    # membrane carrier instead of preserving a fictitious isolated tip.
+    # Keep one logically continuous In2 GND region. KiCad clips its fill around
+    # the two slots, so copper and FR-4 cross the partition only through the
+    # retained centre neck and edge webs.
     gnd_zones = [
         zone for zone in board.Zones()
         if zone.GetNetname() == "/GND" and zone.IsOnLayer(pcbnew.In2_Cu)
@@ -289,7 +304,8 @@ def main() -> int:
     pcbnew.SaveBoard(str(OUT), board)
     print(
         f"wrote {OUT}: {len(footprints)} footprints, 20 x {NEW_LENGTH_MM:g} mm, "
-        f"slot-free outline, one In2 GND plane; removed {removed} obsolete copper items"
+        f"two Y=134 mm horizontal slots, one In2 GND plane; "
+        f"removed {removed} obsolete copper items"
     )
     return 0
 
