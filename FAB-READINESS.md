@@ -85,8 +85,8 @@ Gerber/Excellon validation.
 
 KiCad reports 27 courtyard overlaps. Their exact pair set is locked in
 `audit_pcb.py` and listed in `ASSEMBLY-EXCEPTIONS.md`; they are hand-assembly
-review items, not bare-board errors. The remaining 39 legend warnings are 21
-silk overlaps, 16 silk-over-copper findings, and two silk-to-edge findings on
+review items, not bare-board errors. The remaining 33 legend warnings are 18
+silk overlaps, 14 silk-over-copper findings, and one silk-to-edge finding on
 layers intentionally omitted from the Gerber release. There are no waivers for
 copper, mask, holes, outline, connectivity, or schematic parity.
 

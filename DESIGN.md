@@ -175,7 +175,7 @@ web. The heated tip has a solid B.Cu `/HEATER_LOW` spreader immediately gasward 
 barrier.
 KiCad 10.0.5 reports 0 DRC errors, 0 unconnected items, and 0 parity issues;
 the calibrated audit rejects 31/31 known-bad variants. The
-29 exact courtyard pairs are
+27 exact courtyard pairs are
 manual-assembly exceptions and legend layers are not exported. See
 `FAB-READINESS.md`, `ASSEMBLY-EXCEPTIONS.md`, and `FAB-NOTES.md` for release
 scope and remaining qualification work.
