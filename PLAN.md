@@ -78,14 +78,14 @@ at `y = 107`, board centreline at `x = 10`. All dimensions below are mm.
             │   │ cell │   │  GAS: y=86…107
             │   └──────┘   │
             │ SHT45 TMP117 │
-            │  ring lands  │
+            │ring edge pads│
             └──────────────┘  y=107
                  tip
 ```
 
-- **Outer `Edge.Cuts`:** 20.0 × 107.0 rounded rectangle, nominal corner radius
-  2.0. FR-4, 4 layers, 1.0 mm thickness; a different thickness is allowed only after
-  the tube chord/assembled-height check. The 20 mm width leaves nominal 4 mm
+- **Outer `Edge.Cuts`:** 20.0 × 107.0 with nominal R2 cable-end corners and a
+  square gas-side end. FR-4, 4 layers, 1.0 mm thickness; a different thickness
+  is allowed only after the tube chord/assembled-height check. The 20 mm width leaves nominal 4 mm
   radial clearance per side in the ≈28 mm tube ID, but this is not a component
   height allowance: verify the complete swept envelope in section and include
   tube-ID tolerance, board bow, solder joints, coating, and potting flash.
@@ -119,18 +119,19 @@ at `y = 107`, board centreline at `x = 10`. All dimensions below are mm.
   alone do not satisfy this.
 - **Heated-ring tip:** RH1 and RH2 sit on the back at `(5,96.5)` and
   `(15,96.5)`. U12 is at `(3.5,101.5)`, U10 at `(10,102)`, and the DNP BMP390
-  option at `(16.5,101)`. J5 provides paired 5.0 × 1.5 mm mask-open,
-  paste-free lands on both faces, centred at `(4.75,105.75)` and
-  `(15.25,105.75)`. Each pair is via-stitched and all four lands are joined by
-  wide back copper on switched `HEATER_LOW`; the metal ring is a thermal
+  option at `(16.5,101)`. J5 provides two 2.0 × 3.0 mm PTH pads centred on the
+  left/right board edges at `(0,105.5)` and `(20,105.5)`. Their 1.0 × 2.0 mm
+  plated slots are explicitly marked castellated and bisected by the finished
+  side profile. Both pads are joined by wide back copper on switched
+  `HEATER_LOW`; the metal ring is a thermal
   spreader, not an electrical jumper. It must remain on the insulated dry side
   of the PTFE membrane stack.
-- **Warm-tip sensing:** there is one TMP117, 3.75 mm from the J5 centre. Its
+- **Warm-tip sensing:** there is one TMP117, 3.5 mm from the J5 centreline. Its
   ALERT directly clamps the heater gate off. It is not a substitute for
   membrane cold-spot thermometry: qualification must temporarily instrument
   the membrane/carrier minimum and identify its mapping from U10, heater power,
   inlet state, and orientation.
-- **Short gas end:** the rounded end stops at `y = 107`; the SGX centre is
+- **Short gas end:** the square end stops at `y = 107`; the SGX centre is
   13.5 mm from that end. The enclosure, ring, and membrane carrier set the
   actual cell-to-membrane distance. Verify it on a 1:1 tube coupon.
 - **Cable end:** reserve the first 8 mm (`y = 0…8`) for four staggered solder
@@ -138,11 +139,12 @@ at `y = 107`, board centreline at `x = 10`. All dimensions below are mm.
   and components may not project beyond the outline. Expansion-connector height
   is checked against the circular tube chord; use the documented pad-field
   fallback if the Micro-Fit swept envelope does not close.
-- Put the outline, pot datum, cell centre, rear aperture, ring lands, and
+- Put the outline, pot datum, cell centre, rear aperture, ring castellations, and
   maximum assembled-height/chord check into `DESIGN.md` as controlled dimensions.
-  `audit_pcb.py` must reject an open/deformed outline, any board-native slot,
+  `audit_pcb.py` must reject an open/deformed outline, an unexpected or
+  deformed board-native slot,
   moved/missing gas aperture, missing pot line, stale second-sensor copper,
-  moved/deformed ring lands or stitches, narrow ring-heater copper, or a
+  moved, deformed, or unplated ring castellations, narrow ring-heater copper, or a
   missing/unfilled continuous GND plane.
 
 - Gas zone: selective conformal coat (apertures clear); cannot be potted.
@@ -297,13 +299,13 @@ verification discipline established by `/Users/fab/dev/ee/hw/tmp117-probe/`:
 - `project_settings.py` — verbatim pattern (pcbnew `.kicad_pro` clobber guard;
   `verify()` stays a gate).
 - `audit_pcb.py` + `--calibrate` inject-defect discipline — checks the RE
-  guard, exact outer/thermal-slot contours and SGX NPTH, ring lands/stitches, heater
+  guard, exact outer/thermal-slot contours, SGX NPTH, plated ring castellations, heater
   copper floor, continuous filled In2 GND plane, obsolete-sensor absence,
   cable-pads↔logic creepage, expansion-connector clearance to the potting
   line, SHT45 hand-rework accessibility (it's a maintenance consumable —
   replaced at cell-service intervals).
 - Project-local footprints include the first-article SGX pattern and the
-  four-land heated-ring interface.
+  two-contact castellated heated-ring interface.
 - TMP117 symbol/footprint from `tmp117-probe/lib/`; everything else new in
   per-project `lib/o2-probe.{kicad_sym,pretty}` (repo convention: no shared
   lib table).
