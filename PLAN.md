@@ -118,14 +118,15 @@ at `y = 107`, board centreline at `x = 10`. All dimensions below are mm.
   Keep a Ø15.0 courtyard free of unrelated parts and preserve access to the top
   gas face.
 - **Rear gas path:** plated-copper-free 3 × 6 mm NPTH slot centred at
-  `(10.0, 96.0)`, offset gasward from the cell centre while spanning its rear
-  axis. The Issue 2 datasheet does not dimension the rear port, so this is an
+  `(10.0, 95.3)`, offset 1.8 mm gasward from the cell centre while spanning its
+  rear axis. The nearest slot edge is 0.50 mm from the pad-2 copper edge. The
+  Issue 2 datasheet does not dimension the rear port, so this is an
   explicit first-article fit/flow feature rather than an invented port diameter.
   Confirm the opening against a physical sample before production release.
   Mark the controlled drawing `DO NOT OBSTRUCT`; solder mask/copper keepouts
   alone do not satisfy this.
 - **Heated-ring tip:** RH1 and RH2 sit on the back at `(5,96.5)` and
-  `(15,96.5)`. U12 is at `(3.5,101.5)`, U10 at `(10,102)`, and the DNP BMP390
+  `(15,96.5)`. U12 is at `(3.5,101.5)`, U10 at `(10,102.525)`, and the DNP BMP390
   option at `(16.5,101)`. J5 provides two 2.0 × 3.0 mm PTH pads centred on the
   left/right board edges at `(0,105.5)` and `(20,105.5)`. Their 1.0 × 2.0 mm
   plated slots are explicitly marked castellated and bisected by the finished
@@ -133,7 +134,7 @@ at `y = 107`, board centreline at `x = 10`. All dimensions below are mm.
   `HEATER_LOW`; the metal ring is a thermal
   spreader, not an electrical jumper. It must remain on the insulated dry side
   of the PTFE membrane stack.
-- **Warm-tip sensing:** there is one TMP117, 3.5 mm from the J5 centreline. Its
+- **Warm-tip sensing:** there is one TMP117, 2.975 mm from the J5 centreline. Its
   ALERT directly clamps the heater gate off. It is not a substitute for
   membrane cold-spot thermometry: qualification must temporarily instrument
   the membrane/carrier minimum and identify its mapping from U10, heater power,
