@@ -7,8 +7,9 @@ restores the two intended horizontal thermal-break slots at absolute Y=134 mm,
 installs castellated manual-solder ring contacts, compacts the MCU beside the
 RS-485 transceiver, aligns the retained
 components to ``gen_pcb.py``, and replaces the formerly split In2 GND regions
-with one continuous plane. Local copper is completed separately after the
-mechanical migration is checked.
+with one controlled source zone. The final all-layer thermal rule area splits
+that zone's fill into two regions joined by one narrow track. Local copper is
+completed separately after the mechanical migration is checked.
 """
 
 from __future__ import annotations
