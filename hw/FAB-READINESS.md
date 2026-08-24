@@ -24,7 +24,10 @@ Gerber/Excellon validation.
   the exact schematic XML reference set and every numbered PCB pad net, with
   zero mismatches on the release.
 - CELL_RE remains one 9.652 mm, 0.15 mm F.Cu segment from U7.13 to U11.2,
-  without a via or test point; `GUARD_REPLICA` encloses the long run.
+  without a via or test point. Four exact stitch vias and six short In1/B.Cu
+  links retain three physically connected `GUARD_REPLICA` fill regions on both
+  sides of the long run; the audit checks the saved filled polygons, not only
+  the zone source outline.
 - The board is exactly 20.00 × 107.00 × 1.00 mm with four copper layers, an
   eight-primitive R2 outline, and two exact 5.50 × 1.00 mm horizontal
   Edge.Cuts slots centred at absolute y=134.00 mm. They retain 1.00 mm edge
@@ -40,9 +43,11 @@ Gerber/Excellon validation.
   ring centre; R29 provides passive default-off, and the wired TMP117 ALERT
   path is not credited as an overtemperature cutoff until configured and
   fault-tested in firmware.
-- In2 is one exact filled GND zone whose fill is clipped by both slots and
-  remains connected through the retained edge webs and centre neck. Fitted
-  U10 and U12 use dogbone ground vias rather than open via-in-pad construction.
+- The thermal-barrier copper inventory is locked: 14 track segments, three
+  vias, no footprint pads, copper graphics, or footprint zones, the exact F.Cu
+  `GUARD_REPLICA` source zone plus its three actual filled regions, and one
+  exact In2 GND zone whose saved fill is clipped by both slots. Fitted U10/U12
+  use dogbone ground vias rather than via-in-pad.
 - Board rules and nominal stackup explicitly record the advanced-fab floor,
   1 oz outer/0.5 oz inner copper, and ENIG.
 - U6 is locked to the dense right-side lane at local `(14.5,44.5)`, 180°,
@@ -51,14 +56,16 @@ Gerber/Excellon validation.
 - The generator assigns `RS485_DE` to PC6 beside the USART1 TX/RX pins and
   `VA_MON` to PA7/ADC_IN7; PA0/PA1 are intentionally unused. Firmware must use
   this final pin map.
-- `audit_pcb.py --calibrate` rejects 22/22 deliberately broken variants,
+- `audit_pcb.py --calibrate` rejects 26/26 deliberately broken variants,
   including a CELL_RE via, missing guard/GND plane, unexpected third slot,
-  deformed outline/thermal-slot/GND/ring geometry, unfilled plane, missing ring stitch,
-  stale second-sensor copper, unexpected barrier copper, narrow heater/ordinary/switched-supply tracks,
+  deformed outline/thermal-slot/GND/guard/ring geometry, disconnected actual
+  guard fill, unfilled plane, missing ring stitch,
+  stale second-sensor copper, unexpected barrier track/graphic copper, narrow heater/ordinary/switched-supply tracks,
   moved U7/U6, exact duplicate copper, deleted schematic footprint, wrong pad
   net, and missing stackup.
 - `make_fab.py` independently finds both exact thermal-slot contours in the
-  Edge.Cuts Gerber and the one exact SGX routed NPTH in Excellon.
+  Edge.Cuts Gerber, the one exact SGX routed NPTH in Excellon, and all three
+  driven-guard regions plus eight interior coverage samples in the F.Cu Gerber.
 
 ## Reviewed warnings and scope
 

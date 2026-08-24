@@ -160,9 +160,12 @@ the right-side lane beside U5. C8 moves to `(18,37.5)` to preserve a clean U6
 courtyard without separating the analog-LDO output bypass from U3.
 
 CELL_RE remains one 9.652 mm F.Cu segment with no via/test point and a driven
-guard. In2 is one filled GND region clipped by the two slots and joined through
-the retained webs/neck. KiCad 10.0.5 reports 0 DRC errors, 0 unconnected items,
-and 0 parity issues; the calibrated audit rejects 22/22 known-bad variants. The
+guard. `repair_guard_fill.py` physically stitches three saved F.Cu fill regions
+on both sides of the trace; the source outline alone is not credited as guard
+copper. In2 is one filled GND region clipped by the two slots and joined through
+the retained webs/neck.
+KiCad 10.0.5 reports 0 DRC errors, 0 unconnected items, and 0 parity issues;
+the calibrated audit rejects 26/26 known-bad variants. The
 29 exact courtyard pairs are
 manual-assembly exceptions and legend layers are not exported. See
 `FAB-READINESS.md`, `ASSEMBLY-EXCEPTIONS.md`, and `FAB-NOTES.md` for release

@@ -142,6 +142,49 @@ def parse_gerber_primitives(text: str, x_fraction: int, y_fraction: int) -> Coun
     return primitives
 
 
+def parse_gerber_regions(text: str, x_fraction: int,
+                         y_fraction: int) -> list[list[tuple[float, float]]]:
+    """Parse the linear G36/G37 regions emitted for the F.Cu guard fill."""
+    regions: list[list[tuple[float, float]]] = []
+    current: list[tuple[float, float]] | None = None
+    coordinate = re.compile(r"X(-?\d+)Y(-?\d+)(?:D0[12])?\*")
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if line == "G36*":
+            if current is not None:
+                raise SystemExit("nested Gerber regions are unsupported")
+            current = []
+            continue
+        if line == "G37*":
+            if not current:
+                raise SystemExit("empty or unmatched Gerber region")
+            regions.append(current)
+            current = None
+            continue
+        if current is None:
+            continue
+        match = coordinate.fullmatch(line)
+        if match:
+            current.append((int(match.group(1)) / 10**x_fraction,
+                            int(match.group(2)) / 10**y_fraction))
+    if current is not None:
+        raise SystemExit("unterminated Gerber region")
+    return regions
+
+
+def point_in_polygon(point: tuple[float, float],
+                     polygon: list[tuple[float, float]]) -> bool:
+    x, y = point
+    inside = False
+    j = len(polygon) - 1
+    for i, (xi, yi) in enumerate(polygon):
+        xj, yj = polygon[j]
+        if ((yi > y) != (yj > y)) and x < (xj - xi) * (y - yi) / (yj - yi) + xi:
+            inside = not inside
+        j = i
+    return inside
+
+
 def validate_gerbers(directory: Path) -> dict[str, object]:
     actual = {path.name for path in directory.glob("*.gbr")}
     missing = GERBERS - actual
@@ -180,6 +223,42 @@ def validate_gerbers(directory: Path) -> dict[str, object]:
             f"added/changed={list((primitives - expected_edge_cuts).elements())}; "
             f"missing={list((expected_edge_cuts - primitives).elements())}"
         )
+
+    front_copper = (directory / "o2-probe-F_Cu.gbr").read_text()
+    front_format = re.search(r"%FSLAX(\d)(\d)Y(\d)(\d)\*%", front_copper)
+    if not front_format:
+        raise SystemExit("cannot parse F.Cu Gerber coordinate format")
+    guard_regions = parse_gerber_regions(
+        front_copper, int(front_format.group(2)), int(front_format.group(4))
+    )
+    actual_guard_regions = Counter(
+        (len(region), tuple(round(value, 6) for value in (
+            min(point[0] for point in region), min(point[1] for point in region),
+            max(point[0] for point in region), max(point[1] for point in region),
+        )))
+        for region in guard_regions
+    )
+    expected_guard_regions = Counter({
+        (81, (110.323477, -141.65, 112.145819, -131.75)): 1,
+        (82, (108.974715, -140.878865, 110.466013, -133.934844)): 1,
+        (38, (109.220228, -132.9745, 110.405022, -131.971835)): 1,
+    })
+    if actual_guard_regions != expected_guard_regions:
+        raise SystemExit(
+            "F.Cu Gerber driven-guard regions differ: "
+            f"added/changed={list((actual_guard_regions - expected_guard_regions).elements())}; "
+            f"missing={list((expected_guard_regions - actual_guard_regions).elements())}"
+        )
+    guard_samples = (
+        (110.25, -135.0), (110.10, -136.0), (109.95, -138.0), (109.60, -140.0),
+        (110.95, -135.0), (110.90, -136.0), (110.65, -138.0), (110.70, -140.0),
+    )
+    missing_guard_samples = [
+        point for point in guard_samples
+        if not any(point_in_polygon(point, region) for region in guard_regions)
+    ]
+    if missing_guard_samples:
+        raise SystemExit(f"F.Cu Gerber guard misses samples {missing_guard_samples}")
     return {
         "gerber_layers": sorted(actual),
         "plotted_outline_mm": [width, height],
@@ -188,6 +267,8 @@ def validate_gerbers(directory: Path) -> dict[str, object]:
         "board_native_routed_slot_contours": 2,
         "thermal_slot_centers_mm": [[103.75, 134.0], [116.25, 134.0]],
         "thermal_slot_finished_size_mm": [5.5, 1.0],
+        "f_cu_driven_guard_regions": len(guard_regions),
+        "f_cu_guard_samples_verified": len(guard_samples),
     }
 
 

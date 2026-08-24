@@ -36,6 +36,10 @@ while preserving layer order, finished thickness, and copper weights.
 - J5 is switched `HEATER_LOW`, not ground. Assembly must keep the ring on the
   dry side and electrically insulated from the membrane wet face, enclosure,
   and accessible conductors.
+- The F.Cu Gerber contains three deliberately stitched `GUARD_REPLICA` fill
+  regions flanking CELL_RE. Do not strip, merge, or redraw these narrow regions
+  during CAM cleanup; the release manifest records exact region and sample
+  validation.
 - PTH and NPTH drills are separate; the NPTH oblong uses route commands.
 - Do not panelise through the gas-side end or SGX aperture without review.
 
