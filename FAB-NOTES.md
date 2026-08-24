@@ -4,7 +4,8 @@ Release class: first-article bare PCB only.
 
 ## Order parameters
 
-- Finished board: 20.00 × 107.00 mm, nominal R2 corners, 1.00 mm FR-4.
+- Finished board: 20.00 × 107.00 mm, R2 cable-end corners and square gas-side
+  corners, 1.00 mm FR-4.
 - Layer order: F.Cu / In1.Cu / In2.Cu / B.Cu.
 - Copper: 1 oz outer layers, 0.5 oz inner layers.
 - Finish: ENIG; green solder mask both sides; no legend Gerbers.
@@ -12,6 +13,9 @@ Release class: first-article bare PCB only.
 - Standard vias: tent both sides; no general plugging/filling/capping request.
 - Minimum supplied feature: 0.09 mm trace, 0.15 mm clearance, 0.25/0.15 mm
   via/drill, and 0.05 mm annular ring.
+- Special process: two castellated, plated 1.00 × 2.00 mm slots on the
+  left/right gas-side edges. Confirm plated-slot castellation capability before
+  ordering; ordinary unplated profile routing is not an acceptable substitute.
 
 The KiCad dielectric stack is a nominal 1.00 mm model, not an impedance coupon.
 The fabricator may use its standard four-layer 1.00 mm dielectric construction
@@ -19,7 +23,8 @@ while preserving layer order, finished thickness, and copper weights.
 
 ## Mechanical and ring data
 
-- Edge.Cuts contains the exact eight-primitive outer R2 contour plus two
+- Edge.Cuts contains the exact six-primitive outer contour (rounded cable end,
+  square gas end) plus two
   5.50 × 1.00 mm horizontal internal routed slots centred at `(103.75,134.00)`
   and `(116.25,134.00)` mm. Route both closed contours as shown; do not omit,
   resize, join, or reinterpret them during CAM cleanup.
@@ -29,8 +34,12 @@ while preserving layer order, finished thickness, and copper weights.
 - U11 contains a separate routed mechanical aperture: one 3.00 × 6.00 mm
   gasward-offset NPTH oblong in the Excellon data. Do not convert it to a round
   drill or resize it without engineering approval.
-- J5 has four paste-free, mask-open 5.00 × 1.50 mm solder lands: two positions,
-  each on front and back. Two 0.60/0.30 mm vias stitch the face pairs.
+- J5 has two 2.00 × 3.00 mm through-hole pads centred at `(100.00,155.50)` and
+  `(120.00,155.50)` mm. Each contains a 1.00 × 2.00 mm plated slot marked with
+  KiCad's castellated-pad fabrication property. The finished left/right profile
+  bisects the slot centreline; plate the slots before profiling so the exposed
+  vertical sidewalls remain solderable. The pad copper reaches the square tip
+  corners, and the two contacts are joined by 0.80 mm B.Cu inside the board.
 - The user-supplied metal membrane-carrier ring is hand soldered after board
   fabrication. It is not part of the bare-board CAM data.
 - J5 is switched `HEATER_LOW`, not ground. Assembly must keep the ring on the

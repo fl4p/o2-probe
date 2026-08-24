@@ -51,9 +51,9 @@ KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
   overtemperature cutoff until firmware configures and fault-tests the TMP117.
   SHT45 is the chamber RH/dew-point channel. BMP390 remains an explicitly DNP
   pressure option at address 0x76.
-- RH1/RH2 heat a manually soldered metal membrane-carrier ring through four J5
-  lands. The ring is on switched `HEATER_LOW`, not GND, and must remain on the
-  insulated dry side of the PTFE membrane stack.
+- RH1/RH2 heat a manually soldered metal membrane-carrier ring through two J5
+  plated-slot edge castellations. The ring is on switched `HEATER_LOW`, not GND,
+  and must remain on the insulated dry side of the PTFE membrane stack.
 - J2 is the DNP sealed-side expansion connector for a future external CO2 head:
   switched 12 V, protected 3.3 V, I2C, interrupt, and spare UART. It is not the
   programming connector.
@@ -143,17 +143,19 @@ archive.
 ## PCB capture status
 
 PCB first-article release date: 2026-08-24. `o2-probe.kicad_pcb` is linked to
-the 106-footprint schematic and preserves the exact 20 × 107 mm R2 outline,
-local y=82 pot line, and SGX centre `(10,93.5)`. The four-layer 1.0 mm stack is
+the 106-footprint schematic and preserves the exact 20 × 107 mm outline with
+R2 cable-end corners and a square gas end, local y=82 pot line, and SGX centre
+`(10,93.5)`. The four-layer 1.0 mm stack is
 nominal ENIG with 1 oz outer and 0.5 oz inner copper.
 
 The tip has no second TMP117. Two horizontal thermal-break slots are centred at
 local y=84.0, immediately gasward of the potting datum; they are not a sensor
 isolation feature. RH1/RH2, Q2, U10, U12, and the DNP pressure option are
-aligned behind J5. J5 provides four exact
-5.0 × 1.5 mm front/back solder lands at local x=4.75/15.25, y=105.75; two vias
-and wide B.Cu connect them independently of the hand-soldered ring. The cell
-centre is 13.5 mm from the board end and U10 is 3.75 mm from the ring centre.
+aligned behind J5. J5 provides two exact 2.0 × 3.0 mm PTH pads at local
+x=0/20, y=105.5. Their 1.0 × 2.0 mm plated slots are centred on the left/right
+profile and explicitly marked as castellated; wide B.Cu joins them independently
+of the hand-soldered ring. The cell centre is 13.5 mm from the board end and U10
+is 3.5 mm from the ring-contact centreline.
 
 The dense digital cluster places U6 at local `(14.5,44.5)`, rotated 180° in
 the right-side lane beside U5. C8 moves to `(18,37.5)` to preserve a clean U6

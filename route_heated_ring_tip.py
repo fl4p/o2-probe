@@ -67,7 +67,7 @@ def require_floorplan() -> None:
         "U12": (3.5, 101.5), "C20": (6.0, 101.5),
         "U10": (10.0, 102.0), "C21": (12.5, 102.5),
         "U14": (16.5, 101.0), "C23": (14.0, 100.0),
-        "C24": (14.0, 102.0), "J5": (10.0, 105.75),
+        "C24": (14.0, 102.0), "J5": (10.0, 105.5),
     }
     for reference, expected in wanted.items():
         footprint = footprints.get(reference)
@@ -169,17 +169,16 @@ def main() -> int:
          ((10.0, 102.0), (9.0, 102.0), (8.3, 103.0)), 0.18)
     via("/TMP_CELL_EP", (8.3, 103.0), 0.40, 0.20)
 
-    # The two 2512 elements share a wide switched-low spreader.  Four J5 lands
-    # are stitched in pairs and joined by copper, so DRC does not assume the
-    # removable metal ring is required for electrical continuity.
+    # The two 2512 elements share a wide switched-low spreader.  The two J5
+    # plated-slot castellations are joined by copper, so the removable metal
+    # ring is not required for electrical continuity.
     path("/HEATER_LOW", pcbnew.B_Cu,
-         ((5.0, 99.4625), (3.0, 101.0), (2.0, 104.0), (4.75, 105.75)), 0.80)
+         ((5.0, 99.4625), (3.0, 101.0), (3.0, 103.5),
+          (1.0, 104.5), (0.75, 105.5)), 0.80)
     path("/HEATER_LOW", pcbnew.B_Cu,
-         ((15.0, 99.4625), (18.5, 98.5), (19.0, 104.0), (15.25, 105.75)), 0.80)
-    segment("/HEATER_LOW", pcbnew.B_Cu, (4.75, 105.75), (15.25, 105.75), 0.80)
-    segment("/HEATER_LOW", pcbnew.B_Cu, (10.0, 102.1875), (10.0, 105.75), 0.80)
-    via("/HEATER_LOW", (4.75, 105.75), 0.60, 0.30)
-    via("/HEATER_LOW", (15.25, 105.75), 0.60, 0.30)
+         ((15.0, 99.4625), (18.5, 98.5), (19.0, 104.0), (19.25, 105.5)), 0.80)
+    segment("/HEATER_LOW", pcbnew.B_Cu, (0.75, 106.25), (19.25, 106.25), 0.80)
+    segment("/HEATER_LOW", pcbnew.B_Cu, (10.0, 102.1875), (10.0, 106.25), 0.80)
 
     # Hardware-off gate network.  The middle In1 corridor crosses neither I2C
     # corridor; short B.Cu fanouts reach Q2 and the two bias resistors.
@@ -201,8 +200,8 @@ def main() -> int:
     path("/HEATER_PWM", pcbnew.F_Cu, ((13.85, 85.6), (13.85, 86.5)), 0.18)
     via("/HEATER_PWM", (13.85, 86.5))
     path("/HEATER_PWM", pcbnew.In1_Cu,
-         ((13.85, 86.5), (18.8, 90.0), (19.3, 90.5),
-          (19.3, 104.6), (6.8, 104.6)), 0.18)
+         ((13.85, 86.5), (18.0, 90.0), (18.5, 90.5),
+          (18.5, 104.2), (6.8, 104.6)), 0.18)
     via("/HEATER_PWM", (6.8, 104.6))
     segment("/HEATER_PWM", pcbnew.B_Cu, (6.8, 104.6), (7.325, 101.25), 0.18)
 

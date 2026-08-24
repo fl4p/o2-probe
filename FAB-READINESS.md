@@ -6,7 +6,8 @@ Status date: 2026-08-24
 
 **Ready for a bare-board first article at a capability-matched fabricator.**
 The selected process must accept 0.09/0.15 mm trace/space, 0.25/0.15 mm
-via/drill, and a 1.00 mm four-layer stack. This is not an automated-PCBA,
+via/drill, two plated-slot edge castellations, the internal thermal slots, and
+a 1.00 mm four-layer stack. This is not an automated-PCBA,
 heated-ring assembly, or production-qualified release. Real SGX fit, enclosure
 fit, ring mechanics, and environmental qualification remain mandatory.
 
@@ -29,17 +30,19 @@ Gerber/Excellon validation.
   sides of the long run; the audit checks the saved filled polygons, not only
   the zone source outline.
 - The board is exactly 20.00 × 107.00 × 1.00 mm with four copper layers, an
-  eight-primitive R2 outline, and two exact 5.50 × 1.00 mm horizontal
+  exact six-primitive outline with R2 cable-end corners and a square gas end,
+  and two exact 5.50 × 1.00 mm horizontal
   Edge.Cuts slots centred at absolute y=134.00 mm. They retain 1.00 mm edge
   webs and a 7.00 mm centre neck.
 - U11's separate 3.00 × 6.00 mm gasward NPTH oblong remains in Excellon. The
   release validates its tool and exact route endpoints independently.
 - The obsolete U13/C22/R30/TP7 second-temperature circuit and both of its
   dedicated nets are absent from the schematic, PCB, and release.
-- J5 is exactly four 5.00 × 1.50 mm paste-free mask-open lands at two
-  positions, front and back, with two 0.60/0.30 mm stitch vias. PCB copper
-  connects all lands; the metal ring is not an electrical jumper.
-- `HEATER_LOW` uses only ≥0.80 mm B.Cu in the tip. U10 sits 3.75 mm from the
+- J5 is exactly two 2.00 × 3.00 mm through-hole corner pads at the left/right
+  gas-side edges. Their 1.00 × 2.00 mm plated slots carry KiCad's castellated
+  fabrication property and are bisected by the finished profile. PCB copper
+  connects both contacts; the metal ring is not an electrical jumper.
+- `HEATER_LOW` uses only ≥0.80 mm B.Cu in the tip. U10 sits 3.5 mm from the
   ring centre; R29 provides passive default-off, and the wired TMP117 ALERT
   path is not credited as an overtemperature cutoff until configured and
   fault-tested in firmware.
@@ -59,12 +62,14 @@ Gerber/Excellon validation.
 - `audit_pcb.py --calibrate` rejects 26/26 deliberately broken variants,
   including a CELL_RE via, missing guard/GND plane, unexpected third slot,
   deformed outline/thermal-slot/GND/guard/ring geometry, disconnected actual
-  guard fill, unfilled plane, missing ring stitch,
-  stale second-sensor copper, unexpected barrier track/graphic copper, narrow heater/ordinary/switched-supply tracks,
+  guard fill, unfilled plane, an unplated ring contact, stale second-sensor
+  copper, unexpected barrier track/graphic copper, narrow
+  heater/ordinary/switched-supply tracks,
   moved U7/U6, exact duplicate copper, deleted schematic footprint, wrong pad
   net, and missing stackup.
 - `make_fab.py` independently finds both exact thermal-slot contours in the
-  Edge.Cuts Gerber, the one exact SGX routed NPTH in Excellon, and all three
+  Edge.Cuts Gerber, both exact J5 plated-slot castellations in PTH Excellon,
+  the one exact SGX routed NPTH in Excellon, and all three
   driven-guard regions plus eight interior coverage samples in the F.Cu Gerber.
 
 ## Reviewed warnings and scope
@@ -88,7 +93,10 @@ These do not block ordering bare boards, but they do block production:
 - Coupon the 20 × 107 mm board, ring, PTFE membrane, carrier, potting dam, and
   connector in the actual 32 mm tube. Measure the final O₂-to-membrane spacing
   rather than inferring it from the PCB outline.
-- Hand assemble and inspect the 29 courtyard pairs and the J5 solder operation.
+- Confirm the selected fabricator plates and profiles the two J5 castellations
+  as documented; inspect sidewall continuity and copper adhesion on coupons.
+- Hand assemble and inspect the reviewed courtyard pairs and the J5 solder
+  operation.
   Do not submit the bare-board ZIP for turnkey automated PCBA.
 - Run heater open/short/stuck-on protection tests and map ring, membrane, U10,
   U12, SGX body, and ambient temperatures at 0/intermediate/100% drive.

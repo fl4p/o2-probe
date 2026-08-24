@@ -21,9 +21,10 @@ manual-assembly exceptions and silkscreen is not exported.
 - Remove U13/C22/R30/TP7 and the obsolete sensor-isolation slot concept. This
   was initially applied too broadly by also removing the transverse boundary
   slots; the 2026-08-24 correction below restores those two distinct features.
-- Shorten the board to 20 × 107 mm and move the membrane heater to J5: four
-  paste-free front/back lands for a hand-soldered metal carrier ring. Join all
-  lands in PCB copper so the ring is not an electrical jumper.
+- Shorten the board to 20 × 107 mm and move the membrane heater to J5. The
+  final interface uses two castellated plated slots on the left/right tip edges
+  for a hand-soldered metal carrier ring. Join both contacts in PCB copper so
+  the ring is not an electrical jumper.
 - Put the one fitted TMP117 at local `(10,102)` near the ring, keep the SHT45
   for RH/dew-point estimation, and retain BMP390/C23/C24 only as a DNP option.
 - Route `HEATER_LOW` with ≥0.80 mm B.Cu; segregate I²C/gate/PWM corridors and
@@ -34,8 +35,9 @@ manual-assembly exceptions and silkscreen is not exported.
   enable every KiCad DRC category. Route endpoint and dangling-stub warnings
   were corrected, not suppressed.
 - Generate and independently inspect the Gerber/Excellon ZIP with `make_fab.py`.
-- Audit the exact outer contour, one continuous GND zone, all four J5 lands,
-  two stitch vias, wide heater copper, and absence of obsolete nets.
+- Audit the exact outer contour, one continuous GND zone, both J5 castellations,
+  plated-slot geometry/properties, wide heater copper, and absence of obsolete
+  nets.
 
 ## 2026-08-24 thermal-break slot correction
 
@@ -193,6 +195,16 @@ manual-assembly exceptions and silkscreen is not exported.
 - If a future revision genuinely needs a routed slot, do not model it as a
   helper footprint. Closed Edge.Cuts contours are the board-native form and
   must be audited by exact primitive and datum. This revision has two.
+- A front/back SMD land touching a profile does not specify a plated sidewall.
+  For a solderable edge contact, use a PTH pad whose plated slot is centred on
+  the finished profile, set KiCad's `pad_prop_castellated` fabrication property,
+  call out plate-before-profile sequencing, and verify the exact routed slot in
+  PTH Excellon. The fabricator must explicitly support that special process.
+- A castellated PTH pad exists on every copper layer. Recheck nearby inner-layer
+  routes, not only the visible outer copper; the first square-tip trial exposed
+  an In1 heater-PWM collision at the right contact. Ordinary tracks should end
+  inside the inboard half of the pad so the global copper-edge rule stays active
+  for tracks rather than being weakened to accommodate the castellation.
 - A thermal slot is load-bearing only when it interrupts the actual heat-flow
   path. Lock its orientation, residual neck/web widths, sensor/heater sides,
   and every copper-plane crossing. A slot parallel to the gradient, or a solid
@@ -236,7 +248,7 @@ manual-assembly exceptions and silkscreen is not exported.
   Micro-Fit connector, Tag-Connect holes, 2512 heaters, and component courtyards
   consume more axial space than their pad centres imply.  Check courtyard and
   hole envelopes before routing, especially on both sides of through-hole parts.
-- Keep the mechanical source deterministic. The 20 × 107 mm R2 outline, one
+- Keep the mechanical source deterministic. The 20 × 107 mm outline, one
   continuous In2 zone, pot datum, cell/aperture, tip placement, and J5 geometry
   are exact assertions in `audit_pcb.py`, so electrical rearrangement cannot
   silently move an enclosure interface.
@@ -260,6 +272,7 @@ python3 make_fab.py
 
 That command applies/verifies project rules, runs ERC and both audits, records
 error and warning DRC JSON, plots the exact layer set, validates Gerber X2
-functions, the exact R2 outer contour, both thermal-break slot contours, and
-routed SGX NPTH Excellon data, writes checksums, and builds
+functions, the exact square-tip outer contour, both thermal-break slot contours,
+both J5 plated-slot castellations, and routed SGX NPTH Excellon data; writes
+checksums; and builds
 `fab/o2-probe-rev-a-fab.zip`.

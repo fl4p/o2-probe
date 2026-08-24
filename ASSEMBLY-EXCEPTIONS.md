@@ -16,9 +16,10 @@ is locked by `audit_pcb.py`:
 | U10 / U11 |  |  |  |
 
 Inspect component-body, hand-solder, and rework clearance on the first article.
-J5 is a separate manual operation: verify ring material/plating, use controlled
-heat and flux, prevent solder wicking into the membrane carrier, and inspect
-dry-side electrical insulation before power is applied.
+J5 is a separate manual operation: inspect both plated castellation sidewalls,
+verify ring material/plating, use controlled heat and flux, prevent solder
+wicking into the membrane carrier, and inspect dry-side electrical insulation
+before power is applied.
 
 U11 is also a physical gate: fit an actual SGX-OX-ROHS-Mini, verify pin identity
 from the PCB side, and confirm the rear gas path against the 3 × 6 mm NPTH

@@ -81,7 +81,7 @@ def edge_signature(item):
 
 
 def expected_outline_geometry() -> Counter:
-    """Return the exact eight primitives for the 20 x 107 mm R2 outline."""
+    """Return the exact six primitives for the square-tip 20 x 107 mm outline."""
     expected = Counter()
 
     def absolute(local_point):
@@ -96,11 +96,9 @@ def expected_outline_geometry() -> Counter:
 
     line((2.0, 0.0), (18.0, 0.0))
     arc((18.0, 0.0), (19.414, 0.586), (20.0, 2.0))
-    line((20.0, 2.0), (20.0, 105.0))
-    arc((20.0, 105.0), (19.414, 106.414), (18.0, 107.0))
-    line((18.0, 107.0), (2.0, 107.0))
-    arc((2.0, 107.0), (0.586, 106.414), (0.0, 105.0))
-    line((0.0, 105.0), (0.0, 2.0))
+    line((20.0, 2.0), (20.0, 107.0))
+    line((20.0, 107.0), (0.0, 107.0))
+    line((0.0, 107.0), (0.0, 2.0))
     arc((0.0, 2.0), (0.586, 0.586), (2.0, 0.0))
     return expected
 
@@ -220,10 +218,10 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
         and max(xy(item.GetStart())[1], xy(item.GetEnd())[1]) <= 134.6
     ]
     outline_items = [item for item in edge_items if item not in slot_items]
-    check(errors, len(edge_items) == 16 and len(outline_items) == 8 and len(slot_items) == 8,
+    check(errors, len(edge_items) == 14 and len(outline_items) == 6 and len(slot_items) == 8,
           "EDGE_ITEM_COUNT",
           f"found {len(edge_items)} total/{len(outline_items)} outer/{len(slot_items)} slot; "
-          "want 16/8/8")
+          "want 14/6/8")
     actual_outline = Counter(edge_signature(item) for item in outline_items)
     expected_outline = expected_outline_geometry()
     check(errors, actual_outline == expected_outline, "OUTLINE_GEOMETRY",
@@ -251,7 +249,7 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
         "U14": ((116.5, 151.0), 0.0, "F.Cu"),
         "C23": ((114.0, 150.0), 180.0, "F.Cu"),
         "C24": ((114.0, 152.0), 180.0, "F.Cu"),
-        "J5": ((110.0, 155.75), 0.0, "F.Cu"),
+        "J5": ((110.0, 155.5), 0.0, "F.Cu"),
     }
     for ref, (wanted_position, wanted_angle, wanted_layer) in expected_tip_placements.items():
         footprint = footprints.get(ref)
@@ -289,24 +287,27 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
               "RING_FOOTPRINT", actual_ring_fpid)
         ring_land_signatures = Counter()
         for pad in ring.Pads():
-            copper_layer = "F.Cu" if pad.IsOnLayer(pcbnew.F_Cu) else (
-                "B.Cu" if pad.IsOnLayer(pcbnew.B_Cu) else "none"
-            )
             ring_land_signatures[(
                 rounded_point(pad.GetPosition()), rounded_point(pad.GetSize()),
-                pad.GetNumber(), pad.GetNetname(), copper_layer,
+                rounded_point(pad.GetDrillSize()), pad.GetNumber(), pad.GetNetname(),
+                int(pad.GetAttribute()), int(pad.GetShape()), int(pad.GetDrillShape()),
+                int(pad.GetProperty()),
+                pad.IsOnLayer(pcbnew.F_Cu), pad.IsOnLayer(pcbnew.In1_Cu),
+                pad.IsOnLayer(pcbnew.In2_Cu), pad.IsOnLayer(pcbnew.B_Cu),
                 pad.IsOnLayer(pcbnew.F_Mask), pad.IsOnLayer(pcbnew.B_Mask),
                 pad.IsOnLayer(pcbnew.F_Paste), pad.IsOnLayer(pcbnew.B_Paste),
             )] += 1
         expected_ring_lands = Counter({
-            ((104.75, 155.75), (5.0, 1.5), "1", "/HEATER_LOW",
-             "F.Cu", True, False, False, False): 1,
-            ((104.75, 155.75), (5.0, 1.5), "1", "/HEATER_LOW",
-             "B.Cu", False, True, False, False): 1,
-            ((115.25, 155.75), (5.0, 1.5), "1", "/HEATER_LOW",
-             "F.Cu", True, False, False, False): 1,
-            ((115.25, 155.75), (5.0, 1.5), "1", "/HEATER_LOW",
-             "B.Cu", False, True, False, False): 1,
+            ((100.0, 155.5), (2.0, 3.0), (1.0, 2.0), "1", "/HEATER_LOW",
+             int(pcbnew.PAD_ATTRIB_PTH), int(pcbnew.PAD_SHAPE_OVAL),
+             int(pcbnew.PAD_DRILL_SHAPE_OBLONG), int(pcbnew.PAD_PROP_CASTELLATED),
+             True, True, True, True,
+             True, True, False, False): 1,
+            ((120.0, 155.5), (2.0, 3.0), (1.0, 2.0), "1", "/HEATER_LOW",
+             int(pcbnew.PAD_ATTRIB_PTH), int(pcbnew.PAD_SHAPE_OVAL),
+             int(pcbnew.PAD_DRILL_SHAPE_OBLONG), int(pcbnew.PAD_PROP_CASTELLATED),
+             True, True, True, True,
+             True, True, False, False): 1,
         })
         check(errors, ring_land_signatures == expected_ring_lands,
               "RING_LAND_GEOMETRY",
@@ -324,18 +325,8 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
         for item in heater_low_tracks
     ), "RING_HEATER_COPPER",
           "HEATER_LOW must use only >=0.80 mm B.Cu tracks between the elements, switch, and ring")
-    ring_via_signature = Counter(
-        (rounded_point(item.GetPosition()), round(mm(item.GetWidth(pcbnew.F_Cu)), 2),
-         round(mm(item.GetDrillValue()), 2))
-        for item in heater_low_vias
-    )
-    expected_ring_vias = Counter({
-        ((104.75, 155.75), 0.60, 0.30): 1,
-        ((115.25, 155.75), 0.60, 0.30): 1,
-    })
-    check(errors, ring_via_signature == expected_ring_vias, "RING_STITCH_VIAS",
-          f"added/changed={list((ring_via_signature - expected_ring_vias).elements())}; "
-          f"missing={list((expected_ring_vias - ring_via_signature).elements())}")
+    check(errors, not heater_low_vias, "RING_HEATER_VIAS",
+          f"HEATER_LOW has {len(heater_low_vias)} obsolete stitch vias; J5 is through-plated")
 
     obsolete_tip_nets = {"/TGAS_ALERT", "/TMP_GAS_EP"}
     stale_copper = [item.GetNetname() for item in board.GetTracks()
@@ -888,11 +879,9 @@ def calibrate(board_path: Path, board_text: str) -> list[str]:
         footprint = next(fp for fp in board.Footprints() if fp.GetReference() == "J5")
         next(iter(footprint.Pads())).SetSize(pcbnew.VECTOR2I_MM(4.5, 1.5))
 
-    def remove_ring_stitch(board) -> None:
-        via = next(item for item in board.GetTracks()
-                   if isinstance(item, pcbnew.PCB_VIA)
-                   and item.GetNetname() == "/HEATER_LOW")
-        via.SetNetCode(0)
+    def make_ring_slot_nonplated(board) -> None:
+        footprint = next(fp for fp in board.Footprints() if fp.GetReference() == "J5")
+        next(iter(footprint.Pads())).SetAttribute(pcbnew.PAD_ATTRIB_NPTH)
 
     def add_obsolete_tip_copper(board) -> None:
         net = board.FindNet("/TGAS_ALERT")
@@ -983,7 +972,7 @@ def calibrate(board_path: Path, board_text: str) -> list[str]:
     expect("missing guard", "GUARD_ZONE", remove_guard)
     expect("missing continuous GND plane", "GND_ZONE_COUNT", remove_gnd_zone)
     expect("unexpected third board-native slot", "EDGE_ITEM_COUNT", add_unexpected_slot)
-    expect("deformed outer R2 corner", "OUTLINE_GEOMETRY", deform_outer_corner)
+    expect("deformed rounded cable corner", "OUTLINE_GEOMETRY", deform_outer_corner)
     expect("deformed thermal-break slot", "THERMAL_SLOT_GEOMETRY", deform_thermal_slot)
     expect("notched continuous GND plane", "GND_ZONE_GEOMETRY", notch_gnd_zone)
     expect("unfilled controlled ground zone", "GND_ZONE_FILL", unfill_gnd_zone)
@@ -992,7 +981,8 @@ def calibrate(board_path: Path, board_text: str) -> list[str]:
            disconnect_filled_guard_rail)
     expect("moved membrane ring", "TIP_PLACEMENT", move_ring)
     expect("deformed membrane-ring land", "RING_LAND_GEOMETRY", deform_ring_land)
-    expect("missing membrane-ring stitch", "RING_STITCH_VIAS", remove_ring_stitch)
+    expect("unplated membrane-ring sidewall", "RING_LAND_GEOMETRY",
+           make_ring_slot_nonplated)
     expect("obsolete second-sensor copper", "OBSOLETE_TIP_COPPER", add_obsolete_tip_copper)
     expect("narrow heater-to-ring copper", "RING_HEATER_COPPER", narrow_ring_copper)
     expect("sub-process-width trace", "MIN_TRACK_WIDTH", narrow_track)
@@ -1047,7 +1037,8 @@ def main() -> int:
         f"{int(metrics['thermal_barrier_vias'])} vias locked; no pad/copper-graphic/footprint-zone crossings\n"
         f"- driven guard: {int(metrics['guard_filled_regions'])} physically stitched F.Cu regions; "
         "sampled copper flanks CELL_RE through the potted-to-cell transition\n"
-        f"- heated ring: four exact 5.00 x 1.50 mm mask-only lands, two 0.60/0.30 mm stitches; "
+        f"- heated ring: two exact 2.00 x 3.00 mm PTH corner pads with "
+        f"1.00 x 2.00 mm plated-slot castellations; "
         f"TMP117-to-ring-center {metrics['tmp117_ring_distance_mm']:.3f} mm\n"
         f"- minimum track/via/drill {metrics['min_track_width_mm']:.2f}/"
         f"{metrics['min_via_diameter_mm']:.2f}/{metrics['min_via_drill_mm']:.2f} mm\n"
