@@ -7,7 +7,7 @@ Status date: 2026-08-24
 **Ready for a bare-board first article at a capability-matched fabricator.**
 The selected process must accept 0.09/0.15 mm trace/space, 0.25/0.15 mm
 via/drill, 0.20 mm copper-to-routed-edge clearance, two plated-slot edge
-castellations, the internal thermal slots, and
+castellations, all four internal thermal slots, and
 a 1.00 mm four-layer stack. This is not an automated-PCBA,
 heated-ring assembly, or production-qualified release. Real SGX fit, enclosure
 fit, ring mechanics, and environmental qualification remain mandatory.
@@ -32,9 +32,11 @@ Gerber/Excellon validation.
   the zone source outline.
 - The board is exactly 20.00 × 107.00 × 1.00 mm with four copper layers, an
   exact six-primitive outline with R2 cable-end corners and a square gas end,
-  and two exact 6.75 × 1.50 mm horizontal
-  Edge.Cuts slots centred at absolute y=134.00 mm. They retain 0.75 mm edge
-  webs and a 5.00 mm centre neck.
+  and four exact thermal-slot contours. The two 6.75 × 1.50 mm horizontal
+  slots are centred at `(104.125,134.00)` and `(115.875,134.00)` mm and retain
+  0.75 mm edge webs plus a 5.00 mm centre neck. The two 0.80 × 16.00 mm
+  vertical slots are centred at `(101.20,145.00)` and `(118.80,145.00)` mm,
+  span y=137.00–153.00 mm, and have no track, via, or pad crossing.
 - U11's separate 3.00 × 6.00 mm gasward NPTH oblong is centred at absolute
   `(110.00,145.30)` mm, 0.50 mm from pad-2 copper. The release validates its
   tool, exact route endpoints, pad gap, and the rerouted inner-layer heater
@@ -50,6 +52,13 @@ Gerber/Excellon validation.
   ring centre; R29 provides passive default-off, and the wired TMP117 ALERT
   path is not credited as an overtemperature cutoff until configured and
   fault-tested in firmware.
+- The first-order y=133–135 mm conduction network gives about 98 K/W from the
+  gas-side island to the body, with a 90–110 K/W engineering bound. The
+  vertical side slots reduce lateral edge-rail coupling but do not add their
+  full 16 mm length in series because a 2.25 mm unslotted connection remains
+  between them and the transverse slots. `THERMAL-BARRIER.md` records the
+  geometry, all 14 track/two-via paths, assumptions, limits, and measurement
+  method; this estimate is not a production qualification result.
 - The thermal-barrier copper inventory is locked: 14 track segments, two
   vias, no footprint pads, copper graphics, or footprint zones, the exact F.Cu
   `GUARD_REPLICA` source zone plus its three actual filled regions, a named
@@ -65,7 +74,7 @@ Gerber/Excellon validation.
 - The generator assigns `RS485_DE` to PC6 beside the USART1 TX/RX pins and
   `VA_MON` to PA7/ADC_IN7; PA0/PA1 are intentionally unused. Firmware must use
   this final pin map.
-- `audit_pcb.py --calibrate` rejects 31/31 deliberately broken variants,
+- `audit_pcb.py --calibrate` rejects 33/33 deliberately broken variants,
   including a CELL_RE via, missing guard/GND plane, unexpected third slot,
   deformed outline/thermal-slot/GND/guard/ring geometry, disconnected actual
   guard fill, unfilled plane, an unplated ring contact, stale second-sensor
@@ -74,7 +83,7 @@ Gerber/Excellon validation.
   moved U7/U6, exact duplicate copper, deleted schematic footprint, wrong pad
   net, missing stackup, disabled thermal pour gap, wrong heater-spreader net,
   and a missing narrow GND bridge.
-- `make_fab.py` independently finds both exact thermal-slot contours in the
+- `make_fab.py` independently finds all four exact thermal-slot contours in the
   Edge.Cuts Gerber, both exact J5 plated-slot castellations in PTH Excellon,
   the one exact SGX routed NPTH in Excellon, and all three
   driven-guard regions plus eight interior coverage samples in the F.Cu Gerber.
@@ -109,6 +118,11 @@ These do not block ordering bare boards, but they do block production:
   Do not submit the bare-board ZIP for turnkey automated PCBA.
 - Run heater open/short/stuck-on protection tests and map ring, membrane, U10,
   U12, SGX body, and ambient temperatures at 0/intermediate/100% drive.
+- Measure temperatures immediately on both sides of the transverse barrier
+  during at least three steady heater-power steps. Treat
+  `delta_T / P_electrical` only as a lower bound; qualify the PCB value with
+  body-side heat-flow measurement or a guarded loss correction as specified
+  in `THERMAL-BARRIER.md`.
 - Run controlled dew-point crossings and humid soak tests. Demonstrate that
   the membrane stays above local dew point without overheating or biasing the
   electrochemical cell; validate the condensation model against measurements.

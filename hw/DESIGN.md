@@ -84,12 +84,16 @@ KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
   2 does not specify. Physical sample fit remains required for production.
 - No mounting holes. Two exact 6.75 × 1.5 mm horizontal Edge.Cuts slots at
   absolute y=134 mm form a partial thermal break between the potted body and
-  gas-side tip while retaining 0.75 mm edge webs and a 5 mm centre neck. A named
-  rule area excludes zone fill on all four copper layers across y=133–135 mm;
-  only audited routes and one 0.15 mm In2 GND bridge may cross it. The gas-side
-  B.Cu island has a solid `/HEATER_LOW` thermal-spreader zone. Cable strain
-  relief, expansion-connector chord clearance, ring/membrane carrier, and gas
-  volume require the tube/fixture fit check in `PLACEMENT.md`.
+  gas-side tip while retaining 0.75 mm edge webs and a 5 mm centre neck. Two
+  additional 0.8 × 16 mm vertical side slots centred at `(101.2,145.0)` and
+  `(118.8,145.0)` mm remove lateral coupling over y=137–153 mm. Their upper
+  caps are 2.25 mm gasward of the transverse-slot edge, so they are not a
+  16 mm series barrier to the body. A named rule area excludes zone fill on all
+  four copper layers across y=133–135 mm; only the audited 14 track segments
+  and two vias may cross it. The gas-side B.Cu island has a solid
+  `/HEATER_LOW` thermal-spreader zone with voids for both side slots. Cable
+  strain relief, expansion-connector chord clearance, ring/membrane carrier,
+  and gas volume require the tube/fixture fit check in `PLACEMENT.md`.
 
 ## Release gates and provisional choices
 
@@ -154,13 +158,17 @@ R2 cable-end corners and a square gas end, local y=82 pot line, and SGX centre
 nominal ENIG with 1 oz outer and 0.5 oz inner copper.
 
 The tip has no second TMP117. Two horizontal thermal-break slots are centred at
-local y=84.0, immediately gasward of the potting datum; they are not a sensor
-isolation feature. RH1/RH2, Q2, U10, U12, and the DNP pressure option are
-aligned behind J5. J5 provides two exact 2.0 × 3.0 mm PTH pads at local
-x=0/20, y=105.5. Their 1.0 × 2.0 mm plated slots are centred on the left/right
-profile and explicitly marked as castellated; wide B.Cu joins them independently
-of the hand-soldered ring. The cell centre is 13.5 mm from the board end and U10
-is 2.975 mm from the ring-contact centreline.
+local y=84.0, immediately gasward of the potting datum; two vertical side slots
+are centred at local x=1.2/18.8, y=95.0. They are not a sensor-isolation
+feature. The calculated transverse bare-PCB resistance is about 98 K/W, with a
+90–110 K/W engineering bound pending first-article measurement; the side-slot
+length is not added in series. See `THERMAL-BARRIER.md`. RH1/RH2, Q2, U10,
+U12, and the DNP pressure option are aligned behind J5. J5 provides two exact
+2.0 × 3.0 mm PTH pads at local x=0/20, y=105.5. Their 1.0 × 2.0 mm plated
+slots are centred on the left/right profile and explicitly marked as
+castellated; wide B.Cu joins them independently of the hand-soldered ring. The
+cell centre is 13.5 mm from the board end and U10 is 2.975 mm from the
+ring-contact centreline.
 
 The dense digital cluster places U6 at local `(14.5,44.5)`, rotated 180° in
 the right-side lane beside U5. C8 moves to `(18,37.5)` to preserve a clean U6
@@ -174,7 +182,7 @@ regions, joined only by one explicit 0.15 mm three-segment jog through the left
 web. The heated tip has a solid B.Cu `/HEATER_LOW` spreader immediately gasward of the
 barrier.
 KiCad 10.0.5 reports 0 DRC errors, 0 unconnected items, and 0 parity issues;
-the calibrated audit rejects 31/31 known-bad variants. The
+the calibrated audit rejects 33/33 known-bad variants. The
 27 exact courtyard pairs are
 manual-assembly exceptions and legend layers are not exported. See
 `FAB-READINESS.md`, `ASSEMBLY-EXCEPTIONS.md`, and `FAB-NOTES.md` for release

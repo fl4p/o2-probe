@@ -79,7 +79,7 @@ def expected_outline_primitives() -> Counter:
 
 
 def expected_thermal_slot_primitives() -> Counter:
-    """Exact Gerber primitives for the two Y=134 mm thermal-break slots."""
+    """Exact Gerber primitives for all four heated-island thermal slots."""
     expected = Counter()
 
     def point(x: float, y: float):
@@ -97,6 +97,13 @@ def expected_thermal_slot_primitives() -> Counter:
         arc((x1 - 0.75, 133.25), (x1 - 0.75, 134.0), (x1 - 0.75, 134.75))
         line((x1 - 0.75, 134.75), (x0 + 0.75, 134.75))
         arc((x0 + 0.75, 134.75), (x0 + 0.75, 134.0), (x0 + 0.75, 133.25))
+    for x in (101.2, 118.8):
+        x0, x1 = x - 0.4, x + 0.4
+        y0, y1 = 137.0, 153.0
+        line((x0, y0 + 0.4), (x0, y1 - 0.4))
+        arc((x0, y1 - 0.4), (x, y1 - 0.4), (x1, y1 - 0.4))
+        line((x1, y1 - 0.4), (x1, y0 + 0.4))
+        arc((x1, y0 + 0.4), (x, y0 + 0.4), (x0, y0 + 0.4))
     return expected
 
 
@@ -265,11 +272,11 @@ def validate_gerbers(directory: Path) -> dict[str, object]:
     expected_zone_regions = {
         "In1_Cu": Counter(),
         "In2_Cu": Counter({
-            (1033, (100.25, -156.75, 119.75, -135.0)): 1,
+            (1114, (100.25, -156.75, 119.75, -135.0)): 1,
             (7433, (100.25, -133.0, 119.75, -50.25)): 1,
         }),
         "B_Cu": Counter({
-            (1215, (100.25, -156.75, 119.75, -135.0)): 1,
+            (1303, (100.25, -156.75, 119.75, -135.0)): 1,
         }),
     }
     for layer, expected_regions in expected_zone_regions.items():
@@ -303,6 +310,24 @@ def validate_gerbers(directory: Path) -> dict[str, object]:
     if gap_fill_hits:
         raise SystemExit(f"thermal-barrier Gerber region crosses the 2 mm gap: {gap_fill_hits}")
 
+    side_slot_samples = tuple(
+        (x, -y) for x in (101.2, 118.8) for y in (138.0, 145.0, 152.0)
+    )
+    side_slot_fill_hits = {
+        layer.replace("_", "."): [
+            sample for sample in side_slot_samples
+            if any(point_in_polygon(sample, region) for region in regions)
+        ]
+        for layer, regions in copper_regions.items()
+    }
+    side_slot_fill_hits = {
+        layer: hits for layer, hits in side_slot_fill_hits.items() if hits
+    }
+    if side_slot_fill_hits:
+        raise SystemExit(
+            f"copper Gerber region enters side-slot voids: {side_slot_fill_hits}"
+        )
+
     heater_samples = ((102.0, -140.0), (110.0, -150.0), (118.0, -140.0))
     missing_heater_samples = [
         point for point in heater_samples
@@ -323,12 +348,15 @@ def validate_gerbers(directory: Path) -> dict[str, object]:
         "plotted_outline_mm": [width, height],
         "edge_cuts_primitives": sum(primitives.values()),
         "outer_outline_primitives": sum(expected_outline.values()),
-        "board_native_routed_slot_contours": 2,
+        "board_native_routed_slot_contours": 4,
         "thermal_slot_centers_mm": [[104.125, 134.0], [115.875, 134.0]],
         "thermal_slot_finished_size_mm": [6.75, 1.5],
+        "side_thermal_slot_centers_mm": [[101.2, 145.0], [118.8, 145.0]],
+        "side_thermal_slot_finished_size_mm": [0.8, 16.0],
         "thermal_copper_fill_gap_y_mm": [133.0, 135.0],
         "thermal_copper_fill_gap_layers": ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"],
         "thermal_gap_gerber_samples_verified_per_layer": len(thermal_gap_samples),
+        "side_thermal_slot_void_samples_verified_per_layer": len(side_slot_samples),
         "heated_island_spreader_layer": "B.Cu",
         "heated_island_spreader_net": "/HEATER_LOW",
         "heated_island_spreader_samples_verified": len(heater_samples),
@@ -464,9 +492,10 @@ def main() -> int:
     validation = {}
     validation.update(validate_gerbers(TEMP))
     validation.update(validate_drills(TEMP))
-    for source in ("FAB-NOTES.md", "FAB-READINESS.md", "ASSEMBLY-EXCEPTIONS.md",
-                   "pcb-audit.rpt", "schematic-audit.rpt", "erc.rpt",
-                   "pcb-drc-release.json", "pcb-drc-warnings.json"):
+    for source in ("FAB-NOTES.md", "FAB-READINESS.md", "THERMAL-BARRIER.md",
+                   "ASSEMBLY-EXCEPTIONS.md", "pcb-audit.rpt",
+                   "schematic-audit.rpt", "erc.rpt", "pcb-drc-release.json",
+                   "pcb-drc-warnings.json"):
         shutil.copy2(HERE / source, TEMP / source)
 
     version = run(KICAD, "--version").strip()
@@ -512,6 +541,7 @@ def main() -> int:
     print(f"SHA-256: {sha256(ZIP)}")
     print(f"files: {len(expected)}; Gerber outline: {validation['plotted_outline_mm'][0]:.2f} x "
           f"{validation['plotted_outline_mm'][1]:.2f} mm; two exact Y=134 Edge.Cuts slots "
+          "plus two exact 0.8 x 16 mm side slots "
           "plus two plated-slot ring castellations and SGX routed NPTH verified")
     return 0
 

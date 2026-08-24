@@ -24,16 +24,22 @@ while preserving layer order, finished thickness, and copper weights.
 ## Mechanical and ring data
 
 - Edge.Cuts contains the exact six-primitive outer contour (rounded cable end,
-  square gas end) plus two
-  6.75 × 1.50 mm horizontal internal routed slots centred at `(104.125,134.00)`
-  and `(115.875,134.00)` mm. Route both closed contours as shown; do not omit,
-  resize, join, or reinterpret them during CAM cleanup.
+  square gas end) plus four internal routed thermal slots. Two horizontal
+  6.75 × 1.50 mm capsules are centred at `(104.125,134.00)` and
+  `(115.875,134.00)` mm. Two vertical 0.80 × 16.00 mm capsules are centred at
+  `(101.20,145.00)` and `(118.80,145.00)` mm and span y=137.00–153.00 mm.
+  Route all four closed contours as shown; do not omit, resize, join, or
+  reinterpret them during CAM cleanup.
 - The slots leave 0.75 mm FR-4 webs at the side edges and a 5.00 mm centre
   neck. Zone fill is excluded on all four copper layers across the full board
   width from y=133.00 to 135.00 mm. Do not restore plane copper in this strip
-  during CAM cleanup: the remaining 14 explicit tracks, two crossing vias, and one
-  0.15 mm In2 GND bridge are intentional. The slots and fill gap form a partial
-  transverse thermal break, not a mechanically free island.
+  during CAM cleanup: the remaining 14 explicit tracks, two crossing vias, and
+  one 0.15 mm In2 GND bridge are intentional. The slots and fill gap form a
+  partial transverse thermal break, not a mechanically free island.
+- No track, via, or pad may bridge either vertical side slot. The B.Cu heater
+  spreader must preserve both slot voids. The side slots begin 2.25 mm beyond
+  the transverse-slot gas-side edge and are a lateral-coupling break, not a
+  16 mm series barrier between tip and body.
 - U11 contains a separate routed mechanical aperture: one 3.00 × 6.00 mm
   gasward-offset NPTH oblong centred at `(110.00,145.30)` mm in the Excellon
   data. Its nearest edge is 0.50 mm from U11 pad-2 copper. Do not convert it to
@@ -70,4 +76,6 @@ The ZIP contains seven Gerbers, separated PTH/NPTH Excellon data, drill
 map/report, fabrication drawing, DRC/audit evidence, manifest, and checksums.
 Fabricate from that ZIP, not from editor plot settings. SGX fit, enclosure fit,
 ring assembly, and condensation/thermal qualification remain first-article
-acceptance operations; see `FAB-READINESS.md`.
+acceptance operations. The pre-measurement bare-PCB transverse estimate is
+90–110 K/W; its assumptions and measurement method are in
+`THERMAL-BARRIER.md`. See also `FAB-READINESS.md`.

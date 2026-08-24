@@ -25,7 +25,7 @@ except ImportError:
 
 from thermal_design import (ensure_gnd_bridge, ensure_heater_spreader,
                             ensure_thermal_gap, replace_thermal_slots,
-                            save_board_preserving_project)
+                            save_board_preserving_project, thermal_slot_items)
 from route_thermal_barrier import apply as route_thermal_barrier
 
 
@@ -118,17 +118,14 @@ def main() -> int:
     if old_ring is None:
         raise SystemExit("J5 is missing")
 
-    # Replace the two y=134 slots with the accepted wider geometry while
-    # replacing the outer contour. Both the former rounded outline and this new
-    # six-item outline are accepted as migration inputs.
+    # Replace the complete thermal-slot set with the accepted transverse and
+    # edge-rail geometry while replacing the outer contour. Both the former
+    # rounded outline and this new six-item outline are accepted as migration
+    # inputs.
     edges = [item for item in board.Drawings() if item.GetLayer() == pcbnew.Edge_Cuts]
-    slots = [
-        item for item in edges
-        if 133.2 <= min(absolute_xy(item.GetStart())[1], absolute_xy(item.GetEnd())[1])
-        and max(absolute_xy(item.GetStart())[1], absolute_xy(item.GetEnd())[1]) <= 134.8
-    ]
+    slots = thermal_slot_items(board)
     outer = [item for item in edges if item not in slots]
-    if len(slots) != 8 or len(outer) not in (6, 8):
+    if len(slots) not in (8, 16) or len(outer) not in (6, 8):
         raise SystemExit(
             f"unexpected Edge.Cuts input: {len(outer)} outer and {len(slots)} slot items"
         )
