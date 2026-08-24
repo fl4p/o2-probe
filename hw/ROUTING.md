@@ -9,11 +9,12 @@ deterministic local migration and route owned by `adopt_heated_ring_tip.py` and
 `gen_sch.py` owns the MCU pin map. `thermal_design.py` owns the widened slots,
 all-layer pour gap, heated-island spreader, and minimal GND bridge.
 `route_thermal_barrier.py` owns the local crossings. `repair_guard_fill.py`
-owns the four guard stitch vias and six short In1/B.Cu links added after the
+owns the four guard stitch vias and ten short In1/B.Cu links added after the
 routed board exists.
 
-The release uses a 0.09 mm track floor, 0.15 mm clearance, and 0.25/0.15 mm
-advanced vias. Tip routing is separated by function:
+The release uses a 0.09 mm track floor, 0.15 mm clearance, 0.20 mm copper-to-
+edge clearance, and 0.25/0.15 mm advanced vias. Tip routing is separated by
+function:
 
 - `HEATER_LOW` uses at least 0.80 mm B.Cu from RH1/RH2 and Q2 to the ring, plus
   a solid B.Cu spreader covering the gas-side island.
@@ -26,15 +27,17 @@ advanced vias. Tip routing is separated by function:
 - The heater PWM follows the right edge and crosses below the sensor routes.
 - A full-width, all-four-layer rule area prevents zone fill across absolute
   y=133…135 mm. In2 GND therefore fills as two regions and remains electrically
-  continuous only through one exact 0.15 mm track in the left edge web; ground
-  dogbones keep process vias out of fitted U10/U12 pads.
-- The original diagonal `/I2C_SCL` B.Cu segment crosses the exact centre-neck
-  opening without touching either capsule. Exact contour DRC, not a coarse
-  rectangular bounding-box estimate, is the clearance oracle.
+  continuous only through one exact 0.15 mm three-segment jog in the left edge
+  web; ground dogbones keep process vias out of fitted U10/U12 pads.
+- The expanded slots leave a 5.0 mm centre neck. The accepted KiCad shove
+  result reroutes `/I2C_SCL`, `/I2C_SDA`, `CELL_WE`, `3V3D`, `HEATER_PWM`,
+  `VA_MON`, `+12V_SW`, and the guard stitch through the reduced corridors.
+  Exact contour DRC, not a coarse rectangular bounding-box estimate, is the
+  clearance oracle.
 - The exact F.Cu `GUARD_REPLICA` source zone spans the centre neck around
   CELL_RE. Because CELL_RE and nearby signals fragment the pour, the release
   retains three physically connected saved fill regions using four guard vias
-  and six short In1/B.Cu links. The barrier audit locks actual filled copper
+  and ten short In1/B.Cu links. The barrier audit locks actual filled copper
   together with the two In2 fill regions, B.Cu heater spreader, 14 crossing
   track segments, two crossing vias, zero pads, and zero copper graphics.
 - U10's exposed pad terminates at TP6 through a via inside the large test land.

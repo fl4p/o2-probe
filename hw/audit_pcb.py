@@ -104,7 +104,7 @@ def expected_outline_geometry() -> Counter:
 
 
 def expected_thermal_slot_geometry() -> Counter:
-    """Return the exact primitives for two 5.5 x 1.5 mm Y=134 slots."""
+    """Return the exact primitives for two 6.75 x 1.5 mm Y=134 slots."""
     expected = Counter()
 
     def line(start, end):
@@ -113,8 +113,8 @@ def expected_thermal_slot_geometry() -> Counter:
     def arc(start, midpoint, end):
         expected[("Arc", frozenset((start, end)), midpoint, 0.05)] += 1
 
-    for x in (103.75, 116.25):
-        x0, x1 = x - 2.75, x + 2.75
+    for x in (104.125, 115.875):
+        x0, x1 = x - 3.375, x + 3.375
         line((x0 + 0.75, 133.25), (x1 - 0.75, 133.25))
         arc((x1 - 0.75, 133.25), (x1, 134.0), (x1 - 0.75, 134.75))
         line((x1 - 0.75, 134.75), (x0 + 0.75, 134.75))
@@ -129,20 +129,21 @@ def expected_thermal_barrier_track_crossings() -> Counter:
     def segment(net, layer, width, start, end):
         expected[(net, layer, width, frozenset((start, end)))] += 1
 
-    segment("/I2C_SCL", "B.Cu", 0.09, (102.4, 129.1), (110.65, 137.35))
-    segment("/I2C_SDA", "F.Cu", 0.09, (112.75, 133.05), (111.8, 134.55))
-    segment("/CELL_WE", "F.Cu", 0.15, (106.7, 132.25), (109.55, 135.1))
+    segment("/I2C_SCL", "B.Cu", 0.09, (107.48, 132.99), (109.61, 135.12))
+    segment("/I2C_SDA", "F.Cu", 0.09, (111.5, 133.5), (111.5, 135.0))
+    segment("/CELL_WE", "F.Cu", 0.15, (106.9, 132.45), (109.55, 135.1))
     segment("/CELL_RE", "F.Cu", 0.15, (111.0, 131.4), (110.0, 141.0))
     segment("/CELL_CE", "In1.Cu", 0.15, (110.5, 132.45), (107.45, 135.5))
-    segment("/3V3D", "F.Cu", 0.15, (119.35, 134.45), (119.35, 131.55))
+    segment("/3V3D", "F.Cu", 0.15, (119.72, 133.8), (119.72, 134.2))
     segment("/+12V_SW", "B.Cu", 0.18, (109.9, 133.6), (109.9, 136.15))
     segment("/VA_MON", "F.Cu", 0.18, (109.65, 134.0), (109.75, 134.0))
     segment("/VA_MON", "F.Cu", 0.18, (109.75, 134.0), (109.8, 134.05))
     segment("/VA_MON", "F.Cu", 0.18, (108.35, 132.7), (109.65, 134.0))
-    segment("/VA_MON", "B.Cu", 0.18, (112.8, 136.0), (112.8, 132.85))
-    segment("/GND", "In2.Cu", 0.15, (100.5, 133.0), (100.5, 135.0))
-    segment("/HEATER_PWM", "F.Cu", 0.18, (112.75, 134.35), (112.75, 133.65))
-    segment("/GUARD_REPLICA", "In1.Cu", 0.15, (106.95, 132.95), (106.95, 136.0))
+    segment("/VA_MON", "B.Cu", 0.18, (112.0, 136.0), (112.0, 132.9))
+    segment("/GND", "In2.Cu", 0.15, (100.4, 133.1), (100.4, 134.9))
+    segment("/HEATER_PWM", "F.Cu", 0.18, (112.0, 135.0), (112.0, 133.5))
+    segment("/GUARD_REPLICA", "In1.Cu", 0.15, (108.0, 133.16),
+            (108.0, 134.53))
     return expected
 
 
@@ -232,9 +233,9 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
     check(errors, actual_slots == expected_slots, "THERMAL_SLOT_GEOMETRY",
           f"added/changed={list((actual_slots - expected_slots).elements())}; "
           f"missing={list((expected_slots - actual_slots).elements())}")
-    metrics.update(thermal_slot_count=2.0, thermal_slot_length_mm=5.5,
-                   thermal_slot_width_mm=1.5, thermal_slot_edge_web_mm=1.0,
-                   thermal_slot_center_neck_mm=7.0)
+    metrics.update(thermal_slot_count=2.0, thermal_slot_length_mm=6.75,
+                   thermal_slot_width_mm=1.5, thermal_slot_edge_web_mm=0.75,
+                   thermal_slot_center_neck_mm=5.0)
     expected_tip_placements = {
         "RH1": ((105.0, 146.5), 270.0, "B.Cu"),
         "RH2": ((115.0, 146.5), 270.0, "B.Cu"),
@@ -370,7 +371,7 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
                 outline.PointCount(), heater_fill.HoleCount(index),
             )] += 1
         expected_heater_signatures = Counter({
-            ((100.2505, 135.0, 119.7495, 156.7495), 1249, 0): 1,
+            ((100.25, 135.0, 119.75, 156.75), 1221, 0): 1,
         })
         check(errors, heater_signatures == expected_heater_signatures,
               "HEATER_SPREADER_FILL",
@@ -528,8 +529,12 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
         (layer, 0.15, frozenset((start, end))): 1
         for layer, start, end in (
             ("In1.Cu", (106.6, 132.6), (109.55, 132.8)),
-            ("In1.Cu", (106.6, 132.6), (106.95, 132.95)),
-            ("In1.Cu", (106.95, 132.95), (106.95, 136.0)),
+            ("In1.Cu", (106.6, 132.6), (107.44, 132.6)),
+            ("In1.Cu", (107.44, 132.6), (108.0, 133.16)),
+            ("In1.Cu", (108.0, 133.16), (108.0, 134.53)),
+            ("In1.Cu", (108.0, 134.53), (107.15, 135.38)),
+            ("In1.Cu", (107.15, 135.38), (107.15, 135.8)),
+            ("In1.Cu", (107.15, 135.8), (106.95, 136.0)),
             ("B.Cu", (106.95, 136.0), (109.45, 139.0)),
             ("B.Cu", (106.95, 136.0), (108.8, 136.0)),
             ("In1.Cu", (108.8, 136.0), (110.65, 136.0)),
@@ -576,7 +581,7 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
             )] += 1
         expected_filled_guard = Counter({
             ((108.974715, 135.0, 110.393458, 140.878865), 59, 0): 1,
-            ((110.323477, 135.0, 111.6045, 141.65), 63, 0): 1,
+            ((110.323477, 135.0, 111.6045, 141.65), 68, 0): 1,
             ((109.220228, 131.971835, 110.405022, 132.9745), 37, 0): 1,
         })
         check(errors, actual_filled_guard == expected_filled_guard,
@@ -629,8 +634,8 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
         filled_gnd = gnd_zones[0].GetFilledPolysList(pcbnew.In2_Cu)
         gnd_side_samples = ((101.0, 132.0), (110.0, 132.0), (118.0, 132.0),
                             (101.0, 136.0), (110.0, 136.0), (118.0, 136.0))
-        gnd_gap_samples = ((100.5, 134.0), (103.75, 134.0), (106.8, 134.0),
-                           (110.0, 134.0), (113.0, 134.0), (116.25, 134.0),
+        gnd_gap_samples = ((100.4, 134.0), (104.125, 134.0), (106.8, 134.0),
+                           (110.0, 134.0), (113.0, 134.0), (115.875, 134.0),
                            (119.5, 134.0))
         missing_gnd_samples = [point for point in gnd_side_samples
                                if not filled_gnd.Contains(pcbnew.VECTOR2I_MM(*point))]
@@ -651,7 +656,12 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
         for item in in2_gnd_tracks
     )
     expected_gnd_bridges = Counter({
-        (0.15, frozenset(((100.5, 133.0), (100.5, 135.0)))): 1,
+        (0.15, frozenset((start, end))): 1
+        for start, end in (
+            ((100.5, 133.0), (100.4, 133.1)),
+            ((100.4, 133.1), (100.4, 134.9)),
+            ((100.4, 134.9), (100.5, 135.0)),
+        )
     })
     check(errors, actual_gnd_bridges == expected_gnd_bridges, "GND_ZONE_BRIDGE",
           f"added/changed={list((actual_gnd_bridges - expected_gnd_bridges).elements())}; "
@@ -927,10 +937,10 @@ def calibrate(board_path: Path, board_text: str) -> list[str]:
             item for item in board.Drawings()
             if item.GetLayer() == pcbnew.Edge_Cuts
             and item.GetShapeStr() == "Arc"
-            and near(xy(item.GetArcMid())[0], 106.5)
+            and near(xy(item.GetArcMid())[0], 107.5)
             and near(xy(item.GetArcMid())[1], 134.0)
         )
-        item.SetArcGeometry(item.GetStart(), pcbnew.VECTOR2I_MM(106.4, 134.0), item.GetEnd())
+        item.SetArcGeometry(item.GetStart(), pcbnew.VECTOR2I_MM(107.4, 134.0), item.GetEnd())
 
     def notch_gnd_zone(board) -> None:
         zone = next(
@@ -968,7 +978,7 @@ def calibrate(board_path: Path, board_text: str) -> list[str]:
             and item.GetNetname() == "/GND"
             and item.GetLayer() == pcbnew.In2_Cu
             and frozenset((rounded_point(item.GetStart()), rounded_point(item.GetEnd())))
-            == frozenset(((100.5, 133.0), (100.5, 135.0)))
+            == frozenset(((100.4, 133.1), (100.4, 134.9)))
         )
         track.SetNetCode(0)
 
@@ -1158,8 +1168,8 @@ def main() -> int:
         f"- 106 schematic footprints; 20.00 x 107.00 x 1.00 mm; four copper layers\n"
         f"- CELL_RE: {metrics['cell_re_trace_length_mm']:.3f} mm single F.Cu segment, no via/testpoint; "
         f"U7-to-cell pin distance {metrics['cell_re_pin_distance_mm']:.3f} mm\n"
-        "- two exact 5.50 x 1.50 mm horizontal Edge.Cuts slots at y=134.00 mm; "
-        "1.00 mm edge webs, 7.00 mm centre neck, and a 2.00 mm all-layer pour gap; "
+        "- two exact 6.75 x 1.50 mm horizontal Edge.Cuts slots at y=134.00 mm; "
+        "0.75 mm edge webs, 5.00 mm centre neck, and a 2.00 mm all-layer pour gap; "
         f"{int(metrics['thermal_barrier_track_crossings'])} routed crossings and "
         f"{int(metrics['thermal_barrier_vias'])} vias locked; one 0.15 mm In2 GND bridge; "
         "no pad/copper-graphic/footprint-zone crossings\n"

@@ -212,7 +212,7 @@ def main() -> int:
     save_board_preserving_project(board, OUT)
     print(
         f"wrote {OUT}: square gas end; two 2.00 x 3.00 mm J5 pads with "
-        "1.00 x 2.00 mm plated-slot castellations; 5.5 x 1.5 mm barrier slots, "
+        "1.00 x 2.00 mm plated-slot castellations; 6.75 x 1.5 mm barrier slots, "
         "all-layer pour gap, and heated B.Cu spreader"
     )
     return 0

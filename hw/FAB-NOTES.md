@@ -12,7 +12,7 @@ Release class: first-article bare PCB only.
 - Impedance control: none.
 - Standard vias: tent both sides; no general plugging/filling/capping request.
 - Minimum supplied feature: 0.09 mm trace, 0.15 mm clearance, 0.25/0.15 mm
-  via/drill, and 0.05 mm annular ring.
+  via/drill, 0.05 mm annular ring, and 0.20 mm copper-to-routed-edge clearance.
 - Special process: two castellated, plated 1.00 × 2.00 mm slots on the
   left/right gas-side edges. Confirm plated-slot castellation capability before
   ordering; ordinary unplated profile routing is not an acceptable substitute.
@@ -25,10 +25,10 @@ while preserving layer order, finished thickness, and copper weights.
 
 - Edge.Cuts contains the exact six-primitive outer contour (rounded cable end,
   square gas end) plus two
-  5.50 × 1.50 mm horizontal internal routed slots centred at `(103.75,134.00)`
-  and `(116.25,134.00)` mm. Route both closed contours as shown; do not omit,
+  6.75 × 1.50 mm horizontal internal routed slots centred at `(104.125,134.00)`
+  and `(115.875,134.00)` mm. Route both closed contours as shown; do not omit,
   resize, join, or reinterpret them during CAM cleanup.
-- The slots leave 1.00 mm FR-4 webs at the side edges and a 7.00 mm centre
+- The slots leave 0.75 mm FR-4 webs at the side edges and a 5.00 mm centre
   neck. Zone fill is excluded on all four copper layers across the full board
   width from y=133.00 to 135.00 mm. Do not restore plane copper in this strip
   during CAM cleanup: the remaining 14 explicit tracks, two crossing vias, and one

@@ -17,7 +17,7 @@ PROJECT = HERE / "o2-probe.kicad_pro"
 RULES = {
     "min_clearance": 0.15,
     "min_track_width": 0.09,
-    "min_copper_edge_clearance": 0.25,
+    "min_copper_edge_clearance": 0.20,
     "min_silk_clearance": 0.15,
     "min_hole_clearance": 0.20,
     "min_hole_to_hole": 0.25,
