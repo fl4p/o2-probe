@@ -34,7 +34,7 @@ Phase 2 links/copies this plan there.
 
 **One elongated 4-layer PCB with potted and gas zones separated by an assembly
 potting datum** (silkscreen "POT TO HERE" line), followed by two horizontal
-5.5 × 1.5 mm thermal-break slots at absolute y=134 mm and a full-width 2 mm
+6.75 × 1.5 mm thermal-break slots at absolute y=134 mm and a full-width 2 mm
 zone-fill gap on every copper layer.
 Two-PCB head/body was rejected: an inter-board
 connector adds a leakage path exactly where sub-µA integrity matters and
@@ -101,9 +101,12 @@ at `y = 107`, board centreline at `x = 10`. All dimensions below are mm.
   cable-side meniscus must finish at or beyond `y = 82`, while every AFE
   high-impedance node remains on the potted side.
 - **Thermal-break slots:** the potting boundary remains an assembly datum, not
-  an `Edge.Cuts` feature. Two 5.5 × 1.5 mm horizontal slots follow at absolute
-  y=134 mm, leaving 1 mm edge webs and a 7 mm centre neck. A named rule area
-  blocks zone fill on F.Cu, In1.Cu, In2.Cu, and B.Cu across y=133…135 mm.
+  an `Edge.Cuts` feature. Two 6.75 × 1.5 mm horizontal slots follow at absolute
+  y=134 mm, centred at x=104.125 and 115.875 mm, leaving 0.75 mm edge webs and
+  a 5 mm centre neck. The accepted copper uses the 0.20 mm project copper-to-
+  edge floor and the exact KiCad shove-routed corridors around both slots. A
+  named rule area blocks zone fill on F.Cu, In1.Cu, In2.Cu, and B.Cu across
+  y=133…135 mm.
   The In2 GND zone is therefore saved as two regions and joined only by one
   explicit 0.15 mm bridge through the left web. The gas-side B.Cu island has a
   solid `/HEATER_LOW` spreader. The SGX footprint adds a separate 3 × 6 mm NPTH
