@@ -265,11 +265,11 @@ def validate_gerbers(directory: Path) -> dict[str, object]:
     expected_zone_regions = {
         "In1_Cu": Counter(),
         "In2_Cu": Counter({
-            (1022, (100.25, -156.75, 119.75, -135.0)): 1,
+            (1033, (100.25, -156.75, 119.75, -135.0)): 1,
             (7433, (100.25, -133.0, 119.75, -50.25)): 1,
         }),
         "B_Cu": Counter({
-            (1222, (100.25, -156.75, 119.75, -135.0)): 1,
+            (1215, (100.25, -156.75, 119.75, -135.0)): 1,
         }),
     }
     for layer, expected_regions in expected_zone_regions.items():
@@ -371,7 +371,7 @@ def validate_drills(directory: Path) -> dict[str, object]:
             routes.append((selected_tool, route_start, tuple(map(float, match.groups()))))
         elif line == "M16":
             routing = False
-    expected_endpoints = {(110.0, -144.5), (110.0, -147.5)}
+    expected_endpoints = {(110.0, -143.8), (110.0, -146.8)}
     matching_routes = [route for route in routes
                        if route[0] == slot_tool and {route[1], route[2]} == expected_endpoints]
     if len(routes) != 1 or len(matching_routes) != 1:
@@ -416,7 +416,7 @@ def validate_drills(directory: Path) -> dict[str, object]:
         "drill_files": [pth.name, npth.name],
         "npth_routed_slot_commands": True,
         "sgx_slot_tool_mm": 3.0,
-        "sgx_slot_route_endpoints_mm": [[110.0, -144.5], [110.0, -147.5]],
+        "sgx_slot_route_endpoints_mm": [[110.0, -143.8], [110.0, -146.8]],
         "sgx_slot_finished_size_mm": [3.0, 6.0],
         "ring_castellation_plated_slot_commands": True,
         "ring_castellation_tool_mm": 1.0,

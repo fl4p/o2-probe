@@ -77,8 +77,9 @@ KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
   1.0 mm FR-4.
 - Potting datum: y=82.0 mm; ordinary-component exclusion y=80–86 mm.
 - Cell centre: (10.0, 93.5) mm; unrelated-part courtyard diameter 15.0 mm.
-- Rear-flow aperture: a 3.0 × 6.0 mm vertical NPTH routed slot centred 2.5 mm
-  gasward of the cell axis. It spans the axis and provides a first-article
+- Rear-flow aperture: a 3.0 × 6.0 mm vertical NPTH routed slot centred 1.8 mm
+  gasward of the cell axis. Its nearest edge is 0.50 mm from the pad-2 copper
+  edge. It spans the axis and provides a first-article
   airflow/fit window without inventing a rear-port diameter that DS-0637 Issue
   2 does not specify. Physical sample fit remains required for production.
 - No mounting holes. Two exact 6.75 × 1.5 mm horizontal Edge.Cuts slots at
@@ -159,7 +160,7 @@ aligned behind J5. J5 provides two exact 2.0 × 3.0 mm PTH pads at local
 x=0/20, y=105.5. Their 1.0 × 2.0 mm plated slots are centred on the left/right
 profile and explicitly marked as castellated; wide B.Cu joins them independently
 of the hand-soldered ring. The cell centre is 13.5 mm from the board end and U10
-is 3.5 mm from the ring-contact centreline.
+is 2.975 mm from the ring-contact centreline.
 
 The dense digital cluster places U6 at local `(14.5,44.5)`, rotated 180° in
 the right-side lane beside U5. C8 moves to `(18,37.5)` to preserve a clean U6
@@ -173,7 +174,7 @@ regions, joined only by one explicit 0.15 mm three-segment jog through the left
 web. The heated tip has a solid B.Cu `/HEATER_LOW` spreader immediately gasward of the
 barrier.
 KiCad 10.0.5 reports 0 DRC errors, 0 unconnected items, and 0 parity issues;
-the calibrated audit rejects 29/29 known-bad variants. The
+the calibrated audit rejects 31/31 known-bad variants. The
 29 exact courtyard pairs are
 manual-assembly exceptions and legend layers are not exported. See
 `FAB-READINESS.md`, `ASSEMBLY-EXCEPTIONS.md`, and `FAB-NOTES.md` for release

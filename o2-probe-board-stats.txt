@@ -23,6 +23,6 @@ KiCad strict DRC:
 - unconnected items: 0
 - schematic parity issues: 0
 - copper/hole/edge/track-width violations: 0
-- courtyard overlap warnings: 29 exact reviewed pairs
-- non-exported source-silkscreen warnings: 39
+- courtyard overlap warnings: 27 exact reviewed pairs
+- non-exported source-silkscreen warnings: 33
 - footprint-library copy mismatch warnings: 0

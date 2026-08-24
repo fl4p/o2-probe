@@ -46,13 +46,12 @@ COURTYARD_ALLOWLIST = {
     tuple(sorted(pair))
     for pair in {
         ("R17", "U4"), ("D1", "J101"), ("C25", "J2"), ("C1", "U1"),
-        ("C11", "C12"), ("C3", "L1"), ("C23", "U11"), ("Q2", "TP6"),
+        ("C11", "C12"), ("C3", "L1"), ("Q2", "TP6"),
         ("TP3", "U4"), ("J104", "R3"), ("C5", "U2"), ("D6", "J2"),
         ("J2", "TP1"), ("J2", "TP5"), ("C14", "C26"), ("D2", "J103"),
         ("J103", "R2"), ("D4", "R12"), ("R10", "R11"), ("R22", "R23"),
         ("D1", "J102"), ("C31", "RV1"), ("R20", "RV1"), ("R38", "RV1"),
         ("C15", "R8"), ("C15", "R9"), ("D2", "J104"), ("D5", "R14"),
-        ("U10", "U11"),
     }
 }
 
@@ -245,10 +244,10 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
         "TP6": ((108.3, 153.0), 180.0, "B.Cu"),
         "U12": ((103.5, 151.5), 0.0, "F.Cu"),
         "C20": ((106.0, 151.5), 90.0, "F.Cu"),
-        "U10": ((110.0, 152.0), 270.0, "F.Cu"),
+        "U10": ((110.0, 152.525), 270.0, "F.Cu"),
         "C21": ((112.5, 152.5), 90.0, "F.Cu"),
         "U14": ((116.5, 151.0), 0.0, "F.Cu"),
-        "C23": ((114.0, 150.0), 180.0, "F.Cu"),
+        "C23": ((114.0, 151.0), 180.0, "F.Cu"),
         "C24": ((114.0, 152.0), 180.0, "F.Cu"),
         "J5": ((110.0, 155.5), 0.0, "F.Cu"),
     }
@@ -371,7 +370,7 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
                 outline.PointCount(), heater_fill.HoleCount(index),
             )] += 1
         expected_heater_signatures = Counter({
-            ((100.25, 135.0, 119.75, 156.75), 1221, 0): 1,
+            ((100.25, 135.0, 119.75, 156.75), 1214, 0): 1,
         })
         check(errors, heater_signatures == expected_heater_signatures,
               "HEATER_SPREADER_FILL",
@@ -462,13 +461,38 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
         aperture_position = xy(aperture.GetPosition())
         aperture_drill = xy(aperture.GetDrillSize())
         check(errors,
-              near(aperture_position[0], 110.0) and near(aperture_position[1], 146.0)
+              near(aperture_position[0], 110.0) and near(aperture_position[1], 145.3)
               and near(aperture_drill[0], 3.0) and near(aperture_drill[1], 6.0)
               and aperture.GetDrillShape() == pcbnew.PAD_DRILL_SHAPE_OBLONG,
               "SENSOR_APERTURE_GEOMETRY",
               f"slot at {aperture_position}, drill {aperture_drill}")
         check(errors, aperture_position[1] - aperture_drill[1] / 2 <= u11_pos[1],
               "SENSOR_APERTURE_AXIS", "gasward slot does not include the sensor rear axis")
+        pad_edge = xy(u11_pads["2"].GetPosition())[1] + xy(u11_pads["2"].GetSize())[1] / 2
+        aperture_edge = aperture_position[1] - aperture_drill[1] / 2
+        aperture_gap = aperture_edge - pad_edge
+        metrics["sensor_pad_to_aperture_gap_mm"] = aperture_gap
+        check(errors, near(aperture_gap, 0.5), "SENSOR_APERTURE_PAD_GAP",
+              f"pad-2 copper to slot edge is {aperture_gap:.3f} mm, want 0.500 mm")
+
+        expected_heater_detour = Counter({
+            frozenset(((117.65, 144.3), (117.65, 148.8))): 1,
+            frozenset(((117.65, 148.8), (105.0, 148.8))): 1,
+            frozenset(((105.0, 148.8), (105.0, 142.5))): 1,
+        })
+        actual_heater_detour = Counter(
+            frozenset((rounded_point(item.GetStart()), rounded_point(item.GetEnd())))
+            for item in board.GetTracks()
+            if not isinstance(item, pcbnew.PCB_VIA)
+            and item.GetNetname() == "/+12V_SW"
+            and item.GetLayer() == pcbnew.In1_Cu
+            and (142.0 <= mm(item.GetStart().y) <= 149.0
+                 or 142.0 <= mm(item.GetEnd().y) <= 149.0)
+        )
+        check(errors, actual_heater_detour == expected_heater_detour,
+              "SENSOR_APERTURE_HEATER_DETOUR",
+              f"added/changed={list((actual_heater_detour - expected_heater_detour).elements())}; "
+              f"missing={list((expected_heater_detour - actual_heater_detour).elements())}")
 
     # CELL_RE must be a single top-layer, no-via connection with no exposed
     # test feature.  The two component terminations are the only mask openings.
@@ -1007,6 +1031,24 @@ def calibrate(board_path: Path, board_text: str) -> list[str]:
         footprint = next(fp for fp in board.Footprints() if fp.GetReference() == "J5")
         footprint.SetPosition(pcbnew.VECTOR2I_MM(110.0, 154.5))
 
+    def move_sensor_aperture(board) -> None:
+        footprint = next(fp for fp in board.Footprints() if fp.GetReference() == "U11")
+        aperture = next(pad for pad in footprint.Pads()
+                        if not pad.GetNumber()
+                        and pad.GetAttribute() == pcbnew.PAD_ATTRIB_NPTH)
+        aperture.SetPosition(pcbnew.VECTOR2I_MM(110.0, 145.5))
+
+    def deform_sensor_heater_detour(board) -> None:
+        track = next(
+            item for item in board.GetTracks()
+            if not isinstance(item, pcbnew.PCB_VIA)
+            and item.GetNetname() == "/+12V_SW"
+            and item.GetLayer() == pcbnew.In1_Cu
+            and frozenset((rounded_point(item.GetStart()), rounded_point(item.GetEnd())))
+            == frozenset(((105.0, 148.8), (117.65, 148.8)))
+        )
+        track.SetStart(pcbnew.VECTOR2I_MM(105.0, 148.6))
+
     def deform_ring_land(board) -> None:
         footprint = next(fp for fp in board.Footprints() if fp.GetReference() == "J5")
         next(iter(footprint.Pads())).SetSize(pcbnew.VECTOR2I_MM(4.5, 1.5))
@@ -1117,6 +1159,9 @@ def calibrate(board_path: Path, board_text: str) -> list[str]:
     expect("disconnected actual guard rail", "GUARD_FILLED_GEOMETRY",
            disconnect_filled_guard_rail)
     expect("moved membrane ring", "TIP_PLACEMENT", move_ring)
+    expect("moved SGX aperture", "SENSOR_APERTURE_GEOMETRY", move_sensor_aperture)
+    expect("deformed SGX heater-feed detour", "SENSOR_APERTURE_HEATER_DETOUR",
+           deform_sensor_heater_detour)
     expect("deformed membrane-ring land", "RING_LAND_GEOMETRY", deform_ring_land)
     expect("unplated membrane-ring sidewall", "RING_LAND_GEOMETRY",
            make_ring_slot_nonplated)
@@ -1162,7 +1207,7 @@ def main() -> int:
         print(report.read_text(), end="")
         return 1
 
-    calibrated = "29/29 known-bad variants rejected" if args.calibrate else "not requested"
+    calibrated = "31/31 known-bad variants rejected" if args.calibrate else "not requested"
     report.write_text(
         "PASS: O2 probe fabrication audit\n"
         f"- 106 schematic footprints; 20.00 x 107.00 x 1.00 mm; four copper layers\n"
