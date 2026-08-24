@@ -19,6 +19,10 @@ try:
 except ImportError:
     sys.exit("run with KiCad's bundled Python")
 
+from thermal_design import (THERMAL_SLOTS, ensure_gnd_bridge,
+                            ensure_heater_spreader, ensure_thermal_gap,
+                            save_board_preserving_project)
+
 HERE = Path(__file__).resolve().parent
 XML = HERE / "o2-probe.xml"
 OUT = Path(os.environ.get("O2_PCB_OUT", HERE / "o2-probe.kicad_pcb"))
@@ -29,7 +33,6 @@ TMP117_FP = HERE.parent / "tmp117-probe" / "lib" / "tmp117-probe.pretty"
 ORG = pcbnew.VECTOR2I_MM(100, 50)
 W, L, R = 20.0, 107.0, 2.0
 POT_Y = 82.0
-THERMAL_SLOTS = ((3.75, 84.0, 5.5, 1.0), (16.25, 84.0, 5.5, 1.0))
 
 
 def mm(v): return pcbnew.FromMM(v)
@@ -153,13 +156,16 @@ def build():
     outline(board)
     for slot_spec in THERMAL_SLOTS:
         horizontal_slot(board, *slot_spec)
+    ensure_thermal_gap(board)
     for ly in (pcbnew.F_SilkS,pcbnew.B_SilkS): line(board,.5,POT_Y,19.5,POT_Y,ly,.3)
     text(board,"POT TO HERE",10,81,pcbnew.F_SilkS,.7); text(board,"POT TO HERE",10,83,pcbnew.B_SilkS,.7)
     text(board,"CABLE",10,1.5,pcbnew.F_SilkS,.7); text(board,"GAS / DO NOT POT",10,109.5,pcbnew.F_SilkS,.65)
     text(board,"DO NOT OBSTRUCT",10,99.0,pcbnew.F_SilkS,.6)
     # Two horizontal slots at absolute Y=134 mm reduce heat leakage from the
     # gas-side ring region while retaining 1 mm edge webs and a 7 mm centre
-    # neck. The SGX footprint's aperture remains a separate NPTH feature.
+    # neck.  The 2.0 mm all-layer rule area removes plane copper across the
+    # complete barrier. The SGX footprint's aperture remains a separate NPTH
+    # feature.
     # Nets must exist before pad assignment.
     netitems={}
     for name in nets:
@@ -191,7 +197,11 @@ def build():
             pads=[pad for pad in fps[ref].Pads() if pad.GetNumber() == pnum]
             if not pads: raise SystemExit(f"footprint pad missing: {ref}.{pnum}")
             for pad in pads: pad.SetNet(netitems[name])
-    board.BuildConnectivity(); board.Save(str(OUT))
+    ensure_heater_spreader(board)
+    ensure_gnd_bridge(board)
+    board.BuildConnectivity()
+    pcbnew.ZONE_FILLER(board).Fill(board.Zones())
+    save_board_preserving_project(board, OUT)
     # One-node KiCad "unconnected-(...)" nets are needed for schematic parity
     # but trigger a known Freerouting 2.1 null-target bug.  Omit only those
     # one-node pseudo-nets from the DSN seed; the saved KiCad board retains them.

@@ -15,6 +15,10 @@ try:
 except ImportError:
     sys.exit("run with KiCad's bundled Python")
 
+from thermal_design import (ensure_gnd_bridge, ensure_heater_spreader,
+                            ensure_thermal_gap, save_board_preserving_project)
+from route_thermal_barrier import apply as route_thermal_barrier
+
 
 HERE = Path(__file__).resolve().parent
 SRC = Path(os.environ.get("O2_PCB_IN", HERE / "o2-probe.kicad_pcb"))
@@ -85,9 +89,13 @@ def require_floorplan() -> None:
 def main() -> int:
     require_floorplan()
 
-    # In2 is the low-impedance ground backbone. Its zone fill is clipped by the
-    # two y=134 thermal-break slots but remains continuous through the retained
-    # centre neck and edge webs. Vias sit in ground pads where practical.
+    # In2 is the low-impedance ground backbone.  The all-layer y=134 pour gap
+    # splits its plane fill; one exact 0.15 mm In2 trace at the left edge web
+    # preserves electrical continuity without restoring a broad heat bridge.
+    # Vias sit in ground pads where practical.
+    ensure_thermal_gap(board)
+    ensure_heater_spreader(board)
+    ensure_gnd_bridge(board)
     segment("/GND", pcbnew.F_Cu, (6.0, 101.02), (4.2, 101.1), 0.20)
     path("/GND", pcbnew.F_Cu,
          ((4.2, 101.1), (4.8, 101.1), (4.8, 100.5)), 0.20)
@@ -212,9 +220,10 @@ def main() -> int:
     via("/+12V_SW", (5.0, 92.5), 0.45, 0.20)
     segment("/+12V_SW", pcbnew.B_Cu, (5.0, 92.5), (5.0, 93.5375), 0.40)
 
+    route_thermal_barrier(board)
     board.BuildConnectivity()
     pcbnew.ZONE_FILLER(board).Fill(board.Zones())
-    pcbnew.SaveBoard(str(OUT), board)
+    save_board_preserving_project(board, OUT)
     print(f"wrote {OUT}: deterministic heated-ring tip routing")
     return 0
 

@@ -93,10 +93,10 @@ def expected_thermal_slot_primitives() -> Counter:
 
     for x in (103.75, 116.25):
         x0, x1 = x - 2.75, x + 2.75
-        line((x0 + 0.5, 133.5), (x1 - 0.5, 133.5))
-        arc((x1 - 0.5, 133.5), (x1 - 0.5, 134.0), (x1 - 0.5, 134.5))
-        line((x1 - 0.5, 134.5), (x0 + 0.5, 134.5))
-        arc((x0 + 0.5, 134.5), (x0 + 0.5, 134.0), (x0 + 0.5, 133.5))
+        line((x0 + 0.75, 133.25), (x1 - 0.75, 133.25))
+        arc((x1 - 0.75, 133.25), (x1 - 0.75, 134.0), (x1 - 0.75, 134.75))
+        line((x1 - 0.75, 134.75), (x0 + 0.75, 134.75))
+        arc((x0 + 0.75, 134.75), (x0 + 0.75, 134.0), (x0 + 0.75, 133.25))
     return expected
 
 
@@ -222,13 +222,17 @@ def validate_gerbers(directory: Path) -> dict[str, object]:
             f"missing={list((expected_edge_cuts - primitives).elements())}"
         )
 
-    front_copper = (directory / "o2-probe-F_Cu.gbr").read_text()
-    front_format = re.search(r"%FSLAX(\d)(\d)Y(\d)(\d)\*%", front_copper)
-    if not front_format:
-        raise SystemExit("cannot parse F.Cu Gerber coordinate format")
-    guard_regions = parse_gerber_regions(
-        front_copper, int(front_format.group(2)), int(front_format.group(4))
-    )
+    copper_regions = {}
+    for layer in ("F_Cu", "In1_Cu", "In2_Cu", "B_Cu"):
+        text = (directory / f"o2-probe-{layer}.gbr").read_text()
+        coordinate_format = re.search(r"%FSLAX(\d)(\d)Y(\d)(\d)\*%", text)
+        if not coordinate_format:
+            raise SystemExit(f"cannot parse {layer.replace('_', '.')} Gerber coordinate format")
+        copper_regions[layer] = parse_gerber_regions(
+            text, int(coordinate_format.group(2)), int(coordinate_format.group(4))
+        )
+
+    guard_regions = copper_regions["F_Cu"]
     actual_guard_regions = Counter(
         (len(region), tuple(round(value, 6) for value in (
             min(point[0] for point in region), min(point[1] for point in region),
@@ -237,8 +241,8 @@ def validate_gerbers(directory: Path) -> dict[str, object]:
         for region in guard_regions
     )
     expected_guard_regions = Counter({
-        (81, (110.323477, -141.65, 112.145819, -131.75)): 1,
-        (82, (108.974715, -140.878865, 110.466013, -133.934844)): 1,
+        (64, (110.323477, -141.65, 111.6045, -135.0)): 1,
+        (60, (108.974715, -140.878865, 110.393458, -135.0)): 1,
         (38, (109.220228, -132.9745, 110.405022, -131.971835)): 1,
     })
     if actual_guard_regions != expected_guard_regions:
@@ -248,8 +252,8 @@ def validate_gerbers(directory: Path) -> dict[str, object]:
             f"missing={list((expected_guard_regions - actual_guard_regions).elements())}"
         )
     guard_samples = (
-        (110.25, -135.0), (110.10, -136.0), (109.95, -138.0), (109.60, -140.0),
-        (110.95, -135.0), (110.90, -136.0), (110.65, -138.0), (110.70, -140.0),
+        (110.25, -135.1), (110.10, -136.0), (109.95, -138.0), (109.60, -140.0),
+        (110.95, -135.1), (110.90, -136.0), (110.65, -138.0), (110.70, -140.0),
     )
     missing_guard_samples = [
         point for point in guard_samples
@@ -257,6 +261,63 @@ def validate_gerbers(directory: Path) -> dict[str, object]:
     ]
     if missing_guard_samples:
         raise SystemExit(f"F.Cu Gerber guard misses samples {missing_guard_samples}")
+
+    expected_zone_regions = {
+        "In1_Cu": Counter(),
+        "In2_Cu": Counter({
+            (1060, (100.2505, -156.7495, 119.7495, -135.0)): 1,
+            (7435, (100.2505, -133.0, 119.7495, -50.2505)): 1,
+        }),
+        "B_Cu": Counter({
+            (1250, (100.2505, -156.7495, 119.7495, -135.0)): 1,
+        }),
+    }
+    for layer, expected_regions in expected_zone_regions.items():
+        actual_regions = Counter(
+            (len(region), tuple(round(value, 6) for value in (
+                min(point[0] for point in region), min(point[1] for point in region),
+                max(point[0] for point in region), max(point[1] for point in region),
+            )))
+            for region in copper_regions[layer]
+        )
+        if actual_regions != expected_regions:
+            raise SystemExit(
+                f"{layer.replace('_', '.')} Gerber zone regions differ: "
+                f"added/changed={list((actual_regions - expected_regions).elements())}; "
+                f"missing={list((expected_regions - actual_regions).elements())}"
+            )
+
+    # Gerber regions represent poured copper.  Tracks are intentionally allowed
+    # through the barrier, but no zone fill may bridge it on any copper layer.
+    thermal_gap_samples = tuple((x, -134.0) for x in (101.0, 103.75, 107.0,
+                                                       110.0, 113.0, 116.25,
+                                                       119.0))
+    gap_fill_hits = {
+        layer.replace("_", "."): [
+            sample for sample in thermal_gap_samples
+            if any(point_in_polygon(sample, region) for region in regions)
+        ]
+        for layer, regions in copper_regions.items()
+    }
+    gap_fill_hits = {layer: hits for layer, hits in gap_fill_hits.items() if hits}
+    if gap_fill_hits:
+        raise SystemExit(f"thermal-barrier Gerber region crosses the 2 mm gap: {gap_fill_hits}")
+
+    heater_samples = ((102.0, -140.0), (110.0, -150.0), (118.0, -140.0))
+    missing_heater_samples = [
+        point for point in heater_samples
+        if not any(point_in_polygon(point, region) for region in copper_regions["B_Cu"])
+    ]
+    if missing_heater_samples:
+        raise SystemExit(f"B.Cu heater-spreader Gerber misses samples {missing_heater_samples}")
+
+    gnd_plane_samples = ((102.0, -132.0), (110.0, -150.0), (118.0, -140.0))
+    missing_gnd_samples = [
+        point for point in gnd_plane_samples
+        if not any(point_in_polygon(point, region) for region in copper_regions["In2_Cu"])
+    ]
+    if missing_gnd_samples:
+        raise SystemExit(f"In2.Cu GND Gerber misses samples {missing_gnd_samples}")
     return {
         "gerber_layers": sorted(actual),
         "plotted_outline_mm": [width, height],
@@ -264,7 +325,14 @@ def validate_gerbers(directory: Path) -> dict[str, object]:
         "outer_outline_primitives": sum(expected_outline.values()),
         "board_native_routed_slot_contours": 2,
         "thermal_slot_centers_mm": [[103.75, 134.0], [116.25, 134.0]],
-        "thermal_slot_finished_size_mm": [5.5, 1.0],
+        "thermal_slot_finished_size_mm": [5.5, 1.5],
+        "thermal_copper_fill_gap_y_mm": [133.0, 135.0],
+        "thermal_copper_fill_gap_layers": ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"],
+        "thermal_gap_gerber_samples_verified_per_layer": len(thermal_gap_samples),
+        "heated_island_spreader_layer": "B.Cu",
+        "heated_island_spreader_net": "/HEATER_LOW",
+        "heated_island_spreader_samples_verified": len(heater_samples),
+        "gnd_plane_regions_across_barrier": 2,
         "f_cu_driven_guard_regions": len(guard_regions),
         "f_cu_guard_samples_verified": len(guard_samples),
     }

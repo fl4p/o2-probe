@@ -73,18 +73,22 @@ KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
 
 ## Controlled mechanical datums
 
-- Board: 20.0 x 107.0 mm, nominal 2.0 mm corner radius, initially 1.0 mm FR-4.
+- Board: 20.0 x 107.0 mm, R2.0 cable-end corners, square gas end, initially
+  1.0 mm FR-4.
 - Potting datum: y=82.0 mm; ordinary-component exclusion y=80–86 mm.
 - Cell centre: (10.0, 93.5) mm; unrelated-part courtyard diameter 15.0 mm.
 - Rear-flow aperture: a 3.0 × 6.0 mm vertical NPTH routed slot centred 2.5 mm
   gasward of the cell axis. It spans the axis and provides a first-article
   airflow/fit window without inventing a rear-port diameter that DS-0637 Issue
   2 does not specify. Physical sample fit remains required for production.
-- No mounting holes. Two exact 5.5 × 1.0 mm horizontal Edge.Cuts slots at
+- No mounting holes. Two exact 5.5 × 1.5 mm horizontal Edge.Cuts slots at
   absolute y=134 mm form a partial thermal break between the potted body and
-  gas-side tip while retaining 1 mm edge webs and a 7 mm centre neck. Cable
-  strain relief, expansion-connector chord clearance, ring/membrane carrier,
-  and gas volume require the tube/fixture fit check in `PLACEMENT.md`.
+  gas-side tip while retaining 1 mm edge webs and a 7 mm centre neck. A named
+  rule area excludes zone fill on all four copper layers across y=133–135 mm;
+  only audited routes and one 0.15 mm In2 GND bridge may cross it. The gas-side
+  B.Cu island has a solid `/HEATER_LOW` thermal-spreader zone. Cable strain
+  relief, expansion-connector chord clearance, ring/membrane carrier, and gas
+  volume require the tube/fixture fit check in `PLACEMENT.md`.
 
 ## Release gates and provisional choices
 
@@ -164,10 +168,12 @@ courtyard without separating the analog-LDO output bypass from U3.
 CELL_RE remains one 9.652 mm F.Cu segment with no via/test point and a driven
 guard. `repair_guard_fill.py` physically stitches three saved F.Cu fill regions
 on both sides of the trace; the source outline alone is not credited as guard
-copper. In2 is one filled GND region clipped by the two slots and joined through
-the retained webs/neck.
+copper. The all-layer thermal rule area divides the In2 GND pour into two saved
+regions, joined only by one explicit 0.15 mm track through the left web. The
+heated tip has a solid B.Cu `/HEATER_LOW` spreader immediately gasward of the
+barrier.
 KiCad 10.0.5 reports 0 DRC errors, 0 unconnected items, and 0 parity issues;
-the calibrated audit rejects 26/26 known-bad variants. The
+the calibrated audit rejects 29/29 known-bad variants. The
 29 exact courtyard pairs are
 manual-assembly exceptions and legend layers are not exported. See
 `FAB-READINESS.md`, `ASSEMBLY-EXCEPTIONS.md`, and `FAB-NOTES.md` for release

@@ -25,12 +25,15 @@ while preserving layer order, finished thickness, and copper weights.
 
 - Edge.Cuts contains the exact six-primitive outer contour (rounded cable end,
   square gas end) plus two
-  5.50 × 1.00 mm horizontal internal routed slots centred at `(103.75,134.00)`
+  5.50 × 1.50 mm horizontal internal routed slots centred at `(103.75,134.00)`
   and `(116.25,134.00)` mm. Route both closed contours as shown; do not omit,
   resize, join, or reinterpret them during CAM cleanup.
 - The slots leave 1.00 mm FR-4 webs at the side edges and a 7.00 mm centre
-  neck. They form a partial transverse thermal break, not a mechanically or
-  thermally isolated island.
+  neck. Zone fill is excluded on all four copper layers across the full board
+  width from y=133.00 to 135.00 mm. Do not restore plane copper in this strip
+  during CAM cleanup: the remaining 14 explicit tracks, two crossing vias, and one
+  0.15 mm In2 GND bridge are intentional. The slots and fill gap form a partial
+  transverse thermal break, not a mechanically free island.
 - U11 contains a separate routed mechanical aperture: one 3.00 × 6.00 mm
   gasward-offset NPTH oblong in the Excellon data. Do not convert it to a round
   drill or resize it without engineering approval.
@@ -49,6 +52,10 @@ while preserving layer order, finished thickness, and copper weights.
   regions flanking CELL_RE. Do not strip, merge, or redraw these narrow regions
   during CAM cleanup; the release manifest records exact region and sample
   validation.
+- The B.Cu Gerber contains a solid `/HEATER_LOW` spreader over the gas-side
+  island beginning at y=135.00 mm. This is deliberate thermal copper and must
+  not be stripped as an island. In2 GND is deliberately plotted as two regions
+  separated by the pour gap and joined by the narrow routed bridge.
 - PTH and NPTH drills are separate; the NPTH oblong uses route commands.
 - Do not panelise through the gas-side end or SGX aperture without review.
 
