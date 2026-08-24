@@ -604,7 +604,7 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
     gnd_zones = [zone for zone in board.Zones()
                  if zone.GetNetname() == "/GND" and zone.IsOnLayer(pcbnew.In2_Cu)]
     check(errors, len(gnd_zones) == 1, "GND_ZONE_COUNT",
-          f"found {len(gnd_zones)} In2 GND zones, want one continuous plane")
+          f"found {len(gnd_zones)} In2 GND zones, want one controlled source zone")
     if len(gnd_zones) == 1:
         actual_zone_outlines = Counter(
             canonical_polygon([zone.GetCornerPosition(index)

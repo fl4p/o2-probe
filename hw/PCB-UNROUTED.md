@@ -10,6 +10,7 @@ KiCad 10.0.5 release DRC on 2026-08-23 reports:
 - 29 courtyard-overlap warnings, locked as manual-assembly exceptions
 
 The former routing residual is closed. The calibrated audit additionally proves
-the via-free CELL_RE route, driven guard, continuous ground plane, process floors,
+the via-free CELL_RE route, driven guard, controlled In2 GND source zone, its
+two thermal-barrier-separated fill regions and narrow bridge, process floors,
 stackup, and controlled mechanical geometry. See `pcb-audit.rpt` and
 `ASSEMBLY-EXCEPTIONS.md`.
