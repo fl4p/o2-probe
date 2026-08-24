@@ -11,22 +11,24 @@ import pcbnew
 ORIGIN_X_MM = 100.0
 ORIGIN_Y_MM = 50.0
 
-# One millimetre of FR-4 remains at each board edge.  The 1.5 mm routed width
-# increases the axial air gap while preserving the proven 7 mm centre neck.
+# The user-expanded 6.75 mm contours leave 0.75 mm FR-4 at each board edge and
+# a 5.0 mm centre neck. The 1.5 mm cutter width provides the axial air gap.
 THERMAL_SLOTS = (
-    (3.75, 84.0, 5.5, 1.5),
-    (16.25, 84.0, 5.5, 1.5),
+    (4.125, 84.0, 6.75, 1.5),
+    (15.875, 84.0, 6.75, 1.5),
 )
 THERMAL_GAP_NAME = "THERMAL_BARRIER_COPPER_GAP"
 HEATER_SPREADER_NAME = "HEATED_ISLAND_SPREADER"
 THERMAL_GAP = ((0.0, 83.0), (20.0, 83.0), (20.0, 85.0), (0.0, 85.0))
 HEATER_SPREADER = ((0.25, 85.0), (19.75, 85.0),
                    (19.75, 106.75), (0.25, 106.75))
-GND_BRIDGE = ((0.5, 83.0), (0.5, 85.0))
+GND_BRIDGE = ((0.5, 83.0), (0.4, 83.1), (0.4, 84.9), (0.5, 85.0))
 
 
 def point(x: float, y: float):
-    return pcbnew.VECTOR2I_MM(ORIGIN_X_MM + x, ORIGIN_Y_MM + y)
+    return pcbnew.VECTOR2I(
+        pcbnew.FromMM(ORIGIN_X_MM + x), pcbnew.FromMM(ORIGIN_Y_MM + y)
+    )
 
 
 def absolute_xy(position) -> tuple[float, float]:
@@ -148,29 +150,43 @@ def ensure_heater_spreader(board):
 
 def ensure_gnd_bridge(board):
     """Retain ground continuity with one narrow explicit trace, not plane fill."""
-    wanted = frozenset((value.x, value.y) for value in
-                       (point(*GND_BRIDGE[0]), point(*GND_BRIDGE[1])))
-    matches = [
+    old = {
+        frozenset((absolute_xy(point(0.5, 83.0)), absolute_xy(point(0.5, 85.0))))
+    }
+    wanted_segments = tuple(zip(GND_BRIDGE, GND_BRIDGE[1:]))
+    wanted = {frozenset((absolute_xy(point(*start)), absolute_xy(point(*end))))
+              for start, end in wanted_segments}
+    candidates = [
         item for item in board.GetTracks()
         if not isinstance(item, pcbnew.PCB_VIA)
         and item.GetNetname() == "/GND"
         and item.GetLayer() == pcbnew.In2_Cu
-        and frozenset(((item.GetStart().x, item.GetStart().y),
-                       (item.GetEnd().x, item.GetEnd().y))) == wanted
+        and frozenset((absolute_xy(item.GetStart()), absolute_xy(item.GetEnd())))
+        in old | wanted
     ]
-    if len(matches) > 1:
-        raise SystemExit(f"found {len(matches)} copies of the thermal-barrier GND bridge")
-    if matches:
-        track = matches[0]
-    else:
-        track = pcbnew.PCB_TRACK(board)
-        track.SetNet(board.FindNet("/GND"))
-        track.SetLayer(pcbnew.In2_Cu)
-        track.SetStart(point(*GND_BRIDGE[0]))
-        track.SetEnd(point(*GND_BRIDGE[1]))
-        board.Add(track)
-    track.SetWidth(pcbnew.FromMM(0.15))
-    return track
+    actual = {
+        frozenset((absolute_xy(item.GetStart()), absolute_xy(item.GetEnd())))
+        for item in candidates
+    }
+    if actual == old:
+        for item in candidates:
+            board.Delete(item)
+        candidates = []
+    elif actual != wanted:
+        raise SystemExit(f"ambiguous thermal-barrier GND bridge: {sorted(map(sorted, actual))}")
+    if not candidates:
+        candidates = []
+        for start, end in wanted_segments:
+            track = pcbnew.PCB_TRACK(board)
+            track.SetNet(board.FindNet("/GND"))
+            track.SetLayer(pcbnew.In2_Cu)
+            track.SetStart(point(*start))
+            track.SetEnd(point(*end))
+            board.Add(track)
+            candidates.append(track)
+    for track in candidates:
+        track.SetWidth(pcbnew.FromMM(0.15))
+    return candidates
 
 
 def save_board_preserving_project(board, output: Path) -> None:

@@ -312,7 +312,7 @@ def main() -> int:
     save_board_preserving_project(board, OUT)
     print(
         f"wrote {OUT}: {len(footprints)} footprints, 20 x {NEW_LENGTH_MM:g} mm, "
-        f"two 5.5 x 1.5 mm Y=134 slots, all-layer pour gap, heated B.Cu spreader; "
+        f"two 6.75 x 1.5 mm Y=134 slots, all-layer pour gap, heated B.Cu spreader; "
         f"removed {removed} obsolete copper items"
     )
     return 0

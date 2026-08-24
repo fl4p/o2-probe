@@ -153,7 +153,7 @@ def main() -> int:
     pcbnew.ZONE_FILLER(board).Fill(board.Zones())
     save_board_preserving_project(board, OUT)
     print(
-        f"wrote {OUT}: two 5.5 x 1.5 mm horizontal slots at Y=134 mm; "
+        f"wrote {OUT}: two 6.75 x 1.5 mm horizontal slots at Y=134 mm; "
         "7 mm centre neck, 2 mm all-layer pour gap, heated B.Cu spreader"
     )
     return 0

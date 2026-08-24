@@ -46,8 +46,8 @@ manual-assembly exceptions and silkscreen is not exported.
   two transverse boundary slots. Record slot function, axis, datum, finished
   size, residual webs/neck, and which thermal regions it separates as separate
   requirements so one shorthand instruction cannot collapse them together.
-- Restore two horizontal 5.5 × 1.5 mm capsules at absolute y=134.0 mm, centred
-  at x=103.75 and x=116.25 mm. They leave 1.0 mm side-edge webs and a 7.0 mm
+- Restore two horizontal 6.75 × 1.5 mm capsules at absolute y=134.0 mm, centred
+  at x=104.125 and x=115.875 mm. They leave 0.75 mm side-edge webs and a 5.0 mm
   centre neck. They are a partial axial thermal break between potted body and
   gas-side tip, not an isolated heated island and not a second-sensor feature.
 - A coarse rectangular collision estimate falsely marked the original
@@ -71,7 +71,7 @@ manual-assembly exceptions and silkscreen is not exported.
   `IsFilled()` flag, DRC, and old audit all looked healthy. Inspect
   `GetFilledPolysList()` on the saved board and sample the actual rails on both
   sides of the sensitive trace. This board now stitches three useful guard
-  regions with four vias and six short internal/bottom links; a calibrated
+  regions with four vias and ten short internal/bottom links; a calibrated
   mutation disconnects a rail, refills, and proves the gate fails.
 
 ## 2026-08-24 heated-island copper barrier
@@ -86,15 +86,14 @@ manual-assembly exceptions and silkscreen is not exported.
   fill keepout on every copper layer. Allow only explicit audited tracks and
   vias; do not use a broad copper keepout that would make essential crossings
   impossible.
-- Increase thermal-slot resistance by widening the cutter in the heat-flow
-  direction before lengthening the slot. Changing 5.5 × 1.0 mm to 5.5 × 1.5 mm
-  preserves the proven 7.0 mm routing neck and 1.0 mm edge webs; lengthening
-  the slots would consume the narrow centre corridor and caused route/clearance
-  failures in the trial layout.
+- Increase thermal-slot resistance first by widening the cutter in the heat-flow
+  direction. The accepted follow-up also lengthens each contour to 6.75 mm,
+  trading routing space for 0.75 mm edge webs and a 5.0 mm centre neck. That
+  change is inseparable from the accepted shove-routed copper around it.
 - Splitting a GND pour requires an intentional return path. Preserve continuity
-  with one exact 0.15 mm In2 track through an edge web, and lock its net, layer,
-  width, endpoints, and presence. This has much less copper cross-section than
-  letting the entire plane bridge the barrier.
+  with one exact 0.15 mm In2 bridge through an edge web, and lock its net,
+  layer, width, complete segment graph, and presence. This has much less copper
+  cross-section than letting the entire plane bridge the barrier.
 - Zone-fill keepouts can split a narrow driven guard just as they split a GND
   plane. Refill the saved board, inspect the actual guard polygons, and add a
   physical stitch to every retained rail before accepting DRC.
@@ -106,6 +105,32 @@ manual-assembly exceptions and silkscreen is not exported.
   1.5 mm contours, so a second run would have added duplicates. Widen the
   selector deliberately, then run the migration twice on an isolated board and
   require exact audit/DRC success after the second pass.
+
+## 2026-08-24 user-expanded barrier adoption
+
+- Treat a saved interactive edit as an atomic layout decision, not as just the
+  most obvious changed shape. Expanding the two slots to 6.75 × 1.50 mm moved
+  their centres to `(104.125,134.0)` and `(115.875,134.0)`, reduced the side
+  webs to 0.75 mm and centre neck to 5.0 mm, and caused KiCad's shove router to
+  alter nine nearby nets plus two via positions.
+- Capture the complete before/after copper inventory. Here the accepted result
+  reroutes `+12V_SW`, `3V3D`, `CELL_CE`, `CELL_WE`, `GUARD_REPLICA`,
+  `HEATER_PWM`, `I2C_SCL`, `I2C_SDA`, and `VA_MON`; it moves the `CELL_WE` and
+  `VA_MON` vias. Replaying only the new Edge.Cuts geometry would either fail
+  DRC or overwrite the user's solved corridors.
+- Shove routing can turn one logical crossing into several very short segments.
+  The GND bridge is now an explicit three-segment In2 jog and the left guard
+  stitch is six In1 segments. Audit exact topology and refilled polygons rather
+  than assuming an old one-segment representation remains valid.
+- A copper-to-edge rule change is part of the same design state as the copper
+  it admits. The accepted project floor is 0.20 mm. Apply the matching project
+  settings before zone filling a migrated board; filling under the old 0.25 mm
+  rule produced different saved heater/GND polygons even after the JSON was
+  corrected later.
+- KiCad Python's float convenience constructors can truncate a decimal by one
+  internal nanometre. Use `FromMM()` for deterministic route endpoints and
+  compare shove coordinates at an engineering-relevant precision while still
+  locking the complete segment graph.
 
 ## 2026-08-23 density and MCU-cluster pass
 

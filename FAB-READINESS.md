@@ -6,7 +6,8 @@ Status date: 2026-08-24
 
 **Ready for a bare-board first article at a capability-matched fabricator.**
 The selected process must accept 0.09/0.15 mm trace/space, 0.25/0.15 mm
-via/drill, two plated-slot edge castellations, the internal thermal slots, and
+via/drill, 0.20 mm copper-to-routed-edge clearance, two plated-slot edge
+castellations, the internal thermal slots, and
 a 1.00 mm four-layer stack. This is not an automated-PCBA,
 heated-ring assembly, or production-qualified release. Real SGX fit, enclosure
 fit, ring mechanics, and environmental qualification remain mandatory.
@@ -25,15 +26,15 @@ Gerber/Excellon validation.
   the exact schematic XML reference set and every numbered PCB pad net, with
   zero mismatches on the release.
 - CELL_RE remains one 9.652 mm, 0.15 mm F.Cu segment from U7.13 to U11.2,
-  without a via or test point. Four exact stitch vias and six short In1/B.Cu
+  without a via or test point. Four exact stitch vias and ten short In1/B.Cu
   links retain three physically connected `GUARD_REPLICA` fill regions on both
   sides of the long run; the audit checks the saved filled polygons, not only
   the zone source outline.
 - The board is exactly 20.00 × 107.00 × 1.00 mm with four copper layers, an
   exact six-primitive outline with R2 cable-end corners and a square gas end,
-  and two exact 5.50 × 1.50 mm horizontal
-  Edge.Cuts slots centred at absolute y=134.00 mm. They retain 1.00 mm edge
-  webs and a 7.00 mm centre neck.
+  and two exact 6.75 × 1.50 mm horizontal
+  Edge.Cuts slots centred at absolute y=134.00 mm. They retain 0.75 mm edge
+  webs and a 5.00 mm centre neck.
 - U11's separate 3.00 × 6.00 mm gasward NPTH oblong remains in Excellon. The
   release validates its tool and exact route endpoints independently.
 - The obsolete U13/C22/R30/TP7 second-temperature circuit and both of its
@@ -51,8 +52,8 @@ Gerber/Excellon validation.
   vias, no footprint pads, copper graphics, or footprint zones, the exact F.Cu
   `GUARD_REPLICA` source zone plus its three actual filled regions, a named
   full-width all-layer pour gap from y=133…135 mm, the B.Cu `/HEATER_LOW`
-  spreader, and one In2 GND source zone saved as two filled regions. A single
-  exact 0.15 mm In2 track preserves GND continuity across the gap. Fitted
+  spreader, and one In2 GND source zone saved as two filled regions. One exact
+  0.15 mm three-segment In2 bridge preserves GND continuity across the gap. Fitted
   U10/U12 use dogbone ground vias rather than via-in-pad.
 - Board rules and nominal stackup explicitly record the advanced-fab floor,
   1 oz outer/0.5 oz inner copper, and ENIG.

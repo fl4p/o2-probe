@@ -81,9 +81,9 @@ KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
   gasward of the cell axis. It spans the axis and provides a first-article
   airflow/fit window without inventing a rear-port diameter that DS-0637 Issue
   2 does not specify. Physical sample fit remains required for production.
-- No mounting holes. Two exact 5.5 × 1.5 mm horizontal Edge.Cuts slots at
+- No mounting holes. Two exact 6.75 × 1.5 mm horizontal Edge.Cuts slots at
   absolute y=134 mm form a partial thermal break between the potted body and
-  gas-side tip while retaining 1 mm edge webs and a 7 mm centre neck. A named
+  gas-side tip while retaining 0.75 mm edge webs and a 5 mm centre neck. A named
   rule area excludes zone fill on all four copper layers across y=133–135 mm;
   only audited routes and one 0.15 mm In2 GND bridge may cross it. The gas-side
   B.Cu island has a solid `/HEATER_LOW` thermal-spreader zone. Cable strain
@@ -169,8 +169,8 @@ CELL_RE remains one 9.652 mm F.Cu segment with no via/test point and a driven
 guard. `repair_guard_fill.py` physically stitches three saved F.Cu fill regions
 on both sides of the trace; the source outline alone is not credited as guard
 copper. The all-layer thermal rule area divides the In2 GND pour into two saved
-regions, joined only by one explicit 0.15 mm track through the left web. The
-heated tip has a solid B.Cu `/HEATER_LOW` spreader immediately gasward of the
+regions, joined only by one explicit 0.15 mm three-segment jog through the left
+web. The heated tip has a solid B.Cu `/HEATER_LOW` spreader immediately gasward of the
 barrier.
 KiCad 10.0.5 reports 0 DRC errors, 0 unconnected items, and 0 parity issues;
 the calibrated audit rejects 29/29 known-bad variants. The

@@ -91,8 +91,8 @@ def expected_thermal_slot_primitives() -> Counter:
     def arc(start, center, end):
         expected[("arc", frozenset((point(*start), point(*end))), point(*center))] += 1
 
-    for x in (103.75, 116.25):
-        x0, x1 = x - 2.75, x + 2.75
+    for x in (104.125, 115.875):
+        x0, x1 = x - 3.375, x + 3.375
         line((x0 + 0.75, 133.25), (x1 - 0.75, 133.25))
         arc((x1 - 0.75, 133.25), (x1 - 0.75, 134.0), (x1 - 0.75, 134.75))
         line((x1 - 0.75, 134.75), (x0 + 0.75, 134.75))
@@ -241,7 +241,7 @@ def validate_gerbers(directory: Path) -> dict[str, object]:
         for region in guard_regions
     )
     expected_guard_regions = Counter({
-        (64, (110.323477, -141.65, 111.6045, -135.0)): 1,
+        (69, (110.323477, -141.65, 111.6045, -135.0)): 1,
         (60, (108.974715, -140.878865, 110.393458, -135.0)): 1,
         (38, (109.220228, -132.9745, 110.405022, -131.971835)): 1,
     })
@@ -265,11 +265,11 @@ def validate_gerbers(directory: Path) -> dict[str, object]:
     expected_zone_regions = {
         "In1_Cu": Counter(),
         "In2_Cu": Counter({
-            (1060, (100.2505, -156.7495, 119.7495, -135.0)): 1,
-            (7435, (100.2505, -133.0, 119.7495, -50.2505)): 1,
+            (1022, (100.25, -156.75, 119.75, -135.0)): 1,
+            (7433, (100.25, -133.0, 119.75, -50.25)): 1,
         }),
         "B_Cu": Counter({
-            (1250, (100.2505, -156.7495, 119.7495, -135.0)): 1,
+            (1222, (100.25, -156.75, 119.75, -135.0)): 1,
         }),
     }
     for layer, expected_regions in expected_zone_regions.items():
@@ -289,8 +289,8 @@ def validate_gerbers(directory: Path) -> dict[str, object]:
 
     # Gerber regions represent poured copper.  Tracks are intentionally allowed
     # through the barrier, but no zone fill may bridge it on any copper layer.
-    thermal_gap_samples = tuple((x, -134.0) for x in (101.0, 103.75, 107.0,
-                                                       110.0, 113.0, 116.25,
+    thermal_gap_samples = tuple((x, -134.0) for x in (101.0, 104.125, 107.0,
+                                                       110.0, 113.0, 115.875,
                                                        119.0))
     gap_fill_hits = {
         layer.replace("_", "."): [
@@ -324,8 +324,8 @@ def validate_gerbers(directory: Path) -> dict[str, object]:
         "edge_cuts_primitives": sum(primitives.values()),
         "outer_outline_primitives": sum(expected_outline.values()),
         "board_native_routed_slot_contours": 2,
-        "thermal_slot_centers_mm": [[103.75, 134.0], [116.25, 134.0]],
-        "thermal_slot_finished_size_mm": [5.5, 1.5],
+        "thermal_slot_centers_mm": [[104.125, 134.0], [115.875, 134.0]],
+        "thermal_slot_finished_size_mm": [6.75, 1.5],
         "thermal_copper_fill_gap_y_mm": [133.0, 135.0],
         "thermal_copper_fill_gap_layers": ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"],
         "thermal_gap_gerber_samples_verified_per_layer": len(thermal_gap_samples),
