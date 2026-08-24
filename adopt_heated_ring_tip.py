@@ -29,7 +29,8 @@ try:
 except ImportError:
     sys.exit("run with KiCad's bundled Python")
 
-from thermal_design import (THERMAL_SLOTS, ensure_gnd_bridge,
+from thermal_design import (SIDE_THERMAL_SLOTS, THERMAL_SLOTS,
+                            add_vertical_slot, ensure_gnd_bridge,
                             ensure_heater_spreader, ensure_thermal_gap,
                             save_board_preserving_project)
 from route_thermal_barrier import apply as route_thermal_barrier
@@ -258,6 +259,8 @@ def main() -> int:
     add_outline(board)
     for slot_spec in THERMAL_SLOTS:
         add_horizontal_slot(board, *slot_spec)
+    for slot_spec in SIDE_THERMAL_SLOTS:
+        add_vertical_slot(board, *slot_spec)
     ensure_thermal_gap(board)
 
     # Consolidate the two draft shapes into one controlled In2 GND source zone.
@@ -312,7 +315,8 @@ def main() -> int:
     save_board_preserving_project(board, OUT)
     print(
         f"wrote {OUT}: {len(footprints)} footprints, 20 x {NEW_LENGTH_MM:g} mm, "
-        f"two 6.75 x 1.5 mm Y=134 slots, all-layer pour gap, heated B.Cu spreader; "
+        "two 6.75 x 1.5 mm Y=134 slots plus two 0.8 x 16 mm side slots, "
+        "all-layer pour gap, heated B.Cu spreader; "
         f"removed {removed} obsolete copper items"
     )
     return 0

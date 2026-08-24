@@ -7,7 +7,7 @@ board released for bare-board first articles. The accepted 106-footprint
 schematic transfers without parity errors. KiCad reports 0 errors, 0
 unconnected items, and 0 parity issues. The 27 courtyard pairs are locked
 manual-assembly exceptions and silkscreen is not exported.
-`audit_pcb.py --calibrate` rejects 31/31 known-bad variants.
+`audit_pcb.py --calibrate` rejects 33/33 known-bad variants.
 
 ## 2026-08-23 fabrication corrective pass
 
@@ -143,6 +143,40 @@ manual-assembly exceptions and silkscreen is not exported.
   and already-final geometry. A bridge helper tested only on legacy/final
   boards rejected the empty generator seed; fail closed on partial topology,
   but allow the generator to create a wholly absent controlled feature.
+
+## 2026-08-24 side-slot restoration and thermal estimate
+
+- The heated-ring-tip intent contained two different thermal features: a
+  transverse body/tip barrier and two longitudinal side-rail cuts. Restoring
+  the 0.80 × 16.00 mm side slots at absolute `(101.20,145.00)` and
+  `(118.80,145.00)` mm must not change the already-qualified 6.75 × 1.50 mm
+  transverse slots at y=134.00 mm.
+- Record the complete topology, not only nominal slot dimensions. The vertical
+  slot caps start at y=137.00 mm while the transverse slots end at y=134.75 mm,
+  leaving 2.25 mm of unslotted board between them. That short connection lets
+  the centre and edge rails redistribute heat; the full 16 mm side-slot length
+  is not a thermal resistance in series with the transverse barrier.
+- The side slots are still useful: they remove direct lateral FR-4 and copper
+  coupling to the edge rails over y=137–153 mm. Route the four historical
+  cut-line signals into the central island, require zero side-slot track/via/pad
+  crossings, and sample the saved heater-spreader polygon inside each void.
+- Calculate all copper crossings as a connected resistor network. Counting the
+  14 y=134 track objects as 14 complete parallel traces double-counts series
+  fragments and misses the two via-bearing paths. With the actual layer copper
+  thicknesses, the accepted network contributes about 8.7–9.2 mW/K across
+  y=133–135 mm.
+- For the exact rounded FR-4 contour, include the 0.25 mm full-width shoulders
+  on both sides of the transverse slot when using y=133/135 boundaries. With
+  explicit assumed material ranges, copper, dielectric, and slot air total
+  about 91–102 K/W; carry 90–110 K/W until measured. The previous approximately
+  95 K/W estimate remains a useful nominal value, but the restored side slots
+  do not justify multiplying or adding 16 mm to it.
+- Separate `R_barrier` from `R_heater-to-ambient`. A heater power/temperature
+  slope includes ring, membrane, convection, radiation, potting, and wiring.
+  `delta_T/electrical_power` is only a lower bound on PCB resistance unless the
+  heat reaching the body is measured or gas-side losses are independently
+  removed. Preserve the calculation and first-article method in
+  `THERMAL-BARRIER.md`.
 
 ## 2026-08-24 sensor-aperture compaction
 
@@ -364,7 +398,7 @@ python3 make_fab.py
 
 That command applies/verifies project rules, runs ERC and both audits, records
 error and warning DRC JSON, plots the exact layer set, validates Gerber X2
-functions, the exact square-tip outer contour, both thermal-break slot contours,
+functions, the exact square-tip outer contour, all four thermal-break slot contours,
 both J5 plated-slot castellations, and routed SGX NPTH Excellon data; writes
 checksums; and builds
 `fab/o2-probe-rev-a-fab.zip`.

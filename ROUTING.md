@@ -6,8 +6,8 @@ KiCadRoutingTools passes. The earlier base used commit
 commit `1dd393eaaa895fd83d3acb40e603969f36542e0e`. The heated-ring revision is a
 deterministic local migration and route owned by `adopt_heated_ring_tip.py` and
 `route_heated_ring_tip.py`; `gen_pcb.py` owns final placement and outline while
-`gen_sch.py` owns the MCU pin map. `thermal_design.py` owns the widened slots,
-all-layer pour gap, heated-island spreader, and minimal GND bridge.
+`gen_sch.py` owns the MCU pin map. `thermal_design.py` owns all four thermal
+slots, the all-layer pour gap, heated-island spreader, and minimal GND bridge.
 `route_thermal_barrier.py` owns the local crossings. `repair_guard_fill.py`
 owns the four guard stitch vias and ten short In1/B.Cu links added after the
 routed board exists. `adopt_tip_reposition.py` owns the later U10/C23 compaction,
@@ -40,12 +40,16 @@ function:
   `VA_MON`, `+12V_SW`, and the guard stitch through the reduced corridors.
   Exact contour DRC, not a coarse rectangular bounding-box estimate, is the
   clearance oracle.
+- The two 0.8 × 16.0 mm side slots at absolute x=101.2/118.8 mm have no track,
+  via, or pad crossings. Their former edge-lane routes move into the central
+  island, and the B.Cu heater-spreader fill preserves both routed voids.
 - The exact F.Cu `GUARD_REPLICA` source zone spans the centre neck around
   CELL_RE. Because CELL_RE and nearby signals fragment the pour, the release
   retains three physically connected saved fill regions using four guard vias
   and ten short In1/B.Cu links. The barrier audit locks actual filled copper
   together with the two In2 fill regions, B.Cu heater spreader, 14 crossing
-  track segments, two crossing vias, zero pads, and zero copper graphics.
+  track segments, two crossing vias, zero pads, and zero copper graphics. The
+  side-slot inventory separately locks zero track, via, and pad crossings.
 - U10's exposed pad terminates at TP6 through a via inside the large test land.
 
 The compact MCU pass treats the right-side U6/C8 placement as generator-owned.

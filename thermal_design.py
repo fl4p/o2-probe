@@ -18,6 +18,15 @@ THERMAL_SLOTS = (
     (4.125, 84.0, 6.75, 1.5),
     (15.875, 84.0, 6.75, 1.5),
 )
+# Restored from the accepted heated-ring-tip generator intent. These slots
+# remove lateral FR-4/copper coupling along most of the island sides. Their top
+# caps start at y=137 mm, 2.25 mm below the transverse-slot edge, so thermal
+# models must retain that short upper connection rather than treating the full
+# 16 mm slot length as a series heat path.
+SIDE_THERMAL_SLOTS = (
+    (1.2, 95.0, 16.0, 0.8),
+    (18.8, 95.0, 16.0, 0.8),
+)
 THERMAL_GAP_NAME = "THERMAL_BARRIER_COPPER_GAP"
 HEATER_SPREADER_NAME = "HEATED_ISLAND_SPREADER"
 THERMAL_GAP = ((0.0, 83.0), (20.0, 83.0), (20.0, 85.0), (0.0, 85.0))
@@ -66,14 +75,36 @@ def add_horizontal_slot(board, x: float, y: float,
     edge_arc(board, (x0 + radius, y1), (x0, y), (x0 + radius, y0))
 
 
+def add_vertical_slot(board, x: float, y: float,
+                      length: float, width: float) -> None:
+    x0, x1 = x - width / 2, x + width / 2
+    y0, y1 = y - length / 2, y + length / 2
+    radius = width / 2
+    edge_line(board, (x0, y0 + radius), (x0, y1 - radius))
+    edge_arc(board, (x0, y1 - radius), (x, y1), (x1, y1 - radius))
+    edge_line(board, (x1, y1 - radius), (x1, y0 + radius))
+    edge_arc(board, (x1, y0 + radius), (x, y0), (x0, y0 + radius))
+
+
 def thermal_slot_items(board) -> list:
+    regions = (
+        (100.7, 107.55, 133.2, 134.8),
+        (112.45, 119.3, 133.2, 134.8),
+        (100.75, 101.65, 136.95, 153.05),
+        (118.35, 119.25, 136.95, 153.05),
+    )
+
+    def points(item):
+        result = [absolute_xy(item.GetStart()), absolute_xy(item.GetEnd())]
+        if item.GetShapeStr() == "Arc":
+            result.append(absolute_xy(item.GetArcMid()))
+        return result
+
     return [
         item for item in board.Drawings()
         if item.GetLayer() == pcbnew.Edge_Cuts
-        and 133.2 <= min(absolute_xy(item.GetStart())[1],
-                         absolute_xy(item.GetEnd())[1])
-        and max(absolute_xy(item.GetStart())[1],
-                absolute_xy(item.GetEnd())[1]) <= 134.8
+        and any(all(x0 <= x <= x1 and y0 <= y <= y1 for x, y in points(item))
+                for x0, x1, y0, y1 in regions)
     ]
 
 
@@ -107,19 +138,31 @@ def expected_slot_signatures() -> Counter:
         arc((x1 - radius, y0), (x1, y), (x1 - radius, y1))
         line((x1 - radius, y1), (x0 + radius, y1))
         arc((x0 + radius, y1), (x0, y), (x0 + radius, y0))
+    for x, y, length, width in SIDE_THERMAL_SLOTS:
+        x0, x1 = x - width / 2, x + width / 2
+        y0, y1 = y - length / 2, y + length / 2
+        radius = width / 2
+        line((x0, y0 + radius), (x0, y1 - radius))
+        arc((x0, y1 - radius), (x, y1), (x1, y1 - radius))
+        line((x1, y1 - radius), (x1, y0 + radius))
+        arc((x1, y0 + radius), (x, y0), (x0, y0 + radius))
     return expected
 
 
 def replace_thermal_slots(board) -> bool:
     slots = thermal_slot_items(board)
-    if len(slots) not in (0, 8):
-        raise SystemExit(f"expected zero or eight thermal-slot primitives, found {len(slots)}")
+    if len(slots) not in (0, 8, 16):
+        raise SystemExit(
+            f"expected zero, eight, or sixteen thermal-slot primitives, found {len(slots)}"
+        )
     if Counter(slot_signature(item) for item in slots) == expected_slot_signatures():
         return False
     for item in slots:
         board.Delete(item)
     for slot in THERMAL_SLOTS:
         add_horizontal_slot(board, *slot)
+    for slot in SIDE_THERMAL_SLOTS:
+        add_vertical_slot(board, *slot)
     return True
 
 

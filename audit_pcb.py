@@ -24,6 +24,7 @@ _APP = wx.AppConsole()
 import pcbnew  # noqa: E402  (wx.App must exist before pcbnew loads a board)
 
 import project_settings  # noqa: E402
+from thermal_design import thermal_slot_items  # noqa: E402
 
 
 HERE = Path(__file__).resolve().parent
@@ -103,14 +104,18 @@ def expected_outline_geometry() -> Counter:
 
 
 def expected_thermal_slot_geometry() -> Counter:
-    """Return the exact primitives for two 6.75 x 1.5 mm Y=134 slots."""
+    """Return the exact primitives for all four heated-island slots."""
     expected = Counter()
 
+    def rounded(point):
+        return tuple(round(value, 2) for value in point)
+
     def line(start, end):
-        expected[("Line", frozenset((start, end)), None, 0.05)] += 1
+        expected[("Line", frozenset((rounded(start), rounded(end))), None, 0.05)] += 1
 
     def arc(start, midpoint, end):
-        expected[("Arc", frozenset((start, end)), midpoint, 0.05)] += 1
+        expected[("Arc", frozenset((rounded(start), rounded(end))),
+                  rounded(midpoint), 0.05)] += 1
 
     for x in (104.125, 115.875):
         x0, x1 = x - 3.375, x + 3.375
@@ -118,6 +123,13 @@ def expected_thermal_slot_geometry() -> Counter:
         arc((x1 - 0.75, 133.25), (x1, 134.0), (x1 - 0.75, 134.75))
         line((x1 - 0.75, 134.75), (x0 + 0.75, 134.75))
         arc((x0 + 0.75, 134.75), (x0, 134.0), (x0 + 0.75, 133.25))
+    for x in (101.2, 118.8):
+        x0, x1 = x - 0.4, x + 0.4
+        y0, y1 = 137.0, 153.0
+        line((x0, y0 + 0.4), (x0, y1 - 0.4))
+        arc((x0, y1 - 0.4), (x, y1), (x1, y1 - 0.4))
+        line((x1, y1 - 0.4), (x1, y0 + 0.4))
+        arc((x1, y0 + 0.4), (x, y0), (x0, y0 + 0.4))
     return expected
 
 
@@ -212,16 +224,12 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
     check(errors, board.GetCopperLayerCount() == 4, "COPPER_LAYERS",
           f"found {board.GetCopperLayerCount()}, want four")
     edge_items = [item for item in board.Drawings() if item.GetLayer() == pcbnew.Edge_Cuts]
-    slot_items = [
-        item for item in edge_items
-        if 133.2 <= min(xy(item.GetStart())[1], xy(item.GetEnd())[1])
-        and max(xy(item.GetStart())[1], xy(item.GetEnd())[1]) <= 134.8
-    ]
+    slot_items = thermal_slot_items(board)
     outline_items = [item for item in edge_items if item not in slot_items]
-    check(errors, len(edge_items) == 14 and len(outline_items) == 6 and len(slot_items) == 8,
+    check(errors, len(edge_items) == 22 and len(outline_items) == 6 and len(slot_items) == 16,
           "EDGE_ITEM_COUNT",
           f"found {len(edge_items)} total/{len(outline_items)} outer/{len(slot_items)} slot; "
-          "want 14/6/8")
+          "want 22/6/16")
     actual_outline = Counter(edge_signature(item) for item in outline_items)
     expected_outline = expected_outline_geometry()
     check(errors, actual_outline == expected_outline, "OUTLINE_GEOMETRY",
@@ -232,9 +240,58 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
     check(errors, actual_slots == expected_slots, "THERMAL_SLOT_GEOMETRY",
           f"added/changed={list((actual_slots - expected_slots).elements())}; "
           f"missing={list((expected_slots - actual_slots).elements())}")
-    metrics.update(thermal_slot_count=2.0, thermal_slot_length_mm=6.75,
+    metrics.update(thermal_slot_count=4.0, thermal_slot_length_mm=6.75,
                    thermal_slot_width_mm=1.5, thermal_slot_edge_web_mm=0.75,
-                   thermal_slot_center_neck_mm=5.0)
+                   thermal_slot_center_neck_mm=5.0,
+                   side_thermal_slot_count=2.0,
+                   side_thermal_slot_length_mm=16.0,
+                   side_thermal_slot_width_mm=0.8)
+
+    def track_crosses_side_slot(item) -> bool:
+        start, end = xy(item.GetStart()), xy(item.GetEnd())
+        for slot_x in (101.2, 118.8):
+            if not min(start[0], end[0]) <= slot_x <= max(start[0], end[0]):
+                continue
+            if near(start[0], end[0]):
+                if near(start[0], slot_x) and max(start[1], end[1]) >= 137.0 \
+                        and min(start[1], end[1]) <= 153.0:
+                    return True
+                continue
+            fraction = (slot_x - start[0]) / (end[0] - start[0])
+            crossing_y = start[1] + fraction * (end[1] - start[1])
+            if 137.0 <= crossing_y <= 153.0:
+                return True
+        return False
+
+    side_slot_tracks = [
+        (item.GetNetname(), board.GetLayerName(item.GetLayer()),
+         rounded_point(item.GetStart()), rounded_point(item.GetEnd()))
+        for item in board.GetTracks()
+        if not isinstance(item, pcbnew.PCB_VIA) and track_crosses_side_slot(item)
+    ]
+    side_slot_vias = [
+        (item.GetNetname(), rounded_point(item.GetPosition()))
+        for item in board.GetTracks()
+        if isinstance(item, pcbnew.PCB_VIA)
+        and any(abs(xy(item.GetPosition())[0] - slot_x) <= 0.4
+                and 137.0 <= xy(item.GetPosition())[1] <= 153.0
+                for slot_x in (101.2, 118.8))
+    ]
+    side_slot_pads = [
+        (footprint.GetReference(), pad.GetNumber(), pad.GetNetname())
+        for footprint in board.Footprints() for pad in footprint.Pads()
+        if any(mm(pad.GetBoundingBox().GetLeft()) <= slot_x
+               <= mm(pad.GetBoundingBox().GetRight())
+               and mm(pad.GetBoundingBox().GetBottom()) >= 137.0
+               and mm(pad.GetBoundingBox().GetTop()) <= 153.0
+               for slot_x in (101.2, 118.8))
+    ]
+    check(errors, not side_slot_tracks and not side_slot_vias and not side_slot_pads,
+          "SIDE_SLOT_COPPER",
+          f"tracks={side_slot_tracks}; vias={side_slot_vias}; pads={side_slot_pads}")
+    metrics["side_slot_copper_crossings"] = float(
+        len(side_slot_tracks) + len(side_slot_vias) + len(side_slot_pads)
+    )
     expected_tip_placements = {
         "RH1": ((105.0, 146.5), 270.0, "B.Cu"),
         "RH2": ((115.0, 146.5), 270.0, "B.Cu"),
@@ -370,7 +427,7 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
                 outline.PointCount(), heater_fill.HoleCount(index),
             )] += 1
         expected_heater_signatures = Counter({
-            ((100.25, 135.0, 119.75, 156.75), 1214, 0): 1,
+            ((100.25, 135.0, 119.75, 156.75), 1302, 0): 1,
         })
         check(errors, heater_signatures == expected_heater_signatures,
               "HEATER_SPREADER_FILL",
@@ -385,6 +442,15 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
         ]
         check(errors, not missing_heater_samples, "HEATER_SPREADER_COVERAGE",
               f"heated-island fill misses {missing_heater_samples}")
+        side_slot_void_samples = tuple(
+            (x, y) for x in (101.2, 118.8) for y in (138.0, 145.0, 152.0)
+        )
+        filled_side_slot_samples = [
+            point for point in side_slot_void_samples
+            if heater_fill.Contains(pcbnew.VECTOR2I_MM(*point))
+        ]
+        check(errors, not filled_side_slot_samples, "SIDE_SLOT_COPPER_VOID",
+              f"heated-island fill enters side-slot voids {filled_side_slot_samples}")
         metrics["heater_spreader_filled_regions"] = float(heater_fill.OutlineCount())
 
     obsolete_tip_nets = {"/TGAS_ALERT", "/TMP_GAS_EP"}
@@ -966,6 +1032,25 @@ def calibrate(board_path: Path, board_text: str) -> list[str]:
         )
         item.SetArcGeometry(item.GetStart(), pcbnew.VECTOR2I_MM(107.4, 134.0), item.GetEnd())
 
+    def deform_side_thermal_slot(board) -> None:
+        item = next(
+            item for item in board.Drawings()
+            if item.GetLayer() == pcbnew.Edge_Cuts
+            and item.GetShapeStr() == "Arc"
+            and near(xy(item.GetArcMid())[0], 101.2)
+            and near(xy(item.GetArcMid())[1], 153.0)
+        )
+        item.SetArcGeometry(item.GetStart(), pcbnew.VECTOR2I_MM(101.3, 153.0), item.GetEnd())
+
+    def bridge_side_thermal_slot(board) -> None:
+        item = pcbnew.PCB_TRACK(board)
+        item.SetNet(board.FindNet("/GND"))
+        item.SetLayer(pcbnew.F_Cu)
+        item.SetStart(pcbnew.VECTOR2I_MM(100.5, 145.0))
+        item.SetEnd(pcbnew.VECTOR2I_MM(102.0, 145.0))
+        item.SetWidth(pcbnew.FromMM(0.15))
+        board.Add(item)
+
     def notch_gnd_zone(board) -> None:
         zone = next(
             zone for zone in board.Zones()
@@ -1148,6 +1233,10 @@ def calibrate(board_path: Path, board_text: str) -> list[str]:
     expect("unexpected third board-native slot", "EDGE_ITEM_COUNT", add_unexpected_slot)
     expect("deformed rounded cable corner", "OUTLINE_GEOMETRY", deform_outer_corner)
     expect("deformed thermal-break slot", "THERMAL_SLOT_GEOMETRY", deform_thermal_slot)
+    expect("deformed side thermal slot", "THERMAL_SLOT_GEOMETRY",
+           deform_side_thermal_slot)
+    expect("side thermal slot copper bridge", "SIDE_SLOT_COPPER",
+           bridge_side_thermal_slot)
     expect("notched continuous GND plane", "GND_ZONE_GEOMETRY", notch_gnd_zone)
     expect("unfilled controlled ground zone", "GND_ZONE_FILL", unfill_gnd_zone)
     expect("disabled all-layer thermal gap", "THERMAL_GAP_RULE_AREA",
@@ -1207,7 +1296,7 @@ def main() -> int:
         print(report.read_text(), end="")
         return 1
 
-    calibrated = "31/31 known-bad variants rejected" if args.calibrate else "not requested"
+    calibrated = "33/33 known-bad variants rejected" if args.calibrate else "not requested"
     report.write_text(
         "PASS: O2 probe fabrication audit\n"
         f"- 106 schematic footprints; 20.00 x 107.00 x 1.00 mm; four copper layers\n"
@@ -1215,9 +1304,11 @@ def main() -> int:
         f"U7-to-cell pin distance {metrics['cell_re_pin_distance_mm']:.3f} mm\n"
         "- two exact 6.75 x 1.50 mm horizontal Edge.Cuts slots at y=134.00 mm; "
         "0.75 mm edge webs, 5.00 mm centre neck, and a 2.00 mm all-layer pour gap; "
+        "two exact 0.80 x 16.00 mm side slots remove lateral coupling over y=137..153 mm "
+        "while retaining the 2.25 mm upper connection; "
         f"{int(metrics['thermal_barrier_track_crossings'])} routed crossings and "
         f"{int(metrics['thermal_barrier_vias'])} vias locked; one 0.15 mm In2 GND bridge; "
-        "no pad/copper-graphic/footprint-zone crossings\n"
+        "no side-slot copper bridge and no transverse pad/copper-graphic/footprint-zone crossings\n"
         f"- driven guard: {int(metrics['guard_filled_regions'])} physically stitched F.Cu regions; "
         "sampled copper flanks CELL_RE on both sides of the pour gap\n"
         f"- heated island: {int(metrics['heater_spreader_filled_regions'])} connected B.Cu "
