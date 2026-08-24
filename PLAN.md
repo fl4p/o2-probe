@@ -33,7 +33,8 @@ Phase 2 links/copies this plan there.
 ## Architecture
 
 **One elongated 4-layer PCB with potted and gas zones separated by an assembly
-potting datum** (silkscreen "POT TO HERE" line; no board-native slots).
+potting datum** (silkscreen "POT TO HERE" line), followed by two horizontal
+5.5 × 1.0 mm thermal-break slots at absolute y=134 mm.
 Two-PCB head/body was rejected: an inter-board
 connector adds a leakage path exactly where sub-µA integrity matters and
 doubles the sealing problem.
@@ -98,10 +99,11 @@ at `y = 107`, board centreline at `x = 10`. All dimensions below are mm.
   removable dam clamps around the PCB at this datum; its seal land and the
   cable-side meniscus must finish at or beyond `y = 82`, while every AFE
   high-impedance node remains on the potted side.
-- **No board-native slots:** the potting boundary is an assembly datum, not an
-  `Edge.Cuts` feature. The four-layer board retains one continuous In2 GND
-  plane. The only routed mechanical aperture is the SGX footprint's 3 × 6 mm
-  NPTH rear-flow oblong described below.
+- **Thermal-break slots:** the potting boundary remains an assembly datum, not
+  an `Edge.Cuts` feature. Two 5.5 × 1.0 mm horizontal slots follow at absolute
+  y=134 mm, leaving 1 mm edge webs and a 7 mm centre neck. The In2 GND zone is
+  clipped by the contours but remains electrically continuous through those
+  webs/neck. The SGX footprint adds a separate 3 × 6 mm NPTH rear-flow oblong.
 - **Primary cell datum:** SGX-OX-ROHS-Mini body centre `(10.0, 93.5)`, body
   envelope Ø14.4 + datasheet tolerance. Rotate it with the three-pin row toward
   the dam/AFE. Start the footprint from the datasheet's 2.54 mm pin pitch and
@@ -295,7 +297,7 @@ verification discipline established by `/Users/fab/dev/ee/hw/tmp117-probe/`:
 - `project_settings.py` — verbatim pattern (pcbnew `.kicad_pro` clobber guard;
   `verify()` stays a gate).
 - `audit_pcb.py` + `--calibrate` inject-defect discipline — checks the RE
-  guard, exact slot-free outline and SGX NPTH, ring lands/stitches, heater
+  guard, exact outer/thermal-slot contours and SGX NPTH, ring lands/stitches, heater
   copper floor, continuous filled In2 GND plane, obsolete-sensor absence,
   cable-pads↔logic creepage, expansion-connector clearance to the potting
   line, SHT45 hand-rework accessibility (it's a maintenance consumable —
