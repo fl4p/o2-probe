@@ -7,7 +7,7 @@ board released for bare-board first articles. The accepted 106-footprint
 schematic transfers without parity errors. KiCad reports 0 errors, 0
 unconnected items, and 0 parity issues. The 29 courtyard pairs are locked
 manual-assembly exceptions and silkscreen is not exported.
-`audit_pcb.py --calibrate` rejects 26/26 known-bad variants.
+`audit_pcb.py --calibrate` rejects 29/29 known-bad variants.
 
 ## 2026-08-23 fabrication corrective pass
 
@@ -46,7 +46,7 @@ manual-assembly exceptions and silkscreen is not exported.
   two transverse boundary slots. Record slot function, axis, datum, finished
   size, residual webs/neck, and which thermal regions it separates as separate
   requirements so one shorthand instruction cannot collapse them together.
-- Restore two horizontal 5.5 × 1.0 mm capsules at absolute y=134.0 mm, centred
+- Restore two horizontal 5.5 × 1.5 mm capsules at absolute y=134.0 mm, centred
   at x=103.75 and x=116.25 mm. They leave 1.0 mm side-edge webs and a 7.0 mm
   centre neck. They are a partial axial thermal break between potted body and
   gas-side tip, not an isolated heated island and not a second-sensor feature.
@@ -60,9 +60,10 @@ manual-assembly exceptions and silkscreen is not exported.
   insufficient release evidence.
 - Inventory every track, via, pad, zone, board copper graphic, and footprint
   copper graphic crossing at the barrier datum. This board deliberately
-  retains 14 track segments, three vias, no footprint pads/graphics/zones, the
+  retains 14 track segments, two vias, no footprint pads/graphics/zones, the
   exact F.Cu driven-guard source zone and its three connected filled regions,
-  and the clipped In2 GND region. A “complete” crossing
+  the B.Cu heater-spreader zone, the full-width all-layer pour gap, and the two
+  In2 GND fill regions connected by one narrow track. A “complete” crossing
   inventory that names only tracks and a plane is incomplete; guard pours and
   copper graphics can otherwise silently erase the thermal intent.
 - A zone source outline is design intent, not fabricated copper. KiCad removed
@@ -72,6 +73,39 @@ manual-assembly exceptions and silkscreen is not exported.
   sides of the sensitive trace. This board now stitches three useful guard
   regions with four vias and six short internal/bottom links; a calibrated
   mutation disconnects a rail, refills, and proves the gate fails.
+
+## 2026-08-24 heated-island copper barrier
+
+- A current-capable heater trace is not a thermal spreader. The earlier two
+  0.80 mm `HEATER_LOW` runs could carry current but left most of the gas-side
+  FR-4 without copper to distribute heat. Add a named, net-tied solid B.Cu
+  spreader over the heated island and verify its *filled* polygon, not only its
+  source outline.
+- A routed FR-4 slot does not stop a plane from conducting through the retained
+  centre neck and edge webs. Pair the mechanical slots with a full-width zone-
+  fill keepout on every copper layer. Allow only explicit audited tracks and
+  vias; do not use a broad copper keepout that would make essential crossings
+  impossible.
+- Increase thermal-slot resistance by widening the cutter in the heat-flow
+  direction before lengthening the slot. Changing 5.5 × 1.0 mm to 5.5 × 1.5 mm
+  preserves the proven 7.0 mm routing neck and 1.0 mm edge webs; lengthening
+  the slots would consume the narrow centre corridor and caused route/clearance
+  failures in the trial layout.
+- Splitting a GND pour requires an intentional return path. Preserve continuity
+  with one exact 0.15 mm In2 track through an edge web, and lock its net, layer,
+  width, endpoints, and presence. This has much less copper cross-section than
+  letting the entire plane bridge the barrier.
+- Zone-fill keepouts can split a narrow driven guard just as they split a GND
+  plane. Refill the saved board, inspect the actual guard polygons, and add a
+  physical stitch to every retained rail before accepting DRC.
+- `pcbnew.SaveBoard()` can rewrite or create the adjacent `.kicad_pro`. Board
+  migrations now preserve that file byte-for-byte so replaying a geometry fix
+  cannot silently alter the project's fabrication rules.
+- A migration's geometry selector must recognize both its input and output.
+  After widening the slots, the old 1.0 mm Y-band no longer selected the new
+  1.5 mm contours, so a second run would have added duplicates. Widen the
+  selector deliberately, then run the migration twice on an isolated board and
+  require exact audit/DRC success after the second pass.
 
 ## 2026-08-23 density and MCU-cluster pass
 
@@ -248,8 +282,9 @@ manual-assembly exceptions and silkscreen is not exported.
   Micro-Fit connector, Tag-Connect holes, 2512 heaters, and component courtyards
   consume more axial space than their pad centres imply.  Check courtyard and
   hole envelopes before routing, especially on both sides of through-hole parts.
-- Keep the mechanical source deterministic. The 20 × 107 mm outline, one
-  continuous In2 zone, pot datum, cell/aperture, tip placement, and J5 geometry
+- Keep the mechanical source deterministic. The 20 × 107 mm outline, two
+  deliberately separated In2 fill regions plus their narrow bridge, pot datum,
+  cell/aperture, tip placement, and J5 geometry
   are exact assertions in `audit_pcb.py`, so electrical rearrangement cannot
   silently move an enclosure interface.
 - Ground planes help connectivity but are not a substitute for deliberate

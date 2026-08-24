@@ -15,13 +15,17 @@ try:
 except ImportError:
     sys.exit("run with KiCad's bundled Python")
 
+from thermal_design import (ensure_gnd_bridge, ensure_heater_spreader,
+                            ensure_thermal_gap, replace_thermal_slots,
+                            save_board_preserving_project, thermal_slot_items)
+from route_thermal_barrier import apply as route_thermal_barrier
+
 
 HERE = Path(__file__).resolve().parent
 SRC = Path(os.environ.get("O2_PCB_IN", HERE / "o2-probe.kicad_pcb"))
 OUT = Path(os.environ.get("O2_PCB_OUT", HERE / "o2-probe.kicad_pcb"))
 ORIGIN_X_MM = 100.0
 ORIGIN_Y_MM = 50.0
-THERMAL_SLOTS = ((3.75, 84.0, 5.5, 1.0), (16.25, 84.0, 5.5, 1.0))
 
 
 def point(x: float, y: float):
@@ -82,11 +86,7 @@ def same_endpoints(item, start, end) -> bool:
 def main() -> int:
     board = pcbnew.LoadBoard(str(SRC))
     edge_items = [item for item in board.Drawings() if item.GetLayer() == pcbnew.Edge_Cuts]
-    slot_items = [
-        item for item in edge_items
-        if 83.4 <= min(local_xy(item.GetStart())[1], local_xy(item.GetEnd())[1])
-        and max(local_xy(item.GetStart())[1], local_xy(item.GetEnd())[1]) <= 84.6
-    ]
+    slot_items = thermal_slot_items(board)
     if slot_items:
         if len(edge_items) != 14 or len(slot_items) != 8:
             raise SystemExit(
@@ -96,8 +96,10 @@ def main() -> int:
     else:
         if len(edge_items) != 6:
             raise SystemExit(f"expected six-item square-tip outline before migration, found {len(edge_items)} items")
-        for slot_spec in THERMAL_SLOTS:
-            add_horizontal_slot(board, *slot_spec)
+    replace_thermal_slots(board)
+    ensure_thermal_gap(board)
+    ensure_heater_spreader(board)
+    ensure_gnd_bridge(board)
 
     original_scl = [
         item for item in board.GetTracks()
@@ -146,12 +148,13 @@ def main() -> int:
     else:
         raise SystemExit("multiple original I2C_SCL neck crossings are present")
 
+    route_thermal_barrier(board)
     board.BuildConnectivity()
     pcbnew.ZONE_FILLER(board).Fill(board.Zones())
-    pcbnew.SaveBoard(str(OUT), board)
+    save_board_preserving_project(board, OUT)
     print(
-        f"wrote {OUT}: two 5.5 x 1.0 mm horizontal slots at Y=134 mm; "
-        "I2C_SCL preserved through 7 mm centre neck"
+        f"wrote {OUT}: two 5.5 x 1.5 mm horizontal slots at Y=134 mm; "
+        "7 mm centre neck, 2 mm all-layer pour gap, heated B.Cu spreader"
     )
     return 0
 

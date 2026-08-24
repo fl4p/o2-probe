@@ -23,6 +23,11 @@ try:
 except ImportError:
     sys.exit("run with KiCad's bundled Python")
 
+from thermal_design import (ensure_gnd_bridge, ensure_heater_spreader,
+                            ensure_thermal_gap, replace_thermal_slots,
+                            save_board_preserving_project)
+from route_thermal_barrier import apply as route_thermal_barrier
+
 
 HERE = Path(__file__).resolve().parent
 SRC = Path(os.environ.get("O2_PCB_IN", HERE / "o2-probe.kicad_pcb"))
@@ -113,14 +118,14 @@ def main() -> int:
     if old_ring is None:
         raise SystemExit("J5 is missing")
 
-    # Retain the two y=134 thermal slots byte-for-byte while replacing only the
-    # outer contour.  Both the former rounded outline and this new six-item
-    # outline are accepted as migration inputs, making the operation replayable.
+    # Replace the two y=134 slots with the accepted wider geometry while
+    # replacing the outer contour. Both the former rounded outline and this new
+    # six-item outline are accepted as migration inputs.
     edges = [item for item in board.Drawings() if item.GetLayer() == pcbnew.Edge_Cuts]
     slots = [
         item for item in edges
-        if 133.4 <= min(absolute_xy(item.GetStart())[1], absolute_xy(item.GetEnd())[1])
-        and max(absolute_xy(item.GetStart())[1], absolute_xy(item.GetEnd())[1]) <= 134.6
+        if 133.2 <= min(absolute_xy(item.GetStart())[1], absolute_xy(item.GetEnd())[1])
+        and max(absolute_xy(item.GetStart())[1], absolute_xy(item.GetEnd())[1]) <= 134.8
     ]
     outer = [item for item in edges if item not in slots]
     if len(slots) != 8 or len(outer) not in (6, 8):
@@ -130,6 +135,8 @@ def main() -> int:
     for item in outer:
         board.Delete(item)
     add_square_tip_outline(board)
+    replace_thermal_slots(board)
+    ensure_thermal_gap(board)
 
     # Replace the footprint as a whole so the library is the single source for
     # pad, plated-slot, mask, and courtyard geometry.
@@ -146,6 +153,8 @@ def main() -> int:
         raise SystemExit("/HEATER_LOW net is missing")
     for pad in ring.Pads():
         pad.SetNet(heater_low)
+    ensure_heater_spreader(board)
+    ensure_gnd_bridge(board)
 
     # Remove the complete previous branch, including the two obsolete stitch
     # vias, then route directly into the through-plated edge contacts.
@@ -197,12 +206,14 @@ def main() -> int:
         item.SetWidth(pcbnew.FromMM(0.18))
         board.Add(item)
 
+    route_thermal_barrier(board)
     board.BuildConnectivity()
     pcbnew.ZONE_FILLER(board).Fill(board.Zones())
-    pcbnew.SaveBoard(str(OUT), board)
+    save_board_preserving_project(board, OUT)
     print(
         f"wrote {OUT}: square gas end; two 2.00 x 3.00 mm J5 pads with "
-        "1.00 x 2.00 mm plated-slot castellations at x=100/120 mm"
+        "1.00 x 2.00 mm plated-slot castellations; 5.5 x 1.5 mm barrier slots, "
+        "all-layer pour gap, and heated B.Cu spreader"
     )
     return 0
 

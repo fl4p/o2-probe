@@ -28,6 +28,11 @@ try:
 except ImportError:
     sys.exit("run with KiCad's bundled Python")
 
+from thermal_design import (THERMAL_SLOTS, ensure_gnd_bridge,
+                            ensure_heater_spreader, ensure_thermal_gap,
+                            save_board_preserving_project)
+from route_thermal_barrier import apply as route_thermal_barrier
+
 
 HERE = Path(__file__).resolve().parent
 SRC = Path(os.environ.get("O2_PCB_IN", HERE / "o2-probe.kicad_pcb"))
@@ -36,7 +41,6 @@ XML = HERE / "o2-probe.xml"
 ORIGIN_X_MM = 100.0
 ORIGIN_Y_MM = 50.0
 NEW_LENGTH_MM = 107.0
-THERMAL_SLOTS = ((3.75, 84.0, 5.5, 1.0), (16.25, 84.0, 5.5, 1.0))
 
 PLACEMENT = {
     "C8": (18.0, 37.5, 90.0, "F"),
@@ -253,10 +257,11 @@ def main() -> int:
     add_outline(board)
     for slot_spec in THERMAL_SLOTS:
         add_horizontal_slot(board, *slot_spec)
+    ensure_thermal_gap(board)
 
-    # Keep one logically continuous In2 GND region. KiCad clips its fill around
-    # the two slots, so copper and FR-4 cross the partition only through the
-    # retained centre neck and edge webs.
+    # Consolidate the two draft shapes into one controlled In2 GND source zone.
+    # The all-layer rule area later splits its fill into two regions, connected
+    # only by the explicit narrow bridge.
     gnd_zones = [
         zone for zone in board.Zones()
         if zone.GetNetname() == "/GND" and zone.IsOnLayer(pcbnew.In2_Cu)
@@ -298,12 +303,15 @@ def main() -> int:
             board.Delete(item)
             removed += 1
 
+    ensure_heater_spreader(board)
+    ensure_gnd_bridge(board)
+    route_thermal_barrier(board)
     board.BuildConnectivity()
     pcbnew.ZONE_FILLER(board).Fill(board.Zones())
-    pcbnew.SaveBoard(str(OUT), board)
+    save_board_preserving_project(board, OUT)
     print(
         f"wrote {OUT}: {len(footprints)} footprints, 20 x {NEW_LENGTH_MM:g} mm, "
-        f"two Y=134 mm horizontal slots, one In2 GND plane; "
+        f"two 5.5 x 1.5 mm Y=134 slots, all-layer pour gap, heated B.Cu spreader; "
         f"removed {removed} obsolete copper items"
     )
     return 0

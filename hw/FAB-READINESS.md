@@ -31,7 +31,7 @@ Gerber/Excellon validation.
   the zone source outline.
 - The board is exactly 20.00 × 107.00 × 1.00 mm with four copper layers, an
   exact six-primitive outline with R2 cable-end corners and a square gas end,
-  and two exact 5.50 × 1.00 mm horizontal
+  and two exact 5.50 × 1.50 mm horizontal
   Edge.Cuts slots centred at absolute y=134.00 mm. They retain 1.00 mm edge
   webs and a 7.00 mm centre neck.
 - U11's separate 3.00 × 6.00 mm gasward NPTH oblong remains in Excellon. The
@@ -42,15 +42,18 @@ Gerber/Excellon validation.
   gas-side edges. Their 1.00 × 2.00 mm plated slots carry KiCad's castellated
   fabrication property and are bisected by the finished profile. PCB copper
   connects both contacts; the metal ring is not an electrical jumper.
-- `HEATER_LOW` uses only ≥0.80 mm B.Cu in the tip. U10 sits 3.5 mm from the
+- `HEATER_LOW` uses only ≥0.80 mm B.Cu tracks in the tip and a solid B.Cu
+  heater-spreader zone covers the gas-side island. U10 sits 3.5 mm from the
   ring centre; R29 provides passive default-off, and the wired TMP117 ALERT
   path is not credited as an overtemperature cutoff until configured and
   fault-tested in firmware.
-- The thermal-barrier copper inventory is locked: 14 track segments, three
+- The thermal-barrier copper inventory is locked: 14 track segments, two
   vias, no footprint pads, copper graphics, or footprint zones, the exact F.Cu
-  `GUARD_REPLICA` source zone plus its three actual filled regions, and one
-  exact In2 GND zone whose saved fill is clipped by both slots. Fitted U10/U12
-  use dogbone ground vias rather than via-in-pad.
+  `GUARD_REPLICA` source zone plus its three actual filled regions, a named
+  full-width all-layer pour gap from y=133…135 mm, the B.Cu `/HEATER_LOW`
+  spreader, and one In2 GND source zone saved as two filled regions. A single
+  exact 0.15 mm In2 track preserves GND continuity across the gap. Fitted
+  U10/U12 use dogbone ground vias rather than via-in-pad.
 - Board rules and nominal stackup explicitly record the advanced-fab floor,
   1 oz outer/0.5 oz inner copper, and ENIG.
 - U6 is locked to the dense right-side lane at local `(14.5,44.5)`, 180°,
@@ -59,18 +62,21 @@ Gerber/Excellon validation.
 - The generator assigns `RS485_DE` to PC6 beside the USART1 TX/RX pins and
   `VA_MON` to PA7/ADC_IN7; PA0/PA1 are intentionally unused. Firmware must use
   this final pin map.
-- `audit_pcb.py --calibrate` rejects 26/26 deliberately broken variants,
+- `audit_pcb.py --calibrate` rejects 29/29 deliberately broken variants,
   including a CELL_RE via, missing guard/GND plane, unexpected third slot,
   deformed outline/thermal-slot/GND/guard/ring geometry, disconnected actual
   guard fill, unfilled plane, an unplated ring contact, stale second-sensor
   copper, unexpected barrier track/graphic copper, narrow
   heater/ordinary/switched-supply tracks,
   moved U7/U6, exact duplicate copper, deleted schematic footprint, wrong pad
-  net, and missing stackup.
+  net, missing stackup, disabled thermal pour gap, wrong heater-spreader net,
+  and a missing narrow GND bridge.
 - `make_fab.py` independently finds both exact thermal-slot contours in the
   Edge.Cuts Gerber, both exact J5 plated-slot castellations in PTH Excellon,
   the one exact SGX routed NPTH in Excellon, and all three
   driven-guard regions plus eight interior coverage samples in the F.Cu Gerber.
+  It also verifies seven pour-free samples across every copper-layer Gerber,
+  the B.Cu heater spreader, and both In2 GND regions.
 
 ## Reviewed warnings and scope
 

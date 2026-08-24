@@ -2,11 +2,12 @@
 """Stitch the saved F.Cu driven-guard rails into the guard source.
 
 The narrow CELL_RE enclosure is split into several legal F.Cu fill regions by
-the protected cell trace and nearby routed signals.  KiCad removes regions
-which are not physically connected, so the source polygon alone is not proof
-that a driven guard will reach the sensor.  This deterministic migration adds
-four through vias and six short In1/B.Cu links.  The resulting saved fill has
-connected rails on both sides of the long CELL_RE run.
+the protected cell trace, the all-layer thermal pour gap, and nearby routed
+signals. KiCad removes regions which are not physically connected, so the
+source polygon alone is not proof that a driven guard will reach the sensor.
+This deterministic migration owns four through vias and six short In1/B.Cu
+links. The resulting saved fill has connected rails on both sides of the long
+CELL_RE run while the y=133--135 mm plane gap remains empty.
 """
 
 from __future__ import annotations
@@ -16,10 +17,15 @@ from pathlib import Path
 import sys
 
 try:
+    if "pcbnew" not in sys.modules:
+        import wx
+
+        _APP = wx.AppConsole()
     import pcbnew
 except ImportError:
     sys.exit("run with KiCad's bundled Python")
 
+from thermal_design import save_board_preserving_project
 
 HERE = Path(__file__).resolve().parent
 BOARD = Path(os.environ.get("O2_PCB_IN", HERE / "o2-probe.kicad_pcb"))
@@ -30,7 +36,7 @@ STITCH_VIAS = {
     (106.95, 136.00),
     (108.80, 136.00),
     (109.45, 139.00),
-    (111.50, 133.60),
+    (111.00, 135.50),
 }
 
 STITCH_TRACKS = {
@@ -39,12 +45,15 @@ STITCH_TRACKS = {
     ("B.Cu", (106.95, 136.00), (109.45, 139.00)),
     ("B.Cu", (106.95, 136.00), (108.80, 136.00)),
     ("In1.Cu", (108.80, 136.00), (110.65, 136.00)),
-    ("In1.Cu", (110.65, 136.00), (111.50, 133.60)),
+    ("In1.Cu", (110.65, 136.00), (111.00, 135.50)),
 }
 
+OBSOLETE_VIA = (111.50, 133.60)
+OBSOLETE_TRACK = ("In1.Cu", (110.65, 136.00), (111.50, 133.60))
+
 EXPECTED_FILLED_RAILS = {
-    (110.323477, 131.750000, 112.145819, 141.650000, 80),
-    (108.974715, 133.934844, 110.466013, 140.878865, 81),
+    (108.974715, 135.000000, 110.393458, 140.878865, 59),
+    (110.323477, 135.000000, 111.604500, 141.650000, 63),
     (109.220228, 131.971835, 110.405022, 132.974500, 37),
 }
 
@@ -91,6 +100,23 @@ def main() -> int:
     net = board.FindNet(NET)
     if net is None:
         raise SystemExit(f"missing {NET}")
+
+    # The all-layer pour gap made the former y=133.6 stitch via F.Cu-dangling.
+    # Remove that exact obsolete link rather than accepting the warning or
+    # carrying unnecessary copper through the thermal barrier.
+    obsolete_track_key = (OBSOLETE_TRACK[0],
+                          *sorted((OBSOLETE_TRACK[1], OBSOLETE_TRACK[2])))
+    for item in list(board.GetTracks()):
+        if item.GetNetname() != NET:
+            continue
+        if isinstance(item, pcbnew.PCB_VIA):
+            if point_tuple(item.GetPosition()) == OBSOLETE_VIA:
+                board.Delete(item)
+            continue
+        item_key = (item.GetLayerName(),
+                    *sorted((point_tuple(item.GetStart()), point_tuple(item.GetEnd()))))
+        if item_key == obsolete_track_key:
+            board.Delete(item)
 
     actual_vias = {
         point_tuple(item.GetPosition())
@@ -139,8 +165,8 @@ def main() -> int:
             f"missing={sorted(EXPECTED_FILLED_RAILS - actual_fill)}"
         )
 
-    pcbnew.SaveBoard(str(OUT), board)
-    print(f"wrote {OUT}: four guard stitches; three connected F.Cu guard regions")
+    save_board_preserving_project(board, OUT)
+    print(f"wrote {OUT}: four guard vias, six links; three connected F.Cu guard regions")
     return 0
 
 
