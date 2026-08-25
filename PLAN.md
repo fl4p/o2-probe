@@ -2,7 +2,8 @@
 
 ## Context
 
-COMPOST-O2-SENSORS-BUDGET.md selected the SGX-OX-ROHS-Mini (46,20 €, −40…+60 °C,
+`research/COMPOST-O2-SENSORS-BUDGET.md` in the **compostlab** repository (this
+repository is a submodule of it) selected the SGX-OX-ROHS-Mini (46,20 €, −40…+60 °C,
 biased 3-electrode EC cell) as the DIY scale-out cell, conditional on a heated
 port: the buried probe conducts heat outward, so every surface otherwise sits
 below the dew point of 100 % RH pore gas, and the cell's *continuous* rating is
@@ -21,7 +22,7 @@ review, matters for the NH₃ question) as a ±3–5 %RH condensation-margin
 **health channel**,
 not a calibrated hygrometer (datasheet: >80 %RH long-term gives ~+3 %RH
 standing offset) · **no SCD41** — pore CO₂ (mean ~17.7 %, up to 75 %) pins its
-4 % output cap permanently (COMPOST-GAS.md:230); replaced by an **expansion
+4 % output cap permanently (compostlab `research/COMPOST-GAS.md:230`); replaced by an **expansion
 connector** (12 V, 3.3 V, I2C, spare UART) on the sealed side for a future
 SenseAir K33-ICB 0–30 % CO₂ head (51×57 mm module — needs its own housing) ·
 DNP barometer footprint (BMP390).
@@ -207,7 +208,8 @@ at `y = 107`, board centreline at `x = 10`. All dimensions below are mm.
 - **Deployment ceiling corrected:** with the heater riding up to ~4 K above
   pile gas, the cell's +60 °C limit caps supported pile-gas temperature at
   **~56–58 °C**, not 60 (Codex). TEMP_OVER flag fires at the derated
-  ceiling; > 60 °C cell temperature invalidates data per COMPOST-O2.md §6.
+  ceiling; > 60 °C cell temperature invalidates data per
+  compostlab `research/COMPOST-O2.md` §6.
 
 **I2C map (conflict-checked):** 0x44 SHT45 · **0x48 LMP91000 (fixed)** ·
 TMP117 at 0x49 (ADD0→V+) · ADS1119 at 0x40 (A1=A0=GND) ·
@@ -365,7 +367,7 @@ verification discipline established by `/Users/fab/dev/ee/hw/tmp117-probe/`:
   test; **final calibration with the complete gas path** (membrane, window,
   chamber, heater running) — bare-cell calibration is insufficient.
 - Field: probe joins the RS485 bus beside the Apogee reference per
-  COMPOST-O2-SENSORS-BUDGET.md §First-experiment.
+  compostlab `research/COMPOST-O2-SENSORS-BUDGET.md` §First-experiment.
 
 ## Codex review (2026-08-18) — disposition
 
@@ -417,7 +419,7 @@ ceiling, RH health channel, and calibrated-audit discipline remain.
     shifts from optional to required (correction input).
 11. SHT45 NH₃ compatibility — **resolved (2026-08-18, adverse but managed)**:
     Sensirion "Handling Instructions SHTxx" (June 2025, archived in
-    `literature/datasheets/`, SHA `80be25d`) §1.3 lists **NH₃ among chemicals
+    `datasheets/` in the **compostlab-literature** repository, SHA `80be25d`) §1.3 lists **NH₃ among chemicals
     that can irreversibly damage the sensor**, with no concentration
     threshold; §4 puts validation burden on the user and notes low-level
     corrosives spare the element but corrode solder contacts → passivate
