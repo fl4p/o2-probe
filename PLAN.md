@@ -205,11 +205,24 @@ at `y = 107`, board centreline at `x = 10`. All dimensions below are mm.
   low-ionic-content compound; max cure temperature; pour depth per pass;
   pre-bake/clean; cure before mounting the EC cell where possible (WSON/DFN
   shrink stress and exotherm are latent-failure sources).
-- **Deployment ceiling corrected:** with the heater riding up to ~4 K above
-  pile gas, the cell's +60 °C limit caps supported pile-gas temperature at
-  **~56–58 °C**, not 60 (Codex). TEMP_OVER flag fires at the derated
-  ceiling; > 60 °C cell temperature invalidates data per
-  compostlab `research/COMPOST-O2.md` §6.
+- **Deployment envelope — the cell is operated out of spec (decision
+  2026-08-27):** the pile core reaches **~75 °C** in the thermophilic phase,
+  above the SGX cell's +60 °C rating and outside its 15–90 %RH continuous,
+  explicitly non-condensing window. We deploy there anyway; the alternative is
+  no data through the hottest, most oxygen-limited phase of the process, which
+  is the phase the probe exists to observe. This supersedes the 2026-08-18
+  derate of the supported pile-gas ceiling to ~56–58 °C.
+  Consequences carried deliberately:
+  - the cell's temperature coefficient is uncharacterised above +60 °C, so
+    compensation there is extrapolation, not calibration;
+  - electrolyte loss and drift accelerate — the cell is a consumable, and the
+    replacement interval must be set from a bench test at 70–75 °C, not from
+    the datasheet life;
+  - **the LMP91000, not the cell, becomes the binding hard limit** (risk 2).
+  TEMP_OVER stays a **log-only** quality flag at T_gas > 60 °C and marks the
+  reading as extrapolated; it no longer invalidates it. compostlab
+  `research/COMPOST-O2.md` §6 treats > 60 °C as invalidating — that rule is
+  deliberately overridden here.
 
 **I2C map (conflict-checked):** 0x44 SHT45 · **0x48 LMP91000 (fixed)** ·
 TMP117 at 0x49 (ADD0→V+) · ADS1119 at 0x40 (A1=A0=GND) ·
@@ -396,8 +409,13 @@ ceiling, RH health channel, and calibrated-audit discipline remain.
    Rev. I in Phase 1): trimmed per-board VREF vs discrete potentiostat is the
    Phase 1 decision; fixed VREF is off the table. SGX bias sign convention
    and CE compliance unspecified → vendor question + bench measurement.
-2. LMP91000 85 °C max vs 65 °C ambient + heater proximity + potting (no
-   convection) — placement away from island, junction budget documented.
+2. **LMP91000 is now the binding thermal limit.** 85 °C absolute max against
+   ~75 °C pile gas plus up to ~4 K heater rise leaves ~6 K for self-heating and
+   the potting ΔT (no convection). Placement away from the heated island is no
+   longer sufficient on its own: compute the junction budget, and if it does
+   not close, move the AFE down the tube away from the tip or go to a discrete
+   potentiostat built from 105/125 °C-grade parts. Unlike the cell, this is a
+   hard silicon limit, not a degradation curve.
 3. SGX CO₂ cross-sensitivity answer pending — affects compensation needs.
 4. 12 V continuity from SDI-12-LB unverified (bias must never drop); if
    switched per-poll → dedicated PSU. Verify before deployment, not layout.
@@ -405,9 +423,10 @@ ceiling, RH health channel, and calibrated-audit discipline remain.
    Phase 1.
 6. SHT45 accelerated ageing at permanent high RH — treat as maintenance
    consumable alongside the cell; health-channel framing only.
-7. Pile positions above **~56–58 °C** exceed cell spec once heater rise is
-   included — deployment constraint (TEMP_OVER at the derated ceiling), not
-   solvable on the PCB.
+7. Above ~56–58 °C pile gas the cell runs outside its rating. Per the
+   2026-08-27 decision this is accepted rather than treated as a deployment
+   constraint. Open work: bound the drift and lifetime penalty at 70–75 °C on
+   the bench and set the cell replacement interval from that measurement.
 8. Potting boundary quality is load-bearing for the RE leakage claim — audit
    check + assembly note.
 9. Expansion-connector sealing: an unused mating half above the pot line is a
