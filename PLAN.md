@@ -191,8 +191,11 @@ at `y = 107`, board centreline at `x = 10`. All dimensions below are mm.
   never floats.**
 - Tube target: 32 mm OD PVC-U pipe (ID ≈ 28 mm) clears the 14.4 mm cell can;
   Rev-A outline = 20 × 107 mm (dimensioned above); gas window = heated
-  dry-side carrier ring + ePTFE membrane + mesh
-  (enclosure work). Cell faces marked DO NOT OBSTRUCT: the rear vent needs a
+  dry-side carrier ring + **sintered-PTFE** membrane (Porex PMV15T; the vendor
+  confirmed sintered, not expanded, on 2026-08-27 — see `MEMBRANE.md`) + mesh
+  (enclosure work). Sintered PTFE needs no scrim backing and can be
+  ultrasonically welded into a PP carrier disc, which is the preferred
+  membrane-to-carrier joint. Cell faces marked DO NOT OBSTRUCT: the rear vent needs a
   **routed aperture through the PCB (or specified standoff + lateral gap)**,
   not merely a copper keepout — copper keepout provides no gas flow (Codex).
   Gas openings oriented laterally/downward with a condensate drain path; the

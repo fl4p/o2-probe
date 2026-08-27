@@ -1,8 +1,10 @@
 # O₂ probe gas-window membrane
 
 Research date: 2026-08-22
-Revised: 2026-08-26 — construction reclassified as sintered PTFE, and the PP
-support backing demoted from design rule to test variable. See
+Revised: 2026-08-27 — Porex confirmed the sintered construction in writing and
+supplied the official datasheet; direct purchase is closed off by MOQ and moves
+to a distributor. Revised: 2026-08-26 — construction reclassified as sintered
+PTFE, and the PP support backing demoted from design rule to test variable. See
 [MEMBRANE-RESEARCH-2026-08-26.md](MEMBRANE-RESEARCH-2026-08-26.md) for the
 second research pass, which also carries findings not folded in here: the
 oleophobic-treatment airflow evidence, Porex's PMA line, the PMV10L temperature
@@ -13,14 +15,20 @@ complete-path wetting and fouling tests.
 
 ## Decision
 
-Use **Porex Virtek PMV15T porous PTFE membrane** as the Rev-A baseline for the
-external gas window. Install it in a removable, drained carrier with a smooth
-polypropylene support and a separate coarse debris guard. Obtain **Gore MMS341**
-samples as the principal A/B challenger before freezing the production
-material.
+Use **Porex Virtek PMV15T sintered PTFE membrane** as the Rev-A baseline for the
+external gas window. Install it in a removable, drained carrier — preferably
+ultrasonically welded into a replaceable PP disc — behind a separate coarse
+debris guard. *Revised 2026-08-27:* the polypropylene **support** layer is no
+longer part of the decision. It came from a Porex guide for the expanded family;
+PMV15T is confirmed sintered and needs no support [S14a, S15], so the support is
+carried as an arm of qualification step 1 rather than as a design rule. Obtain
+**Gore MMS341** samples as the principal A/B challenger before freezing the
+production material — the more so now that PMV15T's own MOQ puts it behind a
+distributor.
 
 This decision fills the open material choice in [PLAN.md](PLAN.md), which
-specified only `slots + ePTFE membrane + mesh`. The membrane is an enclosure
+originally specified only `slots + ePTFE membrane + mesh`; that wording was
+corrected to sintered PTFE on 2026-08-27. The membrane is an enclosure
 window; it does not replace or touch the SGX-OX-ROHS-Mini cell's own gas-facing
 surfaces. Both cell faces and the rear PCB aperture must remain unobstructed.
 
@@ -65,17 +73,36 @@ to slow gas diffusion.
 
 ## Rev-A material: Porex PMV15T
 
-The current Porex product page [S1] identifies PMV15T as a 100% PTFE membrane
-sheet with the following values:
+The official material datasheet [S14], sent by Porex on 2026-08-27, supersedes
+the product page [S1] as the citation of record. Every value the page carried is
+reproduced identically on it; the datasheet adds the remaining rows and, more
+importantly, the caveats.
 
 | Property | Published value | Evidence status |
 |---|---:|---|
-| Oleophobic grade | 8 | vendor specification |
-| Water-entry pressure | 265 mbar minimum; 370 mbar typical | vendor specification |
-| Airflow at 70 mbar differential | 45 minimum; 75 typical L h⁻¹ cm⁻² | vendor specification |
-| Thickness | 0.18 ± 0.03 mm | vendor specification |
-| Enclosure rating | IP64 and IP67 | vendor specification; final housing dependent |
-| Filtration efficiency | specified at 0.4 µm under IEST RP-CC007.2 | vendor specification; **not a pore-size claim** |
+| PTFE content | 100 %, CAS 9002-84-0 | datasheet |
+| Oleophobic grade | 8 (AATCC TM 118-1997) | datasheet |
+| Water-entry pressure | 265 mbar minimum; 370 mbar typical | datasheet, **Porex QC method, no national standard** |
+| Airflow at 70 mbar differential | 45 minimum; 75 typical L h⁻¹ cm⁻² | datasheet, **Porex QC method, no national standard** |
+| Thickness | 0.18 ± 0.03 mm | datasheet |
+| Operating temperature | −40 to 260 °C | datasheet |
+| Enclosure rating | IP64 and IP67 (BS EN 60529:1992) | **representative sample only; not part of roll approval** |
+| Filtration efficiency | 0.4 µm under IEST RP-CC007.2:2009 | **representative sample only; not part of roll approval**; **not a pore-size claim** |
+| Salt fog | passes ASTM B117-11 | datasheet |
+| Compliance | PFOA-free; REACH (EC) 1907/2006; POP EU 2019/1021; RoHS; WEEE | datasheet |
+| Hydrophobicity | naturally hydrophobic (not a coating) | datasheet |
+
+**Read the evidence column before quoting these numbers.** The datasheet states
+that airflow and WEP come from Porex's own QC methods and that "testing is not to
+any national or international standard"; that the IP and filtration-efficiency
+rows are measured on a representative sample and are *not* verified per roll; and
+that "samples are intended for evaluation purposes only and not intended for
+specification". None of these values is a guaranteed lot property, so none may be
+carried into a specification or a guard threshold without our own measurement.
+The "naturally hydrophobic" row is worth separating from the Grade-8 line: the
+hydrophobicity is intrinsic to PTFE and cannot be washed off, whereas the
+oleophobic treatment is applied and is the layer whose ageing behaviour in hot
+NH₃-rich condensate remains unknown.
 
 These figures make PMV15T the only exact candidate found with public minimum
 airflow, water-entry and Grade-8 oleophobic values. Porex also markets the
@@ -92,10 +119,16 @@ ammonia, acids, bases, alcohols and numerous hydrocarbon or solvent classes
 compatibility of PMV15T's oleophobic treatment, a backing laminate, an
 adhesive, or the carrier seal with compost condensate.
 
-### Construction: sintered, not expanded
+### Construction: sintered, not expanded — confirmed
 
-**Revised 2026-08-26.** The exact PMV15T product page still does not state the
-construction, but Porex's portfolio page settles it by other means [S12]. Its
+**Closed 2026-08-27.** Porex states in writing: *"Bei PMV15T handelt es sich um
+gesintertes PTFE."* [S14a] The inference below was made independently on
+2026-08-26 and is retained because it shows which vendor artefacts are reliable
+when a product page contradicts itself: the technology **table** was right and
+the surrounding **prose** was wrong.
+
+The exact PMV15T product page still does not state the construction, but Porex's
+portfolio page settles it by other means [S12]. Its
 technology table attaches the `Virtek®` trademark to exactly two rows —
 *Porex Virtek® PTFE **Sintered** Hydrophobic* and *Porex Virtek® PTFE **Sintered**
 Oleophobic*, both **depth** filters marked **"No support required"** — while the
@@ -109,7 +142,7 @@ rate does not change when handled as it does with ePTFE products", and it "does
 not require scrim support that could absorb or desorb (release) gases, thereby
 causing slower or false readings" [S13].
 
-Two caveats keep this provisional rather than closed:
+Two caveats kept this provisional until the vendor confirmation above:
 
 - The prose *on the same portfolio page* says Virtek materials "include expanded
   or sintered engineered manufacturing options", contradicting its own table's
@@ -117,11 +150,20 @@ Two caveats keep this provisional rather than closed:
 - PMV15T's 0.18 mm thickness falls inside **both** family ranges (sintered
   0.1–3.0 mm, expanded 0.14–0.22 mm), so thickness does not discriminate.
 
-The question therefore stays in the Porex thread, but the working label changes
-from the plan's generic `ePTFE` to **sintered PTFE**. `PLAN.md` still carries the
-old `slots + ePTFE membrane + mesh` wording and needs the same correction.
-An SEM of a sample coupon would also settle it independently: a skived sintered
-film and a node-and-fibril expanded web are not confusable.
+The label is therefore **sintered PTFE**, not `ePTFE`, throughout. `PLAN.md` was
+corrected on 2026-08-27. No SEM is needed to settle it any more, though a coupon
+micrograph remains worth taking for the pore-structure record.
+
+Two design consequences follow directly, and both are load-bearing:
+
+- **No support layer.** Sintered PTFE "doesn't require any support" [S15], which
+  turns the PP backing from a precaution into pure cost — free area and series
+  diffusion resistance spent for nothing. The bare arm of qualification step 1 is
+  now the expected winner rather than an even bet.
+- **Ultrasonic welding is available.** Porex's welding brief [S15] gives the
+  process for bonding sintered PTFE vents directly to a plastic housing, with one
+  hard constraint: the substrate must have good flow properties and a melting
+  point **below 260 °C**. Polypropylene (~160 °C) satisfies this comfortably.
 
 ## Carrier construction
 
@@ -150,13 +192,25 @@ Design rules:
 - Mechanically clamp, heat-stake or weld the membrane carrier where practical.
   Do not make pressure-sensitive adhesive the only wet-side seal until the
   exact adhesive has passed hot-condensate ageing and peel tests.
+  Porex's datasheet endorses five attachment methods for this grade [S14]:
+  ultrasonic welding, thermal welding, over-moulding, pressure-sensitive
+  adhesive and compression seal. Compression seal — the Rev-A choice — is
+  therefore vendor-supported, not a workaround. **Preferred construction:
+  ultrasonically weld the membrane into a PP carrier disc, and make the disc
+  the replaceable item.** That keeps the wet-side seal a fused polymer joint
+  rather than a clamped interface, without giving up field replaceability,
+  and it removes the adhesive dependency entirely. Validate the weld to the
+  brief's constraint: substrate melt point below 260 °C, horn temperature
+  slightly above the substrate melt, dwell and pressure tuned so the melted
+  substrate forms a mechanical bond into the porous structure [S15].
 - **Treat the polypropylene support as a test variable, not a design rule.**
   *Revised 2026-08-26.* This rule was originally taken from Porex's **ePTFE**
   backing guide, which lists 100–300 µm PP support, a −40 to +100 °C range,
   strong acid/alkali resistance, toughness and abrasion resistance [S4]. That
   guide covers the **expanded** family — the one row in Porex's technology table
-  that requires PP/PET lamination. If PMV15T is sintered Virtek, as the same
-  table indicates, its row reads **"No support required"** [S12].
+  that requires PP/PET lamination. PMV15T is confirmed sintered [S14a], and its
+  row reads **"No support required"** [S12]; the welding brief repeats that
+  sintered PTFE "doesn't require any support" [S15].
 
   The support is therefore not a free precaution. It costs free area — the model
   config already deducts "PP support-grid obstruction" to reach
@@ -272,24 +326,71 @@ heater + O₂ cell**.
 A bare-cell calibration is insufficient. Store the membrane material, lot,
 active area, support, seal and carrier revision with the calibration record.
 
-## Procurement questions
+## Procurement
 
-Ask Porex for:
+### Supply route: distributor, not Porex direct
 
-- PMV15T samples and available sheet, roll and die-cut formats;
-- confirmation whether PMV15T is expanded or sintered PTFE — ask them to
-  *confirm* the sintered reading above [S12, S13] and resolve it against their
-  own page's contradicting prose, rather than asking open-endedly;
-- whether a PP support backing is required at all for this grade, given the
-  "No support required" classification, and what it would cost in airflow if
-  fitted anyway;
-- nominal porosity or O₂/gas-diffusion data, if available;
-- compatibility of the Grade-8 treatment with NH₃-rich condensate, organic
-  acids, H₂S and the intended cleaning agents;
-- PP-supported or laminated configurations and their resulting airflow;
-- approved welding, clamping and adhesive options at 60 °C saturated exposure;
-- lot-level minimum airflow, water-entry and oleophobic test documentation;
-- price, minimum order quantity and lead time.
+**Settled 2026-08-27 [S14a].** Porex's minimum order quantity is **10,000 pieces
+or two master rolls** of parent material. A master roll is 330 ± 5 mm wide [S14];
+two of them are several hundred square metres. Our requirement is 30–80 discs of
+Ø27 mm per year — roughly three orders of magnitude below the floor. Buying
+direct is not a matter of negotiation, it is arithmetic.
+
+Porex therefore refers small quantities to **ADDEV Materials Parafix**, their
+distributor for non-adhesive vent material in custom rolls and die-cuts. Free
+samples of PMV15T still come from Porex directly, against a postal address.
+
+Consequences for the plan:
+
+- Qualification proceeds on Porex samples, but the **production** material must
+  be re-verified as the same grade through ADDEV. A distributor slitting from a
+  different master roll is a different lot, and none of the datasheet values is
+  roll-verified [S14].
+- **The referral may not reach the qualified grade.** Parafix's public catalogue
+  lists three Porex flat grades — MD10L, MD22 and **PMV15** — plus the PMV30C/I/N/W
+  adhesive-backed discs. A site search for `PMV15T` returns **zero items** [S16].
+  The grade they do list, PMV15, is the **untreated** 0.18 mm hydrophobic-only
+  material: same thickness, same > 265 mbar WEP, marginally higher airflow
+  (> 49 vs. 45 minimum L h⁻¹ cm⁻²), and **no oleophobic specification at all**.
+  None of their listed Porex grades is oleophobic.
+
+  That is precisely the substitution `PMV15T-REQUEST.txt` told Porex not to make.
+  The Grade-8 treatment is the entire reason PMV15T was chosen: compost leachate
+  carries surfactants and organic acids that wet plain hydrophobic PTFE, and the
+  airflow difference is the signature of the coating that would be missing.
+  A converter's public catalogue is not its full sourcing range, so this is a
+  question rather than a verdict — but it must be asked before the referral is
+  treated as a supply route.
+- Ask ADDEV: can they supply **PMV15T specifically**, not PMV15 or a comparable
+  vent grade; will they die-cut Ø27 mm at our volume; what is *their* MOQ, price
+  and lead time; and can they supply lot documentation. If the answer is that
+  they convert PMV15 only, the small-quantity route for the oleophobic grade
+  does not yet exist and Gore MMS341 becomes the primary, not the challenger.
+- The Gore MMS341 A/B arm gains weight. A single-source material behind a
+  10,000-piece MOQ, from a vendor two weeks into a $9.25 bn integration, is not a
+  supply position to design a sensor around without an alternative.
+
+### Answered by Porex, 2026-08-27 [S14a]
+
+- Construction: **sintered PTFE**, confirmed.
+- Attachment: five endorsed methods, ultrasonic welding documented in detail
+  [S15].
+- Formats: master rolls 330 ± 5 mm on a 75 mm core, slit rolls, die-cut shapes.
+- Application data: **none available.** "Daten zu Ihrem speziellen Anwendungsfall
+  liegen uns momentan nicht vor." There is no O₂-diffusion figure to be had, so
+  `D_eff` is ours to measure. Qualification step 1 is the only source of that
+  number — it is not a ranking exercise that can be skipped.
+
+### Still open with Porex
+
+- Compatibility of the Grade-8 treatment with NH₃-rich condensate, organic acids
+  and H₂S at up to 75 °C, through repeated wet–dry cycles. This is the one
+  question that can still disqualify the material, and it is unanswered.
+- Recommended cleaning method for fouled discs.
+- Lot-level airflow, water-entry and oleophobic test documentation — given that
+  the datasheet disclaims per-roll verification, ask what *can* be certified.
+- Whether Porex remains the contact after the Parker Hannifin close, and whether
+  material or process changes and discontinuation are notified.
 
 Ask Gore for MMS341 samples plus numeric permeability/diffusion, water-entry,
 thickness, maximum continuous temperature and mounting data. PMV15T remains the
@@ -341,6 +442,14 @@ Added 2026-08-26 (see [MEMBRANE-RESEARCH-2026-08-26.md](MEMBRANE-RESEARCH-2026-0
 
 - **S12 — Porex:** [Porex Virtek® PTFE Hydrophobic Membrane portfolio](https://www.porex.com/porous-polymers-technologies/porous-membranes/ptfe-hydrophobic-membranes/). Current HTML; all four product/technology tables and the sintered/expanded prose inspected in the live DOM. Source of the sintered-vs-expanded classification, the "No support required" row, the max-operating-temperature column, and the PMA oleophobic line. Supersedes the 2019 brochure's numbers where they disagree.
 - **S13 — Porex:** [Electrochemical Gas Sensor Solutions brochure](https://www.porex.com/wp-content/uploads/2020/01/Porex-Brochure-Electrochemical-Gas-Sensor-Components.pdf), ©2019, doc `PX-EL-BR-190528-1`. Inspected in full; text layer extracted and cross-checked against S12. **Cite only for its qualitative sintering/scrim/absorbing-filter statements** — its PMV10 and PMG20 numbers are superseded by S12.
+
+Added 2026-08-27 (Porex e-mail, Porex application engineering, with two attachments):
+
+- **S14 — Porex:** *POREX® Virtek™ PTFE Materials — Material Datasheet, PMV15T*, doc `CON-002454 Ver. 5`, Porex Technologies Ltd, Merlin House, Alness Point Business Park, Alness, Scotland IV17 0UP. Archived at [`vendor/porex-PMV15T-datasheet-CON-002454-Ver5.docx`](vendor/porex-PMV15T-datasheet-CON-002454-Ver5.docx), SHA-256 `beef06610d75712662df426b67f4dce3349774fe044bf4cab9a5d2e04165e2ef`. Full text extracted from the OOXML part; supersedes S1 for all specification values. Carries the QC-method, representative-sample and not-for-specification disclaimers quoted above.
+- **S14a — Porex:** e-mail from Porex application engineering, 2026-08-27, in reply to our PMV15T enquiry. Load-bearing statements: PMV15T is sintered PTFE; MOQ 10,000 pieces or two master rolls; small quantities via ADDEV Materials Parafix; free sample against a postal address; no application-specific data available.
+- **S15 — Porex:** *How to Ultrasonically Weld PTFE Protection Vents*, technical brief, ©2019, doc `PX-EL-TB-19530-1`. Archived at [`vendor/porex-ultrasonic-welding-PTFE-vents-PX-EL-TB-19530-1.pdf`](vendor/porex-ultrasonic-welding-PTFE-vents-PX-EL-TB-19530-1.pdf), SHA-256 `0a301572ec622ff8045302599baac72492f45e09d332848ad080934393f0d2fb`. Text layer extracted in full. Source of the no-support claim, the ePTFE-fragility contrast, and the substrate constraint (good flow, melting point below 260 °C). Marketing document for the Virtek line — its comparative claims about ePTFE are the vendor's own and are not independently verified here.
+
+- **S16 — ADDEV Parafix (Parafix Tapes & Conversions Ltd, Lancing, West Sussex):** [non-adhesive vent material](https://parafix.com/product-groups/venting-materials/non-adhesive-vent-material/) and [Porex material PMV15](https://parafix.com/product/porex-material-pmv15-v2/), both retrieved 2026-08-27. Site search for `PMV15T` returned "0 items matching your criteria"; a search for `Porex` returned MD10L, MD22, PMV15 and the PMV30C/I/N/W disc family. The PMV15 page gives 0.18 mm, 100 % PTFE, airflow > 49 L h⁻¹ cm⁻² at 70 mbar, water intrusion > 265 mbar, IP67, filtration > 99.99 % at 0.4 µm, −40 to 260 °C, no oleophobic row. Public catalogue only — not a statement of what the converter can source.
 
 ### Research search record
 
