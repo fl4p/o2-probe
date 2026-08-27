@@ -1,6 +1,13 @@
 # O₂ probe gas-window membrane
 
 Research date: 2026-08-22
+Revised: 2026-08-26 — construction reclassified as sintered PTFE, and the PP
+support backing demoted from design rule to test variable. See
+[MEMBRANE-RESEARCH-2026-08-26.md](MEMBRANE-RESEARCH-2026-08-26.md) for the
+second research pass, which also carries findings not folded in here: the
+oleophobic-treatment airflow evidence, Porex's PMA line, the PMV10L temperature
+caveat, third-party evidence on oil pore-blocking, and the dense-silicone
+alternative architecture.
 Status: Rev-A candidate selected; production material remains conditional on
 complete-path wetting and fouling tests.
 
@@ -85,9 +92,36 @@ ammonia, acids, bases, alcohols and numerous hydrocarbon or solvent classes
 compatibility of PMV15T's oleophobic treatment, a backing laminate, an
 adhesive, or the carrier seal with compost condensate.
 
-The exact PMV15T product page does not state whether the supplied grade is
-expanded or sintered PTFE. Confirm the construction with Porex rather than
-carrying the plan's generic `ePTFE` label into the drawing unverified.
+### Construction: sintered, not expanded
+
+**Revised 2026-08-26.** The exact PMV15T product page still does not state the
+construction, but Porex's portfolio page settles it by other means [S12]. Its
+technology table attaches the `Virtek®` trademark to exactly two rows —
+*Porex Virtek® PTFE **Sintered** Hydrophobic* and *Porex Virtek® PTFE **Sintered**
+Oleophobic*, both **depth** filters marked **"No support required"** — while the
+third row is plain *Porex Expanded PTFE Hydrophobic*, a **surface** filter
+requiring **PP/PET lamination**. PMV15T is branded `POREX Virtek®` in its own
+page title [S1], so it belongs to the sintered rows.
+
+Porex's electrochemical-gas-sensor brochure says the same thing in prose:
+Virtek is "manufactured via a proprietary sintering process", its "diffusion
+rate does not change when handled as it does with ePTFE products", and it "does
+not require scrim support that could absorb or desorb (release) gases, thereby
+causing slower or false readings" [S13].
+
+Two caveats keep this provisional rather than closed:
+
+- The prose *on the same portfolio page* says Virtek materials "include expanded
+  or sintered engineered manufacturing options", contradicting its own table's
+  trademark usage.
+- PMV15T's 0.18 mm thickness falls inside **both** family ranges (sintered
+  0.1–3.0 mm, expanded 0.14–0.22 mm), so thickness does not discriminate.
+
+The question therefore stays in the Porex thread, but the working label changes
+from the plan's generic `ePTFE` to **sintered PTFE**. `PLAN.md` still carries the
+old `slots + ePTFE membrane + mesh` wording and needs the same correction.
+An SEM of a sample coupon would also settle it independently: a skived sintered
+film and a node-and-fibril expanded web are not confusable.
 
 ## Carrier construction
 
@@ -100,7 +134,7 @@ replaceable coarse debris guard
    ↓
 open drainage / stand-off gap
    ↓
-PMV15T membrane with smooth PP support on exposed side
+PMV15T membrane — PP support on exposed side is NO LONGER ASSUMED (see below)
    ↓
 heated probe gas chamber
    ↓
@@ -116,10 +150,22 @@ Design rules:
 - Mechanically clamp, heat-stake or weld the membrane carrier where practical.
   Do not make pressure-sensitive adhesive the only wet-side seal until the
   exact adhesive has passed hot-condensate ageing and peel tests.
-- Use a smooth polypropylene support or carrier on the exposed side. Porex's
-  ePTFE backing guide lists 100–300 µm PP support, a −40 to +100 °C range,
-  strong acid/alkali resistance, toughness and abrasion resistance [S4]. Adding
-  support can change airflow, so test the actual laminate or sandwich.
+- **Treat the polypropylene support as a test variable, not a design rule.**
+  *Revised 2026-08-26.* This rule was originally taken from Porex's **ePTFE**
+  backing guide, which lists 100–300 µm PP support, a −40 to +100 °C range,
+  strong acid/alkali resistance, toughness and abrasion resistance [S4]. That
+  guide covers the **expanded** family — the one row in Porex's technology table
+  that requires PP/PET lamination. If PMV15T is sintered Virtek, as the same
+  table indicates, its row reads **"No support required"** [S12].
+
+  The support is therefore not a free precaution. It costs free area — the model
+  config already deducts "PP support-grid obstruction" to reach
+  `free_membrane_area_mm2 = 193.05` from 200 mm² gross — and adds a series
+  diffusion resistance, both against the response budget's most critical
+  parameter. Qualification step 1 must compare a **bare** PMV15T coupon against a
+  PP-supported one in the same carrier and decide on measured `t63`/`t90`, not on
+  a guide written for a different material family. Keep the support only if the
+  bare coupon fails mechanically or the measured response penalty is negligible.
 - Make the outer guard independently replaceable. A moulded or perforated PP
   guard avoids a corrosion path and thermal bridge; any alternative metal mesh
   requires its own corrosion and cleaning justification.
@@ -161,6 +207,18 @@ vendor pressure-flow values.
 ### 1. Baseline diffusion
 
 - Compare the bare cell, open carrier, PMV15T carrier and MMS341 carrier.
+- Carry **bare PMV15T** and **PP-supported PMV15T** as separate arms, to settle
+  the support question above on measured response rather than vendor guidance.
+- **Treat this step as the `D_eff` determination, not only a ranking exercise.**
+  `model/config/uncalibrated_example.json` currently assumes
+  `Deff = 1e-5 m²/s` with `provenance: "sensitivity_only"` — that is
+  `D_eff/D_free ≈ 0.49` against `D(O₂–air, 25 °C) ≈ 2.05e-5 m²/s`, a plausible
+  but unverified mid-band value for a fibrous porous medium, and plausibly
+  optimistic for a sintered depth film. Because window area and `D_eff` trade
+  directly against each other in the response budget, this number must be pinned
+  **before** the window geometry is frozen. Report the fitted `D_eff` with the
+  coupon lot and carrier revision, and feed it back into the config in place of
+  the sensitivity value.
 - Step approximately 20.9 → 10 → 5 → 20.9% O₂ with traceable mixtures.
 - Record `t63`, `t90`, steady-state bias, hysteresis and recovery.
 - Repeat at room temperature, 40 °C and approximately 55 °C.
@@ -219,7 +277,12 @@ active area, support, seal and carrier revision with the calibration record.
 Ask Porex for:
 
 - PMV15T samples and available sheet, roll and die-cut formats;
-- confirmation whether PMV15T is expanded or sintered PTFE;
+- confirmation whether PMV15T is expanded or sintered PTFE — ask them to
+  *confirm* the sintered reading above [S12, S13] and resolve it against their
+  own page's contradicting prose, rather than asking open-endedly;
+- whether a PP support backing is required at all for this grade, given the
+  "No support required" classification, and what it would cost in airflow if
+  fitted anyway;
 - nominal porosity or O₂/gas-diffusion data, if available;
 - compatibility of the Grade-8 treatment with NH₃-rich condensate, organic
   acids, H₂S and the intended cleaning agents;
@@ -273,6 +336,11 @@ tables used for the comparison were also render-checked.
 - **S9 — Porex:** [Difference between expanded and sintered PTFE](https://www.porex.com/blog/what-is-the-difference-between-eptfe-and-sintered-ptfe/). 2024-04-24 vendor technical article; inspected in full.
 - **S10 — Porex:** [Porex Virtek PTFE hydrophobic membrane portfolio](https://www.porex.com/porous-polymers-technologies/porous-membranes/ptfe-hydrophobic-membranes/). Current HTML product table; inspected in full.
 - **S11 — Smith, M. J. (2007):** [*The use of hydrogels to prevent biofouling on underwater sensors*](https://theses.gla.ac.uk/2541/), PhD thesis, University of Glasgow, Chapters 6–7. Full authorised repository PDF inspected; relevant pages render-validated. Related article DOI: [10.1039/B714187B](https://doi.org/10.1039/B714187B), abstract inspected, full publisher version paywalled.
+
+Added 2026-08-26 (see [MEMBRANE-RESEARCH-2026-08-26.md](MEMBRANE-RESEARCH-2026-08-26.md)):
+
+- **S12 — Porex:** [Porex Virtek® PTFE Hydrophobic Membrane portfolio](https://www.porex.com/porous-polymers-technologies/porous-membranes/ptfe-hydrophobic-membranes/). Current HTML; all four product/technology tables and the sintered/expanded prose inspected in the live DOM. Source of the sintered-vs-expanded classification, the "No support required" row, the max-operating-temperature column, and the PMA oleophobic line. Supersedes the 2019 brochure's numbers where they disagree.
+- **S13 — Porex:** [Electrochemical Gas Sensor Solutions brochure](https://www.porex.com/wp-content/uploads/2020/01/Porex-Brochure-Electrochemical-Gas-Sensor-Components.pdf), ©2019, doc `PX-EL-BR-190528-1`. Inspected in full; text layer extracted and cross-checked against S12. **Cite only for its qualitative sintering/scrim/absorbing-filter statements** — its PMV10 and PMG20 numbers are superseded by S12.
 
 ### Research search record
 
