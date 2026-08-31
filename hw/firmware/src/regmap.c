@@ -1,0 +1,347 @@
+#include "regmap.h"
+#include "faults.h"
+#include "o2.h"
+
+#include <stddef.h>
+#include <string.h>
+
+/* Default Modbus address. 1 and 2 are the two Truebner SMT100 soil probes
+ * already on this cable (tech/RS485-LS-SMT100.md:263-264), so 3 is the first
+ * free unicast address. Do not "helpfully" default to 1. */
+#define O2P_DEFAULT_SLAVE_ADDR 3u
+
+void o2p_config_defaults(o2p_config_t *cfg)
+{
+    memset(cfg, 0, sizeof(*cfg));
+    cfg->slave_addr = O2P_DEFAULT_SLAVE_ADDR;
+    cfg->baud_code = O2P_BAUD_9600;
+    cfg->parity_code = O2P_PARITY_EVEN;   /* the bus is 8E1 */
+    cfg->rh_setpoint_x100 = 8500u;        /* 85 %RH, PLAN.md:294-296 */
+    cfg->dt_max_k_x100 = 400u;            /* 4 K, the designed thermal range */
+    cfg->heater_max_duty_x100 = 10000u;
+    cfg->heater_pwm_hz = 1000u;
+    /* No calibration by default. o2.c refuses to convert with this, and the
+     * sampler substitutes the datasheet nominal and raises CAL_DEFAULT - so a
+     * fresh board reports low-confidence data rather than nothing, and says
+     * so. */
+    cfg->cal_air_na = 0;
+    cfg->cal_temp_c100 = 2500;
+    cfg->tempco_ppm_per_k = 0;            /* SGX publishes no curve for this part */
+    cfg->sht_pulse_interval_h = 8u;       /* PLAN.md:312, every 6-12 h */
+}
+
+bool o2p_config_valid(const o2p_config_t *cfg)
+{
+    if (cfg == NULL) {
+        return false;
+    }
+    if (cfg->slave_addr < O2P_MB_ADDR_MIN || cfg->slave_addr > O2P_MB_ADDR_MAX) {
+        return false;
+    }
+    if (cfg->baud_code > O2P_BAUD_MAX_CODE) {
+        return false;
+    }
+    if (cfg->parity_code > O2P_PARITY_EVEN) {
+        return false;
+    }
+    if (cfg->rh_setpoint_x100 > 10000u) {
+        return false;
+    }
+    /* A setpoint above the cell's 90 %RH continuous rating defeats the whole
+     * point of the heater, and one below ~50 % asks for a temperature rise the
+     * thermal path cannot deliver and would cook the cell trying. */
+    if (cfg->rh_setpoint_x100 > 9000u || cfg->rh_setpoint_x100 < 5000u) {
+        return false;
+    }
+    if (cfg->dt_max_k_x100 > 400u) {   /* the path is designed for 0-4 K */
+        return false;
+    }
+    if (cfg->heater_max_duty_x100 > 10000u) {
+        return false;
+    }
+    if (cfg->heater_pwm_hz < 50u || cfg->heater_pwm_hz > 20000u) {
+        return false;
+    }
+    if (cfg->cal_air_na < 0) {
+        return false;
+    }
+    if (cfg->sht_pulse_interval_h == 0u || cfg->sht_pulse_interval_h > 168u) {
+        return false;
+    }
+    return true;
+}
+
+uint16_t o2p_config_crc(const o2p_config_t *cfg)
+{
+    /* Reuse the Modbus CRC so there is one checksum implementation to test.
+     * The struct is memset to zero before every field is assigned, so its
+     * padding is deterministic and safe to hash. */
+    return o2p_mb_crc16((const uint8_t *)cfg, sizeof(*cfg));
+}
+
+void o2p_regmap_init(o2p_regmap_t *rm)
+{
+    memset(rm, 0, sizeof(*rm));
+    o2p_config_defaults(&rm->cfg);
+    for (unsigned i = 0; i < 2u; i++) {
+        o2p_snapshot_t *s = &rm->buf[i];
+        /* Before the first sample completes, every channel must read invalid.
+         * A zeroed snapshot would publish 0.00 %vol, 0.00 C and no faults -
+         * a fully plausible anoxic pile - for as long as the first conversion
+         * takes, and forever if it never completes. */
+        s->o2_comp = O2P_U16_INVALID;
+        s->o2_raw = O2P_I16_INVALID;
+        s->t_tip = O2P_I16_INVALID;
+        s->t_chamber = O2P_I16_INVALID;
+        s->rh_chamber = O2P_U16_INVALID;
+        s->dew_margin_x100 = O2P_I16_INVALID;
+        s->exp_data = O2P_U16_INVALID;
+        s->faults = O2P_F_SETTLING | O2P_F_HEATER_DISABLED;
+        s->reset_cause = 0u;
+    }
+    rm->live = 0u;
+}
+
+o2p_snapshot_t *o2p_regmap_staging(o2p_regmap_t *rm)
+{
+    return &rm->buf[rm->live ^ 1u];
+}
+
+void o2p_regmap_publish(o2p_regmap_t *rm)
+{
+    /* Single aligned byte write; readers see either the old or the new index,
+     * never a mixture. Both sides run in the main loop today, but the flip
+     * keeps this correct if the transport ever moves into an interrupt. */
+    rm->live ^= 1u;
+}
+
+const o2p_snapshot_t *o2p_regmap_live(const o2p_regmap_t *rm)
+{
+    return &rm->buf[rm->live];
+}
+
+/* ------------------------------------------------------------------ reads */
+
+static bool in_block(uint16_t addr, uint16_t count, uint16_t base, uint16_t n)
+{
+    return addr >= base && (uint32_t)addr + count <= (uint32_t)base + n;
+}
+
+static uint16_t read_primary(const o2p_snapshot_t *s, uint16_t a)
+{
+    switch (a) {
+    case O2P_REG_O2_COMP:     return s->o2_comp;
+    case O2P_REG_O2_RAW:      return (uint16_t)s->o2_raw;
+    case O2P_REG_T_TIP:       return (uint16_t)s->t_tip;
+    case O2P_REG_T_CHAMBER:   return (uint16_t)s->t_chamber;
+    case O2P_REG_RH_CHAMBER:  return s->rh_chamber;
+    case O2P_REG_HEATER_DUTY: return s->heater_duty;
+    case O2P_REG_FAULTS:      return s->faults;
+    default:                  return s->settle_s;
+    }
+}
+
+static uint16_t read_diag(const o2p_snapshot_t *s, uint16_t a)
+{
+    switch (a) {
+    case O2P_REG_VREF_MON_MV:   return s->vref_mv;
+    case O2P_REG_VA_MON_MV:     return s->va_mv;
+    case O2P_REG_VIN_MON_MV:    return s->vin_mv;
+    case O2P_REG_AFE_VOUT_MV:   return s->afe_vout_mv;
+    case O2P_REG_DEW_MARGIN:    return (uint16_t)s->dew_margin_x100;
+    case O2P_REG_PRESSURE_HPA:  return s->pressure_hpa;
+    case O2P_REG_UPTIME_HI:     return (uint16_t)(s->uptime_s >> 16);
+    case O2P_REG_UPTIME_LO:     return (uint16_t)(s->uptime_s & 0xFFFFu);
+    case O2P_REG_FW_VERSION:    return O2P_FW_VERSION;
+    case O2P_REG_HW_REV:        return O2P_HW_REV;
+    case O2P_REG_RESET_CAUSE:   return s->reset_cause;
+    case O2P_REG_LMP_READBACK:  return s->lmp_readback;
+    case O2P_REG_MB_CRC_ERRS:   return s->mb_crc_errs;
+    case O2P_REG_MB_FRAME_ERRS: return s->mb_frame_errs;
+    case O2P_REG_I2C_ERRS:      return s->i2c_errs;
+    default:                    return s->exp_data;
+    }
+}
+
+static uint16_t read_config(const o2p_regmap_t *rm, uint16_t a)
+{
+    const o2p_config_t *c = &rm->cfg;
+    switch (a) {
+    case O2P_REG_SLAVE_ADDR:      return c->slave_addr;
+    case O2P_REG_BAUD_CODE:       return c->baud_code;
+    case O2P_REG_PARITY_CODE:     return c->parity_code;
+    case O2P_REG_RH_SETPOINT:     return c->rh_setpoint_x100;
+    case O2P_REG_DT_MAX_K:        return c->dt_max_k_x100;
+    case O2P_REG_HEATER_MAX_DUTY: return c->heater_max_duty_x100;
+    case O2P_REG_HEATER_PWM_HZ:   return c->heater_pwm_hz;
+    case O2P_REG_CAL_AIR_NA_HI:   return (uint16_t)((uint32_t)c->cal_air_na >> 16);
+    case O2P_REG_CAL_AIR_NA_LO:   return (uint16_t)((uint32_t)c->cal_air_na & 0xFFFFu);
+    case O2P_REG_CAL_TEMP_C100:   return (uint16_t)c->cal_temp_c100;
+    case O2P_REG_TEMPCO_PPM_K:    return (uint16_t)c->tempco_ppm_per_k;
+    case O2P_REG_SHT_PULSE_H:     return c->sht_pulse_interval_h;
+    /* The trigger registers read back as zero: they are edges, not state.
+     * Reading a 1 would suggest a calibration is pending when it is not. */
+    case O2P_REG_SHT_PULSE_TRIG:  return 0u;
+    case O2P_REG_CAL_TRIGGER:     return 0u;
+    case O2P_REG_COMMIT:          return 0u;
+    default:                      return o2p_config_crc(c);
+    }
+}
+
+uint8_t o2p_regmap_read(void *ctx, uint16_t addr, uint16_t count, uint16_t *out)
+{
+    o2p_regmap_t *rm = (o2p_regmap_t *)ctx;
+    if (rm == NULL || out == NULL || count == 0u) {
+        return O2P_MB_EX_ILLEGAL_VALUE;
+    }
+    const o2p_snapshot_t *s = o2p_regmap_live(rm);
+
+    /* A read must lie entirely inside ONE block. Spanning the gap between
+     * blocks is refused rather than zero-filled: the gap is not a register
+     * that happens to be zero, and a master reading across it has been
+     * misconfigured. */
+    if (in_block(addr, count, O2P_REG_PRIMARY_BASE, O2P_REG_PRIMARY_COUNT)) {
+        for (uint16_t i = 0; i < count; i++) {
+            out[i] = read_primary(s, (uint16_t)(addr + i));
+        }
+        return 0u;
+    }
+    if (in_block(addr, count, O2P_REG_DIAG_BASE, O2P_REG_DIAG_COUNT)) {
+        for (uint16_t i = 0; i < count; i++) {
+            out[i] = read_diag(s, (uint16_t)(addr + i));
+        }
+        return 0u;
+    }
+    if (in_block(addr, count, O2P_REG_CONFIG_BASE, O2P_REG_CONFIG_COUNT)) {
+        for (uint16_t i = 0; i < count; i++) {
+            out[i] = read_config(rm, (uint16_t)(addr + i));
+        }
+        return 0u;
+    }
+    return O2P_MB_EX_ILLEGAL_ADDRESS;
+}
+
+/* ----------------------------------------------------------------- writes */
+
+static uint8_t apply_config_word(o2p_config_t *c, uint16_t a, uint16_t v,
+                                 bool *serial_changed)
+{
+    /* Range-check the FULL 16-bit value before narrowing into a uint8_t
+     * field. Truncating first would let 0x0103 arrive as slave address 3 and
+     * sail through o2p_config_valid(), silently accepting a write the master
+     * did not make. */
+    switch (a) {
+    case O2P_REG_SLAVE_ADDR:
+    case O2P_REG_BAUD_CODE:
+    case O2P_REG_PARITY_CODE:
+        if (v > 0xFFu) {
+            return O2P_MB_EX_ILLEGAL_VALUE;
+        }
+        break;
+    default:
+        break;
+    }
+
+    switch (a) {
+    case O2P_REG_SLAVE_ADDR:      c->slave_addr = (uint8_t)v; *serial_changed = true; break;
+    case O2P_REG_BAUD_CODE:       c->baud_code = (uint8_t)v;  *serial_changed = true; break;
+    case O2P_REG_PARITY_CODE:     c->parity_code = (uint8_t)v; *serial_changed = true; break;
+    case O2P_REG_RH_SETPOINT:     c->rh_setpoint_x100 = v; break;
+    case O2P_REG_DT_MAX_K:        c->dt_max_k_x100 = v; break;
+    case O2P_REG_HEATER_MAX_DUTY: c->heater_max_duty_x100 = v; break;
+    case O2P_REG_HEATER_PWM_HZ:   c->heater_pwm_hz = v; break;
+    case O2P_REG_CAL_AIR_NA_HI:
+        c->cal_air_na = (int32_t)(((uint32_t)v << 16) |
+                                  ((uint32_t)c->cal_air_na & 0xFFFFu));
+        break;
+    case O2P_REG_CAL_AIR_NA_LO:
+        c->cal_air_na = (int32_t)(((uint32_t)c->cal_air_na & 0xFFFF0000u) | v);
+        break;
+    case O2P_REG_CAL_TEMP_C100:   c->cal_temp_c100 = (int16_t)v; break;
+    case O2P_REG_TEMPCO_PPM_K:    c->tempco_ppm_per_k = (int16_t)v; break;
+    case O2P_REG_SHT_PULSE_H:     c->sht_pulse_interval_h = v; break;
+    default:
+        return O2P_MB_EX_ILLEGAL_ADDRESS;
+    }
+    return 0u;
+}
+
+uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_t *in)
+{
+    o2p_regmap_t *rm = (o2p_regmap_t *)ctx;
+    if (rm == NULL || in == NULL || count == 0u) {
+        return O2P_MB_EX_ILLEGAL_VALUE;
+    }
+    /* Only the config block is writable. The primary and diagnostic blocks are
+     * measurements; a master that tries to write one is confused, and letting
+     * it through would let the bus fabricate readings. */
+    if (!in_block(addr, count, O2P_REG_CONFIG_BASE, O2P_REG_CONFIG_COUNT)) {
+        return O2P_MB_EX_ILLEGAL_ADDRESS;
+    }
+
+    /* Validate against a COPY and commit all-or-nothing. A multi-register
+     * write that is half legal must not leave the probe running on half a
+     * configuration - in particular it must not change the baud rate and then
+     * reject the address in the same frame. */
+    o2p_config_t trial = rm->cfg;
+    bool serial_changed = false;
+    bool want_commit = false, want_cal = false, want_pulse = false;
+
+    for (uint16_t i = 0; i < count; i++) {
+        uint16_t a = (uint16_t)(addr + i);
+        uint16_t v = in[i];
+        switch (a) {
+        case O2P_REG_CONFIG_CRC:
+            /* Read-only. Refusing beats ignoring: a master that thinks it set
+             * the CRC would believe a corrupt config had been accepted. */
+            return O2P_MB_EX_ILLEGAL_ADDRESS;
+        case O2P_REG_COMMIT:
+            if (v != 0u && v != O2P_COMMIT_MAGIC) {
+                return O2P_MB_EX_ILLEGAL_VALUE;
+            }
+            want_commit = (v == O2P_COMMIT_MAGIC);
+            break;
+        case O2P_REG_CAL_TRIGGER:
+            if (v != 0u && v != O2P_CAL_MAGIC) {
+                return O2P_MB_EX_ILLEGAL_VALUE;
+            }
+            want_cal = (v == O2P_CAL_MAGIC);
+            break;
+        case O2P_REG_SHT_PULSE_TRIG:
+            if (v > 1u) {
+                return O2P_MB_EX_ILLEGAL_VALUE;
+            }
+            want_pulse = (v == 1u);
+            break;
+        default: {
+            uint8_t ex = apply_config_word(&trial, a, v, &serial_changed);
+            if (ex != 0u) {
+                return ex;
+            }
+            break;
+        }
+        }
+    }
+
+    if (!o2p_config_valid(&trial)) {
+        return O2P_MB_EX_ILLEGAL_VALUE;
+    }
+
+    rm->cfg = trial;
+    if (serial_changed) {
+        /* Applied by the transport once the reply has physically left the
+         * wire. Changing address or baud here would abandon the master
+         * mid-frame and make the probe unreachable at both settings. */
+        rm->serial_reconfig_pending = true;
+    }
+    if (want_commit) {
+        rm->commit_pending = true;
+    }
+    if (want_cal) {
+        rm->cal_requested = true;
+    }
+    if (want_pulse) {
+        rm->sht_pulse_requested = true;
+    }
+    return 0u;
+}
