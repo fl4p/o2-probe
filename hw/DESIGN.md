@@ -110,14 +110,15 @@ pile produces; a mistyped `AT+COMMAND` must look like a fault, not like anoxia.
 (`SCHEMATIC-REVIEW.md` M4) and the bench air-versus-nitrogen pair settles it.
 Firmware that took an absolute value would hide the answer.
 
-### Diagnostic block, `0x0010`, 16 registers, read-only
+### Diagnostic block, `0x0010`, 18 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
 0.01 K), `PRESSURE_HPA` (0 - BMP390 is DNP), `UPTIME_HI/LO`, `FW_VERSION`,
 `HW_REV`, `RESET_CAUSE`, `LMP_READBACK` (TIACN<<8 | REFCN as actually read),
-`MB_CRC_ERRS`, `MB_FRAME_ERRS`, `I2C_ERRS`, `EXP_DATA` (`0xFFFF` - J2 is DNP).
+`MB_CRC_ERRS`, `MB_FRAME_ERRS`, `I2C_ERRS`, `EXP_DATA` (`0xFFFF` - J2 is DNP),
+`SETTLE_RESTARTS` (`0x0020`), `SAMPLE_SEQ` (`0x0021`).
 
-### Config block, `0x0020`, 16 registers, read/write, flash-backed
+### Config block, `0x0030`, 16 registers, read/write, flash-backed
 
 `SLAVE_ADDR`, `BAUD_CODE`, `PARITY_CODE`, `RH_SETPOINT`, `DT_MAX_K`,
 `HEATER_MAX_DUTY`, `HEATER_PWM_HZ`, `CAL_AIR_NA_HI/LO`, `CAL_TEMP_C100`,
@@ -130,8 +131,15 @@ Serial parameter changes take effect only after the response has left the wire.
 
 Two actions require a magic value rather than a `1`, because both are
 destructive and one stray bit in a frame that happened to pass CRC is otherwise
-enough: `CAL_TRIGGER` (`0x002D`) takes an air-point calibration on `0xCA11`, and
-`COMMIT` (`0x002E`) erases and rewrites the config flash page on `0x5AC1`.
+enough: `CAL_TRIGGER` (`0x003D`) takes an air-point calibration on `0xCA11`, and
+`COMMIT` (`0x003E`) erases and rewrites the config flash page on `0x5AC1`.
+
+**This section is checked mechanically.** `firmware/tools/check_regmap_docs.py`
+parses `src/regmap.h` and fails if the block bases, the block sizes, the primary
+register names or the exception-02 rule stated here have drifted from it. The
+diagnostic block grew from 16 to 18 registers and the config block moved from
+`0x0020` to `0x0030` within a day of this map first being written down, so the
+check is not hypothetical.
 
 ## Controlled mechanical datums
 
