@@ -71,6 +71,68 @@ KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
 | ADS1119 | `0x40`, A1=A0=GND |
 | BMP390 DNP | `0x76`, SDO=GND and CSB=VDDIO |
 
+## Modbus register map
+
+The probe is a Modbus RTU slave, **9600 8E1, address 3**, on the shared farm
+RS-485 bus (1 and 2 are the Truebner SMT100s; 253 is answered as a discovery
+alias, which is only safe with a single device connected). `firmware/src/regmap.h`
+is the implementation and this table is the design record; `firmware/FIRMWARE.md`
+carries the working copy with the fault semantics. Everything is exposed through
+FC03; FC04 mirrors it; FC06/FC16 reach only the config block.
+
+The layout is dictated by the master. A Dragino RS485-LS reads with literal
+pre-programmed frames over a contiguous block — `AT+COMMAND3=03 03 00 00 00 08,1`
+— and its uplink is a LoRaWAN payload. So every channel that must survive each
+cycle is packed into ONE eight-register block at address zero: 16 bytes, one
+`AT+COMMAND`, alongside the two SMT100 blocks already on the bus. Diagnostics and
+configuration sit further out, where a field technician can reach them but the
+routine uplink never pays for them.
+
+**Undefined addresses raise exception 02 rather than reading as zero, and a read
+spanning the gap between blocks is refused.** `0x0000` in the oxygen register
+decodes as a perfectly plausible 0.00 %vol, which is exactly what an anaerobic
+pile produces; a mistyped `AT+COMMAND` must look like a fault, not like anoxia.
+
+### Primary block, `0x0000`, 8 registers
+
+| Reg | Name | Encoding | Invalid |
+|---|---|---|---|
+| 0 | `O2_COMP` | u16, %vol x 100 | `0xFFFF` |
+| 1 | `O2_RAW` | i16, cell uA x 100 | `0x8000` |
+| 2 | `T_TIP` | i16, 0.01 C (TMP117) | `0x8000` |
+| 3 | `T_CHAMBER` | i16, 0.01 C (SHT45) | `0x8000` |
+| 4 | `RH_CHAMBER` | u16, 0.01 %RH | `0xFFFF` |
+| 5 | `HEATER_DUTY` | u16, 0.01 % (always 0 in v0) | - |
+| 6 | `FAULTS` | u16 bitfield (`firmware/src/faults.h`) | - |
+| 7 | `SETTLE_S` | u16 seconds remaining, 0 = settled | - |
+
+`O2_RAW` is signed deliberately: the SGX sign convention is an open release gate
+(`SCHEMATIC-REVIEW.md` M4) and the bench air-versus-nitrogen pair settles it.
+Firmware that took an absolute value would hide the answer.
+
+### Diagnostic block, `0x0010`, 16 registers, read-only
+
+`VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
+0.01 K), `PRESSURE_HPA` (0 - BMP390 is DNP), `UPTIME_HI/LO`, `FW_VERSION`,
+`HW_REV`, `RESET_CAUSE`, `LMP_READBACK` (TIACN<<8 | REFCN as actually read),
+`MB_CRC_ERRS`, `MB_FRAME_ERRS`, `I2C_ERRS`, `EXP_DATA` (`0xFFFF` - J2 is DNP).
+
+### Config block, `0x0020`, 16 registers, read/write, flash-backed
+
+`SLAVE_ADDR`, `BAUD_CODE`, `PARITY_CODE`, `RH_SETPOINT`, `DT_MAX_K`,
+`HEATER_MAX_DUTY`, `HEATER_PWM_HZ`, `CAL_AIR_NA_HI/LO`, `CAL_TEMP_C100`,
+`TEMPCO_PPM_K`, `SHT_PULSE_H`, `SHT_PULSE_TRIG`, `CAL_TRIGGER`, `COMMIT`,
+`CONFIG_CRC` (read-only).
+
+A multi-register write is validated against a copy and committed all-or-nothing,
+so a frame setting a legal address and an illegal baud rate changes neither.
+Serial parameter changes take effect only after the response has left the wire.
+
+Two actions require a magic value rather than a `1`, because both are
+destructive and one stray bit in a frame that happened to pass CRC is otherwise
+enough: `CAL_TRIGGER` (`0x002D`) takes an air-point calibration on `0xCA11`, and
+`COMMIT` (`0x002E`) erases and rewrites the config flash page on `0x5AC1`.
+
 ## Controlled mechanical datums
 
 - Board: 20.0 x 107.0 mm, R2.0 cable-end corners, square gas end, initially
