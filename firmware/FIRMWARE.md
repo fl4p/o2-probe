@@ -206,13 +206,29 @@ bench PSU current-limited to ~300 mA.
 
 ## Downstream work this creates
 
-- **`tech/chirpstack/smt100-2probe-decoder.js` breaks.** It requires
-  `(len − 3) % 6 == 0`; adding an 8-register block makes the payload 31 bytes
-  and the whole uplink — including both SMT100s — fails to decode. It needs a
-  layout-driven decoder, or the o2-probe needs its own node.
-- `provision.py`: new device profile, codec, and an `uplink_interval` matching
-  the node's real `AT+TDC`.
-- `vm_ingest.py`: its `NODE_FIELDS` / `PROBE_RE` normalisation assumes the
-  SMT100 and D23 shapes.
-- Copy this register map into `../DESIGN.md`, which `PLAN.md:283` already
-  claims holds it.
+Done, in `~/dev/ha/farming/tech`:
+
+- ~~`smt100-2probe-decoder.js` breaks on a 31-byte payload~~ — replaced by
+  `chirpstack/rs485-ls-decoder.js`, which selects its layout from the node's
+  `AT+PAYVER` and then checks the length exactly. `AT+PAYVER=3` means
+  SMT100@1 + SMT100@2 + o2-probe@3. Exact-length checking is the point: a node
+  that loses `AT+COMMAND3` emits 15 bytes, which the old inferred-N rule would
+  have decoded as a healthy two-probe frame with the oxygen channel simply
+  absent. `chirpstack/test_rs485_ls_decoder.js` covers that case and the
+  no-reply case.
+- ~~`provision.py`~~ — points at the new codec. The profile *name* is its lookup
+  key and was deliberately not changed; renaming it would orphan the existing
+  profile. `uplink_interval` already matches the node's `AT+TDC=300000`.
+- ~~`vm_ingest.py`~~ — `o2_<slave>_*` fields route to a `gas` measurement rather
+  than joining the SMT100s under `soil`; they are a gas instrument on the same
+  bus, not a third soil probe.
+- ~~Copy this register map into `../DESIGN.md`~~ — done, under "Modbus register
+  map".
+
+Still open:
+
+- **The node has never been configured.** `AT+COMMAND3` / `AT+DATACUT3` /
+  `AT+CMDDL3` / `AT+PAYVER=3` are written down in
+  `tech/RS485-LS-SMT100.md` ("Adding the o2-probe") but not sent. Deploy the
+  codec first and set `AT+PAYVER` last, so the codec is never behind the node.
+- A dedicated always-on 12 V supply on the probe cable.
