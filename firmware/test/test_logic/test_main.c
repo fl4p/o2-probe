@@ -39,8 +39,9 @@ static void test_crc16_known_vectors(void)
     const uint8_t ours[] = {0x03, 0x03, 0x00, 0x00, 0x00, 0x08};
     TEST_ASSERT_EQUAL_HEX16(0xEE45, o2p_mb_crc16(ours, sizeof(ours)));
 
-    const uint8_t disc[] = {0xFD, 0x03, 0x00, 0x20, 0x00, 0x01};
-    TEST_ASSERT_EQUAL_HEX16(0xFC91, o2p_mb_crc16(disc, sizeof(disc)));
+    /* A discovery read of SLAVE_ADDR at the config base. */
+    const uint8_t disc[] = {0xFD, 0x03, 0x00, 0x30, 0x00, 0x01};
+    TEST_ASSERT_EQUAL_HEX16(0x3990, o2p_mb_crc16(disc, sizeof(disc)));
 }
 
 /* ------------------------------------------------------------ classifier */
@@ -65,14 +66,14 @@ static void test_classify_addressing(void)
     TEST_ASSERT_EQUAL(O2P_MB_DROP, o2p_mb_classify(f, n, 4));
 
     uint8_t b[16];
-    const uint8_t bbody[] = {0x00, 0x06, 0x00, 0x20, 0x00, 0x03};
+    const uint8_t bbody[] = {0x00, 0x06, 0x00, 0x30, 0x00, 0x03};
     size_t bn = framed(b, bbody, sizeof(bbody));
     TEST_ASSERT_EQUAL(O2P_MB_EXECUTE_NO_REPLY, o2p_mb_classify(b, bn, 3));
 
     /* 253 is the discovery alias used to find a probe whose address is
      * unknown (tech/RS485-LS-SMT100.md:247). */
     uint8_t d[16];
-    const uint8_t dbody[] = {0xFD, 0x03, 0x00, 0x20, 0x00, 0x01};
+    const uint8_t dbody[] = {0xFD, 0x03, 0x00, 0x30, 0x00, 0x01};
     size_t dn = framed(d, dbody, sizeof(dbody));
     TEST_ASSERT_EQUAL(O2P_MB_EXECUTE, o2p_mb_classify(d, dn, 3));
 }
@@ -134,7 +135,7 @@ static void test_discovery_reply_uses_the_discovery_address(void)
      * 253 and must be able to recognise the answer. Replying from our own
      * unicast address would leave it unable to match request to response. */
     uint8_t req[16], rsp[O2P_MB_MAX_ADU];
-    const uint8_t body[] = {0xFD, 0x03, 0x00, 0x20, 0x00, 0x01};
+    const uint8_t body[] = {0xFD, 0x03, 0x00, 0x30, 0x00, 0x01};
     size_t n = framed(req, body, sizeof(body));
     size_t len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
     TEST_ASSERT_EQUAL_UINT(3 + 2 + 2, len);
@@ -146,7 +147,7 @@ static void test_discovery_reply_uses_the_discovery_address(void)
 static void test_config_crc_register_is_read_only(void)
 {
     uint8_t req[16], rsp[O2P_MB_MAX_ADU];
-    const uint8_t body[] = {0x03, 0x06, 0x00, 0x2F, 0x12, 0x34};
+    const uint8_t body[] = {0x03, 0x06, 0x00, 0x3F, 0x12, 0x34};
     size_t n = framed(req, body, sizeof(body));
     o2p_mb_dispatch(req, n, 3, &handlers, rsp);
     TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS, rsp[2]);
@@ -157,7 +158,7 @@ static void test_16bit_value_is_not_truncated_into_a_byte_field(void)
     /* 0x0103 truncated to a uint8_t is 3, which is a legal slave address.
      * The write must be refused on the full value, not narrowed first. */
     uint8_t req[16], rsp[O2P_MB_MAX_ADU];
-    const uint8_t body[] = {0x03, 0x06, 0x00, 0x20, 0x01, 0x03};
+    const uint8_t body[] = {0x03, 0x06, 0x00, 0x30, 0x01, 0x03};
     size_t n = framed(req, body, sizeof(body));
     o2p_mb_dispatch(req, n, 3, &handlers, rsp);
     TEST_ASSERT_EQUAL_HEX8(0x86, rsp[1]);
@@ -202,7 +203,7 @@ static void test_unknown_function_is_exception_01(void)
 static void test_broadcast_never_replies(void)
 {
     uint8_t req[16], rsp[O2P_MB_MAX_ADU];
-    const uint8_t body[] = {0x00, 0x06, 0x00, 0x20, 0x00, 0x05};
+    const uint8_t body[] = {0x00, 0x06, 0x00, 0x30, 0x00, 0x05};
     size_t n = framed(req, body, sizeof(body));
     TEST_ASSERT_EQUAL_UINT(0, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
     /* ...but the write was still executed. */
@@ -215,7 +216,7 @@ static void test_write_rejects_illegal_slave_address(void)
 {
     uint8_t req[16], rsp[O2P_MB_MAX_ADU];
     /* 253 is the discovery alias, not a legal unicast address. */
-    const uint8_t body[] = {0x03, 0x06, 0x00, 0x20, 0x00, 0xFD};
+    const uint8_t body[] = {0x03, 0x06, 0x00, 0x30, 0x00, 0xFD};
     size_t n = framed(req, body, sizeof(body));
     size_t len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
     TEST_ASSERT_EQUAL_HEX8(0x86, rsp[1]);
@@ -232,7 +233,7 @@ static void test_partly_illegal_multiwrite_commits_nothing(void)
      * address landed and the baud did not, the probe would answer at a new
      * address the operator does not know about. */
     uint8_t req[32], rsp[O2P_MB_MAX_ADU];
-    const uint8_t body[] = {0x03, 0x10, 0x00, 0x20, 0x00, 0x02, 0x04,
+    const uint8_t body[] = {0x03, 0x10, 0x00, 0x30, 0x00, 0x02, 0x04,
                             0x00, 0x05, 0x00, 0x63};
     size_t n = framed(req, body, sizeof(body));
     size_t len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
@@ -245,12 +246,12 @@ static void test_partly_illegal_multiwrite_commits_nothing(void)
 static void test_commit_and_cal_need_their_magic(void)
 {
     uint8_t req[16], rsp[O2P_MB_MAX_ADU];
-    const uint8_t bad[] = {0x03, 0x06, 0x00, 0x2E, 0x00, 0x01};
+    const uint8_t bad[] = {0x03, 0x06, 0x00, 0x3E, 0x00, 0x01};
     size_t n = framed(req, bad, sizeof(bad));
     o2p_mb_dispatch(req, n, 3, &handlers, rsp);
     TEST_ASSERT_FALSE(rm.commit_pending);
 
-    const uint8_t good[] = {0x03, 0x06, 0x00, 0x2E, 0x5A, 0xC1};
+    const uint8_t good[] = {0x03, 0x06, 0x00, 0x3E, 0x5A, 0xC1};
     n = framed(req, good, sizeof(good));
     o2p_mb_dispatch(req, n, 3, &handlers, rsp);
     TEST_ASSERT_TRUE(rm.commit_pending);
@@ -343,6 +344,40 @@ static void test_absurd_tempco_cannot_produce_a_number(void)
                       o2p_fraction_from_current(&cal, 70000, 4500, &c));
 }
 
+static void test_written_calibration_must_also_be_plausible(void)
+{
+    /* The automatic air-point routine has always range-checked its input, but
+     * a Modbus WRITE to CAL_AIR_NA_HI/LO used to be accepted on the sole
+     * condition that it was not negative. Writing the two halves of an
+     * intended 70000 nA in the wrong order gives 0x11700001 = 292552705 nA,
+     * which makes K enormous and converts every real reading to ~0.006 %vol
+     * - published as 0.01 %vol with NEITHER CAL_DEFAULT nor ADC_RANGE set.
+     * A buried probe would report a hard anoxic pile, in range, with a clean
+     * fault word. */
+    uint8_t req[32], rsp[O2P_MB_MAX_ADU];
+    const uint8_t swapped[] = {0x03, 0x10, 0x00, 0x37, 0x00, 0x02, 0x04,
+                               0x11, 0x70, 0x00, 0x01};
+    size_t n = framed(req, swapped, sizeof(swapped));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE, rsp[2]);
+    TEST_ASSERT_EQUAL_INT32(0, rm.cfg.cal_air_na);
+
+    /* The same value written correctly is accepted. */
+    const uint8_t good[] = {0x03, 0x10, 0x00, 0x37, 0x00, 0x02, 0x04,
+                            0x00, 0x01, 0x11, 0x70};
+    n = framed(req, good, sizeof(good));
+    size_t len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_UINT(8, len);
+    TEST_ASSERT_EQUAL_INT32(70000, rm.cfg.cal_air_na);
+
+    /* And zero still means "never calibrated", which is legal. */
+    const uint8_t zero[] = {0x03, 0x10, 0x00, 0x37, 0x00, 0x02, 0x04,
+                            0x00, 0x00, 0x00, 0x00};
+    n = framed(req, zero, sizeof(zero));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_INT32(0, rm.cfg.cal_air_na);
+}
+
 static void test_implausible_air_point_is_rejected(void)
 {
     /* A calibration taken in nitrogen, or with the cell unplugged, must not
@@ -355,6 +390,76 @@ static void test_implausible_air_point_is_rejected(void)
 }
 
 /* ------------------------------------------------------- validity matrix */
+
+static void test_uncalibrated_invalidates_comp_but_not_raw(void)
+{
+    /* An uncalibrated cell still measures a real current, so the RAW channel
+     * stands. The COMPENSATED channel is that current divided by a constant
+     * nobody has measured - the datasheet nominal spans 0.04-0.10 mA - so a
+     * 12 %vol reading against a true 21 %vol would be indistinguishable from
+     * a genuinely alarming result. */
+    TEST_ASSERT_TRUE(o2p_o2_valid(O2P_F_CAL_DEFAULT));
+    TEST_ASSERT_FALSE(o2p_o2_comp_valid(O2P_F_CAL_DEFAULT));
+    /* TEMP_OVER still invalidates neither. */
+    TEST_ASSERT_TRUE(o2p_o2_valid(O2P_F_TEMP_OVER));
+    TEST_ASSERT_TRUE(o2p_o2_comp_valid(O2P_F_TEMP_OVER));
+    /* Anything that kills the raw channel kills the compensated one too. */
+    TEST_ASSERT_FALSE(o2p_o2_comp_valid(O2P_F_ADC_RANGE));
+    TEST_ASSERT_FALSE(o2p_o2_comp_valid(O2P_F_SETTLING));
+}
+
+static void test_discovery_alias_refuses_writes(void)
+{
+    /* The SMT100 re-addressing recipe writes through 253. With two devices
+     * answering the alias that reconfigures both, so ours refuses - the
+     * address is recoverable by READING through 253 instead. */
+    uint8_t req[16], rsp[O2P_MB_MAX_ADU];
+    const uint8_t body[] = {0xFD, 0x06, 0x00, 0x30, 0x00, 0x07};
+    size_t n = framed(req, body, sizeof(body));
+    size_t len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_UINT(5, len);
+    TEST_ASSERT_EQUAL_HEX8(0x86, rsp[1]);
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_FUNCTION, rsp[2]);
+    TEST_ASSERT_EQUAL_UINT8(3, rm.cfg.slave_addr);
+}
+
+static void test_snapshot_reset_clears_every_measurement_channel(void)
+{
+    /* The sampler builds each cycle from invalid rather than copying the
+     * previous snapshot forward. If this ever stops clearing a channel, a
+     * dead sensor publishes last cycle's plausible value under this cycle's
+     * fault word. */
+    o2p_snapshot_t *s = o2p_regmap_staging(&rm);
+    s->o2_comp = 1234; s->o2_raw = 1234; s->t_tip = 1234; s->t_chamber = 1234;
+    s->rh_chamber = 1234; s->dew_margin_x100 = 1234; s->vref_mv = 1234;
+    s->va_mv = 1234; s->vin_mv = 1234; s->afe_vout_mv = 1234;
+    s->lmp_readback = 1234; s->pressure_hpa = 1234;
+    s->sample_seq = 77;   /* cumulative: must SURVIVE */
+
+    o2p_snapshot_reset(s);
+
+    TEST_ASSERT_EQUAL_UINT16(O2P_U16_INVALID, s->o2_comp);
+    TEST_ASSERT_EQUAL_HEX16((uint16_t)O2P_I16_INVALID, (uint16_t)s->o2_raw);
+    TEST_ASSERT_EQUAL_HEX16((uint16_t)O2P_I16_INVALID, (uint16_t)s->t_tip);
+    TEST_ASSERT_EQUAL_HEX16((uint16_t)O2P_I16_INVALID, (uint16_t)s->t_chamber);
+    TEST_ASSERT_EQUAL_UINT16(O2P_U16_INVALID, s->rh_chamber);
+    TEST_ASSERT_EQUAL_HEX16((uint16_t)O2P_I16_INVALID,
+                            (uint16_t)s->dew_margin_x100);
+    /* The unsigned diagnostics must reset to the SENTINEL, not to zero.
+     * Zero is a perfectly possible real reading for every one of them - 0 mV
+     * on a collapsed rail, an all-zero LMP91000 register image after a reset
+     * - so publishing zero for "not measured" would be indistinguishable from
+     * a genuine and alarming measurement. */
+    TEST_ASSERT_EQUAL_UINT16(O2P_U16_INVALID, s->vref_mv);
+    TEST_ASSERT_EQUAL_UINT16(O2P_U16_INVALID, s->va_mv);
+    TEST_ASSERT_EQUAL_UINT16(O2P_U16_INVALID, s->vin_mv);
+    TEST_ASSERT_EQUAL_UINT16(O2P_U16_INVALID, s->afe_vout_mv);
+    TEST_ASSERT_EQUAL_UINT16(O2P_U16_INVALID, s->lmp_readback);
+    /* pressure_hpa is the documented exception: 0 states that the BMP390
+     * footprint is not populated, which is a fact about the board. */
+    TEST_ASSERT_EQUAL_UINT16(0, s->pressure_hpa);
+    TEST_ASSERT_EQUAL_UINT16(77, s->sample_seq);
+}
 
 static void test_validity_matrix(void)
 {
@@ -423,10 +528,54 @@ static void test_dew_margin_sign(void)
     TEST_ASSERT_FALSE(o2p_dew_margin_k(58.0f, 55.0f, 0.0f, &m));
 }
 
+static void test_random_garbage_never_provokes_a_reply(void)
+{
+    /* "Never transmit unsolicited" is the one rule that protects the other
+     * devices on this cable. Pseudo-random frames stand in for line noise, a
+     * collision, and another master's traffic: none may produce a response
+     * unless they happen to be a valid ADU addressed to us, which a random
+     * 16-bit CRC will essentially never be.
+     *
+     * Fixed seed, so a failure is reproducible rather than a flake. */
+    uint32_t seed = 0x13572468u;
+    uint8_t buf[64], rsp[O2P_MB_MAX_ADU];
+    unsigned replies = 0;
+
+    for (unsigned trial = 0; trial < 20000u; trial++) {
+        seed = seed * 1664525u + 1013904223u;
+        size_t len = 1u + (seed >> 24) % 40u;
+        for (size_t i = 0; i < len; i++) {
+            seed = seed * 1664525u + 1013904223u;
+            buf[i] = (uint8_t)(seed >> 16);
+        }
+        o2p_mb_disposition_t d = o2p_mb_classify(buf, len, 3);
+        if (d == O2P_MB_DROP) {
+            continue;
+        }
+        /* Passed CRC by chance and was addressed to us. It may legitimately
+         * answer - but it must never run off the end of the buffer or return
+         * a length longer than an ADU. */
+        size_t n = o2p_mb_dispatch(buf, len, 3, &handlers, rsp);
+        TEST_ASSERT_TRUE(n <= O2P_MB_MAX_ADU);
+        if (n > 0u) {
+            replies++;
+            /* Whatever it is, it must be a well-formed ADU. */
+            TEST_ASSERT_TRUE(n >= 4u);
+            uint16_t sent = (uint16_t)rsp[n - 2] | ((uint16_t)rsp[n - 1] << 8);
+            TEST_ASSERT_EQUAL_HEX16(o2p_mb_crc16(rsp, n - 2), sent);
+        }
+    }
+    /* A 16-bit CRC over random bytes passes about 1 in 65536, and only a
+     * fraction of those carry our address, so a handful at most. A large
+     * number would mean the CRC check is not actually gating anything. */
+    TEST_ASSERT_TRUE(replies < 20u);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
     RUN_TEST(test_crc16_known_vectors);
+    RUN_TEST(test_random_garbage_never_provokes_a_reply);
     RUN_TEST(test_classify_addressing);
     RUN_TEST(test_classify_rejects_corrupt);
     RUN_TEST(test_read_primary_block);
@@ -448,6 +597,10 @@ int main(void)
     RUN_TEST(test_monotonic_across_the_whole_range);
     RUN_TEST(test_absurd_tempco_cannot_produce_a_number);
     RUN_TEST(test_implausible_air_point_is_rejected);
+    RUN_TEST(test_written_calibration_must_also_be_plausible);
+    RUN_TEST(test_uncalibrated_invalidates_comp_but_not_raw);
+    RUN_TEST(test_discovery_alias_refuses_writes);
+    RUN_TEST(test_snapshot_reset_clears_every_measurement_channel);
     RUN_TEST(test_validity_matrix);
     RUN_TEST(test_snapshot_is_invalid_before_the_first_sample);
     RUN_TEST(test_dewpoint_reference_points);

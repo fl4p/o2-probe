@@ -8,14 +8,13 @@
 
 void o2p_lmp91000_gpio_init(void)
 {
-    RCC->IOPENR |= RCC_IOPENR_GPIOBEN;
     /* MENB is active low and R17 (100k) already holds it there, so the AFE is
      * addressable through MCU reset - deliberate, per PLAN.md:234-236, so that
      * I2C availability does not depend on firmware having run. Driving it
      * actively just makes that state independent of the pull-down's leakage. */
-    GPIOB->BSRR = (1u << (O2P_AFE_MENB_PIN + 16u));         /* low = enabled */
-    GPIOB->OTYPER &= ~(1u << O2P_AFE_MENB_PIN);
-    GPIOB->MODER = (GPIOB->MODER & ~(3u << (O2P_AFE_MENB_PIN * 2u))) |
+    O2P_AFE_MENB_PORT->BSRR = (1u << (O2P_AFE_MENB_PIN + 16u));         /* low = enabled */
+    O2P_AFE_MENB_PORT->OTYPER &= ~(1u << O2P_AFE_MENB_PIN);
+    O2P_AFE_MENB_PORT->MODER = (O2P_AFE_MENB_PORT->MODER & ~(3u << (O2P_AFE_MENB_PIN * 2u))) |
                    (1u << (O2P_AFE_MENB_PIN * 2u));         /* output */
 }
 

@@ -43,9 +43,20 @@ enum {
     O2P_F_HEATER_DISABLED     = 1u << 15, /* always set in v0 */
 };
 
-/* Any one of these means the oxygen channel cannot be trusted at all, so the
- * O2 registers must read their invalid sentinel rather than a plausible
- * number. Note what is deliberately absent: TEMP_OVER and CAL_DEFAULT. */
+/* Two masks, because the raw cell current and the compensated volume fraction
+ * fail for different reasons.
+ *
+ * O2_RAW is a physical measurement of the cell: microamps through a known
+ * transimpedance. It is meaningful with no calibration at all, and it is the
+ * channel the bench uses to resolve the open sign-convention gate.
+ *
+ * O2_COMP is that current divided by a calibration constant. Without an air
+ * point there IS no constant - the datasheet nominal spans 0.04 to 0.10 mA,
+ * so a substituted nominal can be wrong by -43 % to +43 %. A number that may
+ * be 43 % out is not "lower-confidence data", it is an unknown scale factor
+ * wearing the units of a measurement, and 12 %vol against a true 21 %vol is
+ * indistinguishable from a real, alarming result. So CAL_DEFAULT invalidates
+ * the compensated channel while leaving the raw one intact. */
 #define O2P_FAULTS_INVALIDATE_O2 ( \
       O2P_F_SETTLING            \
     | O2P_F_I2C_FAIL_LMP        \
@@ -53,6 +64,12 @@ enum {
     | O2P_F_AFE_CONFIG_MISMATCH \
     | O2P_F_VA_LOW              \
     | O2P_F_ADC_RANGE )
+
+/* Everything above, plus the reasons the CONVERSION cannot be trusted even
+ * when the current reading is fine. */
+#define O2P_FAULTS_INVALIDATE_O2_COMP ( \
+      O2P_FAULTS_INVALIDATE_O2 \
+    | O2P_F_CAL_DEFAULT )
 
 /* The chamber channels have their own dependencies: RH and chamber
  * temperature come from the SHT45, tip temperature from the TMP117. */
@@ -72,9 +89,16 @@ enum {
 #define O2P_U16_INVALID 0xFFFFu
 #define O2P_I16_INVALID ((int16_t)0x8000)
 
+/* Is the raw cell-current channel trustworthy? */
 static inline bool o2p_o2_valid(uint16_t faults)
 {
     return (faults & O2P_FAULTS_INVALIDATE_O2) == 0u;
+}
+
+/* Is the compensated %vol channel trustworthy? */
+static inline bool o2p_o2_comp_valid(uint16_t faults)
+{
+    return (faults & O2P_FAULTS_INVALIDATE_O2_COMP) == 0u;
 }
 
 #endif /* O2P_FAULTS_H */

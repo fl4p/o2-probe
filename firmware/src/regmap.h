@@ -56,30 +56,42 @@ enum {
     O2P_REG_MB_FRAME_ERRS= 0x001Du,
     O2P_REG_I2C_ERRS     = 0x001Eu,
     O2P_REG_EXP_DATA     = 0x001Fu, /* 0xFFFF = no expansion head present */
+    /* Sampled supervision is not proof. The MCU checks the analog rail and the
+     * AFE's register image once a second, so a 3V3A excursion that begins and
+     * recovers between samples is missed entirely - the readback afterwards is
+     * correct and the rail reads normal, while the cell in fact needs another
+     * 15 minutes. These two counters are what makes that visible from a buried
+     * probe: a SETTLE_RESTARTS that climbs without a corresponding fault ever
+     * being caught in an uplink is the signature of exactly that. */
+    O2P_REG_SETTLE_RESTARTS = 0x0020u,
+    /* Increments on every published cycle. A master that sees this frozen
+     * across two polls knows the sampler has stalled even though every other
+     * register still holds a plausible value. */
+    O2P_REG_SAMPLE_SEQ      = 0x0021u,
 };
 #define O2P_REG_DIAG_BASE  0x0010u
-#define O2P_REG_DIAG_COUNT 16u
+#define O2P_REG_DIAG_COUNT 18u
 
 /* ---- Config block: 0x0020, 16 registers, read/write, flash-backed ---- */
 enum {
-    O2P_REG_SLAVE_ADDR      = 0x0020u,
-    O2P_REG_BAUD_CODE       = 0x0021u,
-    O2P_REG_PARITY_CODE     = 0x0022u,
-    O2P_REG_RH_SETPOINT     = 0x0023u, /* 0.01 %RH, v1 heater loop target */
-    O2P_REG_DT_MAX_K        = 0x0024u, /* 0.01 K, tip-above-chamber clamp */
-    O2P_REG_HEATER_MAX_DUTY = 0x0025u, /* 0.01 % */
-    O2P_REG_HEATER_PWM_HZ   = 0x0026u,
-    O2P_REG_CAL_AIR_NA_HI   = 0x0027u,
-    O2P_REG_CAL_AIR_NA_LO   = 0x0028u,
-    O2P_REG_CAL_TEMP_C100   = 0x0029u, /* i16 */
-    O2P_REG_TEMPCO_PPM_K    = 0x002Au, /* i16 ppm/K; 0 = no compensation */
-    O2P_REG_SHT_PULSE_H     = 0x002Bu,
-    O2P_REG_SHT_PULSE_TRIG  = 0x002Cu,
-    O2P_REG_CAL_TRIGGER     = 0x002Du, /* write O2P_CAL_MAGIC to take an air point */
-    O2P_REG_COMMIT          = 0x002Eu, /* write O2P_COMMIT_MAGIC to persist */
-    O2P_REG_CONFIG_CRC      = 0x002Fu, /* read-only CRC of the live config */
+    O2P_REG_SLAVE_ADDR      = 0x0030u,
+    O2P_REG_BAUD_CODE       = 0x0031u,
+    O2P_REG_PARITY_CODE     = 0x0032u,
+    O2P_REG_RH_SETPOINT     = 0x0033u, /* 0.01 %RH, v1 heater loop target */
+    O2P_REG_DT_MAX_K        = 0x0034u, /* 0.01 K, tip-above-chamber clamp */
+    O2P_REG_HEATER_MAX_DUTY = 0x0035u, /* 0.01 % */
+    O2P_REG_HEATER_PWM_HZ   = 0x0036u,
+    O2P_REG_CAL_AIR_NA_HI   = 0x0037u,
+    O2P_REG_CAL_AIR_NA_LO   = 0x0038u,
+    O2P_REG_CAL_TEMP_C100   = 0x0039u, /* i16 */
+    O2P_REG_TEMPCO_PPM_K    = 0x003Au, /* i16 ppm/K; 0 = no compensation */
+    O2P_REG_SHT_PULSE_H     = 0x003Bu,
+    O2P_REG_SHT_PULSE_TRIG  = 0x003Cu,
+    O2P_REG_CAL_TRIGGER     = 0x003Du, /* write O2P_CAL_MAGIC to take an air point */
+    O2P_REG_COMMIT          = 0x003Eu, /* write O2P_COMMIT_MAGIC to persist */
+    O2P_REG_CONFIG_CRC      = 0x003Fu, /* read-only CRC of the live config */
 };
-#define O2P_REG_CONFIG_BASE  0x0020u
+#define O2P_REG_CONFIG_BASE  0x0030u
 #define O2P_REG_CONFIG_COUNT 16u
 
 /* Deliberate magics rather than "write 1". A flash cycle and a recalibration
@@ -144,7 +156,16 @@ typedef struct {
     uint16_t mb_frame_errs;
     uint16_t i2c_errs;
     uint16_t exp_data;
+    uint16_t settle_restarts;
+    uint16_t sample_seq;
 } o2p_snapshot_t;
+
+/* Reset every channel to its invalid sentinel. The sampler calls this at the
+ * START of each cycle rather than copying the previous snapshot forward, so a
+ * channel whose read failed this cycle CANNOT publish last cycle's plausible
+ * value under this cycle's fault word. Carrying values forward is the classic
+ * way a dead sensor keeps looking alive. */
+void o2p_snapshot_reset(o2p_snapshot_t *s);
 
 typedef struct {
     o2p_snapshot_t buf[2];

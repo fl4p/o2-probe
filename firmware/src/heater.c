@@ -7,14 +7,12 @@ static uint16_t s_duty_x100;
 
 void o2p_heater_init(void)
 {
-    RCC->IOPENR |= RCC_IOPENR_GPIOAEN;
-
     /* Drive the gate low BEFORE switching the pin to an output, so the pin
      * never presents an undefined level to a MOSFET gate that switches 1 W. */
-    GPIOA->BSRR = (1u << (O2P_HEATER_PWM_PIN + 16u));
-    GPIOA->OTYPER &= ~(1u << O2P_HEATER_PWM_PIN);
-    GPIOA->PUPDR &= ~(3u << (O2P_HEATER_PWM_PIN * 2u));
-    GPIOA->MODER = (GPIOA->MODER & ~(3u << (O2P_HEATER_PWM_PIN * 2u))) |
+    O2P_HEATER_PWM_PORT->BSRR = (1u << (O2P_HEATER_PWM_PIN + 16u));
+    O2P_HEATER_PWM_PORT->OTYPER &= ~(1u << O2P_HEATER_PWM_PIN);
+    O2P_HEATER_PWM_PORT->PUPDR &= ~(3u << (O2P_HEATER_PWM_PIN * 2u));
+    O2P_HEATER_PWM_PORT->MODER = (O2P_HEATER_PWM_PORT->MODER & ~(3u << (O2P_HEATER_PWM_PIN * 2u))) |
                    (1u << (O2P_HEATER_PWM_PIN * 2u));   /* plain output */
 
     /* PA8 is TIM1_CH1 and PA7 - the 3V3A rail monitor - is TIM1_CH1N, the
@@ -50,6 +48,6 @@ uint16_t o2p_heater_duty_x100(void)
 
 void o2p_heater_force_off(void)
 {
-    GPIOA->BSRR = (1u << (O2P_HEATER_PWM_PIN + 16u));
+    O2P_HEATER_PWM_PORT->BSRR = (1u << (O2P_HEATER_PWM_PIN + 16u));
     s_duty_x100 = 0u;
 }

@@ -1,5 +1,10 @@
 # o2-probe Rev A firmware — v0
 
+> **DEPLOYMENT PROHIBITED.** v0 is a bench and short-trial build. It has no
+> membrane heater and no RS-485 bootloader. Do not bury a probe running it, and
+> do not pot one. The reasons are in "What v0 does and does not do" below, and
+> neither is a matter of polish.
+
 Modbus RTU slave for the SGX-OX-ROHS-Mini oxygen probe. STM32G071CBT7,
 PlatformIO + STM32Cube (HAL headers, direct CMSIS register code).
 
@@ -20,7 +25,11 @@ python3 tools/gen_hw_contract.py --check    # what the build runs
 Does: all four I²C devices, the oxygen conversion with air-point calibration,
 the Modbus RTU slave and the full register map, bias supervision with the
 15-minute settling rule, the condensation-margin channel, flash-backed
-configuration, and an independent watchdog.
+configuration, and an independent watchdog (IWDG, /64 prescaler, reload 2047 — 4.096 s
+nominal, roughly 2.7–6.5 s over the LSI's spread). The watchdog is fed only
+while the sampler is completing cycles **and** the RS-485 driver is not stuck
+enabled; nothing else in the firmware feeds it, because a safety interlock with
+a second, unconditional key is not one.
 
 **Does not: drive the membrane heater.** `DESIGN.md:47-51` and
 `FAB-READINESS.md:61` both state the TMP117 ALERT path "is not credited as an
@@ -45,16 +54,30 @@ through the half-duplex DE line. **Do not pot a probe running v0.**
 ## Bus settings
 
 9600 8E1, matching the Truebner SMT100s already on this cable
-(`tech/RS485-LS-SMT100.md:277`). Default slave address **3** — 1 and 2 are the
-two SMT100s. Address **253** is answered as a discovery alias, the same
-convention the SMT100 uses; that is only safe with a single device connected,
-because two responders collide.
+(`tech/RS485-LS-SMT100.md:277`). Default slave address **3** — 1 and 2 are the two SMT100s.
 
-The Dragino master reads with literal pre-programmed frames:
+Address **253** is answered as a discovery alias, the same convention the
+SMT100 uses — but **reads only**. The SMT100 procedure re-addresses through 253
+(`AT+CFGDEV=FD 06 00 04 00 01,1`), and that is exactly the operation that
+writes to *every* device answering the alias if more than one is connected.
+Reading a probe's own `SLAVE_ADDR` through 253 recovers the address just as
+well, after which the write goes to the real unicast address: same capability,
+no way to reconfigure the wrong device. A write to 253 returns exception 01.
+
+### Provisioning the master
+
+Three settings, and they are one unit — set and read back together.
 
 ```
 AT+COMMAND3=03 03 00 00 00 08,1     # this probe, primary block, 8 registers
+AT+DATACUT3=21,2,4~19               # keep ONLY the 16 data bytes
 ```
+
+`AT+DATACUT3` is not optional. The FC03 reply is
+`1 addr + 1 func + 1 bytecount + 16 data + 2 CRC = 21 bytes`, and without a
+command-specific cut the node retains a range that shifts every following field
+in the decoder (`DRAGINO.md:252`). The syntax is
+`AT+DATACUTn=<len>,<mode>,<range>`, bytes numbered from 1.
 
 ## Register map
 
@@ -84,14 +107,25 @@ fault, not like anoxia.
 convention as an open release gate, and the bench air-versus-nitrogen pair is
 what settles it. Firmware that took an absolute value would hide the answer.
 
-### Diagnostic block — `0x0010`, 16 registers, read-only
+### Diagnostic block — `0x0010`, 18 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
 0.01 K), `PRESSURE_HPA` (0 — BMP390 is DNP), `UPTIME_HI/LO`, `FW_VERSION`,
 `HW_REV`, `RESET_CAUSE`, `LMP_READBACK` (TIACN<<8 | REFCN as actually read),
-`MB_CRC_ERRS`, `MB_FRAME_ERRS`, `I2C_ERRS`, `EXP_DATA` (`0xFFFF` — J2 is DNP).
+`MB_CRC_ERRS`, `MB_FRAME_ERRS`, `I2C_ERRS`, `EXP_DATA` (`0xFFFF` — J2 is DNP),
+then two that exist because supervision here is *sampled*, not continuous:
 
-### Config block — `0x0020`, 16 registers, read/write, flash-backed
+- `SETTLE_RESTARTS` `0x0020` — how many times the 15-minute settling timer has
+  been restarted. The rail and AFE checks run once a second, so a 3V3A
+  excursion that begins and recovers between samples is missed entirely: the
+  readback afterwards is correct and the rail reads normal, while the cell in
+  fact needs another 15 minutes. A counter climbing without a matching fault
+  ever appearing in an uplink is the signature of exactly that.
+- `SAMPLE_SEQ` `0x0021` — increments on every published cycle. Frozen across
+  two polls means the sampler has stalled, even though every other register
+  still holds a plausible value.
+
+### Config block — `0x0030`, 16 registers, read/write, flash-backed
 
 `SLAVE_ADDR`, `BAUD_CODE`, `PARITY_CODE`, `RH_SETPOINT`, `DT_MAX_K`,
 `HEATER_MAX_DUTY`, `HEATER_PWM_HZ`, `CAL_AIR_NA_HI/LO`, `CAL_TEMP_C100`,
@@ -106,8 +140,8 @@ Two actions need a magic value, not a `1`:
 
 | Register | Magic | Effect |
 |---|---|---|
-| `CAL_TRIGGER` `0x002D` | `0xCA11` | take an air-point calibration this cycle |
-| `COMMIT` `0x002E` | `0x5AC1` | erase and rewrite the config flash page |
+| `CAL_TRIGGER` `0x003D` | `0xCA11` | take an air-point calibration this cycle |
+| `COMMIT` `0x003E` | `0x5AC1` | erase and rewrite the config flash page |
 
 Both are destructive — one overwrites the calibration, the other spends one of
 roughly 10 000 flash cycles and stalls the CPU for tens of milliseconds. A
@@ -129,7 +163,7 @@ roughly 10 000 flash cycles and stalls the CPU for tens of milliseconds. A
 | 9 | `TEMP_OVER` | **no — see below** |
 | 10 | `DEW_SUSPECT` | no |
 | 11 | `ADC_RANGE` | **yes** |
-| 12 | `CAL_DEFAULT` | **no — see below** |
+| 12 | `CAL_DEFAULT` | **`O2_COMP` only — see below** |
 | 13/14 | `EXP_PRESENT` / `EXP_FAIL` | no |
 | 15 | `HEATER_DISABLED` | no (always set in v0) |
 
@@ -141,8 +175,19 @@ enforced by `_Static_assert` in `src/faults.c`:
   phase is the phase the probe exists to observe. Above 60 °C the reading is an
   *extrapolation* and is flagged as one. This overrides
   `compostlab/research/COMPOST-O2.md` §6.
-- **`CAL_DEFAULT` does not invalidate.** An uncalibrated cell is 0.07 ± 0.03 mA
-  in air — data of known-poor accuracy, not absent data.
+- **`CAL_DEFAULT` invalidates `O2_COMP` but not `O2_RAW`.** The two channels
+  fail for different reasons. `O2_RAW` is a physical measurement — microamps
+  through a known transimpedance — and is meaningful with no calibration at
+  all; it is also the channel the bench uses to resolve the open sign-convention
+  gate. `O2_COMP` is that current divided by a constant nobody has measured:
+  the datasheet nominal spans 0.04–0.10 mA, so a substituted value can be 43 %
+  out, and 12 %vol against a true 21 %vol is indistinguishable from a real and
+  alarming result. That is not lower-confidence data, it is an unknown scale
+  factor wearing the units of a measurement.
+
+A related rule with the same shape: if a non-zero temperature coefficient is
+configured but no temperature is available, `O2_COMP` is invalid rather than
+silently computed with a zero correction and presented as compensated.
 
 Before the first sample completes, every channel reads its invalid sentinel and
 `SETTLING` is set. A freshly booted probe that never converts must not publish
@@ -177,11 +222,21 @@ Flash from the **Nucleo-H503RB's** on-board ST-LINK in external-target mode
 J3. J3.1 is VTREF, not a supply — power the board from its 12 V feed with the
 bench PSU current-limited to ~300 mA.
 
-1. **Trim RV1 to `VREF_TRIM` = 2.500 V at TP4.** The LMP91000's 24 % bias step
-   is the top step it offers, so 0.24 × 2.500 V = 600.0 mV exactly, and the
-   SGX's ±10 mV window means VREF must land within about ±42 mV. 2.500 V sits
-   at roughly 60 % of RV1's travel. **Firmware cannot do this** — it can only
-   verify it, via `VREF_MON_MV`.
+1. **Trim RV1 to `VREF_TRIM` = 2.500 V at TP4** — then **measure the actual
+   bias.** The LMP91000's 24 % step is the top one it offers, so nominally
+   0.24 × 2.500 V = 600.0 mV, and the SGX's ±10 mV window implies VREF within
+   about ±42 mV. 2.500 V sits at roughly 60 % of RV1's travel. **Firmware
+   cannot do this** — it can only verify VREF via `VREF_MON_MV`.
+
+   **But trimming TP4 does not prove the cell sees −600 ± 10 mV.** The
+   LMP91000's bias programming carries its own error — `PLAN.md:174` records
+   ±2 % of VREF, i.e. ±50 mV, which alone is five times the cell's window — so
+   the nominal product of two nominal numbers is not an acceptance test.
+   Measure the real V(WE) − V(RE) at the fitted cell and adjust RV1 against
+   *that*, over supply and temperature. Note `CELL_RE` deliberately has no test
+   point or via (it is a guarded trace), so this measurement is taken at the
+   cell pins. An overbiased cell drifts or degrades, and no firmware can undo
+   it once the probe is potted.
 2. I²C scan → exactly `0x40`, `0x44`, `0x48`, `0x49`.
 3. `VREF_MON_MV` should read ≈2500. It is measured on AIN1 against the
    ADS1119's *internal* 2.048 V reference, because a converter referenced to
@@ -203,6 +258,57 @@ bench PSU current-limited to ~300 mA.
     with the MCU alive and confirm the firmware raises
     `AFE_CONFIG_MISMATCH`/`VA_LOW`, rewrites the AFE, and *restarts the
     settling timer*.
+
+## Known limitations of v0
+
+- **Bias supervision is sampled, not continuous.** The rail and AFE checks run
+  at 1 Hz, so a short 3V3A excursion between samples is missed. `SETTLE_RESTARTS`
+  makes the sampled-ness visible; a continuous analog watchdog on PA7, or an
+  external supervisor, is the real fix and is v1 work.
+- **No `t1.5` inter-character check.** Framing uses only the hardware receiver
+  timeout for the 3.5-character inter-frame silence. A malformed frame with an
+  internal 1.5–3.5 character gap is accepted at the framing layer and rejected
+  only if the CRC happens to fail. With a single well-behaved Dragino master
+  this is low risk; it is a deviation from the RTU specification all the same,
+  and it is counted in `MB_CRC_ERRS` when it bites.
+- **BOR level and option bytes are not configured by firmware, deliberately.**
+  A slow brownout above an unsuitable BOR threshold can corrupt a flash commit,
+  so the level must be *chosen and audited* before deployment — but programming
+  option bytes from application firmware is permanent enough that it belongs in
+  a deliberate production step, not a boot path. Keep RDP at level 0 through
+  first-article and bootloader validation; **never RDP 2**, which would remove
+  every recovery path from a device whose SWD connector is already inside the
+  potting.
+- **Every reset costs 15 minutes of settling.** An earlier version skipped the
+  wait when the reset was not a power-cycle and the LMP91000's registers read
+  back intact. That inference does not hold: the readback proves the AFE's
+  *digital* configuration survived, not that `VREF_TRIM` stayed present. An EMI
+  event that resets the MCU can equally collapse the reference buffer for a few
+  milliseconds, with VREF back long before the readback runs. Fifteen minutes
+  of honest invalidity, at most once per reset, beats an unknown interval of
+  confident wrong numbers from a buried instrument.
+- **The unsigned diagnostic channels use `0xFFFF` for "not measured", not 0.**
+  Zero is a possible real reading for every one of them — 0 mV on a collapsed
+  rail, an all-zero LMP91000 register image after a reset. `PRESSURE_HPA` is
+  the deliberate exception: its 0 states that the BMP390 footprint is not
+  populated, which is a fact about the board rather than a failed measurement.
+- **A request older than 400 ms is dropped rather than answered.** The master's
+  Modbus timeout is about 1 s, and a reply sent after it has given up does not
+  merely go unheard — it lands on top of whatever transaction the master
+  started next and corrupts another slave's answer. One lost poll is cheaper
+  than a frame injected into someone else's exchange.
+- **The SHT45 de-creep pulse is scheduled and its readings are masked.** The
+  pulse runs on the configured interval (default 8 h) as well as on demand, and
+  the chamber channels read invalid for 30 s afterwards. That window is a
+  conservative guess, not a measurement: **it is unverified on this part in
+  this chamber**, and the bench run that establishes it is the same one that
+  would turn the slow-recovery signature into the `DEW_SUSPECT` classifier
+  `PLAN.md:312` asks for.
+- **The TMP117's safety configuration is latched and re-verified.** A part
+  whose therm-mode alert failed to program still answers temperature reads
+  perfectly, so nothing else would notice the hardware heater cutoff was not
+  armed. `o2p_tmp117_safety_armed()` is the gate **v1's heater loop must
+  refuse to energise without**.
 
 ## Downstream work this creates
 

@@ -89,6 +89,15 @@ size_t o2p_mb_dispatch(const uint8_t *req, size_t req_len,
     const uint8_t fc = req[1];
     const bool broadcast = (addr == O2P_MB_ADDR_BROADCAST);
 
+    /* The discovery alias answers reads only - see the header. A write that
+     * arrives on 253 is refused rather than ignored, so an operator who tries
+     * the SMT100 re-addressing recipe gets told no instead of silently
+     * reconfiguring whichever devices happened to be listening. */
+    if (addr == O2P_MB_ADDR_DISCOVERY &&
+        fc != O2P_MB_FC_READ_HOLDING && fc != O2P_MB_FC_READ_INPUT) {
+        return exception(rsp, addr, fc, O2P_MB_EX_ILLEGAL_FUNCTION);
+    }
+
     uint16_t start = 0, count = 0;
     uint16_t regs[O2P_MB_MAX_READ_REGS];
 
