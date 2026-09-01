@@ -64,6 +64,80 @@ emphatic that it must be installed *before potting*, because J3 is not exposed
 through the enclosure and the STM32 ROM bootloader is not proven to work
 through the half-duplex DE line. **Do not pot a probe running this firmware.**
 
+## Field updates: why the v2 bootloader is wired
+
+The question this settles, because it will be asked again: once a probe is
+potted and buried, can it be reflashed through infrastructure that is already
+there — the Dragino's LoRaWAN link, or its BLE console — instead of a wired
+bootloader that has to be installed *before* the epoxy goes on?
+
+No. The arithmetic below is for this image: `firmware.bin` is **23,524 bytes**
+(18.4 % of the 126,976-byte application space). A differential scheme would do
+better, but not by the order of magnitude that would change the answer.
+
+### LoRaWAN downlink: 8 to 38 hours, for a channel that may not exist
+
+The RS485-LS is a Class A node. It opens a receive window only after its own
+uplink, so downlink cadence *is* uplink cadence: `AT+TDC`, 300 s here. Bytes
+per downlink are set by the EU868 data rate — 242 at DR5/SF7, which is the SF
+observed at our gateway (`tech/chirpstack/README.md:345`), and 51 at DR0/SF12,
+which is ChirpStack's default RX2 and the fallback whenever RX1 is missed.
+That 51 is the same DR0 limit the uplink payload was sized against
+(`tech/RS485-LS-SMT100.md:520`).
+
+| window | bytes/downlink | downlinks | at `AT+TDC` = 300 s |
+|---|---|---|---|
+| RX1, DR5/SF7 | 242 | 98 | **8.2 h** |
+| RX2, DR0/SF12 | 51 | 462 | **38.5 h** |
+
+Shortening `AT+TDC` for the campaign does not rescue the SF12 case. One
+51-byte DR0 downlink is ~2.79 s of airtime (12.25 preamble + 73 payload
+symbols at 32.768 ms), so 462 of them is 1,290 s of transmitter time, and the
+10 % duty cycle on the 869.4–869.65 MHz downlink band floors the campaign near
+**3.6 h of gateway airtime** however often the node asks.
+
+That is still the optimistic reading, because it assumes a byte pipe not
+established to exist. `AT+CFGDEV` puts one arbitrary Modbus frame on the bus
+from the AT console (`tech/RS485-LS-SMT100.md:254`), but whether it has a
+*downlink* equivalent is **unverified**: `tech/dragino/DRAGINO.md:199` records
+only that *most* configuration does, explicitly not all. Read it out of
+Dragino's downlink table before anyone designs against it.
+
+The disqualifier is not the duration anyway. LoRaWAN downlinks are unconfirmed
+by default, arrive at most once per window, and leave the probe no way to NAK
+a corrupted page until 300 s later. A bootloader whose failure mode is a
+bricked instrument under a metre of compost needs a link that retries in
+milliseconds. This is the opposite of that.
+
+### BLE: it is the Dragino's console, not a path to this MCU
+
+`tech/dragino/DRAGINO.md:350` does list "OTA over BLE (recommended)" — for the
+**Dragino's own STM32L072**. The BLE console likewise terminates in the
+*node's* AT parser. Neither crosses the RS-485 cable into the o2-probe's
+STM32G071, which has no radio of any kind.
+
+Two more reasons not to build on it even as a carrier. The console has a
+measured, never-isolated truncation failure: a command silently mangled while
+the radio had the CPU, answered by a validator error that did not describe the
+problem (`tech/dragino/DRAGINO.md:121`). And BLE is only advertised after a
+power-on, reset, or button press (`tech/dragino/DRAGINO.md:108`) — all of
+which want hands on a node that is, by assumption, buried.
+
+### Wired RS-485, which is what v2 will use
+
+The cable that carries Modbus carries the image at line rate. At 9600 8E1 a
+byte is 11 bit times, so 872.7 B/s and **26.9 s** for the whole image; at
+38400, **6.7 s**. Line time only — framing, page-erase waits and per-block
+acks are on top. But a transport with that much headroom can acknowledge and
+retry every block, which is the property that actually matters, and it is
+reachable from the same A/B pair a technician already has to touch.
+
+This is why `SCHEMATIC-REVIEW.md` M2 sets the deadline at **potting** and not
+at deployment: J3 is not exposed through the enclosure, the STM32 ROM
+bootloader is not proven to work through the half-duplex DE line, and neither
+wireless route above is a substitute. An application bootloader that was not
+installed before the epoxy cannot be added afterwards.
+
 ## Bus settings
 
 9600 8E1, matching the Truebner SMT100s already on this cable
@@ -244,10 +318,62 @@ with the node. This closes `PLAN.md:424` in the "dedicated PSU" direction.
 
 ## Bring-up
 
-Flash from the **Nucleo-H503RB's** on-board ST-LINK in external-target mode:
-remove both ST-LINK jumpers, and use the 6-pin SWD header on the ST-LINK half
-of the board (CN4 on most Nucleo-64s — check the H503RB's silkscreen). Power
-the probe from its own 12 V feed, bench PSU current-limited to ~300 mA.
+Flash over SWD with any ST-LINK. Power the probe from its own 12 V feed, bench
+PSU current-limited to ~300 mA.
+
+**Not from the Nucleo-H503RB.** That board is MB1814 with an STLINK-V3EC, and
+UM3121 §8.1 offers exactly two options, *both* aimed at the board's own STM32:
+the embedded STLINK-V3EC (JP1 off, the default), or an external debug tool on
+the CN4 STDC14/MIPI10 connector (JP1 fitted [1-2], which puts the STLINK-V3EC
+into reset so it "no longer drives the embedded STM32"). There is no documented
+mode in which the embedded ST-LINK programs an *external* target: the classic
+Nucleo-64 arrangement of pulling two CN2 jumpers and using CN4 as an ST-LINK
+output does not exist here, and JP1 is a single jumper pointing the other way.
+
+CN4 is not a usable substitute either — UM3121 Table 6 describes its pins as
+*target* SWDIO/SWCLK/NRST, i.e. the same net the on-board STM32H503 sits on.
+Hanging a second target off it puts two debug ports on one SWD bus, which has
+no addressing to separate them.
+
+So use a standalone probe. Two that work:
+
+- **Seeed XIAO Debug Mate** (ESP32-S3 DAPLink, CMSIS-DAP). Set
+  `upload_protocol = cmsis-dap` and `debug_tool = cmsis-dap`; the board JSON
+  already lists that protocol and `openocd_target` is `stm32g0x`.
+- **Any ST-LINK/V2 clone**, which needs no configuration change at all.
+
+**Debug Mate pin identification.** Its silkscreen legend has two rows per
+header: the GREEN label is the Debug Mate's own signal, the BLUE label is the
+XIAO socket name for that same physical pin. The debug group is therefore
+scattered across both headers, and the two SWD signals are on *different* ones:
+
+Identify pins by the BLUE label, never by counting positions: the front and
+back legends mirror each other, so "third from the left" means different pins
+depending on which face you are reading.
+
+| Debug Mate (green) | same pin, blue label | header | to J3 pad |
+|---|---|---|---|
+| `SWDIO` | `D4` (`SDA`) | lower | **2** |
+| `SWDCLK` | `D9` (`MISO`) | upper | **4** |
+| `GND` | `D8` (`SCK`) | upper | **5** |
+| `RST/EN` | `D5` (`SCL`) | lower | **3** |
+
+The two SWD signals are on different headers, so the bundle splits.
+
+Use the GREEN `GND` beside `SWDCLK`, not the blue one in the power group - it is
+the debug connector's own return, adjacent to the clock.
+
+**Leave `3V3` and `5V` alone.** Those are in the blue row, i.e. the XIAO
+socket's power rails, which the Debug Mate *drives* in order to power a plugged
+-in XIAO. They are supply outputs, not a `VTref` sense input, so connecting
+`3V3` to the probe's `3V3D` would put a second supply against the probe's own
+LDO while it runs from 12 V. Both boards are 3.3 V logic, so nothing is lost.
+
+`RST/EN` sits inside the green debug group alongside `SWDIO`/`SWDCLK`/`MTMS`/
+`MTCK`, which is what identifies it as the DAPLink *target* reset rather than
+the ESP32-S3's own enable. Wiring it gives connect-under-reset. If an attach
+ever fails without it, the manual equivalent is to ground J3 pad 3 by hand,
+start the upload, and release.
 
 ### Getting SWD onto J3 without a Tag-Connect cable
 
