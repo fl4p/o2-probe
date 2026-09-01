@@ -40,12 +40,11 @@ static bool convert(uint32_t channel, uint16_t *out)
 
 void o2p_mcu_adc_init(void)
 {
-    RCC->IOPENR |= RCC_IOPENR_GPIOAEN;
     RCC->APBENR2 |= RCC_APBENR2_ADCEN;
 
     /* PA7 to analog mode, no pull. */
-    GPIOA->PUPDR &= ~(3u << (O2P_VA_MON_PIN * 2u));
-    GPIOA->MODER |= (3u << (O2P_VA_MON_PIN * 2u));
+    O2P_VA_MON_PORT->PUPDR &= ~(3u << (O2P_VA_MON_PIN * 2u));
+    O2P_VA_MON_PORT->MODER |= (3u << (O2P_VA_MON_PIN * 2u));
 
     ADC1->CR = 0u;
     ADC1->CR = ADC_CR_ADVREGEN;

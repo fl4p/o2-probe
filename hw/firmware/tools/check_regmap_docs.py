@@ -36,11 +36,14 @@ def parse_regmap(text):
                 raise SystemExit("!! regmap.h has no O2P_REG_%s_%s" % (name, kind))
             out["%s_%s" % (name, kind)] = int(m.group(1), 0)
     primary = {}
+    every = {}
     for m in re.finditer(r"O2P_REG_(\w+)\s*=\s*(0x[0-9A-Fa-f]+)u", text):
         addr = int(m.group(2), 0)
+        every[m.group(1)] = addr
         if out["PRIMARY_BASE"] <= addr < out["PRIMARY_BASE"] + out["PRIMARY_COUNT"]:
             primary[addr] = m.group(1)
     out["primary"] = primary
+    out["every"] = every
     return out
 
 
@@ -81,6 +84,33 @@ def main():
             if not re.search(r"(?<![A-Za-z0-9_])%s(?![A-Za-z0-9_])" % re.escape(nm), doc):
                 problems.append("%s: primary register %s (0x%04X) not documented"
                                 % (rel, nm, addr))
+
+        # EVERY address the prose puts next to a register name must be the
+        # address that register actually has. Checking only the block headings
+        # and the primary names was not enough: it passed while FIRMWARE.md
+        # documented the CAL_TRIGGER and COMMIT magics at 0x002D and 0x002E,
+        # which is where they lived before the config block moved to 0x0030.
+        # Those addresses now fall in the gap between blocks, so an operator
+        # following the document gets exception 02 and the configuration is
+        # never committed - a silent failure of the one register whose whole
+        # job is to make a change stick.
+        #
+        # Only hex tokens that could BE an address are considered, so the
+        # magics themselves (0xCA11, 0x5AC1) are not mistaken for addresses.
+        for i, ln in enumerate(lines, 1):
+            hexes = [int(h, 16) for h in re.findall(r"0x([0-9A-Fa-f]{4})\b", ln)]
+            hexes = [h for h in hexes if h <= 0xFF]
+            if not hexes:
+                continue
+            for nm, addr in rm["every"].items():
+                if not re.search(r"(?<![A-Za-z0-9_])%s(?![A-Za-z0-9_])"
+                                 % re.escape(nm), ln):
+                    continue
+                if addr not in hexes:
+                    problems.append(
+                        "%s:%d: %s is documented at %s but regmap.h puts it at "
+                        "0x%04X" % (rel, i, nm,
+                                    ", ".join("0x%04X" % h for h in hexes), addr))
 
         # A read spanning two blocks must be refused; if a doc stops saying so,
         # someone will "simplify" the map into one contiguous range.

@@ -28,8 +28,14 @@
  * value; the cell's own datasheet range is 0-25 %. */
 #define O2P_C_AIR 0.20946f
 
-/* ln(1/(1-0.20946)). Precomputed so the air-point calibration is one divide. */
-#define O2P_LN_AIR 0.235063f
+/* ln(1/(1-0.20946)) = 0.23503902. Precomputed so the air-point calibration is
+ * one divide.
+ *
+ * Note for anyone porting a figure out of PLAN.md: its "0.1 % O2 = 335 nA" is
+ * the LINEAR approximation 70 uA * 0.001 / 0.20946. Under the actual log law
+ * the same point is 70 uA * ln(1/0.999) / 0.235039 = 298 nA, 12 % lower. Use
+ * the log law for calibration, test vectors and resolution budgets alike. */
+#define O2P_LN_AIR 0.23503902f
 
 /* The cell's maximum overload (DS-0637): above this the reading is not merely
  * inaccurate, the cell is outside its rated range. */
@@ -54,6 +60,23 @@ typedef struct {
     /* Temperature at which cal_air_na was taken, in 0.01 C. */
     int16_t cal_temp_c100;
 } o2p_cal_t;
+
+/* A plausible air-point window. DS-0637 gives 0.07 +/- 0.03 mA, so 40-100 uA
+ * is the datasheet population; this is deliberately wider because the cell
+ * ages downward and the TIA has headroom to 152 uA at 30 % O2. Anything
+ * outside it is a wiring, bias or gas fault rather than a calibration.
+ *
+ * These bounds are in the header because BOTH paths that can set a
+ * calibration must honour them: the automatic air-point routine, and a Modbus
+ * write to CAL_AIR_NA_HI/LO. Only the first used to check. See
+ * o2p_cal_air_plausible(). */
+#define O2P_AIR_CAL_MIN_NA  20000
+#define O2P_AIR_CAL_MAX_NA 200000
+
+static inline bool o2p_cal_air_plausible(int32_t cell_na)
+{
+    return cell_na >= O2P_AIR_CAL_MIN_NA && cell_na <= O2P_AIR_CAL_MAX_NA;
+}
 
 /* Datasheet nominal for an uncalibrated cell: 0.07 mA in air (DS-0637). The
  * tolerance on that is +/-0.03 mA, i.e. +/-43 %, which is why using it sets

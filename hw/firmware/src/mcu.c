@@ -2,6 +2,7 @@
 
 static volatile uint32_t s_millis;
 static uint16_t s_reset_cause;
+static bool s_power_cycled;
 
 void SysTick_Handler(void)
 {
@@ -28,6 +29,7 @@ void o2p_clock_init(void)
      * makes the next power-on look like whatever happened last time. */
     uint32_t csr = RCC->CSR;
     s_reset_cause = (uint16_t)(csr >> 24);
+    s_power_cycled = (csr & (RCC_CSR_PWRRSTF | RCC_CSR_PINRSTF)) != 0u;
     RCC->CSR |= RCC_CSR_RMVF;
 
     /* HSI16 on and selected, HSIDIV = /1 -> SYSCLK = 16 MHz.
@@ -45,6 +47,11 @@ void o2p_clock_init(void)
      * wait states'), which is the reset value; assert it rather than assume. */
     FLASH->ACR &= ~FLASH_ACR_LATENCY;   /* latency field 0 = zero wait states */
 
+    /* Every GPIO bank this board uses, enabled once. Drivers then reference
+     * ports only through the board_pins.h bindings, so moving a net between
+     * banks cannot leave a driver configuring the old one. */
+    RCC->IOPENR |= RCC_IOPENR_GPIOAEN | RCC_IOPENR_GPIOBEN | RCC_IOPENR_GPIOCEN;
+
     SystemCoreClock = O2P_SYSCLK_HZ;
     SysTick_Config(O2P_SYSCLK_HZ / 1000u);
 }
@@ -54,11 +61,16 @@ uint16_t o2p_reset_cause(void)
     return s_reset_cause;
 }
 
+bool o2p_reset_was_power_cycle(void)
+{
+    return s_power_cycled;
+}
+
 void o2p_wdt_init(void)
 {
     /* LSI is nominally 32 kHz with a wide tolerance. Prescaler /64 and a
-     * reload of 2047 gives about 4.1 s nominal, 2.7-6.5 s over the LSI's
-     * spread. That is long enough that a 2 KB flash erase (about 22 ms
+     * reload of 2047 gives (2047+1) * 64 / 32000 = 4.096 s nominal, roughly
+     * 2.7-6.5 s over the LSI's spread. That is long enough that a 2 KB flash erase (about 22 ms
      * typical, 40 ms max) cannot trip it, and short enough that a wedged
      * probe returns to service within one 5-minute poll interval.
      *
@@ -67,12 +79,30 @@ void o2p_wdt_init(void)
      * probe that stops sampling resets instead of quietly serving stale
      * registers forever. See main.c.
      */
+    /* Start FIRST, then configure. Writing 0xCCCC is what forces the LSI on,
+     * and PVU/RVU in SR clear only once the prescaler and reload transfer into
+     * the shadow registers - a transfer clocked by that same LSI. Configuring
+     * first and waiting on SR before the start therefore deadlocks: the wait
+     * blocks the write that would start the clock the wait depends on.
+     * Measured on the first article 2026-09-01 - PC pinned in this loop,
+     * RCC_CSR = 0 (LSI off), PR/RLR still at their reset values. This is the
+     * order HAL_IWDG_Init uses, for exactly this reason.
+     *
+     * Between the start and the reload below, the watchdog runs on its reset
+     * defaults: /4 with a reload of 0xFFF, about 512 ms. That is four orders of
+     * magnitude more than the handful of register stores in between.
+     */
+    IWDG->KR = 0xCCCCu;                 /* start; cannot be stopped afterwards */
     IWDG->KR = 0x5555u;                 /* unlock PR/RLR */
-    IWDG->PR = IWDG_PR_PR_2 | IWDG_PR_PR_1;  /* /64 */
+    /* PR[2:0] = 100 is /64. NOT (PR_2 | PR_1): that is 110 = /256, which this
+     * code had, giving a 16.384 s timeout while every comment and document
+     * claimed 4.096 s - four times longer to release a jammed shared bus.
+     * IWDG_PRESCALER_64 in stm32g0xx_hal_iwdg.h:86 is IWDG_PR_PR_2 alone. */
+    IWDG->PR = IWDG_PR_PR_2;
     IWDG->RLR = 2047u;
     while (IWDG->SR != 0u) {
     }
-    IWDG->KR = 0xCCCCu;                 /* start; cannot be stopped afterwards */
+    IWDG->KR = 0xAAAAu;                 /* reload, so the first period is full */
 }
 
 void o2p_wdt_feed(void)

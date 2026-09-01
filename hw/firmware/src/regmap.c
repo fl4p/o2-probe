@@ -1,5 +1,7 @@
 #include "regmap.h"
 #include "faults.h"
+#include "heater_ctl.h"
+#include "heater_ctl.h"
 #include "o2.h"
 
 #include <stddef.h>
@@ -18,8 +20,10 @@ void o2p_config_defaults(o2p_config_t *cfg)
     cfg->parity_code = O2P_PARITY_EVEN;   /* the bus is 8E1 */
     cfg->rh_setpoint_x100 = 8500u;        /* 85 %RH, PLAN.md:294-296 */
     cfg->dt_max_k_x100 = 400u;            /* 4 K, the designed thermal range */
-    cfg->heater_max_duty_x100 = 10000u;
     cfg->heater_pwm_hz = 1000u;
+    /* Starting points, not tuned values - the plant gain is unmeasured. */
+    cfg->heater_kp_x100 = O2P_HEATER_KP_X100_DEFAULT;
+    cfg->heater_ki_x100 = O2P_HEATER_KI_X100_DEFAULT;
     /* No calibration by default. o2.c refuses to convert with this, and the
      * sampler substitutes the datasheet nominal and raises CAL_DEFAULT - so a
      * fresh board reports low-confidence data rather than nothing, and says
@@ -28,6 +32,11 @@ void o2p_config_defaults(o2p_config_t *cfg)
     cfg->cal_temp_c100 = 2500;
     cfg->tempco_ppm_per_k = 0;            /* SGX publishes no curve for this part */
     cfg->sht_pulse_interval_h = 8u;       /* PLAN.md:312, every 6-12 h */
+    /* Heater loop. max_duty of zero means the loop is OFF by configuration as
+     * well as by the compile guard: two independent switches, so enabling the
+     * heater is never a single edit. See heater.h for the bench prerequisites.
+     */
+    cfg->heater_max_duty_x100 = 0u;
 }
 
 bool o2p_config_valid(const o2p_config_t *cfg)
@@ -62,7 +71,27 @@ bool o2p_config_valid(const o2p_config_t *cfg)
     if (cfg->heater_pwm_hz < 50u || cfg->heater_pwm_hz > 20000u) {
         return false;
     }
-    if (cfg->cal_air_na < 0) {
+    /* Gains are bounded, not merely non-negative. The ceiling is what stops a
+     * fat-fingered write turning a 1 Hz PI into a bang-bang controller on a
+     * 1 W heater against a membrane; kp = 100.00 already saturates the duty
+     * clamp on a 1 %RH error. Zero is allowed - kp = 0 with ki > 0 is a pure
+     * integrator, which is a legitimate thing to want on a slow thermal
+     * plant, and both zero simply means the loop never asks for heat. */
+    if (cfg->heater_kp_x100 > 10000u || cfg->heater_ki_x100 > 10000u) {
+        return false;
+    }
+    /* Zero means "never calibrated", which is legal. Any other value must be
+     * a physically plausible air point.
+     *
+     * Rejecting only negatives was a false-anoxia hole: writing the HI and LO
+     * words of an intended 70000 nA in the wrong order yields 0x11700001 =
+     * 292552705 nA, so K becomes 1.24e9 and every real reading converts to
+     * 0.0056 %vol - which encodes as 0.01 %vol with NEITHER CAL_DEFAULT nor
+     * ADC_RANGE set. A buried probe would report a hard anoxic pile, in
+     * range, with a clean fault word. Enforcing the bounds here also forces
+     * HI and LO to be written together in one FC16, because a half-written
+     * value cannot pass. */
+    if (cfg->cal_air_na != 0 && !o2p_cal_air_plausible(cfg->cal_air_na)) {
         return false;
     }
     if (cfg->sht_pulse_interval_h == 0u || cfg->sht_pulse_interval_h > 168u) {
@@ -79,6 +108,35 @@ uint16_t o2p_config_crc(const o2p_config_t *cfg)
     return o2p_mb_crc16((const uint8_t *)cfg, sizeof(*cfg));
 }
 
+void o2p_snapshot_reset(o2p_snapshot_t *s)
+{
+    /* Measurement channels start invalid. Counters and identity fields are
+     * NOT reset here - they are cumulative or constant, and the sampler
+     * rewrites them unconditionally every cycle. */
+    s->o2_comp = O2P_U16_INVALID;
+    s->o2_raw = O2P_I16_INVALID;
+    s->t_tip = O2P_I16_INVALID;
+    s->t_chamber = O2P_I16_INVALID;
+    s->rh_chamber = O2P_U16_INVALID;
+    s->dew_margin_x100 = O2P_I16_INVALID;
+    s->exp_data = O2P_U16_INVALID;
+    /* 0xFFFF, not 0. Zero is a perfectly possible real reading for every one
+     * of these - 0 mV on a collapsed rail, an all-zero LMP91000 register image
+     * after a reset - so publishing zero for "not measured" is exactly the
+     * plausible-looking failure this file exists to prevent. 65.535 V is not
+     * a value any of these channels can reach.
+     *
+     * pressure_hpa is the deliberate exception: 0 is its documented value for
+     * the DNP BMP390 footprint, which is a fact about the board rather than a
+     * failed measurement. */
+    s->vref_mv = O2P_U16_INVALID;
+    s->va_mv = O2P_U16_INVALID;
+    s->vin_mv = O2P_U16_INVALID;
+    s->afe_vout_mv = O2P_U16_INVALID;
+    s->lmp_readback = O2P_U16_INVALID;
+    s->pressure_hpa = 0u;
+}
+
 void o2p_regmap_init(o2p_regmap_t *rm)
 {
     memset(rm, 0, sizeof(*rm));
@@ -89,13 +147,7 @@ void o2p_regmap_init(o2p_regmap_t *rm)
          * A zeroed snapshot would publish 0.00 %vol, 0.00 C and no faults -
          * a fully plausible anoxic pile - for as long as the first conversion
          * takes, and forever if it never completes. */
-        s->o2_comp = O2P_U16_INVALID;
-        s->o2_raw = O2P_I16_INVALID;
-        s->t_tip = O2P_I16_INVALID;
-        s->t_chamber = O2P_I16_INVALID;
-        s->rh_chamber = O2P_U16_INVALID;
-        s->dew_margin_x100 = O2P_I16_INVALID;
-        s->exp_data = O2P_U16_INVALID;
+        o2p_snapshot_reset(s);
         s->faults = O2P_F_SETTLING | O2P_F_HEATER_DISABLED;
         s->reset_cause = 0u;
     }
@@ -159,7 +211,9 @@ static uint16_t read_diag(const o2p_snapshot_t *s, uint16_t a)
     case O2P_REG_MB_CRC_ERRS:   return s->mb_crc_errs;
     case O2P_REG_MB_FRAME_ERRS: return s->mb_frame_errs;
     case O2P_REG_I2C_ERRS:      return s->i2c_errs;
-    default:                    return s->exp_data;
+    case O2P_REG_EXP_DATA:      return s->exp_data;
+    case O2P_REG_SETTLE_RESTARTS: return s->settle_restarts;
+    default:                    return s->sample_seq;
     }
 }
 
@@ -174,6 +228,8 @@ static uint16_t read_config(const o2p_regmap_t *rm, uint16_t a)
     case O2P_REG_DT_MAX_K:        return c->dt_max_k_x100;
     case O2P_REG_HEATER_MAX_DUTY: return c->heater_max_duty_x100;
     case O2P_REG_HEATER_PWM_HZ:   return c->heater_pwm_hz;
+    case O2P_REG_HEATER_KP:       return c->heater_kp_x100;
+    case O2P_REG_HEATER_KI:       return c->heater_ki_x100;
     case O2P_REG_CAL_AIR_NA_HI:   return (uint16_t)((uint32_t)c->cal_air_na >> 16);
     case O2P_REG_CAL_AIR_NA_LO:   return (uint16_t)((uint32_t)c->cal_air_na & 0xFFFFu);
     case O2P_REG_CAL_TEMP_C100:   return (uint16_t)c->cal_temp_c100;
@@ -250,6 +306,8 @@ static uint8_t apply_config_word(o2p_config_t *c, uint16_t a, uint16_t v,
     case O2P_REG_DT_MAX_K:        c->dt_max_k_x100 = v; break;
     case O2P_REG_HEATER_MAX_DUTY: c->heater_max_duty_x100 = v; break;
     case O2P_REG_HEATER_PWM_HZ:   c->heater_pwm_hz = v; break;
+    case O2P_REG_HEATER_KP:       c->heater_kp_x100 = v; break;
+    case O2P_REG_HEATER_KI:       c->heater_ki_x100 = v; break;
     case O2P_REG_CAL_AIR_NA_HI:
         c->cal_air_na = (int32_t)(((uint32_t)v << 16) |
                                   ((uint32_t)c->cal_air_na & 0xFFFFu));

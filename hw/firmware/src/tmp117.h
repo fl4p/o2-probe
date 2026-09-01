@@ -58,6 +58,16 @@ o2p_tmp_status_t o2p_tmp117_init(int16_t limit_c100, uint16_t hyst_k100);
 /* Temperature in 0.01 C. */
 o2p_tmp_status_t o2p_tmp117_read_c100(int16_t *out_c100);
 
+/* True only if o2p_tmp117_init() last completed successfully AND the most
+ * recent o2p_tmp117_verify_safety() agreed. The v1 heater loop MUST refuse to
+ * energise while this is false: the whole hardware-cutoff argument rests on
+ * the therm-mode alert actually being programmed, and a silently failed init
+ * leaves temperature reads working perfectly while the cutoff is not armed. */
+bool o2p_tmp117_safety_armed(void);
+
+/* Re-read the configuration register and confirm it still matches intent. */
+o2p_tmp_status_t o2p_tmp117_verify_safety(void);
+
 /* True while the therm-mode high alert is asserted, i.e. while the hardware
  * is holding the heater off. Reading this clears nothing in therm mode. */
 o2p_tmp_status_t o2p_tmp117_alert_active(bool *out_active);

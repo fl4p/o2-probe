@@ -20,7 +20,7 @@
   "name": "o2-probe Rev A (STM32G071CBT7)",
   "upload": {
     "maximum_ram_size": 36864,
-    "maximum_size": 131072,
+    "maximum_size": 126976,
     "protocol": "stlink",
     "protocols": [
       "blackmagic",

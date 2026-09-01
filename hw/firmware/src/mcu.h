@@ -42,7 +42,18 @@ void o2p_wdt_feed(void);
 
 /* Reset cause latched at boot and published in the diagnostic block, then
  * cleared - otherwise the flags accumulate and every later reset looks like a
- * watchdog reset. */
+ * watchdog reset. The byte is RCC_CSR bits 31:24, so bit 1 is OBLRSTF, 2
+ * PINRSTF, 3 PWRRSTF, 4 SFTRSTF, 5 IWDGRSTF, 6 WWDGRSTF, 7 LPWRRSTF. */
 uint16_t o2p_reset_cause(void);
+
+/* True if this reset could have interrupted the analog rails, and therefore
+ * the cell bias. Computed from the named RCC_CSR masks at latch time rather
+ * than from bit arithmetic on the published byte.
+ *
+ * On STM32G0 there is no separate brown-out flag: PWRRSTF is documented as the
+ * "BOR or POR/PDR" flag, so it covers both. A pin reset is included because
+ * NRST is exposed on J3 and nothing tells us what else the person holding it
+ * was doing to the board. */
+bool o2p_reset_was_power_cycle(void);
 
 #endif /* O2P_MCU_H */

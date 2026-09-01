@@ -19,6 +19,8 @@
 /* Only the writable bits are compared on readback; 15:12 are live flags. */
 #define TMP_CFG_WRITABLE_MASK 0x0FFCu
 
+static bool s_safety_armed;
+
 static bool wr16(uint8_t reg, uint16_t val)
 {
     const uint8_t tx[3] = {reg, (uint8_t)(val >> 8), (uint8_t)(val & 0xFFu)};
@@ -46,9 +48,31 @@ static int16_t c100_to_lsb(int32_t c100)
     return (int16_t)v;
 }
 
+bool o2p_tmp117_safety_armed(void)
+{
+    return s_safety_armed;
+}
+
+o2p_tmp_status_t o2p_tmp117_verify_safety(void)
+{
+    uint16_t back = 0u;
+    if (!rd16(O2P_TMP_REG_CONFIG, &back)) {
+        s_safety_armed = false;
+        return O2P_TMP_IO;
+    }
+    if ((uint16_t)(back & TMP_CFG_WRITABLE_MASK) !=
+        (uint16_t)(TMP_CFG_INTENDED & TMP_CFG_WRITABLE_MASK)) {
+        s_safety_armed = false;
+        return O2P_TMP_CONFIG;
+    }
+    s_safety_armed = true;
+    return O2P_TMP_OK;
+}
+
 o2p_tmp_status_t o2p_tmp117_init(int16_t limit_c100, uint16_t hyst_k100)
 {
     uint16_t id = 0u;
+    s_safety_armed = false;
     if (!rd16(O2P_TMP_REG_DEVID, &id)) {
         return O2P_TMP_IO;
     }
@@ -82,6 +106,7 @@ o2p_tmp_status_t o2p_tmp117_init(int16_t limit_c100, uint16_t hyst_k100)
         (uint16_t)(TMP_CFG_INTENDED & TMP_CFG_WRITABLE_MASK)) {
         return O2P_TMP_CONFIG;
     }
+    s_safety_armed = true;
     return O2P_TMP_OK;
 }
 
