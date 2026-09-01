@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include "faults.h"
+#include "heater_ctl.h"
 #include "modbus_pdu.h"
 #include "o2.h"
 #include "psychro.h"
@@ -172,7 +173,7 @@ static void test_config_struct_has_no_implicit_padding(void)
     /* The struct is written to flash byte-for-byte and hashed with a CRC.
      * Padding the compiler may leave uninitialised would make that CRC
      * non-deterministic and produce spurious "corrupt config" at boot. */
-    TEST_ASSERT_EQUAL_UINT(sizeof(int32_t) + 7 * sizeof(uint16_t) + 6,
+    TEST_ASSERT_EQUAL_UINT(sizeof(int32_t) + 9 * sizeof(uint16_t) + 6,
                            sizeof(o2p_config_t));
 }
 
@@ -461,6 +462,72 @@ static void test_snapshot_reset_clears_every_measurement_channel(void)
     TEST_ASSERT_EQUAL_UINT16(77, s->sample_seq);
 }
 
+static void test_heater_gains_are_writable_and_bounded(void)
+{
+    /* The gains exist as registers because the plant can only be
+     * characterised in a real pile, and the alternative to a register write
+     * is a full firmware transfer through a bootloader that does not exist. */
+    uint8_t req[32], rsp[O2P_MB_MAX_ADU];
+
+    /* kp = 3.50, ki = 0.25 in one FC16. */
+    const uint8_t good[] = {0x03, 0x10, 0x00, 0x40, 0x00, 0x02, 0x04,
+                            0x01, 0x5E, 0x00, 0x19};
+    size_t n = framed(req, good, sizeof(good));
+    size_t len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_UINT(8, len);
+    TEST_ASSERT_EQUAL_UINT16(350, rm.cfg.heater_kp_x100);
+    TEST_ASSERT_EQUAL_UINT16(25, rm.cfg.heater_ki_x100);
+
+    /* Zero is legal: kp = 0 with ki > 0 is a pure integrator, and both zero
+     * simply means the loop never asks for heat. */
+    const uint8_t zero[] = {0x03, 0x06, 0x00, 0x40, 0x00, 0x00};
+    n = framed(req, zero, sizeof(zero));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_UINT16(0, rm.cfg.heater_kp_x100);
+
+    /* Above the ceiling is refused, and refused ATOMICALLY - the frame that
+     * carries it must change neither gain. */
+    uint16_t ki_before = rm.cfg.heater_ki_x100;
+    const uint8_t huge[] = {0x03, 0x10, 0x00, 0x40, 0x00, 0x02, 0x04,
+                            0xFF, 0xFF, 0x00, 0x64};
+    n = framed(req, huge, sizeof(huge));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE, rsp[2]);
+    TEST_ASSERT_EQUAL_UINT16(0, rm.cfg.heater_kp_x100);
+    TEST_ASSERT_EQUAL_UINT16(ki_before, rm.cfg.heater_ki_x100);
+}
+
+static void test_gain_registers_read_back_what_was_written(void)
+{
+    uint8_t req[32], rsp[O2P_MB_MAX_ADU];
+    const uint8_t w[] = {0x03, 0x10, 0x00, 0x40, 0x00, 0x02, 0x04,
+                         0x00, 0xC8, 0x00, 0x0A};
+    size_t n = framed(req, w, sizeof(w));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+
+    const uint8_t r[] = {0x03, 0x03, 0x00, 0x40, 0x00, 0x02};
+    n = framed(req, r, sizeof(r));
+    size_t len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_UINT(3 + 4 + 2, len);
+    TEST_ASSERT_EQUAL_UINT16(200, (rsp[3] << 8) | rsp[4]);
+    TEST_ASSERT_EQUAL_UINT16(10, (rsp[5] << 8) | rsp[6]);
+}
+
+static void test_config_block_read_covers_the_gains(void)
+{
+    /* The block grew from 16 to 18 registers. A read of all 18 must succeed;
+     * 19 must not, or the boundary rule has quietly stopped being enforced. */
+    uint8_t req[16], rsp[O2P_MB_MAX_ADU];
+    const uint8_t all[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x12};
+    size_t n = framed(req, all, sizeof(all));
+    TEST_ASSERT_EQUAL_UINT(3 + 36 + 2, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
+
+    const uint8_t over[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x13};
+    n = framed(req, over, sizeof(over));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS, rsp[2]);
+}
+
 static void test_validity_matrix(void)
 {
     static const uint16_t invalidating[] = {
@@ -571,6 +638,360 @@ static void test_random_garbage_never_provokes_a_reply(void)
     TEST_ASSERT_TRUE(replies < 20u);
 }
 
+
+/* ------------------------------------------------------- the heater loop */
+
+static o2p_heater_cfg_t hcfg_default(void)
+{
+    o2p_heater_cfg_t c;
+    c.setpoint_x100 = 8500u;     /* 85 %RH, PLAN.md:294-296 */
+    c.dt_max_k100 = 400u;        /* 4 K, the designed envelope */
+    c.max_duty_x100 = 10000u;
+    c.kp_x100 = O2P_HEATER_KP_X100_DEFAULT;
+    c.ki_x100 = O2P_HEATER_KI_X100_DEFAULT;
+    return c;
+}
+
+/* An input in which every interlock is satisfied, so a test can break exactly
+ * one thing and attribute the result to it. */
+static o2p_heater_in_t hin_healthy(void)
+{
+    o2p_heater_in_t in;
+    in.drive_possible = true;
+    in.safety_armed = true;
+    in.pin_integrity_ok = true;
+    in.rh_valid = true;
+    in.rh_x100 = 9500u;          /* wet: the loop should want heat */
+    in.tip_valid = true;
+    in.t_tip_c100 = 5500;
+    in.chamber_valid = true;
+    in.t_chamber_c100 = 5400;    /* dT = 1 K, inside the envelope */
+    in.supply_ok = true;
+    return in;
+}
+
+static void test_heater_healthy_input_actually_heats(void)
+{
+    /* The baseline the interlock tests are differences from: if this did not
+     * command heat, "duty == 0" would prove nothing about any interlock. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_EQUAL_UINT16(0, out.block);
+    TEST_ASSERT_TRUE(out.duty_x100 > 0u);
+}
+
+static void test_every_interlock_independently_forces_zero(void)
+{
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+
+    struct { const char *name; uint16_t bit; } cases[] = {
+        {"not compiled",   O2P_HB_NOT_COMPILED},
+        {"config off",     O2P_HB_CONFIG_OFF},
+        {"safety",         O2P_HB_SAFETY},
+        {"no rh",          O2P_HB_NO_RH},
+        {"no tip",         O2P_HB_NO_TIP},
+        {"no chamber",     O2P_HB_NO_CHAMBER},
+        {"tip limit",      O2P_HB_TIP_LIMIT},
+        {"dt limit",       O2P_HB_DT_LIMIT},
+        {"supply",         O2P_HB_SUPPLY},
+        {"pin integrity",  O2P_HB_PIN_INTEGRITY},
+    };
+
+    for (unsigned i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        o2p_heater_state_t st;
+        o2p_heater_ctl_reset(&st);
+        o2p_heater_cfg_t c = cfg;
+        o2p_heater_in_t in = hin_healthy();
+
+        switch (cases[i].bit) {
+        case O2P_HB_NOT_COMPILED:  in.drive_possible = false; break;
+        case O2P_HB_CONFIG_OFF:    c.max_duty_x100 = 0u; break;
+        case O2P_HB_SAFETY:        in.safety_armed = false; break;
+        case O2P_HB_NO_RH:         in.rh_valid = false; break;
+        case O2P_HB_NO_TIP:        in.tip_valid = false; break;
+        case O2P_HB_NO_CHAMBER:    in.chamber_valid = false; break;
+        case O2P_HB_TIP_LIMIT:     in.t_tip_c100 = O2P_HEATER_TIP_LIMIT_C100; break;
+        case O2P_HB_DT_LIMIT:      in.t_chamber_c100 =
+                                       (int16_t)(in.t_tip_c100 - (int16_t)c.dt_max_k100);
+                                   break;
+        case O2P_HB_SUPPLY:        in.supply_ok = false; break;
+        default:                   in.pin_integrity_ok = false; break;
+        }
+
+        o2p_heater_ctl_step(&st, &c, &in, 0u, &out);
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(0, out.duty_x100, cases[i].name);
+        TEST_ASSERT_TRUE_MESSAGE((out.block & cases[i].bit) != 0u, cases[i].name);
+    }
+}
+
+static void test_unevaluable_input_is_off_not_midrange(void)
+{
+    /* The guard-checklist rule: missing data must never read as OK. Every
+     * combination of missing sensor must be OFF, never a comfortable duty. */
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+    for (unsigned mask = 0u; mask < 8u; mask++) {
+        o2p_heater_state_t st;
+        o2p_heater_ctl_reset(&st);
+        o2p_heater_in_t in = hin_healthy();
+        if (mask & 1u) { in.rh_valid = false; }
+        if (mask & 2u) { in.tip_valid = false; }
+        if (mask & 4u) { in.chamber_valid = false; }
+        o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+        if (mask != 0u) {
+            TEST_ASSERT_EQUAL_UINT16(0, out.duty_x100);
+            TEST_ASSERT_TRUE(out.block != 0u);
+        }
+    }
+}
+
+static void test_duty_is_monotonic_in_humidity(void)
+{
+    /* Heating dries the chamber, so wetter must never ask for LESS heat. A
+     * sign error here would make the loop run away from its setpoint, and on
+     * this plant that means letting the membrane wet. */
+    o2p_heater_cfg_t cfg = hcfg_default();
+    uint16_t prev = 0u;
+    for (uint32_t rh = 0u; rh <= 10000u; rh += 100u) {
+        o2p_heater_state_t st;
+        o2p_heater_ctl_reset(&st);       /* fresh state: pure static response */
+        o2p_heater_in_t in = hin_healthy();
+        in.rh_x100 = (uint16_t)rh;
+        o2p_heater_out_t out;
+        o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+        TEST_ASSERT_TRUE(out.duty_x100 >= prev);
+        /* At or below setpoint the loop must ask for nothing at all - not a
+         * small residual. Drying past the target is not a reason to heat. */
+        if (rh <= cfg.setpoint_x100) {
+            TEST_ASSERT_EQUAL_UINT16(0, out.duty_x100);
+        }
+        prev = out.duty_x100;
+    }
+    /* Saturated air is the wettest input there is, so it must ask for the most
+     * heat of any point in the sweep, and that must be a real demand. Note it
+     * is NOT full duty: one step of proportional-plus-one-integration at
+     * 100 %RH is about 31 %, and reaching the ceiling is the integrator's job
+     * over the following minutes. test_duty_clamp_binds covers that path. */
+    TEST_ASSERT_TRUE(prev > 0u);
+}
+
+static void test_duty_clamp_binds(void)
+{
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 3000u;           /* 30 % ceiling */
+    o2p_heater_in_t in = hin_healthy();
+    in.rh_x100 = 10000u;                 /* saturated: asks for everything */
+    o2p_heater_out_t out;
+    for (unsigned i = 0; i < 200u; i++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, i, &out);
+        TEST_ASSERT_TRUE(out.duty_x100 <= 3000u);
+    }
+    TEST_ASSERT_EQUAL_UINT16(3000u, out.duty_x100);
+}
+
+static void test_dt_clamp_binds_and_has_hysteresis(void)
+{
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    /* At the limit: clamped. */
+    in.t_chamber_c100 = (int16_t)(in.t_tip_c100 - (int16_t)cfg.dt_max_k100);
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_TRUE((out.block & O2P_HB_DT_LIMIT) != 0u);
+    TEST_ASSERT_EQUAL_UINT16(0, out.duty_x100);
+
+    /* Just below the limit but above the release point: STILL clamped. That
+     * is the hysteresis - without it this clamp chatters at 1 Hz against a
+     * plant whose time constant is seconds. */
+    in.t_chamber_c100 = (int16_t)(in.t_tip_c100 -
+                                  (int16_t)(cfg.dt_max_k100 - 10u));
+    o2p_heater_ctl_step(&st, &cfg, &in, 1u, &out);
+    TEST_ASSERT_TRUE((out.block & O2P_HB_DT_LIMIT) != 0u);
+
+    /* Below the release point: clamp lets go. */
+    in.t_chamber_c100 = (int16_t)(in.t_tip_c100 -
+                                  (int16_t)(cfg.dt_max_k100 -
+                                            O2P_HEATER_DT_HYST_K100 - 10u));
+    o2p_heater_ctl_step(&st, &cfg, &in, 2u, &out);
+    TEST_ASSERT_TRUE((out.block & O2P_HB_DT_LIMIT) == 0u);
+}
+
+static void test_tip_limit_is_below_the_hardware_alert(void)
+{
+    /* Firmware must back off before the TMP117's therm-mode alert fires, or
+     * the two mechanisms are one mechanism. 8500 is what main.c programs. */
+    TEST_ASSERT_TRUE(O2P_HEATER_TIP_LIMIT_C100 < 8500);
+    TEST_ASSERT_TRUE(O2P_HEATER_TIP_RELEASE_C100 < O2P_HEATER_TIP_LIMIT_C100);
+}
+
+static void test_integrator_cannot_wind_up_while_clamped(void)
+{
+    /* Hold the output hard against its ceiling for ten minutes, then ask for
+     * nothing. A loop without anti-windup stays saturated for a long time
+     * afterwards - which on this plant means continuing to heat a cell rated
+     * to 60 C after the humidity has already collapsed. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    in.rh_x100 = 10000u;
+    for (unsigned i = 0; i < 600u; i++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, i, &out);
+    }
+    TEST_ASSERT_EQUAL_UINT16(cfg.max_duty_x100, out.duty_x100);
+
+    /* Bone dry. The output must come off the rail immediately, not after
+     * unwinding 600 seconds of accumulated error. */
+    in.rh_x100 = 0u;
+    o2p_heater_ctl_step(&st, &cfg, &in, 600u, &out);
+    TEST_ASSERT_EQUAL_UINT16(0, out.duty_x100);
+}
+
+/* A crude first-order plant: heating dries the chamber. Only the SIGN and
+ * rough scale matter here - the real gain is unknown (THERMAL-BARRIER.md:18
+ * covers PCB conduction only, not the ring-to-gas path that sets it). This
+ * exists to prove the loop closes and settles, not to predict hardware. */
+static uint16_t fake_plant_rh(uint16_t duty_x100)
+{
+    int32_t rh = 10000 - ((int32_t)duty_x100 * 2000) / 10000;
+    return (uint16_t)rh;
+}
+
+static void test_loop_reaches_setpoint_in_steady_state(void)
+{
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out = {0u, 0u};
+
+    for (unsigned i = 0; i < 2000u; i++) {
+        in.rh_x100 = fake_plant_rh(out.duty_x100);
+        /* Keep dT inside the envelope so this test is about the control law
+         * and not about the clamp. */
+        in.t_chamber_c100 = (int16_t)(in.t_tip_c100 - 100);
+        o2p_heater_ctl_step(&st, &cfg, &in, i, &out);
+    }
+    TEST_ASSERT_EQUAL_UINT16(0, out.block);
+    TEST_ASSERT_INT_WITHIN(20, (int)cfg.setpoint_x100, (int)in.rh_x100);
+}
+
+static void test_runaway_does_not_false_positive_on_cold_start(void)
+{
+    /* At power-on the tip and chamber are the same temperature and nothing is
+     * being commanded. Ten minutes of that must not latch a hardware fault. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;              /* commanding nothing */
+    o2p_heater_in_t in = hin_healthy();
+    in.t_tip_c100 = 2000;
+    in.t_chamber_c100 = 2000;
+    o2p_heater_out_t out;
+    for (unsigned i = 0; i < 600u; i++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, i, &out);
+    }
+    TEST_ASSERT_FALSE(st.runaway_latched);
+    TEST_ASSERT_TRUE((out.block & O2P_HB_RUNAWAY) == 0u);
+}
+
+static void test_runaway_latches_on_uncommanded_heat_and_stays_latched(void)
+{
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;              /* commanding nothing, on purpose */
+    o2p_heater_in_t in = hin_healthy();
+    in.t_tip_c100 = 5000;
+    /* Hotter than the loop is ever allowed to make it, by a clear margin. */
+    in.t_chamber_c100 = (int16_t)(in.t_tip_c100 - (int16_t)cfg.dt_max_k100 -
+                                  O2P_HEATER_RUNAWAY_MARGIN_K100 - 50);
+    o2p_heater_out_t out;
+
+    for (unsigned i = 0; i <= O2P_HEATER_RUNAWAY_WINDOW_S + 2u; i++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, i, &out);
+    }
+    TEST_ASSERT_TRUE(st.runaway_latched);
+
+    /* Latched means latched: a now-perfectly-healthy probe still refuses. A
+     * FET that conducts unasked is a hardware failure, and the firmware that
+     * just found it cannot control the heater is not what should decide the
+     * fault has cleared. */
+    o2p_heater_in_t healthy = hin_healthy();
+    o2p_heater_cfg_t full = hcfg_default();
+    for (unsigned i = 0; i < 10u; i++) {
+        o2p_heater_ctl_step(&st, &full, &healthy, 1000u + i, &out);
+        TEST_ASSERT_EQUAL_UINT16(0, out.duty_x100);
+        TEST_ASSERT_TRUE((out.block & O2P_HB_RUNAWAY) != 0u);
+    }
+}
+
+static void test_runaway_needs_the_full_window(void)
+{
+    /* One hot sample is not a runaway; the window is what rejects transients
+     * such as a probe carried from a warm hand into cold air. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;
+    o2p_heater_in_t in = hin_healthy();
+    in.t_tip_c100 = 5000;
+    in.t_chamber_c100 = (int16_t)(in.t_tip_c100 - (int16_t)cfg.dt_max_k100 -
+                                  O2P_HEATER_RUNAWAY_MARGIN_K100 - 50);
+    o2p_heater_out_t out;
+    for (unsigned i = 0; i < O2P_HEATER_RUNAWAY_WINDOW_S - 1u; i++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, i, &out);
+    }
+    TEST_ASSERT_FALSE(st.runaway_latched);
+}
+
+static void test_runaway_is_not_evaluated_when_we_cannot_drive(void)
+{
+    /* With the heater compiled out, PA8 is a plain output held low. A hot tip
+     * then says something about the environment or the sensors, not about a
+     * stuck FET - and a fault bit nobody can act on is noise. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_healthy();
+    in.drive_possible = false;
+    in.t_tip_c100 = 5000;
+    in.t_chamber_c100 = (int16_t)(in.t_tip_c100 - (int16_t)cfg.dt_max_k100 -
+                                  O2P_HEATER_RUNAWAY_MARGIN_K100 - 50);
+    o2p_heater_out_t out;
+    for (unsigned i = 0; i < 300u; i++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, i, &out);
+    }
+    TEST_ASSERT_FALSE(st.runaway_latched);
+}
+
+static void test_setpoint_default_respects_the_cell_humidity_rating(void)
+{
+    /* The SGX cell is rated 15-90 %RH continuous. A setpoint at or above that
+     * defeats the purpose of running the loop at all. */
+    o2p_config_t cfg;
+    o2p_config_defaults(&cfg);
+    TEST_ASSERT_TRUE(cfg.rh_setpoint_x100 <= 9000u);
+    TEST_ASSERT_TRUE(cfg.rh_setpoint_x100 >= 5000u);
+    /* And the heater is off by configuration as well as by compile flag: two
+     * independent switches, so enabling it is never a single edit. */
+    TEST_ASSERT_EQUAL_UINT16(0, cfg.heater_max_duty_x100);
+    /* The designed thermal envelope is 0-4 K, not a fixed 2 K (PLAN.md:300). */
+    TEST_ASSERT_EQUAL_UINT16(400u, cfg.dt_max_k_x100);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -601,10 +1022,27 @@ int main(void)
     RUN_TEST(test_uncalibrated_invalidates_comp_but_not_raw);
     RUN_TEST(test_discovery_alias_refuses_writes);
     RUN_TEST(test_snapshot_reset_clears_every_measurement_channel);
+    RUN_TEST(test_heater_gains_are_writable_and_bounded);
+    RUN_TEST(test_gain_registers_read_back_what_was_written);
+    RUN_TEST(test_config_block_read_covers_the_gains);
     RUN_TEST(test_validity_matrix);
     RUN_TEST(test_snapshot_is_invalid_before_the_first_sample);
     RUN_TEST(test_dewpoint_reference_points);
     RUN_TEST(test_dewpoint_refuses_impossible_humidity);
     RUN_TEST(test_dew_margin_sign);
+    RUN_TEST(test_heater_healthy_input_actually_heats);
+    RUN_TEST(test_every_interlock_independently_forces_zero);
+    RUN_TEST(test_unevaluable_input_is_off_not_midrange);
+    RUN_TEST(test_duty_is_monotonic_in_humidity);
+    RUN_TEST(test_duty_clamp_binds);
+    RUN_TEST(test_dt_clamp_binds_and_has_hysteresis);
+    RUN_TEST(test_tip_limit_is_below_the_hardware_alert);
+    RUN_TEST(test_integrator_cannot_wind_up_while_clamped);
+    RUN_TEST(test_loop_reaches_setpoint_in_steady_state);
+    RUN_TEST(test_runaway_does_not_false_positive_on_cold_start);
+    RUN_TEST(test_runaway_latches_on_uncommanded_heat_and_stays_latched);
+    RUN_TEST(test_runaway_needs_the_full_window);
+    RUN_TEST(test_runaway_is_not_evaluated_when_we_cannot_drive);
+    RUN_TEST(test_setpoint_default_respects_the_cell_humidity_rating);
     return UNITY_END();
 }

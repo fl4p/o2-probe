@@ -118,12 +118,23 @@ Firmware that took an absolute value would hide the answer.
 `MB_CRC_ERRS`, `MB_FRAME_ERRS`, `I2C_ERRS`, `EXP_DATA` (`0xFFFF` - J2 is DNP),
 `SETTLE_RESTARTS` (`0x0020`), `SAMPLE_SEQ` (`0x0021`).
 
-### Config block, `0x0030`, 16 registers, read/write, flash-backed
+### Config block, `0x0030`, 18 registers, read/write, flash-backed
 
 `SLAVE_ADDR`, `BAUD_CODE`, `PARITY_CODE`, `RH_SETPOINT`, `DT_MAX_K`,
 `HEATER_MAX_DUTY`, `HEATER_PWM_HZ`, `CAL_AIR_NA_HI/LO`, `CAL_TEMP_C100`,
 `TEMPCO_PPM_K`, `SHT_PULSE_H`, `SHT_PULSE_TRIG`, `CAL_TRIGGER`, `COMMIT`,
-`CONFIG_CRC` (read-only).
+`CONFIG_CRC` (read-only), then the two PI gains:
+`HEATER_KP` at `0x0040` and
+`HEATER_KI` at `0x0041`, both in 0.01 units.
+
+The two heater gains are registers rather than compile-time constants because
+the plant they tune can only be characterised in a real pile:
+`THERMAL-BARRIER.md` bounds the PCB conduction path, not ring-to-gas. The
+alternative was reflashing to change a number, which post-pot means the RS-485
+bootloader and a full image transfer. Adding them moved the config block from
+16 to 18 registers and took the flash record's layout version to 2, so a
+version-1 record falls back to defaults - and the defaults hold
+`HEATER_MAX_DUTY` at 0, so a layout change fails towards no heat.
 
 A multi-register write is validated against a copy and committed all-or-nothing,
 so a frame setting a legal address and an illegal baud rate changes neither.

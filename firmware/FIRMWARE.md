@@ -1,4 +1,4 @@
-# o2-probe Rev A firmware — v0
+# o2-probe Rev A firmware — v1
 
 > **DEPLOYMENT PROHIBITED.** v0 is a bench and short-trial build. It has no
 > membrane heater and no RS-485 bootloader. Do not bury a probe running it, and
@@ -31,25 +31,38 @@ while the sampler is completing cycles **and** the RS-485 driver is not stuck
 enabled; nothing else in the firmware feeds it, because a safety interlock with
 a second, unconditional key is not one.
 
-**Does not: drive the membrane heater.** `DESIGN.md:47-51` and
-`FAB-READINESS.md:61` both state the TMP117 ALERT path "is not credited as an
-autonomous overtemperature cutoff until firmware configures and fault-tests the
-TMP117". Until that bench test is run and recorded, nothing may put 1 W into
-the membrane carrier. The heater is off at three independent levels: an
-`#error` behind `O2P_HEATER_ENABLE`, PA8 held as a plain output driven low and
-never switched to alternate function, and TIM1's clock left off entirely.
+v1 adds the **membrane-heater control loop** — but ships it **switched off**.
+
+`DESIGN.md:47-51` and `FAB-READINESS.md:61` both state the TMP117 ALERT path
+"is not credited as an autonomous overtemperature cutoff until firmware
+configures and fault-tests the TMP117". Firmware now *configures* it, and
+`o2p_tmp117_safety_armed()` latches whether that took. It has **not been
+fault-tested**, because nothing in this firmware has ever executed on silicon.
+Until that bench test is run and recorded, nothing may put 1 W into the
+membrane carrier.
+
+So the heater is off at **two independent switches**, and enabling it is never
+a single edit:
+
+| Switch | Where | Default |
+|---|---|---|
+| `O2P_HEATER_ENABLE` | compile flag in `platformio.ini` | `0` — TIM1's clock stays gated off, PA8 is a plain output held low |
+| `HEATER_MAX_DUTY` `0x0035` | flash-backed configuration | `0` — the loop refuses with `CONFIG_OFF` |
+
+The full enable procedure and its bench prerequisites are at the top of
+`src/heater.h` and in [The heater loop](#the-heater-loop-v1) below.
 
 **The cost of that, stated plainly:** the SGX cell is rated 15–90 %RH
 *continuous, non-condensing*, and the heater is the only thing keeping the
-membrane above the dew point of saturated pore gas. **v0 is a bench and
-short-deployment build.** A v0 probe left in a pile for weeks will wet its
-membrane. `DEW_MARGIN` and the `DEW_SUSPECT` fault exist so that is observed
+membrane above the dew point of saturated pore gas. **With the heater switched
+off this is a bench and short-trial build.** A probe left in a pile for weeks
+with the loop disabled will wet its membrane. `DEW_MARGIN` and the `DEW_SUSPECT` fault exist so that is observed
 rather than discovered afterwards.
 
 Also absent: the **RS-485 application bootloader**. `SCHEMATIC-REVIEW.md` M2 is
 emphatic that it must be installed *before potting*, because J3 is not exposed
 through the enclosure and the STM32 ROM bootloader is not proven to work
-through the half-duplex DE line. **Do not pot a probe running v0.**
+through the half-duplex DE line. **Do not pot a probe running this firmware.**
 
 ## Bus settings
 
@@ -99,7 +112,7 @@ fault, not like anoxia.
 | 2 | `T_TIP` | i16 | 0.01 °C (TMP117) | `0x8000` |
 | 3 | `T_CHAMBER` | i16 | 0.01 °C (SHT45) | `0x8000` |
 | 4 | `RH_CHAMBER` | u16 | 0.01 %RH | `0xFFFF` |
-| 5 | `HEATER_DUTY` | u16 | 0.01 % (always 0 in v0) | — |
+| 5 | `HEATER_DUTY` | u16 | 0.01 %, the duty actually applied | — |
 | 6 | `FAULTS` | u16 | bitfield | — |
 | 7 | `SETTLE_S` | u16 | seconds remaining, 0 = settled | — |
 
@@ -125,12 +138,26 @@ then two that exist because supervision here is *sampled*, not continuous:
   two polls means the sampler has stalled, even though every other register
   still holds a plausible value.
 
-### Config block — `0x0030`, 16 registers, read/write, flash-backed
+### Config block — `0x0030`, 18 registers, read/write, flash-backed
 
 `SLAVE_ADDR`, `BAUD_CODE`, `PARITY_CODE`, `RH_SETPOINT`, `DT_MAX_K`,
 `HEATER_MAX_DUTY`, `HEATER_PWM_HZ`, `CAL_AIR_NA_HI/LO`, `CAL_TEMP_C100`,
 `TEMPCO_PPM_K`, `SHT_PULSE_H`, `SHT_PULSE_TRIG`, `CAL_TRIGGER`, `COMMIT`,
-`CONFIG_CRC` (read-only).
+`CONFIG_CRC` (read-only), plus the two PI gains, both in 0.01 units:
+
+| Reg | | |
+|---|---|---|
+| `0x0040` | `HEATER_KP` | proportional gain |
+| `0x0041` | `HEATER_KI` | integral gain, per second |
+
+The gains are registers on purpose. The plant is unmeasured — the thermal path
+is an engineering bound, not a measurement — so they will need tuning against a
+real pile, and the alternative to a register write is a full firmware transfer
+through a bootloader that does not exist yet. Bounded at 100.00 each: `kp` of
+100 already saturates the duty clamp on a 1 %RH error, and a 1 W heater against
+a membrane is not the place to discover a fat-fingered write. Zero is legal —
+`kp = 0` with `ki > 0` is a pure integrator, reasonable on a slow thermal
+plant, and both zero simply means the loop never asks for heat.
 
 A multi-register write is validated against a copy and committed all-or-nothing
 — a frame that sets a legal address and an illegal baud rate changes neither.
@@ -159,13 +186,13 @@ roughly 10 000 flash cycles and stalls the CPU for tens of milliseconds. A
 | 5 | `AFE_CONFIG_MISMATCH` | **yes** |
 | 6 | `VA_LOW` | **yes** |
 | 7 | `VIN_LOW` | no |
-| 8 | `HEATER_RUNAWAY` | no |
+| 8 | `HEATER_RUNAWAY` | no — latched, see below |
 | 9 | `TEMP_OVER` | **no — see below** |
 | 10 | `DEW_SUSPECT` | no |
 | 11 | `ADC_RANGE` | **yes** |
 | 12 | `CAL_DEFAULT` | **`O2_COMP` only — see below** |
 | 13/14 | `EXP_PRESENT` / `EXP_FAIL` | no |
-| 15 | `HEATER_DISABLED` | no (always set in v0) |
+| 15 | `HEATER_DISABLED` | no — set whenever the loop is not driving, for any reason |
 
 Two exceptions that are easy to "tidy" into wrongness, so they are also
 enforced by `_Static_assert` in `src/faults.c`:
@@ -217,10 +244,41 @@ with the node. This closes `PLAN.md:424` in the "dedicated PSU" direction.
 
 ## Bring-up
 
-Flash from the **Nucleo-H503RB's** on-board ST-LINK in external-target mode
-(remove the ST-LINK jumpers, use CN4) through a **TC2030-IDC-NL-6** cable to
-J3. J3.1 is VTREF, not a supply — power the board from its 12 V feed with the
-bench PSU current-limited to ~300 mA.
+Flash from the **Nucleo-H503RB's** on-board ST-LINK in external-target mode:
+remove both ST-LINK jumpers, and use the 6-pin SWD header on the ST-LINK half
+of the board (CN4 on most Nucleo-64s — check the H503RB's silkscreen). Power
+the probe from its own 12 V feed, bench PSU current-limited to ~300 mA.
+
+### Getting SWD onto J3 without a Tag-Connect cable
+
+There is no TC2030-IDC-NL-6 cable here, so **solder leads to the J3 pads**.
+That is a reasonable permanent choice rather than a compromise: no probe can be
+potted until the RS-485 bootloader exists, so the first article is a bench mule
+either way.
+
+The footprint is six **0.787 mm circular pads on a uniform 1.27 mm grid**, with
+0.48 mm of bare laminate between pad edges — comfortable with 30 AWG Kynar
+wire-wrap wire. Five of the six are worth wiring:
+
+| Pad | Net | |
+|---|---|---|
+| 1 | `3V3D` | VTREF — the ST-LINK's level sense |
+| 2 | `SWDIO` | |
+| 3 | `NRST` | for connect-under-reset |
+| 4 | `SWCLK` / BOOT0 | |
+| 5 | `GND` | |
+| 6 | "SWO" (PB3) | **skip it** — Cortex-M0+ has no ITM, so there is no trace to carry |
+
+Three things that are easy to get wrong:
+
+- **Use an alignment hole as strain relief.** The three 0.99 mm NPTH holes at
+  ±2.54 mm are the only mechanical anchor available: these are `-NL` pads, with
+  no legs. Thread the bundle through one. A 0.787 mm pad lifts easily, and
+  lifting SWDIO or SWCLK removes the only programming interface the board has.
+- **VTREF is a sense input, not a supply.** Power the board from 12 V and let
+  the debugger read 3.3 V through pad 1. Do not back-feed the probe.
+- **Keep the SWCLK lead short.** It is the same net as BOOT0 with only a 100 kΩ
+  pull-down, so a long dangling wire is an antenna on a boot-mode strap.
 
 1. **Trim RV1 to `VREF_TRIM` = 2.500 V at TP4** — then **measure the actual
    bias.** The LMP91000's 24 % step is the top one it offers, so nominally
@@ -259,7 +317,191 @@ bench PSU current-limited to ~300 mA.
     `AFE_CONFIG_MISMATCH`/`VA_LOW`, rewrites the AFE, and *restarts the
     settling timer*.
 
-## Known limitations of v0
+
+## The heater loop (v1)
+
+### What is controlled, and why it is not a temperature
+
+`PLAN.md:294-297`, verbatim: *"primary loop regulates measured chamber RH
+(SHT45, hold ~85-90 % — the actual controlled quantity: condensation margin +
+the cell's 90 % continuous-RH spec)."*
+
+Regulating humidity rather than a fixed temperature rise is the whole design.
+`PLAN.md:300-302`: *"+2 K gives only ~90-91 % RH on saturated gas; 85 % needs
+~3.1-3.7 K at 40-65 °C — design the thermal path for a 0-4 K ΔT range, not a
+fixed 2 K."* A fixed offset that is right at 40 °C is wrong at 65 °C, and the
+pile spans both. `DT_MAX_K` (`0x0034`, default 4.00 K) is that envelope as a
+clamp, not as a setpoint.
+
+Heating dries the chamber at constant absolute humidity, so the loop is
+positive-acting: measured RH above setpoint asks for more duty. A sign error
+here would drive the loop away from its target, so the direction is pinned by
+`test_duty_is_monotonic_in_humidity`.
+
+Structure: ~1 Hz PI with conditional-integration anti-windup and a duty clamp,
+~1 kHz PWM on TIM1_CH1, exactly as `PLAN.md:311` specifies. The control law
+lives in `src/heater_ctl.c` with no registers and no CMSIS, so it is
+host-tested; `src/heater.c` owns the timer.
+
+### Interlocks
+
+Every one is independent and independently tested. **Any** of them means duty
+zero for that cycle.
+
+| Interlock | Fires when |
+|---|---|
+| `NOT_COMPILED` | built with `O2P_HEATER_ENABLE=0` — this build |
+| `CONFIG_OFF` | `HEATER_MAX_DUTY` is zero — this build |
+| `SAFETY` | `o2p_tmp117_safety_armed()` false: the therm-mode alert is not programmed |
+| `NO_RH` | no fresh SHT45 humidity — **including during the de-creep pulse mask** |
+| `NO_TIP` | no fresh TMP117 reading |
+| `NO_CHAMBER` | no chamber temperature, so the ΔT clamp cannot be enforced |
+| `TIP_LIMIT` | tip ≥ 80.00 °C (firmware limit, releases at 75.00 °C) |
+| `DT_LIMIT` | tip − chamber ≥ `DT_MAX_K` (releases 0.5 K below) |
+| `RUNAWAY` | latched: heat with no command |
+| `SUPPLY` | `VA_LOW` or `VIN_LOW` — heating adds ~86 mA to a rail already out of tolerance |
+| `PIN_INTEGRITY` | `TIM1.CCER.CC1NE` set, or PA7 no longer analog |
+| `STALE` | no duty command within 5 s — the sampler stalled |
+
+Two of these deserve their reasoning spelled out.
+
+**The firmware tip limit is 80 °C while the TMP117's therm-mode alert is at
+85 °C.** Deliberately different: firmware backs off first and the hardware
+clamp is the backstop for the case where firmware is the thing that failed.
+Two mechanisms at the same threshold would be one mechanism.
+
+**`SETTLING` and the O₂-chain faults do NOT block heating**, and that is a
+judgement worth disagreeing with. The 15-minute settle is about the cell's
+electrochemical bias; the heater's job is keeping the membrane dry. Blocking
+the loop on `SETTLING` would leave the membrane unprotected for 15 minutes
+after every reset — the one thing v0's disabled heater already does badly. Only
+the *supply* faults block, because heat is a load. If a reviewer prefers the
+stricter reading, the change is one line in `main.c`'s `supply_ok`.
+
+### Runaway detection
+
+Fault bit 8 was defined in v0 and never set. It now latches when the tip runs
+hotter than the loop is ever allowed to make it **while duty is commanded
+zero**, sustained for 60 s: `dT > DT_MAX_K + 2.00 K`.
+
+It cannot false-positive on a cold start, because at power-on tip and chamber
+are the same temperature. The margin is measured above `DT_MAX_K` rather than
+above zero because a small standing ΔT is expected by design —
+`PLAN.md:304-307` warns that *"U10 measures PCB copper, but the 5 g ABS cell
+couples via three pins and gas"*, so the two sensors disagree normally.
+
+**It latches until reset.** A FET conducting unasked is a hardware failure, and
+the firmware that has just discovered it cannot control the heater is not what
+should decide the fault has cleared. Auto-clearing would re-arm 1 W against the
+membrane every time the tip cooled. The cost is that a false positive disables
+heating until the next reset.
+
+Detection is skipped entirely when `O2P_HEATER_ENABLE=0`: PA8 is then a plain
+output held low, so a hot tip says something about the environment or the
+sensors, not about a stuck FET — and a fault bit nobody can act on is noise.
+
+### Tuning parameters
+
+| Parameter | Register | Default | Status |
+|---|---|---|---|
+| RH setpoint | `RH_SETPOINT` `0x0033` | 85.00 %RH | from `PLAN.md:294-296` |
+| ΔT clamp | `DT_MAX_K` `0x0034` | 4.00 K | from `PLAN.md:300-302` |
+| Duty ceiling | `HEATER_MAX_DUTY` `0x0035` | **0** (off) | second enable switch |
+| PWM frequency | `HEATER_PWM_HZ` `0x0036` | 1000 Hz | `PLAN.md:311`; **edge unverified** |
+| Proportional gain | *compile-time* `O2P_HEATER_KP_X100_DEFAULT` | 2.00 | **unverified** |
+| Integral gain | *compile-time* `O2P_HEATER_KI_X100_DEFAULT` | 0.10 /s | **unverified** |
+
+**The gains are placeholders, not design values.** The plant gain is unknown:
+`THERMAL-BARRIER.md:5-9` gives 98 K/W (interval 91–102, engineering bound
+90–110 K/W) for the *bare-PCB transverse* path, and `:18` says plainly that the
+estimate *"is for PCB conduction only. It is not the ring-to-ambient"* path —
+which is the one that actually sets how many kelvin a watt buys in wet pore
+gas. Nothing here is derived from a measured plant. They are deliberately slow:
+a loop that cannot be tuned before it is potted should err towards sluggish
+rather than towards overshooting into a cell rated to 60 °C.
+
+They are **compile-time constants, and they should not be.** See
+[Known limitations](#known-limitations) — this is the one follow-up that
+matters.
+
+### Enabling it
+
+Every prerequisite is bench work on a real board. None has been done.
+
+1. **TMP117 alert fault test.** The whole hardware-cutoff argument is this one
+   measurement — see the known-bad calibration in the guard checklist below.
+2. **Gate edge and PWM frequency.** `SCHEMATIC-REVIEW.md` H3's closure makes
+   this *"a firmware and thermal bench requirement"*: R28 is 10 kΩ into the
+   AO3400A gate against R29's 100 kΩ pulldown, so Vgs reaches only ~3.0 V and
+   the edge is tens of microseconds — at 1 kHz roughly 3 % of the period.
+   Scope the gate, and check FET dissipation at **intermediate duty**, not only
+   0 % and 100 %.
+3. **Ring and resistors safe at 100 % duty at the 15 V worst case** — 1.61 W,
+   not the 1.03 W of the 12 V nominal case.
+4. **Tune the gains** against the real thermal path.
+5. **Controlled dew-point crossings**, per `FAB-READINESS.md`'s open gates.
+
+Then: set `-DO2P_HEATER_ENABLE=1`, and write a non-zero `HEATER_MAX_DUTY`.
+`pio run -e o2probe_heater_enabled` exists purely to prove that path still
+compiles; it is never flashed.
+
+### Guard review, in writing
+
+The checklist every guard in this repository has to answer, for this loop.
+
+1. **Unevaluable input.** Missing RH, missing tip, missing chamber, an
+   unarmed TMP117, a failed pin-integrity check and a stale command are each
+   an interlock, not a default. There is no path from "cannot evaluate" to a
+   non-zero duty. `test_unevaluable_input_is_off_not_midrange` sweeps every
+   combination of missing sensor.
+2. **Monotonicity.** As the chamber gets wetter — the input worsening — the
+   demanded duty never falls, and at or below setpoint it is exactly zero, not
+   a residual. `test_duty_is_monotonic_in_humidity` walks 0–100 %RH.
+3. **Preconditions.** The loop is invoked from `cycle_publish()`, after every
+   phase has run, so it sees the rail, AFE, temperature and humidity results
+   together. A loop running earlier could command heat into a supply already
+   known to be sagging. `o2p_heater_apply()` re-checks pin integrity itself
+   rather than trusting its caller.
+4. **Source of truth.** The duty published in `0x0005` is read back from
+   `o2p_heater_duty_x100()` — what the hardware layer actually applied — not
+   the controller's request. If `heater.c` refuses a command, the register
+   shows the refusal.
+5. **Persistence.** The runaway latch survives until reset and is never
+   cleared by a subsequent healthy cycle. The integrator is **zeroed** on any
+   interlock rather than frozen, so a cleared fault restarts from
+   proportional-only instead of slamming to whatever it had wound up to.
+6. **Provenance.** `HEATER_DISABLED` (bit 15) is set whenever the loop is not
+   driving, for any reason. Every number in the tuning table above is marked
+   measured or unverified; the gains and the PWM edge are unverified.
+7. **Known-bad calibration — the bench procedure.** Construct the failure and
+   watch the guard fire:
+   - Power the board from its 12 V feed, current-limited to ~300 mA. Scope
+     probe on `HEATER_LOW` (the RH1/RH2–Q2 junction, reachable at the
+     2512 pads); second channel on `HEATER_GATE` at R28.
+   - Enable the heater and command a mid duty. Confirm `HEATER_LOW` switches
+     and `HEATER_DUTY` `0x0005` reads back what you asked for.
+   - Write `TLOW` then `THIGH` on the TMP117 (`0x0003`, `0x0002`) to a limit
+     **below** the present tip temperature, over the same I²C bus.
+   - **Expect: `HEATER_GATE` pulled low by the open-drain ALERT within one
+     TMP117 conversion, and `HEATER_LOW` at +12 V — heater off — while the MCU
+     is still commanding PWM.** That contention is bounded to ~0.33 mA by R28
+     per `SCHEMATIC-REVIEW.md` H3's closure; confirm on the gate trace that it
+     is held below the AO3400A's threshold.
+   - Restore `THIGH` and confirm the heater resumes only after the tip falls
+     below the hysteresis point.
+   - Record the result in `FAB-READINESS.md`. Until this passes,
+     `O2P_HEATER_ENABLE` stays 0.
+8. **Fix versus mute.** Every interlock changes the commanded duty; none
+   merely suppresses a report. `HEATER_RUNAWAY` and `HEATER_DISABLED` reach
+   the uplink, so a probe that refuses to heat says so rather than looking
+   healthy and cold.
+
+**Runtime cost.** One float PI evaluation per second on a 16 MHz Cortex-M0+ with
+no FPU — soft-float, microseconds, once per 1 Hz cycle. The interlock
+evaluation is integer comparisons. Nothing here is in the Modbus path, and no
+phase became blocking: the decision runs inside the existing publish step.
+
+## Known limitations
 
 - **Bias supervision is sampled, not continuous.** The rail and AFE checks run
   at 1 Hz, so a short 3V3A excursion between samples is missed. `SETTLE_RESTARTS`
@@ -279,6 +521,25 @@ bench PSU current-limited to ~300 mA.
   first-article and bootloader validation; **never RDP 2**, which would remove
   every recovery path from a device whose SWD connector is already inside the
   potting.
+- **The heater gains are compile-time constants, and they should not be.** The
+  plant gain cannot be known until the loop runs on hardware, and once a probe
+  is potted there is no SWD to reflash it through — so tuning has to happen
+  over the bus or it cannot happen at all. Two holding registers
+  (`HEATER_KP`, `HEATER_KI`) would fix this. They were implemented and then
+  **reverted**: adding them changes the register map, whose prose copy lives in
+  `../DESIGN.md`, outside the boundary this work was scoped to. It is one
+  commit of `regmap.h` plus a `DESIGN.md` table row, and it should be done
+  before anyone tunes a loop on a board they intend to pot.
+- **The refusal reason is not published.** `HEATER_DISABLED` says the loop is
+  not driving; it does not say which of the twelve interlocks fired. That mask
+  exists in firmware (`O2P_HB_*`) and a `HEATER_BLOCK` diagnostic register
+  would surface it, but it is the same map change as above. Until then,
+  diagnosing a refusal from a buried probe means reasoning from the other
+  fault bits.
+- **The PWM edge is unverified.** `SCHEMATIC-REVIEW.md` H3's closure makes
+  gate-edge and frequency verification an explicit firmware and thermal bench
+  requirement, and no scope has been near this board. 1000 Hz is
+  `PLAN.md:311`'s figure, not a measured choice.
 - **Every reset costs 15 minutes of settling.** An earlier version skipped the
   wait when the reset was not a power-cycle and the LMP91000's registers read
   back intact. That inference does not hold: the readback proves the AFE's

@@ -22,7 +22,8 @@ firmware's scale factors are **generated** from the schematic (see
 | | |
 |---|---|
 | Schematic / PCB | released for a bare-board first article; ERC and DRC clean |
-| Firmware v0 | builds, 32 host tests pass — **has never run on hardware** |
+| Firmware v0 | builds, 49 host tests pass — **has never run on hardware** |
+| Firmware v1 heater loop | implemented and **shipped disabled**, pending the TMP117 alert fault test |
 | Cell fit, enclosure fit, potting | unqualified; physical sample gates open |
 | RS-485 bootloader | **does not exist** |
 
@@ -115,17 +116,6 @@ python3 tools/gen_hw_contract.py --check  # what the build runs
 python3 tools/check_regmap_docs.py        # prose register map vs regmap.h
 ```
 
-### Known: the contract check currently fails
-
-On a fresh clone `gen_hw_contract.py --check` reports the contract stale. It is
-right. The committed `hw_contract.h` was generated from a newer `gen_sch.py`
-than the one committed beside it, so the repository's generator says the
-divider is 130k/20k while the firmware says 82k/10k — the as-built value.
-
-The guard is working; the tree is inconsistent. The fix is one commit of
-`gen_sch.py` from the working copy that produced the contract. Until then the
-firmware is correct for the built board and the generator in this repo is
-behind it.
 
 ## Further reading
 

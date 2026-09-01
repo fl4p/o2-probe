@@ -456,6 +456,48 @@ def validate_drills(directory: Path) -> dict[str, object]:
     }
 
 
+def audit_bom() -> dict[str, object]:
+    """Run the procurement audit and return its verdict.
+
+    A bare board genuinely does not need MPNs, so an unsourced part must not
+    block this release.  What it must not do is vanish: L1, DZ1 and F1 reached
+    neither purchase order because their unsourced state lived only in prose in
+    SCHEMATIC-REVIEW.md while the release declared itself ready.  The verdict
+    therefore travels inside the release and inside the manifest's own
+    qualification scope, where anyone building a basket has to meet it.
+
+    An audit that cannot be evaluated is not a pass: a missing report or a
+    report without a verdict aborts the build rather than defaulting to clean.
+    """
+    command = [sys.executable, "audit_bom.py"]
+    snapshot = HERE / "purchase-orders.json"
+    if snapshot.is_file():
+        command += ["--purchase-orders", str(snapshot)]
+    result = subprocess.run([str(c) for c in command], cwd=HERE,
+                            text=True, capture_output=True)
+    report = HERE / "bom-audit.rpt"
+    if not report.is_file():
+        print(result.stdout, end="", file=sys.stderr)
+        print(result.stderr, end="", file=sys.stderr)
+        raise SystemExit("BOM audit produced no report; procurement state is unknown")
+    lines = report.read_text().splitlines()
+    verdict = next((line.split(": ", 1)[1] for line in lines
+                    if line.startswith("result: ")), "")
+    if verdict not in ("PASS", "FAIL"):
+        raise SystemExit(f"BOM audit report carries no usable verdict ({verdict!r})")
+    errors = [line.removeprefix("ERROR: ") for line in lines
+              if line.startswith("ERROR: ")]
+    unsourced = next((line.split(": ", 1)[1] for line in lines
+                      if line.startswith("unsourced fitted components: ")), "")
+    if verdict == "FAIL" and not errors:
+        raise SystemExit("BOM audit reports FAIL with no errors listed")
+    if not (HERE / "o2-probe-bom.csv").is_file():
+        raise SystemExit("BOM audit produced no o2-probe-bom.csv")
+    return {"result": verdict, "unsourced": unsourced,
+            "error_count": len(errors), "errors": errors,
+            "purchase_orders_checked": snapshot.is_file()}
+
+
 def main() -> int:
     if not KICAD.is_file() or not KIPY.is_file():
         raise SystemExit("KiCad 10 CLI/bundled Python not found at the recorded macOS paths")
@@ -467,6 +509,7 @@ def main() -> int:
         "-o", "o2-probe.xml", SCHEMATIC)
     run(KICAD, "sch", "erc", "--exit-code-violations", "-o", "erc.rpt", SCHEMATIC)
     run(sys.executable, "audit_schematic.py")
+    bom = audit_bom()
     run(KICAD, "pcb", "drc", "--severity-error", "--schematic-parity",
         "--exit-code-violations", "--format", "json", "-o", "pcb-drc-release.json", BOARD)
     run(KICAD, "pcb", "drc", "--severity-warning", "--severity-error",
@@ -495,10 +538,15 @@ def main() -> int:
     for source in ("FAB-NOTES.md", "FAB-READINESS.md", "THERMAL-BARRIER.md",
                    "ASSEMBLY-EXCEPTIONS.md", "pcb-audit.rpt",
                    "schematic-audit.rpt", "erc.rpt", "pcb-drc-release.json",
-                   "pcb-drc-warnings.json"):
+                   "pcb-drc-warnings.json", "bom-audit.rpt", "o2-probe-bom.csv"):
         shutil.copy2(HERE / source, TEMP / source)
 
     version = run(KICAD, "--version").strip()
+    scope = "bare-board first article; not automated PCBA or production qualified"
+    if bom["result"] != "PASS":
+        scope += (f"; BOM audit FAIL ({bom['error_count']} procurement errors, "
+                  f"unsourced {bom['unsourced']}). Do not build a parts basket "
+                  "from this release until bom-audit.rpt is clean")
     manifest = {
         "release": "o2-probe Rev A bare-board first article",
         "generated_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -510,7 +558,8 @@ def main() -> int:
         "drawing_layers": ["F.Fab", "B.Fab", "F.Silkscreen", "B.Silkscreen",
                            "Edge.Cuts", "Dwgs.User", "Cmts.User"],
         "validation": validation,
-        "qualification_scope": "bare-board first article; not automated PCBA or production qualified",
+        "bom": bom,
+        "qualification_scope": scope,
     }
     (TEMP / "fab-manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 
@@ -537,6 +586,11 @@ def main() -> int:
     (FAB_ROOT / "o2-probe-rev-a-fab.zip.sha256").write_text(
         f"{sha256(ZIP)}  {ZIP.name}\n"
     )
+    print(f"BOM: {bom['result']} ({bom['error_count']} procurement errors); "
+          f"unsourced {bom['unsourced'] or 'none'}")
+    if bom["result"] != "PASS":
+        print("BOM: bare boards are unaffected; the parts basket is NOT clear "
+              "-- see bom-audit.rpt before ordering", file=sys.stderr)
     print(f"PASS: {ZIP}")
     print(f"SHA-256: {sha256(ZIP)}")
     print(f"files: {len(expected)}; Gerber outline: {validation['plotted_outline_mm'][0]:.2f} x "

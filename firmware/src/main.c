@@ -21,6 +21,7 @@
 #include "config_flash.h"
 #include "faults.h"
 #include "heater.h"
+#include "heater_ctl.h"
 #include "i2c1.h"
 #include "lmp91000.h"
 #include "mcu.h"
@@ -50,6 +51,8 @@
 
 #define O2P_VIN_LOW_MV 9000u
 #define O2P_VA_LOW_MV  3130u
+
+static o2p_heater_state_t g_heat;
 
 /* Oversampling per channel. The monitors run at 90 SPS (11 ms) because they
  * only need to be right to a few millivolts; oxygen runs at 20 SPS for the
@@ -142,12 +145,14 @@ static struct {
     uint16_t rh;
     bool     tip_ok;
     bool     chamber_ok;
+    bool     rh_ok;
+    uint16_t heater_block;
 } g_cyc;
 
 static void cycle_begin(void)
 {
     memset(&g_cyc, 0, sizeof(g_cyc));
-    g_cyc.faults = O2P_F_HEATER_DISABLED;
+    g_cyc.faults = 0u;
     /* Until the reference is actually measured this cycle, assume the trim
      * target rather than carrying last cycle's number forward. */
     g_cyc.vref_mv = O2P_HW_VREF_TARGET_MV;
@@ -238,6 +243,7 @@ static void phase_temps(o2p_snapshot_t *s)
         g_cyc.t_chamber = tc;
         g_cyc.rh = rh;
         g_cyc.chamber_ok = true;
+        g_cyc.rh_ok = true;
     } else {
         g_cyc.faults |= O2P_F_I2C_FAIL_SHT;
     }
@@ -408,6 +414,56 @@ static void cycle_publish(o2p_snapshot_t *s)
         s->o2_comp = O2P_U16_INVALID;
     }
 
+    /* Decide the heater LAST, from this cycle's inputs only.
+     *
+     * Doing it here rather than in a phase of its own keeps every phase
+     * non-blocking and guarantees the decision sees the rail, AFE, temperature
+     * and humidity results together - a loop that ran before the rail check
+     * could command heat into a supply already known to be sagging. */
+    {
+        const o2p_heater_cfg_t hcfg = {
+            .setpoint_x100 = g_rm.cfg.rh_setpoint_x100,
+            .dt_max_k100   = g_rm.cfg.dt_max_k_x100,
+            .max_duty_x100 = g_rm.cfg.heater_max_duty_x100,
+            /* Compile-time gains. They belong in holding registers - the
+             * plant gain cannot be known before the loop runs, and a potted
+             * probe has no SWD to reflash through - but adding registers
+             * changes the map, and the map's prose copy lives in ../DESIGN.md,
+             * outside this work's boundary. Flagged as follow-up rather than
+             * done half-way. */
+            .kp_x100       = g_rm.cfg.heater_kp_x100,
+            .ki_x100       = g_rm.cfg.heater_ki_x100,
+        };
+        const o2p_heater_in_t hin = {
+            .drive_possible   = o2p_heater_compiled_in(),
+            .safety_armed     = o2p_tmp117_safety_armed(),
+            .pin_integrity_ok = o2p_heater_pin_integrity_ok(),
+            .rh_valid         = g_cyc.rh_ok,
+            .rh_x100          = g_cyc.rh,
+            .tip_valid        = g_cyc.tip_ok,
+            .t_tip_c100       = g_cyc.t_tip,
+            .chamber_valid    = g_cyc.chamber_ok,
+            .t_chamber_c100   = g_cyc.t_chamber,
+            /* Heating adds ~86 mA. A rail already out of tolerance is not the
+             * place to put more load, and VA_LOW in particular means the AFE
+             * may have lost its bias already. */
+            .supply_ok        = (g_cyc.faults &
+                                 (O2P_F_VA_LOW | O2P_F_VIN_LOW)) == 0u,
+        };
+        o2p_heater_out_t hout = {0u, 0u};
+        o2p_heater_ctl_step(&g_heat, &hcfg, &hin, g_uptime_s, &hout);
+        o2p_heater_apply(hout.duty_x100, g_rm.cfg.heater_pwm_hz);
+        g_cyc.heater_block = hout.block;   /* kept for the fault word below */
+        if (g_heat.runaway_latched) {
+            g_cyc.faults |= O2P_F_HEATER_RUNAWAY;
+        }
+        /* HEATER_DISABLED now means "not driving this cycle", whatever the
+         * reason. In v0 it was a constant; the reason bits are in
+         * HEATER_BLOCK. */
+        if (hout.block != 0u) {
+            g_cyc.faults |= O2P_F_HEATER_DISABLED;
+        }
+    }
     s->heater_duty = o2p_heater_duty_x100();
     s->pressure_hpa = 0u;             /* BMP390 is DNP on Rev A */
     s->exp_data = O2P_U16_INVALID;    /* J2 expansion is DNP on Rev A */
@@ -512,6 +568,7 @@ int main(void)
     /* Heater off before anything else can run long enough to matter. */
     o2p_heater_init();
     o2p_heater_force_off();
+    o2p_heater_ctl_reset(&g_heat);
 
     o2p_regmap_init(&g_rm);
     (void)o2p_config_load(&g_rm.cfg);   /* defaults on absence or corruption */
@@ -533,6 +590,10 @@ int main(void)
     for (;;) {
         /* Serve the bus first, and between every sampler step. */
         (void)o2p_modbus_poll(&g_rm);
+
+        /* A duty command is only good for a second. If the sampler stalls,
+         * the heater must not keep driving on a stale decision. */
+        o2p_heater_service();
 
         if (o2p_elapsed(last_second_ms, 1000u)) {
             last_second_ms += 1000u;

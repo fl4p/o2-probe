@@ -1,0 +1,63 @@
+mpn,value,footprint,qty_per_board,fitted,sourcing,refs
+,100k 0.1%,Resistor_SMD:R_0603_1608Metric,1,yes,unsourced,R23
+,10k 0.1%,Resistor_SMD:R_0603_1608Metric,3,yes,unsourced,R22 R24 R25
+,10u 10V X7R,Capacitor_SMD:C_0805_2012Metric,1,yes,unsourced,C7
+,10u 25V,Capacitor_SMD:C_1206_3216Metric,1,yes,unsourced,C1
+,47k 0.1%,Resistor_SMD:R_0603_1608Metric,2,yes,unsourced,R34 R35
+,TC2030 SWD PRE-POT,Connector:Tag-Connect_TC2030-IDC-NL_2x03_P1.27mm_Vertical,1,yes,unsourced,J3
+,HEATED MEMBRANE RING,o2-probe:Heater_Ring_Solder_Lands,1,yes,custom,J5
+,0.20A PTC DNP,o2-probe:PTC_1206_3216Metric,0,no,dnp,F2
+,100n DNP,Capacitor_SMD:C_0402_1005Metric,0,no,dnp,C23 C24
+,120R DNP,Resistor_SMD:R_0603_1608Metric,0,no,dnp,R4
+,33R DNP,Resistor_SMD:R_0603_1608Metric,0,no,dnp,R12 R13 R14 R15 R16
+,680R DNP,Resistor_SMD:R_0603_1608Metric,0,no,dnp,R5 R6
+BMP390,BMP390 DNP,o2-probe:BMP390_LGA10_DRAFT,0,no,dnp,U14
+,DNP 100k,Resistor_SMD:R_0603_1608Metric,0,no,dnp,R39
+,EXPANSION / K33,Connector_Molex:Molex_Micro-Fit_3.0_43045-0815_2x04_P3.00mm_Vertical,0,no,dnp,J2
+TPD2E2U06QDBZR,TPD2E2U06 DNP,Package_TO_SOT_SMD:SOT-23,0,no,dnp,D4 D5 D6
+,100k,Resistor_SMD:R_0603_1608Metric,4,yes,generic-stock,R1 R17 R29 R9
+,100n,Capacitor_SMD:C_0603_1608Metric,4,yes,generic-stock,C11 C15 C2 C9
+,100n,Capacitor_SMD:C_0402_1005Metric,13,yes,generic-stock,C12 C13 C16 C18 C19 C20 C21 C25 C27 C28 C29 C30 C31
+,10R,Resistor_SMD:R_0603_1608Metric,2,yes,generic-stock,R2 R3
+,10R,Resistor_SMD:R_0805_2012Metric,1,yes,generic-stock,R32
+,10k,Resistor_SMD:R_0603_1608Metric,4,yes,generic-stock,R18 R19 R28 R8
+,10n,Capacitor_SMD:C_0603_1608Metric,1,yes,generic-stock,C17
+,1k,Resistor_SMD:R_0603_1608Metric,4,yes,generic-stock,R33 R36 R37 R38
+,1u,Capacitor_SMD:C_0603_1608Metric,4,yes,generic-stock,C26 C5 C6 C8
+,22u,Capacitor_SMD:C_1206_3216Metric,2,yes,generic-stock,C3 C4
+,4.7k,Resistor_SMD:R_0603_1608Metric,2,yes,generic-stock,R10 R11
+,4.7u,Capacitor_SMD:C_0603_1608Metric,2,yes,generic-stock,C10 C14
+,47R,Resistor_SMD:R_0603_1608Metric,1,yes,generic-stock,R31
+,47k,Resistor_SMD:R_0603_1608Metric,1,yes,generic-stock,R7
+0ZCJ0075AF2E,0.75A PTC,o2-probe:PTC_1206_3216Metric,1,yes,mpn,F1
+3224W-1-202E,2k 10-turn,Potentiometer_SMD:Potentiometer_Bourns_3224W_Vertical,1,yes,mpn,RV1
+ADS1119IRTER,ADS1119IRTER,Package_DFN_QFN:Texas_RTE0016D_WQFN-16-1EP_3x3mm_P0.5mm_EP0.8x0.8mm,1,yes,mpn,U8
+AO3400A,AO3400A,Package_TO_SOT_SMD:SOT-23,1,yes,mpn,Q2
+AP63205WU-7,AP63205WU-7,Package_TO_SOT_SMD:TSOT-23-6,1,yes,mpn,U1
+BZT52C10-E3-08,12V ZENER,Diode_SMD:D_SOD-123,1,yes,mpn,DZ1
+CRCW2512280RFKEG,280R 1W,Resistor_SMD:R_2512_6332Metric,2,yes,mpn,RH1 RH2
+DMP3130L-7,DMP3130L,Package_TO_SOT_SMD:SOT-23,1,yes,mpn,Q1
+LMP91000SDE/NOPB,LMP91000SD/NOPB,Package_SON:WSON-14-1EP_4.0x4.0mm_P0.5mm_EP2.6x2.6mm,1,yes,mpn,U7
+OPA2333AIDGKR,OPA2333AIDGKR,Package_SO:VSSOP-8_3x3mm_P0.65mm,1,yes,mpn,U4
+P2TC0603D1002LNTA,10k 0.1%,Resistor_SMD:R_0603_1608Metric,1,yes,mpn,R21
+RC0603FR-0710KL,10k 1%,Resistor_SMD:R_0603_1608Metric,1,yes,mpn,R27
+RC0603FR-1082KL,82k 1%,Resistor_SMD:R_0603_1608Metric,1,yes,mpn,R26
+SGX-OX-ROHS-Mini,SGX-OX-ROHS-Mini,o2-probe:SGX-OX-ROHS-Mini_ISS2,1,yes,mpn,U11
+SHT45-AD1F-R2,SHT45-AD1F,Sensor_Humidity:Sensirion_DFN-4_1.5x1.5mm_P0.8mm_SHT4x_NoCentralPad,1,yes,mpn,U12
+SM712-02HTG,SM712-02HTG,Package_TO_SOT_SMD:SOT-23,1,yes,mpn,D2
+SMBJ15A-13-F,SMBJ15A-13-F,Diode_SMD:D_SMB,1,yes,mpn,D1
+SRN6028C-4R7M,4.7u SHIELDED,Inductor_SMD:L_6.3x6.3_H3,1,yes,mpn,L1
+STM32G071CBT7,STM32G071CBT7,Package_QFP:LQFP-48_7x7mm_P0.5mm,1,yes,mpn,U6
+THVD1410DR,THVD1410DR,Package_SO:SOIC-8_3.9x4.9mm_P1.27mm,1,yes,mpn,U5
+TMP117AIDRVR,TMP117 CELL,tmp117-probe:TMP117_WSON-6-1EP_2x2mm_TI,1,yes,mpn,U10
+TNPW06032K00BEEA,2k 0.1%,Resistor_SMD:R_0603_1608Metric,1,yes,mpn,R20
+TPS7A2033PDBVR,TPS7A2033PDBVR,Package_TO_SOT_SMD:SOT-23-5,2,yes,mpn,U2 U3
+,CELL_CE,TestPoint:TestPoint_Pad_D1.0mm,1,yes,not-purchased,TP3
+,CELL_WE,TestPoint:TestPoint_Pad_D1.0mm,1,yes,not-purchased,TP1
+,GUARD,TestPoint:TestPoint_Pad_D1.0mm,1,yes,not-purchased,TP5
+,J1.1 BROWN +12V,Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief,1,yes,not-purchased,J101
+,J1.2 WHITE GND,Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief,1,yes,not-purchased,J102
+,J1.3 GREEN A,Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief,1,yes,not-purchased,J103
+,J1.4 YELLOW B,Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief,1,yes,not-purchased,J104
+,TMP_CELL_EP,TestPoint:TestPoint_Pad_D1.0mm,1,yes,not-purchased,TP6
+,VREF,TestPoint:TestPoint_Pad_D1.0mm,1,yes,not-purchased,TP4

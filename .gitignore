@@ -1,31 +1,8 @@
+# KiCad session and recovery files
+~*.lck
+_autosave-*.kicad_pcb
+*-backups/
+
+# Python and PlatformIO build trees
 __pycache__/
-*.kicad_prl
-o2-probe-backups/
-fab/
-*.dsn
-*.ses
-*.bak*
-
-# Generated routing experiments and preserved checkpoints. The accepted board
-# is o2-probe.kicad_pcb; reproducibility lives in the generators and reports.
-o2-probe-candidate*
-o2-probe-closed*
-o2-probe-final.kicad_*
-o2-probe-krt*.kicad_*
-o2-probe-plane*.kicad_*
-o2-probe-route*
-o2-probe-seed*
-o2-probe-signals-*
-o2-probe-placement.kicad_*
-o2-probe-port-*
-o2-probe-drill-clearance.kicad_*
-
-# Router search telemetry is transient except for the accepted bounded pass.
-krt*.json
-!krt-signals-final.json
-
-# Intermediate DRC experiments; retain pcb-drc.rpt/json and audit reports.
-*-drc.rpt
-pcb-drc-*.rpt
-pcb-drc-final.json
-!pcb-drc.rpt
+firmware/.pio/

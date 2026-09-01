@@ -158,7 +158,10 @@ bootloader and specify rollback/recovery behavior.
 ### M3 — exact high-current/protection parts remain undefined
 
 F1, DZ1, L1, D2/D3, RH1/RH2, and several capacitors are values/families rather
-than orderable parts. At the declared 15 V maximum, two 140 ohm heaters draw
+than orderable parts. **This is now machine-enforced**: `audit_bom.py` fails on
+any fitted component lacking an MPN or a declared `sourcing.json` class, and the
+finding here is no longer load-bearing prose. Recording it only in this document
+is what let L1, DZ1 and F1 reach neither Rev A purchase order. At the declared 15 V maximum, two 140 ohm heaters draw
 about 214 mA and dissipate about 1.61 W total (0.80 W each), not the 1.03 W
 total at nominal 12 V. Exact 2512 resistor voltage/power derating, PCB thermal
 rise, potting/island heat flow, PTC hold/trip current at temperature, inductor

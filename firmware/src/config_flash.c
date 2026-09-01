@@ -30,7 +30,13 @@ _Static_assert(FLASH_PAGE_SIZE == 2048u, "unexpected flash page size");
 #define PAGE_ADDR(pg) (FLASH_BASE + (uint32_t)(pg) * FLASH_PAGE_SIZE)
 
 #define CONFIG_MAGIC 0x4F325043u   /* "O2PC" */
-#define CONFIG_LAYOUT_VERSION 1u
+/* 2: added heater_kp_x100 / heater_ki_x100 (registers 0x0040/0x0041).
+ * Bumping this makes a version-1 record unreadable rather than
+ * mis-interpreted, so an older probe's stored config falls back to defaults -
+ * and the defaults put HEATER_MAX_DUTY at 0, i.e. heater off. The fail-safe
+ * direction of a layout change is therefore "no heat", which is the only
+ * direction it is allowed to fail in. */
+#define CONFIG_LAYOUT_VERSION 2u
 
 /* Fixed 64-byte record, so the layout does not move when a config field is
  * added and the flash image stays recognisable across firmware versions. */

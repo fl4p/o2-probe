@@ -90,9 +90,21 @@ enum {
     O2P_REG_CAL_TRIGGER     = 0x003Du, /* write O2P_CAL_MAGIC to take an air point */
     O2P_REG_COMMIT          = 0x003Eu, /* write O2P_COMMIT_MAGIC to persist */
     O2P_REG_CONFIG_CRC      = 0x003Fu, /* read-only CRC of the live config */
+    /* PI gains, 0.01 units. These are registers rather than compile-time
+     * constants for one reason: the plant they tune cannot be characterised
+     * anywhere but in a real pile. THERMAL-BARRIER.md bounds the PCB
+     * conduction path only, not ring-to-gas, so the shipped values are
+     * starting points and nothing more.
+     *
+     * The alternative was reflashing to change a number, and post-pot that
+     * means the RS-485 bootloader plus a full image transfer. Two register
+     * writes with a laptop at the node is the difference between tuning the
+     * loop and not tuning it. */
+    O2P_REG_HEATER_KP       = 0x0040u, /* proportional gain x100 */
+    O2P_REG_HEATER_KI       = 0x0041u, /* integral gain x100, per second */
 };
 #define O2P_REG_CONFIG_BASE  0x0030u
-#define O2P_REG_CONFIG_COUNT 16u
+#define O2P_REG_CONFIG_COUNT 18u
 
 /* Deliberate magics rather than "write 1". A flash cycle and a recalibration
  * are both destructive and both are one stray bit away in a noisy RS-485
@@ -126,10 +138,12 @@ typedef struct {
     int16_t  cal_temp_c100;           /* 12 */
     int16_t  tempco_ppm_per_k;        /* 14 */
     uint16_t sht_pulse_interval_h;    /* 16 */
-    uint8_t  slave_addr;              /* 18 */
-    uint8_t  baud_code;               /* 19 */
-    uint8_t  parity_code;             /* 20 */
-    uint8_t  reserved[3];             /* 21..23 */
+    uint16_t heater_kp_x100;          /* 18 */
+    uint16_t heater_ki_x100;          /* 20 */
+    uint8_t  slave_addr;              /* 22 */
+    uint8_t  baud_code;               /* 23 */
+    uint8_t  parity_code;             /* 24 */
+    uint8_t  reserved[3];             /* 25..27 */
 } o2p_config_t;
 
 /* Live measurement snapshot, published atomically by the sampler. */

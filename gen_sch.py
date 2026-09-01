@@ -371,12 +371,27 @@ for ref,y,value,n in (
           footprint="Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief",
           note="One of four independent farm-bus cable solder pads")
     net(ref,1,n)
-add_passive("F1", 40.64, 30.48, "0.75A PTC", "o2-probe:PTC_1206_3216Metric", "+12V_RAW", "+12V_FUSED")
+add_passive("F1", 40.64, 30.48, "0.75A PTC", "o2-probe:PTC_1206_3216Metric", "+12V_RAW", "+12V_FUSED",
+            mpn="0ZCJ0075AF2E",
+            note="Bel Fuse 0ZCJ 1206 PPTC: IH 0.75A, IT 1.5A, Vmax 16Vdc, Imax 100A. "
+                 "Vmax leaves 1V over the 15V input maximum; do not raise the input range "
+                 "without re-rating. IH derates to 0.52A at 60C and 0.36A at 85C")
 add_passive("D1", 40.64, 43.18, "SMBJ15A-13-F", "Diode_SMD:D_SMB", "+12V_FUSED", "GND", mpn="SMBJ15A-13-F")
-place("Q1", PMOS, 62.23, 30.48, value="DMP3010L", footprint="Package_TO_SOT_SMD:SOT-23", mpn="DMP3010L-7")
+place("Q1", PMOS, 62.23, 30.48, value="DMP3130L", footprint="Package_TO_SOT_SMD:SOT-23",
+      mpn="DMP3130L-7",
+      note="Reverse-polarity PMOS, drain to input, source to load. Was labelled 'DMP3010L-7', which names no orderable part: DS35716 shows the DMP3010L family as TO-252 and DS32239 as PowerDI5060-8, neither of which fits this SOT-23 land. DS31524 Rev 7-3 p.2 rates VGSS at +/-12 V ONLY, so DZ1 is mandatory, not optional")
 net("Q1",1,"VIN_GATE"); net("Q1",2,"+12V_SW"); net("Q1",3,"+12V_FUSED")
 add_passive("R1", 60.96, 43.18, "100k", "Resistor_SMD:R_0603_1608Metric", "VIN_GATE", "GND")
-add_passive("DZ1", 78.74, 43.18, "12V ZENER", "Diode_SMD:D_SOD-123", "+12V_SW", "VIN_GATE")
+add_passive("DZ1", 78.74, 43.18, "12V ZENER", "Diode_SMD:D_SOD-123", "+12V_SW", "VIN_GATE",
+            mpn="BZT52C10-E3-08",
+            note="Q1 VGS clamp, K to the PMOS source; 10V SOD-123. Was a 12V BZT52C12, whose "
+                 "GUARANTEED max VZ of 12.7 V at 5 mA (DS18004) exceeds the DMP3130L +/-12 V "
+                 "VGSS absolute maximum -- the old part never bounded VGS. Vishay doc 86342 "
+                 "gives BZT52C10 as 9.50/10/10.50 V at IZT 5 mA with aVZ +5..+8 mV/C. VZ rises "
+                 "with current, so VZ(30 uA) <= VZ(5 mA) <= 10.50 V; at +85 C the bound is "
+                 "10.50 + 0.008*60 = 10.98 V, inside 12 V with ~1.0 V margin. Cold end: "
+                 "9.50 - 0.52 = 8.98 V, still far above Q1 threshold. Clamp dissipation at "
+                 "15 V in is (15-10.5)/100k = 45 uA, 0.5 mW in a 410 mW part")
 place("#FLG01", PWRFLAG, 20.32, 50.8, value="PWR_FLAG", footprint="", in_bom=False); net("#FLG01",1,"+12V_RAW")
 place("#FLG02", PWRFLAG, 35.56, 50.8, value="PWR_FLAG", footprint="", in_bom=False); net("#FLG02",1,"GND")
 place("#FLG03", PWRFLAG, 50.8, 50.8, value="PWR_FLAG", footprint="", in_bom=False); net("#FLG03",1,"+12V_SW")
@@ -387,7 +402,13 @@ place("U1", BUCK, 106.68, 33.02, value="AP63205WU-7", footprint="Package_TO_SOT_
 for p,n in {1:"+5V",2:"+12V_SW",3:"+12V_SW",4:"GND",5:"BUCK_SW",6:"BUCK_BST"}.items(): net("U1",p,n)
 add_passive("C1", 88.9, 43.18, "10u 25V", "Capacitor_SMD:C_1206_3216Metric", "+12V_SW", "GND")
 add_passive("C2", 106.68, 48.26, "100n", "Capacitor_SMD:C_0603_1608Metric", "BUCK_BST", "BUCK_SW")
-add_passive("L1", 129.54, 30.48, "4.7u SHIELDED", "Inductor_SMD:L_6.3x6.3_H3", "BUCK_SW", "+5V")
+add_passive("L1", 129.54, 30.48, "4.7u SHIELDED", "Inductor_SMD:L_6.3x6.3_H3", "BUCK_SW", "+5V",
+            mpn="SRN6028C-4R7M",
+            note="AP63205 DS41326 Table 3 value for 5V out. Bourns 4.7uH +/-20%, Isat 3.2A, "
+                 "Irms 3.1A, DCR 30mOhm, 6.0x6.0x2.8mm. LAND MISMATCH: the generic "
+                 "L_6.3x6.3_H3 pads (1.5x2.4mm at +/-2.75) cover only ~2.4mm2 of this "
+                 "part's 5.8x1.6mm terminal; Bourns recommends 2.0x6.5mm pads at +/-2.25. "
+                 "Solderable for a first article, reduced shear strength -- see FAB-NOTES")
 add_passive("C3", 129.54, 43.18, "22u", "Capacitor_SMD:C_1206_3216Metric", "+5V", "GND")
 add_passive("C4", 147.32, 43.18, "22u", "Capacitor_SMD:C_1206_3216Metric", "+5V", "GND")
 
@@ -409,11 +430,20 @@ add_passive("C8",213.36,45.72,"1u","Capacitor_SMD:C_0603_1608Metric","3V3A","GND
 
 place("U4",OPAMP2,246.38,35.56,value="OPA2333AIDGKR",footprint="Package_SO:VSSOP-8_3x3mm_P0.65mm",mpn="OPA2333AIDGKR")
 for p,n in {1:"VREF_BUF",2:"VREF_BUF",3:"VREF_WIPER",4:"GND",5:"GUARD_DIV",6:"GUARD_REPLICA",7:"GUARD_REPLICA",8:"3V3A"}.items(): net("U4",p,n)
-add_passive("R20",226.06,27.94,"1.91k 0.1%","Resistor_SMD:R_0603_1608Metric","3V3A","VREF_TOP")
+add_passive("R20",226.06,27.94,"2k 0.1%","Resistor_SMD:R_0603_1608Metric","3V3A","VREF_TOP",
+            mpn="TNPW06032K00BEEA",
+            note="VREF trim top leg, was 1.91k. With R21=10k and RV1 as a rheostat the "
+                 "wiper spans 2.750V (pot at 0) to 2.357V (pot at 2k); 2.500V falls at "
+                 "~60% of travel. 25ppm/C is not the limit here -- RV1 is 100ppm/C and "
+                 "contributes ~9ppm/C against this leg's ~3.8ppm/C")
 place("RV1",POT,226.06,40.64,value="2k 10-turn",footprint="Potentiometer_SMD:Potentiometer_Bourns_3224W_Vertical",mpn="3224W-1-202E")
 net("RV1",1,"VREF_TOP"); net("RV1",2,"VREF_WIPER"); net("RV1",3,"VREF_WIPER")
-add_passive("R21",226.06,53.34,"9.10k 0.1%","Resistor_SMD:R_0603_1608Metric","VREF_WIPER","GND",
-            note="Pot wiper is strapped to the low/output terminal for open-wiper fail safety")
+add_passive("R21",226.06,53.34,"10k 0.1%","Resistor_SMD:R_0603_1608Metric","VREF_WIPER","GND",
+            mpn="P2TC0603D1002LNTA",
+            note="Pot wiper is strapped to the low/output terminal for open-wiper fail safety. "
+                 "Was 9.10k. Bottom leg of a TRIMMED divider, so initial tolerance is absorbed "
+                 "by RV1 and only drift matters: this part is 0.01%/2ppm. Do not substitute a "
+                 "thick-film 10k (100ppm/C) here")
 add_passive("C9",243.84,53.34,"100n","Capacitor_SMD:C_0603_1608Metric","VREF_WIPER","GND")
 add_passive("R31",246.38,60.96,"47R","Resistor_SMD:R_0603_1608Metric","VREF_BUF","VREF_TRIM",
             note="OPA2333 capacitive-load isolation; feedback remains at op-amp output")
@@ -492,8 +522,14 @@ add_passive("C18",144.78,167.64,"100n","Capacitor_SMD:C_0402_1005Metric","3V3A",
 add_passive("C19",144.78,177.8,"100n","Capacitor_SMD:C_0402_1005Metric","3V3D","GND")
 add_passive("R24",165.1,147.32,"10k 0.1%","Resistor_SMD:R_0603_1608Metric","3V3A","VA_MON")
 add_passive("R25",165.1,157.48,"10k 0.1%","Resistor_SMD:R_0603_1608Metric","VA_MON","GND")
-add_passive("R26",165.1,167.64,"130k 0.1%","Resistor_SMD:R_0603_1608Metric","+12V_SW","VIN_MON")
-add_passive("R27",165.1,177.8,"20k 0.1%","Resistor_SMD:R_0603_1608Metric","VIN_MON","GND")
+add_passive("R26",165.1,167.64,"82k 1%","Resistor_SMD:R_0603_1608Metric","+12V_SW","VIN_MON",
+            mpn="RC0603FR-1082KL",
+            note="VIN monitor divider, was 130k/20k. FIRMWARE: ratio is now 10/92 = 0.1087, "
+                 "not 0.1333 -- 15V maps to 1.63V. More ADC headroom than the old 2.00V and "
+                 "source impedance drops from 17.3k to 8.9k. 1% is adequate for a supply monitor")
+add_passive("R27",165.1,177.8,"10k 1%","Resistor_SMD:R_0603_1608Metric","VIN_MON","GND",
+            mpn="RC0603FR-0710KL",
+            note="VIN monitor divider bottom leg; see R26 for the firmware ratio change")
 add_passive("R33",190.5,147.32,"1k","Resistor_SMD:R_0603_1608Metric","AFE_VOUT","ADC_AFE_VOUT",
             note="ADC anti-alias/input-kickback filter; place with C28 at U8 AIN0")
 add_passive("C28",208.28,147.32,"100n","Capacitor_SMD:C_0402_1005Metric","ADC_AFE_VOUT","GND")
@@ -676,7 +712,13 @@ def verify() -> None:
     assert ASSIGNED[("RV1", "2")] == ASSIGNED[("RV1", "3")] == "VREF_WIPER"
     assert ASSIGNED[("U8", "7")] == "VREF_TRIM" and ASSIGNED[("U8", "8")] == "ADC_VREF_MON"
     assert ASSIGNED[("U8", "9")] == "ADC_AFE_VOUT"
-    assert ASSIGNED[("R26", "2")] == "VIN_MON" and INST["R26"]["value"].startswith("130k")
+    # VIN monitor divider. The value is pinned because firmware converts the ADC
+    # reading with this exact ratio; changing one leg without the other silently
+    # rescales every reported input voltage.
+    assert ASSIGNED[("R26", "2")] == "VIN_MON" and INST["R26"]["value"].startswith("82k")
+    assert ASSIGNED[("R27", "1")] == "VIN_MON" and INST["R27"]["value"].startswith("10k")
+    # VREF trim network: R20 + RV1(rheostat) + R21 must bracket 2.500V.
+    assert INST["R20"]["value"].startswith("2k") and INST["R21"]["value"].startswith("10k")
 
 
 def main() -> int:

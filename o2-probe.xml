@@ -2,7 +2,7 @@
 <export version="E">
   <design>
     <source>/Users/fab/dev/ee/hw/o2-probe/o2-probe.kicad_sch</source>
-    <date>2026-08-24T13:48:00</date>
+    <date>2026-09-01T09:55:09</date>
     <tool>Eeschema 10.0.5</tool>
     <sheet number="1" name="/" tstamps="/">
       <title_block>
@@ -895,11 +895,15 @@
       <value>12V ZENER</value>
       <footprint>Diode_SMD:D_SOD-123</footprint>
       <fields>
+        <field name="MPN">BZT52C10-E3-08</field>
+        <field name="Design Note">Q1 VGS clamp, K to the PMOS source; 10V SOD-123. Was a 12V BZT52C12, whose GUARANTEED max VZ of 12.7 V at 5 mA (DS18004) exceeds the DMP3130L +/-12 V VGSS absolute maximum -- the old part never bounded VGS. Vishay doc 86342 gives BZT52C10 as 9.50/10/10.50 V at IZT 5 mA with aVZ +5..+8 mV/C. VZ rises with current, so VZ(30 uA) &lt;= VZ(5 mA) &lt;= 10.50 V; at +85 C the bound is 10.50 + 0.008*60 = 10.98 V, inside 12 V with ~1.0 V margin. Cold end: 9.50 - 0.52 = 8.98 V, still far above Q1 threshold. Clamp dissipation at 15 V in is (15-10.5)/100k = 45 uA, 0.5 mW in a 410 mW part</field>
         <field name="Footprint">Diode_SMD:D_SOD-123</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="D_Zener" description="Zener diode"/>
+      <property name="MPN" value="BZT52C10-E3-08"/>
+      <property name="Design Note" value="Q1 VGS clamp, K to the PMOS source; 10V SOD-123. Was a 12V BZT52C12, whose GUARANTEED max VZ of 12.7 V at 5 mA (DS18004) exceeds the DMP3130L +/-12 V VGSS absolute maximum -- the old part never bounded VGS. Vishay doc 86342 gives BZT52C10 as 9.50/10/10.50 V at IZT 5 mA with aVZ +5..+8 mV/C. VZ rises with current, so VZ(30 uA) &lt;= VZ(5 mA) &lt;= 10.50 V; at +85 C the bound is 10.50 + 0.008*60 = 10.98 V, inside 12 V with ~1.0 V margin. Cold end: 9.50 - 0.52 = 8.98 V, still far above Q1 threshold. Clamp dissipation at 15 V in is (15-10.5)/100k = 45 uA, 0.5 mW in a 410 mW part"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="diode"/>
@@ -919,11 +923,15 @@
       <value>0.75A PTC</value>
       <footprint>o2-probe:PTC_1206_3216Metric</footprint>
       <fields>
+        <field name="MPN">0ZCJ0075AF2E</field>
+        <field name="Design Note">Bel Fuse 0ZCJ 1206 PPTC: IH 0.75A, IT 1.5A, Vmax 16Vdc, Imax 100A. Vmax leaves 1V over the 15V input maximum; do not raise the input range without re-rating. IH derates to 0.52A at 60C and 0.36A at 85C</field>
         <field name="Footprint">o2-probe:PTC_1206_3216Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="Polyfuse" description="Resettable fuse, polymeric positive temperature coefficient"/>
+      <property name="MPN" value="0ZCJ0075AF2E"/>
+      <property name="Design Note" value="Bel Fuse 0ZCJ 1206 PPTC: IH 0.75A, IT 1.5A, Vmax 16Vdc, Imax 100A. Vmax leaves 1V over the 15V input maximum; do not raise the input range without re-rating. IH derates to 0.52A at 60C and 0.36A at 85C"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="resettable fuse PTC PPTC polyfuse polyswitch"/>
@@ -1150,11 +1158,15 @@
       <value>4.7u SHIELDED</value>
       <footprint>Inductor_SMD:L_6.3x6.3_H3</footprint>
       <fields>
+        <field name="MPN">SRN6028C-4R7M</field>
+        <field name="Design Note">AP63205 DS41326 Table 3 value for 5V out. Bourns 4.7uH +/-20%, Isat 3.2A, Irms 3.1A, DCR 30mOhm, 6.0x6.0x2.8mm. LAND MISMATCH: the generic L_6.3x6.3_H3 pads (1.5x2.4mm at +/-2.75) cover only ~2.4mm2 of this part's 5.8x1.6mm terminal; Bourns recommends 2.0x6.5mm pads at +/-2.25. Solderable for a first article, reduced shear strength -- see FAB-NOTES</field>
         <field name="Footprint">Inductor_SMD:L_6.3x6.3_H3</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="L" description="Inductor"/>
+      <property name="MPN" value="SRN6028C-4R7M"/>
+      <property name="Design Note" value="AP63205 DS41326 Table 3 value for 5V out. Bourns 4.7uH +/-20%, Isat 3.2A, Irms 3.1A, DCR 30mOhm, 6.0x6.0x2.8mm. LAND MISMATCH: the generic L_6.3x6.3_H3 pads (1.5x2.4mm at +/-2.75) cover only ~2.4mm2 of this part's 5.8x1.6mm terminal; Bourns recommends 2.0x6.5mm pads at +/-2.25. Solderable for a first article, reduced shear strength -- see FAB-NOTES"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="inductor choke coil reactor magnetic"/>
@@ -1171,16 +1183,18 @@
       </units>
     </comp>
     <comp ref="Q1">
-      <value>DMP3010L</value>
+      <value>DMP3130L</value>
       <footprint>Package_TO_SOT_SMD:SOT-23</footprint>
       <fields>
-        <field name="MPN">DMP3010L-7</field>
+        <field name="MPN">DMP3130L-7</field>
+        <field name="Design Note">Reverse-polarity PMOS, drain to input, source to load. Was labelled 'DMP3010L-7', which names no orderable part: DS35716 shows the DMP3010L family as TO-252 and DS32239 as PowerDI5060-8, neither of which fits this SOT-23 land. DS31524 Rev 7-3 p.2 rates VGSS at +/-12 V ONLY, so DZ1 is mandatory, not optional</field>
         <field name="Footprint">Package_TO_SOT_SMD:SOT-23</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Transistor_FET" part="Q_PMOS_GSD" description="P-MOSFET transistor, gate/source/drain"/>
-      <property name="MPN" value="DMP3010L-7"/>
+      <property name="MPN" value="DMP3130L-7"/>
+      <property name="Design Note" value="Reverse-polarity PMOS, drain to input, source to load. Was labelled 'DMP3010L-7', which names no orderable part: DS35716 shows the DMP3010L family as TO-252 and DS32239 as PowerDI5060-8, neither of which fits this SOT-23 land. DS31524 Rev 7-3 p.2 rates VGSS at +/-12 V ONLY, so DZ1 is mandatory, not optional"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="transistor PMOS P-MOS P-MOSFET"/>
@@ -1687,14 +1701,18 @@
       </units>
     </comp>
     <comp ref="R20">
-      <value>1.91k 0.1%</value>
+      <value>2k 0.1%</value>
       <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
       <fields>
+        <field name="MPN">TNPW06032K00BEEA</field>
+        <field name="Design Note">VREF trim top leg, was 1.91k. With R21=10k and RV1 as a rheostat the wiper spans 2.750V (pot at 0) to 2.357V (pot at 2k); 2.500V falls at ~60% of travel. 25ppm/C is not the limit here -- RV1 is 100ppm/C and contributes ~9ppm/C against this leg's ~3.8ppm/C</field>
         <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="R" description="Resistor"/>
+      <property name="MPN" value="TNPW06032K00BEEA"/>
+      <property name="Design Note" value="VREF trim top leg, was 1.91k. With R21=10k and RV1 as a rheostat the wiper spans 2.750V (pot at 0) to 2.357V (pot at 2k); 2.500V falls at ~60% of travel. 25ppm/C is not the limit here -- RV1 is 100ppm/C and contributes ~9ppm/C against this leg's ~3.8ppm/C"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="R res resistor"/>
@@ -1711,16 +1729,18 @@
       </units>
     </comp>
     <comp ref="R21">
-      <value>9.10k 0.1%</value>
+      <value>10k 0.1%</value>
       <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
       <fields>
-        <field name="Design Note">Pot wiper is strapped to the low/output terminal for open-wiper fail safety</field>
+        <field name="MPN">P2TC0603D1002LNTA</field>
+        <field name="Design Note">Pot wiper is strapped to the low/output terminal for open-wiper fail safety. Was 9.10k. Bottom leg of a TRIMMED divider, so initial tolerance is absorbed by RV1 and only drift matters: this part is 0.01%/2ppm. Do not substitute a thick-film 10k (100ppm/C) here</field>
         <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="Design Note" value="Pot wiper is strapped to the low/output terminal for open-wiper fail safety"/>
+      <property name="MPN" value="P2TC0603D1002LNTA"/>
+      <property name="Design Note" value="Pot wiper is strapped to the low/output terminal for open-wiper fail safety. Was 9.10k. Bottom leg of a TRIMMED divider, so initial tolerance is absorbed by RV1 and only drift matters: this part is 0.01%/2ppm. Do not substitute a thick-film 10k (100ppm/C) here"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="R res resistor"/>
@@ -1833,14 +1853,18 @@
       </units>
     </comp>
     <comp ref="R26">
-      <value>130k 0.1%</value>
+      <value>82k 1%</value>
       <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
       <fields>
+        <field name="MPN">RC0603FR-1082KL</field>
+        <field name="Design Note">VIN monitor divider, was 130k/20k. FIRMWARE: ratio is now 10/92 = 0.1087, not 0.1333 -- 15V maps to 1.63V. More ADC headroom than the old 2.00V and source impedance drops from 17.3k to 8.9k. 1% is adequate for a supply monitor</field>
         <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="R" description="Resistor"/>
+      <property name="MPN" value="RC0603FR-1082KL"/>
+      <property name="Design Note" value="VIN monitor divider, was 130k/20k. FIRMWARE: ratio is now 10/92 = 0.1087, not 0.1333 -- 15V maps to 1.63V. More ADC headroom than the old 2.00V and source impedance drops from 17.3k to 8.9k. 1% is adequate for a supply monitor"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="R res resistor"/>
@@ -1857,14 +1881,18 @@
       </units>
     </comp>
     <comp ref="R27">
-      <value>20k 0.1%</value>
+      <value>10k 1%</value>
       <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
       <fields>
+        <field name="MPN">RC0603FR-0710KL</field>
+        <field name="Design Note">VIN monitor divider bottom leg; see R26 for the firmware ratio change</field>
         <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="R" description="Resistor"/>
+      <property name="MPN" value="RC0603FR-0710KL"/>
+      <property name="Design Note" value="VIN monitor divider bottom leg; see R26 for the firmware ratio change"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="R res resistor"/>

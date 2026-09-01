@@ -1,5 +1,7 @@
 #include "regmap.h"
 #include "faults.h"
+#include "heater_ctl.h"
+#include "heater_ctl.h"
 #include "o2.h"
 
 #include <stddef.h>
@@ -18,8 +20,10 @@ void o2p_config_defaults(o2p_config_t *cfg)
     cfg->parity_code = O2P_PARITY_EVEN;   /* the bus is 8E1 */
     cfg->rh_setpoint_x100 = 8500u;        /* 85 %RH, PLAN.md:294-296 */
     cfg->dt_max_k_x100 = 400u;            /* 4 K, the designed thermal range */
-    cfg->heater_max_duty_x100 = 10000u;
     cfg->heater_pwm_hz = 1000u;
+    /* Starting points, not tuned values - the plant gain is unmeasured. */
+    cfg->heater_kp_x100 = O2P_HEATER_KP_X100_DEFAULT;
+    cfg->heater_ki_x100 = O2P_HEATER_KI_X100_DEFAULT;
     /* No calibration by default. o2.c refuses to convert with this, and the
      * sampler substitutes the datasheet nominal and raises CAL_DEFAULT - so a
      * fresh board reports low-confidence data rather than nothing, and says
@@ -28,6 +32,11 @@ void o2p_config_defaults(o2p_config_t *cfg)
     cfg->cal_temp_c100 = 2500;
     cfg->tempco_ppm_per_k = 0;            /* SGX publishes no curve for this part */
     cfg->sht_pulse_interval_h = 8u;       /* PLAN.md:312, every 6-12 h */
+    /* Heater loop. max_duty of zero means the loop is OFF by configuration as
+     * well as by the compile guard: two independent switches, so enabling the
+     * heater is never a single edit. See heater.h for the bench prerequisites.
+     */
+    cfg->heater_max_duty_x100 = 0u;
 }
 
 bool o2p_config_valid(const o2p_config_t *cfg)
@@ -60,6 +69,15 @@ bool o2p_config_valid(const o2p_config_t *cfg)
         return false;
     }
     if (cfg->heater_pwm_hz < 50u || cfg->heater_pwm_hz > 20000u) {
+        return false;
+    }
+    /* Gains are bounded, not merely non-negative. The ceiling is what stops a
+     * fat-fingered write turning a 1 Hz PI into a bang-bang controller on a
+     * 1 W heater against a membrane; kp = 100.00 already saturates the duty
+     * clamp on a 1 %RH error. Zero is allowed - kp = 0 with ki > 0 is a pure
+     * integrator, which is a legitimate thing to want on a slow thermal
+     * plant, and both zero simply means the loop never asks for heat. */
+    if (cfg->heater_kp_x100 > 10000u || cfg->heater_ki_x100 > 10000u) {
         return false;
     }
     /* Zero means "never calibrated", which is legal. Any other value must be
@@ -210,6 +228,8 @@ static uint16_t read_config(const o2p_regmap_t *rm, uint16_t a)
     case O2P_REG_DT_MAX_K:        return c->dt_max_k_x100;
     case O2P_REG_HEATER_MAX_DUTY: return c->heater_max_duty_x100;
     case O2P_REG_HEATER_PWM_HZ:   return c->heater_pwm_hz;
+    case O2P_REG_HEATER_KP:       return c->heater_kp_x100;
+    case O2P_REG_HEATER_KI:       return c->heater_ki_x100;
     case O2P_REG_CAL_AIR_NA_HI:   return (uint16_t)((uint32_t)c->cal_air_na >> 16);
     case O2P_REG_CAL_AIR_NA_LO:   return (uint16_t)((uint32_t)c->cal_air_na & 0xFFFFu);
     case O2P_REG_CAL_TEMP_C100:   return (uint16_t)c->cal_temp_c100;
@@ -286,6 +306,8 @@ static uint8_t apply_config_word(o2p_config_t *c, uint16_t a, uint16_t v,
     case O2P_REG_DT_MAX_K:        c->dt_max_k_x100 = v; break;
     case O2P_REG_HEATER_MAX_DUTY: c->heater_max_duty_x100 = v; break;
     case O2P_REG_HEATER_PWM_HZ:   c->heater_pwm_hz = v; break;
+    case O2P_REG_HEATER_KP:       c->heater_kp_x100 = v; break;
+    case O2P_REG_HEATER_KI:       c->heater_ki_x100 = v; break;
     case O2P_REG_CAL_AIR_NA_HI:
         c->cal_air_na = (int32_t)(((uint32_t)v << 16) |
                                   ((uint32_t)c->cal_air_na & 0xFFFFu));
