@@ -141,9 +141,9 @@ def expected_thermal_barrier_track_crossings() -> Counter:
         expected[(net, layer, width, frozenset((start, end)))] += 1
 
     segment("/I2C_SCL", "B.Cu", 0.09, (107.48, 132.99), (109.61, 135.12))
-    segment("/I2C_SDA", "F.Cu", 0.09, (111.5, 133.5), (111.5, 135.0))
+    segment("/I2C_SDA", "In1.Cu", 0.09, (112.15, 133.0), (112.15, 135.6))
     segment("/CELL_WE", "F.Cu", 0.15, (106.9, 132.45), (109.55, 135.1))
-    segment("/CELL_RE", "F.Cu", 0.15, (111.0, 131.4), (110.0, 141.0))
+    segment("/CELL_RE", "F.Cu", 0.15, (111.0, 131.4), (112.54, 141.0))
     segment("/CELL_CE", "In1.Cu", 0.15, (110.5, 132.45), (107.45, 135.5))
     segment("/3V3D", "F.Cu", 0.15, (119.72, 133.8), (119.72, 134.2))
     segment("/+12V_SW", "B.Cu", 0.18, (109.9, 133.6), (109.9, 136.15))
@@ -171,6 +171,69 @@ def canonical_polygon(points) -> tuple[tuple[float, float], ...]:
 def check(errors: list[str], condition: bool, code: str, detail: str) -> None:
     if not condition:
         errors.append(f"{code}: {detail}")
+
+
+# A land-pattern review checks geometry. It does not check pin IDENTITY, and
+# nothing else in this audit did either: U11 reached a populated board with a
+# pin map copied out of a datasheet PROSE sentence while the pin drawing on the
+# same page said something different (PIN-IDENTITY-POSTMORTEM.md). Every
+# dimension was right; which electrode sat on which pad was never derived from
+# a figure at all.
+#
+# So a project-drawn footprint with enough pads to get the order wrong must
+# record, in its descr, where its pin map came from. The four tokens are chosen
+# because none of them can be written down without actually doing the work:
+# naming the document and figure forces you to open it, "view:" forces the
+# top/bottom decision that kills through-hole parts, and "leaders:" forces you
+# to trace each label to its pin instead of reading the labels top-to-bottom.
+# On the SGX figure the leaders cross, so label order and a nearest-label
+# heuristic both return the wrong answer -- tracing is the only method that works.
+#
+# "leaders:" and "table:" are alternatives on purpose. A part documented by a
+# pin TABLE has no leaders to trace, and demanding the token anyway would train
+# people to write it falsely, which is how a gate turns into furniture.
+PINMAP_REQUIRED_TOKENS = ("pinmap:", "view:")
+PINMAP_AUTHORITY_TOKENS = ("leaders:", "table:")
+PINMAP_MIN_PADS = 3
+
+
+def footprint_description(footprint) -> str:
+    for accessor in ("GetLibDescription", "GetDescription"):
+        getter = getattr(footprint, accessor, None)
+        if getter is not None:
+            try:
+                return getter() or ""
+            except Exception:
+                continue
+    return ""
+
+
+def collect_pinmap_provenance_errors(footprints: dict) -> list[str]:
+    """Require a recorded pin-map provenance on project-library footprints."""
+    errors: list[str] = []
+    for reference, footprint in sorted(footprints.items()):
+        lib_id = footprint.GetFPID()
+        # str() is load-bearing: GetLibNickname() returns a SWIG UTF8 proxy that
+        # compares unequal to every Python string, so without it this guard
+        # skips every footprint and reports a clean pass having evaluated nothing.
+        if str(lib_id.GetLibNickname()) != "o2-probe":
+            continue  # vendor and stock KiCad libraries carry their own review
+        pads = [pad for pad in footprint.Pads() if pad.GetNumber()]
+        if len(pads) < PINMAP_MIN_PADS:
+            continue  # a two-terminal part has no pin order to get wrong
+        descr = footprint_description(footprint).lower()
+        missing = [token for token in PINMAP_REQUIRED_TOKENS if token not in descr]
+        if not any(token in descr for token in PINMAP_AUTHORITY_TOKENS):
+            missing.append(" or ".join(PINMAP_AUTHORITY_TOKENS))
+        if missing:
+            errors.append(
+                f"PINMAP_PROVENANCE: {reference} ({str(lib_id.GetLibItemName())}, "
+                f"{len(pads)} pads) descr is missing {', '.join(missing)}. A "
+                "project footprint must record document, figure, VIEW and traced "
+                "leaders for its pin map, derived from the drawing and never from "
+                "prose. See PIN-IDENTITY-POSTMORTEM.md"
+            )
+    return errors
 
 
 def point_in_polygon(point: tuple[float, float], polygon: list[tuple[float, float]]) -> bool:
@@ -427,7 +490,7 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
                 outline.PointCount(), heater_fill.HoleCount(index),
             )] += 1
         expected_heater_signatures = Counter({
-            ((100.25, 135.0, 119.75, 156.75), 1302, 0): 1,
+            ((100.25, 135.0, 119.75, 156.75), 1329, 0): 1,
         })
         check(errors, heater_signatures == expected_heater_signatures,
               "HEATER_SPREADER_FILL",
@@ -473,6 +536,8 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
     check(errors, all(token in board_text for token in required_stackup), "STACKUP",
           "complete four-layer 1.0 mm ENIG stackup is missing")
 
+    errors.extend(collect_pinmap_provenance_errors(footprints))
+
     check(errors, "TP2" not in footprints, "CELL_RE_TESTPOINT",
           "TP2 exposes the high-impedance CELL_RE node")
     if "U7" not in footprints or "U11" not in footprints:
@@ -505,7 +570,7 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
         errors.append("CELL_RE_PADS: U7.13 or U11.2 missing")
 
     for number, wanted_position in {
-        "1": (107.46, 141.0), "2": (110.0, 141.0), "3": (112.54, 141.0)
+        "1": (107.46, 141.0), "2": (112.54, 141.0), "3": (110.0, 141.0)
     }.items():
         if number not in u11_pads:
             errors.append(f"U11_PAD_GEOMETRY: pad {number} missing")
@@ -599,8 +664,8 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
             ((109.55, 132.8), 0.25, 0.15),
             ((106.95, 136.0), 0.25, 0.15),
             ((108.8, 136.0), 0.25, 0.15),
-            ((109.45, 139.0), 0.25, 0.15),
             ((111.0, 135.5), 0.25, 0.15),
+            ((112.65, 137.15), 0.25, 0.15),
         )
     })
     check(errors, actual_guard_vias == expected_guard_vias,
@@ -625,10 +690,10 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
             ("In1.Cu", (108.0, 134.53), (107.15, 135.38)),
             ("In1.Cu", (107.15, 135.38), (107.15, 135.8)),
             ("In1.Cu", (107.15, 135.8), (106.95, 136.0)),
-            ("B.Cu", (106.95, 136.0), (109.45, 139.0)),
             ("B.Cu", (106.95, 136.0), (108.8, 136.0)),
             ("In1.Cu", (108.8, 136.0), (110.65, 136.0)),
             ("In1.Cu", (110.65, 136.0), (111.0, 135.5)),
+            ("In1.Cu", (111.0, 135.5), (112.65, 137.15)),
         )
     })
     check(errors, guard_stitch_tracks == expected_guard_stitch_tracks,
@@ -644,16 +709,16 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
             canonical_polygon([
                 pcbnew.VECTOR2I_MM(109.25, 131.75),
                 pcbnew.VECTOR2I_MM(112.15, 131.75),
-                pcbnew.VECTOR2I_MM(111.25, 141.65),
-                pcbnew.VECTOR2I_MM(108.95, 141.65),
+                pcbnew.VECTOR2I_MM(114.0, 141.65),
+                pcbnew.VECTOR2I_MM(111.1, 141.65),
             ]): 1,
         })
         check(errors, actual_guard_outlines == expected_guard_outlines,
               "GUARD_ZONE_GEOMETRY",
               f"added/changed={list((actual_guard_outlines - expected_guard_outlines).elements())}; "
               f"missing={list((expected_guard_outlines - actual_guard_outlines).elements())}")
-        check(errors, point_in_polygon((110.2, 136.0), polygon)
-              and point_in_polygon((110.1, 140.5), polygon),
+        check(errors, point_in_polygon((111.74, 136.0), polygon)
+              and point_in_polygon((112.46, 140.5), polygon),
               "GUARD_ENCLOSURE", "guard polygon does not enclose the long CELL_RE run")
         check(errors, guard.IsFilled() and guard.HasFilledPolysForLayer(pcbnew.F_Cu),
               "GUARD_ZONE_FILL", "the exact F.Cu driven-guard zone is not filled")
@@ -670,9 +735,9 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
                 filled_guard.HoleCount(index),
             )] += 1
         expected_filled_guard = Counter({
-            ((108.974715, 135.0, 110.393458, 140.878865), 59, 0): 1,
-            ((110.323477, 135.0, 111.6045, 141.65), 68, 0): 1,
-            ((109.220228, 131.971835, 110.405022, 132.9745), 37, 0): 1,
+            ((109.867055, 135.0, 112.165584, 141.65), 28, 0): 1,
+            ((111.8553, 135.257645, 113.990268, 141.65), 35, 0): 1,
+            ((109.3897, 131.971835, 110.405022, 132.9745), 34, 0): 1,
         })
         check(errors, actual_filled_guard == expected_filled_guard,
               "GUARD_FILLED_GEOMETRY",
@@ -680,8 +745,8 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
               f"missing={list((expected_filled_guard - actual_filled_guard).elements())}")
         guard_samples = (
             (109.5, 132.5), (110.0, 132.5),
-            (109.95, 138.0), (109.60, 140.0),
-            (110.95, 136.0), (110.65, 138.0), (110.70, 140.0),
+            (110.80, 136.0), (111.20, 138.0), (111.50, 140.0),
+            (112.45, 136.0), (112.79, 138.0), (113.15, 140.0), (113.60, 141.3),
         )
         missing_guard_samples = [
             point for point in guard_samples
@@ -689,7 +754,8 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
         ]
         check(errors, not missing_guard_samples, "GUARD_FILLED_COVERAGE",
               f"actual filled guard misses {missing_guard_samples}")
-        gap_guard_samples = ((109.7, 134.0), (110.4, 134.0), (111.0, 134.0))
+        gap_guard_samples = ((109.7, 134.0), (110.4, 134.0), (111.0, 134.0),
+                             (112.0, 134.0), (112.3, 134.0))
         filled_gap_guard = [point for point in gap_guard_samples
                             if filled_guard.Contains(pcbnew.VECTOR2I_MM(*point))]
         check(errors, not filled_gap_guard, "THERMAL_GAP_FILLED_COPPER",
@@ -774,8 +840,8 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
         ("/GUARD_REPLICA", ("F.Cu",), canonical_polygon([
             pcbnew.VECTOR2I_MM(109.25, 131.75),
             pcbnew.VECTOR2I_MM(112.15, 131.75),
-            pcbnew.VECTOR2I_MM(111.25, 141.65),
-            pcbnew.VECTOR2I_MM(108.95, 141.65),
+            pcbnew.VECTOR2I_MM(114.0, 141.65),
+            pcbnew.VECTOR2I_MM(111.1, 141.65),
         ])): 1,
         ("/GND", ("In2.Cu",), canonical_polygon([
             pcbnew.VECTOR2I_MM(100.25, 50.25),

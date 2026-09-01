@@ -1,5 +1,26 @@
 # O2 probe Rev A — independent schematic review
 
+> ## ⛔ DISCARDED FOR U11 (SGX-OX-ROHS-Mini) — 2026-09-01
+>
+> **This review had no primary source for U11.** Its source table below lists
+> nine datasheets; the SGX cell is not among them. Its entire declared scope is
+> project artefacts, so for this component it reviewed the design against itself.
+>
+> A reviewer without the datasheet is not a reviewer. **Every statement this
+> document makes about U11 is void** — not downgraded, not caveated, void. That
+> includes the deferral at line 199 filing "SGX cell pin identity/sign
+> convention" under fabrication-only mechanical gates as *"require[s] a physical
+> sample"*. Pin identity is a documentary fact printed in a figure this reviewer
+> did not hold; the deferral recorded an unread source as an engineering
+> judgement, and it is what let the defect reach a populated board.
+>
+> The pin map is in fact wrong: the part is `C · W · R`, the board is `C · R · W`.
+> See **`PIN-IDENTITY-POSTMORTEM.md`**.
+>
+> Findings on the eight components that *do* have a cited datasheet below
+> (AP63205, OPA333, LMP91000, ADS1119, THVD1410, TPS7A20, STM32G071, BMP390)
+> stand on their own evidence and are unaffected.
+
 > Historical review record. Its original fail and 2026-08-21 re-review are
 > superseded by the 2026-08-23 first-article release evidence in
 > `FAB-READINESS.md`, `schematic-audit.rpt`, and `pcb-audit.rpt`.
@@ -8,6 +29,7 @@ Review date: 2026-08-21
 Reviewer: independent Codex agent  
 Scope: `PLAN.md`, `DESIGN.md`, `gen_sch.py`, generated schematic/netlists,
 project footprints, placement notes, KiCad ERC, and `audit_schematic.py`.
+**Sources held: nine datasheets, none of them the SGX cell's.**
 
 ## Gate verdict
 
@@ -158,7 +180,10 @@ bootloader and specify rollback/recovery behavior.
 ### M3 — exact high-current/protection parts remain undefined
 
 F1, DZ1, L1, D2/D3, RH1/RH2, and several capacitors are values/families rather
-than orderable parts. At the declared 15 V maximum, two 140 ohm heaters draw
+than orderable parts. **This is now machine-enforced**: `audit_bom.py` fails on
+any fitted component lacking an MPN or a declared `sourcing.json` class, and the
+finding here is no longer load-bearing prose. Recording it only in this document
+is what let L1, DZ1 and F1 reach neither Rev A purchase order. At the declared 15 V maximum, two 140 ohm heaters draw
 about 214 mA and dissipate about 1.61 W total (0.80 W each), not the 1.03 W
 total at nominal 12 V. Exact 2512 resistor voltage/power derating, PCB thermal
 rise, potting/island heat flow, PTC hold/trip current at temperature, inductor

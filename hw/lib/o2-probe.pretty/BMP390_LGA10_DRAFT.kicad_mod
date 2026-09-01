@@ -3,7 +3,7 @@
   (generator "pcbnew")
   (layer "F.Cu")
   (attr smd)
-  (descr "BMP390 2x2 mm LGA-10 draft from Bosch BST-BMP390-DS002-07; independently verify before release")
+  (descr "BMP390 2x2 mm LGA-10 draft from Bosch BST-BMP390-DS002-07; independently verify before release. pinmap: Bosch BMP390 DS002 Rev. 1.7 Table 52 p.47, cross-checked against Figure 23 p.47 and the 0x76 strap in Figure 25 p.48. view: TOP (the LGA ball map in Figure 23 is a top view; no mirror applied). table: pin identity taken from the numbered pin-function table, not from any prose list of signal names. Confirmed by the 2026-08-21 independent schematic review, which held this datasheet.")
   (tags "BMP390 LGA-10 DNP draft")
   (property "Reference" "U**" (at 0 -1.65 0) (layer "F.SilkS")
     (effects (font (size 0.55 0.55) (thickness 0.10))))
