@@ -71,8 +71,11 @@ potted and buried, can it be reflashed through infrastructure that is already
 there — the Dragino's LoRaWAN link, or its BLE console — instead of a wired
 bootloader that has to be installed *before* the epoxy goes on?
 
-No. The arithmetic below is for this image: `firmware.bin` is **23,524 bytes**
-(18.4 % of the 126,976-byte application space). A differential scheme would do
+No. The arithmetic below is for this image: `firmware.bin` is **23,524 bytes**,
+18.5 % of the 126,976-byte application space. (PlatformIO's banner says 18.4 %
+because it counts 23,320 bytes of `text`+`data` and not the inter-section
+padding that a flash image still has to carry over the wire. Use the image
+size, not the banner, for any transport estimate.) A differential scheme would do
 better, but not by the order of magnitude that would change the answer.
 
 ### LoRaWAN downlink: 8 to 38 hours, for a channel that may not exist
