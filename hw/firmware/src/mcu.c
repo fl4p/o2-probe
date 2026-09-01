@@ -67,12 +67,26 @@ void o2p_wdt_init(void)
      * probe that stops sampling resets instead of quietly serving stale
      * registers forever. See main.c.
      */
+    /* Start FIRST, then configure. Writing 0xCCCC is what forces the LSI on,
+     * and PVU/RVU in SR clear only once the prescaler and reload transfer into
+     * the shadow registers - a transfer clocked by that same LSI. Configuring
+     * first and waiting on SR before the start therefore deadlocks: the wait
+     * blocks the write that would start the clock the wait depends on.
+     * Measured on the first article 2026-09-01 - PC pinned in this loop,
+     * RCC_CSR = 0 (LSI off), PR/RLR still at their reset values. This is the
+     * order HAL_IWDG_Init uses, for exactly this reason.
+     *
+     * Between the start and the reload below, the watchdog runs on its reset
+     * defaults: /4 with a reload of 0xFFF, about 512 ms. That is four orders of
+     * magnitude more than the handful of register stores in between.
+     */
+    IWDG->KR = 0xCCCCu;                 /* start; cannot be stopped afterwards */
     IWDG->KR = 0x5555u;                 /* unlock PR/RLR */
     IWDG->PR = IWDG_PR_PR_2 | IWDG_PR_PR_1;  /* /64 */
     IWDG->RLR = 2047u;
     while (IWDG->SR != 0u) {
     }
-    IWDG->KR = 0xCCCCu;                 /* start; cannot be stopped afterwards */
+    IWDG->KR = 0xAAAAu;                 /* reload, so the first period is full */
 }
 
 void o2p_wdt_feed(void)
