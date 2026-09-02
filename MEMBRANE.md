@@ -619,14 +619,31 @@ Three findings that changed the design rather than merely supplying it:
 
   **That cost prompted a re-examination, and the insert is no longer the default.**
   The rule requiring metal threads — no sustained strain in plastic at 75 °C — was
-  written when the screws clamped the seal. The radial O-ring removed that: the
-  retainer's worst case is now ~6 N, order 0.1 MPa in the thread, where creep is a
-  non-issue. The default is therefore a **thread-forming screw for thermoplastics**
+  written when the screws clamped the seal. The radial O-ring removed that *for the
+  carrier-to-head joint*.
+
+  **Correction (2026-09-02, from an independent review): it did not remove the seal
+  load entirely, and the ~6 N figure first recorded here was wrong.** The O-ring
+  takes screw preload out of the carrier-to-head seal only.
+  `cartridge_core_cuts_round()` still cuts a gasket pocket into the carrier's wet
+  face — membrane thickness plus a 1.0 mm gasket at 25% compression — and the
+  retainer lies directly over it, so the four screws set the **membrane-perimeter
+  gasket compression**. The ~6 N was the pressure force across a Ø16 window
+  (265 mbar → 5.3 N), never a preload. Required preload is **unverified**: gasket
+  material, hardness, compression force and minimum residual load are all unfixed,
+  and sizing the screw needs them. Recorded as an open gap below.
+
+  The re-examination's conclusion still holds, but on a narrower basis: the
+  sustained strain is gasket compression in a printed boss, not the seal-clamping
+  duty the metal-thread rule was written for. The default is therefore a
+  **thread-forming screw for thermoplastics**
   (Delta PT / EJOT PT / Plastite, A2) straight into a printed boss, which returns
   the head to **40 mm** and drops the sole source, the counterbore and the
   heat-setting step beside the sealing bore. `fastening = "ptscrew" | "insert"`
   keeps both routes in one model, with the wall rule differing by mechanism:
-  2.3 mm thermal for the insert, 1.45 mm hoop-stress for the screw. The trade
+  2.3 mm thermal for the insert, 1.45 mm hoop-stress for the screw. (Both walls are
+  now measured to `well_d`, the bore the spigot actually seals into, not to
+  `spigot_d`; the earlier figures were each 0.15 mm optimistic.) The trade
   accepted is finite re-insertion life in plastic — on a part that is printed, so
   a stripped boss is a reprint rather than a failure.
 - **The O-ring size I specified does not exist.** 24.5 × 1.5 is unavailable in
@@ -644,11 +661,15 @@ Three findings that changed the design rather than merely supplying it:
    handbook section was not opened. EPDM is the conventional choice for ammonia
    service and is expected to pass, but the entire carrier-to-head seal rests on
    it and expectation is not evidence. **Close this before ordering.**
-2. **The thread-forming screw's pilot is not sourced.** `pt_pilot_d = 2.1` is the
-   conventional 0.75 × nominal, not a vendor number, and PT-type pilots are
-   brand-specific. The model echoes a warning on every render. This is not a
+2. **The thread-forming screw's pilot is not sourced.** `pt_pilot_d = 2.1` is a
+   placeholder with no rationale — it was described here and in the CAD as "the
+   conventional 0.75 × nominal", which is arithmetically false (2.1/2.5 = 0.84;
+   0.75 × 2.5 = 1.875). PT-type pilots are brand-specific. The model echoes a warning on every render. This is not a
    detail: `pt_pilot_d` feeds `pt_seal_wall`, `bolt_r` and from there `head_od`,
-   so a different vendor pilot moves the widest buried diameter. The same gap
+   so a different vendor pilot moves the widest buried diameter. It moves `head_od`
+   only, not the bolt circle — substituting `pt_seal_wall` into `bolt_r` cancels the
+   pilot exactly. Measured: 2.10 → 2.25 holds the circle at Ø32.3 and takes the head
+   from Ø40 to Ø42. The same gap
    covers the cap's `selftap_cap = 2.1` and the `m25_clear = 2.8` clearance hole,
    both declared defaults. Briefed as sourcing pass 2 in
    `tech/PROBE-SCREW-SOURCING-BRIEF.md`.
@@ -657,6 +678,11 @@ Three findings that changed the design rather than merely supplying it:
    charts were all checked. The 6.7 mm comes from SPIROL's design-guide rule
    (insert length + 2 thread pitches) applied to E-Z LOK's own 5.74 mm body. The
    model echoes a warning; verify it on a test coupon before a print run.
+
+4. **The membrane gasket's required preload is unknown**, and it is what the
+   retainer screws must deliver. Gasket material, hardness, compression-force curve
+   and minimum residual load are all unfixed. Until they are, no screw can be sized
+   on anything but geometry.
 
 ### Still open with Porex
 

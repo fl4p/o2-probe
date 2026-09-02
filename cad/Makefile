@@ -75,11 +75,34 @@ HEAD_END_PARTS := head carrier retainer cap cavity
 HEAD_END_PROV := -D tube_od_meas=32.0 -D board_env_front=3.5 -D board_env_back=1.5 \
                  -D cell_axial_len=13.0
 
+# Every single-part render must come out as exactly one closed solid. CGAL
+# reports that as "Volumes: 2" -- the body plus the infinite outer volume. An
+# inverted cut that leaves a zero-thickness ring shows up here as 3, which is
+# how the carrier shipped a bored-out spigot and no O-ring groove while every
+# assert passed and the volume gate read clean.
 head-end-provisional: | $(OUT)
 	@for p in $(HEAD_END_PARTS); do \
 		$(OPENSCAD) --hardwarnings $(HEAD_END_PROV) -D "part=\"$$p\"" \
-			-o $(OUT)/head-end-$$p.stl $(HEAD_END); \
+			-o $(OUT)/head-end-$$p.stl $(HEAD_END) 2>$(OUT)/.$$p.log || \
+			{ cat $(OUT)/.$$p.log; exit 1; }; \
+		v=`sed -n 's/.*Volumes: *\([0-9]*\).*/\1/p' $(OUT)/.$$p.log | tail -1`; \
+		if [ "$$v" != "2" ]; then \
+			echo "FAIL $$p: $$v volumes, expected 2 (one closed solid)"; \
+			exit 1; \
+		fi; \
+		if grep -q "not be a valid 2-manifold" $(OUT)/.$$p.log; then \
+			echo "FAIL $$p: not 2-manifold"; exit 1; \
+		fi; \
+		rm -f $(OUT)/.$$p.log; \
 	done
+	@# The insert route is retained but not the default, so nothing rendered it.
+	@for p in $(HEAD_END_PARTS); do \
+		$(OPENSCAD) --hardwarnings $(HEAD_END_PROV) -D 'fastening="insert"' \
+			-D "part=\"$$p\"" -o /dev/null --export-format asciistl \
+			$(HEAD_END) >/dev/null 2>&1 || \
+			{ echo "FAIL insert route: $$p"; exit 1; }; \
+	done
+	@echo "head-end: both fastening routes render, all parts closed solids"
 	$(OPENSCAD) --render --viewall --autocenter --projection=p --imgsize=1400,1000 \
 		--colorscheme=Tomorrow $(HEAD_END_PROV) -D 'part="assembly"' -D exploded=true \
 		-o $(OUT)/head-end-preview.png $(HEAD_END)

@@ -243,6 +243,22 @@ figure now counts the spigot bore and flare stack too, giving 4.64 against a
 measured 4.82, close enough to actually bite. Both remain nominal; the release
 number is the measured pressure-expansion volume.
 
+**And measuring the mesh is still not enough on its own.** `cavity()` is a
+hand-built solid, so it measures the void you *intended*. An independent review
+found the carrier's O-ring groove and lead-in chamfer were both cut as **centred**
+solids rather than annuli, so each bored the gas path out instead of cutting the
+spigot's outside. The part had no O-ring groove at all and the real void was
+5.55 cm³, 11 % over the limit — while `cavity()`, modelling the intended Ø18 bore,
+read a clean 4.82.
+
+The signature was visible the whole time: the carrier rendered as **3 CGAL volumes
+with a 2-manifold warning**, from a zero-thickness ring where the leftover skirt
+met the spigot. `make head-end-provisional` now fails if any single part renders
+as anything but one closed solid (`Volumes: 2` — the body plus the infinite outer
+volume), and also renders the non-default `fastening="insert"` route, which
+nothing previously built. **Treat a manifold warning as a geometry error, not as
+slicer noise.** An outward-facing cut goes through `ring_cut()`.
+
 ### The end variant's sealing architecture
 
 Three jobs, deliberately separated:

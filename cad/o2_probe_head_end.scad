@@ -68,7 +68,9 @@ insert_head_t = 0.61;      // retainer off the face. Same drawing.
 
 // Thread-forming screw for thermoplastics (Delta PT / EJOT PT / Plastite), A2,
 // nominal 2.5. NOT YET SOURCED: the pilot is brand-specific and belongs in the
-// next sourcing pass -- 2.1 is the usual 0.75 x nominal, not a vendor number.
+// next sourcing pass. 2.1 is a bare placeholder -- it was commented here as the
+// usual "0.75 x nominal", which is false arithmetic (2.1/2.5 = 0.84), so it has
+// no rationale at all and must not be treated as an anchor.
 pt_nominal = 2.5;
 pt_pilot_d = 2.1;
 // Boss OD >= 2x screw nominal is the standard rule for thread-forming in
@@ -186,7 +188,10 @@ fast_hole_d = use_insert ? insert_bore_d : pt_pilot_d;
 fast_hole_h = use_insert ? insert_bore_h : 8.0;
 fast_seal_wall = use_insert ? insert_seal_wall : pt_seal_wall;
 
-bolt_r = spigot_d/2 + fast_seal_wall + fast_hole_d/2;
+// The bore the fastener must stay clear of is the WELL the spigot seals into --
+// well_d = spigot_d + carrier_fit -- not the spigot itself. Using spigot_d here
+// overstated every quoted wall by carrier_fit/2.
+bolt_r = well_d/2 + fast_seal_wall + fast_hole_d/2;
 
 // The flange must reach the bolt circle, which the insert now sets -- with the
 // real 3.99 bore the circle grew past a flange sized from the spigot alone.
@@ -241,8 +246,22 @@ assert(oring_stretch <= 0.05,
 assert(oring_squeeze_real >= 0.15,
        str("squeeze after stretch-thinning is only ", oring_squeeze_real*100,
            "%; a static radial seal wants 15% or more"));
-assert(bolt_r - fast_hole_d/2 - spigot_d/2 >= fast_seal_wall - 1e-6,
-       str("only ", bolt_r - fast_hole_d/2 - spigot_d/2,
+// The widest thing actually cut at the bolt circle. On the insert route that is
+// the flange counterbore, not the insert bore -- and unlike the wall check below
+// this one is NOT an identity, because insert_head_d is an independent sourced
+// input that no derivation ties to bolt_r.
+bolt_cut_max = use_insert ? max(insert_bore_d, insert_head_d + 0.3) : fast_hole_d;
+cbore_wall = bolt_r - bolt_cut_max/2 - well_d/2;
+assert(cbore_wall >= 1.0 - 1e-6,
+       str("the widest bolt-circle cut (", bolt_cut_max,
+           " mm) leaves only ", cbore_wall,
+           " mm to the sealing well; a change to insert_head_d or ",
+           "insert_seal_wall can walk it into the O-ring seat with every other ",
+           "assert still passing"));
+// Tripwire only: with bolt_r derived this reduces to an identity, and it is kept
+// so a hand-set bolt_r cannot quietly move the load-bearing hole inward.
+assert(bolt_r - fast_hole_d/2 - well_d/2 >= fast_seal_wall - 1e-6,
+       str("only ", bolt_r - fast_hole_d/2 - well_d/2,
            " mm of wall between the fastener hole and the O-ring's sealing bore; ",
            use_insert ? "heat-setting there will distort the seat"
                      : "thread-forming hoop stress there will deform the seat"));
@@ -355,6 +374,16 @@ module head() {
 
 // The PP part. Printed here as a FIT MODEL only: the real one is polypropylene,
 // with the PMV15T coupon fused into it. A printed disc is not a membrane.
+// An outward-facing cut: everything from `root_d` out to beyond the spigot,
+// over height h. Subtracting a centred solid instead is the defect this exists
+// to prevent -- it removes the bore, which is inboard of every external feature.
+module ring_cut(root_d, h) {
+    difference() {
+        cylinder(d=spigot_d + 2, h=h);
+        translate([0, 0, -heps]) cylinder(d=root_d, h=h + 2*heps);
+    }
+}
+
 module carrier() {
     difference() {
         union() {
@@ -363,12 +392,20 @@ module carrier() {
         }
         // Gas path straight through the spigot into the flare above it.
         translate([0, 0, -heps]) cylinder(d=spigot_bore, h=spigot_len + 2*heps);
-        // Radial O-ring groove. This is the seal.
-        translate([0, 0, lead_chamfer + 0.75])
-            cylinder(d=groove_root_d, h=groove_w);
-        // Lead-in chamfer on the spigot's leading edge.
+        // Radial O-ring groove. This is the seal. It must be cut as an ANNULUS
+        // off the spigot's OUTSIDE: a centred cylinder here bores the gas path
+        // out to the groove root instead, which is silently a bigger cavity and
+        // no groove at all.
+        translate([0, 0, lead_chamfer + 0.75]) ring_cut(groove_root_d, groove_w);
+        // Lead-in chamfer on the spigot's leading edge -- annular for the same
+        // reason: a centred cone opens the bore rather than breaking the edge.
         translate([0, 0, -heps])
-            cylinder(d1=spigot_d - 2*lead_chamfer, d2=spigot_d, h=lead_chamfer + heps);
+            difference() {
+                cylinder(d=spigot_d + 2, h=lead_chamfer + heps);
+                translate([0, 0, -heps])
+                    cylinder(d1=spigot_d - 2*lead_chamfer, d2=spigot_d,
+                             h=lead_chamfer + 3*heps);
+            }
         // The sealing core, in the flange, wet face at +Z.
         translate([0, 0, spigot_len]) cartridge_core_cuts_round(window_d, heps);
         // The flange sits between the retainer and the head's end face, so the
