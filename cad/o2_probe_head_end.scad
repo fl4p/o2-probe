@@ -138,10 +138,23 @@ oring_id_ordered = 24.0;    // the part that actually exists
 // 0.20 the band is -0.34/+0.10, and a printed bore errs oversize, which is the
 // direction that loses the seal. See the well_tol asserts below.
 oring_squeeze = 0.24;
-// How far the printed ASA well may miss its nominal diameter. DECLARED DEFAULT,
-// not measured -- the printer profile is still unqualified. Measure a bored
-// coupon and set this before any head is printed.
-well_tol = 0.20;
+// The radial seal is made between TWO surfaces, and both have tolerance: the
+// head's well bore and the carrier's groove root. Counting only the well -- as
+// this model did until now -- assumes the carrier is perfect and understates the
+// band by whatever the carrier contributes.
+//
+//   carrier_material  "pp"  machined PP-H, weldable, the production route
+//                     "asa" printed like the rest of the head; no weld possible,
+//                           compression only, and a much looser groove
+//   well_finish       "reamed"  the printed bore is finish-cut to size
+//                     "printed" as it comes off the printer
+carrier_material = "pp";
+well_finish = "reamed";
+
+carrier_is_pp = (carrier_material == "pp");
+well_tol    = (well_finish == "reamed") ? 0.05 : 0.20;   // DECLARED, unmeasured
+carrier_tol = carrier_is_pp ? 0.05 : 0.20;               // DECLARED, unmeasured
+seal_tol = well_tol + carrier_tol;   // the gland varies by half this, each way
 groove_w_factor = 1.30;     // groove width as a multiple of cord
 lead_chamfer = 1.0;         // so the O-ring is not shaved on assembly
 
@@ -264,16 +277,26 @@ assert(oring_squeeze_real >= 0.15,
            "%; a static radial seal wants 15% or more"));
 // The nominal squeeze is not the seal. The well is a PRINTED bore, so the seal
 // lives or dies on the tolerance band, and only the worst case is a gate.
-oring_squeeze_max = (oring_cord_fitted - (well_d - well_tol - groove_root_d)/2)
+oring_squeeze_max = (oring_cord_fitted - ((well_d - groove_root_d) - seal_tol)/2)
                     / oring_cord_fitted;
-oring_squeeze_min = (oring_cord_fitted - (well_d + well_tol - groove_root_d)/2)
+oring_squeeze_min = (oring_cord_fitted - ((well_d - groove_root_d) + seal_tol)/2)
                     / oring_cord_fitted;
+// Feasibility BEFORE centring: the band the tolerances alone impose, in squeeze
+// points, against the 15 the 15-30% window allows. If this fails, no value of
+// oring_squeeze can rescue it -- the answer is a tighter bore, a fatter cord, or
+// a different seal.
+oring_band = seal_tol / oring_cord_fitted;
+assert(oring_band <= 0.15,
+       str("tolerance alone spans ", oring_band*100, " squeeze points (well +/-",
+           well_tol, ", carrier +/-", carrier_tol,
+           ") against the 15 the 15-30% window allows. No squeeze value satisfies ",
+           "both ends. Ream the well, machine the carrier, or use a fatter cord"));
 assert(oring_squeeze_min >= 0.15,
-       str("at the oversize end of the printed well (", well_d + well_tol,
+       str("at the loose end of the seal pair (gland +", seal_tol/2,
            ") squeeze falls to ", oring_squeeze_min*100,
            "%; below 15% this leaks. Raise oring_squeeze or hold a tighter bore"));
 assert(oring_squeeze_max <= 0.30,
-       str("at the undersize end (", well_d - well_tol, ") squeeze reaches ",
+       str("at the tight end (gland -", seal_tol/2, ") squeeze reaches ",
            oring_squeeze_max*100,
            "%; above 30% a static O-ring takes compression set and the carrier ",
            "may not press in"));
@@ -341,10 +364,17 @@ echo(str("head OD is set by the fastening: bolt circle dia ", 2*bolt_r,
 echo(str("O-RING ORS116787, EPDM 70 peroxide, ", oring_id_ordered, " x ", oring_cord,
          " on a ", groove_root_d, " x ", groove_w, " groove: ", oring_stretch*100,
          "% install stretch, ", oring_squeeze_real*100, "% squeeze after thinning; ",
-         oring_squeeze_min*100, "-", oring_squeeze_max*100, "% across a +/-",
-         well_tol, " printed well; groove ", oring_fill*100, "% full"));
+         oring_squeeze_min*100, "-", oring_squeeze_max*100, "% across a ",
+         seal_tol, " mm seal-pair tolerance; groove ", oring_fill*100, "% full"));
+echo(str("CARRIER: ", carrier_material, carrier_is_pp
+         ? " -- machined PP-H, membrane WELDABLE into it (production route)"
+         : str(" -- printed like the head. NO weld is possible to ASA, so the ",
+               "membrane is compression-only, and a styrenic under sustained ",
+               "gasket load in NH3 is an environmental-stress-cracking risk")));
+echo(str("WELL: ", well_finish, " bore, +/-", well_tol,
+         "; carrier groove +/-", carrier_tol));
 echo(str("CUT LIST: PMV15T disc dia ", window_d + 2*land,
-         " mm, welded into the carrier"));
+         carrier_is_pp ? " mm, welded into the carrier" : " mm, clamped in the carrier"));
 echo(str("fasteners: ", bolt_n, "x ", use_insert ? "M2.5 into heat-set inserts"
          : "thread-forming, nominal 2.5, into printed bosses", " on a dia ",
          2*bolt_r, " bolt circle; ", cap_screw_n,
