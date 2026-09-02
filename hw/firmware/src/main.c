@@ -12,9 +12,14 @@
  * bus - half the master's likely timeout, spent ignoring it. Interleaved, the
  * worst case a Modbus reply can wait behind is a single conversion.
  *
- * What v0 deliberately does NOT do: drive the membrane heater (see heater.h),
- * and provide an RS-485 application bootloader (SCHEMATIC-REVIEW.md M2 - it
- * must exist before any probe is potted).
+ * What v0 deliberately does NOT do: drive the membrane heater (see heater.h).
+ *
+ * The RS-485 firmware updater (SCHEMATIC-REVIEW.md M2) IS here: update.c holds
+ * the engine and the register block, and the bootloader that installs what it
+ * receives is a separate image in the first 16 KiB of flash (loader_main.c).
+ * The application's part is to serve the updater's registers, to do its flash
+ * work only between Modbus transmissions, and to reset into the loader when
+ * asked.
  */
 #include "ads1119.h"
 #include "board_pins.h"
@@ -32,6 +37,8 @@
 #include "regmap.h"
 #include "sht4x.h"
 #include "tmp117.h"
+#include "update.h"
+#include "update_target.h"
 
 #include <string.h>
 
@@ -63,6 +70,7 @@ static o2p_heater_state_t g_heat;
 
 static o2p_regmap_t g_rm;
 static o2p_cal_t g_cal;
+static o2p_update_t g_upd;
 
 static uint32_t g_settle_deadline_s;
 static uint32_t g_uptime_s;
@@ -627,6 +635,23 @@ int main(void)
     (void)o2p_config_load(&g_rm.cfg);   /* defaults on absence or corruption */
     load_cal_from_config();
 
+    /* The updater, before the bus is served: a master that polls the update
+     * block during the first millisecond must get a real answer, not
+     * exception 02 from a register map whose engine is not attached yet. */
+    o2p_update_target_init();
+    o2p_update_init(&g_upd, o2p_update_target_ops(), false, O2P_FW_VERSION, 0u);
+    {
+        uint32_t staged_len, staged_crc;
+        if (o2p_update_target_has_staged(&staged_len, &staged_crc)) {
+            /* A transfer completed and verified, and then the probe reset
+             * before it was told to boot. Come up saying so, rather than
+             * IDLE - otherwise the only way to find out is to push the image
+             * again. */
+            o2p_update_adopt_staged(&g_upd, staged_len, staged_crc);
+        }
+    }
+    g_rm.upd = &g_upd;
+
     bring_up_devices();
     o2p_modbus_init(&g_rm.cfg);
     o2p_wdt_init();
@@ -675,6 +700,21 @@ int main(void)
                 g_rm.commit_pending = false;
                 (void)o2p_config_store(&g_rm.cfg);
                 load_cal_from_config();
+            }
+
+            /* One page erase, or one slice of a verify CRC, per pass. Here
+             * with the other deferred work because both stall instruction
+             * fetch: doing either while the transmitter is running would
+             * stop the code that has to release DE afterwards. */
+            (void)o2p_update_service(&g_upd);
+
+            if (g_upd.boot_requested) {
+                /* Everything from here is one-way. The heater is forced off
+                 * first because the reset is about to leave a PWM pin behind
+                 * with no code driving it, and 1 W against the membrane
+                 * carrier is not a thing to leave to a pull-down. */
+                o2p_heater_force_off();
+                o2p_update_target_reboot_to_loader(g_upd.stay_requested);
             }
             /* De-creep maintenance, on the configured interval as well as on
              * demand. PLAN.md:312 asks for every 6-12 h; the interval is a

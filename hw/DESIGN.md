@@ -78,7 +78,8 @@ RS-485 bus (1 and 2 are the Truebner SMT100s; 253 is answered as a discovery
 alias, which is only safe with a single device connected). `firmware/src/regmap.h`
 is the implementation and this table is the design record; `firmware/FIRMWARE.md`
 carries the working copy with the fault semantics. Everything is exposed through
-FC03; FC04 mirrors it; FC06/FC16 reach only the config block.
+FC03; FC04 mirrors it; FC06/FC16 reach the config block and the firmware
+updater's two blocks.
 
 The layout is dictated by the master. A Dragino RS485-LS reads with literal
 pre-programmed frames over a contiguous block — `AT+COMMAND3=03 03 00 00 00 08,1`
@@ -118,12 +119,23 @@ Firmware that took an absolute value would hide the answer.
 `MB_CRC_ERRS`, `MB_FRAME_ERRS`, `I2C_ERRS`, `EXP_DATA` (`0xFFFF` - J2 is DNP),
 `SETTLE_RESTARTS` (`0x0020`), `SAMPLE_SEQ` (`0x0021`).
 
-### Config block, `0x0030`, 16 registers, read/write, flash-backed
+### Config block, `0x0030`, 18 registers, read/write, flash-backed
 
 `SLAVE_ADDR`, `BAUD_CODE`, `PARITY_CODE`, `RH_SETPOINT`, `DT_MAX_K`,
 `HEATER_MAX_DUTY`, `HEATER_PWM_HZ`, `CAL_AIR_NA_HI/LO`, `CAL_TEMP_C100`,
 `TEMPCO_PPM_K`, `SHT_PULSE_H`, `SHT_PULSE_TRIG`, `CAL_TRIGGER`, `COMMIT`,
-`CONFIG_CRC` (read-only).
+`CONFIG_CRC` (read-only), then the two PI gains:
+`HEATER_KP` at `0x0040` and
+`HEATER_KI` at `0x0041`, both in 0.01 units.
+
+The two heater gains are registers rather than compile-time constants because
+the plant they tune can only be characterised in a real pile:
+`THERMAL-BARRIER.md` bounds the PCB conduction path, not ring-to-gas. The
+alternative was reflashing to change a number, which post-pot means the RS-485
+updater and a full image transfer. Adding them moved the config block from
+16 to 18 registers and took the flash record's layout version to 2, so a
+version-1 record falls back to defaults - and the defaults hold
+`HEATER_MAX_DUTY` at 0, so a layout change fails towards no heat.
 
 A multi-register write is validated against a copy and committed all-or-nothing,
 so a frame setting a legal address and an illegal baud rate changes neither.
@@ -133,6 +145,51 @@ Two actions require a magic value rather than a `1`, because both are
 destructive and one stray bit in a frame that happened to pass CRC is otherwise
 enough: `CAL_TRIGGER` (`0x003D`) takes an air-point calibration on `0xCA11`, and
 `COMMIT` (`0x003E`) erases and rewrites the config flash page on `0x5AC1`.
+
+### Update block, `0x0050`, 16 registers
+
+The RS-485 firmware updater's control registers, implemented in
+`firmware/src/update.c` and answered by the application and the bootloader
+alike.
+
+| Reg | Name | Meaning |
+|---|---|---|
+| `0x0050` | `UPD_STATUS` | state and last error; bit 15 = the bootloader is answering |
+| `0x0051` | `UPD_BLOCK_MAX` | payload registers accepted in one block (120) |
+| `0x0052` | `UPD_SLOT_HI` | staging slot size, high word |
+| `0x0053` | `UPD_SLOT_LO` | low word |
+| `0x0054` | `UPD_CMD` | command magic: begin `0xB001`, commit `0xB002`, boot `0xB003`, abort `0xB004`, stay `0xB005` |
+| `0x0055` | `UPD_LEN_HI` | declared image length, high word |
+| `0x0056` | `UPD_LEN_LO` | low word |
+| `0x0057` | `UPD_CRC_HI` | declared CRC-32 (zlib), high word |
+| `0x0058` | `UPD_CRC_LO` | low word |
+| `0x0059` | `UPD_RECV_HI` | bytes accepted, high word |
+| `0x005A` | `UPD_RECV_LO` | low word |
+| `0x005B` | `UPD_NEXT_SEQ` | block expected next - how a master resynchronises |
+| `0x005C` | `UPD_LOADER_VER` | bootloader version, 0 when the application answers |
+| `0x005D` | `UPD_IMAGE_VER` | version of the running image |
+| `0x005E` | `UPD_INSTALLS` | installs completed |
+| `0x005F` | `UPD_RESERVED` | 0 |
+
+Every command is a 16-bit magic for the same reason `COMMIT` and `CAL_TRIGGER`
+are: each erases tens of kilobytes of flash or reboots a settled cell, and one
+stray bit in a frame that happened to pass CRC must not be enough.
+
+### Update data window, `0x0080`, 123 registers, write-only
+
+`UPD_DATA` (`0x0080`). One FC16 write is one block — first register the block
+sequence number, the rest image payload, high byte first — capped at 120
+payload registers so a block is a whole number of the 64-bit doublewords this
+part programs. That is 240 bytes on a laptop's dongle and, over the Dragino's
+40-byte `A8` downlink ceiling, 24 bytes on the same protocol.
+
+**The flash map this implies is in `firmware/src/flash_map.h`**: a 16 KiB
+bootloader at `0x08000000`, a 52 KiB run slot at `0x08004000` that the
+application is linked into, a 52 KiB staging slot at `0x08011000`, and A/B
+descriptor pages. `firmware/tools/check_flash_map.py` fails the build if the
+linker scripts or `platformio.ini` disagree with it. There is one staging slot
+and therefore **no automatic rollback**; the bootloader's one-second knock
+window is the recovery path.
 
 **This section is checked mechanically.** `firmware/tools/check_regmap_docs.py`
 parses `src/regmap.h` and fails if the block bases, the block sizes, the primary
@@ -244,15 +301,22 @@ The dense digital cluster places U6 at local `(14.5,44.5)`, rotated 180° in
 the right-side lane beside U5. C8 moves to `(18,37.5)` to preserve a clean U6
 courtyard without separating the analog-LDO output bypass from U3.
 
-CELL_RE remains one 9.652 mm F.Cu segment with no via/test point and a driven
-guard. `repair_guard_fill.py` physically stitches three saved F.Cu fill regions
-on both sides of the trace; the source outline alone is not credited as guard
-copper. The all-layer thermal rule area divides the In2 GND pour into two saved
+CELL_RE remains one 9.723 mm F.Cu segment with no via/test point and a driven
+guard. It runs `(111.00,131.40)` to `(112.54,141.00)`: on 2026-09-01 the
+SGX-OX-ROHS-Mini land pattern was corrected against DS-0637 (Issue 2, with
+Issue 1 agreeing), which places Working on the CENTRE pin, so the RE land moved
+from x=110.00 to x=112.54 and the segment lengthened from 9.652 mm. U7.13 to
+U11.2 is 9.723 mm, still inside the 10 mm budget. `repair_guard_fill.py`
+physically stitches three saved F.Cu fill regions on both sides of the trace;
+the source outline alone is not credited as guard copper. The all-layer thermal rule area divides the In2 GND pour into two saved
 regions, joined only by one explicit 0.15 mm three-segment jog through the left
 web. The heated tip has a solid B.Cu `/HEATER_LOW` spreader immediately gasward of the
 barrier.
-KiCad 10.0.5 reports 0 DRC errors, 0 unconnected items, and 0 parity issues;
-the calibrated audit rejects 33/33 known-bad variants. The
+KiCad 10.0.5 reports 0 DRC errors and 0 unconnected items, and the calibrated
+audit rejects 33/33 known-bad variants. Six schematic-parity findings are
+outstanding and are not from the layout: the footprint Value fields for DZ1,
+Q1, R20, R21, R26 and R27 lag symbol values changed by a separate, in-progress
+schematic edit. They must be back to zero before release. The
 27 exact courtyard pairs are
 manual-assembly exceptions and legend layers are not exported. See
 `FAB-READINESS.md`, `ASSEMBLY-EXCEPTIONS.md`, and `FAB-NOTES.md` for release

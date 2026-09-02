@@ -1,8 +1,10 @@
 # o2-probe Rev A firmware — v1
 
 > **DEPLOYMENT PROHIBITED.** v0 is a bench and short-trial build. It has no
-> membrane heater and no RS-485 bootloader. Do not bury a probe running it, and
-> do not pot one. The reasons are in "What v0 does and does not do" below, and
+> membrane heater, and its RS-485 updater — which now exists, engine and
+> bootloader both — has never run on silicon. Do not bury a probe running it,
+> and do not pot one until a full update cycle has been performed on the bench
+> and recorded. The reasons are in "What v0 does and does not do" below, and
 > neither is a matter of polish.
 
 Modbus RTU slave for the SGX-OX-ROHS-Mini oxygen probe. STM32G071CBT7,
@@ -13,12 +15,21 @@ PlatformIO + STM32Cube (HAL headers, direct CMSIS register code).
 edit it by hand.
 
 ```sh
-pio test -e native      # portable logic, 23 cases
-pio run  -e o2probe     # cross build
-pio run  -e o2probe -t upload
+pio test -e native      # portable logic, 77 cases
+pio run  -e o2probe     # cross build: the application, linked at 0x08004000
+pio run  -e loader      # cross build: the RS-485 bootloader, at 0x08000000
+pio run  -e loader  -t upload    # flash the bootloader FIRST, once
+pio run  -e o2probe -t upload    # then the application
 python3 tools/gen_hw_contract.py            # regenerate after a schematic change
 python3 tools/gen_hw_contract.py --check    # what the build runs
+python3 tools/check_flash_map.py            # linker scripts vs src/flash_map.h
+python3 tools/check_update_tool.py          # field tool vs src/update.h
+python3 tools/o2p_update.py --port /dev/tty.usbserial-X --status
 ```
+
+A bench board needs **both** images. The core fetches its reset vector from
+`0x08000000`, which is the bootloader's; flashing only the application leaves
+that erased.
 
 ## What v0 does and does not do
 
@@ -59,10 +70,18 @@ off this is a bench and short-trial build.** A probe left in a pile for weeks
 with the loop disabled will wet its membrane. `DEW_MARGIN` and the `DEW_SUSPECT` fault exist so that is observed
 rather than discovered afterwards.
 
-Also absent: the **RS-485 application bootloader**. `SCHEMATIC-REVIEW.md` M2 is
-emphatic that it must be installed *before potting*, because J3 is not exposed
-through the enclosure and the STM32 ROM bootloader is not proven to work
-through the half-duplex DE line. **Do not pot a probe running this firmware.**
+The **RS-485 updater** is no longer absent. `SCHEMATIC-REVIEW.md` M2 requires
+it to be installed *before potting*, because J3 is not exposed through the
+enclosure and the STM32 ROM bootloader cannot work through the software-driven
+DE line. It is now built: `src/update.c` is the engine and register block,
+`src/loader_main.c` is the 16 KiB bootloader that installs what it receives.
+See [Field updates](#field-updates-how-a-buried-probe-gets-new-firmware).
+
+**The gate has moved, not lifted.** None of it has executed on silicon. What
+must be true before epoxy touches a probe is now a bench result — one complete
+transfer, install and restart, plus one deliberate power-cut mid-transfer — not
+the existence of the code. **Do not pot a probe whose update cycle has not been
+demonstrated.**
 
 ## Field updates: why the v2 bootloader is wired
 
@@ -152,14 +171,17 @@ truncation mechanism was conjectured and never isolated
 (`tech/dragino/DRAGINO.md:350`) updates the *node's* firmware, not anything
 across the RS-485 cable.
 
-### Wired RS-485, which is what v2 will use
+### Wired RS-485, which is what the updater actually uses
 
 The cable that carries Modbus carries the image at line rate. At 9600 8E1 a
 byte is 11 bit times, so 872.7 B/s and **27.0 s** for the whole image; at
 38400, **6.7 s**. Line time only — framing, page-erase waits and per-block
-acks are on top. But a transport with that much headroom can acknowledge and
-retry every block, and it is reachable from the same A/B pair a technician
-already has to touch.
+acks are on top. Concretely, at the 240-byte block the register window allows,
+a 23,524-byte image is 98 blocks; each block frame is 251 bytes and its
+response 8, so about 0.30 s per block on the wire and **under a minute** in
+practice at 9600, plus ~0.7 s of staging-slot erase. A transport with that much
+headroom can acknowledge and retry every block, and it is reachable from the
+same A/B pair a technician already has to touch.
 
 ### Why the gate is at potting
 
@@ -176,6 +198,127 @@ is a plausible transport *to an existing updater*, at about three days per
 image, and no transport at all *to a probe that never got one*. J3 is not
 exposed through the enclosure. An application bootloader missing when the epoxy
 goes on cannot be added afterwards.
+
+## Field updates: how a buried probe gets new firmware
+
+### The flash map
+
+`src/flash_map.h` is the source of truth; `tools/check_flash_map.py` runs on
+every build and fails it if the linker scripts or `platformio.ini` drift from
+it. 128 KiB, 64 pages of 2 KiB:
+
+| Pages | Address | Size | Contents |
+|---|---|---|---|
+| 0–7 | `0x08000000` | 16 KiB | bootloader — never rewritten in the field |
+| 8–33 | `0x08004000` | 52 KiB | run slot — the application (5.6 KiB and 25.7 KiB used today) |
+| 34–59 | `0x08011000` | 52 KiB | staging slot — the image being received |
+| 60–61 | `0x0801E000` | 4 KiB | boot descriptor, A/B |
+| 62–63 | `0x0801F000` | 4 KiB | configuration, A/B (unchanged) |
+
+The application is therefore **linked at 0x08004000** and a bench board needs
+both images: `pio run -e loader -t upload` once, then `pio run -t upload` for
+the application. Flashing only the application leaves the reset vector the core
+actually fetches — the one at `0x08000000` — erased.
+
+Downloading into a slot beside the running image rather than over it is the
+whole point: the farm supply is a shared 12 V feed and a brownout during a
+transfer is an ordinary event, not an exotic one. The cost is that there is no
+room for a second full-size slot, so **there is no automatic rollback** — see
+[Known limitations](#known-limitations).
+
+### The protocol
+
+Plain Modbus: FC03 to read, FC06/FC16 to write, nothing else. Every step fits
+in 40 bytes, so the same sequence works over a laptop's USB-RS-485 dongle and
+over the Dragino's `A8` downlink, differing only in how long it takes.
+
+1. Read `0x0050` `UPD_STATUS` and `0x0051` `UPD_BLOCK_MAX`.
+2. Write the image length and CRC-32, and `BEGIN` — one FC16 of five registers
+   from `0x0054` does all of it. The engine applies the command *after* the
+   numbers in the same frame regardless of address order, which is what makes
+   the single-frame form possible at all.
+3. Poll `0x0050` until the state is `READY`: the staging slot is erased one
+   page per main-loop pass, so the probe keeps answering throughout.
+4. Write blocks to `0x0080`: `[sequence, payload…]`, payload a whole number of
+   64-bit doublewords, at most 120 registers. The FC16 response **is** the
+   acknowledgement.
+5. Write `COMMIT`, poll until `STAGED` — the probe CRCs the whole slot in
+   1 KiB slices and checks the image's vector table.
+6. Write `BOOT`. The probe resets, the bootloader installs the staged image
+   into the run slot, verifies it, and starts it.
+
+Blocks carry their own sequence number rather than streaming, because on the
+`A8` path a lost reply is routine: a repeat of the block just accepted is
+acknowledged and not reprogrammed, and anything else is refused with
+`ERR_SEQUENCE` so the master can read `0x005B` `UPD_NEXT_SEQ` and resume.
+A refused frame never ends the transfer — only a flash error or a failed
+verification does.
+
+`tools/o2p_update.py` performs all of it over a serial port.
+
+### The bootloader
+
+`src/loader_main.c`, 16 KiB, flashed over SWD before potting and never
+rewritten afterwards. On every reset it:
+
+1. reads the boot descriptor, and if an image is staged **re-verifies it**
+   before erasing anything, then copies it into the run slot, verifies the
+   copy, and records it as installed;
+2. checks the run slot — against the descriptor's CRC when there is one, and
+   against the vector table when there is not, so a probe whose application was
+   flashed over SWD still starts;
+3. listens for **one second** for a knock: a write of `STAY` to `0x0054`
+   `UPD_CMD`. Nothing else is acted on during the window, and anything else is
+   answered with silence.
+4. Otherwise it starts the application.
+
+The knock window is the recovery path, and it is why the loader is a separate
+image. An application that boots but has stopped answering — stalled sampler,
+jammed DE, wrong address — cannot update itself, and a potted probe has no J3
+and no BOOT0. One second of start-up delay on an instrument that already
+spends fifteen minutes settling its cell is a cheap price for the only
+remaining door. In service mode the loader answers the same update registers,
+with bit 15 of `UPD_STATUS` set so a master can tell it is not talking to a
+probe that is measuring; after ten minutes of silence it starts the
+application anyway rather than leave a buried probe unbiased.
+
+### Guard review, in writing
+
+Against the checklist in `~/.claude/CLAUDE.md`, because everything here is a
+guard on an operation that cannot be undone from the surface:
+
+1. **Unevaluable input.** A transfer that is short, misaligned, out of order,
+   or whose CRC does not match never reaches `STAGED`; a descriptor that fails
+   its own CRC reads as "nothing staged", not as a staged image of unknown
+   length. `commit_staged(0, 0)` is called *before* the staging slot is erased,
+   so an interrupted transfer cannot leave a record claiming a verified image.
+2. **Monotonicity.** Worse input never reads better: a truncated image is
+   refused by length before its CRC is computed, and an image whose CRC matches
+   is still refused if its vector table is not one for the run slot.
+3. **Preconditions.** The engine reaches flash only through
+   `update_target.c`, which refuses every address outside the staging slot.
+   The bootloader's install path is separately bounded to the run slot.
+4. **Source of truth.** The declared CRC covers the image; the vector-table
+   check covers *which slot* the image was linked for. A CRC alone cannot
+   distinguish the application from the bootloader's own binary — which is the
+   mistake this catches, and it is tested.
+5. **Persistence.** The staged flag is written only after a verify that read
+   the bytes back out of flash, and it is cleared by the bootloader only after
+   the copy into the run slot has itself been verified. A power loss mid-copy
+   leaves both the staged image and the flag intact, and the next boot repeats
+   the install.
+6. **Provenance.** `UPD_STATUS` reports the state and the last error
+   separately, and bit 15 says whether the bootloader or the application is
+   answering. `UPD_INSTALLS` counts installs actually completed.
+7. **Known-bad calibration.** `test/test_update/` builds each failure — wrong
+   CRC, wrong slot, non-Thumb reset vector, truncation, misalignment, overrun,
+   duplicate block, out-of-order block, flash failure, descriptor-write failure
+   — and observes the refusal. The fake flash refuses a second write to an
+   unerased doubleword exactly as the part does, so "acknowledged a duplicate"
+   cannot be confused with "programmed it twice".
+8. **Fix vs mute.** The engine has no path that clears an error without the
+   underlying condition changing: `ERROR` is left only by `BEGIN` or `ABORT`,
+   both of which discard the transfer.
 
 ## Bus settings
 
@@ -208,7 +351,7 @@ in the decoder (`DRAGINO.md:252`). The syntax is
 ## Register map
 
 Everything is exposed through **FC03** (holding registers); FC04 mirrors it.
-Writes use FC06/FC16 and only reach the config block.
+Writes use FC06/FC16 and reach the config block and the updater's two blocks.
 
 **Undefined addresses raise exception 02 rather than reading as zero.** A read
 spanning the gap between blocks is refused for the same reason: `0x0000` in the
@@ -266,7 +409,7 @@ then two that exist because supervision here is *sampled*, not continuous:
 The gains are registers on purpose. The plant is unmeasured — the thermal path
 is an engineering bound, not a measurement — so they will need tuning against a
 real pile, and the alternative to a register write is a full firmware transfer
-through a bootloader that does not exist yet. Bounded at 100.00 each: `kp` of
+through the updater and a reset. Bounded at 100.00 each: `kp` of
 100 already saturates the duty clamp on a 1 %RH error, and a 1 W heater against
 a membrane is not the place to discover a fat-fingered write. Zero is legal —
 `kp = 0` with `ki > 0` is a pure integrator, reasonable on a slow thermal
@@ -286,6 +429,57 @@ Two actions need a magic value, not a `1`:
 Both are destructive — one overwrites the calibration, the other spends one of
 roughly 10 000 flash cycles and stalls the CPU for tens of milliseconds. A
 16-bit token makes an accident on a noisy line implausible.
+
+### Update block — `0x0050`, 16 registers
+
+The firmware updater's control registers. Answered by the application and, with
+bit 15 of `UPD_STATUS` set, by the bootloader. Full protocol in
+[Field updates](#field-updates-how-a-buried-probe-gets-new-firmware).
+
+| Reg | Name | Access | Meaning |
+|---|---|---|---|
+| `0x0050` | `UPD_STATUS` | ro | state << 8 \| error; bit 15 set = the bootloader is answering |
+| `0x0051` | `UPD_BLOCK_MAX` | ro | largest payload register count in one block (120) |
+| `0x0052` | `UPD_SLOT_HI` | ro | staging slot size in bytes, high word |
+| `0x0053` | `UPD_SLOT_LO` | ro | low word |
+| `0x0054` | `UPD_CMD` | wo | command magic, below; reads as 0 |
+| `0x0055` | `UPD_LEN_HI` | rw | declared image length, latched by `BEGIN` |
+| `0x0056` | `UPD_LEN_LO` | rw | |
+| `0x0057` | `UPD_CRC_HI` | rw | declared CRC-32 (zlib) of the image |
+| `0x0058` | `UPD_CRC_LO` | rw | |
+| `0x0059` | `UPD_RECV_HI` | ro | bytes accepted into the staging slot |
+| `0x005A` | `UPD_RECV_LO` | ro | |
+| `0x005B` | `UPD_NEXT_SEQ` | ro | block sequence expected next — how a master resyncs |
+| `0x005C` | `UPD_LOADER_VER` | ro | bootloader version; 0 when the application answers |
+| `0x005D` | `UPD_IMAGE_VER` | ro | version of the image now running |
+| `0x005E` | `UPD_INSTALLS` | ro | installs this probe has completed |
+| `0x005F` | `UPD_RESERVED` | ro | 0 |
+
+Commands, all magics for the same reason `COMMIT` and `CAL_TRIGGER` are — each
+one erases tens of kilobytes or reboots a settled cell:
+
+| Magic | Command | Effect |
+|---|---|---|
+| `0xB001` | `BEGIN` | latch length and CRC, erase the staging slot |
+| `0xB002` | `COMMIT` | verify what was received |
+| `0xB003` | `BOOT` | reset into the bootloader, which installs it |
+| `0xB004` | `ABORT` | discard the transfer, retract any staged image |
+| `0xB005` | `STAY` | end up in the bootloader with the application stopped |
+
+States are `IDLE`, `ERASING`, `READY`, `RECEIVING`, `VERIFYING`, `STAGED`,
+`ERROR`; errors are `STATE`, `LENGTH`, `SEQUENCE`, `ALIGN`, `FLASH`, `CRC`,
+`IMAGE`, `NOIMAGE`. A refused frame sets the error and leaves the state alone;
+only a flash error or a failed verification ends a transfer.
+
+### Update data window — `0x0080`, 123 registers, write-only
+
+`UPD_DATA` at `0x0080`. One FC16 write is one block: the first register is the
+block sequence number, the rest is image payload, high byte of each register
+first. The payload must be a whole number of 64-bit doublewords, which caps a
+block at 120 payload registers — 240 bytes, the largest FC16 that fits a
+256-byte ADU. Over the Dragino's 40-byte `A8` ceiling the same protocol runs at
+12 payload registers. Reads return zero; the window is not a way to read the
+staging slot back.
 
 ## Fault bits and the validity rule
 

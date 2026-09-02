@@ -11,7 +11,10 @@ cannot see this header. A stale prose copy is not a documentation nit: it is
 how someone configures `AT+COMMAND` against addresses that moved, and reads a
 diagnostic register that is now something else.
 
-`src/regmap.h` is the source of truth. Everything here is derived from it.
+`src/regmap.h` is the source of truth, and `src/update.h` for the two blocks
+the firmware updater owns - they live there because the same engine answers
+them from the bootloader, which links none of the register map. Everything
+here is derived from those two headers.
 """
 import os
 import re
@@ -20,15 +23,19 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 FW = os.path.dirname(HERE)
 REGMAP = os.path.join(FW, "src", "regmap.h")
+UPDATE = os.path.join(FW, "src", "update.h")
 
 # Prose copies, relative to the firmware directory.
 DOCS = ["FIRMWARE.md", os.path.join("..", "DESIGN.md")]
 
 
+BLOCKS = ("PRIMARY", "DIAG", "CONFIG", "UPDATE", "UPDDATA")
+
+
 def parse_regmap(text):
     """Block bases/counts and the primary block's register names, from the header."""
     out = {}
-    for name in ("PRIMARY", "DIAG", "CONFIG"):
+    for name in BLOCKS:
         for kind in ("BASE", "COUNT"):
             m = re.search(r"#define\s+O2P_REG_%s_%s\s+(0x[0-9A-Fa-f]+|\d+)u?"
                           % (name, kind), text)
@@ -48,7 +55,8 @@ def parse_regmap(text):
 
 
 def main():
-    rm = parse_regmap(open(REGMAP, encoding="utf-8").read())
+    rm = parse_regmap(open(REGMAP, encoding="utf-8").read() +
+                      open(UPDATE, encoding="utf-8").read())
     base, count = rm["PRIMARY_BASE"], rm["PRIMARY_COUNT"]
 
     problems = []
@@ -65,7 +73,7 @@ def main():
         # while explaining the drift, so a heading that moved to the wrong
         # block would still have found its number somewhere else and passed.
         lines = doc.splitlines()
-        for name in ("PRIMARY", "DIAG", "CONFIG"):
+        for name in BLOCKS:
             addr = "0x%04X" % rm["%s_BASE" % name]
             n = rm["%s_COUNT" % name]
             want = re.compile(r"(?i)%s\b.*?\b%d registers?\b|\b%d registers?\b.*?%s\b"
@@ -124,10 +132,11 @@ def main():
         for p in problems:
             print("   -", p)
         return 1
-    print("register-map docs agree with regmap.h "
-          "(primary 0x%04X x%d, diag 0x%04X x%d, config 0x%04X x%d)"
-          % (base, count, rm["DIAG_BASE"], rm["DIAG_COUNT"],
-             rm["CONFIG_BASE"], rm["CONFIG_COUNT"]))
+    print("register-map docs agree with the headers (" +
+          ", ".join("%s 0x%04X x%d" % (n.lower(), rm["%s_BASE" % n],
+                                       rm["%s_COUNT" % n]) for n in BLOCKS) +
+          ")")
+    del base, count
     return 0
 
 

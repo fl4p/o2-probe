@@ -23,6 +23,7 @@
 #include <stdint.h>
 
 #include "modbus_pdu.h"
+#include "update.h"
 
 /* ---- Primary block: 0x0000, 8 registers ---- */
 enum {
@@ -193,6 +194,14 @@ typedef struct {
     volatile bool commit_pending;
     volatile bool cal_requested;
     volatile bool sht_pulse_requested;
+
+    /* The firmware updater, or NULL. It is reached through the register map
+     * because that is where a Modbus master reaches everything - but it is
+     * deliberately not PART of the register map: the update engine is shared
+     * verbatim with the bootloader, which has no configuration, no snapshot
+     * and no sampler. When this is NULL the update blocks answer exception 02
+     * exactly as any other undefined address does. */
+    o2p_update_t *upd;
 } o2p_regmap_t;
 
 void o2p_regmap_init(o2p_regmap_t *rm);

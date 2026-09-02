@@ -274,6 +274,14 @@ uint8_t o2p_regmap_read(void *ctx, uint16_t addr, uint16_t count, uint16_t *out)
         }
         return 0u;
     }
+    /* The updater's two blocks. Routed rather than implemented here: the same
+     * engine answers these registers in the bootloader, where none of the
+     * rest of this file exists. */
+    if (rm->upd != NULL &&
+        (in_block(addr, count, O2P_REG_UPDATE_BASE, O2P_REG_UPDATE_COUNT) ||
+         in_block(addr, count, O2P_REG_UPDDATA_BASE, O2P_REG_UPDDATA_COUNT))) {
+        return o2p_update_read(rm->upd, addr, count, out);
+    }
     return O2P_MB_EX_ILLEGAL_ADDRESS;
 }
 
@@ -330,9 +338,14 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
     if (rm == NULL || in == NULL || count == 0u) {
         return O2P_MB_EX_ILLEGAL_VALUE;
     }
-    /* Only the config block is writable. The primary and diagnostic blocks are
-     * measurements; a master that tries to write one is confused, and letting
-     * it through would let the bus fabricate readings. */
+    if (rm->upd != NULL &&
+        (in_block(addr, count, O2P_REG_UPDATE_BASE, O2P_REG_UPDATE_COUNT) ||
+         in_block(addr, count, O2P_REG_UPDDATA_BASE, O2P_REG_UPDDATA_COUNT))) {
+        return o2p_update_write(rm->upd, addr, count, in);
+    }
+    /* Only the config block and the updater are writable. The primary and
+     * diagnostic blocks are measurements; a master that tries to write one is
+     * confused, and letting it through would let the bus fabricate readings. */
     if (!in_block(addr, count, O2P_REG_CONFIG_BASE, O2P_REG_CONFIG_COUNT)) {
         return O2P_MB_EX_ILLEGAL_ADDRESS;
     }
