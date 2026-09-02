@@ -627,7 +627,7 @@ Three findings that changed the design rather than merely supplying it:
   takes screw preload out of the carrier-to-head seal only.
   `cartridge_core_cuts_round()` still cuts a gasket pocket into the carrier's wet
   face — membrane thickness plus a 1.0 mm gasket at 25% compression — and the
-  retainer lies directly over it, so the four screws set the **membrane-perimeter
+  retainer lies directly over it, so those screws set the **membrane-perimeter
   gasket compression**. The ~6 N was the pressure force across a Ø16 window
   (265 mbar → 5.3 N), never a preload. Required preload is **unverified**: gasket
   material, hardness, compression force and minimum residual load are all unfixed,
@@ -637,8 +637,8 @@ Three findings that changed the design rather than merely supplying it:
   sustained strain is gasket compression in a printed boss, not the seal-clamping
   duty the metal-thread rule was written for. The default is therefore a
   **thread-forming screw for thermoplastics**
-  (Delta PT / EJOT PT / Plastite, A2) straight into a printed boss, which returns
-  the head to **40 mm** and drops the sole source, the counterbore and the
+  (Delta PT / EJOT PT / Plastite, A2) straight into a printed boss, which drops
+  the sole source, the counterbore and the
   heat-setting step beside the sealing bore. `fastening = "ptscrew" | "insert"`
   keeps both routes in one model, with the wall rule differing by mechanism:
   2.3 mm thermal for the insert, 1.45 mm hoop-stress for the screw. (Both walls are
@@ -649,9 +649,19 @@ Three findings that changed the design rather than merely supplying it:
 - **The O-ring size I specified does not exist.** 24.5 × 1.5 is unavailable in
   EPDM anywhere in the deepest catalogue found — that size exists only in FKM and
   FFKM, and fluoroelastomers are excluded precisely because ammonia attacks them.
-  The design now uses the 24.0 that does exist, on a Ø24.9 groove: 3.75 % install
-  stretch, and 18.5 % squeeze once the stretch thins the cord. Asserts hold stretch
-  ≤ 5 % and squeeze ≥ 15 %.
+  The design now uses the 24.0 that does exist, on a **Ø25.02** groove: 4.25 %
+  install stretch, and 22.35 % squeeze once the stretch thins the cord.
+
+  **Correction (2026-09-02): the tolerance chain behind those numbers was wrong
+  twice, and the published data is worse than the guesses were.** It first counted
+  only the well bore, then both surfaces, and in neither case the tolerance of the
+  ring itself. The vendor publishes ±0.08 on a 1.5 mm cord (DIN 3771 / DIN ISO
+  3601, archived under `tech/datasheets/probe-carrier/`), which alone spends 8.32
+  of the 15 squeeze points the 15–30 % window allows. A reamed Ø27.3 H7 bore is
+  +0.021/0 (ISO 286-2), five times tighter than the ±0.05 previously declared.
+  Net: **a printed well no longer passes at all**, and the carrier groove must be
+  either machined or paired with rings sorted by cord on receipt. See
+  `cad/README.md`.
 
 **Two evidence gaps, both deliberate and both open:**
 

@@ -265,21 +265,45 @@ Three jobs, deliberately separated:
 
 - **The O-ring seals.** Radial, on the carrier's spigot, squeezed by the
   interference fit against the well bore — cord 1.5, groove root Ø25.02 × 1.95,
-  **24 % nominal squeeze**. That 24 % is not a handbook preference: the well is a
-  *printed* bore, so what matters is the tolerance band, and 24 % is the value
-  that centres it at **±0.22 mm**. At the obvious 20 % the band is −0.34/+0.10,
-  and a printed hole errs oversize — the direction that loses the seal. Asserts
-  now gate the worst case at both ends (15.5 % at +0.20, 29.2 % at −0.20) and the
-  groove fill at 76 % against an 85 % limit. Install stretch is 4.25 %, inside the
-  5 % rule. EPDM or silicone, **not FKM** (attacked by ammonia). Because the
-  squeeze comes from the fit, no fastener is in the seal load path, so PP creep
-  at 75 °C bleeds off retention rather than sealing force. A *face* O-ring was
-  evaluated and rejected: it needs a land either side, which pushes the head to
-  48 mm — worse than the variant it replaces.
-- **The retainer only holds the carrier down.** 4 × M2.5 into heat-set inserts
-  on a Ø32.8 circle. Four for symmetry, so the carrier cannot cock and locally
-  unload the O-ring; the worst load it ever sees is ~6 N, from a blocked
-  membrane plus a cold-to-75 °C excursion.
+  24 % nominal construction target, **22.35 % actual** after stretch-thinning.
+  Install stretch 4.25 %, inside the 5 % rule; groove fill 76 % against an 85 %
+  limit. EPDM or silicone, **not FKM** (attacked by ammonia). Because the squeeze
+  comes from the fit, no fastener is in the seal load path, so PP creep at 75 °C
+  bleeds off retention rather than sealing force. A *face* O-ring was evaluated
+  and rejected: it needs a land either side, which pushes the head to 48 mm.
+
+  **Three things vary, not one.** This model twice understated the chain: first
+  it counted only the well bore, as if the carrier's groove root were exact; then,
+  with both surfaces counted, it still ignored the tolerance of the ring itself.
+  The ring's cord is the *largest* term — Techniparts / o-ring-stocks.eu publish
+  ±0.08 for d2 ≤ 1.8 (DIN 3771 / DIN ISO 3601), which on a 1.5 mm cord is ±5 % of
+  the sealing element:
+
+  ```
+  band = (T_bore + T_root)/2c  +  (h/c²)·T_cord
+         4.12 points              8.32 points     of 15 available
+  ```
+
+  Numbers now come from standards rather than from declaration. A reamed Ø27.3
+  H7 bore is **+0.021/0** (ISO 286-2, 18–30 mm band) — five times tighter than
+  the ±0.05 this file used to guess, so reaming buys far more than assumed, and
+  a printed well no longer passes at all. Only two routes close: reamed H7 +
+  machined groove (12.44 points), or reamed H7 + printed groove with the rings
+  **sorted by cord on receipt** (11.97). Sorting is a micrometer on a bought
+  part, and at EUR 0.16 each it is the cheapest tolerance in the design.
+
+  Material and process are separate knobs (`carrier_material`, `carrier_fab`):
+  the tolerance comes from machining, not from PP. Conflating them once produced
+  the false conclusion that dropping the weld forced a machinist.
+- **The retainer only holds the carrier down** — but it is *not* out of the seal
+  load path, which an earlier version of this note got wrong. 6 × on a Ø32.3
+  circle. The radial O-ring takes preload out of the **carrier-to-head** joint,
+  and that is all the "~6 N" figure ever referred to (it is the pressure force
+  across a Ø16 window, never a preload). The retainer still compresses the
+  membrane's perimeter gasket, so bolt count and spacing govern how evenly that
+  gasket is squeezed: six gives 16.9 mm of arc between screws against a 21 mm
+  gasket, four gave 25.4 mm. It costs nothing — `head_od` is set by the bolt
+  *radius*, not the count. The required gasket preload is still unknown.
 - **The cap is only a debris guard**, on 2 × M2.5 self-tapping screws in its
   grip, independently replaceable without disturbing the seal. Its front face is
   solid because it is the plowing face; it breathes through a 6-rib cage giving
