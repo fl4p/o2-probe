@@ -4,7 +4,9 @@ This directory contains a superseded parametric mechanical study of the buried
 compost oxygen probe. It is retained as enclosure research, not as the current
 PCB or ring-carrier source of truth. Its OpenSCAD files still model:
 
-- 32 mm OD / provisionally 28 mm ID PVC-U enclosure, 129 mm long;
+- 32 mm OD / provisionally 28 mm ID enclosure, 129 mm long (modelled as PVC-U
+  pipe; the material decision has since moved — see **Enclosure material**
+  below);
 - the obsolete 20 × 119 × 1 mm PCB envelope and SGX cell location;
 - removable PMV15T coupon carrier with PP support grid;
 - passive, drained and side-vented diffusion head with a coarse-debris guard;
@@ -40,6 +42,125 @@ Before printing a functional enclosure, measure and update:
 
 The membrane surface in the CAD is visual geometry only. A printed plastic disc
 is not a substitute for the specified porous PTFE membrane.
+
+## Membrane fixture — `membrane_fixture.scad`
+
+The qualification step-1 rig, and the origin of the production membrane joint.
+`make fixture` builds every part plus the bypass cartridge, the volume-audit
+solid and an exploded preview into `exports/`.
+
+**The cartridge is the shared part.** Its seal land, aperture and dry-side
+relief are the ones the printed ASA probe head will carry, so the `D_eff` that
+step 1 measures transfers to the probe instead of resting on an unstated
+"the bench seal behaved like the probe seal" assumption. Only the mounting
+changes: here it bolts to a lid, there it bolts into the head.
+
+| Part | Role |
+|---|---|
+| `cartridge` | Frame with the coupon pocket, 2.5 mm seal land, flared aperture, heater shelf and sensor bore |
+| `retainer` | Clamps gasket → coupon → land; 4 × M2.5 |
+| `chamber` | Ø49.7 × 21.1 mm puck: Ø18 × 9.8 mm cavity over a flush-mounted cell |
+| `lid` | Cartridge seat plus the cavity's gasket face; 4 × M3 |
+| `plenum` | Wet-side cap: sweeps the O₂ step across the outer membrane face |
+| `die` | Cutting template for the 15 × 15 mm coupon, with the window scribed |
+| `plug` | Full-depth blanking pin that turns the gas ports into the leak test |
+| `cavity` | Not printed — the connected gas volume as a solid, for measuring |
+| `cartridge` + `bypass=true` | **Known-bad part** — a 0.4 mm notch across the seal land, engraved `BYPASS` |
+
+### Thermometry and heater
+
+Both live where they cross **no sealing surface**, which is the constraint that
+shapes them. The heater sits on a 2 mm ledge at the aperture mouth, *inside* the
+seat gasket's window, and its leads drop into the cavity. The sensor goes in a
+Ø3.2 × 6 mm blind bore from the cartridge's −Y edge, stopping 1 mm short of the
+seal land — it touches neither face, and it reads the carrier cold spot the
+condensation model asks for rather than an average. Both sets of leads leave
+through one potted feedthrough in the chamber wall, which is what the probe
+does: everything electrical stays on the dry side.
+
+The heater seat is a shelf, not a pocket — bond the ring in. And the sensor bore
+is deliberately oversized: set `tsense_bore` to whatever carrier you actually
+use.
+
+### The four things the geometry is actually built around
+
+- **Dry-side access.** The aperture flares at 45° immediately behind the coupon,
+  so the straight, unflared depth below the membrane is `straight_web = 0`. An
+  `assert` refuses any value above 0.25 mm — the outer-cartridge concept in
+  `RESPONSE-CANDIDATE-VOLUME.md` failed on 5.8 mm of straight channel, and
+  feeding that number to this model reproduces the rejection.
+- **A knowable volume, audited against the mesh.** The cell sits in a floor
+  pocket with its gas face flush to the cavity floor, so nothing stagnant hides
+  under it. The connected volume is **4.91 cm³** — cavity 2.49 plus 2.42 of
+  aperture stack above it. That second term is the point: the first version of
+  this gate asserted on the cavity cylinder alone and passed at 5.02 while the
+  real connected volume was 7.44, half as much again as the budget allows. Build
+  `cavity` and measure the mesh; the analytic figure now agrees with it to 0.02 %.
+  Both remain **nominal** — the release number is the measured pressure-expansion
+  volume.
+- **The ports are plugged at the cavity wall, not at the barb tip.** Each bore
+  is 27.8 mm long: capping it outside would hang 0.35 cm³ of dead gas off a 5 cm³
+  budget, per port. The `plug` pin fills the bore.
+- **Metal carries the sealing load.** The retainer screws self-tap into the lid
+  boss, which is acceptable in a bench fixture at ≤55 °C and explicitly **not**
+  the rule for the buried head — see *Enclosure material* below.
+- **One-way assembly.** A chamfered corner keys cartridge, coupon, gasket and
+  retainer together. If PMV15T's oleophobic treatment turns out to be one-sided,
+  this is what keeps the wet face the wet face.
+
+### Consumables to cut
+
+| Item | Size | Material |
+|---|---|---|
+| Coupon | 15 × 15 mm, keyed corner | PMV15T (cut on `die`) |
+| Membrane gasket | 15 × 15 mm outer, 10 × 10 mm window | 1.0 mm silicone or EPDM sheet |
+| Seat gasket | 29 × 29 mm outer, 16 × 16 mm window | same sheet |
+| Plenum gasket | 29 × 29 mm outer, 14 × 14 mm window | same sheet |
+| Lid gasket | Ø49.7 outer, Ø18 window, clear of the M3 circle | same sheet |
+
+EPDM or silicone, **not FKM** — fluoroelastomers are attacked by ammonia and
+amines, which is the wrong direction for this service.
+
+### Fasteners
+
+4 × M2.5 self-tapping ≥ 25 mm (Ø2.1 pilots, blind so no fastener breaks the
+lid's sealing face) and 4 × M3 × 35 mm through the body into hex nut traps in
+the bottom face.
+
+### Before this is trusted
+
+The printer profile is **unmeasured** (`profile_measured = false`), so every fit
+here is a declared default. Print the cell pocket and coupon pocket first and
+check them against the real can and a real coupon.
+The plenum sweeps 0.78 cm³, about 0.23 s at 200 mL/min — negligible beside the
+membrane, but keep it **identical across all four step-1 arms** so it cancels in
+the comparison rather than having to be corrected for. Pot the three pin holes and
+the can perimeter — they are the fixture's most likely leak path — and then let
+the pressure test, not inspection, decide whether the fixture is sound.
+
+## Enclosure material
+
+Decision 2026-09-02, recorded in [`../MEMBRANE.md`](../MEMBRANE.md) under
+*Enclosure material: printed ASA*: **bought tube for the potted body, printed
+ASA for the head** that carries the keyed cartridges, guard stand-offs and drain
+wells. A fully printed body is allowed for prototypes only. The models here are
+unchanged by this — they were always printed-part geometry — but three things
+now bind anything produced from them:
+
+- **Print for gas-tightness over the gas zone.** Solid wall band, many
+  perimeters, no sparse infill touching the cavity, plus a sealing step
+  (solvent smoothing or interior epoxy). A printed enclosure is released on the
+  measured connected-volume/leak test in
+  [`RESPONSE-CANDIDATE-VOLUME.md`](RESPONSE-CANDIDATE-VOLUME.md), never on
+  inspection.
+- **No sustained strain at temperature.** The tip wall sees ≈79 °C (75 °C pile
+  gas + ~4 K heater rise), roughly 7 K under ASA's 1.8 MPa HDT. Retain parts by
+  positive features and let a compliant elastomer supply sealing force; do not
+  design an interference fit or a preloaded plastic spring.
+- **The coupon carrier stays PP.** PP cannot be welded to ASA, so the
+  membrane-into-PP weld survives as a cartridge and the cartridge-to-housing
+  joint is a compression seal. Model the gasket and retainer, not a fused
+  carrier-to-tube interface.
 
 ## Response candidate
 
