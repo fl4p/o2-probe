@@ -60,7 +60,7 @@ clean:
 # supplies the documented placeholders so the geometry can be looked at.
 HEAD := o2_probe_head.scad
 HEAD_PROV := -D tube_od_meas=32.0 -D board_env_front=3.5 -D board_env_back=1.5 \
-             -D cell_seated_h=8.8
+             -D cell_seated_h=8.8 -D accept_written_off=true
 
 head-provisional: | $(OUT)
 	$(OPENSCAD) --hardwarnings $(HEAD_PROV) -D 'part="head"' -o $(OUT)/head.stl $(HEAD)
@@ -71,13 +71,16 @@ head-provisional: | $(OUT)
 		-o $(OUT)/head-provisional-preview.png $(HEAD)
 
 HEAD_END := o2_probe_head_end.scad
+HEAD_END_PARTS := head carrier retainer cap cavity
 HEAD_END_PROV := -D tube_od_meas=32.0 -D board_env_front=3.5 -D board_env_back=1.5 \
-                 -D cell_axial_len=13.0
+                 -D cell_axial_len=13.0 -D insert_bore_d=3.6 -D insert_bore_h=5.0
 
 head-end-provisional: | $(OUT)
-	$(OPENSCAD) --hardwarnings $(HEAD_END_PROV) -D 'part="head"' -o $(OUT)/head-end.stl $(HEAD_END)
-	$(OPENSCAD) --hardwarnings $(HEAD_END_PROV) -D 'part="cap"' -o $(OUT)/head-end-cap.stl $(HEAD_END)
-	$(OPENSCAD) --hardwarnings $(HEAD_END_PROV) -D 'part="cavity"' -o $(OUT)/head-end-cavity.stl $(HEAD_END)
+	@for p in $(HEAD_END_PARTS); do \
+		$(OPENSCAD) --hardwarnings $(HEAD_END_PROV) -D "part=\"$$p\"" \
+			-o $(OUT)/head-end-$$p.stl $(HEAD_END); \
+	done
 	$(OPENSCAD) --render --viewall --autocenter --projection=p --imgsize=1400,1000 \
 		--colorscheme=Tomorrow $(HEAD_END_PROV) -D 'part="assembly"' -D exploded=true \
 		-o $(OUT)/head-end-preview.png $(HEAD_END)
+	$(OPENSCAD) $(HEAD_END_PROV) -D 'part="plate"' -o $(OUT)/head-end-plate.3mf $(HEAD_END)

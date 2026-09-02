@@ -184,3 +184,103 @@ zone. They do not constitute a released seal design. See
 4.99 cm³ first-order connected-void budget and the ≤5.0 cm³ measurement gate. The CAD
 also includes one 0.4 mm PP cross support per coupon, representing about
 184 mm² projected free area across both 10 × 10 mm apertures.
+
+## Buried head — two variants, one written off
+
+Both built 2026-09-02 to settle the window-placement question on numbers rather
+than argument. Measured inputs are `undef` in both and the models **refuse to
+render** without them; `make head-provisional` / `make head-end-provisional`
+supply documented placeholders so the geometry can be looked at.
+
+| | `o2_probe_head.scad` (radial) | `o2_probe_head_end.scad` (end) |
+|---|---|---|
+| Status | **written off** | selected |
+| Head OD | 46 mm | 42 mm |
+| Widest point | 57 mm (guards) | 47 mm (cap) |
+| **Connected volume, measured** | **11.21 cm³** | **4.82 cm³** |
+| Free area | 200 mm² (two 10 × 10) | 201 mm² (Ø16) |
+| Windows | 2, lower quadrants | 1, end face |
+| Consumable | 2 coupons 15 × 15 | 1 disc Ø21 |
+
+![Radial variant, exploded](exports/head-radial-exploded.png)
+
+*Radial — head with two flat facets, a retainer and a slab guard flying outward
+from each. The windows are on the sides, which is what forces the thick wall.*
+
+![End variant, exploded](exports/head-end-exploded.png)
+
+*End — one axis: head, O-ring, PP carrier, retainer, caged cap.*
+
+Regenerate with `make head-provisional` and `make head-end-provisional`, or
+`-D 'part="assembly"' -D exploded=true` on either file.
+
+### Why radial is written off
+
+Not a tuning problem — structural. A flat facet wide enough for a cartridge sits
+at `sqrt(R² − (cart_w/2)²)` from the axis, so hosting one forces a thick wall,
+and **every millimetre of that wall becomes a 16 × 16 mm duct of dead gas behind
+the window**: 8.5 mm per port, 4.37 cm³ across two, on a 5.0 cm³ budget. The wall
+cannot be thinned without losing the seat land, and the duct cannot be shortened
+without moving the window off the side — which is the other variant.
+
+The file now **refuses to render**: its analytic gate counts the port ducts and
+cores as well as the bore, reports 10.61 cm³, and points at the end variant.
+`-D accept_written_off=true` overrides it, and exists only so the comparison
+renders above can be regenerated.
+
+Two further defects were found and are recorded rather than fixed, because the
+architecture is dead: the captive nut traps open into a closed Ø24 bore, so they
+would print with support that cannot be removed; and the sealing stack was never
+completed (no carrier, no gasket, no O-ring).
+
+### Measure the mesh, not the bore
+
+The radial variant's own analytic gate passed at 4.99 cm³ while the mesh measured
+11.21. The bench fixture made the same mistake — 5.02 claimed against 7.44 real.
+**A bore-only figure is not the connected volume.** Both head files therefore
+build a `cavity` part: render it and measure the mesh. The end variant's analytic
+figure now counts the spigot bore and flare stack too, giving 4.64 against a
+measured 4.82, close enough to actually bite. Both remain nominal; the release
+number is the measured pressure-expansion volume.
+
+### The end variant's sealing architecture
+
+Three jobs, deliberately separated:
+
+- **The O-ring seals.** Radial, on the carrier's spigot, squeezed by the
+  interference fit against the well bore — cord 1.5, 20 % squeeze, groove root
+  Ø24.9 × 1.95. EPDM or silicone, **not FKM** (attacked by ammonia). Because the
+  squeeze comes from the fit, no fastener is in the seal load path, so PP creep
+  at 75 °C bleeds off retention rather than sealing force. A *face* O-ring was
+  evaluated and rejected: it needs a land either side, which pushes the head to
+  48 mm — worse than the variant it replaces.
+- **The retainer only holds the carrier down.** 4 × M2.5 into heat-set inserts
+  on a Ø32.8 circle. Four for symmetry, so the carrier cannot cock and locally
+  unload the O-ring; the worst load it ever sees is ~6 N, from a blocked
+  membrane plus a cold-to-75 °C excursion.
+- **The cap is only a debris guard**, on 2 × M2.5 self-tapping screws in its
+  grip, independently replaceable without disturbing the seal. Its front face is
+  solid because it is the plowing face; it breathes through a 6-rib cage giving
+  **1037 mm², 5.2× the window**. An assert refuses under 4×: a guard more
+  restrictive than the membrane sets the response time itself and corrupts the
+  `D_eff` being measured.
+
+![End variant, assembled and sectioned](exports/head-end-section.png)
+
+*Assembled and cut on the axis — the only view that shows the stack closed up.
+An exploded view hides the carrier inside the cap. Rendered with
+`-D 'part="section"'`.*
+
+### Open on the end variant
+
+1. **It commits cell-orientation option C** (cell past the board end, axis along
+   the tube), which `PLAN.md` risk 11 leaves open pending the socket sample
+   measurement. This is the decision, not a detail.
+2. **Volume is now the binding constraint** — 4.82 cm³ leaves 3.6 % margin, and
+   that rides on `cell_axial_len`, still a placeholder.
+3. **One window means one fouling event takes the probe out**, where the radial
+   pair degraded gracefully. Two smaller windows on the same end face would
+   recover this and remains unpriced.
+4. The end face only drains if the probe goes in roughly level; a
+   downward-tilted insertion turns it into the upward-facing pocket
+   `../MEMBRANE.md` forbids.
