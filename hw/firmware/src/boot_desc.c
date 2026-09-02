@@ -106,7 +106,7 @@ bool o2p_desc_load(o2p_desc_t *out)
     return true;
 }
 
-bool o2p_desc_store(const o2p_desc_t *d)
+bool o2p_desc_store(o2p_desc_t *d)
 {
     const uint8_t target = (s_live_page == O2P_DESC_PAGE_A) ? O2P_DESC_PAGE_B
                                                             : O2P_DESC_PAGE_A;
@@ -139,6 +139,7 @@ bool o2p_desc_store(const o2p_desc_t *d)
     }
     s_live_page = target;
     s_sequence = r.sequence;
+    *d = r;          /* the caller's copy is now the record that is in flash */
     return true;
 }
 

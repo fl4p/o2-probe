@@ -501,6 +501,29 @@ static void test_status_registers_report_who_is_answering(void)
     TEST_ASSERT_EQUAL_UINT32(0u, (n * 2u) % O2P_IMAGE_ALIGN);
 }
 
+static void test_a_refused_control_frame_changes_nothing(void)
+{
+    /* The frame reaches over the length and CRC and on into RECV_HI, which is
+     * status. It must be refused - and the length it carried must not survive
+     * the refusal, or the NEXT BEGIN starts a transfer against numbers the
+     * master never successfully sent and does not know it has. */
+    uint16_t regs[6];
+    regs[0] = O2P_UPD_CMD_ABORT;                 /* 0x0054, no side effect */
+    regs[1] = 0u;                                /* 0x0055 len hi */
+    regs[2] = 4096u;                             /* 0x0056 len lo */
+    regs[3] = 0u;                                /* 0x0057 crc hi */
+    regs[4] = 0u;                                /* 0x0058 crc lo */
+    regs[5] = 0x1234u;                           /* 0x0059 RECV_HI: read-only */
+    TEST_ASSERT_EQUAL_UINT8(O2P_MB_EX_ILLEGAL_ADDRESS,
+                            o2p_update_write(&u, O2P_REG_UPD_CMD, 6, regs));
+    TEST_ASSERT_EQUAL_UINT8(O2P_UPD_IDLE, state());
+
+    /* A bare BEGIN now must find no length at all, not the smuggled 4096. */
+    TEST_ASSERT_NOT_EQUAL(0, o2p_update_write(&u, O2P_REG_UPD_CMD, 1,
+                                              (uint16_t[]){O2P_UPD_CMD_BEGIN}));
+    TEST_ASSERT_EQUAL_UINT8(O2P_UPD_IDLE, state());
+}
+
 static void test_status_registers_are_read_only(void)
 {
     TEST_ASSERT_EQUAL_UINT8(O2P_MB_EX_ILLEGAL_ADDRESS,
@@ -652,6 +675,7 @@ int main(void)
     RUN_TEST(test_abort_retracts_a_staged_image);
     RUN_TEST(test_unknown_command_is_refused);
     RUN_TEST(test_status_registers_report_who_is_answering);
+    RUN_TEST(test_a_refused_control_frame_changes_nothing);
     RUN_TEST(test_status_registers_are_read_only);
     RUN_TEST(test_data_window_reads_as_zero);
     RUN_TEST(test_a_block_must_start_at_the_window_base);

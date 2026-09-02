@@ -16,6 +16,8 @@
  * From ST DS12232 Table "Pin definitions", LQFP48 column. Kept as macros so
  * the static assertions below can compare against the generated contract.
  */
+#define O2P_LQFP48_PA2   13
+#define O2P_LQFP48_PA3   14
 #define O2P_LQFP48_PA7   18
 #define O2P_LQFP48_PB0   19
 #define O2P_LQFP48_PB1   20
@@ -47,6 +49,24 @@
  */
 #define O2P_RS485_DE_PORT     GPIOC
 #define O2P_RS485_DE_PIN      6u
+
+/* The expansion/recovery UART, USART2. PA2/PA3 are USART2 TX/RX on AF1.
+ *
+ * NOTHING ON A SHIPPING PROBE USES THIS. R15/R16, the 33R series parts between
+ * UART2_TX/UART2_RX and J2's EXP_TX/EXP_RX, are DNP (gen_sch.py:511-512), and
+ * J2 itself is DNP - so on an assembled board these two pins reach the MCU-side
+ * pad of R15 and R16 and stop there. Those 0603 pads are the tap point for the
+ * bench bridge (src/bridge_main.c); the LQFP's 0.5 mm pitch is not.
+ *
+ * There is no direction pin here and there must not be one: this side is a
+ * point-to-point TTL link to one lead, not a bus.
+ */
+#define O2P_EXP_UART_TX_PORT  GPIOA
+#define O2P_EXP_UART_TX_PIN   2u
+#define O2P_EXP_UART_TX_AF    1u
+#define O2P_EXP_UART_RX_PORT  GPIOA
+#define O2P_EXP_UART_RX_PIN   3u
+#define O2P_EXP_UART_RX_AF    1u
 
 /* I2C1 on PB6/PB7, AF6. Bus is capped at 100 kHz because the LMP91000 is
  * standard-mode only (PLAN.md:234). 4.7k pull-ups are fitted (R10/R11). */
@@ -102,6 +122,8 @@ O2P_ASSERT_NET(AFE_MENB,   O2P_LQFP48_PB0);
 O2P_ASSERT_NET(ADC_DRDY,   O2P_LQFP48_PB1);
 O2P_ASSERT_NET(HEATER_PWM, O2P_LQFP48_PA8);
 O2P_ASSERT_NET(VA_MON,     O2P_LQFP48_PA7);
+O2P_ASSERT_NET(UART2_TX,   O2P_LQFP48_PA2);
+O2P_ASSERT_NET(UART2_RX,   O2P_LQFP48_PA3);
 
 /* PA7 doubles as TIM1_CH1N for the PA8 heater channel. If a future schematic
  * moves the heater off TIM1, this pairing stops being a hazard and heater.c's

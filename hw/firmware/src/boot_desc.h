@@ -47,7 +47,11 @@ bool o2p_desc_load(o2p_desc_t *out);
  * caller supplies the content; sequence, magic, layout version and CRC are
  * filled in here so no caller can write a record that the loader would then
  * refuse. Verified by reading it back. */
-bool o2p_desc_store(const o2p_desc_t *d);
+/* Writes `*d` to the other descriptor page, and on success UPDATES `*d` with
+ * the record as actually stored - magic, layout version, sequence and CRC are
+ * all filled in here, so a caller that kept its own copy would be holding one
+ * o2p_desc_record_valid() rejects. */
+bool o2p_desc_store(o2p_desc_t *d);
 #endif
 
 #endif /* O2P_BOOT_DESC_H */

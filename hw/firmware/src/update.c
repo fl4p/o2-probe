@@ -261,6 +261,13 @@ static uint8_t write_control(o2p_update_t *u, uint16_t addr, uint16_t count,
      * a transfer at all, so the ordering is not a convenience. */
     uint16_t cmd = 0u;
     bool have_cmd = false;
+    /* Scanned into locals, committed only once the whole frame is accepted.
+     * A refusal is documented as leaving the transfer untouched, and a
+     * half-applied length or CRC is exactly what a later BEGIN would latch -
+     * the master would then be told a transfer began against numbers it
+     * never successfully sent. */
+    uint32_t pending_len = u->pending_len;
+    uint32_t pending_crc = u->pending_crc;
 
     for (uint16_t i = 0; i < count; i++) {
         uint16_t a = (uint16_t)(addr + i);
@@ -271,16 +278,16 @@ static uint8_t write_control(o2p_update_t *u, uint16_t addr, uint16_t count,
             have_cmd = true;
             break;
         case O2P_REG_UPD_LEN_HI:
-            u->pending_len = ((uint32_t)v << 16) | (u->pending_len & 0xFFFFu);
+            pending_len = ((uint32_t)v << 16) | (pending_len & 0xFFFFu);
             break;
         case O2P_REG_UPD_LEN_LO:
-            u->pending_len = (u->pending_len & 0xFFFF0000u) | v;
+            pending_len = (pending_len & 0xFFFF0000u) | v;
             break;
         case O2P_REG_UPD_CRC_HI:
-            u->pending_crc = ((uint32_t)v << 16) | (u->pending_crc & 0xFFFFu);
+            pending_crc = ((uint32_t)v << 16) | (pending_crc & 0xFFFFu);
             break;
         case O2P_REG_UPD_CRC_LO:
-            u->pending_crc = (u->pending_crc & 0xFFFF0000u) | v;
+            pending_crc = (pending_crc & 0xFFFF0000u) | v;
             break;
         default:
             /* Everything else in the block is status. Refusing beats ignoring:
@@ -289,6 +296,9 @@ static uint8_t write_control(o2p_update_t *u, uint16_t addr, uint16_t count,
             return O2P_MB_EX_ILLEGAL_ADDRESS;
         }
     }
+
+    u->pending_len = pending_len;
+    u->pending_crc = pending_crc;
 
     if (!have_cmd) {
         return 0u;

@@ -20,6 +20,7 @@ pio run  -e o2probe     # cross build: the application, linked at 0x08004000
 pio run  -e loader      # cross build: the RS-485 bootloader, at 0x08000000
 pio run  -e loader  -t upload    # flash the bootloader FIRST, once
 pio run  -e o2probe -t upload    # then the application
+pio run  -e bridge              # a spare board as the RS-485 adapter
 python3 tools/gen_hw_contract.py            # regenerate after a schematic change
 python3 tools/gen_hw_contract.py --check    # what the build runs
 python3 tools/check_flash_map.py            # linker scripts vs src/flash_map.h
@@ -91,14 +92,17 @@ there — the Dragino's LoRaWAN link, or its BLE console — instead of a wired
 bootloader that has to be installed *before* the epoxy goes on?
 
 No, and the reason is narrower than "there is no wireless path". There is one.
-It is 40 bytes wide, it takes about **65 hours**, and it cannot create the
+It is 40 bytes wide, it takes about **89 hours**, and it cannot create the
 thing it would need to talk to.
 
-The arithmetic below is for this image: `firmware.bin` is **23,524 bytes**,
-18.5 % of the 126,976-byte application space. (PlatformIO's banner says 18.4 %
-because it counts 23,320 bytes of `text`+`data` and not the inter-section
-padding that a flash image still has to carry over the wire. Use the image
-size, not the banner, for any transport estimate.) A differential scheme would
+The arithmetic below is for this image: `firmware.bin` is **25,708 bytes**,
+48.3 % of the **53,248-byte run slot** — not of the part, which the application
+no longer owns. The updater pads to the next doubleword before sending, so
+**25,712 bytes** go over the wire. (PlatformIO's banner counts `text`+`data`
+and not the inter-section padding that a flash image still has to carry. Use
+the `.bin` size, not the banner, for any transport estimate; and re-run these
+numbers when the image changes, because every one of them is proportional
+to it.) A differential scheme would
 do better, but not by the order of magnitude that would change the answer.
 
 ### The wireless path that does exist: `A8`, and its 40-byte ceiling
@@ -126,9 +130,11 @@ What kills it is the ceiling. The same section caps `AT+CFGDEV` at **40 bytes**:
 |---|---|
 | CFGDEV command budget | 40 B |
 | less FC16 framing (addr, FC, start, count, byte count, CRC) | −9 B |
-| whole 16-bit registers | 30 B of image per downlink |
-| downlinks for 23,524 bytes | **785** |
-| at `AT+TDC` = 300 s | **65.4 h** |
+| whole 16-bit registers | 30 B per downlink |
+| less this engine's 8-byte image alignment (`src/update.h`) | **24 B** of image per downlink |
+| less the block sequence number, which shares the frame | 12 payload registers |
+| downlinks for 25,712 bytes | **1,072** |
+| at `AT+TDC` = 300 s | **89.3 h** |
 
 Nearly three days, and that is the *floor*: no retries, no erase waits, no
 handshake. (Whether the 40 bytes counts the CRC the node appends when `MM=1`
@@ -174,12 +180,15 @@ across the RS-485 cable.
 ### Wired RS-485, which is what the updater actually uses
 
 The cable that carries Modbus carries the image at line rate. At 9600 8E1 a
-byte is 11 bit times, so 872.7 B/s and **27.0 s** for the whole image; at
-38400, **6.7 s**. Line time only — framing, page-erase waits and per-block
+byte is 11 bit times, so 872.7 B/s and **29.5 s** for the whole image; at
+38400, **7.4 s**. Line time only — framing, page-erase waits and per-block
 acks are on top. Concretely, at the 240-byte block the register window allows,
-a 23,524-byte image is 98 blocks; each block frame is 251 bytes and its
+a 25,712-byte image is 108 blocks; each block frame is 251 bytes and its
 response 8, so about 0.30 s per block on the wire and **under a minute** in
-practice at 9600, plus ~0.7 s of staging-slot erase. A transport with that much
+practice at 9600, plus the staging-slot erase — 26 pages at this part's 22 ms
+typical and 40 ms maximum, so **0.57 s typical and 1.04 s worst case** of
+flash-busy time, and more than that in wall time because the application
+interleaves a sampler step between pages. A transport with that much
 headroom can acknowledge and retry every block, and it is reachable from the
 same A/B pair a technician already has to touch.
 
@@ -299,7 +308,11 @@ guard on an operation that cannot be undone from the surface:
    `update_target.c`, which refuses every address outside the staging slot.
    The bootloader's install path is separately bounded to the run slot.
 4. **Source of truth.** The declared CRC covers the image; the vector-table
-   check covers *which slot* the image was linked for. A CRC alone cannot
+   check covers *which slot* the image was linked for. Measured against the
+   real artifacts rather than fixtures: today's `o2probe` image has
+   `MSP = 0x20009000`, reset vector `0x0800A06D` — inside the run slot, so it
+   passes — and today's `loader` image has reset vector `0x0800161D`, which
+   the same check refuses as an application. A CRC alone cannot
    distinguish the application from the bootloader's own binary — which is the
    mistake this catches, and it is tested.
 5. **Persistence.** The staged flag is written only after a verify that read
@@ -319,6 +332,103 @@ guard on an operation that cannot be undone from the surface:
 8. **Fix vs mute.** The engine has no path that clears an error without the
    underlying condition changing: `ERROR` is left only by `BEGIN` or `ABORT`,
    both of which discard the transfer.
+
+### The bench bridge: a spare probe as the RS-485 adapter
+
+Everything above needs a Modbus master on the farm cable, and the usual one is
+a USB-RS485 dongle. `pio run -e bridge -t upload` makes one out of a spare,
+**unpotted** board instead. The probe already carries the whole adapter: a
+THVD1410 on USART1, the direction pin on PC6, and A/B on J1.3/J1.4. What it
+does not carry is a way to reach a laptop — so the bridge uses USART2, the
+expansion UART, and carries frames between the two verbatim.
+
+The host lead does **not** go to J2. R15 and R16, the 33R series parts between
+`UART2_TX`/`UART2_RX` and J2's `EXP_TX`/`EXP_RX`, are DNP (`gen_sch.py:511`),
+and so is J2. On an assembled board those two nets stop at the R15/R16 pads,
+and those 0603 pads — not the LQFP's 0.5 mm pins — are where the lead goes:
+
+| Lead | Board |
+|---|---|
+| USB-TTL **RX** | R15 pad, **MCU side** (`UART2_TX`, PA2, LQFP48 pin 13) |
+| USB-TTL **TX** | R16 pad, **MCU side** (`UART2_RX`, PA3, LQFP48 pin 14) |
+| USB-TTL GND | any GND — J1.2 is the easiest |
+| — | J1.3/J1.4 to the probe's A/B, and 12 V to both boards |
+
+**3.3 V logic only.** PA2/PA3 are not five-volt tolerant on this part, so a
+5 V FTDI lead damages the bridge board rather than failing visibly.
+
+Then everything that speaks Modbus works unchanged:
+
+```sh
+python3 tools/o2p_update.py --port /dev/tty.usbserial-X --bridge   # is it alive?
+python3 tools/o2p_update.py --port /dev/tty.usbserial-X --status   # is IT alive?
+python3 tools/o2p_update.py --port /dev/tty.usbserial-X .pio/build/o2probe/firmware.bin --boot
+```
+
+`--bridge` is the reason the bridge is not purely a wire. A bridge that only
+forwarded would be untestable: silence on the port could be the adapter, the
+baud rate, the parity, the wiring or the probe, and there would be no way to
+tell them apart. So it answers FC03/FC04 for itself at **address 250** with
+eight registers — an identity word, the two frame counters, the two drop
+counters, and the line settings it was built with. An answer there proves the
+whole host half of the chain before any probe is blamed.
+
+What it deliberately is not: a Modbus master, an implementation of the update
+protocol, or anything that retries. Every decision stays in
+`tools/o2p_update.py`, which is where the diagnostics are. The bridge links
+neither the application nor the bootloader — no register map, no drivers, no
+update engine, and no flash writes of any kind — so it cannot damage the probe
+on the far end of the cable.
+
+Three constraints, all of them checked or asserted somewhere:
+
+* **One master at a time.** The Dragino masters the farm cable. Stretch its
+  `AT+TDC` or power it down for the transfer; two masters collide.
+* **The host link may not be slower than the bus.** The bridge is
+  store-and-forward and blocks while it transmits, so a slower host side
+  cannot drain a bus reply as fast as it arrives. `bridge_main.c` refuses to
+  compile that configuration; if it ever happens anyway, the symptom is the
+  `BUS_DROP` counter climbing.
+* **A bridge board is no longer a probe.** The image takes the whole 128 KiB
+  and leaves nothing at `0x08004000`. Making it a probe again is `-e loader`
+  then `-e o2probe`, over SWD, exactly like a new board.
+
+### Guard review, in writing — the bridge's one interception
+
+Address 250 is the only way this image can eat a frame meant for something
+else, so the checklist applies to it.
+
+1. **Unevaluable input.** A frame too short to hold a CRC, or one whose CRC
+   fails, produces *silence* — not a reply, and not a forward. Its address byte
+   is not trustworthy either, so it is not established that it was ever meant
+   for the bridge; and a Modbus master is built to survive a timeout.
+2. **Monotonicity.** `test_reads_off_the_end_are_refused_and_stay_refused`
+   walks the request further and further past the block, including
+   `first = 0xFFFF, count = 0xFFFF` where a bound written as `first + count`
+   wraps back inside. The verdict never returns to data.
+3. **Preconditions.** The address is constrained at compile time to 0 (no
+   interception at all) or the reserved 248..255 the specification keeps for
+   this, minus 253, which this firmware already uses as its discovery alias.
+   Anything in 1..247 would make the bridge swallow frames addressed to a real
+   slave, and `_Static_assert` in `bridge_main.c` refuses to build it.
+4. **Source of truth.** `tools/check_update_tool.py` now also compares the
+   tool's `BRIDGE_ADDR`, `BRIDGE_IDENT` and register count against
+   `src/bridge_main.c`. A `--bridge` that asked the wrong address would report
+   "no bridge" on a working one, and send someone to look at the probe.
+5. **Persistence.** There is none: the counters are RAM, reset with the board,
+   and nothing here writes flash.
+6. **Provenance.** The identity register is checked by the tool, so "a bridge
+   answered" is distinguished from "something answered at 250".
+7. **Known-bad calibration.** The drift check was run against a deliberately
+   wrong `BRIDGE_ADDR` and a deliberately wrong field count, and reported both.
+8. **Fix vs mute.** The dropped-frame counters exist because the bridge
+   discards frames with parity/framing/noise/overrun errors rather than
+   forwarding bytes already known to be wrong. Discarding them is the mute;
+   counting them is what stops it from being one.
+
+The nine cases in `test/test_bridge/` cover the reply arithmetic — byte order,
+CRC placement, partial reads, and every refusal above.
+
 
 ## Bus settings
 
@@ -550,6 +660,39 @@ probe a dedicated always-on 12 V supply and share only A/B and a common ground
 with the node. This closes `PLAN.md:424` in the "dedicated PSU" direction.
 
 ## Bring-up
+
+### The update cycle, which is the gate on potting
+
+Nothing below has been performed. This is the procedure that has to be run and
+recorded before a probe is potted, because after that these are the only
+mechanisms that exist:
+
+0. Have a master. A USB-RS485 dongle, or a second board flashed with
+   `pio run -e bridge -t upload` and wired as "The bench bridge" above; if it
+   is the bridge, `--bridge` must answer before step 1 means anything.
+1. `pio run -e loader -t upload`, then `pio run -e o2probe -t upload`. Confirm
+   the probe answers a primary-block read at all — that is the jump from the
+   bootloader working.
+2. `python3 tools/o2p_update.py --port … --status`. Expect `IDLE`, answered by
+   the application, loader v1.
+3. Push the same image back to it: `… o2p_update.py --port … firmware.bin`.
+   Expect `STAGED`, and confirm the probe kept answering Modbus throughout the
+   erase and the transfer.
+4. `--boot`, then confirm it comes back, that `UPD_INSTALLS` has advanced, and
+   that the run slot is running the image you sent.
+5. **Pull the power mid-transfer.** Restore it, and confirm the probe comes
+   back with the *old* application running and no staged image — this is the
+   claim the whole staging-slot design rests on, and it is not proven by
+   reasoning about it.
+6. Pull the power **during the install** (between `--boot` and the probe
+   answering again). Confirm it retries the install and ends up running the new
+   image.
+7. Knock: `--stay`, confirm the loader answers with bit 15 set and the probe is
+   not sampling, then power-cycle and confirm it starts the application again.
+
+Only then does the epoxy come out.
+
+### Flashing
 
 Flash over SWD with any ST-LINK. Power the probe from its own 12 V feed, bench
 PSU current-limited to ~300 mA.
@@ -865,6 +1008,62 @@ evaluation is integer comparisons. Nothing here is in the Modbus path, and no
 phase became blocking: the decision runs inside the existing publish step.
 
 ## Known limitations
+
+### From the independent review of the updater, still open
+
+An adversarial Codex review of the updater commit raised fifteen findings. Ten
+are fixed in the tree (the loader's two-base vector check, the never-stamped
+response deadline, the stale descriptor copy, the side-effecting rejected
+control frame, the wrapping flash bound, the unchecked install result, the
+knock-window parser, the idle timer, the flash-map B pages, and the transport
+arithmetic below). These are the ones that are **not**, each with what would
+close it:
+
+- **The updater authenticates nothing.** Verification is a CRC-32 the sender
+  supplies, plus a vector-table plausibility check. That catches a corrupted
+  transfer and a wrong-slot image; it does not distinguish this product from
+  another, a current image from an older known-bad one, or a friendly image
+  from a hostile one. Anyone who can put frames on the cable can install code,
+  and once installed that code can erase the bootloader — `o2p_flash_program`
+  is generic and the boot pages are not write-protected. The closing moves, in
+  order of cost: flash write-protection (WRP) on pages 0–7, a product and
+  hardware-revision word inside the image that the loader checks, an
+  anti-rollback version counter, and a signature. **None of this is a reason to
+  delay potting** — the alternative to a weakly authenticated updater is no
+  updater — but it should be decided before probes are buried somewhere a
+  stranger can reach the cable.
+- **Update commands are executed when broadcast.** A broadcast (address 0)
+  FC16 to the command register reaches every probe at once: one frame can put
+  the whole cable into `ERASING`, or reboot all of it. The dispatcher does not
+  tell the register handlers that a frame was a broadcast; it should, and the
+  update block should refuse them.
+- **A page erase can lose a request that arrives during it.** `main()` checks
+  only that no response is transmitting before erasing. Reception is
+  interrupt-driven with no DMA or FIFO, so a frame that begins arriving during
+  the 22–40 ms erase can overrun and vanish. The master sees a timeout and
+  retries, which is survivable — but `tools/o2p_update.py` does not retry
+  transient errors while polling for the erase to finish, so it gives up
+  early. Fix the tool first; it is the cheaper half.
+- **`flash_wait()`'s timeout cannot fire during the stall it is meant to
+  catch.** It measures 200 ms with `o2p_millis()`, which SysTick advances —
+  and a flash operation that stalls instruction fetch stalls SysTick's handler
+  too. The application's IWDG is the real backstop; the loader has no
+  watchdog at all, deliberately, and that is the trade to revisit if a bench
+  board ever hangs mid-install.
+- **The boot-request word is not gated on the reset cause.** Two SRAM words
+  holding a value and its complement will not survive a power cycle as a
+  matched pair in any realistic pattern, but "realistic" is doing work there:
+  the loader does not additionally require that the reset was the software
+  reset that follows a request. `RCC_CSR`'s `SFTRSTF` is already latched by
+  `o2p_clock_init()`; checking it would make this deterministic instead of
+  probabilistic.
+- **The config read-back now compares the reserved tail.** The shared
+  `o2p_flash_program` verifies all 64 bytes, while the config CRC deliberately
+  excludes the reserved bytes. A read-back difference confined to those bytes
+  makes `o2p_config_store()` report failure even though the record it wrote is
+  semantically valid and will win after a reset. Rare, and it fails safe; it
+  is a behaviour change from the pre-refactor driver all the same.
+
 
 - **Bias supervision is sampled, not continuous.** The rail and AFE checks run
   at 1 Hz, so a short 3V3A excursion between samples is missed. `SETTLE_RESTARTS`

@@ -58,6 +58,15 @@ LOADER_BIT = 0x8000
 ALIGN = 8
 IMAGE_MIN = 256
 
+# The bench bridge (src/bridge_main.c) answers FC03 at its own reserved
+# address with these eight registers. Reading them proves the laptop, the lead,
+# the baud rate and the parity before any probe is blamed for the silence.
+BRIDGE_ADDR = 250
+BRIDGE_IDENT = 0xB21D
+BRIDGE_FIELDS = ["ident", "version", "frames from host", "frames from bus",
+                 "host frames dropped", "bus frames dropped", "bus baud/100",
+                 "parity bus:host"]
+
 
 def crc16(buf):
     """CRC-16/MODBUS."""
@@ -147,6 +156,31 @@ def wait_for(bus, want, timeout, what):
     raise SystemExit("!! timed out waiting for %s" % what)
 
 
+def show_bridge(port, baud, parity, timeout):
+    """Read the bench bridge's own counters. Not a probe: the bridge answers
+    for itself at BRIDGE_ADDR and forwards everything else untouched."""
+    bus = Bus(port, baud, parity, BRIDGE_ADDR, timeout)
+    try:
+        r = bus.read(0, len(BRIDGE_FIELDS))
+    except (IOError, ModbusException) as e:
+        print("!! no bridge answered at address %d: %s" % (BRIDGE_ADDR, e))
+        print("   That is the laptop, the lead, the baud rate or the parity - "
+              "the bridge answers this before it has ever seen the cable.")
+        return 1
+    if r[0] != BRIDGE_IDENT:
+        print("!! address %d answered with ident 0x%04X, not 0x%04X: something "
+              "else is on that address" % (BRIDGE_ADDR, r[0], BRIDGE_IDENT))
+        return 1
+    print("bridge v%d, bus %d baud, parity %d bus / %d host"
+          % (r[1], r[6] * 100, r[7] >> 8, r[7] & 0xFF))
+    for name, v in zip(BRIDGE_FIELDS[2:6], r[2:6]):
+        print("   %-22s %d" % (name, v))
+    if r[5]:
+        print("   bus frames are being dropped: line errors or a host link "
+              "slower than the cable.")
+    return 0
+
+
 def push(bus, image, block_bytes, retries):
     if block_bytes % ALIGN or block_bytes < ALIGN:
         raise SystemExit("!! block size must be a multiple of %d bytes" % ALIGN)
@@ -219,6 +253,8 @@ def main():
     ap.add_argument("--retries", type=int, default=3)
     ap.add_argument("--timeout", type=float, default=1.0)
     ap.add_argument("--status", action="store_true", help="report and exit")
+    ap.add_argument("--bridge", action="store_true",
+                    help="ask the bench bridge about itself, not a probe")
     ap.add_argument("--boot", action="store_true",
                     help="reset into the bootloader to install what was staged")
     ap.add_argument("--stay", action="store_true",
@@ -226,6 +262,9 @@ def main():
     ap.add_argument("--abort", action="store_true",
                     help="discard any transfer and retract a staged image")
     args = ap.parse_args()
+
+    if args.bridge:
+        return show_bridge(args.port, args.baud, args.parity, args.timeout)
 
     bus = Bus(args.port, args.baud, args.parity, args.addr, args.timeout)
 

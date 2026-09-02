@@ -118,10 +118,20 @@ static void read_serial(uint32_t *baud, uint8_t *parity)
 
 /* ------------------------------------------------------------ image tests */
 
-static bool vectors_plausible(uint32_t base, uint32_t bytes)
+/* Does the vector table at `image_base` belong to an image LINKED for
+ * `link_base`?
+ *
+ * The two are the same thing for the run slot and deliberately different for a
+ * staged image: an application in the staging slot is linked to run from
+ * 0x08004000, so its reset vector points at the run slot and not at the bytes
+ * it currently occupies. Checking a staged image against its own address would
+ * reject every correct image there is - which is exactly what this function
+ * did when it took one base, and is why it now takes two. */
+static bool vectors_plausible(uint32_t image_base, uint32_t link_base,
+                              uint32_t len)
 {
-    const uint32_t msp = *(const uint32_t *)base;
-    const uint32_t reset = *(const uint32_t *)(base + 4u);
+    const uint32_t msp = *(const uint32_t *)image_base;
+    const uint32_t reset = *(const uint32_t *)(image_base + 4u);
 
     if (msp < SRAM_BASE_ADDR || msp > SRAM_BASE_ADDR + SRAM_BYTES) {
         return false;
@@ -130,7 +140,7 @@ static bool vectors_plausible(uint32_t base, uint32_t bytes)
         return false;
     }
     const uint32_t entry = reset & ~1u;
-    return entry >= base && entry < base + bytes;
+    return entry >= link_base && entry < link_base + len;
 }
 
 static uint32_t crc_range(uint32_t base, uint32_t len)
@@ -151,7 +161,7 @@ static uint32_t crc_range(uint32_t base, uint32_t len)
  */
 static bool app_startable(void)
 {
-    if (!vectors_plausible(O2P_APP_BASE, O2P_APP_BYTES)) {
+    if (!vectors_plausible(O2P_APP_BASE, O2P_APP_BASE, O2P_APP_BYTES)) {
         return false;
     }
     if (o2p_desc_record_valid(&g_desc) && g_desc.installed_len > 0u) {
@@ -172,7 +182,15 @@ static bool app_startable(void)
  * power mid-copy comes back to this same function and does it again. The flag
  * is cleared only after the copy has been read back and verified.
  */
-static bool install_staged(void)
+/* What an install attempt left behind, which is not the same question as
+ * whether it succeeded. REFUSED means nothing was touched and the application
+ * that was there is still there. DAMAGED means the run slot was erased and the
+ * copy did not complete - its first bytes may well be a plausible vector table
+ * followed by nothing, which is exactly what the no-descriptor fallback in
+ * app_startable() would wave through. */
+typedef enum { INSTALL_OK, INSTALL_REFUSED, INSTALL_DAMAGED } install_result_t;
+
+static install_result_t install_staged(void)
 {
     const uint32_t len = g_desc.staged_len;
 
@@ -182,7 +200,7 @@ static bool install_staged(void)
      * one thing that must not happen is erasing a working application to make
      * room for an image that did not survive the wait. */
     if (crc_range(O2P_STAGE_BASE, len) != g_desc.staged_crc ||
-        !vectors_plausible(O2P_STAGE_BASE, len)) {
+        !vectors_plausible(O2P_STAGE_BASE, O2P_APP_BASE, len)) {
         /* Not installable. Drop the flag so the loader does not retry it at
          * every boot forever, and leave the running application alone. */
         o2p_desc_t d = g_desc;
@@ -192,26 +210,32 @@ static bool install_staged(void)
         if (o2p_desc_store(&d)) {
             g_desc = d;
         }
-        return false;
+        return INSTALL_REFUSED;
     }
 
     for (uint8_t i = 0; i < O2P_APP_PAGES; i++) {
         if (!o2p_flash_erase_page((uint8_t)(O2P_APP_PAGE + i))) {
-            return false;
+            return INSTALL_DAMAGED;
         }
     }
-    for (uint32_t off = 0; off < len; off += 256u) {
+    /* Through a RAM buffer, not flash-to-flash. Programming stalls every
+     * access to the flash array, so a source operand fetched from the same
+     * array during a program operation is at best relying on the stall
+     * behaving; ST's own procedure programs from RAM. 256 bytes of stack is
+     * cheaper than the doubt. */
+    uint8_t buf[256];
+    for (uint32_t off = 0; off < len; off += sizeof(buf)) {
         uint32_t n = len - off;
-        if (n > 256u) {
-            n = 256u;
+        if (n > sizeof(buf)) {
+            n = sizeof(buf);
         }
-        if (!o2p_flash_program(O2P_APP_BASE + off,
-                               (const void *)(O2P_STAGE_BASE + off), n)) {
-            return false;
+        memcpy(buf, (const void *)(O2P_STAGE_BASE + off), n);
+        if (!o2p_flash_program(O2P_APP_BASE + off, buf, n)) {
+            return INSTALL_DAMAGED;
         }
     }
     if (crc_range(O2P_APP_BASE, len) != g_desc.staged_crc) {
-        return false;
+        return INSTALL_DAMAGED;
     }
 
     o2p_desc_t d = g_desc;
@@ -228,10 +252,10 @@ static bool install_staged(void)
          * it is right - but the descriptor still says an image is staged, so
          * the next boot will install the same bytes again. Idempotent, and
          * visible: install_count stops advancing. */
-        return true;
+        return INSTALL_OK;
     }
     g_desc = d;
-    return true;
+    return INSTALL_OK;
 }
 
 /* ------------------------------------------------------------ Modbus glue */
@@ -273,15 +297,22 @@ static const o2p_mb_handlers_t k_handlers = {
     .ctx = NULL,
 };
 
-static void serve(const uint8_t *adu, size_t len)
+/* True if the frame was executed and answered normally - not dropped, and not
+ * answered with an exception. The knock window needs that distinction: a frame
+ * that LOOKS like STAY but is refused by the dispatcher (a write through the
+ * read-only discovery alias, a STAY smuggled in beside registers this block
+ * does not accept) must not stop the probe from starting. */
+static bool serve(const uint8_t *adu, size_t len)
 {
     if (o2p_mb_classify(adu, len, g_addr) != O2P_MB_EXECUTE) {
-        return;
+        return false;
     }
     size_t n = o2p_mb_dispatch(adu, len, g_addr, &k_handlers, g_tx);
-    if (n > 0u) {
-        o2p_luart_send(g_tx, n);
+    if (n == 0u) {
+        return false;
     }
+    o2p_luart_send(g_tx, n);
+    return (g_tx[1] & 0x80u) == 0u;
 }
 
 /* Is this frame a write of CMD = STAY, and nothing else?
@@ -301,14 +332,27 @@ static bool frame_is_stay(const uint8_t *adu, size_t len)
     const uint8_t fc = adu[1];
     const uint16_t start = (uint16_t)((adu[2] << 8) | adu[3]);
 
+    /* The discovery alias is read-only everywhere else in this firmware
+     * (modbus_pdu.h:48), and every probe on the cable answers to it. A STAY
+     * accepted through it would park EVERY probe in its loader at once, and
+     * they would then collide answering the next frame. */
+    if (adu[0] == O2P_MB_ADDR_DISCOVERY) {
+        return false;
+    }
+
     if (fc == O2P_MB_FC_WRITE_SINGLE) {
+        /* Exact length. A frame with trailing bytes is not this frame, and
+         * the CRC that made it here belongs to those bytes too. */
+        if (len != 8u) {
+            return false;
+        }
         const uint16_t val = (uint16_t)((adu[4] << 8) | adu[5]);
         return start == O2P_REG_UPD_CMD && val == O2P_UPD_CMD_STAY;
     }
     if (fc == O2P_MB_FC_WRITE_MULTIPLE) {
         const uint16_t count = (uint16_t)((adu[4] << 8) | adu[5]);
         const uint8_t bytes = adu[6];
-        if (count == 0u || bytes != count * 2u || len < 9u + (size_t)bytes) {
+        if (count == 0u || bytes != count * 2u || len != 9u + (size_t)bytes) {
             return false;
         }
         if (O2P_REG_UPD_CMD < start || O2P_REG_UPD_CMD >= start + count) {
@@ -367,9 +411,10 @@ int main(void)
 
     (void)o2p_desc_load(&g_desc);
 
+    install_result_t installed = INSTALL_OK;
     if (o2p_desc_record_valid(&g_desc) &&
         (g_desc.flags & O2P_DESC_F_STAGED) != 0u) {
-        (void)install_staged();
+        installed = install_staged();
     }
 
     /* After the install, so the engine's copy of the descriptor is the one the
@@ -378,7 +423,10 @@ int main(void)
     o2p_update_init(&g_u, o2p_update_target_ops(), true, 0u,
                     O2P_LOADER_VERSION);
 
-    bool startable = app_startable();
+    /* An install that erased the run slot and did not finish leaves bytes
+     * there that can pass a vector-table check and nothing else. Never start
+     * those: stay in the loader and let the master push the image again. */
+    bool startable = app_startable() && installed != INSTALL_DAMAGED;
     bool stay = asked_to_stay;
 
     if (!stay && startable) {
@@ -389,8 +437,7 @@ int main(void)
                 continue;
             }
             if (o2p_mb_classify(g_rx, n, g_addr) == O2P_MB_EXECUTE &&
-                frame_is_stay(g_rx, n)) {
-                serve(g_rx, n);
+                frame_is_stay(g_rx, n) && serve(g_rx, n)) {
                 stay = true;
                 break;
             }
@@ -405,7 +452,14 @@ int main(void)
     for (;;) {
         size_t n = o2p_luart_poll(g_rx, sizeof(g_rx));
         if (n > 0u) {
-            last_frame_ms = o2p_millis();
+            /* Only a frame addressed to THIS probe counts as company. The
+             * cable carries the Dragino's five-minute poll of two SMT100s; if
+             * that refreshed the idle timer, the ten-minute fallback below
+             * would never fire and a probe left in service mode would stay
+             * there for good. */
+            if (o2p_mb_classify(g_rx, n, g_addr) != O2P_MB_DROP) {
+                last_frame_ms = o2p_millis();
+            }
             serve(g_rx, n);
         }
 

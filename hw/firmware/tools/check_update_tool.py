@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Fail if tools/o2p_update.py's register addresses drift from src/update.h.
+"""Fail if tools/o2p_update.py drifts from the firmware it drives.
+
+Two headers, for the same reason.
 
 The field tool carries the addresses and command magics as literals on purpose:
 it has to run from a laptop with no checkout, over a serial adapter, next to a
@@ -7,6 +9,11 @@ probe in a field. That is exactly why they need checking here - a tool that
 writes BEGIN to the wrong register gets an exception 02 from a probe that is
 otherwise fine, and the person holding the laptop has no way to tell which of
 the two is wrong.
+
+The same applies to `--bridge`, which is the one thing in the tool whose whole
+purpose is to be trusted when nothing else answers: a `--bridge` that asked the
+wrong address would report "no bridge" on a working bridge, and send someone
+looking for a fault in the probe.
 """
 import os
 import re
@@ -79,6 +86,42 @@ def tool_values(text):
     return out
 
 
+def bridge_problems(tool):
+    """The tool's --bridge constants against src/bridge_main.c."""
+    src = open(os.path.join(FW, "src", "bridge_main.c"), encoding="utf-8").read()
+    out = []
+
+    def one(pattern, what):
+        m = re.search(pattern, src)
+        if not m:
+            out.append("src/bridge_main.c no longer defines %s in a form this "
+                       "check can read" % what)
+            return None
+        return int(m.group(1), 0)
+
+    want = {
+        "BRIDGE_ADDR": one(r"#define O2P_BRIDGE_ADDR\s+(\d+)u", "O2P_BRIDGE_ADDR"),
+        "BRIDGE_IDENT": one(r"#define BR_IDENT\s+(0x[0-9A-Fa-f]+)u", "BR_IDENT"),
+    }
+    for name, value in want.items():
+        if value is None:
+            continue
+        m = re.search(r"^%s = (0x[0-9A-Fa-f]+|\d+)$" % name, tool, re.M)
+        if not m:
+            out.append("tools/o2p_update.py no longer defines %s" % name)
+        elif int(m.group(1), 0) != value:
+            out.append("tools/o2p_update.py %s = %d, src/bridge_main.c says %d"
+                       % (name, int(m.group(1), 0), value))
+
+    m = re.search(r"BR_REG_COUNT\s*=\s*(\d+)u", src)
+    n = len(re.findall(r'"', re.search(r"BRIDGE_FIELDS = \[(.*?)\]", tool,
+                                       re.S).group(1))) // 2
+    if m and int(m.group(1)) != n:
+        out.append("tools/o2p_update.py names %d bridge registers, "
+                   "src/bridge_main.c has %s" % (n, m.group(1)))
+    return out
+
+
 def main():
     hdr = open(os.path.join(FW, "src", "update.h"), encoding="utf-8").read()
     tool = open(os.path.join(HERE, "o2p_update.py"), encoding="utf-8").read()
@@ -109,13 +152,15 @@ def main():
                                 "tools/o2p_update.py's list"
                                 % (what, n, got[n], i))
 
+    problems += bridge_problems(tool)
+
     if problems:
-        print("!! the field update tool disagrees with src/update.h:")
+        print("!! the field update tool disagrees with the firmware:")
         for p in problems:
             print("   -", p)
         return 1
     print("field update tool agrees with src/update.h (%d registers, "
-          "%d commands, %d states, %d errors)"
+          "%d commands, %d states, %d errors) and with src/bridge_main.c"
           % (len(REGS), len(CMDS), len(STATES), len(ERRORS)))
     return 0
 

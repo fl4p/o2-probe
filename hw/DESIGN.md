@@ -56,7 +56,10 @@ KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
   and must remain on the insulated dry side of the PTFE membrane stack.
 - J2 is the DNP sealed-side expansion connector for a future external CO2 head:
   switched 12 V, protected 3.3 V, I2C, interrupt, and spare UART. It is not the
-  programming connector.
+  programming connector. R15/R16 between `UART2_TX`/`UART2_RX` and J2 are DNP
+  too, so on an assembled board USART2 stops at those two pads - which is where
+  the bench bridge takes its host lead (`firmware/src/bridge_main.c`). Anything
+  that populates R15/R16 or J2 must account for that lead.
 - J3 is the sole pre-pot programming/recovery interface: VTREF, SWDIO, NRST,
   SWCLK/BOOT0, GND, and SWO. Post-pot firmware updates must use the RS-485
   application bootloader; the enclosure does not expose J3.

@@ -78,9 +78,14 @@ bool o2p_flash_program(uint32_t addr, const void *src, size_t len)
     if ((addr % O2P_IMAGE_ALIGN) != 0u || (len % O2P_IMAGE_ALIGN) != 0u) {
         return false;
     }
-    if (addr < O2P_FLASH_ORIGIN ||
-        (addr - O2P_FLASH_ORIGIN) + len >
-            (uint32_t)O2P_FLASH_PAGES * O2P_FLASH_PAGE_BYTES) {
+    /* Both halves written as subtractions on the right-hand side: the sum
+     * form, (addr - origin) + len, wraps for a large enough aligned len and
+     * lets the check pass. No caller can supply one today - in_stage() bounds
+     * every update write and payloads cap at 240 bytes - but this is the
+     * generic entry point and it is the wrong place to rely on that. */
+    const uint32_t span = (uint32_t)O2P_FLASH_PAGES * O2P_FLASH_PAGE_BYTES;
+    if (addr < O2P_FLASH_ORIGIN || len > span ||
+        (addr - O2P_FLASH_ORIGIN) > span - len) {
         return false;
     }
     if (!flash_unlock()) {

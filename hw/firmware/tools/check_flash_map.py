@@ -9,6 +9,11 @@ numbers because they cannot include a C header:
   * ldscript/o2probe_loader.ld  FLASH ORIGIN/LENGTH for the bootloader
   * platformio.ini              board_upload.maximum_size per environment
 
+The bench bridge (ldscript/o2probe_bridge.ld) is checked too, for the opposite
+property: it must be the WHOLE part and no slot at all. It is the only image on
+its board, and a bridge that had quietly acquired the application's origin
+would link at 0x08004000 and boot into nothing.
+
 Drift in any of them is silent until the build that first grows large enough
 to reach the region next door - at which point the application overwrites the
 staging slot, or the bootloader overwrites the application, and the probe that
@@ -72,12 +77,20 @@ def main():
         ("bootloader",  d["O2P_BOOT_PAGE"],  d["O2P_BOOT_PAGES"]),
         ("run slot",    d["O2P_APP_PAGE"],   d["O2P_APP_PAGES"]),
         ("staging",     d["O2P_STAGE_PAGE"], d["O2P_STAGE_PAGES"]),
-        ("descriptor",  d["O2P_DESC_PAGE_A"], 2),
-        ("config",      d["O2P_CONFIG_PAGE_A"], 2),
+        ("descriptor A", d["O2P_DESC_PAGE_A"], 1),
+        ("descriptor B", d["O2P_DESC_PAGE_B"], 1),
+        ("config A",     d["O2P_CONFIG_PAGE_A"], 1),
+        ("config B",     d["O2P_CONFIG_PAGE_B"], 1),
     ]
 
     problems = []
 
+    # Each A/B pair is listed as two SEPARATE one-page regions on purpose.
+    # Modelling them as "A plus two pages" never reads O2P_DESC_PAGE_B or
+    # O2P_CONFIG_PAGE_B at all, so either B page could be moved onto another
+    # region's flash and this check would still pass - while boot_desc.c and
+    # config_flash.c went on erasing it.
+    #
     # The regions must tile pages 0..63 exactly. A gap is wasted flash and is
     # allowed to exist, but an overlap is two owners for the same page.
     nxt = 0
@@ -96,6 +109,7 @@ def main():
          d["O2P_BOOT_PAGES"] * page),
         ("ldscript/o2probe_app.ld", addr(d["O2P_APP_PAGE"]),
          d["O2P_APP_PAGES"] * page),
+        ("ldscript/o2probe_bridge.ld", origin, d["O2P_FLASH_PAGES"] * page),
     ]
     for rel, want_origin, want_len in checks:
         got_origin, got_len = ld_flash(os.path.join(FW, rel))
@@ -108,7 +122,8 @@ def main():
 
     sizes = ini_max_sizes(os.path.join(FW, "platformio.ini"))
     for env, want in (("o2probe", d["O2P_APP_PAGES"] * page),
-                      ("loader", d["O2P_BOOT_PAGES"] * page)):
+                      ("loader", d["O2P_BOOT_PAGES"] * page),
+                      ("bridge", d["O2P_FLASH_PAGES"] * page)):
         if env not in sizes:
             problems.append("platformio.ini: [env:%s] sets no "
                             "board_upload.maximum_size, so an image that "
