@@ -612,10 +612,23 @@ Three findings that changed the design rather than merely supplying it:
   either austenitic grade is immune to the ammonia mechanism, so the decision
   stands, but the grade is unverified.
 - **Its Ø3.99 bore sets the head diameter**, via the bolt circle and SPIROL's boss
-  rule. The head is **46 mm**, not the 42 the placeholder Ø3.6 gave — level with
-  the written-off radial variant. It also grew the bolt circle past the carrier
+  rule — **46 mm**, not the 42 the placeholder Ø3.6 gave, and level with the
+  written-off radial variant. It also grew the bolt circle past the carrier
   flange, and the flanged-only insert needs a counterbore or it holds the retainer
   off the face. Both are now gated by asserts in `cad/o2_probe_head_end.scad`.
+
+  **That cost prompted a re-examination, and the insert is no longer the default.**
+  The rule requiring metal threads — no sustained strain in plastic at 75 °C — was
+  written when the screws clamped the seal. The radial O-ring removed that: the
+  retainer's worst case is now ~6 N, order 0.1 MPa in the thread, where creep is a
+  non-issue. The default is therefore a **thread-forming screw for thermoplastics**
+  (Delta PT / EJOT PT / Plastite, A2) straight into a printed boss, which returns
+  the head to **40 mm** and drops the sole source, the counterbore and the
+  heat-setting step beside the sealing bore. `fastening = "ptscrew" | "insert"`
+  keeps both routes in one model, with the wall rule differing by mechanism:
+  2.3 mm thermal for the insert, 1.45 mm hoop-stress for the screw. The trade
+  accepted is finite re-insertion life in plastic — on a part that is printed, so
+  a stripped boss is a reprint rather than a failure.
 - **The O-ring size I specified does not exist.** 24.5 × 1.5 is unavailable in
   EPDM anywhere in the deepest catalogue found — that size exists only in FKM and
   FFKM, and fluoroelastomers are excluded precisely because ammonia attacks them.
@@ -631,7 +644,10 @@ Three findings that changed the design rather than merely supplying it:
    handbook section was not opened. EPDM is the conventional choice for ammonia
    service and is expected to pass, but the entire carrier-to-head seal rests on
    it and expectation is not evidence. **Close this before ordering.**
-2. **The insert hole depth is cross-manufacturer inference.** E-Z LOK publishes no
+2. **The thread-forming screw's pilot is not sourced.** `pt_pilot_d = 2.1` is the
+   conventional 0.75 × nominal, not a vendor number, and PT-type pilots are
+   brand-specific. The model echoes a warning on every render. Next sourcing item.
+3. **The insert hole depth is cross-manufacturer inference.** E-Z LOK publishes no
    hole depth anywhere — dimensional drawing, installation page and drill/tap
    charts were all checked. The 6.7 mm comes from SPIROL's design-guide rule
    (insert length + 2 thread pitches) applied to E-Z LOK's own 5.74 mm body. The
