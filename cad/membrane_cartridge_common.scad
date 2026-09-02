@@ -102,11 +102,19 @@ module cartridge_core_cuts_round(window_d, eps=0.02) {
     translate([0, 0, cart_t - pocket_depth])
         cylinder(d=coupon_d + 0.3, h=pocket_depth + eps);
 
+    // Overshoots are deliberately STAGGERED. Every cutter used to stop on exactly
+    // the same two planes as its neighbour -- the pocket and the flare both at
+    // cart_t + eps, the mouth and the flare both at heater_shelf_t -- and CGAL
+    // resolves coincident faces exactly while the OpenCSG preview depth-fights
+    // them into speckle. Both changes stay in material the other cutter already
+    // removes, so the rendered solid is unchanged: the flare's extra reach is
+    // above cart_t, outside the blank, and its lowered base is at inner_d, inside
+    // the wider mouth bore.
     translate([0, 0, heater_shelf_t])
         hull() {
             translate([0, 0, cart_t - pocket_depth - straight_web - heater_shelf_t])
-                cylinder(d=window_d, h=straight_web + pocket_depth + eps);
-            cylinder(d=inner_d, h=eps);
+                cylinder(d=window_d, h=straight_web + pocket_depth + 2*eps);
+            translate([0, 0, -eps]) cylinder(d=inner_d, h=eps);
         }
 
     translate([0, 0, -eps]) cylinder(d=mouth_d, h=heater_shelf_t + eps);

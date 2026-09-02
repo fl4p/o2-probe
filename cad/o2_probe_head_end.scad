@@ -469,6 +469,17 @@ module retainer() {
 // not the connected volume -- that error let the bench fixture's first gate pass
 // at 5.02 cm3 against a real 7.44.
 module cavity() {
+    // Clipped at the real wet face. The core cutters deliberately overshoot the
+    // blank so the preview does not depth-fight, and without this clip that
+    // overshoot is counted as gas volume -- a gate that measures its own
+    // modelling epsilon. Worth 3.8 mm3 here, and it would grow silently with eps.
+    intersection() {
+        cavity_raw();
+        cylinder(d = 2*head_od, h = end_z + flange_t);
+    }
+}
+
+module cavity_raw() {
     difference() {
         union() {
             translate([0, 0, socket_len]) cylinder(d=bore_d, h=cav_board_len);
