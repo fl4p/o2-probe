@@ -113,6 +113,46 @@ def bridge_problems(tool):
             out.append("tools/o2p_update.py %s = %d, src/bridge_main.c says %d"
                        % (name, int(m.group(1), 0), value))
 
+    # The SWD mailbox: a literal address and a literal layout at both ends,
+    # with a debugger in between that will happily read whatever is at the
+    # address it is given and report success.
+    mbx = open(os.path.join(FW, "src", "bridge_mailbox.h"),
+               encoding="utf-8").read()
+    for tool_name, hdr_name in (("MBX_BASE", "O2P_MBX_BASE"),
+                                ("MBX_MAGIC", "O2P_MBX_MAGIC")):
+        h = re.search(r"#define %s\s+(0x[0-9A-Fa-f]+)u" % hdr_name, mbx)
+        t = re.search(r"^%s = (0x[0-9A-Fa-f]+)$" % tool_name, tool, re.M)
+        if not h:
+            out.append("src/bridge_mailbox.h no longer defines %s" % hdr_name)
+        elif not t:
+            out.append("tools/o2p_update.py no longer defines %s" % tool_name)
+        elif int(h.group(1), 0) != int(t.group(1), 0):
+            out.append("tools/o2p_update.py %s = 0x%08X, src/bridge_mailbox.h "
+                       "%s = 0x%08X" % (tool_name, int(t.group(1), 0), hdr_name,
+                                        int(h.group(1), 0)))
+
+    # Field offsets, from the struct's own comments, which are the only place
+    # the C and the Python can agree on a layout neither can import.
+    for field, tool_name in (("host_seq", "MBX_OFF_HOST_SEQ"),
+                             ("target_seq", "MBX_OFF_TARGET_SEQ"),
+                             ("tx_len", "MBX_OFF_TX_LEN"),
+                             ("rx_len", "MBX_OFF_RX_LEN"),
+                             ("status", "MBX_OFF_STATUS"),
+                             ("tx", "MBX_OFF_TX"),
+                             ("rx", "MBX_OFF_RX")):
+        h = re.search(r"\b%s(?:\[[^\]]*\])?;\s*/\* \+(0x[0-9A-Fa-f]+)"
+                      % field, mbx)
+        t = re.search(r"^%s = (0x[0-9A-Fa-f]+)$" % tool_name, tool, re.M)
+        if not h:
+            out.append("src/bridge_mailbox.h no longer marks %s's offset"
+                       % field)
+        elif not t:
+            out.append("tools/o2p_update.py no longer defines %s" % tool_name)
+        elif int(h.group(1), 0) != int(t.group(1), 0):
+            out.append("mailbox field %s is at +0x%02X in the header and "
+                       "+0x%02X in the tool" % (field, int(h.group(1), 0),
+                                                int(t.group(1), 0)))
+
     m = re.search(r"BR_REG_COUNT\s*=\s*(\d+)u", src)
     n = len(re.findall(r'"', re.search(r"BRIDGE_FIELDS = \[(.*?)\]", tool,
                                        re.S).group(1))) // 2

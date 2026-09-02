@@ -25,7 +25,9 @@ python3 tools/gen_hw_contract.py            # regenerate after a schematic chang
 python3 tools/gen_hw_contract.py --check    # what the build runs
 python3 tools/check_flash_map.py            # linker scripts vs src/flash_map.h
 python3 tools/check_update_tool.py          # field tool vs src/update.h
+python3 tools/test_swd_link.py              # the bridge's SWD transport, host-side
 python3 tools/o2p_update.py --port /dev/tty.usbserial-X --status
+python3 tools/o2p_update.py --swd --status  # ... or through a bridge over SWD
 ```
 
 A bench board needs **both** images. The core fetches its reset vector from
@@ -393,6 +395,70 @@ Three constraints, all of them checked or asserted somewhere:
   and leaves nothing at `0x08004000`. Making it a probe again is `-e loader`
   then `-e o2probe`, over SWD, exactly like a new board.
 
+### The bridge's second transport: SWD, no lead at all
+
+The serial side above needs a 3.3 V USB-TTL lead and two soldered pads. The
+bridge board also has SWD on it already — that is how it got flashed — and the
+debug port can read and write SRAM while the core runs. So the same image
+carries a second host transport: a 544-byte mailbox at **`0x20000000`** that a
+debugger writes frames into and reads replies out of.
+
+```sh
+python3 tools/o2p_update.py --swd --bridge      # is the mailbox alive?
+python3 tools/o2p_update.py --swd --status
+python3 tools/o2p_update.py --swd .pio/build/o2probe/firmware.bin --boot
+```
+
+The tool launches OpenOCD itself, with the same invocation that already reads
+this board's sensor globals — `interface/cmsis-dap.cfg`, `transport select
+swd`, `target/stm32g0x.cfg` — and talks to its TCL RPC port. `--swd-attach`
+uses an OpenOCD you started yourself; `--swd-tcl` moves the port. `--baud` and
+`--parity` describe the cable, and over SWD the cable settings are the ones
+the bridge was compiled with, so the tool says so rather than pretending.
+
+`--swd --bridge` is the cheapest first test of a new bridge board: it proves
+the debugger, the mailbox and the frame handling without a single byte
+reaching the cable.
+
+**Two rules, and both are about a debugger's freedom to stop the core.**
+
+- **Never halt to read this.** `read_memory`/`write_memory` reach SRAM through
+  the MEM-AP with the core running. The sensor-readout recipe halts, for a
+  coherent snapshot, and that is right there and wrong here: PC6 is a plain
+  GPIO, so a core stopped between `de_assert()` and `de_release()` leaves the
+  THVD1410 driving the cable — muting every other node on it, the two SMT100s
+  included — until the debugger resumes.
+- **The address is pinned, not linked.** The host types `0x20000000`; there is
+  no symbol lookup at the far end of a debugger. The mailbox therefore lives in
+  its own `NOLOAD` section at the bottom of SRAM, and
+  `tools/pio_image_check.py` reads `g_o2p_mailbox` out of the ELF and fails the
+  build if it is anywhere else.
+
+The handshake is two sequence words, and the ordering is the whole protocol:
+the host fills `tx[]` and `tx_len` and writes `host_seq` **last**; the bridge
+sees it change, transmits, collects a reply, sets `rx_len` and `status`, and
+writes `target_seq` **last**. Neither side can observe a half-written buffer,
+so there is no torn state to reason about — only a transaction that has or has
+not been published.
+
+| Offset | Field | |
+|---|---|---|
+| `+0x00` | `magic` | `0x4F324D42`, stamped by the firmware at boot |
+| `+0x04` | `version` | |
+| `+0x08` | `host_seq` | host writes this last |
+| `+0x0C` | `target_seq` | bridge writes this last |
+| `+0x10` | `tx_len` | 4..256, or the frame is refused untransmitted |
+| `+0x14` | `rx_len` | 0 means nothing answered |
+| `+0x18` | `status` | IDLE / REPLIED / SILENT / LOCAL / REJECTED |
+| `+0x1C` | `reply_ms` | how long to wait; 0 means the 1 s default, capped at 5 s |
+| `+0x20` | `tx[256]` | |
+| `+0x120` | `rx[256]` | |
+
+`tools/test_swd_link.py` stands a real TCL RPC server up on a socket in front
+of a fake bridge and asserts the ordering, because "written last" is a claim
+about what a debugger observes and reading the source cannot establish it. It
+runs on every build.
+
 ### Guard review, in writing — the bridge's one interception
 
 Address 250 is the only way this image can eat a frame meant for something
@@ -426,8 +492,26 @@ else, so the checklist applies to it.
    forwarding bytes already known to be wrong. Discarding them is the mute;
    counting them is what stops it from being one.
 
-The nine cases in `test/test_bridge/` cover the reply arithmetic — byte order,
-CRC placement, partial reads, and every refusal above.
+The eleven cases in `test/test_bridge/` cover the reply arithmetic — byte
+order, CRC placement, partial reads, and every refusal above.
+
+The SWD mailbox adds three guards of its own, on the same terms:
+
+1. **Unevaluable input.** `tx_len` arrives from a debugger writing raw SRAM;
+   there is no framing to catch a wrong one. Anything outside 4..256 is
+   refused as `REJECTED` and nothing is transmitted — tested at both edges and
+   at `0xFFFFFFFF`, where a length that wrapped or was never written must not
+   come back to a pass.
+2. **Unset is not zero.** `reply_ms = 0` means "the host never wrote this", so
+   it becomes the 1 s default rather than "do not wait", which would make
+   every transaction report silence. It is capped at 5 s at the other end,
+   because the wait holds the bridge and therefore the cable.
+3. **Stale state cannot fire a transmission.** The section is `NOLOAD`, so it
+   comes up holding whatever the last session or a power-on pattern left.
+   `o2p_mailbox_init()` zeroes it before the bus is touched and stamps the
+   magic last, so a host that finds the magic has found a mailbox that is
+   fully set up — and a `host_seq` left over from a previous session cannot
+   look like a new request.
 
 
 ## Bus settings
@@ -668,7 +752,8 @@ recorded before a probe is potted, because after that these are the only
 mechanisms that exist:
 
 0. Have a master. A USB-RS485 dongle, or a second board flashed with
-   `pio run -e bridge -t upload` and wired as "The bench bridge" above; if it
+   `pio run -e bridge -t upload` — reached either by a USB-TTL lead on the
+   R15/R16 pads or, with no lead at all, by `--swd` through its mailbox. If it
    is the bridge, `--bridge` must answer before step 1 means anything.
 1. `pio run -e loader -t upload`, then `pio run -e o2probe -t upload`. Confirm
    the probe answers a primary-block read at all — that is the jump from the

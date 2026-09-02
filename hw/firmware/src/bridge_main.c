@@ -7,6 +7,12 @@
  * tools/o2p_update.py and any other Modbus master run against a real bus
  * without a USB-RS485 dongle.
  *
+ * TWO HOST TRANSPORTS, one bus half. The lead described below is one of them;
+ * the other is a block of SRAM a debugger reads and writes over the SWD that
+ * is already attached to this board - see src/bridge_mailbox.h. They share
+ * everything from the frame downwards, they are chosen by which one the host
+ * actually uses, and neither knows about the other.
+ *
  * The host lead does NOT go to J2. R15/R16 are DNP (gen_sch.py:511-512), so
  * UART2_TX/UART2_RX stop at those 0603 pads:
  *
@@ -42,6 +48,7 @@
  * and makes the bridge a pure wire.
  */
 #include "board_pins.h"
+#include "bridge_mailbox.h"
 #include "bridge_reply.h"
 #include "bridge_uart.h"
 #include "mcu.h"
@@ -137,15 +144,86 @@ static bool answered_locally(const uint8_t *f, size_t n)
     return true;
 }
 
+/* One SWD transaction, start to finish. Called with a frame the host has
+ * published; returns having published a reply, or the reason there is none. */
+static void mailbox_run(uint8_t *frame)
+{
+    o2p_mailbox_t *m = &g_o2p_mailbox;
+    const uint32_t len = m->tx_len;
+
+    if (!o2p_mailbox_len_ok(len)) {
+        m->rx_len = 0u;
+        m->status = O2P_MBX_REJECTED;
+        return;
+    }
+    for (uint32_t i = 0; i < len; i++) {
+        frame[i] = m->tx[i];
+    }
+
+    /* A frame for the bridge itself is answered here too, so that --bridge
+     * works over SWD and proves the mailbox without touching the cable. */
+    uint16_t regs[BR_REG_COUNT];
+    uint8_t rsp[5u + 2u * BR_REG_COUNT];
+    if (O2P_BRIDGE_ADDR != O2P_MB_ADDR_BROADCAST && frame[0] == O2P_BRIDGE_ADDR) {
+        snapshot(regs);
+        const size_t n = o2p_bridge_reply((uint8_t)O2P_BRIDGE_ADDR, regs,
+                                          BR_REG_COUNT, frame, len, rsp);
+        for (size_t i = 0; i < n; i++) {
+            m->rx[i] = rsp[i];
+        }
+        m->rx_len = (uint32_t)n;
+        m->status = O2P_MBX_LOCAL;
+        return;
+    }
+
+    o2p_buart_send(&g_bus, frame, len);
+
+    const uint32_t window = o2p_mailbox_reply_window(m->reply_ms);
+    const uint32_t t0 = o2p_millis();
+    for (;;) {
+        const size_t n = o2p_buart_poll(&g_bus, frame, O2P_MB_MAX_ADU);
+        if (n != 0u) {
+            for (size_t i = 0; i < n; i++) {
+                m->rx[i] = frame[i];
+            }
+            m->rx_len = (uint32_t)n;
+            m->status = O2P_MBX_REPLIED;
+            return;
+        }
+        if (o2p_elapsed(t0, window)) {
+            /* Silence is a result, not an error. The host's own Modbus
+             * timeout is what decides whether to retry; saying nothing here
+             * would leave it unable to tell a lost reply from a wedged
+             * bridge. */
+            m->rx_len = 0u;
+            m->status = O2P_MBX_SILENT;
+            return;
+        }
+    }
+}
+
 int main(void)
 {
     o2p_clock_init();
+    o2p_mailbox_init();
     o2p_buart_init_bus(&g_bus, O2P_BRIDGE_BUS_BAUD, O2P_BRIDGE_BUS_PARITY);
     o2p_buart_init_host(&g_host, O2P_BRIDGE_HOST_BAUD, O2P_BRIDGE_HOST_PARITY);
 
     static uint8_t frame[O2P_MB_MAX_ADU];
+    uint32_t seen_seq = g_o2p_mailbox.host_seq;
 
     for (;;) {
+        /* SWD host. The sequence word is the host's last write, so seeing it
+         * change means the buffer behind it is complete. Our own sequence
+         * word is written last for the same reason, and only after rx_len and
+         * status are in place. */
+        const uint32_t asked = g_o2p_mailbox.host_seq;
+        if (asked != seen_seq) {
+            seen_seq = asked;
+            mailbox_run(frame);
+            g_o2p_mailbox.target_seq = asked;
+        }
+
         /* Host -> cable. The frame is forwarded only once the host has been
          * silent for 3.5 character times, because that silence is the only
          * thing that says the frame is over, and DE cannot be asserted before

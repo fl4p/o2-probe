@@ -18,6 +18,7 @@
 
 #include <string.h>
 
+#include "bridge_mailbox.h"
 #include "bridge_reply.h"
 #include "modbus_pdu.h"
 
@@ -183,6 +184,40 @@ static void test_reads_off_the_end_are_refused_and_stay_refused(void)
     }
 }
 
+/* --- the SWD mailbox's two pure guards ---------------------------------- */
+
+static void test_only_a_possible_adu_is_transmitted(void)
+{
+    /* The length comes from a debugger writing SRAM. There is no framing to
+     * catch a wrong one, so this is the only thing between a stray word and a
+     * transmission built out of whatever the buffer held. */
+    TEST_ASSERT_FALSE(o2p_mailbox_len_ok(0u));
+    TEST_ASSERT_FALSE(o2p_mailbox_len_ok(3u));       /* no room for a CRC */
+    TEST_ASSERT_TRUE(o2p_mailbox_len_ok(4u));
+    TEST_ASSERT_TRUE(o2p_mailbox_len_ok(O2P_MB_MAX_ADU));
+    TEST_ASSERT_FALSE(o2p_mailbox_len_ok(O2P_MB_MAX_ADU + 1u));
+    /* The far tail, not just the near miss: a length that wrapped or was
+     * never written must not come back to a pass. */
+    TEST_ASSERT_FALSE(o2p_mailbox_len_ok(0xFFFFFFFFu));
+    TEST_ASSERT_FALSE(o2p_mailbox_len_ok(0x80000000u));
+}
+
+static void test_the_reply_window_is_clamped_at_both_ends(void)
+{
+    /* Zero means "unset", not "do not wait": a host that never wrote the
+     * field would otherwise make every transaction report silence. */
+    TEST_ASSERT_EQUAL_UINT32(O2P_MBX_REPLY_MS_DEFAULT,
+                             o2p_mailbox_reply_window(0u));
+    TEST_ASSERT_EQUAL_UINT32(50u, o2p_mailbox_reply_window(50u));
+    TEST_ASSERT_EQUAL_UINT32(O2P_MBX_REPLY_MS_MAX,
+                             o2p_mailbox_reply_window(O2P_MBX_REPLY_MS_MAX));
+    /* An hour would hold the bridge - and the cable - for an hour. */
+    TEST_ASSERT_EQUAL_UINT32(O2P_MBX_REPLY_MS_MAX,
+                             o2p_mailbox_reply_window(3600000u));
+    TEST_ASSERT_EQUAL_UINT32(O2P_MBX_REPLY_MS_MAX,
+                             o2p_mailbox_reply_window(0xFFFFFFFFu));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -195,5 +230,7 @@ int main(void)
     RUN_TEST(test_a_write_is_refused_the_bridge_has_nothing_to_set);
     RUN_TEST(test_a_read_of_the_wrong_length_is_refused);
     RUN_TEST(test_reads_off_the_end_are_refused_and_stay_refused);
+    RUN_TEST(test_only_a_possible_adu_is_transmitted);
+    RUN_TEST(test_the_reply_window_is_clamped_at_both_ends);
     return UNITY_END();
 }

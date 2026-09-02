@@ -1,9 +1,14 @@
 /* GENERATED-FROM: tool-ldscripts-ststm32 stm32g0/STM32G071CBTX_FLASH.ld
  *
- * The BENCH BRIDGE image (src/bridge_main.c). ST's stock script, unmodified
- * except for this comment.
+ * The BENCH BRIDGE image (src/bridge_main.c). ST's stock script with one
+ * change: the bottom 544 bytes of SRAM are carved out as MAILBOX, holding the
+ * SWD host transport's fixed block (src/bridge_mailbox.h). NOLOAD, because
+ * startup must neither load nor zero it - the firmware initialises it itself,
+ * at a point it controls - and because the host writes a literal address that
+ * the linker must not be free to move. tools/pio_image_check.py fails the
+ * build if the symbol does not land on O2P_MBX_BASE.
  *
- * It is the stock script on purpose. The bridge is the whole of the flash on
+ * Otherwise it is the stock script on purpose. The bridge is the whole of the flash on
  * a board that is a bench adapter and nothing else: no bootloader below it, no
  * staging slot beside it, no descriptor, no configuration record. Carving this
  * part up is what the application and the bootloader do because they have to
@@ -61,13 +66,23 @@ _Min_Stack_Size = 0x400; /* required amount of stack */
 /* Memories definition */
 MEMORY
 {
-  RAM     (xrw)   : ORIGIN = 0x20000000,   LENGTH = 36K
+  MAILBOX (xrw)   : ORIGIN = 0x20000000,   LENGTH = 0x220
+  RAM     (xrw)   : ORIGIN = 0x20000000 + 0x220,   LENGTH = 36K - 0x220
   FLASH    (rx)   : ORIGIN = 0x08000000,   LENGTH = 128K
 }
 
 /* Sections */
 SECTIONS
 {
+  /* The SWD host transport's block. Neither loaded nor zeroed by startup;
+     o2p_mailbox_init() does that. See src/bridge_mailbox.h. */
+  .mailbox (NOLOAD) :
+  {
+    . = ALIGN(8);
+    KEEP(*(.mailbox))
+    . = ALIGN(8);
+  } >MAILBOX
+
   /* The startup code into "FLASH" Rom type memory */
   .isr_vector :
   {
