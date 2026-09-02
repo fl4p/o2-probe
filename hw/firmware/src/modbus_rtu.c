@@ -185,6 +185,13 @@ void USART1_IRQHandler(void)
     if ((isr & USART_ISR_RTOF) != 0u) {
         USART1->ICR = USART_ICR_RTOCF;
         if (!s_frame_ready && s_rx_len > 0u) {
+            /* Stamp the frame HERE, in the interrupt that completed it. The
+             * deadline below is "how long has this request been waiting for
+             * the main loop", and a timestamp that is never taken reads as
+             * zero - which is 400 ms in the past from the first half-second
+             * of uptime onwards, so every frame is dropped and the probe
+             * answers nothing, forever. */
+            s_frame_ms = o2p_millis();
             s_frame_ready = true;
         } else {
             s_rx_len = 0u;
