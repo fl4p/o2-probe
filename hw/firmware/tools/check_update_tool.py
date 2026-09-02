@@ -131,27 +131,39 @@ def bridge_problems(tool):
                        "%s = 0x%08X" % (tool_name, int(t.group(1), 0), hdr_name,
                                         int(h.group(1), 0)))
 
-    # Field offsets, from the struct's own comments, which are the only place
-    # the C and the Python can agree on a layout neither can import.
-    for field, tool_name in (("host_seq", "MBX_OFF_HOST_SEQ"),
-                             ("target_seq", "MBX_OFF_TARGET_SEQ"),
-                             ("tx_len", "MBX_OFF_TX_LEN"),
-                             ("rx_len", "MBX_OFF_RX_LEN"),
-                             ("status", "MBX_OFF_STATUS"),
-                             ("tx", "MBX_OFF_TX"),
-                             ("rx", "MBX_OFF_RX")):
-        h = re.search(r"\b%s(?:\[[^\]]*\])?;\s*/\* \+(0x[0-9A-Fa-f]+)"
-                      % field, mbx)
+    # Field offsets, from the header's O2P_MBX_OFF_* constants - which
+    # src/bridge_mailbox.h pins to the real struct with offsetof, so the
+    # compiler rejects a layout that disagrees with them. Reading the offsets
+    # out of the declarations' COMMENTS, as this check first did, was broken
+    # by an adversarial review in one move: swapping two declarations and
+    # leaving their comments alone passed everything.
+    for field, tool_name in (("HOST_SEQ", "MBX_OFF_HOST_SEQ"),
+                             ("TARGET_SEQ", "MBX_OFF_TARGET_SEQ"),
+                             ("TX_LEN", "MBX_OFF_TX_LEN"),
+                             ("RX_LEN", "MBX_OFF_RX_LEN"),
+                             ("STATUS", "MBX_OFF_STATUS"),
+                             ("TX", "MBX_OFF_TX"),
+                             ("RX", "MBX_OFF_RX")):
+        h = re.search(r"#define O2P_MBX_OFF_%s\s+(0x[0-9A-Fa-f]+)u" % field, mbx)
         t = re.search(r"^%s = (0x[0-9A-Fa-f]+)$" % tool_name, tool, re.M)
         if not h:
-            out.append("src/bridge_mailbox.h no longer marks %s's offset"
-                       % field)
+            out.append("src/bridge_mailbox.h no longer defines "
+                       "O2P_MBX_OFF_%s" % field)
         elif not t:
             out.append("tools/o2p_update.py no longer defines %s" % tool_name)
         elif int(h.group(1), 0) != int(t.group(1), 0):
             out.append("mailbox field %s is at +0x%02X in the header and "
                        "+0x%02X in the tool" % (field, int(h.group(1), 0),
                                                 int(t.group(1), 0)))
+
+    # And the header's constants must actually be pinned to the struct. A
+    # header that defines the offsets but drops the offsetof assertions is
+    # back to being a comment.
+    for field in ("magic", "version", "host_seq", "target_seq", "tx_len",
+                  "rx_len", "status", "reply_ms", "tx", "rx"):
+        if not re.search(r"O2P_MBX_ASSERT_AT\(%s,\s" % field, mbx):
+            out.append("src/bridge_mailbox.h no longer pins %s's offset to "
+                       "the struct with offsetof" % field)
 
     m = re.search(r"BR_REG_COUNT\s*=\s*(\d+)u", src)
     n = len(re.findall(r'"', re.search(r"BRIDGE_FIELDS = \[(.*?)\]", tool,

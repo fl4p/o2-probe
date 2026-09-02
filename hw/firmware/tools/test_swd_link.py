@@ -28,6 +28,7 @@ class FakeBridge:
     def __init__(self, reply=None, status=None):
         self.mem = bytearray(0x220)
         self.log = []                     # ("r"/"w", offset, width, count)
+        self.target_writes = []           # what the BRIDGE publishes, in order
         self.reply = reply
         self.forced_status = status
         struct.pack_into("<I", self.mem, 0x00, u.MBX_MAGIC)
@@ -47,22 +48,26 @@ class FakeBridge:
         if off == u.MBX_OFF_HOST_SEQ:
             self._run()
 
+    def _publish(self, off, value):
+        struct.pack_into("<I", self.mem, off, value)
+        self.target_writes.append(off)
+
     def _run(self):
         """What bridge_main.c's mailbox_run() does, in the same order."""
         tx_len = struct.unpack_from("<I", self.mem, u.MBX_OFF_TX_LEN)[0]
         if not (4 <= tx_len <= 256):
-            struct.pack_into("<I", self.mem, u.MBX_OFF_RX_LEN, 0)
-            struct.pack_into("<I", self.mem, u.MBX_OFF_STATUS, 4)   # REJECTED
+            self._publish(u.MBX_OFF_RX_LEN, 0)
+            self._publish(u.MBX_OFF_STATUS, 4)                      # REJECTED
         else:
             rsp = self.reply if self.reply is not None else b""
             self.mem[u.MBX_OFF_RX:u.MBX_OFF_RX + len(rsp)] = rsp
-            struct.pack_into("<I", self.mem, u.MBX_OFF_RX_LEN, len(rsp))
-            struct.pack_into("<I", self.mem, u.MBX_OFF_STATUS,
-                             self.forced_status if self.forced_status is not None
-                             else (1 if rsp else 2))
+            self._publish(u.MBX_OFF_RX_LEN, len(rsp))
+            self._publish(u.MBX_OFF_STATUS,
+                          self.forced_status if self.forced_status is not None
+                          else (1 if rsp else 2))
         # LAST, as the firmware does it.
         seq = struct.unpack_from("<I", self.mem, u.MBX_OFF_HOST_SEQ)[0]
-        struct.pack_into("<I", self.mem, u.MBX_OFF_TARGET_SEQ, seq)
+        self._publish(u.MBX_OFF_TARGET_SEQ, seq)
 
 
 class FakeOpenOCD(threading.Thread):
@@ -71,6 +76,8 @@ class FakeOpenOCD(threading.Thread):
     def __init__(self, bridge):
         super().__init__(daemon=True)
         self.bridge = bridge
+        self.commands = []                # every TCL command, verbatim
+        self.closed = threading.Event()
         self.srv = socket.socket()
         self.srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.srv.bind(("127.0.0.1", 0))
@@ -83,6 +90,7 @@ class FakeOpenOCD(threading.Thread):
         while True:
             chunk = conn.recv(4096)
             if not chunk:
+                self.closed.set()
                 return
             buf += chunk
             while b"\x1a" in buf:
@@ -90,6 +98,7 @@ class FakeOpenOCD(threading.Thread):
                 conn.sendall(self.handle(cmd.decode()).encode() + b"\x1a")
 
     def handle(self, cmd):
+        self.commands.append(cmd)
         parts = cmd.split(None, 3)
         addr = int(parts[1], 0) - u.MBX_BASE
         width = int(parts[2])
@@ -103,9 +112,11 @@ class FakeOpenOCD(threading.Thread):
         return "error: unknown command %s" % parts[0]
 
 
-def link_to(bridge):
+def link_to(bridge, keep=None):
     server = FakeOpenOCD(bridge)
     server.start()
+    if keep is not None:
+        keep.append(server)
     return u.SwdLink("127.0.0.1", server.port, u.MBX_BASE, 1.0, launch=False)
 
 
@@ -143,8 +154,47 @@ def test_round_trip():
     check("the frame is written as bytes, not words",
           all(e[2] == 8 for e in writes if e[1] == u.MBX_OFF_TX),
           [e for e in writes if e[1] == u.MBX_OFF_TX])
-    check("the target is never halted",
-          not any("halt" in str(e) for e in b.log))
+    check("the bridge publishes its reply before its sequence word",
+          b.target_writes[-1] == u.MBX_OFF_TARGET_SEQ
+          and u.MBX_OFF_RX_LEN in b.target_writes[:-1]
+          and u.MBX_OFF_STATUS in b.target_writes[:-1], b.target_writes)
+
+
+def test_the_target_is_never_halted():
+    """Not "no halt in the memory log" - no halt in ANY command sent."""
+    b = FakeBridge(reply=modbus_reply(u.BRIDGE_ADDR, [1]))
+    servers = []
+    bus = u.Bus(link_to(b, servers), u.BRIDGE_ADDR)
+    bus.read(0, 1)
+    banned = ("halt", "reset", "step", "shutdown")
+    offenders = [c for c in servers[0].commands
+                 if any(word in c.split()[0] for word in banned)]
+    check("no command halts, resets or steps the target", not offenders,
+          offenders)
+
+
+def test_an_in_flight_transaction_is_refused():
+    """target_seq != host_seq means someone else owns the mailbox."""
+    b = FakeBridge(reply=b"")
+    struct.pack_into("<I", b.mem, u.MBX_OFF_HOST_SEQ, 7)
+    struct.pack_into("<I", b.mem, u.MBX_OFF_TARGET_SEQ, 6)
+    try:
+        link_to(b)
+        check("a transaction in flight is refused", False, "connected anyway")
+    except IOError as e:
+        check("a transaction in flight is refused", "in flight" in str(e), e)
+
+
+def test_a_failed_handshake_closes_the_socket():
+    b = FakeBridge()
+    struct.pack_into("<I", b.mem, 0, 0xDEADBEEF)
+    servers = []
+    try:
+        link_to(b, servers)
+    except IOError:
+        pass
+    check("a refused connection is not left open",
+          servers[0].closed.wait(2.0))
 
 
 def test_sequence_advances():
@@ -191,6 +241,9 @@ def test_a_wrong_magic_is_refused_at_connect():
 def main():
     print("SWD transport, against a fake OpenOCD and a fake bridge:")
     test_round_trip()
+    test_the_target_is_never_halted()
+    test_an_in_flight_transaction_is_refused()
+    test_a_failed_handshake_closes_the_socket()
     test_sequence_advances()
     test_silence_is_a_timeout_not_a_crash()
     test_a_rejected_length_is_reported()

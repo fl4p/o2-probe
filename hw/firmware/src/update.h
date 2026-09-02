@@ -38,7 +38,8 @@
  * stream is unrecoverable and a self-addressing block is merely slow.
  *
  *   Wire  9600 8E1, FC16 with 1 + 120 registers = 240 bytes/block: ~2 min.
- *   `A8`  FC16 with 1 + 12 registers = 24 bytes/block: 980 blocks, days.
+ *   `A8`  FC16 with 1 + 12 registers = 24 bytes/block: ceil(len/24)
+ *         blocks - about 1,100 for a full image, which is days.
  *
  * The A8 figure is a fallback with a real number attached, not a plan.
  * ---------------------------------------------------------------------------

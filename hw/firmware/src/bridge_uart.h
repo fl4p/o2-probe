@@ -43,6 +43,16 @@ void o2p_buart_init_bus(o2p_buart_t *b, uint32_t baud, uint8_t parity_code);
  * point to point, and there is nothing else on it. */
 void o2p_buart_init_host(o2p_buart_t *b, uint32_t baud, uint8_t parity_code);
 
+/* Drain whatever has arrived into this instance's buffer, without deciding
+ * whether a frame is complete. Callable at any time, and cheap.
+ *
+ * This exists so a blocking send can keep the OTHER port's receiver drained.
+ * Both sends block, and the USARTs have a one-character holding register and
+ * no FIFO or DMA: a request that starts arriving while the bridge is
+ * transmitting the previous one would otherwise overrun and vanish, which the
+ * host sees only as a timeout. */
+void o2p_buart_accumulate(o2p_buart_t *b);
+
 /* Length of a complete frame copied into `out`, or 0. A frame that overran the
  * buffer or carried a parity/framing/noise/overrun error is counted in `drops`
  * and discarded: forwarding bytes already known to be wrong would turn a line
@@ -51,7 +61,14 @@ void o2p_buart_init_host(o2p_buart_t *b, uint32_t baud, uint8_t parity_code);
 size_t o2p_buart_poll(o2p_buart_t *b, uint8_t *out, size_t cap);
 
 /* Blocking, including the wait for the last stop bit to clear the shift
- * register before DE is released. */
-void o2p_buart_send(o2p_buart_t *b, const uint8_t *buf, size_t len);
+ * register before DE is released. `peer`, if given, is drained while we wait
+ * - see o2p_buart_accumulate. */
+void o2p_buart_send(o2p_buart_t *b, o2p_buart_t *peer, const uint8_t *buf,
+                    size_t len);
+
+/* 256 bytes at 9600 8E1 is 293 ms; anything past this means the USART is not
+ * shifting. Public because it bounds the lowest baud rate the bridge may be
+ * built for - see the assertion in bridge_main.c. */
+#define O2P_BUART_TX_TIMEOUT_MS 500u
 
 #endif /* O2P_BRIDGE_UART_H */

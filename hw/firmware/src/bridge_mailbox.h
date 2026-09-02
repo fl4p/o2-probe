@@ -42,7 +42,22 @@
 #include "modbus_pdu.h"
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
+
+#ifndef O2P_HOST_TEST
+#include "mcu.h"
+/* The publication ordering below is a claim about what the debug MEM-AP
+ * observes, not merely about what the compiler emits. `volatile` gives the
+ * second and not the first: it forbids the compiler from removing or
+ * reordering these accesses relative to each other, and says nothing about
+ * the memory system. A data barrier before each publishing store is what
+ * makes the claim true rather than true-by-observation of one compiler's
+ * output. It is one instruction. */
+#define o2p_mbx_publish_barrier() __DMB()
+#else
+#define o2p_mbx_publish_barrier() ((void)0)
+#endif
 
 /* Bottom of SRAM. Also written into tools/o2p_update.py, and checked. */
 #define O2P_MBX_BASE    0x20000000u
@@ -69,7 +84,47 @@ typedef struct {
     volatile uint32_t reply_ms;     /* +0x1C how long the bridge will wait */
     volatile uint8_t  tx[O2P_MB_MAX_ADU];   /* +0x20 */
     volatile uint8_t  rx[O2P_MB_MAX_ADU];   /* +0x120 */
-} o2p_mailbox_t;                            /* 0x220 = 544 bytes */
+} o2p_mailbox_t;
+
+/* The layout, as CONSTANTS the compiler checks - not as comments.
+ *
+ * tools/check_update_tool.py compares these against the literals in
+ * tools/o2p_update.py, which is the only way the Python and the C can agree
+ * on a layout neither can import. An earlier version of that check read the
+ * offsets out of the struct's comments, and an adversarial review broke it in
+ * one move: swapping two declarations while leaving their comments in place
+ * passed the check, the build, and would have pointed the host at the wrong
+ * word. offsetof cannot be fooled that way. */
+#define O2P_MBX_OFF_MAGIC       0x00u
+#define O2P_MBX_OFF_VERSION     0x04u
+#define O2P_MBX_OFF_HOST_SEQ    0x08u
+#define O2P_MBX_OFF_TARGET_SEQ  0x0Cu
+#define O2P_MBX_OFF_TX_LEN      0x10u
+#define O2P_MBX_OFF_RX_LEN      0x14u
+#define O2P_MBX_OFF_STATUS      0x18u
+#define O2P_MBX_OFF_REPLY_MS    0x1Cu
+#define O2P_MBX_OFF_TX          0x20u
+#define O2P_MBX_OFF_RX          0x120u
+#define O2P_MBX_BYTES           0x220u
+
+#define O2P_MBX_ASSERT_AT(field, off) \
+    _Static_assert(offsetof(o2p_mailbox_t, field) == (off), \
+                   "the mailbox field " #field " moved - the host writes a " \
+                   "literal address and cannot find out")
+
+O2P_MBX_ASSERT_AT(magic,      O2P_MBX_OFF_MAGIC);
+O2P_MBX_ASSERT_AT(version,    O2P_MBX_OFF_VERSION);
+O2P_MBX_ASSERT_AT(host_seq,   O2P_MBX_OFF_HOST_SEQ);
+O2P_MBX_ASSERT_AT(target_seq, O2P_MBX_OFF_TARGET_SEQ);
+O2P_MBX_ASSERT_AT(tx_len,     O2P_MBX_OFF_TX_LEN);
+O2P_MBX_ASSERT_AT(rx_len,     O2P_MBX_OFF_RX_LEN);
+O2P_MBX_ASSERT_AT(status,     O2P_MBX_OFF_STATUS);
+O2P_MBX_ASSERT_AT(reply_ms,   O2P_MBX_OFF_REPLY_MS);
+O2P_MBX_ASSERT_AT(tx,         O2P_MBX_OFF_TX);
+O2P_MBX_ASSERT_AT(rx,         O2P_MBX_OFF_RX);
+_Static_assert(sizeof(o2p_mailbox_t) == O2P_MBX_BYTES,
+               "the mailbox changed size - ldscript/o2probe_bridge.ld's "
+               "MAILBOX region must change with it");
 
 extern o2p_mailbox_t g_o2p_mailbox;
 

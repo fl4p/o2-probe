@@ -66,3 +66,10 @@ if rc != 0:
     print("*** The bench bridge's SWD transport failed its host test - "
           "refusing to build. See tools/test_swd_link.py.")
     env.Exit(1)  # noqa: F821
+
+rc = subprocess.call([sys.executable, "tools/check_transport_math.py"],
+                     cwd=PROJECT_DIR)
+if rc != 0:
+    print("*** FIRMWARE.md's transport estimates no longer follow from their "
+          "own stated image size - refusing to build.")
+    env.Exit(1)  # noqa: F821

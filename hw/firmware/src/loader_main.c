@@ -249,10 +249,21 @@ static install_result_t install_staged(void)
     }
     if (!o2p_desc_store(&d)) {
         /* The image is in and verified; only the bookkeeping failed. Starting
-         * it is right - but the descriptor still says an image is staged, so
-         * the next boot will install the same bytes again. Idempotent, and
-         * visible: install_count stops advancing. */
-        return INSTALL_OK;
+         * it is right - but only if the in-RAM descriptor is made to describe
+         * the flash that now exists. Leaving it describing the PREVIOUS
+         * application makes app_startable() CRC the new bytes against the old
+         * length and reject them, and the probe stays in the loader; if the
+         * alternate descriptor page is permanently unwritable, every boot
+         * recopies the image and strands it again.
+         *
+         * So finish the record here, the way a successful store would have.
+         * Flash still says an image is staged, so the next boot reinstalls the
+         * same bytes - idempotent, and visible, because install_count in flash
+         * stops advancing. */
+        d.magic = O2P_DESC_MAGIC;
+        d.layout_version = O2P_DESC_LAYOUT_VERSION;
+        d.crc16 = 0u;
+        d.crc16 = o2p_desc_crc(&d);
     }
     g_desc = d;
     return INSTALL_OK;

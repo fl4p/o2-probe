@@ -148,14 +148,34 @@ class SwdLink:
         self.timeout = timeout
         self.verbose = verbose
         self.proc = None
-        self.sock = self._connect(host, port, launch)
-        hdr = self._read32(0, 4)
-        if hdr[0] != MBX_MAGIC:
+        self.sock = None
+        try:
+            self.sock = self._connect(host, port, launch)
+            self._handshake(base)
+        except BaseException:
+            # Anything at all: the caller never receives this object, so its
+            # `finally: link.close()` cannot run, and an OpenOCD we launched
+            # would be left holding the debugger and the TCL port.
+            self.close()
+            raise
+
+    def _handshake(self, base):
+        magic, _version, host_seq, target_seq = self._read32(0, 4)
+        if magic != MBX_MAGIC:
             raise IOError("no bridge mailbox at 0x%08X: magic is 0x%08X, not "
                           "0x%08X. Either the board is not running the bridge "
                           "image, or OpenOCD attached to the wrong target."
-                          % (base, hdr[0], MBX_MAGIC))
-        self.seq = hdr[2]                            # continue from host_seq
+                          % (base, magic, MBX_MAGIC))
+        if target_seq != host_seq:
+            # Someone else's transaction is in flight - a second debugger, or
+            # this tool restarted after a timeout it believed was fatal.
+            # Writing now would rewrite the buffer the bridge is copying.
+            raise IOError("a transaction is already in flight (host_seq %d, "
+                          "target_seq %d). Another host is using this bridge, "
+                          "or a previous run was interrupted mid-frame; wait "
+                          "for it to finish or reset the bridge board."
+                          % (host_seq, target_seq))
+        self.seq = host_seq                          # continue from where it is
 
     # -- OpenOCD's TCL RPC: a command, 0x1a, a reply, 0x1a.
     def _connect(self, host, port, launch):
@@ -175,9 +195,10 @@ class SwdLink:
                 return socket.create_connection((host, port), timeout=5.0)
             except OSError:
                 if self.proc.poll() is not None:
-                    sys.exit("!! OpenOCD exited immediately; run the command "
-                             "above by hand to see why")
-        sys.exit("!! OpenOCD did not open its TCL port at %s:%d" % (host, port))
+                    raise IOError("OpenOCD exited immediately; run the "
+                                  "command above by hand to see why")
+        raise IOError("OpenOCD did not open its TCL port at %s:%d"
+                      % (host, port))
 
     @staticmethod
     def _pio_openocd():
@@ -206,9 +227,19 @@ class SwdLink:
     def _read(self, offset, width, count):
         out = self._tcl("read_memory 0x%08X %d %d"
                         % (self.base + offset, width, count))
-        if not out or "error" in out.lower():
-            raise IOError("read_memory at +0x%X failed: %s" % (offset, out))
-        return [int(v, 0) for v in out.split()]
+        try:
+            values = [int(v, 0) for v in out.split()]
+        except ValueError:
+            raise IOError("read_memory at +0x%X answered with something that "
+                          "is not a list of words: %r" % (offset, out[:120]))
+        # The count is the check that matters. OpenOCD reports some failures
+        # as prose, and prose that happens to contain no digits parses as an
+        # empty list - which would otherwise surface as an IndexError three
+        # frames away from the cause.
+        if len(values) != count:
+            raise IOError("read_memory at +0x%X returned %d words, not %d: %r"
+                          % (offset, len(values), count, out[:120]))
+        return values
 
     def _read32(self, offset, count):
         return self._read(offset, 32, count)
@@ -217,8 +248,12 @@ class SwdLink:
         vals = " ".join(str(v) for v in values)
         out = self._tcl("write_memory 0x%08X %d {%s}"
                         % (self.base + offset, width, vals))
-        if "error" in out.lower():
-            raise IOError("write_memory at +0x%X failed: %s" % (offset, out))
+        # A successful write_memory returns nothing at all. Matching on the
+        # word "error" would let every other failure phrasing through, and it
+        # is the only thing standing between a silently unwritten frame and a
+        # timeout blamed on the probe.
+        if out:
+            raise IOError("write_memory at +0x%X failed: %s" % (offset, out[:120]))
 
     def exchange(self, adu, expect_len):
         del expect_len                    # the mailbox returns a whole frame
@@ -249,10 +284,19 @@ class SwdLink:
 
     def close(self):
         try:
-            self.sock.close()
+            if self.sock is not None:
+                self.sock.close()
         finally:
             if self.proc is not None:
                 self.proc.terminate()
+                try:
+                    self.proc.wait(timeout=5.0)
+                except subprocess.TimeoutExpired:
+                    # An OpenOCD that will not leave keeps the debug adapter
+                    # claimed, and the next run cannot attach at all.
+                    self.proc.kill()
+                    self.proc.wait(timeout=5.0)
+                self.proc = None
 
 
 class Bus:

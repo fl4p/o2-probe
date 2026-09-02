@@ -6,10 +6,9 @@
 #include <string.h>
 
 /* A transmission that never completes must not hold DE - and with it the whole
- * cable, including the two SMT100s - forever. 256 bytes at 9600 8E1 is 293 ms;
- * anything past 500 ms means the USART is not shifting. Same number, and the
- * same reasoning, as loader_uart.c. */
-#define TX_TIMEOUT_MS 500u
+ * cable, including the two SMT100s - forever. The number is in the header,
+ * because the lowest baud this image may be built for depends on it. */
+#define TX_TIMEOUT_MS O2P_BUART_TX_TIMEOUT_MS
 
 static void de_assert(void)
 {
@@ -90,7 +89,7 @@ void o2p_buart_init_host(o2p_buart_t *b, uint32_t baud, uint8_t parity_code)
     instance_init(b, USART2, false, baud, parity_code);
 }
 
-size_t o2p_buart_poll(o2p_buart_t *b, uint8_t *out, size_t cap)
+void o2p_buart_accumulate(o2p_buart_t *b)
 {
     USART_TypeDef *u = b->usart;
     uint32_t isr = u->ISR;
@@ -118,8 +117,14 @@ size_t o2p_buart_poll(o2p_buart_t *b, uint8_t *out, size_t cap)
         u->ICR = USART_ICR_ORECF;
         b->poisoned = true;
     }
+}
 
-    if ((isr & USART_ISR_RTOF) == 0u) {
+size_t o2p_buart_poll(o2p_buart_t *b, uint8_t *out, size_t cap)
+{
+    o2p_buart_accumulate(b);
+
+    USART_TypeDef *u = b->usart;
+    if ((u->ISR & USART_ISR_RTOF) == 0u) {
         return 0u;
     }
     u->ICR = USART_ICR_RTOCF;
@@ -141,7 +146,8 @@ size_t o2p_buart_poll(o2p_buart_t *b, uint8_t *out, size_t cap)
     return n;
 }
 
-void o2p_buart_send(o2p_buart_t *b, const uint8_t *buf, size_t len)
+void o2p_buart_send(o2p_buart_t *b, o2p_buart_t *peer, const uint8_t *buf,
+                    size_t len)
 {
     if (len == 0u) {
         return;
@@ -154,6 +160,9 @@ void o2p_buart_send(o2p_buart_t *b, const uint8_t *buf, size_t len)
     }
     for (size_t i = 0; i < len; i++) {
         while ((u->ISR & USART_ISR_TXE_TXFNF) == 0u) {
+            if (peer != NULL) {
+                o2p_buart_accumulate(peer);
+            }
             if (o2p_elapsed(t0, TX_TIMEOUT_MS)) {
                 goto done;
             }
@@ -163,6 +172,9 @@ void o2p_buart_send(o2p_buart_t *b, const uint8_t *buf, size_t len)
     /* TC, not TXE: TXE only means the holding register is free, and releasing
      * DE there truncates the last character on the wire. */
     while ((u->ISR & USART_ISR_TC) == 0u) {
+        if (peer != NULL) {
+            o2p_buart_accumulate(peer);
+        }
         if (o2p_elapsed(t0, TX_TIMEOUT_MS)) {
             break;
         }

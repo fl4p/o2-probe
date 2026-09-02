@@ -18,8 +18,11 @@ void o2p_mailbox_init(void)
     memset((void *)&g_o2p_mailbox, 0, sizeof(g_o2p_mailbox));
     g_o2p_mailbox.version = O2P_MBX_VERSION;
     g_o2p_mailbox.reply_ms = O2P_MBX_REPLY_MS_DEFAULT;
-    /* Magic last, for the same reason the sequence words are written last:
-     * a host that finds the magic has found a mailbox that is fully set up. */
+    /* Magic last, for the same reason the sequence words are written last: a
+     * host that finds the magic has found a mailbox that is fully set up. And
+     * with a barrier, for the same reason again - the ordering has to hold at
+     * the memory system, not just in the emitted instruction stream. */
+    o2p_mbx_publish_barrier();
     g_o2p_mailbox.magic = O2P_MBX_MAGIC;
 }
 

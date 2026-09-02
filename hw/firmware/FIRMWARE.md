@@ -94,13 +94,19 @@ there — the Dragino's LoRaWAN link, or its BLE console — instead of a wired
 bootloader that has to be installed *before* the epoxy goes on?
 
 No, and the reason is narrower than "there is no wireless path". There is one.
-It is 40 bytes wide, it takes about **89 hours**, and it cannot create the
+It is 40 bytes wide, it takes about **90 hours**, and it cannot create the
 thing it would need to talk to.
 
-The arithmetic below is for this image: `firmware.bin` is **25,708 bytes**,
-48.3 % of the **53,248-byte run slot** — not of the part, which the application
-no longer owns. The updater pads to the next doubleword before sending, so
-**25,712 bytes** go over the wire. (PlatformIO's banner counts `text`+`data`
+**Every number below is proportional to the image and moves with it.** They
+are stated for a measured build rather than left as a formula because a
+transport estimate nobody can check is not an estimate — but the build is
+named, and `tools/check_transport_math.py` verifies that the chain is
+internally consistent, which is the part that has silently rotted twice.
+
+Measured at `5662aaa` + this commit: `firmware.bin` is **25,964 bytes**,
+48.8 % of the **53,248-byte run slot** — not of the part, which the
+application no longer owns. The updater pads to the next doubleword before
+sending, so **25,968 bytes** go over the wire. (PlatformIO's banner counts `text`+`data`
 and not the inter-section padding that a flash image still has to carry. Use
 the `.bin` size, not the banner, for any transport estimate; and re-run these
 numbers when the image changes, because every one of them is proportional
@@ -135,8 +141,8 @@ What kills it is the ceiling. The same section caps `AT+CFGDEV` at **40 bytes**:
 | whole 16-bit registers | 30 B per downlink |
 | less this engine's 8-byte image alignment (`src/update.h`) | **24 B** of image per downlink |
 | less the block sequence number, which shares the frame | 12 payload registers |
-| downlinks for 25,712 bytes | **1,072** |
-| at `AT+TDC` = 300 s | **89.3 h** |
+| downlinks for 25,968 bytes | **1,082** |
+| at `AT+TDC` = 300 s | **90.2 h** |
 
 Nearly three days, and that is the *floor*: no retries, no erase waits, no
 handshake. (Whether the 40 bytes counts the CRC the node appends when `MM=1`
@@ -182,10 +188,10 @@ across the RS-485 cable.
 ### Wired RS-485, which is what the updater actually uses
 
 The cable that carries Modbus carries the image at line rate. At 9600 8E1 a
-byte is 11 bit times, so 872.7 B/s and **29.5 s** for the whole image; at
+byte is 11 bit times, so 872.7 B/s and **29.8 s** for the whole image; at
 38400, **7.4 s**. Line time only — framing, page-erase waits and per-block
 acks are on top. Concretely, at the 240-byte block the register window allows,
-a 25,712-byte image is 108 blocks; each block frame is 251 bytes and its
+a 25,968-byte image is 109 blocks; each block frame is 251 bytes and its
 response 8, so about 0.30 s per block on the wire and **under a minute** in
 practice at 9600, plus the staging-slot erase — 26 pages at this part's 22 ms
 typical and 40 ms maximum, so **0.57 s typical and 1.04 s worst case** of
@@ -386,11 +392,23 @@ Three constraints, all of them checked or asserted somewhere:
 
 * **One master at a time.** The Dragino masters the farm cable. Stretch its
   `AT+TDC` or power it down for the transfer; two masters collide.
-* **The host link may not be slower than the bus.** The bridge is
-  store-and-forward and blocks while it transmits, so a slower host side
-  cannot drain a bus reply as fast as it arrives. `bridge_main.c` refuses to
-  compile that configuration; if it ever happens anyway, the symptom is the
-  `BUS_DROP` counter climbing.
+* **Nothing may transmit at the bridge while the bridge is transmitting.**
+  It is store-and-forward and both sends block, so the traffic model it needs
+  is the ordinary Modbus one: a single master that waits for each reply before
+  asking the next question. Pipelined requests, or a second master, can arrive
+  during a send. A send now drains the *other* port's receiver as it waits
+  (`o2p_buart_accumulate`), which closes the window for everything except the
+  bus while DE is asserted — there the transceiver's receiver is off, so the
+  bytes are gone and the drop counters cannot see them either.
+
+  An earlier version asserted at compile time that the host link was at least
+  as fast as the bus, on the reasoning that a slower host could not drain a
+  reply as it arrived. That was wrong twice over: the reply is complete and
+  buffered before the host send starts, so nothing is drained in real time,
+  and a line rate cannot establish a traffic model. The assertion is gone.
+  What is asserted instead is that a full 256-byte ADU fits inside the 500 ms
+  transmit timeout, which puts a floor of 5,632 baud on either side — below
+  it, frames would be truncated mid-send, silently.
 * **A bridge board is no longer a probe.** The image takes the whole 128 KiB
   and leaves nothing at `0x08004000`. Making it a probe again is `-e loader`
   then `-e o2probe`, over SWD, exactly like a new board.
@@ -440,6 +458,19 @@ sees it change, transmits, collects a reply, sets `rx_len` and `status`, and
 writes `target_seq` **last**. Neither side can observe a half-written buffer,
 so there is no torn state to reason about — only a transaction that has or has
 not been published.
+
+Two things make that claim true rather than merely likely:
+
+- **A data barrier before each publishing store.** `volatile` constrains the
+  compiler, not the memory system, and the ordering here has to hold for the
+  debug MEM-AP rather than for a second thread. `__DMB()` before `target_seq`
+  and before the boot magic is one instruction and removes the assumption.
+- **A torn frame is abandoned rather than sent.** Nothing stops a debugger
+  writing the mailbox while the bridge copies out of it — a second host, or
+  the same tool restarted after a timeout it believed was fatal. So the bridge
+  re-reads `host_seq` after the copy, and publishes nothing if it moved; and
+  `SwdLink` refuses to connect at all if `target_seq != host_seq`, because
+  that means someone else's transaction is already in flight.
 
 | Offset | Field | |
 |---|---|---|
@@ -512,6 +543,13 @@ The SWD mailbox adds three guards of its own, on the same terms:
    magic last, so a host that finds the magic has found a mailbox that is
    fully set up — and a `host_seq` left over from a previous session cannot
    look like a new request.
+4. **Source of truth.** The layout is pinned to the struct with `offsetof`,
+   not described in comments. An adversarial review broke the earlier check in
+   one move: swapping two declarations while leaving their comments in place
+   passed the layout check, the build, and would have pointed the host at the
+   wrong word. The same mutation now fails to compile. The division is that
+   the compiler owns struct-to-constant, and `check_update_tool.py` owns
+   constant-to-Python; neither can cover for the other.
 
 
 ## Bus settings

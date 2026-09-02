@@ -297,21 +297,37 @@ static uint8_t write_control(o2p_update_t *u, uint16_t addr, uint16_t count,
         }
     }
 
+    /* The command handlers consume pending_len/pending_crc, so the scanned
+     * values have to be visible to them - and have to be taken back if the
+     * command is then refused. "A refusal leaves the transfer untouched" is
+     * the documented contract, and a rejected BEGIN that nevertheless kept
+     * its length is exactly the case the contract exists for: the master is
+     * told the frame failed while the probe quietly holds numbers it will
+     * latch on the next one. */
+    const uint32_t was_len = u->pending_len;
+    const uint32_t was_crc = u->pending_crc;
     u->pending_len = pending_len;
     u->pending_crc = pending_crc;
 
     if (!have_cmd) {
         return 0u;
     }
+    uint8_t rc;
     switch (cmd) {
-    case O2P_UPD_CMD_BEGIN:  return cmd_begin(u);
-    case O2P_UPD_CMD_COMMIT: return cmd_commit(u);
-    case O2P_UPD_CMD_BOOT:   return cmd_boot(u);
-    case O2P_UPD_CMD_ABORT:  return cmd_abort(u);
-    case O2P_UPD_CMD_STAY:   return cmd_stay(u);
+    case O2P_UPD_CMD_BEGIN:  rc = cmd_begin(u);  break;
+    case O2P_UPD_CMD_COMMIT: rc = cmd_commit(u); break;
+    case O2P_UPD_CMD_BOOT:   rc = cmd_boot(u);   break;
+    case O2P_UPD_CMD_ABORT:  rc = cmd_abort(u);  break;
+    case O2P_UPD_CMD_STAY:   rc = cmd_stay(u);   break;
     default:
-        return O2P_MB_EX_ILLEGAL_VALUE;
+        rc = O2P_MB_EX_ILLEGAL_VALUE;
+        break;
     }
+    if (rc != 0u) {
+        u->pending_len = was_len;
+        u->pending_crc = was_crc;
+    }
+    return rc;
 }
 
 static uint8_t write_data(o2p_update_t *u, uint16_t addr, uint16_t count,

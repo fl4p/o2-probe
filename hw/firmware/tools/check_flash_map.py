@@ -21,6 +21,11 @@ finds out is buried.
 
 Also checks the regions actually tile the part with no overlap and no gap,
 which is the property a page number typo breaks first.
+
+And the bench bridge's MAILBOX region against src/bridge_mailbox.h: the region
+and the struct are two statements of one size, and a struct that outgrew its
+region would overlap .data - silently, because nothing in the bridge reads far
+enough into the mailbox to notice.
 """
 import os
 import re
@@ -119,6 +124,30 @@ def main():
         if got_len != want_len:
             problems.append("%s: FLASH LENGTH is %d bytes, flash_map.h says %d"
                             % (rel, got_len, want_len))
+
+    mbx_h = open(os.path.join(FW, "src", "bridge_mailbox.h"),
+                 encoding="utf-8").read()
+    ld = open(os.path.join(FW, "ldscript", "o2probe_bridge.ld"),
+              encoding="utf-8").read()
+    want_base = re.search(r"#define O2P_MBX_BASE\s+(0x[0-9A-Fa-f]+)u", mbx_h)
+    want_len = re.search(r"#define O2P_MBX_BYTES\s+(0x[0-9A-Fa-f]+)u", mbx_h)
+    got = re.search(r"MAILBOX\s*\(\s*xrw\s*\)\s*:\s*ORIGIN\s*=\s*"
+                    r"(0x[0-9A-Fa-f]+)\s*,\s*LENGTH\s*=\s*(0x[0-9A-Fa-f]+)",
+                    ld)
+    if not (want_base and want_len):
+        problems.append("src/bridge_mailbox.h no longer defines O2P_MBX_BASE "
+                        "and O2P_MBX_BYTES")
+    elif not got:
+        problems.append("ldscript/o2probe_bridge.ld: no MAILBOX line I can read")
+    else:
+        if int(got.group(1), 0) != int(want_base.group(1), 0):
+            problems.append("ldscript/o2probe_bridge.ld: MAILBOX ORIGIN is "
+                            "0x%08X, src/bridge_mailbox.h says 0x%08X"
+                            % (int(got.group(1), 0), int(want_base.group(1), 0)))
+        if int(got.group(2), 0) != int(want_len.group(1), 0):
+            problems.append("ldscript/o2probe_bridge.ld: MAILBOX LENGTH is %d, "
+                            "src/bridge_mailbox.h's struct is %d bytes"
+                            % (int(got.group(2), 0), int(want_len.group(1), 0)))
 
     sizes = ini_max_sizes(os.path.join(FW, "platformio.ini"))
     for env, want in (("o2probe", d["O2P_APP_PAGES"] * page),

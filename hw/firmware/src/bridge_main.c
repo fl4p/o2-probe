@@ -89,10 +89,25 @@ _Static_assert(O2P_BRIDGE_ADDR == O2P_MB_ADDR_BROADCAST ||
                "address 248..255 other than 253 - anything in 1..247 would "
                "make the bridge swallow frames addressed to a real slave");
 
-_Static_assert(O2P_BRIDGE_HOST_BAUD >= O2P_BRIDGE_BUS_BAUD,
-               "the host link must not be slower than the bus: the bridge "
-               "cannot drain a bus reply faster than it arrives, and the "
-               "difference comes out as dropped frames");
+/* A maximum ADU must fit inside the transmit timeout, or the timeout truncates
+ * a frame the bridge was in the middle of sending. 256 characters of 11 bits
+ * each at B baud is 2816000/B milliseconds; at the 500 ms ceiling that puts
+ * the floor at 5632 baud. DE is still released on the timeout path, so this
+ * is a truncation bug and not a cable jam - but it is silent, which is worse
+ * to debug. */
+_Static_assert(O2P_BRIDGE_BUS_BAUD * O2P_BUART_TX_TIMEOUT_MS >= 2816000u &&
+               O2P_BRIDGE_HOST_BAUD * O2P_BUART_TX_TIMEOUT_MS >= 2816000u,
+               "at this baud a full 256-byte ADU takes longer than "
+               "O2P_BUART_TX_TIMEOUT_MS and would be truncated mid-frame");
+
+/* There is deliberately NO assertion that the host link is at least as fast as
+ * the bus. An earlier version had one, on the reasoning that a slower host
+ * could not drain a bus reply as it arrived - which is wrong twice. The reply
+ * is complete and buffered before the host transmission starts, so nothing is
+ * drained in real time; and a baud ordering cannot establish the property
+ * that actually matters, which is that nobody transmits at the bridge while
+ * the bridge is transmitting. That is a traffic model, not a line rate, and
+ * it is stated where it belongs, at the sends in loop(). */
 
 /* The bridge's own register block, FC03/FC04, read-only, addresses 0..7. */
 enum {
@@ -140,13 +155,13 @@ static bool answered_locally(const uint8_t *f, size_t n)
 
     const size_t len = o2p_bridge_reply((uint8_t)O2P_BRIDGE_ADDR, regs,
                                         BR_REG_COUNT, f, n, rsp);
-    o2p_buart_send(&g_host, rsp, len);   /* len 0 sends nothing */
+    o2p_buart_send(&g_host, &g_bus, rsp, len);   /* len 0 sends nothing */
     return true;
 }
 
 /* One SWD transaction, start to finish. Called with a frame the host has
  * published; returns having published a reply, or the reason there is none. */
-static void mailbox_run(uint8_t *frame)
+static bool mailbox_run(uint8_t *frame, uint32_t serving)
 {
     o2p_mailbox_t *m = &g_o2p_mailbox;
     const uint32_t len = m->tx_len;
@@ -154,10 +169,19 @@ static void mailbox_run(uint8_t *frame)
     if (!o2p_mailbox_len_ok(len)) {
         m->rx_len = 0u;
         m->status = O2P_MBX_REJECTED;
-        return;
+        return true;
     }
     for (uint32_t i = 0; i < len; i++) {
         frame[i] = m->tx[i];
+    }
+    /* Nothing stops a debugger writing the mailbox while this copy runs - a
+     * second host, or the same tool restarted after a timeout it believed was
+     * fatal. The sequence word is the host's last write, so re-reading it
+     * after the copy is what says whether the bytes just copied all belong to
+     * one frame. If they do not, publish nothing: this sequence has not been
+     * consumed, and the loop comes back for the newer one. */
+    if (m->host_seq != serving) {
+        return false;
     }
 
     /* A frame for the bridge itself is answered here too, so that --bridge
@@ -173,10 +197,10 @@ static void mailbox_run(uint8_t *frame)
         }
         m->rx_len = (uint32_t)n;
         m->status = O2P_MBX_LOCAL;
-        return;
+        return true;
     }
 
-    o2p_buart_send(&g_bus, frame, len);
+    o2p_buart_send(&g_bus, &g_host, frame, len);
 
     const uint32_t window = o2p_mailbox_reply_window(m->reply_ms);
     const uint32_t t0 = o2p_millis();
@@ -188,7 +212,7 @@ static void mailbox_run(uint8_t *frame)
             }
             m->rx_len = (uint32_t)n;
             m->status = O2P_MBX_REPLIED;
-            return;
+            return true;
         }
         if (o2p_elapsed(t0, window)) {
             /* Silence is a result, not an error. The host's own Modbus
@@ -197,7 +221,7 @@ static void mailbox_run(uint8_t *frame)
              * bridge. */
             m->rx_len = 0u;
             m->status = O2P_MBX_SILENT;
-            return;
+            return true;
         }
     }
 }
@@ -218,10 +242,13 @@ int main(void)
          * word is written last for the same reason, and only after rx_len and
          * status are in place. */
         const uint32_t asked = g_o2p_mailbox.host_seq;
-        if (asked != seen_seq) {
-            seen_seq = asked;
-            mailbox_run(frame);
+        if (asked != seen_seq && mailbox_run(frame, asked)) {
+            /* rx_len and status are in place; the barrier makes that true for
+             * the debugger reading them, not merely for the compiler, before
+             * the sequence word says the transaction is finished. */
+            o2p_mbx_publish_barrier();
             g_o2p_mailbox.target_seq = asked;
+            seen_seq = asked;
         }
 
         /* Host -> cable. The frame is forwarded only once the host has been
@@ -231,7 +258,7 @@ int main(void)
          * half-duplex bus, and is three orders below the host's timeout. */
         size_t n = o2p_buart_poll(&g_host, frame, sizeof(frame));
         if (n != 0u && !answered_locally(frame, n)) {
-            o2p_buart_send(&g_bus, frame, n);
+            o2p_buart_send(&g_bus, &g_host, frame, n);
         }
 
         /* Cable -> host, verbatim, CRC and all. The host checks the CRC; the
@@ -245,7 +272,7 @@ int main(void)
          * BUS_DROP climbing in the bridge's own registers. */
         n = o2p_buart_poll(&g_bus, frame, sizeof(frame));
         if (n != 0u) {
-            o2p_buart_send(&g_host, frame, n);
+            o2p_buart_send(&g_host, &g_bus, frame, n);
         }
     }
 }

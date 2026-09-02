@@ -524,6 +524,27 @@ static void test_a_refused_control_frame_changes_nothing(void)
     TEST_ASSERT_EQUAL_UINT8(O2P_UPD_IDLE, state());
 }
 
+static void test_a_refused_command_does_not_keep_its_numbers(void)
+{
+    /* The frame is well formed and every register in it is writable, so the
+     * scan accepts it - and then the COMMAND is refused. The length it
+     * carried must go back with it, or the next bare BEGIN starts a transfer
+     * against a number the master was told had failed. */
+    uint16_t regs[5];
+    regs[0] = 0xB0FFu;                           /* 0x0054, not a command */
+    regs[1] = 0u;                                /* 0x0055 len hi */
+    regs[2] = 4096u;                             /* 0x0056 len lo */
+    regs[3] = 0u;
+    regs[4] = 0u;
+    TEST_ASSERT_EQUAL_UINT8(O2P_MB_EX_ILLEGAL_VALUE,
+                            o2p_update_write(&u, O2P_REG_UPD_CMD, 5, regs));
+    TEST_ASSERT_EQUAL_UINT8(O2P_UPD_IDLE, state());
+
+    TEST_ASSERT_NOT_EQUAL(0, o2p_update_write(&u, O2P_REG_UPD_CMD, 1,
+                                              (uint16_t[]){O2P_UPD_CMD_BEGIN}));
+    TEST_ASSERT_EQUAL_UINT8(O2P_UPD_IDLE, state());
+}
+
 static void test_status_registers_are_read_only(void)
 {
     TEST_ASSERT_EQUAL_UINT8(O2P_MB_EX_ILLEGAL_ADDRESS,
@@ -676,6 +697,7 @@ int main(void)
     RUN_TEST(test_unknown_command_is_refused);
     RUN_TEST(test_status_registers_report_who_is_answering);
     RUN_TEST(test_a_refused_control_frame_changes_nothing);
+    RUN_TEST(test_a_refused_command_does_not_keep_its_numbers);
     RUN_TEST(test_status_registers_are_read_only);
     RUN_TEST(test_data_window_reads_as_zero);
     RUN_TEST(test_a_block_must_start_at_the_window_base);
