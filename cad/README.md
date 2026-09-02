@@ -264,10 +264,16 @@ slicer noise.** An outward-facing cut goes through `ring_cut()`.
 Three jobs, deliberately separated:
 
 - **The O-ring seals.** Radial, on the carrier's spigot, squeezed by the
-  interference fit against the well bore — cord 1.5, groove root Ø25.02 × 1.95,
-  24 % nominal construction target, **22.35 % actual** after stretch-thinning.
-  Install stretch 4.25 %, inside the 5 % rule; groove fill 76 % against an 85 %
-  limit. EPDM or silicone, **not FKM** (attacked by ammonia). Because the squeeze
+  interference fit against the well bore — cord 1.5, groove root Ø25.04 × 2.10,
+  **22.65 % actual** after stretch-thinning.
+  Install stretch 4.34 %, inside the 5 % rule and above a 1 % lower bound that
+  was missing (an unstretched ring does not stay seated). Groove fill is gated at
+  the **worst corner**, not nominally: the fattest ring in the smallest gland —
+  bore at its H7 minimum, root at its machined maximum, cord and ID both at
+  catalogue maximum, since a big ID stretches least and so thins least. That
+  corner reads 81.6 % against the 85 % limit where the nominal reads 71 %. At the
+  original 1.30 × cord groove the same corner was **87.9 %** — the ring
+  hydraulically locks — which is why the groove is now 1.40 × cord. EPDM or silicone, **not FKM** (attacked by ammonia). Because the squeeze
   comes from the fit, no fastener is in the seal load path, so PP creep at 75 °C
   bleeds off retention rather than sealing force. A *face* O-ring was evaluated
   and rejected: it needs a land either side, which pushes the head to 48 mm.

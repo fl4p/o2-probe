@@ -73,15 +73,27 @@ assert(straight_web <= 0.25,
 function gasket_id(window_d) = window_d + 1.0;
 // The flare cone's diameter where the membrane's dry face sits, from the hull's
 // own geometry: apex at cart_t (plus its overshoot), base inner_d at the shelf.
-function flare_d_at_dry_face(window_d, eps=0.02) =
-    window_d + ((window_d + (flare_inner - window)) - window_d)
-             * ((cart_t + 2*eps) - (cart_t - membrane_t))
-             / ((cart_t + 2*eps) - heater_shelf_t);
+// Cone diameter at height z. The apex sits at cart_t + 2*eps because that is
+// where the hull's top cylinder actually ends -- the overshoot is not cosmetic
+// here, it sets the cone's SLOPE -- so eps must be passed in rather than
+// defaulted, or the gate measures a different cone than the one built.
+function flare_d_at(z, window_d, eps) =
+    window_d + (flare_inner - window)
+             * ((cart_t + 2*eps) - z) / ((cart_t + 2*eps) - heater_shelf_t);
 // Straight channel the gasket puts in series with the membrane: one compressed
 // gasket thickness if its bore is inside the cone, otherwise nothing.
-function dry_side_gap(window_d) =
-    (gasket_id(window_d) < flare_d_at_dry_face(window_d))
-        ? gasket_t * (1 - gasket_squeeze) : 0;
+// The cone WIDENS with depth, so the binding check is at the gasket's far end,
+// not at the dry face: checking the dry face tests the narrowest cone and passes
+// a gasket that constricts everywhere below it. What is returned is the depth
+// over which the gasket bore is actually the smaller of the two.
+function dry_side_gap(window_d, eps) =
+    let (gap = gasket_t * (1 - gasket_squeeze),
+         d_far = flare_d_at((cart_t - membrane_t) - gap, window_d, eps),
+         d_near = flare_d_at(cart_t - membrane_t, window_d, eps),
+         g = gasket_id(window_d))
+    (g >= d_far)  ? 0                                     // clears everywhere
+  : (g <= d_near) ? gap                                   // constricts throughout
+  : gap * (d_far - g) / (d_far - d_near);                 // constricts partway
 assert(land >= 2.0,
        "seal land under 2 mm: not enough width to close a compression seal");
 
@@ -126,11 +138,13 @@ module cartridge_core_cuts(eps=0.02) {
 // is natural. Same land width, same 45-degree relief, same heater shelf, same
 // zero straight web -- only the outline changes.
 module cartridge_core_cuts_round(window_d, eps=0.02) {
-    assert(dry_side_gap(window_d) <= 0.25,
+    assert(dry_side_gap(window_d, eps) <= 0.25,
            str("the dry-side gasket bore is ", gasket_id(window_d),
-               " but the flare is only ", flare_d_at_dry_face(window_d),
-               " at the membrane's dry face, so the gasket constricts the path ",
-               "for ", dry_side_gap(window_d),
+               " but the flare reaches ",
+               flare_d_at((cart_t - membrane_t) - gasket_t*(1 - gasket_squeeze),
+                          window_d, eps),
+               " behind the membrane, so the gasket constricts the path for ",
+               dry_side_gap(window_d, eps),
                " mm against the 0.25 mm access-path limit. Open the gasket ",
                "bore, or use a thinner gasket"));
     coupon_d = window_d + 2*land;

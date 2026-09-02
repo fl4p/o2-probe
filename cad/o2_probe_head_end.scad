@@ -182,7 +182,13 @@ seal_tol = well_tol + carrier_tol;   // the gland varies by half this, each way
 // d2 <= 1.8 -> +/-0.08. (d1 = 24 -> +/-0.24..0.25, which only moves stretch and
 // is second order.) Sorting collapses it: a micrometer on a part in your hand.
 oring_cord_tol = (oring_sorting == "sorted") ? 0.01 : 0.08;
-groove_w_factor = 1.30;     // groove width as a multiple of cord
+// 1.40, not 1.30. The fill gate below used to check the NOMINAL ring in the
+// NOMINAL gland and read 76%; at the worst corner -- bore at its H7 minimum,
+// root at its machined maximum, cord and ID both at catalogue maximum -- the
+// same 1.30 groove fills to 87.5% and the ring hydraulically locks. Widening
+// the groove is the cheap axis: it costs 0.15 mm of spigot length and nothing
+// else, where a narrower cord would cost squeeze.
+groove_w_factor = 1.40;     // groove width as a multiple of cord
 lead_chamfer = 1.0;         // so the O-ring is not shaved on assembly
 
 retainer_t = 3.0;
@@ -226,17 +232,23 @@ bore_d = max(board_diag + 2*bore_margin, cell_d + 2*bore_margin);
 
 mouth_d = window_d + flare_extra;        // the flare's mouth, in the flange
 spigot_d = mouth_d + 2*land;             // wall thick enough to hold a groove
-well_d = spigot_d + carrier_fit;         // the bore the spigot seals against
+well_d = spigot_d + carrier_fit;         // the DRAWN bore, i.e. the call-out
+// H7 is +0.021/0, not +/-0.0105: a reamed bore is centred half a band ABOVE
+// nominal, never below it. The seal math must use the middle of the distribution
+// the shop actually produces, or every squeeze figure is biased loose by 0.0105.
+// The geometry is still cut at the call-out; only the seal arithmetic shifts.
+well_bias = (well_finish == "reamed") ? 0.0105 : 0;
+well_d_made = well_d + well_bias;
 
 // Radial O-ring groove, cut into the spigot's outside diameter. Seated OD must
 // exceed the well bore by the squeeze; groove root follows from that.
-groove_root_d = well_d - 2*oring_cord + oring_cord*oring_squeeze*2;
+groove_root_d = well_d_made - 2*oring_cord + oring_cord*oring_squeeze*2;
 groove_w = groove_w_factor * oring_cord;
 spigot_len = groove_w + lead_chamfer + 1.5;   // the assert below, solved
 oring_stretch = groove_root_d/oring_id_ordered - 1;   // install stretch onto the groove
 // Stretching thins the cord by roughly half the stretch, which eats squeeze.
 oring_cord_fitted = oring_cord * (1 - oring_stretch/2);
-oring_squeeze_real = (oring_cord_fitted - (well_d - groove_root_d)/2) / oring_cord_fitted;
+oring_squeeze_real = (oring_cord_fitted - (well_d_made - groove_root_d)/2) / oring_cord_fitted;
 // Derived from the INSERT bore, not the screw's clearance hole: the insert is
 // the larger feature and the one installed hot next to the sealing surface.
 use_insert = (fastening == "insert");
@@ -299,6 +311,13 @@ assert(spigot_bore >= window_d + 2.0,
        "spigot bore constricts the window");
 assert(oring_stretch <= 0.05,
        str("O-ring install stretch ", oring_stretch*100, "% exceeds the 5% rule"));
+// And a lower bound, which was missing: a ring that is not stretched onto its
+// groove is loose on it. It slips out of the groove during assembly, sits
+// crooked, or rolls -- and every squeeze figure here assumes it is seated.
+assert(oring_stretch >= 0.01,
+       str("O-ring install stretch is only ", oring_stretch*100,
+           "%; below 1% the ring does not grip its groove and will not stay ",
+           "seated during assembly"));
 assert(oring_squeeze_real >= 0.15,
        str("squeeze after stretch-thinning is only ", oring_squeeze_real*100,
            "%; a static radial seal wants 15% or more"));
@@ -309,8 +328,8 @@ assert(oring_squeeze_real >= 0.15,
 oring_cord_thin = 1 - oring_stretch/2;                 // stretch-thinning factor
 oring_cord_min = (oring_cord - oring_cord_tol) * oring_cord_thin;
 oring_cord_max = (oring_cord + oring_cord_tol) * oring_cord_thin;
-oring_gland_min = ((well_d - groove_root_d) - seal_tol)/2;
-oring_gland_max = ((well_d - groove_root_d) + seal_tol)/2;
+oring_gland_min = ((well_d_made - groove_root_d) - seal_tol)/2;
+oring_gland_max = ((well_d_made - groove_root_d) + seal_tol)/2;
 oring_squeeze_max = (oring_cord_max - oring_gland_min) / oring_cord_max;
 oring_squeeze_min = (oring_cord_min - oring_gland_max) / oring_cord_min;
 // Feasibility BEFORE centring: the band the tolerances alone impose, in squeeze
@@ -341,7 +360,22 @@ assert(oring_squeeze_max <= 0.30,
 // Groove fill. An overfilled gland hydraulically locks and extrudes the ring;
 // nothing checked this before, because there was no gland to check.
 oring_fill = (PI/4 * pow(oring_cord_fitted, 2))
-             / (groove_w * (well_d - groove_root_d)/2);
+             / (groove_w * (well_d_made - groove_root_d)/2);
+// The nominal ring in the nominal gland is not the case that locks. The worst
+// corner is the FATTEST ring in the SMALLEST gland: bore at its H7 minimum, root
+// at its machined maximum, cord at catalogue maximum, and ID at catalogue maximum
+// too -- a big ID stretches least, so it thins least and stays fattest.
+oring_id_max = oring_id_ordered + 0.25;      // DIN ISO 3601 d1 row for 24 mm
+oring_root_max = groove_root_d + carrier_tol;
+oring_stretch_min = oring_root_max/oring_id_max - 1;
+oring_cord_fat = (oring_cord + oring_cord_tol) * (1 - oring_stretch_min/2);
+oring_gland_tight = (well_d - oring_root_max)/2;   // H7 minimum IS the call-out
+oring_fill_max = (PI/4 * pow(oring_cord_fat, 2)) / (groove_w * oring_gland_tight);
+assert(oring_fill_max <= 0.85,
+       str("worst-corner groove fill is ", oring_fill_max*100,
+           "% (cord ", oring_cord_fat, " in a ", oring_gland_tight,
+           " gland): the ring has nowhere to go, hydraulically locks and ",
+           "extrudes past the land. Widen the groove or take a thinner cord"));
 assert(oring_fill <= 0.85,
        str("groove is ", oring_fill*100,
            "% full; over 85% the ring has nowhere to go when squeezed"));
@@ -437,9 +471,12 @@ echo(str("CARRIER: ", carrier_material, carrier_is_pp
                "gasket load in NH3 is an environmental-stress-cracking risk")));
 echo(str("GASKET: bore ", gasket_id(window_d), " x OD ", window_d + 2*land,
          ", ", gasket_t, " mm free -> ", gasket_gap, " compressed. Bore clears ",
-         "the flare (", flare_d_at_dry_face(window_d),
-         " at the dry face), so it seals beside the gas path, not in front of ",
-         "it. Material, hardness and preload UNSOURCED"));
+         "the flare (", flare_d_at((cart_t - membrane_t)
+                                   - gasket_t*(1 - gasket_squeeze),
+                                   window_d, heps),
+         " at the gasket's far end, which is where the cone is widest), so it ",
+         "seals beside the gas path, not in front of it. Material, hardness ",
+         "and preload UNSOURCED"));
 echo(str("CUT LIST: PMV15T disc dia ", window_d + 2*land,
          carrier_is_pp ? " mm, welded into the carrier" : " mm, clamped in the carrier"));
 echo(str("fasteners: ", bolt_n, "x ", use_insert ? "M2.5 into heat-set inserts"
