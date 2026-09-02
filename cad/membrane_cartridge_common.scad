@@ -49,8 +49,39 @@ aperture_far = window + flare_extra;
 
 // --- gates ------------------------------------------------------------------
 
+// RESPONSE-CANDIDATE-VOLUME.md, "Access-path constraint": the membrane's dry
+// face must be within 0.25 mm of the local cavity -- a response-critical gas
+// path, not an assembly clearance.
+//
+// This gated straight_web alone, which could not fail: it gates a variable
+// assigned 0 on the line above, and MEASUREMENT SHOWS IT HAS NO GEOMETRIC
+// EFFECT EITHER. hull() of the window cylinder with the inner_d disc always
+// tapers to the cylinder's TOP rim, so the cutter is one continuous cone and no
+// straight section is ever built -- rendering the hull at two straight_web
+// values gives identical meshes (922.5 mm3, 572 tris, both).
+//
+// The real constrictor is the GASKET, which sits on the dry side with its bore
+// in front of the membrane. The check therefore lives in the cut modules, where
+// the window diameter is actually known; see dry_side_gap().
 assert(straight_web <= 0.25,
-       "straight_web exceeds the 0.25 mm dry-side access limit");
+       str("straight_web exceeds the 0.25 mm dry-side access limit (note: it ",
+           "also has no geometric effect -- see the comment above)"));
+
+// Gasket bore for a given window. Opening it past the flare cone puts the gasket
+// BESIDE the gas path instead of in front of it; it still seals on the land,
+// which runs out to window_d + 2*land.
+function gasket_id(window_d) = window_d + 1.0;
+// The flare cone's diameter where the membrane's dry face sits, from the hull's
+// own geometry: apex at cart_t (plus its overshoot), base inner_d at the shelf.
+function flare_d_at_dry_face(window_d, eps=0.02) =
+    window_d + ((window_d + (flare_inner - window)) - window_d)
+             * ((cart_t + 2*eps) - (cart_t - membrane_t))
+             / ((cart_t + 2*eps) - heater_shelf_t);
+// Straight channel the gasket puts in series with the membrane: one compressed
+// gasket thickness if its bore is inside the cone, otherwise nothing.
+function dry_side_gap(window_d) =
+    (gasket_id(window_d) < flare_d_at_dry_face(window_d))
+        ? gasket_t * (1 - gasket_squeeze) : 0;
 assert(land >= 2.0,
        "seal land under 2 mm: not enough width to close a compression seal");
 
@@ -95,6 +126,13 @@ module cartridge_core_cuts(eps=0.02) {
 // is natural. Same land width, same 45-degree relief, same heater shelf, same
 // zero straight web -- only the outline changes.
 module cartridge_core_cuts_round(window_d, eps=0.02) {
+    assert(dry_side_gap(window_d) <= 0.25,
+           str("the dry-side gasket bore is ", gasket_id(window_d),
+               " but the flare is only ", flare_d_at_dry_face(window_d),
+               " at the membrane's dry face, so the gasket constricts the path ",
+               "for ", dry_side_gap(window_d),
+               " mm against the 0.25 mm access-path limit. Open the gasket ",
+               "bore, or use a thinner gasket"));
     coupon_d = window_d + 2*land;
     mouth_d = window_d + flare_extra;
     inner_d = window_d + (flare_inner - window);

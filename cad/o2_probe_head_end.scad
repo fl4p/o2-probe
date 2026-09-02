@@ -137,7 +137,12 @@ oring_id_ordered = 24.0;    // the part that actually exists
 // it is the value that CENTRES the printed well's tolerance band. At the obvious
 // 0.20 the band is -0.34/+0.10, and a printed bore errs oversize, which is the
 // direction that loses the seal. See the well_tol asserts below.
-oring_squeeze = 0.24;
+// Re-centred against the FULL band (bore + groove + cord), which moved when the
+// ring's own +/-0.08 entered the chain: 0.24 left 0.80 points of margin at the
+// 15% end and 1.76 at the 30%, and the low end is the one that leaks. 0.2433
+// puts the worst case at 16.14-28.54% and lands the groove root on a round
+// 25.03. Not a handbook preference -- it is where the band sits squarest.
+oring_squeeze = 0.2433;
 // The radial seal is made between TWO surfaces, and both have tolerance: the
 // head's well bore and the carrier's groove root. Counting only the well -- as
 // this model did until now -- assumes the carrier is perfect and understates the
@@ -430,6 +435,11 @@ echo(str("CARRIER: ", carrier_material, carrier_is_pp
          : str(" -- printed like the head. NO weld is possible to ASA, so the ",
                "membrane is compression-only, and a styrenic under sustained ",
                "gasket load in NH3 is an environmental-stress-cracking risk")));
+echo(str("GASKET: bore ", gasket_id(window_d), " x OD ", window_d + 2*land,
+         ", ", gasket_t, " mm free -> ", gasket_gap, " compressed. Bore clears ",
+         "the flare (", flare_d_at_dry_face(window_d),
+         " at the dry face), so it seals beside the gas path, not in front of ",
+         "it. Material, hardness and preload UNSOURCED"));
 echo(str("CUT LIST: PMV15T disc dia ", window_d + 2*land,
          carrier_is_pp ? " mm, welded into the carrier" : " mm, clamped in the carrier"));
 echo(str("fasteners: ", bolt_n, "x ", use_insert ? "M2.5 into heat-set inserts"
@@ -637,13 +647,16 @@ module assembly() {
     color("Khaki") translate([0, 0, well_z + 3.4*e]) carrier();
     // The consumable stack the retainer clamps, in the carrier's wet-face pocket:
     // gasket at its COMPRESSED height, then the membrane coupon on top of it.
-    // These are what the four screws actually preload.
+    // These are what the six screws actually preload. The gasket's bore is wider
+    // than the window: at window_d it sat inside the flare cone and put one
+    // compressed gasket thickness of straight channel in front of the membrane.
     coupon_d = window_d + 2*land;
     color("IndianRed")
         translate([0, 0, end_z + flange_t - pocket_depth + 5.6*e])
             difference() {
                 cylinder(d=coupon_d, h=gasket_gap);
-                translate([0, 0, -heps]) cylinder(d=window_d, h=gasket_gap + 2*heps);
+                translate([0, 0, -heps])
+                    cylinder(d=gasket_id(window_d), h=gasket_gap + 2*heps);
             }
     color("GhostWhite")
         translate([0, 0, end_z + flange_t - membrane_t + 7.2*e])
