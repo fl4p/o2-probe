@@ -646,7 +646,12 @@ Three findings that changed the design rather than merely supplying it:
    it and expectation is not evidence. **Close this before ordering.**
 2. **The thread-forming screw's pilot is not sourced.** `pt_pilot_d = 2.1` is the
    conventional 0.75 × nominal, not a vendor number, and PT-type pilots are
-   brand-specific. The model echoes a warning on every render. Next sourcing item.
+   brand-specific. The model echoes a warning on every render. This is not a
+   detail: `pt_pilot_d` feeds `pt_seal_wall`, `bolt_r` and from there `head_od`,
+   so a different vendor pilot moves the widest buried diameter. The same gap
+   covers the cap's `selftap_cap = 2.1` and the `m25_clear = 2.8` clearance hole,
+   both declared defaults. Briefed as sourcing pass 2 in
+   `tech/PROBE-SCREW-SOURCING-BRIEF.md`.
 3. **The insert hole depth is cross-manufacturer inference.** E-Z LOK publishes no
    hole depth anywhere — dimensional drawing, installation page and drill/tap
    charts were all checked. The 6.7 mm comes from SPIROL's design-guide rule

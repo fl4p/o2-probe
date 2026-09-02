@@ -250,6 +250,10 @@ assert(fast_hole_h <= head_len - socket_len - 2.0,
        "insert bore deeper than the material behind the end face");
 assert(2*bolt_r + m25_clear + 2.0 <= flange_d,
        "bolt circle falls outside the carrier flange: the retainer would clamp nothing");
+assert(bolt_r - m25_clear/2 >= spigot_d/2,
+       str("the screw clearance hole through the carrier flange would break into ",
+           "the spigot bore: bolt circle radius ", bolt_r, " minus half a ",
+           m25_clear, " hole lands inside the ", spigot_d/2, " mm spigot"));
 assert(flange_d <= head_od,
        str("carrier flange ", flange_d, " overhangs a ", head_od, " mm head"));
 assert(head_od/2 - cap_screw_depth > neck_d/2 + 1.0,
@@ -367,6 +371,11 @@ module carrier() {
             cylinder(d1=spigot_d - 2*lead_chamfer, d2=spigot_d, h=lead_chamfer + heps);
         // The sealing core, in the flange, wet face at +Z.
         translate([0, 0, spigot_len]) cartridge_core_cuts_round(window_d, heps);
+        // The flange sits between the retainer and the head's end face, so the
+        // clamping screws pass THROUGH it. Without these it is 5 mm of solid PP
+        // in front of every boss and nothing can be assembled.
+        translate([0, 0, spigot_len - heps])
+            bolt_positions() cylinder(d=m25_clear, h=flange_t + 2*heps);
     }
 }
 
