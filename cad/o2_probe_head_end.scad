@@ -36,6 +36,7 @@ include <membrane_cartridge_common.scad>
 
 $fn = 96;
 heps = 0.02;
+view_rot = 0;               // render-only: lay the stack over for a wider image
 
 part = "assembly";   // assembly, head, carrier, retainer, cap, cavity
 
@@ -132,12 +133,27 @@ carrier_fit = 0.3;
 // is excluded because ammonia attacks fluoroelastomers.
 oring_cord = 1.5;
 oring_id_ordered = 24.0;    // the part that actually exists
-oring_squeeze = 0.20;       // static radial squeeze, fraction of cord
+// Static radial squeeze, fraction of cord. 0.24 is not a handbook preference --
+// it is the value that CENTRES the printed well's tolerance band. At the obvious
+// 0.20 the band is -0.34/+0.10, and a printed bore errs oversize, which is the
+// direction that loses the seal. See the well_tol asserts below.
+oring_squeeze = 0.24;
+// How far the printed ASA well may miss its nominal diameter. DECLARED DEFAULT,
+// not measured -- the printer profile is still unqualified. Measure a bored
+// coupon and set this before any head is printed.
+well_tol = 0.20;
 groove_w_factor = 1.30;     // groove width as a multiple of cord
 lead_chamfer = 1.0;         // so the O-ring is not shaved on assembly
 
 retainer_t = 3.0;
-bolt_n = 4;                 // retention only now, but 4 keeps it even
+// SIX, not four. The four-screw choice was made when the radial O-ring was
+// thought to have taken all seal load off these screws; a review found that is
+// only true of the carrier-to-head joint -- the retainer still compresses the
+// membrane's perimeter gasket, so bolt spacing governs how evenly that gasket is
+// squeezed. Four on this circle is 25.4 mm of arc between screws against a 21 mm
+// gasket; six is 16.9 mm. It costs nothing: head_od is set by the bolt RADIUS,
+// not the count, so 4 and 6 both land on 42 mm.
+bolt_n = 6;
 // Wall between the INSERT bore and the well bore. Sized against thermal
 // distortion, not strength: heat-setting at 200+ C within a millimetre of the
 // O-ring's sealing surface will bulge it, and the leak test would fail with no
@@ -246,6 +262,28 @@ assert(oring_stretch <= 0.05,
 assert(oring_squeeze_real >= 0.15,
        str("squeeze after stretch-thinning is only ", oring_squeeze_real*100,
            "%; a static radial seal wants 15% or more"));
+// The nominal squeeze is not the seal. The well is a PRINTED bore, so the seal
+// lives or dies on the tolerance band, and only the worst case is a gate.
+oring_squeeze_max = (oring_cord_fitted - (well_d - well_tol - groove_root_d)/2)
+                    / oring_cord_fitted;
+oring_squeeze_min = (oring_cord_fitted - (well_d + well_tol - groove_root_d)/2)
+                    / oring_cord_fitted;
+assert(oring_squeeze_min >= 0.15,
+       str("at the oversize end of the printed well (", well_d + well_tol,
+           ") squeeze falls to ", oring_squeeze_min*100,
+           "%; below 15% this leaks. Raise oring_squeeze or hold a tighter bore"));
+assert(oring_squeeze_max <= 0.30,
+       str("at the undersize end (", well_d - well_tol, ") squeeze reaches ",
+           oring_squeeze_max*100,
+           "%; above 30% a static O-ring takes compression set and the carrier ",
+           "may not press in"));
+// Groove fill. An overfilled gland hydraulically locks and extrudes the ring;
+// nothing checked this before, because there was no gland to check.
+oring_fill = (PI/4 * pow(oring_cord_fitted, 2))
+             / (groove_w * (well_d - groove_root_d)/2);
+assert(oring_fill <= 0.85,
+       str("groove is ", oring_fill*100,
+           "% full; over 85% the ring has nowhere to go when squeezed"));
 // The widest thing actually cut at the bolt circle. On the insert route that is
 // the flange counterbore, not the insert bore -- and unlike the wall check below
 // this one is NOT an identity, because insert_head_d is an independent sourced
@@ -302,7 +340,9 @@ echo(str("head OD is set by the fastening: bolt circle dia ", 2*bolt_r,
          " mm to the sealing bore"));
 echo(str("O-RING ORS116787, EPDM 70 peroxide, ", oring_id_ordered, " x ", oring_cord,
          " on a ", groove_root_d, " x ", groove_w, " groove: ", oring_stretch*100,
-         "% install stretch, ", oring_squeeze_real*100, "% squeeze after thinning"));
+         "% install stretch, ", oring_squeeze_real*100, "% squeeze after thinning; ",
+         oring_squeeze_min*100, "-", oring_squeeze_max*100, "% across a +/-",
+         well_tol, " printed well; groove ", oring_fill*100, "% full"));
 echo(str("CUT LIST: PMV15T disc dia ", window_d + 2*land,
          " mm, welded into the carrier"));
 echo(str("fasteners: ", bolt_n, "x ", use_insert ? "M2.5 into heat-set inserts"
@@ -476,19 +516,60 @@ module cap() {
     }
 }
 
+// Representative fastener, for the exploded view only. Never exported: these are
+// bought parts, and the pilot they thread into is still unsourced.
+// Drawn HANGING from its own origin: the head sits at z=0..head_t and the shank
+// runs DOWN to -length. So the origin is placed on the surface the screw enters
+// and no flip is needed -- flipping it was what put the heads on the inside.
+module screw(nominal, length, head_d, head_t) {
+    color("Silver") {
+        translate([0, 0, -length]) cylinder(d=nominal, h=length);
+        cylinder(d=head_d, h=head_t);
+    }
+}
+
 module assembly() {
     e = exploded ? 12 : 0;
     color("Tan") head();
     // Gasket drawn at its COMPRESSED height, which is how it sits in service.
     color("DimGray")
-        translate([0, 0, well_z + lead_chamfer + 0.75 + groove_w/2 + 1.0*e])
+        translate([0, 0, well_z + lead_chamfer + 0.75 + groove_w/2 + 1.6*e])
             rotate_extrude() translate([groove_root_d/2 + oring_cord/2, 0])
                 circle(d=oring_cord);
-    color("Khaki") translate([0, 0, well_z + 2.0*e]) carrier();
-    color("LightSteelBlue") translate([0, 0, end_z + flange_t + 3.0*e]) retainer();
+    color("Khaki") translate([0, 0, well_z + 3.4*e]) carrier();
+    // The consumable stack the retainer clamps, in the carrier's wet-face pocket:
+    // gasket at its COMPRESSED height, then the membrane coupon on top of it.
+    // These are what the four screws actually preload.
+    coupon_d = window_d + 2*land;
+    color("IndianRed")
+        translate([0, 0, end_z + flange_t - pocket_depth + 5.6*e])
+            difference() {
+                cylinder(d=coupon_d, h=gasket_gap);
+                translate([0, 0, -heps]) cylinder(d=window_d, h=gasket_gap + 2*heps);
+            }
+    color("GhostWhite")
+        translate([0, 0, end_z + flange_t - membrane_t + 7.2*e])
+            cylinder(d=coupon_d, h=membrane_t);
+
+    color("LightSteelBlue") translate([0, 0, end_z + flange_t + 8.8*e]) retainer();
+
+    // Fasteners. Retainer screws run down the bolt circle into the head's bosses;
+    // cap screws come in radially. Drawn at the length the stack actually needs.
+    // Entered from OUTSIDE the retainer, running down through retainer and flange
+    // into the head's bosses -- so the origin sits on the retainer's outer face.
+    translate([0, 0, end_z + flange_t + retainer_t + 10.8*e])
+        bolt_positions()
+            screw(pt_nominal, flange_t + retainer_t + 4.0, m25_clear + 1.6, 1.6);
+    // The cap screws go in radially, so they explode radially -- pushing them up
+    // the Z axis with everything else would misrepresent how they assemble.
+    translate([0, 0, head_len - cap_grip/2 + 13.0*e])
+        cap_screw_positions()
+            translate([0, 0, head_od/2 + cap_wall + 3.0*e])
+                screw(selftap_cap, cap_wall + cap_screw_depth,
+                      selftap_cap + 1.6, 1.4);
     // The cap is a shell that swallows the rest, so it has to travel furthest
     // before an exploded view shows anything.
-    color("DimGray") translate([0, 0, head_len - cap_grip + 4.5*e]) cap();
+    color("DimGray") translate([0, 0, head_len - cap_grip + 13.0*e]) cap();
 }
 
 // Every printable part, laid out flat and print-oriented, as ONE file. Handing
@@ -517,7 +598,7 @@ module section() {
 
 if (part == "section") section();
 else if (part == "plate") plate();
-else if (part == "assembly") assembly();
+else if (part == "assembly") rotate([0, view_rot, 0]) assembly();
 else if (part == "head") head();
 else if (part == "carrier") carrier();
 else if (part == "retainer") retainer();

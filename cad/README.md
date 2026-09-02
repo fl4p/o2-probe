@@ -264,8 +264,14 @@ slicer noise.** An outward-facing cut goes through `ring_cut()`.
 Three jobs, deliberately separated:
 
 - **The O-ring seals.** Radial, on the carrier's spigot, squeezed by the
-  interference fit against the well bore — cord 1.5, 20 % squeeze, groove root
-  Ø24.9 × 1.95. EPDM or silicone, **not FKM** (attacked by ammonia). Because the
+  interference fit against the well bore — cord 1.5, groove root Ø25.02 × 1.95,
+  **24 % nominal squeeze**. That 24 % is not a handbook preference: the well is a
+  *printed* bore, so what matters is the tolerance band, and 24 % is the value
+  that centres it at **±0.22 mm**. At the obvious 20 % the band is −0.34/+0.10,
+  and a printed hole errs oversize — the direction that loses the seal. Asserts
+  now gate the worst case at both ends (15.5 % at +0.20, 29.2 % at −0.20) and the
+  groove fill at 76 % against an 85 % limit. Install stretch is 4.25 %, inside the
+  5 % rule. EPDM or silicone, **not FKM** (attacked by ammonia). Because the
   squeeze comes from the fit, no fastener is in the seal load path, so PP creep
   at 75 °C bleeds off retention rather than sealing force. A *face* O-ring was
   evaluated and rejected: it needs a land either side, which pushes the head to
