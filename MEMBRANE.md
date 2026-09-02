@@ -1,6 +1,11 @@
 # O₂ probe gas-window membrane
 
 Research date: 2026-08-22
+Revised: 2026-09-02 — Porex sample sheet received (see
+[Sample received](#sample-received-2026-09-02); identity check still to run);
+enclosure material decided (printed ASA head on a bought tube body) and the
+consequences for the membrane joint recorded under
+[Enclosure material](#enclosure-material-printed-asa-decision-2026-09-02).
 Revised: 2026-08-27 — Porex confirmed the sintered construction in writing and
 supplied the official datasheet; direct purchase is closed off by MOQ and moves
 to a distributor. Revised: 2026-08-26 — construction reclassified as sintered
@@ -231,6 +236,128 @@ No active-area dimension is frozen. Design the first carrier to accept
 interchangeable coupons so that area and backing can be varied without changing
 the probe body.
 
+## Enclosure material: printed ASA (decision 2026-09-02)
+
+Question: can the probe live in a 3D-printed ASA tube instead of the 32 mm OD
+PVC-U pipe named in [PLAN.md](PLAN.md)? It belongs in this document because the
+housing polymer decides which of Porex's five attachment methods stay available.
+
+**Decision.** Rev-A enclosure is a **bought tube for the potted body plus a
+printed ASA head** carrying the keyed coupon cartridges, guard stand-offs, drain
+wells and board guides. A fully printed body is permitted for prototypes. Either
+variant is released only after the connected-volume/leak gate in
+[`cad/RESPONSE-CANDIDATE-VOLUME.md`](cad/RESPONSE-CANDIDATE-VOLUME.md) passes on
+the actual printed part, not on an inspection of it.
+
+The split follows the geometry. Two keyed facets at 45°/315°, recessed
+cartridges with an outer drain well, a stand-off guard and an offset cable
+passage cannot be made in a round extruded pipe — the models in `cad/` are
+already printed-part geometry. The potted body, by contrast, needs nothing but a
+straight bore and a seal that is beyond doubt. Printing the head and buying the
+body puts the leak-critical simple part in extruded stock and the
+geometry-critical replaceable part in a printed one.
+
+### Temperature is not the binding constraint, but it is not generous either
+
+The wall at the tip sees the ~75 °C pile gas accepted in `PLAN.md` (deployment
+envelope, decision 2026-08-27) plus up to ~4 K heater rise, so call it **≈79 °C**.
+
+| Vendor ASA | Tg (DSC) | HDT B, 0.45 MPa (ISO 75) | HDT A, 1.8 MPa (ISO 75) |
+|---|---:|---:|---:|
+| BigRep ASA [S17] | 105 °C | 94 °C | 86 °C |
+| 3DXMAX ASA [S18] | 105 °C | 95 °C | not published |
+| Polymaker ASA [S19] | 98 °C | 103 °C | 100 °C |
+
+**Do not quote a single figure, and do not quote Polymaker's.** Its sheet puts
+HDT at 1.8 MPa (100 °C) *above* its own Tg (98 °C), which is not physically
+sensible for an amorphous polymer; the row is unreliable regardless of which
+side of it is wrong. The two internally coherent sheets agree at Tg ≈ 105 °C,
+HDT B ≈ 94–95 °C, HDT A = 86 °C.
+
+Read against ≈79 °C that gives two different margins, and the difference is the
+whole design rule:
+
+- **Unloaded, the margin is ~26 K to Tg.** An enclosure that merely holds its
+  own shape is not at risk.
+- **Under sustained load, the margin is ~7 K to HDT A.** That is not enough, and
+  HDT is a short-term test besides — creep over a buried season is the real
+  mechanism.
+
+**Rule: no part of the enclosure may carry sustained strain at temperature.** No
+interference press-fits, no clamped preload expected to survive months at 75 °C.
+Retention is by positive features plus a compliant elastomer seal that supplies
+the sealing force, so the polymer is not the spring.
+
+ASA's usual selling point is irrelevant here: the probe is buried and only the
+cable exit sees sun. The choice rests on printability and temperature, not
+weathering.
+
+### Two risks, both testable
+
+1. **FDM walls are not gas-tight, and here the wall is part of a measurement
+   path.** The premise of the whole probe is that gas reaches the cell through
+   ≥180 mm² of controlled membrane into ≤5.0 cm³ of connected volume.
+   Bead-to-bead voids are an uncontrolled parallel diffusion path, a liquid route
+   to the potted side, and the end of the sub-µA AFE leakage environment. Take
+   all three mitigations: a deliberately solid wall band over the gas zone (many
+   perimeters, no sparse infill touching the cavity); a sealing step — ASA is one
+   of the few printable materials that solvent-smooths, with interior epoxy
+   impregnation as the alternative; and, decisively, the existing
+   pressure-expansion connected-volume measurement, which is a leak test wearing
+   a different hat. A printed enclosure is released on that measurement, never on
+   inspection. Note the tension in solvent smoothing: acetone/MEK is also the
+   chemistry ASA is weakest against, so a smoothed part must repeat the ageing
+   coupon below, not inherit its result.
+
+2. **Environmental stress cracking, not corrosion.** ASA is a SAN-matrix
+   styrenic, not a PTFE-grade plastic. Hot NH₃-rich condensate, organic acids and
+   terpene VOCs against a styrenic under sustained load is the classic ESC
+   combination — and ESC needs stress to appear, which is the second reason for
+   the no-sustained-strain rule. Add printed coupons (smoothed and unsmoothed) to
+   qualification step 3 alongside the membrane coupons. Acceptance: no crazing,
+   no mass or dimensional drift, and a re-passed leak test after ageing.
+
+Alternatives considered and rejected: PETG (HDT too low against a 79 °C wall);
+PP (chemically the best fit and weldable to the PP carrier, but warps badly over
+a 129 mm body); PC (temperature is fine, but it is attacked by ammonia and
+alkalis — actively wrong for this service); PA (absorbs water).
+
+### Consequence for the membrane joint
+
+ASA changes exactly one thing in the attachment decision above:
+
+- **PP and ASA cannot be welded to each other.** The preferred construction —
+  PMV15T ultrasonically welded into a PP carrier disc — therefore survives as a
+  *cartridge*: the membrane-to-PP joint stays a fused polymer joint, and the
+  **PP-cartridge-to-ASA-housing joint becomes the compression seal**, elastomer
+  gasket plus a positive retainer. Field replaceability wanted that interface
+  anyway, and this keeps the fused joint on the wet side where it matters.
+- **Welding PMV15T directly into ASA is plausible but unproven.** Porex's stated
+  substrate criterion is good flow and a melting point below 260 °C [S15]; ASA is
+  amorphous, has no melting point, flows around 220–250 °C, and amorphous
+  styrenics are among the easiest ultrasonic welders. But every example in the
+  brief is PP-family and Porex publishes no ASA result, so this route needs our
+  own peel and leak coupons before it may be designed in.
+- **Without an ultrasonic welder, thermal welding reaches the same fused key** —
+  a heated annular tip or hot plate in a printed jig, temperature just above the
+  substrate's softening point, dwell and pressure tuned so the melted substrate
+  keys into the porous structure. Vendor-endorsed [S14], needs no special
+  equipment, and is the Rev-A bench route if compression proves leaky.
+- **Start Rev-A on compression regardless.** Qualification step 1 is an A/B of
+  bare against PP-supported coupons; welding each variant makes coupon swaps
+  expensive, and interchangeable coupons are an explicit goal above.
+
+### The failure mode to design against
+
+Whichever method is used, the seal is the coupon *perimeter*, and a bypass leak
+**around** the membrane instead of through it presents as a suspiciously fast
+`t63` with a wrong absolute O₂ — it looks like success. Two consequences:
+
+- the perimeter seal takes the same pressure test as the enclosure;
+- qualification step 1 must include a **deliberately bypassed coupon** as the
+  known-bad case, so the test is shown to catch the failure rather than assumed
+  to.
+
 ## Candidate comparison
 
 | Candidate | Advantages | Unresolved issue / disposition |
@@ -381,6 +508,82 @@ Consequences for the plan:
   `D_eff` is ours to measure. Qualification step 1 is the only source of that
   number — it is not a ranking exercise that can be skipped.
 
+### Sample received 2026-09-02
+
+The free Porex sample arrived: **one rectangular sheet, A5 format (148 × 210 mm
+nominal, unmeasured)**. Either dimension fits inside the 330 ± 5 mm master-roll
+width [S14]. Everything else about the delivery is **unrecorded so far**
+and must be filled in before the sheet is cut:
+
+| Field | Status |
+|---|---|
+| Quantity of sheets | unrecorded |
+| Lot / roll / order reference | unrecorded — the film itself carries no marking |
+| Accompanying documentation (CoC, lot sheet, delivery note) | unrecorded |
+| Which face was up in the packaging | unrecorded |
+| Measured thickness against 0.18 ± 0.03 mm | not measured |
+| Identity check (see below) | **not run** |
+
+**Identity is not established by the delivery.** The plausible substitute,
+PMV15 [S16], is visually indistinguishable — same 100 % PTFE, same 0.18 mm, same
+> 265 mbar water-entry, same white sintered film — and differs only in the
+Grade-8 oleophobic treatment, which is the whole reason this grade was chosen.
+`PMV15T-REQUEST.txt` asked Porex explicitly not to substitute; that request is
+not evidence that they did not. Run a treated/untreated screen before any coupon
+enters qualification:
+
+- Untreated PTFE wicks a low-surface-tension oil almost immediately; the treated
+  grade beads it. Use the most aggressive liquid available — n-hexadecane or
+  n-dodecane are AATCC TM 118 grades 3 and 5 and are real discriminators.
+  Mineral oil (Nujol) is the scale's **grade 1** liquid, so beading it proves
+  almost nothing.
+- This is a **screen for the presence of the treatment, not an AATCC
+  measurement**. It cannot confirm grade 8 and must not be recorded as if it
+  had. A failure, however, is decisive: it means the referral risk in *Supply
+  route* has already materialised, and Gore MMS341 becomes the primary material
+  rather than the challenger.
+
+Handling rules for this sheet, all of them one-way decisions:
+
+- **Mark a face and an edge before the first cut.** If the treatment is
+  one-sided the information is unrecoverable once the sheet is divided, and it
+  decides which face goes wet-side. Mark a border strip that never becomes a
+  coupon.
+- **Reserve an unexposed control strip** (≈148 × 40 mm, about 19 % of the sheet)
+  from the same lot, labelled and never cut into. Qualification step 4 compares
+  2/6/12-week field coupons against exactly this.
+- Gloves and a fresh blade or punch on a clean mat. Finger oils contaminate the
+  oleophobic screen; sintered PTFE is a 0.18 mm depth film and a crushed edge
+  matters where the coupon meets a compression-seal land. Store flat and sealed,
+  away from oils, silicone and solvent vapour — including the ASA
+  solvent-smoothing setup.
+- **Do not pre-cut the full sheet.** Window area and `D_eff` trade against each
+  other and the geometry is not frozen; step 1 is what pins `D_eff`. Cut only
+  what step 1 consumes.
+
+**The A5 sheet is a budgeted resource, not an abundant one.** Yield is roughly
+**126 coupons at 15 × 15 mm** (a 10 mm window plus a 2.5 mm seal land) but only
+**35 discs at Ø27 mm** — one year at the low end of the 30–80 disc annual
+estimate, before qualification consumes any. Two consequences:
+
+- The response-candidate geometry (two 10 × 10 mm coupons per probe) is roughly
+  **3.6× more material-efficient** than the Rev-A Ø27 disc. That is not a reason
+  to choose it, but it is a real cost difference to carry into the geometry
+  decision while supply sits behind a 10,000-piece MOQ.
+- **Request a second sheet from the same lot now**, while the Porex contact is
+  warm and samples are still free against a postal address [S14a]. Weld and
+  thermal-weld process development alone typically eats ten or more attempts,
+  and steps 1–4 plus the known-bad bypassed coupon and the field sacrificials
+  add up quickly. If this lot is exhausted mid-programme it cannot be
+  re-bought — the MOQ is three orders of magnitude away and the distributor may
+  carry only untreated PMV15 — and a replacement sheet from a different lot
+  **breaks the same-lot control that step 4 depends on**.
+
+Note that the datasheet declares samples "intended for evaluation purposes only
+and not intended for specification" [S14]. Measurements from this sheet
+characterise *this lot*; they do not become specification values, and the
+production material from ADDEV must still be re-verified as the same grade.
+
 ### Still open with Porex
 
 - Compatibility of the Grade-8 treatment with NH₃-rich condensate, organic acids
@@ -410,6 +613,12 @@ without sacrificing mechanical integrity.
   with PMV15T.
 - PTFE chemical compatibility does not automatically extend to an oleophobic
   surface treatment, backing, adhesive or housing seal.
+- The ASA temperature bracket comes from three vendor filament sheets [S17–S19],
+  none of them the spool we will actually print with, and two of the three are
+  product pages rather than signed TDSs. Re-check Tg and both HDT rows against
+  the purchased filament's own sheet before the enclosure is frozen, and treat
+  the numbers as bulk-moulded properties: a printed part is anisotropic and
+  weakest in Z, and no vendor publishes creep data for it.
 - Water-entry/IP results demonstrate liquid-ingress resistance in a qualified
   housing; they do not demonstrate retained O₂ response beneath a liquid or
   biofilm layer.
@@ -450,6 +659,12 @@ Added 2026-08-27 (Porex e-mail, Porex application engineering, with two attachme
 - **S15 — Porex:** *How to Ultrasonically Weld PTFE Protection Vents*, technical brief, ©2019, doc `PX-EL-TB-19530-1`. Archived at [`vendor/porex-ultrasonic-welding-PTFE-vents-PX-EL-TB-19530-1.pdf`](vendor/porex-ultrasonic-welding-PTFE-vents-PX-EL-TB-19530-1.pdf), SHA-256 `0a301572ec622ff8045302599baac72492f45e09d332848ad080934393f0d2fb`. Text layer extracted in full. Source of the no-support claim, the ePTFE-fragility contrast, and the substrate constraint (good flow, melting point below 260 °C). Marketing document for the Virtek line — its comparative claims about ePTFE are the vendor's own and are not independently verified here.
 
 - **S16 — ADDEV Parafix (Parafix Tapes & Conversions Ltd, Lancing, West Sussex):** [non-adhesive vent material](https://parafix.com/product-groups/venting-materials/non-adhesive-vent-material/) and [Porex material PMV15](https://parafix.com/product/porex-material-pmv15-v2/), both retrieved 2026-08-27. Site search for `PMV15T` returned "0 items matching your criteria"; a search for `Porex` returned MD10L, MD22, PMV15 and the PMV30C/I/N/W disc family. The PMV15 page gives 0.18 mm, 100 % PTFE, airflow > 49 L h⁻¹ cm⁻² at 70 mbar, water intrusion > 265 mbar, IP67, filtration > 99.99 % at 0.4 µm, −40 to 260 °C, no oleophobic row. Public catalogue only — not a statement of what the converter can source.
+
+Added 2026-09-02 (enclosure-material decision; filament property bracket):
+
+- **S17 — BigRep:** [ASA filament product/specification page](https://bigrep.com/filaments/asa/), retrieved 2026-09-02. WebFetch returned HTTP 403 (Cloudflare); a UA-corrected `curl` on the first ladder rung returned the substantive page, and the thermal rows were extracted from the served HTML text: `HDT A - 1.8 MPa (ISO 75) 86 °C`, `HDT B - 0.45 MPa (ISO 75) 94 °C`, `Glass Transition Temperature (Tg) (DSC) 105 °C`. **Not render-validated in a live DOM**, and a vendor product page rather than a signed TDS. Internally coherent (both HDT values below Tg).
+- **S18 — 3DXTech / 3DXMAX ASA:** [technical data sheet republished on the Rev1 Tech support portal](https://support.rev1tech.com/portal/en/kb/articles/technical-data-sheet-3dxmax-asa-3d-printing-filament), retrieved 2026-09-02 via WebFetch markdown conversion. Rows used: `Glass Transition Temperature (Tg), DSC, °C, 105` and `Deflection Temperature at 0.45 MPa (66psi), ISO 75, °C, 95`. **Second-hand host** — a reseller's knowledge base, not the manufacturer's own document — and not render-validated. No 1.8 MPa row published.
+- **S19 — Polymaker:** [Polymaker™ ASA technical data sheet](https://wiki.polymaker.com/polymaker-products/more-about-our-products/documents/technical-data-sheets/abs-asa/polymaker-tm-asa), retrieved 2026-09-02 via WebFetch markdown conversion; not render-validated. Gives Tg 98 °C (DSC), Vicat 105 °C (ISO 306), HDT 103 °C at 0.45 MPa and 100 °C at 1.8 MPa (ISO 75). **Cited only as the outlier**: an HDT at 1.8 MPa above the sheet's own Tg is not physically sensible for an amorphous polymer, so no design value is taken from it.
 
 ### Research search record
 
