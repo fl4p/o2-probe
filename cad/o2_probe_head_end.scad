@@ -47,8 +47,16 @@ board_env_front = undef;   // MEASURE: populated swept envelope above the board
 board_env_back = undef;    // MEASURE: populated swept envelope below the board
 cell_axial_len = undef;    // MEASURE: how far the cell + its socket project past
                            //          the board end, real cell in a real socket
-insert_bore_d = undef;     // MEASURE: your heat-set insert's bore, from ITS
-insert_bore_h = undef;     //          datasheet -- brand-specific, do not assume
+// SOURCED 2026-09-02, ../../tech/PROBE-CARRIER-SOURCING.md: E-Z LOK FL-M25-HI-CR,
+// stainless E-Z Sonic. Stainless because brass suffers ammonia stress-corrosion
+// cracking and these sit outside the seal in NH3 condensate. Every EU specialist
+// checked makes stainless special-order only.
+insert_bore_d = 3.99;      // E-Z LOK dimensional drawing D-S.113 Rev1, 11/01/2024
+insert_bore_h = 6.7;       // INFERRED, not an E-Z LOK number: SPIROL's design-guide
+                           // rule (length + 2 pitches) applied to E-Z LOK's 5.74 mm
+                           // body. E-Z LOK publishes no hole depth anywhere.
+insert_head_d = 5.54;      // flanged only -- needs a counterbore or it holds the
+insert_head_t = 0.61;      // retainer off the face. Same drawing.
 
 assert(!is_undef(tube_od_meas),
        "UNMEASURED: tube_od_meas -- measure the tube OD and its ovality");
@@ -58,8 +66,7 @@ assert(!is_undef(board_env_back),
        "UNMEASURED: board_env_back -- tallest component below the board plane");
 assert(!is_undef(cell_axial_len),
        "UNMEASURED: cell_axial_len -- seat a real cell in a real socket and measure");
-assert(!is_undef(insert_bore_d) && !is_undef(insert_bore_h),
-       "UNMEASURED: insert_bore_d / insert_bore_h -- from the insert's own sheet");
+echo("NOTE: insert_bore_h is cross-manufacturer inference, not a vendor number -- verify on a test coupon before committing a print run");
 
 // ------------------------------------------------- design parameters
 
@@ -97,14 +104,26 @@ flange_margin = 4.0;
 flange_t = cart_t;
 carrier_fit = 0.3;
 
-oring_cord = 1.5;           // CONFIRM this size exists in EPDM or silicone
+// SOURCED 2026-09-02, ../../tech/PROBE-CARRIER-SOURCING.md: o-ring-stocks.eu
+// ORS116787, EPDM 70 Shore A peroxide-cured, 24.0 x 1.5 DIN 3771. NOT a derived
+// size -- 24.5 x 1.5 does not exist in EPDM at all; it is FKM/FFKM only, and FKM
+// is excluded because ammonia attacks fluoroelastomers.
+oring_cord = 1.5;
+oring_id_ordered = 24.0;    // the part that actually exists
 oring_squeeze = 0.20;       // static radial squeeze, fraction of cord
 groove_w_factor = 1.30;     // groove width as a multiple of cord
 lead_chamfer = 1.0;         // so the O-ring is not shaved on assembly
 
 retainer_t = 3.0;
 bolt_n = 4;                 // retention only now, but 4 keeps it even
-bolt_clear_gap = 1.5;       // between well wall and screw hole edge
+// Wall between the INSERT bore and the well bore. Sized against thermal
+// distortion, not strength: heat-setting at 200+ C within a millimetre of the
+// O-ring's sealing surface will bulge it, and the leak test would fail with no
+// visible cause. This is what sets the head diameter -- see the echo.
+// 2.3 = SPIROL's boss rule (boss OD >= 2x knurl dia) on E-Z LOK's 4.60 mm body.
+// Inserco allows 1.6 for its M2.5; SPIROL is the conservative one and this wall
+// also protects the O-ring seat from the heat of installation.
+insert_seal_wall = 2.3;
 
 // The stand-off is ALSO the breathing band, so it is sized by open area, not by
 // how much clearance looks tidy. A guard more restrictive than the membrane
@@ -130,19 +149,27 @@ bore_d = max(board_diag + 2*bore_margin, cell_d + 2*bore_margin);
 mouth_d = window_d + flare_extra;        // the flare's mouth, in the flange
 spigot_d = mouth_d + 2*land;             // wall thick enough to hold a groove
 well_d = spigot_d + carrier_fit;         // the bore the spigot seals against
-flange_d = spigot_d + 2*flange_margin;
 
 // Radial O-ring groove, cut into the spigot's outside diameter. Seated OD must
 // exceed the well bore by the squeeze; groove root follows from that.
 groove_root_d = well_d - 2*oring_cord + oring_cord*oring_squeeze*2;
 groove_w = groove_w_factor * oring_cord;
 spigot_len = groove_w + lead_chamfer + 1.5;   // the assert below, solved
-oring_free_id = groove_root_d - 0.4;     // slight stretch onto the groove
-bolt_r = spigot_d/2 + bolt_clear_gap + m25_clear/2;
+oring_stretch = groove_root_d/oring_id_ordered - 1;   // install stretch onto the groove
+// Stretching thins the cord by roughly half the stretch, which eats squeeze.
+oring_cord_fitted = oring_cord * (1 - oring_stretch/2);
+oring_squeeze_real = (oring_cord_fitted - (well_d - groove_root_d)/2) / oring_cord_fitted;
+// Derived from the INSERT bore, not the screw's clearance hole: the insert is
+// the larger feature and the one installed hot next to the sealing surface.
+bolt_r = spigot_d/2 + insert_seal_wall + insert_bore_d/2;
+
+// The flange must reach the bolt circle, which the insert now sets -- with the
+// real 3.99 bore the circle grew past a flange sized from the spigot alone.
+flange_d = max(spigot_d + 2*flange_margin, 2*bolt_r + m25_clear + 4.0);
 
 // Head OD: the bore, or the bolt circle plus material around it. NOT a facet at
 // a radius, which is the whole point of this variant.
-head_od = 2 * ceil(max(bore_d/2 + wall_min, bolt_r + m25_clear/2 + 2.0) + 0.5);
+head_od = 2 * ceil(max(bore_d/2 + wall_min, bolt_r + insert_bore_d/2 + wall_min) + 0.5);
 cap_od = head_od + 2*cap_wall;
 
 // Volume, and the structural advantage of putting the cell past the board end:
@@ -184,8 +211,19 @@ assert(spigot_len >= groove_w + lead_chamfer + 1.5,
        "spigot too short to carry the groove plus its lead-in chamfer");
 assert(spigot_bore >= window_d + 2.0,
        "spigot bore constricts the window");
-assert(bolt_r - m25_clear/2 > spigot_d/2,
-       "bolt circle cuts into the well: fasteners would penetrate the seal");
+assert(oring_stretch <= 0.05,
+       str("O-ring install stretch ", oring_stretch*100, "% exceeds the 5% rule"));
+assert(oring_squeeze_real >= 0.15,
+       str("squeeze after stretch-thinning is only ", oring_squeeze_real*100,
+           "%; a static radial seal wants 15% or more"));
+assert(bolt_r - insert_bore_d/2 - spigot_d/2 >= insert_seal_wall,
+       str("only ", bolt_r - insert_bore_d/2 - spigot_d/2,
+           " mm of wall between the insert bore and the O-ring's sealing bore; ",
+           "heat-setting there will distort the seat"));
+assert(insert_bore_h <= head_len - socket_len - 2.0,
+       "insert bore deeper than the material behind the end face");
+assert(2*bolt_r + m25_clear + 2.0 <= flange_d,
+       "bolt circle falls outside the carrier flange: the retainer would clamp nothing");
 assert(flange_d <= head_od,
        str("carrier flange ", flange_d, " overhangs a ", head_od, " mm head"));
 assert(head_od/2 - cap_screw_depth > neck_d/2 + 1.0,
@@ -210,9 +248,12 @@ echo(str("bore ", bore_d, "; head OD ", head_od, "; cap OD ", cap_od,
 echo(str("window dia ", window_d, " -> ", PI*pow(window_d/2,2), " mm2 free area"));
 echo(str("PP carrier: spigot dia ", spigot_d, " x ", spigot_len,
          ", bore ", spigot_bore, "; flange dia ", flange_d, " x ", flange_t));
-echo(str("O-RING: cord ", oring_cord, ", free ID approx ", oring_free_id,
-         "; groove root dia ", groove_root_d, " x ", groove_w,
-         " wide; radial squeeze ", oring_squeeze*100, "% -- EPDM or silicone, NOT FKM"));
+echo(str("head OD is set by the insert: bolt circle dia ", 2*bolt_r,
+         " from a ", insert_bore_d, " bore with ", insert_seal_wall,
+         " mm to the sealing bore"));
+echo(str("O-RING ORS116787, EPDM 70 peroxide, ", oring_id_ordered, " x ", oring_cord,
+         " on a ", groove_root_d, " x ", groove_w, " groove: ", oring_stretch*100,
+         "% install stretch, ", oring_squeeze_real*100, "% squeeze after thinning"));
 echo(str("CUT LIST: PMV15T disc dia ", window_d + 2*land,
          " mm, welded into the carrier"));
 echo(str("fasteners: ", bolt_n, "x M2.5 into heat-set inserts on a dia ",
@@ -260,9 +301,15 @@ module head() {
         translate([0, 0, head_len - lead_chamfer])
             cylinder(d1=well_d, d2=well_d + 2*lead_chamfer, h=lead_chamfer + heps);
 
-        // Heat-set inserts on the bolt circle, blind from the end face.
-        translate([0, 0, head_len - insert_bore_h])
-            bolt_positions() cylinder(d=insert_bore_d, h=insert_bore_h + heps);
+        // Heat-set inserts on the bolt circle, blind from the end face, each
+        // with a counterbore for its flange -- the stainless E-Z Sonic is only
+        // made flanged, and a proud flange holds the retainer off the face.
+        bolt_positions() {
+            translate([0, 0, head_len - insert_bore_h])
+                cylinder(d=insert_bore_d, h=insert_bore_h + heps);
+            translate([0, 0, head_len - insert_head_t - 0.1])
+                cylinder(d=insert_head_d + 0.3, h=insert_head_t + 0.2);
+        }
 
         // Cap retention: BLIND radial holes that stop well short of the bore.
         translate([0, 0, head_len - cap_grip/2])

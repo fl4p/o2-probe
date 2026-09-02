@@ -1,7 +1,10 @@
 # O₂ probe gas-window membrane
 
 Research date: 2026-08-22
-Revised: 2026-09-02 — Porex sample sheet received (see
+Revised: 2026-09-02 — head hardware sourced (insert, O-ring, PP rod) with two
+evidence gaps left open, see
+[Head hardware sourced](#head-hardware-sourced-2026-09-02);
+Porex sample sheet received (see
 [Sample received](#sample-received-2026-09-02); identity check still to run);
 enclosure material decided (printed ASA head on a bought tube body) and the
 consequences for the membrane joint recorded under
@@ -583,6 +586,56 @@ Note that the datasheet declares samples "intended for evaluation purposes only
 and not intended for specification" [S14]. Measurements from this sheet
 characterise *this lot*; they do not become specification values, and the
 production material from ADDEV must still be re-verified as the same grade.
+
+### Head hardware sourced 2026-09-02
+
+Three items for the printed-ASA head, researched in `tech/PROBE-CARRIER-SOURCING.md`
+in the parent **farming** repository. **Identified and orderable; none ordered.**
+InvenTree holds nothing on shelf or on order for any of them.
+
+| Item | Part | Evidence status |
+|---|---|---|
+| Threaded insert, M2.5 | E-Z LOK **FL-M25-HI-CR**, stainless E-Z Sonic, flanged | bore Ø3.99 from E-Z LOK drawing D-S.113 Rev1; **depth 6.7 mm is inferred**, see below |
+| Carrier O-ring | o-ring-stocks.eu **ORS116787**, EPDM 70 peroxide-cured, 24.0 × 1.5 DIN 3771 | vendor spec table + compound test report |
+| PP rod for the carrier | Röchling **Polystone® P homopolymer** (PP-H), Ø40 stock art. 805216 | manufacturer TDS, PIM-ID 590980 |
+
+Three findings that changed the design rather than merely supplying it:
+
+- **The insert must be stainless, and that nearly did not exist.** Brass is the
+  standard heat-set material and suffers ammonia stress-corrosion cracking; these
+  inserts sit on the end face, outside the seal, in NH₃ condensate. Every European
+  specialist checked — SPIROL, Böllhoff, Tappex, Inserco, Accu — makes stainless a
+  special-order material only. The E-Z LOK US route is the one that works, with
+  no EU distributor, a trade login required to buy direct, and five packs in stock
+  at the only reachable reseller. **This is a sole source and it is fragile.** The
+  stainless grade is also unstated by the manufacturer ("Steel – Stainless");
+  either austenitic grade is immune to the ammonia mechanism, so the decision
+  stands, but the grade is unverified.
+- **Its Ø3.99 bore sets the head diameter**, via the bolt circle and SPIROL's boss
+  rule. The head is **46 mm**, not the 42 the placeholder Ø3.6 gave — level with
+  the written-off radial variant. It also grew the bolt circle past the carrier
+  flange, and the flanged-only insert needs a counterbore or it holds the retainer
+  off the face. Both are now gated by asserts in `cad/o2_probe_head_end.scad`.
+- **The O-ring size I specified does not exist.** 24.5 × 1.5 is unavailable in
+  EPDM anywhere in the deepest catalogue found — that size exists only in FKM and
+  FFKM, and fluoroelastomers are excluded precisely because ammonia attacks them.
+  The design now uses the 24.0 that does exist, on a Ø24.9 groove: 3.75 % install
+  stretch, and 18.5 % squeeze once the stretch thins the cord. Asserts hold stretch
+  ≤ 5 % and squeeze ≥ 15 %.
+
+**Two evidence gaps, both deliberate and both open:**
+
+1. **EPDM's ammonia compatibility is not verified.** EPDM was an input to the
+   sourcing brief, not a conclusion drawn from a manufacturer chemical-resistance
+   table — the public Parker material-selection page is too shallow and the
+   handbook section was not opened. EPDM is the conventional choice for ammonia
+   service and is expected to pass, but the entire carrier-to-head seal rests on
+   it and expectation is not evidence. **Close this before ordering.**
+2. **The insert hole depth is cross-manufacturer inference.** E-Z LOK publishes no
+   hole depth anywhere — dimensional drawing, installation page and drill/tap
+   charts were all checked. The 6.7 mm comes from SPIROL's design-guide rule
+   (insert length + 2 thread pitches) applied to E-Z LOK's own 5.74 mm body. The
+   model echoes a warning; verify it on a test coupon before a print run.
 
 ### Still open with Porex
 

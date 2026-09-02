@@ -73,7 +73,7 @@ head-provisional: | $(OUT)
 HEAD_END := o2_probe_head_end.scad
 HEAD_END_PARTS := head carrier retainer cap cavity
 HEAD_END_PROV := -D tube_od_meas=32.0 -D board_env_front=3.5 -D board_env_back=1.5 \
-                 -D cell_axial_len=13.0 -D insert_bore_d=3.6 -D insert_bore_h=5.0
+                 -D cell_axial_len=13.0
 
 head-end-provisional: | $(OUT)
 	@for p in $(HEAD_END_PARTS); do \
