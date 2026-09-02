@@ -1,0 +1,3 @@
+# Measured-mesh gate artifact: rebuilt by `make head-end-provisional`,
+# and a half-MB ASCII duplicate of a tracked binary STL.
+cad/exports/head-end-cavity-ascii.stl

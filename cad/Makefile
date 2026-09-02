@@ -96,13 +96,29 @@ head-end-provisional: | $(OUT)
 		rm -f $(OUT)/.$$p.log; \
 	done
 	@# The insert route is retained but not the default, so nothing rendered it.
+	@# It gets the SAME solid-count gate: exit status alone would happily pass a
+	@# multi-body render, which is the exact defect this target exists to catch.
 	@for p in $(HEAD_END_PARTS); do \
 		$(OPENSCAD) --hardwarnings $(HEAD_END_PROV) -D 'fastening="insert"' \
 			-D "part=\"$$p\"" -o /dev/null --export-format asciistl \
-			$(HEAD_END) >/dev/null 2>&1 || \
-			{ echo "FAIL insert route: $$p"; exit 1; }; \
+			$(HEAD_END) >/dev/null 2>$(OUT)/.ins-$$p.log || \
+			{ cat $(OUT)/.ins-$$p.log; echo "FAIL insert route: $$p"; exit 1; }; \
+		v=`sed -n 's/.*Volumes: *\([0-9]*\).*/\1/p' $(OUT)/.ins-$$p.log | tail -1`; \
+		if [ "$$v" != "2" ]; then \
+			echo "FAIL insert route $$p: $$v volumes, expected 2"; exit 1; \
+		fi; \
+		if grep -q "not be a valid 2-manifold" $(OUT)/.ins-$$p.log; then \
+			echo "FAIL insert route $$p: not 2-manifold"; exit 1; \
+		fi; \
+		rm -f $(OUT)/.ins-$$p.log; \
 	done
 	@echo "head-end: both fastening routes render, all parts closed solids"
+	@# The 5.0 cm3 budget is a property of the MESH. cav_net is a hand-written
+	@# model of the void and has been wrong before; measure what was built.
+	@$(OPENSCAD) --hardwarnings $(HEAD_END_PROV) -D 'part="cavity"' \
+		-o $(OUT)/head-end-cavity-ascii.stl --export-format asciistl \
+		$(HEAD_END) 2>/dev/null
+	python3 tools/stlvol.py --max 5000 $(OUT)/head-end-cavity-ascii.stl
 	$(OPENSCAD) --render --viewall --autocenter --projection=p --imgsize=1400,1000 \
 		--colorscheme=Tomorrow $(HEAD_END_PROV) -D 'part="assembly"' -D exploded=true \
 		-o $(OUT)/head-end-preview.png $(HEAD_END)

@@ -336,8 +336,29 @@ assert(bolt_r - m25_clear/2 >= spigot_d/2,
            m25_clear, " hole lands inside the ", spigot_d/2, " mm spigot"));
 assert(flange_d <= head_od,
        str("carrier flange ", flange_d, " overhangs a ", head_od, " mm head"));
-assert(head_od/2 - cap_screw_depth > neck_d/2 + 1.0,
-       "blind cap screw would break into the gas bore");
+// The cap screws are RADIAL, so what they must clear is whatever void sits at
+// THEIR height -- not the narrowest void in the head. Checking neck_d was wrong:
+// the neck ends at well_z, well below them. They sit cap_grip/2 down from the
+// end face, which is inside the Ø27.3 well, and cap_screw_depth=8 breaks into
+// it while every assert passes and CGAL still reports one closed solid.
+cap_screw_z0 = head_len - cap_grip/2 - selftap_cap/2;
+cap_screw_z1 = head_len - cap_grip/2 + selftap_cap/2;
+function spans(a0, a1, b0, b1) = (a0 < b1 && b0 < a1);
+cap_screw_void_r = max(
+    spans(cap_screw_z0, cap_screw_z1, 0, socket_len)
+        ? (tube_od_meas + 2*bond_gap)/2 : 0,
+    spans(cap_screw_z0, cap_screw_z1, socket_len, socket_len + cav_board_len)
+        ? bore_d/2 : 0,
+    spans(cap_screw_z0, cap_screw_z1, socket_len + cav_board_len, well_z)
+        ? neck_d/2 : 0,
+    spans(cap_screw_z0, cap_screw_z1, well_z, head_len)
+        ? well_d/2 : 0,
+    spans(cap_screw_z0, cap_screw_z1, head_len - lead_chamfer, head_len)
+        ? well_d/2 + lead_chamfer : 0);
+assert(head_od/2 - cap_screw_depth > cap_screw_void_r + 1.0,
+       str("blind cap screw reaches r=", head_od/2 - cap_screw_depth,
+           " but the void at z=", cap_screw_z0, "..", cap_screw_z1,
+           " runs out to r=", cap_screw_void_r, ": outside-to-gas leak path"));
 assert(abs(flange_t - cart_t) < 0.001,
        "flange must equal cart_t, else the sealing core does not reach the flange's gas face and the membrane is sealed off");
 assert(flange_t >= 2.0,
