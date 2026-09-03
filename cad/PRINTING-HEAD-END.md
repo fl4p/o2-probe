@@ -340,24 +340,52 @@ improves the estimate; another position on the same part does not.
 **Under-compensation fails safe.** Too little correction leaves the root small,
 the gland wide and the squeeze *high*. The −0.04 mm residual cost nothing.
 
-**The printed-carrier tolerance is no longer a guess, and that re-opens the
-route table.** ±0.15 mm was my own estimate with nothing behind it; three
-readings normalised by the diameter each part was actually cut at give a
-half-range of ±0.030 mm, doubled to **±0.06 mm** for a sample of two parts:
+**The printed-carrier tolerance is no longer a guess — but the void fix moved it
+the wrong way.** ±0.15 mm was my own estimate. Under arachne, three readings gave
+±0.030 half-range, doubled to **±0.06**, and that briefly let the catalogue-ring
+route fit. The settled process is classic, and its carrier is **0.100 mm out of
+round** — ±0.050 from ovality alone — giving **±0.11** after adding the arachne
+between-part term and doubling for a sample of one:
 
 | well | carrier | rings | band | |
 |---|---|---|---|---|
 | reamed H7 | machined | catalogue | 2.66 / 15 | PASS (production route) |
-| reamed H7 | printed | sorted | **5.84 / 15** | PASS (was 11.97) |
-| reamed H7 | printed | **catalogue** | **13.09 / 15** | **PASS — was 19.24, a FAIL** |
-| printed | printed | sorted | 24.88 / 15 | FAIL |
+| reamed H7 | printed (classic) | **sorted** | **9.24 / 15** | **PASS** |
+| reamed H7 | printed (classic) | catalogue | **16.51 / 15** | **FAIL** |
+| printed | printed | sorted | — | FAIL |
 
-So **sorting rings with a micrometer may no longer be required** for a printed
-prototype. Treat that with suspicion: 13.09 of 15 leaves 1.9 points of headroom
-and rests entirely on the ±0.06 mm, which has two parts behind it. At ±0.10 the
-catalogue route fails again. Sorted rings stay the prudent choice until more
-carriers are measured — the point is that the *step is now inside the budget*,
-not that it should be skipped today.
+**So fixing the voids cost the catalogue-ring shortcut.** Micrometer-sorted rings
+are required again. That is a lost shortcut rather than a setback — sorting was
+always the plan for a printed prototype — but the seal-pair term runs at **68.1
+squeeze points per mm of tolerance**, so this is the most expensive axis in the
+chain and it is worth knowing which way it moved.
+
+**Third carrier, the classic process** (same cut 25.2831, same flow 0.95):
+
+| | root, two positions | mean | ovality | squeeze |
+|---|---|---|---|---|
+| arachne | 24.98 / 25.00 | 24.990 | 0.020 | 21.02 % |
+| **classic** | **25.00 / 25.10** | **25.050** | **0.100** | **22.97 %** |
+
+Two opposite results. The mean is *better* — 22.97 % against a 22.65 % target, better
+centred than arachne managed — and `wall_generator` demonstrably moves the achieved
+root, by **+0.060 mm**, which confirms the process dependence was real. But ovality
+regressed **5×** and now costs 3.24 squeeze points instead of 0.65.
+
+The factor is **not** re-tuned to classic: the correction would move the cut by
+−0.0097 mm, ten times smaller than the part's own ovality. Tuning to that is false
+precision.
+
+**And which spread dominates has flipped, which changes what to measure next.**
+Under arachne the variation was part-to-part (0.050 mm) and not out-of-round
+(0.020 mm), so more *parts* were informative. Under classic ovality is 0.100 mm and
+dominates, so more *positions* on one part are now what pays. The old advice must
+not be carried across the process change.
+
+Suspected cause of the ovality regression, offered as a suspicion: classic fills
+residue with gap infill, whose volume varies around the loop, where arachne
+redistributes bead width smoothly — which would make the achieved diameter
+angle-dependent. Unverified.
 
 **The well still has to be bored to H7.** That has not changed and no
 compensation touches it: the whole reason the root needs correcting is that the

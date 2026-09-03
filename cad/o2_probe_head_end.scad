@@ -180,14 +180,24 @@ well_tol    = (well_finish == "reamed") ? 0.0105 : 0.20;   // ISO 286-2 H7
 //     carrier 1, cut 25.0404 -> 24.800   factor 0.99040
 //     carrier 2, cut 25.2831 -> 24.980   factor 0.98801   (position A)
 //     carrier 2, cut 25.2831 -> 25.000   factor 0.98880   (position B)
-// Half-range 0.0012 on the factor = +/-0.030 mm on a 25.3 mm root. Doubled for a
-// sample of two parts, which is thin enough that the doubling is the honest part
-// of the number, not decoration.
+// Half-range 0.0012 on the factor = +/-0.030 mm on a 25.3 mm root.
 //
-// Note WHICH spread dominates: within-part ovality is 0.020 mm, between-part is
-// 0.050 mm, so the variation is part-to-part and not out-of-round. Another part
-// tightens this; another position on the same part does not.
-carrier_tol = (carrier_fab == "machined") ? 0.05 : 0.06;   // printed: 3 readings, 2 parts
+// That was measured under ARACHNE and gave +/-0.06. The settled process is classic,
+// and its one carrier is 0.100 mm out of round -- +/-0.050 from ovality alone,
+// before any part-to-part term. With the arachne between-part figure of +/-0.025:
+// RSS +/-0.056, doubled to +/-0.11 for a sample of one on this process.
+//
+// WHICH SPREAD DOMINATES FLIPPED, and it decides what to measure next. Under
+// arachne the variation was part-to-part (0.050) and not out-of-round (0.020), so
+// more parts helped. Under classic ovality is 0.100 and dominates, so more
+// POSITIONS on a part are now the informative measurement. Do not carry the old
+// advice across the process change.
+//
+// This costs the catalogue-ring route: at +/-0.06 it fitted at 13.09 of 15 points,
+// at +/-0.11 it needs 16.50 and fails. Micrometer-sorted rings are required again
+// (they pass at 9.24). The seal-pair term runs at 68.1 squeeze points per mm of
+// tolerance, so this axis is worth more than any other in the chain.
+carrier_tol = (carrier_fab == "machined") ? 0.05 : 0.11;   // printed, classic: see above
 seal_tol = well_tol + carrier_tol;   // the gland varies by half this, each way
 // The ring's OWN cord tolerance, which this model ignored entirely until now.
 // It is the LARGEST term in the chain -- bigger than the bore and the groove
@@ -293,9 +303,29 @@ carrier_is_printed = (carrier_fab == "printed");
 // earlier single-value form had to assert against.
 carrier_meas_flange = [38.90, 38.84];       // first carrier, two readings
 carrier_meas_spigot = [26.83];              // first carrier, one reading
-carrier_root_pairs  = [[25.0404, 24.800],   // carrier 1, uncompensated
-                       [25.2831, 24.990]];  // carrier 2, compensated; see ovality
+// ARACHNE-process pairs only. wall_generator changes the achieved diameter, so a
+// classic reading cannot be pooled with these -- see carrier_root_classic below.
+carrier_root_pairs  = [[25.0404, 24.800],   // carrier 1, uncompensated, arachne
+                       [25.2831, 24.990]];  // carrier 2, compensated, arachne
 carrier_root_ovality = [24.98, 25.00];      // carrier 2, two angular positions
+
+// CARRIER 3, the settled classic process, same cut and same flow as carrier 2:
+carrier_root_classic = [25.00, 25.10];      // two angular positions
+// Mean 25.050 against 24.990 on arachne -- wall_generator moved the root +0.060 mm
+// (factor 0.99078 against 0.98940), confirming the process dependence recorded
+// below is real and not theoretical.
+//
+// The factor is NOT re-tuned to it. Correcting for classic would move the cut by
+// -0.0097 mm, ten times smaller than this part's own 0.100 mm ovality; tuning to
+// that is false precision. The arachne-derived cut happens to land classic at
+// 22.97% squeeze against a 22.65% target, which is better centred than arachne
+// managed, so there is nothing to gain.
+//
+// What DID change is the scatter, and it went the wrong way: ovality 0.100 mm on
+// this carrier against 0.020 mm on the arachne one, a 5x regression. Suspected
+// mechanism, and it is a suspicion: classic fills residue with gap infill, whose
+// volume varies around the loop, where arachne redistributes bead width smoothly.
+// That would make the achieved diameter angle-dependent. Unverified.
 function vmean(v, i=0) = i >= len(v) ? 0 : v[i]/len(v) + vmean(v, i+1);
 function ratios(v, i=0) = i >= len(v) ? [] : concat([v[i][1]/v[i][0]], ratios(v, i+1));
 
