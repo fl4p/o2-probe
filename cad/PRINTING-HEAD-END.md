@@ -112,8 +112,8 @@ Three diameters off the first ASA carrier, against the drawing:
 | | drawn | measured | shrink |
 |---|---|---|---|
 | flange OD | 39.1000 | 38.870 (mean of 38.90, 38.84) | −0.588 % |
-| spigot OD | 27.0000 | 26.830 | −0.630 % |
-| groove root | 25.0404 | 24.800 | −0.960 % |
+| spigot OD | 27.0000 | 26.830 (one reading) | −0.630 % |
+| groove root | 25.0404 | 24.800 (one reading) | −0.960 % |
 
 **Shrinkage is not one number.** The thin wall under the O-ring groove pulls
 harder than the flange rim does, and the spread — 0.372 percentage points, or

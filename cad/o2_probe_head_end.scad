@@ -246,9 +246,9 @@ groove_root_d = well_d_made - 2*oring_cord + oring_cord*oring_squeeze*2;
 
 // SHRINKAGE COMPENSATION, printed carriers only. Measured on the first ASA
 // carrier off the P1P, 2026-09-03, against the drawing:
-//     flange OD   39.1000 -> 38.870   -0.588%
-//     spigot OD   27.0000 -> 26.830   -0.630%
-//     groove root 25.0404 -> 24.800   -0.960%
+//     flange OD   39.1000 -> 38.870   -0.588%   mean of two: 38.90, 38.84
+//     spigot OD   27.0000 -> 26.830   -0.630%   one reading
+//     groove root 25.0404 -> 24.800   -0.960%   one reading  <-- sets the seal
 // Shrinkage is NOT one number. The thin wall under the groove pulls harder than
 // the flange rim does, so a single XY scale in the slicer cannot fix this part:
 // the factor that corrects the root over-sizes the rim by the same stroke.
@@ -256,14 +256,37 @@ groove_root_d = well_d_made - 2*oring_cord + oring_cord*oring_squeeze*2;
 // Only the ROOT is compensated, because only the root moves the seal. Squeeze is
 // (well - root)/2, and the well is BORED to size, so it does not shrink with the
 // carrier -- that asymmetry is the whole problem. Uncompensated, a printed
-// carrier in a bored well squeezes 15.25%, against a 15% floor, with the 0.1 mm
-// of caliper resolution on that reading worth +/-1.6 points on its own.
+// carrier in a bored well squeezes 15.25%, against a 15% floor. The instrument
+// and the reference features for these readings were never recorded, so the
+// resolution is UNKNOWN; at an assumed 0.1 mm it is worth +/-1.6 points on the
+// root alone, which is the margin, so this is not a detail. The one spread we
+// do have is 0.06 mm, from the flange being read twice -- and not on the root.
 //
 // This is a compensation for THIS material on THIS machine, not a property of
 // the design, which is why the drawn value is what every seal calculation below
 // still uses: the compensated cut is expected to PRINT at groove_root_d.
 carrier_is_printed = (carrier_fab == "printed");
-carrier_shrink_root = 0.99040;      // 24.800 / 25.0404, measured
+
+// The RAW readings, as named parameters rather than prose, so the factor below is
+// derived from them and cannot drift out of step with its own comment.
+carrier_meas_flange = [38.90, 38.84];   // two readings, spread 0.06
+carrier_meas_spigot = [26.83];          // one
+carrier_meas_root   = [24.80];          // one -- and this is the one that seals
+function vmean(v, i=0) = i >= len(v) ? 0 : v[i]/len(v) + vmean(v, i+1);
+
+// The factor is (measured root)/(root that was actually PRINTED), and that second
+// number has to be recorded explicitly. groove_root_d is derived from well_d_made,
+// oring_cord and oring_squeeze, so writing the factor against the LIVE value would
+// mean any later change to the seal silently re-based a measurement taken on a part
+// that no longer matches -- the compensation would keep applying while its stated
+// basis quietly became false. So pin the as-printed value and assert on it.
+carrier_root_as_printed = 25.0404;      // groove_root_d at the time the part was cut
+assert(abs(groove_root_d - carrier_root_as_printed) < 1e-3,
+       str("groove_root_d has moved to ", groove_root_d, " but the shrink factor was ",
+           "measured on a part printed at ", carrier_root_as_printed,
+           " -- re-measure a part cut at the new value, or the compensation is ",
+           "correcting against a diameter nobody printed"));
+carrier_shrink_root = vmean(carrier_meas_root) / carrier_root_as_printed;
 groove_root_cut = carrier_is_printed ? groove_root_d / carrier_shrink_root
                                      : groove_root_d;
 // Compensating the root UP makes the groove shallower, so the wall under it
