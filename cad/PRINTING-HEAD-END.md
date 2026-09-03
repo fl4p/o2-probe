@@ -33,17 +33,35 @@ The head needs no support as modelled — every diameter change going up is eith
 a shrink (a short annular bridge inward) or the well floor, which is solid
 material. The two cap screw holes are Ø2.1 horizontal and self-bridge.
 
-## Slicing — Bambu Lab P1P, 0.4 nozzle
+## Slicing — Bambu Lab P1P, 0.4 nozzle, Textured PEI
 
 Profiles that actually apply (there is no `@BBL P1P` ASA profile; Bambu ships the
 X1C one and marks P1P compatible):
 
 - machine `Bambu Lab P1P 0.4 nozzle`
-- filament `Bambu ASA @BBL X1C 0.4 nozzle`
 - process `0.20mm Strength @BBL P1P` — Strength, not Standard: the O-ring groove
-  land and the six threaded bosses want the extra walls.
+  land and the six threaded bosses want the extra walls. Plus
+  `curr_bed_type = Textured PEI Plate`, 5 mm outer brim.
+- filament `Bambu ASA @BBL X1C 0.4 nozzle`, **flattened over its inherits chain**
+  — see below.
 
-Sliced result, 5 % outer brim, no support: **1 h 47 m, 40.67 cm³** of ASA.
+Verified in the emitted gcode: `filament_type = ASA`, nozzle 270 °C, bed 100 °C,
+`curr_bed_type = Textured PEI Plate`. **1 h 47 m, 40.67 cm³.**
+
+Two traps, both caught by `~/dev/ee/zoe/enclosure/slice-check.sh` rather than by
+reading the profile names:
+
+1. **The CLI defaults to Cool Plate.** The fitted plate is Textured PEI and the
+   P1P cannot detect it, so it has to be declared. ASA at a 100 °C bed on a plate
+   sliced for Cool Plate is wrong in both directions.
+2. **The CLI does not resolve a filament profile's `inherits` chain.** It loads
+   only the leaf file's own keys, silently. The leaf sets the *specific* values
+   and the parents hold the *general* ones, so the result is a hybrid that exists
+   in no profile: nozzle 270 °C (ASA, from the leaf) over a bed at **45 °C**
+   (PLA, defaulted) with `filament_type = PLA`. `filament_settings_id` in the
+   header still names the ASA profile — the provenance is right while the values
+   are wrong. Flatten the chain parent-first and pass one self-contained profile.
+   Recorded in `~/dev/kb/3d-print/orcaslicer-cli-does-not-resolve-filament-inherits.md`.
 
 - **Brim.** Three of the four parts are Ø39–47 flat discs. What warps first is
   the carrier flange and the retainer face, which are the two surfaces the seal
@@ -79,8 +97,9 @@ The ledge it wants to support is a 4.26 mm radial inward bridge. That is routine
 **So print with support off.** Both files are in `exports/` if you want to compare
 in the slicer:
 
-- `head-end-asa-p1p-nosupport.gcode.3mf` ← use this one
-- `head-end-asa-p1p-minsupport.gcode.3mf` (kept only to show what it does)
+- `head-end-asa-pei.gcode.3mf` ← the one uploaded to the printer
+- `head-end-asa-p1p-minsupport.gcode.3mf` (kept only to show what support does;
+  sliced before the plate and filament were corrected, so do not print it)
 
 They are gitignored: machine- and material-specific, several MB, regenerable from
 the tracked plate.
