@@ -279,32 +279,49 @@ variable, and a directly comparable part already in hand.
 flange/retainer stack height, the cap grip and cage, the socket over the tube,
 and whether the carrier actually enters the well. That is worth having.
 
-**It does not establish the seal**, and the numbers say so plainly. Running the
-model with the carrier printed rather than turned:
+**It now DOES establish the seal, which is a change from what this file said an
+hour ago.** The compensated carrier was cut at Ø25.2831 and measured Ø24.98 and
+Ø25.00 at two angular positions — mean **24.99** against a 25.0404 target, a
+−0.04 mm residual.
+
+| | groove root | stretch | squeeze |
+|---|---|---|---|
+| drawn / machined target | 25.0404 | 4.33 % | 22.65 % |
+| printed, uncompensated | 24.800 | 3.33 % | **14.90 % — out** |
+| printed, **compensated** | **24.99** | 4.13 % | **21.02 %** |
+
+Three things follow, and the third is the useful one.
+
+**Ovality is not the threat.** 0.020 mm out of round, worth 0.65 squeeze points.
+The between-part spread is 0.050 mm — **2.5× larger than the within-part ovality**
+— so the uncertainty lives in the shrink factor, not the geometry. Another part
+improves the estimate; another position on the same part does not.
+
+**Under-compensation fails safe.** Too little correction leaves the root small,
+the gland wide and the squeeze *high*. The −0.04 mm residual cost nothing.
+
+**The printed-carrier tolerance is no longer a guess, and that re-opens the
+route table.** ±0.15 mm was my own estimate with nothing behind it; three
+readings normalised by the diameter each part was actually cut at give a
+half-range of ±0.030 mm, doubled to **±0.06 mm** for a sample of two parts:
 
 | well | carrier | rings | band | |
 |---|---|---|---|---|
-| reamed H7 | machined | catalogue | 12.41 / 15 | PASS (production route) |
-| reamed H7 | **printed** | **sorted** | 11.97 / 15 | PASS |
-| reamed H7 | **printed** | catalogue | 19.24 / 15 | **FAIL** |
-| printed | printed | sorted | 24.88 / 15 | **FAIL** |
+| reamed H7 | machined | catalogue | 2.66 / 15 | PASS (production route) |
+| reamed H7 | printed | sorted | **5.84 / 15** | PASS (was 11.97) |
+| reamed H7 | printed | **catalogue** | **13.09 / 15** | **PASS — was 19.24, a FAIL** |
+| printed | printed | sorted | 24.88 / 15 | FAIL |
 
-So an as-printed pair does not seal, and no O-ring squeeze value exists that
-satisfies both ends of the tolerance band. To get a *sealing* prototype out of
-printed parts, two things must both happen:
+So **sorting rings with a micrometer may no longer be required** for a printed
+prototype. Treat that with suspicion: 13.09 of 15 leaves 1.9 points of headroom
+and rests entirely on the ±0.06 mm, which has two parts behind it. At ±0.10 the
+catalogue route fails again. Sorted rings stay the prudent choice until more
+carriers are measured — the point is that the *step is now inside the budget*,
+not that it should be skipped today.
 
-1. **Bring the well to H7.** Ø27.3 H7 is not a stock machine-reamer size; the
-   practical route is single-point boring on a lathe, which is diameter-agnostic
-   and does not care that 27.3 is an odd number. Moving the well to a stock
-   Ø27.5 reamer is *not* a drop-in — it pushes install stretch to 5.17 % and
-   trips the 5 % rule, so it would need a different ring ID.
-2. **Sort the rings by cord with a micrometer** and use the ones that fit.
-
-Route 2 above used to rest on a **±0.15 mm estimate for the printed groove root
-that was my own guess, not a measurement.** It has since been measured — see the
-table above — and the observed spread across the three features is 0.093 mm, so
-the estimate was the right order and slightly conservative. The root itself is
-still a single reading, so repeat it before trusting the compensation.
+**The well still has to be bored to H7.** That has not changed and no
+compensation touches it: the whole reason the root needs correcting is that the
+well does *not* shrink with the carrier.
 
 **The ASA carrier cannot carry the membrane.** The PMV15T disc is *welded* into
 the production carrier, and the production carrier is machined PP-H for exactly
