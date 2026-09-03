@@ -245,33 +245,73 @@ Four hypotheses died, and each cost a plate except the last:
   Raising it to 1.00 with the seal recipe cranked made the voids **worse**, not
   better, and turned the small bed-side voids into large ones.
 
-### The mechanism: Arachne deposits nothing where it cannot redistribute
+### Mechanism, settled: colliding perimeter loops in a rim that cannot be tiled
 
-`wall_generator = arachne` builds **variable-width** perimeters and absorbs narrow
-residual regions by widening neighbouring beads. Where it cannot, the region gets
-no material and no gap infill is generated. Measured on this plate:
+Two independent mechanisms, which is why five single-cause hypotheses all died.
 
-| `wall_generator` | gap-infill blocks | pair time |
-|---|---|---|
-| arachne (the profile default) | **0** | 49m 19s |
-| classic | **603** | 54m 20s |
+**Bed-side voids: Arachne left residue unfilled. FIXED.** `wall_generator = arachne`
+builds variable-width perimeters and absorbs narrow residue by widening neighbours;
+where it cannot, it deposits nothing and emits no gap infill. Measured on the pair:
+arachne **0** gap-infill blocks, classic **603**. `min_bead_width` is not the knob
+(85 % -> 50 % -> 25 % all give 0). Printing the retainer at classic made the bed face
+**visibly void-free**. Kept.
 
-`min_bead_width` is not the knob: swept 85 % -> 50 % -> 25 % under arachne, gap
-infill stays at 0. Line width is second-order (603 blocks at 0.65, 559 at 0.45).
-**`wall_generator` is the only lever found that changes whether the residue is
-filled at all.**
+**Remaining voids: loops from the hole colliding with loops from the flange OD.**
+Photographed 2026-09-03: lens-shaped slits *between* adjacent perimeters, along the
+arc where the two loop families meet — not at the holes. Visible because the rim is
+entirely perimeters, so nothing covers them.
 
-This accounts for every observation the four dead hypotheses could not: indifference
-to wall count, top pattern and flow, all of which are downstream of bead
-redistribution; worse at 0.65 than 0.45, because wider beads leave more residue;
-perfect systematic repeatability, because it is deterministic geometry; four-fold
-symmetry, from the medial axis of a round hole in a rim; and small-but-present on
-the bed side of every print.
+The rim holds 4.4 beads at 0.45 mm and is asked for 6 from each boundary, so the
+collision is structural. Even 3 loops per side over-subscribes it.
 
-**Still a hypothesis, not a result.** What is measured is the slicer's output, not
-a printed part. The test is the retainer at `wall_generator = classic` with every
-other setting left at the values the existing retainer was printed with — one
-variable, and a directly comparable part already in hand.
+**They stack, and that is the part that matters.** In the rim annulus, 4.988 mm² of
+footprint is touched and **3.517 mm² — 70.5 % — is present on every layer.** These are
+vertically continuous channels, not surface marks, because the cross-section is
+identical on every layer so the collision locus never moves.
+
+**No slicer setting unstacks them.** Measured:
+
+| | stacked, all layers |
+|---|---|
+| baseline 0.45 / 6 loops | 3.517 mm² |
+| `alternate_extra_wall = 1` | 3.547 — worse |
+| `+ seam_position = random` | 3.519 — no change |
+| line width 0.40 | **3.039 — −14 %** |
+| line width 0.50 | 4.183 — worse |
+| 0.50 + 2 loops | 9.701 — far worse |
+
+Seam randomisation cannot help: the seam is not where the slivers are. And no bead
+width tiles the rim, because the hole and the flange OD are **both curved** — the gap
+is 2.00 mm at the closest point, 2.30 mm at 40° round the hole and 3.34 mm at 90°.
+There is no single width to divide.
+
+Two settings that read like gap-fill switches and are not: `detect_thin_wall` and
+`filter_out_gap_fill` produce no gap infill at all under arachne. Count
+`; FEATURE: Gap infill` blocks in the emitted G-code, never the settings.
+
+### Decision, 2026-09-03: accepted as cosmetic, geometry unchanged
+
+Judged cosmetic on the printed part. The retainer clamps; the sealing surfaces are
+the flange face and the O-ring groove, both clean. **Recorded against that decision:
+70 % of the slits are through-channels, and a channel in a clamping face around a
+screw hole under preload is a crack initiator.** Accepted knowingly, not overlooked —
+revisit if a retainer ever cracks at a boss.
+
+The cause-level fix was priced and declined: flange 39.1 -> 40.1 gives a 2.50 mm
+narrowest gap for 0.5 mm of head wall and no gas volume. **Geometry left alone.**
+
+0.40 mm line width was also declined despite being a free −14 %, because process
+changes invalidate the shrink calibration: the factor is recorded as valid at a
+specific `wall_generator`, flow, layer height and line width, so every process
+change costs a carrier print to recalibrate. Adopting classic already forced one.
+Settled process: **`wall_generator = classic`, 0.45 mm, flow 0.95, 0.2 mm layers.**
+
+Also retired: four of my own metrics misread this. Fill-fraction returned 117–138 %;
+a top-14 listing hid 493 regions; a sliver-area map ranked arachne better than the
+eye did; an extruded-volume comparison ran 35 % high by counting retraction recovery
+as deposition. The slicer's own `; filament used [cm3]` header was the correct check
+and was present in every slice. A photograph settled in one frame what none of them
+could.
 
 ## What this print does and does not establish
 
