@@ -727,21 +727,44 @@ module assembly() {
 // Every printable part, laid out flat and print-oriented, as ONE file. Handing
 // a slicer four separate STLs loses a race with its own launch; one file does
 // not. The carrier is included as a FIT MODEL -- the real one is PP.
+// Which parts the plate carries.
+//   "all"    every printable part
+//   "ready"  drops the head. The head's length rides on cell_axial_len, which is
+//            still an unmeasured placeholder: 13.0 -> 14.0 moves it 28416 ->
+//            29590 mm3, so it is a part we expect to reprint. The other three
+//            come out byte-identical across that same sweep, which is what makes
+//            them printable NOW and the head not.
+plate_set = "all";
+assert(plate_set == "all" || plate_set == "ready",
+       str("plate_set must be all or ready, not: ", plate_set));
+
+// The two print-orientation flips are defined HERE and nowhere else. Both are
+// load-bearing, and a plate and a single-part export that each carry their own
+// copy of a flip are two chances to get it wrong; this way there is one.
+
+// Flange DOWN: as modelled the flange overhangs the spigot, which is a
+// 90-degree overhang all the way round.
+module carrier_printed() {
+    translate([0, 0, spigot_len + flange_t]) mirror([0, 0, 1]) carrier();
+}
+// Nose DOWN. As modelled the cap's solid plowing face sits on top of the open
+// cage band, so printing it nose-up asks the slicer to start a full dia-47 disc
+// in mid-air on six 3 mm ribs -- a ~39 mm island, not a bridge. Inverted, the
+// nose is the first layer and the lower shell arrives last as a 3.45 mm wide
+// annulus bridging rib to rib, anchored at both ends.
+module cap_printed() {
+    translate([0, 0, cap_oal]) mirror([0, 0, 1]) cap();
+}
+// The retainer is a flat disc and needs no flip; it exists here only so the
+// three print-oriented exports read as one set.
+module retainer_printed() { retainer(); }
+
 module plate() {
     pitch = head_od + 8;
-    color("Tan") head();
-    // Flange down: as modelled the flange overhangs the spigot, which is a
-    // 90-degree overhang all the way round.
-    color("Khaki") translate([pitch, 0, spigot_len + flange_t])
-        mirror([0, 0, 1]) carrier();
-    color("LightSteelBlue") translate([0, pitch, 0]) retainer();
-    // Nose DOWN. As modelled the cap's solid plowing face sits on top of the
-    // open cage band, so printing it nose-up asks the slicer to start a full
-    // dia-47 disc in mid-air on six 3 mm ribs -- a ~39 mm island, not a bridge.
-    // Inverted, the nose is the first layer and the lower shell arrives last as
-    // a 3.45 mm wide annulus bridging rib to rib, anchored at both ends.
-    color("DimGray") translate([pitch, pitch, cap_oal])
-        mirror([0, 0, 1]) cap();
+    if (plate_set == "all") color("Tan") head();
+    color("Khaki") translate([pitch, 0, 0]) carrier_printed();
+    color("LightSteelBlue") translate([0, pitch, 0]) retainer_printed();
+    color("DimGray") translate([pitch, pitch, 0]) cap_printed();
 }
 
 // Assembled and cut on the axis, which is the only view that shows the sealing
@@ -762,4 +785,9 @@ else if (part == "carrier") carrier();
 else if (part == "retainer") retainer();
 else if (part == "cap") cap();
 else if (part == "cavity") cavity();
+// Print-oriented single-part exports, for a slicer that takes STLs as-exported
+// and cannot be trusted to re-derive the flips.
+else if (part == "carrier-print") carrier_printed();
+else if (part == "retainer-print") retainer_printed();
+else if (part == "cap-print") cap_printed();
 else assert(false, "unknown part");
