@@ -1,3 +1,7 @@
 # Measured-mesh gate artifact: rebuilt by `make head-end-provisional`,
 # and a half-MB ASCII duplicate of a tracked binary STL.
 cad/exports/head-end-cavity-ascii.stl
+
+# Sliced output. Machine- and material-specific (P1P 0.4 / ASA), several MB
+# each, and regenerable from the plate 3mf; the plate is the tracked source.
+cad/exports/*.gcode.3mf

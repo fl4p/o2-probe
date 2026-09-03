@@ -33,15 +33,57 @@ The head needs no support as modelled — every diameter change going up is eith
 a shrink (a short annular bridge inward) or the well floor, which is solid
 material. The two cap screw holes are Ø2.1 horizontal and self-bridge.
 
-## Settings that matter
+## Slicing — Bambu Lab P1P, 0.4 nozzle
 
-- **Enclosure, and a brim.** The three large flat discs are Ø39–47 ASA on a hot
-  bed; warping lifts the flange and the retainer face, which are the two surfaces
-  the seal stack clamps against.
+Profiles that actually apply (there is no `@BBL P1P` ASA profile; Bambu ships the
+X1C one and marks P1P compatible):
+
+- machine `Bambu Lab P1P 0.4 nozzle`
+- filament `Bambu ASA @BBL X1C 0.4 nozzle`
+- process `0.20mm Strength @BBL P1P` — Strength, not Standard: the O-ring groove
+  land and the six threaded bosses want the extra walls.
+
+Sliced result, 5 % outer brim, no support: **1 h 47 m, 40.67 cm³** of ASA.
+
+- **Brim.** Three of the four parts are Ø39–47 flat discs. What warps first is
+  the carrier flange and the retainer face, which are the two surfaces the seal
+  stack clamps against.
+- **The P1P is open-frame** unless it has been given an enclosure. ASA on a bare
+  P1P will warp on discs this size. If there is no enclosure on this machine, that
+  is the single biggest risk to the print, ahead of anything in the geometry.
 - **Do not** let the slicer put a seam or a gap-fill artefact inside the Ø27.3
   well or on the flange face. Those are sealing surfaces.
-- Solid enough through the O-ring groove and the bosses: this is not a display
-  print. The bosses are threaded into by 6 thread-forming screws.
+
+## Support: the answer is none, and here is the evidence
+
+Support was enabled at the minimum useful setting — `normal(auto)`, build-plate
+only, 30° threshold, 0.2 mm top gap — and the result sliced and analysed against
+the plate layout. It costs +1.88 cm³ and +4 m 38 s, and this is where it goes:
+
+| region | support moves | z | |
+|---|---|---|---|
+| head | 6283 | 0.20–15.80 | **inside the blind tube socket** |
+| carrier | 420 | 0.20–0.80 | first layer under the bore |
+| retainer | 10 | 0.20–3.00 | noise |
+| cap | 5 | 14.80–15.80 | noise |
+
+94 % of it is a **14 mm column packed inside the head's Ø32.4 blind tube socket**,
+put there because the socket roof at z = 14 is a 90° annular ledge and the socket
+floor is the build plate, so "build-plate only" does not exclude it. That socket
+is a *bonding* surface — the tube glues into it across `bond_gap` — it is blind,
+and you cannot reach in to clean it. Everything else support touches is 435 moves
+of noise.
+
+The ledge it wants to support is a 4.26 mm radial inward bridge. That is routine.
+
+**So print with support off.** Both files are in `exports/` if you want to compare
+in the slicer:
+
+- `head-end-asa-p1p-nosupport.gcode.3mf` ← use this one
+- `head-end-asa-p1p-minsupport.gcode.3mf` (kept only to show what it does)
+
+They are gitignored: machine- and material-specific, several MB, regenerable from
+the tracked plate.
 
 ## What this print does and does not establish
 
