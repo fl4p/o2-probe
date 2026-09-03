@@ -297,6 +297,10 @@ cap_stack = flange_t + retainer_t;
 band_z0 = cap_grip + cap_stack;          // start of the open breathing band
 band_z1 = band_z0 + guard_gap;
 cap_len = band_z1 + cap_front_t;
+// cap_len is the length that has to CONTAIN the stack, so it deliberately stops
+// at the plowing face. The nose taper still exists in the world, so anything
+// placing or measuring the whole part needs the overall length instead.
+cap_oal = cap_len + nose_taper;
 window_area = PI * pow(window_d/2, 2);
 guard_open = (PI*cap_od - rib_n*rib_w) * guard_gap;
 
@@ -731,7 +735,13 @@ module plate() {
     color("Khaki") translate([pitch, 0, spigot_len + flange_t])
         mirror([0, 0, 1]) carrier();
     color("LightSteelBlue") translate([0, pitch, 0]) retainer();
-    color("DimGray") translate([pitch, pitch, 0]) cap();
+    // Nose DOWN. As modelled the cap's solid plowing face sits on top of the
+    // open cage band, so printing it nose-up asks the slicer to start a full
+    // dia-47 disc in mid-air on six 3 mm ribs -- a ~39 mm island, not a bridge.
+    // Inverted, the nose is the first layer and the lower shell arrives last as
+    // a 3.45 mm wide annulus bridging rib to rib, anchored at both ends.
+    color("DimGray") translate([pitch, pitch, cap_oal])
+        mirror([0, 0, 1]) cap();
 }
 
 // Assembled and cut on the axis, which is the only view that shows the sealing
