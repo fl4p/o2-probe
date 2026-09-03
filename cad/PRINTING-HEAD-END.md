@@ -66,9 +66,10 @@ reading the profile names:
 - **Brim.** Three of the four parts are Ø39–47 flat discs. What warps first is
   the carrier flange and the retainer face, which are the two surfaces the seal
   stack clamps against.
-- **The P1P is open-frame** unless it has been given an enclosure. ASA on a bare
-  P1P will warp on discs this size. If there is no enclosure on this machine, that
-  is the single biggest risk to the print, ahead of anything in the geometry.
+- **This P1P is enclosed** (confirmed 2026-09-03), which is what makes ASA on
+  Ø39–47 discs reasonable at all. A bare-frame P1P would warp them, and the first
+  things to lift would be the carrier flange and the retainer face — the two
+  surfaces the seal stack clamps against.
 - **Do not** let the slicer put a seam or a gap-fill artefact inside the Ø27.3
   well or on the flange face. Those are sealing surfaces.
 

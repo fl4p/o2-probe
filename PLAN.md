@@ -43,7 +43,7 @@ doubles the sealing problem.
 
 ```
 [cable]── POTTED ZONE ──────────────────────────────┬─dam─┬── GAS ZONE ─────[tip]
-  pads → protection → buck/LDOs → MCU + RS485      │       │ SGX-OX cell (TH)
+  pads → protection → buck/LDOs → MCU + RS485      │       │ SGX-OX cell (socketed)
   expansion + programming                             │       │ SHT45 + one TMP117
   trimmed VREF → LMP91000 → ADS1119                │       │ 2×2512 + heater FET
   driven guard around CELL_RE                         │       │ heated ring lands [tip]
@@ -112,15 +112,168 @@ at `y = 107`, board centreline at `x = 10`. All dimensions below are mm.
   explicit 0.15 mm bridge through the left web. The gas-side B.Cu island has a
   solid `/HEATER_LOW` spreader. The SGX footprint adds a separate 3 × 6 mm NPTH
   rear-flow oblong.
+- **The cell is socketed, never soldered (2026-09-01).** DS-0637 (Iss. 1 and
+  Iss. 2) is silent on this, but the same-platform 4-series sheet is not:
+  **DS-0317 Iss. 2, note 3 — "Do not glue or solder to the connector pins as
+  this may damage the sensor and thereby invalidate the warranty, please use
+  PCB sockets."** Note 8 of the same sheet adds: degrease the board before the
+  sensor is fitted. This is not a footprint detail — it changes
+  five things below (footprint, z-stack, pin thermal path, RE leakage surface,
+  assembly order) and one thing in the firmware (§Firmware sketch: settling
+  after a swap). It also *agrees* with the plan's own framing: the cell is a
+  consumable replaced at service intervals (`--calibrate` audit list, risk 7),
+  which soldered pins quietly contradicted. Hand-solder heat next to a 60 °C-max
+  electrolytic part disappears as a risk at the same time.
+- **Cell pin geometry and the selected receptacle (researched 2026-09-01).**
+  DS-0637 Iss. 2's dimension drawing gives the Mini's pins as **Ø0.64 mm,
+  4 mm long, three in a straight row at 2.54 mm pitch, row offset 2.50 mm from
+  the body centre** (blanket tolerance ±0.15 mm; C/R/W left-to-right in bottom
+  view). This is **not** the 4-series pin — DS-0317 Iss. 2 gives Ø1.50 × 4.40 on
+  a Ø13.50 PCD — so the 4OX and the Mini need different sockets and the 4OX
+  outline is a mechanical stand-in only, never a socket source.
+  SGX's note-4 FAQ answer ("What is the recommended way to connect the
+  Electrochemical sensor?") links **Cambion** socket pages for Series 4, Series 7
+  and PS1 — and **nothing for the Mini-series**, so there is no vendor
+  recommendation to inherit for this cell; the FAQ's Series-4 link resolves to
+  Cambion 450-3326 (for Ø1.52–1.57 mm pins), which is the 4-series part.
+  **Selected candidate: Cambion 450-3703-01-03-00** — same family and vendor as
+  SGX's own recommendation, and the only listed member specified *at* the Mini's
+  pin: "Solder mount socket, for .025 (0,64) diameter pins". Copper body and
+  heat-treated beryllium-copper spring, **-03 = gold over nickel on both**
+  (take -03; -04/-06 put electro-tin on the body). Geometry that the layout must
+  use: **mounting hole Ø1.40 ±0.03**, barrel Ø1.35, **3.61 mm below the flange**,
+  flange 0.51 mm thick × Ø1.88, overall 4.12 mm. Farnell DE 2066532, 55 in stock
+  at €32.71 per 100 (ex VAT) on 2026-09-01, 7-week factory lead time; also
+  DigiKey and Anglia.
+  **DigiKey second source (DigiKey does not carry the Cambion at all — 0 hits
+  for `450-3703`, and the old US marketplace listing is dead): TE Connectivity
+  AMP 5050462-2, DigiKey A32382-ND**, €0.84 @1 / €0.667 @25, 33 800 in stock,
+  MOQ 1, gold 30 µin over beryllium copper, **−65…+126 °C** (a real vendor-side
+  attribute, which the Cambion lacks). Mounting hole Ø1.32, flange Ø1.77
+  (1.77 at 2.54 pitch is *better* spacing than the Cambion's 1.88). Two
+  caveats: its acceptance is a **band, .014″–.026″ (0,36–0,66 mm), so the 0.64
+  pin sits near the top** rather than at a designed nominal; and its socket
+  depth is **4.19 mm against the Cambion's 3.61**, which makes the back-face
+  protrusion worse, not better. TE's customer drawing (C-5050462 rev P) settles
+  the "open bottom" question: the family splits by bottom type, **-2 = open
+  bottom / gold, -8 = closed bottom / gold, -7 = closed / tin**. The closed-bottom
+  gold part is the one that keeps condensate from having a straight path through
+  the board at CELL_RE — and it is the one DigiKey does **not** stock (0 on hand;
+  33 800 of the open-bottom -2).
+- **Both candidates are ordinary THT solder-mount, so the cell barely moves in
+  z — but the pin may not let it seat.** Above the board the Cambion adds only
+  its **0.51 mm flange** (Ø1.88), and the TE only a thin top flare (Ø1.78 max,
+  thickness not dimensioned on the drawing): the can lands at ≈8.8 mm either
+  way. The z that matters is downward — 2.61 mm (Cambion) or ≈3.5 mm (TE) of
+  barrel out the back of a 1.0 mm board.
+  **The open question is axial, not vertical.** The cell pin is 4 mm long.
+  TE explicitly specifies **4.19 mm MAX PIN LENGTH** and a **2.54 mm MIN contact
+  point**, so a 4 mm pin engages properly with 0.19 mm to spare. Cambion states
+  no maximum pin length, and its bore is only about 3.6–4.1 mm deep behind a
+  closed base — so the cell may end up **resting on its pin tips instead of on
+  the three flanges**, which both raises z unpredictably and puts the cell's
+  weight on the contacts. Measure seated height with a real cell in a real
+  socket before the footprint is frozen; if the Cambion bottoms out, the fix is
+  the open-bottom TE part or a counterbored hole, not a shorter pin.
+- **Socket land, set 2026-09-01 — TE primary, Cambion borable.** The Rev-A
+  footprint carried Ø1.6 lands on a **0.9 mm** drill: a bare-pin hole for the
+  forbidden soldered mount. It becomes **Ø2.0 land on a 1.32 mm drill**, sized
+  for TE 5050462 (its drawing asks 1.32 +0.10/−0.00 for hand insertion, a
+  one-sided tolerance a fab can actually hold; Cambion's ±0.03 is tighter than
+  a normal plated-hole tolerance and must be respecified one-sided if used).
+  The land is deliberately larger than either flange so **the same board can be
+  bored out to 1.40 and take the Cambion instead** — a build-time choice, not a
+  respin. What that costs, all still inside the project rules:
+  | | at Ø1.32 (TE) | bored to Ø1.40 (Cambion) | floor |
+  |---|---|---|---|
+  | annular ring | 0.34 | 0.30 | — |
+  | copper beyond the flange | 0.11 (TE 1.78) | 0.06 (Cambion 1.88) | ≥0 |
+  | land-to-land at 2.54 pitch | 0.54 | 0.54 | 0.15 |
+  | drill-to-drill | 1.22 | 1.14 | 0.25 |
+  | **pad-2 copper to rear-slot edge** | **0.30** | **0.30** | 0.20 |
+  The last row is the one that moved: it was 0.50 with the Ø1.6 land, and
+  `audit_pcb.py`'s `SENSOR_APERTURE_PAD_GAP` now asserts 0.300 instead. The
+  margin over the 0.20 hole-clearance floor is halved, so **the rear slot may
+  not drift gasward-negative from y=145.3 without re-deriving this number**. If
+  a later revision wants the margin back, move the slot ~0.3 mm gasward — it
+  still spans the cell rear axis — rather than shrinking the land.
+  The land also forced the tip reroute that landed the same day: `/I2C_SCL` on
+  B.Cu now threads the pin row at **x=111.345**, 0.30 mm from the CELL_WE land
+  and 0.15 mm from CELL_RE — the corridor between the two lands is only 0.54 mm
+  wide, and that is the whole of it. **No further copper may enter the pin row.**
+  Any future widening of the land, or any second signal needing to cross there,
+  has to move SCL out of the row entirely (left of CELL_CE, since `/+12V_SW`
+  owns the right-hand side).
+  **Rejected: Mill-Max 0305** (e.g. `0305-0-15-80-47-27-10-0`) — its stated
+  acceptance is **.025″–.037″ (0,635–0,940 mm)**, so a 0.64 mm pin sits 5 µm
+  above the *minimum* of the range, the low-force edge, and any negative pin
+  tolerance falls out of it entirely; its shell is also brass with a matte-tin
+  outer plating, the wrong pair of metals to bet on in warm NH₃-bearing
+  condensate. The Mill-Max series that does fit the pin comfortably is **0327**
+  (.022″–.046″ / 0,559–1,168 mm), but its **Ø1.93 mm mounting hole leaves only
+  0.61 mm of board between holes at 2.54 mm pitch** against Cambion's 1.14 mm —
+  keep 0327 as the second source, not the first choice.
+- **Cell orientation — open, decide before layout freeze (raised
+  2026-09-01).** Rev A as drawn stands the cell on the board, axis normal to
+  the copper, gas face radial. Two motives argue for laying it down instead:
+  it deletes the 3 × 6 mm rear-vent aperture and everything that hangs off it
+  (plane splits, copper-keepout-is-not-flow, "aperture vs standoff"), because
+  both cell faces then sit in free gas; and it is the only mounting that lets
+  the can be **thermally bonded along its side to the heated island** instead
+  of coupling through three contacts, which is the cold-spot failure mode named
+  in §Firmware sketch. The three variants, with the constraint that decides
+  between them:
+  - **A — standing (Rev A as drawn).** With the selected Cambion receptacle the
+    height above the board is only ≈ 8.3 (can) + 0.51 (flange) ≈ **8.8 mm** —
+    comfortable on a 1 mm board on the tube centreline (≈13.5 mm per side in a
+    28 mm ID). **The cost is on the other face:** the barrel is 3.61 mm long
+    below the flange, so **≈2.6 mm of socket protrudes out the back of a 1.0 mm
+    board**, at three points inside the heated tip — directly into the B.Cu
+    `HEATER_LOW` spreader and next to the 3 × 6 mm rear-vent slot. Rev A must
+    either keep-out and re-route that copper, or move to a thicker board (which
+    is gated on the chord check above). A also keeps the rear-vent aperture and
+    the weak three-contact thermal path.
+  - **B — lying on the board.** Height ≈ **14.4 mm (the can diameter) plus
+    cradle standoff**, so it does **not** fit a centred board. It only closes
+    if the board moves onto a chord — 9.8 mm off centre for a 20 mm width,
+    giving 23.8 mm on the cell side — and that chord is not free: it contradicts
+    the "nominal 4 mm radial clearance per side" above and disturbs the x=0/x=20
+    ring castellations that feed the membrane heater. **B is therefore a
+    board-off-centre decision, not a socket decision**, and must be priced as
+    one (swept envelope, ring interface, potting fixture) before it is chosen.
+  - **C — past the board end, axis along the tube.** The cell sits in the tip
+    gas volume, cradled by the enclosure, pins reaching back into ordinary
+    vertical receptacles at the tip; both faces clear, the 5 g can carried by
+    the tube rather than the contacts, and no board-height term at all. This is
+    the variant to cost first if A's rear aperture or thermal path proves
+    unacceptable.
+  **Independently of A/B/C: do not lay a barrel receptacle flat on copper.** It
+  has no land pattern and no retention, the mating force becomes shear on a
+  fillet under a cylinder (line contact), and it puts the separable CELL_RE
+  contact flat against the board — a low-standoff capillary crevice on the one
+  node the driven guard exists to protect. If the mating axis must be parallel
+  to the board, use right-angle receptacles retained in plated holes, or a 90°
+  carrier tab soldered into edge castellations (the heated-ring interface
+  already establishes that pattern).
+  **Gate:** the socket geometry is now sourced (see the receptacle bullet) and
+  A's height is no longer the open question — the back-face protrusion is.
+  Confirm it, and the cell's own standoff over the flange, on a physical cell
+  and socket before freeze.
 - **Primary cell datum:** SGX-OX-ROHS-Mini body centre `(10.0, 93.5)`, body
   envelope Ø14.4 + datasheet tolerance. Rotate it with the three-pin row toward
-  the dam/AFE. Start the footprint from the datasheet's 2.54 mm pin pitch and
-  2.50 mm pin-row offset, but verify a physical sample before production release.
+  the dam/AFE. The pitch and row offset still come from the datasheet (2.54 mm
+  pitch, 2.50 mm pin-row offset), but the *holes* come from the chosen
+  receptacle's mounting-hole spec, not from the cell pin diameter, and the
+  courtyard must clear the receptacle body (Ø ≈ 1.5–2.0 mm at 2.54 pitch is
+  workable but is not free). Verify both against a physical sample — cell and
+  socket — before production release.
   Keep a Ø15.0 courtyard free of unrelated parts and preserve access to the top
   gas face.
 - **Rear gas path:** plated-copper-free 3 × 6 mm NPTH slot centred at
   `(10.0, 95.3)`, offset 1.8 mm gasward from the cell centre while spanning its
-  rear axis. The nearest slot edge is 0.50 mm from the pad-2 copper edge. The
+  rear axis. The nearest slot edge is 0.50 mm from the pad-2 copper edge —
+  **re-derive this from the receptacle land, which is larger than the pin pad
+  it replaces.** The
   Issue 2 datasheet does not dimension the rear port, so this is an
   explicit first-article fit/flow feature rather than an invented port diameter.
   Confirm the opening against a physical sample before production release.
@@ -143,6 +296,11 @@ at `y = 107`, board centreline at `x = 10`. All dimensions below are mm.
 - **Short gas end:** the square end stops at `y = 107`; the SGX centre is
   13.5 mm from that end. The enclosure, ring, and membrane carrier set the
   actual cell-to-membrane distance. Verify it on a 1:1 tube coupon.
+  **The socket lifts the can ~2–3 mm off the board**, so receptacle seated
+  height and its tolerance enter this distance and the assembled-height/chord
+  check directly, and they enter the head volume in
+  `cad/RESPONSE-CANDIDATE-VOLUME.md`. Measure the seated height of the actual
+  receptacle + cell pair; do not take it from a drawing.
 - **Cable end:** reserve the first 8 mm (`y = 0…8`) for four staggered solder
   pads, water-blocking/strain-relief geometry, and polarity silkscreen. Copper
   and components may not project beyond the outline. Expansion-connector height
@@ -171,6 +329,18 @@ at `y = 107`, board centreline at `x = 10`. All dimensions below are mm.
   V_RE ≈ 2.275 V it maximizes the surface voltage instead of minimizing it.
   Guard potential is specified before layout, not deferred. No mask relief or
   vias on the RE trace.
+  **The socket makes this harder, not easier.** A serviceable cell means the pin
+  escape can never be potted and the mating interface can never be coated: the
+  highest-impedance node in the design now ends in a bare separable contact
+  inside a condensing volume — exactly the "condensed pin escape" that the
+  ~1.8 MΩ / 335 nA arithmetic above says is enough to fake 0.1 % O₂. Therefore:
+  the driven guard extends to the CELL_RE receptacle land (guard ring on the
+  component side around it, not stopping at the trace); the leakage test coupon
+  must be measured **with a socket fitted, after the soak**, not on a soldered
+  coupon; and surface-insulation resistance across the seated contact is a
+  qualification measurement, not an assumption. If it does not close, the
+  fallback is a locally sealed/greased socket boot or a serviceable pigtail with
+  the cell held off-board — decided from the coupon measurement, not now.
 - **AFE bias verdict (Codex, to re-confirm from LMP91000 Rev. I in Phase 1):**
   the 24 % bias step exists and BIASSIGN gives V_WE−V_RE < 0, but the step
   tolerance is **±2 % of VREF = ±50 mV at 2.5 V** against the cell's ±10 mV
@@ -189,7 +359,11 @@ at `y = 107`, board centreline at `x = 10`. All dimensions below are mm.
   by calibration rather than a two-sensor PCB ΔT assumption.
 - tmp117-probe rules carried over: **no I2C pullups on sensed islands; ADD0
   never floats.**
-- Tube target: 32 mm OD PVC-U pipe (ID ≈ 28 mm) clears the 14.4 mm cell can;
+- Tube target: 32 mm OD (ID ≈ 28 mm) clears the 14.4 mm cell can. **Material
+  decided 2026-09-02 (`MEMBRANE.md`, *Enclosure material: printed ASA*): bought
+  tube for the potted body, printed ASA for the head**, released on the measured
+  leak/connected-volume gate and built with no sustained strain at temperature;
+  PVC-U pipe remains the body stock candidate.
   Rev-A outline = 20 × 107 mm (dimensioned above); gas window = heated
   dry-side carrier ring + **sintered-PTFE** membrane (Porex PMV15T; the vendor
   confirmed sintered, not expanded, on 2026-08-27 — see `MEMBRANE.md`) + mesh
@@ -206,8 +380,12 @@ at `y = 107`, board centreline at `x = 10`. All dimensions below are mm.
   potting alone does not stop; soak/cross-section test in bench phase.
 - **Potting process specified before assembly:** low-exotherm, low-shrink,
   low-ionic-content compound; max cure temperature; pour depth per pass;
-  pre-bake/clean; cure before mounting the EC cell where possible (WSON/DFN
-  shrink stress and exotherm are latent-failure sources).
+  pre-bake/clean (WSON/DFN shrink stress and exotherm are latent-failure
+  sources). **The cell goes in last, unconditionally** — it may never see
+  reflow, wash, bake, or cure heat, so the sequence is: build, clean, bake,
+  coat, pot, cure, electrically test with a socket shorting/dummy load, then
+  insert the cell by hand. The previous "cure before mounting the EC cell where
+  possible" was conditional; with a socketed, non-solderable cell it is not.
 - **Deployment envelope — the cell is operated out of spec (decision
   2026-08-27):** the pile core reaches **~75 °C** in the thermophilic phase,
   above the SGX cell's +60 °C rating and outside its 15–90 %RH continuous,
@@ -290,7 +468,15 @@ Fault bits: SETTLING (boot, 15 min) · I2C_FAIL per device · HEATER_RUNAWAY ·
 VIN_LOW · TEMP_OVER (T_gas > 60 °C, log-only) · DEW_SUSPECT ·
 EXP_PRESENT/EXP_FAIL (boot-time auto-probe of reserved addresses).
 Holding regs: slave addr, baud, ΔT setpoint, heater max duty, cal constants
-(log-linearity K, air-point), SHT45-pulse trigger.
+(log-linearity K, air-point), SHT45-pulse trigger, **SETTLING restart (cell
+swap)**.
+**Cell swap is now a routine, in-field event** (socketed consumable), and every
+extraction interrupts the bias: DS-0637 note 1 gives up to 15 minutes of
+out-of-spec settling afterwards. The SETTLING flag must therefore be assertable
+by the service holding register, and asserted automatically whenever the WE
+current goes open/out-of-range and returns. Readings inside that window are
+published as *absent*, never as low O₂ — the same rule the oxygen dashboard
+already applies to missing data.
 Heater control: **primary loop
 regulates measured chamber RH** (SHT45, hold ~85–90 % — the actual controlled
 quantity: condensation margin + the cell's 90 % continuous-RH spec). The one
@@ -304,7 +490,14 @@ placement: in the warmed cell microclimate** (same heated volume as the
 cell), not at a remote unheated inlet. **Cold-spot problem:** U10 measures PCB
 copper, but
 the 5 g ABS cell couples via three pins and gas — the cell cap or vent can
-sit at dew point while the PCB reads warm. The ring directly heats the dry
+sit at dew point while the PCB reads warm. **The socket makes that coupling
+weaker still:** the receptacle lengthens and raises the resistance of the only
+solid path from the heated board to the can, so the cell body runs colder
+relative to U10 than a soldered part would — the wrong direction for
+condensation on the can and the rear vent. The U10 → cell/membrane-minimum
+mapping (`CONDENSATION-MODEL.md`, which currently reasons about "the soldered-
+ring geometry") must be identified on a **socketed** coupon; a soldered thermal
+mock-up would flatter the result. The ring directly heats the dry
 membrane carrier; instrument the actual coldest membrane/carrier surface during
 qualification. **Stuck-on safety (hardware, not firmware):** FET gate
 pulldown, watchdog-bounded enable, absolute cell-temperature cutoff, heater
@@ -330,8 +523,11 @@ verification discipline established by `/Users/fab/dev/ee/hw/tmp117-probe/`:
   cable-pads↔logic creepage, expansion-connector clearance to the potting
   line, SHT45 hand-rework accessibility (it's a maintenance consumable —
   replaced at cell-service intervals).
-- Project-local footprints include the first-article SGX pattern and the
-  two-contact castellated heated-ring interface.
+- Project-local footprints include the first-article SGX pattern — **a
+  three-receptacle socket pattern, not solderable pin pads** — and the
+  two-contact castellated heated-ring interface. `audit_pcb.py` gains a check
+  that the cell footprint is the socket variant with the guard land present, so
+  a regression to soldered pin pads fails the gate instead of shipping.
 - TMP117 symbol/footprint from `tmp117-probe/lib/`; everything else new in
   per-project `lib/o2-probe.{kicad_sym,pretty}` (repo convention: no shared
   lib table).
@@ -356,13 +552,19 @@ verification discipline established by `/Users/fab/dev/ee/hw/tmp117-probe/`:
    STM32G071 105 °C order code + LCSC stock, RS485 xcvr, buck, LDOs, VREF,
    ADS1119, SHT45-AD1F, BMP390, heater FET, **SGX-4OX-ROHS outline** (rear
    vent → combined footprint vs adapter), Sensirion "Handling Instructions
-   SHT". Send the SGX CO₂-cross-sensitivity inquiry (whole OX family) now.
+   SHT". **Also: the SGX-recommended socket receptacle** (DS-0317 note 4 points
+   at the Gas Sensor FAQ) — part number, seated height, mounting-hole spec,
+   contact plating and temperature rating at 75 °C; a gold-on-gold contact is
+   the assumption to verify, since tin in a warm NH₃-bearing condensing gas is
+   the wrong contact metallurgy. Send the SGX CO₂-cross-sensitivity inquiry
+   (whole OX family) now, and put the socket question in the same mail.
 2. **Scaffolding.** Create `o2-probe/`, copy scripts, DESIGN.md skeleton,
    `PLAN.md` (this file).
 3. **Symbols/footprints.** New parts + TMP117 reuse; cell footprint.
 4. **Schematic.** Blocks above; ERC gate; address/strapping asserted; AFE
    error-budget table written alongside.
-5. **Layout.** Zone partition, guard ring, pot datum, compact heated-ring tip; buck
+5. **Layout.** **Cell orientation (§PCB outline) closes here, before freeze.**
+   Zone partition, guard ring, pot datum, compact heated-ring tip; buck
    far from AFE + LC post-filter; DRC + settings verify.
 6. **Audit.** Rewrite audit.py checks, `--calibrate`, record in DESIGN.md.
 7. **Fab outputs.** BOM/CPL/Gerbers and capability confirmation from the
@@ -380,7 +582,10 @@ verification discipline established by `/Users/fab/dev/ee/hw/tmp117-probe/`:
   measured at 0 %/air/30 % O₂ over temperature; cell orientation
   characterized (horizontal/vertical/inverted — SGX is silent; assert
   nothing untested); heater stuck-on case exercised; cable soak/capillary
-  test; **final calibration with the complete gas path** (membrane, window,
+  test; **socket qualification — insertion/extraction retention with the 5 g can
+  unsupported, contact resistance and CELL_RE surface-insulation resistance
+  measured after the saturated soak, and a full remove/refit cycle proving the
+  15-min settling behaviour and the post-swap air-point**; **final calibration with the complete gas path** (membrane, window,
   chamber, heater running) — bare-cell calibration is insufficient.
 - Field: probe joins the RS485 bus beside the Apogee reference per
   compostlab `research/COMPOST-O2-SENSORS-BUDGET.md` §First-experiment.
@@ -420,8 +625,14 @@ ceiling, RH health channel, and calibrated-audit discipline remain.
    potentiostat built from 105/125 °C-grade parts. Unlike the cell, this is a
    hard silicon limit, not a degradation curve.
 3. SGX CO₂ cross-sensitivity answer pending — affects compensation needs.
-4. 12 V continuity from SDI-12-LB unverified (bias must never drop); if
-   switched per-poll → dedicated PSU. Verify before deployment, not layout.
+4. ~~12 V continuity from SDI-12-LB unverified (bias must never drop); if
+   switched per-poll → dedicated PSU.~~ **Closed 2026-08-31 in the dedicated-PSU
+   direction.** The node actually in hand is an RS485-LS, which has no 12 V rail
+   at all and gates its +5 V output with `AT+5VT` — "only powered up before each
+   sampling" (`tech/dragino/DRAGINO.md`). Any per-poll rail restarts the
+   15-minute settling timer every cycle, so the probe would never leave
+   `SETTLING`. The probe gets its own always-on 12 V supply and shares only
+   RS-485 A/B and a common ground with the node.
 5. 4OX mechanical compatibility (rear vent, 20 mm can vs board width) —
    Phase 1.
 6. SHT45 accelerated ageing at permanent high RH — treat as maintenance
@@ -431,7 +642,8 @@ ceiling, RH health channel, and calibrated-audit discipline remain.
    constraint. Open work: bound the drift and lifetime penalty at 70–75 °C on
    the bench and set the cell replacement interval from that measurement.
 8. Potting boundary quality is load-bearing for the RE leakage claim — audit
-   check + assembly note.
+   check + assembly note. The socketed cell adds a second load-bearing surface
+   the potting cannot protect (see the LMP91000-placement bullet).
 9. Expansion-connector sealing: an unused mating half above the pot line is a
    condensation/creepage point — connector body in the pot with only the
    mating face proud, dielectric grease + dust cap when unused; audit check.
@@ -439,7 +651,23 @@ ceiling, RH health channel, and calibrated-audit discipline remain.
     chamber or separate probe on the expansion pigtail; deferred, doesn't
     block this board. If SGX confirms CO₂ cross-sensitivity, the K33 head
     shifts from optional to required (correction input).
-11. SHT45 NH₃ compatibility — **resolved (2026-08-18, adverse but managed)**:
+11. **Cell socket, opened 2026-09-01** (DS-0317 note 3 forbids soldering).
+    Part selection is closed (Cambion 450-3703-01-03-00, see §PCB outline).
+    Still open: the **2.6 mm barrel protrusion into the back-side heater
+    copper**; whether the 5 g can needs mechanical retention against handling
+    and burial loads so the three contacts never carry it; SIR across a seated
+    contact after the saturated soak; and Cambion's temperature rating —
+    DigiKey lists −55…+125 °C for this part but **Cambion's own TDS states no
+    temperature range**, so that figure is a distributor attribute, not a
+    vendor spec, and is a question for Cambion. Contact *resistance* is not the
+    worry — 100 µA into a virtual ground makes even 1 Ω a 100 µV error, and RE
+    carries no current; the worry is the un-pottable separable surface and the
+    retention. Note also the drawing revision drift: an older archived copy of
+    the 450-3703 TDS gives the mounting hole as .057 (1,45) against the current
+    (19-Aug-2025) .055 (1,40) — use the current sheet and verify on a sample. Cell
+    orientation (standing / lying / past the board end) rides on the same
+    sample measurement — see the orientation bullet in §PCB outline.
+12. SHT45 NH₃ compatibility — **resolved (2026-08-18, adverse but managed)**:
     Sensirion "Handling Instructions SHTxx" (June 2025, archived in
     `datasheets/` in the **compostlab-literature** repository, SHA `80be25d`) §1.3 lists **NH₃ among chemicals
     that can irreversibly damage the sensor**, with no concentration
