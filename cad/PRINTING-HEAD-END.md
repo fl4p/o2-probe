@@ -350,31 +350,39 @@ between-part term and doubling for a sample of one:
 | well | carrier | rings | band | |
 |---|---|---|---|---|
 | reamed H7 | machined | catalogue | 2.66 / 15 | PASS (production route) |
-| reamed H7 | printed (classic) | **sorted** | **9.24 / 15** | **PASS** |
-| reamed H7 | printed (classic) | catalogue | **16.51 / 15** | **FAIL** |
+| reamed H7 | printed (classic) | **sorted** | **7.88 / 15** | **PASS** |
+| reamed H7 | printed (classic) | catalogue | **15.14 / 15** | **FAIL, but only just** |
 | printed | printed | sorted | — | FAIL |
 
-**So fixing the voids cost the catalogue-ring shortcut.** Micrometer-sorted rings
-are required again. That is a lost shortcut rather than a setback — sorting was
-always the plan for a printed prototype — but the seal-pair term runs at **68.1
-squeeze points per mm of tolerance**, so this is the most expensive axis in the
-chain and it is worth knowing which way it moved.
+**The catalogue-ring route sits exactly on the limit and must not be relied on:**
+14.45 of 15 points at ±0.08, 15.14 at ±0.09. A sourcing decision resting on 0.55
+points of a 15-point budget is not a margin. Micrometer-sorted rings pass at
+**7.88 — about half the budget** — and that is the route to use. The seal-pair term
+runs at **68.1 squeeze points per mm of tolerance**, making this the chain's
+costliest axis.
 
-**Third carrier, the classic process** (same cut 25.2831, same flow 0.95):
+**Third carrier, the classic process, seven angular positions** (cut 25.2831,
+flow 0.95): 25.00, 25.10, 25.06, 25.00, 25.03, 25.08, 25.02.
 
-| | root, two positions | mean | ovality | squeeze |
+| | mean | vs target | sd | squeeze at mean |
 |---|---|---|---|---|
-| arachne | 24.98 / 25.00 | 24.990 | 0.020 | 21.02 % |
-| **classic** | **25.00 / 25.10** | **25.050** | **0.100** | **22.97 %** |
+| arachne (2 positions) | 24.990 | −0.050 | — | 21.02 % |
+| **classic (7 positions)** | **25.0414** | **+0.001** | 0.0393 | **22.69 %** |
 
-Two opposite results. The mean is *better* — 22.97 % against a 22.65 % target, better
-centred than arachne managed — and `wall_generator` demonstrably moves the achieved
-root, by **+0.060 mm**, which confirms the process dependence was real. But ovality
-regressed **5×** and now costs 3.24 squeeze points instead of 0.65.
+**One micron off the 25.0404 target, and 22.69 % squeeze against a drawn 22.65 %.**
+Every position lands between 21.34 % and 24.59 %, all inside the 15–30 % window.
+The compensation is validated far better than the first two-position reading
+suggested — that reading happened to catch the two extremes.
 
-The factor is **not** re-tuned to classic: the correction would move the cut by
-−0.0097 mm, ten times smaller than the part's own ovality. Tuning to that is false
-precision.
+The 25.10 is kept. It sits 2.1 sd above the other six, which in a sample of seven
+is not an outlier, and dropping it would tighten the tolerance — the direction
+that flatters this model. Recorded so the choice is visible: without it, mean
+25.0317 and sd 0.0325.
+
+`wall_generator` still demonstrably moves the achieved root, by about +0.05 mm
+against arachne, so calibrating against a process and then changing it was a real
+risk. The factor is **not** re-tuned: the arachne-derived cut already lands the
+classic mean one micron from target.
 
 **And which spread dominates has flipped, which changes what to measure next.**
 Under arachne the variation was part-to-part (0.050 mm) and not out-of-round

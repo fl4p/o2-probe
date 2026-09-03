@@ -182,22 +182,24 @@ well_tol    = (well_finish == "reamed") ? 0.0105 : 0.20;   // ISO 286-2 H7
 //     carrier 2, cut 25.2831 -> 25.000   factor 0.98880   (position B)
 // Half-range 0.0012 on the factor = +/-0.030 mm on a 25.3 mm root.
 //
-// That was measured under ARACHNE and gave +/-0.06. The settled process is classic,
-// and its one carrier is 0.100 mm out of round -- +/-0.050 from ovality alone,
-// before any part-to-part term. With the arachne between-part figure of +/-0.025:
-// RSS +/-0.056, doubled to +/-0.11 for a sample of one on this process.
+// That was under ARACHNE and gave +/-0.06. The settled process is classic, and it
+// now has seven angular readings on one carrier: sd 0.0393, so 2 sd = +/-0.079 for
+// the ovality term. Combined in RSS with the arachne between-part figure of
+// +/-0.025 gives +/-0.083, taken as +/-0.09.
 //
-// WHICH SPREAD DOMINATES FLIPPED, and it decides what to measure next. Under
-// arachne the variation was part-to-part (0.050) and not out-of-round (0.020), so
-// more parts helped. Under classic ovality is 0.100 and dominates, so more
-// POSITIONS on a part are now the informative measurement. Do not carry the old
-// advice across the process change.
+// WHICH SPREAD DOMINATES FLIPPED at the process change, and it decides what to
+// measure next. Under arachne the variation was part-to-part (0.050 mm) and not
+// out-of-round (0.020 mm), so more parts were informative. Under classic ovality
+// is 0.100 mm and dominates, so more POSITIONS on one part is what pays -- which
+// is how this number got from a sample of two to a sample of seven without another
+// print. Do not carry the old advice across the process change.
 //
-// This costs the catalogue-ring route: at +/-0.06 it fitted at 13.09 of 15 points,
-// at +/-0.11 it needs 16.50 and fails. Micrometer-sorted rings are required again
-// (they pass at 9.24). The seal-pair term runs at 68.1 squeeze points per mm of
-// tolerance, so this axis is worth more than any other in the chain.
-carrier_tol = (carrier_fab == "machined") ? 0.05 : 0.11;   // printed, classic: see above
+// THE CATALOGUE-RING ROUTE SITS EXACTLY ON THE LIMIT and must not be relied on:
+// 14.45 of 15 points at +/-0.08, 15.14 at +/-0.09. A sourcing decision resting on
+// 0.55 points of a 15-point budget is not a margin. Micrometer-sorted rings pass
+// at 7.88, roughly half the budget, and that is the route to use. The seal-pair
+// term runs at 68.1 squeeze points per mm, making this the chain's costliest axis.
+carrier_tol = (carrier_fab == "machined") ? 0.05 : 0.09;   // printed, classic: 7 readings
 seal_tol = well_tol + carrier_tol;   // the gland varies by half this, each way
 // The ring's OWN cord tolerance, which this model ignored entirely until now.
 // It is the LARGEST term in the chain -- bigger than the bore and the groove
@@ -310,7 +312,17 @@ carrier_root_pairs  = [[25.0404, 24.800],   // carrier 1, uncompensated, arachne
 carrier_root_ovality = [24.98, 25.00];      // carrier 2, two angular positions
 
 // CARRIER 3, the settled classic process, same cut and same flow as carrier 2:
-carrier_root_classic = [25.00, 25.10];      // two angular positions
+carrier_root_classic = [25.00, 25.10, 25.06, 25.00, 25.03, 25.08, 25.02];
+// SEVEN angular positions. Mean 25.0414 against a 25.0404 target -- one micron.
+// Squeeze at the mean is 22.69% against the drawn 22.65%, and every position lands
+// between 21.34% and 24.59%, all inside the 15-30% window. The compensation is
+// validated far better than the first two-position reading suggested.
+//
+// The 25.10 is the earliest of these readings and sits 2.1 sd above the other six.
+// It is KEPT: 2.1 sd in a sample of seven is not an outlier, and discarding it
+// would tighten carrier_tol, which is the direction that flatters this model. Note
+// what dropping it would do -- mean 25.0317, sd 0.0325 instead of 0.0393 -- so the
+// decision is visible rather than buried.
 // Mean 25.050 against 24.990 on arachne -- wall_generator moved the root +0.060 mm
 // (factor 0.99078 against 0.98940), confirming the process dependence recorded
 // below is real and not theoretical.
