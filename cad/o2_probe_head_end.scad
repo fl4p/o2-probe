@@ -659,6 +659,53 @@ module retainer() {
     }
 }
 
+// VOID COUPON -- one bolt hole and about 1 cm2 of the flange around it.
+//
+// Three hypotheses for the voids around the bolt holes have now died: that six
+// perimeters cannot fit the rim (rim fill is BETTER at six), that the top surface
+// pattern causes it (monotonic on top voided anyway), and that thin-wall slivers
+// go unfilled (the slice emits no gap infill at all). Each cost a 25-minute plate
+// to reject. This coupon costs minutes, so settings can be swept instead of
+// guessed.
+//
+// It is built from the real parameters, not redrawn, so it cannot drift from the
+// part. What must be preserved is not the hole but the RIM OUTBOARD OF IT: the
+// hole edge sits 2.0 mm from the flange OD, and that is the constrained dimension
+// every dead hypothesis was about. The true arc is kept for the same reason -- a
+// straight outer edge changes how the perimeters pack.
+coupon_sweep = 50;                  // degrees, sized for ~1 cm2 of face
+coupon_r_in  = bolt_r - 3.5;        // artificial inner edge, well clear of the rim
+coupon_rim   = flange_d/2 - (bolt_r + m25_clear/2);
+assert(abs(coupon_rim - 2.0) < 0.15,
+       str("coupon rim is ", coupon_rim, " mm, not the 2.0 the voids appear in -- ",
+           "the bolt circle or flange OD moved, so this coupon no longer reproduces ",
+           "the defect it was built for"));
+echo(str("VOID COUPON: hole dia ", m25_clear, " at r ", bolt_r,
+         ", rim outboard ", coupon_rim, " mm, face area ",
+         (coupon_sweep/360)*PI*(pow(flange_d/2,2)-pow(coupon_r_in,2)), " mm2"));
+
+module void_coupon(t) {
+    intersection() {
+        difference() {
+            cylinder(d=flange_d, h=t);
+            translate([0, 0, -heps]) cylinder(d=2*coupon_r_in, h=t + 2*heps);
+            translate([bolt_r, 0, -heps]) cylinder(d=m25_clear, h=t + 2*heps);
+        }
+        rotate([0, 0, -coupon_sweep/2])
+            linear_extrude(t + 2*heps)
+                polygon([[0, 0], [flange_d, 0],
+                         [flange_d*cos(coupon_sweep), flange_d*sin(coupon_sweep)]]);
+    }
+}
+
+// Both thicknesses that showed the defect: the retainer voided on BOTH faces, the
+// carrier flange only on the face the bed did not press flat. Same plate, so a
+// settings change is judged against both at once.
+module coupon_plate() {
+    translate([0, 0, 0])  void_coupon(retainer_t);
+    translate([0, 14, 0]) void_coupon(cart_t);
+}
+
 // Connected gas volume as a solid, for mesh measurement. A bore-only figure is
 // not the connected volume -- that error let the bench fixture's first gate pass
 // at 5.02 cm3 against a real 7.44.
@@ -842,6 +889,7 @@ else if (part == "carrier") carrier();
 else if (part == "retainer") retainer();
 else if (part == "cap") cap();
 else if (part == "cavity") cavity();
+else if (part == "void-coupon") coupon_plate();
 // Print-oriented single-part exports, for a slicer that takes STLs as-exported
 // and cannot be trusted to re-derive the flips.
 else if (part == "carrier-print") carrier_printed();
