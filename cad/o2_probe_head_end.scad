@@ -729,14 +729,15 @@ module assembly() {
 // not. The carrier is included as a FIT MODEL -- the real one is PP.
 // Which parts the plate carries.
 //   "all"    every printable part
+//   "pair"   carrier + retainer only, for a reprint of just those two
 //   "ready"  drops the head. The head's length rides on cell_axial_len, which is
 //            still an unmeasured placeholder: 13.0 -> 14.0 moves it 28416 ->
 //            29590 mm3, so it is a part we expect to reprint. The other three
 //            come out byte-identical across that same sweep, which is what makes
 //            them printable NOW and the head not.
 plate_set = "all";
-assert(plate_set == "all" || plate_set == "ready",
-       str("plate_set must be all or ready, not: ", plate_set));
+assert(plate_set == "all" || plate_set == "ready" || plate_set == "pair",
+       str("plate_set must be all, ready or pair, not: ", plate_set));
 
 // The two print-orientation flips are defined HERE and nowhere else. Both are
 // load-bearing, and a plate and a single-part export that each carry their own
@@ -764,7 +765,7 @@ module plate() {
     if (plate_set == "all") color("Tan") head();
     color("Khaki") translate([pitch, 0, 0]) carrier_printed();
     color("LightSteelBlue") translate([0, pitch, 0]) retainer_printed();
-    color("DimGray") translate([pitch, pitch, 0]) cap_printed();
+    if (plate_set != "pair") color("DimGray") translate([pitch, pitch, 0]) cap_printed();
 }
 
 // Assembled and cut on the axis, which is the only view that shows the sealing
