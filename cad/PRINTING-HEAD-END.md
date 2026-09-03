@@ -219,24 +219,59 @@ bridging). Inherent to printing flange-down. The z = 5.20 step is a plain bore
 step and could be coned; the z = 1.20 one is the membrane sealing land and cannot.
 **This carrier therefore cannot be used to judge the membrane seal.**
 
-**Voids around the bolt holes** — carrier on the upper face only, the rim on both.
-Cause NOT established. Two hypotheses were tested against the G-code and neither
-survived:
+**Voids around the bolt holes.** Present on **every print so far, on both faces of
+both parts**, four-fold symmetric around each hole, and scaling with line width.
+Re-verified by eye 2026-09-03 after four prints.
 
-- *Six perimeters will not fit the 2.0 mm rim.* The arithmetic is right
-  (6 × 0.42 = 2.52 mm) but the conclusion is wrong: rim fill measures 100 % at
-  wall_loops 6, 98 % at 3 and 82 % at 2, because dropping perimeters hands the
-  middle to 25 % sparse infill. Fewer walls is worse.
-- *The top-surface pattern.* Switching `monotonicline` → `concentric` moves top
-  material −26.8 % on the carrier and +26.3 % on the retainer — opposite
-  directions, so it establishes nothing.
+That description is a correction. The first report was "carrier upper face only,
+rim both faces", and two hypotheses were built on that asymmetry before a closer
+look found small voids on the bed side of everything. The bed side was never
+clean — squish shrinks the defect, it does not close it — so the top/bottom
+difference is one of SIZE, not presence, and any explanation that needs a
+top-surface mechanism is explaining something that is not happening.
 
-What IS evidence: the carrier's two faces have identical geometry around the
-holes, and only the top is bad. Top uses `monotonicline`, bottom uses
-`monotonic`. That is a real controlled comparison, confounded only by the bed
-pressing the first layer flat. On that basis the one change worth trying is
-`top_surface_pattern = monotonic`, matching the face that came out clean —
-offered as the best available inference, not a diagnosis.
+Four hypotheses died, and each cost a plate except the last:
+
+- *Six perimeters will not fit the 2.0 mm rim.* Arithmetic right, conclusion
+  wrong: rim fill measures 100 % at wall_loops 6, 98 % at 3, 82 % at 2, because
+  dropping perimeters hands the middle to sparse infill. Fewer walls is worse.
+- *The top surface pattern.* `monotonicline` -> `concentric` moved top material
+  -26.8 % on the carrier and +26.3 % on the retainer — opposite directions. And
+  the reprint at `monotonic` voided anyway.
+- *Narrow slivers go unfilled because thin-wall detection is off.* The slice emits
+  **zero** gap infill with `detect_thin_wall` either off or on.
+- *Under-extrusion.* `filament_flow_ratio` is 0.95 in the ASA profile, a
+  deliberate 5 % under-extrusion documented in `~/dev/ee/p1p/doc/asa-and-the-mc-fan.md`.
+  Raising it to 1.00 with the seal recipe cranked made the voids **worse**, not
+  better, and turned the small bed-side voids into large ones.
+
+### The mechanism: Arachne deposits nothing where it cannot redistribute
+
+`wall_generator = arachne` builds **variable-width** perimeters and absorbs narrow
+residual regions by widening neighbouring beads. Where it cannot, the region gets
+no material and no gap infill is generated. Measured on this plate:
+
+| `wall_generator` | gap-infill blocks | pair time |
+|---|---|---|
+| arachne (the profile default) | **0** | 49m 19s |
+| classic | **603** | 54m 20s |
+
+`min_bead_width` is not the knob: swept 85 % -> 50 % -> 25 % under arachne, gap
+infill stays at 0. Line width is second-order (603 blocks at 0.65, 559 at 0.45).
+**`wall_generator` is the only lever found that changes whether the residue is
+filled at all.**
+
+This accounts for every observation the four dead hypotheses could not: indifference
+to wall count, top pattern and flow, all of which are downstream of bead
+redistribution; worse at 0.65 than 0.45, because wider beads leave more residue;
+perfect systematic repeatability, because it is deterministic geometry; four-fold
+symmetry, from the medial axis of a round hole in a rim; and small-but-present on
+the bed side of every print.
+
+**Still a hypothesis, not a result.** What is measured is the slicer's output, not
+a printed part. The test is the retainer at `wall_generator = classic` with every
+other setting left at the values the existing retainer was printed with — one
+variable, and a directly comparable part already in hand.
 
 ## What this print does and does not establish
 

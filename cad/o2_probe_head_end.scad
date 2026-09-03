@@ -674,8 +674,25 @@ module retainer() {
 // every dead hypothesis was about. The true arc is kept for the same reason -- a
 // straight outer edge changes how the perimeters pack.
 coupon_sweep = 50;                  // degrees, sized for ~1 cm2 of face
-coupon_r_in  = bolt_r - 3.5;        // artificial inner edge, well clear of the rim
+
+// The artificial inner edge has to be FAR ENOUGH IN, and the first version was not.
+// Measured on the first coupon: its whole cross-section came out as perimeters, with
+// ZERO bottom-surface infill, against 564 bottom-surface moves on the real part's
+// first layer. The perimeter field from the free inner edge had collided with the
+// hole's own, so the hole sat in colliding Arachne beads instead of the solid infill
+// it sits in on the flange -- a different structure, and one that generates its own
+// four-fold artifacts around a round hole. The coupon was measuring itself.
+//
+// So the inner edge is now placed so that wall_loops of the WIDEST line width we
+// might slice at still cannot reach the hole, and it is asserted rather than trusted.
+coupon_wall_reach = 6 * 0.70;       // wall_loops x widest line width considered
+coupon_r_in  = bolt_r - m25_clear/2 - coupon_wall_reach - 1.5;
 coupon_rim   = flange_d/2 - (bolt_r + m25_clear/2);
+assert(coupon_r_in + coupon_wall_reach < bolt_r - m25_clear/2,
+       str("coupon inner edge r=", coupon_r_in, " is too close: its perimeter field ",
+           "reaches r=", coupon_r_in + coupon_wall_reach, " and the hole starts at r=",
+           bolt_r - m25_clear/2, " -- the coupon would measure its own free edge"));
+assert(coupon_r_in > 0, str("coupon inner radius went negative: ", coupon_r_in));
 assert(abs(coupon_rim - 2.0) < 0.15,
        str("coupon rim is ", coupon_rim, " mm, not the 2.0 the voids appear in -- ",
            "the bolt circle or flange OD moved, so this coupon no longer reproduces ",
