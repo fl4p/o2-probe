@@ -243,6 +243,39 @@ well_d_made = well_d + well_bias;
 // Radial O-ring groove, cut into the spigot's outside diameter. Seated OD must
 // exceed the well bore by the squeeze; groove root follows from that.
 groove_root_d = well_d_made - 2*oring_cord + oring_cord*oring_squeeze*2;
+
+// SHRINKAGE COMPENSATION, printed carriers only. Measured on the first ASA
+// carrier off the P1P, 2026-09-03, against the drawing:
+//     flange OD   39.1000 -> 38.870   -0.588%
+//     spigot OD   27.0000 -> 26.830   -0.630%
+//     groove root 25.0404 -> 24.800   -0.960%
+// Shrinkage is NOT one number. The thin wall under the groove pulls harder than
+// the flange rim does, so a single XY scale in the slicer cannot fix this part:
+// the factor that corrects the root over-sizes the rim by the same stroke.
+//
+// Only the ROOT is compensated, because only the root moves the seal. Squeeze is
+// (well - root)/2, and the well is BORED to size, so it does not shrink with the
+// carrier -- that asymmetry is the whole problem. Uncompensated, a printed
+// carrier in a bored well squeezes 15.25%, against a 15% floor, with the 0.1 mm
+// of caliper resolution on that reading worth +/-1.6 points on its own.
+//
+// This is a compensation for THIS material on THIS machine, not a property of
+// the design, which is why the drawn value is what every seal calculation below
+// still uses: the compensated cut is expected to PRINT at groove_root_d.
+carrier_is_printed = (carrier_fab == "printed");
+carrier_shrink_root = 0.99040;      // 24.800 / 25.0404, measured
+groove_root_cut = carrier_is_printed ? groove_root_d / carrier_shrink_root
+                                     : groove_root_d;
+// Compensating the root UP makes the groove shallower, so the wall under it
+// gets thicker, not thinner -- the risk is at the other end: a root that
+// approaches the spigot OD stops being a groove at all.
+assert((groove_root_cut - spigot_bore)/2 >= 1.2,
+       str("compensated groove root ", groove_root_cut, " leaves only ",
+           (groove_root_cut - spigot_bore)/2, " mm of wall over the bore"));
+assert(spigot_d - groove_root_cut >= 2*0.5,
+       str("compensated groove root ", groove_root_cut, " is only ",
+           (spigot_d - groove_root_cut)/2, " mm below the spigot OD ", spigot_d,
+           " -- too shallow to retain the ring"));
 groove_w = groove_w_factor * oring_cord;
 spigot_len = groove_w + lead_chamfer + 1.5;   // the assert below, solved
 oring_stretch = groove_root_d/oring_id_ordered - 1;   // install stretch onto the groove
@@ -574,7 +607,7 @@ module carrier() {
         // off the spigot's OUTSIDE: a centred cylinder here bores the gas path
         // out to the groove root instead, which is silently a bigger cavity and
         // no groove at all.
-        translate([0, 0, lead_chamfer + 0.75]) ring_cut(groove_root_d, groove_w);
+        translate([0, 0, lead_chamfer + 0.75]) ring_cut(groove_root_cut, groove_w);
         // Lead-in chamfer on the spigot's leading edge -- annular for the same
         // reason: a centred cone opens the bore rather than breaking the edge.
         translate([0, 0, -heps])
