@@ -105,6 +105,65 @@ in the slicer:
 They are gitignored: machine- and material-specific, several MB, regenerable from
 the tracked plate.
 
+## First printed part, measured 2026-09-03
+
+**Carrier flange OD: 38.90 mm measured against 39.10 drawn — −0.20 mm, −0.512 %.**
+That is ordinary ASA shrinkage, and it is the first real number this design has
+had for a printed dimension.
+
+It matters because the well is *bored* to size and therefore does not shrink,
+while the spigot and groove root do. The two errors do not cancel — they add:
+
+| | groove root | stretch | gland | squeeze |
+|---|---|---|---|---|
+| as drawn | 25.0404 | 4.33 % | 1.1298 | 23.01 % |
+| at −0.512 % | 24.9123 | 3.80 % | 1.1938 | 18.87 % |
+
+So uniform shrinkage costs **4.14 squeeze points**, and the design's worst-case
+low end of 16.12 % would land near **12 %, under the 15 % floor**.
+
+Three caveats, and they matter as much as the number:
+
+- **One sample, one dimension.** This is the systematic *bias*, not the scatter.
+  My ±0.15 mm figure for a printed groove root was about scatter and this does
+  not replace it.
+- **The bias is correctable, the scatter is not.** A known −0.5 % is just a
+  bigger groove root. Only the scatter eats the tolerance budget.
+- Shrinkage is not isotropic and a wide flange rim need not shrink like a small
+  spigot, so **applying this factor to the groove root is an inference**.
+
+Next measurements, in priority order, both off the part already printed: the
+**spigot OD** (Ø27.000 drawn) and the **groove root** (Ø25.0404 drawn). Those two
+set the seal directly; the flange OD only stands in for them.
+
+## Surface defects on that print
+
+**Webbing across the bore.** Confirmed in the sliced G-code: two annular ledges
+that cantilever inward over open holes, at z = 1.20 (Ø21.60 → Ø16.86, 431
+overhang-wall moves) and z = 5.20 (Ø22.30 → Ø18.30, 385 moves plus internal
+bridging). Inherent to printing flange-down. The z = 5.20 step is a plain bore
+step and could be coned; the z = 1.20 one is the membrane sealing land and cannot.
+**This carrier therefore cannot be used to judge the membrane seal.**
+
+**Voids around the bolt holes** — carrier on the upper face only, the rim on both.
+Cause NOT established. Two hypotheses were tested against the G-code and neither
+survived:
+
+- *Six perimeters will not fit the 2.0 mm rim.* The arithmetic is right
+  (6 × 0.42 = 2.52 mm) but the conclusion is wrong: rim fill measures 100 % at
+  wall_loops 6, 98 % at 3 and 82 % at 2, because dropping perimeters hands the
+  middle to 25 % sparse infill. Fewer walls is worse.
+- *The top-surface pattern.* Switching `monotonicline` → `concentric` moves top
+  material −26.8 % on the carrier and +26.3 % on the retainer — opposite
+  directions, so it establishes nothing.
+
+What IS evidence: the carrier's two faces have identical geometry around the
+holes, and only the top is bad. Top uses `monotonicline`, bottom uses
+`monotonic`. That is a real controlled comparison, confounded only by the bed
+pressing the first layer flat. On that basis the one change worth trying is
+`top_surface_pattern = monotonic`, matching the face that came out clean —
+offered as the best available inference, not a diagnosis.
+
 ## What this print does and does not establish
 
 **It is a fit and geometry check.** It establishes the bolt circle, the
