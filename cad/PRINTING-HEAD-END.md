@@ -107,34 +107,108 @@ the tracked plate.
 
 ## First printed part, measured 2026-09-03
 
-**Carrier flange OD: 38.90 mm measured against 39.10 drawn — −0.20 mm, −0.512 %.**
-That is ordinary ASA shrinkage, and it is the first real number this design has
-had for a printed dimension.
+Three diameters off the first ASA carrier, against the drawing:
 
-It matters because the well is *bored* to size and therefore does not shrink,
-while the spigot and groove root do. The two errors do not cancel — they add:
+| | drawn | measured | shrink |
+|---|---|---|---|
+| flange OD | 39.1000 | 38.870 (mean of 38.90, 38.84) | −0.588 % |
+| spigot OD | 27.0000 | 26.830 | −0.630 % |
+| groove root | 25.0404 | 24.800 | −0.960 % |
 
-| | groove root | stretch | gland | squeeze |
-|---|---|---|---|---|
-| as drawn | 25.0404 | 4.33 % | 1.1298 | 23.01 % |
-| at −0.512 % | 24.9123 | 3.80 % | 1.1938 | 18.87 % |
+**Shrinkage is not one number.** The thin wall under the O-ring groove pulls
+harder than the flange rim does, and the spread — 0.372 percentage points, or
+0.093 mm on the root — is why a single XY scale in the slicer cannot fix this
+part: the factor that corrects the root over-sizes the rim by the same stroke.
+It also validates, and slightly exceeds, the ±0.15 mm estimate that Route 2
+below used to rest on. That estimate is now a measurement.
 
-So uniform shrinkage costs **4.14 squeeze points**, and the design's worst-case
-low end of 16.12 % would land near **12 %, under the 15 % floor**.
+The two errors do not cancel, they add, because **the well is bored to size and
+therefore does not shrink while the carrier does**. Squeeze is (well − root)/2,
+so all of the carrier's shrink lands on the seal:
 
-Three caveats, and they matter as much as the number:
+| case | stretch | gland | squeeze |
+|---|---|---|---|
+| as drawn, bored well | 4.33 % | 1.1298 | 23.01 % |
+| **measured root, bored well** | 3.33 % | 1.2500 | **15.25 %** |
+| root at 24.75 (−0.05) | 3.12 % | 1.2750 | **13.65 % — out** |
+| root at 24.85 (+0.05) | 3.54 % | 1.2250 | 16.86 % |
+| measured root, **printed** well | 3.33 % | 1.1640 | 21.08 % |
 
-- **One sample, one dimension.** This is the systematic *bias*, not the scatter.
-  My ±0.15 mm figure for a printed groove root was about scatter and this does
-  not replace it.
-- **The bias is correctable, the scatter is not.** A known −0.5 % is just a
-  bigger groove root. Only the scatter eats the tolerance budget.
-- Shrinkage is not isotropic and a wide flange rim need not shrink like a small
-  spigot, so **applying this factor to the groove root is an inference**.
+Uncompensated, a printed carrier in a bored well sits at 15.25 % against a 15 %
+floor, and the 0.1 mm of caliper resolution on that one reading is worth ±1.6
+points on its own. **Mixing processes is what breaks the seal** — a printed
+carrier in a *printed* well self-compensates and is nowhere near the floor.
 
-Next measurements, in priority order, both off the part already printed: the
-**spigot OD** (Ø27.000 drawn) and the **groove root** (Ø25.0404 drawn). Those two
-set the seal directly; the flange OD only stands in for them.
+Two caveats still stand. This is mostly the systematic **bias**, and only
+scatter eats the tolerance budget: a known −0.96 % is just a bigger groove root.
+And it is one part from one machine.
+
+There is one direct scatter reading in here, and it is worth separating out: the
+flange was measured **twice, at 38.90 and 38.84**, and 38.870 above is their
+mean. A 0.06 mm spread on one diameter of one part is not a distribution, but it
+is the only honest scatter number the design has, and it is comfortably inside
+the 0.093 mm the three-feature bias spread covers. What is still unmeasured is
+scatter *on the root*, which is the dimension that matters — hence the repeat
+measurement asked for below.
+
+### The compensation, and why only the root
+
+`o2_probe_head_end.scad` compensates the groove root, and nothing else, when
+`carrier_fab = "printed"`:
+
+    carrier_shrink_root = 0.99040;      // 24.800 / 25.0404, measured
+    groove_root_cut = groove_root_d / carrier_shrink_root;   // printed route only
+
+Only the root moves the seal, so only the root is compensated. This is a
+property of **this material on this machine**, not of the design, which is why
+every seal calculation still uses the drawn `groove_root_d`: the compensated cut
+is *expected to print* at the drawn value, and the machined drawing stays at
+25.0404. Verified on the mesh rather than the echo — the groove root cut renders
+at Ø25.0403 on the machined route and Ø25.2831 on the printed one, and both
+routes report the same 22.65 % squeeze.
+
+Compensating the root **up** makes the groove shallower, so the wall under it
+gets *thicker*. My first assert had that backwards. The two real risks are at
+the other end and are now gated: wall left over the bore, and a groove too
+shallow to retain the ring.
+
+Next measurement, in priority order: **the groove root again, at two or three
+positions**, to catch ovality. The whole compensation rests on a single 0.1 mm
+reading of the highest-leverage dimension on the part.
+
+### Reprinting it: the wipe temperature is part of the file
+
+The first attempt at this reprint aborted in stage 14 (cleaning nozzle tip). The
+nozzle wipe runs at `nozzle_temperature_initial_layer − 20`, so a 270 °C initial
+layer wipes at 250 — the viscous end of ASA's 240–280 range. Slice the reprint
+at `nozzle_temperature_initial_layer = 280` so the wipe runs at 260. Confirmed in
+the executable stream, not the header: `M109 S250 → M109 S260` on both wipe
+lines, while the body still drops to 270 for every layer above the first, so no
+measured feature prints hotter than the part these numbers came from.
+
+That is not a substitute for cleaning the tip by hand after a material swap —
+see `~/dev/ee/p1p/doc/levelling-faults.md`. A hotter wipe produces less new
+residue; it does not remove residue that is already there.
+
+Two CLI traps cost an hour reproducing this slice, both worth knowing before you
+try:
+
+- **A process preset loaded from outside the vendor tree must keep its
+  `compatible_printers`.** Drop it and the CLI prints exactly one line —
+  `run found error, exit` — with nothing above it. This is the failure the
+  `slicer-presets.md` advice ("the cause is the line above") does not cover,
+  and it is what an earlier session here misattributed to `--arrange 0`.
+  `--arrange 0` is a documented, valid option.
+- **`--export-3mf` takes a bare filename, not a path.** An absolute path is
+  concatenated onto `--outputdir`, giving `Project export to <outdir>/<abspath>
+  failed`.
+
+The preset was rebuilt from the previous slice's own resolved
+`Metadata/project_settings.config` — 638 keys, no `inherits` left — and
+validated the way `slicer-presets.md` prescribes: re-slicing reproduced the
+source plate's time exactly, 25 m 7 s. `slice-check` then passed on the
+**extracted** `plate_1.gcode`; handed the `.gcode.3mf` container it fails closed,
+because it greps raw text and the container is a zip.
 
 ## Surface defects on that print
 
@@ -191,9 +265,11 @@ printed parts, two things must both happen:
    trips the 5 % rule, so it would need a different ring ID.
 2. **Sort the rings by cord with a micrometer** and use the ones that fit.
 
-Also note the printed-carrier figure of **±0.15 mm on the groove root is my own
-estimate, not a measured value.** Route 2 above rests on it. Measuring the groove
-root on this very print is the cheapest way to replace that estimate with a fact.
+Route 2 above used to rest on a **±0.15 mm estimate for the printed groove root
+that was my own guess, not a measurement.** It has since been measured — see the
+table above — and the observed spread across the three features is 0.093 mm, so
+the estimate was the right order and slightly conservative. The root itself is
+still a single reading, so repeat it before trusting the compensation.
 
 **The ASA carrier cannot carry the membrane.** The PMV15T disc is *welded* into
 the production carrier, and the production carrier is machined PP-H for exactly
