@@ -31,6 +31,28 @@ Plan + review log live here (`farming/o2-probe/`). KiCad project target:
 **`/Users/fab/dev/ee/hw/o2-probe/`** (the hw repo, beside tmp117-probe);
 Phase 2 links/copies this plan there.
 
+### Companion documents
+
+This file is the plan of record. Where a subject grew past a bullet it moved to
+its own document, and **each of these carries decisions or retractions that this
+file does not repeat**:
+
+| document | subject | why you must read it |
+|---|---|---|
+| [`MEMBRANE.md`](MEMBRANE.md) | membrane, seals, enclosure material | the sealing stack and the O-ring decisions |
+| [`CONDENSATION-MODEL.md`](CONDENSATION-MODEL.md) | dew-margin physics | the reason the heater exists |
+| [`PROTOTYPE-RESPONSE.md`](PROTOTYPE-RESPONSE.md) | response time | the gas-volume budget |
+| [`HEATED-SPREADER.md`](HEATED-SPREADER.md) | the membrane heater | **§0: J5's ring is orphaned by the end-window head — the two head variants do not admit the same heater** |
+| [`POTTING.md`](POTTING.md) | potting compound and process | **§1: the per-board VREF trimmer is dropped — it cannot coexist with a potted board and a swappable cell** |
+| [`CONTACT-CORROSION.md`](CONTACT-CORROSION.md) | gas attack on contacts | **§3: the ENIG rationale in this project was wrong and is retracted** |
+| [`reviews/`](reviews/) | adversarial reviews | the evidence behind the retractions |
+
+Three claims in the older parts of *this* file are superseded by the documents
+above and have not been rewritten in place — the AFE trimmed-VREF option
+(`POTTING.md` §1), the heated-ring tip interface (`HEATED-SPREADER.md` §0), and
+the sufficiency of ENIG plus selective conformal coat (`CONTACT-CORROSION.md` §3).
+Treat the companion document as authoritative where they disagree.
+
 ## Architecture
 
 **One elongated 4-layer PCB with potted and gas zones separated by an assembly
@@ -679,3 +701,12 @@ ceiling, RH health channel, and calibrated-audit discipline remain.
     ~75 %RH 12 h over saturated NaCl) as the service procedure for pulled
     probes. Treat NH₃ damage as a when-not-if wear item in manure-rich
     piles; the TMP117-vs-SHT45 disagreement channel is the failure detector.
+    **Re-filed 2026-09-04 — this is not only an SHT45 note.** Sensirion's "low-
+    level corrosives … corrode solder contacts" applies to **every joint in the
+    gas zone**, and it was recorded here under the wrong heading. The gas-zone
+    corrosion problem, the H₂S concentrations from `research/COMPOST-GAS.md`, and
+    the retraction of this project's ENIG rationale are in
+    [`CONTACT-CORROSION.md`](CONTACT-CORROSION.md). Two consequences land on
+    *this* file's verification plan: the SIR coupon must be soaked in an
+    **H₂S-bearing** atmosphere rather than clean humidity, and the surface finish
+    is now an **open decision** rather than a settled one.
