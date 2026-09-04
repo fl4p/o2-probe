@@ -312,6 +312,11 @@ module cartridge_core_cuts_round(window_d, eps=0.02) {
 // Bored from anywhere else this is not merely worse, it is a blind pocket with
 // no path to the cavity: an earlier placement outboard of the disc rendered as a
 // SECOND CLOSED VOLUME and the Makefile's `Volumes: 2` gate is what caught it.
+// NOT CURRENTLY CALLED (2026-09-04). o2_probe_head_end.scad dropped its seal-land
+// pocket -- "let's try without first" -- because RING-PCB.md puts the heater, and
+// therefore its own sensor, on a PCB carried forward on the main board's fork.
+// Kept because the geometry and its clearance checks are correct and the pocket
+// is cheap to restore; see the note at the top of the head-end file.
 module cartridge_tsense_axial(window_d, bore=1.2, clear=0.2, ledge_min=0.3,
                               eps=0.02) {
     inner_d = window_d + (flare_inner - window);   // cone dia at the shelf

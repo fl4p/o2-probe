@@ -48,6 +48,20 @@ part = "assembly";   // assembly, head, carrier, retainer, cap, cavity
 // from the O-ring's sealing bore.
 fastening = "ptscrew";      // "ptscrew" or "insert"
 exploded = false;
+// Draw the prototype-1 body below the head as well: the printed ASA tube, its
+// bayonet cable cap and the dam. OFF by default, because those parts belong to
+// o2_probe_body_tube.scad and this file must not grow a dependency on them --
+// they come in as the STLs that model already exports, positioned, never as
+// geometry. Nothing here is exported; it is a drawing aid for `make
+// prototype-exploded`, which is the only view that shows the whole probe.
+show_body = false;
+body_dir = "exports";       // where those STLs live, relative to the build cwd
+// Interfaces to the body model. These are the SAME two numbers that file names
+// as tracking this one (head_socket_len, cap_engage); if either moves, the body
+// slides in this picture and the picture is the thing that would show it.
+body_tube_len = 127.0;      // o2_probe_body_tube.scad, tube_len
+body_cap_engage = 12.0;     // o2_probe_body_tube.scad, cap_engage
+seal_cord_body = 2.0;       // o2_probe_body_tube.scad, seal_cord
 
 // ------------------------------------------------- MEASURE THESE
 
@@ -95,8 +109,15 @@ echo(str("FASTENING: ", fastening, use_insert
 
 board_w = 20.0;             // KiCad Edge.Cuts, controlled
 board_t = 1.0;              // KiCad, controlled
-cell_d = 14.4;              // DS-0637 Iss. 2
-cell_h = 8.3;               // DS-0637 Iss. 2
+// MEASURED 2026-09-04 (Fab): 14.62 mm on a real can, against DS-0637 Iss. 2's
+// 14.4 nominal -- +0.22 on diameter. A measured interface dimension supersedes a
+// datasheet nominal, so this is the number the geometry is cut to. CAUTION: it is
+// ONE sample, so it is a value, not a tolerance band; the clearances below have
+// no statistical margin behind them yet.
+// neck_d is DERIVED from this (neck_d = cell_d + 2*neck_margin), so the finger
+// annulus of RING-PCB.md holds at 1.0 mm automatically instead of being eaten.
+cell_d = 14.62;             // MEASURED; DS-0637 Iss. 2 says 14.4 nominal
+cell_h = 8.3;               // DS-0637 Iss. 2 -- NOT re-measured
 bore_margin = 1.5;
 
 // Window sized to match the radial variant's TWO 10x10 coupons, so the
@@ -269,19 +290,27 @@ cap_screw_depth = 4.0;      // BLIND: must never reach the bore
 selftap_cap = 2.1;          // cap screws carry no seal load, so self-tap is fine
 nose_taper = 4.0;
 
-// Seal-land thermometry. PROTOTYPE-RESPONSE.md sets the heater's design point at
-// a 2 K membrane rise on no more than 4 K of block rise, i.e. a coupling
-// eta >= 0.5 -- and o2-condensation-model-research.md records that eta is
-// UNMEASURED and that the remote heater therefore "cannot yet be credited with
-// keeping the external PTFE membrane dry". Nothing in this variant could measure
-// it: heater_shelf_t appeared only in the gas-volume arithmetic, and the
-// thermometry cut the shared core provides was never called here.
-tsense = true;
-tsense_bore = 1.2;          // declared default, NO SENSOR SOURCED YET -- an
-                            // interface dimension, so it must not be guessed
-                            // past this point. The binding constraint is the
-                            // 2.0 mm HEATER LEDGE, not the plate thickness:
-                            // 1.6 leaves 0.2 mm either side and will not fit.
+// Seal-land thermometry: REMOVED 2026-09-04, deliberately -- "let's try without
+// first" (Fab). Added 2026-09-03 to supply the WARM END of the eta measurement
+// PROTOTYPE-RESPONSE.md needs (design point: 2 K membrane rise on no more than
+// 4 K of block rise, i.e. coupling eta >= 0.5, which
+// o2-condensation-model-research.md records as UNMEASURED). It was a 1.2 mm
+// blind pocket in the heater ledge, from the days when the heater was assumed to
+// live in this carrier.
+//
+// SUPERSEDED, not merely disabled. RING-PCB.md moves the heater onto a small PCB
+// carried on the main board's fork, so the heat SOURCE now carries its own
+// reflow-soldered sensor on two of the fork's four conductors. A second sensor
+// buried in a printed pocket, needing its own lead through the same bore, buys
+// nothing -- and it cost an interface dimension nobody could source: the 1.2 mm
+// was a declared placeholder bounded by the 2.0 mm heater ledge, never a part.
+//
+// cartridge_tsense_axial(), tsense_axial_r() and tsense_axial_top() remain in
+// membrane_cartridge_common.scad. To restore: re-add `tsense`/`tsense_bore`, the
+// bolt-circle clearance assert beside bolt_cut_max, and the call in carrier().
+// Note it never saw the membrane's CENTRE cold spot in any case -- that sits over
+// the flare cone with nothing to bore into, so eta always also needed a
+// temporary sensor on the membrane face.
 
 // ------------------------------------------------- derived
 
@@ -641,14 +670,6 @@ assert(mem_ring_inner_d >= window_d,
            "can slide over the gas path with nothing above it"));
 
 // ---- seal-land thermometry --------------------------------------------------
-// The module checks its own seal and shelf clearances; the bolt circle is only
-// known here. The bore sits at 270 degrees, the mid-gap of a 6-hole circle
-// started at 0, but it clears the holes RADIALLY too, so the check does not
-// depend on that and a changed bolt_n cannot quietly drill through it.
-tsense_r = tsense_axial_r(window_d);
-// The bolt-circle clearance check lives further down, beside bolt_cut_max:
-// assigning it here silently caught `undef` and fired on a bore that clears the
-// holes by 2.3 mm. Top-level assignments do NOT see a variable defined below.
 //
 // The ledge and seal-groove clearances are the module's own; it owns the
 // geometry that decides them.
@@ -664,16 +685,6 @@ assert(cbore_wall >= 1.0 - 1e-6,
            " mm to the sealing well; a change to insert_head_d or ",
            "insert_seal_wall can walk it into the O-ring seat with every other ",
            "assert still passing"));
-// Seal-land thermometry against the bolt circle. The bore sits at 270 degrees,
-// the mid-gap of a 6-hole circle started at 0, but it clears the holes RADIALLY
-// too -- so this does not depend on the angle and a changed bolt_n cannot
-// quietly drill through it.
-tsense_gap_bolt = (bolt_r - bolt_cut_max/2) - (tsense_r + tsense_bore/2);
-assert(!tsense || tsense_gap_bolt > 0,
-       str("thermometry bore reaches r ", tsense_r + tsense_bore/2,
-           " and the nearest bolt-circle cut starts at r ",
-           bolt_r - bolt_cut_max/2, ": they intersect. Move the bore in, ",
-           "or shrink it"));
 // Tripwire only: with bolt_r derived this reduces to an identity, and it is kept
 // so a hand-set bolt_r cannot quietly move the load-bearing hole inward.
 assert(bolt_r - fast_hole_d/2 - well_d/2 >= fast_seal_wall - 1e-6,
@@ -798,23 +809,6 @@ echo(str("MEMBRANE SEAL preload: UNVERIFIED. Sized on geometry only. The washer 
          "line at far lower load. Measure it. RISK: line contact on 0.18 mm ",
          "porous PTFE may cold-flow and relax; absent if the membrane is welded ",
          "into a PP cartridge and this joint becomes PP-on-ASA."));
-echo(tsense
-     ? str("SEAL-LAND THERMOMETRY: ", tsense_bore, " mm blind pocket at r ",
-           tsense_r, ", rising from the HEATER LEDGE at z ", heater_shelf_t,
-           " to ", tsense_axial_top(), " -- the only surface of this carrier ",
-           "that faces the sealed cavity, so the lead reaches the board without ",
-           "crossing a seal. Tip sits ", cart_t - membrane_t - tsense_axial_top(),
-           " mm under the membrane's dry face, directly beneath the clamped rim, ",
-           "and ", (cart_t - pocket_depth) - tsense_axial_top(),
-           " mm under the O-ring groove floor. Adds ",
-           PI/4*tsense_bore*tsense_bore*(tsense_axial_top() - heater_shelf_t),
-           " mm3 to the connected volume. MEASURES the seal-land boundary ",
-           "temperature beside the heater; it CANNOT see the membrane's centre ",
-           "cold spot, which sits over the flare cone with nothing to bore into ",
-           "-- eta still needs a temporary sensor on the membrane face, and this ",
-           "is the other half of that pair. Bore dia is a DECLARED default: no ",
-           "sensor is sourced, and the 2 mm heater ledge caps it near 1.2 mm.")
-     : "SEAL-LAND THERMOMETRY: OFF -- the heater's coupling eta stays unmeasured");
 echo(str("CUT LIST: PMV15T disc dia ", window_d + 2*land,
          carrier_is_pp ? " mm, welded into the carrier" : " mm, clamped in the carrier"));
 echo(str("fasteners: ", bolt_n, "x ", use_insert ? "M2.5 into heat-set inserts"
@@ -925,12 +919,6 @@ module carrier() {
         // in front of every boss and nothing can be assembled.
         translate([0, 0, spigot_len - heps])
             bolt_positions() cylinder(d=m25_clear, h=flange_t + 2*heps);
-        // Seal-land thermometry, from the DRY face so it stays inside the seal.
-        // This is what turns the heater's coupling from an assumption into a
-        // measurement -- see the echo below for what it can and cannot see.
-        if (tsense)
-            translate([0, 0, spigot_len])
-                cartridge_tsense_axial(window_d, tsense_bore, eps=heps);
     }
 }
 
@@ -1159,6 +1147,55 @@ module assembly() {
     // The cap is a shell that swallows the rest, so it has to travel furthest
     // before an exploded view shows anything.
     color("DimGray") translate([0, 0, head_len - cap_grip + 13.0*e]) cap();
+
+    if (show_body) body_stack(e);
+}
+
+// The prototype-1 body, imported from the STLs o2_probe_body_tube.scad exports.
+//
+// EVERYTHING BELOW THE HEAD EXPLODES DOWNWARD, for the same reason the board
+// does: it all assembles from the tube side. The head is bonded to the tube, so
+// nothing in this half can be shown arriving through the membrane.
+//
+// Frames. The body model's z=0 is the tube's CABLE end and its top face is at
+// z=body_tube_len; that face seats at head z=socket_len. So a body-frame point
+// maps to head z = socket_len - (body_tube_len - z_body). The cap is mirrored:
+// its own z runs from its mouth inward, and its mouth sits body_cap_engage above
+// the tube's cable end face when locked.
+module body_stack(e) {
+    // Explosion offsets are chosen so nothing hides inside the tube. The board
+    // is drawn by assembly() at -4.4*e and is 16 mm long, so its cable end
+    // reaches -4.4*e - 16; the tube's top face has to clear that or the whole
+    // gas end of the picture disappears up the bore -- which is exactly what
+    // the first render did.
+    tube_drop = 8.25*e;
+    dam_drop  = 5.9*e;
+    cap_drop  = 10.6*e;
+    tube_top_z  = socket_len - tube_drop;               // head frame
+    tube_base_z = tube_top_z - body_tube_len;
+    color("Sienna") translate([0, 0, tube_base_z]) import(str(body_dir, "/body-tube.stl"));
+    // The dam clamps round the board at body y=81; drawn between board and tube,
+    // which is also the order it is fitted in.
+    color("MediumPurple")
+        translate([0, 0, socket_len - dam_drop]) import(str(body_dir, "/body-dam.stl"));
+    // The cable-end seal, 28 x 2 EPDM, sitting on the tube's cable end face and
+    // squeezed by the cap. It was missing from this drawing until 2026-09-04,
+    // which mattered: it is not just a seal, it is the SPRING that pushes the
+    // tube back out and drops the bayonet lug into its detent pocket. A drawing
+    // without it shows a cap that cannot lock.
+    // Drawn Crimson rather than black because label-prototype.py separates the
+    // greys by row band, and a fourth grey at the bottom of the stack would be
+    // taken for the carrier's ring.
+    color("Crimson")
+        translate([0, 0, tube_base_z - 0.67*e])
+            rotate_extrude() translate([28/2 + seal_cord_body/2, 0])
+                circle(d=seal_cord_body);
+    // Cap: mirrored, because its own z runs from its mouth inward and the mouth
+    // faces the tube. Locked, its mouth sits body_cap_engage above the tube's
+    // cable end face.
+    color("DarkOrange")
+        translate([0, 0, socket_len - body_tube_len - cap_drop + body_cap_engage])
+            mirror([0, 0, 1]) import(str(body_dir, "/body-cap.stl"));
 }
 
 // Every printable part, laid out flat and print-oriented, as ONE file. Handing

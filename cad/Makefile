@@ -72,7 +72,10 @@ head-provisional: | $(OUT)
 
 HEAD_END := o2_probe_head_end.scad
 HEAD_END_PARTS := head carrier retainer cap cavity
-HEAD_END_PROV := -D tube_od_meas=32.0 -D board_env_front=3.5 -D board_env_back=1.5 \
+# board_env_front/back corrected 2026-09-04 from 3.5/1.5. RV1, the 5 mm trimmer,
+# is a Bourns 3224W on B.Cu -- the BACK -- so the tall face is the back, not the
+# front. Front is L1 (L_6.3x6.3_H3). Checked in o2-probe.kicad_pcb, not assumed.
+HEAD_END_PROV := -D tube_od_meas=32.0 -D board_env_front=3.0 -D board_env_back=5.0 \
                  -D cell_axial_len=13.0
 
 # Every single-part render must come out as exactly one closed solid. CGAL
@@ -149,3 +152,52 @@ head-end-exploded: | $(OUT)
 		--colorscheme=Tomorrow $(HEAD_END_PROV) -D 'part="assembly"' -D exploded=true \
 		-o $(OUT)/head-end-exploded.png $(HEAD_END)
 	cd .. && python3 cad/label-exploded.py
+
+# ---------------------------------------------------------------- body tube
+# Printed ASA body for prototype 1: unpotted Rev-A board, no heater ring.
+# `tube` and `cap` must each come out as ONE closed solid (CGAL "Volumes: 2");
+# `dam` is deliberately two halves and reads 3, so it is gated separately.
+BODY := o2_probe_body_tube.scad
+
+.PHONY: body-tube
+body-tube: | $(OUT)
+	@for p in tube cap; do \
+		$(OPENSCAD) --hardwarnings -D "part=\"$$p\"" \
+			-o $(OUT)/body-$$p.stl $(BODY) 2>$(OUT)/.b-$$p.log || \
+			{ cat $(OUT)/.b-$$p.log; exit 1; }; \
+		v=`sed -n 's/.*Volumes: *\([0-9]*\).*/\1/p' $(OUT)/.b-$$p.log | tail -1`; \
+		if [ "$$v" != "2" ]; then \
+			echo "FAIL $$p: $$v volumes, expected 2 (one closed solid)"; exit 1; \
+		fi; \
+		if grep -q "not be a valid 2-manifold" $(OUT)/.b-$$p.log; then \
+			echo "FAIL $$p: not 2-manifold"; exit 1; \
+		fi; \
+		rm -f $(OUT)/.b-$$p.log; \
+	done
+	@$(OPENSCAD) --hardwarnings -D 'part="dam"' -o $(OUT)/body-dam.stl \
+		$(BODY) 2>$(OUT)/.b-dam.log || { cat $(OUT)/.b-dam.log; exit 1; }
+	@v=`sed -n 's/.*Volumes: *\([0-9]*\).*/\1/p' $(OUT)/.b-dam.log | tail -1`; \
+	 if [ "$$v" != "3" ]; then \
+		echo "FAIL dam: $$v volumes, expected 3 (two halves)"; exit 1; \
+	 fi; rm -f $(OUT)/.b-dam.log
+	@echo "body-tube: tube and cap are closed solids, dam is two halves"
+	@# The bayonet is the one feature here that can be geometrically wrong while
+	@# every part still renders perfectly. Prove the kinematics, not the mesh:
+	@# clear all the way in at the entry angle, clear through the twist, and
+	@# INTERFERING as soon as it is pulled from the locked pocket.
+	python3 tools/bayonet_check.py
+	$(OPENSCAD) --viewall --autocenter --projection=p --imgsize=1500,1100 \
+		--camera=0,0,0,68,0,32,0 --colorscheme=Tomorrow \
+		-D 'part="assembly"' -D exploded=true \
+		-o $(OUT)/body-tube-preview.png $(BODY)
+
+# The WHOLE probe, exploded and labelled -- head stack, board, cell, and the
+# prototype-1 printed body. It imports the body STLs, so body-tube runs first.
+.PHONY: prototype-exploded
+prototype-exploded: body-tube
+	$(OPENSCAD) --hardwarnings $(HEAD_END_PROV) -D show_body=true \
+		-D 'part="assembly"' -D exploded=true \
+		--viewall --autocenter --projection=p --imgsize=1500,2300 \
+		--camera=0,0,0,72,0,25,0 --colorscheme=Tomorrow \
+		-o $(OUT)/prototype-exploded.png $(HEAD_END)
+	cd .. && python3 cad/label-prototype.py
