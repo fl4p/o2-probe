@@ -471,15 +471,25 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
     for number in sorted({pad.GetNumber() for pad in fork_pads}):
         at = {(round(mm(pad.GetPosition().x), 3), round(mm(pad.GetPosition().y), 3))
               for pad in fork_pads if pad.GetNumber() == number}
+        nets = {pad.GetNetname() for pad in fork_pads if pad.GetNumber() == number}
+        # NOTHING ON THE BENCH COVERS THIS JOINT.  The 2026-09-04 heater bring-up
+        # ran 86 mA entirely through RH1/RH2 on the main board with no ring
+        # fitted, so no current crossed J5 in either direction (o2probe-bench
+        # session).  This check is the only thing standing behind the fork tip --
+        # so it must test the join itself, not merely that some via is nearby:
+        # the via has to carry the finger's OWN net and actually span F.Cu to
+        # B.Cu, or it joins nothing.
         joined = any(
-            (round(mm(via.GetPosition().x), 3), round(mm(via.GetPosition().y), 3)) in at
-            or any(abs(mm(via.GetPosition().x) - x) <= 1.0
-                   and abs(mm(via.GetPosition().y) - y) <= 2.0 for (x, y) in at)
+            via.GetNetname() in nets
+            and via.TopLayer() == pcbnew.F_Cu and via.BottomLayer() == pcbnew.B_Cu
+            and any(abs(mm(via.GetPosition().x) - x) <= 1.0
+                    and abs(mm(via.GetPosition().y) - y) <= 2.0 for (x, y) in at)
             for via in board.GetTracks() if isinstance(via, pcbnew.PCB_VIA)
         )
         check(errors, joined, "RING_FORK_LAYER_JOIN",
-              f"J5 finger {number} has front and back lands at {sorted(at)} with no via "
-              "joining them; same-numbered pads share a net in the netlist but not copper")
+              f"J5 finger {number} ({', '.join(sorted(nets))}) has front and back lands at "
+              f"{sorted(at)} with no F.Cu-to-B.Cu via on its own net joining them; "
+              "same-numbered pads share a net in the netlist but not copper")
 
     heater_zones = [zone for zone in board.Zones()
                     if zone.GetZoneName() == "HEATED_ISLAND_SPREADER"]
