@@ -157,13 +157,38 @@ original defect; the guard must then fail every conversion rather than
 returning the previous channel. This is not a hypothetical: it is the failure
 that got a healthy ADS1119 replaced.
 
-**But that known-bad was observed against the code this guard replaces, not
-against the guard as landed.** `ads1119.c` is in no test build — the suite is
-host-native logic only — so "98 tests pass" is silent about the drain, the
-post-START confirmation and the config readback. Calibration against the real
-known-bad is therefore still OWED: put PB1 back into analog mode on the bench
-and confirm the fault word reports `ADS_DRDY_STUCK`, with no oxygen reading
-published.
+`ads1119.c` is in no test build — the suite is host-native logic only — so
+"98 tests pass" is silent about the drain, the status confirmation and the
+config readback. The calibration was therefore owed against real hardware, and
+**it has now been run (2026-09-05, first article, firmware 39b2d97).**
+
+| | Baseline | PB1 forced to analog | PB1 restored |
+|---|---|---|---|
+| `FAULTS` | `0x8001` | **`0xa001`** | `0x8001` |
+| `O2_RAW` | 100.81 uA | **`0x8000`** | 100.81 uA |
+| `VREF_MON` | 2492 mV | **`0xffff`** | 2492 mV |
+| `I2C_ERRS` | 0 | **0** | 0 |
+
+`0xa001` is `HEATER_DISABLED | ADS_DRDY_STUCK | SETTLING`: bit 13 fires on the
+exact defect that cost a week, both channels go to their invalid sentinels, and
+no oxygen number is published.
+
+**`I2C_ERRS` staying at 0 is the result worth keeping.** The failure was
+attributed to the PIN and not to the bus — the discrimination whose absence
+got a healthy ADS1119 desoldered. A guard that fired but blamed I2C would have
+passed a naive version of this test and still sent the next technician after
+the wrong component.
+
+The restore column is the second half of the calibration and was nearly left
+out. Removing the defect cleared the fault and the channel recovered to the
+same 100.81 uA **without a reset** — uptime ran straight through — which
+exercises the drain against a genuinely latched DRDY on real hardware. That
+was the first review's finding: a permanent lockout that a potted probe could
+not come back from. It is now demonstrated fixed rather than argued.
+
+Still untested by this: the config readback (`ADS_CONFIG_LOST`), which needs a
+device that stops storing configuration and cannot be produced by writing a
+GPIO register.
 
 ## 8. Fix vs mute
 
