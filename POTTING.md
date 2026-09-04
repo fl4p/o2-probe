@@ -369,6 +369,77 @@ for its nominal range.
 Soak-and-cross-section a terminated sample in the bench phase, as `PLAN.md`
 already requires. That test is what closes this section.
 
+### 5.1 The cable, by part number
+
+`CABLE-SOURCING.md` closes the cable half of item 4 below.
+
+**Bought 2026-09-05: LAPP UNITRONIC SENSOR FD Lif9Y11Y 4x0,25, article 7038890**
+— PUR, unshielded, UV- and oil-resistant, **−40…+80 °C fixed, −25…+80 °C
+flexed**, **OD 3,80 mm**, €1,70/m net from automation24. Chosen under a
+later OD < 5 mm constraint that excluded every candidate below. It is
+dimensionally the same cable as Truebner's TrueFlex but with a *published*
+temperature rating, which is what TrueFlex lacked.
+
+Previously recommended, and still the answer if vendor chemistry language
+outranks diameter:
+
+- **LAPP ÖLFLEX ROBUST 215 C 4X0,5, article 0022704** — TPE, shielded, UV and
+  ozone resistant to EN 50396 / HD 605 S2, −50…+80 °C fixed, **OD 6,6 mm**.
+  LAPP's 2017 application sheet names composting plants and claims "good
+  resistance" to ammonia compounds and bio-gases. Treat that as application
+  guidance, **not qualification**: LAPP publish no concentration, duration,
+  temperature or test method behind it, and the current product page omits the
+  language entirely. It is still the only candidate whose vendor names the medium
+  at all. Avoid the `4G` variant 0022703: the G forces a green-yellow core.
+- **Fallback above ~75 °C at probe depth:** ÖLFLEX HEAT 125 C MC 4X0,75, article
+  1024482, −55…+125 °C, OD 8,4 mm.
+
+Four consequences for this section:
+
+1. **Nothing here is water-blocked.** The tinning fallback in the first bullet
+   above is therefore not a fallback but the plan.
+2. **PUR is the right jacket family for a PU pot** — which is why the
+   fluoropolymer options (ÖLFLEX HEAT 205 C MC, FEP, −100…+205 °C) were not
+   chosen despite their temperature: FEP is exactly the material this section
+   warns that PU does not stick to. But "a PU pot will grip PUR once abraded" is
+   a **materials-class expectation, not a measured result** — adhesion is
+   formulation-dependent and no peel or pull test has been run. The terminated-
+   cable coupon this section already prescribes is what settles it; until that
+   coupon survives thermal and wet exposure, the bond is assumed, not known.
+3. **The ordered cable is unshielded and has no defined A/B pair.** See
+   `CABLE-SOURCING.md` §1: if the heater is ever enabled, scope A−B at worst-case
+   PWM duty and count CRC errors before trusting the link.
+4. **The colour convention breaks on the ROBUST parts** (cores numbered on black,
+   not DIN 47100 white/brown/green/yellow), so if one of those is bought instead,
+   record the number→function map in `DESIGN.md` and on the probe label.
+
+The **gland is still open**. Specify it against the *measured* OD of the cable
+in hand — nominally 3,80 mm now, which is small enough that an M12 gland with a
+3–6,5 mm range is the likely size rather than the M16 assumed when a 6,6 mm cable
+was expected. Measure before ordering: a gland relying on the bottom of its
+clamping range is the leak this whole section exists to prevent.
+
+### 5.2 If the run has to be joined
+
+A joint is permitted; an improvised joint is not. Two sanctioned routes:
+
+- **Soldered inline splice**, per Truebner's own procedure
+  (`truebner.de/de/anleitung_kabelverlaengerung.php`), **sited above grade or in
+  an accessible hand-hole, not buried** — Truebner's FAQ says the contact point
+  must never sit in soil, and their extension guide never withdraws that: stagger
+  the four core lengths, **solder only** — Truebner rule out clamp, crimp and screw joints for
+  long-term corrosion resistance — one adhesive-lined sleeve per core, then a
+  **25 cm** adhesive-lined outer sleeve, sized for the ground. Truebner's named
+  part is CellPack SRH2 8/2 (Voelkner X774691), which fits TrueFlex's 3,8 mm —
+  **and therefore fits the ordered 7038890 unchanged**, since it shares that OD;
+  a 6,6 mm ROBUST 215 C would need roughly 19/6 instead.
+- **A field-terminable connector pair**, per
+  [`../../tech/CONNECTORS.md`](../../tech/CONNECTORS.md), when the joint has to
+  be serviceable.
+
+What is forbidden is what Truebner's FAQ warns about: tape or non-adhesive
+heat-shrink, buried.
+
 ## 6. Cleaning, bake, and a hazard `PLAN.md` has not caught
 
 Before the pour: **no no-clean flux left under the pot.** Ionic residue plus the
@@ -439,7 +510,12 @@ build → clean → bake → conformal-coat gas zone (apertures clear)
    absent from both sheets — §4's creep figure still rides on a class estimate.
 3. Confirm the tube stock (PVC-U vs other) before quoting adhesion, and confirm
    its CTE — §4's 1.5 mm creep figure rides on it.
-4. Specify the cable and the gland by part number; run the soak/cross-section.
+4. ~~Specify the cable~~ **done and ordered, §5.1 / `CABLE-SOURCING.md`** (LAPP
+   7038890, OD 3,80 mm); specify the **gland** by part number against the
+   measured OD; run the soak/cross-section. Two claims in §5.1 are still
+   *assumed*: that a PU pot bonds to this PUR jacket (needs the coupon and a peel
+   test), and that an unshielded, untwisted run survives heater PWM (needs an
+   A−B scope trace and a CRC-error count once the heater is enabled).
 5. Add to `audit_pcb.py`: reject a board carrying any adjustable component on
    the potted side, and reject one whose `V_WE − V_RE` sense path is missing or
    is not guarded up to the follower input (§1.3).
