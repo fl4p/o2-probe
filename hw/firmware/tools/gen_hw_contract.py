@@ -34,7 +34,7 @@ OUT = FW / "src" / "hw_contract.h"
 # is emitted anyway (the contract is the whole map); this list only names the
 # ones board_pins.h is required to bind.
 REQUIRED_NETS = {
-    "VA_MON", "AFE_MENB", "ADC_DRDY", "HEATER_PWM",
+    "VA_MON", "VIN_MON", "CE_MON", "AFE_MENB", "ADC_DRDY", "HEATER_PWM",
     "RS485_TX", "RS485_RX", "RS485_DE", "I2C_SCL", "I2C_SDA",
 }
 
@@ -86,26 +86,43 @@ def build(g) -> str:
         raise SystemExit(f"nets bound to more than one MCU pin: {', '.join(dup)}")
 
     # --- dividers ---------------------------------------------------------
-    # ADS1119 AIN3: +12V_SW through R26 (top) / R27 (bottom).
+    # MCU ADC1_IN6 (PA6): +12V_SW through R26 (top) / R27 (bottom).  Moved off
+    # the ADS1119 when AIN3 was taken for cell bias telemetry.
     r26, r27 = val("R26"), val("R27")
-    # ADS1119 AIN2 and MCU ADC1_IN7: 3V3A through R24 / R25.
+    # MCU ADC1_IN7 (PA7): 3V3A through R24 / R25.  Also moved off the ADS1119.
     r24, r25 = val("R24"), val("R25")
     # ADS1119 AIN1: VREF_TRIM through R34 / R35.
     r34, r35 = val("R34"), val("R35")
-    # Driven guard replica around CELL_RE: VREF_TRIM through R22 / R23.
-    r22, r23 = val("R22"), val("R23")
+    # MCU ADC1_IN4 (PA4): the LMP91000's CE DRIVE PIN through R43 / R44.  Not the
+    # electrode -- SNAS506 6.5 bounds A1's drive at the device pin, so the pin is
+    # the node whose compliance can be exceeded.  100k/100k rather than the 10k
+    # pairs above because this divider loads A1's output directly.
+    r43, r44 = val("R43"), val("R44")
+    # R42 is the CE fault-current limit.  The firmware does not convert with it --
+    # it is inside the control loop, so it does not scale any measurement -- but a
+    # change here moves the compliance budget, so it is emitted to be asserted on.
+    r42 = val("R42")
 
-    # --- VREF trim network: R20 + RV1 (rheostat) + R21 to GND -------------
-    r20, r21, rv1 = val("R20"), val("R21"), val("RV1")
-    vdda_mv = 3300.0
-    vref_max_mv = vdda_mv * r21 / (r20 + r21)               # RV1 at 0 ohm
-    vref_min_mv = vdda_mv * r21 / (r20 + rv1 + r21)         # RV1 at full scale
-    # Wiper position that lands on the 2.500 V target the generator asserts.
+    # --- fixed reference: U15 AZ431B shunt, no adjustable part ------------
+    # POTTING.md 1.2 deleted R20/RV1/R21: the cell is swappable with the board
+    # potted, so nothing on the potted side may need trimming.  The window below
+    # is therefore the REFERENCE's guaranteed tolerance, not a pot's travel --
+    # a tighter check than the one it replaces.  AZ431-A Rev 3.4, B grade (the
+    # 0.4 % bin): VREF 2.490 / 2.500 / 2.510 at 25 C, plus "Deviation of
+    # Reference Voltage Over Full Temperature Range" of 10 mV MAX across
+    # -40..85 C.  Worst case is therefore 2.480..2.520 V.  The macro names are
+    # unchanged so main.c's health check keeps compiling, but they now mean "is
+    # the reference within spec", not "is the pot somewhere in range".
     vref_target_mv = 2500.0
-    rv1_at_target = vdda_mv * r21 / vref_target_mv - r20 - r21
+    vref_tol_mv = 10.0 + 10.0
+    vref_min_mv = vref_target_mv - vref_tol_mv
+    vref_max_mv = vref_target_mv + vref_tol_mv
 
     # --- heater -----------------------------------------------------------
-    rh = 1.0 / (1.0 / val("RH1") + 1.0 / val("RH2"))
+    # RH1/RH2 are GONE from this board: the heat source is on the ring PCB now
+    # (HEATED-SPREADER.md 0, RING-PCB.md 1), so its resistance is not a property
+    # of this schematic and no O2P_HW_HEATER_OHM is emitted.  Anything that used
+    # it must fail to compile rather than silently assume 140 ohm.
     r28, r29 = val("R28"), val("R29")
 
     # --- strapping that fixes the I2C addresses ---------------------------
@@ -143,30 +160,54 @@ def build(g) -> str:
         a(f"#define O2P_HW_NET_{net}_PIN {by_net[net][0]}")
     a("")
     a("/* ---- Resistive dividers the firmware converts with ---- */")
-    a("/* ADS1119 AIN3 <- +12V_SW: R26 %g / R27 %g */" % (r26, r27))
+    a("/* MCU ADC1_IN6 (PA6) <- +12V_SW: R26 %g / R27 %g */" % (r26, r27))
     a(f"#define O2P_HW_DIV_VIN_NUM   {r27:.0f}")
     a(f"#define O2P_HW_DIV_VIN_DEN   {r26 + r27:.0f}")
-    a("/* ADS1119 AIN2 and MCU ADC1_IN7 <- 3V3A: R24 %g / R25 %g */" % (r24, r25))
+    a("/* MCU ADC1_IN7 (PA7) <- 3V3A: R24 %g / R25 %g */" % (r24, r25))
     a(f"#define O2P_HW_DIV_VA_NUM    {r25:.0f}")
     a(f"#define O2P_HW_DIV_VA_DEN    {r24 + r25:.0f}")
     a("/* ADS1119 AIN1 <- VREF_TRIM: R34 %g / R35 %g */" % (r34, r35))
     a(f"#define O2P_HW_DIV_VREF_NUM  {r35:.0f}")
     a(f"#define O2P_HW_DIV_VREF_DEN  {r34 + r35:.0f}")
-    a("/* Driven guard replica of CELL_RE: R22 %g / R23 %g */" % (r22, r23))
-    a(f"#define O2P_HW_DIV_GUARD_NUM {r23:.0f}")
-    a(f"#define O2P_HW_DIV_GUARD_DEN {r22 + r23:.0f}")
+    a("/* MCU ADC1_IN4 (PA4) <- CELL_CE_DRV (U7 pin 14): R43 %g / R44 %g */" % (r43, r44))
+    a(f"#define O2P_HW_DIV_CE_NUM    {r44:.0f}")
+    a(f"#define O2P_HW_DIV_CE_DEN    {r43 + r44:.0f}")
+    a("/* CE fault-current limit, in the loop; scales nothing, bounds the budget. */")
+    a(f"#define O2P_HW_CE_SERIES_OHM {r42:.0f}")
+    a("/* SNAS506 6.5 characterises A1's drive only over 300 mV <= VCE <= VS-300 mV.")
+    a(" * Outside this the amplifier is simply not specified, so treat it as a")
+    a(" * fault, not as a reading.  VS is 3V3A. */")
+    a("#define O2P_HW_CE_COMPLIANCE_MIN_MV 300")
+    a("#define O2P_HW_CE_COMPLIANCE_MAX_MV 3000")
+    a("/* No guard divider: the guard is driven from the RE follower U4B through")
+    a(" * R40, so it tracks the real electrode instead of a 0.909 x VREF replica. */")
     a("")
-    a("/* ---- VREF_TRIM adjustment range (R20 + RV1 rheostat + R21, 3V3A) ---- */")
-    a("/* Bench trim target is 2.500 V: the LMP91000's 24 % bias step must land on")
-    a(" * the SGX cell's -600 +/- 10 mV window, so VREF is a MANUAL bench step that")
-    a(" * firmware can only verify, never set. */")
+    a("/* ---- Cell bias telemetry (ADS1119 AIN2/AIN3, differential) ---- */")
+    a("/* CORRECTED 2026-09-04. The old note here claimed the bias step carries")
+    a(" * +/-2 % of VREF, about +/-50 mV against a +/-10 mV cell window. That")
+    a(" * misreads SNAS506I: the +/-2 % figure is Bias Programming RESOLUTION, not")
+    a(" * accuracy. The accuracy parameter is VOS_RW, +/-1750 uV MAX at 24 % bias,")
+    a(" * which is INSIDE the SGX window -- confirmed on the bench 2026-09-04 at")
+    a(" * 597 mV measured against 598.56 mV commanded.")
+    a(" * So this pair is not a trim aid and never was. It is an EXISTENCE check:")
+    a(" * is the cell biased at all. On 2026-09-04 the LMP91000's control amplifier")
+    a(" * A1 failed outright and no converter on the board could see it. Read")
+    a(" * AIN2-AIN3 differentially, and compare against the COMMANDED bias with a")
+    a(" * window -- a floating input converts cleanly and in range, so a clip check")
+    a(" * does not catch it. */")
+    a("#define O2P_HW_BIAS_ADC_CH_WE  2")
+    a("#define O2P_HW_BIAS_ADC_CH_RE  3")
+    a("")
+    a("/* ---- VREF: U15 AZ431B 2.5 V shunt reference, NOT adjustable ---- */")
+    a("/* There is no trimmer. Firmware verifies the reference is within its own")
+    a(" * guaranteed window and reports the measured cell bias separately; it can")
+    a(" * neither set VREF nor correct the bias by moving it. */")
     a(f"#define O2P_HW_VREF_MIN_MV     {vref_min_mv:.0f}")
     a(f"#define O2P_HW_VREF_MAX_MV     {vref_max_mv:.0f}")
     a(f"#define O2P_HW_VREF_TARGET_MV  {vref_target_mv:.0f}")
-    a(f"/* 2.500 V lands at RV1 = {rv1_at_target:.0f} ohm of {rv1:.0f} ohm travel */")
     a("")
     a("/* ---- Membrane-ring heater ---- */")
-    a(f"#define O2P_HW_HEATER_OHM      {rh:.0f}   /* RH1 || RH2 */")
+    a("/* O2P_HW_HEATER_OHM is deliberately absent: RH1/RH2 moved to the ring PCB. */")
     a(f"#define O2P_HW_HEATER_GATE_R_SERIES {r28:.0f}   /* R28, PA8 -> gate */")
     a(f"#define O2P_HW_HEATER_GATE_R_PULLDN {r29:.0f}   /* R29, passive default-off */")
     a("")
