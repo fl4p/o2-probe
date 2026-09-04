@@ -173,7 +173,9 @@ Two measurements from tonight remain unexplained, and both sit on the ADC path:
 
 - **77 mV between the DMM at U7 pin 8 and the ADC's reading of that node.**
   R33 is 1 kOhm, R39 is DNP, and the ADS1119 draws +/-5 nA, which predicts about
-  5 uV of drop. The topology was independently confirmed. The gap is real.
+  5 uV of drop. The topology was independently confirmed. The gap is real, and
+  still unexplained - but see 6b: a second apparent witness for it, found on
+  2026-09-05, turned out to be a measurement artefact and must not be counted.
 - **AIN2 anomaly — RESOLVED: an open solder joint on U8 pin 5.** Localised by
   elimination: the R24/R25 divider junction read 1643 mV (correct, and not
   sagging, so nothing downstream drew current, which cleared R37 and C30), while
@@ -364,13 +366,62 @@ pinned. This one could not, and no amount of re-reading it would have said so.
 
 ## 6a. Still open at time of writing
 
-- **The board lost its supply** at the end of the session — uptime counting
-  backwards (1436 -> 1434 -> 1432), VREF 32769, VA ~600 mV and falling: decaying
-  SRAM, still publishing `O2_COMP 30.00 %vol` off a collapsing rail. **No bench
-  number timestamped after that point should be trusted until re-confirmed.**
+- ~~**The board lost its supply**~~ — **RETRACTED, it never happened.** The
+  symptoms (uptime counting backwards 1436 -> 1434 -> 1432, VREF 32769, VA
+  ~600 mV falling, `O2_COMP 30.00 %vol` off a "collapsing rail") were produced
+  by decoding a healthy dump with a STALE STRUCT LAYOUT: `t_die` had just been
+  appended to `o2p_snapshot_t`, moving every field after it. Confirmed by
+  decoding one dump both ways and reproducing the exact numbers. The board's
+  own uptime showed no reset. **The blanket instruction to distrust every bench
+  number after that point was therefore wrong, and is withdrawn** - those
+  readings are good.
 - **77 mV** between a DMM at U7 pin 8 and the ADC reading of that node,
-  unexplained. A leaky C28 at roughly 13 kOhm fits the observation.
+  **still open**. A leaky C28 at roughly 13 kOhm fits the observation. Re-tested
+  2026-09-05 and NOT reproduced by a second method; see 6b.
 - **`CAL_DEFAULT` cleared** without any calibration having been triggered.
+
+## 6b. The 77 mV, re-examined 2026-09-05 — and a trap worth keeping
+
+An attempt to corroborate the 77 mV by reading AIN0 directly over SWD, with the
+core halted and the firmware out of the loop, appeared to confirm it: 1047.8 mV
+direct against the firmware's 973 mV, a 75 mV gap of almost exactly the right
+size. **That was an artefact of the reading method, not a second witness.**
+
+What settled it was arithmetic, before any further measurement. At the 67 %
+internal zero and the 7 kOhm TIA, the firmware's 973 mV is 99.5 uA, which
+against the air calibration is 20.8 %vol - correct for a probe sitting in room
+air. The direct read's 1047.8 mV is 88.8 uA, or 18.6 %vol, which it plainly was
+not. **The reading that disagreed with the firmware was the wrong one.**
+
+Then three variants, all at a byte-identical config (`0x61`: AIN0, gain 1,
+20 SPS, single-shot, external reference):
+
+```
+A  back-to-back AIN0, config written once   956.78 -> 998.99 -> 1007.81 mV
+B  AIN0 after 3 s quiet gaps                -293.63,  0.00,  962.71 mV
+C  AIN2 immediately before AIN0             968.49 mV        (firmware: 964)
+```
+
+**C is the firmware's own channel sequence, and it agrees to 4.5 mV** — about
+0.6 uA, i.e. noise. Hammering one channel without ever leaving it drifts the
+result upward by tens of millivolts; interleaving another channel returns it to
+truth. No mechanism is asserted here, but the pattern is consistent with the
+ADS1119's sampling network working against the LMP91000's output through R33
+and recovering when the multiplexer moves away.
+
+Three things to carry forward:
+
+1. **The driver's channel interleaving is load-bearing.** An out-of-band read
+   that skips it returns a *stable-looking* wrong answer, which is far more
+   dangerous than an obviously broken one. B is the tell: the same method also
+   produced -293.63 mV and 0.00 mV, so no single output of it should ever have
+   been promoted to a finding.
+2. **A second witness that shares no method with the first is worth more than
+   agreement in magnitude.** This one agreed to within 2 mV of the original
+   77 mV and was still wrong. The coincidence made it more persuasive, not less.
+3. **The original DMM-vs-ADC gap is untouched by all of this.** It compares the
+   ADC against a meter; this compared the ADC against itself. Closing it still
+   needs a DMM on U7 pin 8 alongside a firmware reading of the same node.
 
 ## 7. The lesson that generalises: channels that cannot say "I don't know"
 
