@@ -34,6 +34,14 @@ drains, re-reads 0, and fails, every conversion, for as long as it lasts. The
 far tail (line dead) and the near miss (one stale latch) both behave correctly,
 and the far tail is the one that keeps failing.
 
+The case this reasoning originally missed is the one in between: an
+**intermittent** line (floating pin, open R19) can read low, drain, then read
+high by chance, which halves the detection probability rather than eliminating
+it. A deterministic dead line was always caught; a noisy one was not.
+`convert_once()` therefore re-confirms DRDY is high immediately *after* START,
+where the fastest data rate in use (1000 SPS, 1 ms) guarantees it must be.
+Monotonicity means little if the far tail is the only tail tested.
+
 ## 3. Preconditions
 
 `O2P_ADC_DRDY_PORT->MODER` is cleared to input mode in `o2p_ads1119_init()`,
@@ -58,11 +66,27 @@ configured. A failed probe therefore never caches "verified clean" — it caches
 "unknown", which forces the full change path (write, verify, throwaway) next
 time.
 
+**This was not true when first written.** Only the change path invalidated;
+the steady-state return carried 12 of the 15 conversions per cycle and passed
+failures through with the cache intact. It happened to be safe because
+`main.c` uses three mutually distinct configs and `accumulate()` abandons the
+phase on failure, so a failure was always followed by a change — the driver
+was correct only because of what today's caller does. The fast path now
+invalidates too.
+
 ## 6. Provenance
 
 This is the defect being fixed: the previous code produced a distinct
 `O2P_ADS_DRDY` status and then destroyed it at `main.c:318`, reporting an
-*I2C* fault for a *pin* failure. After this change the two are separately
+*I2C* fault for a *pin* failure. Two further instances were found by review
+after the first attempt: the drain returned "not recovered" for a failed
+*transfer*, publishing a bus fault as a pin fault — the same misreport with
+the sign flipped — and `O2P_ADS_CONFIG`, which fix 2 had just made reachable,
+had no bit of its own and landed on `I2C_FAIL_ADS`. Both now report
+themselves. **Making a check reachable without giving it a name is only half
+a guard**, and the published fault map is only as good as the decoders that
+read it: `tech/chirpstack/rs485-ls-decoder.js` holds a positional copy of this
+enum, and "no firmware writes bit 13" did not mean "nothing reads bit 13". After this change the two are separately
 visible in the published fault word. Recovery is deliberately **not** silent
 in the sense that matters: the I2C or timeout failure that stranded the result
 already raised its own fault bit in the cycle where it happened, so draining
@@ -74,8 +98,15 @@ The target failure is constructible and has been observed on this board.
 Putting PB1 back into analog mode (`MODER |= 3u << 2`) reproduces the exact
 original defect; the guard must then fail every conversion rather than
 returning the previous channel. This is not a hypothetical: it is the failure
-that got a healthy ADS1119 replaced, so the guard is calibrated against a real
-known-bad, not an imagined one.
+that got a healthy ADS1119 replaced.
+
+**But that known-bad was observed against the code this guard replaces, not
+against the guard as landed.** `ads1119.c` is in no test build — the suite is
+host-native logic only — so "98 tests pass" is silent about the drain, the
+post-START confirmation and the config readback. Calibration against the real
+known-bad is therefore still OWED: put PB1 back into analog mode on the bench
+and confirm the fault word reports `ADS_DRDY_STUCK`, with no oxygen reading
+published.
 
 ## 8. Fix vs mute
 
@@ -91,9 +122,14 @@ letting a distinct failure reach the operator as a distinct bit.
 - **Steady state: zero.** The drain executes only when DRDY is already low,
   which cannot happen on a healthy cycle. No extra bus traffic on the happy
   path.
-- **Config verification: 3 two-byte reads per 1 s cycle** (one per
-  channel/reference change: VREF, VIN, O2), roughly 150 us of bus time at
-  400 kHz on a bus that is otherwise idle for most of the second.
+- **Config verification: ~165 us per channel/reference change, ~500 us per
+  1 s cycle** (three changes: VREF, VIN, O2). RREG is a four-byte two-frame
+  transaction (SBAS925A 8.5.3.6) at roughly 95 us, and the change path also
+  issues a second `write_cfg()` of about 70 us on top of the one
+  `convert_once()` already performs. An earlier version of this section said
+  "150 us" and omitted the duplicate write entirely — understated by ~3x.
+  The duplicate WREG is harmless in single-shot with no conversion in flight,
+  but it is real traffic and it is counted here.
 - **Failure state:** one additional 1-byte-write + 2-byte-read per conversion
   while DRDY is stuck. Bounded, and only in a state that is already faulted.
 
@@ -101,7 +137,14 @@ letting a distinct failure reach the operator as a distinct bit.
 
 The 12 same-config conversions per cycle still write the config without
 reading it back. A device that stops storing configuration mid-cycle is
-therefore caught at the next channel change — within one cycle — rather than
-at the next conversion. That is a deliberate trade of ~50 us of bus time per
-conversion against a one-cycle detection delay, and it is stated here rather
-than left for a reader to discover.
+caught at the next channel change — within one cycle — rather than at the next
+conversion. That is a deliberate trade of bus time against detection latency.
+
+**Say the consequence out loud, because "within one cycle" sounds harmless:**
+the O2 phase is last, so a device that loses its configuration during the
+eight O2 conversions is detected at the *next* cycle's VREF change — after
+`finish_o2()` has already averaged and published those eight conversions,
+taken on an unverified configuration, with no fault set. One plausible number
+goes out before the guard speaks. Closing that costs a readback per
+conversion; it has not been paid, and this is why a future reader might
+decide to pay it.

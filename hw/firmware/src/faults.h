@@ -45,7 +45,15 @@ enum {
      * EXP_PRESENT, reserved for the J2 expansion header, which is DNP on
      * Rev A and written by no code - see FIRMWARE.md. */
     O2P_F_ADS_DRDY_STUCK      = 1u << 13,
-    O2P_F_EXP_FAIL            = 1u << 14,
+    /* The ADS1119's config register did not read back as written. Distinct
+     * from I2C_FAIL_ADS because the bus demonstrably WORKED - the readback
+     * completed, it just disagreed - and distinct from AFE_CONFIG_MISMATCH,
+     * which is the LMP91000's. This says: the thing at 0x40 is not storing
+     * configuration, so it is either failing or is not an ADS1119. Making the
+     * check reachable at run time (ads1119.c) without giving it a bit of its
+     * own would have left it indistinguishable from one NACK. Bit 14 was
+     * EXP_FAIL, for the J2 header that is DNP on Rev A. */
+    O2P_F_ADS_CONFIG_LOST     = 1u << 14,
     O2P_F_HEATER_DISABLED     = 1u << 15, /* always set in v0 */
 };
 
@@ -70,6 +78,7 @@ enum {
     | O2P_F_AFE_CONFIG_MISMATCH \
     | O2P_F_VA_LOW              \
     | O2P_F_ADS_DRDY_STUCK      \
+    | O2P_F_ADS_CONFIG_LOST     \
     | O2P_F_ADC_RANGE )
 
 /* Everything above, plus the reasons the CONVERSION cannot be trusted even
@@ -84,7 +93,10 @@ enum {
  * single bit: they would have fallen through on a DRDY failure and divided a
  * zeroed g_acc into a plausible-looking reading. Test the MASK, never one bit,
  * so the next status added here cannot reintroduce that. */
-#define O2P_FAULTS_ADS_NO_CONVERSION (O2P_F_I2C_FAIL_ADS | O2P_F_ADS_DRDY_STUCK)
+#define O2P_FAULTS_ADS_NO_CONVERSION ( \
+      O2P_F_I2C_FAIL_ADS   \
+    | O2P_F_ADS_DRDY_STUCK \
+    | O2P_F_ADS_CONFIG_LOST )
 
 /* The chamber channels have their own dependencies: RH and chamber
  * temperature come from the SHT45, tip temperature from the TMP117. */

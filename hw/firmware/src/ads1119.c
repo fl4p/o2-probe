@@ -116,14 +116,21 @@ o2p_ads_status_t o2p_ads1119_init(void)
  * released. Returns true only if DRDY is observed HIGH afterwards. A
  * misconfigured pin (the original defect: PB1 in analog mode, IDR reads 0
  * forever) drains, re-reads low, and correctly stays failed. */
-static bool drain_stale_result(void)
+static o2p_ads_status_t drain_stale_result(void)
 {
     const uint8_t rdata = O2P_ADS_CMD_RDATA;
     uint8_t rx[2] = {0u, 0u};
     if (o2p_i2c1_write_read(ADS_ADDR, &rdata, 1u, rx, 2u) != O2P_I2C_OK) {
-        return false;
+        /* The BUS failed, not the pin. Returning O2P_ADS_DRDY here would
+         * publish a bus fault as a pin fault - the exact mirror image of the
+         * misreport this guard exists to remove, and just as capable of
+         * sending a healthy part back as scrap. */
+        return O2P_ADS_IO;
     }
-    return (O2P_ADC_DRDY_PORT->IDR & (1u << O2P_ADC_DRDY_PIN)) != 0u;
+    if ((O2P_ADC_DRDY_PORT->IDR & (1u << O2P_ADC_DRDY_PIN)) == 0u) {
+        return O2P_ADS_DRDY;   /* read the result and the line still will not release */
+    }
+    return O2P_ADS_OK;
 }
 
 static uint32_t conversion_timeout_ms(uint8_t dr)
@@ -182,7 +189,20 @@ o2p_ads_status_t o2p_ads1119_convert(uint8_t mux, uint8_t dr, bool ext_ref,
         }
         s_last_cfg = cfg;
     }
-    return convert_once(cfg, dr, out_code);
+    /* Invalidate the cached configuration on ANY failure, including on this
+     * fast path. Until now only the change path did, which made the driver's
+     * safety depend on a property of its CALLER: main.c happens to use three
+     * mutually distinct configs, so an abandoned phase was always followed by
+     * a change and hence a re-verify. Reorder the phases, add one that reuses
+     * a config, or call o2p_ads1119_average() twice, and a device that had
+     * silently lost its configuration would be converted from a stale
+     * s_last_cfg with no readback. A driver must not be correct only because
+     * of what today's caller happens to do. */
+    o2p_ads_status_t st = convert_once(cfg, dr, out_code);
+    if (st != O2P_ADS_OK) {
+        s_last_cfg = 0xFFu;
+    }
+    return st;
 }
 
 static o2p_ads_status_t convert_once(uint8_t cfg, uint8_t dr, int16_t *out_code)
@@ -205,8 +225,9 @@ static o2p_ads_status_t convert_once(uint8_t cfg, uint8_t dr, int16_t *out_code)
          * Recovering here is not hiding anything: whatever stranded the result
          * (a failed RDATA, or a conversion that landed just after the timeout)
          * raised its own fault bit in the cycle where it actually happened. */
-        if (!drain_stale_result()) {
-            return O2P_ADS_DRDY;
+        o2p_ads_status_t dst = drain_stale_result();
+        if (dst != O2P_ADS_OK) {
+            return dst;
         }
     }
 
@@ -215,6 +236,19 @@ static o2p_ads_status_t convert_once(uint8_t cfg, uint8_t dr, int16_t *out_code)
     const uint8_t start = O2P_ADS_CMD_START;
     if (o2p_i2c1_write(ADS_ADDR, &start, 1u) != O2P_I2C_OK) {
         return O2P_ADS_IO;
+    }
+
+    /* A conversion has just been started and the fastest data rate this driver
+     * uses is 1000 SPS - 1 ms - so DRDY must still be HIGH here, microseconds
+     * later. Confirming that closes the hole the drain above would otherwise
+     * open: an INTERMITTENT line (a floating pin, an open R19) can read low,
+     * drain, then read high by chance, and the wait below would exit on the
+     * first spurious low and issue RDATA on a conversion that never finished -
+     * the original "returns the previous channel" signature, at reduced odds
+     * rather than eliminated. A deterministic dead line is caught either way;
+     * this is for the noisy one. */
+    if ((O2P_ADC_DRDY_PORT->IDR & (1u << O2P_ADC_DRDY_PIN)) == 0u) {
+        return O2P_ADS_DRDY;
     }
 
     /* Wait on the DRDY pin (PB1, open-drain, R19 pull-up): it falls when the

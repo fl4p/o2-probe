@@ -737,18 +737,32 @@ staging slot back.
 | 11 | `ADC_RANGE` | **yes** |
 | 12 | `CAL_DEFAULT` | **`O2_COMP` only — see below** |
 | 13 | `ADS_DRDY_STUCK` | **yes** — see below |
-| 14 | `EXP_FAIL` | no |
+| 14 | `ADS_CONFIG_LOST` | **yes** — see below |
 | 15 | `HEATER_DISABLED` | no — set whenever the loop is not driving, for any reason |
 
-**Bit 13 changed meaning on 2026-09-04.** It was `EXP_PRESENT`, reserved for
-the J2 expansion header. J2 is DNP on Rev A and no code ever wrote either
-expansion bit, so nothing downstream could have been reading it. It now
-reports a DRDY line that will not release — a *pin* failure, deliberately
+**Bits 13 and 14 changed meaning on 2026-09-04.** They were `EXP_PRESENT` and
+`EXP_FAIL`, reserved for the J2 expansion header, which is DNP on Rev A and
+was written by no firmware.
+
+*"No firmware writes it" did not mean "nothing reads it."*
+`tech/chirpstack/rs485-ls-decoder.js` in the `ha/farming` repo holds a
+**positional** copy of this enum and names every set bit for ChirpStack and
+Home Assistant, so between the rename and its update a stuck DRDY line was
+reported to the operator as `exp_present`. The decoder and the Grafana panel
+description have been corrected. **If this enum is renumbered again, those two
+must move with it** — they are in a different repository, which is exactly why
+they were missed.
+
+Bit 13 now reports a DRDY line that will not release — a *pin* failure, deliberately
 separate from `I2C_FAIL_ADS`, because the bus can be perfectly healthy while
 this pin is not. Reporting the one as the other is what sent a healthy
 ADS1119 back as scrap; the fault word said "I²C" and the board was believed.
 
-Test the mask `O2P_FAULTS_ADS_NO_CONVERSION`, never either bit alone, when
+Bit 14 reports that the ADS1119's config register did not read back as
+written: the bus worked, the device disagreed. It is separate from
+`I2C_FAIL_ADS` (one NACK) and from `AFE_CONFIG_MISMATCH` (the LMP91000's).
+
+Test the mask `O2P_FAULTS_ADS_NO_CONVERSION`, never any bit alone, when
 asking "did the converter deliver this phase?" — splitting the bit broke three
 call sites that tested the single bit and would otherwise have computed a
 plausible reading from a zeroed accumulator.

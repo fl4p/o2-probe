@@ -36,3 +36,6 @@ _Static_assert((O2P_FAULTS_ADS_NO_CONVERSION & O2P_FAULTS_INVALIDATE_O2)
                    == O2P_FAULTS_ADS_NO_CONVERSION,
                "every way the ADS1119 can fail to deliver a conversion must "
                "also invalidate O2: there is no reading to publish");
+_Static_assert((O2P_FAULTS_ADS_NO_CONVERSION & O2P_F_ADS_CONFIG_LOST) != 0,
+               "a config the device did not store means the conversion was "
+               "taken on an unknown channel or reference: there is no reading");

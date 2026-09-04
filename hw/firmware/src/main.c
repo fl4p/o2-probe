@@ -320,8 +320,11 @@ static bool accumulate(uint8_t mux, uint8_t dr, bool ext_ref, unsigned n)
          * ADS1119 came to be desoldered: the bus was fine, the fault word
          * said otherwise, and the board was believed. Everything else here
          * genuinely is a bus or device fault. */
-        g_cyc.faults |= (st == O2P_ADS_DRDY) ? O2P_F_ADS_DRDY_STUCK
-                                             : O2P_F_I2C_FAIL_ADS;
+        switch (st) {
+        case O2P_ADS_DRDY:   g_cyc.faults |= O2P_F_ADS_DRDY_STUCK;  break;
+        case O2P_ADS_CONFIG: g_cyc.faults |= O2P_F_ADS_CONFIG_LOST; break;
+        default:             g_cyc.faults |= O2P_F_I2C_FAIL_ADS;    break;
+        }
         g_sub = n;          /* abandon the phase; a partial average is not a
                              * measurement of any defined interval */
         g_acc = 0;

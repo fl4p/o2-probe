@@ -535,6 +535,7 @@ static void test_validity_matrix(void)
     static const uint16_t invalidating[] = {
         O2P_F_SETTLING, O2P_F_I2C_FAIL_LMP, O2P_F_I2C_FAIL_ADS,
         O2P_F_AFE_CONFIG_MISMATCH, O2P_F_VA_LOW, O2P_F_ADC_RANGE,
+        O2P_F_ADS_DRDY_STUCK, O2P_F_ADS_CONFIG_LOST,
     };
     for (unsigned i = 0; i < sizeof(invalidating) / sizeof(invalidating[0]); i++) {
         TEST_ASSERT_FALSE(o2p_o2_valid(invalidating[i]));
