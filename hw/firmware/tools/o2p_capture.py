@@ -52,8 +52,8 @@ TIA_OHM = 7000.0
 COLUMNS = [
     "iso_time", "status", "uptime_s", "seq", "vref_mv", "va_mv", "vin_mv",
     "afe_mv", "afe_rail", "cell_ua", "o2_raw_ua", "o2_comp_pct",
-    "t_tip_c", "t_chamber_c", "rh_pct", "faults", "settle_s", "i2c_errs",
-    "lmp_readback",
+    "t_tip_c", "t_chamber_c", "rh_pct", "dew_margin_c", "heater_duty_pct",
+    "pressure_hpa", "faults", "settle_s", "i2c_errs", "lmp_readback",
 ]
 
 
@@ -130,9 +130,10 @@ def decode(blob, int_z, tia_ohm, va_rail_mv):
         return None, f"live index {live} not 0/1 - wrong address?"
     b = blob[live * SNAPSHOT_LEN:(live + 1) * SNAPSHOT_LEN]
 
-    o2_comp, o2_raw, t_tip, t_cham, rh = struct.unpack_from("<HhhhH", b, 0)
+    o2_comp, o2_raw, t_tip, t_cham, rh, heater = struct.unpack_from("<HhhhHH", b, 0)
     faults, settle = struct.unpack_from("<HH", b, 12)
     vref, va, vin, afe = struct.unpack_from("<HHHH", b, 16)
+    dew, pressure = struct.unpack_from("<hH", b, 24)
     uptime, = struct.unpack_from("<I", b, 28)
     lmp_rb, = struct.unpack_from("<H", b, 34)
     i2c_errs, = struct.unpack_from("<H", b, 40)
@@ -170,6 +171,9 @@ def decode(blob, int_z, tia_ohm, va_rail_mv):
         "t_tip_c": c100(t_tip),
         "t_chamber_c": c100(t_cham),
         "rh_pct": "" if rh == U16_INVALID else f"{rh / 100.0:.2f}",
+        "dew_margin_c": c100(dew),
+        "heater_duty_pct": "" if heater == U16_INVALID else f"{heater / 100.0:.2f}",
+        "pressure_hpa": "" if pressure == U16_INVALID else pressure,
         "faults": f"0x{faults:04x}",
         "settle_s": settle,
         "i2c_errs": i2c_errs,
@@ -216,6 +220,19 @@ def main():
     fh = None
     if args.csv:
         fresh = not os.path.exists(args.csv)
+        if not fresh:
+            # Appending rows of a different shape under an existing header
+            # yields a file that still parses and is silently wrong from the
+            # join onward. Refuse instead, and say what to do about it.
+            with open(args.csv) as old:
+                header = old.readline().strip()
+            if header and header != ",".join(COLUMNS):
+                print(f"error: {args.csv} has a different column set.\n"
+                      f"  file: {header}\n"
+                      f"  tool: {','.join(COLUMNS)}\n"
+                      "Rename the old file and start a new one.",
+                      file=sys.stderr)
+                return 2
         fh = open(args.csv, "a", buffering=1)
         if fresh:
             fh.write(",".join(COLUMNS) + "\n")
