@@ -49,6 +49,11 @@ enum {
     O2P_HB_NO_TIP        = 1u << 4,  /* no fresh TMP117 reading */
     O2P_HB_NO_CHAMBER    = 1u << 5,  /* no chamber temperature for the dT clamp */
     O2P_HB_TIP_LIMIT     = 1u << 6,  /* tip at/above the firmware absolute limit */
+    /* INERT on Rev A hardware: tip-minus-chamber is structurally ~0 because
+     * U10 and U12 are one thermal node. Retained because the bit numbering is
+     * published and because a revision with a thermally separated sensor - the
+     * ring PCB's dropped temperature sensor - would make it live again. Do not
+     * count it as protection; see FAB-READINESS.md. */
     O2P_HB_DT_LIMIT      = 1u << 7,  /* tip-minus-chamber at/above DT_MAX_K */
     O2P_HB_RUNAWAY       = 1u << 8,  /* latched: heat with no command */
     O2P_HB_SUPPLY        = 1u << 9,  /* rail fault - do not add 86 mA of load */
@@ -88,6 +93,28 @@ enum {
 #define O2P_HEATER_RUNAWAY_WINDOW_S 60u
 #define O2P_HEATER_RUNAWAY_MARGIN_K100 200
 
+/* Runaway threshold on tip-minus-DIE.
+ *
+ * The chamber-referenced test above cannot see the failure it was written for.
+ * A stuck-on FET heats the whole tip assembly, and the SHT45 sits 6.6 mm from
+ * the TMP117 on the same copper, so both rise together: measured 2026-09-04
+ * across a 30 K excursion, |tip - chamber| never exceeded 0.17 K at ANY duty
+ * from 0 to 100 %. Against a 4 K limit it can never latch.
+ *
+ * The die is across the transverse thermal barrier and does not track the tip.
+ * Measured the same evening: tip - die swings from about -2.2 K at rest to
+ * +2.1 K at only 4 % duty, and the tip reached 56 C while the die stayed near
+ * 28 C. A stuck-on FET is therefore a tens-of-kelvin signal on this channel.
+ *
+ * 10.00 K is PROVISIONAL and chosen on bench evidence: the widest legitimate
+ * zero-duty excursion observed was +3.0 K (thermal history plus the die's
+ * 0.29 K/LSB dither), so this is about 3.4x that, and it catches any stuck
+ * duty above roughly 12 % in still air. In a pile the coupling is far tighter
+ * and the same fault produces a smaller rise - PILE-THERMAL-TEST.md is the
+ * measurement that should replace this number. Until then it is a detector
+ * that can see the failure, which is strictly better than one that cannot. */
+#define O2P_HEATER_RUNAWAY_DIE_K100 1000
+
 /* Conservative default gains. Error is in 0.01 %RH, output in 0.01 % duty.
  *
  * kp = 2.00 means a 10 %RH error asks for 20 % duty; ki = 0.10 means the same
@@ -119,6 +146,13 @@ typedef struct {
     int16_t  t_tip_c100;
     bool     chamber_valid;
     int16_t  t_chamber_c100;
+    /* MCU die, o2p_mcu_adc_read_die_c100(). The ONLY sensor on this board
+     * thermally separated from the tip - U10 and U12 sit 6.6 mm apart on the
+     * same copper and cannot disagree. Used for runaway detection only; it is
+     * +/-5 C absolute, which is useless for a 4 K clamp but irrelevant against
+     * the tens of kelvin a stuck-on FET produces. */
+    bool     die_valid;
+    int16_t  t_die_c100;
     bool     supply_ok;
 } o2p_heater_in_t;
 

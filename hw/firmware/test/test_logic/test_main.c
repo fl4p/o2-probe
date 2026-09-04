@@ -670,6 +670,11 @@ static o2p_heater_in_t hin_healthy(void)
     in.t_tip_c100 = 5500;
     in.chamber_valid = true;
     in.t_chamber_c100 = 5400;    /* dT = 1 K, inside the envelope */
+    /* The die runs a couple of kelvin ABOVE the tip at rest - it is the MCU's
+     * own junction - so tip-minus-die is negative on a healthy probe. Measured
+     * -2.2 K on 2026-09-04. Leaving these unset would read indeterminate. */
+    in.die_valid = true;
+    in.t_die_c100 = 5720;
     in.supply_ok = true;
     return in;
 }
@@ -1173,6 +1178,143 @@ static void test_pwm_ceiling_is_a_thermal_limit_not_a_range(void)
     TEST_ASSERT_FALSE(o2p_config_valid(&cfg));
 }
 
+
+static void test_runaway_sees_a_stuck_fet_through_the_die(void)
+{
+    /* The failure the detector exists for, with the chamber behaving as it
+     * ACTUALLY does on this board: tracking the tip within a fraction of a
+     * kelvin, because the two sensors are 6.6 mm apart on the same copper.
+     * The chamber-referenced test therefore cannot fire here - if this latches
+     * it is the die that caught it, which is the entire point. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;                  /* commanding nothing */
+    o2p_heater_in_t in = hin_healthy();
+    in.t_tip_c100 = 5000;
+    in.t_chamber_c100 = 4990;                /* 0.1 K - real colocated behaviour */
+    /* The stimulus is MEASURED, not derived from the threshold. On
+     * 2026-09-04 a stuck 100 % duty put the tip at 56 C with the die near
+     * 28 C: a 28 K separation. Writing this as
+     * (tip - O2P_HEATER_RUNAWAY_DIE_K100 - 50) would make the test move with
+     * the constant and pass at ANY threshold - which is exactly the defect
+     * this file keeps finding elsewhere. */
+    in.t_die_c100 = (int16_t)(in.t_tip_c100 - 2800);
+
+    /* Prove the chamber path is genuinely dead in this scenario before
+     * relying on the conclusion. */
+    int32_t dt_ch = (int32_t)in.t_tip_c100 - (int32_t)in.t_chamber_c100;
+    TEST_ASSERT_TRUE(dt_ch < (int32_t)cfg.dt_max_k100 + O2P_HEATER_RUNAWAY_MARGIN_K100);
+
+    o2p_heater_out_t out;
+    for (unsigned i = 0; i <= O2P_HEATER_RUNAWAY_WINDOW_S + 2u; i++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, i, &out);
+    }
+    TEST_ASSERT_TRUE(st.runaway_latched);
+    TEST_ASSERT_TRUE((out.block & O2P_HB_RUNAWAY) != 0u);
+}
+
+static void test_runaway_die_path_does_not_false_positive_at_rest(void)
+{
+    /* A healthy probe sits with the die WARMER than the tip. Running the full
+     * window must not latch, or the heater is bricked on first boot. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+    for (unsigned i = 0; i < 600u; i++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, i, &out);
+    }
+    TEST_ASSERT_FALSE(st.runaway_latched);
+}
+
+static void test_runaway_references_are_independent(void)
+{
+    /* Two references exist so that losing one does not disable the other.
+     * Chamber alone must still latch, and die alone must still latch. */
+    o2p_heater_out_t out;
+
+    o2p_heater_state_t st_ch;
+    o2p_heater_ctl_reset(&st_ch);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;
+    o2p_heater_in_t ch = hin_healthy();
+    ch.die_valid = false;                       /* die gone */
+    ch.t_tip_c100 = 5000;
+    ch.t_chamber_c100 = (int16_t)(ch.t_tip_c100 - (int16_t)cfg.dt_max_k100 -
+                                  O2P_HEATER_RUNAWAY_MARGIN_K100 - 50);
+    for (unsigned i = 0; i <= O2P_HEATER_RUNAWAY_WINDOW_S + 2u; i++) {
+        o2p_heater_ctl_step(&st_ch, &cfg, &ch, i, &out);
+    }
+    TEST_ASSERT_TRUE(st_ch.runaway_latched);
+
+    o2p_heater_state_t st_die;
+    o2p_heater_ctl_reset(&st_die);
+    o2p_heater_in_t di = hin_healthy();
+    di.chamber_valid = false;                   /* chamber gone */
+    di.t_tip_c100 = 5000;
+    di.t_die_c100 = (int16_t)(di.t_tip_c100 - 2800);
+    for (unsigned i = 0; i <= O2P_HEATER_RUNAWAY_WINDOW_S + 2u; i++) {
+        o2p_heater_ctl_step(&st_die, &cfg, &di, i, &out);
+    }
+    TEST_ASSERT_TRUE(st_die.runaway_latched);
+}
+
+static void test_runaway_without_any_reference_is_unevaluable_not_ok(void)
+{
+    /* Losing BOTH references must not be read as "no runaway". It is not
+     * evidence either way - but it must also not silently latch, which would
+     * brick a probe on a transient sensor failure. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;
+    o2p_heater_in_t in = hin_healthy();
+    in.chamber_valid = false;
+    in.die_valid = false;
+    in.t_tip_c100 = 9000;                       /* alarmingly hot, unprovable */
+    o2p_heater_out_t out;
+    for (unsigned i = 0; i < 600u; i++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, i, &out);
+    }
+    TEST_ASSERT_FALSE(st.runaway_latched);
+    /* The absolute tip clamp is what protects here, and it is not optional. */
+    TEST_ASSERT_TRUE((out.block & O2P_HB_TIP_LIMIT) != 0u);
+}
+
+
+static void test_die_runaway_threshold_brackets_the_measured_evidence(void)
+{
+    /* Pin the VALUE, not just the mechanism, against the two measurements that
+     * bound it - so a threshold moved without new evidence fails here.
+     *
+     *   +3.0 K  widest legitimate tip-minus-die excursion seen at zero duty
+     *           (thermal history plus the die's 0.29 K/LSB dither)
+     *   +28 K   the separation a stuck 100 % duty actually produced
+     *
+     * The threshold must sit strictly between them. */
+    TEST_ASSERT_TRUE(O2P_HEATER_RUNAWAY_DIE_K100 > 300);
+    TEST_ASSERT_TRUE(O2P_HEATER_RUNAWAY_DIE_K100 < 2800);
+
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;
+    o2p_heater_out_t out;
+
+    /* A legitimate 3.0 K excursion must not latch. */
+    o2p_heater_state_t cold;
+    o2p_heater_ctl_reset(&cold);
+    o2p_heater_in_t ok = hin_healthy();
+    ok.t_tip_c100 = 5000;
+    ok.t_chamber_c100 = 4990;
+    ok.t_die_c100 = (int16_t)(ok.t_tip_c100 - 300);
+    for (unsigned i = 0; i < 400u; i++) {
+        o2p_heater_ctl_step(&cold, &cfg, &ok, i, &out);
+    }
+    TEST_ASSERT_FALSE(cold.runaway_latched);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -1234,5 +1376,10 @@ int main(void)
     RUN_TEST(test_die_temp_scales_with_the_supply_it_actually_ran_at);
     RUN_TEST(test_die_temp_band_is_the_datasheet_not_a_remembered_one);
     RUN_TEST(test_pwm_ceiling_is_a_thermal_limit_not_a_range);
+    RUN_TEST(test_die_runaway_threshold_brackets_the_measured_evidence);
+    RUN_TEST(test_runaway_sees_a_stuck_fet_through_the_die);
+    RUN_TEST(test_runaway_die_path_does_not_false_positive_at_rest);
+    RUN_TEST(test_runaway_references_are_independent);
+    RUN_TEST(test_runaway_without_any_reference_is_unevaluable_not_ok);
     return UNITY_END();
 }

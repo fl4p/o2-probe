@@ -500,6 +500,10 @@ static void cycle_publish(o2p_snapshot_t *s)
             .t_tip_c100       = g_cyc.t_tip,
             .chamber_valid    = g_cyc.chamber_ok,
             .t_chamber_c100   = g_cyc.t_chamber,
+            /* The die is a diagnostic channel everywhere else; here it is the
+             * only reference that can witness a stuck-on FET. */
+            .die_valid        = (s->t_die != O2P_I16_INVALID),
+            .t_die_c100       = s->t_die,
             /* Heating adds ~86 mA. A rail already out of tolerance is not the
              * place to put more load, and VA_LOW in particular means the AFE
              * may have lost its bias already. */

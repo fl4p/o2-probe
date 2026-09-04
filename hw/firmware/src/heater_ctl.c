@@ -80,7 +80,15 @@ static uint16_t interlocks(o2p_heater_state_t *st,
         }
     }
 
-    /* dT clamp, with hysteresis, against the configured 0-4 K envelope. */
+    /* dT clamp, with hysteresis, against the configured 0-4 K envelope.
+     *
+     * INERT on Rev A: measured 2026-09-04, |tip - chamber| stayed within
+     * 0.17 K at every duty from 0 to 100 %, because U10 and U12 are 6.6 mm
+     * apart on the same copper. This block cannot raise DT_LIMIT on this
+     * board and must not be counted as protection - the live limits are the
+     * absolute tip clamp above, and the TMP117's 85 C hardware cutoff. It is
+     * kept, not deleted, because it is correct the moment a revision puts a
+     * sensor somewhere thermally different. */
     if (in->tip_valid && in->chamber_valid) {
         int32_t dt = (int32_t)in->t_tip_c100 - (int32_t)in->t_chamber_c100;
         int32_t on = (int32_t)cfg->dt_max_k100;
@@ -140,12 +148,28 @@ static void update_runaway(o2p_heater_state_t *st,
     if ((uint32_t)(now_s - st->zero_duty_since_s) < O2P_HEATER_RUNAWAY_WINDOW_S) {
         return;
     }
-    if (!in->tip_valid || !in->chamber_valid) {
-        return;   /* cannot evaluate; not evidence either way */
+    /* Unevaluable is not evidence either way - but "unevaluable" now means no
+     * tip, or NEITHER reference. One reference failing must not disable the
+     * other, which is the whole reason there are two. */
+    if (!in->tip_valid || (!in->chamber_valid && !in->die_valid)) {
+        return;
     }
-    int32_t dt = (int32_t)in->t_tip_c100 - (int32_t)in->t_chamber_c100;
-    if (dt > (int32_t)cfg->dt_max_k100 + O2P_HEATER_RUNAWAY_MARGIN_K100) {
-        st->runaway_latched = true;
+    /* Two independent tests, OR'd, because the original one cannot fire on
+     * this board. Chamber-referenced first, unchanged, for a revision whose
+     * sensors are actually separated. */
+    if (in->tip_valid && in->chamber_valid) {
+        int32_t dt = (int32_t)in->t_tip_c100 - (int32_t)in->t_chamber_c100;
+        if (dt > (int32_t)cfg->dt_max_k100 + O2P_HEATER_RUNAWAY_MARGIN_K100) {
+            st->runaway_latched = true;
+        }
+    }
+    /* Die-referenced: the one that can actually see a stuck-on FET, because
+     * the die is across the thermal barrier and does not follow the tip. */
+    if (in->tip_valid && in->die_valid) {
+        int32_t dd = (int32_t)in->t_tip_c100 - (int32_t)in->t_die_c100;
+        if (dd > O2P_HEATER_RUNAWAY_DIE_K100) {
+            st->runaway_latched = true;
+        }
     }
 }
 
