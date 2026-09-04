@@ -133,6 +133,32 @@ static o2p_ads_status_t drain_stale_result(void)
     return O2P_ADS_OK;
 }
 
+/* The EARLIEST a conversion can legitimately finish, SBAS925A Table 4, minus
+ * one millisecond because o2p_millis() has 1 ms granularity and a t0 captured
+ * just before a tick can make elapsed time read up to 1 ms high.
+ *
+ * This exists because sampling DRDY high once after START does NOT close the
+ * intermittent-line hole it was written to close. A floating pin or an open
+ * R19 can read high at that sample and spuriously low on the very next loop
+ * evaluation, microseconds later - long before the real 11.1 ms or 50 ms
+ * conversion could have completed. RDATA then returns "the most recent
+ * conversion result" (SBAS925A 8.5.3.5), which is the PREVIOUS channel, and
+ * the driver accepts it as current. That is the exact failure that got a
+ * healthy ADS1119 desoldered, surviving two rounds of repair at reduced odds.
+ *
+ * A low that arrives before physics allows is not data. It is noise, and the
+ * converter is the only thing that knows the difference - so do not ask the
+ * pin, ask the clock. */
+static uint32_t conversion_min_ms(uint8_t dr)
+{
+    switch (dr) {
+    case O2P_ADS_DR_1000SPS: return 0u;    /* 1 ms; no useful margin at 1 ms tick */
+    case O2P_ADS_DR_330SPS:  return 2u;    /* 3 ms */
+    case O2P_ADS_DR_90SPS:   return 10u;   /* 11.1 ms */
+    default:                 return 49u;   /* 20 SPS, 50 ms */
+    }
+}
+
 static uint32_t conversion_timeout_ms(uint8_t dr)
 {
     switch (dr) {
@@ -240,7 +266,11 @@ static o2p_ads_status_t convert_once(uint8_t cfg, uint8_t dr, int16_t *out_code)
 
     /* A conversion has just been started and the fastest data rate this driver
      * uses is 1000 SPS - 1 ms - so DRDY must still be HIGH here, microseconds
-     * later. Confirming that closes the hole the drain above would otherwise
+     * later. (Strictly this also assumes bounded software latency between the
+     * START transfer and this read: a long enough interrupt could let a real
+     * 1000 SPS conversion complete first. It holds because the committed call
+     * sites use only 90 and 20 SPS and the enabled handlers are short - but
+     * it is an assumption about THIS firmware, not a datasheet guarantee.) Confirming that closes the hole the drain above would otherwise
      * open: an INTERMITTENT line (a floating pin, an open R19) can read low,
      * drain, then read high by chance, and the wait below would exit on the
      * first spurious low and issue RDATA on a conversion that never finished -
@@ -256,7 +286,15 @@ static o2p_ads_status_t convert_once(uint8_t cfg, uint8_t dr, int16_t *out_code)
      * bus transaction per poll on a bus shared with three other devices. */
     uint32_t t0 = o2p_millis();
     uint32_t limit = conversion_timeout_ms(dr);
-    while ((O2P_ADC_DRDY_PORT->IDR & (1u << O2P_ADC_DRDY_PIN)) != 0u) {
+    uint32_t earliest = conversion_min_ms(dr);
+    for (;;) {
+        bool ready = (O2P_ADC_DRDY_PORT->IDR & (1u << O2P_ADC_DRDY_PIN)) == 0u;
+        if (ready && o2p_elapsed(t0, earliest)) {
+            break;      /* low, and late enough to be a real conversion */
+        }
+        if (ready && earliest == 0u) {
+            break;      /* 1000 SPS: no margin to check against a 1 ms tick */
+        }
         if (o2p_elapsed(t0, limit)) {
             return O2P_ADS_TIMEOUT;
         }

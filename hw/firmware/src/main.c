@@ -315,15 +315,23 @@ static bool accumulate(uint8_t mux, uint8_t dr, bool ext_ref, unsigned n)
     int16_t code = 0;
     o2p_ads_status_t st = o2p_ads1119_convert(mux, dr, ext_ref, &code);
     if (st != O2P_ADS_OK) {
-        /* A stuck DRDY is a PIN failure, not a bus failure, and it gets its
-         * own bit. Collapsing every status into I2C_FAIL_ADS is how a healthy
-         * ADS1119 came to be desoldered: the bus was fine, the fault word
-         * said otherwise, and the board was believed. Everything else here
-         * genuinely is a bus or device fault. */
+        /* A DRDY that does not behave is a PIN failure, not a bus failure, and
+         * it gets its own bit. Collapsing every status into I2C_FAIL_ADS is how
+         * a healthy ADS1119 came to be desoldered: the bus was fine, the fault
+         * word said otherwise, and the board was believed.
+         *
+         * BOTH DRDY failure directions belong on that bit. O2P_ADS_TIMEOUT is
+         * documented as "DRDY never asserted" and is returned only after the
+         * WREG and START transfers have already SUCCEEDED - so the bus
+         * demonstrably worked and the pin did not. An earlier version of this
+         * switch let TIMEOUT fall through to I2C_FAIL_ADS, which sent a
+         * technician after the bus for an open DRDY line: the same misdirection
+         * this split exists to remove, surviving inside the fix for it. */
         switch (st) {
-        case O2P_ADS_DRDY:   g_cyc.faults |= O2P_F_ADS_DRDY_STUCK;  break;
-        case O2P_ADS_CONFIG: g_cyc.faults |= O2P_F_ADS_CONFIG_LOST; break;
-        default:             g_cyc.faults |= O2P_F_I2C_FAIL_ADS;    break;
+        case O2P_ADS_DRDY:
+        case O2P_ADS_TIMEOUT: g_cyc.faults |= O2P_F_ADS_DRDY_STUCK;  break;
+        case O2P_ADS_CONFIG:  g_cyc.faults |= O2P_F_ADS_CONFIG_LOST; break;
+        default:              g_cyc.faults |= O2P_F_I2C_FAIL_ADS;    break;
         }
         g_sub = n;          /* abandon the phase; a partial average is not a
                              * measurement of any defined interval */

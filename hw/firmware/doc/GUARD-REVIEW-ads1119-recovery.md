@@ -17,12 +17,22 @@ guard-checklist questions for the fixes *before* they land, as required.
 
 ## 1. Unevaluable input must not read as OK
 
-All three fail closed. The DRDY drain returns `O2P_ADS_DRDY` unless the line is
-*observed* high afterwards — a failed drain transfer, or a line that never
-rises, both keep the failing status. The config check returns `O2P_ADS_IO` if
-the readback transfer fails and `O2P_ADS_CONFIG` if the pattern differs; there
-is no path where an unreadable register is treated as a match. The new fault
-bit is set from the status, so an unevaluable conversion still raises it.
+Two of the three fail closed; the third has a stated gap, below. The DRDY
+drain returns `O2P_ADS_IO` when the *transfer* fails and `O2P_ADS_DRDY` when
+the transfer succeeds but the line still will not rise — the distinction
+matters, because reporting a bus NACK as a pin fault is the same misdirection
+with the sign flipped. The config check returns `O2P_ADS_IO` if the readback
+transfer fails and `O2P_ADS_CONFIG` if the pattern differs; there is no path
+where an unreadable register is treated as a match. The new fault bits are set
+from the status, so an unevaluable conversion still raises one.
+
+**The stated gap:** the config readback runs only on a channel/reference
+change, so the twelve same-config conversions per cycle write WREG without
+verifying it. A device that stops storing configuration during the final
+eight-sample O2 phase has its readings averaged and PUBLISHED before the next
+cycle's change detects it. That is not failing closed, and titling this
+section "all three fail closed" — as an earlier version did — is the kind of
+summary that survives review precisely because it sounds complete.
 
 ## 2. Monotonicity
 
@@ -38,9 +48,21 @@ The case this reasoning originally missed is the one in between: an
 **intermittent** line (floating pin, open R19) can read low, drain, then read
 high by chance, which halves the detection probability rather than eliminating
 it. A deterministic dead line was always caught; a noisy one was not.
-`convert_once()` therefore re-confirms DRDY is high immediately *after* START,
-where the fastest data rate in use (1000 SPS, 1 ms) guarantees it must be.
-Monotonicity means little if the far tail is the only tail tested.
+`convert_once()` therefore re-confirms DRDY is high immediately *after* START.
+
+**That single sample did not close the hole, and saying it did was wrong.** A
+floating line can read high at that sample and spuriously low on the very next
+loop evaluation — microseconds later, long before an 11.1 ms or 50 ms
+conversion could have finished — whereupon RDATA hands back "the most recent
+conversion result" (SBAS925A 8.5.3.5), the previous channel, and the driver
+accepts it as current. The failure survived two rounds of repair at
+progressively longer odds without ever being eliminated.
+
+The wait loop now also gates on `conversion_min_ms()`: a low arriving before
+the datasheet says a conversion can possibly have completed is noise, not
+data. The authority is the clock, not the pin. Monotonicity means little if
+the far tail is the only tail tested — and "low odds" is not a guard, it is
+the same defect with a longer mean time to failure.
 
 ## 3. Preconditions
 
@@ -87,10 +109,22 @@ themselves. **Making a check reachable without giving it a name is only half
 a guard**, and the published fault map is only as good as the decoders that
 read it: `tech/chirpstack/rs485-ls-decoder.js` holds a positional copy of this
 enum, and "no firmware writes bit 13" did not mean "nothing reads bit 13". After this change the two are separately
-visible in the published fault word. Recovery is deliberately **not** silent
-in the sense that matters: the I2C or timeout failure that stranded the result
-already raised its own fault bit in the cycle where it happened, so draining
-the leftover on a later cycle hides nothing that was not already reported.
+visible in the published fault word. Recovery was originally justified as **not** silent, on the grounds that the
+failure which stranded the result already raised a fault bit in the cycle where
+it happened. **That justification does not survive the reporting cadence.**
+`cycle_begin()` clears `g_cyc.faults` every second, while the deployed uplink
+is every five minutes, and the cumulative `I2C_ERRS` counter sits in the
+diagnostic block outside the polled primary registers (`regmap.h:58`). A
+transient that strands a result and then heals will normally never reach
+ChirpStack or Home Assistant: roughly 299 cycles in 300 overwrite it.
+
+So the channel still cannot say "I recovered from something" — only "I am fine
+now", which is the same shape of silence this document is about. Closing it
+needs a **cumulative** count of drained stale results in the diagnostic block
+beside `I2C_ERRS`. That register is not added here: `regmap.h`/`regmap.c` and
+`O2P_REG_DIAG_COUNT` are being edited by the Rev B work in the same tree, and
+adding a register from two directions at once is how register maps come apart.
+Recorded as owed.
 
 ## 7. Known-bad calibration
 
@@ -122,14 +156,15 @@ letting a distinct failure reach the operator as a distinct bit.
 - **Steady state: zero.** The drain executes only when DRDY is already low,
   which cannot happen on a healthy cycle. No extra bus traffic on the happy
   path.
-- **Config verification: ~165 us per channel/reference change, ~500 us per
-  1 s cycle** (three changes: VREF, VIN, O2). RREG is a four-byte two-frame
-  transaction (SBAS925A 8.5.3.6) at roughly 95 us, and the change path also
-  issues a second `write_cfg()` of about 70 us on top of the one
-  `convert_once()` already performs. An earlier version of this section said
-  "150 us" and omitted the duplicate write entirely — understated by ~3x.
-  The duplicate WREG is harmless in single-shot with no conversion in flight,
-  but it is real traffic and it is counted here.
+- **Config verification: ~630 us per channel/reference change, ~1.9 ms per
+  1 s cycle** (three changes: VREF, VIN, O2). WREG plus RREG is at least
+  27 + 36 SCL clocks, and **this bus runs at 100 kHz, not 400 kHz**
+  (`i2c1.c:6`, `O2P_I2C_TIMINGR` taken from the RM0444 16 MHz example). Two
+  earlier versions of this figure were wrong — first "150 us", then "165 us" —
+  both because the arithmetic was done at a bus speed the driver does not use.
+  The duplicate WREG on the change path is harmless in single-shot with no
+  conversion in flight, but it is real traffic and it is counted here. Against
+  a ~0.53 s ADC budget in a 1 s loop, none of this is close to binding.
 - **Failure state:** one additional 1-byte-write + 2-byte-read per conversion
   while DRDY is stuck. Bounded, and only in a state that is already faulted.
 
