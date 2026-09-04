@@ -118,6 +118,55 @@ These do not block ordering bare boards, but they do block production:
   Do not submit the bare-board ZIP for turnkey automated PCBA.
 - Run heater open/short/stuck-on protection tests and map ring, membrane, U10,
   U12, SGX body, and ambient temperatures at 0/intermediate/100% drive.
+
+### Heater bench results, 2026-09-04 (first article, RH1/RH2 fitted, no ring)
+
+First energisation of the heater on real hardware. `O2P_HEATER_ENABLE` stays
+**0** in the shipped build; this ran from `env:o2probe_heater_enabled`.
+
+**The TMP117 alert fault test passes, on its register evidence.** Read back
+from the part before the test: `CONFIG = 0x21B0` (therm mode, active-low,
+500 ms, 8x averaging - bit-for-bit the firmware's intent), `THIGH = 0x2A80` =
+**85.00 C**, `TLOW = 0x2800` = **80.00 C**. Writing `THIGH` down to 30.00 C
+against a 35.4 C tip asserted `HIGH_Alert` on the next conversion.
+
+The test was run with the **core halted**, which is stronger than the
+procedure above asks for: `DBGMCU_APB_FZ2 = 0`, so TIM1 keeps generating PWM
+while the CPU is stopped. `TIM1 CR1 = 0x81, CCER = 0x01, CCR1 = 1462/16000`
+were unchanged across the alert, so the MCU was provably still commanding
+9.14 % duty and could not have been what turned the heater off.
+
+Also measured:
+
+- **The rail monitor survives the heater running.** `TIM1_CCER` bit CC1NE read
+  0 with the timer live, so PA7 is not being driven as TIM1_CH1N. This is the
+  hardware form of `o2p_heater_pin_integrity_ok()`, not the flag's own word.
+- **PWM frequency is exact**: ARR 15999, PSC 0 at 16 MHz = 1000.0 Hz.
+- **The load is real**: VIN_MON fell 11960 -> 11914 mV between 0 % and 93 %
+  duty, ~46 mV for the predicted ~80 mA, implying ~0.58 ohm of supply and lead
+  resistance. Bench PSU resolution did not show it; the divider did.
+- **The loop closes.** Duty clamped at `HEATER_MAX_DUTY`, then regulated down
+  19.5 -> 6.2 % as chamber RH fell through setpoint, tip settling near 33.9 C.
+  No runaway, no fault but `SETTLING`.
+- **Detect and recover.** Firmware caught the externally changed `THIGH` within
+  its 10 s re-verification, disarmed, and the interlock forced duty to 0
+  (`faults = 0x8009`). Restoring 85.00/80.00 C cleared `HIGH_Alert` and
+  re-armed within one cycle (`faults = 0x0001`).
+- **The cell is unharmed** by an excursion that peaked at 56.1 C: 100.71 uA and
+  21.06 %vol afterwards, against 100.66 uA / 21.02 %vol before. Raw current
+  moved under 0.1 % across a ~14 K sweep (~36 ppm/K), which is the first
+  empirical support for the `tempco_ppm_per_k = 0` default - suggestive of an
+  internally compensated cell, not a calibrated tempco measurement.
+
+**Still open, and they need a scope, not firmware:**
+
+- Gate Vgs amplitude and edge time (`SCHEMATIC-REVIEW.md` H3 predicts only
+  ~3.0 V through R28 into R29, edges of tens of microseconds).
+- FET dissipation at **intermediate** duty.
+- The electrical half of the cutoff: `HEATER_LOW` at +12 V and the gate pinned
+  low, captured on the trace rather than inferred from `HIGH_Alert`.
+- Everything ring- and membrane-side. No ring was fitted, and the pending
+  revision moves the heat source off this board entirely.
 - Measure temperatures immediately on both sides of the transverse barrier
   during at least three steady heater-power steps. Treat
   `delta_T / P_electrical` only as a lower bound; qualify the PCB value with
