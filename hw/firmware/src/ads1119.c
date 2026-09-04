@@ -47,6 +47,19 @@ o2p_ads_status_t o2p_ads1119_init(void)
     /* RESET pin has no GPIO on this board (R18 holds it released), so the
      * command is the only reset available - which is why it is used first,
      * before trusting anything the part says. */
+    /* DRDY is an input this driver polls, and until now NOTHING configured
+     * it. PB1 comes out of reset in ANALOG mode (MODER = 11), which
+     * disconnects the input buffer so IDR reads 0 forever - regardless of
+     * R19 holding the real pin high. The wait in convert_once() therefore
+     * fell through on its FIRST evaluation, RDATA was issued before the
+     * conversion had finished, and the part returned the PREVIOUS
+     * conversion. Every channel read as whichever channel preceded it, which
+     * is exactly the "AIN3 mirrors AIN0" signature that got a healthy
+     * ADS1119 replaced. It also disabled O2P_ADS_TIMEOUT, a guard that
+     * cannot fire when the wait it protects never happens.
+     * No internal pull: R19 pulls the line up on the board. */
+    O2P_ADC_DRDY_PORT->MODER &= ~(3u << (O2P_ADC_DRDY_PIN * 2u));
+
     s_last_cfg = 0xFFu;   /* a reset invalidates any cached configuration */
     const uint8_t rst = O2P_ADS_CMD_RESET;
     if (o2p_i2c1_write(ADS_ADDR, &rst, 1u) != O2P_I2C_OK) {
@@ -68,6 +81,16 @@ o2p_ads_status_t o2p_ads1119_init(void)
         return O2P_ADS_IO;
     }
     if (back != probe) {
+        return O2P_ADS_CONFIG;
+    }
+
+    /* Precondition for every conversion this driver will ever do: DRDY must
+     * be a readable digital input that idles HIGH. Nothing has been started
+     * since the reset above, so a low here means the pin is misconfigured or
+     * unreachable - and a DRDY stuck low does not fail, it silently returns
+     * stale conversions. Check it once, here, rather than discover it as
+     * telemetry that looks plausible. */
+    if ((O2P_ADC_DRDY_PORT->IDR & (1u << O2P_ADC_DRDY_PIN)) == 0u) {
         return O2P_ADS_CONFIG;
     }
     return O2P_ADS_OK;
