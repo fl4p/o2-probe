@@ -1122,8 +1122,18 @@ The checklist every guard in this repository has to answer, for this loop.
      is still commanding PWM.** That contention is bounded to ~0.33 mA by R28
      per `SCHEMATIC-REVIEW.md` H3's closure; confirm on the gate trace that it
      is held below the AO3400A's threshold.
+   - **Firmware will notice too, and that is deliberate.** `phase_temps()`
+     re-verifies `CONFIG`, `THIGH` and `TLOW` against what `o2p_tmp117_init()`
+     programmed, so writing `THIGH` from the bench disarms
+     `o2p_tmp117_safety_armed()` and raises `I2C_FAIL_TMP` — in v1 that is
+     itself an interlock which drops duty to zero. The re-verification runs
+     only every tenth cycle (~10 s) precisely so this cannot be confused with
+     the hardware cutoff, which acts within one TMP117 conversion (500 ms).
+     **The gate edge you are looking for is the FIRST one, ~20x earlier than
+     the firmware's reaction.** If the two are not clearly separated on the
+     trace, the measurement has not shown what it claims to.
    - Restore `THIGH` and confirm the heater resumes only after the tip falls
-     below the hysteresis point.
+     below the hysteresis point — and that `I2C_FAIL_TMP` clears within 10 s.
    - Record the result in `FAB-READINESS.md`. Until this passes,
      `O2P_HEATER_ENABLE` stays 0.
 8. **Fix versus mute.** Every interlock changes the commanded duty; none

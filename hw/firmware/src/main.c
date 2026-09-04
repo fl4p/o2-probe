@@ -230,8 +230,25 @@ static void phase_temps(o2p_snapshot_t *s)
     /* Re-verify the safety configuration periodically, not just at boot: the
      * therm-mode alert is the heater's hardware cutoff, and a part that lost
      * its configuration to a glitch would otherwise keep reporting fine
-     * temperatures with the cutoff silently disarmed. */
-    if (!o2p_tmp117_safety_armed()) {
+     * temperatures with the cutoff silently disarmed.
+     *
+     * This used to be guarded by !armed, which meant it ran only while ALREADY
+     * disarmed - so after a successful boot it never ran again and the glitch
+     * above was exactly the case it could not catch. It now runs on a cadence.
+     *
+     * Every cycle while disarmed, so recovery is prompt; every tenth otherwise.
+     * The slow cadence is deliberate and the heater fault test depends on it:
+     * that test writes THIGH below the tip from the bench and watches the gate
+     * fall, which the hardware does within one TMP117 conversion (500 ms). If
+     * firmware noticed the changed threshold and cut duty at the same rate,
+     * the trace could not distinguish the hardware cutoff from the firmware
+     * interlock - which is the entire point of the measurement. Ten seconds
+     * leaves that 20x separation while still bounding how long a genuinely
+     * disarmed part can go unnoticed. */
+    static uint8_t s_tmp_verify_div;
+    bool armed = o2p_tmp117_safety_armed();
+    if (!armed || ++s_tmp_verify_div >= 10u) {
+        s_tmp_verify_div = 0u;
         if (o2p_tmp117_verify_safety() != O2P_TMP_OK) {
             g_cyc.faults |= O2P_F_I2C_FAIL_TMP;
         }
