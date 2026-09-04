@@ -5,3 +5,8 @@ cad/exports/head-end-cavity-ascii.stl
 # Sliced output. Machine- and material-specific (P1P 0.4 / ASA), several MB
 # each, and regenerable from the plate 3mf; the plate is the tracked source.
 cad/exports/*.gcode.3mf
+
+# OpenSCAD's thumbnail-render failure log, dropped in the CWD by the 3mf export
+# on a headless machine with no GL context ("Invalid OpenGL version 3.4"). Build
+# detritus, regenerated every run, and nothing reads it.
+00000.log

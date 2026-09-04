@@ -1,5 +1,17 @@
 # Printing the end-window head — ASA, 2026-09-03
 
+> **STALE DIMENSIONS BELOW — 2026-09-03, later the same day.** The spigot wall was
+> split out of `land` into its own `spigot_land`, shrinking the head from Ø42 to
+> **Ø40** and the cap from Ø47 to **Ø45**. The groove root moved 25.0404 → **24.8404**
+> and the flange 39.1 → **38.9**.
+>
+> Every *measurement* in this document stands — those are readings off parts that
+> were actually printed, and the shrink factor derived from them is a ratio, so it
+> transfers unchanged. What does **not** transfer is any absolute cut diameter:
+> **do not cut Ø25.2831 for a new carrier.** Re-read the compensated root from the
+> model's own echo before the next print, and re-measure this table's bboxes off a
+> fresh `make head-end-provisional`.
+
 Build file: `exports/head-end-plate.3mf` (all four parts, print-oriented, one file).
 
     make head-end-provisional

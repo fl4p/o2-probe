@@ -123,3 +123,29 @@ head-end-provisional: | $(OUT)
 		--colorscheme=Tomorrow $(HEAD_END_PROV) -D 'part="assembly"' -D exploded=true \
 		-o $(OUT)/head-end-preview.png $(HEAD_END)
 	$(OPENSCAD) $(HEAD_END_PROV) -D 'part="plate"' -o $(OUT)/head-end-plate.3mf $(HEAD_END)
+	@# The print-oriented STLs are TRACKED but were built by no target, so they
+	@# silently went stale: on 2026-09-03 they still carried the Ø47 cap and the
+	@# 39.10 flange a day after the spigot_land split moved them to Ø45 / 38.90.
+	@# The part= dispatch already existed; only the target was missing.
+	@for p in carrier retainer cap; do \
+		$(OPENSCAD) --hardwarnings $(HEAD_END_PROV) -D "part=\"$$p-print\"" \
+			-o $(OUT)/head-end-$$p-print.stl $(HEAD_END) 2>/dev/null || \
+			{ echo "FAIL $$p-print"; exit 1; }; \
+	done
+	@echo "head-end: print-oriented STLs rebuilt"
+
+# The labelled exploded drawing. Both files used to be built by hand, which is
+# how the labeller ended up with pixel windows that only fitted one particular
+# render. Kept at 1600x1200: the stack got taller when the PCB tip was added
+# below the head, and the preview size crops it.
+.PHONY: head-end-exploded
+# NO --render here, deliberately. --render goes through CGAL, which discards
+# every color() in assembly() and hands back the colorscheme's default teal --
+# and the labeller identifies parts BY COLOUR, so a --render image silently
+# labels nothing. Preview mode (OpenCSG) keeps the colours.
+head-end-exploded: | $(OUT)
+	$(OPENSCAD) --viewall --autocenter --projection=p --imgsize=1600,1200 \
+		--camera=0,0,0,72,0,25,0 \
+		--colorscheme=Tomorrow $(HEAD_END_PROV) -D 'part="assembly"' -D exploded=true \
+		-o $(OUT)/head-end-exploded.png $(HEAD_END)
+	cd .. && python3 cad/label-exploded.py

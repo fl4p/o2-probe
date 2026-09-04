@@ -122,6 +122,25 @@ wall_min = 2.4;
 // millimetre of it is Ø17.5 of connected gas, and the 5 cm3 budget is now the
 // binding constraint on this variant.
 spigot_bore = 18.0;         // gas path through the spigot; >= window + margin
+
+// Spigot wall, formerly `land` -- and that sharing was a conflation, not a
+// saving. `land` sizes the MEMBRANE disc and the ledge its rim is clamped on
+// (see membrane_cartridge_common.scad); this sizes the wall that carries the
+// RADIAL O-ring groove, three parts away. Nothing ties them together, and while
+// they were one number the membrane disc could not be widened without growing
+// the head, nor the head shrunk without narrowing the membrane disc.
+//
+// It is also measured off the wrong feature. The groove root sits over the
+// spigot BORE (Ø18), not over the flare mouth (Ø22) that `mouth_d + 2*land`
+// referenced -- the mouth is a counterbore in the flange, above the spigot
+// entirely. The assert beside the other seal checks now measures the real wall.
+//
+// Why 2.4 exactly: head_od takes ceil() of the bolt circle, so the diameter
+// moves in 2 mm steps and 2.4 is the LOOSEST value that still lands on 40 mm
+// (42 before). Anything from 2.125 to 2.4 gives the same head, so this keeps the
+// most wall the size allows. Below 2.125 the sourced Ø24.0 ring stops gripping
+// its groove -- see the echo for what a smaller head would cost.
+spigot_land = 2.4;
 flange_margin = 4.0;
 // The sealing core lives entirely in the flange, so the flange IS the core.
 flange_t = cart_t;
@@ -250,6 +269,20 @@ cap_screw_depth = 4.0;      // BLIND: must never reach the bore
 selftap_cap = 2.1;          // cap screws carry no seal load, so self-tap is fine
 nose_taper = 4.0;
 
+// Seal-land thermometry. PROTOTYPE-RESPONSE.md sets the heater's design point at
+// a 2 K membrane rise on no more than 4 K of block rise, i.e. a coupling
+// eta >= 0.5 -- and o2-condensation-model-research.md records that eta is
+// UNMEASURED and that the remote heater therefore "cannot yet be credited with
+// keeping the external PTFE membrane dry". Nothing in this variant could measure
+// it: heater_shelf_t appeared only in the gas-volume arithmetic, and the
+// thermometry cut the shared core provides was never called here.
+tsense = true;
+tsense_bore = 1.2;          // declared default, NO SENSOR SOURCED YET -- an
+                            // interface dimension, so it must not be guessed
+                            // past this point. The binding constraint is the
+                            // 2.0 mm HEATER LEDGE, not the plate thickness:
+                            // 1.6 leaves 0.2 mm either side and will not fit.
+
 // ------------------------------------------------- derived
 
 board_swept = board_env_front + board_t + board_env_back;
@@ -257,7 +290,7 @@ board_diag = sqrt(pow(board_w, 2) + pow(board_swept, 2));
 bore_d = max(board_diag + 2*bore_margin, cell_d + 2*bore_margin);
 
 mouth_d = window_d + flare_extra;        // the flare's mouth, in the flange
-spigot_d = mouth_d + 2*land;             // wall thick enough to hold a groove
+spigot_d = mouth_d + 2*spigot_land;      // wall thick enough to hold a groove
 well_d = spigot_d + carrier_fit;         // the DRAWN bore, i.e. the call-out
 // H7 is +0.021/0, not +/-0.0105: a reamed bore is centred half a band ABOVE
 // nominal, never below it. The seal math must use the middle of the distribution
@@ -422,6 +455,27 @@ well_z = socket_len + cav_board_len + cav_clear_len;   // well floor
 end_z = well_z + spigot_len;                           // head end face
 head_len = end_z;
 
+// The PCB tip and the cell it carries. REPRESENTATIVE -- drawn, never exported.
+// This geometry belongs to the KiCad board, not to this file; it is here for one
+// reason, which is that the exploded view showed the head without showing what
+// the head is FOR, so nothing in the picture said where the gas has to get to.
+//
+// Controlled: board_w / board_t are the Edge.Cuts numbers, cell_d / cell_h are
+// DS-0637 Iss. 2. NOT sourced: the socket. Its stand-off is DERIVED as
+// cav_clear_len - cell_h -- i.e. it inherits the unmeasured cell_axial_len -- and
+// the real Cambion 450-3703 is three separate receptacles, not the solid pillar
+// drawn. The pillar is a position marker; gas flows around it.
+//
+// Note the deliberate inconsistency: cav_net subtracts cell_disp and NEVER the
+// socket, so the volume model counts the socket's own solid as gas. That errs
+// toward a larger cavity, which is the safe direction for a <= 5.0 cm3 budget,
+// so it stays -- but it is why this drawing shows solid where the gate assumes
+// void.
+board_tip_z = socket_len + cav_board_len;   // the board's end face
+socket_standoff = cav_clear_len - cell_h;   // derived, NOT a Cambion dimension
+cell_z = board_tip_z + socket_standoff;     // underside of the can
+board_stub = 16.0;                          // drawing length only
+
 // The cap must SWALLOW the whole clamped stack, not just the drainage gap. It
 // clears the carrier flange and the retainer, then leaves the stand-off in
 // front of the membrane, then the solid plowing face.
@@ -439,6 +493,24 @@ guard_open = (PI*cap_od - rib_n*rib_w) * guard_gap;
 // ------------------------------------------------- gates
 
 assert(bore_d >= cell_d + 2*bore_margin, "bore does not clear the cell can");
+
+// SERVICEABILITY. The head is BONDED to the tube (see the sealing stack at the
+// top of this file), so the head never comes off and the ONLY path a cell can
+// ever take is axially OUT through the carrier well -- up the neck first, then
+// through the spigot bore. "The cell is replaceable" is a claim the geometry has
+// to earn, so it is checked rather than asserted in prose.
+cell_pull_neck   = (neck_d - cell_d)/2;
+cell_pull_spigot = (spigot_bore - cell_d)/2;
+cell_pull_travel = cell_h + socket_standoff + spigot_len;
+assert(cell_pull_neck > 0 && cell_pull_spigot > 0,
+       str("cell cannot be withdrawn: neck clearance ", cell_pull_neck,
+           " mm, spigot-bore clearance ", cell_pull_spigot,
+           " mm. With the head bonded to the tube there is no second path."));
+echo(str("CELL SERVICE: withdraws axially, travel ", cell_pull_travel,
+         " mm; radial clearance ", cell_pull_neck, " mm in the neck then ",
+         cell_pull_spigot, " mm in the spigot bore. Blind reach from the head end face to the can top ",
+         end_z - well_z, " mm through a ", spigot_bore,
+         " mm bore -- NO EXTRACTION TOOL EXISTS and fingers do not fit."));
 assert((spigot_d - spigot_bore)/2 - oring_cord + oring_cord*oring_squeeze >= 1.2,
        "spigot wall too thin under the O-ring groove: it will collapse inward and lose squeeze");
 assert(spigot_len >= groove_w + lead_chamfer + 1.5,
@@ -515,6 +587,71 @@ assert(oring_fill_max <= 0.85,
 assert(oring_fill <= 0.85,
        str("groove is ", oring_fill*100,
            "% full; over 85% the ring has nowhere to go when squeezed"));
+
+// What the spigot wall actually is, now that it has its own parameter: the
+// material between the GAS BORE and the groove ROOT, which is where the section
+// is thinnest and what a shrinking head eats into first. The old
+// `mouth_d + 2*land` measured off a counterbore in the flange instead, so this
+// number was never checked -- it happened to be 3.52 mm, comfortably over
+// wall_min, and nothing would have said so had it not been.
+spigot_groove_wall = (groove_root_d - spigot_bore)/2;
+assert(spigot_groove_wall >= wall_min - 1e-6,
+       str("only ", spigot_groove_wall, " mm of spigot left under the O-ring ",
+           "groove root (Ø", groove_root_d, " over a Ø", spigot_bore,
+           " bore), against a ", wall_min, " mm minimum. Raise spigot_land, or ",
+           "accept a thinner section on the part that carries the seal"));
+
+// ---- membrane perimeter seal ------------------------------------------------
+// The radial ring above gets six checks. This one had one -- the ledge, inside
+// cartridge_core_cuts_round -- and it is the ring whose squeeze band is WORSE,
+// because the cord tolerance is an absolute +/-0.08 in both cases and this cord
+// is 1.0 rather than 1.5. Cord 1.0 is still the right call (it keeps gasket_gap
+// at 0.750 and the 5 cm3 budget at its 3.0% margin, where cord 1.5 would cut
+// that to 1.3%); the point is that the cost lands on tolerance and nothing said so.
+mem_floor = 0.15;                    // same gas-sealing floor as the radial ring
+mem_dtol_max = mem_depth_tol_max(mem_oring_cs, mem_floor);
+// Feasibility BEFORE any process claim: if the cord band alone breaks the floor,
+// a PERFECT groove cannot rescue it and the answer is a fatter cord or sorting.
+assert(mem_dtol_max > 0,
+       str("cord tolerance alone (+/-", mem_cord_tol, " on a ", mem_oring_cs,
+           " cord) puts squeeze at ", mem_squeeze_min(mem_oring_cs, 0)*100,
+           "% before the groove depth errs at all, against a ", mem_floor*100,
+           "% floor. No groove tolerance can satisfy this: take a fatter cord, ",
+           "sort the rings by cord, or cut a deeper groove"));
+// Worst corner for fill is the fattest cord in the shallowest groove the line
+// above still permits -- against the REAL cavity, not the nominal annulus that
+// groove_od() was sized from. On the sizing basis this same corner reads 100.4%
+// and would fire a copied `oring_fill_max` assert spuriously.
+mem_fill_worst = mem_fill_real(window_d, mem_oring_cs + mem_cord_tol,
+                               gasket_gap - mem_dtol_max, heps);
+assert(mem_fill_worst <= 0.85,
+       str("worst-corner membrane-groove fill is ", mem_fill_worst*100,
+           "% (cord ", mem_oring_cs + mem_cord_tol, " in a ",
+           gasket_gap - mem_dtol_max, " deep groove): the ring hydraulically ",
+           "locks and extrudes into the flare cone"));
+// Tripwire, not a discovery: with the cone defined from window_d outward this
+// reduces to an identity, and it is kept so that a hand-set flare_inner or a
+// moved pocket cannot quietly let the ring slide over the gas path -- which is
+// exactly the failure the cut washer had. window_d is ALSO the retainer bore,
+// so this is what guarantees the retainer still backs the ring where it lands.
+mem_ring_inner_d = flare_d_at(cart_t - pocket_depth, window_d, heps);
+assert(mem_ring_inner_d >= window_d,
+       str("the flare cone reaches ", mem_ring_inner_d, " at the groove floor, ",
+           "inside the ", window_d, " window and the retainer bore: the ring ",
+           "can slide over the gas path with nothing above it"));
+
+// ---- seal-land thermometry --------------------------------------------------
+// The module checks its own seal and shelf clearances; the bolt circle is only
+// known here. The bore sits at 270 degrees, the mid-gap of a 6-hole circle
+// started at 0, but it clears the holes RADIALLY too, so the check does not
+// depend on that and a changed bolt_n cannot quietly drill through it.
+tsense_r = tsense_axial_r(window_d);
+// The bolt-circle clearance check lives further down, beside bolt_cut_max:
+// assigning it here silently caught `undef` and fired on a bore that clears the
+// holes by 2.3 mm. Top-level assignments do NOT see a variable defined below.
+//
+// The ledge and seal-groove clearances are the module's own; it owns the
+// geometry that decides them.
 // The widest thing actually cut at the bolt circle. On the insert route that is
 // the flange counterbore, not the insert bore -- and unlike the wall check below
 // this one is NOT an identity, because insert_head_d is an independent sourced
@@ -527,6 +664,16 @@ assert(cbore_wall >= 1.0 - 1e-6,
            " mm to the sealing well; a change to insert_head_d or ",
            "insert_seal_wall can walk it into the O-ring seat with every other ",
            "assert still passing"));
+// Seal-land thermometry against the bolt circle. The bore sits at 270 degrees,
+// the mid-gap of a 6-hole circle started at 0, but it clears the holes RADIALLY
+// too -- so this does not depend on the angle and a changed bolt_n cannot
+// quietly drill through it.
+tsense_gap_bolt = (bolt_r - bolt_cut_max/2) - (tsense_r + tsense_bore/2);
+assert(!tsense || tsense_gap_bolt > 0,
+       str("thermometry bore reaches r ", tsense_r + tsense_bore/2,
+           " and the nearest bolt-circle cut starts at r ",
+           bolt_r - bolt_cut_max/2, ": they intersect. Move the bore in, ",
+           "or shrink it"));
 // Tripwire only: with bolt_r derived this reduces to an identity, and it is kept
 // so a hand-set bolt_r cannot quietly move the load-bearing hole inward.
 assert(bolt_r - fast_hole_d/2 - well_d/2 >= fast_seal_wall - 1e-6,
@@ -590,6 +737,18 @@ echo(str("PP carrier: spigot dia ", spigot_d, " x ", spigot_len,
 echo(str("head OD is set by the fastening: bolt circle dia ", 2*bolt_r,
          " from a ", fast_hole_d, " hole with ", fast_seal_wall,
          " mm to the sealing bore"));
+echo(str("SIZE: head ", head_od, " / cap ", cap_od, " mm. The electronics want ",
+         "only ", 2*(bore_d/2 + wall_min), " -- the rest is the bolt circle, so ",
+         "this head is as wide as it is because of HOW THE MEMBRANE IS CLAMPED, ",
+         "not what is inside it. spigot_land ", spigot_land, " (split out of ",
+         "land ", land, ") leaves ", spigot_groove_wall, " mm under the groove ",
+         "root against a ", wall_min, " minimum. NEXT STEP DOWN is not CAD: at ",
+         "spigot_land 2.125 the sourced Ø", oring_id_ordered,
+         " ring stops gripping, so a narrower spigot needs a smaller-ID ring ",
+         "(~Ø22 x ", oring_cord, ", EPDM 70 peroxide) -- a sourcing action. ",
+         "Deleting the bolt circle outright, now that the O-ring sets squeeze ",
+         "by GEOMETRY and the screws carry no seal load, would reach ",
+         2*(bore_d/2 + wall_min), " mm."));
 echo(str("O-RING ORS116787, EPDM 70 peroxide, ", oring_id_ordered, " x ", oring_cord,
          " on a ", groove_root_d, " x ", groove_w, " groove: ", oring_stretch*100,
          "% install stretch, ", oring_squeeze_real*100, "% squeeze after thinning; ",
@@ -605,14 +764,57 @@ echo(str("CARRIER: ", carrier_material, carrier_is_pp
          : str(" -- printed like the head. NO weld is possible to ASA, so the ",
                "membrane is compression-only, and a styrenic under sustained ",
                "gasket load in NH3 is an environmental-stress-cracking risk")));
-echo(str("GASKET: bore ", gasket_id(window_d), " x OD ", window_d + 2*land,
-         ", ", gasket_t, " mm free -> ", gasket_gap, " compressed. Bore clears ",
+echo(str("MEMBRANE SEAL: O-ring ", gasket_id(window_d), " x ", mem_oring_cs,
+         " -- o-ring-stocks.eu ORS116731, EPDM 70 Shore A peroxide, material ",
+         "127019011 (the SAME compound as the carrier ring ORS116787, so one ",
+         "test report covers both). Groove Ø", groove_od(window_d), " x ",
+         gasket_gap, " deep, bounded inward NOT by a wall but by the flare cone ",
+         "at Ø", mem_ring_inner_d, ": achieved fill ",
+         mem_fill_real(window_d, mem_oring_cs, gasket_gap, heps)*100, "%, which ",
+         "is NOT the ", mem_oring_fill*100, "% sizing basis groove_od() solved ",
+         "against a nominal annulus from Ø", gasket_id(window_d),
+         ". Membrane ledge ", membrane_ledge(window_d), " mm. Bore clears ",
          "the flare (", flare_d_at((cart_t - membrane_t)
                                    - gasket_t*(1 - gasket_squeeze),
                                    window_d, heps),
-         " at the gasket's far end, which is where the cone is widest), so it ",
-         "seals beside the gas path, not in front of it. Material, hardness ",
-         "and preload UNSOURCED"));
+         " at the ring's far end, where the cone is widest), so it seals beside ",
+         "the gas path, not in front of it."));
+echo(str("MEMBRANE SEAL squeeze is set by GEOMETRY, not screw torque -- the ",
+         "retainer bottoms on the ledge -- nominal ",
+         (1 - gasket_gap/mem_oring_cs)*100, "%. REQUIREMENT: hold the groove ",
+         "depth to +/-", mem_dtol_max, " mm, or squeeze falls under ",
+         mem_floor*100, "%. Cord tolerance alone (+/-", mem_cord_tol,
+         ", DIN ISO 3601 d2<=1.8) already spans ",
+         mem_squeeze_min(mem_oring_cs, 0)*100, "-",
+         mem_squeeze_max(mem_oring_cs, 0)*100, "% = ",
+         (mem_squeeze_max(mem_oring_cs, 0)
+          - mem_squeeze_min(mem_oring_cs, 0))*100, " points on CATALOGUE cord. ",
+         "The radial ring spends ", oring_band_cord*100, " (", oring_sorting,
+         ") on a 1.5 cord; sorting is open to both rings and is the same lever ",
+         "here. ",
+         "Worst-corner fill ", mem_fill_worst*100, "%."));
+echo(str("MEMBRANE SEAL preload: UNVERIFIED. Sized on geometry only. The washer ",
+         "bracket (38-115 N/screw) does NOT transfer -- an O-ring seals on a ",
+         "line at far lower load. Measure it. RISK: line contact on 0.18 mm ",
+         "porous PTFE may cold-flow and relax; absent if the membrane is welded ",
+         "into a PP cartridge and this joint becomes PP-on-ASA."));
+echo(tsense
+     ? str("SEAL-LAND THERMOMETRY: ", tsense_bore, " mm blind pocket at r ",
+           tsense_r, ", rising from the HEATER LEDGE at z ", heater_shelf_t,
+           " to ", tsense_axial_top(), " -- the only surface of this carrier ",
+           "that faces the sealed cavity, so the lead reaches the board without ",
+           "crossing a seal. Tip sits ", cart_t - membrane_t - tsense_axial_top(),
+           " mm under the membrane's dry face, directly beneath the clamped rim, ",
+           "and ", (cart_t - pocket_depth) - tsense_axial_top(),
+           " mm under the O-ring groove floor. Adds ",
+           PI/4*tsense_bore*tsense_bore*(tsense_axial_top() - heater_shelf_t),
+           " mm3 to the connected volume. MEASURES the seal-land boundary ",
+           "temperature beside the heater; it CANNOT see the membrane's centre ",
+           "cold spot, which sits over the flare cone with nothing to bore into ",
+           "-- eta still needs a temporary sensor on the membrane face, and this ",
+           "is the other half of that pair. Bore dia is a DECLARED default: no ",
+           "sensor is sourced, and the 2 mm heater ledge caps it near 1.2 mm.")
+     : "SEAL-LAND THERMOMETRY: OFF -- the heater's coupling eta stays unmeasured");
 echo(str("CUT LIST: PMV15T disc dia ", window_d + 2*land,
          carrier_is_pp ? " mm, welded into the carrier" : " mm, clamped in the carrier"));
 echo(str("fasteners: ", bolt_n, "x ", use_insert ? "M2.5 into heat-set inserts"
@@ -723,6 +925,12 @@ module carrier() {
         // in front of every boss and nothing can be assembled.
         translate([0, 0, spigot_len - heps])
             bolt_positions() cylinder(d=m25_clear, h=flange_t + 2*heps);
+        // Seal-land thermometry, from the DRY face so it stays inside the seal.
+        // This is what turns the heater's coupling from an assumption into a
+        // measurement -- see the echo below for what it can and cannot see.
+        if (tsense)
+            translate([0, 0, spigot_len])
+                cartridge_tsense_axial(window_d, tsense_bore, eps=heps);
     }
 }
 
@@ -825,6 +1033,22 @@ module cavity_raw() {
         }
         translate([-board_w/2, -board_t/2, socket_len - heps])
             cube([board_w, board_t, cav_board_len + 2*heps]);
+        // OPEN, 2026-09-04: the can is cut at the BOARD END, but the socket
+        // stands it off by socket_standoff (4.7 mm at the placeholder
+        // cell_axial_len), so in service its sensing face sits that much CLOSER
+        // to the membrane. Volume-neutral -- cav_net subtracts cell_disp
+        // analytically and the neck is prismatic -- which is why no gate ever
+        // caught it. NOT neutral for the axial diffusion path in model/.
+        //
+        // Deliberately NOT fixed here. Seating the can on its stand-off makes it
+        // an ISLAND in the gas, so the void becomes a legitimately enclosed
+        // second shell and the cavity renders "Volumes: 3". That is correct
+        // geometry, not a defect -- but it costs this part its Volumes: 2 gate,
+        // and the alternative (modelling the socket as a solid) puts an
+        // UNSOURCED diameter inside a release gate: a 6 mm stem would eat
+        // ~133 mm3 of a ~190 mm3 budget margin. Decide it with the Cambion
+        // footprint in hand, not before. The assembly drawing already shows the
+        // can in its true seated position.
         translate([0, 0, socket_len + cav_board_len]) cylinder(d=cell_d, h=cell_h);
     }
 }
@@ -876,6 +1100,23 @@ module screw(nominal, length, head_d, head_t) {
 module assembly() {
     e = exploded ? 12 : 0;
     color("Tan") head();
+
+    // ---- what the head is FOR -------------------------------------------
+    // The board arrives from the TUBE side, so it explodes DOWN. Drawing it up
+    // with the sealing stack would say it assembles through the membrane, which
+    // is the one direction it cannot: the head is bonded to the tube.
+    // The cell is separated from its own socket because it is the only
+    // SCHEDULED CONSUMABLE in this picture (PLAN.md risk 11 -- electrolyte loss
+    // at 75 C sets a replacement interval), and a drawing that buries it in the
+    // board hides the service problem instead of showing it.
+    color("ForestGreen")
+        translate([-board_w/2, -board_t/2, board_tip_z - board_stub - 4.4*e])
+            cube([board_w, board_t, board_stub]);
+    color("Goldenrod")
+        translate([0, 0, board_tip_z - 4.4*e])
+            cylinder(d=6.0, h=socket_standoff);
+    color("DarkSlateGray")
+        translate([0, 0, cell_z - 3.4*e]) cylinder(d=cell_d, h=cell_h);
     // Gasket drawn at its COMPRESSED height, which is how it sits in service.
     color("DimGray")
         translate([0, 0, well_z + lead_chamfer + 0.75 + groove_w/2 + 1.6*e])
@@ -883,18 +1124,18 @@ module assembly() {
                 circle(d=oring_cord);
     color("Khaki") translate([0, 0, well_z + 3.4*e]) carrier();
     // The consumable stack the retainer clamps, in the carrier's wet-face pocket:
-    // gasket at its COMPRESSED height, then the membrane coupon on top of it.
-    // These are what the six screws actually preload. The gasket's bore is wider
-    // than the window: at window_d it sat inside the flare cone and put one
-    // compressed gasket thickness of straight channel in front of the membrane.
+    // the O-ring at its COMPRESSED height, then the membrane coupon on top.
+    // These are what the six screws actually preload. The ring's bore is wider
+    // than the window: at window_d it would sit inside the flare cone and put one
+    // compressed cord thickness of straight channel in front of the membrane.
+    // Drawn as a squashed torus -- the free cord is mem_oring_cs, so at gasket_gap
+    // the section is an ellipse, which is what a seated ring actually looks like.
     coupon_d = window_d + 2*land;
     color("IndianRed")
-        translate([0, 0, end_z + flange_t - pocket_depth + 5.6*e])
-            difference() {
-                cylinder(d=coupon_d, h=gasket_gap);
-                translate([0, 0, -heps])
-                    cylinder(d=gasket_id(window_d), h=gasket_gap + 2*heps);
-            }
+        translate([0, 0, end_z + flange_t - pocket_depth + gasket_gap/2 + 5.6*e])
+            rotate_extrude()
+                translate([(gasket_id(window_d) + mem_oring_cs)/2, 0])
+                    scale([1, gasket_gap/mem_oring_cs]) circle(d=mem_oring_cs);
     color("GhostWhite")
         translate([0, 0, end_z + flange_t - membrane_t + 7.2*e])
             cylinder(d=coupon_d, h=membrane_t);
