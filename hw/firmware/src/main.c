@@ -143,6 +143,7 @@ typedef enum {
 static phase_t g_phase;
 static unsigned g_sub;          /* conversion index within the current phase */
 static int32_t g_acc;           /* accumulator for the current phase */
+static bool g_acc_clipped;      /* any conversion in this phase hit full scale */
 
 /* Per-cycle working state, gathered as the phases run. */
 static struct {
@@ -168,6 +169,7 @@ static void cycle_begin(void)
     g_cyc.t_chamber = O2P_I16_INVALID;
     g_sub = 0u;
     g_acc = 0;
+    g_acc_clipped = false;
 
     /* Build this cycle's snapshot from INVALID, never from the previous one.
      * Copying the old snapshot forward is how a dead sensor keeps publishing
@@ -340,7 +342,26 @@ static bool accumulate(uint8_t mux, uint8_t dr, bool ext_ref, unsigned n)
         g_sub = n;          /* abandon the phase; a partial average is not a
                              * measurement of any defined interval */
         g_acc = 0;
+        g_acc_clipped = false;
         return true;
+    }
+    /* Clip detection, per conversion rather than on the average. A converter
+     * pinned at full scale reports the same code however the input moves, so
+     * it cannot say "the signal left my range" - it just keeps answering. That
+     * is how six minutes of a saturated TIA were read as a steady 607 uA when
+     * the cell was actually polarising: 622 uA and 240 uA are the same number
+     * once the channel is pinned.
+     *
+     * Checking the AVERAGE would miss a channel that clips on only some of the
+     * eight O2 conversions, which is exactly what a signal drifting into the
+     * rail looks like on its way in. The accumulator keeps no per-conversion
+     * codes, so the flag is carried here instead.
+     *
+     * Full scale is +32767; single-ended readings should not go negative at
+     * all, so -32768 is included as the other rail rather than assumed
+     * unreachable. */
+    if (o2p_ads1119_code_clipped(code)) {
+        g_acc_clipped = true;
     }
     g_acc += code;
     g_sub++;
@@ -392,6 +413,15 @@ static void finish_o2(o2p_snapshot_t *s)
 {
     if ((g_cyc.faults & O2P_FAULTS_ADS_NO_CONVERSION) != 0u) {
         return;
+    }
+    /* A pinned converter is not a measurement. Raise ADC_RANGE - which
+     * already means "converter saturated or out of window" and already
+     * invalidates O2 - so the reading is withheld rather than published as a
+     * confident number that happens to be the rail. The raw code is still
+     * recorded below for the bench; what changes is that nothing downstream
+     * treats it as valid. */
+    if (g_acc_clipped) {
+        g_cyc.faults |= O2P_F_ADC_RANGE;
     }
     int32_t code = g_acc / (int32_t)O2P_N_O2;
     int32_t uv = o2p_ads1119_code_to_uv(code, g_cyc.vref_mv);
@@ -547,7 +577,7 @@ static bool sampler_step(void)
     switch (g_phase) {
     case PH_RAILS:  phase_rails(s); g_phase = PH_AFE;   break;
     case PH_AFE:    phase_afe(s);   g_phase = PH_TEMPS; break;
-    case PH_TEMPS:  phase_temps(s); g_phase = PH_VREF; g_sub = 0; g_acc = 0; break;
+    case PH_TEMPS:  phase_temps(s); g_phase = PH_VREF; g_sub = 0; g_acc = 0; g_acc_clipped = false; break;
 
     case PH_VREF:
         /* Measured against the ADS1119's OWN internal reference: a converter
@@ -555,14 +585,14 @@ static bool sampler_step(void)
          * drifting. */
         if (accumulate(O2P_ADS_MUX_AIN1_AGND, O2P_ADS_DR_90SPS, false, O2P_N_VREF)) {
             finish_vref(s);
-            g_phase = PH_VIN; g_sub = 0; g_acc = 0;
+            g_phase = PH_VIN; g_sub = 0; g_acc = 0; g_acc_clipped = false;
         }
         break;
 
     case PH_VIN:
         if (accumulate(O2P_ADS_MUX_AIN3_AGND, O2P_ADS_DR_90SPS, true, O2P_N_VIN)) {
             finish_vin(s);
-            g_phase = PH_O2; g_sub = 0; g_acc = 0;
+            g_phase = PH_O2; g_sub = 0; g_acc = 0; g_acc_clipped = false;
         }
         break;
 

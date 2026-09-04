@@ -260,3 +260,58 @@ taken on an unverified configuration, with no fault set. One plausible number
 goes out before the guard speaks. Closing that costs a readback per
 conversion; it has not been paid, and this is why a future reader might
 decide to pay it.
+
+---
+
+# Guard review: AIN0 clip detection (2026-09-05)
+
+A converter pinned against a rail keeps answering, and the answer looks like a
+measurement. This is the guard for the failure recorded in section 7 of
+`AFE-BRING-UP-POSTMORTEM.md`: six minutes of a saturated TIA read as a steady
+607 uA while the cell was actually polarising, because 622 uA and 240 uA are
+the same number once the channel is pinned.
+
+**1. Unevaluable input.** A clipped conversion raises `O2P_F_ADC_RANGE`, which
+already invalidates O2. No new bit was needed — bits 13 and 14 are now spent,
+and `ADC_RANGE` already means "converter saturated or out of window", which is
+exactly this. The raw code is still recorded for the bench; what changes is
+that nothing downstream treats it as valid.
+
+**2. Monotonicity.** Tested across the whole margin band up to the rail
+(`test_clip_detection`). Worse cannot become OK.
+
+**3. Preconditions.** The flag lives beside the accumulator and is cleared at
+every one of the five sites that reset `g_acc` — verified by grep, because a
+clip in the VREF phase leaking into the O2 phase would be a false positive on
+the channel that matters most.
+
+**4. Source of truth.** The raw ADC code, checked **per conversion**. The
+average would miss a channel that clips on only some of the eight O2
+conversions, which is what a signal drifting into the rail looks like on the
+way in. `accumulate()` keeps no per-conversion codes, so the flag is carried
+alongside.
+
+**5. Persistence.** Nothing cached; the flag is per phase.
+
+**6. Provenance.** Reported as `ADC_RANGE`, the existing published meaning. No
+map change, so no downstream decoder moves.
+
+**7. Known-bad calibration — PARTIAL, and this is the honest status.** The
+predicate is unit-tested at both rails, inside and outside the margin, and
+across the band. **It has NOT been calibrated on hardware.** The plan was to
+inject `GAIN = 4` into the per-conversion config write over SWD, making the
+real converter saturate against a 625 mV full scale while the oxygen channel
+sits ~1.06 V off zero. The attempt was abandoned rather than completed: the
+SWD link on this bench proved unreliable (roughly half of all OpenOCD
+connections failed with `cannot read IDR`, the target reset mid-session, and
+one sequence left the application flash erased and needing a re-flash).
+Continuing to drive breakpoint injection through a link that flaky risked the
+board for a guard whose logic is three lines and fully unit-tested. **This is
+the one guard in this document without a hardware known-bad behind it**, and
+it should get one when the debug link is fixed.
+
+**8. Fix vs mute.** Real: it changes what is published, not what is displayed.
+A pinned channel now withholds the reading instead of emitting the rail as a
+confident number.
+
+**Runtime cost:** one comparison per conversion. Nothing measurable.

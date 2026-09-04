@@ -9,6 +9,7 @@
 #include <math.h>
 #include <string.h>
 
+#include "ads1119.h"
 #include "die_temp.h"
 #include "faults.h"
 #include "heater_ctl.h"
@@ -528,6 +529,38 @@ static void test_config_block_read_covers_the_gains(void)
     n = framed(req, over, sizeof(over));
     o2p_mb_dispatch(req, n, 3, &handlers, rsp);
     TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS, rsp[2]);
+}
+
+/* Clip detection. The failure it exists to stop is a converter pinned against
+ * a rail that keeps answering with a number that looks like a measurement. */
+static void test_clip_detection(void)
+{
+    /* Mid-scale and ordinary readings are not clipped. The oxygen channel in
+     * air sits nowhere near either rail. */
+    TEST_ASSERT_FALSE(o2p_ads1119_code_clipped(0));
+    TEST_ASSERT_FALSE(o2p_ads1119_code_clipped(1000));
+    TEST_ASSERT_FALSE(o2p_ads1119_code_clipped(16384));
+    TEST_ASSERT_FALSE(o2p_ads1119_code_clipped(-1000));
+
+    /* Both rails, exactly. */
+    TEST_ASSERT_TRUE(o2p_ads1119_code_clipped(32767));
+    TEST_ASSERT_TRUE(o2p_ads1119_code_clipped(-32768));
+
+    /* And within the noise margin of each, because a signal resting on a rail
+     * dithers by a count or two and an equality test would miss it on exactly
+     * the samples that matter. */
+    TEST_ASSERT_TRUE(o2p_ads1119_code_clipped(32767 - O2P_ADS_CLIP_MARGIN));
+    TEST_ASSERT_TRUE(o2p_ads1119_code_clipped(-32768 + O2P_ADS_CLIP_MARGIN));
+
+    /* Just inside the margin is still a measurement: the guard must not eat
+     * legitimate near-full-scale readings. */
+    TEST_ASSERT_FALSE(o2p_ads1119_code_clipped(32767 - O2P_ADS_CLIP_MARGIN - 1));
+    TEST_ASSERT_FALSE(o2p_ads1119_code_clipped(-32768 + O2P_ADS_CLIP_MARGIN + 1));
+
+    /* Monotonicity: once clipped, worse cannot become OK again. */
+    for (int32_t c = 32767 - O2P_ADS_CLIP_MARGIN; c <= 32767; c++) {
+        TEST_ASSERT_TRUE(o2p_ads1119_code_clipped((int16_t)c));
+    }
 }
 
 static void test_validity_matrix(void)
@@ -1348,6 +1381,7 @@ int main(void)
     RUN_TEST(test_heater_gains_are_writable_and_bounded);
     RUN_TEST(test_gain_registers_read_back_what_was_written);
     RUN_TEST(test_config_block_read_covers_the_gains);
+    RUN_TEST(test_clip_detection);
     RUN_TEST(test_validity_matrix);
     RUN_TEST(test_snapshot_is_invalid_before_the_first_sample);
     RUN_TEST(test_dewpoint_reference_points);

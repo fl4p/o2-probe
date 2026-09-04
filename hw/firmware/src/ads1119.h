@@ -70,6 +70,30 @@ o2p_ads_status_t o2p_ads1119_init(void);
 o2p_ads_status_t o2p_ads1119_convert(uint8_t mux, uint8_t dr, bool ext_ref,
                                      int16_t *out_code);
 
+/* Is this conversion pinned against a rail?
+ *
+ * A saturated converter reports the same code however the input moves, so it
+ * cannot say "the signal left my range" - it just keeps answering, and the
+ * answer looks like a measurement. Six minutes of a saturated TIA were once
+ * read as a steady 607 uA while the cell was actually polarising: 622 uA and
+ * 240 uA are the same number once the channel is pinned.
+ *
+ * Positive full scale is +32767. Single-ended readings should not go negative
+ * at all (SBAS925A 8.3.2), so the negative rail is included rather than
+ * assumed unreachable - a negative code already means something is wrong, and
+ * one pinned at -32768 is wrong AND unquantified.
+ *
+ * The margin is a few LSB rather than an exact equality: a signal sitting on
+ * the rail dithers by a count or two of noise, and an equality test would miss
+ * it on exactly the samples where it matters. */
+#define O2P_ADS_CLIP_MARGIN 8
+
+static inline bool o2p_ads1119_code_clipped(int16_t code)
+{
+    return (code >= (32767 - O2P_ADS_CLIP_MARGIN)) ||
+           (code <= (-32768 + O2P_ADS_CLIP_MARGIN));
+}
+
 /* Average n conversions of one channel. Returns the first error encountered:
  * a partial average is not a measurement. */
 o2p_ads_status_t o2p_ads1119_average(uint8_t mux, uint8_t dr, bool ext_ref,
