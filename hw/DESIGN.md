@@ -35,9 +35,48 @@ KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
   option footprint that may take 0 ohm or a characterized bead after testing;
   a bead is not the default because its low-frequency inductance can resonate
   near the ADS1119 256 kHz modulator frequency.
-- The O2 signal chain is SGX three-electrode cell -> LMP91000 -> ADS1119. A
-  2 kOhm ten-turn trim and OPA2333 buffer establish `VREF_TRIM`; the second
-  op-amp makes the approximately 0.91-times guard replica.
+- The O2 signal chain is SGX three-electrode cell -> LMP91000 -> ADS1119. U15,
+  an **AZ431B wired as a two-terminal 2.5 V shunt** (REF strapped to the
+  cathode), establishes `VREF_SHUNT`, and R31 feeds `VREF_TRIM` from it; that
+  net keeps its name only because firmware keys off it, and **there is no
+  trimmer**. `POTTING.md` §1.2 (in `../../../ha/farming/compostlab/o2-probe/`)
+  removed it: the cell must be swappable with the board potted, so no adjustable
+  part may sit on the potted side.
+  - R41 biases the shunt from `+5V_ANALOG`, **not** 3V3A. The part needs
+    I_KA ≥ 1.0 mA, and 3V3A leaves only 3.234 − 2.510 = 0.724 V of worst-case
+    headroom — about 6 % over that floor — where +5V_ANALOG leaves 2.5 V and
+    gives 1.67 mA.
+  - C9 is deliberately only **1 nF on the cathode**, with the bulk capacitance
+    (C10) held off it by R31. AZ431-A Figure 15 puts the lower stable region
+    below roughly 10 nF at this cathode current. **That is a chart reading, not
+    a specified number — confirm on the bench before release.** The same R31
+    would have been *wrong* for a series reference like the REF33xx, which
+    requires 0.1–10 µF **on** its output pin.
+  - The AZ431's SOT-23 map (1 REF, 2 CATHODE, 3 ANODE) matches **no** KiCad
+    TL431 variant, so the symbol borrows the TL431DBZ graphic with pin numbers
+    remapped. Strapped as it is, the difference is electrically inert; it bites
+    the moment REF is divided to make the part adjustable.
+  - **The error the trimmer removed was overstated.** SNAS506I's ±2 % is the
+    bias programming *resolution* — the ladder's step spacing — not an accuracy.
+    Guaranteed WE-to-RE accuracy is `VOS_RW`: ±1750 µV max at the ±24 % setting
+    over −40…80 °C, i.e. *inside* the SGX's ±10 mV window. The trimmer deletion
+    stands on the potting requirement regardless, but the ±50 mV figure that
+    justified the bias-telemetry channel does not survive the datasheet.
+    `PLAN.md`'s AFE bias verdict is where it originates.
+- Both OPA2333 halves are unity-gain electrometer followers on the cell nodes:
+  U4A buffers WE, U4B buffers RE. U4B's output drives the guard through R40 and
+  the bias telemetry through R38, so the guard tracks the **real** electrode
+  instead of the old open-loop 0.91×VREF replica, which is both strictly better
+  guarding and the ADC channel that makes the bias measurable. `GUARD_REPLICA`
+  keeps its name because `repair_guard_fill.py`, `route_thermal_barrier.py` and
+  `audit_pcb.py` key off it; it is no longer a replica of anything.
+  No femtoampere part is needed: RE already carries the LMP91000's own ±900 pA
+  max IRE (SNAS518, −40..80 °C), so the OPA333's ±200 pA max at 25 °C raises the
+  worst case by about 20 %, where an ADA4530-1 at 20 fA would leave it at 900 pA.
+- ADS1119 AIN2/AIN3 read `WE_BUF`/`RE_BUF` **differentially** as the cell bias.
+  SBAS925 allows the ~2.27 V common mode at gain 1 and 4 alike, giving ±625 mV
+  full scale at gain 4. The two rail monitors this displaced, `VA_MON` and
+  `VIN_MON`, are now both on the MCU's own ADC (PA7/IN7 and PA6/IN6).
 - The processor is STM32G071CBT7. USART1 on PA9/PA10 drives the THVD1410 farm
   RS-485 port. USART2 on PA2/PA3 is reserved for the expansion/recovery path.
 - PC6 drives `RS485_DE`, placing the direction-control GPIO beside the USART1
@@ -51,9 +90,42 @@ KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
   overtemperature cutoff until firmware configures and fault-tests the TMP117.
   SHT45 is the chamber RH/dew-point channel. BMP390 remains an explicitly DNP
   pressure option at address 0x76.
-- RH1/RH2 heat a manually soldered metal membrane-carrier ring through two J5
-  plated-slot edge castellations. The ring is on switched `HEATER_LOW`, not GND,
-  and must remain on the insulated dry side of the PTFE membrane stack.
+- **The heat source stays on this board.** RH1/RH2 (2 × 280 Ω 2512, ~1 W at
+  12 V) bridge `+12V_SW` to `HEATER_LOW` above Q2, as they always have. An
+  earlier pass in this revision deleted them and moved the heat to the ring PCB;
+  Fab reversed that on 2026-09-04 — *"the heater stays where it is"*. The
+  geometry that motivated the delete is real and unchanged: `HEATED-SPREADER.md`
+  §0 measured 18.6 mm from the old J5 lands to the cartridge heater shelf, with
+  the cell filling the bore for 8.3 mm of it, and `RING-PCB.md` §1 puts the
+  fork's conduction at 4.3 mW/K — so heat made here does **not** efficiently
+  reach the membrane. But that is an argument about where heat must *arrive*,
+  not a licence to remove the only heat source the board has. The delete would
+  have cost a validated subsystem: the bench run recorded in `FAB-READINESS.md`
+  ("Heater bench results, 2026-09-04") exercised the PWM, the TMP117 interlock
+  with the core halted, the rail monitor and detect-and-recover **against
+  RH1/RH2 as the load**, and none of it could be re-run on a board whose heater
+  lives on an unbuilt ring behind an unmeasured neck bore. A ring PCB, when it
+  exists, **parallels** these elements through J5; it does not replace them.
+- **J5 is now a fork tip rather than two edge castellations.** J5's two edge
+  castellations are deleted, for the reach reason above. J5 is now two solder lands at the
+  tips of a tuning-fork board end, taking switched `HEATER_LOW` and fused
+  `+12V_HTR` 13 mm forward to a perpendicular ring PCB that carries the heater
+  itself. One finger per net, both layers of a finger paralleled. Fab dropped
+  the ring's temperature sensor from this revision, so only 2 of the 4 available
+  conductors are used and the second layer of each finger stays free for a v2
+  ring — which needs no main-board change. The footprint is explicitly DRAFT:
+  `RING-PCB.md` §5.1 forbids freezing the 0.6 mm finger width before the printed
+  ASA neck bore is measured on a real part.
+- **F3 is a FITTED 0 Ω link reserving a position against a fault path the fork
+  created.** It is deliberately *not* a DNP placeholder: it sits in series in the
+  only supply path to the ring, so leaving it unpopulated would open the heater
+  feed to the ring entirely. RH1/RH2 sit in the main-board branch and **not** in
+  the fork feed, so nothing limits the fork itself: a short between fork fingers
+  — which run at 0.20 mm clearance to a metal cell can — puts
+  +12V_SW across Q2 unlimited, and possibly 12 V onto the cell. Do not fit it as
+  drawn: a PPTC derates badly at pile temperature (F1's own note records 0.36 A
+  at 85 °C for a 0.75 A part), so one holding the heater's 83 mA would nuisance-
+  trip. Size it once the ring's resistance is fixed, or protect at the ring.
 - J2 is the DNP sealed-side expansion connector for a future external CO2 head:
   switched 12 V, protected 3.3 V, I2C, interrupt, and spare UART. It is not the
   programming connector. R15/R16 between `UART2_TX`/`UART2_RX` and J2 are DNP
