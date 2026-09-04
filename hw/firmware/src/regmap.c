@@ -68,7 +68,18 @@ bool o2p_config_valid(const o2p_config_t *cfg)
     if (cfg->heater_max_duty_x100 > 10000u) {
         return false;
     }
-    if (cfg->heater_pwm_hz < 50u || cfg->heater_pwm_hz > 20000u) {
+    /* The ceiling is a THERMAL limit on Q2, not an arbitrary range. Switching
+     * loss is duty-INDEPENDENT and scales with frequency, and the gate is
+     * driven through R28 = 10 k against R29 = 100 k, which FIRMWARE.md puts at
+     * "tens of microseconds" of edge - about 3 % of the period at the 1 kHz
+     * design point. At the old 20 kHz ceiling two edges would be most of a
+     * 50 us period and the FET would spend much of every cycle in its linear
+     * region. Nobody has measured that, and no thermal load needs it: 1 kHz is
+     * the tested point and 2 kHz leaves headroom without inviting a setting
+     * whose dissipation is unknown. Raising this again is a bench measurement,
+     * not an edit - the edge time is still UNVERIFIED, never having been put
+     * on a scope. */
+    if (cfg->heater_pwm_hz < 50u || cfg->heater_pwm_hz > 2000u) {
         return false;
     }
     /* Gains are bounded, not merely non-negative. The ceiling is what stops a

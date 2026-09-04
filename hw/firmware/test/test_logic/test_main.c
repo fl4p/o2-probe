@@ -1146,6 +1146,33 @@ static void test_die_temp_band_is_the_datasheet_not_a_remembered_one(void)
     TEST_ASSERT_EQUAL_INT16(4242, t);
 }
 
+
+static void test_pwm_ceiling_is_a_thermal_limit_not_a_range(void)
+{
+    /* The ceiling on heater_pwm_hz exists to keep Q2 out of its linear region.
+     * Switching loss is duty-INDEPENDENT and scales with frequency, and the
+     * gate is driven through R28 = 10 k, so a high frequency spends much of
+     * every period on the edges. The old 20 kHz bound permitted exactly that
+     * and nobody had measured it, which is why 20000 is pinned as REJECTED
+     * here rather than merely absent: a quiet revert would otherwise reopen a
+     * thermal failure mode that no test could see. */
+    o2p_config_t cfg;
+    o2p_config_defaults(&cfg);
+    TEST_ASSERT_TRUE(o2p_config_valid(&cfg));          /* 1 kHz, the design point */
+
+    cfg.heater_pwm_hz = 2000u;                          /* the new ceiling */
+    TEST_ASSERT_TRUE(o2p_config_valid(&cfg));
+    cfg.heater_pwm_hz = 2001u;
+    TEST_ASSERT_FALSE(o2p_config_valid(&cfg));
+    cfg.heater_pwm_hz = 20000u;                         /* the OLD ceiling */
+    TEST_ASSERT_FALSE(o2p_config_valid(&cfg));
+
+    cfg.heater_pwm_hz = 50u;                            /* the floor still holds */
+    TEST_ASSERT_TRUE(o2p_config_valid(&cfg));
+    cfg.heater_pwm_hz = 49u;
+    TEST_ASSERT_FALSE(o2p_config_valid(&cfg));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -1206,5 +1233,6 @@ int main(void)
     RUN_TEST(test_die_temp_rejects_impossible_conversion_inputs);
     RUN_TEST(test_die_temp_scales_with_the_supply_it_actually_ran_at);
     RUN_TEST(test_die_temp_band_is_the_datasheet_not_a_remembered_one);
+    RUN_TEST(test_pwm_ceiling_is_a_thermal_limit_not_a_range);
     return UNITY_END();
 }

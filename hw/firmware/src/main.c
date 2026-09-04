@@ -347,45 +347,11 @@ static bool accumulate(uint8_t mux, uint8_t dr, bool ext_ref, unsigned n)
     return g_sub >= n;
 }
 
-/* ---------------------------------------------------------------------------
- * BENCH-ONLY BUILD (O2P_BENCH_VREF_MV)
- *
- * Defined ONLY by [env:o2probe_bench]. The shipping build never sees it.
- *
- * The first article's ADS1119 has two dead analog inputs: AIN1 (the VREF
- * health monitor) and AIN3 (the VIN monitor). Both are DIAGNOSTIC channels.
- * AIN0 - the oxygen measurement itself - is unaffected, so the cell work,
- * including the open sign-convention gate that O2_RAW exists to settle, can
- * proceed while a replacement part is on order.
- *
- * This build therefore substitutes a MANUALLY MEASURED reference for the one
- * firmware can no longer read. That is not muting the guard: hw_contract.h
- * already calls VREF "a MANUAL bench step that firmware can only verify,
- * never set", and the value below is a DMM reading at TP4. What is lost is
- * the CONTINUOUS verification - a trim that drifts after the build will not
- * be noticed, so keep a meter on TP4.
- *
- * VIN is NOT substituted. AIN3 returns the previous channel's voltage, so a
- * plausible-looking number is available and it is a lie; this build publishes
- * O2P_U16_INVALID instead. Watch the supply on the PSU.
- * ------------------------------------------------------------------------- */
-#if defined(O2P_BENCH_VREF_MV)
-#  if (O2P_BENCH_VREF_MV) < 2400 || (O2P_BENCH_VREF_MV) > 2600
-#    error "O2P_BENCH_VREF_MV must be the measured TP4 reading in mV (2400..2600)"
-#  endif
-#endif
-
 static void finish_vref(o2p_snapshot_t *s)
 {
     if ((g_cyc.faults & O2P_FAULTS_ADS_NO_CONVERSION) != 0u) {
         return;
     }
-#if defined(O2P_BENCH_VREF_MV)
-    /* AIN1 is dead: whatever it returns is the previous channel, not VREF. */
-    s->vref_mv = (uint16_t)(O2P_BENCH_VREF_MV);
-    g_cyc.vref_mv = (uint32_t)(O2P_BENCH_VREF_MV);
-    (void)s;
-#else
     int32_t code = g_acc / (int32_t)O2P_N_VREF;
     int32_t half_uv = o2p_ads1119_code_to_uv(code, O2P_ADS_INTERNAL_REF_MV);
     int32_t measured = (half_uv / 1000) * (int32_t)O2P_HW_DIV_VREF_DEN /
@@ -402,7 +368,6 @@ static void finish_vref(o2p_snapshot_t *s)
     } else {
         g_cyc.vref_mv = (uint32_t)measured;
     }
-#endif
 }
 
 static void finish_vin(o2p_snapshot_t *s)
@@ -410,11 +375,6 @@ static void finish_vin(o2p_snapshot_t *s)
     if ((g_cyc.faults & O2P_FAULTS_ADS_NO_CONVERSION) != 0u) {
         return;
     }
-#if defined(O2P_BENCH_VREF_MV)
-    /* AIN3 is dead and mirrors AIN0, so a number IS available here and it is
-     * fabricated. Publish the invalid sentinel rather than a plausible lie. */
-    s->vin_mv = O2P_U16_INVALID;
-#else
     int32_t code = g_acc / (int32_t)O2P_N_VIN;
     int32_t pin_uv = o2p_ads1119_code_to_uv(code, g_cyc.vref_mv);
     int32_t vin_mv = (pin_uv / 1000) * (int32_t)O2P_HW_DIV_VIN_DEN /
@@ -426,7 +386,6 @@ static void finish_vin(o2p_snapshot_t *s)
     if (vin_mv < (int32_t)O2P_VIN_LOW_MV) {
         g_cyc.faults |= O2P_F_VIN_LOW;
     }
-#endif
 }
 
 static void finish_o2(o2p_snapshot_t *s)
@@ -469,21 +428,9 @@ static void finish_o2(o2p_snapshot_t *s)
         o2p_status_t st = o2p_fraction_from_current(
             &cal, cell_na,
             (t_gas != O2P_I16_INVALID) ? t_gas : cal.cal_temp_c100, &c);
-#if defined(O2P_BENCH_VREF_MV)
-        /* Bench: a negative fraction IS the inverted-polarity finding that
-         * SCHEMATIC-REVIEW.md M4 is open on, and O2_RAW is the channel that
-         * shows it (o2.c:55-59). Raising ADC_RANGE here puts it in
-         * O2P_FAULTS_INVALIDATE_O2 and blanks that raw channel - destroying
-         * the evidence this build exists to collect. o2p_encode_percent
-         * already encodes RANGE as invalid, so the COMPENSATED channel is
-         * still refused; the fault bit adds nothing but the collateral.
-         * Shipping behaviour is deliberately left unchanged - whether it
-         * should be is a separate decision, see faults.h:47-52. */
-#else
         if (st == O2P_RANGE) {
             g_cyc.faults |= O2P_F_ADC_RANGE;
         }
-#endif
         s->o2_comp = o2p_encode_percent(st, c);
     }
 
