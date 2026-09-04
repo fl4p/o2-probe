@@ -320,16 +320,20 @@ static bool accumulate(uint8_t mux, uint8_t dr, bool ext_ref, unsigned n)
          * a healthy ADS1119 came to be desoldered: the bus was fine, the fault
          * word said otherwise, and the board was believed.
          *
-         * BOTH DRDY failure directions belong on that bit. O2P_ADS_TIMEOUT is
-         * documented as "DRDY never asserted" and is returned only after the
-         * WREG and START transfers have already SUCCEEDED - so the bus
-         * demonstrably worked and the pin did not. An earlier version of this
-         * switch let TIMEOUT fall through to I2C_FAIL_ADS, which sent a
-         * technician after the bus for an open DRDY line: the same misdirection
-         * this split exists to remove, surviving inside the fix for it. */
+         * The driver decides which of those two a timeout was, by asking the
+         * device: if the STATUS register reports a result ready but the pin
+         * never fell, that is a pin fault and it returns O2P_ADS_DRDY; if the
+         * device reports nothing ready either, the bus and the command worked
+         * and the DEVICE did not convert, which is O2P_ADS_TIMEOUT.
+         *
+         * A previous version routed every timeout to the DRDY bit on the
+         * argument that WREG and START had succeeded. That was a label change,
+         * not a diagnosis - an acknowledged START, a stalled oscillator, a
+         * brownout after START and a wrong device all produce a timeout with a
+         * perfectly healthy pin. Distinguishing them needs evidence, so the
+         * driver now collects some. */
         switch (st) {
-        case O2P_ADS_DRDY:
-        case O2P_ADS_TIMEOUT: g_cyc.faults |= O2P_F_ADS_DRDY_STUCK;  break;
+        case O2P_ADS_DRDY:    g_cyc.faults |= O2P_F_ADS_DRDY_STUCK;  break;
         case O2P_ADS_CONFIG:  g_cyc.faults |= O2P_F_ADS_CONFIG_LOST; break;
         default:              g_cyc.faults |= O2P_F_I2C_FAIL_ADS;    break;
         }

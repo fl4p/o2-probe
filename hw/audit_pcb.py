@@ -43,22 +43,16 @@ ALLOWED_WARNING_TYPES = {
 # These density exceptions are acceptable for hand assembly and are never
 # exported as legend layers in the bare-board release.  Any changed pair fails
 # the audit and requires a new physical assembly review.
-# Hand-assembly courtyard exceptions, re-derived from the board after the
-# AFE/heater revision -- not edited by hand.  Four pairs disappeared for real
-# reasons and are worth naming so nobody "restores" them: C11/C12 and C15/R8,
-# C15/R9 went away when those 100n parts were consolidated onto 0402, and the
-# RV1 and R20-R23 pairs went with the trim divider POTTING.md 1.2 deleted.
-# TP2 is NEW and adds no exception: it was sited at the one y that clears every
-# courtyard outright while still leaving all six test-point legends placeable.
 COURTYARD_ALLOWLIST = {
     tuple(sorted(pair))
     for pair in {
         ("R17", "U4"), ("D1", "J101"), ("C25", "J2"), ("C1", "U1"),
-        ("C3", "L1"), ("Q2", "TP6"), ("TP3", "U4"), ("J104", "R3"),
-        ("C5", "U2"), ("D6", "J2"), ("J2", "TP1"),
-        ("J2", "TP5"), ("C14", "C26"), ("D2", "J103"), ("J103", "R2"),
-        ("D4", "R12"), ("R10", "R11"), ("D1", "J102"), ("D2", "J104"),
-        ("D5", "R14"),
+        ("C11", "C12"), ("C3", "L1"), ("Q2", "TP6"),
+        ("TP3", "U4"), ("J104", "R3"), ("C5", "U2"), ("D6", "J2"),
+        ("J2", "TP1"), ("J2", "TP5"), ("C14", "C26"), ("D2", "J103"),
+        ("J103", "R2"), ("D4", "R12"), ("R10", "R11"), ("R22", "R23"),
+        ("D1", "J102"), ("C31", "RV1"), ("R20", "RV1"), ("R38", "RV1"),
+        ("C15", "R8"), ("C15", "R9"), ("D2", "J104"), ("D5", "R14"),
     }
 }
 
@@ -152,7 +146,7 @@ def expected_thermal_barrier_track_crossings() -> Counter:
     segment("/CELL_RE", "F.Cu", 0.15, (111.0, 131.4), (112.54, 141.0))
     segment("/CELL_CE", "In1.Cu", 0.15, (110.5, 132.45), (107.45, 135.5))
     segment("/3V3D", "F.Cu", 0.15, (119.72, 133.8), (119.72, 134.2))
-    segment("/+12V_SW", "B.Cu", 0.18, (109.9, 133.6), (109.9, 134.9))
+    segment("/+12V_SW", "B.Cu", 0.18, (109.9, 133.6), (109.9, 136.15))
     segment("/VA_MON", "F.Cu", 0.18, (109.65, 134.0), (109.75, 134.0))
     segment("/VA_MON", "F.Cu", 0.18, (109.75, 134.0), (109.8, 134.05))
     segment("/VA_MON", "F.Cu", 0.18, (108.35, 132.7), (109.65, 134.0))
@@ -496,7 +490,7 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
                 outline.PointCount(), heater_fill.HoleCount(index),
             )] += 1
         expected_heater_signatures = Counter({
-            ((100.25, 135.0, 119.75, 156.75), 1343, 0): 1,
+            ((100.25, 135.0, 119.75, 156.75), 1329, 0): 1,
         })
         check(errors, heater_signatures == expected_heater_signatures,
               "HEATER_SPREADER_FILL",
@@ -544,20 +538,8 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
 
     errors.extend(collect_pinmap_provenance_errors(footprints))
 
-    # This guard used to read `"TP2" not in footprints`, which checked a
-    # DESIGNATOR rather than the property it was trying to protect. It fired on
-    # 2026-09-04 against a TP2 that is a GROUND pad, and it would have stayed
-    # silent if the same aperture had been added as TP7. What matters is that no
-    # exposed test pad lands on the reference electrode: CELL_RE is budgeted
-    # against the LMP91000's +/-900 pA IRE, and a solder-mask opening there is a
-    # surface-leakage path onto the most sensitive node on the board.
-    re_testpoints = sorted(
-        ref for ref, footprint in footprints.items()
-        if ref.startswith("TP")
-        and any(pad.GetNetname() == "/CELL_RE" for pad in footprint.Pads())
-    )
-    check(errors, not re_testpoints, "CELL_RE_TESTPOINT",
-          f"{re_testpoints} expose the high-impedance CELL_RE node")
+    check(errors, "TP2" not in footprints, "CELL_RE_TESTPOINT",
+          "TP2 exposes the high-impedance CELL_RE node")
     if "U7" not in footprints or "U11" not in footprints:
         return errors, metrics
 
@@ -597,12 +579,9 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
         size = xy(pad.GetSize())
         drill = xy(pad.GetDrillSize())
         check(errors, all(near(a, b) for a, b in zip(xy(pad.GetPosition()), wanted_position))
-              and all(near(value, 2.0) for value in size)
-              and all(near(value, 1.32) for value in drill),
-              "U11_PAD_GEOMETRY",
-              f"pad {number} position/land/drill differs from DS-0637 Issue 2 plus the "
-              "socket land (2.0 mm land, 1.32 mm drill for TE 5050462, borable to 1.40 "
-              "for Cambion 450-3703)")
+              and all(near(value, 1.6) for value in size)
+              and all(near(value, 0.9) for value in drill),
+              "U11_PAD_GEOMETRY", f"pad {number} position/land/drill differs from DS-0637 Issue 2")
 
     apertures = [pad for pad in u11.Pads()
                  if not pad.GetNumber() and pad.GetAttribute() == pcbnew.PAD_ATTRIB_NPTH]
@@ -624,8 +603,8 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
         aperture_edge = aperture_position[1] - aperture_drill[1] / 2
         aperture_gap = aperture_edge - pad_edge
         metrics["sensor_pad_to_aperture_gap_mm"] = aperture_gap
-        check(errors, near(aperture_gap, 0.3), "SENSOR_APERTURE_PAD_GAP",
-              f"pad-2 copper to slot edge is {aperture_gap:.3f} mm, want 0.300 mm")
+        check(errors, near(aperture_gap, 0.5), "SENSOR_APERTURE_PAD_GAP",
+              f"pad-2 copper to slot edge is {aperture_gap:.3f} mm, want 0.500 mm")
 
         expected_heater_detour = Counter({
             frozenset(((117.65, 144.3), (117.65, 148.8))): 1,
@@ -756,8 +735,8 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
                 filled_guard.HoleCount(index),
             )] += 1
         expected_filled_guard = Counter({
-            ((109.867055, 135.0, 112.132522, 141.65), 54, 0): 1,
-            ((111.8553, 135.257645, 113.990268, 141.65), 43, 0): 1,
+            ((109.867055, 135.0, 112.165584, 141.65), 28, 0): 1,
+            ((111.8553, 135.257645, 113.990268, 141.65), 35, 0): 1,
             ((109.3897, 131.971835, 110.405022, 132.9745), 34, 0): 1,
         })
         check(errors, actual_filled_guard == expected_filled_guard,
@@ -767,7 +746,7 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
         guard_samples = (
             (109.5, 132.5), (110.0, 132.5),
             (110.80, 136.0), (111.20, 138.0), (111.50, 140.0),
-            (112.45, 136.0), (112.79, 138.0), (113.15, 140.0), (113.75, 141.3),
+            (112.45, 136.0), (112.79, 138.0), (113.15, 140.0), (113.60, 141.3),
         )
         missing_guard_samples = [
             point for point in guard_samples
@@ -1017,82 +996,6 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
           "POT_MARKERS", "front/back y=132 potting markers are missing")
     check(errors, "DO NOT OBSTRUCT" in texts, "APERTURE_MARKER",
           "sensor aperture warning text is missing")
-
-    # Every test point must be identifiable with a probe in hand.  This does not
-    # read gen_pcb.TESTPOINT_LABELS: importing the generator's own table would
-    # only prove the table equals itself.  The property checked here is the one
-    # that makes a label useful -- a legible mark, on the side the pad is on,
-    # closer to its own pad than to any other test point by a clear margin --
-    # and it is derived from the board alone.
-    testpoints = {ref: footprint for ref, footprint in footprints.items()
-                  if ref.startswith("TP")}
-    silk_texts = [item for item in board.Drawings()
-                  if isinstance(item, pcbnew.PCB_TEXT)
-                  and item.GetLayer() in (pcbnew.F_SilkS, pcbnew.B_SilkS)]
-    reserved = {"POT TO HERE", "CABLE", "GAS / DO NOT POT", "DO NOT OBSTRUCT"}
-    owners: dict[str, list[str]] = {ref: [] for ref in testpoints}
-    for item in silk_texts:
-        if item.GetText() in reserved:
-            continue
-        side = pcbnew.F_SilkS if item.GetLayer() == pcbnew.F_SilkS else pcbnew.B_SilkS
-        centre = xy(item.GetPosition())
-        distances = sorted(
-            (((centre[0] - xy(fp.GetPosition())[0]) ** 2
-              + (centre[1] - xy(fp.GetPosition())[1]) ** 2) ** 0.5, ref)
-            for ref, fp in testpoints.items()
-            if (pcbnew.F_SilkS if fp.GetLayer() == pcbnew.F_Cu else pcbnew.B_SilkS) == side
-        )
-        if not distances:
-            continue
-        nearest, ref = distances[0]
-        runner_up = distances[1][0] if len(distances) > 1 else float("inf")
-        check(errors, nearest <= 4.0, "TESTPOINT_LABEL_DISTANCE",
-              f"silk text {item.GetText()!r} is {nearest:.2f} mm from {ref}, want <=4.0 mm")
-        # Two honest limits on this check.  1.4 is a CHOSEN threshold, not a
-        # derived one -- it encodes "a reader can tell which pad this names" and
-        # nothing more.  And it compares TEXT CENTRES, so a long legend whose
-        # centre sits near its own pad can still sprawl over a neighbour; that
-        # is tolerable only while the legends stay short, which the 0.8 mm floor
-        # and a 20 mm board enforce in practice.
-        check(errors, runner_up >= 1.4 * nearest, "TESTPOINT_LABEL_AMBIGUOUS",
-              f"silk text {item.GetText()!r} is {nearest:.2f} mm from {ref} but "
-              f"{runner_up:.2f} mm from the next test point, want a 1.4x margin")
-        check(errors, mm(item.GetTextHeight()) >= 0.8 - 0.0001, "TESTPOINT_LABEL_HEIGHT",
-              f"silk text {item.GetText()!r} is {mm(item.GetTextHeight()):.2f} mm high, "
-              "below the 0.8 mm printable floor")
-        # Proximity alone says a pad HAS a label, never that it has the RIGHT
-        # one: swapping the WE and CE strings in place satisfied every check
-        # above.  The label must therefore be derivable from the pad's own net,
-        # which reaches this audit from the schematic through the board and not
-        # from the generator's table -- so agreement here is evidence, not two
-        # copies of one assumption.  Substring rather than equality because the
-        # legend is deliberately shorter than the net (WE for /CELL_WE, VREF for
-        # /VREF_TRIM).
-        #
-        # It matches a contiguous run of UNDERSCORE-SEPARATED TOKENS, not a raw
-        # substring, and the difference is not pedantry: under a substring rule
-        # "CE" passes on /CELL_WE, because CE is literally the first two letters
-        # of CELL_WE.  A calibration that swapped the WE and CE legends fired on
-        # only one of the two pads.  Tokenising makes the rule mean what it says.
-        if nearest <= 4.0:
-            nets = {pad.GetNetname().lstrip("/").upper()
-                    for pad in testpoints[ref].Pads() if pad.GetNetname()}
-            label = item.GetText().upper()
-            allowed = set()
-            for net in nets:
-                parts = net.split("_")
-                allowed.update("_".join(parts[i:j])
-                               for i in range(len(parts))
-                               for j in range(i + 1, len(parts) + 1))
-            check(errors, len(label) >= 2 and label in allowed,
-                  "TESTPOINT_LABEL_IDENTITY",
-                  f"{ref} is labelled {item.GetText()!r}, which is not a token run "
-                  f"of its net {sorted(nets)}")
-            owners[ref].append(item.GetText())
-    for ref, labels in sorted(owners.items()):
-        check(errors, len(labels) == 1, "TESTPOINT_LABEL",
-              f"{ref} carries {len(labels)} silkscreen labels {labels}, want exactly one")
-    metrics["testpoint_labels"] = float(sum(len(labels) for labels in owners.values()))
     return errors, metrics
 
 
@@ -1433,44 +1336,6 @@ def calibrate(board_path: Path, board_text: str) -> list[str]:
     expect("schematic footprint deleted", "FOOTPRINT_SET", remove_schematic_footprint)
     expect("schematic pad moved to wrong net", "PAD_NET", change_schematic_pad_net)
     expect("missing fab stackup", "STACKUP", lambda board: None, text="")
-
-    def testpoint_label(board, text="GUARD"):
-        return next(item for item in board.Drawings()
-                    if isinstance(item, pcbnew.PCB_TEXT) and item.GetText() == text)
-
-    def delete_testpoint_label(board) -> None:
-        board.Remove(testpoint_label(board))
-
-    def shrink_testpoint_label(board) -> None:
-        testpoint_label(board).SetTextSize(pcbnew.VECTOR2I_MM(0.6, 0.6))
-
-    def strand_testpoint_label(board) -> None:
-        # Push GUARD out to where nothing owns it: far from TP5 and no closer to
-        # any other test point.
-        testpoint_label(board).SetPosition(pcbnew.VECTOR2I_MM(110.0, 115.0))
-
-    def straddle_testpoint_label(board) -> None:
-        # Midway between TP1 (y=120.0) and TP3 (y=123.5), so the mark no longer
-        # says which pad it names.
-        testpoint_label(board, "WE").SetPosition(pcbnew.VECTOR2I_MM(103.4, 121.75))
-
-    expect("deleted test-point label", "TESTPOINT_LABEL", delete_testpoint_label)
-    expect("sub-printable test-point label", "TESTPOINT_LABEL_HEIGHT",
-           shrink_testpoint_label)
-    expect("stranded test-point label", "TESTPOINT_LABEL_DISTANCE",
-           strand_testpoint_label)
-    def swap_testpoint_labels(board) -> None:
-        # The label that every earlier check passed: right size, right side,
-        # unambiguously close to a pad -- and naming the wrong electrode.
-        we = testpoint_label(board, "WE")
-        ce = testpoint_label(board, "CE")
-        we.SetText("CE")
-        ce.SetText("WE")
-
-    expect("test-point label straddling two pads", "TESTPOINT_LABEL_AMBIGUOUS",
-           straddle_testpoint_label)
-    expect("WE and CE legends swapped", "TESTPOINT_LABEL_IDENTITY",
-           swap_testpoint_labels)
     return failures
 
 
@@ -1497,7 +1362,7 @@ def main() -> int:
         print(report.read_text(), end="")
         return 1
 
-    calibrated = "38/38 known-bad variants rejected" if args.calibrate else "not requested"
+    calibrated = "33/33 known-bad variants rejected" if args.calibrate else "not requested"
     report.write_text(
         "PASS: O2 probe fabrication audit\n"
         f"- 106 schematic footprints; 20.00 x 107.00 x 1.00 mm; four copper layers\n"

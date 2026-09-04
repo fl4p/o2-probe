@@ -36,7 +36,13 @@ summary that survives review precisely because it sounds complete.
 
 ## 2. Monotonicity
 
-Worse input cannot flip the verdict back to PASS. The drain is attempted
+Worse input cannot flip the verdict back to PASS. **This claim was false in
+three successive versions of this document,** and is worth reading with
+suspicion. Each time, an intermittent DRDY line that read low at the wrong
+moment produced `O2P_ADS_OK` carrying the previous channel's conversion — a
+worse input flipping the verdict to PASS, which is precisely what the sentence
+denies. It is recorded here because a checklist item that keeps being answered
+wrongly is more useful as a warning than as a reassurance. The drain is attempted
 **once** per conversion and only ever converts "stuck low" into either "still
 stuck low" (fail) or "released, conversion proceeds". A permanently
 misconfigured pin — the original bug, `MODER = 11`, `IDR` reads 0 forever —
@@ -58,11 +64,28 @@ conversion result" (SBAS925A 8.5.3.5), the previous channel, and the driver
 accepts it as current. The failure survived two rounds of repair at
 progressively longer odds without ever being eliminated.
 
-The wait loop now also gates on `conversion_min_ms()`: a low arriving before
-the datasheet says a conversion can possibly have completed is noise, not
-data. The authority is the clock, not the pin. Monotonicity means little if
-the far tail is the only tail tested — and "low odds" is not a guard, it is
-the same defect with a longer mean time to failure.
+The wait loop gates on `conversion_min_ms()`, so a low arriving before the
+datasheet says a conversion can possibly have completed is rejected as noise.
+
+**But the clock alone cannot close this, and claiming it did was the third
+wrong answer to the same question.** "Earliest possible" rejects impossibly
+early lows; it cannot authenticate WHICH conversion a plausible-looking low
+refers to. With fCLK spec'd -2%/+2% (SBAS925A 6.5), a 20 SPS conversion can
+still be running about 2 ms after the 49 ms gate opens, and a floating line
+sampled low inside that interval passed every check and returned the previous
+channel as OK. The window kept shrinking; it never closed. "Low odds" is not a
+guard — it is the same defect with a longer mean time to failure.
+
+What closes it is asking the device instead of the pin. Once the pin reads low
+and the clock gate has opened, `convert_once()` reads the STATUS register and
+proceeds only if the converter itself reports a result ready (SBAS925A
+8.5.3.6, bit 7). **The status register is the authority; the pin is a rumour**
+— and a rumour that agrees with the clock is still a rumour.
+
+That also gives the timeout path real evidence: on timeout the driver reads
+STATUS and reports a pin fault only when the device says a result IS ready and
+the pin never said so. Otherwise the device did not convert, which is not a
+pin fault and is no longer labelled as one.
 
 ## 3. Preconditions
 
@@ -165,6 +188,13 @@ letting a distinct failure reach the operator as a distinct bit.
   The duplicate WREG on the change path is harmless in single-shot with no
   conversion in flight, but it is real traffic and it is counted here. Against
   a ~0.53 s ADC budget in a 1 s loop, none of this is close to binding.
+- **Status confirmation: one 4-byte RREG per conversion**, 36 SCL clocks at
+  100 kHz, about 360 us x 15 conversions = **~5.4 ms per cycle**. An
+  independent review computed the full worst case at roughly 620 ms against the
+  1 s deadline before this was added, so the authoritative read fits with a
+  wide margin. Relative to what it buys this is the cheapest item in the
+  document: it is the only check here that AUTHENTICATES a reading rather than
+  bounding it.
 - **Failure state:** one additional 1-byte-write + 2-byte-read per conversion
   while DRDY is stuck. Bounded, and only in a state that is already faulted.
 

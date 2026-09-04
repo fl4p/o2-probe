@@ -35,6 +35,19 @@ static o2p_ads_status_t write_cfg(uint8_t cfg)
     return (o2p_i2c1_write(ADS_ADDR, tx, 2u) == O2P_I2C_OK) ? O2P_ADS_OK : O2P_ADS_IO;
 }
 
+/* SBAS925A 8.5.3.6: RREG with r=1 returns the STATUS register, whose bit 7
+ * (DRDY) is the device's own statement that a conversion result is ready.
+ * That is an authoritative answer from the converter. The DRDY PIN is only a
+ * signal about it, and a signal can be forged by a floating trace. */
+#define ADS_STATUS_DRDY 0x80u
+
+static o2p_ads_status_t read_status(uint8_t *st)
+{
+    const uint8_t tx = O2P_ADS_CMD_RREG_STAT;
+    return (o2p_i2c1_write_read(ADS_ADDR, &tx, 1u, st, 1u) == O2P_I2C_OK)
+               ? O2P_ADS_OK : O2P_ADS_IO;
+}
+
 static o2p_ads_status_t read_cfg(uint8_t *cfg)
 {
     const uint8_t tx = O2P_ADS_CMD_RREG_CFG;
@@ -152,7 +165,12 @@ static o2p_ads_status_t drain_stale_result(void)
 static uint32_t conversion_min_ms(uint8_t dr)
 {
     switch (dr) {
-    case O2P_ADS_DR_1000SPS: return 0u;    /* 1 ms; no useful margin at 1 ms tick */
+    /* 1 ms at 1000 SPS leaves no margin against a 1 ms tick, so the clock gate
+     * cannot help here and this returns 0 - o2p_elapsed(t0, 0) is immediately
+     * true. That rate is protected by the status-register confirmation below
+     * and by nothing else, which is fine because the confirmation is the part
+     * that actually authenticates the result. No caller uses 1000 SPS today. */
+    case O2P_ADS_DR_1000SPS: return 0u;
     case O2P_ADS_DR_330SPS:  return 2u;    /* 3 ms */
     case O2P_ADS_DR_90SPS:   return 10u;   /* 11.1 ms */
     default:                 return 49u;   /* 20 SPS, 50 ms */
@@ -288,15 +306,48 @@ static o2p_ads_status_t convert_once(uint8_t cfg, uint8_t dr, int16_t *out_code)
     uint32_t limit = conversion_timeout_ms(dr);
     uint32_t earliest = conversion_min_ms(dr);
     for (;;) {
-        bool ready = (O2P_ADC_DRDY_PORT->IDR & (1u << O2P_ADC_DRDY_PIN)) == 0u;
-        if (ready && o2p_elapsed(t0, earliest)) {
-            break;      /* low, and late enough to be a real conversion */
-        }
-        if (ready && earliest == 0u) {
-            break;      /* 1000 SPS: no margin to check against a 1 ms tick */
+        if ((O2P_ADC_DRDY_PORT->IDR & (1u << O2P_ADC_DRDY_PIN)) == 0u) {
+            /* The pin says ready. Two things must agree before that is
+             * believed. First the clock: a low earlier than the datasheet
+             * allows is noise. Second, and decisively, THE DEVICE ITSELF -
+             * because "earliest possible" cannot authenticate WHICH
+             * conversion a noisy pin is talking about. A floating line that
+             * happens to read low inside the plausible window would otherwise
+             * pass the clock gate, and RDATA would hand back the most recent
+             * COMPLETED conversion (SBAS925A 8.5.3.5) - the previous channel -
+             * as O2P_ADS_OK. That is the original defect, and narrowing its
+             * window three times is not the same as closing it.
+             *
+             * The status register is the authority. A pin is a rumour. */
+            if (o2p_elapsed(t0, earliest)) {
+                uint8_t stat = 0u;
+                o2p_ads_status_t sst = read_status(&stat);
+                if (sst != O2P_ADS_OK) {
+                    return sst;
+                }
+                if ((stat & ADS_STATUS_DRDY) != 0u) {
+                    break;      /* the converter itself says the result is ready */
+                }
+                /* Pin low, device says no result: the pin is lying. Keep
+                 * waiting - the timeout below is what ends this. */
+            }
         }
         if (o2p_elapsed(t0, limit)) {
-            return O2P_ADS_TIMEOUT;
+            /* Distinguish a PIN failure from a DEVICE failure with evidence
+             * rather than by assumption. If the converter reports a result
+             * ready but the pin never fell, the pin path is broken. If the
+             * converter reports nothing ready either, then the bus and the
+             * command were fine but the device did not convert - a device
+             * fault, not a pin fault. An earlier version of this code mapped
+             * every timeout to the DRDY bit, which was a label change rather
+             * than a diagnosis: TIMEOUT alone proves only "no valid ready was
+             * observed", never "the pin failed". */
+            uint8_t stat = 0u;
+            if (read_status(&stat) == O2P_ADS_OK &&
+                (stat & ADS_STATUS_DRDY) != 0u) {
+                return O2P_ADS_DRDY;        /* result ready, pin never said so */
+            }
+            return O2P_ADS_TIMEOUT;         /* device produced no conversion */
         }
     }
 

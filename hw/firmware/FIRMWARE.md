@@ -753,6 +753,13 @@ description have been corrected. **If this enum is renumbered again, those two
 must move with it** — they are in a different repository, which is exactly why
 they were missed.
 
+Bit 13 reports a DRDY pin that does not match the converter. It is raised when
+the pin will not release a stale result, and when the STATUS register says a
+result is ready but the pin never fell. It is NOT raised for a timeout in
+which the device reports no result either — that is a device fault and stays on
+`I2C_FAIL_ADS`, because "no valid ready was observed" does not by itself
+implicate the pin.
+
 Bit 13 now reports a DRDY line that will not release — a *pin* failure, deliberately
 separate from `I2C_FAIL_ADS`, because the bus can be perfectly healthy while
 this pin is not. Reporting the one as the other is what sent a healthy

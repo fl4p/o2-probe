@@ -103,17 +103,11 @@ PLACEMENT = {
  "J3":(4.5,56.5,0,"F"),
  "J2":(10.0,67.0,0,"F"), "F2":(17.5,62.0,90,"B"), "R12":(4.0,57.5,0,"B"), "R13":(6.8,59.0,0,"B"), "R14":(11.5,57.5,0,"B"), "R15":(14.5,57.5,0,"B"), "R16":(17.5,57.5,0,"B"),
  "D4":(3.0,60.0,90,"B"), "D5":(10.0,60.0,90,"B"), "D6":(17.0,60.0,90,"F"),
- "U4":(3.0,77.0,90,"F"), "U7":(10.0,79.5,270,"F"), "U8":(15.5,77.0,0,"F"),
- # The reference chain reads left to right along the row RV1/R20/R21 vacated:
- # R41 feeds the AZ431 shunt, C9 damps it, R31 isolates the bulk C10.  U15 is a
- # two-terminal shunt, so it needs no wiper and no adjustment access -- which is
- # the entire reason POTTING.md 1.2 could delete the trimmer.
- "C25":(1.2,68.0,0,"F"), "R41":(12.4,69.0,0,"B"), "U15":(8.9,73.75,0,"B"), "C9":(12.4,72.5,180,"B"), "R31":(15.6,72.5,0,"B"), "C10":(18.3,74.0,90,"B"),
+ "U4":(3.0,77.0,90,"F"), "RV1":(2.5,73.0,90,"B"), "U7":(10.0,79.5,270,"F"), "U8":(15.5,77.0,0,"F"),
+ "C25":(1.2,68.0,0,"F"), "R20":(6.0,72.5,0,"B"), "R21":(9.2,72.5,0,"B"), "C9":(12.4,72.5,180,"B"), "R31":(15.6,72.5,0,"B"), "C10":(18.3,74.0,90,"B"),
  # Keep the back-side passives out from directly below U7/U8 perimeter pads;
  # through-via dogbones otherwise have no legal annulus/clearance corridor.
- # R40 taps the RE follower for the guard; R42 is the CE fault limit and wants
- # to be at U7's pin 14, not out at the cell.
- "R40":(3.0,77.0,0,"B"), "R42":(9.25,78.5,0,"B"), "C16":(12.4,74.5,0,"B"), "C17":(15.6,74.5,0,"B"), "C18":(18.0,80.2,90,"B"), "C19":(18.5,80.2,90,"F"),
+ "R22":(6.5,74.5,0,"B"), "R23":(9.2,74.5,0,"B"), "C16":(12.4,74.5,0,"B"), "C17":(15.6,74.5,0,"B"), "C18":(18.0,80.2,90,"B"), "C19":(18.5,80.2,90,"F"),
  "R24":(6.0,80.2,0,"B"), "R25":(9.2,80.2,0,"B"), "R26":(12.4,80.2,0,"B"), "R27":(15.6,80.2,0,"B"), "R17":(5.0,77.0,90,"F"),
  # The AFE-output filter cannot sit below U7's left dogbones.  Put it in the
  # back-side expansion bay; the extra millimetres of trace are preferable to
@@ -121,121 +115,16 @@ PLACEMENT = {
  "R33":(6.0,64.0,0,"B"), "C28":(9.0,64.0,0,"B"), "R39":(12.4,78.5,0,"B"), "R37":(15.6,78.5,0,"B"), "C30":(17.8,70.5,90,"B"),
  "R38":(1.5,70.0,0,"B"), "C31":(4.0,70.0,0,"B"), "R34":(6.8,70.8,0,"B"), "R35":(9.8,70.8,0,"B"), "R36":(12.8,70.8,0,"B"), "C29":(15.8,70.8,0,"B"),
  "TP1":(1.0,70.0,0,"F"), "TP3":(1.0,73.5,0,"F"), "TP4":(19.0,73.5,0,"F"), "TP5":(1.0,65.5,0,"F"),
- # Every coordinate added in this revision was solved against the real courtyard
- # geometry of the already-placed parts -- nearest free position to a functional
- # anchor, on the correct side, clear of the thermal slots, the all-layer pour
- # gap and the potting datum -- not chosen by eye.  The first hand-guessed pass
- # produced two pad-to-pad SHORTS (R44/R41 and R35/U15) and eight courtyard
- # collisions, because a SOT-23 is 3.9 mm across and the row it was dropped into
- # is on a 3.2 mm pitch.  The second pass still put D7 and F3 on top of the
- # cell's THROUGH-HOLE pads: a same-side courtyard model does not see them, but
- # a PTH pad blocks both sides.  Through-hole and NPTH pads are obstacles for
- # back-side parts regardless of which side they are drawn on.
- # TP2 is the local ground that makes the rest of the column readable with one
- # hand.  It sits at the head of the column rather than the foot: below TP3 is
- # U4, and a ground pad has no reason to be the thing that crowds the
- # electrometer.  y=61.0 is not cosmetic: at 62.0 the TESTPOINT_LABEL_AMBIGUOUS
- # guard could find NO legal position for TP5's label, because every spot within
- # 4 mm of TP5 was also close to TP2; at 58.5 the pad landed in J3's courtyard,
- # and J3 is FITTED, unlike the DNP J2 whose courtyard TP1 and TP5 already share.
- # 61.0 is the one value that both clears every courtyard outright and leaves all
- # six legends solvable.
- "TP2":(1.5,61.0,0,"F"),
- # CE compliance telemetry.  R43/R44 divide U7's DRIVE pin -- see gen_sch.py --
- # and C34 is the sampling reservoir, so it belongs at the divider tap, not at
- # the MCU.  D7 clamps the CE ELECTRODE, i.e. the exposed side of R42.
- # D7 sits ON the B.Cu HEATER_LOW spreader, which looks wrong in a layer plot and
- # is not: measured by filling the zone with and without it, the clamp costs
- # 4.58 mm2 of 339.90, or 1.35 %, against a spreader HEATED-SPREADER.md 2 already
- # gives 2.2x margin.  The alternative is worse: the front side here is entirely
- # inside U11's courtyard, and the only free back-side position cable-side of the
- # pour gap is x=2.5, which would hang the clamp off a 7 mm STUB -- poor practice
- # for ESD, where series inductance to the clamp is the thing that matters.
- # In-line and near the cell beats intact-but-stubbed.
- "R43":(10.0,76.75,0,"B"), "R44":(6.75,76.75,0,"B"), "C34":(12.5,76.75,0,"B"), "D7":(10.0,88.0,0,"B"),
- # Rail-monitor filters, at the MCU pins they feed rather than at the dividers.
- "C32":(14.5,44.5,0,"B"), "C33":(14.5,47.5,0,"B"),
  "U11":(10.0,93.5,0,"F"),
  # User-authored ring-tip floorplan, snapped and opened up for routing/rework.
  # RH1/RH2 conduct into the HEATER_LOW ring lands; U10 measures the warm tip.
- # They STAY here (Fab, 2026-09-04, "the heater stays where it is"); F3 remains
- # the reserved protective land in the fork feed, which they do not sit in.
  "RH1":(5.0,96.5,270,"B"), "RH2":(15.0,96.5,270,"B"),
- "F3":(12.25,105.0,90,"B"),
  "Q2":(10.0,101.25,270,"B"), "R28":(6.5,101.25,180,"B"), "R29":(13.5,101.25,180,"B"), "TP6":(8.3,103.0,180,"B"),
  "U12":(3.5,101.5,0,"F"), "C20":(6.0,101.5,90,"F"),
  "U10":(10.0,102.525,270,"F"), "C21":(12.5,102.5,90,"F"),
  "U14":(16.5,101.0,0,"F"), "C23":(14.0,101.0,180,"F"), "C24":(14.0,102.0,180,"F"),
  "J5":(10.0,105.5,0,"F"),
 }
-
-
-# Test-point identity on silkscreen.
-#
-# gen_pcb.py moves every footprint Reference to *.Fab and hides every field, so
-# a bare board carries no printed identity at all.  That is right for the 100
-# ordinary parts -- their identity is the BOM's job -- and wrong for the five
-# test points, which exist to be found with a probe tip on an assembled board.
-#
-# The pads are 1.0 mm and this board is 20 mm wide, so the label cannot simply
-# sit on top of its pad.  Each entry below is the closest position, on the pad's
-# own side, that is clear of silkscreen, of every solder-mask opening, and of
-# the board edge, and that is nearer to its own test point than to any other by
-# audit_pcb.py -- which re-derives that from the board rather than from this
-# table, and separately checks each legend is a token run of its pad's own NET,
-# so a swapped pair of legends fails.  An earlier version of this comment said
-# "by a wide margin", which was not true: the narrowest is GUARD at 1.41x
-# against a 1.40x threshold.  Names are the electrode/function, not the reference
-# designator: WE/CE are what a potentiostat bring-up sheet calls them, and a
-# reference designator would need a key that a bare board cannot carry.
-#
-# These coordinates are solved, not chosen: nearest free position to the pad, on
-# the pad's own side, clear of silk and every mask opening, AND satisfying the
-# same 4.0 mm / 1.4x-margin rule audit_pcb.py enforces -- so the generator cannot
-# emit a legend the audit will reject.
-#
-# Margins achieved run 1.41x (GUARD) to 9.23x. GUARD's 1.41x is not slack that
-# was left on the table: it is the MAXIMUM the geometry allows -- searching for
-# best-margin rather than nearest returns the same 1.41x, and requiring 1.75x
-# returns no position at all. Five test points in a 20 mm-wide column with a
-# 5-character label is the limit. A sixth pad in that column, or a longer word
-# than GUARD, makes this legend unplaceable rather than merely tight.
-#
-# TP5 and TP1 land inside the outline of J2, which is DNP on this revision.
-# That is not a coincidence to be tidied away: J2's courtyard already overlaps
-# TP1 and TP5 (ASSEMBLY-EXCEPTIONS.md), so a fitted J2 buries the pads it would
-# bury the labels of.  The labels are readable in exactly the build where the
-# pads are reachable.
-TESTPOINT_LABELS = {
-    "TP2": ("GND",       3.25,  61.00, 90, "F"),
-    "TP5": ("GUARD",     4.25,  64.80,  0, "F"),
-    "TP1": ("WE",        3.10,  69.50,  0, "F"),
-    "TP3": ("CE",        2.75,  72.90, 90, "F"),
-    "TP4": ("VREF",     17.25,  73.30, 90, "F"),
-    "TP6": ("TMP_CELL",  8.30, 104.75,  0, "B"),
-}
-
-# 0.8 mm is the floor, not a preference: it is the smallest character height the
-# fab prints legibly, and every one of these five is at that floor.
-TESTPOINT_LABEL_SIZE = 0.8
-
-
-def add_testpoint_labels(board):
-    """Print each test point's function next to its pad, on the pad's own side.
-
-    Idempotent: any label this function previously wrote is removed first, so it
-    can be re-applied to an already-labelled board without stacking duplicates.
-    """
-    wanted = {value for value, *_ in TESTPOINT_LABELS.values()}
-    for item in list(board.GetDrawings()):
-        if (isinstance(item, pcbnew.PCB_TEXT)
-                and item.GetLayer() in (pcbnew.F_SilkS, pcbnew.B_SilkS)
-                and item.GetText() in wanted):
-            board.Remove(item)
-    for ref, (value, x, y, rot, side) in TESTPOINT_LABELS.items():
-        layer = pcbnew.F_SilkS if side == "F" else pcbnew.B_SilkS
-        text(board, value, x, y, layer, TESTPOINT_LABEL_SIZE, rot)
-    return len(TESTPOINT_LABELS)
 
 
 def parse():
@@ -275,7 +164,6 @@ def build():
     text(board,"POT TO HERE",10,81,pcbnew.F_SilkS,.7); text(board,"POT TO HERE",10,83,pcbnew.B_SilkS,.7)
     text(board,"CABLE",10,1.5,pcbnew.F_SilkS,.7); text(board,"GAS / DO NOT POT",10,109.5,pcbnew.F_SilkS,.65)
     text(board,"DO NOT OBSTRUCT",10,99.0,pcbnew.F_SilkS,.6)
-    add_testpoint_labels(board)
     # Two horizontal slots at absolute Y=134 mm reduce heat leakage from the
     # gas-side ring region while retaining 0.75 mm edge webs and a 5 mm centre
     # neck. Two 0.8 x 16 mm side slots remove lateral coupling along y=137..153;
