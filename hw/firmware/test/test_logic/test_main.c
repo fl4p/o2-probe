@@ -9,6 +9,7 @@
 #include <math.h>
 #include <string.h>
 
+#include "die_temp.h"
 #include "faults.h"
 #include "heater_ctl.h"
 #include "modbus_pdu.h"
@@ -994,6 +995,156 @@ static void test_setpoint_default_respects_the_cell_humidity_rating(void)
     TEST_ASSERT_EQUAL_UINT16(400u, cfg.dt_max_k_x100);
 }
 
+
+/* ---------------------------------------------------------------------------
+ * MCU die temperature.
+ *
+ * The whole reason this arithmetic is a pure function is here: on the target
+ * the TS_CAL words are read-only factory OTP, so the calibration guard can
+ * only ever be handed a GOOD die. A guard that has never been observed to
+ * reject anything is not a guard, so the bad calibration is constructed here.
+ *
+ * Reference die, read over SWD 2026-09-04: TS_CAL1 = 1023, TS_CAL2 = 1370.
+ * ------------------------------------------------------------------------- */
+#define DIE_CAL1 1023u
+#define DIE_CAL2 1370u
+
+static void test_die_temp_reads_the_calibration_point(void)
+{
+    int16_t t = -1;
+    /* At the raw code the factory recorded for 30 C, and at the voltage it
+     * recorded it at, the answer must be exactly 30 C. */
+    TEST_ASSERT_TRUE(o2p_die_c100_from_cal(DIE_CAL1, DIE_CAL2, DIE_CAL1, 3000u, &t));
+    TEST_ASSERT_EQUAL_INT16(3000, t);
+
+    /* And the upper point, 130 C. */
+    TEST_ASSERT_TRUE(o2p_die_c100_from_cal(DIE_CAL1, DIE_CAL2, DIE_CAL2, 3000u, &t));
+    TEST_ASSERT_EQUAL_INT16(13000, t);
+}
+
+static void test_die_temp_rejects_corrupt_calibration(void)
+{
+    int16_t t = 4242;
+
+    /* Blank OTP, both polarities. */
+    TEST_ASSERT_FALSE(o2p_die_c100_from_cal(0xFFFFu, 0xFFFFu, 1100u, 3000u, &t));
+    TEST_ASSERT_FALSE(o2p_die_c100_from_cal(0u, 0u, 1100u, 3000u, &t));
+    TEST_ASSERT_FALSE(o2p_die_c100_from_cal(DIE_CAL1, 0xFFFFu, 1100u, 3000u, &t));
+    TEST_ASSERT_FALSE(o2p_die_c100_from_cal(0xFFFFu, DIE_CAL2, 1100u, 3000u, &t));
+
+    /* The case a per-endpoint guard would miss: cal1 perfect, cal2 plausible
+     * on its own, but the SLOPE between them wrong. A 130 C die would read
+     * about 80 C - in range, no sentinel, simply false. */
+    TEST_ASSERT_FALSE(o2p_die_c100_from_cal(DIE_CAL1, 1723u, 1100u, 3000u, &t));
+
+    /* Inverted slope: cal2 below cal1. */
+    TEST_ASSERT_FALSE(o2p_die_c100_from_cal(DIE_CAL1, 900u, 1000u, 3000u, &t));
+
+    /* Not one of the above wrote anything into the output. */
+    TEST_ASSERT_EQUAL_INT16(4242, t);
+}
+
+static void test_die_temp_accepts_the_whole_datasheet_envelope(void)
+{
+    /* DS12232 Rev 5 Table 65: V30 0.742..0.785 V is TS_CAL1 1013..1072, and
+     * Avg_Slope 2.3..2.7 mV/C is 314..369 counts over the 100 K between the
+     * points. No part inside its own specification may be rejected - that is
+     * the failure mode a too-tight guard has, and it would strand a good
+     * board in the field reporting a sentinel. */
+    int16_t t = 0;
+    const uint16_t cal1[] = {1013u, 1072u};
+    const int32_t slope[] = {314, 369};
+    for (unsigned i = 0; i < 2u; i++) {
+        for (unsigned j = 0; j < 2u; j++) {
+            uint16_t c1 = cal1[i];
+            uint16_t c2 = (uint16_t)((int32_t)c1 + slope[j]);
+            TEST_ASSERT_TRUE(o2p_die_c100_from_cal(c1, c2, c1, 3000u, &t));
+            TEST_ASSERT_EQUAL_INT16(3000, t);
+        }
+    }
+}
+
+static void test_die_temp_is_monotonic_and_does_not_wrap_at_the_tails(void)
+{
+    /* Monotonicity: a hotter die must never read cooler. */
+    int16_t prev = INT16_MIN;
+    for (uint16_t raw = 750u; raw <= 1400u; raw += 5u) {
+        int16_t t = 0;
+        if (!o2p_die_c100_from_cal(DIE_CAL1, DIE_CAL2, raw, 3000u, &t)) {
+            continue;
+        }
+        TEST_ASSERT_TRUE(t >= prev);
+        prev = t;
+    }
+
+    /* The far tail is the interesting one. raw = 4095 interpolates to about
+     * +915 C, which as a plain int16_t would WRAP to +259.94 C - a number that
+     * looks like a real reading of a real fault. The result bound is what
+     * stops that becoming telemetry. */
+    int16_t t = 4242;
+    TEST_ASSERT_FALSE(o2p_die_c100_from_cal(DIE_CAL1, DIE_CAL2, 4095u, 3000u, &t));
+    TEST_ASSERT_FALSE(o2p_die_c100_from_cal(DIE_CAL1, DIE_CAL2, 0u, 3000u, &t));
+    TEST_ASSERT_EQUAL_INT16(4242, t);
+}
+
+static void test_die_temp_keeps_the_cold_end_the_part_is_rated_for(void)
+{
+    /* TA min is -40 C, and the sensor's error budget is the +/-5 C tolerance
+     * on the calibration temperature plus +/-2 C linearity. So a die genuinely
+     * at -40 C may legitimately read several degrees lower, and the result
+     * bound must sit below the rated limit rather than at it. */
+    int16_t t = 0;
+    TEST_ASSERT_TRUE(o2p_die_c100_from_cal(DIE_CAL1, DIE_CAL2, 780u, 3000u, &t));
+    TEST_ASSERT_INT16_WITHIN(20, -4000, t);
+    TEST_ASSERT_TRUE(o2p_die_c100_from_cal(DIE_CAL1, DIE_CAL2, 756u, 3000u, &t));
+    TEST_ASSERT_INT16_WITHIN(20, -4700, t);
+}
+
+static void test_die_temp_rejects_impossible_conversion_inputs(void)
+{
+    int16_t t = 4242;
+    /* A 12-bit right-aligned result cannot exceed 4095. */
+    TEST_ASSERT_FALSE(o2p_die_c100_from_cal(DIE_CAL1, DIE_CAL2, 5000u, 3000u, &t));
+    /* VDDA outside the part's operating range means the VREFINT read that
+     * produced it was itself wrong, so the scaling below it is meaningless. */
+    TEST_ASSERT_FALSE(o2p_die_c100_from_cal(DIE_CAL1, DIE_CAL2, 1100u, 0u, &t));
+    TEST_ASSERT_FALSE(o2p_die_c100_from_cal(DIE_CAL1, DIE_CAL2, 1100u, 5000u, &t));
+    TEST_ASSERT_FALSE(o2p_die_c100_from_cal(DIE_CAL1, DIE_CAL2, 1100u, 3000u, NULL));
+    TEST_ASSERT_EQUAL_INT16(4242, t);
+}
+
+static void test_die_temp_scales_with_the_supply_it_actually_ran_at(void)
+{
+    /* The factory points were taken at 3.0 V. The same raw code at a higher
+     * VDDA is a higher voltage and therefore a hotter die; ignoring VDDA would
+     * silently bias every reading on a board whose rail is not 3.000 V. */
+    int16_t at3v0 = 0, at3v3 = 0;
+    TEST_ASSERT_TRUE(o2p_die_c100_from_cal(DIE_CAL1, DIE_CAL2, 1100u, 3000u, &at3v0));
+    TEST_ASSERT_TRUE(o2p_die_c100_from_cal(DIE_CAL1, DIE_CAL2, 1100u, 3300u, &at3v3));
+    TEST_ASSERT_TRUE(at3v3 > at3v0);
+}
+
+
+static void test_die_temp_band_is_the_datasheet_not_a_remembered_one(void)
+{
+    /* Regression pin. These bands were first written from memory as "2.0..3.1
+     * mV/K" -> 273..423 counts, and TS_CAL1 as 700..1400. The real figures,
+     * DS12232 Rev 5 Table 65, are 2.3..2.7 mV/C -> 314..369 and 1013..1072.
+     * The values below are inside the OLD bands and outside the real part's
+     * envelope, so a quiet slide back to the remembered numbers fails here
+     * rather than silently re-admitting a 12%-wrong scale factor. */
+    int16_t t = 4242;
+    /* Slope 400 counts = 2.93 mV/C: no part is specified to do this. */
+    TEST_ASSERT_FALSE(o2p_die_c100_from_cal(DIE_CAL1, 1423u, 1100u, 3000u, &t));
+    /* Slope 280 counts = 2.05 mV/C, likewise. */
+    TEST_ASSERT_FALSE(o2p_die_c100_from_cal(DIE_CAL1, 1303u, 1100u, 3000u, &t));
+    /* TS_CAL1 = 800 is V30 = 0.586 V, well under the 0.742 V minimum. */
+    TEST_ASSERT_FALSE(o2p_die_c100_from_cal(800u, 1147u, 900u, 3000u, &t));
+    /* TS_CAL1 = 1300 is V30 = 0.952 V, well over the 0.785 V maximum. */
+    TEST_ASSERT_FALSE(o2p_die_c100_from_cal(1300u, 1647u, 1400u, 3000u, &t));
+    TEST_ASSERT_EQUAL_INT16(4242, t);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -1046,5 +1197,13 @@ int main(void)
     RUN_TEST(test_runaway_needs_the_full_window);
     RUN_TEST(test_runaway_is_not_evaluated_when_we_cannot_drive);
     RUN_TEST(test_setpoint_default_respects_the_cell_humidity_rating);
+    RUN_TEST(test_die_temp_reads_the_calibration_point);
+    RUN_TEST(test_die_temp_rejects_corrupt_calibration);
+    RUN_TEST(test_die_temp_accepts_the_whole_datasheet_envelope);
+    RUN_TEST(test_die_temp_is_monotonic_and_does_not_wrap_at_the_tails);
+    RUN_TEST(test_die_temp_keeps_the_cold_end_the_part_is_rated_for);
+    RUN_TEST(test_die_temp_rejects_impossible_conversion_inputs);
+    RUN_TEST(test_die_temp_scales_with_the_supply_it_actually_ran_at);
+    RUN_TEST(test_die_temp_band_is_the_datasheet_not_a_remembered_one);
     return UNITY_END();
 }
