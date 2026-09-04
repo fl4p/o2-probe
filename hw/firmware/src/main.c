@@ -315,7 +315,13 @@ static bool accumulate(uint8_t mux, uint8_t dr, bool ext_ref, unsigned n)
     int16_t code = 0;
     o2p_ads_status_t st = o2p_ads1119_convert(mux, dr, ext_ref, &code);
     if (st != O2P_ADS_OK) {
-        g_cyc.faults |= O2P_F_I2C_FAIL_ADS;
+        /* A stuck DRDY is a PIN failure, not a bus failure, and it gets its
+         * own bit. Collapsing every status into I2C_FAIL_ADS is how a healthy
+         * ADS1119 came to be desoldered: the bus was fine, the fault word
+         * said otherwise, and the board was believed. Everything else here
+         * genuinely is a bus or device fault. */
+        g_cyc.faults |= (st == O2P_ADS_DRDY) ? O2P_F_ADS_DRDY_STUCK
+                                             : O2P_F_I2C_FAIL_ADS;
         g_sub = n;          /* abandon the phase; a partial average is not a
                              * measurement of any defined interval */
         g_acc = 0;
@@ -356,7 +362,7 @@ static bool accumulate(uint8_t mux, uint8_t dr, bool ext_ref, unsigned n)
 
 static void finish_vref(o2p_snapshot_t *s)
 {
-    if ((g_cyc.faults & O2P_F_I2C_FAIL_ADS) != 0u) {
+    if ((g_cyc.faults & O2P_FAULTS_ADS_NO_CONVERSION) != 0u) {
         return;
     }
 #if defined(O2P_BENCH_VREF_MV)
@@ -386,7 +392,7 @@ static void finish_vref(o2p_snapshot_t *s)
 
 static void finish_vin(o2p_snapshot_t *s)
 {
-    if ((g_cyc.faults & O2P_F_I2C_FAIL_ADS) != 0u) {
+    if ((g_cyc.faults & O2P_FAULTS_ADS_NO_CONVERSION) != 0u) {
         return;
     }
 #if defined(O2P_BENCH_VREF_MV)
@@ -410,7 +416,7 @@ static void finish_vin(o2p_snapshot_t *s)
 
 static void finish_o2(o2p_snapshot_t *s)
 {
-    if ((g_cyc.faults & O2P_F_I2C_FAIL_ADS) != 0u) {
+    if ((g_cyc.faults & O2P_FAULTS_ADS_NO_CONVERSION) != 0u) {
         return;
     }
     int32_t code = g_acc / (int32_t)O2P_N_O2;
@@ -620,13 +626,22 @@ static void bring_up_devices(void)
     o2p_lmp91000_gpio_init();
     o2p_mcu_adc_init();
 
-    /* Deliberately discarded, and safe to discard only because the same
-     * precondition is re-checked before EVERY conversion (ads1119.c): a bad
-     * DRDY or a config that will not read back now returns O2P_ADS_DRDY or
-     * O2P_ADS_CONFIG from each convert, which the sampler turns into
-     * O2P_F_I2C_FAIL_ADS. A boot-only check would report to nobody - there is
-     * no fault word yet at this point in bring-up - and that is precisely the
-     * shape that let a dead DRDY masquerade as measurements. */
+    /* Deliberately discarded, and the reason is now narrower than it used to
+     * be claimed. Both preconditions init proves ARE re-checked at run time:
+     * DRDY before every conversion, and the config readback on every
+     * channel/reference change (ads1119.c). Each reaches the fault word as
+     * O2P_F_ADS_DRDY_STUCK or O2P_F_I2C_FAIL_ADS.
+     *
+     * An earlier version of this comment claimed the config was re-verified
+     * per conversion when read_cfg() had exactly one caller - inside init. It
+     * was not true, and a specific comment describing a check that does not
+     * exist is worse than no comment: it tells the next reader to stop
+     * looking. The check it described now exists, which is why this is
+     * discardable at all.
+     *
+     * A boot-only check would report to nobody - there is no fault word yet
+     * at this point in bring-up - and that is precisely the shape that let a
+     * dead DRDY masquerade as measurements. */
     (void)o2p_ads1119_init();
     /* The result matters and is latched inside the driver: a TMP117 whose
      * therm-mode alert failed to program still answers temperature reads

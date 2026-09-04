@@ -736,8 +736,22 @@ staging slot back.
 | 10 | `DEW_SUSPECT` | no |
 | 11 | `ADC_RANGE` | **yes** |
 | 12 | `CAL_DEFAULT` | **`O2_COMP` only — see below** |
-| 13/14 | `EXP_PRESENT` / `EXP_FAIL` | no |
+| 13 | `ADS_DRDY_STUCK` | **yes** — see below |
+| 14 | `EXP_FAIL` | no |
 | 15 | `HEATER_DISABLED` | no — set whenever the loop is not driving, for any reason |
+
+**Bit 13 changed meaning on 2026-09-04.** It was `EXP_PRESENT`, reserved for
+the J2 expansion header. J2 is DNP on Rev A and no code ever wrote either
+expansion bit, so nothing downstream could have been reading it. It now
+reports a DRDY line that will not release — a *pin* failure, deliberately
+separate from `I2C_FAIL_ADS`, because the bus can be perfectly healthy while
+this pin is not. Reporting the one as the other is what sent a healthy
+ADS1119 back as scrap; the fault word said "I²C" and the board was believed.
+
+Test the mask `O2P_FAULTS_ADS_NO_CONVERSION`, never either bit alone, when
+asking "did the converter deliver this phase?" — splitting the bit broke three
+call sites that tested the single bit and would otherwise have computed a
+plausible reading from a zeroed accumulator.
 
 Two exceptions that are easy to "tidy" into wrongness, so they are also
 enforced by `_Static_assert` in `src/faults.c`:

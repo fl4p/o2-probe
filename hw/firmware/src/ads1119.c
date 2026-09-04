@@ -99,6 +99,33 @@ o2p_ads_status_t o2p_ads1119_init(void)
 /* Conversion times, SBAS925A Table 4, plus the 28.5 tCLK start latency:
  * 20 SPS is 50 ms, 90 SPS 11.1 ms, 330 SPS 3 ms, 1000 SPS 1 ms. Budget
  * generously - a timeout here becomes a fault bit, not a retry storm. */
+/* DRDY is low before we have started anything, so it is an UNREAD result from
+ * some earlier conversion. In single-shot mode nothing releases DRDY except
+ * reading that result: SBAS925A 8.5.1.3's automatic release after tw(DRH)
+ * applies to CONTINUOUS conversion mode, and CM is always 0 in this driver.
+ *
+ * That matters more than it looks. Without this drain, a single failed RDATA
+ * transfer - one NACK on a bus shared with the LMP91000, TMP117 and SHT45 -
+ * strands a result in the output register, and every later conversion then
+ * returns at the pre-START check WITHOUT issuing the RDATA that would clear
+ * it. o2p_ads1119_init() is the only other thing that releases DRDY and it
+ * runs once at boot, so one transient glitch would blank the oxygen channel
+ * until someone power-cycles a probe that is buried in a compost pile.
+ *
+ * So: read the stale result, throw it away, and check the line actually
+ * released. Returns true only if DRDY is observed HIGH afterwards. A
+ * misconfigured pin (the original defect: PB1 in analog mode, IDR reads 0
+ * forever) drains, re-reads low, and correctly stays failed. */
+static bool drain_stale_result(void)
+{
+    const uint8_t rdata = O2P_ADS_CMD_RDATA;
+    uint8_t rx[2] = {0u, 0u};
+    if (o2p_i2c1_write_read(ADS_ADDR, &rdata, 1u, rx, 2u) != O2P_I2C_OK) {
+        return false;
+    }
+    return (O2P_ADC_DRDY_PORT->IDR & (1u << O2P_ADC_DRDY_PIN)) != 0u;
+}
+
 static uint32_t conversion_timeout_ms(uint8_t dr)
 {
     switch (dr) {
@@ -117,6 +144,36 @@ o2p_ads_status_t o2p_ads1119_convert(uint8_t mux, uint8_t dr, bool ext_ref,
     }
     uint8_t cfg = cfg_byte(mux, dr, ext_ref);
     if (cfg != s_last_cfg) {
+        /* Prove the device really took the new configuration, at RUN TIME and
+         * not only at boot. Until this existed, read_cfg() had exactly one
+         * caller - o2p_ads1119_init() - so O2P_ADS_CONFIG was unreachable
+         * after start-up and the ADS1119 IDENTITY proof was a boot-only
+         * statement: a wrong device at 0x40 that ACKs writes would have
+         * surfaced later only as a timeout, if at all.
+         *
+         * s_last_cfg cannot do this job. It is a host-side cache of what we
+         * INTENDED, so by construction it agrees with itself no matter what
+         * the device did with the byte.
+         *
+         * This runs on channel/reference changes only - three per one-second
+         * cycle - not per conversion. A device that stops storing config
+         * mid-cycle is therefore caught within one cycle rather than at the
+         * next conversion. That is a deliberate trade against ~50 us of bus
+         * time on every one of the 15 conversions in a cycle. */
+        uint8_t back = 0u;
+        o2p_ads_status_t vst = write_cfg(cfg);
+        if (vst == O2P_ADS_OK) {
+            vst = read_cfg(&back);
+        }
+        if (vst != O2P_ADS_OK) {
+            s_last_cfg = 0xFFu;
+            return vst;
+        }
+        if (back != cfg) {
+            s_last_cfg = 0xFFu;
+            return O2P_ADS_CONFIG;
+        }
+
         int16_t throwaway = 0;
         o2p_ads_status_t st = convert_once(cfg, dr, &throwaway);
         if (st != O2P_ADS_OK) {
@@ -144,7 +201,13 @@ static o2p_ads_status_t convert_once(uint8_t cfg, uint8_t dr, int16_t *out_code)
      * catch it: a timeout only fires for DRDY stuck HIGH. This costs one GPIO
      * read per conversion and no bus traffic. */
     if ((O2P_ADC_DRDY_PORT->IDR & (1u << O2P_ADC_DRDY_PIN)) == 0u) {
-        return O2P_ADS_DRDY;
+        /* Try to recover before condemning the part - see drain_stale_result().
+         * Recovering here is not hiding anything: whatever stranded the result
+         * (a failed RDATA, or a conversion that landed just after the timeout)
+         * raised its own fault bit in the cycle where it actually happened. */
+        if (!drain_stale_result()) {
+            return O2P_ADS_DRDY;
+        }
     }
 
     /* Writing the config already restarts any conversion, but START/SYNC is

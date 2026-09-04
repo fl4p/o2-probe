@@ -38,7 +38,13 @@ enum {
     O2P_F_DEW_SUSPECT         = 1u << 10,
     O2P_F_ADC_RANGE           = 1u << 11, /* converter saturated or out of window */
     O2P_F_CAL_DEFAULT         = 1u << 12, /* running on datasheet nominal, not a cal */
-    O2P_F_EXP_PRESENT         = 1u << 13,
+    /* DRDY was low before a conversion was started and did not release when
+     * drained. Distinct from I2C_FAIL_ADS on purpose: the bus can be
+     * perfectly healthy while this pin is not, and reporting a pin failure as
+     * a bus failure is what sent a healthy ADS1119 back as scrap. Bit 13 was
+     * EXP_PRESENT, reserved for the J2 expansion header, which is DNP on
+     * Rev A and written by no code - see FIRMWARE.md. */
+    O2P_F_ADS_DRDY_STUCK      = 1u << 13,
     O2P_F_EXP_FAIL            = 1u << 14,
     O2P_F_HEATER_DISABLED     = 1u << 15, /* always set in v0 */
 };
@@ -63,6 +69,7 @@ enum {
     | O2P_F_I2C_FAIL_ADS        \
     | O2P_F_AFE_CONFIG_MISMATCH \
     | O2P_F_VA_LOW              \
+    | O2P_F_ADS_DRDY_STUCK      \
     | O2P_F_ADC_RANGE )
 
 /* Everything above, plus the reasons the CONVERSION cannot be trusted even
@@ -70,6 +77,14 @@ enum {
 #define O2P_FAULTS_INVALIDATE_O2_COMP ( \
       O2P_FAULTS_INVALIDATE_O2 \
     | O2P_F_CAL_DEFAULT )
+
+/* "The ADS1119 did not deliver a conversion this phase", for the callers that
+ * must not compute from an abandoned accumulator. This mask exists because
+ * splitting DRDY out of I2C_FAIL_ADS silently broke every site that tested the
+ * single bit: they would have fallen through on a DRDY failure and divided a
+ * zeroed g_acc into a plausible-looking reading. Test the MASK, never one bit,
+ * so the next status added here cannot reintroduce that. */
+#define O2P_FAULTS_ADS_NO_CONVERSION (O2P_F_I2C_FAIL_ADS | O2P_F_ADS_DRDY_STUCK)
 
 /* The chamber channels have their own dependencies: RH and chamber
  * temperature come from the SHT45, tip temperature from the TMP117. */

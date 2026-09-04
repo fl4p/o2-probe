@@ -23,3 +23,16 @@ _Static_assert((O2P_FAULTS_INVALIDATE_O2_COMP & O2P_F_TEMP_OVER) == 0,
 _Static_assert((O2P_FAULTS_INVALIDATE_O2 & O2P_F_SETTLING) != 0,
                "SETTLING must invalidate: the cell needs up to 15 min after a "
                "bias interruption (DS-0637)");
+_Static_assert((O2P_FAULTS_INVALIDATE_O2 & O2P_F_ADS_DRDY_STUCK) != 0,
+               "ADS_DRDY_STUCK must invalidate: a DRDY that will not release "
+               "means the converter either produced nothing or would hand back "
+               "a PREVIOUS conversion, and stale data wearing the current "
+               "timestamp is the failure this whole guard exists to stop");
+_Static_assert((O2P_F_ADS_DRDY_STUCK & O2P_F_I2C_FAIL_ADS) == 0,
+               "ADS_DRDY_STUCK must stay a SEPARATE bit from I2C_FAIL_ADS: "
+               "collapsing a pin failure into the bus fault is what got a "
+               "healthy ADS1119 replaced");
+_Static_assert((O2P_FAULTS_ADS_NO_CONVERSION & O2P_FAULTS_INVALIDATE_O2)
+                   == O2P_FAULTS_ADS_NO_CONVERSION,
+               "every way the ADS1119 can fail to deliver a conversion must "
+               "also invalidate O2: there is no reading to publish");
