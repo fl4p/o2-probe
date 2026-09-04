@@ -198,6 +198,43 @@ outcome rather than a gate voltage, with firmware provably absent.
 - Everything ring- and membrane-side. No ring was fitted, and the pending
   revision moves the heat source off this board entirely.
 
+**`dt_max_k` is an inert interlock, and its unit test cannot see that.** The
+config carries a 4 K tip-above-chamber clamp and
+`test_dt_clamp_binds_and_has_hysteresis` passes - on synthetic inputs. On this
+board U10 (TMP117, tip) and U12 (SHT45, chamber) sit 6.6 mm apart on the same
+front-layer copper, both behind J5: `gen_pcb.py` places them at (10.0, 102.525)
+and (3.5, 101.5). They are one thermal node. Measured across a 30 K excursion,
+|tip - chamber| stayed within 0.4 K at every duty from 0 to 100 %, with the tip
+marginally the COOLER of the two:
+
+```
+duty  50 %   tip 31.06  chamber 31.43   -0.37 K
+duty  93 %   tip 43.49  chamber 43.87   -0.38 K
+duty 100 %   tip 56.10  chamber 56.24   -0.14 K
+```
+
+So the clamp can never bind on real hardware, and no ring would change that -
+the two sensors cannot disagree by construction. This is the same shape as the
+DRDY defect: a fixture proving the design we intended rather than the one we
+built. Real tip overtemperature protection is `TEMP_OVER` at 60 C and the
+TMP117 cutoff at 85 C, both verified above, so nothing is unprotected - but
+`dt_max_k` should be either deleted or re-pointed at two sensors that are
+actually thermally separated.
+
+**Plant gain, measured.** `heater_ctl.h` says the gain "cannot be characterised
+anywhere but in a real pile", so the shipped kp/ki are placeholders. A fixed
+4.00 % duty step gives a first bench number:
+
+```
+baseline 26.02 C -> settled 30.06 C over 300 s
+=> 1.01 K per % duty, tau ~ 77 s (the cooling curve gives ~62 s)
+```
+
++2 K therefore needs about **2.0 % duty (~21 mW)**. This is the whole-board
+rise in still air with NO ring fitted, measured at the colocated sensor pair;
+with a ring and with airflow in a pile the path is different and the gain will
+be much lower. Treat it as the starting point for tuning, not as the plant.
+
 **Side result: the ADS1119 stale-DRDY drain is verified on hardware.** An
 aborted I2C transfer during this session stranded an unread conversion, and the
 pre-`drain_stale_result()` firmware locked the oxygen channel out permanently
