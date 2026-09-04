@@ -10,3 +10,4 @@ cad/exports/*.gcode.3mf
 # on a headless machine with no GL context ("Invalid OpenGL version 3.4"). Build
 # detritus, regenerated every run, and nothing reads it.
 00000.log
+__pycache__/

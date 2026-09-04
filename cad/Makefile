@@ -193,9 +193,26 @@ body-tube: | $(OUT)
 
 # The WHOLE probe, exploded and labelled -- head stack, board, cell, and the
 # prototype-1 printed body. It imports the body STLs, so body-tube runs first.
+# Prototype 1's whole body as ONE printed solid: the head with the printed tube
+# fused to it, so there is no bonded joint and no adhesive to qualify. Depends on
+# body-tube because it unions that target's STL -- build them out of order and
+# the union is silently made from a stale tube.
+.PHONY: monobody
+monobody: body-tube
+	$(OPENSCAD) --hardwarnings $(HEAD_END_PROV) -D 'joint="monolithic"' \
+		-D 'part="monobody"' -o $(OUT)/body-monobody.stl $(HEAD_END) \
+		2>$(OUT)/.mono.log || { cat $(OUT)/.mono.log; exit 1; }
+	@v=`sed -n 's/.*Volumes: *\([0-9]*\).*/\1/p' $(OUT)/.mono.log | tail -1`; \
+	 if [ "$$v" != "2" ]; then \
+		echo "FAIL monobody: $$v volumes, expected 2 -- the head and the tube did not fuse"; \
+		exit 1; \
+	 fi; rm -f $(OUT)/.mono.log
+	@echo "monobody: head and tube fused into one closed solid"
+
 .PHONY: prototype-exploded
 prototype-exploded: body-tube
 	$(OPENSCAD) --hardwarnings $(HEAD_END_PROV) -D show_body=true \
+		-D 'joint="monolithic"' \
 		-D 'part="assembly"' -D exploded=true \
 		--viewall --autocenter --projection=p --imgsize=1500,2300 \
 		--camera=0,0,0,72,0,25,0 --colorscheme=Tomorrow \

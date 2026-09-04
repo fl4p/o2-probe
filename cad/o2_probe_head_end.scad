@@ -55,6 +55,24 @@ exploded = false;
 // geometry. Nothing here is exported; it is a drawing aid for `make
 // prototype-exploded`, which is the only view that shows the whole probe.
 show_body = false;
+
+// HOW THIS HEAD MEETS THE BODY.
+//   "bonded"      the production joint, and the default: a Ø(tube+0.4) socket
+//                 14 mm deep, filled with adhesive. Two parts.
+//   "monolithic"  prototype 1: there is no joint, because the printed body tube
+//                 is the same piece of plastic. The socket goes away, the bore
+//                 runs to z=0, and an outward cone carries Ø32 up to Ø40.
+//
+// Monolithic exists for a sourcing reason, not an aesthetic one. The bonded
+// joint is structural AND sealing, on the wet side, at ~75 C in ammoniacal
+// condensate -- and MEMBRANE.md forbids a load-bearing adhesive there until a
+// named one has passed hot-condensate ageing. None is sourced. Printing through
+// the joint deletes the requirement instead of guessing at it.
+joint = "bonded";
+assert(joint == "bonded" || joint == "monolithic",
+       str("unknown joint '", joint, "'"));
+monolithic = (joint == "monolithic");
+tube_od_nominal = 32.0;     // what the printed tube is DRAWN at, not measured
 body_dir = "exports";       // where those STLs live, relative to the build cwd
 // Interfaces to the body model. These are the SAME two numbers that file names
 // as tracking this one (head_socket_len, cap_engage); if either moves, the body
@@ -466,6 +484,15 @@ cap_od = head_od + 2*cap_wall;
 
 // Volume, and the structural advantage of putting the cell past the board end:
 // BEYOND THE BOARD THERE IS NO BOARD TO CLEAR, so the bore necks to the cell.
+// The cone that carries the tube's OD out to the head's, when they are one
+// part. 45 degrees, so the monolithic body prints cable-end-down with no
+// support anywhere -- which is the whole reason it is printed that way up.
+// Defined here and not beside `joint`, because head_od is derived below it and
+// a forward reference makes OpenSCAD substitute undef with only a warning.
+join_cone = (head_od - tube_od_nominal)/2;
+assert(!monolithic || join_cone > 0,
+       "the head is not wider than the tube; there is nothing to cone out to");
+
 neck_margin = 1.0;
 neck_d = cell_d + 2*neck_margin;
 cell_disp = PI * pow(cell_d/2, 2) * cell_h;
@@ -838,14 +865,30 @@ module cap_screw_positions() {
 
 module head() {
     difference() {
-        cylinder(d=head_od, h=head_len);
+        if (monolithic) {
+            // Ø32 at z=0, opening out to the head's Ø40 on a 45 deg cone. Below
+            // z=0 the printed tube continues in the same plastic.
+            union() {
+                cylinder(d1=tube_od_nominal, d2=head_od, h=join_cone);
+                translate([0, 0, join_cone])
+                    cylinder(d=head_od, h=head_len - join_cone);
+            }
+        } else {
+            cylinder(d=head_od, h=head_len);
+        }
 
-        // Bonded socket over the tube end.
-        translate([0, 0, -heps])
-            cylinder(d=tube_od_meas + 2*bond_gap, h=socket_len + heps);
+        // Bonded socket over the tube end. Absent when monolithic: there is no
+        // tube end to socket, and leaving it would put a 0.2 mm annular void
+        // inside the solid.
+        if (!monolithic)
+            translate([0, 0, -heps])
+                cylinder(d=tube_od_meas + 2*bond_gap, h=socket_len + heps);
 
         // Cavity: full bore only where the board is, then necked to the cell.
-        translate([0, 0, socket_len]) cylinder(d=bore_d, h=cav_board_len);
+        // Monolithic, the bore starts at z=0 instead of at the socket floor --
+        // otherwise the board could not reach the cavity at all.
+        translate([0, 0, monolithic ? -heps : socket_len])
+            cylinder(d=bore_d, h=(monolithic ? socket_len + heps : 0) + cav_board_len);
         translate([0, 0, socket_len + cav_board_len])
             cylinder(d=neck_d, h=cav_clear_len + heps);
 
@@ -1151,6 +1194,27 @@ module assembly() {
     if (show_body) body_stack(e);
 }
 
+// PROTOTYPE 1's WHOLE BODY, as one printed solid: this head with the printed
+// tube fused to it. The tube arrives as the STL o2_probe_body_tube.scad exports
+// -- the producer's own output, not a re-modelled copy -- so the two can only
+// disagree by being rebuilt out of order, which the Makefile prevents.
+//
+// Both models must be on the same joint. Nothing downstream would notice if
+// they were not: a bonded tube unioned to a monolithic head leaves a 14 mm
+// Ø32.4 void where the socket was, and it still exports as a closed solid.
+module monobody() {
+    // Keep this message free of escaped quotes. OpenSCAD 2021.01 refuses a
+    // backslash-quote inside a string here, and reports it at a line number PAST
+    // the end of the file, which points nowhere near the actual text.
+    assert(monolithic,
+           "monobody needs joint=monolithic -- with the socket still cut, the union leaves a 14 mm annular void inside the part");
+    union() {
+        head();
+        translate([0, 0, socket_len - body_tube_len])
+            import(str(body_dir, "/body-tube.stl"));
+    }
+}
+
 // The prototype-1 body, imported from the STLs o2_probe_body_tube.scad exports.
 //
 // EVERYTHING BELOW THE HEAD EXPLODES DOWNWARD, for the same reason the board
@@ -1259,6 +1323,7 @@ else if (part == "head") head();
 else if (part == "carrier") carrier();
 else if (part == "retainer") retainer();
 else if (part == "cap") cap();
+else if (part == "monobody") monobody();
 else if (part == "cavity") cavity();
 else if (part == "void-coupon") coupon_plate();
 // Print-oriented single-part exports, for a slicer that takes STLs as-exported

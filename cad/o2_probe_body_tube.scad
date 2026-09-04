@@ -67,6 +67,26 @@ exploded = false;
 head_socket_len = 14.0;     // o2_probe_head_end.scad, socket_len
 cav_board_len   = 2.0;      // o2_probe_head_end.scad, cav_board_len
 
+// HOW THE HEAD JOINS.
+//   "bonded"      the production joint: this tube slides 14 mm into the head's
+//                 socket on a 0.2 mm radial adhesive gap. Two parts.
+//   "monolithic"  the prototype joint: there ISN'T one. The head is printed in
+//                 the same piece, so the tube stops where the head begins and
+//                 o2_probe_head_end.scad's part="monobody" unions the two.
+//
+// Monolithic is the default for prototype 1 and the reason is sourcing, not
+// elegance: the bonded joint is structural AND sealing, on the wet side, at
+// ~75 C in ammoniacal condensate -- and MEMBRANE.md forbids a load-bearing
+// adhesive there until a named one has passed hot-condensate ageing. No such
+// adhesive is sourced. Printing through the joint deletes the requirement
+// instead of guessing at it.
+//
+// What it costs: a failed print loses the whole body, and any change to the
+// head reprints 147 mm of tube with it.
+joint = "monolithic";       // "monolithic" or "bonded"
+assert(joint == "monolithic" || joint == "bonded",
+       str("unknown joint '", joint, "'"));
+
 // Board. Controlled by KiCad Edge.Cuts (PLACEMENT.md).
 board_w   = 20.0;
 board_t   = 1.0;
@@ -174,6 +194,27 @@ cap_engage = 12.0;          // tube end face depth in the cap AT LOCK
 // without ever being twisted, which is a cap that falls off.
 pocket_extra = 8;           // degrees of overshoot room past the twist
 
+// LOCK SCREW. The bayonet's own retention is a 0.3 mm detent held by the
+// O-ring's preload, and that is not something to bury for a season: the preload
+// is tens of newtons and unmeasured, EPDM takes compression set at pile
+// temperature, and the gland clamps the cable to the CAP, so every tug on the
+// cable runs cable -> gland -> cap -> bayonet -> tube. One screw makes the lock
+// positive and leaves the O-ring doing only the job it is good at.
+//
+// IT MUST NOT REACH THE BORE. A hole through the tube wall at this height opens
+// the sealed volume to the outside, below the seal plane -- so the wall is
+// thickened locally on the INSIDE, where at z=6 there is nothing but cable, and
+// the pilot is blind with 1.0 mm left.
+lock_screw = true;
+lock_a_tube = 90;           // degrees in the TUBE frame, between the lugs
+lock_pilot_d = 2.5;         // M3 thread-forming in ASA
+lock_z = 6.0;
+lock_boss_r = 9.5;          // inner face of the local wall thickening
+lock_boss_arc = 22;         // degrees, centred on lock_a_tube
+lock_boss_h = 7.0;
+lock_pilot_floor = 12.5;    // radius the pilot bottoms at -> 1.75 mm of boss left
+lock_slot_arc = 10;         // half-width of the cap's clearance slot, degrees
+
 // ------------------------------------------------- board guides
 
 // TWO STATIONS, and their positions are not free. The guide has to trap the
@@ -201,7 +242,14 @@ guide_slack  = 0.3;         // on board thickness
 guide_body   = 7.0;         // rail width across the board plane
 guide_r_max  = 14.8;        // how far the rail buries itself in the wall (bore is 13.6)
 station_a = [ 4.0, 24.0];   // board y
-station_b = [86.0, 102.0];  // board y
+// Station B is SHORTER in the monolithic joint, and not by choice. Bonded, the
+// tube runs to board y=105 and the rail can use the whole 81.3..103.6 clear
+// band. Monolithic, the tube stops where the head begins -- board y=91 -- so
+// the rail has to end there, and only 81.3..91 of that band is on this part.
+// Nothing carries the board over the last 16 mm in that case except the head's
+// own bore, which is 24.93 against a 21.93 mm swept diagonal: it locates the
+// board loosely, and it is the only thing that does.
+station_b = (joint == "monolithic") ? [82.0, 90.0] : [86.0, 102.0];
 
 // Optional dam, see the header. Sits just gasward of the pot line, in the same
 // clear band as station B.
@@ -212,19 +260,40 @@ dam_fit = 0.4;              // diametral, in the bore
 // ------------------------------------------------- derived
 
 board_in_tube = board_len - cav_board_len;      // 105.0
-tube_len = board_in_tube + tail_len;            // cable face z=0 .. head face
+// Bonded, this part runs to where the board's tip section starts (board y=105)
+// and its top 14 mm live inside the head's socket. Monolithic, the head's own
+// z=0 face IS that plane minus the socket, so the tube ends there instead and
+// the head carries on from it.
+tube_len = board_in_tube + tail_len
+         - ((joint == "monolithic") ? head_socket_len : 0);
 board_y0_z = tail_len;                          // board y=0 sits here
 function zy(y) = board_y0_z + y;                // board y -> tube z
+
+// THE LOCK ROTATION, derived rather than measured off the checker.
+// Work it in the LAB frame, where the tube stands +z up and the cap arrives
+// from below. Placing the cap is rotate([180,0,0]), which maps (x,y,z) to
+// (x,-y,-z) -- so a cap-frame angle phi appears at lab angle -phi, and the
+// handedness of every cap angle flips. That flip is the single thing that made
+// the first three attempts at this disagree with each other.
+//   entry slot, cap [0, entry_arc]          -> lab [-entry_arc, 0]
+//   pocket,     cap [pocket_a0, pocket_a1]  -> lab [-pocket_a1, -pocket_a0]
+// A lug is modelled at tube angle [0, lug_arc] and the tube is turned by psi,
+// so the lug sits at lab [psi, psi + lug_arc] and has to fit inside those.
+entry_arc  = lug_arc + entry_slack;
+pocket_arc = lug_arc + pocket_extra;
+pocket_a0  = -twist_deg - pocket_extra;
+pocket_a1  = pocket_a0 + pocket_arc;
+psi_entry  = (-entry_arc + (-lug_arc))/2;               // -27
+psi_lock   = (-pocket_a1 + (-pocket_a0 - lug_arc))/2;   // +12
+// The pilot is at lock_a_tube in the TUBE, so at lock it stands at this lab
+// angle, and the cap's clearance slot has to be at MINUS that in its own frame.
+lock_a_lab = lock_a_tube + psi_lock;
+lock_a_cap = -lock_a_lab;
 
 // Bayonet angles, in the CAP's frame. The entry slot starts at 0 and the pocket
 // sits `twist_deg` back from it; `pocket_a1 < 0` below is what guarantees the
 // two never touch, i.e. that the cap cannot be pushed straight into its locked
 // position without being twisted.
-entry_arc  = lug_arc + entry_slack;
-pocket_arc = lug_arc + pocket_extra;
-pocket_a0  = -twist_deg - pocket_extra;
-pocket_a1  = pocket_a0 + pocket_arc;
-
 // Bayonet, in the CAP's frame (z from the cap mouth inward).
 cap_bore_depth = cap_engage + seal_gap;         // mouth to the cap's inner face
 pocket_z  = cap_engage - lug_z - lug_h/2;       // pocket floor = the lock stop
@@ -235,6 +304,12 @@ squeeze_lock  = (seal_cord - seal_gap)/seal_cord;
 squeeze_pushed = (seal_cord - (seal_gap - detent))/seal_cord;
 
 assert(seal_gap < seal_cord, "no squeeze: the locked gap is wider than the cord");
+assert(!lock_screw || lock_pilot_floor - lock_pilot_d/2 > lock_boss_r + 0.5,
+       str("lock pilot breaks into the bore: floor r=",
+           lock_pilot_floor - lock_pilot_d/2, " against boss r=", lock_boss_r,
+           " -- that hole would vent the sealed volume past the O-ring"));
+assert(!lock_screw || lock_boss_r > board_diag/2 + 0.5 || lock_z + lock_boss_h/2 < board_y0_z,
+       "the lock boss is in the board's way");
 assert(pocket_a1 < -4,
        str("pocket reaches ", pocket_a1, " deg, into the entry slot -- the lug ",
            "could drop into the lock without being twisted, and the cap would ",
@@ -284,6 +359,12 @@ echo(str("BODY TUBE: ", tube_od, " OD x ", tube_id, " ID x ", tube_len,
          " long, wall ", wall, "; cap ", cap_h, " tall, adds ",
          cap_h - cap_engage, " mm past the tube; overall ",
          tube_len + cap_h - cap_engage, " mm to the head joint"));
+if (lock_screw) echo(str("LOCK SCREW: M3 thread-forming, pilot ", lock_pilot_d,
+         " blind at tube angle ", lock_a_tube, " deg, z=", lock_z,
+         "; engages ", tube_od/2 - lock_pilot_floor, " mm of boss and leaves ",
+         lock_pilot_floor - lock_pilot_d/2 - lock_boss_r,
+         " mm to the bore. Cap slot at cap angle ", lock_a_cap,
+         " deg, +/-", lock_slot_arc, ". Fit it AFTER twisting home."));
 echo(str("BAYONET: lug at tube z=", lug_z, ", pocket floor at cap z=", pocket_z,
          ", twist ", twist_deg, " deg; O-ring squeeze ", squeeze_lock*100,
          "% locked, ", squeeze_pushed*100, "% while passing the detent"));
@@ -381,12 +462,39 @@ module bayonet_slot() {
 // ------------------------------------------------- parts
 
 module tube() {
+    // ONE difference, with the boss inside the union. It was two -- the boss
+    // built separately and the pilot subtracted only from it -- and that quietly
+    // produced a tube with NO pilot anywhere, because the drill never reached
+    // the wall it had to pass through first. Closed solid, clean render, no
+    // hole. tools/bayonet_check.py is what noticed.
     difference() {
         union() {
             cylinder(d=tube_od, h=tube_len);
             for (i = [0:lug_n-1]) rotate([0, 0, i*360/lug_n]) bayonet_lug();
+            // local wall thickening for the lock screw, inward, at a height
+            // where only cable passes
+            if (lock_screw)
+                rotate([0, 0, lock_a_tube - lock_boss_arc/2])
+                    rotate_extrude(angle=lock_boss_arc)
+                        translate([lock_boss_r, lock_z - lock_boss_h/2])
+                            square([tube_id/2 - lock_boss_r, lock_boss_h]);
         }
         translate([0, 0, -e]) cylinder(d=tube_id, h=tube_len + 2*e);
+        // Blind pilot, from outside, stopping short of the bore. Three
+        // separate mistakes lived in this one expression, and every one of them
+        // rendered as a perfectly clean closed solid:
+        //   - rotate([0,-90,0]) sends local +z to -X, so the hole came out at
+        //     lock_a_tube + 180, through plain wall, boss untouched;
+        //   - the rotate leaves the axis at the ORIGIN's height, so without the
+        //     outer translate the hole was cut at z=0, half of it hanging off
+        //     the tube's end face;
+        //   - and it used to sit in its own difference() with the boss, so it
+        //     never reached the wall it has to pass through first.
+        if (lock_screw)
+            translate([0, 0, lock_z])
+                rotate([0, 0, lock_a_tube]) rotate([0, 90, 0])
+                    translate([0, 0, lock_pilot_floor])
+                        cylinder(d=lock_pilot_d, h=tube_od, $fn=32);
     }
     for (s = [1, -1]) {
         guide(s, zy(station_a[0]), zy(station_a[1]));
@@ -411,6 +519,15 @@ module cap() {
             translate([0, 0, cap_bore_depth - e])
                 cylinder(d=gland_tap_d, h=cap_end_t + 2*e);
             for (i = [0:lug_n-1]) rotate([0, 0, i*360/lug_n]) bayonet_slot();
+            // Lock-screw clearance. An ARC, not a hole: it is +/- lock_slot_arc
+            // wide so the screw still finds its pilot anywhere in the pocket's
+            // own play, which is what makes this assemblable by hand.
+            if (lock_screw)
+                rotate([0, 0, lock_a_cap - lock_slot_arc])
+                    rotate_extrude(angle=2*lock_slot_arc)
+                        translate([tube_od/2 - e,
+                                   cap_engage - lock_z - (lock_pilot_d + 0.7)/2])
+                            square([cap_wall + cap_fit + 2*e, lock_pilot_d + 0.7]);
             // grip scallops
             for (i = [0:5]) rotate([0, 0, i*60])
                 translate([tube_od/2 + cap_fit/2 + cap_wall + 0.9, 0, -e])

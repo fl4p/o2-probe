@@ -54,6 +54,23 @@ intersection() {
 }
 """
 
+# The lock screw's path, in the CAP's frame: a rod driven radially inward at
+# angle `sa`. Clear means it reaches its pilot; anything it hits is skirt or
+# tube wall. Stops at r=13, short of the pilot floor, so a correct pilot returns
+# nothing rather than the rod's own tip.
+SCREW_HARNESS = """
+rot = 0;
+sa = 0;
+intersection() {
+  union() {
+    import("%s");
+    translate([0, 0, %.4f]) rotate([180, 0, 0]) rotate([0, 0, rot]) import("%s");
+  }
+  translate([0, 0, %.4f]) rotate([0, 0, sa]) rotate([0, 90, 0])
+    translate([0, 0, 13]) cylinder(d=2.4, h=14, $fn=32);
+}
+"""
+
 
 def param(name):
     """Read a top-level scalar out of the model, so the harness stays in step."""
@@ -110,14 +127,33 @@ def blocked(v):
     return v > BLOCK
 
 
+def stated_screw_angle():
+    """The cap-frame angle the MODEL says its lock slot is at.
+
+    Read from the model's own echo rather than recomputed here. Recomputing it
+    in Python would test the arithmetic against itself; this way the model
+    states an intention and the geometry is measured against it.
+    """
+    r = subprocess.run([OPENSCAD, '-D', 'part="tube"', '-o', os.devnull,
+                        '--export-format', 'asciistl', MODEL],
+                       capture_output=True, text=True)
+    m = re.search(r'Cap slot at cap angle ([-\d.]+) deg', r.stdout + r.stderr)
+    return float(m.group(1)) if m else None
+
+
+def obstruction(harness, tmp, rot, sa):
+    """Volume of material in the lock screw's path, in mm3."""
+    return overlap(harness, tmp, rot, sa)
+
+
 def overlap(harness, tmp, rot, push):
-    """Intersection volume of cap and tube at (rot, push), in mm3."""
+    """Intersection volume at (rot, push) -- or (rot, sa) for the screw harness."""
     out = os.path.join(tmp, 'x.stl')
     if os.path.exists(out):
         os.remove(out)
     r = subprocess.run(
         [OPENSCAD, '-D', 'rot=%r' % rot, '-D', 'push=%r' % push,
-         '-o', out, '--export-format', 'asciistl', harness],
+         '-D', 'sa=%r' % push, '-o', out, '--export-format', 'asciistl', harness],
         capture_output=True, text=True)
     # An EMPTY intersection writes no file at all -- that is the pass case, and
     # it is why this cannot be judged on exit status.
@@ -137,8 +173,8 @@ def main():
 
     with tempfile.TemporaryDirectory() as tmp:
         harness = os.path.join(tmp, 'bay.scad')
-        open(harness, 'w').write(
-            HARNESS % (build('cap', tmp), engage, build('tube', tmp)))
+        cap_stl, tube_stl = build('cap', tmp), build('tube', tmp)
+        open(harness, 'w').write(HARNESS % (cap_stl, engage, tube_stl))
 
         # Find the two clear angular windows by scanning, rather than trusting
         # the model's own sign conventions. +/-70 deg at 1 deg is enough for any
@@ -204,6 +240,34 @@ def main():
             if not blocked(v):
                 fails.append("pulls straight out of the lock at push=%g "
                              "-- the bayonet does not retain" % p)
+
+        # 5. The lock screw has to be able to reach its pilot at the locked
+        # angle, and NOT anywhere else -- a slot wide enough to always be clear
+        # would be a slot that had stopped being a lock.
+        sa = stated_screw_angle()
+        if sa is None:
+            print("  no lock screw declared, skipping the screw path")
+        else:
+            sh = os.path.join(tmp, 'screw.scad')
+            # The rod sits at the pilot's height in the CAP's frame, which is
+            # engage - lock_z. Leaving it at z=0 was the first bug this check
+            # found -- in itself, not in the part.
+            open(sh, 'w').write(SCREW_HARNESS
+                                % (cap_stl, engage, tube_stl,
+                                   engage - param('lock_z')))
+            v = obstruction(sh, tmp, r_lock, sa)
+            if not clear(v):
+                fails.append("lock screw is obstructed at its own stated angle "
+                             "%g deg (%.1f mm3) -- the slot and the pilot do "
+                             "not line up" % (sa, v))
+            for off in (-45, 45):
+                v = obstruction(sh, tmp, r_lock, sa + off)
+                if not blocked(v):
+                    fails.append("lock screw path is open %g deg off the lock "
+                                 "angle -- the cap slot is too wide to lock "
+                                 "anything" % off)
+            if not any('lock screw' in f for f in fails):
+                print("  lock screw: clear at %g deg, blocked at +/-45" % sa)
 
         # The twist actually available must be worth calling a bayonet.
         if abs(r_lock - r_entry) < lug_arc:

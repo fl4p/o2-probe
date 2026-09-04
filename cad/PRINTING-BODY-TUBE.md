@@ -62,21 +62,41 @@ condensate; buried in 100 %RH pore gas without it, they are not. Expect offset
 drift on CELL_RE. Put a silica sachet in the cable tail and check its colour on
 recovery — that reading is the diagnosis for anything odd in the data.
 
+## The head and the tube are ONE part
+
+`make monobody` → `exports/body-monobody.stl`, **146.6 mm tall**, head and tube in
+a single piece of plastic. The bonded socket is gone; Ø32 opens out to the head's
+Ø40 on a 45° cone, which is why the whole thing prints cable-end-down with no
+support anywhere.
+
+**The reason is sourcing, not elegance.** The bonded joint is structural *and*
+sealing, on the wet side, at ~75 °C in ammoniacal condensate — and `MEMBRANE.md`
+forbids a load-bearing adhesive there until a named one has passed hot-condensate
+ageing. **No such adhesive is sourced**, and "epoxy for the prototype" is a guess,
+not a part number. Printing through the joint deletes the requirement instead of
+guessing at it.
+
+What it costs: a failed print loses the whole body, any change to the head
+reprints the whole 146.6 mm with it, and the guide rail at station B gets shorter
+(the tube now stops at board y=91, so only 81.3–91 of that clear band is on this
+part). Over the last 16 mm the board is located by the head's Ø24.93 bore alone.
+
+The two-part bonded variant is still in the model — `joint="bonded"` — and is
+committed as fd50a98 if it is ever wanted back.
+
 ## What gets printed
 
 | part | solid volume | bbox | orientation | support |
 |---|---:|---|---|---|
-| tube | 30.1 cm³ | Ø35.2 × 127 | upright, **cable end down** | none |
+| **monobody** (head + tube) | 54.3 cm³ | Ø40 × 146.6 | upright, **cable end down** | none |
 | cap | 11.1 cm³ | Ø37.2 × 21.5 | upright, **mouth up** | none |
 | dam (2 halves) | 1.5 cm³ | 27.2 × 30 × 4 | flat | none |
 
-≈ 42.8 cm³ of solid, so roughly **46 g** of ASA at 1.07 g/cm³ — and for the tube
-that figure is real rather than an upper bound, because its wall is four
-perimeters and nothing else. Print them **one at a time**, not three to a plate;
-see the table below.
-
-The cap prints mouth up so its 8 mm sealing end is the first layer and the
-bayonet slots are cut into a vertical skirt. Nothing in either part bridges.
+≈ 66.9 cm³ of solid across the three, so roughly **72 g** of ASA at
+1.07 g/cm³. Print them **one at a time**, not three to a plate; see the table
+below. The cap
+prints mouth up so its 8 mm sealing end is the first layer and the bayonet slots
+are cut into a vertical skirt. Nothing in either part bridges.
 
 ## Print settings
 
@@ -123,18 +143,16 @@ the board and the prototype is recoverable.
 1. **Tap the cap.** M12 × 1.5 through the 8 mm end, Ø10.5 pilot as printed.
    Printed, not tapped, threads at this pitch are a coin toss and this joint is
    the only thing between the pile and an unpotted board.
-2. **Bond the tube into the head.** Ø32 into the head's socket, 14 mm of
-   engagement, 0.2 mm radial adhesive gap. Epoxy for the prototype. *Not*
-   solvent weld: acetone/MEK is the chemistry ASA is weakest against and
-   `MEMBRANE.md` flags environmental stress cracking as one of the two named
-   risks for this enclosure.
-3. **Measure the tube OD first**, at several angles, before bonding — see below.
-4. Solder the cable, thread it through the cap, fit the gland.
-5. Slide the board in from the cable end, tip first, through both guide
+2. **Nothing to bond.** The head is already the same part. Ream the Ø27.3 H7
+   well — it is now at the top of a 146.6 mm part, so fixture accordingly.
+3. Solder the cable, thread it through the cap, fit the gland.
+4. Slide the board in from the cable end, tip first, through both guide
    stations. Fit the dam halves around the board as it passes y = 81.
-6. O-ring on the tube end face, cap on, push and twist 30° until the lugs drop
+5. O-ring on the tube end face, cap on, push and twist 30° until the lugs drop
    into their pockets. The drop is the confirmation — if it has not dropped, the
    ring is not squeezed.
+6. **Fit the M3 lock screw.** Radial, through the cap's slot into the tube's
+   blind pilot, *after* twisting home. See below.
 
 ## Measure the OD — it closes an open input
 
@@ -165,6 +183,31 @@ solids at a scan of positions and requires zero overlap sliding in, zero through
 the twist, zero at the locked depth — and **positive overlap when pulled from the
 lock**, which is the known-bad calibration. Without that last case the check
 would happily pass a cap with no lugs at all.
+
+### The lock screw
+
+The bayonet's own retention is a 0.3 mm detent held by the O-ring's preload, and
+that is not something to bury for a season: the preload is tens of newtons and
+unmeasured, EPDM takes compression set at pile temperature, and **the gland
+clamps the cable to the cap**, so every tug on the cable runs cable → gland →
+cap → bayonet → tube. One M3 thread-forming screw makes the lock positive and
+leaves the O-ring doing only the job it is good at.
+
+It is **blind**, and that is the whole design of it: a hole through the tube wall
+at that height would vent the sealed volume past the seal plane. The wall is
+thickened on the *inside* at z = 6, where nothing but cable passes, so the pilot
+gets 3.5 mm of engagement and still leaves 1.75 mm of material to the bore. The
+cap's clearance is an arc ±10° wide, so the screw finds its pilot anywhere in the
+pocket's own play.
+
+Three separate mistakes lived in that one subtraction, and **every one of them
+rendered as a perfectly clean closed solid**: the rotation sent the hole out at
+`lock_a_tube + 180` through plain wall with the boss left untouched; the rotate
+leaves the axis at the origin's height, so the hole was cut at z = 0 with half of
+it hanging off the end face; and it sat in its own `difference()` with the boss,
+so it never reached the wall it has to pass through first — a tube with no pilot
+at all. `bayonet_check.py` now drives a rod down the screw's path and requires it
+clear at the model's own stated angle and blocked ±45° off it.
 
 Locked squeeze is 25 % of the cord; passing the detent takes it transiently to
 40 %, which an EPDM cord takes. As built, the check reports an **entry window of
