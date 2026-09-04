@@ -23,6 +23,8 @@ from thermal_design import (SIDE_THERMAL_SLOTS, THERMAL_SLOTS,
                             add_vertical_slot, ensure_gnd_bridge,
                             ensure_heater_spreader, ensure_thermal_gap,
                             save_board_preserving_project)
+from critical_routes import (add_critical_routes,
+                             ensure_cell_re_via_keepout, ensure_gnd_plane)
 
 HERE = Path(__file__).resolve().parent
 XML = HERE / "o2-probe.xml"
@@ -163,7 +165,17 @@ PLACEMENT = {
  "RH1":(5.0,96.5,270,"B"), "RH2":(15.0,96.5,270,"B"),
  "F3":(12.25,105.0,90,"B"),
  "Q2":(10.0,101.25,270,"B"), "R28":(6.5,101.25,180,"B"), "R29":(13.5,101.25,180,"B"), "TP6":(8.3,103.0,180,"B"),
- "U12":(3.5,101.5,0,"F"), "C20":(6.0,101.5,90,"F"),
+ # U12 turned 180 degrees on 2026-09-05.  Its west pad column sits 0.60 mm from
+ # the left side thermal slot's copper-clearance limit -- one 0.18 mm lane in
+ # practice -- and at rotation 0 the two nets that had to leave that way were
+ # I2C_SDA and I2C_SCL.  The router put SCL in the lane and then reported U12
+ # pad 1 unroutable on an OTHERWISE EMPTY board, at 0.1 and 0.05 mm grid, with
+ # rip-up enabled, and with SDA routed first.  Turning the part puts SDA/SCL on
+ # the open east side and 3V3D/GND in the lane, where GND needs no lane at all
+ # -- it drops straight into the In2 plane through a via.  Moving the part east
+ # instead was tried and made it worse (three open nets, not one): the lane is
+ # the constraint, not the millimetre.
+ "U12":(3.5,101.5,180,"F"), "C20":(6.0,101.5,90,"F"),
  "U10":(10.0,102.525,270,"F"), "C21":(12.5,102.5,90,"F"),
  "U14":(16.5,101.0,0,"F"), "C23":(14.0,101.0,180,"F"), "C24":(14.0,102.0,180,"F"),
  "J5":(10.0,105.5,0,"F"),
@@ -315,7 +327,15 @@ def build():
             if not pads: raise SystemExit(f"footprint pad missing: {ref}.{pnum}")
             for pad in pads: pad.SetNet(netitems[name])
     ensure_heater_spreader(board)
+    ensure_gnd_plane(board)
     ensure_gnd_bridge(board)
+    # The router owns the routine nets, but not these.  See critical_routes.py
+    # for why each one is authored here rather than solved: CELL_RE must have no
+    # via barrel, the heater path must be where the thermal model puts it, and
+    # J5's fork fingers are two lands per finger that nothing in the footprint
+    # joins -- the one net the exploratory scout could not close.
+    ensure_cell_re_via_keepout(board)
+    add_critical_routes(board)
     board.BuildConnectivity()
     pcbnew.ZONE_FILLER(board).Fill(board.Zones())
     save_board_preserving_project(board, OUT)
