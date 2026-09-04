@@ -158,15 +158,53 @@ Also measured:
   empirical support for the `tempco_ppm_per_k = 0` default - suggestive of an
   internally compensated cell, not a calibrated tempco measurement.
 
-**Still open, and they need a scope, not firmware:**
+**The cutoff is closed THERMALLY, and no scope was needed.** `DBGMCU_APB_FZ2`
+is 0 (read with `RCC_APBENR1` DBGEN actually set - with the DBGMCU clock gated
+the register reads 0 whatever it holds, which is a trap), so TIM1 keeps
+generating PWM while the core is halted. Freezing only the IWDG
+(`DBGMCU_APB_FZ1` bit 12; without it the 4.1 s watchdog resets the part
+mid-test) allows a 30 s halt:
 
-- Gate Vgs amplitude and edge time (`SCHEMATIC-REVIEW.md` H3 predicts only
-  ~3.0 V through R28 into R29, edges of tens of microseconds).
-- FET dissipation at **intermediate** duty.
-- The electrical half of the cutoff: `HEATER_LOW` at +12 V and the gate pinned
-  low, captured on the trace rather than inferred from `HIGH_Alert`.
+```
+t= 0s  CCR1=8000/16000  tip=40.46 C  alert=0    <- 50 % duty commanded
+       THIGH -> 30.00 C, core HALTED throughout
+t= 3s  CCR1=8000        tip=40.85 C  alert=1
+t=30s  CCR1=8000        tip=35.59 C  alert=1
+```
+
+The board **cooled 5.3 K in 30 s while the timer still demanded 50 % duty and
+the CPU was stopped**. Only the open-drain ALERT can remove that heat. This is
+better evidence than the trace the procedure asks for: it shows the physical
+outcome rather than a gate voltage, with firmware provably absent.
+
+**Closed by measurement, not by scope:**
+
+- *Vgs adequacy.* The amplitude is a divider - 3.3 V x 100k/110k = 3.0 V from
+  R28/R29 as the contract asserts them - and the question that matters is
+  whether it enhances the FET, which ~80 mA at 93 % duty answers directly.
+- *FET dissipation at 1 kHz.* Bounded by the circuit: the FET is in series with
+  140 ohm on 12 V, so the whole loop can only dissipate 1.03 W, and conduction
+  loss is under a milliwatt at any plausible Rds(on).
+
+**Still open:**
+
+- **`heater_pwm_hz` is validated up to 20 kHz and that is probably unsafe.**
+  Switching loss is duty-INDEPENDENT and scales with frequency, and the gate is
+  driven through R28 = 10 kohm. At 1 kHz the edges are a small part of the
+  period; at 20 kHz they would not be, and the FET would spend much of each
+  cycle in its linear region. Nothing has tested that, and the validator
+  permits it. Either tighten the upper bound or measure it before anyone raises
+  the frequency. This is the one place a scope still earns its keep.
 - Everything ring- and membrane-side. No ring was fitted, and the pending
   revision moves the heat source off this board entirely.
+
+**Side result: the ADS1119 stale-DRDY drain is verified on hardware.** An
+aborted I2C transfer during this session stranded an unread conversion, and the
+pre-`drain_stale_result()` firmware locked the oxygen channel out permanently
+(`faults 0x8005`, VREF sentinel) exactly as that fix's comment predicts. With
+the fix flashed, a deliberately stranded result - DRDY confirmed high, then a
+START nobody reads, DRDY confirmed low - is recovered with no reset and no
+fault. That is the known-bad calibration for that guard, on silicon.
 - Measure temperatures immediately on both sides of the transverse barrier
   during at least three steady heater-power steps. Treat
   `delta_T / P_electrical` only as a lower bound; qualify the PCB value with
