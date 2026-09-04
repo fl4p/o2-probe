@@ -79,7 +79,9 @@ body_dir = "exports";       // where those STLs live, relative to the build cwd
 // slides in this picture and the picture is the thing that would show it.
 body_tube_len = 127.0;      // o2_probe_body_tube.scad, tube_len
 body_cap_engage = 12.0;     // o2_probe_body_tube.scad, cap_engage
-seal_cord_body = 2.0;       // o2_probe_body_tube.scad, seal_cord
+body_seal_id   = 24.0;      // o2_probe_body_tube.scad, seal_id  (ORS116787)
+body_seal_cord = 1.5;       // o2_probe_body_tube.scad, seal_cord
+body_groove_root = 25.0299; // o2_probe_body_tube.scad, groove_root
 
 // ------------------------------------------------- MEASURE THESE
 
@@ -1242,18 +1244,20 @@ module body_stack(e) {
     // which is also the order it is fitted in.
     color("MediumPurple")
         translate([0, 0, socket_len - dam_drop]) import(str(body_dir, "/body-dam.stl"));
-    // The cable-end seal, 28 x 2 EPDM, sitting on the tube's cable end face and
-    // squeezed by the cap. It was missing from this drawing until 2026-09-04,
-    // which mattered: it is not just a seal, it is the SPRING that pushes the
-    // tube back out and drops the bayonet lug into its detent pocket. A drawing
-    // without it shows a cap that cannot lock.
+    // The cable-end seal: the SAME ORS116787 24 x 1.5 EPDM as the carrier's
+    // ring, now RADIAL on the cap's spigot rather than a 28 x 2 face seal. It
+    // is drawn on the groove root, not on the tube's end face, because that is
+    // where it sits -- and the change is not cosmetic: a radial seal supplies
+    // no axial preload, so it is no longer the spring that holds the bayonet
+    // lug in its detent. The M3 lock screw is.
     // Drawn Crimson rather than black because label-prototype.py separates the
     // greys by row band, and a fourth grey at the bottom of the stack would be
     // taken for the carrier's ring.
     color("Crimson")
         translate([0, 0, tube_base_z - 0.67*e])
-            rotate_extrude() translate([28/2 + seal_cord_body/2, 0])
-                circle(d=seal_cord_body);
+            rotate_extrude()
+                translate([body_groove_root/2 + body_seal_cord/2, 0])
+                    circle(d=body_seal_cord);
     // Cap: mirrored, because its own z runs from its mouth inward and the mouth
     // faces the tube. Locked, its mouth sits body_cap_engage above the tube's
     // cable end face.

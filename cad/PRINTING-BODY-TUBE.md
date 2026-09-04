@@ -103,10 +103,10 @@ committed as fd50a98 if it is ever wanted back.
 | part | solid volume | bbox | orientation | support |
 |---|---:|---|---|---|
 | **monobody** (head + tube) | 54.3 cm³ | Ø40 × 146.6 | upright, **cable end down** | none |
-| cap | 11.1 cm³ | Ø37.2 × 21.5 | upright, **mouth up** | none |
+| cap | 12.1 cm³ | Ø37.2 × 26.5 | upright, **mouth up** | none |
 | dam (2 halves) | 1.5 cm³ | 27.2 × 30 × 4 | flat | none |
 
-≈ 66.9 cm³ of solid across the three, so roughly **72 g** of ASA at
+≈ 67.9 cm³ of solid across the three, so roughly **73 g** of ASA at
 1.07 g/cm³. Print them **one at a time**, not three to a plate; see the table
 below. The cap
 prints mouth up so its 8 mm sealing end is the first layer and the bayonet slots
@@ -198,6 +198,43 @@ the twist, zero at the locked depth — and **positive overlap when pulled from 
 lock**, which is the known-bad calibration. Without that last case the check
 would happily pass a cap with no lugs at all.
 
+## The cable seal — radial, and the same ring as the carrier
+
+It started as a 28 × 2 **face** seal squeezed by the cap, and that was the wrong
+joint twice over. It needed a second ring size, and — the part that actually
+decided it — **its squeeze was set by the bayonet's detent depth**, a printed
+feature whose tolerance was never budgeted. Every piece of validated seal work in
+this project is on *radial* seals.
+
+A 24 × 1.5 cannot be a face seal here at all: ring OD 27.0 against a Ø27.2 bore,
+so it drops straight through. As a radial seal on a spigot the cap carries into
+the bore, it lands almost exactly where the carrier's ring already sits:
+
+| | value | carrier ring, for comparison |
+|---|---:|---|
+| bore | Ø27.3 H7, **reamed**, 12 mm deep | Ø27.3 H7 reamed — *the same reamer* |
+| groove root | 25.030 × 2.10 wide | 24.840 × 2.10 |
+| install stretch | 4.29 % | 3.50 % |
+| squeeze | 24.33 % | 22.98 % |
+| material under the root | 2.51 mm | 3.42 mm (2.4 min) |
+
+**The bore must be reamed.** As-printed, its ±0.20 spends **19.75 of the 15
+available squeeze points** on its own; reamed it spends 0.72. With the printed
+cap groove (±0.09) and catalogue cord it comes to 12.18 of 15 — it closes, but
+micrometer-sorted rings take it to 7.51 and that is the route to use, exactly as
+the head's own note concludes.
+
+**Two things moved to make room for the reamer**, and both are asserted rather
+than left to be noticed: the lock boss went from z 6 to **z 17**, clear of the
+12 mm reamed depth, and the cap's skirt grew from 12 to **18 mm** of engagement
+so the screw can still reach it.
+
+**And the bayonet lost its spring.** A face seal pushed the tube back out and
+held the lug in its detent; a radial seal pushes outward, not along the axis. The
+M3 lock screw is now the whole of the retention — which is what it was added for,
+so nothing new is owed, but the bayonet on its own is no longer a lock and the
+model refuses to build without the screw.
+
 ### The lock screw
 
 The bayonet's own retention is a 0.3 mm detent held by the O-ring's preload, and
@@ -253,10 +290,11 @@ worth knowing before writing another one:
    geometry problem — but **check the clamp range against 6,6 mm before
    ordering**, and if no M12 covers it, the cap's boss goes to M16 and only that
    one dimension changes. Do not assume M12 fits because the hole says M12.
-2. **The cable-end O-ring.** 28 × 2.0 is a stock metric size but has *not* been
-   checked against the vendor already used for the head's ring
-   (o-ring-stocks.eu, EPDM 70 peroxide-cured, `../tech/PROBE-CARRIER-SOURCING.md`).
-   EPDM for the same reason as there: ammonia attacks FKM.
+2. ~~The cable-end O-ring.~~ **Closed.** It is the **same ring as the carrier** —
+   ORS116787, 24 × 1.5 EPDM 70 peroxide, house compound 127019011,
+   o-ring-stocks.eu (`../tech/PROBE-CARRIER-SOURCING.md`). One size, one
+   compound, one test report and one sorting pass for the whole probe. See
+   *The cable seal* below for why it changed.
 3. **The M12 × 1.5 tap.**
 4. **Silica gel** for the tail.
 

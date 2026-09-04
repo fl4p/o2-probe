@@ -160,15 +160,36 @@ cap_fit      = 0.4;         // diametral, cap bore over tube OD
 // sachet. The cap adds its own depth on top of this.
 tail_len = 22.0;
 
-// Cable-end seal: an O-ring laid on the tube's end face and squeezed by the
-// cap. A face seal, captured laterally by the cap bore. NOT SOURCED -- 28 x 2.0
-// is a stock metric size but has not been checked against the vendor already
-// used for the head's ring (o-ring-stocks.eu, EPDM 70 peroxide-cured; see
-// ../tech/PROBE-CARRIER-SOURCING.md). EPDM for the same reason as there:
-// ammonia attacks FKM.
-seal_cord = 2.0;
-seal_squeeze = 0.25;        // sets the bayonet's locked stand-off
-seal_gap = seal_cord * (1 - seal_squeeze);
+// CABLE-END SEAL -- RADIAL, on a spigot the cap carries into the tube's bore.
+// It was a 28 x 2 FACE seal squeezed by the cap, and that was the wrong joint
+// twice over. It needed a second ring size, and -- the part that actually
+// decided it -- its squeeze was set by the bayonet's detent depth, a printed
+// feature whose tolerance was never budgeted. Radial squeeze is set by a bore
+// and a groove root, which is the one seal geometry this project has a
+// validated tolerance model for (o2_probe_head_end.scad, the carrier ring).
+//
+// SAME RING AS THE CARRIER: o-ring-stocks.eu ORS116787, EPDM 70 Shore A
+// peroxide-cured, 24.0 x 1.5 DIN 3771, house compound 127019011. One size, one
+// compound, one test report, one micrometer-sorting pass for the whole probe.
+// EPDM because ammonia attacks fluoroelastomers.
+seal_id   = 24.0;
+seal_cord = 1.5;
+// The same 0.2433 the head uses, and for the same reason: it is where the
+// tolerance band sits squarest, not a handbook preference.
+seal_squeeze = 0.2433;
+carrier_fit = 0.3;          // spigot to bore, diametral
+
+// The cable end is REAMED, and it has to be: as-printed, the bore's +/-0.20
+// spends 19.75 of the 15 available squeeze points on its own. Reamed it spends
+// 0.72. Ø27.3 H7 is the SAME call-out and the SAME reamer as the head's well,
+// which is the only reason this is one extra setup rather than one extra tool.
+// Drawn at the finished size: a printed bore comes out UNDER, so the reamer has
+// stock without the model having to carry a separate pre-ream diameter.
+cable_bore_finish = "reamed";
+cable_bore_d   = 27.3;      // H7, +0.021/0, ISO 286-2 18-30 band
+cable_bore_len = 12.0;      // reamed depth
+spigot_len = 8.5;
+spigot_id  = 20.0;          // cable passage; sized by the wall under the groove
 
 // Bayonet. Chosen over a thread or screws because MEMBRANE.md's rule for this
 // enclosure is "no part of the enclosure may carry sustained strain at
@@ -193,7 +214,11 @@ twist_deg  = 30;            // lock rotation
 // 25 % locked squeeze, which an EPDM cord takes; at the 0.7 first tried, the
 // locked gap exceeded the cord and there was no seal at all.
 detent     = 0.3;
-cap_engage = 12.0;          // tube end face depth in the cap AT LOCK
+// 18, not the 12 the face seal needed. The lock screw has to reach its pilot
+// THROUGH the skirt, and the pilot has to sit clear of the reamer that cuts the
+// sealing bore -- so the boss moved past cable_bore_len, and the skirt had to
+// grow to still cover it. Asserted below rather than left to be noticed.
+cap_engage = 18.0;          // tube end face depth in the cap AT LOCK
 // The pocket runs PAST the end of the twist, not back toward the entry. A hand
 // twist overshoots, and a pocket only as wide as the lug would mean feeling for
 // an exact stop. Extending it the OTHER way would be worse than useless: it
@@ -215,10 +240,10 @@ pocket_extra = 8;           // degrees of overshoot room past the twist
 lock_screw = true;
 lock_a_tube = 90;           // degrees in the TUBE frame, between the lugs
 lock_pilot_d = 2.5;         // M3 thread-forming in ASA
-lock_z = 6.0;
+lock_z = 17.0;              // clear of the reamed bore, still under the skirt
 lock_boss_r = 9.5;          // inner face of the local wall thickening
 lock_boss_arc = 22;         // degrees, centred on lock_a_tube
-lock_boss_h = 7.0;
+lock_boss_h = 6.0;
 lock_pilot_floor = 12.5;    // radius the pilot bottoms at -> 1.75 mm of boss left
 lock_slot_arc = 10;         // half-width of the cap's clearance slot, degrees
 
@@ -302,21 +327,51 @@ lock_a_cap = -lock_a_lab;
 // two never touch, i.e. that the cap cannot be pushed straight into its locked
 // position without being twisted.
 // Bayonet, in the CAP's frame (z from the cap mouth inward).
-cap_bore_depth = cap_engage + seal_gap;         // mouth to the cap's inner face
+face_clear = 0.5;                               // tube end face to cap inner face
+cap_bore_depth = cap_engage + face_clear;       // mouth to the cap's inner face
 pocket_z  = cap_engage - lug_z - lug_h/2;       // pocket floor = the lock stop
 chan_top  = pocket_z + detent + lug_h + slot_slack;
 cap_h     = cap_bore_depth + cap_end_t;
-// What the ring actually sees, locked and while being pushed past the pocket.
-squeeze_lock  = (seal_cord - seal_gap)/seal_cord;
-squeeze_pushed = (seal_cord - (seal_gap - detent))/seal_cord;
 
-assert(seal_gap < seal_cord, "no squeeze: the locked gap is wider than the cord");
+// The radial gland, mirroring o2_probe_head_end.scad's carrier seal exactly.
+spigot_od   = cable_bore_d - carrier_fit;
+groove_root = cable_bore_d - 2*seal_cord*(1 - seal_squeeze);
+groove_w    = 1.40 * seal_cord;                 // 1.40: the head's fill gate
+seal_stretch = (groove_root - seal_id)/seal_id;
+groove_wall = (groove_root - spigot_id)/2;      // material under the groove root
+lead_chamfer = 1.0;
+
+// THE AXIAL PRELOAD IS GONE, and that is a real consequence, not a footnote.
+// A face seal pushed the tube back out and held the bayonet lug in its detent;
+// a radial seal pushes outward, not along the axis, so nothing springs the lock
+// any more. The M3 screw is now the whole of the retention -- which is what it
+// was added for, so this costs nothing that was not already paid, but the
+// bayonet on its own is no longer a lock and must not be treated as one.
+assert(lock_screw,
+       "a radial cable seal supplies no axial preload, so the bayonet has no spring: the lock screw is not optional with this seal");
+assert(seal_stretch <= 0.05,
+       str("install stretch ", seal_stretch*100, "% exceeds the 5% rule"));
+assert(seal_stretch > 0,
+       "the groove root is under the ring ID; it would not stay on the spigot");
+assert(groove_wall >= 2.4,
+       str("only ", groove_wall, " mm under the groove root, against 2.4 min"));
+assert(cable_bore_d > tube_id,
+       "the sealing counterbore is not larger than the tube bore; there is nothing to ream");
+assert(board_diag <= cable_bore_d - 0.5,
+       "the board does not pass the cable-end sealing bore");
 assert(!lock_screw || lock_pilot_floor - lock_pilot_d/2 > lock_boss_r + 0.5,
        str("lock pilot breaks into the bore: floor r=",
            lock_pilot_floor - lock_pilot_d/2, " against boss r=", lock_boss_r,
            " -- that hole would vent the sealed volume past the O-ring"));
 assert(!lock_screw || lock_boss_r > board_diag/2 + 0.5 || lock_z + lock_boss_h/2 < board_y0_z,
        "the lock boss is in the board's way");
+assert(!lock_screw || lock_z - lock_boss_h/2 > cable_bore_len,
+       str("the lock boss starts at z=", lock_z - lock_boss_h/2,
+           ", inside the ", cable_bore_len,
+           " mm reamed bore -- the reamer would machine it away"));
+assert(!lock_screw || lock_z < cap_engage,
+       str("the lock pilot at z=", lock_z, " is past the skirt's ", cap_engage,
+           " mm of cover; the screw could not reach it"));
 assert(pocket_a1 < -4,
        str("pocket reaches ", pocket_a1, " deg, into the entry slot -- the lug ",
            "could drop into the lock without being twisted, and the cap would ",
@@ -373,8 +428,15 @@ if (lock_screw) echo(str("LOCK SCREW: M3 thread-forming, pilot ", lock_pilot_d,
          " mm to the bore. Cap slot at cap angle ", lock_a_cap,
          " deg, +/-", lock_slot_arc, ". Fit it AFTER twisting home."));
 echo(str("BAYONET: lug at tube z=", lug_z, ", pocket floor at cap z=", pocket_z,
-         ", twist ", twist_deg, " deg; O-ring squeeze ", squeeze_lock*100,
-         "% locked, ", squeeze_pushed*100, "% while passing the detent"));
+         ", twist ", twist_deg,
+         " deg. NO axial preload: a radial seal supplies none, so the M3 screw ",
+         "is the retention and the detent only resists back-rotation."));
+echo(str("CABLE SEAL: ORS116787 24 x 1.5 EPDM, the SAME ring as the carrier. ",
+         "Bore ", cable_bore_d, " ", cable_bore_finish, " x ", cable_bore_len,
+         " deep; groove root ", groove_root, " x ", groove_w, " wide on a ",
+         spigot_od, " spigot. Install stretch ", seal_stretch*100,
+         "%, squeeze ", seal_squeeze*100, "%, ", groove_wall,
+         " mm under the root."));
 echo(str("BOARD: y=0 at z=", board_y0_z, ", tube end face at board y=",
          board_in_tube, ", tip ", cav_board_len, " proud into the cavity"));
 // The trimmer sits at the board EDGE, so the flat "height above the board"
@@ -487,6 +549,11 @@ module tube() {
                             square([tube_id/2 - lock_boss_r, lock_boss_h]);
         }
         translate([0, 0, -e]) cylinder(d=tube_id, h=tube_len + 2*e);
+        // The sealing counterbore, reamed. 0.05 mm larger than the bore on
+        // radius, so it is a real step the reamer can find, and 12 mm deep --
+        // which is what pushed the lock boss up to z=14 and the cap's skirt out
+        // to 18: nothing internal may stand in the reamer's path.
+        translate([0, 0, -e]) cylinder(d=cable_bore_d, h=cable_bore_len + e);
         // Blind pilot, from outside, stopping short of the bore. Three
         // separate mistakes lived in this one expression, and every one of them
         // rendered as a perfectly clean closed solid:
@@ -515,13 +582,31 @@ module tube() {
 // costs a fraction of that. tools/bayonet_check.py runs this module ~50 times.
 module cap() {
     difference() {
-        cylinder(d=tube_od + cap_fit + 2*cap_wall, h=cap_h);
         union() {
-            // the tube's seat. Its full depth includes the O-ring's space,
-            // which is why the ring is captured laterally by this bore and
-            // needs no groove of its own.
+            cylinder(d=tube_od + cap_fit + 2*cap_wall, h=cap_h);
+            // The sealing spigot, reaching back out of the cap's inner face and
+            // into the tube's reamed bore. Chamfered at its tip so the ring is
+            // not shaved on assembly.
+            translate([0, 0, cap_bore_depth - spigot_len])
+                cylinder(d1=spigot_od - 2*lead_chamfer, d2=spigot_od,
+                         h=lead_chamfer);
+            translate([0, 0, cap_bore_depth - spigot_len + lead_chamfer])
+                cylinder(d=spigot_od, h=spigot_len - lead_chamfer + e);
+        }
+        union() {
+            // the tube's seat
             translate([0, 0, -e])
                 cylinder(d=tube_od + cap_fit, h=cap_bore_depth + e);
+            // the radial O-ring groove, in the spigot
+            translate([0, 0, cap_bore_depth - spigot_len + lead_chamfer + 1.2])
+                difference() {
+                    cylinder(d=spigot_od + 2*e, h=groove_w);
+                    translate([0, 0, -e])
+                        cylinder(d=groove_root, h=groove_w + 2*e);
+                }
+            // the cable passage through the spigot
+            translate([0, 0, cap_bore_depth - spigot_len - e])
+                cylinder(d=spigot_id, h=spigot_len + 2*e);
             // tapped M12 x 1.5 for the gland
             translate([0, 0, cap_bore_depth - e])
                 cylinder(d=gland_tap_d, h=cap_end_t + 2*e);
