@@ -70,9 +70,12 @@
 #define O2P_HW_CE_SERIES_OHM 100
 /* SNAS506 6.5 characterises A1's drive only over 300 mV <= VCE <= VS-300 mV.
  * Outside this the amplifier is simply not specified, so treat it as a
- * fault, not as a reading.  VS is 3V3A. */
+ * fault, not as a reading.  VS is 3V3A, whose WORST-CASE LOW corner is
+ * 3234 mV (DESIGN.md), so the characterised ceiling is 2934 mV -- not the
+ * 3000 mV this used to hard-code, which sat 66 mV outside the specified
+ * range whenever the rail was at its low limit. */
 #define O2P_HW_CE_COMPLIANCE_MIN_MV 300
-#define O2P_HW_CE_COMPLIANCE_MAX_MV 3000
+#define O2P_HW_CE_COMPLIANCE_MAX_MV 2934
 /* No guard divider: the guard is driven from the RE follower U4B through
  * R40, so it tracks the real electrode instead of a 0.909 x VREF replica. */
 
@@ -101,7 +104,10 @@
 #define O2P_HW_VREF_TARGET_MV  2500
 
 /* ---- Membrane-ring heater ---- */
-/* O2P_HW_HEATER_OHM is deliberately absent: RH1/RH2 moved to the ring PCB. */
+/* Main-board heater: RH1||RH2, bench-confirmed 140 ohm / 1.02 W at 12 V.
+ * A ring PCB, when it exists, PARALLELS these through J5 -- it does not
+ * replace them, so this is the floor of the load, not the whole of it. */
+#define O2P_HW_HEATER_OHM    140
 #define O2P_HW_HEATER_GATE_R_SERIES 10000   /* R28, PA8 -> gate */
 #define O2P_HW_HEATER_GATE_R_PULLDN 100000   /* R29, passive default-off */
 

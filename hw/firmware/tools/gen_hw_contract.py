@@ -119,10 +119,24 @@ def build(g) -> str:
     vref_max_mv = vref_target_mv + vref_tol_mv
 
     # --- heater -----------------------------------------------------------
-    # RH1/RH2 are GONE from this board: the heat source is on the ring PCB now
-    # (HEATED-SPREADER.md 0, RING-PCB.md 1), so its resistance is not a property
-    # of this schematic and no O2P_HW_HEATER_OHM is emitted.  Anything that used
-    # it must fail to compile rather than silently assume 140 ohm.
+    # RH1/RH2 are ON this board (Fab, 2026-09-04, "the heater stays where it is").
+    # An earlier pass deleted them, moved the heat source to the ring PCB, and
+    # suppressed O2P_HW_HEATER_OHM so that "anything that used it must fail to
+    # compile rather than silently assume 140 ohm".  That inverted the contract
+    # relative to the hardware: the parts were never removed from the board the
+    # bench was measuring.  Derive the constant from the schematic instead of
+    # asserting either state.
+    rh1, rh2 = val("RH1"), val("RH2")
+    heater_ohm = 1.0 / (1.0 / rh1 + 1.0 / rh2)
+    # Cross-check against the bench, o2probe-bench session 2026-09-04: VIN fell
+    # 11960 -> 11914 mV between 0 and 93 % duty, ~46 mV for the predicted ~80 mA,
+    # confirming the 140 ohm main-board load (1.02 W at full duty on 12 V).
+    if not 139.0 <= heater_ohm <= 141.0:
+        raise SystemExit(
+            f"heater is {heater_ohm:.1f} ohm from RH1={rh1}/RH2={rh2}; the bench "
+            "measured 140 ohm on the first article, so either the schematic "
+            "changed deliberately or a value is wrong -- do not emit silently"
+        )
     r28, r29 = val("R28"), val("R29")
 
     # --- strapping that fixes the I2C addresses ---------------------------
@@ -176,9 +190,12 @@ def build(g) -> str:
     a(f"#define O2P_HW_CE_SERIES_OHM {r42:.0f}")
     a("/* SNAS506 6.5 characterises A1's drive only over 300 mV <= VCE <= VS-300 mV.")
     a(" * Outside this the amplifier is simply not specified, so treat it as a")
-    a(" * fault, not as a reading.  VS is 3V3A. */")
+    a(" * fault, not as a reading.  VS is 3V3A, whose WORST-CASE LOW corner is")
+    a(" * 3234 mV (DESIGN.md), so the characterised ceiling is 2934 mV -- not the")
+    a(" * 3000 mV this used to hard-code, which sat 66 mV outside the specified")
+    a(" * range whenever the rail was at its low limit. */")
     a("#define O2P_HW_CE_COMPLIANCE_MIN_MV 300")
-    a("#define O2P_HW_CE_COMPLIANCE_MAX_MV 3000")
+    a(f"#define O2P_HW_CE_COMPLIANCE_MAX_MV {3234 - 300}")
     a("/* No guard divider: the guard is driven from the RE follower U4B through")
     a(" * R40, so it tracks the real electrode instead of a 0.909 x VREF replica. */")
     a("")
@@ -207,7 +224,10 @@ def build(g) -> str:
     a(f"#define O2P_HW_VREF_TARGET_MV  {vref_target_mv:.0f}")
     a("")
     a("/* ---- Membrane-ring heater ---- */")
-    a("/* O2P_HW_HEATER_OHM is deliberately absent: RH1/RH2 moved to the ring PCB. */")
+    a("/* Main-board heater: RH1||RH2, bench-confirmed 140 ohm / 1.02 W at 12 V.")
+    a(" * A ring PCB, when it exists, PARALLELS these through J5 -- it does not")
+    a(" * replace them, so this is the floor of the load, not the whole of it. */")
+    a(f"#define O2P_HW_HEATER_OHM    {heater_ohm:.0f}")
     a(f"#define O2P_HW_HEATER_GATE_R_SERIES {r28:.0f}   /* R28, PA8 -> gate */")
     a(f"#define O2P_HW_HEATER_GATE_R_PULLDN {r29:.0f}   /* R29, passive default-off */")
     a("")

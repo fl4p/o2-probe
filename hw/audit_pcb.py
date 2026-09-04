@@ -409,7 +409,7 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
     if ring is not None:
         ring_id = ring.GetFPID()
         actual_ring_fpid = f"{ring_id.GetLibNickname()}:{ring_id.GetLibItemName()}"
-        check(errors, actual_ring_fpid == "o2-probe:Heater_Ring_Solder_Lands",
+        check(errors, actual_ring_fpid == "o2-probe:Ring_Fork_Tip_DRAFT",
               "RING_FOOTPRINT", actual_ring_fpid)
         ring_land_signatures = Counter()
         for pad in ring.Pads():
@@ -423,17 +423,27 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
                 pad.IsOnLayer(pcbnew.F_Mask), pad.IsOnLayer(pcbnew.B_Mask),
                 pad.IsOnLayer(pcbnew.F_Paste), pad.IsOnLayer(pcbnew.B_Paste),
             )] += 1
+        # The fork tip replaces the two edge castellations.  Each finger carries
+        # ONE net on a pair of same-numbered SMD lands, front and back -- so this
+        # is 2 conductors, not the 4 that RING-PCB.md 1 offered.  Measured from
+        # the board, not hand-copied: 0.6 x 1.5 mm lands at the finger tips.
         expected_ring_lands = Counter({
-            ((100.0, 155.5), (2.0, 3.0), (1.0, 2.0), "1", "/HEATER_LOW",
-             int(pcbnew.PAD_ATTRIB_PTH), int(pcbnew.PAD_SHAPE_OVAL),
-             int(pcbnew.PAD_DRILL_SHAPE_OBLONG), int(pcbnew.PAD_PROP_CASTELLATED),
-             True, True, True, True,
-             True, True, False, False): 1,
-            ((120.0, 155.5), (2.0, 3.0), (1.0, 2.0), "1", "/HEATER_LOW",
-             int(pcbnew.PAD_ATTRIB_PTH), int(pcbnew.PAD_SHAPE_OVAL),
-             int(pcbnew.PAD_DRILL_SHAPE_OBLONG), int(pcbnew.PAD_PROP_CASTELLATED),
-             True, True, True, True,
-             True, True, False, False): 1,
+            ((102.2, 155.5), (0.6, 1.5), (0.0, 0.0), "1", "/+12V_HTR",
+             int(pcbnew.PAD_ATTRIB_SMD), int(pcbnew.PAD_SHAPE_RECT),
+             int(pcbnew.PAD_DRILL_SHAPE_CIRCLE), int(pcbnew.PAD_PROP_NONE),
+             True, False, False, False, True, False, False, False): 1,
+            ((102.2, 155.5), (0.6, 1.5), (0.0, 0.0), "1", "/+12V_HTR",
+             int(pcbnew.PAD_ATTRIB_SMD), int(pcbnew.PAD_SHAPE_RECT),
+             int(pcbnew.PAD_DRILL_SHAPE_CIRCLE), int(pcbnew.PAD_PROP_NONE),
+             False, False, False, True, False, True, False, False): 1,
+            ((117.8, 155.5), (0.6, 1.5), (0.0, 0.0), "2", "/HEATER_LOW",
+             int(pcbnew.PAD_ATTRIB_SMD), int(pcbnew.PAD_SHAPE_RECT),
+             int(pcbnew.PAD_DRILL_SHAPE_CIRCLE), int(pcbnew.PAD_PROP_NONE),
+             True, False, False, False, True, False, False, False): 1,
+            ((117.8, 155.5), (0.6, 1.5), (0.0, 0.0), "2", "/HEATER_LOW",
+             int(pcbnew.PAD_ATTRIB_SMD), int(pcbnew.PAD_SHAPE_RECT),
+             int(pcbnew.PAD_DRILL_SHAPE_CIRCLE), int(pcbnew.PAD_PROP_NONE),
+             False, False, False, True, False, True, False, False): 1,
         })
         check(errors, ring_land_signatures == expected_ring_lands,
               "RING_LAND_GEOMETRY",
@@ -451,8 +461,25 @@ def collect_geometry_errors(board, board_text: str) -> tuple[list[str], dict[str
         for item in heater_low_tracks
     ), "RING_HEATER_COPPER",
           "HEATER_LOW must use only >=0.80 mm B.Cu tracks between the elements, switch, and ring")
-    check(errors, not heater_low_vias, "RING_HEATER_VIAS",
-          f"HEATER_LOW has {len(heater_low_vias)} obsolete stitch vias; J5 is through-plated")
+    # J5 is NO LONGER through-plated.  The castellations were plated barrels that
+    # joined every layer; the fork tip's front and back lands are separate SMD
+    # pads at the same XY with NO plating between them.  KiCad unions them because
+    # they share a pad number, which makes the netlist look connected while the
+    # copper is not -- so the old "J5 is through-plated, expect no vias" check now
+    # asserts the opposite of the truth.  Each finger needs a real layer join.
+    fork_pads = [pad for pad in footprints["J5"].Pads()] if "J5" in footprints else []
+    for number in sorted({pad.GetNumber() for pad in fork_pads}):
+        at = {(round(mm(pad.GetPosition().x), 3), round(mm(pad.GetPosition().y), 3))
+              for pad in fork_pads if pad.GetNumber() == number}
+        joined = any(
+            (round(mm(via.GetPosition().x), 3), round(mm(via.GetPosition().y), 3)) in at
+            or any(abs(mm(via.GetPosition().x) - x) <= 1.0
+                   and abs(mm(via.GetPosition().y) - y) <= 2.0 for (x, y) in at)
+            for via in board.GetTracks() if isinstance(via, pcbnew.PCB_VIA)
+        )
+        check(errors, joined, "RING_FORK_LAYER_JOIN",
+              f"J5 finger {number} has front and back lands at {sorted(at)} with no via "
+              "joining them; same-numbered pads share a net in the netlist but not copper")
 
     heater_zones = [zone for zone in board.Zones()
                     if zone.GetZoneName() == "HEATED_ISLAND_SPREADER"]

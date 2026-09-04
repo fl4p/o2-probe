@@ -41,7 +41,7 @@ closest pad gap — because a grouped verdict can hide an outlier. Every pair is
 drawn outlines do not — an artifact of rotated parts, not interference.
 
 **margin only (14 pairs).** The conservative courtyard envelopes touch; the
-drawn bodies do not intersect at all and pads clear by 0.185–1.285 mm. The
+drawn bodies do not intersect at all and pads clear by 0.185–2.234 mm. The
 envelopes are intentionally conservative and are not shrunk to silence the DRC.
 
 **wire envelope (3 pairs).** J101–J104 are `SolderWire-…-Relief` lands, so
@@ -65,7 +65,7 @@ those test points or accept losing them.
 0.0205 mm² with 0.309 mm of pad clearance — placement and rework are
 unaffected at this scale.
 
-Six pairs from the previous revision are gone, for two unrelated reasons worth
+Seven pairs from the previous revision are gone (27 - 7 = 20), for two unrelated reasons worth
 recording so they are not treated as regressions if they reappear. C11 / C12,
 C15 / R8 and C15 / R9 went when those three 100 nF capacitors were consolidated
 onto the 0402 land every other 100 nF on the board already used. C31 / RV1,
