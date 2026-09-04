@@ -56,7 +56,7 @@ for comp in components:
     elif ref.startswith("TP"):
         expected = ("Connector", "TestPoint")
     elif ref == "J5":
-        expected = ("o2-probe", "HEATED_MEMBRANE_RING")
+        expected = ("o2-probe", "RING_PCB_FORK_TIP")
     elif ref in ("J101", "J102", "J103", "J104"):
         expected = ("Connector_Generic", "Conn_01x01")
     if expected is not None and actual != expected:
@@ -82,22 +82,43 @@ required = {
     "CELL_WE": {"U7.12", "U11.3", "TP1.1"},
     # CELL_RE deliberately has no exposed test point: a test-point solder-mask
     # aperture would violate the wet-leakage control for this high-impedance net.
-    "CELL_RE": {"U7.13", "U11.2"},
-    "CELL_CE": {"U7.14", "U11.1", "TP3.1"},
+    "CELL_RE": {"U7.13", "U11.2", "U4.5"},
+    # CE now reaches the cell through R42's fault-current limit, so the driven
+    # pin and the electrode are different nets. Watch which one things hang on:
+    # the compliance monitor must sit on the PIN (SNAS506 6.5 specifies A1's
+    # drive at the device pin), the clamp and the cell on the ELECTRODE.
+    "CELL_CE_DRV": {"U7.14", "R42.1", "R43.1"},
+    "CELL_CE": {"R42.2", "U11.1", "TP3.1", "D7.1"},
+    "CE_MON": {"R43.2", "R44.1", "C34.1", "U6.15"},
     "VREF_TRIM": {"R31.2", "U7.11", "U8.7", "TP4.1", "R34.1"},
     "ADC_VREF_MON": {"U8.8", "R36.2", "C29.1"},
     "ADC_AFE_VOUT": {"U8.9", "R33.2", "C28.1", "R39.1"},
-    "ADC_VA_MON": {"U8.5", "R37.2", "C30.1"},
-    "ADC_VIN_MON": {"U8.4", "R38.2", "C31.1"},
-    "VREF_WIPER": {"RV1.2", "RV1.3", "R21.1", "C9.1", "U4.3"},
+    # Cell bias telemetry replaced the two rail monitors on the ADS1119, and both
+    # legs must stay matched -- see gen_sch.py verify().
+    "ADC_WE_BUF": {"U8.5", "R37.2", "C30.1"},
+    "ADC_RE_BUF": {"U8.4", "R38.2", "C31.1"},
+    # Electrometer followers. The cell electrodes reach the ADC only through
+    # these buffers; a direct ADS1119 tap on CELL_RE is the failure this guards.
+    "WE_BUF": {"U4.1", "U4.2", "R37.1"},
+    "RE_BUF": {"U4.6", "U4.7", "R38.1", "R40.1"},
+    "GUARD_REPLICA": {"R40.2", "TP5.1"},
     "SWDIO": {"U6.35", "J3.2"},
     "SWCLK_BOOT0": {"U6.36", "J3.4", "R9.1"},
     "RS485_DE": {"U5.2", "U5.3", "R7.1", "U6.30"},
-    "VA_MON": {"R24.2", "R25.1", "R37.1", "U6.18"},
+    "VA_MON": {"R24.2", "R25.1", "C33.1", "U6.18"},
+    "VIN_MON": {"R26.2", "R27.1", "C32.1", "U6.17"},
     "BUCK_BST": {"U1.6", "C2.1"},
     "BUCK_SW": {"U1.5", "C2.2", "L1.1"},
-    "HEATER_LOW": {"RH1.2", "RH2.2", "Q2.3", "J5.1"},
-    "VREF_BUF": {"U4.1", "U4.2", "R31.1"},
+    # The heat source stays on this board (Fab, 2026-09-04): RH1/RH2 bridge
+    # +12V_SW to HEATER_LOW, Q2 pulls it down, and J5 carries the same pair
+    # forward so a ring PCB parallels the elements rather than replacing them.
+    "+12V_SW": {"RH1.1", "RH2.1", "F3.1"},
+    "HEATER_LOW": {"Q2.3", "J5.2", "RH1.2", "RH2.2"},
+    "+12V_HTR": {"F3.2", "J5.1"},
+    # AZ431 two-terminal shunt: REF (pin 1) strapped to the cathode (pin 2).
+    # If the pin-number remap in gen_sch.py ever fails to apply, the exported
+    # netlist lands the TI numbering here and this check fires.
+    "VREF_SHUNT": {"U15.1", "U15.2", "R41.2", "C9.1", "R31.1"},
     "+5V_ANALOG": {"R32.2", "C7.1", "C27.1", "U3.1", "U3.3"},
 }
 for name, wanted in required.items():
@@ -107,8 +128,10 @@ for name, wanted in required.items():
         errors.append(f"{name} missing: {', '.join(missing)}")
 
 expected_mcu_pin_nets = {
+    "U6.17": "VIN_MON",
     "U6.18": "VA_MON",
     "U6.30": "RS485_DE",
+    "U6.15": "CE_MON",
     "U6.11": "unconnected-(U6-PA0-Pad11)",
     "U6.12": "unconnected-(U6-PA1-Pad12)",
 }

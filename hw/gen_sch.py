@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import re
 import os
 from pathlib import Path
 
@@ -67,10 +68,11 @@ def symbol(name: str, pins: list[tuple[str, str, str]], ref_prefix="U", descript
 CONN4 = symbol("CONN_01x04", [(str(i), f"Pin_{i}", "passive") for i in range(1, 5)], "J", pitch=5.08)
 CONN6 = symbol("CONN_02x03", [(str(i), f"Pin_{i}", "passive") for i in range(1, 7)], "J", pitch=5.08)
 CONN8 = symbol("CONN_02x04", [(str(i), f"Pin_{i}", "passive") for i in range(1, 9)], "J", pitch=5.08)
-HEATED_RING = symbol(
-    "HEATED_MEMBRANE_RING", [("1", "HEATER_LOW", "passive")], "J",
-    description="Manual-solder metal membrane carrier and heat spreader",
+RING_FORK = symbol(
+    "RING_PCB_FORK_TIP", [("1", "HTR_HI", "passive"), ("2", "HTR_LO", "passive")], "J",
+    description="Solder lands at the two fork-finger tips for the perpendicular heater ring PCB",
 )
+
 # Connector pins are drawn on one side in physical pin order.  Besides reading
 # like the cable pinout, this prevents long adjacent right-side labels from
 # sharing the same connection stroke in KiCad's label renderer.
@@ -221,6 +223,60 @@ CONN1 = authoritative_symbol(
     "Connector_Generic:Conn_01x01", "Connector_Generic.kicad_sym", "Conn_01x01",
     [("1", "Pin_1", "passive")], {"1": (-5.08, 0, 0, "Pin_1", "passive")},
     ref_prefix="J", half_w=1.27, half_h=1.27, pin_len=3.81)
+# Diodes/BCD AZ431-A in the N (SOT-23) package is pinned 1 REF, 2 CATHODE,
+# 3 ANODE -- AZ431-A datasheet Rev 3.4, "Pin Configuration", N Package figure.
+# NO KiCad TL431 variant carries that map: TL431DBZ is 1 K / 2 REF / 3 A, and
+# TL431LP and TL431KTP are 1 REF / 2 A / 3 K. Dropping in TL431DBZ would have
+# silently transposed REF and the cathode. So the shunt-regulator GRAPHIC is
+# taken from TL431DBZ and only its pin NUMBERS are remapped onto the package we
+# actually buy; pin positions are untouched, so the drawing stays correct.
+# verify() pins the emitted result, and audit_schematic.py re-reads it from the
+# exported netlist rather than from this table.
+# The lib_id is deliberately NOT "Reference_Voltage:TL431DBZ". Renumbering the
+# pins makes this no longer that library's symbol, and claiming otherwise earns
+# a real ERC [lib_symbol_mismatch] -- KiCad compares the embedded copy against
+# the system library and correctly objects. Naming it as a project symbol states
+# the truth: a TL431 graphic carrying the Diodes AZ431 package pinout.
+AZ431 = authoritative_symbol(
+    "o2-probe:AZ431_SOT23", "Reference_Voltage.kicad_sym", "TL431DBZ",
+    [("1", "REF", "passive"), ("2", "K", "passive"), ("3", "A", "passive")],
+    {"1": (0, 2.54, 270, "REF", "passive"),
+     "2": (2.54, 0, 180, "K", "passive"),
+     "3": (-2.54, 0, 0, "A", "passive")},
+    ref_prefix="U", half_w=2.54, half_h=2.54, pin_len=2.54)
+
+
+def _remap_pin_numbers(lib_id: str, by_name: dict[str, str]) -> None:
+    """Renumber an embedded library symbol's pins by pin NAME, in place.
+
+    Raises unless each name matches exactly once, so a library revision that
+    renames or duplicates a pin fails the build instead of silently emitting
+    the donor package's numbering.
+    """
+    blk = SYMS[lib_id]["source_block"]
+    for name, num in by_name.items():
+        pat = re.compile(r'(\(name "' + re.escape(name) + r'"(?:.(?!\(pin ))*?\(number ")[^"]+(")', re.S)
+        blk, hits = pat.subn(r'\g<1>' + num + r'\g<2>', blk)
+        if hits != 1:
+            raise ValueError(f"{lib_id}: pin name {name!r} matched {hits} times, expected 1")
+    SYMS[lib_id]["source_block"] = blk
+
+
+# KiCad requires a symbol's child units to be named "<symbol>_<unit>_<style>",
+# so renaming the parent means renaming TL431DBZ_0_1 / _1_1 too. Without this
+# the schematic fails to load outright rather than degrading quietly.
+SYMS[AZ431]["source_block"] = SYMS[AZ431]["source_block"].replace(
+    '"TL431DBZ_', '"AZ431_SOT23_')
+# emit_library() renames each entry back to SYMS[k]["name"], so that must follow
+# the children or the project library emits a parent/child name mismatch and
+# fails to parse -- which surfaces as EVERY project symbol reporting a missing
+# library, not as an error pointing at this one.
+SYMS[AZ431]["name"] = "AZ431_SOT23"
+if '"TL431DBZ_' in SYMS[AZ431]["source_block"]:
+    raise ValueError("AZ431 child symbols still carry the donor name")
+_remap_pin_numbers(AZ431, {"REF": "1", "K": "2", "A": "3"})
+
+
 TVS3 = symbol("TVS_ARRAY_2CH", [("1", "IO1", "passive"), ("2", "GND", "passive"), ("3", "IO2", "passive")], "D")
 SM712 = symbol("SM712", [("1", "LINE_A", "passive"), ("2", "LINE_B", "passive"), ("3", "GND", "passive")], "D",
                description="Littelfuse SM712-02HTG asymmetric RS-485 TVS, SOT-23")
@@ -371,12 +427,27 @@ for ref,y,value,n in (
           footprint="Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief",
           note="One of four independent farm-bus cable solder pads")
     net(ref,1,n)
-add_passive("F1", 40.64, 30.48, "0.75A PTC", "o2-probe:PTC_1206_3216Metric", "+12V_RAW", "+12V_FUSED")
+add_passive("F1", 40.64, 30.48, "0.75A PTC", "o2-probe:PTC_1206_3216Metric", "+12V_RAW", "+12V_FUSED",
+            mpn="0ZCJ0075AF2E",
+            note="Bel Fuse 0ZCJ 1206 PPTC: IH 0.75A, IT 1.5A, Vmax 16Vdc, Imax 100A. "
+                 "Vmax leaves 1V over the 15V input maximum; do not raise the input range "
+                 "without re-rating. IH derates to 0.52A at 60C and 0.36A at 85C")
 add_passive("D1", 40.64, 43.18, "SMBJ15A-13-F", "Diode_SMD:D_SMB", "+12V_FUSED", "GND", mpn="SMBJ15A-13-F")
-place("Q1", PMOS, 62.23, 30.48, value="DMP3010L", footprint="Package_TO_SOT_SMD:SOT-23", mpn="DMP3010L-7")
+place("Q1", PMOS, 62.23, 30.48, value="DMP3130L", footprint="Package_TO_SOT_SMD:SOT-23",
+      mpn="DMP3130L-7",
+      note="Reverse-polarity PMOS, drain to input, source to load. Was labelled 'DMP3010L-7', which names no orderable part: DS35716 shows the DMP3010L family as TO-252 and DS32239 as PowerDI5060-8, neither of which fits this SOT-23 land. DS31524 Rev 7-3 p.2 rates VGSS at +/-12 V ONLY, so DZ1 is mandatory, not optional")
 net("Q1",1,"VIN_GATE"); net("Q1",2,"+12V_SW"); net("Q1",3,"+12V_FUSED")
 add_passive("R1", 60.96, 43.18, "100k", "Resistor_SMD:R_0603_1608Metric", "VIN_GATE", "GND")
-add_passive("DZ1", 78.74, 43.18, "12V ZENER", "Diode_SMD:D_SOD-123", "+12V_SW", "VIN_GATE")
+add_passive("DZ1", 78.74, 43.18, "10V ZENER", "Diode_SMD:D_SOD-123", "+12V_SW", "VIN_GATE",
+            mpn="BZT52C10-E3-08",
+            note="Q1 VGS clamp, K to the PMOS source; 10V SOD-123. Was a 12V BZT52C12, whose "
+                 "GUARANTEED max VZ of 12.7 V at 5 mA (DS18004) exceeds the DMP3130L +/-12 V "
+                 "VGSS absolute maximum -- the old part never bounded VGS. Vishay doc 86342 "
+                 "gives BZT52C10 as 9.50/10/10.50 V at IZT 5 mA with aVZ +5..+8 mV/C. VZ rises "
+                 "with current, so VZ(30 uA) <= VZ(5 mA) <= 10.50 V; at +85 C the bound is "
+                 "10.50 + 0.008*60 = 10.98 V, inside 12 V with ~1.0 V margin. Cold end: "
+                 "9.50 - 0.52 = 8.98 V, still far above Q1 threshold. Clamp dissipation at "
+                 "15 V in is (15-10.5)/100k = 45 uA, 0.5 mW in a 410 mW part")
 place("#FLG01", PWRFLAG, 20.32, 50.8, value="PWR_FLAG", footprint="", in_bom=False); net("#FLG01",1,"+12V_RAW")
 place("#FLG02", PWRFLAG, 35.56, 50.8, value="PWR_FLAG", footprint="", in_bom=False); net("#FLG02",1,"GND")
 place("#FLG03", PWRFLAG, 50.8, 50.8, value="PWR_FLAG", footprint="", in_bom=False); net("#FLG03",1,"+12V_SW")
@@ -386,8 +457,18 @@ place("#FLG05", PWRFLAG, 81.28, 50.8, value="PWR_FLAG", footprint="", in_bom=Fal
 place("U1", BUCK, 106.68, 33.02, value="AP63205WU-7", footprint="Package_TO_SOT_SMD:TSOT-23-6", mpn="AP63205WU-7")
 for p,n in {1:"+5V",2:"+12V_SW",3:"+12V_SW",4:"GND",5:"BUCK_SW",6:"BUCK_BST"}.items(): net("U1",p,n)
 add_passive("C1", 88.9, 43.18, "10u 25V", "Capacitor_SMD:C_1206_3216Metric", "+12V_SW", "GND")
-add_passive("C2", 106.68, 48.26, "100n", "Capacitor_SMD:C_0603_1608Metric", "BUCK_BST", "BUCK_SW")
-add_passive("L1", 129.54, 30.48, "4.7u SHIELDED", "Inductor_SMD:L_6.3x6.3_H3", "BUCK_SW", "+5V")
+add_passive("C2", 106.68, 48.26, "100n", "Capacitor_SMD:C_0402_1005Metric", "BUCK_BST", "BUCK_SW",
+            note="AP63205 bootstrap. Was 0603; consolidated onto the one 100n land the rest of "
+                 "the board uses. It only ever sees the BST-SW differential of about 5 V "
+                 "despite riding the switching node, so a 0402 is amply rated, and the shorter "
+                 "loop is marginally better for gate drive")
+add_passive("L1", 129.54, 30.48, "4.7u SHIELDED", "Inductor_SMD:L_6.3x6.3_H3", "BUCK_SW", "+5V",
+            mpn="SRN6028C-4R7M",
+            note="AP63205 DS41326 Table 3 value for 5V out. Bourns 4.7uH +/-20%, Isat 3.2A, "
+                 "Irms 3.1A, DCR 30mOhm, 6.0x6.0x2.8mm. LAND MISMATCH: the generic "
+                 "L_6.3x6.3_H3 pads (1.5x2.4mm at +/-2.75) cover only ~2.4mm2 of this "
+                 "part's 5.8x1.6mm terminal; Bourns recommends 2.0x6.5mm pads at +/-2.25. "
+                 "Solderable for a first article, reduced shear strength -- see FAB-NOTES")
 add_passive("C3", 129.54, 43.18, "22u", "Capacitor_SMD:C_1206_3216Metric", "+5V", "GND")
 add_passive("C4", 147.32, 43.18, "22u", "Capacitor_SMD:C_1206_3216Metric", "+5V", "GND")
 
@@ -407,21 +488,77 @@ add_passive("C27",210.82,60.96,"100n","Capacitor_SMD:C_0402_1005Metric","+5V_ANA
             note="High-frequency U3 input bypass; place directly at pins 1/2")
 add_passive("C8",213.36,45.72,"1u","Capacitor_SMD:C_0603_1608Metric","3V3A","GND")
 
-place("U4",OPAMP2,246.38,35.56,value="OPA2333AIDGKR",footprint="Package_SO:VSSOP-8_3x3mm_P0.65mm",mpn="OPA2333AIDGKR")
-for p,n in {1:"VREF_BUF",2:"VREF_BUF",3:"VREF_WIPER",4:"GND",5:"GUARD_DIV",6:"GUARD_REPLICA",7:"GUARD_REPLICA",8:"3V3A"}.items(): net("U4",p,n)
-add_passive("R20",226.06,27.94,"1.91k 0.1%","Resistor_SMD:R_0603_1608Metric","3V3A","VREF_TOP")
-place("RV1",POT,226.06,40.64,value="2k 10-turn",footprint="Potentiometer_SMD:Potentiometer_Bourns_3224W_Vertical",mpn="3224W-1-202E")
-net("RV1",1,"VREF_TOP"); net("RV1",2,"VREF_WIPER"); net("RV1",3,"VREF_WIPER")
-add_passive("R21",226.06,53.34,"9.10k 0.1%","Resistor_SMD:R_0603_1608Metric","VREF_WIPER","GND",
-            note="Pot wiper is strapped to the low/output terminal for open-wiper fail safety")
-add_passive("C9",243.84,53.34,"100n","Capacitor_SMD:C_0603_1608Metric","VREF_WIPER","GND")
-add_passive("R31",246.38,60.96,"47R","Resistor_SMD:R_0603_1608Metric","VREF_BUF","VREF_TRIM",
-            note="OPA2333 capacitive-load isolation; feedback remains at op-amp output")
-add_passive("C10",264.16,60.96,"4.7u","Capacitor_SMD:C_0603_1608Metric","VREF_TRIM","GND")
+place("U4",OPAMP2,246.38,35.56,value="OPA2333AIDGKR",footprint="Package_SO:VSSOP-8_3x3mm_P0.65mm",mpn="OPA2333AIDGKR",
+      note="Both halves are now unity-gain electrometer followers on the cell nodes: A buffers "
+           "WE, B buffers RE and drives both the guard (through R40) and the ADC bias "
+           "telemetry. Half A was freed by deleting the VREF trim divider. NO FEMTOAMPERE PART "
+           "IS NEEDED HERE and this is the reason: SBOS351E gives OPA333 IB as +/-70 pA typ "
+           "and +/-200 pA max at 25 C. MIND THE ARITHMETIC: IB is the AVERAGE of the two "
+           "inputs, and a follower's electrode sees the non-inverting input alone, so the real "
+           "bound is |IB| + |IOS|/2 = 200 + 200 = 400 pA. The RE node is ALREADY loaded by the "
+           "LMP91000's own RE pin at +/-90 pA typ and +/-900 pA max over -40..80 C (SNAS506I "
+           "IRE, TI's own front-page feature; at this board's 3.3 V the applicable column is "
+           "nearer 800 pA). So half B takes RE's worst case from ~900 pA to ~1300 pA, +44%, "
+           "and an ADA4530-1 at 20 fA would still leave ~900 pA and buy nothing. UNSTATED "
+           "ASSUMPTION, flagged deliberately: SBOS351E gives NO max for IB over temperature, "
+           "only +/-150 pA typ, so the claim that a chopper's charge-injection-dominated bias "
+           "stays flat to 75 C rests on Figure 8, a typical curve, not a guaranteed limit. "
+           "See POTTING.md section 1.3 under ../../../ha/farming/compostlab/o2-probe/")
+for p,n in {1:"WE_BUF",2:"WE_BUF",3:"CELL_WE",4:"GND",5:"CELL_RE",6:"RE_BUF",7:"RE_BUF",8:"3V3A"}.items(): net("U4",p,n)
+place("U15",AZ431,215.9,101.6,value="AZ431BN-ATRG1",footprint="Package_TO_SOT_SMD:SOT-23",
+      mpn="AZ431BN-ATRG1",
+      note="2.5 V reference, wired as a two-terminal shunt (REF strapped to the cathode). "
+           "REPLACES the deleted R20 / RV1 / R21 trim divider: POTTING.md section 1.2 "
+           "(../../../ha/farming/compostlab/o2-probe/) requires the cell to be swappable with "
+           "the board potted, so no adjustable part may set the bias. AZ431-A datasheet "
+           "Rev 3.4: B grade is the 0.4% bin, 2.490/2.500/2.510 V, and deviation over "
+           "-40..85 C is 4.5 mV typ / 10 mV max, so the worst-case window is 2.480..2.520 V. "
+           "PACKAGE PIN MAP IS NOT THE TI ONE -- N package is 1 REF, 2 CATHODE, 3 ANODE, "
+           "where TI's TL431DBZ is 1 K, 2 REF, 3 A; see the symbol comment. Biased from "
+           "+5V_ANALOG through R41 and NOT from 3V3A: the part needs IKA >= 1.0 mA "
+           "(recommended operating conditions) and 3V3A leaves only 3.234 - 2.510 = 0.724 V "
+           "of headroom, about 6% margin over that minimum, where +5V_ANALOG leaves 2.5 V")
+net("U15",1,"VREF_SHUNT"); net("U15",2,"VREF_SHUNT"); net("U15",3,"GND")
+add_passive("R41",215.9,86.36,"1.5k 1%","Resistor_SMD:R_0603_1608Metric","+5V_ANALOG","VREF_SHUNT",
+            mpn="RC0603FR-071K5L",
+            note="AZ431 bias resistor. (5.0 - 2.5)/1.5k = 1.67 mA nominal; at a -2% rail and "
+                 "the 2.510 V grade limit it is still 1.59 mA, comfortably over the 1.0 mA "
+                 "IKA minimum, and the ~27 uA drawn by the reference node is negligible "
+                 "beside it. Costs 1.67 mA on +5V_ANALOG, which is 17 mV more drop across "
+                 "R32 -- U3 still has ample headroom for 3.3 V out")
+add_passive("C9",233.68,86.36,"1n","Capacitor_SMD:C_0603_1608Metric","VREF_SHUNT","GND",
+            note="Cathode HF decoupling, deliberately SMALL. AZ431-A Figure 15 (stability "
+                 "boundary vs load capacitance, VKA=VREF curve) shows two stable regions with "
+                 "an unstable band between them; at our ~1.6 mA cathode current the lower "
+                 "stable region runs to roughly 10 nF. 1 n sits well inside it. The bulk "
+                 "capacitance is C10, held OFF the cathode by R31 on purpose -- DO NOT move a "
+                 "microfarad-scale cap onto this node, and do not raise this value, without "
+                 "re-reading that figure. Chart reading, not a specified number: confirm on "
+                 "the bench before release")
+add_passive("R31",233.68,101.6,"47R","Resistor_SMD:R_0603_1608Metric","VREF_SHUNT","VREF_TRIM",
+            note="Isolates C10's bulk capacitance from the AZ431 cathode, which is what keeps "
+                 "the shunt out of its unstable band (see C9). It was originally the OPA2333's "
+                 "capacitive-load isolation and happens to be exactly right here -- note it "
+                 "would have been WRONG for a series reference like the REF33xx, which "
+                 "requires 0.1-10 uF ON its output pin. The 26.9 uA drawn by R34/R35 across "
+                 "47R is a 1.25 mV offset that does not matter: it lands on VREF_TRIM, which is "
+                 "BOTH the LMP91000 bias reference and the ADS1119 external reference, so it "
+                 "cancels ratiometrically. Net name VREF_TRIM is retained despite there no "
+                 "longer being a trimmer -- firmware/src/lmp91000.h and "
+                 "firmware/tools/gen_hw_contract.py key off it")
+add_passive("C10",215.9,116.84,"4.7u","Capacitor_SMD:C_0603_1608Metric","VREF_TRIM","GND")
 add_passive("C25",284.48,55.88,"100n","Capacitor_SMD:C_0402_1005Metric","3V3A","GND",
             note="Place at U4 pins 8/4")
-add_passive("R22",269.24,27.94,"10k 0.1%","Resistor_SMD:R_0603_1608Metric","VREF_TRIM","GUARD_DIV")
-add_passive("R23",269.24,43.18,"100k 0.1%","Resistor_SMD:R_0603_1608Metric","GUARD_DIV","GND")
+add_passive("R40",269.24,27.94,"47R","Resistor_SMD:R_0603_1608Metric","RE_BUF","GUARD_REPLICA",
+            note="Guard-plane isolation resistor on the U4B follower output, feedback taken at "
+                 "the op-amp output exactly as R31 does -- driving a large guard plane is a "
+                 "compensation question, not an afterthought (POTTING.md section 1.3). "
+                 "REPLACES the deleted R22/R23 divider: the guard now tracks the REAL RE "
+                 "electrode instead of an open-loop 0.909 x VREF prediction of it, which is "
+                 "standard guarded-electrometer practice and strictly better guarding. The net "
+                 "name GUARD_REPLICA is kept because repair_guard_fill.py, "
+                 "route_thermal_barrier.py, audit_pcb.py and THERMAL-BARRIER.md all key off it; "
+                 "it is no longer a replica of anything")
 place("TP4",TESTPOINT,289.56,30.48,value="VREF",footprint="TestPoint:TestPoint_Pad_D1.0mm",in_bom=False); net("TP4",1,"VREF_TRIM")
 place("TP5",TESTPOINT,289.56,43.18,value="GUARD",footprint="TestPoint:TestPoint_Pad_D1.0mm",in_bom=False); net("TP5",1,"GUARD_REPLICA")
 
@@ -437,13 +574,17 @@ add_passive("R4",55.88,82.55,"120R DNP","Resistor_SMD:R_0603_1608Metric","RS485_
 add_passive("R5",55.88,93.98,"680R DNP","Resistor_SMD:R_0603_1608Metric","3V3D","RS485_A",dnp=True)
 add_passive("R6",55.88,105.41,"680R DNP","Resistor_SMD:R_0603_1608Metric","RS485_B","GND",dnp=True)
 add_passive("R7",73.66,105.41,"47k","Resistor_SMD:R_0603_1608Metric","RS485_DE","GND")
-add_passive("C11",73.66,82.55,"100n","Capacitor_SMD:C_0603_1608Metric","3V3D","GND")
+add_passive("C11",73.66,82.55,"100n","Capacitor_SMD:C_0402_1005Metric","3V3D","GND")
 
 place("U6",MCU,111.76,99.06,value="STM32G071CBT7",footprint="Package_QFP:LQFP-48_7x7mm_P0.5mm",mpn="STM32G071CBT7")
-# Group the three RS-485 controls at the MCU's left edge and bring the analog
-# rail monitor into PA7/ADC_IN7. These generator-owned assignments materially
+# Group the three RS-485 controls at the MCU's left edge and bring BOTH rail
+# monitors into PA6/ADC_IN6 (VIN) and PA7/ADC_IN7 (VA).  VIN_MON moved here from
+# ADS1119 AIN3, which the cell bias telemetry now occupies. These generator-owned assignments materially
 # shorten the compact placement's routes without changing functionality.
-MCU_NETS = {4:"3V3D",5:"3V3D",6:"3V3D",7:"GND",10:"NRST",13:"UART2_TX",14:"UART2_RX",18:"VA_MON",19:"AFE_MENB",20:"ADC_DRDY",21:"EXP_INT",28:"HEATER_PWM",29:"RS485_TX",30:"RS485_DE",32:"RS485_RX",35:"SWDIO",36:"SWCLK_BOOT0",42:"SWO",45:"I2C_SCL",46:"I2C_SDA"}
+# Pin 15 is PA4 = ADC1_IN4, one of four ADC-capable pins (11/12/15/16 =
+# PA0/PA1/PA4/PA5) left nc() on this part. CE telemetry costs one of them and no
+# ADS1119 channel.
+MCU_NETS = {4:"3V3D",5:"3V3D",6:"3V3D",7:"GND",10:"NRST",13:"UART2_TX",14:"UART2_RX",15:"CE_MON",17:"VIN_MON",18:"VA_MON",19:"AFE_MENB",20:"ADC_DRDY",21:"EXP_INT",28:"HEATER_PWM",29:"RS485_TX",30:"RS485_DE",32:"RS485_RX",35:"SWDIO",36:"SWCLK_BOOT0",42:"SWO",45:"I2C_SCL",46:"I2C_SDA"}
 for p in range(1,49):
     if p in MCU_NETS: net("U6",p,MCU_NETS[p])
     else: nc("U6",p)
@@ -453,7 +594,7 @@ add_passive("C14",139.7,104.14,"4.7u","Capacitor_SMD:C_0603_1608Metric","3V3D","
 add_passive("C26",139.7,114.3,"1u","Capacitor_SMD:C_0603_1608Metric","3V3D","GND",
             note="Place at MCU VREF+ pin 5")
 add_passive("R8",160.02,83.82,"10k","Resistor_SMD:R_0603_1608Metric","NRST","3V3D")
-add_passive("C15",160.02,93.98,"100n","Capacitor_SMD:C_0603_1608Metric","NRST","GND")
+add_passive("C15",160.02,93.98,"100n","Capacitor_SMD:C_0402_1005Metric","NRST","GND")
 add_passive("R9",160.02,104.14,"100k","Resistor_SMD:R_0603_1608Metric","SWCLK_BOOT0","GND")
 add_passive("R10",177.8,83.82,"4.7k","Resistor_SMD:R_0603_1608Metric","I2C_SCL","3V3D")
 add_passive("R11",177.8,93.98,"4.7k","Resistor_SMD:R_0603_1608Metric","I2C_SDA","3V3D")
@@ -475,8 +616,13 @@ place("D6",TVS3,302.26,116.84,value="TPD2E2U06 DNP",footprint="Package_TO_SOT_SM
 net("D6",1,"EXP_INT_OUT"); net("D6",2,"GND"); nc("D6",3)
 
 # --------------------------------------------------------------------------- AFE / ADC / cell
-place("U7",LMP,50.8,162.56,value="LMP91000SD/NOPB",footprint="Package_SON:WSON-14-1EP_4.0x4.0mm_P0.5mm_EP2.6x2.6mm",mpn="LMP91000SDE/NOPB")
-for p,n in {1:"GND",2:"AFE_MENB",3:"I2C_SCL",4:"I2C_SDA",6:"3V3A",7:"GND",8:"AFE_VOUT",9:"LMP_C2",10:"LMP_C1",11:"VREF_TRIM",12:"CELL_WE",13:"CELL_RE",14:"CELL_CE",15:"GND"}.items(): net("U7",p,n)
+place("U7",LMP,50.8,162.56,value="LMP91000SD/NOPB",footprint="Package_SON:WSON-14-1EP_4.0x4.0mm_P0.5mm_EP2.6x2.6mm",
+      mpn="LMP91000SDX/NOPB",
+      note="Was LMP91000SDE/NOPB, which DigiKey lists as OBSOLETE. SDX is the same die in "
+           "the same 14-WSON 4x4 package and is Active; the suffix is reel quantity only. "
+           "PO-0010 (Mouser 926-LMP91000SDX/NOPB) already ordered 5 of these, so the "
+           "schematic was naming a part we neither buy nor can re-buy")
+for p,n in {1:"GND",2:"AFE_MENB",3:"I2C_SCL",4:"I2C_SDA",6:"3V3A",7:"GND",8:"AFE_VOUT",9:"LMP_C2",10:"LMP_C1",11:"VREF_TRIM",12:"CELL_WE",13:"CELL_RE",14:"CELL_CE_DRV",15:"GND"}.items(): net("U7",p,n)
 nc("U7",5)
 add_passive("R17",20.32,149.86,"100k","Resistor_SMD:R_0603_1608Metric","AFE_MENB","GND")
 add_passive("C16",20.32,160.02,"100n","Capacitor_SMD:C_0402_1005Metric","3V3A","GND")
@@ -484,27 +630,233 @@ add_passive("C17",20.32,170.18,"10n","Capacitor_SMD:C_0603_1608Metric","LMP_C1",
 for ref,y,n in (("TP1",149.86,"CELL_WE"),("TP3",170.18,"CELL_CE")):
     place(ref,TESTPOINT,76.2,y,value=n,footprint="TestPoint:TestPoint_Pad_D1.0mm",in_bom=False); net(ref,1,n)
 
-place("U8",ADS,111.76,162.56,value="ADS1119IRTER",footprint="Package_DFN_QFN:Texas_RTE0016D_WQFN-16-1EP_3x3mm_P0.5mm_EP0.8x0.8mm",mpn="ADS1119IRTER")
-for p,n in {1:"ADC_RESET",2:"GND",3:"GND",4:"ADC_VIN_MON",5:"ADC_VA_MON",6:"GND",7:"VREF_TRIM",8:"ADC_VREF_MON",9:"ADC_AFE_VOUT",10:"3V3A",11:"3V3D",12:"ADC_DRDY",13:"I2C_SDA",14:"I2C_SCL",15:"GND",16:"GND",17:"GND"}.items(): net("U8",p,n)
+# --------------------------------------------------------------------------- CE branch: limit, watch, clamp
+# A1 died on 2026-09-04 (AFE-BRING-UP-POSTMORTEM.md) and nothing on the board
+# could say so: the bench needed an evening with a DMM on chip leads to decide
+# which of four parts was guilty, and once potted that method does not exist.
+# CELL_CE therefore stops being a bare wire from pin 14 to the cell.
+#
+# R42 caps the current A1 can deliver into a fault. It sits INSIDE the control
+# loop -- RE is sensed separately, so A1 servos out the drop and DC accuracy is
+# untouched. 100R, not the 1k that the postmortem's 100R-1k range also allows:
+# the drop is added to what pin 14 must produce. SNAS506 6.5's
+# 300 mV <= VCE <= VS-300 mV is the condition under which A1's OPEN-LOOP GAIN is
+# characterised, not a hard output-compliance limit -- outside it the amplifier
+# is unspecified rather than guaranteed broken -- but "unspecified" is not a
+# region to design a buried, unrepairable probe into, so treat 3000 mV at 3.3 V
+# as the working ceiling and spend as little of it as possible. At the measured 99.09 uA cell current 1k costs 99 mV
+# and 100R costs 9.9 mV; during the polarisation transient the same bench
+# measured (>607 uA before the TIA saturated) 1k costs over 600 mV and 100R
+# costs 61 mV.
+#
+# The sentence that used to sit here claimed "100R limits to 33 mA at full rail,
+# still well under A1's 10 mA charging spec". That is backwards and was caught in
+# review: 3.3 V / 100 ohm is 33 mA, which is ABOVE 10 mA, not below. So 100R does
+# NOT impose a ceiling under the device's own charging capability -- 1k would give
+# 3.3 mA and 330R about 10 mA. The real position: neither value has been derived
+# from a defined maximum fault current, source impedance, pulse energy and
+# loop-stability limit, because none of those is characterised for this cell.
+# 100R is the LOW-REGRET choice under that uncertainty, not the optimum -- it
+# costs at most 13 mV at DS-0637's 130 uA maximum, so it cannot meaningfully
+# erode a compliance margin we have not yet measured, whereas 1k costs up to
+# 130 mV and could. Characterise the real-cell CE operating point -- which
+# R43/R44 now make possible -- and then derive the value properly.
+#
+# NOTE the earlier arithmetic that justified this was WRONG and is not repeated
+# here: the "125 mV of margin" figure comes from CE at 2875 mV, measured with a
+# 1M/1M DUMMY drawing 0.6 uA, while 99.09 uA is the REAL cell. Those are
+# different operating points and the drop at one cannot be subtracted from the
+# margin at the other. What survives is the transient case, which needs no
+# baseline at all. The real cell's CE operating point has never been measured --
+# R43/R44 exist partly to measure it.
+add_passive("R42",25.4,187.96,"100R","Resistor_SMD:R_0603_1608Metric","CELL_CE_DRV","CELL_CE",
+            mpn="RC0603FR-07100RL",
+            note="CE fault-current limit, inside the control loop so it costs no DC accuracy. "
+                 "Do NOT raise toward 1k without re-checking the CE compliance budget: the drop "
+                 "is spent from SNAS506 6.5's 300 mV..VS-300 mV window")
+
+# R43/R44 watch pin 14 itself, not the electrode, because the compliance window
+# is a limit on the DEVICE PIN. This is the node that distinguishes the failure
+# modes: railed means A1 driving into a fault, sitting at the internal zero means
+# A1 idle or dead, tracking WE + 2x bias means healthy. RE-WE only says the bias
+# is already gone.
+#
+# CAUTION on reading it. "CE tracking WE + 2x bias means healthy" is TRUE ONLY OF
+# THE 1M/1M DUMMY, where both legs carry the same current and so drop the same
+# voltage. SNAS506 requires A1 to move CE wherever it must to regulate the
+# separately sensed RE-WE bias; it says nothing about CE-RE for a real cell,
+# where counter-electrode polarisation and cell impedance set it. Railed and
+# stuck-at-internal-zero are diagnostic; the "healthy" BAND has to be
+# characterised across real cells, O2, temperature and age before firmware may
+# fault on it.
+#
+# It goes on the MCU's own ADC, not the ADS1119: all four ADS inputs are spent
+# (AIN0 AFE_VOUT, AIN1 VREF_MON, AIN2 WE_BUF, AIN3 RE_BUF) and none of them is
+# worth trading for this. CE is a low-impedance driven node wanting a divider and
+# no precision, which is exactly what the MCU ADC is for -- ~0.8 mV/LSB at 12
+# bits on VDDA, against thresholds of 300 mV and 3000 mV.
+#
+# 91k/91k, not the 10k pairs used by the rail monitors: this divider hangs on
+# A1's output, and a 10k pair would draw 144 uA of A1's 750 uA specified drive
+# where a 91k pair draws 16 uA. Not 100k/100k either, which was the first choice
+# and is wrong by exactly one tolerance band: DS12232 Table 58 gives RAIN(max)
+# 50 kohm, a nominal 100k/100k is exactly 50 kohm Thevenin, and at 1 % worst case
+# 50.5 kohm -- over the limit with no production margin. 91k/91k is 45.5 kohm
+# nominal and stays inside at tolerance. Table 59 then permits it at 12 bits with
+# the 160.5-cycle sampling time (4.586 us at 35 MHz). C34 supplies sampling
+# charge locally on top of that; its ~4.6 ms time constant means the reading
+# needs settling after startup and after a bias change -- a firmware sequencing
+# requirement, not a hardware one.
+add_passive("R43",101.6,187.96,"91k 1%","Resistor_SMD:R_0603_1608Metric","CELL_CE_DRV","CE_MON",
+            mpn="RC0603FR-0791KL",
+            note="CE compliance monitor divider, 1:2 into MCU PA4/ADC_IN4. "
+                 "FIRMWARE: CE_MV = 2 x ADC. High value on purpose -- see R44")
+add_passive("R44",101.6,198.12,"91k 1%","Resistor_SMD:R_0603_1608Metric","CE_MON","GND",
+            mpn="RC0603FR-0791KL",
+            note="CE monitor divider bottom leg. 200k total keeps the load on A1's output at "
+                 "~16 uA of its 750 uA drive spec; a 10k pair would take 144 uA. The value is set "
+                 "by the ADC's 50 kohm max source impedance AT TOLERANCE, not by the load")
+add_passive("C34",121.92,198.12,"100n","Capacitor_SMD:C_0402_1005Metric","CE_MON","GND",
+            note="Sampling reservoir for the ~50k divider source. The STM32G0 ADC samples onto a "
+                 "small S&H capacitor; this supplies that charge locally so the long sampling "
+                 "time the bare divider would need is not the only thing holding the reading up")
+
+# ESD, partially. CELL_CE and CELL_WE and CELL_RE are handled by a person, in a
+# field, with the board potted -- POTTING.md requires the cell to be swappable --
+# and they run straight into a 3.3 V front end with no protection of any kind.
+# What killed A1 is unknown and will stay unknown; ESD is the cheapest candidate
+# to defend against.
+#
+# Only CE is defended HERE, and the reason is a leakage budget, not laziness:
+#   CE  driven output. Leakage is irrelevant. Protect it now.
+#   WE  carries the cell current INTO the TIA, so clamp leakage adds directly to
+#       the measurand. It sits at 1.678 V, so a reverse-biased clamp does leak.
+#       The bound is ~70 nA for 0.1% of the 70 uA minimum signal -- plausible for
+#       this part but NOT verified against SBAS/TPD data, so it is not fitted on
+#       a guess. Sourcing gate, not a design gate.
+#   RE  budgeted in picoamps against the LMP91000's own +/-900 pA IRE. A general
+#       -purpose TVS leaks orders of magnitude more, hot. Needs a part with a
+#       stated leakage figure over -40..80 C entered into that budget.
+# TPD2E2U06 is reused rather than newly chosen: it is already qualified and
+# stocked in this design (D4/D5/D6), and D6 already demonstrates the one-channel
+# -unused pattern.
+#
+# OPEN QUALIFICATION, recorded rather than assumed away: clamping CE to board
+# ground while RE and WE float is a partial protection NETWORK, and a partial
+# network is not automatically better than none. A common-mode strike arriving at
+# RE can in principle be converted into differential current through the cell
+# toward the one clamp that exists. Whether that is worse than leaving all three
+# open is unverified -- it needs the sensor's transient model, the protection
+# return geometry, clamp curves, and pin-to-pin plus common-mode ESD testing.
+# Do not describe this as "the cell electrodes are protected".
+place("D7",TVS3,45.72,187.96,value="TPD2E2U06",footprint="Package_TO_SOT_SMD:SOT-23",mpn="TPD2E2U06QDBZR",
+      note="Cell-electrode ESD clamp, CE channel only. The second channel is deliberately "
+           "unused: WE needs a verified leakage figure before it may be clamped, and RE needs "
+           "a picoamp-class part. Do not casually wire either to the spare pin")
+net("D7",1,"CELL_CE"); net("D7",2,"GND"); nc("D7",3)
+
+# CELL_RE STILL GETS NO TEST POINT, and this is a reversal of a reversal worth
+# recording. The bench asked for one on 2026-09-04, having spent an evening
+# unable to verify that net without metering a 0.5 mm chip lead. That request was
+# made against Rev A, where CELL_RE reached no converter at all. It does now:
+# U4's follower carries it to ADS1119 AIN3 as ADC_RE_BUF, so "is RE connected and
+# at the right potential" is a register read, before potting and after it. The
+# pad's remaining value is small, and its cost is not: audit_schematic.py has
+# refused an aperture on this net on wet-leakage grounds, and that objection is
+# unrebutted for a node whose whole design -- driven guard, potting, a picoamp
+# input-current budget -- exists to keep stray current off it. A guard ring would
+# intercept most of the leakage, but "most" is the wrong standard for the one
+# node where the budget is +/-900 pA.
+#
+# TP2 is different and is fitted: a local ground costs nothing, sits on no
+# sensitive net, and is what makes the other five pads readable single-handed.
+place("TP2",TESTPOINT,76.2,190.5,value="GND",footprint="TestPoint:TestPoint_Pad_D1.0mm",in_bom=False)
+net("TP2",1,"GND")
+
+place("U8",ADS,111.76,162.56,value="ADS1119IRTER",footprint="Package_DFN_QFN:Texas_RTE0016D_WQFN-16-1EP_3x3mm_P0.5mm_EP0.8x0.8mm",
+      mpn="ADS1119IRTER",
+      note="Buy from MOUSER (595-ADS1119IRTER), which sells this reel in single units. "
+           "DigiKey DOES list RTER (296-ADS1119IRTERTR-ND, EUR 3.03) but only as a full "
+           "3000-piece reel, MOQ 3000 and 0 on hand, so it is unbuyable in prototype "
+           "quantity there. ADS1119IRTET is an approved alternate -- same die, same "
+           "16-WQFN 3x3 RTE package, reel quantity only (250 vs 3000) -- and is DigiKey's "
+           "small-quantity option at EUR 6.29 cut tape (296-53016-1-ND), about 2x the RTER "
+           "reel unit price. Use RTET only when sourcing from DigiKey")
+# AIN2/AIN3 are the bias-telemetry pair, read DIFFERENTIALLY as V_WE - V_RE.
+# POTTING.md section 1.1: VREF is NOT where the LMP91000's +/-2% bias step error
+# lives, so measuring VREF cannot substitute -- the differential is the only node
+# carrying the real information. SBAS925 permits this directly: absolute input
+# range is AGND-0.1 to AVDD+0.1 at gain 1 AND gain 4, so the common mode is
+# unconstrained. (It is 1.975 V, the MEAN of 1.675 and 2.275; an earlier note
+# here said 2.27 V, which is just V_RE.) BUT MIND THE PEDESTAL: with REFCN = 0xCD the internal zero is
+# 67% VREF and the bias step 24%, so V_WE = 1.675 V, V_RE = 2.275 V and their
+# DIFFERENCE IS -600 mV BY DESIGN -- 96% of the +/-625 mV full scale at gain 4,
+# not a small signal near zero. It does not clip only because the LMP91000 ladder
+# and the ADS1119 FSR are both referred to this same VREF_TRIM node, making the
+# ratio VREF-independent to first order -- NOT exact: the LMP91000 ladder/offset
+# and the ADS1119 gain/offset errors do not cancel. Two consequences: firmware must NOT convert
+# this channel against the ADS1119 internal 2.048 V reference the way
+# finish_vref() does for AIN1 (FSR becomes +/-512 mV and -600 mV hard-clips), and
+# gain 1 is the safer setting -- 76 uV/LSB is still far finer than the quantity
+# measured, and -600 mV then sits 1.9 V clear of the nearer full-scale rail
+# (2494 - 600), not the 2.5 V an earlier note claimed. The two rail monitors this displaces move to
+# the MCU's own ADC, which already carried VA_MON.
+for p,n in {1:"ADC_RESET",2:"GND",3:"GND",4:"ADC_RE_BUF",5:"ADC_WE_BUF",6:"GND",7:"VREF_TRIM",8:"ADC_VREF_MON",9:"ADC_AFE_VOUT",10:"3V3A",11:"3V3D",12:"ADC_DRDY",13:"I2C_SDA",14:"I2C_SCL",15:"GND",16:"GND",17:"GND"}.items(): net("U8",p,n)
 add_passive("R18",144.78,147.32,"10k","Resistor_SMD:R_0603_1608Metric","ADC_RESET","3V3D")
 add_passive("R19",144.78,157.48,"10k","Resistor_SMD:R_0603_1608Metric","ADC_DRDY","3V3D")
 add_passive("C18",144.78,167.64,"100n","Capacitor_SMD:C_0402_1005Metric","3V3A","GND")
 add_passive("C19",144.78,177.8,"100n","Capacitor_SMD:C_0402_1005Metric","3V3D","GND")
-add_passive("R24",165.1,147.32,"10k 0.1%","Resistor_SMD:R_0603_1608Metric","3V3A","VA_MON")
-add_passive("R25",165.1,157.48,"10k 0.1%","Resistor_SMD:R_0603_1608Metric","VA_MON","GND")
-add_passive("R26",165.1,167.64,"130k 0.1%","Resistor_SMD:R_0603_1608Metric","+12V_SW","VIN_MON")
-add_passive("R27",165.1,177.8,"20k 0.1%","Resistor_SMD:R_0603_1608Metric","VIN_MON","GND")
+add_passive("R24",165.1,147.32,"10k 0.1%","Resistor_SMD:R_0603_1608Metric","3V3A","VA_MON",
+            mpn="P2TC0603D1002LNTA",
+            note="3V3A rail monitor divider, 1:2 into MCU PA7/ADC_IN7 and (via R37) ADS1119 "
+                 "AIN. FIRMWARE: VA_MON_MV = 2 x ADC. Like the R26/R27 VIN monitor this is a "
+                 "supply health check, so 1% would do; it uses the precision 10k only because "
+                 "R25 shares the position. NOTE the other two users of that stock position, R21 "
+                 "and R22, were deleted with the trim divider and the guard divider, so R24/R25 "
+                 "are now the only ones; revisit the grade at the next sourcing pass")
+add_passive("R25",165.1,157.48,"10k 0.1%","Resistor_SMD:R_0603_1608Metric","VA_MON","GND",
+            mpn="P2TC0603D1002LNTA",
+            note="3V3A rail monitor divider bottom leg; see R24")
+add_passive("R26",165.1,167.64,"82k 1%","Resistor_SMD:R_0603_1608Metric","+12V_SW","VIN_MON",
+            mpn="RC0603FR-1082KL",
+            note="VIN monitor divider, was 130k/20k. FIRMWARE: ratio is now 10/92 = 0.1087, "
+                 "not 0.1333 -- 15V maps to 1.63V. More ADC headroom than the old 2.00V and "
+                 "source impedance drops from 17.3k to 8.9k. 1% is adequate for a supply monitor")
+add_passive("R27",165.1,177.8,"10k 1%","Resistor_SMD:R_0603_1608Metric","VIN_MON","GND",
+            mpn="RC0603FR-0710KL",
+            note="VIN monitor divider bottom leg; see R26 for the firmware ratio change")
 add_passive("R33",190.5,147.32,"1k","Resistor_SMD:R_0603_1608Metric","AFE_VOUT","ADC_AFE_VOUT",
             note="ADC anti-alias/input-kickback filter; place with C28 at U8 AIN0")
 add_passive("C28",208.28,147.32,"100n","Capacitor_SMD:C_0402_1005Metric","ADC_AFE_VOUT","GND")
 add_passive("R39",208.28,157.48,"DNP 100k","Resistor_SMD:R_0603_1608Metric","ADC_AFE_VOUT","GND",dnp=True,
             note="Optional AFE attenuation pad; bench headroom gate selects value")
-add_passive("R37",190.5,167.64,"1k","Resistor_SMD:R_0603_1608Metric","VA_MON","ADC_VA_MON")
-add_passive("C30",208.28,167.64,"100n","Capacitor_SMD:C_0402_1005Metric","ADC_VA_MON","GND")
-add_passive("R38",190.5,177.8,"1k","Resistor_SMD:R_0603_1608Metric","VIN_MON","ADC_VIN_MON")
-add_passive("C31",208.28,177.8,"100n","Capacitor_SMD:C_0402_1005Metric","ADC_VIN_MON","GND")
-add_passive("R34",190.5,187.96,"47k 0.1%","Resistor_SMD:R_0603_1608Metric","VREF_TRIM","VREF_MON_RAW")
-add_passive("R35",208.28,187.96,"47k 0.1%","Resistor_SMD:R_0603_1608Metric","VREF_MON_RAW","GND")
+add_passive("R37",190.5,167.64,"1k","Resistor_SMD:R_0603_1608Metric","WE_BUF","ADC_WE_BUF",
+            note="Bias-telemetry filter, WE leg. Matched with R38/C31 on the RE leg so the "
+                 "differential pair sees equal source impedance; was the VA_MON feed")
+add_passive("C30",208.28,167.64,"100n","Capacitor_SMD:C_0402_1005Metric","ADC_WE_BUF","GND")
+add_passive("R38",190.5,177.8,"1k","Resistor_SMD:R_0603_1608Metric","RE_BUF","ADC_RE_BUF",
+            note="Bias-telemetry filter, RE leg; must match R37/C30 exactly. Note this taps the "
+                 "BUFFER output, never CELL_RE itself -- the ADS1119's switched-cap input may "
+                 "not sit on the sub-uA electrode, which is the whole reason U4B exists")
+add_passive("C31",208.28,177.8,"100n","Capacitor_SMD:C_0402_1005Metric","ADC_RE_BUF","GND")
+add_passive("C32",226.06,167.64,"100n","Capacitor_SMD:C_0402_1005Metric","VIN_MON","GND",
+            note="VIN monitor reservoir at the MCU PA6 pin. VIN_MON lost its R38/C31 ADC filter "
+                 "when AIN3 was taken for bias telemetry; source impedance is R26||R27 = 8.9k, "
+                 "so the STM32G071 sampling cap needs this and the LONGEST sampling time")
+add_passive("C33",226.06,177.8,"100n","Capacitor_SMD:C_0402_1005Metric","VA_MON","GND",
+            note="VA monitor reservoir at the MCU PA7 pin; same reason as C32, source R24||R25 = 5k")
+add_passive("R34",190.5,187.96,"47k 0.1%","Resistor_SMD:R_0603_1608Metric","VREF_TRIM","VREF_MON_RAW",
+            mpn="RT0603BRD0747KL",
+            note="VREF health diagnostic divider, 1:2 into ADS1119 AIN1 measured against the "
+                 "chip's INTERNAL 2.048V reference, so 2.500V arrives as 1.250V. FIRMWARE: "
+                 "VREF_MON_MV = 2 x ADC. 0.1%/25ppm thin film is the right grade -- the "
+                 "ADS1119 internal reference is itself 0.2% and ~25ppm/C, so a 0.05%/10ppm "
+                 "part (10x the price) would be measuring behind a coarser ruler")
+add_passive("R35",208.28,187.96,"47k 0.1%","Resistor_SMD:R_0603_1608Metric","VREF_MON_RAW","GND",
+            mpn="RT0603BRD0747KL",
+            note="VREF health diagnostic divider bottom leg; see R34. Same MPN as R34 on "
+                 "purpose: one stock position, and same-batch TCR tracking cancels most of "
+                 "the 25ppm/C in the ratio")
 add_passive("R36",190.5,198.12,"1k","Resistor_SMD:R_0603_1608Metric","VREF_MON_RAW","ADC_VREF_MON")
 add_passive("C29",208.28,198.12,"100n","Capacitor_SMD:C_0402_1005Metric","ADC_VREF_MON","GND",
             note="Measure AIN1 with ADS1119 internal reference for VREF health diagnostics")
@@ -536,13 +888,50 @@ net("Q2",1,"HEATER_GATE"); net("Q2",2,"GND"); net("Q2",3,"HEATER_LOW")
 add_passive("R28",307.34,147.32,"10k","Resistor_SMD:R_0603_1608Metric","HEATER_PWM","HEATER_GATE",
             note="Limits TMP117 ALERT-vs-PWM contention to <0.33 mA nominal")
 add_passive("R29",307.34,160.02,"100k","Resistor_SMD:R_0603_1608Metric","HEATER_GATE","GND")
-add_passive("RH1",350.52,149.86,"280R 1W","Resistor_SMD:R_2512_6332Metric","+12V_SW","HEATER_LOW",mpn="CRCW2512280RFKEG")
-add_passive("RH2",350.52,165.1,"280R 1W","Resistor_SMD:R_2512_6332Metric","+12V_SW","HEATER_LOW",mpn="CRCW2512280RFKEG")
+# RH1/RH2 (2x 280R 2512, ~1 W at 12 V) STAY ON THIS BOARD.  Fab, 2026-09-04:
+# "the heater stays where it is".  An earlier pass this session deleted them and
+# moved the heat source to the ring PCB on the strength of HEATED-SPREADER.md
+# section 0 (18.6 mm from the tip lands to the cartridge heater shelf) and
+# RING-PCB.md section 1 (fork conduction only 4.3 mW/K).  That reasoning is about
+# where heat must ARRIVE; it is not a licence to delete the only heat source the
+# board has.  The delete would have cost a validated subsystem: the bench run in
+# FAB-READINESS.md "Heater bench results, 2026-09-04" exercised the PWM, the
+# TMP117 interlock with the core halted, the rail monitor, and detect-and-recover
+# against RH1/RH2 as the load, and none of it could be re-run on a board whose
+# heater lives on an unbuilt ring behind an unmeasured neck bore.  The ring, when
+# it exists, parallels these through J5; it does not replace them.
+add_passive("RH1",368.3,149.86,"280R 1W","Resistor_SMD:R_2512_6332Metric","+12V_SW","HEATER_LOW",mpn="CRCW2512280RFKEG")
+add_passive("RH2",368.3,165.1,"280R 1W","Resistor_SMD:R_2512_6332Metric","+12V_SW","HEATER_LOW",mpn="CRCW2512280RFKEG")
+add_passive("F3",350.52,149.86,"0R FITTED","Resistor_SMD:R_0603_1608Metric","+12V_SW","+12V_HTR",
+            note="FITTED 0R LINK, deliberately not a DNP placeholder -- it sits in SERIES in "
+                 "the only supply path to the ring, so leaving it unpopulated would open the "
+                 "heater feed and the heater would never run at all. It reserves the position "
+                 "for a protective device against a fault path that is NEW: with "
+                 "RH1/RH2 sitting in the main-board branch and NOT in the fork feed, "
+                 "nothing limits the fork itself, so a short between "
+                 "the fork fingers -- which run at 0.20 mm clearance to a metal cell can, "
+                 "RING-PCB.md section 1 -- puts +12V_SW across Q2 unlimited, and possibly 12 V "
+                 "onto the cell. DO NOT FIT AS DRAWN: a PPTC is likely the wrong device here, "
+                 "because F1's own note records IH derating to 0.36 A at 85 C, and a part that "
+                 "holds the heater's 83 mA at pile temperature would nuisance-trip. The land "
+                 "exists so the option is not designed out; size it once the ring's resistance "
+                 "is fixed. A PPTC is likely the wrong device: F1's own note records IH "
+                 "derating to 0.36 A at 85 C for a 0.75 A part, so one holding the heater's "
+                 "83 mA would nuisance-trip at pile temperature")
 place("TP6",TESTPOINT,350.52,180.34,value="TMP_CELL_EP",footprint="TestPoint:TestPoint_Pad_D1.0mm",in_bom=False); net("TP6",1,"TMP_CELL_EP")
-place("J5",HEATED_RING,368.3,180.34,value="HEATED MEMBRANE RING",
-      footprint="o2-probe:Heater_Ring_Solder_Lands",
-      note="Manual-soldered dry-side metal membrane-carrier ring; duplicated lands are one HEATER_LOW node")
-net("J5",1,"HEATER_LOW")
+place("J5",RING_FORK,368.3,180.34,value="RING PCB FORK TIP",
+      footprint="o2-probe:Ring_Fork_Tip_DRAFT",
+      note="Solder lands at the tips of the two fork fingers, carrying the heater pair forward "
+           "to a perpendicular ring PCB (a soldered T-joint, the way any right-angle "
+           "daughterboard mounts). REPLACES the two edge castellations of "
+           "Heater_Ring_Solder_Lands, which HEATED-SPREADER.md section 0 showed are orphaned by "
+           "the end-window head. One finger per net, both layers of each finger paralleled. "
+           "RING-PCB.md section 1 offered 4 conductors; only 2 are used, because Fab dropped "
+           "the ring's temperature sensor from this revision -- the second layer of each finger "
+           "stays physically free, so a v2 ring can add one with NO main-board change. "
+           "FOOTPRINT IS DRAFT: RING-PCB.md section 5.1 forbids freezing the 0.6 mm finger "
+           "width before the printed ASA neck bore is measured on a real part")
+net("J5",1,"+12V_HTR"); net("J5",2,"HEATER_LOW")
 
 
 def symbol_block(lib_id: str) -> str:
@@ -551,7 +940,7 @@ def symbol_block(lib_id: str) -> str:
         return s["source_block"]
     name = s["name"]; hh = s["half_h"]; hw = s["half_w"]
     out = [f'(symbol "{lib_id}"', '\t(pin_names (offset 0.508))', '\t(exclude_from_sim no)', '\t(in_bom yes)', '\t(on_board yes)',
-           f'\t(property "Reference" "{s["ref_prefix"]}" (at -5.08 {hh + 2.54:g} 0) (effects (font (size 1.27 1.27))))',
+           f'\t(property "Reference" "{s["ref_prefix"]}" (at -5.08 {hh + 5.08:g} 0) (effects (font (size 1.27 1.27))))',
            f'\t(property "Value" "{name}" (at 5.08 {hh + 2.54:g} 0) (effects (font (size 1.27 1.27)) (justify right)))',
            '\t(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))',
            '\t(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))',
@@ -593,7 +982,7 @@ def emit_schematic() -> str:
     for ref in sorted(INST):
         i=INST[ref]; s=SYMS[i["lib_id"]]; x=i["x"]; y=i["y"]
         a.extend(['\t(symbol',f'\t\t(lib_id "{i["lib_id"]}")',f'\t\t(at {x:g} {y:g} {i["angle"]})','\t\t(unit 1)','\t\t(exclude_from_sim no)',f'\t\t(in_bom {"yes" if i["in_bom"] else "no"})',f'\t\t(on_board {"yes" if i["footprint"] else "no"})',f'\t\t(dnp {"yes" if i["dnp"] else "no"})',f'\t\t(uuid "{uid("sym",ref)}")',
-                  f'\t\t(property "Reference" "{ref}" (at {x-5.08:g} {y-s["half_h"]-2.54:g} 0) (effects (font (size 1.0 1.0))))',
+                  f'\t\t(property "Reference" "{ref}" (at {x-5.08:g} {y-s["half_h"]-5.08:g} 0) (effects (font (size 1.0 1.0))))',
                   f'\t\t(property "Value" "{esc(i["value"])}" (at {x+5.08:g} {y-s["half_h"]-2.54:g} 0) (effects (font (size 1.0 1.0)) (justify right)))',
                   f'\t\t(property "Footprint" "{esc(i["footprint"])}" (at {x:g} {y:g} 0) (effects (font (size 1.27 1.27)) hide))'])
         for key,val in (("MPN",i["mpn"]),("Design Note",i["note"])):
@@ -639,7 +1028,7 @@ def verify() -> None:
         elif ref.startswith("TP"):
             expected_symbol[ref] = TESTPOINT
         elif ref == "J5":
-            expected_symbol[ref] = HEATED_RING
+            expected_symbol[ref] = RING_FORK
         elif ref in ("J101", "J102", "J103", "J104"):
             expected_symbol[ref] = CONN1
     for ref, lib_id in expected_symbol.items():
@@ -656,7 +1045,14 @@ def verify() -> None:
     # Locked interface/address facts.
     assert ASSIGNED[("U8","15")] == ASSIGNED[("U8","16")] == "GND"  # ADS1119 0x40
     assert ASSIGNED[("U10","4")] == "3V3D"                            # TMP117 0x49
-    assert ASSIGNED[("J5","1")] == "HEATER_LOW"                        # heated ring spreader
+    # Fork tip to the ring PCB: one finger per net, and they must not be swapped.
+    assert ASSIGNED[("J5","1")] == "+12V_HTR" and ASSIGNED[("J5","2")] == "HEATER_LOW"
+    # The heat source stays on this board (Fab, 2026-09-04).  Both elements must
+    # bridge +12V_SW to HEATER_LOW, i.e. sit above Q2, never below it.
+    for _rh in ("RH1", "RH2"):
+        assert _rh in INST, _rh
+        assert ASSIGNED[(_rh, "1")] == "+12V_SW", _rh
+        assert ASSIGNED[(_rh, "2")] == "HEATER_LOW", _rh
     assert ASSIGNED[("U7","2")] == "AFE_MENB" and ASSIGNED[("R17","2")] == "GND"
     assert ASSIGNED[("J3","2")] == "SWDIO" and ASSIGNED[("J3","4")] == "SWCLK_BOOT0"
     assert ASSIGNED[("Q2","1")] == ASSIGNED[("U10","3")] == "HEATER_GATE"
@@ -668,15 +1064,79 @@ def verify() -> None:
     assert {p: ASSIGNED[("D2", p)] for p in ("1", "2", "3")} == {
         "1": "RS485_A_CABLE", "2": "RS485_B_CABLE", "3": "GND",
     }  # Littelfuse SM712-02HTG SOT-23
-    assert ASSIGNED[("U4", "1")] == ASSIGNED[("U4", "2")] == "VREF_BUF"
+    # U4 is two electrometer followers. Each half must be wired as a follower
+    # (output strapped to its own inverting input) and sit on the CELL node
+    # itself, not on a divider: an input swap here silently turns the guard into
+    # a comparator and loses the bias telemetry.
+    assert ASSIGNED[("U4", "1")] == ASSIGNED[("U4", "2")] == "WE_BUF"
+    assert ASSIGNED[("U4", "3")] == "CELL_WE"
+    assert ASSIGNED[("U4", "6")] == ASSIGNED[("U4", "7")] == "RE_BUF"
+    assert ASSIGNED[("U4", "5")] == "CELL_RE"
+    # The guard is driven from the real RE follower through R40, never from a
+    # divider replica (POTTING.md 1.3). GUARD_REPLICA keeps its name only
+    # because the PCB guard-fill and thermal-barrier scripts key off it.
+    assert ASSIGNED[("R40", "1")] == "RE_BUF" and ASSIGNED[("R40", "2")] == "GUARD_REPLICA"
+    assert not any(n == "GUARD_DIV" for n in ASSIGNED.values())
     assert ASSIGNED[("R31", "2")] == "VREF_TRIM"
     assert ASSIGNED[("R32", "1")] == "+5V" and ASSIGNED[("R32", "2")] == "+5V_ANALOG"
     assert ASSIGNED[("U3", "1")] == ASSIGNED[("U3", "3")] == "+5V_ANALOG"
     assert ASSIGNED[("C7", "1")] == ASSIGNED[("C27", "1")] == "+5V_ANALOG"
-    assert ASSIGNED[("RV1", "2")] == ASSIGNED[("RV1", "3")] == "VREF_WIPER"
+    # No adjustable part may set the bias: the cell is swappable with the board
+    # potted, so a trimmer would be unreachable after cure (POTTING.md 1.2).
+    assert not any(ref.startswith("RV") for ref in INST)
+    # AZ431-A N package (SOT-23) is 1 REF, 2 CATHODE, 3 ANODE -- NOT the TI
+    # TL431DBZ map the donor graphic arrived with. REF strapped to the cathode is
+    # what makes this a 2.5 V two-terminal shunt.
+    assert {p: ASSIGNED[("U15", p)] for p in ("1", "2", "3")} == {
+        "1": "VREF_SHUNT", "2": "VREF_SHUNT", "3": "GND",
+    }
+    # A pin map is not an identity. REF3320 (2.048 V) or REF3330 (3.0 V) would
+    # pass a pin-map check unchanged while silently invalidating the 2500 mV the
+    # firmware contract asserts, so pin the part and its bias network too.
+    assert INST["U15"]["value"] == "AZ431BN-ATRG1"
+    assert INST["R41"]["value"].startswith("1.5k") and ASSIGNED[("R41", "1")] == "+5V_ANALOG"
+    # Every 100n decoupling capacitor shares ONE land, so the BOM carries a single
+    # 100n line and assembly a single feeder. C2, C11 and C15 were 0603 against
+    # seventeen 0402s. Deliberately scoped to 100n: values like 10u legitimately
+    # differ by package because they differ by VOLTAGE RATING (C1 is 25 V 1206,
+    # C7 is 10 V 0805), and collapsing those would be a downgrade, not a tidy-up.
+    hundred_n = {ref: i["footprint"] for ref, i in INST.items()
+                 if ref.startswith("C") and i["value"].startswith("100n")}
+    assert len(set(hundred_n.values())) == 1, sorted(
+        (fp, ref) for ref, fp in hundred_n.items())
+    # Bulk capacitance must stay OFF the cathode (AZ431 stability; see C9, R31).
+    assert ASSIGNED[("C9", "1")] == "VREF_SHUNT" and INST["C9"]["value"] == "1n"
+    assert ASSIGNED[("C10", "1")] == "VREF_TRIM" and ASSIGNED[("R31", "1")] == "VREF_SHUNT"
     assert ASSIGNED[("U8", "7")] == "VREF_TRIM" and ASSIGNED[("U8", "8")] == "ADC_VREF_MON"
     assert ASSIGNED[("U8", "9")] == "ADC_AFE_VOUT"
-    assert ASSIGNED[("R26", "2")] == "VIN_MON" and INST["R26"]["value"].startswith("130k")
+    # VIN monitor divider. The value is pinned because firmware converts the ADC
+    # reading with this exact ratio; changing one leg without the other silently
+    # rescales every reported input voltage.
+    assert ASSIGNED[("R26", "2")] == "VIN_MON" and INST["R26"]["value"].startswith("82k")
+    assert ASSIGNED[("R27", "1")] == "VIN_MON" and INST["R27"]["value"].startswith("10k")
+    # Bias telemetry: the ADS1119 pair must read the BUFFERED electrodes, and the
+    # two legs must be matched, or the differential measurement acquires a
+    # source-impedance error larger than the bias it is there to resolve.
+    assert ASSIGNED[("U8", "5")] == "ADC_WE_BUF" and ASSIGNED[("U8", "4")] == "ADC_RE_BUF"
+    assert INST["R37"]["value"] == INST["R38"]["value"] == "1k"
+    assert INST["C30"]["value"] == INST["C31"]["value"] == "100n"
+    # The ADC must never be hung directly on the sub-uA electrode. The earlier
+    # form of this was `== "RE_BUF" != "CELL_RE"`, whose tail compares two string
+    # literals and is constant-true -- it read like a check and was not one.
+    assert ASSIGNED[("R38", "1")] == "RE_BUF"
+    # Exact set, not a subset: this fails when a load is ADDED to the reference
+    # electrode, which is the direction audit_schematic.py structurally cannot see.
+    cell_re_pins = {(r, pn) for (r, pn), n in ASSIGNED.items() if n == "CELL_RE"}
+    assert cell_re_pins == {("U7", "13"), ("U11", "2"), ("U4", "5")}, cell_re_pins
+    # CE now reaches the cell through R42, so nothing but R42/R43/D7 may sit on
+    # the driven pin, and the electrode side must carry the cell and its pad.
+    assert {(r, pn) for (r, pn), n in ASSIGNED.items() if n == "CELL_CE_DRV"} == {
+        ("U7", "14"), ("R42", "1"), ("R43", "1")}
+    assert {(r, pn) for (r, pn), n in ASSIGNED.items() if n == "CELL_CE"} == {
+        ("R42", "2"), ("U11", "1"), ("TP3", "1"), ("D7", "1")}
+    assert ASSIGNED[("U6", "15")] == "CE_MON"
+    # Both rail monitors now land on the MCU's own ADC.
+    assert ASSIGNED[("U6", "17")] == "VIN_MON" and ASSIGNED[("U6", "18")] == "VA_MON"
 
 
 def main() -> int:
