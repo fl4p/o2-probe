@@ -186,9 +186,31 @@ exercises the drain against a genuinely latched DRDY on real hardware. That
 was the first review's finding: a permanent lockout that a potted probe could
 not come back from. It is now demonstrated fixed rather than argued.
 
-Still untested by this: the config readback (`ADS_CONFIG_LOST`), which needs a
-device that stops storing configuration and cannot be produced by writing a
-GPIO register.
+**The config readback was calibrated too, on the same day.** It needs a device
+that stops storing configuration, which no GPIO write can produce, so the real
+device was made to lose its configuration at the one instant that matters: a
+hardware breakpoint at `0x08006bb4`, between `write_cfg()` and the readback,
+then an ADS1119 RESET command driven onto the real bus by hand from the halted
+MCU's own I2C1 peripheral, then resume.
+
+| step | observed |
+|---|---|
+| break between write and readback | `HIT 0x08006bb4` |
+| RESET delivered over the real bus | `ISR = 0x1` (transfer complete) |
+| driver's mismatch path executed | `HIT 0x08006bec` -> `O2P_ADS_CONFIG` |
+| fault word | **`g_cyc.faults = 0x4000`** |
+
+`0x4000` is bit 14, `ADS_CONFIG_LOST`, **and only that bit**. That is the whole
+point of separating it: the bus was demonstrably healthy — it had just carried
+the RESET that caused the fault — and the device disagreed. A guard that
+reported this as `I2C_FAIL_ADS` would have sent a technician after a bus that
+was working.
+
+Note the shape of this fixture. Nothing was patched to make the guard fire: the
+real device really stopped storing its configuration, the real driver noticed
+by reading it back, and the real fault word carried the result. A hand-set flag
+would have tested the design that was intended rather than the one that was
+built.
 
 ## 8. Fix vs mute
 
