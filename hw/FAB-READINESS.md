@@ -188,13 +188,10 @@ outcome rather than a gate voltage, with firmware provably absent.
 
 **Still open:**
 
-- **`heater_pwm_hz` is validated up to 20 kHz and that is probably unsafe.**
-  Switching loss is duty-INDEPENDENT and scales with frequency, and the gate is
-  driven through R28 = 10 kohm. At 1 kHz the edges are a small part of the
-  period; at 20 kHz they would not be, and the FET would spend much of each
-  cycle in its linear region. Nothing has tested that, and the validator
-  permits it. Either tighten the upper bound or measure it before anyone raises
-  the frequency. This is the one place a scope still earns its keep.
+- ~~`heater_pwm_hz` validated to 20 kHz~~ **fixed in c469664**: the ceiling is
+  now 2 kHz, with 20000 pinned as rejected by test so a quiet revert fails.
+  The gate EDGE TIME is still unverified - it has never been on a scope - so
+  raising the ceiling again remains a bench measurement, not an edit.
 - Everything ring- and membrane-side. No ring was fitted, and the pending
   revision moves the heat source off this board entirely.
 
@@ -220,6 +217,21 @@ built. Real tip overtemperature protection is `TEMP_OVER` at 60 C and the
 TMP117 cutoff at 85 C, both verified above, so nothing is unprotected - but
 `dt_max_k` should be either deleted or re-pointed at two sensors that are
 actually thermally separated.
+
+**The runaway detector had the same blindness, and that mattered more.**
+`HEATER_RUNAWAY` latched on tip-minus-chamber, so the detector written to catch
+a stuck-on FET could not see one: a stuck FET heats the whole tip assembly and
+both sensors rise together. Fixed in **7b021f5** by adding a die-referenced
+test alongside the chamber one - the MCU die sits across the transverse
+barrier and does not follow the tip (-2.2 K at rest, +2.1 K at 4 % duty, and
+tip 56 C against die 28 C at a stuck 100 %). Its +/-5 C absolute accuracy is
+useless for a 4 K clamp but irrelevant against tens of kelvin.
+
+The 10.00 K threshold is **provisional**: 3.4x the widest legitimate zero-duty
+excursion measured, catching stuck duty above roughly 12 % in still air. A pile
+couples far more tightly and the same fault gives a smaller rise, so
+`PILE-THERMAL-TEST.md` is what should replace it. The dT clamp is kept but
+marked inert, so it no longer reads as protection.
 
 **Plant gain, measured.** `heater_ctl.h` says the gain "cannot be characterised
 anywhere but in a real pile", so the shipped kp/ki are placeholders. A fixed
