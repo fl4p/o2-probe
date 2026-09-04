@@ -46,6 +46,12 @@ typedef enum {
     O2P_ADS_IO,        /* the I2C transfer failed */
     O2P_ADS_TIMEOUT,   /* DRDY never asserted */
     O2P_ADS_CONFIG,    /* the config register did not read back as written */
+    /* DRDY was already low before a conversion was started - so it cannot be
+     * this conversion's completion. Distinct from O2P_ADS_TIMEOUT, which is
+     * DRDY stuck HIGH: that one announces itself by never arriving, while
+     * stuck LOW is the silent failure, satisfying the wait instantly and
+     * handing back the PREVIOUS conversion for as long as the board runs. */
+    O2P_ADS_DRDY,
 } o2p_ads_status_t;
 
 /* Reset the part and prove it is really an ADS1119 responding by writing a

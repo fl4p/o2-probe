@@ -114,13 +114,19 @@ pile produces; a mistyped `AT+COMMAND` must look like a fault, not like anoxia.
 (`SCHEMATIC-REVIEW.md` M4) and the bench air-versus-nitrogen pair settles it.
 Firmware that took an absolute value would hide the answer.
 
-### Diagnostic block, `0x0010`, 18 registers, read-only
+### Diagnostic block, `0x0010`, 19 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
 0.01 K), `PRESSURE_HPA` (0 - BMP390 is DNP), `UPTIME_HI/LO`, `FW_VERSION`,
 `HW_REV`, `RESET_CAUSE`, `LMP_READBACK` (TIACN<<8 | REFCN as actually read),
 `MB_CRC_ERRS`, `MB_FRAME_ERRS`, `I2C_ERRS`, `EXP_DATA` (`0xFFFF` - J2 is DNP),
 `SETTLE_RESTARTS` (`0x0020`), `SAMPLE_SEQ` (`0x0021`).
+
+`T_DIE` (`0x0022`) is the MCU die temperature, i16 0.01 C, `0x8000` invalid.
+Not ambient and not part of the oxygen path - it is the silicon, self-heating
+included, at about +/-5 C. It is here because it is the only temperature on
+the board that does not arrive over I2C1, so it separates a dead bus from a
+real excursion.
 
 ### Config block, `0x0030`, 18 registers, read/write, flash-backed
 

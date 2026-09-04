@@ -39,8 +39,13 @@ FIRMWARE = os.path.dirname(HERE)
 
 DEFAULT_ELF = os.path.join(FIRMWARE, ".pio", "build", "o2probe", "firmware.elf")
 FALLBACK_ADDR = 0x200000F0        # 2026-09-04 build; only used if no ELF
-REGMAP_LEN = 0x88
-SNAPSHOT_LEN = 48
+# o2p_snapshot_t holds 50 bytes of fields but aligns to 4 (uptime_s is a
+# uint32_t), so sizeof is 52 - the padding is easy to forget and produces a
+# decode that is wrong from `live` onward. Then buf[2], the 1-byte live index
+# padded up to o2p_config_t's alignment, the config, four flags, a pointer.
+SNAPSHOT_LEN = 52
+LIVE_OFF = 2 * SNAPSHOT_LEN
+REGMAP_LEN = 0x90
 
 U16_INVALID = 0xFFFF
 I16_INVALID = -0x8000
@@ -52,8 +57,9 @@ TIA_OHM = 7000.0
 COLUMNS = [
     "iso_time", "status", "uptime_s", "seq", "vref_mv", "va_mv", "vin_mv",
     "afe_mv", "afe_rail", "cell_ua", "o2_raw_ua", "o2_comp_pct",
-    "t_tip_c", "t_chamber_c", "rh_pct", "dew_margin_c", "heater_duty_pct",
-    "pressure_hpa", "faults", "settle_s", "i2c_errs", "lmp_readback",
+    "t_tip_c", "t_chamber_c", "t_die_c", "rh_pct", "dew_margin_c",
+    "heater_duty_pct", "pressure_hpa", "faults", "settle_s", "i2c_errs",
+    "lmp_readback",
 ]
 
 
@@ -125,7 +131,7 @@ def decode(blob, int_z, tia_ohm, va_rail_mv):
     wrong regmap address produces numbers that look like data, and the whole
     point of this tool is that a bad probe never masquerades as a measurement.
     """
-    live = blob[96]
+    live = blob[LIVE_OFF]
     if live not in (0, 1):
         return None, f"live index {live} not 0/1 - wrong address?"
     b = blob[live * SNAPSHOT_LEN:(live + 1) * SNAPSHOT_LEN]
@@ -138,6 +144,7 @@ def decode(blob, int_z, tia_ohm, va_rail_mv):
     lmp_rb, = struct.unpack_from("<H", b, 34)
     i2c_errs, = struct.unpack_from("<H", b, 40)
     seq, = struct.unpack_from("<H", b, 46)
+    t_die, = struct.unpack_from("<h", b, 48)
 
     if not 1500 <= vref <= 3300:
         return None, f"VREF {vref} mV implausible - wrong address or dead AFE"
@@ -170,6 +177,7 @@ def decode(blob, int_z, tia_ohm, va_rail_mv):
         "o2_comp_pct": "" if o2_comp == U16_INVALID else f"{o2_comp / 100.0:.2f}",
         "t_tip_c": c100(t_tip),
         "t_chamber_c": c100(t_cham),
+        "t_die_c": c100(t_die),
         "rh_pct": "" if rh == U16_INVALID else f"{rh / 100.0:.2f}",
         "dew_margin_c": c100(dew),
         "heater_duty_pct": "" if heater == U16_INVALID else f"{heater / 100.0:.2f}",

@@ -24,4 +24,18 @@ bool o2p_mcu_adc_read_va_mv(uint16_t *out_mv);
 /* VDDA/VREF+ in millivolts, derived from VREFINT. Exposed for bring-up. */
 bool o2p_mcu_adc_read_vdda_mv(uint16_t *out_mv);
 
+/* MCU die temperature in 0.01 C, from the two factory calibration points.
+ *
+ * This is NOT an ambient measurement and nothing in the oxygen path may
+ * depend on it: it is the die, it includes the MCU's own self-heating, and
+ * the part is specified to about +/-5 C. What it is good for is a second
+ * opinion with no failure mode in common with the TMP117 and the SHT45 -
+ * those are both on I2C1, this is on the MCU's own ADC. A tip sensor
+ * reporting 80 C while the die sits at 25 C is one of them lying, and today
+ * the firmware has no way to notice.
+ *
+ * Returns false - never a substituted default - if the calibration words are
+ * implausible or either conversion fails. */
+bool o2p_mcu_adc_read_die_c100(int16_t *out_c100);
+
 #endif /* O2P_MCU_ADC_H */

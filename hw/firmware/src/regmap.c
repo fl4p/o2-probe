@@ -119,6 +119,7 @@ void o2p_snapshot_reset(o2p_snapshot_t *s)
     s->t_chamber = O2P_I16_INVALID;
     s->rh_chamber = O2P_U16_INVALID;
     s->dew_margin_x100 = O2P_I16_INVALID;
+    s->t_die = O2P_I16_INVALID;
     s->exp_data = O2P_U16_INVALID;
     /* 0xFFFF, not 0. Zero is a perfectly possible real reading for every one
      * of these - 0 mV on a collapsed rail, an all-zero LMP91000 register image
@@ -213,6 +214,7 @@ static uint16_t read_diag(const o2p_snapshot_t *s, uint16_t a)
     case O2P_REG_I2C_ERRS:      return s->i2c_errs;
     case O2P_REG_EXP_DATA:      return s->exp_data;
     case O2P_REG_SETTLE_RESTARTS: return s->settle_restarts;
+    case O2P_REG_T_DIE:         return (uint16_t)s->t_die;
     default:                    return s->sample_seq;
     }
 }

@@ -190,6 +190,16 @@ static void phase_rails(o2p_snapshot_t *s)
         /* No rail reading is not a good rail reading. */
         g_cyc.faults |= O2P_F_VA_LOW;
     }
+
+    /* Die temperature, from the same ADC and therefore free of I2C1. It
+     * raises no fault of its own: it is a +/-5 C reading of the silicon, not
+     * of the gas, and nothing downstream may act on it. It is published so
+     * that a T_TIP or T_CHAMBER which disagrees with it, or which vanishes
+     * while it survives, points at the bus rather than at the weather. */
+    int16_t die_c100 = 0;
+    if (o2p_mcu_adc_read_die_c100(&die_c100)) {
+        s->t_die = die_c100;
+    }
 }
 
 static void phase_afe(o2p_snapshot_t *s)
@@ -593,6 +603,13 @@ static void bring_up_devices(void)
     o2p_lmp91000_gpio_init();
     o2p_mcu_adc_init();
 
+    /* Deliberately discarded, and safe to discard only because the same
+     * precondition is re-checked before EVERY conversion (ads1119.c): a bad
+     * DRDY or a config that will not read back now returns O2P_ADS_DRDY or
+     * O2P_ADS_CONFIG from each convert, which the sampler turns into
+     * O2P_F_I2C_FAIL_ADS. A boot-only check would report to nobody - there is
+     * no fault word yet at this point in bring-up - and that is precisely the
+     * shape that let a dead DRDY masquerade as measurements. */
     (void)o2p_ads1119_init();
     /* The result matters and is latched inside the driver: a TMP117 whose
      * therm-mode alert failed to program still answers temperature reads

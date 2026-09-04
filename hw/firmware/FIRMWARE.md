@@ -608,7 +608,7 @@ fault, not like anoxia.
 convention as an open release gate, and the bench air-versus-nitrogen pair is
 what settles it. Firmware that took an absolute value would hide the answer.
 
-### Diagnostic block — `0x0010`, 18 registers, read-only
+### Diagnostic block — `0x0010`, 19 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
 0.01 K), `PRESSURE_HPA` (0 — BMP390 is DNP), `UPTIME_HI/LO`, `FW_VERSION`,
@@ -625,6 +625,12 @@ then two that exist because supervision here is *sampled*, not continuous:
 - `SAMPLE_SEQ` `0x0021` — increments on every published cycle. Frozen across
   two polls means the sampler has stalled, even though every other register
   still holds a plausible value.
+- `T_DIE` `0x0022` — MCU die temperature, i16 0.01 °C, `0x8000` invalid. Not
+  an ambient reading and not part of the oxygen path: it is the silicon,
+  self-heating included, specified to about ±5 °C. It is published because it
+  is the only temperature on the board that does not come over I²C1. `T_TIP`
+  and `T_CHAMBER` share a bus; this does not. When they disagree with it, or
+  vanish while it survives, the fault is the bus rather than the weather.
 
 ### Config block — `0x0030`, 18 registers, read/write, flash-backed
 

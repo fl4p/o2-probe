@@ -39,7 +39,7 @@ enum {
 #define O2P_REG_PRIMARY_BASE  0x0000u
 #define O2P_REG_PRIMARY_COUNT 8u
 
-/* ---- Diagnostic block: 0x0010, 16 registers, read-only ---- */
+/* ---- Diagnostic block: 0x0010, 19 registers, read-only ---- */
 enum {
     O2P_REG_VREF_MON_MV  = 0x0010u,
     O2P_REG_VA_MON_MV    = 0x0011u,
@@ -69,11 +69,18 @@ enum {
      * across two polls knows the sampler has stalled even though every other
      * register still holds a plausible value. */
     O2P_REG_SAMPLE_SEQ      = 0x0021u,
+    /* MCU die temperature, i16 0.01 C, 0x8000 invalid. Not an ambient
+     * reading and not part of the oxygen path - it is the die, self-heating
+     * included, at about +/-5 C. It is here because it is the only
+     * temperature on the board that does not depend on I2C1: when T_TIP and
+     * T_CHAMBER disagree with it, or vanish together, that is the bus, not
+     * the weather. */
+    O2P_REG_T_DIE           = 0x0022u,
 };
 #define O2P_REG_DIAG_BASE  0x0010u
-#define O2P_REG_DIAG_COUNT 18u
+#define O2P_REG_DIAG_COUNT 19u
 
-/* ---- Config block: 0x0020, 16 registers, read/write, flash-backed ---- */
+/* ---- Config block: 0x0030, 18 registers, read/write, flash-backed ---- */
 enum {
     O2P_REG_SLAVE_ADDR      = 0x0030u,
     O2P_REG_BAUD_CODE       = 0x0031u,
@@ -173,6 +180,7 @@ typedef struct {
     uint16_t exp_data;
     uint16_t settle_restarts;
     uint16_t sample_seq;
+    int16_t  t_die;
 } o2p_snapshot_t;
 
 /* Reset every channel to its invalid sentinel. The sampler calls this at the

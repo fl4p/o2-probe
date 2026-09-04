@@ -11,6 +11,17 @@
 #define O2P_VREFINT_CAL_VDDA_MV 3000u
 #define O2P_ADC_CH_VREFINT 13u
 
+/* Factory temperature-sensor calibration, both points also taken at VDDA =
+ * 3.0 V. Read off this die 2026-09-04: TS_CAL1 = 1023, TS_CAL2 = 1370. That
+ * is a slope of 3.47 LSB/K, which at 12 bits against 3.0 V is 2.54 mV/K -
+ * the datasheet's typical 2.5 mV/K, so the addresses are confirmed by the
+ * silicon and not only by the memory map. */
+#define O2P_TS_CAL1_ADDR 0x1FFF75A8u
+#define O2P_TS_CAL2_ADDR 0x1FFF75CAu
+#define O2P_TS_CAL1_C100 3000
+#define O2P_TS_CAL2_C100 13000
+#define O2P_ADC_CH_TEMP 12u
+
 static bool convert(uint32_t channel, uint16_t *out)
 {
     /* One channel at a time: CHSELR in its default (non-sequencer) mode is a
@@ -66,7 +77,14 @@ void o2p_mcu_adc_init(void)
     ADC1->SMPR = 7u;
     ADC1->CFGR1 = 0u;          /* 12-bit, single conversion, right aligned */
 
-    ADC1_COMMON->CCR |= ADC_CCR_VREFEN;
+    /* Both internal channels on: VREFINT for the absolute reference, and the
+     * temperature sensor. ST specifies tSTART through
+     * LL_ADC_DELAY_TEMPSENSOR_STAB_US = 120 us, and the buffer needs a
+     * further 15 us from ADC enable. This runs once at boot, so pay a whole
+     * tick rather than reason about whether the ADEN handshake below happens
+     * to cover either. */
+    ADC1_COMMON->CCR |= ADC_CCR_VREFEN | ADC_CCR_TSEN;
+    o2p_delay_ms(1u);
 
     ADC1->ISR = ADC_ISR_ADRDY;
     ADC1->CR |= ADC_CR_ADEN;
@@ -94,6 +112,56 @@ bool o2p_mcu_adc_read_vdda_mv(uint16_t *out_mv)
         return false;
     }
     *out_mv = (uint16_t)(((uint32_t)O2P_VREFINT_CAL_VDDA_MV * cal) / raw);
+    return true;
+}
+
+bool o2p_mcu_adc_read_die_c100(int16_t *out_c100)
+{
+    /* TSEN, not ADEN: the temperature channel needs its own enable, and
+     * testing the wrong one would pass on any path that left TSEN clear. */
+    if (out_c100 == NULL || (ADC1_COMMON->CCR & ADC_CCR_TSEN) == 0u) {
+        return false;
+    }
+    uint16_t cal1 = *(volatile uint16_t *)O2P_TS_CAL1_ADDR;
+    uint16_t cal2 = *(volatile uint16_t *)O2P_TS_CAL2_ADDR;
+    /* Guard the SLOPE, not just the two values. Bounding each endpoint
+     * separately admits almost any scale factor - a correct cal1 with a
+     * corrupted cal2 anywhere above it passes, and a 30 C die still reads
+     * about 30 C while a 60 C die reads 40 or 140. The difference is the
+     * quantity that scales the answer: 100 K at 2.0..3.1 mV/K, 12 bits
+     * against 3.0 V, is 273..423 counts. Blank OTP (all ones or all zeros)
+     * fails this too. */
+    int32_t slope = (int32_t)cal2 - (int32_t)cal1;
+    if (cal1 < 700u || cal1 > 1400u || slope < 273 || slope > 423) {
+        return false;
+    }
+
+    uint16_t vdda = 0u, raw = 0u;
+    if (!o2p_mcu_adc_read_vdda_mv(&vdda)) {
+        return false;
+    }
+    if (!convert(O2P_ADC_CH_TEMP, &raw)) {
+        return false;
+    }
+
+    /* The calibration points were taken at 3.0 V, this converter runs at
+     * VDDA, so scale the raw count into calibration volts before
+     * interpolating between the two points. */
+    int32_t scaled = ((int32_t)raw * (int32_t)vdda) /
+                     (int32_t)O2P_VREFINT_CAL_VDDA_MV;
+    int32_t span_c100 = O2P_TS_CAL2_C100 - O2P_TS_CAL1_C100;
+    int32_t t_c100 = ((span_c100 * (scaled - (int32_t)cal1)) / slope)
+                     + O2P_TS_CAL1_C100;
+
+    /* Reject only what cannot be a temperature at all. The bounds sit OUTSIDE
+     * the part's limits on purpose: TA min is -40 C and TJ max is 130 C, but
+     * this sensor is +/-5 C, so a real -38 C die may legitimately read -43 C
+     * and clipping at the rated limit would throw away good readings at the
+     * cold end. Anything past these is a failed conversion, not weather. */
+    if (t_c100 < -5000 || t_c100 > 14000) {
+        return false;
+    }
+    *out_c100 = (int16_t)t_c100;
     return true;
 }
 

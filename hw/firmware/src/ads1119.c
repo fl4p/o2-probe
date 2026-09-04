@@ -91,7 +91,7 @@ o2p_ads_status_t o2p_ads1119_init(void)
      * stale conversions. Check it once, here, rather than discover it as
      * telemetry that looks plausible. */
     if ((O2P_ADC_DRDY_PORT->IDR & (1u << O2P_ADC_DRDY_PIN)) == 0u) {
-        return O2P_ADS_CONFIG;
+        return O2P_ADS_DRDY;
     }
     return O2P_ADS_OK;
 }
@@ -134,6 +134,19 @@ static o2p_ads_status_t convert_once(uint8_t cfg, uint8_t dr, int16_t *out_code)
     if (st != O2P_ADS_OK) {
         return st;
     }
+
+    /* DRDY must idle HIGH here: nothing has been started yet, so a low line
+     * cannot be this conversion's completion. Checking it once at init is not
+     * enough - the pin can be misconfigured by any later code, and a DRDY
+     * stuck low never fails, it satisfies the wait below on its first
+     * evaluation and returns the PREVIOUS conversion forever. That is the
+     * failure that got a healthy ADS1119 replaced, and O2P_ADS_TIMEOUT cannot
+     * catch it: a timeout only fires for DRDY stuck HIGH. This costs one GPIO
+     * read per conversion and no bus traffic. */
+    if ((O2P_ADC_DRDY_PORT->IDR & (1u << O2P_ADC_DRDY_PIN)) == 0u) {
+        return O2P_ADS_DRDY;
+    }
+
     /* Writing the config already restarts any conversion, but START/SYNC is
      * what actually begins one in single-shot mode. */
     const uint8_t start = O2P_ADS_CMD_START;

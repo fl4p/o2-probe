@@ -434,7 +434,7 @@ static void test_snapshot_reset_clears_every_measurement_channel(void)
     s->o2_comp = 1234; s->o2_raw = 1234; s->t_tip = 1234; s->t_chamber = 1234;
     s->rh_chamber = 1234; s->dew_margin_x100 = 1234; s->vref_mv = 1234;
     s->va_mv = 1234; s->vin_mv = 1234; s->afe_vout_mv = 1234;
-    s->lmp_readback = 1234; s->pressure_hpa = 1234;
+    s->lmp_readback = 1234; s->pressure_hpa = 1234; s->t_die = 1234;
     s->sample_seq = 77;   /* cumulative: must SURVIVE */
 
     o2p_snapshot_reset(s);
@@ -443,6 +443,7 @@ static void test_snapshot_reset_clears_every_measurement_channel(void)
     TEST_ASSERT_EQUAL_HEX16((uint16_t)O2P_I16_INVALID, (uint16_t)s->o2_raw);
     TEST_ASSERT_EQUAL_HEX16((uint16_t)O2P_I16_INVALID, (uint16_t)s->t_tip);
     TEST_ASSERT_EQUAL_HEX16((uint16_t)O2P_I16_INVALID, (uint16_t)s->t_chamber);
+    TEST_ASSERT_EQUAL_HEX16((uint16_t)O2P_I16_INVALID, (uint16_t)s->t_die);
     TEST_ASSERT_EQUAL_UINT16(O2P_U16_INVALID, s->rh_chamber);
     TEST_ASSERT_EQUAL_HEX16((uint16_t)O2P_I16_INVALID,
                             (uint16_t)s->dew_margin_x100);
@@ -554,6 +555,7 @@ static void test_snapshot_is_invalid_before_the_first_sample(void)
     const o2p_snapshot_t *s = o2p_regmap_live(&rm);
     TEST_ASSERT_EQUAL_UINT16(O2P_U16_INVALID, s->o2_comp);
     TEST_ASSERT_EQUAL_HEX16((uint16_t)O2P_I16_INVALID, (uint16_t)s->t_tip);
+    TEST_ASSERT_EQUAL_HEX16((uint16_t)O2P_I16_INVALID, (uint16_t)s->t_die);
     TEST_ASSERT_EQUAL_UINT16(O2P_U16_INVALID, s->rh_chamber);
     TEST_ASSERT_TRUE((s->faults & O2P_F_SETTLING) != 0);
     TEST_ASSERT_FALSE(o2p_o2_valid(s->faults));
