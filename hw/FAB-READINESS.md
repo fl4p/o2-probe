@@ -192,8 +192,10 @@ outcome rather than a gate voltage, with firmware provably absent.
   now 2 kHz, with 20000 pinned as rejected by test so a quiet revert fails.
   The gate EDGE TIME is still unverified - it has never been on a scope - so
   raising the ceiling again remains a bench measurement, not an edit.
-- Everything ring- and membrane-side. No ring was fitted, and the pending
-  revision moves the heat source off this board entirely.
+- Everything ring- and membrane-side. No ring was fitted. **The heat source
+  stays on the main board**: an earlier Rev B pass deleted RH1/RH2 and moved it
+  to a ring PCB, and that was reverted on 2026-09-05, so the 140 ohm and 1.02 W
+  above are live figures rather than Rev A history.
 
 **`dt_max_k` is an inert interlock, and its unit test cannot see that.** The
 config carries a 4 K tip-above-chamber clamp and

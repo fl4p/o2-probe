@@ -89,8 +89,11 @@ legal setpoint of 50 % saturates the loop and pins duty at the clamp.
 
 1. Record `VIN_MON` (0x0012) and the heater resistance in use. Power is
    `P = duty * VIN^2 / R`; R is `O2P_HW_HEATER_OHM` (140 Ω for RH1‖RH2 on
-   Rev A) and **changes** if the heat source moves to the ring PCB — measure it,
-   do not inherit this number.
+   the main board) — measure it rather than inherit it if the heater network is
+   ever respun. Settled 2026-09-05: the heat source **stays on the main board**;
+   an earlier pass that deleted RH1/RH2 for a ring PCB was reverted, so 140 Ω is
+   the live figure and the ~1.02 W it draws at 12 V is what tonight's numbers
+   rest on.
 2. Confirm `FAULTS` (0x0006) has no `HEATER_DISABLED`, and that the build has
    `O2P_HEATER_ENABLE=1`. v0 ships with it 0.
 3. Write `RH_SETPOINT` (0x0033) = `5000` (50.00 %RH). The loop now saturates.
@@ -150,5 +153,6 @@ Two things the same dataset gives away for free:
   characterised anywhere but in a real pile"; τ and the DC gain from this test
   are exactly what tuning needs.
 - **Whether `dt_max_k` can ever bind.** It cannot on Rev A (§3). If the ring
-  moves off-board and the sensors stay put, it still cannot, and the interlock
+  is ever respun with the sensors left where they are, it still cannot, and the
+  interlock
   should be deleted rather than shipped as decoration.
