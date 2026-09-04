@@ -15,6 +15,20 @@ A **printed** body so the Rev-A board — the revision already at the fab,
 unmodified, with **no heater ring** and **not potted** — can be buried now
 instead of after the bought-tube-plus-potting route is qualified.
 
+**No heater ring is not the same as no heater, and the difference matters here.**
+The board carries **RH1/RH2, CRCW2512280RFKEG 280 R 1 W, two of them on the back
+at (5, 96.5)** — 140 Ω effective, so **≈1.03 W at 12 V**, which is the full
+heater budget `PLAN.md` sizes. What is missing is J5's ring, the dry-side metal
+carrier that was supposed to take that heat to the membrane, and which
+`HEATED-SPREADER.md` §0 records as orphaned by the end-window head.
+
+So prototype 1 puts about a watt into the head cavity with **nothing to aim it**.
+It warms the gas, the board and the cell rather than the membrane face — which
+is the one surface `CONDENSATION-MODEL.md` says has to stay above the dew point.
+Treat the heater in this build as a chamber warmer and a source of measurement
+data (`RING-PCB.md` §4: v1's first job is to measure `h` and η *in situ*), not as
+the condensation control the design eventually needs.
+
 `MEMBRANE.md`, *Enclosure material: printed ASA* (2026-09-02), decided a bought
 tube for the production body and allowed exactly this in the same breath: *"A
 fully printed body is permitted for prototypes."* So this is sanctioned, not a

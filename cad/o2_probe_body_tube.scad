@@ -6,8 +6,15 @@
  * tube for the potted body and a printed head, and in the same breath allowed
  * this: "A fully printed body is permitted for prototypes." This is that part.
  * It exists so the Rev-A board -- the revision already at the fab, unmodified,
- * with no heater ring and NOT POTTED -- can be buried and can start returning
+ * with no heater RING and NOT POTTED -- can be buried and can start returning
  * numbers, months before the bought-tube/potting route is qualified.
+ *
+ * No heater ring is NOT no heater. The board carries RH1/RH2 (CRCW2512280RFKEG,
+ * 280 R 1 W, two on the back at (5, 96.5)) = 140 ohm, ~1.03 W at 12 V, the whole
+ * budget PLAN.md sizes. What is missing is J5's ring, which was to carry that
+ * heat to the membrane; HEATED-SPREADER.md section 0 records it as orphaned by
+ * the end-window head. So this build puts a watt into the head cavity with
+ * nothing to aim it: it warms gas, board and cell, not the membrane face.
  *
  * WHAT IT IS NOT. It is not the production body and it must not be released as
  * one. An unpotted board in an open tube gives up two things the production
