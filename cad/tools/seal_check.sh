@@ -60,7 +60,15 @@ num inner_wall_line_width 0.60 0.70 ">=0.64 sealed in test, 0.40 never did"
 num top_shell_layers 5 99 "closures leak, walls do not"
 num bottom_shell_layers 5 99 "closures leak, walls do not"
 num filament_flow_ratio 1.00 1.02 "0.95 is deliberate under-extrusion; 85-90% always leaked"
-num brim_width 3 99 "a 147 mm ASA tube is a warp candidate"
+num brim_width 6 99 "a 147 mm ASA tube is a warp candidate"
+# Adhesion area is the product of brim width AND the brim actually being part of
+# the object. Bambu ships brim_object_gap = 0.1 so brims snap off by hand, which
+# on 2026-09-05 left a 146.6 mm tower standing on its own 219 mm2 footprint with
+# 581 mm2 of brim merely parked beside it. Checking the width alone passed that
+# plate. Zero fuses it; the fused band is 0.2 mm tall at the extreme end face,
+# which elefant_foot_compensation already excludes from any fit surface.
+eq  brim_object_gap 0 "a brim with a gap is not holding the part down"
+eq  brim_type outer_and_inner "the bore is open at z=0 and mates with nothing -- use it"
 eq  filament_type ASA "the enclosure material is ASA (MEMBRANE.md)"
 eq  enable_support 0 "no feature on this part overhangs; support inside a sealing bore is scrap"
 # Arachne varies extrusion width to fill a wall, which is exactly what breaks the
