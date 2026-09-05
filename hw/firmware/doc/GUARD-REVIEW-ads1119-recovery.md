@@ -453,10 +453,23 @@ about 30 s, then restored. The probe then ran healthy while the bit stayed up:
 
 `ADS_DRDY_STUCK` (bit 13) was held for the full window with the fault long
 gone and every measurement healthy — VREF 2492 mV, the cell steady at
-101.2–101.4 µA. It then cleared by itself between uptime 372 and 418, against
-a predicted expiry of 392 (last failure at ~62 plus the 330 s window).
-`FAULTS_EVER` kept the bit after the clear, which is the whole point of the
-separate register: the permanent record outlives the latch.
+101.2–101.4 µA. `FAULTS_EVER` kept the bit after the clear, which is the whole
+point of the separate register: the permanent record outlives the latch.
+
+The expiry bracket above is my own sampling, which is coarse. A second session
+capturing the same board at 30 s brackets it tighter, between uptime **370 and
+400** (`0xa001` at 09:42:09, `0x8001` at 09:42:39), against a predicted 392.
+
+**That comparison has a systematic bias, and its sign matters.** Every SWD
+sample halts and resumes the target, and a halted MCU does not advance
+`uptime_s`. Thirteen of the peer's samples sat on that boot, so `uptime_s`
+reads LOW against the wall clock: a latch measured in uptime expires *later*
+in real time than the column suggests. The window is specified in wall time,
+against a wall-clock poll interval, so uptime-derived expiry figures are a
+lower bound on the real hold — the margin against a 300 s poll is therefore
+larger than these numbers show, not smaller. Anyone tightening
+`O2P_FAULT_LATCH_S` toward the poll interval on the strength of a captured
+`uptime_s` column would be trimming against a biased measurement.
 
 On the old firmware this event was published for one second and then erased.
 

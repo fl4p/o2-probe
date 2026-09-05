@@ -29,11 +29,21 @@ agent harness will cut a foreground call off at ten minutes and the run dies
 with it. The CSV is line-buffered and appended per sample, so an interrupted
 run keeps everything up to the interruption.
 
-Pick the probe when more than one is attached: `--adapter-serial`, or
-`O2P_ADAPTER_SERIAL` in the environment. `adapter usb location` is silently
-ignored by the xPack cmsis-dap driver, so the serial is the only selector that
-works - and the XIAO Debug Mate publishes no USB serial, so the only way to
-single it out is to unplug the other probe.
+Pick the probe when more than one is attached, with EITHER of two selectors:
+
+  * `--adapter-serial` / `O2P_ADAPTER_SERIAL` - matches the USB iSerial, so it
+    can only name a probe that has one. `adapter usb location` is not an
+    alternative: the xPack cmsis-dap driver accepts and silently ignores it
+    (a deliberately bogus `9-9` still connects).
+  * `--adapter-backend` / `O2P_ADAPTER_BACKEND` - the XIAO Debug Mate is
+    HID-only and publishes no iSerial at all, so `--adapter-serial` cannot
+    name it, but `--adapter-backend hid` selects it whenever the other probe
+    speaks usb_bulk. `auto` fails on it outright with "unable to open
+    CMSIS-DAP device 0xd28:0x204", which reads like no probe is attached when
+    one is attached and working.
+
+The backend only discriminates when the probes differ in one. If they do not,
+unplugging is still the answer.
 
 Two ways the address goes wrong, with different remedies:
 
@@ -394,12 +404,12 @@ def main():
             # A regmap of all zeros is not a reading, and it is not a dead
             # link either - the dump succeeded. It means the address holds no
             # g_rm: OpenOCD attached to a board running a different image.
-            # With two CMSIS-DAP probes on the bus and only one of them
-            # carrying a USB serial, that is the likeliest cause; `adapter
-            # usb location` is silently ignored by the xPack cmsis-dap
-            # driver, so --adapter-serial is the only working selector.
+            # With two CMSIS-DAP probes on the bus that is the likeliest
+            # cause. Select with --adapter-serial where the probe has a USB
+            # iSerial, or --adapter-backend where it does not.
             row, err = None, ("regmap reads all zero: wrong board "
-                              "(is --adapter-serial set?) or a stale --addr")
+                              "(is --adapter-serial or --adapter-backend "
+                              "set?) or a stale --addr")
         else:
             row, err = decode(blob, args.int_z, args.tia_ohm, args.va_rail_mv)
         if row is None:
