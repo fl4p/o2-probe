@@ -140,6 +140,10 @@ CRITICAL_TRACKS = (
     # runs x=10.40..10.00 from y=81.4 to y=91 and fences everything, and the
     # only gap in that fence is below U7 -- which this leg uses.  The detour is
     # 9 mm longer than a via would be and worth every millimetre.
+    #
+    # The north-south leg stays at x=13.00.  Packing it against U8 at x=13.50
+    # to consolidate the corridor was tried and SHORTED U8 pad 1 (/ADC_RESET):
+    # that pad reaches x=13.6, not the 13.9 the pad centres suggested.
     ("/CELL_RE", F, 0.25, ((11.00, 82.50), (13.00, 82.50), (13.00, 75.30),
                            (12.59, 74.89), (3.97, 74.89))),
 
@@ -179,6 +183,13 @@ CRITICAL_TRACKS = (
     # x=10.50 and R26 pad 2 begins at x=11.17, which is 0.57 mm of lane.  A
     # 0.25 mm track centred in it clears both by 0.16 mm against a 0.15 mm
     # rule, and nothing wider fits.
+    #
+    # It runs east at y=79.35, which is the only 0.7 mm gap between the B.Cu
+    # passive rows at y=76.28..78.97 and y=79.72..80.68, and is therefore a
+    # 9 mm wall across a lane other analog nets want.  Moving it to the wider
+    # gap at y=81.60 was tried and is not available: down there it crosses
+    # CELL_WE's dive column and its branch to U4, which is worse than the
+    # congestion it relieves.
     ("/GUARD_REPLICA", B, 0.25, ((2.17, 77.00), (2.17, 79.35),
                                  (10.885, 79.35), (10.885, 83.40))),
     # TP5 is on this net, and it has to be authored too or the net cannot be
