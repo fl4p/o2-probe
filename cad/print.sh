@@ -78,6 +78,28 @@ P1P="${P1P:-$HOME/dev/ee/p1p/bin}"
 # and then asserted against what the slicer actually emitted.
 BED_PLATE="${BED_PLATE:-Textured PEI Plate}"
 
+# THE SPOOL PHYSICALLY LOADED, declared for the same reason as the plate: the
+# printer cannot tell us, and a declared consumable is not a reading. Added
+# 2026-09-05 after two failed retainer prints were traced to a filament profile
+# named "ASA sealing" that was a BAMBU ASA chain while the machine held Elegoo
+# ASA. Every existing guard passed, because they all check things that were
+# right: filament_type really did resolve to ASA, the plate really was Textured
+# PEI, the layer height really was 0.12. Nothing asked WHICH ASA, so the flow
+# ratio, the 18 vs 12 volumetric limit and pressure advance were all tuned for
+# a material that was not in the extruder.
+#
+# Set FILAMENT_VENDOR/FILAMENT_ID when the spool changes, or the slice is
+# refused. That is the point: swapping filament without saying so should fail
+# loudly rather than print badly.
+FILAMENT_VENDOR="${FILAMENT_VENDOR:-Elegoo}"
+FILAMENT_ID="${FILAMENT_ID:-OEASAB00}"
+
+# The mouth-wipe temperature, pinned in profiles/machine_p1p.json rather than
+# inherited from the stock {nozzle_temperature_initial_layer-20}. See
+# profiles/WIPE-TEMP.md. Guarded because a re-flatten of the machine profile
+# from Bambu's tree would silently put it back on the formula.
+WIPE_TEMP="${WIPE_TEMP:-270}"
+
 die() { echo "error: $*" >&2; exit 1; }
 
 part_stl() {
@@ -155,6 +177,27 @@ MERGE
     [[ -f $g ]] || { tail -20 "print/$part/orca.log"; die "slice produced no gcode"; }
 
     "$CHECK" "$g" --plate "$BED_PLATE"
+    # Assert the slice used the spool that is actually loaded. Read from the
+    # EMITTED gcode, never from the profile we passed in -- the profile is the
+    # thing being checked, so trusting it would make this guard tautological.
+    emitted_vendor=$(grep -aE '^; filament_vendor = ' "$g" | head -1 | sed 's/^; filament_vendor = //; s/"//g; s/;.*//')
+    emitted_id=$(grep -aE '^; filament_ids = ' "$g" | head -1 | sed 's/^; filament_ids = //; s/"//g; s/;.*//')
+    [[ -n $emitted_vendor ]] || die "no filament_vendor in the gcode: cannot verify the spool, refusing rather than assuming"
+    [[ $emitted_vendor == "$FILAMENT_VENDOR" ]] \
+        || die "filament vendor is '$emitted_vendor', loaded spool is '$FILAMENT_VENDOR' -- the profile is for the wrong material"
+    [[ $emitted_id == "$FILAMENT_ID" ]] \
+        || die "filament id is '$emitted_id', loaded spool is '$FILAMENT_ID' -- same vendor, different material"
+    echo "  filament: $emitted_vendor $emitted_id (declared loaded)"
+
+    # Wipe temperature, read out of the EXECUTABLE stream inside the machine's
+    # own ";===== wipe nozzle =" block -- the "; machine_start_gcode = " header
+    # comment is a mixed template and still carries unresolved formulae there.
+    emitted_wipe=$(awk '/^;===== wipe nozzle =/{w=1} /^;===== wipe nozzle end/{w=0}
+                        w && /^[[:space:]]*M109 S[0-9]+/{sub(/^[[:space:]]*M109 S/,""); sub(/[^0-9].*$/,""); print; exit}' "$g")
+    [[ -n $emitted_wipe ]] || die "no numeric M109 in the wipe-nozzle block: the wipe temperature is unverifiable, refusing rather than assuming"
+    [[ $emitted_wipe == "$WIPE_TEMP" ]] \
+        || die "wipe temperature is ${emitted_wipe}C, expected ${WIPE_TEMP}C -- machine_start_gcode has fallen back to the stock initial_layer-20 (profiles/WIPE-TEMP.md)"
+    echo "  wipe: ${emitted_wipe}C (probe still at 140C; hand-clean the tip after a material swap)"
     ./tools/seal_check.sh "$g" --part "$part"
     grep -aE '^; (model printing time|total filament used \[g\]|filament used \[cm3\])' "$g" | sed 's/^; /  /'
     echo "  plate: print/$part/$plate"
