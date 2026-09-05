@@ -298,3 +298,72 @@ I pulled the live ST PDF through my own scratch-profile Chrome after curl stalle
 and read Table 59 in it directly — 50 kΩ at 12 bits / 160.5 cycles. The log shows
 no `no connected browsers` and no `node_repl/js (failed)`, so the browser surface
 was actually used.
+
+---
+
+## 5. The next line does not exist — measured 2026-09-05, and the idea is dead
+
+I proposed merging **C1, C3, C4 and C7 onto one `22u 25V X7R 1206` line**
+(39 → 38 lines), reasoning that raising C1/C7 from 10 µF to 22 µF was free
+because AP63205 §12 asks for "22 µF to 68 µF ceramic" and its own reference
+schematic is 2 × 22 µF, which is exactly C3/C4.
+
+**The part does not exist.** A DigiKey parametric sweep of 1206 / X7R, in stock,
+across three voltage ratings:
+
+| rating | largest X7R 1206 capacitance stocked | 22 µF available? |
+|---|---|---|
+| 50 V | 10 µF (`GMC31X7R106K50NT`, 0 in stock; next real part 4.7 µF) | **no** |
+| **25 V** | **10 µF** (`TMK316B7106KL-TD`, 304 k, €0.27) | **no** |
+| 16 V | **22 µF** (`EMK316BB7226ML-T`, 129 k, €0.58) | yes |
+
+X7R at 1206 tops out at **10 µF once you need 25 V**. 22 µF in that package
+exists only at 16 V — and C1 sits on the *unregulated* 7–15 V farm input, where
+16 V is 107 % of the rail's own maximum. So C1 cannot take the 22 µF part and
+C3/C4 cannot be reached from C1's 25 V line.
+
+**The two capacitor lines are a dielectric-volume constraint, not an oversight.**
+Whoever picked 10 µF 25 V for C1 and 22 µF for C3/C4 was constrained, not
+careless. Do not try this again.
+
+Two things worth keeping from the attempt:
+
+- **The 22 µF part Fab already stocks is the right one.** `EMK316BB7226ML-T`,
+  22 µF 16 V X7R 1206, **50 in stock** (InvenTree pk 379) — and it is also
+  DigiKey's top-stocked part in that class. C3/C4's `22u` generic-stock line
+  could be pinned to it at no cost and no risk.
+- **C1/C7 remain unsourced**, and closing that needs a *purchase*: no 10 µF 25 V
+  1206 is in stock here. `TMK316B7106KL-TD` is the cheapest in-stock candidate at
+  DigiKey (€0.27, 304 k). Pinning it is a buying decision, so it is left open
+  rather than taken unilaterally.
+
+A search note, because it nearly produced the wrong answer: DigiKey's keyword
+endpoint tokenises `22uF 25V X7R 1206` into **0.22 µF and 0.022 µF** matches and
+returns "21 products", none of them 22 µF. An empty or wrong-looking DigiKey
+result is a filter artifact until a parametric sweep says otherwise.
+
+### So: 39 lines is the floor for this architecture
+
+**23 of the 39 lines exist for exactly one part**, and 18 of those are the MCU,
+the ADC, the AFE, the op-amp, the transceiver, the buck, two LDO-class parts, the
+sensor, the inductor, the connectors and the input-protection chain — each doing
+a distinct job. The remaining reductions all cost function:
+
+- **The VREF monitor chain (R34/R35/R36/C29) stays.** Measured against the
+  primary sources: the ADS1119's internal reference (SBAS925, **WQFN** row) is
+  ±0.25 % at 25 °C with 30 ppm/°C max drift ≈ **0.44 %** worst case over
+  −40…85 °C, and with the 0.1 % divider the measured path is ≈ **0.64 %** on the
+  oxygen scale. Trusting the AZ431**B** as a constant instead is 0.8 % initial
+  plus ~0.4 % over temperature ≈ **1.2 %**. Measuring roughly halves the error,
+  so the chain earns its four parts and the board's last 0.1 % pair. My earlier
+  §4 hypothesis is refuted.
+- **RH1/RH2 stay two parts.** 280 Ω paralleled is 0.514 W each; a single 140 Ω
+  would be **1.03 W in a 1 W part**. The 2512 land is thermal, not habit.
+- **The AZ431 itself is the interesting one, and it is not a BOM question.**
+  The ADS1119's internal reference is *better* than the shunt it is used to
+  measure, and the oxygen path is ratiometric through `VREF_TRIM`, so the shunt's
+  absolute accuracy barely matters — what it buys is noise and stability between
+  measurements. Deleting U15/R41/R31/C9/C10 (5 parts, 1 MPN line) and driving
+  `VREF_TRIM` from 3V3A is structurally possible, but it puts LDO noise on a
+  µV-scale chain and sits REFP exactly at AVDD. That is a bench noise
+  measurement, not a sourcing decision.
