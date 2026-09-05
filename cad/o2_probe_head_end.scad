@@ -254,8 +254,58 @@ mem_clamped = (mem_seal == "clamped");
 // ORS116787, EPDM 70 Shore A peroxide-cured, 24.0 x 1.5 DIN 3771. NOT a derived
 // size -- 24.5 x 1.5 does not exist in EPDM at all; it is FKM/FFKM only, and FKM
 // is excluded because ammonia attacks fluoroelastomers.
-oring_cord = 1.5;
-oring_id_ordered = 24.0;    // the part that actually exists
+// WHICH RADIAL RING. The sourced one, or a size that is physically in the
+// drawer -- because a bench test that waits on a delivery is a bench test that
+// does not happen.
+//
+//   "ors116787"    24.0 x 1.5, o-ring-stocks.eu, EPDM 70 peroxide, WITH the
+//                  compound test report the ammonia argument rests on. The
+//                  design of record.
+//   "onhand-22x2"  22 x 2, on hand, UNCATALOGUED -- material, cure system and
+//                  cord tolerance all assumed. TEMPORARY, for a squeeze and
+//                  leak test on a part that can be printed today. This is the
+//                  substitution to use: it is the only on-hand size that keeps
+//                  a full-thickness wall under the groove.
+//   "onhand-20x2"  20 x 2, likewise on hand, and it costs the wall: 0.99 mm
+//                  under the groove root against 2.39 for the 22. Kept because
+//                  it is what shrinks the spigot furthest, if that is ever the
+//                  question being asked.
+//
+// The ring SIZES THE SPIGOT, which is why this is not a one-line substitution.
+// Install stretch has to stay inside 1-5%, so the groove root is pinned near
+// 1.035 x the ring ID, and the spigot diameter follows from the root plus two
+// compressed cords. Ø24 -> Ø26.8 spigot, Ø22 -> Ø25.8, Ø20 -> Ø23.0. Since the
+// clamped bed deleted the Ø22 heater counterbore, nothing else in the part needs
+// that diameter any more, so this is now a free parameter of the ring.
+//
+// 14 x 2.5 and 17 x 2.5 are NOT offered and cannot be: their roots (14.5 / 17.6)
+// are at or under the Ø18 spigot bore the cell has to pass through, so there is
+// no wall at all. Only the 20 and the 22 are geometrically possible.
+//
+// A NOTE ON THE Ø22 AND THE 2.4 mm WALL, because it is 14 microns from being a
+// lie. Both constraints move together and stay exactly well_bias (0.0105) apart:
+//     wall >= 2.4   needs  spigot_d >= 26.8 - 4*squeeze
+//     stretch <= 5% needs  spigot_d <= 26.7895 - 4*squeeze
+// so no squeeze value satisfies both, for any Ø22 ring, ever. At the Ø25.8
+// spigot the stretch is 4.93% and the wall is 2.387. Rather than pretend, the
+// wall minimum for this variant is stated as 2.38 -- and that is the whole
+// concession, not a rounded-down 2.4.
+radial_ring = "ors116787";
+assert(radial_ring == "ors116787" || radial_ring == "onhand-22x2"
+       || radial_ring == "onhand-20x2",
+       str("unknown radial_ring '", radial_ring, "'"));
+onhand_ring = (radial_ring != "ors116787");
+
+oring_cord = (radial_ring == "ors116787") ? 1.5 : 2.0;
+oring_id_ordered = (radial_ring == "ors116787") ? 24.0
+                 : (radial_ring == "onhand-22x2") ? 22.0 : 20.0;
+// DIN ISO 3601 d1 rows: +/-0.25 at 24, +/-0.22 at 20 and 22. Only moves stretch.
+oring_id_tol = (radial_ring == "ors116787") ? 0.25 : 0.22;
+// Wall left under the groove root, over the spigot bore. 2.4 (= wall_min) is
+// what the sourced ring affords and what the head is designed to; see the note
+// above for why the Ø22 lands at 2.38 and cannot be made to land at 2.4.
+spigot_groove_wall_min = (radial_ring == "ors116787") ? wall_min
+                       : (radial_ring == "onhand-22x2") ? 2.38 : 0.95;
 // Static radial squeeze, fraction of cord. 0.24 is not a handbook preference --
 // it is the value that CENTRES the printed well's tolerance band. At the obvious
 // 0.20 the band is -0.34/+0.10, and a printed bore errs oversize, which is the
@@ -340,12 +390,21 @@ oring_cord_tol = (oring_sorting == "sorted") ? 0.01 : 0.08;
 groove_w_factor = 1.40;     // groove width as a multiple of cord
 lead_chamfer = 1.0;         // so the O-ring is not shaved on assembly
 
-// 4.0 for the clamped bed, 3.0 for the legacy one. The clamped retainer carries
-// the O-ring groove, so it loses face_seat_depth + the groove depth (2.0 mm) out
-// of its underside and what is left is the web that reacts the ring. At 3.0 that
-// web is 1.0 mm and bows, which would bleed squeeze off exactly where it is
-// being set. It costs 1.0 mm of probe length, through cap_stack.
-retainer_t = mem_clamped ? 4.0 : 3.0;
+// The clamped retainer carries the O-ring groove, so it loses face_seat_depth
+// plus the groove depth out of its underside and what is left is the web that
+// reacts the ring. At 3.0 that web is 1.0 mm and bows, which would bleed squeeze
+// off exactly where it is being set, so 2.0 is the target.
+//
+// DERIVED, not declared, and quantized to the BUILD: the part prints groove-up,
+// so its top face is the seal's reference plane, and a total height that is not
+// first_layer + n*layer puts that plane wherever the slicer's last layer lands.
+// 0.2 + 32 x 0.12 = 4.04, web exactly 2.0. It costs 1.04 mm of probe length
+// through cap_stack.
+retainer_t = mem_clamped
+    ? face_first_layer_h
+      + ceil(((face_seat_depth + face_groove_depth(window_d) + 2.0)
+              - face_first_layer_h) / face_layer_h) * face_layer_h
+    : 3.0;
 // SIX, not four. The four-screw choice was made when the radial O-ring was
 // thought to have taken all seal load off these screws; a review found that is
 // only true of the carrier-to-head joint -- the retainer still compresses the
@@ -407,7 +466,17 @@ board_diag = sqrt(pow(board_w, 2) + pow(board_swept, 2));
 bore_d = max(board_diag + 2*bore_margin, cell_d + 2*bore_margin);
 
 mouth_d = window_d + flare_extra;        // the flare's mouth, in the flange
-spigot_d = mouth_d + 2*spigot_land;      // wall thick enough to hold a groove
+// Ø23.0 for the on-hand ring: solved from the root it needs (20.0 x 1.035 =
+// 20.7 -- see radial_ring above) plus two compressed cords, less carrier_fit.
+// The sourced ring's 26.8 is left as the literal expression it has always been,
+// so this substitution cannot move the design of record by a rounding step.
+// Solved from the root each ring needs (ID x ~1.035) plus two compressed cords,
+// less carrier_fit. The sourced ring's 26.8 is left as the literal expression it
+// has always been, so this substitution cannot move the design of record by a
+// rounding step.
+spigot_d = (radial_ring == "onhand-22x2") ? 25.8
+         : (radial_ring == "onhand-20x2") ? 23.0
+         : mouth_d + 2*spigot_land;   // wall thick enough for a groove
 well_d = spigot_d + carrier_fit;         // the DRAWN bore, i.e. the call-out
 // H7 is +0.021/0, not +/-0.0105: a reamed bore is centred half a band ABOVE
 // nominal, never below it. The seal math must use the middle of the distribution
@@ -541,7 +610,21 @@ fast_seal_wall = use_insert ? insert_seal_wall : pt_seal_wall;
 // The bore the fastener must stay clear of is the WELL the spigot seals into --
 // well_d = spigot_d + carrier_fit -- not the spigot itself. Using spigot_d here
 // overstated every quoted wall by carrier_fit/2.
-bolt_r = well_d/2 + fast_seal_wall + fast_hole_d/2;
+// TWO things push the bolt circle out, and until 2026-09-05 only one of them was
+// counted: the sealing bore (a fastener must not be drilled into the well's
+// wall) and, since the bed moved into the retainer, THE MEMBRANE SEAT (a bolt
+// hole must not break into the disc pocket). With the sourced Ø24 ring the well
+// term wins and this changes nothing; substituting the on-hand Ø20 ring shrinks
+// the well by 4 mm, and without the second term the circle followed it down to
+// Ø28.3 and cut straight through a Ø27.25 seat. The assert below caught it,
+// which is the correct outcome -- but the answer is to derive the circle from
+// both constraints, not to shrink the membrane.
+bolt_r = max(well_d/2 + fast_seal_wall + fast_hole_d/2,
+             // m25_clear, not fast_hole_d: through the FLANGE the screw needs
+             // its clearance hole, and that is the bigger of the two features
+             // -- sizing this off the pilot leaves the assert 0.95 mm short.
+             mem_clamped ? (face_disc_d(window_d) + 0.4)/2 + 0.8 + m25_clear/2
+                         : 0);
 
 // The flange must reach the bolt circle, which the insert now sets -- with the
 // real 3.99 bore the circle grew past a flange sized from the spigot alone.
@@ -644,8 +727,12 @@ echo(str("CELL SERVICE: withdraws axially, travel ", cell_pull_travel,
          cell_pull_spigot, " mm in the spigot bore. Blind reach from the head end face to the can top ",
          end_z - well_z, " mm through a ", spigot_bore,
          " mm bore -- NO EXTRACTION TOOL EXISTS and fingers do not fit."));
-assert((spigot_d - spigot_bore)/2 - oring_cord + oring_cord*oring_squeeze >= 1.2,
-       "spigot wall too thin under the O-ring groove: it will collapse inward and lose squeeze");
+assert((spigot_d - spigot_bore)/2 - oring_cord + oring_cord*oring_squeeze
+       >= spigot_groove_wall_min - 1e-6,
+       str("spigot wall under the O-ring groove is ",
+           (spigot_d - spigot_bore)/2 - oring_cord*(1 - oring_squeeze),
+           " mm against ", spigot_groove_wall_min,
+           " required: it collapses inward and loses squeeze"));
 assert(spigot_len >= groove_w + lead_chamfer + 1.5,
        "spigot too short to carry the groove plus its lead-in chamfer");
 assert(spigot_bore >= window_d + 2.0,
@@ -706,7 +793,7 @@ oring_fill = (PI/4 * pow(oring_cord_fitted, 2))
 // corner is the FATTEST ring in the SMALLEST gland: bore at its H7 minimum, root
 // at its machined maximum, cord at catalogue maximum, and ID at catalogue maximum
 // too -- a big ID stretches least, so it thins least and stays fattest.
-oring_id_max = oring_id_ordered + 0.25;      // DIN ISO 3601 d1 row for 24 mm
+oring_id_max = oring_id_ordered + oring_id_tol;   // DIN ISO 3601 d1 row
 oring_root_max = groove_root_d + carrier_tol;
 oring_stretch_min = oring_root_max/oring_id_max - 1;
 oring_cord_fat = (oring_cord + oring_cord_tol) * (1 - oring_stretch_min/2);
@@ -728,11 +815,12 @@ assert(oring_fill <= 0.85,
 // number was never checked -- it happened to be 3.52 mm, comfortably over
 // wall_min, and nothing would have said so had it not been.
 spigot_groove_wall = (groove_root_d - spigot_bore)/2;
-assert(spigot_groove_wall >= wall_min - 1e-6,
+assert(spigot_groove_wall >= spigot_groove_wall_min - 1e-6,
        str("only ", spigot_groove_wall, " mm of spigot left under the O-ring ",
            "groove root (Ø", groove_root_d, " over a Ø", spigot_bore,
-           " bore), against a ", wall_min, " mm minimum. Raise spigot_land, or ",
-           "accept a thinner section on the part that carries the seal"));
+           " bore), against a ", spigot_groove_wall_min, " mm minimum. Raise ",
+           "spigot_land, take a larger-ID ring, or accept a thinner section on ",
+           "the part that carries the seal"));
 
 // ---- membrane perimeter seal ------------------------------------------------
 // The radial ring above gets six checks. This one had one -- the ledge, inside
@@ -836,6 +924,12 @@ assert(!mem_clamped || face_disc_edge >= 0.8,
 // What is left of the retainer over the groove. This is why retainer_t moved to
 // 4.0: the web reacts the ring, and a web that bows gives squeeze back.
 face_web = retainer_t - face_seat_depth - face_groove_depth(window_d);
+assert(!mem_clamped
+       || abs((retainer_t - face_first_layer_h)/face_layer_h
+              - round((retainer_t - face_first_layer_h)/face_layer_h)) < 1e-9,
+       str("retainer height ", retainer_t, " is not first_layer + n x ",
+           face_layer_h, ": its TOP FACE is the bed's reference plane, and an ",
+           "unquantized height leaves the slicer to place it"));
 assert(!mem_clamped || face_web >= 1.6,
        str("only ", face_web, " mm of retainer over the bed groove: it bows ",
            "under the ring and bleeds off the squeeze the groove depth sets"));
@@ -944,7 +1038,9 @@ echo(str("SIZE: head ", head_od, " / cap ", cap_od, " mm. The electronics want "
          "Deleting the bolt circle outright, now that the O-ring sets squeeze ",
          "by GEOMETRY and the screws carry no seal load, would reach ",
          2*(bore_d/2 + wall_min), " mm."));
-echo(str("O-RING ORS116787, EPDM 70 peroxide, ", oring_id_ordered, " x ", oring_cord,
+echo(str("RADIAL O-RING ", onhand_ring
+         ? "ON HAND, UNCATALOGUED -- material, cure system and cord band all ASSUMED; the ORS116787 compound test report does NOT cover it. TEMPORARY"
+         : "ORS116787, EPDM 70 peroxide", ", ", oring_id_ordered, " x ", oring_cord,
          " on a ", groove_root_d, " x ", groove_w, " groove: ", oring_stretch*100,
          "% install stretch, ", oring_squeeze_real*100, "% squeeze after thinning; ",
          oring_squeeze_min*100, "-", oring_squeeze_max*100, "% worst case; groove ",
@@ -1376,10 +1472,7 @@ module assembly() {
     color("DarkSlateGray")
         translate([0, 0, cell_z - 3.4*e]) cylinder(d=cell_d, h=cell_h);
     // Gasket drawn at its COMPRESSED height, which is how it sits in service.
-    color("DimGray")
-        translate([0, 0, well_z + lead_chamfer + 0.75 + groove_w/2 + 1.6*e])
-            rotate_extrude() translate([groove_root_d/2 + oring_cord/2, 0])
-                circle(d=oring_cord);
+    color("DimGray") translate([0, 0, 1.6*e]) radial_ring();
     color("Khaki") translate([0, 0, well_z + 3.4*e]) carrier();
     // The consumable stack the retainer clamps, in the carrier's wet-face pocket:
     // the O-ring at its COMPRESSED height, then the membrane coupon on top.
@@ -1575,6 +1668,24 @@ module section() {
     }
 }
 
+// The CARRIER-TO-HEAD radial seal, at its assembly coordinate. Defined once
+// because it was drawn in exactly one place -- inline in assembly() -- and so
+// the viewer had no way to show it. A seal that is not drawn reads as a seal
+// that is not there, which is the one thing this viewer exists to prevent.
+//
+// Drawn SQUEEZED, like the bed ring: the gland is (well_d_made - groove_root_d)/2
+// per side, i.e. one compressed cord, and the section bulges axially to keep its
+// area. The old inline copy drew a free circle at the free cord, which is 1.5
+// where the seated ring is 1.13 x 1.98 -- it looked like a ring resting in a
+// groove rather than one filling it.
+module radial_ring() {
+    gland = (well_d_made - groove_root_d) / 2;
+    translate([0, 0, well_z + lead_chamfer + 0.75 + groove_w/2])
+        rotate_extrude()
+            translate([groove_root_d/2 + gland/2, 0])
+                scale([gland/oring_cord, oring_cord/gland]) circle(d=oring_cord);
+}
+
 // ---------------------------------------------------------------- viewer
 // The sealing stack, element by element, IN ASSEMBLY COORDINATES. The three.js
 // viewer loads these with identity matrices, so it does no arithmetic of its
@@ -1597,6 +1708,7 @@ module bed_element(which) {
                     scale([1, mem_clamped ? face_gap_nom/face_cord_fit
                                           : gasket_gap/mem_oring_cs])
                         circle(d=mem_clamped ? face_cord_fit : mem_oring_cs);
+    else if (which == "radial-ring") radial_ring();
     else assert(false, str("unknown bed element '", which, "'"));
 }
 
@@ -1614,6 +1726,7 @@ else if (part == "bed-carrier") bed_element("carrier");
 else if (part == "bed-retainer") bed_element("retainer");
 else if (part == "bed-membrane") bed_element("membrane");
 else if (part == "bed-ring") bed_element("ring");
+else if (part == "bed-radial-ring") bed_element("radial-ring");
 // Print-oriented single-part exports, for a slicer that takes STLs as-exported
 // and cannot be trusted to re-derive the flips.
 else if (part == "carrier-print") carrier_printed();

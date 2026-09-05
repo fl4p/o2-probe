@@ -421,26 +421,45 @@ face_ring_cord = 2.5;
 // one band up: 1.8 < d2 <= 2.65.
 face_cord_tol  = 0.09;
 face_id_tol    = 0.22;      // d1 = 17 row; only moves stretch, second order
-// Inner groove wall. 0.8 = two 0.4 mm beads: the smallest wall that is a
-// deliberate two-perimeter feature rather than whatever Arachne decides to do
-// with a sliver. This is the dimension the legacy bed did not have AT ALL.
+// Inner groove wall. 0.8 mm, and at this profile's 0.6 line width that is ONE
+// bead plus a third -- not the two beads the first version of this comment
+// claimed. It cannot be widened: the wall stands between the Ø16 window and the
+// groove ID, and the groove ID is pinned near the ring's own ID because a face
+// ring whose bore is smaller than the inner wall has to be STRETCHED over it.
+// At Ø17 nominal, 0.8 already costs 3.5% stretch; 1.2 (two real beads) would
+// cost 8.2% and break the 5% rule.
+//
+// It is retention, not sealing: the wall stops the ring migrating over the
+// window during assembly and carries no load once the retainer is down. A
+// single 0.6 bead 1.8 mm tall is a real wall. If that proves not to be true on
+// the part, the ways out are a Ø15 window (176.7 mm2, under the 180 floor), a
+// Ø20 bed ring (head grows to Ø42), or a narrower line width for this part --
+// all three are sourcing or profile decisions, not CAD ones.
 face_wall_min  = 0.8;
 // Groove width as a multiple of cord. 1.45, matching the reasoning at
 // groove_w_factor above: the binding case is not the nominal fill but the
 // worst corner (fattest cord, shallowest groove), and widening the groove is
 // the cheap axis -- it costs retainer diameter, which there is room for.
 face_groove_w_factor = 1.45;
-// The build layer this bed is quantized to. A groove depth that is not an
-// integer number of layers is a groove depth the slicer chooses, not one the
-// model does -- and squeeze is 1 - gap/cord, so that choice is a seal
-// dimension. If the part is sliced at another layer height, this must move
-// with it and the depth is re-derived.
-face_layer_h   = 0.2;
-// Membrane counterbore in the retainer's underside: exactly ONE layer, so the
-// disc is located without asking the slicer to print a fraction of one. The
-// retainer bottoms on the carrier flange outside it, which is what makes
-// squeeze geometric rather than a function of screw torque.
-face_seat_depth = 0.2;
+// THE BUILD LAYER THIS BED IS QUANTIZED TO, and it is READ OFF THE PROFILE, not
+// chosen: cad/profiles/process_asa_seal.json slices this part at 0.12 with a
+// 0.2 first layer. It was 0.2 here for a day and that was simply wrong -- a
+// groove depth that is not an integer number of layers is a depth the SLICER
+// picks, and squeeze is 1 - gap/cord, so the slicer would be picking a seal
+// dimension. tools/profile_check.py compares these two numbers and the Makefile
+// runs it, because a constant that has to track a JSON file three directories
+// away will otherwise drift the first time either moves.
+face_layer_h   = 0.12;
+face_first_layer_h = 0.2;
+// The same profile's wall line width. The inner groove wall was specified as
+// "two 0.4 beads" -- that was a 0.4-nozzle assumption, and this process prints
+// 0.6-wide walls with the classic generator. See face_wall_min below.
+face_line_w    = 0.6;
+// Membrane counterbore in the retainer's underside: TWO layers, so the disc is
+// located without asking the slicer to print a fraction of one. The retainer
+// bottoms on the carrier flange outside it, which is what makes squeeze
+// geometric rather than a function of screw torque.
+face_seat_depth = 2 * face_layer_h;
 face_disc_ledge = 1.0;      // membrane rim outboard of the groove
 face_squeeze_target = 0.25;
 

@@ -170,11 +170,29 @@ head-end-exploded: | $(OUT)
 #
 # The clamped bed's own ring (17 x 2.5, on hand) wants the same micrometer --
 # see face_sorting in the model and PRINTING-HEAD-END.md.
+#
+# WHICH RADIAL RING THE EXPORTS ARE CUT FOR. Default onhand-22x2, and that is not
+# a preference: Fab confirmed 2026-09-05 there is no 24 x 1.5 in the building, so
+# a part exported for the sourced ring is a part that cannot be assembled today.
+# The MODEL's default is still "ors116787" -- the design of record is unchanged
+# and `make head-end-asa RING=ors116787` builds it -- but what lands in exports/,
+# and therefore what print.sh slices, is the ring that exists.
+#
+# The ring sizes the spigot (Ø22 -> Ø25.8 against Ø24 -> Ø26.8), so this is a
+# different part, not a different note on the same part. exports/asa-PROVENANCE
+# records which one, because two STLs that differ by 1 mm of spigot look
+# identical in a file listing and identical on a plate.
+RING ?= onhand-22x2
 ASA := $(HEAD_END_PROV) -D 'carrier_material="asa"' -D 'carrier_fab="printed"' \
-       -D 'oring_sorting="sorted"' -D 'mem_seal="clamped"'
+       -D 'oring_sorting="sorted"' -D 'mem_seal="clamped"' \
+       -D 'radial_ring="$(RING)"'
 
 .PHONY: head-end-asa
 head-end-asa: | $(OUT)
+	@# The bed is quantized to the BUILD, so the build has to be the one that
+	@# slices it. This compares the model's layer height, first layer and line
+	@# width against profiles/process_asa_seal.json, which is what print.sh uses.
+	python3 tools/profile_check.py
 	@for p in carrier retainer; do \
 		$(OPENSCAD) --hardwarnings $(ASA) -D "part=\"$$p\"" \
 			-o $(OUT)/asa-$$p.stl $(HEAD_END) 2>$(OUT)/.asa-$$p.log || \
@@ -190,9 +208,25 @@ head-end-asa: | $(OUT)
 			-o $(OUT)/asa-$$p-print.stl $(HEAD_END) 2>/dev/null || \
 			{ echo "FAIL asa-$$p-print"; exit 1; }; \
 	done
-	$(OPENSCAD) $(ASA) -D 'part="plate"' -D 'plate_set="pair"' \
-		-o $(OUT)/asa-carrier-pair.3mf $(HEAD_END)
-	@echo "ASA carrier + retainer: exports/asa-*-print.stl, exports/asa-carrier-pair.3mf"
+	@# NO PAIRED PLATE. tools/seal_check.sh refuses a multi-object plate and it is
+	@# right to: identical parts measured 0 mTorr singly and 18 mTorr nine-up
+	@# (PRINTING-BODY-TUBE.md). These two parts carry the seal, so they are
+	@# sliced one per plate by ./print.sh, not arranged together here.
+	@# PROVENANCE. What these STLs were cut for, beside the STLs, because the
+	@# radial ring is a 1 mm difference in spigot diameter and nothing in an STL
+	@# says which ring it expects. print.sh can assert on this file if it wants a
+	@# gate; at minimum a human reading exports/ can see it.
+	@{ echo "asa-carrier-print.stl, asa-retainer-print.stl"; \
+	   echo "built    $$(date '+%Y-%m-%d %H:%M')"; \
+	   echo "radial   $(RING)"; \
+	   echo "bed      clamped, O-ring 17 x 2.5 in the RETAINER underside"; \
+	   echo "carrier  ASA, printed, shrinkage-compensated groove root"; \
+	   echo "rings    micrometer them: oring_sorting=sorted is assumed"; \
+	   $(OPENSCAD) $(ASA) -D 'part="carrier"' -o /dev/null --export-format asciistl \
+	     $(HEAD_END) 2>&1 | sed -n 's/^ECHO: "\(RADIAL O-RING\|PP carrier\)/  \1/p' \
+	     | sed 's/"$$//'; } > $(OUT)/asa-PROVENANCE
+	@cat $(OUT)/asa-PROVENANCE
+	@echo "ASA carrier + retainer: exports/asa-*-print.stl -- slice singly, ./print.sh slice carrier"
 
 # ---------------------------------------------------------------- body tube
 # Printed ASA body for prototype 1: unpotted Rev-A board, no heater ring.
