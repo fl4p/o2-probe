@@ -674,7 +674,21 @@ cap_wall = 2.5;
 cap_front_t = 2.5;          // solid plowing face
 cap_grip = 10.0;            // how far the cap reaches down the head's OD
 cap_screw_n = 2;
-cap_screw_depth = 4.0;      // BLIND: must never reach the bore
+// BLIND: must never reach the bore -- see the cap_screw_void_r assert.
+//
+// STAYS AT 4.0, and the counterbore added on 2026-09-05 comes OUT OF THE THREAD
+// rather than being added to the depth. Engagement is therefore 3.0 = 1.5 x
+// nominal, under EJOT's di = 2 x d1. That is a deliberate derate, on the one
+// joint in the head that can afford it: these screws only hold the plow cap on
+// and carry no seal load, which is the same reason they are self-tapping at all.
+//
+// It is not a free choice. 5.0 was tried first, to keep 2 x d1 of thread, and
+// the cap_screw_void_r assert REFUSED it -- by 0.05 mm: the hole reaches r=14
+// and the void behind it runs out to r=13.05, needing 14.05. Deepening these
+// holes to keep the thread rule would have opened an outside-to-gas leak path
+// through the head wall to save a cap screw. Wrong trade, and the guard is what
+// made it visible rather than a comment.
+cap_screw_depth = 4.0;      // 1.0 counterbore + 3.0 thread
 selftap_cap = pt_pilot_d;   // cap screws carry no seal load, so self-tap is fine.
                             // Same M2 pilot as the retainer screws, and tied to
                             // it rather than restated: one screw size in the head
@@ -1599,7 +1613,8 @@ echo(str("fasteners: ", bolt_n, "x ",
                     : "M2 A2 machine screws direct into printed bosses",
          " on a dia ",
          2*bolt_r, " bolt circle; ", cap_screw_n,
-         "x M2 self-tapping for the cap (no seal load)"));
+         "x M2 self-tapping for the cap, counterbored, ",
+         cap_screw_depth - pt_cbore_h, " mm engagement (no seal load)"));
 // Bore sections only -- UNDERSTATES, the aperture stack is connected gas too.
 // Build `cavity` and measure the mesh; that is the number that governs.
 echo(str("connected volume ", cav_net/1000,
@@ -1683,10 +1698,27 @@ module head() {
         }
 
         // Cap retention: BLIND radial holes that stop well short of the bore.
+        //
+        // COUNTERBORED SINCE 2026-09-05, and this was a real defect, not a
+        // refinement. These holes were a bare selftap_cap cylinder -- which is
+        // station 4 of the fastener coupon exactly, the one Fab drove and found
+        // TOO SMALL, against station 3 (same pilot, counterbored) which he chose
+        // for the retainer. The retainer screws got the counterbore in the same
+        // pass and these did not, so the head would have shipped with two holes
+        // built to the geometry the coupon had just rejected.
+        //
+        // The lead-in is what the screw needs to START; a 60-degree ISO flank
+        // entering bare printed plastic has nothing to centre on and nowhere for
+        // the first displaced material to go. That is worse here than on the
+        // retainer face, because these are RADIAL, so the screw starts on a
+        // CURVED surface and the counterbore is also what gives it a flat.
         translate([0, 0, head_len - cap_grip/2])
             cap_screw_positions()
-                translate([0, 0, head_od/2 - cap_screw_depth])
+                translate([0, 0, head_od/2 - cap_screw_depth]) {
                     cylinder(d=selftap_cap, h=cap_screw_depth + heps);
+                    translate([0, 0, cap_screw_depth - pt_cbore_h])
+                        cylinder(d=pt_cbore_d, h=pt_cbore_h + heps);
+                }
     }
 }
 

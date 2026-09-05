@@ -187,12 +187,36 @@ stress acts.
 own parameters, printed the same way up as the head (holes entering the top face,
 because the head prints cable-end-down). Four stations:
 
-| # | hole | question |
-|---|---|---|
-| 0 | insert 3.23 + flange counterbore | does an IUTFC-M2 heat-set square and flush? |
-| 1 | insert 3.13 — deliberately 0.1 tight | which side of +0.08/−0.00 does a printed hole land on? |
-| 2 | PT pilot 1.60 + 2.10 × 1.00 counterbore | does a DELTA PT 20 form a thread without splitting the boss? |
-| 3 | PT pilot 1.60, **no** counterbore | control for EJOT's claim that the counterbore is what stops the cracking |
+| # | hole | question | result |
+|---|---|---|---|
+| 1 | insert 3.23 + flange counterbore | does an IUTFC-M2 heat-set square and flush? | not run — route not chosen |
+| 2 | insert 3.13 — deliberately 0.1 tight | which side of +0.08/−0.00 does a printed hole land on? | not run |
+| 3 | pilot 1.60 + 2.10 × 1.00 counterbore | does an M2 screw drive without splitting the boss? | **chosen** — *"use that hole / the 3rd one"* |
+| 4 | pilot 1.60, **no** counterbore | control for the claim that the counterbore is what makes the boss work | **"too small for M2 screw"** |
+
+### What station 4 actually showed
+
+Not what I predicted. I expected the bare pilot to **split**; the observed failure
+was that it **would not take the screw at all**. Those are different mechanisms
+and the difference matters:
+
+- A split says the pilot is too small for the *displaced volume*, and the fix is
+  a bigger pilot everywhere.
+- "Won't start" says the screw has nothing to centre on and nowhere for the first
+  turn's material to go — the counterbore is a **lead-in**, and the fix is the
+  counterbore, which station 3 has and station 4 does not.
+
+Same 1.60 pilot in both, differing only in the top 1.00 mm. So the counterbore is
+carrying the result, and EJOT's description of it as functional rather than
+cosmetic holds in printed ASA — for the entry, at least, which is more specific
+than what they claim it for (edge-stress relief against boss cracking).
+
+**This caught a defect in the head.** The cap-retention screws were still a bare
+Ø1.60 cylinder — station 4's geometry exactly — while the retainer screws got the
+counterbore in the same pass. The head would have shipped with two holes built to
+the geometry the coupon had just rejected, and it is worse there: those holes are
+*radial*, so the screw starts on a curved surface and the counterbore is also what
+gives it a flat to bite. Fixed; see `cap_screw_depth`.
 
 Sliced on the ASA sealing profile — deliberately, since the point is how a boss
 behaves in the process the part is printed in — and it passes `seal_check.sh`.
