@@ -141,11 +141,23 @@ CRITICAL_TRACKS = (
     # only gap in that fence is below U7 -- which this leg uses.  The detour is
     # 9 mm longer than a via would be and worth every millimetre.
     #
-    # The north-south leg stays at x=13.00.  Packing it against U8 at x=13.50
-    # to consolidate the corridor was tried and SHORTED U8 pad 1 (/ADC_RESET):
-    # that pad reaches x=13.6, not the 13.9 the pad centres suggested.
-    ("/CELL_RE", F, 0.25, ((11.00, 82.50), (13.00, 82.50), (13.00, 75.30),
-                           (12.59, 74.89), (3.97, 74.89))),
+    # The north-south leg is at x=12.40, hard against the west side of the
+    # corridor.  This is the single most consequential number in the file.
+    #
+    # U8 is a WQFN-16 on 0.5 mm pitch: four pads per side, and on two layers
+    # with no inner layer and gaps too small for a via, every one of them must
+    # fan out SIDEWAYS on F.Cu.  Its west pad row begins at x=13.62.  At
+    # x=13.00 this leg left those four pads 0.495 mm to escape into, and the
+    # router reported `endpoint cell blocked` for U8 pads 9..13 and
+    # boxed_in_static on six nets -- NINE of the fifteen nets that would not
+    # route were U8 pads.  At 12.40 the corridor is 1.095 mm, which takes the
+    # two signal escapes (pads 2 and 3 are GND and reach the pour).
+    #
+    # Moving it the other way, to 13.50, was tried first and SHORTED U8 pad 1:
+    # that pad reaches x=13.62, not the 13.9 its centre suggested.  Pad
+    # extents, not pad centres -- and the right direction was west all along.
+    ("/CELL_RE", F, 0.25, ((11.00, 82.50), (12.40, 82.50), (12.40, 75.30),
+                           (11.99, 74.89), (3.97, 74.89))),
 
     # -- The driven guard.  Two F.Cu rails at 0.275 mm either side of the run,
     # joined under it on B.Cu, fed once from R40.
