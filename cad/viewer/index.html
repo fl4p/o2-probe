@@ -67,12 +67,22 @@
   <h2>Parts</h2>
   <div id="parts"></div>
 
-  <h2>Section <span class="val" id="clipv">off</span></h2>
-  <input type="range" id="clip" min="-22" max="22" step="0.25" value="22">
-  <div class="note" style="margin-left:0">Cuts on Y. Full right = no cut.</div>
+  <h2>Cut lengthwise <span class="val" id="clipYv">off</span></h2>
+  <input type="range" id="clipY" min="-20" max="20" step="0.25" value="20" autocomplete="off">
+  <label class="row" style="padding-top:1px"><input type="checkbox" id="flipY" autocomplete="off">
+    <span class="nm">keep the other half</span></label>
+  <div class="note" style="margin-left:0">Splits the probe down its length, on
+    the board plane. Full right = no cut.</div>
+
+  <h2>Cut across <span class="val" id="clipZv">off</span></h2>
+  <input type="range" id="clipZ" min="-121" max="34" step="0.5" value="34" autocomplete="off">
+  <label class="row" style="padding-top:1px"><input type="checkbox" id="flipZ" autocomplete="off">
+    <span class="nm">keep the other half</span></label>
+  <div class="note" style="margin-left:0">Slides a plane along the probe axis:
+    -113 is the cable end, 0 the head joint, +33.6 the membrane face.</div>
 
   <h2>Body opacity <span class="val" id="opav">100%</span></h2>
-  <input type="range" id="opa" min="8" max="100" step="1" value="100">
+  <input type="range" id="opa" min="8" max="100" step="1" value="100" autocomplete="off">
 
   <h2>View</h2>
   <div>
@@ -105,6 +115,14 @@ app.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x101214);
 const camera = new THREE.PerspectiveCamera(38, 1, 0.5, 4000);
+// Z IS UP, and the model is NOT rotated. This matters for more than tidiness:
+// three.js clipping planes are in WORLD space, so with the model rotated into
+// the viewer's frame every cut had to be expressed in a rotated basis -- and
+// the first version of this file got it wrong, cutting ACROSS the probe when it
+// claimed to cut along it, over a +/-22 range that did not even span a 146 mm
+// part. Leaving the geometry in model coordinates makes every plane constant
+// below a real millimetre value off the drawings.
+camera.up.set(0, 0, 1);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
@@ -116,7 +134,14 @@ const key = new THREE.DirectionalLight(0xffffff, 1.5); key.position.set(1, 1.4, 
 const fill = new THREE.DirectionalLight(0xffffff, 0.55); fill.position.set(-1.2, -0.8, -1);
 scene.add(key, fill);
 
-const clipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 22);
+// Model-space, now that the model is not rotated.
+//   Y is the board's thickness axis -> a lengthwise cut through the probe
+//   Z is the probe axis             -> a cut across it, anywhere along the length
+// three.js keeps the half where dot(normal, p) + constant >= 0, so a normal of
+// (0,-1,0) keeps y <= constant and the slider at its maximum keeps everything.
+const clipY = new THREE.Plane(new THREE.Vector3(0, -1, 0), 20);
+const clipZ = new THREE.Plane(new THREE.Vector3(0, 0, -1), 34);
+const clipPlanes = [clipY, clipZ];
 const root = new THREE.Group();
 scene.add(root);
 
@@ -126,7 +151,7 @@ const mkMaterial = (color, opacity) => new THREE.MeshStandardMaterial({
   // THE WHOLE POINT: both faces are drawn, so nothing vanishes when you rotate
   // past a surface's normal. It also means the clipped interior stays visible.
   side: THREE.DoubleSide,
-  clippingPlanes: [clipPlane],
+  clippingPlanes: clipPlanes,
   transparent: opacity < 1, opacity,
 });
 
@@ -136,6 +161,7 @@ function addRow(p, mesh) {
   const wrap = document.getElementById('parts');
   const lab = document.createElement('label'); lab.className = 'row';
   const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = true;
+  cb.autocomplete = 'off';   // else a reload restores stale visibility
   cb.onchange = () => { mesh.visible = cb.checked; };
   const sw = document.createElement('span'); sw.className = 'sw'; sw.style.background = p.color;
   const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = p.name;
@@ -172,8 +198,7 @@ const loadSTL = url => new Promise((res, rej) => loader.load(url, res, undefined
     addRow(p, mesh);
   }
 
-  // Frame it. Z is the probe axis in the model, so stand it up as screen-Y.
-  root.rotation.x = -Math.PI / 2;
+  // No root rotation -- camera.up is Z instead, see above.
   const box = new THREE.Box3().setFromObject(root);
   const size = box.getSize(new THREE.Vector3());
   const mid = box.getCenter(new THREE.Vector3());
@@ -190,11 +215,32 @@ const loadSTL = url => new Promise((res, rej) => loader.load(url, res, undefined
 })();
 
 // --- controls ---------------------------------------------------------------
-const clip = document.getElementById('clip'), clipv = document.getElementById('clipv');
-clip.oninput = () => {
-  clipPlane.constant = +clip.value;
-  clipv.textContent = (+clip.value >= 22) ? 'off' : (+clip.value).toFixed(2) + ' mm';
-};
+// autocomplete="off" on every control above is not cosmetic: without it Chrome
+// restores slider positions and checkbox states across a reload, so the page
+// comes back with a cut half-applied and a flip inverted, and it looks like the
+// defaults are wrong. It cost one round of debugging here.
+function wireCut(plane, sliderId, labelId, flipId, axis, offAt) {
+  const sl = document.getElementById(sliderId), lab = document.getElementById(labelId);
+  const fl = document.getElementById(flipId);
+  // Force the default from JS rather than trusting the HTML value attribute.
+  // Chrome restores form state across reloads and IGNORES autocomplete="off" on
+  // range inputs, so the page was coming back with a cut already applied while
+  // the markup said otherwise -- the slider read -4 with value="20" on it.
+  sl.value = offAt; fl.checked = false;
+  const apply = () => {
+    const v = +sl.value, off = v >= offAt;
+    // Flipping is a sign change on BOTH the normal and the constant, which
+    // keeps the plane in the same place and swaps which side survives.
+    const s = fl.checked ? 1 : -1;
+    plane.normal.set(axis === 'y' ? 0 : 0, axis === 'y' ? s : 0, axis === 'z' ? s : 0);
+    plane.constant = -s * v;
+    if (off) { plane.constant = 1e6; }      // effectively no cut
+    lab.textContent = off ? 'off' : v.toFixed(1) + ' mm';
+  };
+  sl.oninput = apply; fl.onchange = apply; apply();
+}
+wireCut(clipY, 'clipY', 'clipYv', 'flipY', 'y', 20);
+wireCut(clipZ, 'clipZ', 'clipZv', 'flipZ', 'z', 34);
 const opa = document.getElementById('opa'), opav = document.getElementById('opav');
 opa.oninput = () => {
   const a = +opa.value / 100; opav.textContent = opa.value + '%';
@@ -207,6 +253,7 @@ opa.oninput = () => {
     mesh.material.needsUpdate = true;
   }
 };
+document.getElementById('opa').value = 100;   // same restoration trap
 for (const b of document.querySelectorAll('button[data-view]')) b.onclick = () => {
   if (!window.view) return;
   const { mid, dist } = window.view;
@@ -225,7 +272,7 @@ addEventListener('resize', resize); resize();
 // Debug handle. Not decoration: it is how the build is verified -- triangle
 // counts and bounding boxes read out of the live scene beat a screenshot,
 // because an empty geometry and a correct one look identical from behind.
-window.probe = { THREE, scene, root, camera, controls, state, clipPlane };
+window.probe = { THREE, scene, root, camera, controls, state, clipY, clipZ };
 
 (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
 </script>
