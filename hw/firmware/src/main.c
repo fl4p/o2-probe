@@ -77,6 +77,10 @@ static uint32_t g_uptime_s;
 static uint16_t g_settle_restarts;
 static uint16_t g_sample_seq;
 
+static o2p_fault_latch_t g_fault_latch;   /* see o2p_fault_latch_step() */
+static uint16_t g_faults_ever;            /* every bit seen since power-up */
+static uint16_t g_ads_fail_count;         /* cycles with no ADS conversion */
+
 /* When the SHT45 heater last fired, and how long its readings stay masked.
  * Initialised so the first cycle is not masked. */
 static uint32_t g_sht_pulse_ms;
@@ -564,7 +568,28 @@ static void cycle_publish(o2p_snapshot_t *s)
     s->i2c_errs = o2p_i2c1_error_count();
     s->settle_restarts = g_settle_restarts;
     s->sample_seq = ++g_sample_seq;
-    s->faults = g_cyc.faults;
+
+    /* Latch the transient bits, then publish this cycle's faults OR whatever
+     * is still latched.
+     *
+     * The order matters: bits raised THIS cycle are added to the latch before
+     * the window is tested, so a fault that is still present cannot be
+     * expired by a deadline set when it first appeared. The window is
+     * refreshed on every new occurrence, so a repeatedly glitching probe
+     * never shows clean between glitches. */
+    if ((g_cyc.faults & O2P_FAULTS_ADS_NO_CONVERSION) != 0u &&
+        g_ads_fail_count != 0xFFFFu) {
+        g_ads_fail_count++;             /* saturates rather than wrapping */
+    }
+
+    s->faults = o2p_fault_latch_step(&g_fault_latch, g_cyc.faults, g_uptime_s);
+
+    /* Accumulated from the PUBLISHED word, so what FAULTS_EVER reports is
+     * exactly what a reader could have seen, latch included - not a second,
+     * subtly different history. */
+    g_faults_ever |= s->faults;
+    s->faults_ever = g_faults_ever;
+    s->ads_fail_count = g_ads_fail_count;
 
     o2p_regmap_publish(&g_rm);
 }

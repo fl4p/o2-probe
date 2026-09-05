@@ -226,7 +226,16 @@ static uint16_t read_diag(const o2p_snapshot_t *s, uint16_t a)
     case O2P_REG_EXP_DATA:      return s->exp_data;
     case O2P_REG_SETTLE_RESTARTS: return s->settle_restarts;
     case O2P_REG_T_DIE:         return (uint16_t)s->t_die;
-    default:                    return s->sample_seq;
+    case O2P_REG_FAULTS_EVER:   return s->faults_ever;
+    case O2P_REG_ADS_FAIL_COUNT: return s->ads_fail_count;
+    case O2P_REG_SAMPLE_SEQ:    return s->sample_seq;
+    /* Named explicitly rather than left to the default. This arm used to
+     * return sample_seq for anything unmatched, so every register added to
+     * the block afterwards answered with a plausible, monotonically climbing
+     * number until someone remembered to add its case - the failure this
+     * file's whole design is against. An in-block address with no case is a
+     * gap in this switch, and it says so. */
+    default:                    return O2P_U16_INVALID;
     }
 }
 

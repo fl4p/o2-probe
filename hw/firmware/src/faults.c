@@ -39,3 +39,58 @@ _Static_assert((O2P_FAULTS_ADS_NO_CONVERSION & O2P_FAULTS_INVALIDATE_O2)
 _Static_assert((O2P_FAULTS_ADS_NO_CONVERSION & O2P_F_ADS_CONFIG_LOST) != 0,
                "a config the device did not store means the conversion was "
                "taken on an unknown channel or reference: there is no reading");
+_Static_assert((O2P_FAULTS_LATCHED & O2P_FAULTS_INVALIDATE_O2)
+                   == O2P_FAULTS_LATCHED,
+               "only bits that invalidate O2 may be latched: holding a bit "
+               "past the cycle it occurred in overstates the present, and "
+               "that is only worth doing for a fault that made the reading "
+               "untrustworthy");
+_Static_assert((O2P_FAULTS_LATCHED & O2P_F_SETTLING) == 0,
+               "SETTLING must NOT be latched: it already lasts up to 15 min, "
+               "so latching it would extend a long fault rather than preserve "
+               "a brief one, and would keep the probe looking unsettled for "
+               "five minutes after it had genuinely settled");
+_Static_assert((O2P_FAULTS_LATCHED & O2P_FAULTS_ADS_NO_CONVERSION)
+                   == O2P_FAULTS_ADS_NO_CONVERSION,
+               "every ADS no-conversion bit must be latched: these are "
+               "precisely the one-cycle events that a five-minute poll misses "
+               "299 times out of 300, which is what the latch is for");
+
+uint16_t o2p_fault_latch_step(o2p_fault_latch_t *l, uint16_t cycle_faults,
+                              uint32_t now_s)
+{
+    const uint16_t fresh = (uint16_t)(cycle_faults & O2P_FAULTS_LATCHED);
+
+    if (fresh != 0u) {
+        /* Refreshing the window on every occurrence is what keeps a
+         * repeatedly glitching probe from reading clean between glitches -
+         * without it the deadline is set once and a probe faulting every
+         * minute goes quiet 330 s in. That behaviour IS load-bearing and is
+         * tested.
+         *
+         * Handling `fresh` before the expiry test is only tidiness: when the
+         * fault is still occurring, `cycle_faults` carries it into the
+         * returned word regardless of what the latch does, so both orderings
+         * publish the same thing. Deliberately not claimed as a guard - a
+         * known-bad run with the orderings swapped passes every test here,
+         * because there is nothing to catch. */
+        l->bits |= fresh;
+        l->until_s = now_s + O2P_FAULT_LATCH_S;
+    } else if (l->bits != 0u) {
+        /* Signed difference, so the comparison survives the uptime counter
+         * wrapping.
+         *
+         * Measured, with a known-bad build using a plain unsigned `>=`: a
+         * fault raised just before the wrap sets `until_s` to a small
+         * post-wrap value, so the very next cycle finds a huge `now_s` past
+         * it and RELEASES the bit immediately - the latch silently stops
+         * working for the one event it was holding. (The intuition that it
+         * would instead stick forever is wrong; it fails open, not closed,
+         * which is the worse of the two.) */
+        if ((int32_t)(now_s - l->until_s) >= 0) {
+            l->bits = 0u;
+        }
+    }
+
+    return (uint16_t)(cycle_faults | l->bits);
+}

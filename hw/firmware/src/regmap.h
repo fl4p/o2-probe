@@ -76,9 +76,24 @@ enum {
      * T_CHAMBER disagree with it, or vanish together, that is the bus, not
      * the weather. */
     O2P_REG_T_DIE           = 0x0022u,
+    /* Every fault bit seen since power-up, never cleared.
+     *
+     * O2P_REG_FAULTS holds what is wrong now (plus a short latch, see
+     * O2P_FAULT_LATCH_S). That is the right thing to act on and the wrong
+     * thing to diagnose from: a probe that glitched once a month ago and one
+     * that is glitching every hour both read clean between events. This
+     * register is the difference between them. */
+    O2P_REG_FAULTS_EVER     = 0x0023u,
+    /* Cycles in which the ADS1119 delivered no conversion at all
+     * (O2P_FAULTS_ADS_NO_CONVERSION), saturating at 0xFFFF.
+     *
+     * The latch guarantees such an event is SEEN; this counts how often. A
+     * rate is what separates a one-off from a failing part, and the latch
+     * self-clears, so without this the count is lost. */
+    O2P_REG_ADS_FAIL_COUNT  = 0x0024u,
 };
 #define O2P_REG_DIAG_BASE  0x0010u
-#define O2P_REG_DIAG_COUNT 19u
+#define O2P_REG_DIAG_COUNT 21u
 
 /* ---- Config block: 0x0030, 18 registers, read/write, flash-backed ---- */
 enum {
@@ -181,6 +196,8 @@ typedef struct {
     uint16_t settle_restarts;
     uint16_t sample_seq;
     int16_t  t_die;
+    uint16_t faults_ever;
+    uint16_t ads_fail_count;
 } o2p_snapshot_t;
 
 /* Reset every channel to its invalid sentinel. The sampler calls this at the

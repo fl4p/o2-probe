@@ -1348,6 +1348,127 @@ static void test_die_runaway_threshold_brackets_the_measured_evidence(void)
     TEST_ASSERT_FALSE(cold.runaway_latched);
 }
 
+/* The fault latch. What it exists to stop: a converter fault that lasts one
+ * cycle being published for one second out of the three hundred between
+ * polls, so that every guard raising such a bit is undetectable in the field
+ * however correct it is on the bench. */
+static void test_fault_latch_preserves_a_one_cycle_event(void)
+{
+    o2p_fault_latch_t l = {0u, 0u};
+
+    /* A clean cycle publishes nothing and latches nothing. */
+    TEST_ASSERT_EQUAL_HEX16(0, o2p_fault_latch_step(&l, 0u, 100u));
+
+    /* One cycle of DRDY_STUCK, then the fault is gone. */
+    TEST_ASSERT_EQUAL_HEX16(O2P_F_ADS_DRDY_STUCK,
+        o2p_fault_latch_step(&l, O2P_F_ADS_DRDY_STUCK, 101u));
+
+    /* It must still be published a full poll interval later - this is the
+     * whole point. 300 s is the nominal LoRa poll. */
+    TEST_ASSERT_EQUAL_HEX16(O2P_F_ADS_DRDY_STUCK,
+        o2p_fault_latch_step(&l, 0u, 101u + 300u));
+
+    /* And it must clear by itself, or the probe would look permanently
+     * faulted after a single glitch. */
+    TEST_ASSERT_EQUAL_HEX16(0,
+        o2p_fault_latch_step(&l, 0u, 101u + O2P_FAULT_LATCH_S));
+}
+
+static void test_fault_latch_refreshes_its_window_on_every_occurrence(void)
+{
+    o2p_fault_latch_t l = {0u, 0u};
+
+    o2p_fault_latch_step(&l, O2P_F_ADS_CONFIG_LOST, 10u);
+
+    /* Still faulting at the moment the first window would have expired. */
+    uint32_t expiry = 10u + O2P_FAULT_LATCH_S;
+    TEST_ASSERT_EQUAL_HEX16(O2P_F_ADS_CONFIG_LOST,
+        o2p_fault_latch_step(&l, O2P_F_ADS_CONFIG_LOST, expiry));
+
+    /* The window must have been REFRESHED by that second occurrence, so the
+     * bit is still held a full poll interval later. This is the assertion
+     * with teeth: a build that sets the deadline once and never renews it
+     * goes quiet 330 s after the FIRST glitch, so a probe faulting every
+     * minute would report clean - exactly the invisibility the latch exists
+     * to remove. Verified by a known-bad run. */
+    TEST_ASSERT_EQUAL_HEX16(O2P_F_ADS_CONFIG_LOST,
+        o2p_fault_latch_step(&l, 0u, expiry + 300u));
+}
+
+static void test_fault_latch_is_monotonic_in_severity(void)
+{
+    o2p_fault_latch_t l = {0u, 0u};
+
+    /* Worse input must never produce a cleaner published word. Accumulate
+     * three different latched faults and check none of them is dropped when
+     * the next arrives. */
+    uint16_t seen = 0u;
+    const uint16_t seq[3] = {O2P_F_ADS_DRDY_STUCK, O2P_F_ADC_RANGE,
+                             O2P_F_I2C_FAIL_ADS};
+    for (unsigned i = 0; i < 3u; i++) {
+        seen |= seq[i];
+        uint16_t pub = o2p_fault_latch_step(&l, seq[i], 200u + i);
+        TEST_ASSERT_EQUAL_HEX16(seen, pub & seen);
+    }
+
+    /* All three still published together on a clean cycle. */
+    TEST_ASSERT_EQUAL_HEX16(seen, o2p_fault_latch_step(&l, 0u, 203u) & seen);
+}
+
+static void test_fault_latch_only_holds_transient_bits(void)
+{
+    o2p_fault_latch_t l = {0u, 0u};
+
+    /* SETTLING already lasts up to 15 minutes. Latching it would extend a
+     * long fault rather than preserve a brief one, and would leave the probe
+     * looking unsettled for five minutes after it had genuinely settled. */
+    TEST_ASSERT_EQUAL_HEX16(O2P_F_SETTLING,
+        o2p_fault_latch_step(&l, O2P_F_SETTLING, 10u));
+    TEST_ASSERT_EQUAL_HEX16(0, o2p_fault_latch_step(&l, 0u, 11u));
+
+    /* Nor the steady-state sensor bus failures, which will still be failing
+     * at the next poll and need no help being seen. */
+    TEST_ASSERT_EQUAL_HEX16(O2P_F_I2C_FAIL_SHT,
+        o2p_fault_latch_step(&l, O2P_F_I2C_FAIL_SHT, 20u));
+    TEST_ASSERT_EQUAL_HEX16(0, o2p_fault_latch_step(&l, 0u, 21u));
+}
+
+static void test_fault_latch_survives_the_uptime_wrap(void)
+{
+    o2p_fault_latch_t l = {0u, 0u};
+
+    /* A fault raised just before uptime_s wraps sets a deadline that wraps
+     * with it. An unsigned >= comparison would then find every subsequent
+     * `now` less than the deadline and hold the bit forever - a probe stuck
+     * reporting a converter fault that ended 136 years earlier. */
+    const uint32_t near_wrap = 0xFFFFFF00u;
+    o2p_fault_latch_step(&l, O2P_F_ADS_DRDY_STUCK, near_wrap);
+
+    /* Held across the wrap, as it should be. */
+    TEST_ASSERT_EQUAL_HEX16(O2P_F_ADS_DRDY_STUCK,
+        o2p_fault_latch_step(&l, 0u, near_wrap + 100u));
+
+    /* And released after the window, on the far side of zero. */
+    TEST_ASSERT_EQUAL_HEX16(0,
+        o2p_fault_latch_step(&l, 0u, near_wrap + O2P_FAULT_LATCH_S));
+}
+
+static void test_fault_latch_never_hides_a_current_fault(void)
+{
+    o2p_fault_latch_t l = {0u, 0u};
+
+    /* Bits outside the latched set must pass through untouched, latch empty
+     * or not: the latch adds to the published word and never filters it. */
+    TEST_ASSERT_EQUAL_HEX16(O2P_F_VA_LOW | O2P_F_TEMP_OVER,
+        o2p_fault_latch_step(&l, O2P_F_VA_LOW | O2P_F_TEMP_OVER, 5u));
+
+    o2p_fault_latch_step(&l, O2P_F_ADC_RANGE, 6u);
+    uint16_t pub = o2p_fault_latch_step(&l, O2P_F_HEATER_RUNAWAY, 7u);
+    TEST_ASSERT_TRUE((pub & O2P_F_HEATER_RUNAWAY) != 0u);
+    TEST_ASSERT_TRUE((pub & O2P_F_ADC_RANGE) != 0u);
+}
+
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -1382,6 +1503,12 @@ int main(void)
     RUN_TEST(test_gain_registers_read_back_what_was_written);
     RUN_TEST(test_config_block_read_covers_the_gains);
     RUN_TEST(test_clip_detection);
+    RUN_TEST(test_fault_latch_preserves_a_one_cycle_event);
+    RUN_TEST(test_fault_latch_refreshes_its_window_on_every_occurrence);
+    RUN_TEST(test_fault_latch_is_monotonic_in_severity);
+    RUN_TEST(test_fault_latch_only_holds_transient_bits);
+    RUN_TEST(test_fault_latch_survives_the_uptime_wrap);
+    RUN_TEST(test_fault_latch_never_hides_a_current_fault);
     RUN_TEST(test_validity_matrix);
     RUN_TEST(test_snapshot_is_invalid_before_the_first_sample);
     RUN_TEST(test_dewpoint_reference_points);

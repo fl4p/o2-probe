@@ -610,7 +610,7 @@ fault, not like anoxia.
 convention as an open release gate, and the bench air-versus-nitrogen pair is
 what settles it. Firmware that took an absolute value would hide the answer.
 
-### Diagnostic block — `0x0010`, 19 registers, read-only
+### Diagnostic block — `0x0010`, 21 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
 0.01 K), `PRESSURE_HPA` (0 — BMP390 is DNP), `UPTIME_HI/LO`, `FW_VERSION`,
@@ -633,6 +633,16 @@ then two that exist because supervision here is *sampled*, not continuous:
   is the only temperature on the board that does not come over I²C1. `T_TIP`
   and `T_CHAMBER` share a bus; this does not. When they disagree with it, or
   vanish while it survives, the fault is the bus rather than the weather.
+- `FAULTS_EVER` `0x0023` — every fault bit seen since power-up, never cleared.
+  `FAULTS` says what is wrong *now*; that is the right thing to act on and the
+  wrong thing to diagnose from, because a probe that glitched once last month
+  and one glitching every hour both read clean between events. This register is
+  the difference between them.
+- `ADS_FAIL_COUNT` `0x0024` — cycles in which the ADS1119 delivered no
+  conversion at all, saturating at `0xFFFF`. The latch on `FAULTS` guarantees
+  such an event is *seen*; this is how often. A rate is what separates a one-off
+  from a failing part, and since the latch self-clears the count would otherwise
+  be lost.
 
 ### Config block — `0x0030`, 18 registers, read/write, flash-backed
 

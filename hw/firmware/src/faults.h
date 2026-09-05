@@ -98,6 +98,55 @@ enum {
     | O2P_F_ADS_DRDY_STUCK \
     | O2P_F_ADS_CONFIG_LOST )
 
+/* Faults that are real but too BRIEF to survive to a poll.
+ *
+ * The fault word is rebuilt from zero every second by cycle_begin(), and a
+ * buried probe is polled about every five minutes. A converter fault that
+ * lasts one cycle is therefore published for one second in three hundred and
+ * is invisible upstream roughly 299 times out of 300 - which makes every
+ * guard that raises one of these bits effectively undetectable in the field,
+ * however correct it is on the bench.
+ *
+ * These bits are consequently LATCHED into the published word for a window
+ * longer than one poll interval (see O2P_FAULT_LATCH_S). Only bits that are
+ * both transient and consequential belong here. SETTLING does not: it already
+ * lasts minutes. Nor do the steady-state I2C failures of sensors that will
+ * still be failing at the next poll. What belongs here is the set that can
+ * appear and vanish inside a single cycle while invalidating the oxygen
+ * reading for that cycle. */
+#define O2P_FAULTS_LATCHED ( \
+      O2P_FAULTS_ADS_NO_CONVERSION \
+    | O2P_F_ADC_RANGE )
+
+/* How long a latched bit stays in the published word.
+ *
+ * It must EXCEED one poll interval or the event it preserves can still fall
+ * between two polls. The deployment polls these probes about every five
+ * minutes over LoRa, so this is one nominal interval plus 10 %. The probe
+ * cannot see its own poll interval - it is a Modbus slave and speaks only
+ * when spoken to - so this is a constant with an assumption attached, not
+ * something derivable at runtime. A deployment polling more slowly must raise
+ * it; the only cost of raising it is that a cleared fault reads as present
+ * for longer. */
+#define O2P_FAULT_LATCH_S 330u
+
+typedef struct {
+    uint16_t bits;      /* currently held */
+    uint32_t until_s;   /* uptime at which they expire */
+} o2p_fault_latch_t;
+
+/* Fold this cycle's faults into the latch and return the word to PUBLISH.
+ *
+ * Pure and separated from the sampler, because this is the function that
+ * decides whether a buried probe ever reports a converter fault at all, and
+ * the interesting cases - a fault still present at its own expiry, a second
+ * fault arriving mid-window, the uptime counter wrapping - are ones you want
+ * to be able to construct on a host rather than provoke on a bench.
+ *
+ * `now_s` is the probe's uptime in seconds. */
+uint16_t o2p_fault_latch_step(o2p_fault_latch_t *l, uint16_t cycle_faults,
+                              uint32_t now_s);
+
 /* The chamber channels have their own dependencies: RH and chamber
  * temperature come from the SHT45, tip temperature from the TMP117. */
 #define O2P_FAULTS_INVALIDATE_CHAMBER (O2P_F_I2C_FAIL_SHT)

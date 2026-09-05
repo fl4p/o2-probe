@@ -186,7 +186,7 @@ pile produces; a mistyped `AT+COMMAND` must look like a fault, not like anoxia.
 (`SCHEMATIC-REVIEW.md` M4) and the bench air-versus-nitrogen pair settles it.
 Firmware that took an absolute value would hide the answer.
 
-### Diagnostic block, `0x0010`, 19 registers, read-only
+### Diagnostic block, `0x0010`, 21 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
 0.01 K), `PRESSURE_HPA` (0 - BMP390 is DNP), `UPTIME_HI/LO`, `FW_VERSION`,
@@ -199,6 +199,17 @@ Not ambient and not part of the oxygen path - it is the silicon, self-heating
 included, at about +/-5 C. It is here because it is the only temperature on
 the board that does not arrive over I2C1, so it separates a dead bus from a
 real excursion.
+
+`FAULTS_EVER` (`0x0023`) is every fault bit seen since power-up, never cleared,
+and `ADS_FAIL_COUNT` (`0x0024`) counts cycles in which the ADS1119 delivered no
+conversion, saturating at `0xFFFF`. Both exist because `FAULTS` is rebuilt from
+zero every second while a buried probe is polled every five minutes: a
+one-cycle converter fault is published for one second in three hundred. The
+fault word carries a bounded latch so such an event survives to the next poll
+(`O2P_FAULT_LATCH_S`, 330 s - one nominal poll interval plus 10 %), but the
+latch self-clears, so the rate would be lost without a counter. A probe that
+glitches once and one that glitches hourly read identically between events
+otherwise.
 
 ### Config block, `0x0030`, 18 registers, read/write, flash-backed
 

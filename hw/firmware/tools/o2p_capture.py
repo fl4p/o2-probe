@@ -61,13 +61,23 @@ FIRMWARE = os.path.dirname(HERE)
 
 DEFAULT_ELF = os.path.join(FIRMWARE, ".pio", "build", "o2probe", "firmware.elf")
 FALLBACK_ADDR = 0x200000F0        # 2026-09-04 build; only used if no ELF
-# o2p_snapshot_t holds 50 bytes of fields but aligns to 4 (uptime_s is a
-# uint32_t), so sizeof is 52 - the padding is easy to forget and produces a
-# decode that is wrong from `live` onward. Then buf[2], the 1-byte live index
-# padded up to o2p_config_t's alignment, the config, four flags, a pointer.
-SNAPSHOT_LEN = 52
+# o2p_snapshot_t aligns to 4 (uptime_s is a uint32_t), so sizeof is 56 for 54
+# bytes of fields - the padding is easy to forget and produces a decode that is
+# wrong from `live` onward. Then buf[2], the 1-byte live index padded up to
+# o2p_config_t's alignment, the config, four flags, a pointer.
+#
+# DO NOT hand-compute these when the struct changes. This file already caused
+# one false emergency by decoding a healthy dump with a stale layout after
+# t_die was appended: uptime appeared to count backwards, VREF read 32769 and
+# the rail looked like it was collapsing. Get the numbers from the compiler:
+#
+#     cc -I src -DO2P_HOST_TEST -o /tmp/sizes /tmp/sizes.c   # sizeof/offsetof
+#
+# The `live not in (0, 1)` and VREF plausibility checks below are the backstop
+# that catches it when someone forgets anyway - they did catch it, twice.
+SNAPSHOT_LEN = 56
 LIVE_OFF = 2 * SNAPSHOT_LEN
-REGMAP_LEN = 0x90
+REGMAP_LEN = 0xA0
 
 U16_INVALID = 0xFFFF
 I16_INVALID = -0x8000
@@ -80,8 +90,8 @@ COLUMNS = [
     "iso_time", "status", "uptime_s", "seq", "vref_mv", "va_mv", "vin_mv",
     "afe_mv", "afe_rail", "cell_ua", "o2_raw_ua", "o2_comp_pct",
     "t_tip_c", "t_chamber_c", "t_die_c", "rh_pct", "dew_margin_c",
-    "heater_duty_pct", "pressure_hpa", "faults", "settle_s", "i2c_errs",
-    "lmp_readback",
+    "heater_duty_pct", "pressure_hpa", "faults", "faults_ever", "ads_fails",
+    "settle_s", "i2c_errs", "lmp_readback",
 ]
 
 
@@ -186,12 +196,30 @@ def decode(blob, int_z, tia_ohm, va_rail_mv):
     i2c_errs, = struct.unpack_from("<H", b, 40)
     seq, = struct.unpack_from("<H", b, 46)
     t_die, = struct.unpack_from("<h", b, 48)
+    faults_ever, ads_fails = struct.unpack_from("<HH", b, 50)
 
-    if not 1500 <= vref <= 3300:
-        return None, f"VREF {vref} mV implausible - wrong address or dead AFE"
+    # Two very different things used to land here together.
+    #
+    # 0xFFFF is the firmware's SENTINEL: it is telling us it could not measure
+    # the reference this cycle, which is an honest answer, and the fault word
+    # in the same snapshot says why. Refusing the whole row then throws away
+    # `faults`, `faults_ever` and `ads_fails` - exactly the registers that
+    # explain the failure - and reports only "dead AFE", which is a guess.
+    # Observed 2026-09-05 while deliberately breaking DRDY: the tool could say
+    # nothing about a fault the firmware had diagnosed precisely.
+    #
+    # Any OTHER implausible value is not a sentinel and not a measurement; it
+    # is a decode that has gone wrong - a stale struct layout or a bad address
+    # - and there the whole row really is worthless.
+    if vref != U16_INVALID and not 1500 <= vref <= 3300:
+        return None, f"VREF {vref} mV implausible - wrong address or stale layout"
 
-    zero = vref * int_z
-    cell = (zero - afe) / (tia_ohm / 1000.0) if afe != U16_INVALID else None
+    if vref == U16_INVALID:
+        cell = None                    # no reference, so no current to derive
+    else:
+        zero = vref * int_z
+        cell = ((zero - afe) / (tia_ohm / 1000.0)
+                if afe != U16_INVALID else None)
 
     def mv(x):
         return "" if x == U16_INVALID else x
@@ -212,7 +240,7 @@ def decode(blob, int_z, tia_ohm, va_rail_mv):
     clipped = False
     if afe != U16_INVALID:
         clipped = (afe <= 50 or afe >= va_rail_mv - 50)
-        if vref not in ("", U16_INVALID) and afe >= float(vref) - 5:
+        if vref != U16_INVALID and afe >= float(vref) - 5:
             clipped = True
         rail = "1" if clipped else "0"
 
@@ -228,7 +256,7 @@ def decode(blob, int_z, tia_ohm, va_rail_mv):
         "status": "ok",
         "uptime_s": uptime,
         "seq": seq,
-        "vref_mv": vref,
+        "vref_mv": mv(vref),   # blank on the sentinel, never 65535
         "va_mv": mv(va),
         "vin_mv": mv(vin),
         "afe_mv": mv(afe),
@@ -244,6 +272,8 @@ def decode(blob, int_z, tia_ohm, va_rail_mv):
         "heater_duty_pct": "" if heater == U16_INVALID else f"{heater / 100.0:.2f}",
         "pressure_hpa": "" if pressure == U16_INVALID else pressure,
         "faults": f"0x{faults:04x}",
+        "faults_ever": f"0x{faults_ever:04x}",
+        "ads_fails": ads_fails,
         "settle_s": settle,
         "i2c_errs": i2c_errs,
         "lmp_readback": f"0x{lmp_rb:04x}",

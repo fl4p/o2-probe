@@ -361,3 +361,112 @@ A pinned channel now withholds the reading instead of emitting the rail as a
 confident number.
 
 **Runtime cost:** one comparison per conversion. Nothing measurable.
+
+---
+
+# Guard review: the fault latch and the cumulative counters (2026-09-05)
+
+Closes the one reviewer finding left unfixed — Medium #3, "intermittent
+diagnostics remain operationally muted before they reach ChirpStack/Home
+Assistant". Every guard calibrated above raises a bit that `cycle_begin()`
+clears one second later, against a five-minute poll. Correct on the bench,
+invisible in the field roughly 299 times out of 300.
+
+**Why a diagnostic register alone would not have fixed it.** The uplink carries
+the **primary block, registers 0–7** — 16 data bytes, fixed by the payload
+version in `tech/chirpstack/rs485-ls-decoder.js`. Nothing in the diagnostic
+block reaches Home Assistant at all. The fix therefore had to be in the word
+that is already published, which is why it is a latch rather than a new
+register. The counters are additional, for a bench or an on-site Modbus read.
+
+**1. Unevaluable input.** The latch cannot fail to evaluate: it is pure
+arithmetic over the fault word and the uptime, with no I/O and no allocation.
+It adds bits and never removes them, so a latch that somehow held garbage would
+over-report, not under-report.
+
+**2. Monotonicity.** Tested directly
+(`test_fault_latch_is_monotonic_in_severity`): three latched faults accumulate
+and none is dropped as the next arrives. Bits outside the latched set pass
+through untouched — the latch ORs into the published word and never filters it
+(`test_fault_latch_never_hides_a_current_fault`).
+
+**3. Preconditions.** The window must exceed one poll interval or the event can
+still fall between two polls. `O2P_FAULT_LATCH_S` is 330 s: the deployment's
+nominal 300 s plus 10 %. **This is an assumption, not a measurement** — the
+probe is a Modbus slave and cannot observe its own poll interval. A deployment
+polling more slowly must raise it. Stated in `faults.h` beside the constant.
+
+**4. Source of truth.** `FAULTS_EVER` accumulates from the **published** word,
+latch included, so it is exactly what a reader could have seen rather than a
+second, subtly different history.
+
+**5. Persistence.** Both counters are cumulative and deliberately excluded from
+`o2p_snapshot_reset()`, alongside the existing `settle_restarts`.
+`ADS_FAIL_COUNT` saturates at `0xFFFF` rather than wrapping, so a badly failing
+probe cannot roll round to a small number and look healthy.
+
+**6. Provenance.** `FAULTS` now means "wrong now, or wrong within the last
+330 s". That is a real change to a published register's meaning and is
+documented in both `FIRMWARE.md` and `DESIGN.md`. It cannot suppress a good
+reading: the decoder treats the fault word as diagnostic only and takes the
+register's own sentinel as the sole publication authority.
+
+**7. Known-bad calibration — three runs, two with teeth, one honest failure.**
+
+  * *Unsigned deadline comparison.* `test_fault_latch_survives_the_uptime_wrap`
+    fails (`Expected 0x2000 Was 0x0000`). Worth recording because the measured
+    failure is the **opposite** of the intuitive one: the latch does not stick
+    forever at the wrap, it releases immediately. It fails open.
+  * *Never refreshing the window.*
+    `test_fault_latch_refreshes_its_window_on_every_occurrence` fails
+    (`Expected 0x4000 Was 0x0000`). A probe glitching every minute would go
+    quiet 330 s after the first glitch.
+  * *Expiry tested before the fresh bits are folded in.* **All tests pass.**
+    The ordering is not load-bearing — when the fault is still occurring,
+    `cycle_faults` carries it into the published word whatever the latch does.
+    The code keeps the tidier order but claims nothing for it, and the comment
+    that previously did claim something has been corrected.
+
+**8. Fix vs mute.** The reverse of a mute: it makes visible something that was
+being published correctly and then discarded before anyone could read it. It
+adds no new judgement about whether a fault occurred — only about how long the
+answer stays legible.
+
+**Runtime cost:** one mask, one compare and one OR per published cycle, once a
+second. Two extra registers in a block that is not uplinked.
+
+**Still not fixed by this.** `FAULTS_EVER` and `ADS_FAIL_COUNT` are in the
+diagnostic block, so they are readable over Modbus on site but do **not** reach
+Home Assistant. Carrying them upstream needs a payload-version change in the
+LoRa node and its decoder — a separate, cross-repository change.
+
+**Hardware known-bad, 2026-09-05.** DRDY was broken at the pin (PB1 driven to
+analog mode over SWD, so the input buffer stops reading the line), held for
+about 30 s, then restored. The probe then ran healthy while the bit stayed up:
+
+| uptime | `FAULTS` | `FAULTS_EVER` | `ADS_FAIL_COUNT` | cell |
+|---:|---|---|---:|---:|
+| 94 | `0xa001` | `0xa001` | 32 | 101.23 µA |
+| 232 | `0xa001` | `0xa001` | 32 | 101.23 µA |
+| 372 | `0xa001` | `0xa001` | 32 | 101.23 µA |
+| 418 | `0x8001` | `0xa001` | 32 | 101.38 µA |
+
+`ADS_DRDY_STUCK` (bit 13) was held for the full window with the fault long
+gone and every measurement healthy — VREF 2492 mV, the cell steady at
+101.2–101.4 µA. It then cleared by itself between uptime 372 and 418, against
+a predicted expiry of 392 (last failure at ~62 plus the 330 s window).
+`FAULTS_EVER` kept the bit after the clear, which is the whole point of the
+separate register: the permanent record outlives the latch.
+
+On the old firmware this event was published for one second and then erased.
+
+**One mistake made getting there, recorded because the board was at risk.**
+Restoring PB1 from analog mode, the read-modify-write set MODER bits [3:2] to
+`01` — general-purpose OUTPUT — rather than the original `00`, input. That left
+the MCU driving a pin the ADS1119 also drives, for roughly 30 s, and it is
+visible in the data as `ADS_FAIL_COUNT` climbing from 20 to 32 after the fault
+was supposedly over. It was caught by comparing against the MODER value read
+before the change (`0xffffaff1`) and corrected. **Read the register first,
+write back exactly what was read** — a mask that clears two bits is not the
+same as one that restores them.
+
