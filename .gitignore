@@ -13,3 +13,6 @@ cad/exports/*.gcode.3mf
 __pycache__/
 cad/exports/o2-probe-board.stl
 cad/exports/o2-probe-board-bin.stl
+cad/reviews/*.log
+compostlab/o2-probe/reviews/*.log
+reviews/*.log
