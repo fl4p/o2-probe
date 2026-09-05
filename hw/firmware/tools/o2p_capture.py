@@ -23,6 +23,28 @@ justify:
     python3 tools/o2p_capture.py out.csv --count 240 --interval 30
     python3 tools/o2p_capture.py --once            # one row to stdout
 
+Defaults are 120 samples at 30 s, i.e. one hour. Each sample spawns its own
+OpenOCD, so a long capture is a detached process, not a foreground one - an
+agent harness will cut a foreground call off at ten minutes and the run dies
+with it. The CSV is line-buffered and appended per sample, so an interrupted
+run keeps everything up to the interruption.
+
+Pick the probe when more than one is attached: `--adapter-serial`, or
+`O2P_ADAPTER_SERIAL` in the environment. `adapter usb location` is silently
+ignored by the xPack cmsis-dap driver, so the serial is the only selector that
+works - and the XIAO Debug Mate publishes no USB serial, so the only way to
+single it out is to unplug the other probe.
+
+Two ways the address goes wrong, with different remedies:
+
+  * `regmap reads all zero` - the dump succeeded but there is no g_rm there.
+    Usually OpenOCD attached to the wrong board; see --adapter-serial above.
+  * `live index N not 0/1` - the ELF is NEWER than the image on the board. The
+    symbol resolves correctly, against a build the board is not running, and
+    the decode is garbage. Either flash the board, or pass `--addr` with the
+    running build's g_rm (0x200000F0 for the 2026-09-04 image; `git stash` the
+    firmware tree and rebuild if you need to recover an older one).
+
 Layout mirrors `o2p_snapshot_t` in src/regmap.h. If that struct changes, the
 offsets below must change with it; the sanity check will usually catch it.
 """
