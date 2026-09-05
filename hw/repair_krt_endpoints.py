@@ -75,7 +75,7 @@ def mm(value) -> float:
     return round(pcbnew.ToMM(value), 4)
 
 
-def key(point) -> tuple[float, float]:
+def key_(point) -> tuple[float, float]:
     return mm(point.x), mm(point.y)
 
 
@@ -110,7 +110,7 @@ def apply(board, report: Path) -> tuple[int, int, float, int]:
     tracks = [t for t in board.GetTracks() if not isinstance(t, pcbnew.PCB_VIA)]
     vias = [t for t in board.GetTracks() if isinstance(t, pcbnew.PCB_VIA)]
     targets = [v for v in vias
-               if any(distance(key(v.GetPosition()), p) <= TOUCH for p in flagged_vias)]
+               if any(distance(key_(v.GetPosition()), p) <= TOUCH for p in flagged_vias)]
     if len(targets) < len(set(flagged_vias)):
         raise SystemExit(
             f"DRC named {len(set(flagged_vias))} via(s) but only {len(targets)} "
@@ -121,7 +121,7 @@ def apply(board, report: Path) -> tuple[int, int, float, int]:
         for via in vias:
             if via is exclude or via.GetNetCode() != track.GetNetCode():
                 continue
-            if distance(point, key(via.GetPosition())) <= TOUCH:
+            if distance(point, key_(via.GetPosition())) <= TOUCH:
                 return True
         for footprint in board.GetFootprints():
             for pad in footprint.Pads():
@@ -162,7 +162,7 @@ def apply(board, report: Path) -> tuple[int, int, float, int]:
     reverted = 0
     worst = 0.0
     for via in targets:
-        centre = key(via.GetPosition())
+        centre = key_(via.GetPosition())
         for track in tracks:
             if track.IsLocked() or track.GetNetCode() != via.GetNetCode():
                 continue
@@ -170,7 +170,7 @@ def apply(board, report: Path) -> tuple[int, int, float, int]:
                 continue
             for getter, setter in ((track.GetStart, track.SetStart),
                                    (track.GetEnd, track.SetEnd)):
-                here = key(getter())
+                here = key_(getter())
                 gap = distance(here, centre)
                 if gap <= TOUCH or gap > SNAP_MAX:
                     continue
@@ -196,10 +196,10 @@ def apply(board, report: Path) -> tuple[int, int, float, int]:
     for footprint in board.GetFootprints():
         for pad in footprint.Pads():
             anchors.setdefault(pad.GetNetCode(), []).append(
-                ("pad", pad, key(pad.GetPosition())))
+                ("pad", pad, key_(pad.GetPosition())))
     for via in vias:
         anchors.setdefault(via.GetNetCode(), []).append(
-            ("via", via, key(via.GetPosition())))
+            ("via", via, key_(via.GetPosition())))
 
     def touched(track, point) -> bool:
         for kind, item, centre in anchors.get(track.GetNetCode(), ()):
@@ -211,13 +211,37 @@ def apply(board, report: Path) -> tuple[int, int, float, int]:
         for other in tracks:
             if other is track or other.GetNetCode() != track.GetNetCode():
                 continue
-            if distance(point, key(other.GetStart())) <= TOUCH:
+            if distance(point, key_(other.GetStart())) <= TOUCH:
                 return True
-            if distance(point, key(other.GetEnd())) <= TOUCH:
+            if distance(point, key_(other.GetEnd())) <= TOUCH:
                 return True
         return False
 
+    # Exactly coincident duplicates.  repair_planes reports these itself
+    # ("stacked-copper", 70 of them on one pass): two segments on the same net,
+    # layer, width and endpoints.  They are electrically nothing and they make
+    # every later inventory double-count.
+    #
+    # Collected first and removed together: deleting from the board inside the
+    # loop invalidated proxies still held in `tracks`, and the next pass over
+    # that list died with 'SwigPyObject has no attribute x'.
     removed = 0
+    stacked = set()
+    doomed = []
+    for track in tracks:
+        if track.IsLocked():
+            continue
+        key = (track.GetNetCode(), track.GetLayer(), mm(track.GetWidth()),
+               frozenset((key_(track.GetStart()), key_(track.GetEnd()))))
+        if key in stacked:
+            doomed.append(track)
+            continue
+        stacked.add(key)
+    for track in doomed:
+        board.Remove(track)
+        removed += 1
+    tracks = [t for t in tracks if t not in doomed]
+
     for track in tracks:
         if track.IsLocked():
             continue
@@ -230,13 +254,13 @@ def apply(board, report: Path) -> tuple[int, int, float, int]:
             continue
         if mm(track.GetLength()) > STUB_MAX:
             continue
-        near = min(distance(p, key(track.GetStart())) for p in flagged_dangling) \
+        near = min(distance(p, key_(track.GetStart())) for p in flagged_dangling) \
             if flagged_dangling else None
-        far = min(distance(p, key(track.GetEnd())) for p in flagged_dangling) \
+        far = min(distance(p, key_(track.GetEnd())) for p in flagged_dangling) \
             if flagged_dangling else None
         if near is None or min(near, far) > STUB_MAX:
             continue
-        if touched(track, key(track.GetStart())) and touched(track, key(track.GetEnd())):
+        if touched(track, key_(track.GetStart())) and touched(track, key_(track.GetEnd())):
             continue
         board.Remove(track)
         removed += 1
