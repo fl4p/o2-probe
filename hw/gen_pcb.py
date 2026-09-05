@@ -25,6 +25,7 @@ from thermal_design import (SIDE_THERMAL_SLOTS, THERMAL_SLOTS,
                             save_board_preserving_project)
 from critical_routes import (add_critical_routes,
                              ensure_cell_re_via_keepout, ensure_gnd_plane,
+                             ensure_barrier_web_keepout,
                              ensure_gnd_stitches, write_stackup)
 
 HERE = Path(__file__).resolve().parent
@@ -339,6 +340,7 @@ def build():
     # J5's fork fingers are two lands per finger that nothing in the footprint
     # joins -- the one net the exploratory scout could not close.
     ensure_cell_re_via_keepout(board)
+    ensure_barrier_web_keepout(board)
     add_critical_routes(board)
     # After the authored copper, so stitch positions can avoid it.
     ensure_gnd_stitches(board)

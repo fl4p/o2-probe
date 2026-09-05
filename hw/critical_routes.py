@@ -371,8 +371,42 @@ def write_stackup(path) -> None:
             raise SystemExit(f"stackup write produced no {token} in {path}")
 
 
+BARRIER_WEB_KEEPOUT_NAME = "BARRIER_WEB_KEEPOUT"
+# The right-hand thermal edge web, x=19.25..20.00 across the barrier.
+#
+# THERMAL-BARRIER.md's model treats the edge webs as bare FR-4 and inventories
+# every copper crossing in the neck.  The router does not know that: it put
+# /I2C_SCL through this web at x=19.5, which is four copper_edge_clearance
+# violations (0.35 mm of usable width against a 0.18 mm track needing 0.58 mm)
+# AND a barrier crossing the thermal calculation never counted.
+#
+# Only the right web.  The LEFT web carries the GND bridge by design -- one
+# 0.15 mm trace, the only thing keeping the two halves of the ground pour
+# connected -- and a rule area cannot be made net-specific.
+BARRIER_WEB_KEEPOUT = ((19.25, 82.90), (20.00, 82.90), (20.00, 85.10),
+                       (19.25, 85.10))
+
 GND_STITCH_PITCH = 6.0
 GND_STITCH_CLEARANCE = 0.65
+
+
+def ensure_barrier_web_keepout(board):
+    """Keep routed copper out of the right-hand thermal edge web."""
+    zone = _one_named_zone(board, BARRIER_WEB_KEEPOUT_NAME)
+    zone.SetZoneName(BARRIER_WEB_KEEPOUT_NAME)
+    zone.SetIsRuleArea(True)
+    layers = pcbnew.LSET()
+    for layer in copper_layers(board):
+        layers.AddLayer(layer)
+    zone.SetLayerSet(layers)
+    zone.SetDoNotAllowTracks(True)
+    zone.SetDoNotAllowVias(True)
+    zone.SetDoNotAllowPads(False)
+    zone.SetDoNotAllowZoneFills(True)
+    zone.SetDoNotAllowFootprints(False)
+    zone.Outline().RemoveAllContours()
+    zone.AddPolygon(_polygon(BARRIER_WEB_KEEPOUT))
+    return zone
 
 
 def ensure_gnd_stitches(board):
