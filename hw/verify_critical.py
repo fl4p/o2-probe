@@ -40,6 +40,9 @@ from thermal_design import ORIGIN_X_MM, ORIGIN_Y_MM
 
 HERE = Path(__file__).resolve().parent
 TOLERANCE = 0.001
+# A guard rail sits 0.275 mm off the run by design; anything beyond this is not
+# guarding it.
+GUARD_REACH = 0.60
 
 
 def mm(value) -> float:
@@ -52,6 +55,49 @@ def absolute(x: float, y: float) -> tuple[float, float]:
 
 def near(a: tuple[float, float], b: tuple[float, float]) -> bool:
     return abs(a[0] - b[0]) <= TOLERANCE and abs(a[1] - b[1]) <= TOLERANCE
+
+
+def _segment_distance(a0, a1, b0, b1) -> float:
+    """Shortest distance between two 2-D segments."""
+    def sub(p, q): return (p[0] - q[0], p[1] - q[1])
+    def dot(p, q): return p[0] * q[0] + p[1] * q[1]
+
+    def point_seg(p, s0, s1) -> float:
+        d = sub(s1, s0)
+        length = dot(d, d)
+        if length == 0.0:
+            return dot(sub(p, s0), sub(p, s0)) ** 0.5
+        t = max(0.0, min(1.0, dot(sub(p, s0), d) / length))
+        near = (s0[0] + t * d[0], s0[1] + t * d[1])
+        return dot(sub(p, near), sub(p, near)) ** 0.5
+
+    # Segments that cross have distance zero; otherwise the minimum is attained
+    # at one of the four endpoint-to-segment distances.
+    d1, d2 = sub(a1, a0), sub(b1, b0)
+    denom = d1[0] * d2[1] - d1[1] * d2[0]
+    if denom != 0.0:
+        t = ((b0[0] - a0[0]) * d2[1] - (b0[1] - a0[1]) * d2[0]) / denom
+        u = ((b0[0] - a0[0]) * d1[1] - (b0[1] - a0[1]) * d1[0]) / denom
+        if 0.0 <= t <= 1.0 and 0.0 <= u <= 1.0:
+            return 0.0
+    return min(point_seg(a0, b0, b1), point_seg(a1, b0, b1),
+               point_seg(b0, a0, a1), point_seg(b1, a0, a1))
+
+
+def edge_gap(one, other) -> float:
+    """Copper-edge-to-copper-edge distance between two straight tracks, in mm.
+
+    KiCad's SHAPE::Distance takes a point, not another shape, so there is no
+    one-call way to ask this from Python.  Every track here is a straight
+    segment, so the capsule-to-capsule distance is the centreline distance less
+    both half-widths.
+    """
+    a0 = (mm(one.GetStart().x), mm(one.GetStart().y))
+    a1 = (mm(one.GetEnd().x), mm(one.GetEnd().y))
+    b0 = (mm(other.GetStart().x), mm(other.GetStart().y))
+    b1 = (mm(other.GetEnd().x), mm(other.GetEnd().y))
+    centre = _segment_distance(a0, a1, b0, b1)
+    return centre - mm(one.GetWidth()) / 2.0 - mm(other.GetWidth()) / 2.0
 
 
 def expected() -> tuple[list, list]:
@@ -130,6 +176,58 @@ def check(board_path: Path, expect_locked: bool) -> list[str]:
                         if t.GetNetname() == "/CELL_RE"} - {"F.Cu"})
     if off_layer:
         problems.append(f"CELL_RE has copper on {off_layer}; it must be F.Cu only")
+
+    # The guard's job is to be the NEAREST thing to CELL_RE along the stretch
+    # it guards.  A rail that survives while some other net has been squeezed in
+    # between guards nothing, and neither the inventory above nor DRC would say
+    # so -- DRC is happy at 0.15 mm whoever the neighbour is.
+    #
+    # Scoped to y=83.40..89.60, the band the rails actually cover.  CELL_RE's
+    # approach to U7 and its detour to U4 are deliberately unguarded, and a
+    # whole-net version of this check would fail on them by construction.
+    #
+    # It fails when there is no guard copper in the band at all, not just when
+    # foreign copper is nearer.  The first version compared "nearest guard"
+    # against "nearest foreign" and SKIPPED when nearest-guard was None -- so
+    # deleting every rail made it pass, which is the exact shape of a check
+    # that treats unevaluable input as OK.
+    band = (133.40, 139.60)
+    def overlaps_band(track) -> bool:
+        # OVERLAP, not containment.  Requiring both endpoints inside the band
+        # selected nothing at all: CELL_RE crosses the whole band in one
+        # segment from y=133.10 to y=140.06, so neither end is in it, and the
+        # check skipped -- passing a board with every rail deleted.
+        low, high = sorted((mm(track.GetStart().y), mm(track.GetEnd().y)))
+        return low <= band[1] and high >= band[0]
+
+    re_in_band = [t for t in have_tracks
+                  if t.GetNetname() == "/CELL_RE" and overlaps_band(t)]
+    if re_in_band:
+        nearest_guard = None
+        nearest_foreign = None
+        for track in re_in_band:
+            layer = track.GetLayer()
+            for other in have_tracks:
+                if other is track or other.GetLayer() != layer:
+                    continue
+                name = other.GetNetname()
+                if name == "/CELL_RE":
+                    continue
+                gap = round(edge_gap(track, other), 4)
+                if name == "/GUARD_REPLICA":
+                    nearest_guard = gap if nearest_guard is None else min(nearest_guard, gap)
+                elif nearest_foreign is None or gap < nearest_foreign[0]:
+                    nearest_foreign = (gap, name)
+        if nearest_guard is None or nearest_guard > GUARD_REACH:
+            problems.append(
+                f"no GUARD_REPLICA copper within {GUARD_REACH} mm of CELL_RE "
+                f"between y={band[0]} and y={band[1]}"
+                + (f" (nearest guard {nearest_guard} mm)" if nearest_guard else ""))
+        elif nearest_foreign is not None and nearest_foreign[0] < nearest_guard:
+            gap, name = nearest_foreign
+            problems.append(
+                f"{name} is {gap} mm from CELL_RE, closer than the guard at "
+                f"{nearest_guard} mm -- the guard is not the nearest copper")
 
     return problems
 
