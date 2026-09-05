@@ -43,6 +43,13 @@ TOLERANCE = 0.001
 # A guard rail sits 0.275 mm off the run by design; anything beyond this is not
 # guarding it.
 GUARD_REACH = 0.60
+# Nearest foreign copper allowed anywhere on CELL_RE, guarded or not.  The DRC
+# rule is 0.15 mm and says nothing about leakage; this is the surface-leakage
+# floor.  Across 0.25 mm of masked FR-4 at 3.3 V a clean board leaks on the
+# order of 10 pA against the LMP91000's 900 pA budget, so 0.25 mm is defensible
+# and 0.15 mm is not.  Rev A shipped a /HEATER_PWM turn at 0.252 mm and
+# ROUTING.md flagged it as the closest a switching net comes to the node.
+CELL_RE_MIN_APPROACH = 0.25
 
 
 def mm(value) -> float:
@@ -192,32 +199,53 @@ def check(board_path: Path, expect_locked: bool) -> list[str]:
     # deleting every rail made it pass, which is the exact shape of a check
     # that treats unevaluable input as OK.
     band = (133.40, 139.60)
-    def overlaps_band(track) -> bool:
-        # OVERLAP, not containment.  Requiring both endpoints inside the band
-        # selected nothing at all: CELL_RE crosses the whole band in one
-        # segment from y=133.10 to y=140.06, so neither end is in it, and the
-        # check skipped -- passing a board with every rail deleted.
-        low, high = sorted((mm(track.GetStart().y), mm(track.GetEnd().y)))
-        return low <= band[1] and high >= band[0]
 
-    re_in_band = [t for t in have_tracks
-                  if t.GetNetname() == "/CELL_RE" and overlaps_band(t)]
-    if re_in_band:
-        nearest_guard = None
-        nearest_foreign = None
-        for track in re_in_band:
-            layer = track.GetLayer()
-            for other in have_tracks:
-                if other is track or other.GetLayer() != layer:
-                    continue
-                name = other.GetNetname()
-                if name == "/CELL_RE":
-                    continue
-                gap = round(edge_gap(track, other), 4)
-                if name == "/GUARD_REPLICA":
-                    nearest_guard = gap if nearest_guard is None else min(nearest_guard, gap)
-                elif nearest_foreign is None or gap < nearest_foreign[0]:
-                    nearest_foreign = (gap, name)
+    def clipped(track):
+        """The part of a track inside the guarded band, or None."""
+        (x0, y0) = (mm(track.GetStart().x), mm(track.GetStart().y))
+        (x1, y1) = (mm(track.GetEnd().x), mm(track.GetEnd().y))
+        if y0 == y1:
+            return ((x0, y0), (x1, y1)) if band[0] <= y0 <= band[1] else None
+        lo, hi = sorted((y0, y1))
+        if hi < band[0] or lo > band[1]:
+            return None
+        def at(y):
+            t = (y - y0) / (y1 - y0)
+            return (x0 + t * (x1 - x0), y)
+        return (at(max(lo, band[0])), at(min(hi, band[1])))
+
+    re_tracks = [t for t in have_tracks if t.GetNetname() == "/CELL_RE"]
+
+    # 1. Is the guard the nearest copper along the stretch it covers?  Measured
+    #    on the CLIPPED segment: CELL_RE crosses the band in one segment running
+    #    from y=133.10 to y=140.06, and comparing along its whole length
+    #    reported an /I2C_SCL track at y=90.3 -- ABOVE the rails, on the
+    #    deliberately unguarded approach to the cell land -- as though the guard
+    #    had been undercut inside the band.  Right to fire, wrong reason.
+    nearest_guard = None
+    nearest_foreign = None
+    for track in re_tracks:
+        piece = clipped(track)
+        if piece is None:
+            continue
+        layer = track.GetLayer()
+        half = mm(track.GetWidth()) / 2.0
+        for other in have_tracks:
+            if other is track or other.GetLayer() != layer:
+                continue
+            name = other.GetNetname()
+            if name == "/CELL_RE":
+                continue
+            gap = round(_segment_distance(
+                piece[0], piece[1],
+                (mm(other.GetStart().x), mm(other.GetStart().y)),
+                (mm(other.GetEnd().x), mm(other.GetEnd().y)))
+                - half - mm(other.GetWidth()) / 2.0, 4)
+            if name == "/GUARD_REPLICA":
+                nearest_guard = gap if nearest_guard is None else min(nearest_guard, gap)
+            elif nearest_foreign is None or gap < nearest_foreign[0]:
+                nearest_foreign = (gap, name)
+    if re_tracks and any(clipped(t) for t in re_tracks):
         if nearest_guard is None or nearest_guard > GUARD_REACH:
             problems.append(
                 f"no GUARD_REPLICA copper within {GUARD_REACH} mm of CELL_RE "
@@ -226,8 +254,28 @@ def check(board_path: Path, expect_locked: bool) -> list[str]:
         elif nearest_foreign is not None and nearest_foreign[0] < nearest_guard:
             gap, name = nearest_foreign
             problems.append(
-                f"{name} is {gap} mm from CELL_RE, closer than the guard at "
-                f"{nearest_guard} mm -- the guard is not the nearest copper")
+                f"inside the guarded band, {name} is {gap} mm from CELL_RE, "
+                f"closer than the guard at {nearest_guard} mm")
+
+    # 2. And how close does anything foreign get to CELL_RE ANYWHERE?  The
+    #    approach to the cell land and the detour to U4 carry no rails by
+    #    design, and DRC scores them at 0.15 mm like any other copper.
+    closest = None
+    for track in re_tracks:
+        layer = track.GetLayer()
+        for other in have_tracks:
+            if other is track or other.GetLayer() != layer:
+                continue
+            if other.GetNetname() in ("/CELL_RE", "/GUARD_REPLICA"):
+                continue
+            gap = round(edge_gap(track, other), 4)
+            if closest is None or gap < closest[0]:
+                closest = (gap, other.GetNetname())
+    if closest is not None and closest[0] < CELL_RE_MIN_APPROACH:
+        problems.append(
+            f"{closest[1]} comes within {closest[0]} mm of CELL_RE "
+            f"(floor {CELL_RE_MIN_APPROACH} mm); DRC allows it at 0.15 mm and "
+            "scores no leakage")
 
     return problems
 

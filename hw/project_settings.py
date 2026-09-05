@@ -97,6 +97,19 @@ KRT_PROTECTED_NETS = {
 }
 
 
+# CELL_RE gets its own net class so a custom rule can name it.  The class does
+# not tighten the ordinary clearance -- it cannot: CELL_RE arrives at U7 pin 13
+# on a 0.5 mm-pitch row where the gap to pins 12 and 14 is 0.255 mm and no rule
+# should force a redesign of a package pinout.  The tightening lives in
+# o2-probe.kicad_dru and is scoped to TRACK-to-TRACK only.
+CELL_RE_CLASS = {
+    "name": "CELL_RE",
+    "clearance": 0.15,
+    "track_width": 0.25,
+}
+CELL_RE_PATTERNS = [{"netclass": "CELL_RE", "pattern": "/CELL_RE"}]
+
+
 def apply(path: Path = PROJECT) -> None:
     data = json.loads(path.read_text())
     settings = data.setdefault("board", {}).setdefault("design_settings", {})
@@ -111,6 +124,12 @@ def apply(path: Path = PROJECT) -> None:
         default = {"name": "Default"}
         classes.append(default)
     default.update(DEFAULT_CLASS)
+    cell_re = next((v for v in classes if v.get("name") == "CELL_RE"), None)
+    if cell_re is None:
+        cell_re = {"name": "CELL_RE"}
+        classes.append(cell_re)
+    cell_re.update(CELL_RE_CLASS)
+    data["net_settings"]["netclass_patterns"] = [dict(v) for v in CELL_RE_PATTERNS]
     data.setdefault("kicad_routing_tools", {})["protected_nets"] = dict(
         KRT_PROTECTED_NETS)
     path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
