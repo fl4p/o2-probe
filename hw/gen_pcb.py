@@ -25,7 +25,7 @@ from thermal_design import (SIDE_THERMAL_SLOTS, THERMAL_SLOTS,
                             save_board_preserving_project)
 from critical_routes import (add_critical_routes,
                              ensure_cell_re_via_keepout, ensure_gnd_plane,
-                             write_stackup)
+                             ensure_gnd_stitches, write_stackup)
 
 HERE = Path(__file__).resolve().parent
 XML = HERE / "o2-probe.xml"
@@ -340,6 +340,8 @@ def build():
     # joins -- the one net the exploratory scout could not close.
     ensure_cell_re_via_keepout(board)
     add_critical_routes(board)
+    # After the authored copper, so stitch positions can avoid it.
+    ensure_gnd_stitches(board)
     board.BuildConnectivity()
     pcbnew.ZONE_FILLER(board).Fill(board.Zones())
     save_board_preserving_project(board, OUT)

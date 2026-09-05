@@ -205,14 +205,20 @@ CRITICAL_TRACKS = (
     ("/CELL_WE", F, 0.20, ((10.50, 81.40), (10.40, 81.50), (10.40, 81.90))),
     ("/CELL_WE", B, 0.20, ((10.40, 81.90), (10.00, 82.30), (10.00, 84.50))),
     ("/CELL_WE", F, 0.20, ((10.00, 84.50), (10.00, 91.00))),
-    # West on B.Cu at y=81.30, under U7's pad row and 0.6 mm clear of R25.
-    ("/CELL_WE", B, 0.20, ((10.40, 81.90), (10.40, 81.30), (1.30, 81.30))),
-    ("/CELL_WE", B, 0.20, ((3.33, 81.30), (3.33, 80.60))),
+    # West on B.Cu at y=82.60, NOT 81.30.  At 81.30 it ran directly under U7's
+    # gas-side pad row and walled it off: pins 8..11 (AFE_VOUT, LMP_C2, LMP_C1,
+    # VREF_TRIM) are on the gas side of a package whose body is one big exposed
+    # pad, so their only route to their cable-side partners is a via just south
+    # of the row and then north underneath on B.Cu -- straight through where
+    # this run was.  Four nets stayed open on that alone.  At 82.60 the escape
+    # is clear and this still clears the thermal slot edge by 0.55 mm.
+    ("/CELL_WE", B, 0.20, ((10.40, 81.90), (10.40, 82.60), (0.80, 82.60))),
+    ("/CELL_WE", B, 0.20, ((3.33, 82.60), (3.33, 80.60))),
     ("/CELL_WE", F, 0.20, ((3.33, 80.60), (3.33, 79.11))),
     # The TP1 descent hugs the board edge at x=0.80 so the guard's own descent
     # to TP5 can have the x=1.50 lane between R38's two pads.  Both fit; only
     # one fits at x=1.30.
-    ("/CELL_WE", B, 0.20, ((1.30, 81.30), (0.80, 80.80), (0.80, 71.00))),
+    ("/CELL_WE", B, 0.20, ((0.80, 82.60), (0.80, 71.00))),
     ("/CELL_WE", F, 0.20, ((0.80, 71.00), (1.00, 70.80), (1.00, 70.00))),
 
     # -- Heater current path.  The bus threads a 1.27 mm band: U11's gas
@@ -340,6 +346,86 @@ def write_stackup(path) -> None:
     for token in ('(stackup', f'(copper_finish "{COPPER_FINISH}")'):
         if token not in written:
             raise SystemExit(f"stackup write produced no {token} in {path}")
+
+
+GND_STITCH_PITCH = 6.0
+GND_STITCH_CLEARANCE = 0.65
+
+
+def ensure_gnd_stitches(board):
+    """Tie the F.Cu and B.Cu ground pours together with through vias.
+
+    On the four-layer board GND was one inner plane and needed no stitching.
+    With two pours there is nothing joining them at all: KiCad reported
+    GND_PLANE_FCu and GND_PLANE_BCu as UNCONNECTED ZONES on a fully routed
+    board, which is a ground plane in name only -- return current would have to
+    find its way through whatever incidental pad vias happen to exist.
+
+    Positions are searched, not listed: a coarse grid, keeping any point that
+    clears every pad and every board-edge feature (the outline, both thermal
+    slots, both side slots and the cell aperture) by GND_STITCH_CLEARANCE.  A
+    hardcoded list would have to be re-derived by hand after any placement
+    change, and this board's placement is still moving.
+    """
+    net = board.FindNet("/GND")
+    if net is None:
+        raise SystemExit("/GND net is missing")
+
+    pads = [pad for footprint in board.GetFootprints() for pad in footprint.Pads()]
+    edges = [item for item in board.GetDrawings()
+             if item.GetLayer() == pcbnew.Edge_Cuts]
+    # Existing copper counts too, and must: this runs AFTER add_critical_routes
+    # precisely so it can see it.  A via dropped on a track is silently
+    # REASSIGNED to that track's net by KiCad -- a stitch at (1.00, 80.00)
+    # landed on CELL_WE's B.Cu column, became a CELL_WE via, and showed up as
+    # one dangling via rather than as the short it morally was.
+    others = [t for t in board.GetTracks() if t.GetNetname() != "/GND"]
+    reach = pcbnew.FromMM(GND_STITCH_CLEARANCE)
+
+    def free(x: float, y: float) -> bool:
+        here = _point(x, y)
+        box = pcbnew.BOX2I(pcbnew.VECTOR2I(here.x - reach, here.y - reach),
+                           pcbnew.VECTOR2I(2 * reach, 2 * reach))
+        for pad in pads:
+            if pad.GetBoundingBox().Intersects(box):
+                return False
+        for edge in edges:
+            if edge.GetBoundingBox().Intersects(box):
+                return False
+        for item in others:
+            if item.GetBoundingBox().Intersects(box):
+                return False
+        return True
+
+    # Cable side only.  Gas-side B.Cu is the HEATER_LOW spreader, so there is
+    # no ground pour there to stitch TO: the first version gridded the whole
+    # board and DRC reported two of its vias dangling, which is exactly right --
+    # they joined the F.Cu pour to a layer that carries a different net at that
+    # point.  Ground on the island therefore lives on F.Cu alone and reaches the
+    # cable side through the barrier bridge; that is a property of the two-layer
+    # stack, not an oversight.
+    made = []
+    steps_x = int(20.0 / GND_STITCH_PITCH)
+    steps_y = int(82.0 / GND_STITCH_PITCH)
+    for ix in range(steps_x + 1):
+        for iy in range(steps_y + 1):
+            x = 1.0 + ix * GND_STITCH_PITCH
+            y = 2.0 + iy * GND_STITCH_PITCH
+            if x > 19.0 or y > 82.0 or not free(x, y):
+                continue
+            via = pcbnew.PCB_VIA(board)
+            via.SetNet(net)
+            via.SetPosition(_point(x, y))
+            via.SetViaType(pcbnew.VIATYPE_THROUGH)
+            via.SetLayerPair(pcbnew.F_Cu, pcbnew.B_Cu)
+            via.SetWidth(pcbnew.FromMM(0.45))
+            via.SetDrill(pcbnew.FromMM(0.25))
+            via.SetLocked(True)
+            board.Add(via)
+            made.append(via)
+    if not made:
+        raise SystemExit("no free position found for a single ground stitch via")
+    return made
 
 
 def ensure_gnd_plane(board):
