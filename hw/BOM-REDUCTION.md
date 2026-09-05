@@ -264,8 +264,17 @@ the PCB**, along with the `adopt_*.py` helpers.
 
 ### Not mine — two pre-existing defects, for Fab
 
-**A. VIN telemetry reads the wrong physical channel, and the undervoltage half
-of the heater interlock is dead.** `main.c:618` samples **ADS1119 AIN3** for VIN
+**A. FIXED 2026-09-05 — VIN telemetry read the wrong physical channel, and the
+undervoltage half of the heater interlock was dead.** PA6 is now configured and
+read (`o2p_mcu_adc_read_vin_mv`), both rails are read together in `phase_rails`,
+the bogus `PH_VIN` ADS1119 phase and `finish_vin` are deleted, and a failed VIN
+read now raises `O2P_F_VIN_LOW` where the old path left no fault at all. A
+`O2P_ASSERT_NET(VIN_MON, O2P_LQFP48_PA6)` now pins the channel at compile time —
+VA had that assert and VIN did not, which is the asymmetry that let the migration
+go half-finished. Both mutations of it were tested and both fail the build.
+The original finding follows.
+
+**A (as found).** `main.c:618` samples **ADS1119 AIN3** for VIN
 and scales it by the VIN divider ratio — but the schematic has AIN3 =
 `ADC_RE_BUF`, the buffered reference electrode. `ads1119.h:34-36` still documents
 the *old* map (`AIN2 = 3V3A/2`, `AIN3 = +12V_SW * 10/92`), which is where the

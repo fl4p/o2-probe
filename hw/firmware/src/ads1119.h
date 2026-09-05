@@ -32,8 +32,14 @@ enum {
 enum {
     O2P_ADS_MUX_AIN0_AGND = 3u,  /* 011 - AFE_VOUT, the oxygen channel */
     O2P_ADS_MUX_AIN1_AGND = 4u,  /* 100 - VREF_TRIM / 2 */
-    O2P_ADS_MUX_AIN2_AGND = 5u,  /* 101 - 3V3A / 2 */
-    O2P_ADS_MUX_AIN3_AGND = 6u,  /* 110 - +12V_SW * 10/92 */
+    /* AIN2/AIN3 are the BUFFERED CELL ELECTRODES, WE_BUF and RE_BUF - not
+     * rails. They read 3V3A/2 and +12V_SW*10/92 in an older revision, and this
+     * comment still said so on 2026-09-05 while main.c sampled AIN3 and called
+     * the result vin_mv. Both rails now live on the MCU's own ADC (mcu_adc.h).
+     * NOTHING READS AIN2/AIN3 TODAY: the differential cell-bias telemetry
+     * DESIGN.md describes for them is specified but not implemented. */
+    O2P_ADS_MUX_AIN2_AGND = 5u,  /* 101 - WE_BUF */
+    O2P_ADS_MUX_AIN3_AGND = 6u,  /* 110 - RE_BUF */
 };
 enum { O2P_ADS_DR_20SPS = 0u, O2P_ADS_DR_90SPS = 1u,
        O2P_ADS_DR_330SPS = 2u, O2P_ADS_DR_1000SPS = 3u };

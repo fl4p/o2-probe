@@ -77,7 +77,11 @@ KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
   No femtoampere part is needed: RE already carries the LMP91000's own ±900 pA
   max IRE (SNAS518, −40..80 °C), so the OPA333's ±200 pA max at 25 °C raises the
   worst case by about 20 %, where an ADA4530-1 at 20 fA would leave it at 900 pA.
-- ADS1119 AIN2/AIN3 read `WE_BUF`/`RE_BUF` **differentially** as the cell bias.
+- ADS1119 AIN2/AIN3 are wired to `WE_BUF`/`RE_BUF` for a **differential** cell-bias
+  reading. **This is specified but NOT IMPLEMENTED — nothing reads AIN2 or AIN3
+  today.** Until 2026-09-05 firmware sampled AIN3 single-ended and reported it as
+  the input rail; that is fixed, and what remains is that the bias telemetry the
+  next sentence describes has no code behind it.
   SBAS925 allows the ~2.27 V common mode at gain 1 and 4 alike, giving ±625 mV
   full scale at gain 4. The two rail monitors this displaced, `VA_MON` and
   `VIN_MON`, are now both on the MCU's own ADC (PA7/IN7 and PA6/IN6).

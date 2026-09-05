@@ -18,6 +18,7 @@
  */
 #define O2P_LQFP48_PA2   13
 #define O2P_LQFP48_PA3   14
+#define O2P_LQFP48_PA6   17
 #define O2P_LQFP48_PA7   18
 #define O2P_LQFP48_PB0   19
 #define O2P_LQFP48_PB1   20
@@ -107,6 +108,19 @@
 #define O2P_VA_MON_PIN        7u
 #define O2P_VA_MON_ADC_CH     7u
 
+/* +12V_SW input-rail monitor, ADC1_IN6, through R26/R27.
+ *
+ * THIS PIN WAS NEVER READ until 2026-09-05. The rail monitors moved from the
+ * ADS1119 to the MCU's own ADC in an earlier revision; VA_MON's half of that
+ * migration landed and VIN_MON's did not. main.c went on sampling ADS1119 AIN3
+ * and scaling it by the VIN divider, but AIN3 is ADC_RE_BUF - the buffered
+ * reference electrode - so vin_mv was never the input rail, and because
+ * O2P_F_VIN_LOW feeds supply_ok, the undervoltage half of the heater interlock
+ * could not fire. Found by an adversarial review of the BOM pass. */
+#define O2P_VIN_MON_PORT      GPIOA
+#define O2P_VIN_MON_PIN       6u
+#define O2P_VIN_MON_ADC_CH    6u
+
 /* --- The contract ---------------------------------------------------------
  * Each assertion pairs "which net the schematic put on this package pin" with
  * "which package pin this port bit is". Both halves must move together.
@@ -125,6 +139,7 @@ O2P_ASSERT_NET(AFE_MENB,   O2P_LQFP48_PB0);
 O2P_ASSERT_NET(ADC_DRDY,   O2P_LQFP48_PB1);
 O2P_ASSERT_NET(HEATER_PWM, O2P_LQFP48_PA8);
 O2P_ASSERT_NET(VA_MON,     O2P_LQFP48_PA7);
+O2P_ASSERT_NET(VIN_MON,    O2P_LQFP48_PA6);
 O2P_ASSERT_NET(UART2_TX,   O2P_LQFP48_PA2);
 O2P_ASSERT_NET(UART2_RX,   O2P_LQFP48_PA3);
 
