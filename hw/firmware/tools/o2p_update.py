@@ -137,16 +137,32 @@ class SwdLink:
     frame. The bridge does the same with its own sequence word.
     """
 
-    OPENOCD_ARGS = ["-f", "interface/cmsis-dap.cfg",
-                    "-c", "transport select swd",
-                    "-c", "adapter speed 400",
-                    "-f", "target/stm32g0x.cfg",
-                    "-c", "init", "-c", "reset run"]
+    @staticmethod
+    def openocd_args(adapter_serial=None):
+        """OpenOCD arguments, optionally bound to one named probe.
 
-    def __init__(self, host, port, base, timeout, launch=True, verbose=False):
+        `adapter serial` has to come AFTER the interface file, because that
+        file is what selects the cmsis-dap driver the setting belongs to.
+        Without it OpenOCD binds to whichever probe enumerates first, and an
+        install can then be pushed into the wrong board - on 2026-09-05 the
+        bench had two probes attached (CMSIS_DAP and DAPLINK-S3-2) running
+        different images.
+        """
+        args = ["-f", "interface/cmsis-dap.cfg"]
+        if adapter_serial:
+            args += ["-c", "adapter serial %s" % adapter_serial]
+        args += ["-c", "transport select swd",
+                 "-c", "adapter speed 400",
+                 "-f", "target/stm32g0x.cfg",
+                 "-c", "init", "-c", "reset run"]
+        return args
+
+    def __init__(self, host, port, base, timeout, launch=True, verbose=False,
+                 adapter_serial=None):
         self.base = base
         self.timeout = timeout
         self.verbose = verbose
+        self.adapter_serial = adapter_serial
         self.proc = None
         self.sock = None
         try:
@@ -185,7 +201,7 @@ class SwdLink:
             if not launch:
                 raise
         cmd = [self._openocd_bin(), "-s", self._openocd_scripts()]
-        cmd += self.OPENOCD_ARGS
+        cmd += self.openocd_args(self.adapter_serial)
         print("   launching: %s" % " ".join(cmd))
         self.proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL,
                                      stderr=subprocess.DEVNULL)
@@ -471,6 +487,12 @@ def main():
     ap.add_argument("--swd-attach", action="store_true",
                     help="require an OpenOCD that is already running, rather "
                          "than launching one")
+    ap.add_argument("--adapter-serial",
+                    default=os.environ.get("O2P_ADAPTER_SERIAL"),
+                    help="CMSIS-DAP serial to bind to (env "
+                         "O2P_ADAPTER_SERIAL). Pass it whenever more than "
+                         "one probe is attached; without it OpenOCD takes "
+                         "the first it finds, which may be another board.")
     ap.add_argument("--baud", type=int, default=9600)
     ap.add_argument("--parity", default="E", choices=["N", "E", "O"])
     ap.add_argument("--addr", type=int, default=3)
@@ -496,7 +518,8 @@ def main():
         host, _, port = args.swd_tcl.partition(":")
         try:
             link = SwdLink(host, int(port or 6666), MBX_BASE, args.timeout,
-                           launch=not args.swd_attach)
+                           launch=not args.swd_attach,
+                           adapter_serial=args.adapter_serial)
         except (OSError, IOError) as e:
             return "!! %s" % e
         # --baud/--parity describe the CABLE, and over SWD the cable settings

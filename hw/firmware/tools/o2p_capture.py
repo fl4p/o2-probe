@@ -98,13 +98,25 @@ def elf_symbol(path, name):
     return None
 
 
-def read_regmap(addr, openocd, scripts, interface, target):
+def read_regmap(addr, openocd, scripts, interface, target,
+                adapter_serial=None):
     """Halt the target, dump the regmap, resume. Returns bytes or None."""
     tmp = tempfile.NamedTemporaryFile(suffix=".bin", delete=False)
     tmp.close()
     cmd = [
         openocd, "-s", scripts,
-        "-f", interface, "-f", target,
+        "-f", interface,
+    ]
+    # With more than one CMSIS-DAP probe attached, OpenOCD binds to whichever
+    # it enumerates first - so an unqualified capture can silently read a
+    # DIFFERENT board and report its memory as this probe's regmap. The serial
+    # must follow the interface file, which is what selects the adapter
+    # driver. On 2026-09-05 the bench had two probes on the bus (CMSIS_DAP and
+    # DAPLINK-S3-2) and one of them was running a bridge image, not this one.
+    if adapter_serial:
+        cmd += ["-c", "adapter serial %s" % adapter_serial]
+    cmd += [
+        "-f", target,
         "-c", "transport select swd; init; halt; "
               f"dump_image {tmp.name} 0x{addr:08x} 0x{REGMAP_LEN:x}; "
               "resume; exit",
@@ -208,6 +220,12 @@ def main():
                     default=os.path.expanduser(
                         "~/.platformio/packages/tool-openocd/openocd/scripts"))
     ap.add_argument("--interface", default="interface/cmsis-dap.cfg")
+    ap.add_argument("--adapter-serial",
+                    default=os.environ.get("O2P_ADAPTER_SERIAL"),
+                    help="CMSIS-DAP serial to bind to (env "
+                         "O2P_ADAPTER_SERIAL). Required in spirit whenever "
+                         "more than one probe is attached; without it "
+                         "OpenOCD takes the first it finds.")
     ap.add_argument("--target", default="target/stm32g0x.cfg")
     args = ap.parse_args()
 
@@ -248,9 +266,20 @@ def main():
     n = 1 if args.once else args.count
     for i in range(n):
         blob = read_regmap(addr, args.openocd, args.scripts,
-                           args.interface, args.target)
+                           args.interface, args.target,
+                           args.adapter_serial)
         if blob is None:
             row, err = None, "SWD read failed"
+        elif not any(blob):
+            # A regmap of all zeros is not a reading, and it is not a dead
+            # link either - the dump succeeded. It means the address holds no
+            # g_rm: OpenOCD attached to a board running a different image.
+            # With two CMSIS-DAP probes on the bus and only one of them
+            # carrying a USB serial, that is the likeliest cause; `adapter
+            # usb location` is silently ignored by the xPack cmsis-dap
+            # driver, so --adapter-serial is the only working selector.
+            row, err = None, ("regmap reads all zero: wrong board "
+                              "(is --adapter-serial set?) or a stale --addr")
         else:
             row, err = decode(blob, args.int_z, args.tia_ohm, args.va_rail_mv)
         if row is None:
