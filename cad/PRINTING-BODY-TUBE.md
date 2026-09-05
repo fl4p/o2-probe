@@ -470,50 +470,109 @@ worth knowing before writing another one:
 3. **An M8 × 1.0 tap** (and a Ø7.0 drill, if the printed pilot needs cleaning up).
 4. **Silica gel** for the tail.
 
-## Setting the wire-end grip — print the coupon first
+## Setting the wire-end grip — measured, then deliberately switched off
 
-**Status: open. `grip_slack = 0.05` in the model is a placeholder, and nothing
-has been printed to close it.**
+**Status: the band is OFF. `grip_band = false`, and station A is the plain
+`guide_slack = 0.3` clearance it had on the monobody printed 2026-09-05.**
 
-Station A — the cable-end guide pair — now carries a **6 mm interference band**
-instead of running at clearance end to end. Away from the band both stations
-stay at the old `guide_slack = 0.3` (a 1.9 mm slot on a 1.6 mm board); inside it
-the slot closes to `board_t + grip_slack`, with a 2 mm ramp at each end so the
-board wedges in rather than butting a step. On the current numbers the band sits
-at **board y 14–20**, ramps on 12–14 and 20–22, all inside the measured 0–28.6
-clear band.
+The measurement was made and it succeeded — `grip_slack = 0.00` (rung `00`), off
+the printed ladder, `grip_measured = true`. It is kept in the model against a
+future board revision. It is not in force.
 
-**Why a short band and not a tighter rail.** The board goes in tip-first from the
-cable end, so every millimetre of its 107 mm edge has to pass through station A —
-there is no way to put a tight feature at the cable end that the whole board does
-not travel through. Keeping the interference to 6 mm keeps the push force to one
-band's worth and keeps each insertion from shaving 20 mm of ASA.
+**Fab, 2026-09-05, after reading the ladder:** *"we will restore the grips as
+printed before. the problem is the board has footprints very close the edge and
+we need the grips to be loose."*
 
-**What this hold is and is not.** It stops the board rattling and stops it
-dropping out while the probe is assembled upside down. It is *not* retention:
-the board is retained by being captive between the cap and the head cavity.
-Printed-ASA friction is not something to rely on for a season at pile
-temperature — the same objection this file already raises against a friction
-bayonet, and it is not weaker here.
+### Why loose wins here
+
+The rail traps the board's **edges**, and this board has pads 0.25 mm from the
+edge (RV1 at y=73, R7 at y=46, R38 at y=70). The guide therefore sits on top of
+whatever copper and parts are there, with 0.5 mm in hand against the measured
+clear band — and **nothing measured at all about component bodies overhanging
+their own pads**.
+
+A clearance slot lets the board pass through that. An interference slot presses
+the rail onto it, and does so along the whole 107 mm of edge that has to be
+dragged through station A on every insertion, because the board goes in tip-first
+from the cable end. The failure mode is not a loose board; it is a scraped edge
+footprint on a board that is already at the fab and cannot be re-spun for this.
+
+Rattle is the cheaper problem, and it is bounded anyway: the board is captive
+between the cap and the head cavity either way.
+
+**To bring the band back**, set `grip_band = true`. That is the only change
+needed — `grip_slack` is already measured. The condition that would make it safe
+is a board revision that keeps its edges clear, and if the revision changes,
+re-run the edge scan first (see the last section of this file).
+
+### What the band is, when it is on
+
+A **6 mm interference band** in station A, at board y 14–20 with 2 mm ramps on
+12–14 and 20–22, all inside the measured 0–28.6 clear band. Away from it both
+stations stay at `guide_slack`. Short on purpose: every millimetre of the board's
+edge passes through station A, so a long tight feature means a long scrape.
+
+It was only ever anti-rattle, not retention — printed-ASA friction will not hold
+for a season at pile temperature, the same objection this file raises against a
+friction bayonet.
+
+### How it was measured
+
+`grip_slack = 0.00` came off the printed ladder in Elegoo ASA at the body-tube
+process. That coupon print **aborted at layer 142 of 149 on poor bed adhesion** —
+a separate problem, investigated elsewhere, not a fault of this part — and the
+result stands regardless: the bands sit at z 6–12 mm (layers ~50–100) and the
+plain 1.90 reference sections at z 0–4 and 12–16, so everything read was on the
+part long before it stopped. Only the top ~0.8 mm never printed, and nothing is
+measured there.
+
+**Never confirmed on a tower.** The coupon is 16 mm of ring; the tube is a 124 mm
+tower printed one-up with the band ~36 mm up it. If `grip_band` is ever turned
+on, check the fit on a printed tube before burying anything — `00` is drawn at
+zero clearance, so a tower that prints tighter than the rings did is the
+direction that hurts.
 
 ### The coupon
 
+The coupon is the measuring tool and stays in the tree whether or not the band
+is switched on — it is what a future board revision would be measured with.
+
     make fit-coupon
 
-writes `exports/body-fit-coupon.stl` — **five rings**, each a real section of
-this tube (true OD, true Ø13.6 bore, true 2.4 mm wall, the same `guide()` rails,
-the same 6 mm band and 2 mm ramps), differing only in `grip_slack`. Each carries
+writes `exports/body-fit-coupon.stl` — **one ring per rung of `coupon_slacks`**,
+each a real section of this tube (true OD, true Ø13.6 bore, true 2.4 mm wall,
+the same `guide()` rails, the same 6 mm band and 2 mm ramps), differing only in
+`grip_slack`. Each carries
 its slack in hundredths on a base flange:
 
 | label | slack | slot on a 1.6 mm board |
 |---|---:|---:|
-| `30` | 0.30 | 1.90 mm — the old clearance, the reference for "too loose" |
-| `20` | 0.20 | 1.80 mm |
-| `12` | 0.12 | 1.72 mm |
 | `06` | 0.06 | 1.66 mm |
 | `00` | 0.00 | 1.60 mm — drawn exactly the board's thickness, which printed is already an interference |
 
-Roughly 16 cm³ of ASA, ≈ 17 g.
+**Cut to these two on 2026-09-05 (Fab).** The full sweep was 0.30 / 0.20 / 0.12 /
+0.06 / 0.00; the three looser rungs are
+clearance fits for any plausible printer undersize and would only have confirmed
+that clearance is loose. `06` and `00` are the pair that straddle zero across
+most of the range, and the only pair a hand can tell apart.
+
+Dropping `30` looks like it should cost the tie back to the tube printed on
+2026-09-05, whose station A is that same 1.90 mm slot — it does not. Every rung
+carries **4 mm of plain 1.90 slot above and below its band**, so that reference
+is measurable on both remaining rings.
+
+Sliced: **10.09 cm³, ≈ 11 g, 28 m** at the body-tube process (0.12 mm
+layers, 4 walls x 0.60, classic wall generator, Elegoo ASA at 270 / 90 on
+textured PEI, 4 mm fused outer brim). Build it with
+
+    ./print.sh slice fit-coupon
+
+which runs the same `slice-check` and `seal_check` gates as every other part and
+verifies the spool from the **emitted G-code** — `filament_vendor = Elegoo`,
+`filament_ids = OEASAB00` — rather than from the preset name it was handed. That
+guard exists because two retainer prints were lost to a profile called "ASA
+sealing" that resolved to a *Bambu* ASA chain while the machine held Elegoo: the
+type, the plate and the layer height were all correct and all beside the point.
 
 **Slice it with the body-tube profile and print it as modelled** — rings upright,
 slot vertical, exactly the orientation the tube itself uses. This is the whole
@@ -521,9 +580,17 @@ point of the coupon: it is not measuring the geometry, which the model already
 knows, it is measuring *this printer's XY undersize at this layer height and line
 width, in this material*. A coupon printed at a different layer height or line
 width measures a different printer, and its answer does not transfer. One
-exception to "one object per plate": the five rings go on together, because the
+exception to "one object per plate": the rings go on together, because the
 comparison between them is the measurement and a plate-to-plate difference would
-land straight in it.
+land straight in it. That exemption is safe only because nothing on this plate
+seals — the 0 vs 18 mTorr result behind that rule is about sealing parts.
+
+**What the coupon cannot tell you.** A plate of 16 mm rings does not have
+the tube's layer times: the tube is a 124 mm tower printed one-up, and its band
+sits ~36 mm up it. So the coupon fixes the *ordering* of the ladder and gets the
+absolute close, but it is not proof for the tower. Check the fit on the first
+printed tube before anything is buried, and record which print `grip_measured`
+was closed against.
 
 ### Reading it
 

@@ -42,7 +42,12 @@ case "$part" in
     # the same wall and layer settings, because the whole point of the coupon is
     # to find out how a boss behaves IN THE PROCESS THE PART IS PRINTED IN. A
     # coupon sliced at other settings answers a question nobody asked.
-    monobody|cap|dam|carrier|retainer|fastener-coupon) ;;
+    # fit-coupon is not a sealing part either, and it is the one plate here that
+    # carries several objects on purpose -- see print.sh. It is checked against the
+    # same walls and layers for the same reason as fastener-coupon: it measures
+    # how a slot comes out IN THE PROCESS THE TUBE IS PRINTED IN, and a coupon
+    # sliced at other settings answers a question nobody asked.
+    monobody|cap|dam|carrier|retainer|fastener-coupon|fit-coupon) ;;
     "") fail "no --part given; the brim rules are part-specific and cannot be inferred from the G-code" ;;
     *)  fail "unknown --part '$part'" ;;
 esac
@@ -106,6 +111,11 @@ case "$part" in
         num brim_width 3 99 "some brim, but it must stay removable"
         eq  brim_object_gap 0.1 "a fused brim on the seal land cannot be removed without scarring it"
         eq  brim_type outer_only "an inner brim lands in the aperture and the bolt holes"
+        ;;
+    fit-coupon)
+        # z=0 is a plain ring face and its label flange; nothing there mates.
+        num brim_width 3 99 "a 16 mm-tall O32 ring in ASA lifts without one"
+        eq  brim_type outer_only "an inner brim prints inside the bore, under the rails being measured"
         ;;
     fastener-coupon)
         # z=0 is a plain flat face that mates with nothing and carries no hole:

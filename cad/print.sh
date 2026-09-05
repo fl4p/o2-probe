@@ -2,6 +2,7 @@
 # Slice the O2 probe body for the P1P in ASA.
 #
 #   ./print.sh slice <part>   monobody | cap | dam | carrier | retainer
+#                             fastener-coupon | fit-coupon
 #                             (ONE part per plate, always)
 #   ./print.sh upload <part>  send the plate (verified by size, material cross-checked)
 #   ./print.sh start  <part>  start it -- blocks until lift-off
@@ -49,6 +50,11 @@ part_process_overrides() {
         # land: any fused brim scars the surface the seal is made on. Stay
         # outside and keep the gap.
         carrier)  echo '{"brim_object_gap":"0.1","brim_type":"outer_only"}' ;;
+        # FIT COUPON. z=0 is a plain ring face plus its label flange and mates
+        # with nothing, so a fused outer brim is free. An INNER brim is not: it
+        # would print inside the bore, against the underside of the very rails
+        # being measured, and come off badly if at all.
+        fit-coupon) echo '{"brim_object_gap":"0","brim_type":"outer_only","brim_width":"4"}' ;;
         # RETAINER, re-examined 2026-09-05 when the part was flipped to print
         # groove-DOWN. The old note said its z=0 "carries the six bolt clearance
         # holes"; that was the groove-UP orientation. Groove-down, z=0 is the
@@ -117,7 +123,18 @@ part_stl() {
         # way up the head prints -- a coupon printed the other way round tests
         # thread-forming against a layer structure the part does not have.
         fastener-coupon) echo exports/fastener-coupon.stl ;;
-        *)        die "unknown part '$1' (monobody | cap | dam | carrier | retainer | fastener-coupon)" ;;
+        # Wire-end GRIP FIT ladder: one ring of the real tube section per rung, each
+        # with the real guide rails and a 6 mm interference band, differing only
+        # in grip_slack. PRINTING-BODY-TUBE.md, "Setting the wire-end grip".
+        #
+        # THIS ONE PART IS SEVERAL OBJECTS, and that is the exemption to the
+        # one-part-per-plate rule above, not a violation of it. The 0 vs 18 mTorr
+        # result is about SEALING, and nothing on this plate seals. What the
+        # coupon measures is the difference between the rungs, so they have
+        # to see the same plate: split one per plate, plate-to-plate
+        # variation lands directly in the answer and there is no answer left.
+        fit-coupon) echo exports/body-fit-coupon.stl ;;
+        *)        die "unknown part '$1' (monobody | cap | dam | carrier | retainer | fastener-coupon | fit-coupon)" ;;
     esac
 }
 

@@ -216,7 +216,17 @@ def main():
         sys.exit(1)
     if not rows:
         sys.exit("grip_check: nothing was measured -- that is a failure, not a pass")
-    print("\ngrip_check: the grip band is in the mesh, at the drawn slack")
+    # Say which thing passed. The coupon always carries bands -- it is the
+    # measuring tool -- while the tube's band can be switched off, and a message
+    # that conflates the two would report "band off" for a plate full of bands.
+    band_off = abs(m["grip_slack"] - m["guide_slack"]) < TOL
+    said = []
+    if "tube" in parts:
+        said.append("station A is plain clearance end to end, as drawn (band off)"
+                    if band_off else "the tube's grip band is in the mesh at the drawn slack")
+    if "coupon" in parts:
+        said.append("every coupon rung's band is in the mesh at its drawn slack")
+    print("\ngrip_check: " + "; ".join(said))
 
 
 main()

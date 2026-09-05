@@ -481,17 +481,75 @@ grip_end_gap  = 4.0;        // from the head-side end of station A
 // the sum of this printer's XY undersize, the ASA's shrink, the board's real
 // thickness including soldermask, and how hard a "firm push" is.
 //
-// PROVISIONAL until the coupon says otherwise. `part="fit-coupon"` prints a
-// ladder of five bands, geometrically IDENTICAL to this one, on real bore and
-// real wall in the real print orientation; push the actual Rev-A board edge
-// into each and set this to the one that needs a firm push and then holds.
-// See PRINTING-BODY-TUBE.md, "Setting the wire-end grip".
-grip_slack    = 0.05;       // PROVISIONAL -- set from the coupon
-grip_measured = false;      // flip to true, with the date, once it is
+// THE BAND IS OFF, AND THAT IS THE DECISION -- not an unfinished experiment.
+//
+// FAB, 2026-09-05, after the ladder was read: "we will restore the grips as
+// printed before. the problem is the board has footprints very close the edge
+// and we need the grips to be loose."
+//
+// So station A goes back to the plain `guide_slack` = 0.3 clearance it had on
+// the monobody printed 2026-09-05, and the grip machinery below stays in the
+// file, switched off, with the number it measured.
+//
+// WHY LOOSE WINS HERE, because it is the opposite of what a friction fit is for.
+// The rail traps the board's EDGES, and this board has pads 0.25 mm from the
+// edge (RV1 at y=73, R7 at y=46, R38 at y=70) -- the guide sits on top of
+// whatever copper and parts are there, with 0.5 mm in hand against the measured
+// clear band and NOTHING measured about component bodies overhanging their own
+// pads. A clearance slot lets the board pass through that; an interference slot
+// presses the rail onto it, and does so for the whole 107 mm of edge that has
+// to be dragged through station A on every insertion. The failure mode is not
+// a loose board, it is a scraped edge footprint on a board that is already at
+// the fab and cannot be re-spun for this.
+//
+// Rattle is the cheaper problem, and it is not unbounded: the board is captive
+// between the cap and the head cavity either way.
+//
+// Set `grip_band = true` to bring it back -- for a board revision that keeps its
+// edges clear, which is the condition that would make it safe. `grip_slack`
+// below is already measured, so that switch is the only thing needed.
+grip_band     = false;
 
-// The ladder the coupon prints, loosest first. 0.30 is the old clearance and is
-// in there deliberately: it is the reference for what "too loose" feels like.
-coupon_slacks = [0.30, 0.20, 0.12, 0.06, 0.00];
+// CLOSED 2026-09-05 (Fab): "00 is the one". Measured on the printed fit-coupon
+// ladder -- rungs 06 and 00 in Elegoo ASA at the body-tube process -- so this is
+// a 1.60 mm slot drawn on a 1.6 mm board, which printed is an interference.
+//
+// The coupon print it was read off ABORTED at layer 142 of 149 with poor bed
+// adhesion (a separate problem, under investigation elsewhere). That does not
+// weaken this number: the bands sit at z 6..12 mm, layers ~50..100, and the
+// plain 1.90 reference sections at z 0..4 and 12..16. Everything read was on
+// the part long before it stopped; only the top ~0.8 mm never printed, and
+// nothing is measured there.
+//
+// STILL TO CONFIRM ON A TOWER. The coupon is 16 mm of ring; the tube is a 124 mm
+// tower printed one-up, with this band ~36 mm up it. Layer times differ, so the
+// undersize may. Check the fit on the first printed tube before anything is
+// buried. See PRINTING-BODY-TUBE.md, "Setting the wire-end grip".
+grip_slack    = 0.00;       // MEASURED 2026-09-05, fit-coupon rung 00
+grip_measured = true;       // ... and not currently used: grip_band is false
+
+// What station A actually gets. With the band off this collapses to the plain
+// clearance, and `guide()` then cuts one uniform slot -- the ramps degenerate to
+// scale 1.0 and the three cuts merge. Everything downstream reads THIS, so the
+// echo, the mesh check and the part cannot disagree about which is in force.
+grip_slack_eff = grip_band ? grip_slack : guide_slack;
+
+// The ladder the coupon prints, loosest first.
+//
+// FAB, 2026-09-05: cut to 06 and 00. The wider sweep (0.30, 0.20, 0.12, 0.06,
+// 0.00) is what the ladder table in PRINTING-BODY-TUBE.md is drawn against, and
+// it brackets the printer's undersize for any delta from 0.05 to 0.20 -- but the
+// two rungs kept are the pair that straddle zero interference across most of
+// that range, and they are the only ones a hand can tell apart. The looser three
+// are all clearance fits and would only have confirmed that clearance is loose.
+//
+// DROPPING 0.30 COSTS NOTHING, and that is worth saying because it looks like it
+// should. 0.30 was in the list as the reference rung -- the old clearance, the
+// same 1.90 mm slot as station A on the tube printed 2026-09-05, so that the
+// coupon could be tied back to a part already in hand. That tie survives: EVERY
+// rung carries `coupon_pad` = 4 mm of plain 1.90 slot above and below its band,
+// so the reference is measurable on both remaining rings. It was redundant.
+coupon_slacks = [0.06, 0.00];
 coupon_pitch  = tube_od + 4;
 coupon_pad    = 4.0;        // plain rail above and below the band's ramps
 coupon_h      = grip_len + 2*grip_ramp + 2*coupon_pad;
@@ -811,11 +869,15 @@ assert(coupon_pad >= guide_lead + grip_ramp,
 assert(lug_z + lug_h/2 < tube_len/2, "bayonet lugs are not at the cable end");
 
 echo(str("WIRE-END GRIP: station A carries a ", grip_len, " mm band at slack ",
-         grip_slack, " (slot ", board_t + grip_slack, " mm on a ", board_t,
+         grip_slack_eff, " (slot ", board_t + grip_slack_eff, " mm on a ", board_t,
          " mm board), board y ", grip_a0 - board_y0_z, "..", grip_a1 - board_y0_z,
          ", ramps ", grip_ramp, " mm. Rest of station A and all of station B stay at ",
-         guide_slack, ". ", grip_measured ? "MEASURED." :
-         "PROVISIONAL -- print part=\"fit-coupon\" and set it from the ladder."));
+         guide_slack, ". ", grip_band
+         ? (grip_measured ? "MEASURED."
+                          : "PROVISIONAL -- print part=\"fit-coupon\" and set it from the ladder.")
+         : str("BAND OFF (grip_band=false) -- station A is plain clearance, ",
+               "the board's edge footprints need it loose. Measured value ",
+               grip_slack, " kept for a board revision with clear edges.")));
 echo(str("FIT COUPON: ", len(coupon_slacks), " rings, slacks ", coupon_slacks,
          " -> slots ", [for (g = coupon_slacks) board_t + g],
          " mm. Slice with the tube's profile, print as modelled."));
@@ -1074,7 +1136,9 @@ module tube() {
                         cylinder(d=lock_pilot_d, h=tube_od, $fn=32);
     }
     for (s = [1, -1]) {
-        guide(s, zy(station_a[0]), zy(station_a[1]), grip_a0, grip_a1, grip_slack);
+        guide(s, zy(station_a[0]), zy(station_a[1]),
+              grip_band ? grip_a0 : undef, grip_band ? grip_a1 : undef,
+              grip_slack_eff);
         guide(s, zy(station_b[0]), zy(station_b[1]));
     }
 }
