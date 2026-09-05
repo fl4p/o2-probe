@@ -108,12 +108,34 @@ BED_PLATE="${BED_PLATE:-Textured PEI Plate}"
 # ASA. Every existing guard passed, because they all check things that were
 # right: filament_type really did resolve to ASA, the plate really was Textured
 # PEI, the layer height really was 0.12. Nothing asked WHICH ASA, so the flow
-# ratio, the 18 vs 12 volumetric limit and pressure advance were all tuned for
-# a material that was not in the extruder.
+# ratio and the 18 vs 12 volumetric limit were tuned for a material that was not
+# in the extruder.
 #
 # Set FILAMENT_VENDOR/FILAMENT_ID when the spool changes, or the slice is
 # refused. That is the point: swapping filament without saying so should fail
 # loudly rather than print badly.
+#
+# KNOW WHAT THIS GUARD CANNOT DO -- three holes, all found by review 2026-09-05:
+#   1. Orca documents filament_vendor as "For show only" and filament_ids comes
+#      from the preset's filament_id. Both are METADATA. A copied or hand-edited
+#      profile can keep Elegoo identity while carrying transplanted temperatures
+#      and cooling -- exactly the failure above, wearing the right name. Identity
+#      is a cheap first gate, not an attestation. A guard that must hold has to
+#      assert the behaviour-critical emitted values too, or hash the resolved
+#      chain.
+#   2. It cannot authenticate the physical spool. Leaving these defaults while
+#      loading something else passes. The echo says "declared loaded" for that
+#      reason -- it is a declaration, like BED_PLATE, not a reading.
+#   3. It cannot see an ABSENT key. This profile carries no pressure advance at
+#      all and the emitted gcode reads enable_pressure_advance = 0; a claim that
+#      the rebuild "kept PA 0.04" was simply false, and nothing here noticed.
+#   4. IT DOES NOT GUARD THE ARTIFACT THAT SHIPS. `slice` validates
+#      print/<part>/plate_1.gcode and exits; `upload` is a separate invocation
+#      that sends o2probe-*.gcode.3mf, and nothing re-runs or binds the checks to
+#      it. They match today, but anything that replaces or staleness-drifts one
+#      between the two commands walks past both guards. The right fix is to
+#      verify the .3mf's embedded stream (or its hash against the validated
+#      plate_1.gcode) inside cmd_upload. NOT DONE.
 FILAMENT_VENDOR="${FILAMENT_VENDOR:-Elegoo}"
 FILAMENT_ID="${FILAMENT_ID:-OEASAB00}"
 
@@ -121,6 +143,9 @@ FILAMENT_ID="${FILAMENT_ID:-OEASAB00}"
 # inherited from the stock {nozzle_temperature_initial_layer-20}. See
 # profiles/WIPE-TEMP.md. Guarded because a re-flatten of the machine profile
 # from Bambu's tree would silently put it back on the formula.
+# Overridable so a different process can declare its own wipe -- but note that
+# makes it a MUTE BUTTON: WIPE_TEMP=250 redefines the failure as success. Change
+# the profile, not this, unless you mean it.
 WIPE_TEMP="${WIPE_TEMP:-270}"
 
 die() { echo "error: $*" >&2; exit 1; }

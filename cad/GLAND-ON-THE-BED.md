@@ -7,14 +7,17 @@ void open to the plate and its roof bridges, which failed on the machine
 
 **Verdict: the option I proposed -- move the groove into the carrier -- does not
 work, for a reason that also kills every variant of "put it in the other part".**
-The two-piece retainer is the one that survives.
+The two-piece retainer looked like the survivor and does not survive either --
+see option A, retracted. What is left is a self-supporting gland, machining the
+groove after printing, or accepting a top-surface sealing face (groove-up).
 
 ## Status: RECORDED VARIANT, NOT BUILT
 
 Decided 2026-09-05: **we stay with the single-piece retainer already printed.**
-The two-piece split below (option A) is written down as a variant so it can be
-picked up later without re-deriving it; it is not implemented, and no parameter
-in the model selects it. Nothing in `cad/` builds a gland ring or a cap plate.
+Option A below (the two-piece split) was written here as the recommended variant
+and has since been **retracted** -- it does not work as described. Nothing in
+`cad/` builds a gland ring or a cap plate, and no parameter selects one. It is
+kept, struck through, because the reason it fails is worth not rediscovering.
 
 `face_groove_up` stays `false`. If the variant is ever built, the entry points
 are `clamped_bed_cuts()` in `membrane_cartridge_common.scad` (the groove would
@@ -38,9 +41,14 @@ Groove-down, sliced 2026-09-05 from `exports/asa-retainer-print.stl`:
 
 Layer 17 spans z 2.00 -> 2.12, and the groove cut runs from the underside up to
 `face_seat_depth + face_groove_depth = 0.24 + 1.76 = 2.00`. At that height the
-groove is the only void beneath, so the bridge *is* the groove roof. The area
-agrees independently: the annulus is 212.8 mm2, which at the 0.4 mm bridge line
-width is 532 mm of path before anchoring overlap.
+groove is the only void beneath, so the bridge *is* the groove roof -- that alone
+identifies it, from the feature tag and the layer height.
+
+A second number was offered here as independent corroboration and is **not** one.
+The annulus is 212.882 mm2, which at the 0.4 mm bridge line width is 532.2 mm of
+ideal path; the file actually contains 734.77 mm. That is **38.1% longer**.
+Anchoring and boundary paths plausibly account for it, but until the overlap is
+computed this is qualitative consistency, not a measurement that agrees.
 
 **The span is not the groove's width.** The slicer fills a bridge region with
 straight parallel lines, and straight lines across a ring are chords. The longest
@@ -85,25 +93,36 @@ the joint are bed faces by necessity, and a groove in a bed face is a bridge.
 
 ## What actually survives
 
-### A. Two-piece retainer (recommended)
+### A. Two-piece retainer -- DOES NOT WORK AS DESCRIBED
 
-Split the retainer at the groove roof plane, z = 2.00:
+**Retracted 2026-09-05, after an independent review.** It was written here as the
+recommended option; the geometry does not support it, and the error was mine.
 
-- **Gland ring**, 2.00 mm thick. The groove stops being a pocket and becomes a
-  *through* annular slot -- there is no roof, so nothing bridges. Its bed face is
-  the sealing face, at bed quality.
-- **Cap plate**, 2.04 mm thick, plain. Printed flat, its own bed face becomes the
-  groove roof once stacked.
+The proposal was to split the retainer at the groove roof plane z = 2.00 into a
+2.00 mm **gland ring** whose groove becomes a *through* annular slot (no roof, so
+nothing bridges) and a plain 2.04 mm **cap plate** whose own bed face becomes the
+roof once stacked. Zero bridges in either piece, and the surface that sets
+squeeze upgraded from a 16 mm bridge to a build-plate surface.
 
-Both pieces print with zero bridges, and the surface that sets squeeze -- the
-roof -- is upgraded from a 16 mm bridge to a build-plate surface. The six M2
-clamp screws already pass through the full stack, so no new fastener is needed.
+**Why it fails.** Making the groove a through slot cuts the Ø15.2-17.6 inner wall
+free of the outer gland ring -- the annular slot has the window bore inside it and
+nothing joining across. It is not two bodies, it is at least three. Worse, the
+Ø26.5 membrane-seat cut removes everything under that inner ring for the first
+0.24 mm, so it does not even start on the plate: it begins as an unsupported
+island. The six screws sit outside it and give it no registration. See
+`clamped_bed_cuts()` in `membrane_cartridge_common.scad:645`.
 
-The honest cost is a new error term: the gland-ring/cap-plate interface. Squeeze
-becomes (gland ring thickness + interface gap) instead of a printed depth. Both
-mating faces are bed surfaces under six screws, which is the best flat-on-flat
-contact the process offers, but the gap is not zero and is not currently
-modelled. **Unmeasured -- this is the number to check before committing.**
+A three-piece version -- inner ring, outer gland ring, cap plate -- could be
+drawn, but it adds a second uncontrolled interface rather than the one this
+option was costed for, and the inner ring would need registration invented for
+it. That is a different design, not this one.
+
+The interface gap named below was therefore never the only new error term:
+
+> Squeeze becomes (gland ring thickness + interface gap) instead of a printed
+> depth. Both mating faces are bed surfaces under six screws, which is the best
+> flat-on-flat contact the process offers, but the gap is not zero and is not
+> currently modelled. **Unmeasured.**
 
 ### B. Self-supporting gland
 
@@ -125,12 +144,20 @@ on having the machine.
   the groove's layer-1 outline, and it would stop 1.8 mm short.
 - **Support inside the groove.** Uniquely available here, because the void is
   open to the plate -- `support_on_build_plate_only` would reach the roof. But
-  the roof is a dimension, not a surface: it sets squeeze. The usable face-seal
-  band is 20-30% of the cord, which on the ~2.48 mm fitted cord is 0.248 mm of
-  total travel, and `face_squeeze_target = 0.25` puts us mid-band. That leaves
-  roughly +0.10 / -0.15 mm of roof error before the seal is out of band, which is
-  the same order as support interface texture whether it is fused or gapped. It
-  would print, look fine, and leak unpredictably. Removal is also a continuous
+  the roof is a dimension, not a surface: it sets squeeze. The model asserts a
+  20-30% face-seal band. Ø17.6 over Ø17.0 is 3.5294% install stretch, so the
+  source's own thinning equation gives a fitted cord of
+  `2.5 x (1 - 0.035294/2) = 2.45588` mm -- **not** the ~2.48 an earlier version of
+  this file used -- and the ten-point band is 0.24559 mm of total travel. Against
+  the nominal 1.82 mm gap that permits about **+0.1447 mm deeper / -0.1009 mm
+  shallower**. (An earlier version said +0.10 / -0.15, which is both wrong and
+  has the asymmetry the wrong way round; the same reversal is in the comment at
+  `o2_probe_head_end.scad:2278` and has not been corrected there yet.) Fold in the
+  sorted-cord, ring-ID and membrane tolerances the model already carries and the
+  real requirement is tighter still: **+0.09395 / -0.05291 mm**. So the
+  conclusion is not merely unchanged, it is stronger -- support interface texture,
+  fused or gapped, is the same order as the whole remaining allowance. It would
+  print, look fine, and leak unpredictably. Removal is also a continuous
   3.25 x 2.0 mm annular slot, not a set of pockets.
 
 ## A guard that went stale
@@ -162,6 +189,16 @@ both), same triangle count, but the flange differs by a whole millimetre:
 `exports/asa-PROVENANCE` says `radial onhand-22x2` in both, so the provenance
 file recorded the intent and not the build -- it cannot distinguish these two.
 
+**The moved parameter is now identified** (independent review, 2026-09-05):
+it is the M2.5 -> M2 fastener change in commit `9935a7c`. Rendering the *current*
+source with the old fastener set -- `pt_nominal=2.5`, `pt_pilot_d=2.1`,
+`m2_clear=2.8` -- reproduces the committed retainer exactly: **bolt radius 15.55,
+flange Ø38.70**. The current M2 set (1.60 pilot, 2.40 clearance) gives **bolt
+radius 15.25, flange Ø37.70**. So the bolt circle moved inward **0.30 mm**, and
+against M2's 0.40 mm of total clearance slop that is most of the budget. The
+transition was never committed as a source revision -- the stale STL was
+committed after the source had already moved -- so git cannot reconstruct it.
+
 **The carrier and retainer now on the bench were printed from the 38.70 exports**
 and are self-consistent with each other at that diameter, so they are fine to
 keep and to assemble. What is NOT safe is printing one new part against them: a
@@ -169,9 +206,10 @@ fresh build gives 37.70 and would not match the pair in hand.
 
 The working tree was left at the committed 38.70 exports on purpose, so the repo
 keeps describing the hardware that exists. Before the next print of either part,
-resolve this deliberately: find which parameter moved, decide whether 37.70 is
-correct, and if it is, reprint the pair rather than mixing diameters. Do not just
-run `make head-end-asa` and slice.
+resolve this deliberately: the M2 geometry is presumably the wanted one, so the
+honest fix is to reprint the carrier and retainer together rather than mix a
+15.25 bolt circle against a 15.55 one. Do not just run `make head-end-asa` and
+slice.
 
 ## Numbers used
 
