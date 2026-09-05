@@ -20,3 +20,5 @@ cad/viewer/parts.json
 
 # sliced plates: build output, and a plate_1.gcode is ~5 MB
 cad/print/
+cad/viewer/scene.json
+cad/exports/view-*.stl

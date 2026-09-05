@@ -1,0 +1,42 @@
+{
+ "bed": {
+  "note": "membrane sealing stack: head, carrier, membrane, O-ring, retainer",
+  "parts": [
+   {"spec": "o2_probe_head_end.scad:head=head",
+    "color": "#a0522d",
+    "note": "printed ASA head; the carrier's well and the six bosses"},
+   {"spec": "o2_probe_head_end.scad:bed-carrier=carrier",
+    "color": "#d6c36a",
+    "note": "ASA, no weld. Wet face is a FLAT land -- one tapered aperture, 16 at the face opening to the 18 spigot bore"},
+   {"spec": "o2_probe_head_end.scad:bed-membrane=membrane",
+    "color": "#f2f2f2",
+    "note": "PMV15T disc, 0.18 mm, clamped -- drawn at its cut diameter"},
+   {"spec": "o2_probe_head_end.scad:bed-ring=O-ring",
+    "color": "#c62828",
+    "note": "17 x 2.5 EPDM, ON HAND and uncatalogued. Drawn at its COMPRESSED section, which is how it sits in service"},
+   {"spec": "o2_probe_head_end.scad:bed-retainer=retainer",
+    "color": "#8fa9c9",
+    "note": "carries the bed groove on its UNDERSIDE and prints groove-up"}
+  ]
+ },
+ "head-end": {
+  "note": "the whole end-window head, exploded parts in assembly position",
+  "parts": [
+   {"spec": "o2_probe_head_end.scad:head=head", "color": "#a0522d"},
+   {"spec": "o2_probe_head_end.scad:bed-carrier=carrier", "color": "#d6c36a"},
+   {"spec": "o2_probe_head_end.scad:bed-retainer=retainer", "color": "#8fa9c9"},
+   {"spec": "o2_probe_head_end.scad:cavity=connected gas volume",
+    "color": "#4f9d69",
+    "note": "the void the 5.0 cm3 budget is measured on, as a solid"}
+  ]
+ },
+ "print": {
+  "note": "what goes on the plate: carrier and retainer, print-oriented",
+  "parts": [
+   {"spec": "o2_probe_head_end.scad:carrier-print=carrier (wet face down)",
+    "color": "#d6c36a"},
+   {"spec": "o2_probe_head_end.scad:retainer-print=retainer (groove up)",
+    "color": "#8fa9c9"}
+  ]
+ }
+}

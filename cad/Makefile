@@ -318,14 +318,40 @@ board-in-body: monobody body-section board-mesh | $(OUT)
 # Every surface is DoubleSide, so nothing vanishes when you rotate past it --
 # which is the one thing OpenSCAD's preview will not do. Served over http
 # because file:// blocks the STL fetches; nothing leaves the machine.
+# ------------------------------------------------------------------- viewer
+# `make print-HEAD_END_PROV` -- tools/view.py reads the render flags from here
+# rather than keeping its own copy, which is how a viewer ends up rendering a
+# different part than the Makefile does.
+#
+# $(info), not echo: the values contain single quotes of their own
+# (-D 'carrier_material="asa"'), and any echo -- however quoted -- hands them to
+# a shell that eats them. The flags then arrive at OpenSCAD as bare identifiers,
+# which is an UNDEF assignment, not a string. $(info) never sees a shell.
+.PHONY: print-%
+print-%:
+	$(info $($*))
+	@:
+
+# One command for any part of any model. It renders what is missing or stale,
+# picks a FREE port and opens the browser:
+#     make view SCENE=bed                  (named scenes: tools/scenes.json)
+#     make view PARTS="o2_probe_head_end.scad:carrier"
+#     make view PARTS="exports/asa-carrier-print.stl"
+#     python3 tools/view.py --list
+.PHONY: view
+view:
+	@python3 tools/view.py $(if $(SCENE),--scene $(SCENE)) $(PARTS)
+
 .PHONY: viewer viewer-parts
+# The body+board scene keeps its generator, because that one READS DIMENSIONS
+# out of the model to place the board and the cap -- tools/view.py cannot, and
+# must not, guess them. Everything else goes through `make view`.
 viewer-parts: monobody board-mesh
 	python3 tools/make_viewer_parts.py
 
-# Served from cad/, NOT cad/viewer/ -- the STLs live in cad/exports and
-# http.server will not serve above its own root, so rooting it at the viewer
-# directory makes every mesh a 404 while the page itself loads perfectly well.
 viewer: viewer-parts
-	@echo "serving on http://127.0.0.1:8777/viewer/   (ctrl-c to stop)"
-	@(sleep 1; open http://127.0.0.1:8777/viewer/) &
+	@python3 tools/view.py exports/body-monobody.stl --no-open --print >/dev/null || true
+	@python3 -c "import webbrowser,sys; sys.exit(0)"
+	@echo "serving on http://127.0.0.1:8777/viewer/?parts=parts.json   (ctrl-c to stop)"
+	@(sleep 1; open "http://127.0.0.1:8777/viewer/?parts=parts.json") &
 	@python3 -m http.server 8777 --bind 127.0.0.1

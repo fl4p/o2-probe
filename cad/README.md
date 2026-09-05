@@ -336,3 +336,45 @@ An exploded view hides the carrier inside the cap. Rendered with
 4. The end face only drains if the probe goes in roughly level; a
    downward-tilted insertion turns it into the upward-facing pocket
    `../MEMBRANE.md` forbids.
+
+## Looking at any of it — `tools/view.py`
+
+    make view SCENE=bed                          # a named scene
+    make view PARTS="o2_probe_head_end.scad:carrier"
+    make view PARTS="exports/asa-*.stl"
+    python3 tools/view.py --list                 # what scenes exist
+
+One command, and it does the whole chain: renders anything missing or older
+than the SCAD it came from (in parallel), picks a **free** port, serves `cad/`
+so the meshes resolve, and opens the page. Press **R** in the browser to
+re-render every part and swap it in **without losing the camera** — the loop
+while a dimension is being tuned is edit, R, look.
+
+Scenes live in `tools/scenes.json`: a name, a note, and a list of `SPEC`s with
+optional colours. A SPEC is one of
+
+    exports/thing.stl             an existing mesh, loaded as-is
+    model.scad:part               render `-D part="part"` from that model
+    model.scad:part=Label         ... with a name for the panel
+
+Three rules are load-bearing and are the reason this is a tool and not a
+one-liner:
+
+- **No dimension is written in the viewer.** Parts come out of the model at
+  their assembly coordinate and load with an identity matrix. A viewer that
+  does its own arithmetic can place a part from a stale copy of a constant and
+  still look entirely plausible — that happened once, 11 mm out.
+- **The `-D` flags come from the Makefile**, read back through `make
+  print-<VAR>`. `HEAD_END_PROV` supplies the measured-input placeholders this
+  model refuses to default; rendering without them fails, and rendering with
+  the wrong ones builds a different part. If the variable cannot be read, the
+  render is reported as failed rather than quietly done without it.
+- **A stale mesh looks exactly like a current one**, and so does a failed
+  rebuild. Anything that did not render is named on the page and in the shell —
+  the first version of the R button said "Rebuilt 14:57" after all five renders
+  had failed, which is precisely the bug this rule exists to prevent.
+
+`make viewer` still exists for the body+board scene, because that one is
+special: `tools/make_viewer_parts.py` *reads dimensions out of the model* to
+place the KiCad board and the cable cap, which `view.py` cannot and must not
+guess.

@@ -1,5 +1,5 @@
 <meta charset="utf-8">
-<title>O2 probe — body + board</title>
+<title>o2-probe — viewer</title>
 <!--
   Local three.js viewer for the prototype-1 body with the real KiCad board in it.
 
@@ -93,6 +93,11 @@
     <button data-view="front">Front</button><button data-view="side">Side</button>
     <button data-view="top">Top</button><button data-view="iso">Iso</button>
   </div>
+  <h2>Meshes</h2>
+  <button id="rebuild">Rebuild (R)</button>
+  <div class="note" style="margin-left:0">Re-renders every part from the SCAD and
+    swaps it in without moving the camera. Needs the page served by
+    <code>tools/view.py</code>.</div>
   <div id="facts" class="note" style="margin:10px 0 0 0"></div>
 </div>
 <div id="hint">drag rotate · scroll zoom · right-drag pan</div>
@@ -180,16 +185,43 @@ const loadSTL = url => new Promise((res, rej) => loader.load(url, res, undefined
 
 (async () => {
   let cfg;
-  try { cfg = await (await fetch('parts.json')).json(); }
-  catch (e) { return fail('Could not read parts.json — serve this over http, not file://\n\n' + e); }
+  // WHERE THE SCENE COMES FROM, in order:
+  //   ?parts=NAME.json   an explicit static file next to this page
+  //   /scene.json        served live by tools/view.py -- the normal case now
+  //   parts.json         the static body+board scene, for a plain http.server
+  // The name is restricted to a bare filename because it goes into a fetch.
+  const want = new URLSearchParams(location.search).get('parts');
+  let src = (want && /^[a-z0-9_.-]+\.json$/i.test(want)) ? want : null;
+  // A plain GET, not a HEAD probe: tools/view.py answers /scene.json from
+  // memory in do_GET, and SimpleHTTPRequestHandler's inherited do_HEAD looks
+  // for a FILE of that name instead -- so the probe 404s while the real fetch
+  // would have worked, and the page silently fell back to the static scene.
+  const tryJSON = async name => {
+    try { const r = await fetch(name, {cache: 'no-store'});
+          return r.ok ? await r.json() : null; } catch (e) { return null; }
+  };
+  cfg = src ? await tryJSON(src) : null;
+  if (!cfg) { cfg = await tryJSON('scene.json'); if (cfg) src = 'scene.json'; }
+  if (!cfg) { cfg = await tryJSON('parts.json'); if (cfg) src = 'parts.json'; }
+  if (!cfg) return fail('No scene: neither scene.json nor parts.json could be read.\n'
+                        + 'Serve this over http (tools/view.py), not file://');
+  if (cfg.meta && cfg.meta.title) {
+    document.title = 'view — ' + cfg.meta.title;
+    document.querySelector('h1').textContent = cfg.meta.title;
+    document.querySelector('.sub').textContent = cfg.meta.subtitle || '';
+  }
 
+  const m0 = cfg.meta || {};
   const staleness = [];
   for (const p of cfg.parts) {
     let geom;
     if (p.kind === 'stl' && p.stale) staleness.push(p.name + ': ' + p.stale);
     if (p.kind === 'stl') {
       try { geom = await loadSTL(p.file); }
-      catch (e) { fail('Missing mesh: ' + p.file + '\nRun `make monobody` / `make board-mesh` first.'); continue; }
+      catch (e) { fail('Missing mesh: ' + p.file
+                       + '\n\ntools/view.py builds what it can; a mesh it does not own '
+                       + '(a KiCad export, a hand-made STL) has to be built by its own '
+                       + 'target first.'); continue; }
       const m = new THREE.Matrix4(); m.set(...p.matrix);
       geom.applyMatrix4(m);
       geom.computeVertexNormals();
@@ -209,7 +241,11 @@ const loadSTL = url => new Promise((res, rej) => loader.load(url, res, undefined
   const size = box.getSize(new THREE.Vector3());
   const mid = box.getCenter(new THREE.Vector3());
   controls.target.copy(mid);
-  const dist = Math.max(size.x, size.y, size.z) * 1.5;
+  // 2.2, not 1.5: the framing is computed off the bounding box's LONGEST axis,
+  // and on a squat scene (the sealing stack is 40 x 40 x 43) that puts the
+  // camera inside the part's own shoulder. Fitting a sphere around the box
+  // rather than a side of it is what the extra factor stands in for.
+  const dist = Math.max(size.x, size.y, size.z) * 2.2;
   camera.position.set(mid.x + dist * 0.55, mid.y + dist * 0.30, mid.z + dist * 0.75);
   camera.near = dist / 200; camera.far = dist * 20; camera.updateProjectionMatrix();
   window.view = { mid, dist };
@@ -229,9 +265,13 @@ const loadSTL = url => new Promise((res, rej) => loader.load(url, res, undefined
     el.min = lo.toFixed(2); el.max = hi.toFixed(2);
     wireCut(pl, sl, lab, fl, ax, +el.max);
   }
-  document.getElementById('noteZ').textContent =
-    `Slides a plane along the probe axis: ${bb.min.z.toFixed(0)} is the cable `
-    + `end, 0 the head joint, +${bb.max.z.toFixed(1)} the membrane face.`;
+  // The body scene knows what its two ends ARE; a generic scene only knows how
+  // far the geometry runs, and says that rather than inventing landmarks.
+  document.getElementById('noteZ').textContent = (m0 && m0.joint !== undefined)
+    ? `Slides a plane along the probe axis: ${bb.min.z.toFixed(0)} is the cable `
+      + `end, 0 the head joint, +${bb.max.z.toFixed(1)} the membrane face.`
+    : `Slides a plane along the model's Z: ${bb.min.z.toFixed(1)} to `
+      + `${bb.max.z.toFixed(1)} mm, in model coordinates.`;
 
   // A stale mesh looks exactly like a current one, so say it out loud. This is
   // the whole reason make_viewer_parts.py records mtimes: the meshes are built
@@ -240,20 +280,73 @@ const loadSTL = url => new Promise((res, rej) => loader.load(url, res, undefined
   if (staleness.length) {
     const el = document.getElementById('stale');
     el.style.display = 'block';
-    el.textContent = 'STALE MESH — rebuild with `make monobody` / `make board-mesh`:\n'
+    el.textContent = 'STALE MESH — press R (or the Rebuild button) to re-render:\n'
                    + staleness.join('\n');
     el.style.whiteSpace = 'pre-wrap';
   }
 
-  const m = cfg.meta;
-  // Everything here is read out of the SCAD model by make_viewer_parts.py, so
-  // it cannot quietly disagree with the geometry on screen.
-  document.getElementById('facts').textContent =
-    `${m.joint} · tube ${m.tube_len} · tail ${m.tail_len} · `
-    + `head socket ${m.head_socket_len} · cap engage ${m.cap_engage}\n`
-    + `bore Ø${(m.bore_r * 2).toFixed(1)} · head bore Ø${(m.head_bore_r * 2).toFixed(2)}\n`
-    + `mesh board ${m.board_t_mesh} mm; model cut for ${m.board_t_model} mm`;
+  const m = m0;
+  // The body scene carries dimensions read out of the SCAD by
+  // make_viewer_parts.py, so they cannot quietly disagree with the geometry on
+  // screen. A generic scene has none, and says what it is instead of printing
+  // a row of `undefined`.
+  document.getElementById('facts').textContent = (m.joint !== undefined)
+    ? `${m.joint} · tube ${m.tube_len} · tail ${m.tail_len} · `
+      + `head socket ${m.head_socket_len} · cap engage ${m.cap_engage}\n`
+      + `bore Ø${(m.bore_r * 2).toFixed(1)} · head bore Ø${(m.head_bore_r * 2).toFixed(2)}\n`
+      + `mesh board ${m.board_t_mesh} mm; model cut for ${m.board_t_model} mm`
+    : `${cfg.parts.length} parts · built ${m.generated || '?'}\n`
+      + `bbox ${fmtBox(new THREE.Box3().setFromObject(root))}`;
 })();
+
+const fmtBox = b => {
+  const s = b.getSize(new THREE.Vector3());
+  return `${s.x.toFixed(1)} x ${s.y.toFixed(1)} x ${s.z.toFixed(1)} mm`;
+};
+
+// REBUILD, from the page. The meshes come from SCAD that changes under this
+// viewer, and the old answer was "go back to the terminal, re-run a target,
+// reload, lose your camera". tools/view.py answers /rebuild by re-rendering
+// every part it owns; this swaps the geometry in place and keeps the view.
+async function rebuild() {
+  const btn = document.getElementById('rebuild');
+  btn.disabled = true; btn.textContent = 'rendering…';
+  try {
+    const cfg = await (await fetch('rebuild', {cache: 'no-store'})).json();
+    const loader2 = new STLLoader();
+    for (const { p, mesh } of state.parts) {
+      const fresh = cfg.parts.find(q => q.name === p.name);
+      if (!fresh || fresh.stale) continue;
+      const geom = await new Promise((res, rej) =>
+        loader2.load(fresh.file + '?t=' + Date.now(), res, undefined, rej));
+      const m4 = new THREE.Matrix4(); m4.set(...fresh.matrix);
+      geom.applyMatrix4(m4); geom.computeVertexNormals();
+      mesh.geometry.dispose(); mesh.geometry = geom;
+    }
+    // A REBUILD THAT RENDERED NOTHING IS NOT A REBUILD. The first version said
+    // "Rebuilt 14:57" after all five renders had failed, because it only looked
+    // at whether the fetch came back. Report what the server actually managed.
+    const bad = cfg.parts.filter(q => q.stale);
+    const el = document.getElementById('stale');
+    el.style.display = bad.length ? 'block' : 'none';
+    el.style.whiteSpace = 'pre-wrap';
+    el.textContent = bad.length
+      ? (bad.length + ' of ' + cfg.parts.length + ' parts did NOT rebuild:\n'
+         + bad.map(q => q.name + ': ' + q.stale).join('\n'))
+      : '';
+    btn.textContent = bad.length
+      ? ('FAILED on ' + bad.length + ' of ' + cfg.parts.length)
+      : 'Rebuilt ' + new Date().toLocaleTimeString();
+  } catch (e) {
+    btn.textContent = 'rebuild failed — is this served by tools/view.py?';
+  }
+  btn.disabled = false;
+  setTimeout(() => { btn.textContent = 'Rebuild (R)'; }, 4000);
+}
+addEventListener('keydown', e => {
+  if (e.key === 'r' || e.key === 'R') rebuild();
+});
+document.getElementById('rebuild').onclick = rebuild;
 
 // --- controls ---------------------------------------------------------------
 // autocomplete="off" on every control above is not cosmetic: without it Chrome
