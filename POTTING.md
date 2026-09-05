@@ -413,11 +413,37 @@ Four consequences for this section:
    not DIN 47100 white/brown/green/yellow), so if one of those is bought instead,
    record the number→function map in `DESIGN.md` and on the probe label.
 
-The **gland is still open**. Specify it against the *measured* OD of the cable
-in hand — nominally 3,80 mm now, which is small enough that an M12 gland with a
-3–6,5 mm range is the likely size rather than the M16 assumed when a 6,6 mm cable
-was expected. Measure before ordering: a gland relying on the bottom of its
-clamping range is the leak this whole section exists to prevent.
+### 5.1.1 The gland
+
+**LAPP SKINTOP INOX-R M12x1,5, article 53806749** — 316L body, **silicone** seal
+and O-ring, clamping **3,0–5,0 mm** (the cable's 3,80 mm sits at 40 % of the
+band), −40…+100 °C, IP68 10 bar / IP69, thread length 6,5 mm, SW 16. Sold in
+fives at roughly €19–21 each. Full reasoning and alternatives:
+`CABLE-SOURCING.md` §5.2.
+
+Two things drive that choice, and both are chemistry rather than fit:
+
+1. **No brass, ever, on this probe.** Ammonia is the classic stress-corrosion-
+   cracking agent for brass, the effect is *worse in vapour than in liquid*, and
+   the literature's own example of the hazard is ammonia from decaying organic
+   matter. A gland is a pre-stressed brass part; a windrow is an ammonia vapour
+   generator. That rules out the entire default nickel-plated-brass category.
+2. **No FKM seals.** LAPP's SKINTOP HYGIENIC-R fits the cable better than
+   anything else found (3,0–4,5 mm) and is 316L, but its seals are FKM — the one
+   elastomer family whose published exception list names ammonia, strong bases
+   *and* hot water. Silicone and TPE are both ordinary ammonia-service choices.
+
+**Do not tap the gland thread directly into the plastic cap.** `MEMBRANE.md`'s
+rule against sustained strain in plastic at 75 °C applies exactly here: the cap
+would creep and the seal relax. Use a thin cap wall plus a stainless locknut so
+the load path is metal-to-metal — but note the arithmetic, because it is tight:
+thread length 6,5 mm minus a 2,8 mm M12 locknut leaves a **maximum ~3,7 mm cap
+wall**. If the cap must be thicker, a stainless M12x1,5 threaded insert is the
+alternative. This is an enclosure decision that `PLAN.md` has not yet made.
+
+Still measure the delivered cable's OD before fitting: 3,80 mm is a nominal, and
+a gland working at the bottom of its clamping range is the leak this whole
+section exists to prevent.
 
 ### 5.2 If the run has to be joined
 
@@ -511,8 +537,11 @@ build → clean → bake → conformal-coat gas zone (apertures clear)
 3. Confirm the tube stock (PVC-U vs other) before quoting adhesion, and confirm
    its CTE — §4's 1.5 mm creep figure rides on it.
 4. ~~Specify the cable~~ **done and ordered, §5.1 / `CABLE-SOURCING.md`** (LAPP
-   7038890, OD 3,80 mm); specify the **gland** by part number against the
-   measured OD; run the soak/cross-section. Two claims in §5.1 are still
+   7038890, OD 3,80 mm); ~~specify the **gland** by part number~~ **done, §5.1.1
+   / `CABLE-SOURCING.md` §5.2** (LAPP SKINTOP INOX-R M12, 53806749) — still
+   verify against the *measured* OD, and settle the cap wall thickness, which
+   §5.1.1 shows is constrained to ~3,7 mm by the gland's thread length. Run the
+   soak/cross-section. Two claims in §5.1 are still
    *assumed*: that a PU pot bonds to this PUR jacket (needs the coupon and a peel
    test), and that an unshielded, untwisted run survives heater PWM (needs an
    A−B scope trace and a CRC-error count once the heater is enabled).

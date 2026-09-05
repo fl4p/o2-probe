@@ -347,6 +347,134 @@ Then order the run in as few pieces as the site allows anyway — every joint is
 water path, and `POTTING.md` §5 already treats the cable as the leak path of
 record.
 
+## 5.2 The gland
+
+Closes the other half of `POTTING.md` §5 item 4. Researched 2026-09-05, same
+method and browser as the cable work; sources in §8.
+
+**Recommendation: LAPP SKINTOP INOX-R M12x1,5, article 53806749.**
+
+| | |
+|---|---|
+| body | stainless **V4A, 1.4404 / 316L** |
+| seal / O-ring | **silicone** / silicone (insert: polyamide) |
+| clamping range | **3,0 - 5,0 mm** — the ordered cable's 3,80 mm sits at 40 % of the band |
+| temperature | **−40 ... +100 °C** |
+| ingress | **IP68 (10 bar), IP69**, NEMA 4X / 6 |
+| thread | M12x1,5, **thread length 6,5 mm**, SW 16, overall length 29,3 mm |
+| pack | 5 pieces (~€19-21 each incl. VAT, several German distributors) |
+
+### Why the material question dominates this choice
+
+The default cable gland is **nickel-plated brass**, and brass is the wrong alloy
+family for this specific environment — not marginally, but by a named failure
+mechanism. Ammonia is *the* classic stress-corrosion-cracking agent for brass,
+and the canonical description of the hazard is a description of this site:
+
+> "brasses stored in a dry and clean atmosphere, although carrying high internal
+> strains, cracked only after a long time; while a damp atmosphere was especially
+> active in producing such cracking, particularly if it carried **ammonia vapor
+> from decaying organic matter**"
+>
+> — Davalos-Monteiro et al., *Mat. Res.* 22(1), 2019,
+> [doi:10.1590/1980-5373-MR-2018-0077](https://doi.org/10.1590/1980-5373-MR-2018-0077),
+> §1, which also finds SCC "most severely in ammonia **vapour**"
+
+A cable gland is a pre-stressed brass part (the compression nut holds the body in
+tension) sitting in warm, saturated, ammonia-bearing vapour. That is the complete
+SCC triad — susceptible alloy, sustained tensile stress, specific agent — so
+**every nickel-plated brass gland is rejected here**, including PFLITSCH's own
+brass blueglobe and LAPP's SKINDICHT/SKINTOP MS range. This is a chemistry
+rejection, not a preference.
+
+Note the mechanism prefers **vapour** to immersion, so "it will be sealed in
+conduit" is not mitigation — a conduit is exactly where humid ammonia vapour
+collects.
+
+### Why not the obvious hygienic-grade part
+
+**LAPP SKINTOP HYGIENIC-R M12x1,5 (53105200) is rejected**, despite being the
+best geometric fit found (3,0 - 4,5 mm brackets 3,80 mm almost dead centre) and
+316L bodied. Its datasheet gives **FKM** seals, and FKM is the one common
+elastomer family with a documented ammonia exception — the standard resistance
+summary lists its weaknesses as "hot water and steam, for standard
+bisphenol-cured grades ... **ammonia and certain strong bases**". Hot, wet and
+ammoniac is all three of FKM's weaknesses at once, and it is the entire
+description of a windrow.
+
+Silicone (INOX-R) and TPE (PFLITSCH) are both ordinary choices for ammonia
+service. That is the whole reason INOX-R wins over the part that fits better.
+
+### Alternatives, and the one number that separates them
+
+| | LAPP INOX-R M12 **53806749** | PFLITSCH **bg 212V4A** | PFLITSCH **bg 212VA** |
+|---|---|---|---|
+| body | 1.4404 / 316L | 1.4571 (V4A) | **1.4305** |
+| seal | silicone | TPE | TPE |
+| temperature | −40…+100 °C | **−40…+130 °C** | −40…+130 °C |
+| range at 3,80 mm | 3,0–5,0 (40 %) | 2,0–5,0 w/ inlet (60 %) | 2,0–5,0 w/ inlet |
+| ingress | IP68 10 bar | **IP68 15 bar** | IP68 15 bar |
+| thread length | 6,5 mm | 5,0 mm | 5,0 mm |
+| orderable | 5-pack, several DE distributors | **price on request, catalogue PU 50** | **single**, €15,50 net (automation24 art. 103588) |
+
+PFLITSCH's **bg 212V4A** is on paper the better part — 1.4571, a TPE insert good
+to +130 °C where INOX-R's silicone stops at +100 °C, and IP68 to 15 bar. It loses
+on procurement only: price-on-request against a catalogue pack of 50.
+
+**Do not substitute the in-stock bg 212VA for it.** PFLITSCH's own table gives the
+plain-VA body as **1.4305**, a free-machining grade whose sulphur is deliberately
+present as manganese-sulphide inclusions; those inclusions are established pitting
+initiation sites, and the grade carries a **PREN of about 17–21 against 316L's
+~24**. For a part that is permanently buried, permanently wet, warm and in contact
+with chloride-bearing leachate, that is the wrong end of the stainless range. The
+€15,50 single-unit convenience is buying a machining grade for a corrosion job.
+
+**If the pile ever measures above ~85 °C**, INOX-R's +100 °C stops being
+comfortable and the answer is bg 212V4A (or its silicone-insert option, −55 …
++200 °C) bought as a pack — the same escalation `POTTING.md` §5.1 already defines
+for the cable.
+
+### The mounting constraint this exposes
+
+INOX-R's thread is **6,5 mm long**, and a stainless M12x1,5 locknut is **2,8 mm**
+tall (PFLITSCH 212/5stv). Through-hole mounting therefore allows a cap wall of at
+most **6,5 − 2,8 ≈ 3,7 mm**, and less once you want thread engaged past the nut.
+
+That collides with an existing project rule. `MEMBRANE.md` forbids **sustained
+strain in plastic at 75 °C**, and a gland torqued into a tapped ASA or PVC-U boss
+is precisely sustained strain in plastic at temperature — the cap would creep and
+the seal would relax over exactly the timescale this probe is meant to survive.
+So the two mounting routes are:
+
+1. **Thin cap wall (≤ 3,5 mm) + stainless locknut** — the load path is
+   metal-to-metal through the nut, and the plastic is only in compression. This
+   is the route consistent with the existing rule.
+2. **A stainless M12x1,5 threaded insert** moulded or bonded into the cap, if the
+   cap has to be thicker.
+
+**Tapping the plastic directly is not an option**, and this is worth stating
+because it is the obvious thing to do with a printed ASA head. Resolve the cap
+wall thickness before ordering; it is a `PLAN.md` enclosure decision, not a
+sourcing one.
+
+### Open
+
+- **Measure the cable's actual OD before committing.** 3,80 mm is LAPP's nominal.
+  Jacket OD tolerance is typically ±0,15 mm or so, which stays inside 3,0–5,0 —
+  but the measurement is free and the whole point of §5.1's warning.
+- **The expansion port** (`PLAN.md`, second gland or M12 connector) needs either a
+  second gland or a **stainless blanking plug**; PFLITSCH list a
+  "Blindstopfen Sechskant – metrisch – Edelstahl" and LAPP an equivalent. Not
+  priced here, because whether the port exists at all is still open in `PLAN.md`.
+- **Silicone is the most gas-permeable common elastomer.** It is the right choice
+  against ammonia, but §5's claim that the gland is a *moisture barrier* is a
+  claim about liquid water at the clamping interface, not about vapour transport
+  through the seal cross-section. Nobody has bounded the vapour path, and the
+  soak test is what would.
+- Neither the +100 °C nor the +130 °C rating is a **service-life** figure at
+  72 °C in ammoniac wet — the same caveat §4 item 2 records for the cable applies
+  unchanged to the gland's elastomer.
+
 ## 6. Search record for the absence claims
 
 Two absence claims are load-bearing and both are **bounded**, not strong.
@@ -403,6 +531,15 @@ That last row is not a cable question and it dominates all of them.
 | S12 | https://www.helukabel.de/de/produkte/datentechnik-leitungen/pvc-datenleitungen/liyy.html | de-scoped | curl plain-Chrome UA → 404 (composed URL, rung-0 failure); superseded by S11 and not re-derived, because the LiYY rejection does not turn on it | route: none | n/a | no |
 | S13 | https://www.victronenergy.com/upload/documents/Datasheet-SmartSolar-charge-controller-MPPT-75-10,-75-15,-100-15,-100-20-EN.pdf | partial (self-consumption rows) | curl + plain-Chrome UA, 200, 285 373 B, `%PDF-1.6` | raw text (`pdftotext`) | validated | yes — for `POWER.md`, not this document |
 | S14 | PVGIS v5.3 MRcalc API, `re.jrc.ec.europa.eu`, SARAH3 / ERA5, 2005–2023 | inspected (monthly `H(i)_m` series, tilt sweep 40–90°) | curl, 200, JSON | raw text (JSON) | validated (inputs block echoes lat/lon/elevation/horizon as requested) | yes — for `POWER.md` |
+| S15 | https://doi.org/10.1590/1980-5373-MR-2018-0077 — Davalos-Monteiro et al., *Observations of Corrosion Product Formation and Stress Corrosion Cracking on Brass Samples Exposed to Ammonia Environments*, Mat. Res. 22(1), 2019 | **partial** — abstract and §1 Introduction, which carry the quoted claims | headed Chrome over CDP, 200, article DOM read live | raw text (DOM) | validated (title, DOI and journal match) | **yes** — the brass rejection in §5.2 |
+| S16 | https://www.pflitsch.de/de/kabelverschraubungen/standard-kabelverschraubungen/blueglobe/blueglobe-edelstahl-v4a/ and …/blueglobe-edelstahl/ | **inspected** — full ordering table plus the material/temperature header row | headed Chrome over CDP, 200 | raw text (DOM) | validated | yes — bg 212V4A vs bg 212VA body grades, TPE insert, clamping ranges |
+| S17 | https://datasheet.octopart.com/53806743-Lapp-Group-datasheet-180552415.pdf — LAPP *Product Information SKINTOP INOX / INOX-R*, last update 11.12.2022 | **inspected** — technical-data block and full ordering table | curl + plain-Chrome UA, 200, 456 585 B, `%PDF-1.7` | raw text (`pdftotext -layout`) | validated | **yes** — the recommendation's body grade, seal, range and thread length |
+| S18 | https://imager.lapp.com/e/lapp/FMNziTRKHY-Vh3MqiS4zWg~~/DB53105110EN.pdf — LAPP *SKINTOP HYGIENIC / HYGIENIC-R* data sheet | **partial** — material and temperature block, M12/M16 rows | curl + plain-Chrome UA, 200, 188 252 B, `%PDF-1.5` | raw text (`pdftotext -layout`) | validated | **yes** — the FKM seal that rejects HYGIENIC-R |
+| S19 | https://oringhandbook.com/materials/fkm-viton/ | **partial** — the FKM limitations paragraph | headed Chrome over CDP, 200 | raw text (DOM) | validated | yes — FKM's ammonia/strong-base and hot-water exceptions. **Secondary source**, not Parker's own chemical table — see the caveat below |
+| S20 | https://www.agst.de/4305?lang=en (PREN 17.0–20.7 for 1.4305), corroborated by two further stainless suppliers on the MnS-inclusion point | **partial** — the PREN figure and the pitting-initiation statement | search index + headed Chrome, 200 | raw text | validated across three independent vendors | yes — the bg 212VA rejection |
+| S21 | https://www.pflitsch.de/de/kabelverschraubungen/zubehoer-din-artikel-werkzeuge/gegenmuttern/gegenmutter-metrisches-gewinde-edelstahl/ | **inspected** — full locknut ordering table | headed Chrome over CDP, 200 | raw text (DOM) | validated | yes — the 2,8 mm M12 locknut height |
+| S22 | https://www.automation24.de/edelstahl-kabelverschraubungen-metrisch (both result pages) | **inspected** — all M12 rows with prices and stock state | headed Chrome over CDP, 200 | raw text (DOM) | validated | yes — bg 212VA single-unit price and availability |
+| S23 | https://www.automation24.de/pur-sensorleitung-hochflexibel-lapp-unitronic-sensor-fd-lif9y11y-4x0-25-7038890 | **inspected** — full technical-data table | curl + plain-Chrome UA, 200, 1 124 466 B | raw text (parsed DOM) | validated | **yes** — §0's OD, temperature range and price for the ordered cable |
 
 **One row is not clean and the claim resting on it is load-bearing.** S11: the
 LiYY temperature range **−5…+70 °C flexed / −40…+80 °C fixed** was read from a
@@ -419,7 +556,30 @@ But the specific "72.1 °C exceeds the flexed rating" sentence **rests on an
 unvalidated intermediary extraction**, and should be reverified against the LAPP
 document before it is quoted anywhere else.
 
-Browser-control proof (`online-research` §0): headed Google Chrome 152.0.7977.77,
+
+**A second unclean row, disclosed for the same reason as S11.** S19 is a
+seal-vendor handbook, not Parker's own chemical-compatibility table, and the
+claim resting on it is load-bearing: it is the sole reason SKINTOP HYGIENIC-R —
+otherwise the best geometric fit found — is rejected. FKM's incompatibility with
+ammonia and amines is textbook and is not seriously in doubt, but the *specific*
+claim that matters here is unquantified in a way this source cannot settle:
+**nobody has established the NH₃ concentration in a windrow at 30 cm, nor FKM's
+degradation rate at that concentration and 72 °C.** The rejection is therefore
+argued as material-class risk avoidance — do not choose the one elastomer with a
+named exception for the one chemical the environment is known to produce — and
+**not** as a demonstrated failure. If HYGIENIC-R were the only orderable part,
+this row would need Parker's own table and a windrow NH₃ measurement before it
+could carry the decision. It is not, so the cheap move is to sidestep it.
+
+Browser-control proof for the 2026-09-05 gland work (`online-research` §0):
+headed Google Chrome 152.0.7977.77, scratch profile at `…/scratchpad/chrome-gland`,
+own CDP port allocated from the ephemeral range and verified free before launch,
+ownership confirmed against the launching PID's command line. Playwright over CDP;
+`about:blank` navigated, `document.readyState` = `complete`,
+`document.body.outerHTML` = `<body></body>` read from the live DOM,
+`navigator.userAgent` = Chrome/152.0.0.0 with no `HeadlessChrome`.
+
+Browser-control proof for the 2026-09-04 cable work: headed Google Chrome 152.0.7977.77,
 scratch profile at `…/scratchpad/chrome-research`, own CDP port 54113 — port
 verified free before launch and ownership confirmed against the launching PID's
 command line. Playwright over CDP; `about:blank` navigated, `document.readyState`
