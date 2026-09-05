@@ -138,7 +138,7 @@ class SwdLink:
     """
 
     @staticmethod
-    def openocd_args(adapter_serial=None):
+    def openocd_args(adapter_serial=None, backend=None):
         """OpenOCD arguments, optionally bound to one named probe.
 
         `adapter serial` has to come AFTER the interface file, because that
@@ -149,6 +149,10 @@ class SwdLink:
         different images.
         """
         args = ["-f", "interface/cmsis-dap.cfg"]
+        if backend:
+            # The Debug Mate is HID-only; `auto` tries usb_bulk and fails
+            # with "unable to open CMSIS-DAP device". See o2p_capture.py.
+            args += ["-c", "cmsis-dap backend %s" % backend]
         if adapter_serial:
             args += ["-c", "adapter serial %s" % adapter_serial]
         args += ["-c", "transport select swd",
@@ -158,11 +162,12 @@ class SwdLink:
         return args
 
     def __init__(self, host, port, base, timeout, launch=True, verbose=False,
-                 adapter_serial=None):
+                 adapter_serial=None, backend=None):
         self.base = base
         self.timeout = timeout
         self.verbose = verbose
         self.adapter_serial = adapter_serial
+        self.backend = backend
         self.proc = None
         self.sock = None
         try:
@@ -201,7 +206,7 @@ class SwdLink:
             if not launch:
                 raise
         cmd = [self._openocd_bin(), "-s", self._openocd_scripts()]
-        cmd += self.openocd_args(self.adapter_serial)
+        cmd += self.openocd_args(self.adapter_serial, self.backend)
         print("   launching: %s" % " ".join(cmd))
         self.proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL,
                                      stderr=subprocess.DEVNULL)
@@ -487,6 +492,11 @@ def main():
     ap.add_argument("--swd-attach", action="store_true",
                     help="require an OpenOCD that is already running, rather "
                          "than launching one")
+    ap.add_argument("--adapter-backend",
+                    default=os.environ.get("O2P_ADAPTER_BACKEND"),
+                    choices=[None, "hid", "usb_bulk", "tcp", "auto"],
+                    help="CMSIS-DAP backend (env O2P_ADAPTER_BACKEND). The "
+                         "Debug Mate needs 'hid'; auto fails on it.")
     ap.add_argument("--adapter-serial",
                     default=os.environ.get("O2P_ADAPTER_SERIAL"),
                     help="CMSIS-DAP serial to bind to (env "
@@ -519,7 +529,8 @@ def main():
         try:
             link = SwdLink(host, int(port or 6666), MBX_BASE, args.timeout,
                            launch=not args.swd_attach,
-                           adapter_serial=args.adapter_serial)
+                           adapter_serial=args.adapter_serial,
+                           backend=args.adapter_backend)
         except (OSError, IOError) as e:
             return "!! %s" % e
         # --baud/--parity describe the CABLE, and over SWD the cable settings

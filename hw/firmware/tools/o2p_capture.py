@@ -121,7 +121,7 @@ def elf_symbol(path, name):
 
 
 def read_regmap(addr, openocd, scripts, interface, target,
-                adapter_serial=None):
+                adapter_serial=None, backend=None):
     """Halt the target, dump the regmap, resume. Returns bytes or None."""
     tmp = tempfile.NamedTemporaryFile(suffix=".bin", delete=False)
     tmp.close()
@@ -135,6 +135,13 @@ def read_regmap(addr, openocd, scripts, interface, target,
     # must follow the interface file, which is what selects the adapter
     # driver. On 2026-09-05 the bench had two probes on the bus (CMSIS_DAP and
     # DAPLINK-S3-2) and one of them was running a bridge image, not this one.
+    if backend:
+        # The two probes on this bench are not interchangeable at the USB
+        # level: the bench DAPLink speaks usb_bulk, the Debug Mate speaks HID
+        # only. `auto` picks usb_bulk first and fails outright on the Debug
+        # Mate with "unable to open CMSIS-DAP device 0xd28:0x204", so the
+        # backend is both a fix and, incidentally, a probe selector.
+        cmd += ["-c", "cmsis-dap backend %s" % backend]
     if adapter_serial:
         cmd += ["-c", "adapter serial %s" % adapter_serial]
     cmd += [
@@ -192,9 +199,29 @@ def decode(blob, int_z, tia_ohm, va_rail_mv):
     def c100(x):
         return "" if x == I16_INVALID else f"{x / 100.0:.2f}"
 
+    # A converter can be pinned without going anywhere near a SUPPLY rail.
+    # The ADS1119 converts AFE_VOUT against the external reference, so its
+    # full scale is VREF - measured at 2492 mV, a full 800 mV below VA. The
+    # original test only looked at 0 V and VA, and on 2026-09-05 a GAIN=4
+    # fault injection pinned the channel at +32767 (afe_mv 2491) while this
+    # column dutifully reported afe_rail=0 and printed a cell current of
+    # -117.34 uA. That is the same class of mistake as reading a saturated
+    # TIA as a steady 607 uA, which is the incident this tool exists to
+    # prevent - so the converter's own full scale counts as a rail here.
     rail = ""
+    clipped = False
     if afe != U16_INVALID:
-        rail = "1" if (afe <= 50 or afe >= va_rail_mv - 50) else "0"
+        clipped = (afe <= 50 or afe >= va_rail_mv - 50)
+        if vref not in ("", U16_INVALID) and afe >= float(vref) - 5:
+            clipped = True
+        rail = "1" if clipped else "0"
+
+    # A pinned conversion cannot say what the current was, so do not publish a
+    # number derived from it. The firmware already withholds o2_raw_ua via
+    # O2P_F_ADC_RANGE; cell_ua is this tool's own derivation and was still
+    # being printed.
+    if clipped:
+        cell = None
 
     return {
         "iso_time": time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -242,6 +269,11 @@ def main():
                     default=os.path.expanduser(
                         "~/.platformio/packages/tool-openocd/openocd/scripts"))
     ap.add_argument("--interface", default="interface/cmsis-dap.cfg")
+    ap.add_argument("--adapter-backend",
+                    default=os.environ.get("O2P_ADAPTER_BACKEND"),
+                    choices=[None, "hid", "usb_bulk", "tcp", "auto"],
+                    help="CMSIS-DAP backend (env O2P_ADAPTER_BACKEND). The "
+                         "Debug Mate needs 'hid'; auto fails on it.")
     ap.add_argument("--adapter-serial",
                     default=os.environ.get("O2P_ADAPTER_SERIAL"),
                     help="CMSIS-DAP serial to bind to (env "
@@ -289,7 +321,7 @@ def main():
     for i in range(n):
         blob = read_regmap(addr, args.openocd, args.scripts,
                            args.interface, args.target,
-                           args.adapter_serial)
+                           args.adapter_serial, args.adapter_backend)
         if blob is None:
             row, err = None, "SWD read failed"
         elif not any(blob):

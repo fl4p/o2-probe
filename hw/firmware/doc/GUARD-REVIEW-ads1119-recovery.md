@@ -296,52 +296,65 @@ alongside.
 **6. Provenance.** Reported as `ADC_RANGE`, the existing published meaning. No
 map change, so no downstream decoder moves.
 
-**7. Known-bad calibration — PARTIAL, and this is the honest status.** The
-predicate is unit-tested at both rails, inside and outside the margin, and
-across the band. **It has NOT been calibrated on hardware.** The plan was to
-inject `GAIN = 4` into the per-conversion config write over SWD, making the
-real converter saturate against a 625 mV full scale while the oxygen channel
-sits ~1.06 V off zero. The attempt was abandoned rather than completed
-on 2026-09-04, and the reason given then was wrong. It was recorded as an
-unreliable SWD link -- roughly half of all OpenOCD connections failing with
-`cannot read IDR`, a target reset mid-session, and one sequence leaving the
-application flash erased. **None of that was a hardware fault.** A second
-session was working the same bench under a lock this session did not know
-about, and a broad `pkill -f openocd` of theirs was killing this session's
-OpenOCD mid-run; the erased application flash was a `pio run -t upload` cut
-off mid-programming by exactly that. The board and the probe were fine
-throughout. Retracted here because "the bench hardware is flaky" is the kind
-of conclusion that stops people looking, and it was contention.
+**7. Known-bad calibration — DONE, on hardware, 2026-09-05.** The predicate is
+unit-tested at both rails, inside and outside the margin, and across the band,
+and it has now been made to fire on a real saturated converter.
 
-**This remains the one guard in this document without a hardware known-bad
-behind it.**
+*The 2026-09-04 excuse was wrong and is retracted.* It was recorded then that
+the calibration had been abandoned because the SWD link was unreliable —
+roughly half of all OpenOCD connections failing with `cannot read IDR`, a
+target reset mid-session, an application flash left erased. None of that was a
+hardware fault. Another session was working the same bench under a lock this
+one did not know about, and a broad `pkill -f openocd` of theirs was killing
+this session's OpenOCD mid-run; the erased flash was a `pio run -t upload` cut
+off mid-programming by exactly that. The board and the probe were fine.
 
-**Prepared 2026-09-05, prediction recorded before the measurement.** The
-injection is now a compile-time one rather than a breakpoint one: a scratch
-tree outside the repository, built with `-DO2P_INJECT_CLIP_GAIN4`, which sets
-the GAIN bit in `cfg_byte()` for `O2P_ADS_MUX_AIN0_AGND` alone. Gain 4 puts
-full scale at +/-VREF/4; the oxygen channel converts against the external
-reference, measured at 2492 mV, so full scale becomes +/-623 mV while
-AFE_VOUT sits about 1.675 V above AGND at zero current. The converter is
-therefore pinned by the real signal path, which is the point -- a forged code
-would only re-test the unit tests.
+**Method.** Compile-time injection in a scratch tree outside the repository,
+built with `-DO2P_INJECT_CLIP_GAIN4`, which sets the GAIN bit in `cfg_byte()`
+for `O2P_ADS_MUX_AIN0_AGND` alone. Gain 4 puts full scale at ±VREF/4 = ±623 mV
+while AFE_VOUT sits about 1.675 V above AGND, so the converter is pinned **by
+the real signal path**. A forged code would only have re-tested the unit tests.
+The scratch tree's uninjected build is byte-identical to the repository build
+(sha256 `73a79a52d20cc5cb…`), so the injected image differs by the GAIN bit and
+nothing else.
 
-Predicted, so that a wrong prediction cannot be quietly reinterpreted as a
-pass:
+**Predicted before the run, in commit `1b4eb34`, and all five held:**
 
-  * every O2 sample returns +32767, or within `O2P_ADS_CLIP_MARGIN` of it;
-  * `g_acc_clipped` latches and `finish_o2()` raises `O2P_F_ADC_RANGE`
-    (bit 11), so `faults` reads `0x8801` against the `0x8001` baseline;
-  * `o2_raw_ua` publishes as a sentinel, not as the rail converted into a
-    confident current;
-  * VREF and VIN, which convert on other MUX codes, stay healthy -- if they
-    move, the injection is not channel-selective and the result says nothing
-    about the guard;
-  * re-flashing the committed image restores `faults = 0x8001` with no reset
-    needed beyond the programming cycle.
+| Prediction | Measured |
+|---|---|
+| O2 samples pinned at positive full scale | `afe_mv` 2491 against VREF 2492 |
+| `faults` `0x8801` against the `0x8001` baseline | `0x8801`, stable over three cycles |
+| `o2_raw_ua` withheld as a sentinel | empty |
+| VREF and VIN unaffected | 2492 mV and 12852 mV, unchanged |
+| restoring the committed image recovers | `0x8001`, `afe_mv` 962, 101.09 µA |
 
-Blocked at time of writing on probe selection, not on the board: see
-`~/dev/kb/tooling/openocd-cannot-select-a-serialless-cmsis-dap-probe.md`.
+The fourth row is the one that makes the result mean anything: had VREF or VIN
+moved, the injection would not have been channel-selective and the run would
+have said nothing about the guard.
+
+**What the run also found, which was not predicted.** With the channel pinned,
+`o2p_capture.py` reported `afe_rail=0` and printed `cell_ua = -117.34` as a
+confident number. Its rail test only looked at 0 V and VA, but this converter
+runs against the external reference, so its full scale is VREF — 2492 mV, a
+full 800 mV below VA. A converter can therefore be pinned without going
+anywhere near a supply rail. That is the same class of error as reading a
+saturated TIA as a steady 607 µA, which is the incident the tool exists to
+prevent, reappearing one rail over. Fixed: the converter's own full scale now
+counts as a rail, and a clipped sample no longer publishes a derived current.
+The firmware guard was already correct — it withheld `o2_raw_ua` throughout;
+it was the host-side tool that kept answering.
+
+**Bench note.** Restoring the board needed more than programming the app slot.
+The loader validates the run slot against `installed_crc`/`installed_len` in
+the boot descriptor, so a raw `program` at `0x08004000` leaves a descriptor
+describing the *previous* image and the loader correctly refuses to jump —
+`pc` spinning in `0x08000c44`–`0x08000c6c`, RAM never initialised, and the
+capture tool reporting an all-zero regmap. The fix is to write a matching
+descriptor, not to erase one: erasing works (`app_startable()` deliberately
+falls back to the vector table when no CRC is known) but discards
+`install_count`. The record encoder was validated by reproducing the CRC-16 of
+the record the firmware itself had written, `0xc2c1`, before anything was
+written back.
 
 **8. Fix vs mute.** Real: it changes what is published, not what is displayed.
 A pinned channel now withholds the reading instead of emitting the rail as a
