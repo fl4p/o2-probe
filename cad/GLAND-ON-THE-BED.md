@@ -5,6 +5,11 @@ surface. Printed that way (`face_groove_up = false`) the O-ring groove becomes a
 void open to the plate and its roof bridges, which failed on the machine
 2026-09-05. Can the groove move somewhere that prints without a bridge?
 
+**Update 2026-09-06:** before conceding the bridge, the one lever never tried on it
+-- `bridge_speed` 50 -> 25 -- has been sliced. See *The one untried lever*. The rest
+of this document stands: it says where the bridge is and why moving it does not work,
+and none of that is affected by whether 25 mm/s prints it cleanly.
+
 **Verdict: the option I proposed -- move the groove into the carrier -- does not
 work, for a reason that also kills every variant of "put it in the other part".**
 The two-piece retainer looked like the survivor and does not survive either --
@@ -58,6 +63,65 @@ chord that stays inside this annulus is
 
 against a groove only 3.25 mm wide radially. `bridge_angle` cannot help: the ring
 is symmetric, so every angle yields the same worst chord.
+
+## The one untried lever: bridge speed 25 (sliced 2026-09-06, NOT YET PRINTED)
+
+Everything above says *where* the bridge is, not that it must fail. The groove-down
+flip failed once, at the shared `bridge_speed` of 50 mm/s, and that was never varied.
+Halving it doubles the time each unsupported strand has to freeze before the next one
+pulls sideways on it, which is the mechanism that curls a bridge over a narrow void.
+
+Applied per part in `print.sh` (`part_process_overrides`), not in
+`process_asa_seal.json`: nothing else on this printer bridges over a *seal* surface,
+and slowing the monobody's structural bridges would add hours to a 1119-layer tower
+for nothing.
+
+Verified in the emitted `print/retainer/plate_1.gcode`, not in the profile we passed
+in -- the profile is the request, the gcode is the answer:
+
+| | groove-down @ 50 | groove-down @ 25 |
+|---|---|---|
+| Bridge feature at | z 2.12 | z 2.12 |
+| Bridge extrusions | 549 | 553 |
+| Bridged path | 735 mm | 733.79 mm |
+| Longest bridged move | 20.16 mm | 20.16 mm |
+| Feedrate on those paths | 50 mm/s | **25 mm/s** (533 of 553 moves) |
+| Model print time | -- | 13 m 23 s |
+
+The geometry is byte-for-byte the same problem; only the feedrate moved. The 20 moves
+that are *not* 25 mm/s are all **slower** (10-19 mm/s, Orca's short-segment
+deceleration) bar two anchor moves at 30 -- so no bridged path runs faster than asked.
+
+Two side effects worth knowing before reading a result:
+
+- **`internal_bridge_speed` is `150%`, i.e. relative.** The internal bridge at z 3.56
+  (over sparse infill, 294 moves) therefore fell from 75 to 37.5 mm/s as well. That is
+  not a seal surface and the change is harmless, but it means this plate is not a
+  single-variable experiment in the strict sense.
+- **The fan on the bridge is 35%, not 100%.** `M106 S89` there is
+  `overhang_fan_speed = 35`, which a bridge path takes unconditionally. On any other
+  material the first thing you would do to a sagging bridge is blast it; ASA is
+  capped at 35 on purpose (warping, layer adhesion) and that cap was itself only just
+  restored after a bad profile rebuild. **Fan is the second lever, and it is not on
+  this plate** -- changing two things at once and getting a good print tells you
+  which of them worked: neither.
+
+`bridge_flow` stays at 1 for the same reason.
+
+**How the verdict gets made, and it is not by looking at it.** The whole squeeze
+window is 0.245 mm wide (see *Numbers used*). A roof that has sagged 0.1 mm looks
+perfect and has eaten 40% of the window. Measure the groove depth with a depth gauge
+against the bed face, at several angles round the ring, and compare to
+`face_groove_depth = 1.76`. Groove depth has never been measured on a printed part in
+any orientation -- so this print also produces the first such number for the
+groove-**up** parts already on the bench, if the same gauge is used on both.
+
+**This plate does not mate with the parts on the bench.** It is sliced from the
+committed `exports/asa-retainer-print.stl`, which is the Ø38.70 bolt circle -- see
+*OPEN: the committed STLs do not match the committed sources*. That is deliberate:
+the bench carrier is also Ø38.70, so this retainer can actually be bolted up and
+squeeze-checked. A retainer rebuilt from today's sources would be Ø37.70 and fit
+nothing that exists.
 
 ## Why the groove cannot move to the carrier
 

@@ -89,7 +89,23 @@ part_process_overrides() {
         #
         # The actual first-layer fix here is not a slicer setting: residue on
         # the nozzle tip mis-levels z, because the tip IS the levelling probe.
-        retainer) echo '{"brim_object_gap":"0.1","brim_type":"outer_only"}' ;;
+        #
+        # BRIDGE SPEED 25, not the shared 50, on Fab's ask 2026-09-06. This is
+        # the one untried lever on the groove-down flip. Layer 17 (z 2.00-2.12)
+        # is the groove ROOF: 549 Bridge extrusions, 735 mm of bridged path,
+        # worst chord 2*sqrt(12.05^2 - 8.8^2) = 16.47 mm across a groove only
+        # 3.25 mm wide radially (GLAND-ON-THE-BED.md). Halving the speed doubles
+        # the time each unsupported strand has to freeze before the next one
+        # pulls on it. It is PER-PART because nothing else here bridges over a
+        # seal surface -- the monobody's bridges are structural, and slowing
+        # them would add hours to a 1119-layer tower for no gain.
+        #
+        # bridge_flow stays 1. Two changes at once and a good print tells you
+        # nothing about which one did it; flow is the second lever, not this
+        # one. THE VERDICT COMES FROM A DEPTH GAUGE, NOT FROM LOOKING AT IT --
+        # the whole squeeze window is 0.245 mm, and a roof that sags 0.1 mm
+        # still looks perfect.
+        retainer) echo '{"brim_object_gap":"0.1","brim_type":"outer_only","bridge_speed":["25","25"]}' ;;
         *)        echo '{}' ;;
     esac
 }
@@ -159,7 +175,11 @@ part_stl() {
         # the *-print orientation and neither may share a plate: they carry the
         # seal, and that is exactly what the 0 vs 18 mTorr result above is about.
         carrier)  echo exports/asa-carrier-print.stl ;;   # wet face DOWN; forced by the flange step
-        retainer) echo exports/asa-retainer-print.stl ;;  # groove UP; flat-side-down bridges the bed floor
+        # Groove DOWN (face_groove_up = false): the sealing face is the bed face
+        # and the groove roof bridges at z 2.00. The old comment here said
+        # "groove UP", which was true of the flag's previous value and stopped
+        # being true when it was reverted -- corrected 2026-09-06.
+        retainer) echo exports/asa-retainer-print.stl ;;
         # Fastener test block: the M2 insert and thread-forming bosses, at full
         # depth, in the process the head is printed in. Holes UP, which is the
         # way up the head prints -- a coupon printed the other way round tests
