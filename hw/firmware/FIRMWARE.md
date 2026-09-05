@@ -28,6 +28,8 @@ python3 tools/check_update_tool.py          # field tool vs src/update.h
 python3 tools/test_swd_link.py              # the bridge's SWD transport, host-side
 python3 tools/o2p_update.py --port /dev/tty.usbserial-X --status
 python3 tools/o2p_update.py --swd --status  # ... or through a bridge over SWD
+python3 tools/o2p_capture.py --once         # one live snapshot over SWD, to stdout
+python3 tools/o2p_capture.py bench-logs/x.csv --count 1441 --interval 30   # 12 h
 ```
 
 A bench board needs **both** images. The core fetches its reset vector from
@@ -986,6 +988,48 @@ Three things that are easy to get wrong:
     with the MCU alive and confirm the firmware raises
     `AFE_CONFIG_MISMATCH`/`VA_LOW`, rewrites the AFE, and *restarts the
     settling timer*.
+
+### Bench capture: a time series, not a reading
+
+Most of the interesting bring-up failures are *shapes*. Cell polarisation takes
+tens of minutes, a saturated converter looks exactly like a steady one in a
+single sample, and a rail that is collapsing reports plausible numbers all the
+way down. `tools/o2p_capture.py` reads the live snapshot out of `g_rm` over SWD
+and appends one CSV row per sample, with no firmware support and nothing
+written to the board.
+
+```sh
+python3 tools/o2p_capture.py --once                    # one row, to stdout
+python3 tools/o2p_capture.py bench-logs/run.csv --count 1441 --interval 30
+```
+
+Captures land in `bench-logs/`, which is **not** ignored — a run that is worth
+taking is worth committing, and the 2026-09-04 session lost a series twice by
+logging into a scratch directory that vanished. `bench-logs/plot_capture.py`
+turns one into a PNG.
+
+It refuses to write a number it cannot justify: the regmap address comes from
+the ELF symbol rather than a constant, sentinel readings become empty cells so
+a plot shows a hole rather than 65535, `afe_rail` marks any converter within
+50 mV of a supply, and a failed probe writes an explicit `status=failed` row —
+never a gap, never a stale value carried forward.
+
+Two things to set before a long run:
+
+- **Pick the probe.** With two CMSIS-DAP adapters on the bench OpenOCD takes
+  whichever enumerates first, and reading the wrong board is how you get a
+  clean-looking file full of someone else's numbers. `--adapter-serial` (or
+  `O2P_ADAPTER_SERIAL`) binds it; the Debug Mate publishes no serial, so with
+  that one the only answer is to unplug the other. The all-zero-regmap check
+  catches the wrong-board case rather than decoding it.
+- **Detach it.** Each sample spawns its own OpenOCD; anything past ten minutes
+  outlives a foreground agent call. Give it its own process group
+  (`nohup python3 -c "import os,subprocess;os.setsid();…" &` — `setsid` does
+  not exist on macOS) and take the bench lock for the duration.
+
+If it reports `live index N not 0/1`, the ELF is newer than the image on the
+board: the symbol resolved fine, against a build that is not running. Flash the
+board, or pass `--addr` with the running build's `g_rm`.
 
 
 ## The heater loop (v1)
