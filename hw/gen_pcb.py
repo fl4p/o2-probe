@@ -109,13 +109,26 @@ PLACEMENT = {
  # J2/F2/R12-R16/D4-D6 deleted 2026-09-05 (BOM-REDUCTION.md 3). J105/J106 are
  # the bench-bridge TTL lands that replace R15/R16, kept in the same band so the
  # USART2 runs do not lengthen.
+ # R41 moved 1.00 mm left (12.4 -> 11.4) rather than moving J105/J106.
+ # The SolderWire "_Relief" footprint carries its 2.20 mm NPTH 10.2 mm from
+ # the pad, so J105's relief hole landed inside R41's courtyard
+ # (npth_inside_courtyard, ERROR, plus a hole_clearance).
+ #
+ # Moving the CONNECTORS was tried first and is measurably wrong.  A sweep
+ # counting every drilled hole against every courtyard leaves them 28 legal
+ # poses, all one cluster at x 15.5/18.25; that clears R41 and DRC, but it
+ # pushes the 2.2 mm hole to 0.65 mm of the right board edge and closes the
+ # right-hand routing channel: 17 -> 51 unconnected with the seam re-ask off,
+ # and gate failures (cell_re_surface_leakage) on 6 of 8 runs.  R41 has 153
+ # legal poses in the same sweep and is a 0603 in a reference divider, not an
+ # assembly interface, so it is the cheap side of this collision.
  "J105":(14.5,57.5,0,"B"), "J106":(17.5,57.5,0,"B"),
  "U4":(3.0,77.0,90,"F"), "U7":(10.0,79.5,270,"F"), "U8":(15.5,77.0,270,"F"),
  # The reference chain reads left to right along the row RV1/R20/R21 vacated:
  # R41 feeds the AZ431 shunt, C9 damps it, R31 isolates the bulk C10.  U15 is a
  # two-terminal shunt, so it needs no wiper and no adjustment access -- which is
  # the entire reason POTTING.md 1.2 could delete the trimmer.
- "C25":(1.2,68.0,0,"F"), "R41":(12.4,69.0,0,"B"), "U15":(8.9,73.75,0,"B"), "C9":(12.4,72.5,180,"B"), "R31":(15.6,72.5,0,"B"), "C10":(6.75,67.0,0,"B"),
+ "C25":(1.2,68.0,0,"F"), "R41":(11.4,69.0,0,"B"), "U15":(8.9,73.75,0,"B"), "C9":(12.4,72.5,180,"B"), "R31":(15.6,72.5,0,"B"), "C10":(6.75,67.0,0,"B"),
  # Keep the back-side passives out from directly below U7/U8 perimeter pads;
  # through-via dogbones otherwise have no legal annulus/clearance corridor.
  # R40 taps the RE follower for the guard; R42 is the CE fault limit and wants

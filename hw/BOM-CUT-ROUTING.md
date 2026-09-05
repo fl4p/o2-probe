@@ -96,3 +96,49 @@ substantially still there, and one of the two now collides with a courtyard.
 
 Placing these is an assembly-interface decision (where a human solders a wire,
 and clearance to the potting dam), so it is not mine to move.
+
+## Fixing the J105/R41 collision: the connector is the expensive side
+
+`J105`'s 2.20 mm strain-relief NPTH sat inside `R41`'s courtyard
+(`npth_inside_courtyard`, ERROR, plus one `hole_clearance`). Two ways to
+separate them were built and measured. Both clear the error identically on the
+unrouted board: `npth_inside_courtyard` 1 -> 0, `hole_clearance` 1 -> 0,
+`courtyards_overlap` 19 -> 18, nothing new introduced.
+
+They are not otherwise comparable.
+
+| fix | legal poses in sweep | routed, seam off, 4 orderings |
+|---|---|---|
+| baseline (error present) | -- | 17 / 17 / 25 / 25, all clean |
+| move `J105`+`J106` | 28 | 51 / 51 / **999** / **999** |
+| move `R41` 1.00 mm left | 153 | 31 / 31 / 32 / 32, all clean |
+
+Moving the connectors was tried first, because that is what was asked for. It
+is measurably the wrong side:
+
+- **Rotation is not free.** It looked like the zero-cost fix, since it swings
+  the 10.2 mm relief hole without moving the solder pad at all. At rot 90 the
+  holes point along -x and each lands inside the OTHER connector's body: the
+  error moves, it does not clear. A full sweep finds no legal pair at rot 90.
+- **The only legal cluster crowds the board edge.** All 28 legal pair poses put
+  the pads at x 15.5 / 18.25, which leaves 0.65 mm between the 2.2 mm hole and
+  the right board edge and closes the right-hand routing channel. 17 -> 51.
+- **It also broke the analog guard.** Six of eight routed runs failed the gate
+  on `cell_re_surface_leakage` -- router-placed GND stubs within 0.165 mm of
+  `CELL_RE` against a 0.25 mm floor. Nowhere near J105; the whole route
+  reshuffles.
+
+`R41` is a 0603 in a reference divider, not an assembly interface, and it has
+153 legal poses in the same sweep. It is the cheap side of the collision.
+
+### The 14 links R41 costs are a finding in their own right
+
+Moving one 0603 by 1.00 mm, without moving the relief hole at all, takes the
+board from 17 to 31. That is not the fix being bad; it is the same perturbation
+sensitivity that produced 21 vs 40 from one net ordering. A 17 that a 1 mm
+passive shift destroys was never a solved board, and this is further evidence
+that two layers does not close here.
+
+The ERROR is fixed regardless of what routing costs: an unrouted board with a
+clean DRC is a state you can work forward from, and a drilled hole inside a
+courtyard is not a number you trade against link counts.
