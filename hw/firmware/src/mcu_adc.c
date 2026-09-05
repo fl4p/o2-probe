@@ -52,9 +52,12 @@ void o2p_mcu_adc_init(void)
 {
     RCC->APBENR2 |= RCC_APBENR2_ADCEN;
 
-    /* PA7 to analog mode, no pull. */
+    /* PA7 and PA6 to analog mode, no pull. PA6 was omitted here until
+     * 2026-09-05, which is half of why vin_mv was never the input rail. */
     O2P_VA_MON_PORT->PUPDR &= ~(3u << (O2P_VA_MON_PIN * 2u));
     O2P_VA_MON_PORT->MODER |= (3u << (O2P_VA_MON_PIN * 2u));
+    O2P_VIN_MON_PORT->PUPDR &= ~(3u << (O2P_VIN_MON_PIN * 2u));
+    O2P_VIN_MON_PORT->MODER |= (3u << (O2P_VIN_MON_PIN * 2u));
 
     ADC1->CR = 0u;
     ADC1->CR = ADC_CR_ADVREGEN;
@@ -146,7 +149,11 @@ bool o2p_mcu_adc_read_die_c100(int16_t *out_c100)
     return o2p_die_c100_from_cal(cal1, cal2, raw, vdda, out_c100);
 }
 
-bool o2p_mcu_adc_read_va_mv(uint16_t *out_mv)
+/* Both rail monitors are the same measurement with a different channel and a
+ * different divider, so they share one body. Keeping them separate is how the
+ * VIN half went missing for a revision while the VA half worked. */
+static bool read_divided_rail(uint32_t channel, uint32_t num, uint32_t den,
+                              uint16_t *out_mv)
 {
     uint16_t vdda = 0u, raw = 0u;
     if (out_mv == NULL) {
@@ -155,16 +162,28 @@ bool o2p_mcu_adc_read_va_mv(uint16_t *out_mv)
     if (!o2p_mcu_adc_read_vdda_mv(&vdda)) {
         return false;
     }
-    if (!convert(O2P_VA_MON_ADC_CH, &raw)) {
+    if (!convert(channel, &raw)) {
         return false;
     }
-    /* Pin volts, then undo R24/R25 using the generated contract - so a
+    /* Pin volts, then undo the divider using the GENERATED contract - so a
      * divider change in the schematic cannot silently rescale this. */
     uint32_t pin_mv = ((uint32_t)raw * vdda) / 4095u;
-    uint32_t rail_mv = (pin_mv * O2P_HW_DIV_VA_DEN) / O2P_HW_DIV_VA_NUM;
+    uint32_t rail_mv = (pin_mv * den) / num;
     if (rail_mv > 0xFFFFu) {
         return false;
     }
     *out_mv = (uint16_t)rail_mv;
     return true;
+}
+
+bool o2p_mcu_adc_read_vin_mv(uint16_t *out_mv)
+{
+    return read_divided_rail(O2P_VIN_MON_ADC_CH,
+                             O2P_HW_DIV_VIN_NUM, O2P_HW_DIV_VIN_DEN, out_mv);
+}
+
+bool o2p_mcu_adc_read_va_mv(uint16_t *out_mv)
+{
+    return read_divided_rail(O2P_VA_MON_ADC_CH,
+                             O2P_HW_DIV_VA_NUM, O2P_HW_DIV_VA_DEN, out_mv);
 }

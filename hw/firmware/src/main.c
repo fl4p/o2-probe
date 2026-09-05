@@ -65,7 +65,6 @@ static o2p_heater_state_t g_heat;
  * only need to be right to a few millivolts; oxygen runs at 20 SPS for the
  * lowest noise, because 0.1 %vol is about 30 codes. */
 #define O2P_N_VREF 2u
-#define O2P_N_VIN  2u
 #define O2P_N_O2   8u
 
 static o2p_regmap_t g_rm;
@@ -139,7 +138,6 @@ typedef enum {
     PH_AFE,        /* LMP91000 configuration readback */
     PH_TEMPS,      /* TMP117 + SHT45 */
     PH_VREF,       /* ADS1119 AIN1 against the INTERNAL reference */
-    PH_VIN,        /* ADS1119 AIN3 */
     PH_O2,         /* ADS1119 AIN0, O2P_N_O2 conversions */
     PH_PUBLISH,
 } phase_t;
@@ -195,6 +193,25 @@ static void phase_rails(o2p_snapshot_t *s)
     } else {
         /* No rail reading is not a good rail reading. */
         g_cyc.faults |= O2P_F_VA_LOW;
+    }
+
+    /* The INPUT rail, on this same ADC since 2026-09-05. It used to be read
+     * from ADS1119 AIN3 and scaled by the VIN divider - but AIN3 is RE_BUF,
+     * the buffered reference electrode, so vin_mv was never the input rail and
+     * O2P_F_VIN_LOW could not fire. supply_ok gates the heater on that fault,
+     * so the undervoltage interlock was dead. Both rails are read the same way
+     * here now, which is the arrangement that makes the two hard to desync. */
+    uint16_t vin_mv = 0u;
+    if (o2p_mcu_adc_read_vin_mv(&vin_mv)) {
+        s->vin_mv = vin_mv;
+        if (vin_mv < O2P_VIN_LOW_MV) {
+            g_cyc.faults |= O2P_F_VIN_LOW;
+        }
+    } else {
+        /* Same rule as VA, and it is a CHANGE: the old ADS1119 path left no
+         * fault at all when the conversion failed, so an unreadable input rail
+         * read as a healthy one. Unevaluable is not OK. */
+        g_cyc.faults |= O2P_F_VIN_LOW;
     }
 
     /* Die temperature, from the same ADC and therefore free of I2C1. It
@@ -395,23 +412,6 @@ static void finish_vref(o2p_snapshot_t *s)
     }
 }
 
-static void finish_vin(o2p_snapshot_t *s)
-{
-    if ((g_cyc.faults & O2P_FAULTS_ADS_NO_CONVERSION) != 0u) {
-        return;
-    }
-    int32_t code = g_acc / (int32_t)O2P_N_VIN;
-    int32_t pin_uv = o2p_ads1119_code_to_uv(code, g_cyc.vref_mv);
-    int32_t vin_mv = (pin_uv / 1000) * (int32_t)O2P_HW_DIV_VIN_DEN /
-                     (int32_t)O2P_HW_DIV_VIN_NUM;
-    if (vin_mv < 0) {
-        vin_mv = 0;
-    }
-    s->vin_mv = (vin_mv > 0xFFFF) ? 0xFFFFu : (uint16_t)vin_mv;
-    if (vin_mv < (int32_t)O2P_VIN_LOW_MV) {
-        g_cyc.faults |= O2P_F_VIN_LOW;
-    }
-}
 
 static void finish_o2(o2p_snapshot_t *s)
 {
@@ -610,13 +610,8 @@ static bool sampler_step(void)
          * drifting. */
         if (accumulate(O2P_ADS_MUX_AIN1_AGND, O2P_ADS_DR_90SPS, false, O2P_N_VREF)) {
             finish_vref(s);
-            g_phase = PH_VIN; g_sub = 0; g_acc = 0; g_acc_clipped = false;
-        }
-        break;
-
-    case PH_VIN:
-        if (accumulate(O2P_ADS_MUX_AIN3_AGND, O2P_ADS_DR_90SPS, true, O2P_N_VIN)) {
-            finish_vin(s);
+            /* Straight to O2: the old PH_VIN step in between sampled AIN3 as
+             * though it were the input rail. VIN is read in phase_rails now. */
             g_phase = PH_O2; g_sub = 0; g_acc = 0; g_acc_clipped = false;
         }
         break;
