@@ -43,9 +43,26 @@ PROCESS="${PROCESS:-profiles/process_asa_seal.json}"
 # JSON STRINGS -- a number is silently discarded (doc/slicer-presets.md).
 part_process_overrides() {
     case "$1" in
-        # h/d 4.58 with a free bore at z=0 that mates with nothing: fuse the
-        # brim and put one inside the bore too. 219 -> ~1709 mm2 bonded.
-        monobody) echo '{"brim_object_gap":"0","brim_type":"outer_and_inner","brim_width":"8"}' ;;
+        # A free bore at z=0 that mates with nothing: fuse the brim and put one
+        # inside the bore too. 223 mm2 of part -> 2455 mm2 bonded.
+        #
+        # WIDTH 12, not 8, on Fab's ask 2026-09-05 -- and 12 rather than more,
+        # because THE INNER BRIM SATURATES. It closes the O27.2 bore at 13.6 mm,
+        # so past ~10 every extra millimetre is outer-only, and the outer edge is
+        # where a partial lift starts:
+        #     8 mm  outer 1005 + inner 483 = 1711 mm2   (O48)
+        #    12 mm  outer 1659 + inner 573 = 2455 mm2   (O56)  +44%
+        #    16 mm  outer 2413 + inner 581 = 3217 mm2   (O64)  +88%
+        # 16 is not worth it at brim_object_gap 0: the brim is WELDED to the part,
+        # and a fused O64 skirt on a O32 tube is chisel work.
+        #
+        # THIS IS BELT-AND-BRACES, NOT THE FIX. The 2026-09-05 failure at layer
+        # 928 was a directional thermal gradient (the printer stood in direct
+        # sun, since moved into a closed room), and its contributing cause --
+        # Bambu's default brim_object_gap 0.1, which parked 581 mm2 of brim
+        # BESIDE the part instead of attaching it -- is the "0" above. The tower
+        # also lost 12.2 mm of height (146.6 -> 134.4) when the head's neck went.
+        monobody) echo '{"brim_object_gap":"0","brim_type":"outer_and_inner","brim_width":"12"}' ;;
         # The carrier prints wet-face-DOWN, so its z=0 IS the membrane sealing
         # land: any fused brim scars the surface the seal is made on. Stay
         # outside and keep the gap.

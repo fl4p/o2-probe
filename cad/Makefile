@@ -317,8 +317,13 @@ fit-coupon: | $(OUT)
 # body-tube because it unions that target's STL -- build them out of order and
 # the union is silently made from a stale tube.
 .PHONY: monobody
+# $(ASA), not $(HEAD_END_PROV): the membrane bed's sorting gates fail on the bare
+# placeholder set, so this target rendered EMPTY and the `|| exit 1` fired -- on a
+# part that has no membrane bed in it at all. Nothing about the monobody depends
+# on which rings were micrometered; it just has to get past the asserts to reach
+# the geometry. Same reason head-end-exploded and the prototype drawing use ASA.
 monobody: body-tube
-	$(OPENSCAD) --hardwarnings $(HEAD_END_PROV) -D 'joint="monolithic"' \
+	$(OPENSCAD) --hardwarnings $(ASA) -D 'joint="monolithic"' \
 		-D 'part="monobody"' -o $(OUT)/body-monobody.stl $(HEAD_END) \
 		2>$(OUT)/.mono.log || { cat $(OUT)/.mono.log; exit 1; }
 	@# openscad EXITS 0 on a failed import(). A mistyped path made the monobody
