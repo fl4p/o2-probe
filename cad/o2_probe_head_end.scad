@@ -1249,13 +1249,21 @@ module monobody() {
     // Keep this message free of escaped quotes. OpenSCAD 2021.01 refuses a
     // backslash-quote inside a string here, and reports it at a line number PAST
     // the end of the file, which points nowhere near the actual text.
+    // THE PAREN. This read `import(str(body_dir, "/body-tube.stl",
+    // convexity=10))` -- convexity inside str() -- so the path came out
+    // "exports/body-tube.stl10", import() found no such file, and the monobody
+    // was THE HEAD ALONE. OpenSCAD says "ERROR: Unsupported file format" and
+    // then exits 0; the head by itself is a perfectly good closed solid, so
+    // CGAL reported `Volumes: 2` and the Makefile gate passed. Every exported
+    // monobody was 22.6 mm of head. Found by tools/interface_check.py weighing
+    // the union against its parts, which is the whole reason that check exists.
     assert(monolithic,
            "monobody needs joint=monolithic -- with the socket still cut, the union leaves a 14 mm annular void inside the part");
     union() {
         head();
         // monolithic, so the tube's top face IS this head's z=0
         translate([0, 0, -body_tube_len])
-            import(str(body_dir, "/body-tube.stl", convexity=10));
+            import(str(body_dir, "/body-tube.stl"), convexity=10);
     }
 }
 
@@ -1284,7 +1292,7 @@ module body_stack(e) {
     tube_seat_z = monolithic ? 0 : socket_len;
     tube_top_z  = tube_seat_z - tube_drop;              // head frame
     tube_base_z = tube_top_z - body_tube_len;
-    color("Sienna") translate([0, 0, tube_base_z]) import(str(body_dir, "/body-tube.stl", convexity=10));
+    color("Sienna") translate([0, 0, tube_base_z]) import(str(body_dir, "/body-tube.stl"), convexity=10);
     // The dam clamps round the board at body y=81; drawn between board and tube,
     // which is also the order it is fitted in.
     color("MediumPurple")

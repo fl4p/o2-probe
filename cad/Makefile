@@ -202,6 +202,15 @@ monobody: body-tube
 	$(OPENSCAD) --hardwarnings $(HEAD_END_PROV) -D 'joint="monolithic"' \
 		-D 'part="monobody"' -o $(OUT)/body-monobody.stl $(HEAD_END) \
 		2>$(OUT)/.mono.log || { cat $(OUT)/.mono.log; exit 1; }
+	@# openscad EXITS 0 on a failed import(). A mistyped path made the monobody
+	@# the head alone for who knows how long -- "ERROR: Unsupported file format"
+	@# on stderr, exit 0, and a head by itself is a fine closed solid so
+	@# `Volumes: 2` passed. Fail on ERROR as well as on the count.
+	@if grep -q '^ERROR' $(OUT)/.mono.log; then \
+		echo "FAIL monobody: openscad reported an ERROR and still exited 0:"; \
+		grep '^ERROR' $(OUT)/.mono.log; \
+		exit 1; \
+	 fi
 	@v=`sed -n 's/.*Volumes: *\([0-9]*\).*/\1/p' $(OUT)/.mono.log | tail -1`; \
 	 if [ "$$v" != "2" ]; then \
 		echo "FAIL monobody: $$v volumes, expected 2 -- the head and the tube did not fuse"; \

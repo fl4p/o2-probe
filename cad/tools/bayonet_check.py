@@ -302,32 +302,41 @@ def main():
         # THE WINDOWS MUST BE WIDE ENOUGH TO FIND BY HAND. Discovery ran at
         # 3 deg, so a "window" of one sample could be 1 deg wide in reality.
         # Re-walk each one outward at FINE resolution and measure it.
-        def width(centre, depth, pred):
+        def width(centre, depth, pred, need):
+            """How wide the window is, walked at FINE -- but STOPS once `need`
+            is proven.
+
+            The first version walked to the window's real edges and cost up to
+            360 probes at ~1.1 s each, which took this check from three minutes
+            to over seven. The claim being made is "at least `need` degrees
+            wide", so the walk stops as soon as that is established. It reports
+            `>=` in that case, and the exact edges only when the window really
+            is narrower than needed -- which is the case where the number
+            matters."""
             lo = hi = centre
-            while pred(overlap(harness, tmp, lo - FINE, depth)):
+            room = need + FINE
+            while centre - lo < room and pred(overlap(harness, tmp,
+                                                      lo - FINE, depth)):
                 lo -= FINE
-                if centre - lo > 90:
-                    break
-            while pred(overlap(harness, tmp, hi + FINE, depth)):
+            while (hi - lo) < room and pred(overlap(harness, tmp,
+                                                    hi + FINE, depth)):
                 hi += FINE
-                if hi - centre > 90:
-                    break
             return lo, hi
 
-        e_lo, e_hi = width(entry[len(entry)//2], -6.0, clear)
+        e_lo, e_hi = width(entry[len(entry)//2], -6.0, clear, ENTRY_MIN_DEG)
         if e_hi - e_lo < ENTRY_MIN_DEG:
             fails.append("the entry window is only %d deg wide (%d..%d); "
                          "below %d deg it cannot be found by feel with the "
                          "tube in one hand"
                          % (e_hi - e_lo, e_lo, e_hi, ENTRY_MIN_DEG))
-        p_lo, p_hi = width(seated[len(seated)//2], 0.0, clear)
+        p_lo, p_hi = width(seated[len(seated)//2], 0.0, clear, POCKET_MIN_DEG)
         if p_hi - p_lo < POCKET_MIN_DEG:
             fails.append("the pocket accepts the lug over only %d deg "
                          "(%d..%d), against %d needed"
                          % (p_hi - p_lo, p_lo, p_hi, POCKET_MIN_DEG))
-        print("  measured at %d deg: entry window %d..%d (%d deg), pocket "
-              "%d..%d (%d deg)" % (FINE, e_lo, e_hi, e_hi - e_lo,
-                                   p_lo, p_hi, p_hi - p_lo))
+        print("  measured at %d deg: entry window >=%d deg, pocket >=%d deg "
+              "(walked only far enough to prove %d and %d)"
+              % (FINE, e_hi - e_lo, p_hi - p_lo, ENTRY_MIN_DEG, POCKET_MIN_DEG))
 
         r_entry = entry[0]
         # 7. THE WEDGE RAMP, and it has to be measured before anything else uses

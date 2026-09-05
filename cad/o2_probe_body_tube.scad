@@ -151,57 +151,70 @@ wall_loops = wall / wall_line_w;
 
 // ------------------------------------------------- cable end
 
-// M8 x 1.0 cable gland, TAPPED not printed. A printed thread at this pitch is
-// a coin toss on a 0.4 mm nozzle and this joint is the only thing between the
-// pile and an unpotted board; a hand tap in ASA is fifteen seconds and gives a
-// real thread. 7.0 is the ISO tap drill for M8 x 1.0.
+// CABLE GLAND -- TWO PARTS, and which one is fitted is a variant, not a
+// preference. Fab, 2026-09-05: M8 brass for prototype 1's bench work and first
+// fit, 316L for anything that goes in the ground.
 //
-// THE PART, from Fab 2026-09-05 and its own product sheet: Lumonic M8 x 1.0,
-// nickel-plated brass with an NBR seal, clamping range 2-5 mm, -40..+100 C,
-// supplied with a hex nut. Max panel thickness 3 mm, which is what sets
-// cap_end_t below -- it was 8.0 for an M12 x 1.5 that is no longer the part.
-// M8 x 1.0 is the EN 50262 cable-gland pitch, not the M8 x 1.25 of DIN 13
-// general fasteners; the part is marked M8X1.0 in the vendor photo.
+//   "m8_brass"  Lumonic M8 x 1.0, nickel-plated brass, NBR seal, clamp 2-5 mm,
+//               -40..+100 C, max panel 3 mm, hex nut supplied. IN HAND.
+//   "m12_inox"  LAPP SKINTOP INOX-R M12x1,5, art. 53806749: 316L body, silicone
+//               seal and O-ring, clamp 3,0-5,0 mm, thread 6,5 mm, SW16.
+//               Specified in CABLE-SOURCING.md / POTTING.md, commit bb29a1d.
 //
-// TWO THINGS THIS GEOMETRY CANNOT FIX, both recorded rather than designed
-// around, because both are selections and not dimensions:
-//
-//   1. CLAMP RANGE 2-5 mm. The cable discussed for this probe, LAPP OLFLEX
-//      ROBUST 215 C 4x0.5, is 6.6 mm OD. It does not fit this gland, and no
-//      change to the cap makes it fit. Either the gland goes up a size (M12's
-//      3-6.5 or M16) or the cable comes down.
-//   2. THE NBR SEAL is now the weakest elastomer in the probe. Every other seal
-//      here is EPDM 70 peroxide, chosen because ammonia attacks FKM and because
-//      EPDM takes hot wet service. NBR handles ammonia, but 100 C is its rated
-//      ceiling against a ~75 C pile, and hot wet NBR is not a season-long part.
-//      It is a bought seal on a bought part, so it is a note, not a parameter.
-//
-// The gland is the STRAIN RELIEF. Nothing else in this part anchors the cable,
-// deliberately -- a printed internal tie post would have to bridge the bore.
-// Leave a service loop in the tail and let the gland clamp the jacket.
-gland_tap_d  = 7.0;         // ISO tap drill, M8 x 1.0
-cap_end_t    = 3.0;         // the gland's rated panel thickness; 3 turns of M8 x 1.0
+// WHY THERE ARE TWO, and it is not fit -- both clamp the ordered cable's 3,80 mm
+// (UNITRONIC SENSOR FD Li9Y11Y 4x0,25, art. 7038890) comfortably. It is
+// chemistry. Ammonia is the classic stress-corrosion-cracking agent for brass,
+// worse in vapour than in liquid, and the canonical example in the literature is
+// ammonia vapour from decaying organic matter. A gland is a PRE-STRESSED brass
+// part and a windrow is an ammonia vapour generator: that is the whole SCC triad
+// with nothing missing. So nothing brass goes in the pile. On the bench, where
+// prototype 1 is fitted and handled first, it is fine and it is the part we have.
+gland = "m8_brass";         // "m8_brass" (bench) or "m12_inox" (burial)
+assert(gland == "m8_brass" || gland == "m12_inox",
+       str("unknown gland '", gland, "'"));
+
+// NOT TAPPED. This was tapped M8 x 1.0 into the ASA until POTTING.md's sourcing
+// pass pointed out what it is: "Do not tap the gland thread directly into the
+// plastic cap. MEMBRANE.md's rule against sustained strain in plastic at 75 C
+// applies exactly here: the cap would creep and the seal relax." That is the
+// same rule this file already cites against a preloaded printed thread on the
+// bayonet -- and the gland thread was breaking it three lines away from the
+// argument. A clearance hole and the gland's own nut put the load path
+// metal-to-metal and the plastic merely between two steel faces.
+gland_thread_d = (gland == "m8_brass") ? 8.0 : 12.0;
+gland_hole_d   = (gland == "m8_brass") ? 8.5 : 12.5;   // clearance, not tap drill
+// Each part's own limit on how much plastic can sit between flange and nut.
+// m8: the vendor's rated 3 mm panel. m12: 6,5 mm of thread less a 2,8 mm
+// stainless locknut = 3,7 mm, the arithmetic POTTING.md worked out and asked
+// whoever edits this file to respect.
+gland_wall_max = (gland == "m8_brass") ? 3.0 : 3.7;
+cap_end_t    = 3.0;         // fits both; see the assert below
 
 // THE GLAND'S OWN SEAL, and where it sits. An annular NOTCH in the cap's OUTER
-// face, concentric with the hole, so the gland's NBR ring drops into it instead
-// of being squeezed out sideways on a flat face.
+// face, concentric with the hole, so the gland's ring drops into it instead of
+// being squeezed out sideways on a flat face.
 //
-// WHY A GROOVE AND NOT A COUNTERBORE, which is the whole reason this works on a
-// 3 mm wall: a counterbore would sink the whole hole mouth and spend its depth
-// out of the THREAD, leaving 3 - depth of engagement on a wall that has only 3.
-// An annulus that starts OUTSIDE the thread's major diameter takes its depth
-// out of material the thread never uses, so the tapped length stays the full
-// 3.0 mm. That is why gland_notch_id is asserted clear of the thread below.
+// WHY A GROOVE AND NOT A COUNTERBORE: a counterbore would sink the whole hole
+// mouth and spend its depth out of the wall the gland clamps, on a wall that is
+// only 3 mm to begin with. An annulus that starts OUTSIDE the thread's clearance
+// hole takes its depth out of material the gland does not bear on, so the
+// clamped thickness stays the full cap_end_t. gland_notch_id is asserted clear
+// of the hole below.
 //
 // MEASURE THESE. They are the dimensions of a real ring on a real part and the
-// project's rule is not to guess those. The values here are provisional, sized
-// from a typical M8 gland ring, and they are only used to cut a groove that
-// LOCATES the seal -- the sealing force still comes from the gland's flange.
-// Reference edges for the measurement: the ring's inside diameter, its outside
-// diameter, both across the free ring off the gland; cord by micrometer.
-gland_seal_id   = 8.0;      // MEASURE: free ring ID
+// project's rule is not to guess those. The values are provisional, and they
+// only LOCATE the seal -- the sealing force comes from the gland's flange.
+// Reference edges: the free ring off the gland, ID and OD across the ring, cord
+// by micrometer.
+// These provisionals are not free choices: the ring sits AROUND the clearance
+// hole, so its ID is necessarily larger than the hole, and the notch that holds
+// it has to start outside the hole too. 8.0 was the first value here and the
+// assert below rejected it -- an 8.0 ID ring cannot surround an 8.5 hole. The
+// numbers are the smallest physically coherent ones, which is the right place
+// for a provisional to sit until the real ring is measured.
+gland_seal_id   = (gland == "m8_brass") ? 8.6 : 12.6;   // MEASURE: free ring ID
 gland_seal_cord = 1.5;      // MEASURE: cord diameter
-gland_seal_squeeze = 0.25;  // design point; the flange sets the real value
+gland_seal_squeeze = 0.25;  // design point; the flange sets the real value  // design point; the flange sets the real value
 cap_wall     = 2.4;         // four 0.60 loops, same reason as the tube wall
 cap_fit      = 0.4;         // diametral, cap bore over tube OD
 
@@ -519,10 +532,11 @@ gland_notch_depth = gland_seal_cord * (1 - gland_seal_squeeze);
 // wall work at all: if the groove's inner wall fell inside the thread's major
 // diameter it would take its depth out of the tapped length, and 3 mm is
 // already only 3 turns of M8 x 1.0.
-assert(gland_notch_id >= 8.0 + 0.4,
+assert(gland_notch_id >= gland_hole_d + 0.4,
        str("the gland seal notch runs to dia ", gland_notch_id,
-           ", inside the M8 thread's major diameter -- it would cut the tapped length down from the ",
-           cap_end_t, " mm the gland is rated for"));
+           ", inside the ", gland_hole_d,
+           " mm clearance hole -- it would break into the hole instead of ",
+           "sitting on the face the gland bears on"));
 // And it must leave a floor. 1.5 mm is two 0.6 mm walls plus a skin, on a face
 // that carries the whole cable pull through the gland's flange.
 assert(cap_end_t - gland_notch_depth >= 1.5,
@@ -530,10 +544,11 @@ assert(cap_end_t - gland_notch_depth >= 1.5,
            " mm of cap end left under the seal notch"));
 assert(gland_notch_od + 2*cap_wall <= tube_od + cap_fit + 2*cap_wall,
        "the gland seal notch runs out past the cap's rim");
-// A tapped hole this shallow is the whole strain relief, so it is stated rather
-// than assumed. 3 turns is what the gland is rated for and no more.
-assert(cap_end_t <= 3.0 + 1e-9,
-       str("cap end ", cap_end_t, " mm exceeds the gland's rated 3 mm panel; its thread would bottom before the flange seated"));
+// The plastic sits between the gland's flange and its nut, so the wall cannot
+// exceed what the thread has left after the nut takes its share.
+assert(cap_end_t <= gland_wall_max + 1e-9,
+       str("cap end ", cap_end_t, " mm exceeds the ", gland_wall_max,
+           " mm this gland can clamp; the nut would run out of thread before it seated"));
 
 // The radial gland, mirroring o2_probe_head_end.scad's carrier seal exactly --
 // including the parts this file used to skip.
@@ -942,9 +957,9 @@ module cap() {
             // the cable passage through the spigot
             translate([0, 0, cap_bore_depth - spigot_len - e])
                 cylinder(d=spigot_id, h=spigot_len + 2*e);
-            // tapped M8 x 1.0 for the gland
+            // clearance for the gland's thread; its nut lands on the inside
             translate([0, 0, cap_bore_depth - e])
-                cylinder(d=gland_tap_d, h=cap_end_t + 2*e);
+                cylinder(d=gland_hole_d, h=cap_end_t + 2*e);
             // The gland's seal notch, in the OUTER face, cut inward. Sits
             // entirely outside the thread's major diameter, so the tapped
             // length stays the full cap_end_t.
