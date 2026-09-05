@@ -23,6 +23,7 @@ The angles are NOT hardcoded from the model's parameters, deliberately. They are
 found by scanning, so a sign error in the model's own bookkeeping shows up as a
 failure to find a clear window rather than being reproduced by the test.
 """
+import math
 import os
 import re
 import subprocess
@@ -125,6 +126,21 @@ def clear(v):
 def blocked(v):
     """They obstruct each other by more than a coincident-face sliver."""
     return v > BLOCK
+
+
+# The lock pilot, measured on the tube's own mesh. A rod is driven along the
+# screw axis and the material it meets is weighed.
+PILOT_HARNESS = """
+rot = 0;
+push = 0;
+r0 = rot;   // overlap() only ever sets rot/push/sa, so the rod's two radii
+r1 = push;  // ride in on those. Reusing them beats a fourth -D name.
+intersection() {
+  import("%s");
+  translate([0, 0, %.4f]) rotate([0, 0, %.4f]) rotate([0, 90, 0])
+    translate([0, 0, r0]) cylinder(d=%.2f, h=r1 - r0, $fn=32);
+}
+"""
 
 
 def stated_screw_angle():
@@ -268,6 +284,47 @@ def main():
                                  "anything" % off)
             if not any('lock screw' in f for f in fails):
                 print("  lock screw: clear at %g deg, blocked at +/-45" % sa)
+
+        # 6. THE LOCK PILOT, on the mesh rather than on the declared numbers.
+        # The assert in the model compares lock_pilot_floor with lock_boss_r --
+        # two things it was told, not two things it built -- and it passed
+        # cleanly while the tube shipped with the boss eaten by the bore and the
+        # pilot straight through the wall into the sealed volume. Weigh what is
+        # actually there.
+        try:
+            boss_r = param('lock_boss_r')
+            floor_r = param('lock_pilot_floor')
+            pilot_d = param('lock_pilot_d')
+            a_tube = param('lock_a_tube')
+            z = param('lock_z')
+            od = param('tube_od')
+        except SystemExit:
+            boss_r = None
+        if boss_r is not None:
+            ph = os.path.join(tmp, 'pilot.scad')
+            open(ph, 'w').write(PILOT_HARNESS % (tube_stl, z, a_tube, pilot_d - 0.1))
+            rod = math.pi * ((pilot_d - 0.1)/2)**2
+
+            # Inboard of the pilot floor must be SOLID -- that is the boss, and
+            # it is the only thing between the screw and the sealed volume.
+            lo, hi = boss_r + 0.1, floor_r - 0.1
+            v = overlap(ph, tmp, lo, hi)
+            want = rod * (hi - lo)
+            if v < 0.9 * want:
+                fails.append("only %.1f of %.1f mm3 of boss under the pilot "
+                             "(r %.1f..%.1f) -- the bore has eaten it, and the "
+                             "screw hole vents the sealed volume"
+                             % (v, want, lo, hi))
+
+            # Outboard of it must be OPEN -- otherwise there is no pilot.
+            lo, hi = floor_r + 0.1, od/2 - 0.1
+            v = overlap(ph, tmp, lo, hi)
+            if not clear(v):
+                fails.append("the pilot is blocked over r %.1f..%.1f "
+                             "(%.1f mm3) -- no hole was cut" % (lo, hi, v))
+            if not any('pilot' in f or 'boss' in f for f in fails):
+                print("  lock pilot: blind, %.1f mm of boss under it"
+                      % (floor_r - boss_r))
 
         # The twist actually available must be worth calling a bayonet.
         if abs(r_lock - r_entry) < lug_arc:

@@ -531,39 +531,46 @@ module bayonet_slot() {
 // ------------------------------------------------- parts
 
 module tube() {
-    // ONE difference, with the boss inside the union. It was two -- the boss
-    // built separately and the pilot subtracted only from it -- and that quietly
-    // produced a tube with NO pilot anywhere, because the drill never reached
-    // the wall it had to pass through first. Closed solid, clean render, no
-    // hole. tools/bayonet_check.py is what noticed.
+    // THE NESTING MATTERS AND IT IS NOT OBVIOUS. The boss has to be unioned on
+    // AFTER the bore is cut, because it stands inside the bore -- put it in the
+    // outer union and the bore subtraction eats it whole. The pilot then has to
+    // be cut LAST, so it passes through wall and boss together.
+    //
+    // It was written the wrong way round and shipped: the boss vanished, and
+    // the pilot -- 3.5 mm deep into a 2.4 mm wall -- became a THROUGH HOLE from
+    // the outside straight into the sealed volume, below the seal plane. The
+    // assert beside lock_pilot_floor passed the whole time, because it compared
+    // declared numbers with each other instead of measuring the mesh. There is
+    // a mesh check for it now, in tools/bayonet_check.py.
     difference() {
         union() {
-            cylinder(d=tube_od, h=tube_len);
-            for (i = [0:lug_n-1]) rotate([0, 0, i*360/lug_n]) bayonet_lug();
-            // local wall thickening for the lock screw, inward, at a height
-            // where only cable passes
+            difference() {
+                union() {
+                    cylinder(d=tube_od, h=tube_len);
+                    for (i = [0:lug_n-1]) rotate([0, 0, i*360/lug_n]) bayonet_lug();
+                }
+                translate([0, 0, -e]) cylinder(d=tube_id, h=tube_len + 2*e);
+                // The sealing counterbore, reamed. 0.05 mm larger than the bore
+                // on radius so it is a real step the reamer can find, and 12 mm
+                // deep -- which is what pushed the lock boss to z=17 and the
+                // cap's skirt to 18: nothing internal may stand in its path.
+                translate([0, 0, -e])
+                    cylinder(d=cable_bore_d, h=cable_bore_len + e);
+            }
+            // Local wall thickening for the lock screw, standing INTO the bore
+            // at a height where only cable passes.
             if (lock_screw)
                 rotate([0, 0, lock_a_tube - lock_boss_arc/2])
                     rotate_extrude(angle=lock_boss_arc)
                         translate([lock_boss_r, lock_z - lock_boss_h/2])
                             square([tube_id/2 - lock_boss_r, lock_boss_h]);
         }
-        translate([0, 0, -e]) cylinder(d=tube_id, h=tube_len + 2*e);
-        // The sealing counterbore, reamed. 0.05 mm larger than the bore on
-        // radius, so it is a real step the reamer can find, and 12 mm deep --
-        // which is what pushed the lock boss up to z=14 and the cap's skirt out
-        // to 18: nothing internal may stand in the reamer's path.
-        translate([0, 0, -e]) cylinder(d=cable_bore_d, h=cable_bore_len + e);
-        // Blind pilot, from outside, stopping short of the bore. Three
-        // separate mistakes lived in this one expression, and every one of them
-        // rendered as a perfectly clean closed solid:
-        //   - rotate([0,-90,0]) sends local +z to -X, so the hole came out at
-        //     lock_a_tube + 180, through plain wall, boss untouched;
-        //   - the rotate leaves the axis at the ORIGIN's height, so without the
-        //     outer translate the hole was cut at z=0, half of it hanging off
-        //     the tube's end face;
-        //   - and it used to sit in its own difference() with the boss, so it
-        //     never reached the wall it has to pass through first.
+        // Blind pilot, from outside, stopping short of the bore. Two more traps
+        // lived in this one expression and both rendered as clean closed solids:
+        // rotate([0,-90,0]) sends local +z to -X, so the hole came out 180 deg
+        // away through plain wall; and the rotate leaves the axis at the
+        // ORIGIN's height, so without the outer translate it was cut at z=0,
+        // half of it hanging off the end face.
         if (lock_screw)
             translate([0, 0, lock_z])
                 rotate([0, 0, lock_a_tube]) rotate([0, 90, 0])

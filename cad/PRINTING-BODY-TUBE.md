@@ -251,14 +251,25 @@ gets 3.5 mm of engagement and still leaves 1.75 mm of material to the bore. The
 cap's clearance is an arc ±10° wide, so the screw finds its pilot anywhere in the
 pocket's own play.
 
-Three separate mistakes lived in that one subtraction, and **every one of them
+**Four** separate mistakes lived in that one subtraction, and **every one of them
 rendered as a perfectly clean closed solid**: the rotation sent the hole out at
 `lock_a_tube + 180` through plain wall with the boss left untouched; the rotate
 leaves the axis at the origin's height, so the hole was cut at z = 0 with half of
 it hanging off the end face; and it sat in its own `difference()` with the boss,
 so it never reached the wall it has to pass through first — a tube with no pilot
-at all. `bayonet_check.py` now drives a rod down the screw's path and requires it
-clear at the model's own stated angle and blocked ±45° off it.
+at all; and then, fixing that, the boss went into the *outer* union where **the
+bore subtraction ate it**, leaving a 3.5 mm pilot in a 2.4 mm wall — a through
+hole from the compost straight into the sealed volume, below the seal plane.
+
+That last one shipped. It was found by slicing the exported STL, not by any
+assert — and the assert beside `lock_pilot_floor` passed the whole time, because
+it compares two numbers the model was *told* rather than two things it *built*.
+
+`bayonet_check.py` now does both jobs on the mesh: it drives a rod down the
+screw's path and requires it clear at the model's own stated angle and blocked
+±45° off it, and it weighs the material inboard of the pilot floor, which must be
+solid boss. The second test is calibrated against its own known-bad — delete the
+boss and it fails with 0.0 of 12.7 mm³.
 
 Locked squeeze is 25 % of the cord; passing the detent takes it transiently to
 40 %, which an EPDM cord takes. As built, the check reports an **entry window of
