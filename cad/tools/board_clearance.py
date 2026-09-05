@@ -19,8 +19,10 @@ KiCad ships no 3D model for Potentiometer_SMD:Potentiometer_Bourns_3224W_Vertica
 (the library has 3314G and 3314J), so RV1 -- the tallest part on the board and
 the whole reason anyone asked -- is silently absent from the export. It is added
 back here from its footprint extents and its measured height. Also absent, and
-NOT added back because none is near the envelope: L1 (SRN6028C, 3.0 mm), U8,
-U12, and the four J101-104 solder-wire pads.
+ALSO absent, and now added back too rather than argued away: L1 (3.0 mm), U8,
+U12, and the four J101-104 wire lands. Their heights are package nominals, not
+measurements -- good enough to answer "does it foul the bore" with millimetres
+to spare, not good enough for a question about tenths.
 """
 import math
 import os
@@ -41,7 +43,19 @@ COPPER = 0.15
 
 # RV1, absent from the export. Footprint pad extents from o2-probe.kicad_pcb,
 # height measured by Fab 2026-09-04. On B.Cu, so it hangs below the board.
-RV1 = dict(x0=0.25, x1=4.75, y0=71.10, y1=74.90, h=5.0, back=True)
+# Every part the export names and then omits. Same table as
+# o2_probe_board_in_body.scad's `missing`; keep them together.
+# name, x0, x1, y0, y1, height, on-the-back
+MISSING = [
+    ("RV1  trimmer",   0.25,  4.75,  71.10,  74.90, 5.0, True),
+    ("L1   inductor",  7.00, 14.00,  26.30,  28.70, 3.0, False),
+    ("U8   WQFN-16",  13.62, 17.38,  75.12,  78.88, 0.8, False),
+    ("U12  SHT45",     2.55,  4.45, 100.95, 102.05, 0.5, False),
+    ("J101 wire",      1.90,  4.10,   3.58,  15.80, 1.7, False),
+    ("J102 wire",      6.60,  8.80,   3.58,  15.80, 1.7, False),
+    ("J103 wire",     11.20, 13.40,   3.58,  15.80, 1.7, False),
+    ("J104 wire",     15.90, 18.10,   3.58,  15.80, 1.7, False),
+]
 
 
 def verts():
@@ -78,16 +92,29 @@ def main():
                 if bx > 20 - RAIL_ENGAGE and (hit[1] is None or bx > hit[1][0]):
                     hit[1] = (bx, by, bz)
 
-    # RV1, added back by hand.
-    rv_y = -(BOARD_T / 2 + RV1['h']) if RV1['back'] else BOARD_T / 2 + RV1['h']
-    rv_r = max(math.hypot(x - 10.0, rv_y) for x in (RV1['x0'], RV1['x1']))
+    # The omitted parts, added back. Radius is taken at the OUTER TOP CORNER,
+    # which is what binds in a round bore -- a mid-face height is not the
+    # clearance for anything sitting near the board edge.
+    def corner_r(x0, x1, h, back, t):
+        y = -(t / 2 + h) if back else t / 2 + h
+        return max(math.hypot(x0 - 10.0, y), math.hypot(x1 - 10.0, y))
+
+    added = [(name, corner_r(x0, x1, h, back, BOARD_T),
+              corner_r(x0, x1, h, back, 1.6), y0, y1)
+             for name, x0, x1, y0, y1, h, back in MISSING]
+    added.sort(key=lambda a: -a[2])
+    rv_r = added[0][1]
+    rv_r16 = added[0][2]
 
     fails = []
     print("MESH, %s" % os.path.basename(MESH))
     print("  worst radius on the exported board: %.3f mm at board (%.2f, %.1f)"
           % (worst_r, worst_at[0], worst_at[1]))
-    print("  RV1, added back by hand:            %.3f mm  <- the binding part"
-          % rv_r)
+    print("\n  parts KiCad omitted, added back by hand"
+          "  (r on 0.91 / 1.6 mm board):")
+    for name, r09, r16, _, _ in added:
+        print("    %-16s %6.3f / %6.3f%s"
+              % (name, r09, r16, "   <- binding" if r16 == rv_r16 else ""))
     # RV1 sits at board y~73, i.e. in the TUBE, not in the head -- so only the
     # tube's bore is the right thing to compare it with. The head sees board
     # y 91..107 only, and its worst radius there is reported separately.
@@ -99,14 +126,13 @@ def main():
     # The mesh is a 0.910 mm board; the enclosure is cut for board_t=1.6, which
     # pushes a back-side part 0.345 mm further out. Report the number the
     # enclosure actually has to swallow, not just the one the mesh implies.
-    rv_r16 = max(math.hypot(x - 10.0, -(1.6/2 + RV1['h']))
-                 for x in (RV1['x0'], RV1['x1']))
-    print("  RV1 again, on a 1.6 mm board:       %.3f mm, clearance %.3f mm"
+    print("  worst of them on a 1.6 mm board:    %.3f mm, clearance %.3f mm"
           % (rv_r16, BORE_R - rv_r16))
-    if rv_r16 >= BORE_R:
-        fails.append("RV1 does not clear the bore on a 1.6 mm board")
-    if rv_r >= BORE_R:
-        fails.append("RV1 does not clear the tube bore")
+    for name, r09, r16, y0, y1 in added:
+        if r16 >= BORE_R:
+            fails.append("%s does not clear the tube bore" % name.split()[0])
+        if y0 >= 91.0 and r16 >= HEAD_BORE_R:
+            fails.append("%s does not clear the head bore" % name.split()[0])
     if worst_r >= BORE_R:
         fails.append("the exported board does not clear the tube bore")
     if max((r for b, r in bands.items() if b >= 90), default=0.0) >= HEAD_BORE_R:

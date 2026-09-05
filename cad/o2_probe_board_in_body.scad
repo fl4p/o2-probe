@@ -34,8 +34,62 @@
 
 $fn = 96;
 
-part = "section";     // section, whole
+// xray     see-through body, whole board -- nice to spin, alpha caveats below
+// section  half the body cut away -- PRE-CUT, see below
+// whole    everything solid
+// cutbody  the sectioned body ALONE, for export; not a viewing mode
+part = "section";     // xray, section, whole, cutbody
+
+// WHY THE SECTION IS PRE-CUT AND NOT A LIVE difference().
+//
+// It used to be `difference(assembly(), a 120 mm cube)`, and that is fine until
+// you reach for View > Thrown Together (F12) to work out why a surface has
+// vanished. Thrown Together does NOT evaluate CSG -- it draws every object
+// including the ones being subtracted -- so the cutting block appears as a
+// giant slab over the model and the mode that exists to diagnose the problem
+// becomes unusable.
+//
+// So the cut is baked once, by CGAL, into exports/body-monobody-section.stl
+// (`make body-section`), and this file imports the result. The preview then
+// contains no CSG at all: F12 is usable, F5 is fast, and nothing is hiding
+// behind a cutter. The cost is that the section STL has to be rebuilt when the
+// body changes, which the Makefile handles.
 show_cap = true;
+
+// CONVEXITY, first, because it is the one that looks like a graphics driver bug.
+// OpenSCAD's PREVIEW renders CSG by depth-peeling a fixed number of layers, and
+// that number is `convexity` -- the most surfaces any single ray crosses. It
+// defaults to 1 on import(), which is right for a solid blob and wrong for
+// everything here: a ray through this tube crosses four walls before it reaches
+// the board, more once a difference() is cutting it. Below the true value,
+// surfaces DISAPPEAR AT SOME VIEW ANGLES AND NOT OTHERS, which reads as a
+// rendering bug rather than a missing parameter. Every import() below carries
+// convexity=10. It costs nothing but preview time and only affects preview --
+// F6/CGAL is exact regardless.
+//
+// TRANSPARENCY, second, because it has two traps of its own and both bite
+// silently.
+//
+//   1. Alpha works in PREVIEW ONLY (F5 / OpenCSG). Render (F6 / CGAL) throws it
+//      away and hands back opaque geometry -- the same reason the exploded
+//      drawing must not use --render, which discards colour altogether.
+//   2. ORDER MATTERS. OpenSCAD does not depth-sort transparent surfaces, so a
+//      transparent object drawn BEFORE an opaque one hides it. Anything you
+//      want to see through must come LAST in the source. That is why xray()
+//      below draws the board first and the body afterwards, which reads
+//      backwards and is correct.
+//
+// The other route needs no alpha at all: prefix any object with `%` and it
+// becomes a background object -- transparent grey, and excluded from the
+// geometry, so it cannot affect a difference() or an export. `#` is the same
+// idea in debug pink, but it STAYS in the geometry. `%` is the honest choice
+// for a thing you only want to look through.
+body_alpha = 0.22;
+// "alpha"      color(c, a) -- honours the colour, but see the ordering trap.
+// "background" the % modifier -- OpenCSG draws background objects in their own
+//              pass, so they cannot hide anything whatever the view angle. The
+//              cost is the colour: they always come out grey.
+xray_mode = "alpha";
 
 // ------------------------------------------------- the KiCad export
 
@@ -57,15 +111,43 @@ body_tube_len = 113.0;      // monolithic
 board_len     = 107.0;
 tube_id       = 27.2;
 cable_bore_d  = 27.3;
+cap_engage    = 18.0;       // o2_probe_body_tube.scad, cap_engage
 
 // Monobody frame: the cable end face is at z = -body_tube_len, the head's own
 // z=0 is the joint. So board local y maps to z = y + tail_len - body_tube_len.
 board_z0 = tail_len - body_tube_len;
 
-// RV1, redrawn because KiCad has no model for it.
-rv1_x0 = 0.25;  rv1_x1 = 4.75;      // board local x, from the pad extents
-rv1_y0 = 71.10; rv1_y1 = 74.90;     // board local y
-rv1_h  = 5.0;                       // Fab, 2026-09-04, measured
+// EVERY part KiCad could not place, redrawn. The export names them and then
+// omits them, which is the worst possible failure for a clearance drawing: the
+// picture looks complete. Each row is [name, x0, x1, y0, y1, height, back?]
+// in BOARD-LOCAL coordinates, taken from the footprint's pad extents in
+// o2-probe.kicad_pcb, with the height from the source named beside it.
+//
+// HEIGHTS ARE PACKAGE NOMINALS, NOT MEASURED, except RV1 which Fab measured.
+// They are good enough to answer "does it foul the bore" with millimetres to
+// spare; they are not good enough to answer a question about tenths.
+missing = [
+    // RV1: the tallest thing on the board, and the whole reason to look.
+    // Bourns 3224W on B.Cu. Library has 3314G and 3314J and nothing else.
+    ["RV1  trimmer",   0.25,  4.75, 71.10, 74.90, 5.0, true ],
+    // L_6.3x6.3_H3 -- the footprint name carries the height.
+    ["L1   inductor",  7.00, 14.00, 26.30, 28.70, 3.0, false],
+    // WQFN-16 3x3, package nominal.
+    ["U8   WQFN-16",  13.62, 17.38, 75.12, 78.88, 0.8, false],
+    // SHT4x DFN-4 1.5x1.5, package nominal.
+    ["U12  SHT45",     2.55,  4.45,100.95,102.05, 0.5, false],
+    // J101-104 are solder-wire lands, so what projects is the CABLE, not a
+    // component: 0.25 sqmm wire, 1.7 mm insulated OD, lying along the land.
+    ["J101 wire",      1.90,  4.10,  3.58, 15.80, 1.7, false],
+    ["J102 wire",      6.60,  8.80,  3.58, 15.80, 1.7, false],
+    ["J103 wire",     11.20, 13.40,  3.58, 15.80, 1.7, false],
+    ["J104 wire",     15.90, 18.10,  3.58, 15.80, 1.7, false],
+];
+// NOT drawn, deliberately, and neither is a part in service:
+//   J3  Tag-Connect TC2030-IDC-NL -- "NL" is no-legs, so the pogo adapter is
+//       present only while programming, never in the tube.
+//   J5  Ring_Fork_Tip_DRAFT -- solder lands for the heater ring that
+//       HEATED-SPREADER.md section 0 records as orphaned. No part fitted.
 
 // ONE matrix, and it is worth writing out rather than chaining rotates -- the
 // first attempt chained translate/rotate/multmatrix and put the board flat on
@@ -83,29 +165,75 @@ module board() {
                 [0,  0, 1, -kicad_t/2],
                 [0, -1, 0, -50 + board_z0],
                 [0,  0, 0, 1]])
-        import(board_stl);
+        import(board_stl, convexity=10);
 }
 
-module rv1() {
-    // B.Cu, so it hangs BELOW the board plane
-    translate([rv1_x0 - 10, -kicad_t/2 - rv1_h, board_z0 + rv1_y0])
-        cube([rv1_x1 - rv1_x0, rv1_h, rv1_y1 - rv1_y0]);
+module missing_parts() {
+    for (m = missing) {
+        x0 = m[1]; x1 = m[2]; y0 = m[3]; y1 = m[4]; h = m[5]; back = m[6];
+        translate([x0 - 10,
+                   back ? -kicad_t/2 - h : kicad_t/2,
+                   board_z0 + y0])
+            cube([x1 - x0, h, y1 - y0]);
+    }
 }
 
 module assembly() {
-    color("Sienna") import("exports/body-monobody.stl");
+    color("Sienna") import("exports/body-monobody.stl", convexity=10);
     if (show_cap)
         color("DarkOrange")
-            translate([0, 0, -body_tube_len + 12.0])
-                mirror([0, 0, 1]) import("exports/body-cap.stl");
+            translate([0, 0, -body_tube_len + cap_engage])
+                mirror([0, 0, 1]) import("exports/body-cap.stl", convexity=10);
     color("DarkGreen") board();
-    color("Crimson") rv1();
+    // Crimson so they read as "added by hand", not as exported geometry.
+    color("Crimson") missing_parts();
 }
 
-if (part == "whole") assembly();
-else difference() {
-    assembly();
-    // Half section, taken on the side the trimmer is on so it is the thing you
-    // see. The board is at x -10..+10 and RV1 at x -9.75..-5.25.
-    translate([-60, 0, -200]) cube([120, 60, 400]);
+// See-through body, whole board. Opaque things FIRST -- see the note at the top.
+module xray() {
+    color("DarkGreen") board();
+    color("Crimson") missing_parts();
+    if (xray_mode == "background") {
+        %import("exports/body-monobody.stl", convexity=10);
+        if (show_cap)
+            %translate([0, 0, -body_tube_len + cap_engage])
+                mirror([0, 0, 1]) import("exports/body-cap.stl", convexity=10);
+    } else {
+        color("Sienna", body_alpha) import("exports/body-monobody.stl", convexity=10);
+        if (show_cap)
+            color("DarkOrange", body_alpha)
+                translate([0, 0, -body_tube_len + cap_engage])
+                    mirror([0, 0, 1]) import("exports/body-cap.stl", convexity=10);
+    }
 }
+
+// The cutter. It removes the -Y half, which is the side OpenSCAD's default view
+// looks from, so the model opens toward you the moment you load it. That is not
+// a detail: only the BODY is pre-cut now, so with the cut facing away the
+// remaining half simply hides the board and the section looks like the whole
+// part. RV1 lives on the board's -Y face (B.Cu) and is therefore the first
+// thing in view, which is the point of the drawing.
+module half_space() { translate([-60, -60, -200]) cube([120, 60, 400]); }
+
+// Emitted for export only -- `make body-section` renders this through CGAL.
+module cutbody() {
+    difference() {
+        import("exports/body-monobody.stl", convexity=10);
+        half_space();
+    }
+}
+
+module section() {
+    color("Sienna") import("exports/body-monobody-section.stl", convexity=10);
+    if (show_cap)
+        color("DarkOrange")
+            translate([0, 0, -body_tube_len + cap_engage])
+                mirror([0, 0, 1]) import("exports/body-cap.stl", convexity=10);
+    color("DarkGreen") board();
+    color("Crimson") missing_parts();
+}
+
+if (part == "xray") xray();
+else if (part == "whole") assembly();
+else if (part == "cutbody") cutbody();
+else section();

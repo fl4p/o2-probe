@@ -197,6 +197,31 @@ cable_bore_len = 12.0;      // reamed depth
 spigot_len = 8.5;
 spigot_id  = 20.0;          // cable passage; sized by the wall under the groove
 
+// HOW THE CAP'S GROOVE IS MADE, and it is the second sealing surface -- the
+// bore is reamed and this one is not, so it is now the loose end of the chain.
+//   "printed"   as it comes off the printer, +/-0.09 (seven readings on printed
+//               ASA carriers, o2_probe_head_end.scad carrier_tol)
+//   "machined"  turned to size, +/-0.05
+cap_fab = "printed";
+// MICROMETER-SORT THE RINGS. Not a preference: on catalogue cord the chain does
+// not close (see the band assert below), which the 2026-09-05 Codex review found
+// and this file's prose had wrong at 12.18 of 15. It is the same ring as the
+// carrier, so one sorting pass covers the whole probe.
+oring_sorting = "sorted";   // "sorted" or "catalogue"
+
+// SHRINK COMPENSATION ON THE PRINTED ROOT. The head records three readings of a
+// root cut oversize and measured after printing -- factors 0.99040, 0.98801 and
+// 0.98880, mean 0.9891 -- and the cap emitted its root with no correction at
+// all, so a printed root would land near 24.77 against a 25.03 target and take
+// nominal squeeze down to about 14 %. Drawn oversize by 1/factor so the PRINTED
+// root lands on target.
+//
+// PROVENANCE IS NOT AIRTIGHT: those readings are on the carrier, and the print
+// prescription here is different (1.00-1.02 flow, 0.10-0.15 layers, 0.60 lines
+// against 0.95 / 0.20 / 0.45). MEASURE THE ROOT ON THE FIRST CAP before trusting
+// the seal, and correct this factor from that measurement.
+cap_root_shrink = (cap_fab == "printed") ? 0.9891 : 1.0;
+
 // Bayonet. Chosen over a thread or screws because MEMBRANE.md's rule for this
 // enclosure is "no part of the enclosure may carry sustained strain at
 // temperature ... retention is by positive features plus a compliant elastomer
@@ -339,13 +364,45 @@ pocket_z  = cap_engage - lug_z - lug_h/2;       // pocket floor = the lock stop
 chan_top  = pocket_z + detent + lug_h + slot_slack;
 cap_h     = cap_bore_depth + cap_end_t;
 
-// The radial gland, mirroring o2_probe_head_end.scad's carrier seal exactly.
+// The radial gland, mirroring o2_probe_head_end.scad's carrier seal exactly --
+// including the parts this file used to skip.
 spigot_od   = cable_bore_d - carrier_fit;
+// seal_squeeze is the SIZING BASIS, not the achieved squeeze. It sets the root;
+// what the ring then delivers is seal_squeeze_real below, and they are not the
+// same number because stretching the ring thins its cord.
 groove_root = cable_bore_d - 2*seal_cord*(1 - seal_squeeze);
+groove_root_drawn = groove_root / cap_root_shrink;   // what the model cuts
 groove_w    = 1.40 * seal_cord;                 // 1.40: the head's fill gate
 seal_stretch = (groove_root - seal_id)/seal_id;
 groove_wall = (groove_root - spigot_id)/2;      // material under the groove root
 lead_chamfer = 1.0;
+
+// SQUEEZE AFTER STRETCH-THINNING. Stretching a cord onto a groove root makes it
+// thinner, and that eats squeeze -- the head has always done this and this file
+// reported the unthinned number, overstating squeeze by about 1.7 points.
+// Linear thinning (1 - stretch/2), the head's convention; constant volume
+// (1/sqrt(1+stretch)) differs by 0.001 mm here and is not worth the divergence.
+seal_gland      = (cable_bore_d - groove_root)/2;
+seal_cord_thin  = 1 - seal_stretch/2;
+seal_cord_fit   = seal_cord * seal_cord_thin;
+seal_squeeze_real = (seal_cord_fit - seal_gland)/seal_cord_fit;
+
+// THE WORST CORNER, which is what decides whether this seals at all. Three
+// things vary, not one: the reamed bore, the cap's groove root, and the cord of
+// the ring itself. Least squeeze is the widest gland on the thinnest cord.
+bore_tol  = (cable_bore_finish == "reamed") ? 0.0105 : 0.20;  // ISO 286-2 H7
+root_tol  = (cap_fab == "machined") ? 0.05 : 0.09;
+cord_tol  = (oring_sorting == "sorted") ? 0.01 : 0.08;        // DIN ISO 3601
+seal_pair_tol = bore_tol + root_tol;
+cord_min = (seal_cord - cord_tol) * seal_cord_thin;
+cord_max = (seal_cord + cord_tol) * seal_cord_thin;
+gland_min = ((cable_bore_d - groove_root) - seal_pair_tol)/2;
+gland_max = ((cable_bore_d - groove_root) + seal_pair_tol)/2;
+squeeze_max = (cord_max - gland_min)/cord_max;
+squeeze_min = (cord_min - gland_max)/cord_min;
+seal_band      = squeeze_max - squeeze_min;
+seal_band_pair = seal_pair_tol / seal_cord_fit;
+seal_band_cord = seal_band - seal_band_pair;
 
 // THE AXIAL PRELOAD IS GONE, and that is a real consequence, not a footnote.
 // A face seal pushed the tube back out and held the bayonet lug in its detent;
@@ -357,8 +414,21 @@ assert(lock_screw,
        "a radial cable seal supplies no axial preload, so the bayonet has no spring: the lock screw is not optional with this seal");
 assert(seal_stretch <= 0.05,
        str("install stretch ", seal_stretch*100, "% exceeds the 5% rule"));
-assert(seal_stretch > 0,
-       "the groove root is under the ring ID; it would not stay on the spigot");
+assert(seal_stretch >= 0.01,
+       str("install stretch is only ", seal_stretch*100,
+           "%; the ring would not stay seated on the spigot"));
+assert(seal_squeeze_real >= 0.15,
+       str("squeeze after stretch-thinning is only ", seal_squeeze_real*100,
+           "%; a static radial seal wants 15% or more"));
+// The 15-30% window is 15 points wide, so tolerance alone must not span it.
+// THIS IS THE ASSERT THAT FAILS ON CATALOGUE RINGS, and the prose in
+// PRINTING-BODY-TUBE.md claimed 12.18 of 15 when the real figure is over 15.
+assert(seal_band <= 0.15,
+       str("tolerance alone spans ", seal_band*100, " squeeze points -- ",
+           seal_band_pair*100, " from the seal pair (bore +/-", bore_tol,
+           ", root +/-", root_tol, ") and ", seal_band_cord*100,
+           " from the cord (+/-", cord_tol,
+           "). Sort the rings, machine the cap's groove, or use a fatter cord."));
 assert(groove_wall >= 2.4,
        str("only ", groove_wall, " mm under the groove root, against 2.4 min"));
 assert(cable_bore_d > tube_id,
@@ -439,10 +509,18 @@ echo(str("BAYONET: lug at tube z=", lug_z, ", pocket floor at cap z=", pocket_z,
          "is the retention and the detent only resists back-rotation."));
 echo(str("CABLE SEAL: ORS116787 24 x 1.5 EPDM, the SAME ring as the carrier. ",
          "Bore ", cable_bore_d, " ", cable_bore_finish, " x ", cable_bore_len,
-         " deep; groove root ", groove_root, " x ", groove_w, " wide on a ",
-         spigot_od, " spigot. Install stretch ", seal_stretch*100,
-         "%, squeeze ", seal_squeeze*100, "%, ", groove_wall,
+         " deep; groove root ", groove_root, " target (CUT ", groove_root_drawn,
+         ", ", cap_fab, ", shrink ", cap_root_shrink, ") x ", groove_w,
+         " wide on a ", spigot_od, " spigot, ", groove_wall,
          " mm under the root."));
+echo(str("CABLE SEAL squeeze: ", seal_squeeze*100, "% is the SIZING BASIS; ",
+         "after ", seal_stretch*100, "% stretch thins the cord the ring ",
+         "actually delivers ", seal_squeeze_real*100, "%."));
+echo(str("CABLE SEAL tolerance: ", seal_band*100, " of 15 squeeze points -- ",
+         seal_band_pair*100, " seal pair (bore ", cable_bore_finish, " +/-",
+         bore_tol, ", root ", cap_fab, " +/-", root_tol, "), ",
+         seal_band_cord*100, " cord (", oring_sorting, " +/-", cord_tol,
+         "). Worst case ", squeeze_min*100, "-", squeeze_max*100, "%."));
 echo(str("BOARD: y=0 at z=", board_y0_z, ", tube end face at board y=",
          board_in_tube, ", tip ", cav_board_len, " proud into the cavity"));
 // The trimmer sits at the board EDGE, so the flat "height above the board"
@@ -615,7 +693,7 @@ module cap() {
                 difference() {
                     cylinder(d=spigot_od + 2*e, h=groove_w);
                     translate([0, 0, -e])
-                        cylinder(d=groove_root, h=groove_w + 2*e);
+                        cylinder(d=groove_root_drawn, h=groove_w + 2*e);
                 }
             // the cable passage through the spigot
             translate([0, 0, cap_bore_depth - spigot_len - e])

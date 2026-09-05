@@ -233,9 +233,33 @@ board-mesh: | $(OUT)
 	python3 tools/stl_ascii_to_binary.py $(OUT)/o2-probe-board.stl \
 		$(OUT)/o2-probe-board-bin.stl
 
+# The body with half of it cut away, baked by CGAL so the viewer has no CSG in
+# it -- which is what makes View > Thrown Together usable on this model. A live
+# difference() would draw its own 120 mm cutting block in that mode.
+.PHONY: body-section
+body-section: monobody | $(OUT)
+	$(OPENSCAD) --hardwarnings --render -D 'part="cutbody"' \
+		-o $(OUT)/body-monobody-section.stl o2_probe_board_in_body.scad
+
 .PHONY: board-in-body
-board-in-body: monobody | $(OUT)
+board-in-body: monobody body-section board-mesh | $(OUT)
 	$(OPENSCAD) --viewall --autocenter --projection=p --imgsize=1500,1400 \
 		--camera=0,0,0,68,0,25,0 --colorscheme=Tomorrow \
 		-D 'part="section"' -o $(OUT)/board-in-body.png o2_probe_board_in_body.scad
 	python3 tools/board_clearance.py
+
+# Local three.js viewer: the printed body with the real KiCad board inside it.
+# Every surface is DoubleSide, so nothing vanishes when you rotate past it --
+# which is the one thing OpenSCAD's preview will not do. Served over http
+# because file:// blocks the STL fetches; nothing leaves the machine.
+.PHONY: viewer viewer-parts
+viewer-parts: monobody board-mesh
+	python3 tools/make_viewer_parts.py
+
+# Served from cad/, NOT cad/viewer/ -- the STLs live in cad/exports and
+# http.server will not serve above its own root, so rooting it at the viewer
+# directory makes every mesh a 404 while the page itself loads perfectly well.
+viewer: viewer-parts
+	@echo "serving on http://127.0.0.1:8777/viewer/   (ctrl-c to stop)"
+	@(sleep 1; open http://127.0.0.1:8777/viewer/) &
+	@python3 -m http.server 8777 --bind 127.0.0.1

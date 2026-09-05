@@ -77,8 +77,18 @@ body_dir = "exports";       // where those STLs live, relative to the build cwd
 // Interfaces to the body model. These are the SAME two numbers that file names
 // as tracking this one (head_socket_len, cap_engage); if either moves, the body
 // slides in this picture and the picture is the thing that would show it.
-body_tube_len = 127.0;      // o2_probe_body_tube.scad, tube_len
-body_cap_engage = 12.0;     // o2_probe_body_tube.scad, cap_engage
+// Both of these are DUPLICATED from o2_probe_body_tube.scad, and both had
+// already drifted by 2026-09-05: cap_engage moved 12 -> 18 there when the radial
+// seal pushed the lock boss past the reamer, and this file kept 12, so the
+// prototype drawing placed the cap 6 mm into the tube. Nothing complained.
+// tools/interface_check.py now compares them and the Makefile runs it.
+//
+// body_tube_len depends on the joint, because the monolithic tube stops where
+// the head begins: 113 against the bonded 127. The old single value happened to
+// place BOTH correctly -- socket_len - 127 = -113 = -113 -- which is exactly the
+// kind of coincidence that survives until one of the two numbers moves.
+body_tube_len = monolithic ? 113.0 : 127.0;   // o2_probe_body_tube.scad, tube_len
+body_cap_engage = 18.0;     // o2_probe_body_tube.scad, cap_engage
 body_seal_id   = 24.0;      // o2_probe_body_tube.scad, seal_id  (ORS116787)
 body_seal_cord = 1.5;       // o2_probe_body_tube.scad, seal_cord
 body_groove_root = 25.0299; // o2_probe_body_tube.scad, groove_root
@@ -1215,8 +1225,9 @@ module monobody() {
            "monobody needs joint=monolithic -- with the socket still cut, the union leaves a 14 mm annular void inside the part");
     union() {
         head();
-        translate([0, 0, socket_len - body_tube_len])
-            import(str(body_dir, "/body-tube.stl"));
+        // monolithic, so the tube's top face IS this head's z=0
+        translate([0, 0, -body_tube_len])
+            import(str(body_dir, "/body-tube.stl", convexity=10));
     }
 }
 
@@ -1240,13 +1251,16 @@ module body_stack(e) {
     tube_drop = 8.25*e;
     dam_drop  = 5.9*e;
     cap_drop  = 10.6*e;
-    tube_top_z  = socket_len - tube_drop;               // head frame
+    // Where the tube's TOP face sits with nothing exploded: at the socket floor
+    // when bonded, at the head's own z=0 when the head continues from it.
+    tube_seat_z = monolithic ? 0 : socket_len;
+    tube_top_z  = tube_seat_z - tube_drop;              // head frame
     tube_base_z = tube_top_z - body_tube_len;
-    color("Sienna") translate([0, 0, tube_base_z]) import(str(body_dir, "/body-tube.stl"));
+    color("Sienna") translate([0, 0, tube_base_z]) import(str(body_dir, "/body-tube.stl", convexity=10));
     // The dam clamps round the board at body y=81; drawn between board and tube,
     // which is also the order it is fitted in.
     color("MediumPurple")
-        translate([0, 0, socket_len - dam_drop]) import(str(body_dir, "/body-dam.stl"));
+        translate([0, 0, tube_seat_z - dam_drop]) import(str(body_dir, "/body-dam.stl", convexity=10));
     // The cable-end seal: the SAME ORS116787 24 x 1.5 EPDM as the carrier's
     // ring, now RADIAL on the cap's spigot rather than a 28 x 2 face seal. It
     // is drawn on the groove root, not on the tube's end face, because that is
@@ -1265,8 +1279,8 @@ module body_stack(e) {
     // faces the tube. Locked, its mouth sits body_cap_engage above the tube's
     // cable end face.
     color("DarkOrange")
-        translate([0, 0, socket_len - body_tube_len - cap_drop + body_cap_engage])
-            mirror([0, 0, 1]) import(str(body_dir, "/body-cap.stl"));
+        translate([0, 0, tube_seat_z - body_tube_len - cap_drop + body_cap_engage])
+            mirror([0, 0, 1]) import(str(body_dir, "/body-cap.stl", convexity=10));
 }
 
 // Every printable part, laid out flat and print-oriented, as ONE file. Handing

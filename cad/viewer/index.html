@@ -1,0 +1,231 @@
+<meta charset="utf-8">
+<title>O2 probe — body + board</title>
+<!--
+  Local three.js viewer for the prototype-1 body with the real KiCad board in it.
+
+  WHY THIS EXISTS. OpenSCAD's preview draws a solid's surface ONE-SIDED, so
+  rotating a hollow part makes the near wall vanish and you see through it. That
+  is intentional there and it is useless when the question is "does this fit" --
+  and View > Thrown Together, the mode that would explain it, cannot help either,
+  because it skips CSG and draws the cutting blocks too.
+
+  Everything here is DoubleSide. Nothing disappears at any angle. The section is
+  a live clipping plane on a slider instead of a baked cut, so you can sweep it
+  rather than rebuild an STL.
+
+  WHY NOT ../../viewer. That one exists and is a Vite/React app, but it models
+  the old Rev-A geometry parametrically in TypeScript -- it does not load these
+  STLs, and today's part is a different design. This is a single file with no
+  build step against the meshes the Makefile actually produces.
+
+  LOCAL ONLY. three.js is vendored in vendor/, nothing is fetched at runtime, and
+  it must be served over http (file:// blocks the fetch of the STLs) --
+  `make viewer` starts a server on 127.0.0.1 and opens it.
+-->
+<style>
+  :root {
+    --bg: #101214; --panel: #1a1d21; --line: #2c3138;
+    --ink: #e6e8ea; --dim: #98a0a8; --accent: #ff8c00;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 13px/1.45 ui-sans-serif, -apple-system, system-ui, sans-serif; }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; }
+  #panel {
+    position: fixed; top: 12px; left: 12px; width: 288px; max-height: calc(100vh - 24px);
+    overflow: auto; background: color-mix(in srgb, var(--panel) 92%, transparent);
+    border: 1px solid var(--line); border-radius: 8px; padding: 12px 13px;
+    backdrop-filter: blur(6px);
+  }
+  h1 { font-size: 13px; margin: 0 0 2px; letter-spacing: .01em; }
+  .sub { color: var(--dim); font-size: 11px; margin-bottom: 11px; }
+  h2 { font-size: 10px; text-transform: uppercase; letter-spacing: .09em;
+       color: var(--dim); margin: 14px 0 6px; font-weight: 600; }
+  label.row { display: flex; align-items: center; gap: 7px; padding: 2px 0; cursor: pointer; }
+  label.row input { accent-color: var(--accent); margin: 0; }
+  .sw { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+  .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .note { color: var(--dim); font-size: 10.5px; margin: 1px 0 4px 25px; }
+  input[type=range] { width: 100%; accent-color: var(--accent); margin: 3px 0 0; }
+  .val { color: var(--dim); font-size: 11px; float: right; font-variant-numeric: tabular-nums; }
+  button { background: #23272c; color: var(--ink); border: 1px solid var(--line);
+           border-radius: 5px; padding: 4px 9px; font: inherit; font-size: 11.5px;
+           cursor: pointer; margin: 2px 3px 2px 0; }
+  button:hover { border-color: var(--accent); }
+  #hint { position: fixed; bottom: 10px; right: 12px; color: var(--dim); font-size: 11px; }
+  #err { position: fixed; inset: 0; display: none; place-items: center; padding: 40px;
+         background: var(--bg); color: #ff8080; font-family: ui-monospace, monospace;
+         white-space: pre-wrap; }
+</style>
+
+<div id="app"></div>
+<div id="panel">
+  <h1>O₂ probe — prototype 1</h1>
+  <div class="sub">printed body + real KiCad board</div>
+
+  <h2>Parts</h2>
+  <div id="parts"></div>
+
+  <h2>Section <span class="val" id="clipv">off</span></h2>
+  <input type="range" id="clip" min="-22" max="22" step="0.25" value="22">
+  <div class="note" style="margin-left:0">Cuts on Y. Full right = no cut.</div>
+
+  <h2>Body opacity <span class="val" id="opav">100%</span></h2>
+  <input type="range" id="opa" min="8" max="100" step="1" value="100">
+
+  <h2>View</h2>
+  <div>
+    <button data-view="front">Front</button><button data-view="side">Side</button>
+    <button data-view="top">Top</button><button data-view="iso">Iso</button>
+  </div>
+  <div id="facts" class="note" style="margin:10px 0 0 0"></div>
+</div>
+<div id="hint">drag rotate · scroll zoom · right-drag pan</div>
+<div id="err"></div>
+
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from './vendor/OrbitControls.js';
+import { STLLoader } from './vendor/STLLoader.js';
+
+const fail = m => { const e = document.getElementById('err');
+                    e.style.display = 'grid'; e.textContent = m; };
+addEventListener('error', ev => fail(ev.message));
+
+const app = document.getElementById('app');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.localClippingEnabled = true;
+app.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x101214);
+const camera = new THREE.PerspectiveCamera(38, 1, 0.5, 4000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+// Lighting: a key, a fill from the opposite side, and hemisphere ambient. The
+// fill matters more than usual here -- with DoubleSide the inside faces are lit
+// by whatever reaches them, and a single key leaves the bore black.
+scene.add(new THREE.HemisphereLight(0xbfd4e6, 0x30271f, 1.15));
+const key = new THREE.DirectionalLight(0xffffff, 1.5); key.position.set(1, 1.4, 1.2);
+const fill = new THREE.DirectionalLight(0xffffff, 0.55); fill.position.set(-1.2, -0.8, -1);
+scene.add(key, fill);
+
+const clipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 22);
+const root = new THREE.Group();
+scene.add(root);
+
+const mkMaterial = (color, opacity) => new THREE.MeshStandardMaterial({
+  color: new THREE.Color(color),
+  metalness: 0.05, roughness: 0.62,
+  // THE WHOLE POINT: both faces are drawn, so nothing vanishes when you rotate
+  // past a surface's normal. It also means the clipped interior stays visible.
+  side: THREE.DoubleSide,
+  clippingPlanes: [clipPlane],
+  transparent: opacity < 1, opacity,
+});
+
+const state = { parts: [], bodies: [] };
+
+function addRow(p, mesh) {
+  const wrap = document.getElementById('parts');
+  const lab = document.createElement('label'); lab.className = 'row';
+  const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = true;
+  cb.onchange = () => { mesh.visible = cb.checked; };
+  const sw = document.createElement('span'); sw.className = 'sw'; sw.style.background = p.color;
+  const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = p.name;
+  nm.title = p.note || p.name;
+  lab.append(cb, sw, nm); wrap.append(lab);
+  if (p.note) { const n = document.createElement('div'); n.className = 'note';
+                n.textContent = p.note; wrap.append(n); }
+}
+
+const loader = new STLLoader();
+const loadSTL = url => new Promise((res, rej) => loader.load(url, res, undefined, rej));
+
+(async () => {
+  let cfg;
+  try { cfg = await (await fetch('parts.json')).json(); }
+  catch (e) { return fail('Could not read parts.json — serve this over http, not file://\n\n' + e); }
+
+  for (const p of cfg.parts) {
+    let geom;
+    if (p.kind === 'stl') {
+      try { geom = await loadSTL(p.file); }
+      catch (e) { fail('Missing mesh: ' + p.file + '\nRun `make monobody` / `make board-mesh` first.'); continue; }
+      const m = new THREE.Matrix4(); m.set(...p.matrix);
+      geom.applyMatrix4(m);
+      geom.computeVertexNormals();
+    } else {
+      geom = new THREE.BoxGeometry(...p.size);
+      geom.translate(...p.center);
+    }
+    const mesh = new THREE.Mesh(geom, mkMaterial(p.color, 1));
+    root.add(mesh);
+    state.parts.push({ p, mesh });
+    if (p.kind === 'stl' && p.name !== 'PCB (KiCad export)') state.bodies.push(mesh);
+    addRow(p, mesh);
+  }
+
+  // Frame it. Z is the probe axis in the model, so stand it up as screen-Y.
+  root.rotation.x = -Math.PI / 2;
+  const box = new THREE.Box3().setFromObject(root);
+  const size = box.getSize(new THREE.Vector3());
+  const mid = box.getCenter(new THREE.Vector3());
+  controls.target.copy(mid);
+  const dist = Math.max(size.x, size.y, size.z) * 1.5;
+  camera.position.set(mid.x + dist * 0.55, mid.y + dist * 0.30, mid.z + dist * 0.75);
+  camera.near = dist / 200; camera.far = dist * 20; camera.updateProjectionMatrix();
+  window.view = { mid, dist };
+
+  const m = cfg.meta;
+  document.getElementById('facts').textContent =
+    `bore Ø${(m.bore_r * 2).toFixed(1)} · head bore Ø${(m.head_bore_r * 2).toFixed(2)}\n` +
+    `mesh board ${m.board_t_mesh} mm; model cut for ${m.board_t_model} mm`;
+})();
+
+// --- controls ---------------------------------------------------------------
+const clip = document.getElementById('clip'), clipv = document.getElementById('clipv');
+clip.oninput = () => {
+  clipPlane.constant = +clip.value;
+  clipv.textContent = (+clip.value >= 22) ? 'off' : (+clip.value).toFixed(2) + ' mm';
+};
+const opa = document.getElementById('opa'), opav = document.getElementById('opav');
+opa.oninput = () => {
+  const a = +opa.value / 100; opav.textContent = opa.value + '%';
+  for (const mesh of state.bodies) {
+    mesh.material.opacity = a;
+    mesh.material.transparent = a < 1;
+    // Depth-write off while transparent, or the body hides the board -- the
+    // same ordering problem OpenSCAD has, but here it is fixable.
+    mesh.material.depthWrite = a >= 1;
+    mesh.material.needsUpdate = true;
+  }
+};
+for (const b of document.querySelectorAll('button[data-view]')) b.onclick = () => {
+  if (!window.view) return;
+  const { mid, dist } = window.view;
+  const v = { front: [0, 0, 1], side: [1, 0, 0], top: [0, 1, 0],
+              iso: [0.55, 0.30, 0.75] }[b.dataset.view];
+  const L = Math.hypot(...v);
+  camera.position.set(mid.x + dist * v[0] / L, mid.y + dist * v[1] / L, mid.z + dist * v[2] / L);
+  controls.target.copy(mid);
+};
+
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize); resize();
+// Debug handle. Not decoration: it is how the build is verified -- triangle
+// counts and bounding boxes read out of the live scene beat a screenshot,
+// because an empty geometry and a correct one look identical from behind.
+window.probe = { THREE, scene, root, camera, controls, state, clipPlane };
+
+(function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
+</script>

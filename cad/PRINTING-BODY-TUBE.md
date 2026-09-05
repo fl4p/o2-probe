@@ -183,11 +183,17 @@ the board and the prototype is recoverable.
 3. Solder the cable, thread it through the cap, fit the gland.
 4. Slide the board in from the cable end, tip first, through both guide
    stations. Fit the dam halves around the board as it passes y = 81.
-5. O-ring on the tube end face, cap on, push and twist 30° until the lugs drop
-   into their pockets. The drop is the confirmation — if it has not dropped, the
-   ring is not squeezed.
-6. **Fit the M3 lock screw.** Radial, through the cap's slot into the tube's
-   blind pilot, *after* twisting home. See below.
+5. **O-ring into the cap's spigot groove**, not onto the tube's end face. It is
+   a radial seal now: it rolls onto the Ø25.03 groove root at 4.3 % stretch and
+   seals against the reamed Ø27.3 bore as the spigot enters.
+6. Cap on, push and twist 30° until the lugs drop into their pockets.
+   **The drop confirms the LOCK and says nothing about the seal.** A radial seal
+   gives no axial preload, so the lug will drop just as convincingly with the
+   ring missing, rolled, or nicked. Check the ring is on the spigot before the
+   cap goes near the tube; you cannot check it afterwards.
+7. **Fit the M3 lock screw**, radial, through the cap's slot into the tube's
+   blind pilot, *after* twisting home. With a radial seal the screw is the whole
+   of the retention — see *The lock screw* below.
 
 ## Measure the OD — it closes an open input
 
@@ -199,8 +205,10 @@ has three readings of ASA shrink on the carrier (−0.588 % to −0.960 %).
 
 ## The bayonet, and why there is a test for it
 
-The cap locks with two lugs into two L-slots, and the O-ring on the tube's end
-face is the spring — `MEMBRANE.md`'s rule for this enclosure is *"no part of the
+The cap locks with two lugs into two L-slots. **It no longer has a spring** —
+that sentence used to say the O-ring on the tube's end face supplied one, and it
+was true of the face seal this design replaced. The M3 screw is what holds the
+lock now. `MEMBRANE.md`'s rule for this enclosure is *"no part of the
 enclosure may carry sustained strain at temperature ... retention is by positive
 features plus a compliant elastomer seal that supplies the sealing force"*. A
 printed thread held under preload at 75 °C is the creeping-polymer case that rule
@@ -239,11 +247,24 @@ the bore, it lands almost exactly where the carrier's ring already sits:
 | squeeze | 24.33 % | 22.98 % |
 | material under the root | 2.51 mm | 3.42 mm (2.4 min) |
 
-**The bore must be reamed.** As-printed, its ±0.20 spends **19.75 of the 15
-available squeeze points** on its own; reamed it spends 0.72. With the printed
-cap groove (±0.09) and catalogue cord it comes to 12.18 of 15 — it closes, but
-micrometer-sorted rings take it to 7.51 and that is the route to use, exactly as
-the head's own note concludes.
+**The bore must be reamed**, and even reamed the chain does NOT close on
+catalogue rings. Both numbers below were wrong when first written and are
+corrected from the 2026-09-05 Codex review (`../reviews/`):
+
+| | squeeze points, of 15 |
+|---|---:|
+| printed bore ±0.20 alone | **13.63** (not 19.75 — that figure was bore *and* root together) |
+| reamed H7 bore alone | 0.72 |
+| reamed bore + printed root ±0.09 + **catalogue** cord | **15.1–15.7 — over budget** |
+| reamed bore + printed root + **sorted** cord | ~7.5 |
+
+So micrometer-sorted rings are **not the better option, they are the only one**.
+The head's own note reaches the same conclusion for the carrier ring; one sorting
+pass covers both, since it is the same ring.
+
+`±0.09` is the **printed** figure, from seven readings on printed ASA carriers —
+an earlier draft of this file called it a machined-PP number, which was simply
+wrong (`o2_probe_head_end.scad`, `carrier_tol`).
 
 **Two things moved to make room for the reamer**, and both are asserted rather
 than left to be noticed: the lock boss went from z 6 to **z 17**, clear of the
