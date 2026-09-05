@@ -236,20 +236,73 @@ def build_scene(items, force=False):
     return {'meta': meta, 'parts': parts}
 
 
+def _scene_sig(name):
+    """A cheap fingerprint of one scene's part list, or None if unreadable.
+
+    Unreadable is NOT "unchanged": it returns None and the caller keeps what it
+    has rather than rebuilding from a half-written file.
+    """
+    if not name:
+        return None
+    try:
+        sc = load_scenes().get(name)
+        if not sc:
+            return ('missing',)
+        return (tuple((p.get('spec'), p.get('color'), tuple(p.get('flags') or ()))
+                      for p in sc['parts']), tuple(sc.get('flags') or ()))
+    except Exception:
+        return None
+
+
 def load_scenes():
     if not os.path.exists(SCENES):
         return {}
     return json.load(open(SCENES))
 
 
-def serve(scene, items, port, open_browser):
+def serve(scene, items, port, open_browser, scene_name=None):
     """Serve cad/ with the scene at /scene.json and a /rebuild that re-renders.
 
     Rooted at cad/ and NOT at cad/viewer: http.server will not serve above its
     own root, so a server started in the viewer directory answers the page and
     404s every mesh -- which looks like a broken model, not a broken path.
     """
-    state = {'scene': scene}
+    state = {'scene': scene, 'items': items, 'sig': _scene_sig(scene_name)}
+
+    def refresh():
+        """Re-read scenes.json; rebuild if this scene's part list has changed.
+
+        A SERVER OUTLIVES THE FILE IT WAS STARTED FROM. items was parsed once at
+        startup, so every later edit to scenes.json -- a part added, removed or
+        recoloured, by this session or another one sharing the tree -- was
+        invisible until someone restarted. That is not a cosmetic staleness: a
+        part REMOVED because it was proved to be in the wrong place went on being
+        served, and looked exactly like a correct scene. It happened three times
+        in one afternoon before it was worth fixing.
+
+        Cheap: a signature of the scene's specs, compared per request.
+        """
+        if not scene_name:
+            return
+        sig = _scene_sig(scene_name)
+        if sig is None or sig == state['sig']:
+            return
+        scenes = load_scenes()
+        sc = scenes.get(scene_name)
+        if not sc:
+            print("  ! scene %r has disappeared from scenes.json, keeping the "
+                  "last good one" % scene_name)
+            state['sig'] = sig
+            return
+        sflags = sc.get('flags', [])
+        fresh_items = [parse_spec(p['spec'], p.get('flags', sflags)) for p in sc['parts']]
+        for it, p in zip(fresh_items, sc['parts']):
+            it['color'] = p.get('color'); it['note'] = p.get('note')
+        print("scenes.json changed: %r now has %d part(s), rebuilding"
+              % (scene_name, len(fresh_items)))
+        state['items'] = fresh_items
+        state['scene'] = build_scene(fresh_items)
+        state['sig'] = sig
 
     class Handler(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *a, **kw):
@@ -266,10 +319,12 @@ def serve(scene, items, port, open_browser):
 
         def do_GET(self):
             if self.path.split('?')[0] in ('/scene.json', '/viewer/scene.json'):
+                refresh()
                 return self._json(state['scene'])
             if self.path.split('?')[0] in ('/rebuild', '/viewer/rebuild'):
                 print("rebuild requested from the page")
-                fresh = build_scene(items, force=True)
+                refresh()
+                fresh = build_scene(state['items'], force=True)
                 # Carry the scene's identity across. A rebuild that renamed the
                 # scene back to its default is how the page came back titled
                 # "cad" after showing "bed" a minute earlier.
@@ -366,7 +421,7 @@ def main():
     # actually belongs.
     if bad and len(bad) == len(scene['parts']):
         sys.exit("view: nothing rendered -- see the errors above")
-    serve(scene, items, args.port, not args.no_open)
+    serve(scene, items, args.port, not args.no_open, scene_name=args.scene)
     return 0
 
 
