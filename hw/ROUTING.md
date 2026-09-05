@@ -98,6 +98,12 @@ narrow track.
 Generated routing is never acceptance evidence. Every saved board is refilled
 and checked by KiCad DRC, `audit_pcb.py --calibrate`, and `make_fab.py`.
 
+## Rev B, four layers — superseded
+
+The four-layer Rev-B route below closed 61/61 nets and is kept for its
+findings, not as a target. Fab moved the board to **two layers** on 2026-09-05
+and everything after this section describes that board.
+
 ## Rev B: the regenerated board, routed 2026-09-05
 
 Rev A above is history. The Rev-B placement is a different board -- the cell
@@ -181,3 +187,115 @@ finds an all-F.Cu path for the leg and the board still closes completely.
   measurement (`RING-PCB.md` 5.1).
 - `audit_pcb.py` still encodes Rev-A absolute coordinates and does not describe
   this board.
+
+
+## Rev B on two layers — 2026-09-05
+
+**Status: not routed. 244 of 265 pad-pairs connected; 21 links open across 15
+nets.** No clearance, shorting, track-width, hole-to-hole or copper-edge
+violations; all 57 authored critical items present and locked; both ground
+pours stitched and connected. The board is in the session scratch, not
+promoted: an incomplete route is not a better tracked artefact than the
+four-layer one it would replace, and the repository is deliberately left with
+the generators describing two layers and `o2-probe.kicad_pcb` still holding the
+four-layer route. That inconsistency is recorded rather than hidden.
+
+### What changed for two layers
+
+- Layer count is a board property nothing restates: `thermal_design.copper_layers()`
+  derives it, and the barrier rule area, CELL_RE keepout and ground pours all
+  follow. The literal `(F_Cu, In1_Cu, In2_Cu, B_Cu)` tuples that were there
+  before would have kept writing onto layers that no longer exist, silently,
+  because an `LSET` accepts a disabled layer id.
+- Ground was one In2 plane; it is now poured on F.Cu and B.Cu, solid-connected,
+  yielding to the heater spreader by zone priority. **22 stitch vias** tie the
+  two pours together — without them KiCad reported them as unconnected zones on
+  a fully routed board, a ground plane in name only. Cable side only: gas-side
+  B.Cu is the spreader, so ground on the island lives on F.Cu alone and reaches
+  the cable side through the barrier bridge.
+- The stack is 1.0 mm, 1 oz outer, 0.93 mm FR-4 core, ENIG — and it is
+  *written* now, which it never was. `gen_pcb.py` emitted no stackup at all;
+  Rev A only had one because it was set once in the GUI and never regenerated.
+- `CELL_RE` has a driven guard for the first time: two F.Cu rails 0.275 mm
+  either side, tied under the run on B.Cu at both ends, fed once from R40. A
+  rule area blocks zone *fill*, not tracks, so rails are immune to the
+  fragmentation that made Rev A's pour need a whole migration script.
+
+### Standing rule for every KiCadRoutingTools entry point
+
+**Pass `--fab-overrides krt_fab_floor.txt` and `--no-fix-drc-settings` to every
+tool that writes a board, and restore `o2-probe.kicad_pro` from the repository
+before running DRC on the output.** This is not per-tool advice; three separate
+entry points did it during this session:
+
+- `route.py`, invoked with `--clearance 0.15`, emitted 46 segments at 0.0889 mm
+  and rewrote Board Setup to match — `min_track_width` 0.09 → 0.0889,
+  `min_clearance` 0.15 → 0.10 — plus seven DRC severities set to `ignore`.
+- `route.py` again, even with `--no-fix-drc-settings`, rewrote
+  `min_hole_clearance` 0.20 → 0.15.
+- `repair_planes.py` ignored `--clearance 0.25` outright, used 0.127 mm, and
+  rewrote `net_class[CELL_RE].clearance` 0.15 → 0.127.
+
+Every checker, KiCad's own DRC included, then grades the copper against the
+router's floor instead of the fab's.
+
+### The custom rule the board needs, and why 0.15 mm is not enough
+
+`o2-probe.kicad_dru` requires 0.25 mm from `CELL_RE` to any other track. The
+board's ordinary clearance is a *manufacturing* number: it says two conductors
+will not bridge and says nothing about current creeping between them across the
+mask, and nothing in KiCad's default rules scores leakage. On the best route
+before this rule existed, `/3V3D` sat 0.17 mm from the reference node,
+`/CELL_CE_DRV` 0.185 mm and `/3V3A` 0.215 mm — **eight violations of a rule
+that did not exist, on a board with zero clearance violations**, against a node
+budgeted for the LMP91000's ±900 pA.
+
+Track-to-track only. CELL_RE arrives at U7 pin 13 on a 0.5 mm-pitch row where
+the gap to pins 12 and 14 is 0.255 mm; a pad-inclusive rule at 0.25 would pass
+by 5 µm today and fail on any library revision. The scope also matches the
+subset KRT parses, so the **router** honours it — its log prices the net — and
+first-pass intrusions went from eight to one.
+
+### What is still open, and what it is not
+
+The 21 links are concentrated in the AFE band, y≈64–85: `/+12V_SW`,
+`/ADC_AFE_VOUT`, `/ADC_DRDY`, `/ADC_VREF_MON`, `/AFE_MENB`, `/AFE_VOUT`,
+`/LMP_C1`, `/LMP_C2`, `/VREF_SHUNT`, `/VREF_TRIM`, `/WE_BUF`, `/CE_MON`, plus
+four I²C links at the tip and one ground stitch. The 30 dangling vias are the
+stranded ends of those same links, not a separate defect.
+
+It is **not** a router-effort problem and it is not a track-width problem:
+
+- Six independent configurations plateaued between 18 and 21.
+- 0.12 mm tracks with 0.35/0.15 vias were *worse* (33 open) than 0.18/0.45.
+- Routing GND as an ordinary net with no pours was far worse (108 open); the
+  pours are carrying ground, not obstructing.
+- A rescue pass routing only the open nets, with every other routine net
+  rippable, moved nothing.
+
+Two of the plateau's causes were found and fixed, and both were self-inflicted,
+which is the reason to be cautious about calling the remainder structural:
+
+- CELL_WE's westward run sat under U7's gas-side pad row. U7's body is one
+  large exposed pad, so pins 8–11 cannot cross the package; their only route is
+  a via south of the row then north underneath on B.Cu — straight through that
+  run. Four nets were open on that alone.
+- U8 is a `Texas_RTE0016D` WQFN-16 on 0.5 mm pitch. Every signal pad must fan
+  out sideways on F.Cu, and CELL_RE's leg at x=13.00 left its west pad row
+  0.495 mm to escape into. Nine of the then-fifteen failing nets were U8 pads.
+  Moving the leg to x=12.40 opened it to 1.095 mm.
+
+### Open questions for the next pass
+
+1. Whether the remaining 21 are a third self-inflicted wall or genuinely need
+   re-floorplanning of the AFE block. The honest answer is that this has not
+   been established — every previous plateau looked structural until the
+   specific obstruction was found.
+2. `make_fab.py` and `audit_pcb.py` both encode Rev-A geometry and layer lists
+   and do not describe this board. `make_fab.py` additionally carries another
+   session's uncommitted work.
+3. The barrier conductance must be re-derived once routing closes
+   (`thermal_barrier_conductance.py`); `THERMAL-BARRIER.md` carries a STALE
+   marker until then.
+4. The fork finger width is still frozen pending the printed-neck-bore
+   measurement (`RING-PCB.md` §5.1).
