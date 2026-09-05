@@ -381,10 +381,30 @@ one MOSFET pair for both directions would cut the *probe* on a cold morning, not
 just the charge — restarting the cell's 15-minute settling timer, which is the
 exact failure §0 rejected the Dragino rail for.
 
-**No heated 12 V 20 Ah pack exists in this class** — LIONTRON's self-heating
-Arctic line starts at 100 Ah / €978. Searched LIONTRON's own 12 V catalogue and
-Offgridtec's battery range on 2026-09-04; confidence in that absence is medium
-and bounded to those two vendors.
+**Correction, 2026-09-05: a heated pack in this class does exist, and it changes
+nothing.** An earlier revision said *"No heated 12 V 20 Ah pack exists in this
+class — LIONTRON's self-heating Arctic line starts at 100 Ah / €978"*, bounded to
+LIONTRON and Offgridtec. Widening the search to eleven further brands falsified
+it: **LiTime sells a 12 V 30 Ah self-heating pack** (384 Wh, 2.8 kg, IP65, BLE,
+charge to −20 °C, $209.99) — US/CA only, not in litime.de's catalogue. The
+smallest EU-stocked pack claiming integrated heating is the **EPEVER 12.8 V 50 Ah**
+(€142,82 at 0 % USt, solarv.de), whose datasheet still specifies `Charge:
+0 °C~+50 °C` and publishes **no** heater power, trigger, or ambient bound.
+
+**But the sourcing gap was never the real objection — the energy budget is.** The
+LiTime heater requires **≥ 5 A charge current** to arm; a 100 Wp array in the worst
+December of §3.1 averages ~0.65 A, so the heater would never turn on in the month
+it exists for. And one preheat from −10 °C costs ≥ 43 Wh against a worst-December
+harvest of 67 Wh/d and a probe load of 4,1 Wh/d. Holding a pack warm continuously
+in a 30 mm-insulated box costs 2,7–4,2 W, i.e. 66–102 Wh/d — the entire harvest,
+sustained for weeks. Heat is a bigger load than everything else on this system
+combined, at every pack size and insulation thickness checked. AGM's −20 °C charge
+acceptance costs 0 W. The DIY route (JK BMS heating port, whose trigger is far
+better matched — charger V > battery V, no current floor) is documented but fails
+the same arithmetic.
+
+Full survey, vendor-by-vendor, with the arithmetic and the source access log:
+`HEATED-BATTERY-SURVEY.md`.
 
 ### 3.6 How long the battery lasts, and what actually ends it
 
