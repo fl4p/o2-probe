@@ -10,9 +10,9 @@
         "50",
         "50"
     ],
-    "brim_object_gap": "0",
-    "brim_type": "outer_and_inner",
-    "brim_width": "8",
+    "brim_object_gap": "0.1",
+    "brim_type": "outer_only",
+    "brim_width": "5",
     "circle_compensation_manual_offset": "0",
     "compatible_printers": [
         "Bambu Lab P1P 0.4 nozzle"

@@ -24,9 +24,23 @@
 
 set -euo pipefail
 
-g="${1:-}"
+g=""; part=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --part) part="${2:-}"; shift 2 ;;
+        *)      g="$1"; shift ;;
+    esac
+done
 fail() { echo "SEAL-CHECK FAIL: $*" >&2; exit 1; }
 [[ -n "$g" ]] || fail "no G-code file given"
+# FAIL-CLOSED on identity too. The brim rules are opposite for a tall tower and
+# for a part whose z=0 is a seal face, and nothing in the G-code says which this
+# is. An unknown part is unevaluable, and unevaluable is a failure, not a pass.
+case "$part" in
+    monobody|cap|dam|carrier|retainer) ;;
+    "") fail "no --part given; the brim rules are part-specific and cannot be inferred from the G-code" ;;
+    *)  fail "unknown --part '$part'" ;;
+esac
 [[ -f "$g" ]] || fail "no such file: $g"
 [[ -s "$g" ]] || fail "empty file: $g -- the slice produced nothing"
 
@@ -60,15 +74,38 @@ num inner_wall_line_width 0.60 0.70 ">=0.64 sealed in test, 0.40 never did"
 num top_shell_layers 5 99 "closures leak, walls do not"
 num bottom_shell_layers 5 99 "closures leak, walls do not"
 num filament_flow_ratio 1.00 1.02 "0.95 is deliberate under-extrusion; 85-90% always leaked"
-num brim_width 6 99 "a 147 mm ASA tube is a warp candidate"
-# Adhesion area is the product of brim width AND the brim actually being part of
-# the object. Bambu ships brim_object_gap = 0.1 so brims snap off by hand, which
-# on 2026-09-05 left a 146.6 mm tower standing on its own 219 mm2 footprint with
-# 581 mm2 of brim merely parked beside it. Checking the width alone passed that
-# plate. Zero fuses it; the fused band is 0.2 mm tall at the extreme end face,
-# which elefant_foot_compensation already excludes from any fit surface.
-eq  brim_object_gap 0 "a brim with a gap is not holding the part down"
-eq  brim_type outer_and_inner "the bore is open at z=0 and mates with nothing -- use it"
+# BRIM. Adhesion area is the product of brim width AND the brim actually being
+# attached. Bambu ships brim_object_gap = 0.1 so brims snap off by hand, which on
+# 2026-09-05 left a 146.6 mm tower standing on its own 219 mm2 end face with
+# 581 mm2 of brim parked beside it, and it came off the plate at layer 928/1221.
+# Checking the width alone passed that plate.
+#
+# But the correct value is OPPOSITE for different parts on this same profile,
+# which is why --part is mandatory:
+#
+#   monobody  h/d 4.58, and its bore at z=0 mates with nothing (the cap skirt
+#             goes OVER the tube). Fuse the brim, and put one in the bore.
+#   carrier   prints WET FACE DOWN, so z=0 IS the membrane sealing land. A fused
+#             brim cannot be removed without scarring the surface the seal is
+#             made on, and an inner brim lands on the O16 aperture rim and the
+#             six O2.8 bolt holes. Stay outside, and keep the gap.
+#   retainer  prints groove-up so z=0 is non-sealing, but an inner brim still
+#             narrows the six bolt clearance holes.
+case "$part" in
+    monobody)
+        num brim_width 6 99 "h/d 4.58 in ASA is a warp and tip candidate"
+        eq  brim_object_gap 0 "a brim with a gap is not holding the part down"
+        eq  brim_type outer_and_inner "the bore at z=0 mates with nothing -- use it"
+        ;;
+    carrier|retainer)
+        num brim_width 3 99 "some brim, but it must stay removable"
+        eq  brim_object_gap 0.1 "a fused brim on the seal land cannot be removed without scarring it"
+        eq  brim_type outer_only "an inner brim lands in the aperture and the bolt holes"
+        ;;
+    *)
+        num brim_width 3 99 "warp resistance"
+        ;;
+esac
 eq  filament_type ASA "the enclosure material is ASA (MEMBRANE.md)"
 eq  enable_support 0 "no feature on this part overhangs; support inside a sealing bore is scrap"
 # Arachne varies extrusion width to fill a wall, which is exactly what breaks the

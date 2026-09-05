@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Slice the O2 probe body for the P1P in ASA.
 #
-#   ./print.sh slice <part>   monobody | cap | dam      (ONE part per plate)
+#   ./print.sh slice <part>   monobody | cap | dam | carrier | retainer
+#                             (ONE part per plate, always)
 #   ./print.sh upload <part>  send the plate (verified by size, material cross-checked)
 #   ./print.sh start  <part>  start it -- blocks until lift-off
 #   ./print.sh status
@@ -26,6 +27,31 @@ BBL="${BBL:-/Applications/OrcaSlicer.app/Contents/Resources/profiles/BBL}"
 # profiles/machine_p1p.json is that leaf plus the resolved geometry.
 MACHINE="${MACHINE:-profiles/machine_p1p.json}"
 PROCESS="${PROCESS:-profiles/process_asa_seal.json}"
+
+# process_asa_seal.json is the SHARED base and must stay safe for every part on
+# it. Anything that is only right for one part goes here instead, because the
+# parts disagree: the monobody is a 146.6 mm tower that needs all the adhesion
+# it can get, while the carrier prints wet-face-DOWN, so its z=0 IS the membrane
+# sealing land and ANY fused brim -- inner or outer -- scars the surface the
+# seal is made on. A single shared value cannot serve both, and on 2026-09-05 a
+# tall-tower brim setting was briefly pushed into the shared profile and would
+# have done exactly that damage to the carrier.
+#
+# Orca does not resolve `inherits`, and `-s key=value` drops numerics, so the
+# override is applied by generating a merged profile per part. Values must be
+# JSON STRINGS -- a number is silently discarded (doc/slicer-presets.md).
+part_process_overrides() {
+    case "$1" in
+        # h/d 4.58 with a free bore at z=0 that mates with nothing: fuse the
+        # brim and put one inside the bore too. 219 -> ~1709 mm2 bonded.
+        monobody) echo '{"brim_object_gap":"0","brim_type":"outer_and_inner","brim_width":"8"}' ;;
+        # z=0 is a seal land (carrier) or carries the six bolt clearance holes
+        # (retainer). A fused brim is not removable without scarring, and an
+        # inner brim narrows the clearance holes. Leave the gap, stay outside.
+        carrier|retainer) echo '{"brim_object_gap":"0.1","brim_type":"outer_only"}' ;;
+        *)        echo '{}' ;;
+    esac
+}
 FILAMENT="${FILAMENT:-profiles/filament_asa.json}"
 CHECK="${CHECK:-$HOME/dev/ee/zoe/enclosure/slice-check.sh}"
 P1P="${P1P:-$HOME/dev/ee/p1p/bin}"
@@ -41,7 +67,12 @@ part_stl() {
         monobody) echo exports/body-monobody.stl ;;
         cap)      echo exports/body-cap-print.stl ;;   # gland face DOWN; body-cap.stl would bridge its own roof
         dam)      echo exports/body-dam.stl ;;
-        *)        die "unknown part '$1' (monobody | cap | dam)" ;;
+        # The head-end seal parts, printed ASA, clamped membrane bed. Both are
+        # the *-print orientation and neither may share a plate: they carry the
+        # seal, and that is exactly what the 0 vs 18 mTorr result above is about.
+        carrier)  echo exports/asa-carrier-print.stl ;;   # wet face DOWN; forced by the flange step
+        retainer) echo exports/asa-retainer-print.stl ;;  # groove UP; flat-side-down bridges the bed floor
+        *)        die "unknown part '$1' (monobody | cap | dam | carrier | retainer)" ;;
     esac
 }
 
@@ -49,13 +80,33 @@ cmd_slice() {
     [[ $# -eq 1 ]] || die "slice takes exactly one part: identical parts measured 0 mTorr singly and 18 mTorr nine-up"
     local part="$1" stl plate g
     stl=$(part_stl "$part")
-    [[ -f $stl ]] || die "missing $stl -- run 'make monobody' first"
+    [[ -f $stl ]] || die "missing $stl -- run 'make monobody' (body parts) or 'make head-end-asa' (carrier, retainer) first"
     [[ -x "$ORCA" ]] || die "OrcaSlicer not at $ORCA"
     [[ -x "$CHECK" ]] || die "no slice-check at $CHECK"
     plate="o2probe-$part.gcode.3mf"
 
     rm -rf "print/$part"; mkdir -p "print/$part"
-    "$ORCA" --load-settings "$PWD/$MACHINE;$PWD/$PROCESS" \
+
+    # Merge the shared base with this part's overrides into the plate directory,
+    # so what was sliced is recoverable next to the plate rather than inferred.
+    local proc="print/$part/process.json"
+    PART_OVERRIDES="$(part_process_overrides "$part")" python3 - "$PROCESS" "$proc" <<'MERGE'
+import json, os, sys, collections
+base = json.load(open(sys.argv[1]), object_pairs_hook=collections.OrderedDict)
+over = json.loads(os.environ["PART_OVERRIDES"])
+bad = [k for k, v in over.items() if not isinstance(v, (str, list))]
+if bad:
+    sys.exit("override(s) %s are not strings -- Orca discards JSON numbers silently" % bad)
+for k, v in over.items():
+    if k not in base:
+        sys.exit("override key %r is not in the base profile -- typo, or a key "
+                 "Orca will ignore" % k)
+    base[k] = v
+json.dump(base, open(sys.argv[2], "w"), indent=4, ensure_ascii=False)
+print("  process overrides: %s" % (over or "none"))
+MERGE
+
+    "$ORCA" --load-settings "$PWD/$MACHINE;$PWD/$proc" \
             --load-filaments "$PWD/$FILAMENT" \
             --arrange 1 --slice 0 --outputdir "$PWD/print/$part" \
             --export-3mf "$plate" "$PWD/$stl" >"print/$part/orca.log" 2>&1 \
@@ -65,7 +116,7 @@ cmd_slice() {
     [[ -f $g ]] || { tail -20 "print/$part/orca.log"; die "slice produced no gcode"; }
 
     "$CHECK" "$g" --plate "$BED_PLATE"
-    ./tools/seal_check.sh "$g"
+    ./tools/seal_check.sh "$g" --part "$part"
     grep -aE '^; (model printing time|total filament used \[g\]|filament used \[cm3\])' "$g" | sed 's/^; /  /'
     echo "  plate: print/$part/$plate"
 }
