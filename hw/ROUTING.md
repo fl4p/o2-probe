@@ -264,7 +264,35 @@ The 21 links are concentrated in the AFE band, y≈64–85: `/+12V_SW`,
 four I²C links at the tip and one ground stitch. The 30 dangling vias are the
 stranded ends of those same links, not a separate defect.
 
-It is **not** a router-effort problem and it is not a track-width problem:
+### It does not fit
+
+Prioritising the stubborn nets settles it. Routed FIRST on an empty board, 15
+of those 16 nets route — only `/VREF_TRIM` fails, at 71 vias and full 0.15 mm
+clearance. They were never individually hard; they lose KRT's crossing-count
+ordering every run and inherit whatever corridors are left. But with them
+placed first, **13 previously-easy nets fail instead**, and the total goes 21 →
+26 → 31. The failure set moves; the count does not.
+
+Against the four-layer route of the same netlist and the same placement:
+
+| | 4 layers | 2 layers |
+|---|---:|---:|
+| nets closed | 61/61 | 46/61 (244 of 265 pad-pairs) |
+| vias | 197 | 358 |
+| track length | 2126 mm | 2159 mm |
+
+**1.8× the vias to route 92 % of the same connectivity.** That is what running
+out of layers looks like: not one obstruction, but every net paying for the
+missing escape plane until the budget is gone. This placement does not fit on
+two layers, and no router setting changes that — the next move is floorplan
+work or four layers.
+
+That conclusion is deliberately late. Two earlier plateaus looked exactly this
+structural and both turned out to be self-inflicted walls, so it is stated only
+now that prioritising either group has been shown to trade one set of failures
+for another.
+
+Supporting measurements, none of which moved it:
 
 - Six independent configurations plateaued between 18 and 21.
 - 0.12 mm tracks with 0.35/0.15 vias were *worse* (33 open) than 0.18/0.45.
