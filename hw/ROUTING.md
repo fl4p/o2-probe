@@ -287,6 +287,15 @@ missing escape plane until the budget is gone. This placement does not fit on
 two layers, and no router setting changes that — the next move is floorplan
 work or four layers.
 
+Nor is there a small subtraction that rescues it.  J2, the expansion
+connector, is **already DNP**, and its six `EXP_*` signals still cross the
+board to the MCU and still consume capacity — the obvious thing to drop.
+Removing all six from the router's scope entirely takes the residue from 21
+open links to **20**.  Six nets of copper freed, one connection gained.  The
+shortfall is diffuse: every net is paying for the missing escape plane, which
+is the same thing the 1.8× via count says.  Two layers needs a re-floorplan,
+not a trim.
+
 That conclusion is deliberately late. Two earlier plateaus looked exactly this
 structural and both turned out to be self-inflicted walls, so it is stated only
 now that prioritising either group has been shown to trade one set of failures
