@@ -112,5 +112,44 @@
    "-D",
    "radial_ring=\"onhand-20x2\""
   ]
+ },
+ "body": {
+  "note": "the body tube and its CABLE-END cap -- not the plowing cap, which is head-end:cap",
+  "parts": [
+   {
+    "spec": "o2_probe_body_tube.scad:tube=tube",
+    "color": "#7f8c8d",
+    "note": "dia 32 x 124 ASA tube; the two bayonet lugs stand at z=5 from the cable end"
+   },
+   {
+    "spec": "o2_probe_body_tube.scad:cap=cap (cable end)",
+    "color": "#c0873a",
+    "note": "M8 gland, the RADIAL cable seal in its groove, and the two bayonet pockets. Goes OVER the tube: cap_engage is the tube's depth INSIDE the cap"
+   },
+   {
+    "spec": "o2_probe_body_tube.scad:dam=dam",
+    "color": "#5b8c5a",
+    "note": "potting dam, two halves"
+   }
+  ]
+ },
+ "body-print": {
+  "note": "what actually goes on a plate, in print orientation -- one part per plate, always",
+  "parts": [
+   {
+    "spec": "o2_probe_body_tube.scad:cap-print=cap (gland face DOWN)",
+    "color": "#c0873a",
+    "note": "as modelled the closed gland end sits on top, so slicing cap() as-is starts a 3 mm roof in mid-air across the full dia-27.7 seat. THIS is the one that goes on the plate"
+   },
+   {
+    "spec": "o2_probe_head_end.scad:monobody=monobody",
+    "color": "#a0522d",
+    "note": "head and tube as one closed solid, 146.6 mm tall, h/d 4.58. The 2026-09-05 run came off the plate at layer 928 of 1221",
+    "flags": [
+     "-D",
+     "joint=\"monolithic\""
+    ]
+   }
+  ]
  }
 }
