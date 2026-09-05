@@ -296,9 +296,9 @@ check is not hypothetical.
   additional 0.8 × 16 mm vertical side slots centred at `(101.2,145.0)` and
   `(118.8,145.0)` mm remove lateral coupling over y=137–153 mm. Their upper
   caps are 2.25 mm gasward of the transverse-slot edge, so they are not a
-  16 mm series barrier to the body. A named rule area excludes zone fill on all
-  four copper layers across y=133–135 mm; only the audited 14 track segments
-  and two vias may cross it. The gas-side B.Cu island has a solid
+  16 mm series barrier to the body. A named rule area excludes zone fill on
+  every copper layer across y=133–135 mm; the crossing inventory is re-derived
+  from the routed board rather than fixed at Rev A's 14 segments and two vias. The gas-side B.Cu island has a solid
   `/HEATER_LOW` thermal-spreader zone with voids for both side slots. Cable
   strain relief, expansion-connector chord clearance, ring/membrane carrier,
   and gas volume require the tube/fixture fit check in `PLACEMENT.md`.
@@ -362,8 +362,11 @@ archive.
 PCB first-article release date: 2026-08-24. `o2-probe.kicad_pcb` is linked to
 the 106-footprint schematic and preserves the exact 20 × 107 mm outline with
 R2 cable-end corners and a square gas end, local y=82 pot line, and SGX centre
-`(10,93.5)`. The four-layer 1.0 mm stack is
-nominal ENIG with 1 oz outer and 0.5 oz inner copper.
+`(10,93.5)`. The stack is two layers on 1.0 mm, nominal ENIG, 1 oz outer
+copper on a 0.93 mm FR-4 core (Fab, 2026-09-05 — it was four layers with 0.5 oz
+inner copper through Rev A). 1.0 mm is not a default: the tube fit, the potting
+fixture and `RING-PCB.md`'s finger envelope all budget the board's own
+thickness, so the layer count changed and the thickness did not.
 
 The tip has no second TMP117. Two horizontal thermal-break slots are centred at
 local y=84.0, immediately gasward of the potting datum; two vertical side slots

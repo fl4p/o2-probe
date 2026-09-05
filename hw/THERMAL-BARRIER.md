@@ -23,19 +23,27 @@ potting, enclosure, wiring, convection, radiation, or condensation.
 
 All coordinates below are absolute KiCad coordinates.
 
-- Board: 20.00 mm wide, 1.00 mm finished thickness, four copper layers.
-- Dielectric: 0.100 + 0.695 + 0.100 = 0.895 mm nominal FR-4.
-- Copper: 0.035 mm F.Cu, 0.0175 mm In1.Cu, 0.0175 mm In2.Cu, and
-  0.035 mm B.Cu.
+- Board: 20.00 mm wide, 1.00 mm finished thickness, **two** copper layers
+  (Fab, 2026-09-05; it was four through Rev A).
+- Dielectric: a single 0.93 mm FR-4 core.
+- Copper: 0.035 mm F.Cu and 0.035 mm B.Cu.
+
+**The routed-copper conductance below is Rev A's and is STALE.** It was
+computed against 14 crossings on four layers, two of them 0.5 oz inner copper.
+Two layers changes the sum in both directions at once -- every crossing is now
+0.035 mm rather than some of them 0.0175 mm, and there are more crossings
+because the same nets have fewer layers to cross on -- so it cannot be scaled,
+only recomputed from the routed board. The FR-4 web and air-gap terms below are
+geometry and are unaffected.
 - Transverse slots: two horizontal 6.75 x 1.50 mm capsules centred at
   `(104.125,134.00)` and `(115.875,134.00)` mm. At their centreline they
   leave two 0.75 mm edge webs and one 5.00 mm centre neck.
 - Side slots: two vertical 0.80 x 16.00 mm capsules centred at
   `(101.20,145.00)` and `(118.80,145.00)` mm, spanning y=137.00–153.00 mm.
-- The named rule area excludes zone fill on all four copper layers over the
+- The named rule area excludes zone fill on every copper layer over the
   complete x=100–120 mm strip from y=133–135 mm.
-- The transverse strip retains exactly 14 routed track segments and two vias;
-  no pad, copper graphic, or footprint zone crosses it. The side slots have no
+- The transverse crossing inventory is re-derived from the routed board. Rev A's
+  fixed count of 14 track segments and two vias no longer applies. The side slots have no
   track, via, or pad crossing, and the saved B.Cu heater-spreader fill contains
   both slot voids.
 

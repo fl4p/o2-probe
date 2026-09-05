@@ -24,7 +24,8 @@ from thermal_design import (SIDE_THERMAL_SLOTS, THERMAL_SLOTS,
                             ensure_heater_spreader, ensure_thermal_gap,
                             save_board_preserving_project)
 from critical_routes import (add_critical_routes,
-                             ensure_cell_re_via_keepout, ensure_gnd_plane)
+                             ensure_cell_re_via_keepout, ensure_gnd_plane,
+                             write_stackup)
 
 HERE = Path(__file__).resolve().parent
 XML = HERE / "o2-probe.xml"
@@ -264,7 +265,10 @@ def parse():
 
 def build():
     comps,nets=parse(); board=pcbnew.CreateEmptyBoard(); board.GetDesignSettings().SetBoardThickness(mm(1.0))
-    board.SetCopperLayerCount(4)
+    # Two layers (Fab, 2026-09-05).  Everything downstream derives the layer
+    # list from the board rather than restating it; see
+    # thermal_design.copper_layers.
+    board.SetCopperLayerCount(2)
     board.GetDesignSettings().m_SolderMaskMinWidth=0
     board.GetDesignSettings().m_MinClearance=mm(.15)
     # The 0.5 mm-pitch U7 and 0.4 mm-pitch U8 escape fan-outs require the
@@ -339,6 +343,7 @@ def build():
     board.BuildConnectivity()
     pcbnew.ZONE_FILLER(board).Fill(board.Zones())
     save_board_preserving_project(board, OUT)
+    write_stackup(OUT)
     # One-node KiCad "unconnected-(...)" nets are needed for schematic parity
     # but trigger a known Freerouting 2.1 null-target bug.  Omit only those
     # one-node pseudo-nets from the DSN seed; the saved KiCad board retains them.
