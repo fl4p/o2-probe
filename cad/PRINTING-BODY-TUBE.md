@@ -49,9 +49,14 @@ Unpotted:
 
 | | connected volume | vs the 5.0 cm³ budget |
 |---|---:|---:|
-| head cavity alone | 4.84 cm³ | 0.97× |
-| **+ open tube, no dam** | **63.8 cm³** | **12.8×** |
-| + tube with the dam fitted | 18.3 cm³ | 3.7× |
+| head cavity alone | 4.92 cm³ | 0.98× |
+| **+ open tube, no dam** | **75.4 cm³** | **15.1×** |
+| + tube with the dam fitted | 18.1 cm³ | 3.6× |
+
+(The head cavity is measured off the `cavity` mesh; the tube figures are the
+model's own echo, 57.7 cm³ alongside the board plus 12.8 cm³ of cable tail. The
+table read 4.84 / 63.8 / 18.3 while the board was 1.0 mm and the tail was not
+counted — both are fixed, and the open-tube number got *worse*, not better.)
 
 Without the dam, the step response you measure is the **tube's** time constant,
 not the membrane's. The dam is a two-piece printed disc that clamps around the
@@ -111,10 +116,27 @@ ageing. **No such adhesive is sourced**, and "epoxy for the prototype" is a gues
 not a part number. Printing through the joint deletes the requirement instead of
 guessing at it.
 
-What it costs: a failed print loses the whole body, any change to the head
-reprints the whole 146.6 mm with it, and the guide rail at station B gets shorter
-(the tube now stops at board y=91, so only 81.3–91 of that clear band is on this
-part). Over the last 16 mm the board is located by the head's Ø24.93 bore alone.
+What it costs: a failed print loses the whole body, and any change to the head
+reprints the whole 146.6 mm with it.
+
+**`socket_len` is 3.0 in the monolithic head, not 14.0** (Fab, 2026-09-05). The
+14 mm was the depth of the *bonded* socket — the glued area — and in a head with
+no socket it had become nothing but the coordinate the cavity stack sits on,
+leaving the head's first 14 mm as a plain Ø25.18 bore inside a Ø40 body: a
+7.4 mm wall doing a job the tube does at 2.4 mm, over a length that holds
+nothing but board. **The overall length does not change** — 11 mm of Ø40 head
+becomes 11 mm of Ø32 tube, so `tube_len` goes 113 → 124 and the probe is still
+146.6 mm. What it buys is about **5.9 cm³ of ASA** and a shorter, fatter section
+turned into a longer, thinner one. It costs ~0.9 cm³ of extra connected gas
+(Ø27.2 bore instead of Ø25.18 over those 11 mm), which is noise against the
+75 cm³ the unpotted tube already contributes.
+
+Two files carry a copy of that number and both had to move with it, which is the
+trap: `o2_probe_body_tube.scad`'s `head_socket_len` (it is subtracted from
+`tube_len`, so leaving it at 14 would have ended the tube 11 mm short) and
+`o2_probe_head_end.scad`'s `body_tube_len`. The guide rail at station B now gets
+*longer*, not shorter — the tube reaches board y=102, so 81.3–102 of that clear
+band is on this part and only the last 5 mm is located by the head's bore alone.
 
 The two-part bonded variant is still in the model — `joint="bonded"` — and is
 committed as fd50a98 if it is ever wanted back.
@@ -175,9 +197,14 @@ The cable end is a **bayonet cap**, so the board goes in and comes back out with
 the head already bonded on. That is the point of the cap: nothing is bonded to
 the board and the prototype is recoverable.
 
-1. **Tap the cap.** M12 × 1.5 through the 8 mm end, Ø10.5 pilot as printed.
+1. **Tap the cap.** M8 × 1.0 through the 3 mm end, Ø7.0 pilot as printed.
    Printed, not tapped, threads at this pitch are a coin toss and this joint is
    the only thing between the pile and an unpotted board.
+   **Do not tap deeper than the wall** and do not counterbore the hole mouth:
+   3 mm is only 3 turns, and it is the whole strain relief. The annular notch in
+   the outer face is for the gland's own NBR ring and deliberately starts
+   *outside* the thread's major diameter, so it costs no thread — a counterbore
+   would have spent its depth out of the tapped length.
 2. **Nothing to bond.** The head is already the same part. Ream the Ø27.3 H7
    well — it is now at the top of a 146.6 mm part, so fixture accordingly.
 3. Solder the cable, thread it through the cap, fit the gland.
@@ -186,11 +213,17 @@ the board and the prototype is recoverable.
 5. **O-ring into the cap's spigot groove**, not onto the tube's end face. It is
    a radial seal now: it rolls onto the Ø25.03 groove root at 4.3 % stretch and
    seals against the reamed Ø27.3 bore as the spigot enters.
-6. Cap on, push and twist 30° until the lugs drop into their pockets.
-   **The drop confirms the LOCK and says nothing about the seal.** A radial seal
-   gives no axial preload, so the lug will drop just as convincingly with the
-   ring missing, rolled, or nicked. Check the ring is on the spigot before the
-   cap goes near the tube; you cannot check it afterwards.
+6. Cap on, push and twist. The lugs drop into their pockets after about 35°,
+   and then **keep turning** — the last 22° runs the lug up a ramp that
+   converges on it, and the cap comes up against a positive wall at **57°**
+   total. It should feel progressively tighter and then stop dead; if it stops
+   spongily, it has bound on the ramp and the M3 screw will not find its pilot.
+   **Neither the drop nor the wedge says anything about the seal.** A radial
+   seal gives no axial preload, so the lug drops and the wedge tightens just as
+   convincingly with the ring missing, rolled, or nicked — the wedge is
+   plastic-on-plastic and would feel identical with no O-ring in the probe at
+   all. Check the ring is on the spigot before the cap goes near the tube; you
+   cannot check it afterwards.
 7. **Fit the M3 lock screw**, radial, through the cap's slot into the tube's
    blind pilot, *after* twisting home. With a radial seal the screw is the whole
    of the retention — see *The lock screw* below.
@@ -208,7 +241,39 @@ has three readings of ASA shrink on the carrier (−0.588 % to −0.960 %).
 The cap locks with two lugs into two L-slots. **It no longer has a spring** —
 that sentence used to say the O-ring on the tube's end face supplied one, and it
 was true of the face seal this design replaced. The M3 screw is what holds the
-lock now. `MEMBRANE.md`'s rule for this enclosure is *"no part of the
+lock now.
+
+**The ramp is not a spring either, and it is not a seal.** The pocket's deep
+wall converges 0.45 mm over the last 16° of travel, so the cap tightens as it is
+turned instead of rattling over the 0.65 mm the flat pocket left it. Residual
+play once home is **0.20 mm**, down from 0.65. That is all it does. It cannot
+tighten the seal, because the cable seal is radial and its squeeze is set by the
+reamed bore and the groove root — turn as hard as you like and the squeeze is
+the same 22.7 %. A ramp that *did* compress a face seal would be sizing an
+elastomer by hand torque, i.e. exactly the sustained strain on ASA at 75 °C that
+`MEMBRANE.md`'s rule forbids.
+
+**It stops on a wall, not on friction, and that was not the first design.** The
+first version closed 0.80 mm — *past* the lug — giving a true interference
+wedge, self-locking at 9.6° against a dry ASA-on-ASA coefficient of ~0.35–0.45.
+It measured beautifully and it was wrong, and `tools/bayonet_check.py` is what
+caught it. **A friction wedge has no defined stop**: it stops wherever hand
+force balances elastic deformation. The check drove the cap to 30° with 0.2 mm³
+of interference while the model declared its lock at 27°, and the lock screw
+cannot live with that — the tube's pilot is a Ø2.5 hole at r = 14, so **1° of
+scatter is 0.24 mm of lateral offset and 3° is 0.73 mm**, and the screw simply
+misses its hole.
+
+So the far wall is the stop. The ramp leaves 0.20 mm of clearance at it, which
+is sized against the printed tolerance rather than for feel: a pocket that comes
+out 0.1 mm short still *reaches* the wall instead of binding 4° early and
+putting the pilot out of reach. What that trades away is the friction hold —
+there is no interference any more — and that costs nothing that was load
+bearing, because retention has been the M3 screw since the seal went radial and
+the model has refused to build without it ever since.
+
+Total twist is now **57°**, entry to home: about 35° to drop the lugs into their
+pockets, then 22° more converging onto the wall. `MEMBRANE.md`'s rule for this enclosure is *"no part of the
 enclosure may carry sustained strain at temperature ... retention is by positive
 features plus a compliant elastomer seal that supplies the sealing force"*. A
 printed thread held under preload at 75 °C is the creeping-polymer case that rule
@@ -335,20 +400,53 @@ worth knowing before writing another one:
 
 ## Not sourced, and needed before burial
 
-1. **The gland — and M12 is tight for the cable now recommended.** A parallel
-   sourcing pass in `../CABLE-SOURCING.md` (2026-09-04, another session's
-   uncommitted work) recommends **LAPP ÖLFLEX ROBUST 215 C 4×0,5, OD 6,6 mm**.
-   A great many M12 × 1.5 glands clamp **3–6,5 mm**, which 6,6 misses. Wider
-   M12 glands exist (4–7 mm), so this is a gland *selection* problem, not a
-   geometry problem — but **check the clamp range against 6,6 mm before
-   ordering**, and if no M12 covers it, the cap's boss goes to M16 and only that
-   one dimension changes. Do not assume M12 fits because the hole says M12.
+1. ~~The gland and the cable.~~ **Both bought, and they fit.** Recorded here
+   because the pairing is the constraint, not either part on its own.
+
+   | | part | the number that matters |
+   |---|---|---|
+   | gland | **Lumonic M8 × 1.0**, nickel-plated brass, NBR seal | clamp **2–5 mm**, panel **max 3 mm**, −40…+100 °C, hex nut supplied |
+   | cable | **LAPP UNITRONIC SENSOR FD Li9Y11Y 4×0,25**, PUR/PP, art. 7038890 | **OD 3,8 mm**, −40…80 °C fixed, 300 V, 4 cores |
+
+   3,8 mm sits mid-range in 2–5 mm, which is where a gland grips best, and the
+   four cores match the board's four wire lands J101–J104 exactly. `cap_end_t`
+   is cut to the gland's rated 3 mm and the tap is M8 × 1.0, Ø7,0 pilot.
+
+   **Three things to accept knowingly.** None is a geometry problem and none is
+   fixed by changing the cap:
+
+   - **The cable is now the temperature-limiting part of the probe: 80 °C.**
+     The gland is rated 100 °C and every seal here is EPDM good well past that.
+     Against a pile that runs ~75 °C — with hot spots above it — that is about
+     5 K of margin on the one component with the least.
+   - **It is UNSHIELDED.** `Li9Y11Y` carries no screen (the shielded build would
+     be `Li9YC11Y`), and the earlier candidate, ÖLFLEX ROBUST 215 **C**, was
+     screened. This probe has a sub-µA analogue front end on an unpotted board
+     with a heater switching on the same four cores' worth of harness. Whether
+     that matters is a measurement, not an opinion — but take the noise floor
+     early, on the bench, while it is still cheap to change.
+   - **PUR and hydrolysis, unresolved.** Buried service here is 100 %RH at
+     ~75 °C for a season, which is the exact condition that hydrolyses
+     polyester-based PUR. LAPP publishes hydrolysis-resistant PUR grades; the
+     product page does not say which this is. **Ask LAPP whether 7038890's
+     sheath is hydrolysis-resistant** before committing a season to it.
+
+   And one about the gland itself:
+
+   - **NBR is the weakest elastomer in the probe.** Every seal this project
+     chose is EPDM 70 peroxide, picked for hot wet ammoniacal service. NBR
+     handles ammonia, but 100 °C is its ceiling and hot wet NBR is not a
+     season-long part. It is a bought seal on a bought part.
+   - **3 mm of ASA is 3 turns of M8 × 1.0, and it is the entire strain relief.**
+     Nothing else in the probe anchors the cable. Leave a real service loop in
+     the tail so the gland is never the thing taking a pull — the cable's own
+     fixed-install bend radius is 5 × Ø = 19 mm, so a loop fits the tail easily.
 2. ~~The cable-end O-ring.~~ **Closed.** It is the **same ring as the carrier** —
    ORS116787, 24 × 1.5 EPDM 70 peroxide, house compound 127019011,
    o-ring-stocks.eu (`../tech/PROBE-CARRIER-SOURCING.md`). One size, one
    compound, one test report and one sorting pass for the whole probe. See
    *The cable seal* below for why it changed.
-3. **The M12 × 1.5 tap.**
+3. **An M8 × 1.0 tap** (and a Ø7.0 drill, if the printed pilot needs cleaning up).
 4. **Silica gel** for the tail.
 
 ## One thing to check by eye before the first insertion

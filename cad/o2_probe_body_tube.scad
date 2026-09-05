@@ -71,7 +71,12 @@ exploded = false;
 // `cav_board_len` is how far the board's tip stands proud of the tube end face
 // inside the cavity. They are duplicated rather than included because that file
 // asserts on four unmeasured inputs and refuses to load without them.
-head_socket_len = 14.0;     // o2_probe_head_end.scad, socket_len
+// 3.0, tracking o2_probe_head_end.scad's socket_len, which is now
+// `monolithic ? 3.0 : 14.0`. THIS IS NOT COSMETIC: tube_len subtracts it, so
+// leaving it at 14 would have ended the tube 11 mm short of the head and put
+// the board's tip 11 mm past the cavity. The overall probe length does not
+// change -- 11 mm of Ø40 head simply becomes 11 mm of Ø32 tube.
+head_socket_len = 3.0;      // o2_probe_head_end.scad, socket_len (monolithic)
 cav_board_len   = 2.0;      // o2_probe_head_end.scad, cav_board_len
 
 // HOW THE HEAD JOINS.
@@ -146,18 +151,57 @@ wall_loops = wall / wall_line_w;
 
 // ------------------------------------------------- cable end
 
-// M12 x 1.5 cable gland, TAPPED not printed. A printed thread at this pitch is
+// M8 x 1.0 cable gland, TAPPED not printed. A printed thread at this pitch is
 // a coin toss on a 0.4 mm nozzle and this joint is the only thing between the
 // pile and an unpotted board; a hand tap in ASA is fifteen seconds and gives a
-// real thread. 10.5 is the ISO tap drill for M12 x 1.5.
+// real thread. 7.0 is the ISO tap drill for M8 x 1.0.
+//
+// THE PART, from Fab 2026-09-05 and its own product sheet: Lumonic M8 x 1.0,
+// nickel-plated brass with an NBR seal, clamping range 2-5 mm, -40..+100 C,
+// supplied with a hex nut. Max panel thickness 3 mm, which is what sets
+// cap_end_t below -- it was 8.0 for an M12 x 1.5 that is no longer the part.
+// M8 x 1.0 is the EN 50262 cable-gland pitch, not the M8 x 1.25 of DIN 13
+// general fasteners; the part is marked M8X1.0 in the vendor photo.
+//
+// TWO THINGS THIS GEOMETRY CANNOT FIX, both recorded rather than designed
+// around, because both are selections and not dimensions:
+//
+//   1. CLAMP RANGE 2-5 mm. The cable discussed for this probe, LAPP OLFLEX
+//      ROBUST 215 C 4x0.5, is 6.6 mm OD. It does not fit this gland, and no
+//      change to the cap makes it fit. Either the gland goes up a size (M12's
+//      3-6.5 or M16) or the cable comes down.
+//   2. THE NBR SEAL is now the weakest elastomer in the probe. Every other seal
+//      here is EPDM 70 peroxide, chosen because ammonia attacks FKM and because
+//      EPDM takes hot wet service. NBR handles ammonia, but 100 C is its rated
+//      ceiling against a ~75 C pile, and hot wet NBR is not a season-long part.
+//      It is a bought seal on a bought part, so it is a note, not a parameter.
+//
 // The gland is the STRAIN RELIEF. Nothing else in this part anchors the cable,
 // deliberately -- a printed internal tie post would have to bridge the bore.
 // Leave a service loop in the tail and let the gland clamp the jacket.
-// NOT SOURCED: the gland's clamp range has to match the cable OD, which has not
-// been measured. That is a gland selection, not a geometry change -- M12 x 1.5
-// is the same thread whatever it clamps.
-gland_tap_d  = 10.5;
-cap_end_t    = 8.0;         // 5.3 turns of M12 x 1.5
+gland_tap_d  = 7.0;         // ISO tap drill, M8 x 1.0
+cap_end_t    = 3.0;         // the gland's rated panel thickness; 3 turns of M8 x 1.0
+
+// THE GLAND'S OWN SEAL, and where it sits. An annular NOTCH in the cap's OUTER
+// face, concentric with the hole, so the gland's NBR ring drops into it instead
+// of being squeezed out sideways on a flat face.
+//
+// WHY A GROOVE AND NOT A COUNTERBORE, which is the whole reason this works on a
+// 3 mm wall: a counterbore would sink the whole hole mouth and spend its depth
+// out of the THREAD, leaving 3 - depth of engagement on a wall that has only 3.
+// An annulus that starts OUTSIDE the thread's major diameter takes its depth
+// out of material the thread never uses, so the tapped length stays the full
+// 3.0 mm. That is why gland_notch_id is asserted clear of the thread below.
+//
+// MEASURE THESE. They are the dimensions of a real ring on a real part and the
+// project's rule is not to guess those. The values here are provisional, sized
+// from a typical M8 gland ring, and they are only used to cut a groove that
+// LOCATES the seal -- the sealing force still comes from the gland's flange.
+// Reference edges for the measurement: the ring's inside diameter, its outside
+// diameter, both across the free ring off the gland; cord by micrometer.
+gland_seal_id   = 8.0;      // MEASURE: free ring ID
+gland_seal_cord = 1.5;      // MEASURE: cord diameter
+gland_seal_squeeze = 0.25;  // design point; the flange sets the real value
 cap_wall     = 2.4;         // four 0.60 loops, same reason as the tube wall
 cap_fit      = 0.4;         // diametral, cap bore over tube OD
 
@@ -255,14 +299,69 @@ cap_engage = 18.0;          // tube end face depth in the cap AT LOCK
 // an exact stop. Extending it the OTHER way would be worse than useless: it
 // would reach back toward the entry slot and let the lug drop into the pocket
 // without ever being twisted, which is a cap that falls off.
-pocket_extra = 8;           // degrees of overshoot room past the twist
+//
+// THE WEDGE RAMP. The pocket used to be a flat slot 0.65 mm taller than the lug,
+// so once the lug dropped in it rattled over that 0.65 and turning further did
+// nothing. Now the pocket's DEEP wall closes on the lug over the last stretch of
+// travel: keep turning and the cap wedges tight.
+//
+// WHAT THIS IS NOT. It does not tighten the SEAL. The cable seal is radial --
+// squeeze is set by the bore and the groove root -- so no amount of twist
+// changes it, and that is the point rather than a limitation. A ramp that
+// compressed a FACE seal would be sizing an elastomer by hand torque, i.e. a
+// sustained strain on ASA at pile temperature, which is what MEMBRANE.md's rule
+// forbids. This ramp loads a plastic-on-plastic wedge and nothing else.
+//
+// WHICH WALL, and it matters for printing: the cap prints MOUTH UP, so the
+// pocket's deep wall is an UPWARD-facing surface. Ramping it costs nothing in
+// overhang. The mouth-side wall -- the one that carries pull-out load -- is the
+// printed roof and is left flat and at pocket_z, so the retention face is
+// unchanged from the version that was checked.
+ramp = true;
+ramp_free = 6;              // deg of pocket the lug drops into before it bites
+ramp_deg  = 16;             // deg over which the deep wall closes
+// HOW MUCH CLEARANCE IS LEFT AT THE FAR WALL, and this number is the whole
+// difference between a wedge that works and one that fights the lock screw.
+//
+// The first version closed PAST the lug -- 0.15 mm of designed interference, a
+// friction wedge, self-locking at 9.6 deg. It measured beautifully and it was
+// wrong, and the mesh check is what said so. A friction wedge has no defined
+// stop: it stops where hand force balances elastic deformation. The check drove
+// the cap to 30 deg (0.2 mm3 of interference) while the model declared its lock
+// at 27, and the lock screw cannot live with that. The tube pilot is a 2.5 mm
+// hole at r=14, so ONE degree of scatter is 0.24 mm of lateral offset and three
+// degrees is 0.73 mm -- the screw simply misses.
+//
+// So the far wall is the stop, positively, and the ramp only takes up the play
+// on the way to it. 0.20 mm is left at the wall: the pocket still converges 0.45
+// of its 0.65 mm of rattle, a 3.3x improvement, while a pocket that prints
+// 0.1 mm short still REACHES the wall instead of binding 4 deg early and putting
+// the pilot out of the screw's reach.
+//
+// WHAT WAS TRADED AWAY, plainly: there is no interference fit any more and so no
+// friction hold. Retention was already the M3 screw -- the assert below has
+// refused to build without it since the seal went radial -- so nothing
+// load-bearing has been given up. What is gained is a lock angle the screw can
+// find.
+ramp_clear = 0.20;
+// A staircase, because rotate_extrude sweeps a CONSTANT profile and cannot vary
+// z with angle. 16 steps puts each riser at 0.05 mm, a quarter of a layer, so
+// the slicer cannot resolve them and the printed surface is the ramp.
+ramp_steps = 16;
+pocket_extra = ramp ? ramp_free + ramp_deg : 8;
 
-// LOCK SCREW. The bayonet's own retention is a 0.3 mm detent held by the
-// O-ring's preload, and that is not something to bury for a season: the preload
-// is tens of newtons and unmeasured, EPDM takes compression set at pile
-// temperature, and the gland clamps the cable to the CAP, so every tug on the
-// cable runs cable -> gland -> cap -> bayonet -> tube. One screw makes the lock
-// positive and leaves the O-ring doing only the job it is good at.
+// LOCK SCREW. The bayonet's own retention is a 0.3 mm detent plus the wedge
+// ramp above -- a friction hold, and friction is not something to bury for a
+// season: the ramp's grip depends on a coefficient nobody here has measured, on
+// ASA that creeps at pile temperature, and the gland clamps the cable to the
+// CAP, so every tug on the cable runs cable -> gland -> cap -> bayonet -> tube.
+// One screw makes the lock positive and leaves the wedge doing only what it is
+// good at, which is taking the rattle out.
+//
+// (This paragraph used to credit "the O-ring's preload" for holding the detent.
+// That was the 28 x 2 FACE seal, gone since 7fd21c0. A radial seal pushes
+// outward, not along the axis, and supplies no preload at all -- which is why
+// the assert further down refuses to build without this screw.)
 //
 // IT MUST NOT REACH THE BORE. A hole through the tube wall at this height opens
 // the sealed volume to the outside, below the seal plane -- so the wall is
@@ -347,7 +446,48 @@ pocket_arc = lug_arc + pocket_extra;
 pocket_a0  = -twist_deg - pocket_extra;
 pocket_a1  = pocket_a0 + pocket_arc;
 psi_entry  = (-entry_arc + (-lug_arc))/2;               // -27
-psi_lock   = (-pocket_a1 + (-pocket_a0 - lug_arc))/2;   // +12
+// The lug travels toward DECREASING cap angle, so it enters the pocket at the
+// pocket_a1 end and runs out toward pocket_a0. In psi that is +8 (just dropped
+// in) to +30 (leading edge on the far wall).
+psi_seated = -pocket_a1;                    // +8, the moment it drops in
+psi_hard   = -pocket_a0 - lug_arc;          // +30, leading edge on the far wall
+// The ramp starts once the LEADING edge passes ramp_a, and closes linearly to
+// the far wall. The lug stops where the closure equals the interference, which
+// is ramp_interf short of the hard end -- so the lock angle is derived from the
+// ramp, not from the middle of a slot.
+ramp_a     = pocket_a0 + ramp_deg;                      // cap angle, -36
+ramp_close = detent + slot_slack - ramp_clear;          // 0.45 mm of closure
+// Guarded: the bayonet check's known-bad control builds this same cap with
+// -D ramp_close=0, and an unguarded divide made that control render as nothing
+// at all -- a calibration that fails to build is not a calibration.
+// The stop is the FAR WALL, so the lock angle is psi_hard and nothing is derived
+// from how hard the cap happened to be turned.
+psi_lock   = ramp ? psi_hard                            // +30
+                  : (-pocket_a1 + (-pocket_a0 - lug_arc))/2;
+// SELF-LOCKING, which is the whole reason the ramp is shallow and long rather
+// than short and steep. A wedge holds only while its slope is under the
+// coefficient of friction; above that it springs back out as soon as the hand
+// comes off. ASA on ASA is ~0.35-0.45 dry, so 0.20 is the limit with margin for
+// a wet, warm, ammoniacal joint.
+ramp_r    = tube_od/2 + (lug_r + slot_slack)/2;         // mean contact radius
+ramp_run  = ramp_r * ramp_deg * PI/180;
+ramp_slope = ramp_close/ramp_run;
+// The ramp must not close past the lug, or the lug stops on the RAMP instead of
+// on the wall and the lock angle becomes force- and tolerance-dependent -- which
+// is the defect this parameterisation exists to prevent, so it is asserted and
+// not merely commented.
+assert(!ramp || ramp_clear > 0,
+       "the ramp closes onto the lug: the cap would stop on the ramp rather than on the far wall, and the lock screw pilot moves with however hard it was turned");
+// Shallow enough that the lug is guided rather than jammed. This is no longer a
+// self-locking criterion -- there is no interference to lock -- but a steep ramp
+// on a printed staircase would be a step the lug climbs, not a surface it slides on.
+assert(!ramp || ramp_slope <= 0.20,
+       str("ramp slope ", ramp_slope, " (", atan(ramp_slope),
+           " deg) is too steep for the lug to slide up. Lengthen ramp_deg."));
+// The lug has to be able to DROP INTO the pocket before the ramp touches it,
+// otherwise there is no seated state and the cap jams on the way in.
+assert(!ramp || ramp_free >= 2,
+       "no free pocket before the ramp: the lug would meet the closing wall before it has dropped off the detent step");
 // The pilot is at lock_a_tube in the TUBE, so at lock it stands at this lab
 // angle, and the cap's clearance slot has to be at MINUS that in its own frame.
 lock_a_lab = lock_a_tube + psi_lock;
@@ -363,6 +503,37 @@ cap_bore_depth = cap_engage + face_clear;       // mouth to the cap's inner face
 pocket_z  = cap_engage - lug_z - lug_h/2;       // pocket floor = the lock stop
 chan_top  = pocket_z + detent + lug_h + slot_slack;
 cap_h     = cap_bore_depth + cap_end_t;
+
+// THE GLAND'S SEAL NOTCH, derived. Mean diameter on the ring's own centreline,
+// width 1.2x cord so the ring can spread as it is squeezed, depth cord minus
+// the squeeze so the gland's flange still lands on the face and does the
+// compressing -- a groove deeper than the cord would hold the flange off and
+// seal nothing.
+gland_notch_mean  = gland_seal_id + gland_seal_cord;
+gland_notch_w     = 1.20 * gland_seal_cord;
+gland_notch_id    = gland_notch_mean - gland_notch_w/2;
+gland_notch_od    = gland_notch_mean + gland_notch_w/2;
+gland_notch_depth = gland_seal_cord * (1 - gland_seal_squeeze);
+
+// The notch must not eat the thread. This is the assert that makes the 3 mm
+// wall work at all: if the groove's inner wall fell inside the thread's major
+// diameter it would take its depth out of the tapped length, and 3 mm is
+// already only 3 turns of M8 x 1.0.
+assert(gland_notch_id >= 8.0 + 0.4,
+       str("the gland seal notch runs to dia ", gland_notch_id,
+           ", inside the M8 thread's major diameter -- it would cut the tapped length down from the ",
+           cap_end_t, " mm the gland is rated for"));
+// And it must leave a floor. 1.5 mm is two 0.6 mm walls plus a skin, on a face
+// that carries the whole cable pull through the gland's flange.
+assert(cap_end_t - gland_notch_depth >= 1.5,
+       str("only ", cap_end_t - gland_notch_depth,
+           " mm of cap end left under the seal notch"));
+assert(gland_notch_od + 2*cap_wall <= tube_od + cap_fit + 2*cap_wall,
+       "the gland seal notch runs out past the cap's rim");
+// A tapped hole this shallow is the whole strain relief, so it is stated rather
+// than assumed. 3 turns is what the gland is rated for and no more.
+assert(cap_end_t <= 3.0 + 1e-9,
+       str("cap end ", cap_end_t, " mm exceeds the gland's rated 3 mm panel; its thread would bottom before the flange seated"));
 
 // The radial gland, mirroring o2_probe_head_end.scad's carrier seal exactly --
 // including the parts this file used to skip.
@@ -460,14 +631,35 @@ assert(chan_top + 2.0 <= cap_bore_depth,
 board_swept = board_env_front + board_t + board_env_back;
 board_diag  = sqrt(pow(board_w, 2) + pow(board_swept, 2));
 
-// Free gas the unpotted tube adds to the head cavity, board displacement out.
-tube_gas = PI*pow(tube_id/2, 2) * board_in_tube
-         - board_w*board_t*board_in_tube;
-// With the dam fitted, only the tail and the short gasward stub remain
-// connected -- and the dam's own board aperture is a slit, not a seal.
-dam_blocked = PI*pow(tube_id/2, 2) - board_w*(board_swept + 2*guide_slack);
-dam_gas = PI*pow(tube_id/2, 2) * (board_in_tube - dam_y)
-        - board_w*board_t*(board_in_tube - dam_y);
+// THE CONNECTED GAS VOLUME. The previous version got two things wrong, both
+// found by the 2026-09-05 Codex review:
+//
+//   1. It counted board_in_tube (105 mm) and so OMITTED THE CABLE TAIL -- 22 mm
+//      of open bore around a service loop and a silica sachet, connected to
+//      everything else and not small.
+//   2. The head cavity was hardcoded at 4840 mm3, from before the board went to
+//      1.6 mm. The measured cavity mesh is 4917.
+//
+// Still a MODEL, not a measurement: it ignores the board's components, the
+// cable, the sachet and the guide rails, all of which displace gas, so it errs
+// LARGE. That is the safe direction for a budget.
+head_cavity = 4917;         // mm3, MEASURED off the cavity mesh
+tube_bore_area = PI*pow(tube_id/2, 2);
+tube_gas_board = tube_bore_area * board_in_tube - board_w*board_t*board_in_tube;
+tube_gas_tail  = tube_bore_area * tail_len;
+tube_gas = tube_gas_board + tube_gas_tail;
+
+// THE DAM IS A RESTRICTOR, NOT A BULKHEAD, and the number this used to print
+// implied otherwise -- it reported a "with the dam" volume as though the tail
+// had been disconnected. It is a loose split disc. It does not seal, so at
+// equilibrium the whole tube is still one connected volume and NO volume is
+// removed. What it changes is the CONDUCTANCE between head cavity and tail,
+// turning one time constant into two, and how much that is worth cannot be got
+// from a volume ratio -- it needs a measured transient.
+dam_blocked   = tube_bore_area - board_w*(board_swept + 2*guide_slack);
+dam_open      = tube_bore_area - dam_blocked;
+dam_near_side = tube_bore_area * (board_in_tube - dam_y)
+              - board_w*board_t*(board_in_tube - dam_y);
 
 // The rail's far CORNER, not its face, is what has to stay inside the wall.
 guide_corner_r = sqrt(pow(guide_r_max, 2) + pow(guide_body/2, 2));
@@ -504,9 +696,20 @@ if (lock_screw) echo(str("LOCK SCREW: M3 thread-forming, pilot ", lock_pilot_d,
          " mm to the bore. Cap slot at cap angle ", lock_a_cap,
          " deg, +/-", lock_slot_arc, ". Fit it AFTER twisting home."));
 echo(str("BAYONET: lug at tube z=", lug_z, ", pocket floor at cap z=", pocket_z,
-         ", twist ", twist_deg,
-         " deg. NO axial preload: a radial seal supplies none, so the M3 screw ",
+         ", twist ", psi_lock - psi_entry, " deg total (entry psi ", psi_entry,
+         " -> lock psi ", psi_lock,
+         "). NO axial preload: a radial seal supplies none, so the M3 screw ",
          "is the retention and the detent only resists back-rotation."));
+if (ramp) echo(str("WEDGE RAMP: the pocket's deep wall closes ", ramp_close,
+         " mm over ", ramp_deg, " deg (slope ", ramp_slope, " = ", atan(ramp_slope),
+         " deg), leaving ", ramp_clear, " mm at the wall. Lug drops in at psi ",
+         psi_seated, ", starts converging at psi ", psi_seated + ramp_free,
+         ", and STOPS ON THE FAR WALL at psi ", psi_hard,
+         " -- a positive stop, not a friction wedge, so the lock screw's pilot is ",
+         "at a repeatable angle. Rattle once home: ", ramp_clear, " mm, down from ",
+         detent + slot_slack, ". IT DOES NOT TIGHTEN THE SEAL -- the cable seal is ",
+         "radial and its squeeze is set by the bore and the groove root. Turning ",
+         "harder takes up play, nothing else."));
 echo(str("CABLE SEAL: ORS116787 24 x 1.5 EPDM, the SAME ring as the carrier. ",
          "Bore ", cable_bore_d, " ", cable_bore_finish, " x ", cable_bore_len,
          " deep; groove root ", groove_root, " target (CUT ", groove_root_drawn,
@@ -538,12 +741,17 @@ echo(str("CLEARANCE: the trimmer's outer top CORNER sits at r=", rv1_corner_r,
 echo(str("MEASURE ON THE PRINT: the OD, at several angles. It closes ",
          "tube_od_meas in o2_probe_head_end.scad, which currently refuses to ",
          "run without it. Print SHRINKS -- do not feed 32.0 back in."));
-echo(str("GAS PENALTY, unpotted: the tube adds ", tube_gas/1000,
-         " cm3 to the head's 4.84 cm3 cavity -- ",
-         (tube_gas + 4840)/5000, "x the 5.0 cm3 budget. ",
-         "With the dam at board y=", dam_y, ": ", dam_gas/1000, " cm3, ",
-         (dam_gas + 4840)/5000, "x. The dam blocks ", dam_blocked,
-         " mm2 of a ", PI*pow(tube_id/2,2), " mm2 bore."));
+echo(str("GAS VOLUME, unpotted: head cavity ", head_cavity/1000,
+         " cm3 (MEASURED off the cavity mesh) + tube ", tube_gas_board/1000,
+         " + tail ", tube_gas_tail/1000, " = ", (head_cavity + tube_gas)/1000,
+         " cm3, ", (head_cavity + tube_gas)/5000, "x the 5.0 cm3 budget."));
+echo(str("THE DAM DOES NOT REDUCE THAT. It is a loose split disc, not a seal: ",
+         dam_open, " mm2 of a ", tube_bore_area,
+         " mm2 bore stays open, so at equilibrium the tail is still connected. ",
+         "It puts ", dam_near_side/1000,
+         " cm3 on the head side of a restriction and turns one time constant ",
+         "into two. What that is worth needs a MEASURED transient, not a ",
+         "volume ratio."));
 
 // ------------------------------------------------- modules
 
@@ -590,26 +798,62 @@ module bayonet_lug() {
 // The mating L-slot, as a solid to subtract from the cap skirt. Built in the
 // CAP's frame, where z runs from the cap mouth inward.
 //
-// The lock position is set by the POCKET FLOOR, not by how far the cap can be
-// pushed on: the O-ring pushes the tube back out until the lug's inner face
-// lands on that floor, and where the floor sits is what fixes the squeeze.
-// Everything else is derived from it, which is the only way the two constraints
-// (25 % squeeze, and a pocket the lug has to be pushed past) stay consistent.
+// STALE PROSE REMOVED, and what it said is worth recording because it was the
+// kind of wrong that reads as authoritative: "the O-ring pushes the tube back
+// out until the lug's inner face lands on that floor, and where the floor sits
+// is what fixes the squeeze". True of the 28 x 2 FACE seal this cap once had,
+// false since 7fd21c0. The radial seal fixes squeeze by DIAMETER, and pocket_z
+// no longer has anything to do with it.
+//
+// What pocket_z does now: it is the pull-out face, the surface the lug bears on
+// when the cable is tugged. It sets cap_engage -- how deep the tube sits in the
+// cap, hence how much skirt covers the lock screw's pilot -- and nothing else.
+// The wedge that takes up the remaining play is the DEEP wall, ramped below.
 module bayonet_slot() {
     h = lug_h + slot_slack;
     r0 = tube_od/2 + cap_fit/2 - e;
     r1 = tube_od/2 + lug_r + slot_slack;
+    // Where the pocket stops being full height and starts closing. Without the
+    // ramp both features run the whole pocket, exactly as before.
+    a_ramp = ramp ? ramp_a : pocket_a0;
     // axial entry, open to the mouth
     rotate_extrude(angle=entry_arc)
         translate([r0, -e]) square([r1 - r0, chan_top + e]);
-    // circumferential run, one detent deeper than the locked position
-    rotate([0, 0, pocket_a0])
-        rotate_extrude(angle=entry_arc - pocket_a0)
+    // Circumferential run, one detent deeper than the locked position. It stops
+    // at the ramp: past that the ceiling is BELOW the run's, and sweeping the
+    // run through the ramp region would open the ceiling straight back up --
+    // silently deleting the wedge while every part still rendered as a solid.
+    rotate([0, 0, a_ramp])
+        rotate_extrude(angle=entry_arc - a_ramp)
             translate([r0, pocket_z + detent]) square([r1 - r0, h]);
-    // the pocket itself, at and past the end of the twist
-    rotate([0, 0, pocket_a0])
-        rotate_extrude(angle=pocket_arc)
+    // The free pocket: full depth and full height, so the lug can drop in.
+    rotate([0, 0, a_ramp])
+        rotate_extrude(angle=pocket_a1 - a_ramp)
             translate([r0, pocket_z]) square([r1 - r0, h + detent]);
+    // The wedge. Floor stays at pocket_z -- the pull-out face is untouched --
+    // and the deep wall walks down toward the lug over ramp_deg.
+    if (ramp) {
+        step = ramp_deg/ramp_steps;
+        for (i = [0:ramp_steps-1]) {
+            // i counts AWAY from the free pocket, toward pocket_a0. Height is
+            // taken at the middle of each step, so the staircase straddles the
+            // ideal ramp instead of sitting entirely above or below it.
+            f = (i + 0.5)/ramp_steps;
+            hgt = h + detent - ramp_close*f;
+            // EACH STEP IS SWEPT TWO STEPS WIDE, backward into its taller
+            // neighbour. A 0.02 deg overlap was tried first and CGAL threw
+            // `e_below != SHalfedge_handle()` on the intersection -- at r=17 a
+            // 0.02 deg overlap is 6 um, a sliver rather than a solid overlap.
+            // The direction is the load-bearing part: extending BACKWARD is
+            // free, because the union of the cutters takes the taller of the
+            // two and the taller one is already there. Extending FORWARD would
+            // hold the ceiling up into the next step and quietly flatten the
+            // ramp while every part still rendered as a closed solid.
+            rotate([0, 0, a_ramp - (i + 1)*step])
+                rotate_extrude(angle=2*step)
+                    translate([r0, pocket_z]) square([r1 - r0, hgt]);
+        }
+    }
 }
 
 // ------------------------------------------------- parts
@@ -698,9 +942,18 @@ module cap() {
             // the cable passage through the spigot
             translate([0, 0, cap_bore_depth - spigot_len - e])
                 cylinder(d=spigot_id, h=spigot_len + 2*e);
-            // tapped M12 x 1.5 for the gland
+            // tapped M8 x 1.0 for the gland
             translate([0, 0, cap_bore_depth - e])
                 cylinder(d=gland_tap_d, h=cap_end_t + 2*e);
+            // The gland's seal notch, in the OUTER face, cut inward. Sits
+            // entirely outside the thread's major diameter, so the tapped
+            // length stays the full cap_end_t.
+            translate([0, 0, cap_h - gland_notch_depth])
+                difference() {
+                    cylinder(d=gland_notch_od, h=gland_notch_depth + e);
+                    translate([0, 0, -e])
+                        cylinder(d=gland_notch_id, h=gland_notch_depth + 3*e);
+                }
             for (i = [0:lug_n-1]) rotate([0, 0, i*360/lug_n]) bayonet_slot();
             // Lock-screw clearance. An ARC, not a hole: it is +/- lock_slot_arc
             // wide so the screw still finds its pilot anywhere in the pocket's

@@ -208,6 +208,12 @@ monobody: body-tube
 		exit 1; \
 	 fi; rm -f $(OUT)/.mono.log
 	@echo "monobody: head and tube fused into one closed solid"
+	@# ...which `Volumes: 2` does NOT actually prove. Two cylinders sharing a
+	@# face report 2 as well, and a tube LONGER than the head expects overlaps
+	@# it, deletes material, and still reports 2. interface_check.py weighs the
+	@# union against its parts and cross-checks every number the two files
+	@# duplicate. 2026-09-05 Codex review, finding 7.
+	python3 tools/interface_check.py
 
 .PHONY: prototype-exploded
 prototype-exploded: body-tube

@@ -87,7 +87,7 @@ body_dir = "exports";       // where those STLs live, relative to the build cwd
 // the head begins: 113 against the bonded 127. The old single value happened to
 // place BOTH correctly -- socket_len - 127 = -113 = -113 -- which is exactly the
 // kind of coincidence that survives until one of the two numbers moves.
-body_tube_len = monolithic ? 113.0 : 127.0;   // o2_probe_body_tube.scad, tube_len
+body_tube_len = monolithic ? 124.0 : 127.0;   // o2_probe_body_tube.scad, tube_len
 body_cap_engage = 18.0;     // o2_probe_body_tube.scad, cap_engage
 body_seal_id   = 24.0;      // o2_probe_body_tube.scad, seal_id  (ORS116787)
 body_seal_cord = 1.5;       // o2_probe_body_tube.scad, seal_cord
@@ -158,7 +158,35 @@ bore_margin = 1.5;
 window_d = 16.0;            // -> 201 mm2, against 200 mm2 for two square coupons
 
 bond_gap = 0.20;
-socket_len = 14.0;
+// TWO DIFFERENT JOBS UNDER ONE NAME, and they parted company when the joint did.
+//
+// BONDED: this is the real socket depth over the tube end -- the bonded area, so
+// 14 mm is a design figure and must not be cut.
+//
+// MONOLITHIC: there is no socket (head() does not cut it, see below), so this is
+// only the z at which the cavity stack starts. It was still 14, which left the
+// head's first 14 mm as a plain Ø25.18 bore inside a Ø40 body -- a 7.4 mm wall
+// doing a job the tube does at 2.4, for a stretch that holds nothing but board.
+// The board is Ø22.18 swept and the tube's own ID is 27.2, so that length has no
+// reason to be in the head at all. 3.0 on Fab's instruction 2026-09-05: not 0,
+// so the join cone still lands on parallel bore rather than on the cavity mouth.
+//
+// IT DOES NOT SHORTEN THE PROBE, which was my first claim and it was wrong. The
+// board still needs the same length of bore, so the joint simply moves: 11 mm of
+// Ø40 head becomes 11 mm of Ø32 tube and the assembly is still 146.6 mm. What it
+// buys is ~5.9 cm3 of ASA (a Ø40/Ø25.18 annulus replaced by a Ø32/Ø27.2 one) and
+// ~0.9 cm3 more connected gas, which is nothing against the 75 cm3 the unpotted
+// tube already contributes.
+//
+// It also takes 5.6 cm3 off the monolithic cavity that cavity_raw() below now
+// measures honestly: 11.9 -> 6.3 cm3. Still over the 5.0 budget, because that
+// budget describes the POTTED production build; the Makefile gates the bonded
+// variant, which measures 4.917.
+//
+// TWO OTHER FILES CARRY THIS NUMBER and both had to move with it:
+// o2_probe_body_tube.scad's head_socket_len (subtracted from tube_len, so
+// leaving it at 14 ends the tube 11 mm short) and body_tube_len above.
+socket_len = monolithic ? 3.0 : 14.0;
 wall_min = 2.4;
 
 // Carrier: a PP top-hat. The spigot enters the well and squeezes the gasket

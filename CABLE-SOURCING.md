@@ -352,7 +352,10 @@ record.
 Closes the other half of `POTTING.md` §5 item 4. Researched 2026-09-05, same
 method and browser as the cable work; sources in §8.
 
-**Recommendation: LAPP SKINTOP INOX-R M12x1,5, article 53806749.**
+**Ordered 2026-09-05: LAPP SKINTOP INOX-R M12x1,5, article 53806749**, from
+alles-mit-stecker.de (EAN 4044776711889) — €92,66 for the pack of 5, i.e.
+**€18,53 each incl. VAT**, plus €6,90 shipping; quoted lead time 10-21 days,
+order-in rather than stock.
 
 | | |
 |---|---|
@@ -362,7 +365,12 @@ method and browser as the cable work; sources in §8.
 | temperature | **−40 ... +100 °C** |
 | ingress | **IP68 (10 bar), IP69**, NEMA 4X / 6 |
 | thread | M12x1,5, **thread length 6,5 mm**, SW 16, overall length 29,3 mm |
-| pack | 5 pieces (~€19-21 each incl. VAT, several German distributors) |
+| pack | 5 pieces — one for the build, four spares, which is the right number given the soak test destroys samples |
+
+Price sanity, worth recording because it was nearly the expensive kind of
+mistake: LAPP's own shop lists this at €22,70 each (and showed it unavailable),
+alles-mit-stecker at €18,53. **A listing far below that band is the signal, not
+the bargain** — see the note at the end of this section.
 
 ### Why the material question dominates this choice
 
@@ -474,6 +482,32 @@ sourcing one.
 - Neither the +100 °C nor the +130 °C rating is a **service-life** figure at
   72 °C in ammoniac wet — the same caveat §4 item 2 records for the cable applies
   unchanged to the gland's elastomer.
+
+### A sourcing hazard this turned up
+
+While pricing the gland, a listing appeared at €28,41 against the €94,70 pack
+price — `turbeschlag.com`, offering exactly the right article number with correct
+scraped specifications. **It is a fake shop**, and the checks that establish that
+are quick enough to be worth making standard for this project's sourcing:
+
+| check | finding |
+|---|---|
+| domain age (`whois`) | created 2026-07-30, five weeks old |
+| registrar | `hkdns.hk`, Hong Kong, for a German-language shop |
+| **Impressum** | **404** — legally required in DE under §5 DDG; absence is decisive |
+| operator identity | none: no company, address, VAT ID or director anywhere |
+| discount pattern | exactly **70 % on every product**, sitewide |
+| product data | scraped from a wholesaler feed — `Kennzeichen Abakus` and `Reachkennzeichen` field names left in the description |
+| own payment page | still contains the template instruction "(Auswahl anpassen)" |
+
+The arithmetic is the giveaway. Their "original" €94,70 is the genuine pack price
+(€18,94 each, matching the real market), so the €28,41 offer implies **€5,68 for a
+316L stainless LAPP gland** — a price that does not exist.
+
+**Rule for the rest of this build:** for LAPP, PFLITSCH, Phoenix, Truebner and
+similar industrial brands, a price far under the established per-piece band means
+the shop is fake, not that the part is cheap. Check for an Impressum and a domain
+older than the product line before ordering.
 
 ## 6. Search record for the absence claims
 

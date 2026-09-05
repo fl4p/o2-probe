@@ -60,3 +60,38 @@ The MCP server never started; cause not chased. If this is re-run, check that
 ## SURVIVED
 
 3. No additional geometric breach was found: bayonet slots and grip scallops remain outside the radial seal, guide slots subtract only additive rails, the Ø27.3 counterbore retains 2.35 mm radial wall, the dam is openly non-sealing, the monolithic join is a single manifold mesh, and the head’s radial cap pilots stop at r=16 mm against a maximum void radius of 13.65 mm; the M12 passage is the explicitly intended—but still unsourced—gland interface.
+
+---
+
+## Disposition — 2026-09-05, later the same day
+
+Every finding is answered below. Where a fix landed, the mechanism that would
+have caught it is named, because several of these were things a human noticed by
+eye and that is not a control.
+
+| # | tag | disposition |
+|---|---|---|
+| 1 | (a) | **Fixed.** The echo now separates the two: 24.33 % is the sizing basis, 22.67 % is what the ring delivers after 4.29 % stretch thins the cord. |
+| 2 | (a) | **Fixed, and the conclusion changed.** `PRINTING-BODY-TUBE.md` now states catalogue cord at **15.1–15.7 points — over budget**, sorted at ~7.5. The finding is the reason the doc says sorted rings "are not the better option, they are the only one". |
+| 3 | (c) | **Fixed.** The cap's groove root is emitted with shrink compensation — `25.0299 target (CUT 25.3057, shrink 0.9891)`. The provenance error was also corrected: ±0.09 came from printed ASA carriers, not machined PP, and the doc said the wrong thing. |
+| 4 | (c) | **Fixed.** Assembly steps 5–7 fit the radial ring into the cap's spigot groove and say plainly that the lug drop confirms the lock and nothing about the seal. |
+| 5 | (c) | **Fixed.** Twist sweeps and window walks now run at 1°, the entry ladder samples every millimetre instead of six chosen depths, and both windows must exceed a stated usable width. The retention test no longer rests on `BLOCK`: it is weighed against the lug's own swept section, with a 0.3 mm tongue built as the known-bad and required to fail. Measured: the tongue gives 7.4 mm³ at a 2 mm pull, seven times `BLOCK`, and is not a lock. |
+| 6 | (c) | **Fixed.** Threshold 0.90 → 0.97, calibrated (sound part 99.2 %, Ø0.75 channel 90.2 %), plus a coaxial thin-rod probe for channels too narrow for the main rod. |
+| 7 | (c) | **Fixed.** New `tools/interface_check.py`, run from `make monobody`. It compares every number the two files duplicate — six pairs — and weighs the union against its parts, since fusion conserves volume and overlap does not. It caught a stale monobody on its first run. `body_cap_engage` and `body_tube_len` are both correct now and are no longer trusted to stay that way. |
+| 8 | (c) | **Fixed** (by a parallel session, in `cavity_raw()`). Compounded by `socket_len` going 14 → 3 in the monolithic head: the monolithic cavity measures **6.31 cm³**, down from 11.9. Still over the 5.0 cm³ budget, which is a production figure — the Makefile gates the bonded variant, at 4.917. |
+| 9 | (b) | No action; it survived. |
+| 10 | (c) | **Fixed** for the stale-mesh half — `board-mesh` is a prerequisite of `board-in-body`. The source-hash half is **open**: nothing yet ties the exported mesh to a revision of `o2-probe.kicad_pcb`. |
+| 11 | (c) | **WITHDRAWN, not fixed — the claim was never in the repository.** The argument against hollowing the head (~78 K/W radial wall against a ~4 K/W system, so insulating it changes little) was made in conversation and never committed, which is why no file cites it. It does not hold: "0–4 K from 0–1 W" is a requested operating range and not a measured Rθ, and the wall is one of many parallel distributed paths rather than a series element. Nothing in the design rests on it. **If hollowing the head is reconsidered, it needs a measurement or a local simulation, and this argument must not be reused.** |
+| 12 | (a) | **Fixed.** 4.92 / 75.4 / 18.1 cm³, measured cavity, cable tail counted. |
+| 13 | (c) | **Fixed.** The echo states outright that the dam is a loose split disc, that 204 mm² of a 581 mm² bore stays open, and that its worth needs a measured transient rather than a volume ratio. |
+
+**Open after this pass:** finding 10's provenance half (bind the board mesh to a
+board revision), and the two sourcing items that are not CAD — the gland's NBR
+seal against hot wet ammoniacal service, and whether the cable's PUR sheath is a
+hydrolysis-resistant grade.
+
+**What this review cost and returned.** Thirteen findings, eleven of them real
+enough to change code or prose, one withdrawn as an argument that should never
+have been made, one clean pass. Three of the fixes are new controls rather than
+new numbers, which is the part worth keeping: the pilot threshold, the retention
+floor and the interface check each now fail on a deliberately built bad part.

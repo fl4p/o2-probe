@@ -415,11 +415,11 @@ Four consequences for this section:
 
 ### 5.1.1 The gland
 
-**LAPP SKINTOP INOX-R M12x1,5, article 53806749** — 316L body, **silicone** seal
-and O-ring, clamping **3,0–5,0 mm** (the cable's 3,80 mm sits at 40 % of the
-band), −40…+100 °C, IP68 10 bar / IP69, thread length 6,5 mm, SW 16. Sold in
-fives at roughly €19–21 each. Full reasoning and alternatives:
-`CABLE-SOURCING.md` §5.2.
+**Ordered 2026-09-05: LAPP SKINTOP INOX-R M12x1,5, article 53806749** — 316L
+body, **silicone** seal and O-ring, clamping **3,0–5,0 mm** (the cable's 3,80 mm
+sits at 40 % of the band), −40…+100 °C, IP68 10 bar / IP69, thread length 6,5 mm,
+SW 16. €18,53 each incl. VAT from alles-mit-stecker.de, pack of 5. Full reasoning
+and alternatives: `CABLE-SOURCING.md` §5.2.
 
 Two things drive that choice, and both are chemistry rather than fit:
 
@@ -537,8 +537,9 @@ build → clean → bake → conformal-coat gas zone (apertures clear)
 3. Confirm the tube stock (PVC-U vs other) before quoting adhesion, and confirm
    its CTE — §4's 1.5 mm creep figure rides on it.
 4. ~~Specify the cable~~ **done and ordered, §5.1 / `CABLE-SOURCING.md`** (LAPP
-   7038890, OD 3,80 mm); ~~specify the **gland** by part number~~ **done, §5.1.1
-   / `CABLE-SOURCING.md` §5.2** (LAPP SKINTOP INOX-R M12, 53806749) — still
+   7038890, OD 3,80 mm); ~~specify the **gland** by part number~~ **done and
+   ordered, §5.1.1 / `CABLE-SOURCING.md` §5.2** (LAPP SKINTOP INOX-R M12,
+   53806749, 5 off) — still
    verify against the *measured* OD, and settle the cap wall thickness, which
    §5.1.1 shows is constrained to ~3,7 mm by the gland's thread length. Run the
    soak/cross-section. Two claims in §5.1 are still

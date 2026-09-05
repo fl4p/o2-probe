@@ -107,7 +107,7 @@ kicad_t     = 0.910;        // the mesh's own board thickness, NOT board_t
 
 // These must track o2_probe_body_tube.scad and o2_probe_head_end.scad.
 tail_len      = 22.0;       // board y=0 sits this far up the tube
-body_tube_len = 113.0;      // monolithic
+body_tube_len = 124.0;      // monolithic (was 113 while socket_len was 14)
 board_len     = 107.0;
 tube_id       = 27.2;
 cable_bore_d  = 27.3;
