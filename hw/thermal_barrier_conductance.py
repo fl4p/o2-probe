@@ -12,15 +12,28 @@ just produce another number that goes stale the next time anyone routes.
 This derives it from the board file instead: every track clipped to the strip,
 every via through it, at the copper thickness the board's own stackup declares.
 
-Model, unchanged from the document: first-order steady-state conduction, each
-crossing treated as an independent parallel path,
+Model: first-order steady-state conduction.  Each crossing net contributes one
+parallel path PER LAYER across the full 2 mm strip,
 
-    G = k_cu * width * thickness / length
+    G = k_cu * width * thickness / 2 mm
 
-with k_cu = 385..400 W/(m*K) and via barrels plated 15..25 um.  It is not a
-2-D or 3-D field solution and does not claim to be; coincident endpoints are
-NOT merged into a resistor network here, so this is an upper bound on the
-copper term where Rev A's hand calculation merged them.
+taking that net's NARROWEST track in the strip as the width, because the
+narrowest point is what limits a series path.  k_cu = 385..400 W/(m*K).  It is
+not a 2-D or 3-D field solution and does not claim to be.
+
+Vias inside the strip are COUNTED AND REPORTED BUT NOT SUMMED.  A via barrel
+conducts through the board thickness, in z; the barrier is a gap in y.  A via
+at y=83.4 does not carry heat from y<83 to y>85, it only ties the two layers
+together at a point that is already inside the gap.  Adding barrels as parallel
+crossings put 11 mW/K on the board per via and tripled the answer.
+
+The first version summed every segment independently using the segment's own
+clipped length, and was wrong by an order of magnitude -- 93 mW/K against Rev
+A's hand-computed 8.7 for a comparable board.  A segment that merely clips the
+edge of the strip got a length of 0.14 mm instead of 2 mm and so a conductance
+23 mW/K on its own, when in reality it is in SERIES with the rest of its net's
+path, not a parallel path of its own.  Treating each net as one path of the
+strip's full height is the conservative reading of the same data.
 """
 
 from __future__ import annotations
@@ -104,17 +117,17 @@ def main() -> int:
     tracks = [c for c in crossings if c[0] == "track"]
     vias = [c for c in crossings if c[0] == "via"]
 
+    # One path per (net, layer): the narrowest track that net has in the strip.
+    narrowest = {}
+    for _, net, layer, width, _ in tracks:
+        key = (net, layer)
+        narrowest[key] = min(narrowest.get(key, width), width)
+
     def total(k_cu: float, plating_um: float) -> float:
         g = 0.0
-        for _, _, layer, width, length in tracks:
+        for (_, layer), width in narrowest.items():
             area = (width * 1e-3) * (thickness[layer] * 1e-3)
-            g += k_cu * area / (length * 1e-3)
-        for _, _, _, diameter, _ in vias:
-            # Annulus of plating around the drill; drill is not read back here,
-            # so the barrel circumference is taken at the via's outer diameter,
-            # which overstates it slightly and is stated as such.
-            area = 3.14159 * (diameter * 1e-3) * (plating_um * 1e-6)
-            g += k_cu * area / (BOARD_THICKNESS_MM * 1e-3)
+            g += k_cu * area / ((STRIP_Y[1] - STRIP_Y[0]) * 1e-3)
         return g
 
     low = total(K_CU[0], VIA_PLATING_UM[0])
@@ -123,14 +136,17 @@ def main() -> int:
     print(f"board: {BOARD}")
     print(f"copper layers in stackup: "
           f"{', '.join(f'{k} {v} mm' for k, v in thickness.items())}")
-    print(f"crossings: {len(tracks)} track segment(s), {len(vias)} via(s)")
+    print(f"crossings: {len(tracks)} track segment(s) forming "
+          f"{len(narrowest)} net-layer path(s), {len(vias)} via(s)")
     by_net = {}
     for kind, net, layer, width, length in crossings:
         by_net.setdefault(net or "(none)", []).append(kind)
     for net in sorted(by_net):
         kinds = by_net[net]
         print(f"  {net}: {kinds.count('track')} track(s), {kinds.count('via')} via(s)")
-    print(f"routed-copper conductance: {low * 1e3:.1f}--{high * 1e3:.1f} mW/K")
+    print(f"routed-copper conductance: {low * 1e3:.1f}--{high * 1e3:.1f} mW/K"
+          f"  ({len(vias)} via(s) inside the strip, counted but not summed --"
+          " a barrel conducts in z, the barrier is a gap in y)")
     print(f"                    i.e.   {1.0 / high:.0f}--{1.0 / low:.0f} K/W "
           "for the copper path alone")
     return 0
