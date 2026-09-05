@@ -58,6 +58,11 @@
     "spec": "o2_probe_head_end.scad:bed-radial-ring=O-ring (carrier->head)",
     "color": "#e08b3a",
     "note": "ORS116787 24 x 1.5 EPDM, radial on the spigot into the reamed 27.1 H7 well. THE seal that keeps compost out of the cavity -- squeeze comes from the FIT, no screw is in its load path"
+   },
+   {
+    "spec": "o2_probe_head_end.scad:cap=cap (debris / plowing)",
+    "color": "#6d8b74",
+    "note": "45.0 x 45.0 x 33.5, the solid plowing face over the open cage band. NOT the body tube's cable-end cap, which is body_tube.scad:cap"
    }
   ]
  },

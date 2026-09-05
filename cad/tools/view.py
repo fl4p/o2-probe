@@ -42,6 +42,7 @@ import json
 import os
 import re
 import shlex
+import struct
 import socket
 import socketserver
 import subprocess
@@ -174,12 +175,55 @@ def render(item, force=False):
     return None
 
 
+def mesh_top_z(path):
+    """Highest Z in an STL, or None if it cannot be read.
+
+    None is NOT a height. It sorts to the BOTTOM of the panel and is reported,
+    because a mesh we failed to measure must never be silently presented as the
+    topmost part of the assembly.
+    """
+    try:
+        with open(path, 'rb') as f:
+            if f.read(5) == b'solid':
+                f.seek(0)
+                top = None
+                for line in f:
+                    if line.lstrip()[:6] == b'vertex':
+                        z = float(line.split()[3])
+                        top = z if top is None else max(top, z)
+                return top
+            f.seek(80)
+            n = struct.unpack('<I', f.read(4))[0]
+            top = None
+            for _ in range(n):
+                d = struct.unpack('<12fH', f.read(50))
+                z = max(d[5], d[8], d[11])
+                top = z if top is None else max(top, z)
+            return top
+    except Exception:
+        return None
+
+
 def build_scene(items, force=False):
     ident = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
     with futures.ThreadPoolExecutor(max_workers=4) as ex:
         notes = list(ex.map(lambda it: render(it, force), items))
+
+    # ORDER THE PANEL THE WAY THE PICTURE READS. Parts load at their assembly
+    # coordinate with an identity matrix, so Z is the real stacking order: sort
+    # by the top of each part, highest first, and the list beside the model
+    # matches the model. Anything unmeasurable keeps scene order at the end
+    # rather than being placed by a guess.
+    ranked = [(mesh_top_z(it['mesh']) if it.get('mesh') else None, i, it, note)
+              for i, (it, note) in enumerate(zip(items, notes))]
+    known = sorted((r for r in ranked if r[0] is not None), key=lambda r: (-r[0], r[1]))
+    unknown = [r for r in ranked if r[0] is None]
+    for _, _, it, _ in unknown:
+        print("  ! %s: could not measure its height, listed last" % it['name'])
+    pairs = [(it, note) for _, _, it, note in list(known) + unknown]
+
     parts = []
-    for i, (it, note) in enumerate(zip(items, notes)):
+    for i, (it, note) in enumerate(pairs):
         parts.append(dict(name=it['name'], kind='stl',
                           file='../' + it['mesh'].replace(os.sep, '/'),
                           matrix=ident,
