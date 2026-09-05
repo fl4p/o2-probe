@@ -1,0 +1,157 @@
+/* The one place that says where anything lives in the STM32G071CB's flash.
+ *
+ * Three images share this part - the bootloader, the running application and
+ * a staged application that has been pushed over RS-485 but not yet installed
+ * - plus two record areas. Every one of those boundaries is load-bearing in a
+ * way that cannot be checked at runtime by the code that gets it wrong: a
+ * linker script that lets the application grow into the staging slot produces
+ * a probe that erases itself the first time someone updates it, and nothing
+ * before that moment looks unusual. So the numbers live here once, the two
+ * linker scripts are derived from them by hand, and tools/check_flash_map.py
+ * fails the build when the scripts and this header disagree.
+ *
+ * Layout (128 KiB, 64 pages of 2 KiB):
+ *
+ *   page  0..7    0x08000000  16 KiB  bootloader        NEVER rewritten
+ *   page  8..33   0x08004000  52 KiB  run slot          the application
+ *   page 34..59   0x08011000  52 KiB  staging slot      received image
+ *   page 60..61   0x0801E000   4 KiB  boot descriptor   A/B
+ *   page 62..63   0x0801F000   4 KiB  configuration     A/B (config_flash.c)
+ *
+ * Why a staging slot rather than writing the run slot directly: the probe is
+ * potted and buried, and a power interruption is the ordinary case, not the
+ * exotic one - the farm supply is a 12 V feed shared with a LoRaWAN node on a
+ * mast. Downloading over the running image means every transfer has a window,
+ * minutes wide, in which a brownout leaves no application at all. Downloading
+ * beside it means the worst case is a wasted transfer.
+ *
+ * Why not two equal slots with a boot-time choice (true A/B): that needs the
+ * application to be position-independent or built twice, once per slot. The
+ * copy this design does instead costs ~2 s at install time, once, and keeps
+ * ONE application binary that is always linked at one address. Nothing else
+ * in this firmware would survive being built two ways without being tested
+ * two ways.
+ */
+#ifndef O2P_FLASH_MAP_H
+#define O2P_FLASH_MAP_H
+
+#include <stdint.h>
+
+#define O2P_FLASH_ORIGIN     0x08000000u
+#define O2P_FLASH_PAGE_BYTES 2048u
+#define O2P_FLASH_PAGES      64u
+
+#define O2P_BOOT_PAGE      0u
+#define O2P_BOOT_PAGES     8u
+#define O2P_APP_PAGE       8u
+#define O2P_APP_PAGES      26u
+#define O2P_STAGE_PAGE     34u
+#define O2P_STAGE_PAGES    26u
+#define O2P_DESC_PAGE_A    60u
+#define O2P_DESC_PAGE_B    61u
+/* 62 and 63 are config_flash.c's A/B pages. Named here so this map is the
+ * complete picture and an attempt to reuse them shows up as a conflict. */
+#define O2P_CONFIG_PAGE_A  62u
+#define O2P_CONFIG_PAGE_B  63u
+
+#define O2P_PAGE_ADDR(pg)  (O2P_FLASH_ORIGIN + (uint32_t)(pg) * O2P_FLASH_PAGE_BYTES)
+
+#define O2P_BOOT_BASE   O2P_PAGE_ADDR(O2P_BOOT_PAGE)
+#define O2P_BOOT_BYTES  (O2P_BOOT_PAGES * O2P_FLASH_PAGE_BYTES)
+#define O2P_APP_BASE    O2P_PAGE_ADDR(O2P_APP_PAGE)
+#define O2P_APP_BYTES   (O2P_APP_PAGES * O2P_FLASH_PAGE_BYTES)
+#define O2P_STAGE_BASE  O2P_PAGE_ADDR(O2P_STAGE_PAGE)
+#define O2P_STAGE_BYTES (O2P_STAGE_PAGES * O2P_FLASH_PAGE_BYTES)
+
+/* An image smaller than a vector table plus a handful of instructions is not
+ * an image; refusing it early keeps a truncated transfer from ever reaching
+ * the CRC stage, where it would merely fail more expensively. */
+#define O2P_IMAGE_MIN_BYTES 256u
+
+/* Flash is programmed 64 bits at a time on this family, so every length and
+ * offset the updater handles is a multiple of 8. The final block of an image
+ * is padded to that boundary; the padding is inside the declared length, so
+ * the CRC covers it and both sides compute the same number. */
+#define O2P_IMAGE_ALIGN 8u
+
+/* --- what the bootloader hands to the application, and back --------------
+ *
+ * One word of RAM that survives a warm reset, at a fixed address in BOTH
+ * images (see the SHARED region in the linker scripts). It is how the
+ * application says "reset into the bootloader and stay there" without a wire.
+ *
+ * It is guarded by a value and its complement rather than a single magic,
+ * because after a power-on reset this word holds whatever the SRAM powered up
+ * to. A single 32-bit magic would be forged by chance about once in four
+ * billion boots, which sounds safe until you remember what it would do:
+ * strand a buried probe in a bootloader that never starts the application.
+ * Two words that must be exact complements make it 2^-64 and the check costs
+ * one comparison. */
+#define O2P_BOOTREQ_STAY  0x5052424Cu  /* "PRBL" - stay in the bootloader */
+#define O2P_BOOTREQ_NONE  0u
+
+typedef struct {
+    volatile uint32_t request;
+    volatile uint32_t inverse;
+} o2p_bootreq_t;
+
+/* Defined by boot_shared.c in both images, placed by the linker at the base
+ * of the SHARED region. */
+extern o2p_bootreq_t g_o2p_bootreq;
+
+static inline int o2p_bootreq_is(uint32_t what)
+{
+    return g_o2p_bootreq.request == what && g_o2p_bootreq.inverse == ~what;
+}
+
+static inline void o2p_bootreq_set(uint32_t what)
+{
+    g_o2p_bootreq.request = what;
+    g_o2p_bootreq.inverse = ~what;
+}
+
+static inline void o2p_bootreq_clear(void)
+{
+    /* Deliberately NOT the complement pair: cleared means "no request", and
+     * writing a valid pair for O2P_BOOTREQ_NONE would make zeroed RAM - the
+     * commonest random state there is - indistinguishable from a deliberate
+     * clear. Nothing reads NONE as a request, so it only has to fail the
+     * STAY test, which an all-zero word does. */
+    g_o2p_bootreq.request = 0u;
+    g_o2p_bootreq.inverse = 0u;
+}
+
+/* --- the boot descriptor -------------------------------------------------
+ *
+ * Written by the application when a transfer verifies, read by the bootloader
+ * at every reset, rewritten by the bootloader when an install completes. It
+ * is the only thing that makes an image in the staging slot different from
+ * 52 KiB of leftovers from the last transfer.
+ *
+ * Field order gives the struct no implicit padding: it is CRC'd byte for byte
+ * and written to flash byte for byte, and a padding byte the compiler is free
+ * to leave uninitialised would make the CRC non-deterministic. Same reasoning,
+ * and the same failure, as config_flash.c's record.
+ */
+#define O2P_DESC_MAGIC          0x4F32444Du  /* "O2DM" */
+#define O2P_DESC_LAYOUT_VERSION 1u
+
+/* Bits in o2p_desc_t.flags. */
+#define O2P_DESC_F_STAGED 0x0001u  /* the staging slot holds a verified image */
+
+typedef struct {
+    uint32_t magic;
+    uint32_t sequence;         /* higher wins, compared as a signed difference */
+    uint32_t staged_len;
+    uint32_t staged_crc;       /* CRC-32 (zlib) over staged_len bytes */
+    uint32_t installed_len;
+    uint32_t installed_crc;
+    uint16_t layout_version;
+    uint16_t flags;
+    uint16_t install_count;    /* diagnostic: installs this probe has taken */
+    uint16_t crc16;            /* CRC-16/MODBUS over the record with crc16 = 0 */
+} o2p_desc_t;
+
+#define O2P_DESC_BYTES 32u
+
+#endif /* O2P_FLASH_MAP_H */

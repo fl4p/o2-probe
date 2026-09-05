@@ -77,6 +77,39 @@ VIA_DIMENSIONS = [
 ]
 
 
+# KiCadRoutingTools reads this tool-namespaced key out of the project file and
+# refuses to rip these nets as COLLATERAL damage (its protected_nets.py).  It is
+# not a substitute for keeping them out of --nets -- KRT's own policy is that a
+# net named exactly on the command line stays rippable, protection only filters
+# glob matches -- but it is the supported mechanism and it makes an accidental
+# `--rip-existing-nets '*'` safe instead of destructive.
+#
+# Measured 2026-09-05, before this existed: KRT deleted all seven authored
+# GUARD_REPLICA segments and all four of its vias under '*', every one of them
+# locked, while reporting other nets as protected_skipped ... "locked".
+KRT_PROTECTED_NETS = {
+    "/CELL_RE": "authored via-free: any barrel is a leakage path on the "
+                "reference node",
+    "/CELL_WE": "authored: its B.Cu dive is what lets CELL_RE stay via-free",
+    "/GUARD_REPLICA": "authored driven-guard rails around CELL_RE",
+    "/HEATER_LOW": "authored 0.80 mm heater current path",
+    "/+12V_HTR": "authored fork-tip feed and layer joins",
+}
+
+
+# CELL_RE gets its own net class so a custom rule can name it.  The class does
+# not tighten the ordinary clearance -- it cannot: CELL_RE arrives at U7 pin 13
+# on a 0.5 mm-pitch row where the gap to pins 12 and 14 is 0.255 mm and no rule
+# should force a redesign of a package pinout.  The tightening lives in
+# o2-probe.kicad_dru and is scoped to TRACK-to-TRACK only.
+CELL_RE_CLASS = {
+    "name": "CELL_RE",
+    "clearance": 0.15,
+    "track_width": 0.25,
+}
+CELL_RE_PATTERNS = [{"netclass": "CELL_RE", "pattern": "/CELL_RE"}]
+
+
 def apply(path: Path = PROJECT) -> None:
     data = json.loads(path.read_text())
     settings = data.setdefault("board", {}).setdefault("design_settings", {})
@@ -91,6 +124,14 @@ def apply(path: Path = PROJECT) -> None:
         default = {"name": "Default"}
         classes.append(default)
     default.update(DEFAULT_CLASS)
+    cell_re = next((v for v in classes if v.get("name") == "CELL_RE"), None)
+    if cell_re is None:
+        cell_re = {"name": "CELL_RE"}
+        classes.append(cell_re)
+    cell_re.update(CELL_RE_CLASS)
+    data["net_settings"]["netclass_patterns"] = [dict(v) for v in CELL_RE_PATTERNS]
+    data.setdefault("kicad_routing_tools", {})["protected_nets"] = dict(
+        KRT_PROTECTED_NETS)
     path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
 
 
@@ -106,6 +147,11 @@ def verify(path: Path = PROJECT) -> str:
         actual = settings["rule_severities"].get(key)
         if actual != wanted:
             problems.append(f"severity.{key}={actual!r}, want {wanted!r}")
+    protected = data.get("kicad_routing_tools", {}).get("protected_nets", {})
+    for net, reason in KRT_PROTECTED_NETS.items():
+        if protected.get(net) != reason:
+            problems.append(f"krt protected_nets[{net}]={protected.get(net)!r}, "
+                            f"want {reason!r}")
     ignored = sorted(
         key for key, value in settings["rule_severities"].items() if value == "ignore"
     )

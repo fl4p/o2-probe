@@ -43,7 +43,14 @@ enum {
  * probe with an unknown address is found ("the bench found probe 1 at address
  * 0"). We implement the same convention so one procedure works for every
  * probe on the bus - but it is only safe with a SINGLE device connected,
- * because two responders collide. */
+ * because two responders collide.
+ *
+ * OUR ALIAS IS READ-ONLY. The SMT100 procedure re-addresses through 253
+ * (`AT+CFGDEV=FD 06 00 04 00 01,1`), and that is precisely the operation that
+ * writes to EVERY device answering the alias if more than one is connected.
+ * Reading a probe's own SLAVE_ADDR register through 253 recovers the address
+ * just as well, after which the write goes to the real unicast address - same
+ * capability, no way to reconfigure the wrong device. */
 #define O2P_MB_ADDR_BROADCAST 0u
 #define O2P_MB_ADDR_DISCOVERY 253u
 #define O2P_MB_ADDR_MIN       1u

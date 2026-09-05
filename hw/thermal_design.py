@@ -35,6 +35,17 @@ HEATER_SPREADER = ((0.25, 85.0), (19.75, 85.0),
 GND_BRIDGE = ((0.5, 83.0), (0.4, 83.1), (0.4, 84.9), (0.5, 85.0))
 
 
+def copper_layers(board) -> list:
+    """The board's ENABLED copper layers, in order.
+
+    Never hardcode a layer tuple: this board moved from four layers to two on
+    2026-09-05, and every `(F_Cu, In1_Cu, In2_Cu, B_Cu)` literal left behind
+    would have kept writing rule areas and pours onto layers that no longer
+    exist -- silently, because an LSET accepts a disabled layer id.
+    """
+    return [layer for layer in board.GetEnabledLayers().CuStack()]
+
+
 def point(x: float, y: float):
     return pcbnew.VECTOR2I(
         pcbnew.FromMM(ORIGIN_X_MM + x), pcbnew.FromMM(ORIGIN_Y_MM + y)
@@ -191,7 +202,7 @@ def ensure_thermal_gap(board):
     zone.SetZoneName(THERMAL_GAP_NAME)
     zone.SetIsRuleArea(True)
     layers = pcbnew.LSET()
-    for layer in (pcbnew.F_Cu, pcbnew.In1_Cu, pcbnew.In2_Cu, pcbnew.B_Cu):
+    for layer in copper_layers(board):
         layers.AddLayer(layer)
     zone.SetLayerSet(layers)
     zone.SetDoNotAllowTracks(False)
@@ -214,6 +225,7 @@ def ensure_heater_spreader(board):
     zone.SetIsRuleArea(False)
     zone.SetLayer(pcbnew.B_Cu)
     zone.SetNet(net)
+    zone.SetAssignedPriority(10)
     zone.SetLocalClearance(pcbnew.FromMM(0.15))
     zone.SetMinThickness(pcbnew.FromMM(0.09))
     zone.SetPadConnection(pcbnew.ZONE_CONNECTION_FULL)
@@ -228,8 +240,20 @@ def ensure_heater_spreader(board):
     return zone
 
 
+def gnd_bridge_layer(board) -> int:
+    """The layer the barrier ground bridge lives on.
+
+    It was In2 while this board had an inner ground plane.  On the two-layer
+    board there is no inner layer at all, and B.Cu across the island belongs to
+    the heater spreader, so the bridge goes on F.Cu -- the layer whose ground
+    pour is continuous on both sides of the barrier.
+    """
+    return pcbnew.In2_Cu if pcbnew.In2_Cu in copper_layers(board) else pcbnew.F_Cu
+
+
 def ensure_gnd_bridge(board):
     """Retain ground continuity with one narrow explicit trace, not plane fill."""
+    bridge_layer = gnd_bridge_layer(board)
     old = {
         frozenset((absolute_xy(point(0.5, 83.0)), absolute_xy(point(0.5, 85.0))))
     }
@@ -240,7 +264,7 @@ def ensure_gnd_bridge(board):
         item for item in board.GetTracks()
         if not isinstance(item, pcbnew.PCB_VIA)
         and item.GetNetname() == "/GND"
-        and item.GetLayer() == pcbnew.In2_Cu
+        and item.GetLayer() == bridge_layer
         and frozenset((absolute_xy(item.GetStart()), absolute_xy(item.GetEnd())))
         in old | wanted
     ]
@@ -259,7 +283,7 @@ def ensure_gnd_bridge(board):
         for start, end in wanted_segments:
             track = pcbnew.PCB_TRACK(board)
             track.SetNet(board.FindNet("/GND"))
-            track.SetLayer(pcbnew.In2_Cu)
+            track.SetLayer(bridge_layer)
             track.SetStart(point(*start))
             track.SetEnd(point(*end))
             board.Add(track)

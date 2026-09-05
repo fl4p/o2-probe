@@ -20,7 +20,7 @@ python3 audit_schematic.py
   -o o2-probe-schematic.pdf o2-probe.kicad_sch
 ```
 
-Current generated result: 106 components, 336 assigned package pins, 92 nets,
+Current generated result: 100 components, 306 assigned package pins, 85 nets,
 KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
 
 ## Electrical architecture
@@ -31,15 +31,59 @@ KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
 - The 7–15 V input uses a resettable fuse, input TVS, reverse-polarity P-FET,
   AP63205 fixed 5 V buck, and separate TPS7A2033 digital and analog 3.3 V rails.
   The analog LDO input is isolated from `+5V` by fitted R32=10 ohm and bypassed
-  locally by C7=10 uF X7R plus C27=100 nF on `+5V_ANALOG`. R32 uses an 0805
-  option footprint that may take 0 ohm or a characterized bead after testing;
+  locally by C7=10 uF 25 V plus C27=100 nF on `+5V_ANALOG`. R32 uses an 0603
+  option footprint that may take 0 ohm or a characterized bead after testing
+  (0603 beads are as available as 0805 — Murata BLM18, TDK MPZ1608 — so the
+  2026-09-05 package change did not cost the option, and took the last 0805
+  resistor land off the board; C7 took the last 0805 capacitor land with it by
+  becoming the same 1206 part as C1);
   a bead is not the default because its low-frequency inductance can resonate
   near the ADS1119 256 kHz modulator frequency.
-- The O2 signal chain is SGX three-electrode cell -> LMP91000 -> ADS1119. A
-  2 kOhm ten-turn trim and OPA2333 buffer establish `VREF_TRIM`; the second
-  op-amp makes the approximately 0.91-times guard replica.
+- The O2 signal chain is SGX three-electrode cell -> LMP91000 -> ADS1119. U15,
+  an **AZ431B wired as a two-terminal 2.5 V shunt** (REF strapped to the
+  cathode), establishes `VREF_SHUNT`, and R31 feeds `VREF_TRIM` from it; that
+  net keeps its name only because firmware keys off it, and **there is no
+  trimmer**. `POTTING.md` §1.2 (in `../../../ha/farming/compostlab/o2-probe/`)
+  removed it: the cell must be swappable with the board potted, so no adjustable
+  part may sit on the potted side.
+  - R41 biases the shunt from `+5V_ANALOG`, **not** 3V3A. The part needs
+    I_KA ≥ 1.0 mA, and 3V3A leaves only 3.234 − 2.510 = 0.724 V of worst-case
+    headroom — about 6 % over that floor — where +5V_ANALOG leaves 2.5 V and
+    gives 1.67 mA.
+  - C9 is deliberately only **1 nF on the cathode**, with the bulk capacitance
+    (C10) held off it by R31. AZ431-A Figure 15 puts the lower stable region
+    below roughly 10 nF at this cathode current. **That is a chart reading, not
+    a specified number — confirm on the bench before release.** The same R31
+    would have been *wrong* for a series reference like the REF33xx, which
+    requires 0.1–10 µF **on** its output pin.
+  - The AZ431's SOT-23 map (1 REF, 2 CATHODE, 3 ANODE) matches **no** KiCad
+    TL431 variant, so the symbol borrows the TL431DBZ graphic with pin numbers
+    remapped. Strapped as it is, the difference is electrically inert; it bites
+    the moment REF is divided to make the part adjustable.
+  - **The error the trimmer removed was overstated.** SNAS506I's ±2 % is the
+    bias programming *resolution* — the ladder's step spacing — not an accuracy.
+    Guaranteed WE-to-RE accuracy is `VOS_RW`: ±1750 µV max at the ±24 % setting
+    over −40…80 °C, i.e. *inside* the SGX's ±10 mV window. The trimmer deletion
+    stands on the potting requirement regardless, but the ±50 mV figure that
+    justified the bias-telemetry channel does not survive the datasheet.
+    `PLAN.md`'s AFE bias verdict is where it originates.
+- Both OPA2333 halves are unity-gain electrometer followers on the cell nodes:
+  U4A buffers WE, U4B buffers RE. U4B's output drives the guard through R40 and
+  the bias telemetry through R38, so the guard tracks the **real** electrode
+  instead of the old open-loop 0.91×VREF replica, which is both strictly better
+  guarding and the ADC channel that makes the bias measurable. `GUARD_REPLICA`
+  keeps its name because `repair_guard_fill.py`, `route_thermal_barrier.py` and
+  `audit_pcb.py` key off it; it is no longer a replica of anything.
+  No femtoampere part is needed: RE already carries the LMP91000's own ±900 pA
+  max IRE (SNAS518, −40..80 °C), so the OPA333's ±200 pA max at 25 °C raises the
+  worst case by about 20 %, where an ADA4530-1 at 20 fA would leave it at 900 pA.
+- ADS1119 AIN2/AIN3 read `WE_BUF`/`RE_BUF` **differentially** as the cell bias.
+  SBAS925 allows the ~2.27 V common mode at gain 1 and 4 alike, giving ±625 mV
+  full scale at gain 4. The two rail monitors this displaced, `VA_MON` and
+  `VIN_MON`, are now both on the MCU's own ADC (PA7/IN7 and PA6/IN6).
 - The processor is STM32G071CBT7. USART1 on PA9/PA10 drives the THVD1410 farm
-  RS-485 port. USART2 on PA2/PA3 is reserved for the expansion/recovery path.
+  RS-485 port. USART2 on PA2/PA3 lands on J105/J106 and is the bench-bridge
+  tap, not a connector — see the J2 entry below.
 - PC6 drives `RS485_DE`, placing the direction-control GPIO beside the USART1
   TX/RX pins, and PA7/ADC_IN7 measures `VA_MON`. These pin choices are
   generator-owned because they make the compact right-side MCU placement
@@ -51,12 +95,58 @@ KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
   overtemperature cutoff until firmware configures and fault-tests the TMP117.
   SHT45 is the chamber RH/dew-point channel. BMP390 remains an explicitly DNP
   pressure option at address 0x76.
-- RH1/RH2 heat a manually soldered metal membrane-carrier ring through two J5
-  plated-slot edge castellations. The ring is on switched `HEATER_LOW`, not GND,
-  and must remain on the insulated dry side of the PTFE membrane stack.
-- J2 is the DNP sealed-side expansion connector for a future external CO2 head:
-  switched 12 V, protected 3.3 V, I2C, interrupt, and spare UART. It is not the
-  programming connector.
+- **The heat source stays on this board.** RH1/RH2 (2 × 280 Ω 2512, ~1 W at
+  12 V) bridge `+12V_SW` to `HEATER_LOW` above Q2, as they always have. An
+  earlier pass in this revision deleted them and moved the heat to the ring PCB;
+  Fab reversed that on 2026-09-04 — *"the heater stays where it is"*. The
+  geometry that motivated the delete is real and unchanged: `HEATED-SPREADER.md`
+  §0 measured 18.6 mm from the old J5 lands to the cartridge heater shelf, with
+  the cell filling the bore for 8.3 mm of it, and `RING-PCB.md` §1 puts the
+  fork's conduction at 4.3 mW/K — so heat made here does **not** efficiently
+  reach the membrane. But that is an argument about where heat must *arrive*,
+  not a licence to remove the only heat source the board has. The delete would
+  have cost a validated subsystem: the bench run recorded in `FAB-READINESS.md`
+  ("Heater bench results, 2026-09-04") exercised the PWM, the TMP117 interlock
+  with the core halted, the rail monitor and detect-and-recover **against
+  RH1/RH2 as the load**, and none of it could be re-run on a board whose heater
+  lives on an unbuilt ring behind an unmeasured neck bore. A ring PCB, when it
+  exists, **parallels** these elements through J5; it does not replace them.
+- **J5 is now a fork tip rather than two edge castellations.** J5's two edge
+  castellations are deleted, for the reach reason above. J5 is now two solder lands at the
+  tips of a tuning-fork board end, taking switched `HEATER_LOW` and fused
+  `+12V_HTR` 13 mm forward to a perpendicular ring PCB that carries the heater
+  itself. One finger per net, both layers of a finger paralleled. Fab dropped
+  the ring's temperature sensor from this revision, so only 2 of the 4 available
+  conductors are used and the second layer of each finger stays free for a v2
+  ring — which needs no main-board change. The footprint is explicitly DRAFT:
+  `RING-PCB.md` §5.1 forbids freezing the 0.6 mm finger width before the printed
+  ASA neck bore is measured on a real part.
+- **F3 is a FITTED 0 Ω link reserving a position against a fault path the fork
+  created.** It is deliberately *not* a DNP placeholder: it sits in series in the
+  only supply path to the ring, so leaving it unpopulated would open the heater
+  feed to the ring entirely. RH1/RH2 sit in the main-board branch and **not** in
+  the fork feed, so nothing limits the fork itself: a short between fork fingers
+  — which run at 0.20 mm clearance to a metal cell can — puts
+  +12V_SW across Q2 unlimited, and possibly 12 V onto the cell. Do not fit it as
+  drawn: a PPTC derates badly at pile temperature (F1's own note records 0.36 A
+  at 85 °C for a 0.75 A part), so one holding the heater's 83 mA would nuisance-
+  trip. Size it once the ring's resistance is fixed, or protect at the ring.
+- **J2 is DELETED**, with F2, R12-R16 and D4/D5/D6 — fourteen never-fitted
+  parts, 2026-09-05, `BOM-REDUCTION.md` §3. It was the sealed-side expansion
+  connector for a future external CO2 head (switched 12 V, fused 3.3 V, I2C,
+  interrupt, spare UART) and was never the programming connector. It was also
+  224.8 mm² of courtyard — 14 % of every courtyard on the board — plus two
+  Ø2.41 mm NPTH holes, at local y 60.5…73.5, immediately before the AFE band
+  the two-layer work is fighting. On two layers an NPTH is a hole through both.
+  What was lost: the 2x04 pad field for a daughterboard and its separately
+  fused `EXP_3V3`. J2 was DNP on every board ever built, so no built board had
+  either.
+- **R15/R16 were not deletable, and J105/J106 replace them.** `board_pins.h`
+  and `bridge_main.c` both took the bench bridge's host lead off the MCU-side
+  pads of R15/R16, so those two DNP parts were load-bearing lands. USART2 now
+  ends on two solder-wire lands, J105 `BRIDGE TX` (PA2) and J106 `BRIDGE RX`
+  (PA3) — a better tap at two footprints instead of five, and no BOM line.
+  3.3 V logic only: PA2/PA3 are not 5 V tolerant.
 - J3 is the sole pre-pot programming/recovery interface: VTREF, SWDIO, NRST,
   SWCLK/BOOT0, GND, and SWO. Post-pot firmware updates must use the RS-485
   application bootloader; the enclosure does not expose J3.
@@ -78,7 +168,8 @@ RS-485 bus (1 and 2 are the Truebner SMT100s; 253 is answered as a discovery
 alias, which is only safe with a single device connected). `firmware/src/regmap.h`
 is the implementation and this table is the design record; `firmware/FIRMWARE.md`
 carries the working copy with the fault semantics. Everything is exposed through
-FC03; FC04 mirrors it; FC06/FC16 reach only the config block.
+FC03; FC04 mirrors it; FC06/FC16 reach the config block and the firmware
+updater's two blocks.
 
 The layout is dictated by the master. A Dragino RS485-LS reads with literal
 pre-programmed frames over a contiguous block — `AT+COMMAND3=03 03 00 00 00 08,1`
@@ -110,20 +201,48 @@ pile produces; a mistyped `AT+COMMAND` must look like a fault, not like anoxia.
 (`SCHEMATIC-REVIEW.md` M4) and the bench air-versus-nitrogen pair settles it.
 Firmware that took an absolute value would hide the answer.
 
-### Diagnostic block, `0x0010`, 18 registers, read-only
+### Diagnostic block, `0x0010`, 21 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
-0.01 K), `PRESSURE_HPA` (0 - BMP390 is DNP), `UPTIME_HI/LO`, `FW_VERSION`,
+0.01 K), `PRESSURE_HPA` (0 - the BMP390 option is deleted), `UPTIME_HI/LO`, `FW_VERSION`,
 `HW_REV`, `RESET_CAUSE`, `LMP_READBACK` (TIACN<<8 | REFCN as actually read),
-`MB_CRC_ERRS`, `MB_FRAME_ERRS`, `I2C_ERRS`, `EXP_DATA` (`0xFFFF` - J2 is DNP),
+`MB_CRC_ERRS`, `MB_FRAME_ERRS`, `I2C_ERRS`, `EXP_DATA` (`0xFFFF` - J2 is deleted),
 `SETTLE_RESTARTS` (`0x0020`), `SAMPLE_SEQ` (`0x0021`).
 
-### Config block, `0x0030`, 16 registers, read/write, flash-backed
+`T_DIE` (`0x0022`) is the MCU die temperature, i16 0.01 C, `0x8000` invalid.
+Not ambient and not part of the oxygen path - it is the silicon, self-heating
+included, at about +/-5 C. It is here because it is the only temperature on
+the board that does not arrive over I2C1, so it separates a dead bus from a
+real excursion.
+
+`FAULTS_EVER` (`0x0023`) is every fault bit seen since power-up, never cleared,
+and `ADS_FAIL_COUNT` (`0x0024`) counts cycles in which the ADS1119 delivered no
+conversion, saturating at `0xFFFF`. Both exist because `FAULTS` is rebuilt from
+zero every second while a buried probe is polled every five minutes: a
+one-cycle converter fault is published for one second in three hundred. The
+fault word carries a bounded latch so such an event survives to the next poll
+(`O2P_FAULT_LATCH_S`, 330 s - one nominal poll interval plus 10 %), but the
+latch self-clears, so the rate would be lost without a counter. A probe that
+glitches once and one that glitches hourly read identically between events
+otherwise.
+
+### Config block, `0x0030`, 18 registers, read/write, flash-backed
 
 `SLAVE_ADDR`, `BAUD_CODE`, `PARITY_CODE`, `RH_SETPOINT`, `DT_MAX_K`,
 `HEATER_MAX_DUTY`, `HEATER_PWM_HZ`, `CAL_AIR_NA_HI/LO`, `CAL_TEMP_C100`,
 `TEMPCO_PPM_K`, `SHT_PULSE_H`, `SHT_PULSE_TRIG`, `CAL_TRIGGER`, `COMMIT`,
-`CONFIG_CRC` (read-only).
+`CONFIG_CRC` (read-only), then the two PI gains:
+`HEATER_KP` at `0x0040` and
+`HEATER_KI` at `0x0041`, both in 0.01 units.
+
+The two heater gains are registers rather than compile-time constants because
+the plant they tune can only be characterised in a real pile:
+`THERMAL-BARRIER.md` bounds the PCB conduction path, not ring-to-gas. The
+alternative was reflashing to change a number, which post-pot means the RS-485
+updater and a full image transfer. Adding them moved the config block from
+16 to 18 registers and took the flash record's layout version to 2, so a
+version-1 record falls back to defaults - and the defaults hold
+`HEATER_MAX_DUTY` at 0, so a layout change fails towards no heat.
 
 A multi-register write is validated against a copy and committed all-or-nothing,
 so a frame setting a legal address and an illegal baud rate changes neither.
@@ -133,6 +252,51 @@ Two actions require a magic value rather than a `1`, because both are
 destructive and one stray bit in a frame that happened to pass CRC is otherwise
 enough: `CAL_TRIGGER` (`0x003D`) takes an air-point calibration on `0xCA11`, and
 `COMMIT` (`0x003E`) erases and rewrites the config flash page on `0x5AC1`.
+
+### Update block, `0x0050`, 16 registers
+
+The RS-485 firmware updater's control registers, implemented in
+`firmware/src/update.c` and answered by the application and the bootloader
+alike.
+
+| Reg | Name | Meaning |
+|---|---|---|
+| `0x0050` | `UPD_STATUS` | state and last error; bit 15 = the bootloader is answering |
+| `0x0051` | `UPD_BLOCK_MAX` | payload registers accepted in one block (120) |
+| `0x0052` | `UPD_SLOT_HI` | staging slot size, high word |
+| `0x0053` | `UPD_SLOT_LO` | low word |
+| `0x0054` | `UPD_CMD` | command magic: begin `0xB001`, commit `0xB002`, boot `0xB003`, abort `0xB004`, stay `0xB005` |
+| `0x0055` | `UPD_LEN_HI` | declared image length, high word |
+| `0x0056` | `UPD_LEN_LO` | low word |
+| `0x0057` | `UPD_CRC_HI` | declared CRC-32 (zlib), high word |
+| `0x0058` | `UPD_CRC_LO` | low word |
+| `0x0059` | `UPD_RECV_HI` | bytes accepted, high word |
+| `0x005A` | `UPD_RECV_LO` | low word |
+| `0x005B` | `UPD_NEXT_SEQ` | block expected next - how a master resynchronises |
+| `0x005C` | `UPD_LOADER_VER` | bootloader version, 0 when the application answers |
+| `0x005D` | `UPD_IMAGE_VER` | version of the running image |
+| `0x005E` | `UPD_INSTALLS` | installs completed |
+| `0x005F` | `UPD_RESERVED` | 0 |
+
+Every command is a 16-bit magic for the same reason `COMMIT` and `CAL_TRIGGER`
+are: each erases tens of kilobytes of flash or reboots a settled cell, and one
+stray bit in a frame that happened to pass CRC must not be enough.
+
+### Update data window, `0x0080`, 123 registers, write-only
+
+`UPD_DATA` (`0x0080`). One FC16 write is one block — first register the block
+sequence number, the rest image payload, high byte first — capped at 120
+payload registers so a block is a whole number of the 64-bit doublewords this
+part programs. That is 240 bytes on a laptop's dongle and, over the Dragino's
+40-byte `A8` downlink ceiling, 24 bytes on the same protocol.
+
+**The flash map this implies is in `firmware/src/flash_map.h`**: a 16 KiB
+bootloader at `0x08000000`, a 52 KiB run slot at `0x08004000` that the
+application is linked into, a 52 KiB staging slot at `0x08011000`, and A/B
+descriptor pages. `firmware/tools/check_flash_map.py` fails the build if the
+linker scripts or `platformio.ini` disagree with it. There is one staging slot
+and therefore **no automatic rollback**; the bootloader's one-second knock
+window is the recovery path.
 
 **This section is checked mechanically.** `firmware/tools/check_regmap_docs.py`
 parses `src/regmap.h` and fails if the block bases, the block sizes, the primary
@@ -158,9 +322,9 @@ check is not hypothetical.
   additional 0.8 × 16 mm vertical side slots centred at `(101.2,145.0)` and
   `(118.8,145.0)` mm remove lateral coupling over y=137–153 mm. Their upper
   caps are 2.25 mm gasward of the transverse-slot edge, so they are not a
-  16 mm series barrier to the body. A named rule area excludes zone fill on all
-  four copper layers across y=133–135 mm; only the audited 14 track segments
-  and two vias may cross it. The gas-side B.Cu island has a solid
+  16 mm series barrier to the body. A named rule area excludes zone fill on
+  every copper layer across y=133–135 mm; the crossing inventory is re-derived
+  from the routed board rather than fixed at Rev A's 14 segments and two vias. The gas-side B.Cu island has a solid
   `/HEATER_LOW` thermal-spreader zone with voids for both side slots. Cable
   strain relief, expansion-connector chord clearance, ring/membrane carrier,
   and gas volume require the tube/fixture fit check in `PLACEMENT.md`.
@@ -170,8 +334,11 @@ check is not hypothetical.
 - Fit a physical SGX-OX-ROHS-Mini sample before production qualification. The
   released first-article footprint is `SGX-OX-ROHS-Mini_ISS2`; the elongated
   aperture is deliberately a prototype fit feature, not a datasheet dimension.
-- Independently recheck the BMP390 bottom-view numbering and land geometry. The
-  DNP draft follows Bosch DS002 Figure 26 but has not been assembly-qualified.
+- ~~Independently recheck the BMP390 bottom-view numbering and land geometry.~~
+  **Closed by deletion, 2026-09-05.** U14/C23/C24 are gone and
+  `o2-probe:BMP390_LGA10_DRAFT` leaves the project library with them: an
+  unverified land on a released board was the risk, and never fitting it was
+  not a mitigation. I²C `0x76` is free for a future pressure channel.
 - D2 is one Littelfuse `SM712-02HTG` asymmetric RS-485 array in SOT-23:
   pin 1=A, pin 2=B, pin 3=GND, cable-side of R2/R3. It replaces the invalid
   earlier interpretation of SM712 as two independent SMA diodes.
@@ -186,8 +353,11 @@ check is not hypothetical.
   by measuring the `+5V_ANALOG` spectrum around 256 kHz, 1.1 MHz, and PFM burst
   components, plus ADS1119 mean/offset at heater 0%, intermediate, and 100%
   duty. Do not qualify this filter using RMS noise alone.
-- J2 may become a sealed pad field if the Micro-Fit swept envelope does not fit
-  the actual tube.
+- ~~J2 may become a sealed pad field if the Micro-Fit swept envelope does not
+  fit the actual tube.~~ **Closed by deletion, 2026-09-05** — the swept-envelope
+  question cannot be asked of a connector that is not there. A future revision
+  wanting a daughterboard lands a pad field, which is what this gate always
+  permitted.
 - Confirm every exact MPN/package pin map, MCU alternate-function assignment,
   input protection rating, heater steady-state temperature, and component
   ambient rating in the independent review before PCB transfer.
@@ -224,8 +394,11 @@ archive.
 PCB first-article release date: 2026-08-24. `o2-probe.kicad_pcb` is linked to
 the 106-footprint schematic and preserves the exact 20 × 107 mm outline with
 R2 cable-end corners and a square gas end, local y=82 pot line, and SGX centre
-`(10,93.5)`. The four-layer 1.0 mm stack is
-nominal ENIG with 1 oz outer and 0.5 oz inner copper.
+`(10,93.5)`. The stack is two layers on 1.0 mm, nominal ENIG, 1 oz outer
+copper on a 0.93 mm FR-4 core (Fab, 2026-09-05 — it was four layers with 0.5 oz
+inner copper through Rev A). 1.0 mm is not a default: the tube fit, the potting
+fixture and `RING-PCB.md`'s finger envelope all budget the board's own
+thickness, so the layer count changed and the thickness did not.
 
 The tip has no second TMP117. Two horizontal thermal-break slots are centred at
 local y=84.0, immediately gasward of the potting datum; two vertical side slots
@@ -244,15 +417,30 @@ The dense digital cluster places U6 at local `(14.5,44.5)`, rotated 180° in
 the right-side lane beside U5. C8 moves to `(18,37.5)` to preserve a clean U6
 courtyard without separating the analog-LDO output bypass from U3.
 
-CELL_RE remains one 9.652 mm F.Cu segment with no via/test point and a driven
-guard. `repair_guard_fill.py` physically stitches three saved F.Cu fill regions
-on both sides of the trace; the source outline alone is not credited as guard
-copper. The all-layer thermal rule area divides the In2 GND pour into two saved
+CELL_RE remains one 9.723 mm F.Cu segment with no via/test point and a driven
+guard. It runs `(111.00,131.40)` to `(112.54,141.00)`: on 2026-09-01 the
+SGX-OX-ROHS-Mini land pattern was corrected against DS-0637 (Issue 2, with
+Issue 1 agreeing), which places Working on the CENTRE pin, so the RE land moved
+from x=110.00 to x=112.54 and the segment lengthened from 9.652 mm. U7.13 to
+U11.2 is 9.723 mm, still inside the 10 mm budget. `repair_guard_fill.py`
+physically stitches three saved F.Cu fill regions on both sides of the trace;
+the source outline alone is not credited as guard copper. The all-layer thermal rule area divides the In2 GND pour into two saved
 regions, joined only by one explicit 0.15 mm three-segment jog through the left
 web. The heated tip has a solid B.Cu `/HEATER_LOW` spreader immediately gasward of the
 barrier.
-KiCad 10.0.5 reports 0 DRC errors, 0 unconnected items, and 0 parity issues;
-the calibrated audit rejects 33/33 known-bad variants. The
+KiCad 10.0.5 reports 0 DRC errors and 0 unconnected items, and the calibrated
+audit rejects 33/33 known-bad variants. Six schematic-parity findings are
+outstanding and are not from the layout: the footprint Value fields for DZ1,
+Q1, R20, R21, R26 and R27 lag symbol values changed by a separate, in-progress
+schematic edit. They must be back to zero before release.
+**AND THE BOARD IS NOW BEHIND THE SCHEMATIC BY MORE THAN THAT.** The 2026-09-05
+BOM pass (`BOM-REDUCTION.md`) is schematic-side ONLY: `gen_pcb.py` was
+deliberately NOT run, because the working tree holds another session's
+in-progress two-layer layout work in `o2-probe.kicad_pcb`. The board still
+carries J2, U14, C23/C24, R5/R6, R12-R16 and D4/D5/D6, still has R32/C7 in
+0805, and has no J105/J106. Every DRC/parity number in this section predates
+the change. Regenerate and re-measure deliberately, once, when that session
+lands. The
 27 exact courtyard pairs are
 manual-assembly exceptions and legend layers are not exported. See
 `FAB-READINESS.md`, `ASSEMBLY-EXCEPTIONS.md`, and `FAB-NOTES.md` for release

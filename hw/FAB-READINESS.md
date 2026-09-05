@@ -118,6 +118,144 @@ These do not block ordering bare boards, but they do block production:
   Do not submit the bare-board ZIP for turnkey automated PCBA.
 - Run heater open/short/stuck-on protection tests and map ring, membrane, U10,
   U12, SGX body, and ambient temperatures at 0/intermediate/100% drive.
+
+### Heater bench results, 2026-09-04 (first article, RH1/RH2 fitted, no ring)
+
+First energisation of the heater on real hardware. `O2P_HEATER_ENABLE` stays
+**0** in the shipped build; this ran from `env:o2probe_heater_enabled`.
+
+**The TMP117 alert fault test passes, on its register evidence.** Read back
+from the part before the test: `CONFIG = 0x21B0` (therm mode, active-low,
+500 ms, 8x averaging - bit-for-bit the firmware's intent), `THIGH = 0x2A80` =
+**85.00 C**, `TLOW = 0x2800` = **80.00 C**. Writing `THIGH` down to 30.00 C
+against a 35.4 C tip asserted `HIGH_Alert` on the next conversion.
+
+The test was run with the **core halted**, which is stronger than the
+procedure above asks for: `DBGMCU_APB_FZ2 = 0`, so TIM1 keeps generating PWM
+while the CPU is stopped. `TIM1 CR1 = 0x81, CCER = 0x01, CCR1 = 1462/16000`
+were unchanged across the alert, so the MCU was provably still commanding
+9.14 % duty and could not have been what turned the heater off.
+
+Also measured:
+
+- **The rail monitor survives the heater running.** `TIM1_CCER` bit CC1NE read
+  0 with the timer live, so PA7 is not being driven as TIM1_CH1N. This is the
+  hardware form of `o2p_heater_pin_integrity_ok()`, not the flag's own word.
+- **PWM frequency is exact**: ARR 15999, PSC 0 at 16 MHz = 1000.0 Hz.
+- **The load is real**: VIN_MON fell 11960 -> 11914 mV between 0 % and 93 %
+  duty, ~46 mV for the predicted ~80 mA, implying ~0.58 ohm of supply and lead
+  resistance. Bench PSU resolution did not show it; the divider did.
+- **The loop closes.** Duty clamped at `HEATER_MAX_DUTY`, then regulated down
+  19.5 -> 6.2 % as chamber RH fell through setpoint, tip settling near 33.9 C.
+  No runaway, no fault but `SETTLING`.
+- **Detect and recover.** Firmware caught the externally changed `THIGH` within
+  its 10 s re-verification, disarmed, and the interlock forced duty to 0
+  (`faults = 0x8009`). Restoring 85.00/80.00 C cleared `HIGH_Alert` and
+  re-armed within one cycle (`faults = 0x0001`).
+- **The cell is unharmed** by an excursion that peaked at 56.1 C: 100.71 uA and
+  21.06 %vol afterwards, against 100.66 uA / 21.02 %vol before. Raw current
+  moved under 0.1 % across a ~14 K sweep (~36 ppm/K), which is the first
+  empirical support for the `tempco_ppm_per_k = 0` default - suggestive of an
+  internally compensated cell, not a calibrated tempco measurement.
+
+**The cutoff is closed THERMALLY, and no scope was needed.** `DBGMCU_APB_FZ2`
+is 0 (read with `RCC_APBENR1` DBGEN actually set - with the DBGMCU clock gated
+the register reads 0 whatever it holds, which is a trap), so TIM1 keeps
+generating PWM while the core is halted. Freezing only the IWDG
+(`DBGMCU_APB_FZ1` bit 12; without it the 4.1 s watchdog resets the part
+mid-test) allows a 30 s halt:
+
+```
+t= 0s  CCR1=8000/16000  tip=40.46 C  alert=0    <- 50 % duty commanded
+       THIGH -> 30.00 C, core HALTED throughout
+t= 3s  CCR1=8000        tip=40.85 C  alert=1
+t=30s  CCR1=8000        tip=35.59 C  alert=1
+```
+
+The board **cooled 5.3 K in 30 s while the timer still demanded 50 % duty and
+the CPU was stopped**. Only the open-drain ALERT can remove that heat. This is
+better evidence than the trace the procedure asks for: it shows the physical
+outcome rather than a gate voltage, with firmware provably absent.
+
+**Closed by measurement, not by scope:**
+
+- *Vgs adequacy.* The amplitude is a divider - 3.3 V x 100k/110k = 3.0 V from
+  R28/R29 as the contract asserts them - and the question that matters is
+  whether it enhances the FET, which ~80 mA at 93 % duty answers directly.
+- *FET dissipation at 1 kHz.* Bounded by the circuit: the FET is in series with
+  140 ohm on 12 V, so the whole loop can only dissipate 1.03 W, and conduction
+  loss is under a milliwatt at any plausible Rds(on).
+
+**Still open:**
+
+- ~~`heater_pwm_hz` validated to 20 kHz~~ **fixed in c469664**: the ceiling is
+  now 2 kHz, with 20000 pinned as rejected by test so a quiet revert fails.
+  The gate EDGE TIME is still unverified - it has never been on a scope - so
+  raising the ceiling again remains a bench measurement, not an edit.
+- Everything ring- and membrane-side. No ring was fitted. **The heat source
+  stays on the main board**: an earlier Rev B pass deleted RH1/RH2 and moved it
+  to a ring PCB, and that was reverted on 2026-09-05, so the 140 ohm and 1.02 W
+  above are live figures rather than Rev A history.
+
+**`dt_max_k` is an inert interlock, and its unit test cannot see that.** The
+config carries a 4 K tip-above-chamber clamp and
+`test_dt_clamp_binds_and_has_hysteresis` passes - on synthetic inputs. On this
+board U10 (TMP117, tip) and U12 (SHT45, chamber) sit 6.6 mm apart on the same
+front-layer copper, both behind J5: `gen_pcb.py` places them at (10.0, 102.525)
+and (3.5, 101.5). They are one thermal node. Measured across a 30 K excursion,
+|tip - chamber| stayed within 0.4 K at every duty from 0 to 100 %, with the tip
+marginally the COOLER of the two:
+
+```
+duty  50 %   tip 31.06  chamber 31.43   -0.37 K
+duty  93 %   tip 43.49  chamber 43.87   -0.38 K
+duty 100 %   tip 56.10  chamber 56.24   -0.14 K
+```
+
+So the clamp can never bind on real hardware, and no ring would change that -
+the two sensors cannot disagree by construction. This is the same shape as the
+DRDY defect: a fixture proving the design we intended rather than the one we
+built. Real tip overtemperature protection is `TEMP_OVER` at 60 C and the
+TMP117 cutoff at 85 C, both verified above, so nothing is unprotected - but
+`dt_max_k` should be either deleted or re-pointed at two sensors that are
+actually thermally separated.
+
+**The runaway detector had the same blindness, and that mattered more.**
+`HEATER_RUNAWAY` latched on tip-minus-chamber, so the detector written to catch
+a stuck-on FET could not see one: a stuck FET heats the whole tip assembly and
+both sensors rise together. Fixed in **7b021f5** by adding a die-referenced
+test alongside the chamber one - the MCU die sits across the transverse
+barrier and does not follow the tip (-2.2 K at rest, +2.1 K at 4 % duty, and
+tip 56 C against die 28 C at a stuck 100 %). Its +/-5 C absolute accuracy is
+useless for a 4 K clamp but irrelevant against tens of kelvin.
+
+The 10.00 K threshold is **provisional**: 3.4x the widest legitimate zero-duty
+excursion measured, catching stuck duty above roughly 12 % in still air. A pile
+couples far more tightly and the same fault gives a smaller rise, so
+`PILE-THERMAL-TEST.md` is what should replace it. The dT clamp is kept but
+marked inert, so it no longer reads as protection.
+
+**Plant gain, measured.** `heater_ctl.h` says the gain "cannot be characterised
+anywhere but in a real pile", so the shipped kp/ki are placeholders. A fixed
+4.00 % duty step gives a first bench number:
+
+```
+baseline 26.02 C -> settled 30.06 C over 300 s
+=> 1.01 K per % duty, tau ~ 77 s (the cooling curve gives ~62 s)
+```
+
++2 K therefore needs about **2.0 % duty (~21 mW)**. This is the whole-board
+rise in still air with NO ring fitted, measured at the colocated sensor pair;
+with a ring and with airflow in a pile the path is different and the gain will
+be much lower. Treat it as the starting point for tuning, not as the plant.
+
+**Side result: the ADS1119 stale-DRDY drain is verified on hardware.** An
+aborted I2C transfer during this session stranded an unread conversion, and the
+pre-`drain_stale_result()` firmware locked the oxygen channel out permanently
+(`faults 0x8005`, VREF sentinel) exactly as that fix's comment predicts. With
+the fix flashed, a deliberately stranded result - DRDY confirmed high, then a
+START nobody reads, DRDY confirmed low - is recovered with no reset and no
+fault. That is the known-bad calibration for that guard, on silicon.
 - Measure temperatures immediately on both sides of the transverse barrier
   during at least three steady heater-power steps. Treat
   `delta_T / P_electrical` only as a lower bound; qualify the PCB value with

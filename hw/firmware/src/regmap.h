@@ -23,6 +23,7 @@
 #include <stdint.h>
 
 #include "modbus_pdu.h"
+#include "update.h"
 
 /* ---- Primary block: 0x0000, 8 registers ---- */
 enum {
@@ -38,7 +39,7 @@ enum {
 #define O2P_REG_PRIMARY_BASE  0x0000u
 #define O2P_REG_PRIMARY_COUNT 8u
 
-/* ---- Diagnostic block: 0x0010, 16 registers, read-only ---- */
+/* ---- Diagnostic block: 0x0010, 19 registers, read-only ---- */
 enum {
     O2P_REG_VREF_MON_MV  = 0x0010u,
     O2P_REG_VA_MON_MV    = 0x0011u,
@@ -56,31 +57,77 @@ enum {
     O2P_REG_MB_FRAME_ERRS= 0x001Du,
     O2P_REG_I2C_ERRS     = 0x001Eu,
     O2P_REG_EXP_DATA     = 0x001Fu, /* 0xFFFF = no expansion head present */
+    /* Sampled supervision is not proof. The MCU checks the analog rail and the
+     * AFE's register image once a second, so a 3V3A excursion that begins and
+     * recovers between samples is missed entirely - the readback afterwards is
+     * correct and the rail reads normal, while the cell in fact needs another
+     * 15 minutes. These two counters are what makes that visible from a buried
+     * probe: a SETTLE_RESTARTS that climbs without a corresponding fault ever
+     * being caught in an uplink is the signature of exactly that. */
+    O2P_REG_SETTLE_RESTARTS = 0x0020u,
+    /* Increments on every published cycle. A master that sees this frozen
+     * across two polls knows the sampler has stalled even though every other
+     * register still holds a plausible value. */
+    O2P_REG_SAMPLE_SEQ      = 0x0021u,
+    /* MCU die temperature, i16 0.01 C, 0x8000 invalid. Not an ambient
+     * reading and not part of the oxygen path - it is the die, self-heating
+     * included, at about +/-5 C. It is here because it is the only
+     * temperature on the board that does not depend on I2C1: when T_TIP and
+     * T_CHAMBER disagree with it, or vanish together, that is the bus, not
+     * the weather. */
+    O2P_REG_T_DIE           = 0x0022u,
+    /* Every fault bit seen since power-up, never cleared.
+     *
+     * O2P_REG_FAULTS holds what is wrong now (plus a short latch, see
+     * O2P_FAULT_LATCH_S). That is the right thing to act on and the wrong
+     * thing to diagnose from: a probe that glitched once a month ago and one
+     * that is glitching every hour both read clean between events. This
+     * register is the difference between them. */
+    O2P_REG_FAULTS_EVER     = 0x0023u,
+    /* Cycles in which the ADS1119 delivered no conversion at all
+     * (O2P_FAULTS_ADS_NO_CONVERSION), saturating at 0xFFFF.
+     *
+     * The latch guarantees such an event is SEEN; this counts how often. A
+     * rate is what separates a one-off from a failing part, and the latch
+     * self-clears, so without this the count is lost. */
+    O2P_REG_ADS_FAIL_COUNT  = 0x0024u,
 };
 #define O2P_REG_DIAG_BASE  0x0010u
-#define O2P_REG_DIAG_COUNT 16u
+#define O2P_REG_DIAG_COUNT 21u
 
-/* ---- Config block: 0x0020, 16 registers, read/write, flash-backed ---- */
+/* ---- Config block: 0x0030, 18 registers, read/write, flash-backed ---- */
 enum {
-    O2P_REG_SLAVE_ADDR      = 0x0020u,
-    O2P_REG_BAUD_CODE       = 0x0021u,
-    O2P_REG_PARITY_CODE     = 0x0022u,
-    O2P_REG_RH_SETPOINT     = 0x0023u, /* 0.01 %RH, v1 heater loop target */
-    O2P_REG_DT_MAX_K        = 0x0024u, /* 0.01 K, tip-above-chamber clamp */
-    O2P_REG_HEATER_MAX_DUTY = 0x0025u, /* 0.01 % */
-    O2P_REG_HEATER_PWM_HZ   = 0x0026u,
-    O2P_REG_CAL_AIR_NA_HI   = 0x0027u,
-    O2P_REG_CAL_AIR_NA_LO   = 0x0028u,
-    O2P_REG_CAL_TEMP_C100   = 0x0029u, /* i16 */
-    O2P_REG_TEMPCO_PPM_K    = 0x002Au, /* i16 ppm/K; 0 = no compensation */
-    O2P_REG_SHT_PULSE_H     = 0x002Bu,
-    O2P_REG_SHT_PULSE_TRIG  = 0x002Cu,
-    O2P_REG_CAL_TRIGGER     = 0x002Du, /* write O2P_CAL_MAGIC to take an air point */
-    O2P_REG_COMMIT          = 0x002Eu, /* write O2P_COMMIT_MAGIC to persist */
-    O2P_REG_CONFIG_CRC      = 0x002Fu, /* read-only CRC of the live config */
+    O2P_REG_SLAVE_ADDR      = 0x0030u,
+    O2P_REG_BAUD_CODE       = 0x0031u,
+    O2P_REG_PARITY_CODE     = 0x0032u,
+    O2P_REG_RH_SETPOINT     = 0x0033u, /* 0.01 %RH, v1 heater loop target */
+    O2P_REG_DT_MAX_K        = 0x0034u, /* 0.01 K, tip-above-chamber clamp */
+    O2P_REG_HEATER_MAX_DUTY = 0x0035u, /* 0.01 % */
+    O2P_REG_HEATER_PWM_HZ   = 0x0036u,
+    O2P_REG_CAL_AIR_NA_HI   = 0x0037u,
+    O2P_REG_CAL_AIR_NA_LO   = 0x0038u,
+    O2P_REG_CAL_TEMP_C100   = 0x0039u, /* i16 */
+    O2P_REG_TEMPCO_PPM_K    = 0x003Au, /* i16 ppm/K; 0 = no compensation */
+    O2P_REG_SHT_PULSE_H     = 0x003Bu,
+    O2P_REG_SHT_PULSE_TRIG  = 0x003Cu,
+    O2P_REG_CAL_TRIGGER     = 0x003Du, /* write O2P_CAL_MAGIC to take an air point */
+    O2P_REG_COMMIT          = 0x003Eu, /* write O2P_COMMIT_MAGIC to persist */
+    O2P_REG_CONFIG_CRC      = 0x003Fu, /* read-only CRC of the live config */
+    /* PI gains, 0.01 units. These are registers rather than compile-time
+     * constants for one reason: the plant they tune cannot be characterised
+     * anywhere but in a real pile. THERMAL-BARRIER.md bounds the PCB
+     * conduction path only, not ring-to-gas, so the shipped values are
+     * starting points and nothing more.
+     *
+     * The alternative was reflashing to change a number, and post-pot that
+     * means the RS-485 bootloader plus a full image transfer. Two register
+     * writes with a laptop at the node is the difference between tuning the
+     * loop and not tuning it. */
+    O2P_REG_HEATER_KP       = 0x0040u, /* proportional gain x100 */
+    O2P_REG_HEATER_KI       = 0x0041u, /* integral gain x100, per second */
 };
-#define O2P_REG_CONFIG_BASE  0x0020u
-#define O2P_REG_CONFIG_COUNT 16u
+#define O2P_REG_CONFIG_BASE  0x0030u
+#define O2P_REG_CONFIG_COUNT 18u
 
 /* Deliberate magics rather than "write 1". A flash cycle and a recalibration
  * are both destructive and both are one stray bit away in a noisy RS-485
@@ -114,10 +161,12 @@ typedef struct {
     int16_t  cal_temp_c100;           /* 12 */
     int16_t  tempco_ppm_per_k;        /* 14 */
     uint16_t sht_pulse_interval_h;    /* 16 */
-    uint8_t  slave_addr;              /* 18 */
-    uint8_t  baud_code;               /* 19 */
-    uint8_t  parity_code;             /* 20 */
-    uint8_t  reserved[3];             /* 21..23 */
+    uint16_t heater_kp_x100;          /* 18 */
+    uint16_t heater_ki_x100;          /* 20 */
+    uint8_t  slave_addr;              /* 22 */
+    uint8_t  baud_code;               /* 23 */
+    uint8_t  parity_code;             /* 24 */
+    uint8_t  reserved[3];             /* 25..27 */
 } o2p_config_t;
 
 /* Live measurement snapshot, published atomically by the sampler. */
@@ -144,7 +193,19 @@ typedef struct {
     uint16_t mb_frame_errs;
     uint16_t i2c_errs;
     uint16_t exp_data;
+    uint16_t settle_restarts;
+    uint16_t sample_seq;
+    int16_t  t_die;
+    uint16_t faults_ever;
+    uint16_t ads_fail_count;
 } o2p_snapshot_t;
+
+/* Reset every channel to its invalid sentinel. The sampler calls this at the
+ * START of each cycle rather than copying the previous snapshot forward, so a
+ * channel whose read failed this cycle CANNOT publish last cycle's plausible
+ * value under this cycle's fault word. Carrying values forward is the classic
+ * way a dead sensor keeps looking alive. */
+void o2p_snapshot_reset(o2p_snapshot_t *s);
 
 typedef struct {
     o2p_snapshot_t buf[2];
@@ -158,6 +219,14 @@ typedef struct {
     volatile bool commit_pending;
     volatile bool cal_requested;
     volatile bool sht_pulse_requested;
+
+    /* The firmware updater, or NULL. It is reached through the register map
+     * because that is where a Modbus master reaches everything - but it is
+     * deliberately not PART of the register map: the update engine is shared
+     * verbatim with the bootloader, which has no configuration, no snapshot
+     * and no sampler. When this is NULL the update blocks answer exception 02
+     * exactly as any other undefined address does. */
+    o2p_update_t *upd;
 } o2p_regmap_t;
 
 void o2p_regmap_init(o2p_regmap_t *rm);

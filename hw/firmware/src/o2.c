@@ -4,18 +4,11 @@
 #include <math.h>
 #include <stddef.h>
 
-/* An air point must look like an air point. DS-0637 gives 0.07 +/- 0.03 mA,
- * so 40-100 uA is the datasheet population. We accept a wider 20-200 uA
- * window because the cell ages downward and the TIA has headroom to 152 uA at
- * 30 % O2 - but a reading outside it is a wiring, bias or gas fault, not a
- * calibration, and accepting it would bake that fault into every later
- * reading. */
-#define O2P_AIR_CAL_MIN_NA  20000
-#define O2P_AIR_CAL_MAX_NA 200000
-
 bool o2p_calibrate_air(o2p_cal_t *cal, int32_t cell_na, int16_t temp_c100)
 {
-    if (cell_na < O2P_AIR_CAL_MIN_NA || cell_na > O2P_AIR_CAL_MAX_NA) {
+    /* A bad calibration must never overwrite a good one, so an implausible
+     * air point is rejected rather than stored. */
+    if (!o2p_cal_air_plausible(cell_na)) {
         return false;
     }
     cal->cal_air_na = cell_na;

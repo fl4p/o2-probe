@@ -16,10 +16,11 @@
 #define O2P_HW_PIN_10_NET "NRST"
 #define O2P_HW_PIN_13_NET "UART2_TX"
 #define O2P_HW_PIN_14_NET "UART2_RX"
+#define O2P_HW_PIN_15_NET "CE_MON"
+#define O2P_HW_PIN_17_NET "VIN_MON"
 #define O2P_HW_PIN_18_NET "VA_MON"
 #define O2P_HW_PIN_19_NET "AFE_MENB"
 #define O2P_HW_PIN_20_NET "ADC_DRDY"
-#define O2P_HW_PIN_21_NET "EXP_INT"
 #define O2P_HW_PIN_28_NET "HEATER_PWM"
 #define O2P_HW_PIN_29_NET "RS485_TX"
 #define O2P_HW_PIN_30_NET "RS485_DE"
@@ -33,7 +34,7 @@
 #define O2P_HW_NET_3V3D_PIN 4
 #define O2P_HW_NET_ADC_DRDY_PIN 20
 #define O2P_HW_NET_AFE_MENB_PIN 19
-#define O2P_HW_NET_EXP_INT_PIN 21
+#define O2P_HW_NET_CE_MON_PIN 15
 #define O2P_HW_NET_GND_PIN 7
 #define O2P_HW_NET_HEATER_PWM_PIN 28
 #define O2P_HW_NET_I2C_SCL_PIN 45
@@ -48,32 +49,63 @@
 #define O2P_HW_NET_UART2_RX_PIN 14
 #define O2P_HW_NET_UART2_TX_PIN 13
 #define O2P_HW_NET_VA_MON_PIN 18
+#define O2P_HW_NET_VIN_MON_PIN 17
 
 /* ---- Resistive dividers the firmware converts with ---- */
-/* ADS1119 AIN3 <- +12V_SW: R26 82000 / R27 10000 */
+/* MCU ADC1_IN6 (PA6) <- +12V_SW: R26 91000 / R27 10000 */
 #define O2P_HW_DIV_VIN_NUM   10000
-#define O2P_HW_DIV_VIN_DEN   92000
-/* ADS1119 AIN2 and MCU ADC1_IN7 <- 3V3A: R24 10000 / R25 10000 */
-#define O2P_HW_DIV_VA_NUM    10000
-#define O2P_HW_DIV_VA_DEN    20000
+#define O2P_HW_DIV_VIN_DEN   101000
+/* MCU ADC1_IN7 (PA7) <- 3V3A: R24 47000 / R25 47000 */
+#define O2P_HW_DIV_VA_NUM    47000
+#define O2P_HW_DIV_VA_DEN    94000
 /* ADS1119 AIN1 <- VREF_TRIM: R34 47000 / R35 47000 */
 #define O2P_HW_DIV_VREF_NUM  47000
 #define O2P_HW_DIV_VREF_DEN  94000
-/* Driven guard replica of CELL_RE: R22 10000 / R23 100000 */
-#define O2P_HW_DIV_GUARD_NUM 100000
-#define O2P_HW_DIV_GUARD_DEN 110000
+/* MCU ADC1_IN4 (PA4) <- CELL_CE_DRV (U7 pin 14): R43 91000 / R44 91000 */
+#define O2P_HW_DIV_CE_NUM    91000
+#define O2P_HW_DIV_CE_DEN    182000
+/* CE fault-current limit, in the loop; scales nothing, bounds the budget. */
+#define O2P_HW_CE_SERIES_OHM 100
+/* SNAS506 6.5 characterises A1's drive only over 300 mV <= VCE <= VS-300 mV.
+ * Outside this the amplifier is simply not specified, so treat it as a
+ * fault, not as a reading.  VS is 3V3A, whose WORST-CASE LOW corner is
+ * 3234 mV (DESIGN.md), so the characterised ceiling is 2934 mV -- not the
+ * 3000 mV this used to hard-code, which sat 66 mV outside the specified
+ * range whenever the rail was at its low limit. */
+#define O2P_HW_CE_COMPLIANCE_MIN_MV 300
+#define O2P_HW_CE_COMPLIANCE_MAX_MV 2934
+/* No guard divider: the guard is driven from the RE follower U4B through
+ * R40, so it tracks the real electrode instead of a 0.909 x VREF replica. */
 
-/* ---- VREF_TRIM adjustment range (R20 + RV1 rheostat + R21, 3V3A) ---- */
-/* Bench trim target is 2.500 V: the LMP91000's 24 % bias step must land on
- * the SGX cell's -600 +/- 10 mV window, so VREF is a MANUAL bench step that
- * firmware can only verify, never set. */
-#define O2P_HW_VREF_MIN_MV     2357
-#define O2P_HW_VREF_MAX_MV     2750
+/* ---- Cell bias telemetry (ADS1119 AIN2/AIN3, differential) ---- */
+/* CORRECTED 2026-09-04. The old note here claimed the bias step carries
+ * +/-2 % of VREF, about +/-50 mV against a +/-10 mV cell window. That
+ * misreads SNAS506I: the +/-2 % figure is Bias Programming RESOLUTION, not
+ * accuracy. The accuracy parameter is VOS_RW, +/-1750 uV MAX at 24 % bias,
+ * which is INSIDE the SGX window -- confirmed on the bench 2026-09-04 at
+ * 597 mV measured against 598.56 mV commanded.
+ * So this pair is not a trim aid and never was. It is an EXISTENCE check:
+ * is the cell biased at all. On 2026-09-04 the LMP91000's control amplifier
+ * A1 failed outright and no converter on the board could see it. Read
+ * AIN2-AIN3 differentially, and compare against the COMMANDED bias with a
+ * window -- a floating input converts cleanly and in range, so a clip check
+ * does not catch it. */
+#define O2P_HW_BIAS_ADC_CH_WE  2
+#define O2P_HW_BIAS_ADC_CH_RE  3
+
+/* ---- VREF: U15 AZ431B 2.5 V shunt reference, NOT adjustable ---- */
+/* There is no trimmer. Firmware verifies the reference is within its own
+ * guaranteed window and reports the measured cell bias separately; it can
+ * neither set VREF nor correct the bias by moving it. */
+#define O2P_HW_VREF_MIN_MV     2480
+#define O2P_HW_VREF_MAX_MV     2520
 #define O2P_HW_VREF_TARGET_MV  2500
-/* 2.500 V lands at RV1 = 1200 ohm of 2000 ohm travel */
 
 /* ---- Membrane-ring heater ---- */
-#define O2P_HW_HEATER_OHM      140   /* RH1 || RH2 */
+/* Main-board heater: RH1||RH2, bench-confirmed 140 ohm / 1.02 W at 12 V.
+ * A ring PCB, when it exists, PARALLELS these through J5 -- it does not
+ * replace them, so this is the floor of the load, not the whole of it. */
+#define O2P_HW_HEATER_OHM    140
 #define O2P_HW_HEATER_GATE_R_SERIES 10000   /* R28, PA8 -> gate */
 #define O2P_HW_HEATER_GATE_R_PULLDN 100000   /* R29, passive default-off */
 

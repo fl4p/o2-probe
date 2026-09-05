@@ -38,21 +38,114 @@ enum {
     O2P_F_DEW_SUSPECT         = 1u << 10,
     O2P_F_ADC_RANGE           = 1u << 11, /* converter saturated or out of window */
     O2P_F_CAL_DEFAULT         = 1u << 12, /* running on datasheet nominal, not a cal */
-    O2P_F_EXP_PRESENT         = 1u << 13,
-    O2P_F_EXP_FAIL            = 1u << 14,
+    /* DRDY was low before a conversion was started and did not release when
+     * drained. Distinct from I2C_FAIL_ADS on purpose: the bus can be
+     * perfectly healthy while this pin is not, and reporting a pin failure as
+     * a bus failure is what sent a healthy ADS1119 back as scrap. Bit 13 was
+     * EXP_PRESENT, reserved for the J2 expansion header, which is DNP on
+     * Rev A and written by no code - see FIRMWARE.md. */
+    O2P_F_ADS_DRDY_STUCK      = 1u << 13,
+    /* The ADS1119's config register did not read back as written. Distinct
+     * from I2C_FAIL_ADS because the bus demonstrably WORKED - the readback
+     * completed, it just disagreed - and distinct from AFE_CONFIG_MISMATCH,
+     * which is the LMP91000's. This says: the thing at 0x40 is not storing
+     * configuration, so it is either failing or is not an ADS1119. Making the
+     * check reachable at run time (ads1119.c) without giving it a bit of its
+     * own would have left it indistinguishable from one NACK. Bit 14 was
+     * EXP_FAIL, for the J2 header that is DNP on Rev A. */
+    O2P_F_ADS_CONFIG_LOST     = 1u << 14,
     O2P_F_HEATER_DISABLED     = 1u << 15, /* always set in v0 */
 };
 
-/* Any one of these means the oxygen channel cannot be trusted at all, so the
- * O2 registers must read their invalid sentinel rather than a plausible
- * number. Note what is deliberately absent: TEMP_OVER and CAL_DEFAULT. */
+/* Two masks, because the raw cell current and the compensated volume fraction
+ * fail for different reasons.
+ *
+ * O2_RAW is a physical measurement of the cell: microamps through a known
+ * transimpedance. It is meaningful with no calibration at all, and it is the
+ * channel the bench uses to resolve the open sign-convention gate.
+ *
+ * O2_COMP is that current divided by a calibration constant. Without an air
+ * point there IS no constant - the datasheet nominal spans 0.04 to 0.10 mA,
+ * so a substituted nominal can be wrong by -43 % to +43 %. A number that may
+ * be 43 % out is not "lower-confidence data", it is an unknown scale factor
+ * wearing the units of a measurement, and 12 %vol against a true 21 %vol is
+ * indistinguishable from a real, alarming result. So CAL_DEFAULT invalidates
+ * the compensated channel while leaving the raw one intact. */
 #define O2P_FAULTS_INVALIDATE_O2 ( \
       O2P_F_SETTLING            \
     | O2P_F_I2C_FAIL_LMP        \
     | O2P_F_I2C_FAIL_ADS        \
     | O2P_F_AFE_CONFIG_MISMATCH \
     | O2P_F_VA_LOW              \
+    | O2P_F_ADS_DRDY_STUCK      \
+    | O2P_F_ADS_CONFIG_LOST     \
     | O2P_F_ADC_RANGE )
+
+/* Everything above, plus the reasons the CONVERSION cannot be trusted even
+ * when the current reading is fine. */
+#define O2P_FAULTS_INVALIDATE_O2_COMP ( \
+      O2P_FAULTS_INVALIDATE_O2 \
+    | O2P_F_CAL_DEFAULT )
+
+/* "The ADS1119 did not deliver a conversion this phase", for the callers that
+ * must not compute from an abandoned accumulator. This mask exists because
+ * splitting DRDY out of I2C_FAIL_ADS silently broke every site that tested the
+ * single bit: they would have fallen through on a DRDY failure and divided a
+ * zeroed g_acc into a plausible-looking reading. Test the MASK, never one bit,
+ * so the next status added here cannot reintroduce that. */
+#define O2P_FAULTS_ADS_NO_CONVERSION ( \
+      O2P_F_I2C_FAIL_ADS   \
+    | O2P_F_ADS_DRDY_STUCK \
+    | O2P_F_ADS_CONFIG_LOST )
+
+/* Faults that are real but too BRIEF to survive to a poll.
+ *
+ * The fault word is rebuilt from zero every second by cycle_begin(), and a
+ * buried probe is polled about every five minutes. A converter fault that
+ * lasts one cycle is therefore published for one second in three hundred and
+ * is invisible upstream roughly 299 times out of 300 - which makes every
+ * guard that raises one of these bits effectively undetectable in the field,
+ * however correct it is on the bench.
+ *
+ * These bits are consequently LATCHED into the published word for a window
+ * longer than one poll interval (see O2P_FAULT_LATCH_S). Only bits that are
+ * both transient and consequential belong here. SETTLING does not: it already
+ * lasts minutes. Nor do the steady-state I2C failures of sensors that will
+ * still be failing at the next poll. What belongs here is the set that can
+ * appear and vanish inside a single cycle while invalidating the oxygen
+ * reading for that cycle. */
+#define O2P_FAULTS_LATCHED ( \
+      O2P_FAULTS_ADS_NO_CONVERSION \
+    | O2P_F_ADC_RANGE )
+
+/* How long a latched bit stays in the published word.
+ *
+ * It must EXCEED one poll interval or the event it preserves can still fall
+ * between two polls. The deployment polls these probes about every five
+ * minutes over LoRa, so this is one nominal interval plus 10 %. The probe
+ * cannot see its own poll interval - it is a Modbus slave and speaks only
+ * when spoken to - so this is a constant with an assumption attached, not
+ * something derivable at runtime. A deployment polling more slowly must raise
+ * it; the only cost of raising it is that a cleared fault reads as present
+ * for longer. */
+#define O2P_FAULT_LATCH_S 330u
+
+typedef struct {
+    uint16_t bits;      /* currently held */
+    uint32_t until_s;   /* uptime at which they expire */
+} o2p_fault_latch_t;
+
+/* Fold this cycle's faults into the latch and return the word to PUBLISH.
+ *
+ * Pure and separated from the sampler, because this is the function that
+ * decides whether a buried probe ever reports a converter fault at all, and
+ * the interesting cases - a fault still present at its own expiry, a second
+ * fault arriving mid-window, the uptime counter wrapping - are ones you want
+ * to be able to construct on a host rather than provoke on a bench.
+ *
+ * `now_s` is the probe's uptime in seconds. */
+uint16_t o2p_fault_latch_step(o2p_fault_latch_t *l, uint16_t cycle_faults,
+                              uint32_t now_s);
 
 /* The chamber channels have their own dependencies: RH and chamber
  * temperature come from the SHT45, tip temperature from the TMP117. */
@@ -72,9 +165,16 @@ enum {
 #define O2P_U16_INVALID 0xFFFFu
 #define O2P_I16_INVALID ((int16_t)0x8000)
 
+/* Is the raw cell-current channel trustworthy? */
 static inline bool o2p_o2_valid(uint16_t faults)
 {
     return (faults & O2P_FAULTS_INVALIDATE_O2) == 0u;
+}
+
+/* Is the compensated %vol channel trustworthy? */
+static inline bool o2p_o2_comp_valid(uint16_t faults)
+{
+    return (faults & O2P_FAULTS_INVALIDATE_O2_COMP) == 0u;
 }
 
 #endif /* O2P_FAULTS_H */

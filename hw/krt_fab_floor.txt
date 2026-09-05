@@ -1,0 +1,21 @@
+# KiCadRoutingTools fab floor for o2-probe.
+#
+# Supplying this file PINS the floor and disables KRT's automatic
+# standard->advanced escalation, so the router cannot quietly route below the
+# numbers gen_pcb.py writes into the board and ROUTING.md publishes.
+#
+# Measured 2026-09-05: without it, a pass invoked with --clearance 0.15 still
+# produced 46 segments at 0.0889 mm on /3V3D, /I2C_SDA and /LMP_C2 and then
+# rewrote the project's own Board Setup down to match -- min_track_width
+# 0.09 -> 0.0889, min_clearance 0.15 -> 0.10 -- which makes KiCad's DRC read
+# clean against the router's floor instead of the fab's.  Always pair this with
+# --no-fix-drc-settings.
+#
+# These are the numbers already published in ROUTING.md: a 0.09 mm track floor,
+# 0.15 mm clearance, 0.20 mm copper-to-edge, and 0.25/0.15 mm advanced vias.
+via_diameter = 0.25
+via_drill    = 0.15
+clearance    = 0.15
+track_width  = 0.09
+hole_to_hole = 0.20
+board_edge   = 0.20

@@ -36,4 +36,14 @@ bool o2p_modbus_tx_busy(void);
 uint16_t o2p_modbus_crc_errors(void);
 uint16_t o2p_modbus_frame_errors(void);
 
+/* True if the RS-485 driver has been enabled for far longer than any frame
+ * could take. PC6 drives DE and ~RE together, so a stuck-high PC6 does not
+ * merely mute this probe - it drives the shared cable and silences the two
+ * SMT100s as well. Software cannot be its own last line of defence here: the
+ * backstop timer lives in the same CPU that would have to be wedged for the
+ * TC interrupt to have been missed. main() therefore stops feeding the
+ * watchdog when this is true, so the reset - and R7's 47k pull-down on DE -
+ * becomes the release path that does not depend on this CPU running code. */
+bool o2p_modbus_bus_jam_suspected(void);
+
 #endif /* O2P_MODBUS_RTU_H */

@@ -1878,7 +1878,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(property "Reference" "U" (at -5.08 15.24 0) (effects (font (size 1.27 1.27))))
+		(property "Reference" "U" (at -5.08 17.78 0) (effects (font (size 1.27 1.27))))
 		(property "Value" "ADS1119" (at 5.08 15.24 0) (effects (font (size 1.27 1.27)) (justify right)))
 		(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
 		(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
@@ -1910,7 +1910,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(property "Reference" "U" (at -5.08 7.62 0) (effects (font (size 1.27 1.27))))
+		(property "Reference" "U" (at -5.08 10.16 0) (effects (font (size 1.27 1.27))))
 		(property "Value" "AP63205WU" (at 5.08 7.62 0) (effects (font (size 1.27 1.27)) (justify right)))
 		(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
 		(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
@@ -1926,12 +1926,197 @@
 		)
 		(embedded_fonts no)
 	)
+	(symbol "AZ431_SOT23"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "U"
+				(at -2.54 2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "TL431DBZ"
+				(at 0 -2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
+				(at 0 -4.826 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+						(italic yes)
+					)
+				)
+			)
+			(property "Datasheet" "http://www.ti.com/lit/ds/symlink/tl431.pdf"
+				(at 1.778 -9.144 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+						(italic yes)
+					)
+				)
+			)
+			(property "Description" "Shunt Regulator, SOT-23"
+				(at 0 -7.112 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "diode device shunt regulator"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "SOT?23*"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "AZ431_SOT23_0_1"
+				(polyline
+					(pts
+						(xy -1.27 0) (xy 0 0) (xy 1.27 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.762 -0.762) (xy -0.762 0.762) (xy 0.762 0) (xy -0.762 -0.762)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.254 -0.762) (xy 0.762 -0.762) (xy 0.762 0.762) (xy 0.762 0.762)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "AZ431_SOT23_1_1"
+				(pin passive line
+					(at 2.54 0 180)
+					(length 2.54)
+					(name "K"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 2.54 270)
+					(length 2.54)
+					(name "REF"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -2.54 0 0)
+					(length 2.54)
+					(name "A"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 	(symbol "BMP390"
 		(pin_names (offset 0.508))
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(property "Reference" "U" (at -5.08 10.16 0) (effects (font (size 1.27 1.27))))
+		(property "Reference" "U" (at -5.08 12.7 0) (effects (font (size 1.27 1.27))))
 		(property "Value" "BMP390" (at 5.08 10.16 0) (effects (font (size 1.27 1.27)) (justify right)))
 		(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
 		(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
@@ -1956,7 +2141,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(property "Reference" "J" (at -5.08 7.62 0) (effects (font (size 1.27 1.27))))
+		(property "Reference" "J" (at -5.08 10.16 0) (effects (font (size 1.27 1.27))))
 		(property "Value" "CONN_01x04" (at 5.08 7.62 0) (effects (font (size 1.27 1.27)) (justify right)))
 		(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
 		(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
@@ -1975,7 +2160,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(property "Reference" "J" (at -5.08 10.16 0) (effects (font (size 1.27 1.27))))
+		(property "Reference" "J" (at -5.08 12.7 0) (effects (font (size 1.27 1.27))))
 		(property "Value" "CONN_02x03" (at 5.08 10.16 0) (effects (font (size 1.27 1.27)) (justify right)))
 		(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
 		(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
@@ -1996,7 +2181,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(property "Reference" "J" (at -5.08 12.7 0) (effects (font (size 1.27 1.27))))
+		(property "Reference" "J" (at -5.08 15.24 0) (effects (font (size 1.27 1.27))))
 		(property "Value" "CONN_02x04" (at 5.08 12.7 0) (effects (font (size 1.27 1.27)) (justify right)))
 		(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
 		(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
@@ -2019,7 +2204,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(property "Reference" "J" (at -5.08 7.62 0) (effects (font (size 1.27 1.27))))
+		(property "Reference" "J" (at -5.08 10.16 0) (effects (font (size 1.27 1.27))))
 		(property "Value" "FARM_CABLE_4" (at 5.08 7.62 0) (effects (font (size 1.27 1.27)) (justify right)))
 		(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
 		(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
@@ -2033,28 +2218,12 @@
 		)
 		(embedded_fonts no)
 	)
-	(symbol "HEATED_MEMBRANE_RING"
-		(pin_names (offset 0.508))
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(property "Reference" "J" (at -5.08 7.62 0) (effects (font (size 1.27 1.27))))
-		(property "Value" "HEATED_MEMBRANE_RING" (at 5.08 7.62 0) (effects (font (size 1.27 1.27)) (justify right)))
-		(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
-		(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
-		(property "Description" "Manual-solder metal membrane carrier and heat spreader" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
-		(symbol "HEATED_MEMBRANE_RING_0_1" (rectangle (start -5.08 5.08) (end 5.08 -5.08) (stroke (width 0.254) (type default)) (fill (type background))))
-		(symbol "HEATED_MEMBRANE_RING_1_1"
-			(pin passive line (at -7.62 0 0) (length 2.54) (name "HEATER_LOW" (effects (font (size 1.0 1.0)))) (number "1" (effects (font (size 1.0 1.0)))))
-		)
-		(embedded_fonts no)
-	)
 	(symbol "LMP91000"
 		(pin_names (offset 0.508))
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(property "Reference" "U" (at -5.08 13.97 0) (effects (font (size 1.27 1.27))))
+		(property "Reference" "U" (at -5.08 16.51 0) (effects (font (size 1.27 1.27))))
 		(property "Value" "LMP91000" (at 5.08 13.97 0) (effects (font (size 1.27 1.27)) (justify right)))
 		(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
 		(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
@@ -2084,7 +2253,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(property "Reference" "U" (at -5.08 8.89 0) (effects (font (size 1.27 1.27))))
+		(property "Reference" "U" (at -5.08 11.43 0) (effects (font (size 1.27 1.27))))
 		(property "Value" "OPA2333" (at 5.08 8.89 0) (effects (font (size 1.27 1.27)) (justify right)))
 		(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
 		(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
@@ -2102,12 +2271,29 @@
 		)
 		(embedded_fonts no)
 	)
+	(symbol "RING_PCB_FORK_TIP"
+		(pin_names (offset 0.508))
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(property "Reference" "J" (at -5.08 10.16 0) (effects (font (size 1.27 1.27))))
+		(property "Value" "RING_PCB_FORK_TIP" (at 5.08 7.62 0) (effects (font (size 1.27 1.27)) (justify right)))
+		(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
+		(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
+		(property "Description" "Solder lands at the two fork-finger tips for the perpendicular heater ring PCB" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
+		(symbol "RING_PCB_FORK_TIP_0_1" (rectangle (start -5.08 5.08) (end 5.08 -5.08) (stroke (width 0.254) (type default)) (fill (type background))))
+		(symbol "RING_PCB_FORK_TIP_1_1"
+			(pin passive line (at -7.62 0 0) (length 2.54) (name "HTR_HI" (effects (font (size 1.0 1.0)))) (number "1" (effects (font (size 1.0 1.0)))))
+			(pin passive line (at 7.62 0 180) (length 2.54) (name "HTR_LO" (effects (font (size 1.0 1.0)))) (number "2" (effects (font (size 1.0 1.0)))))
+		)
+		(embedded_fonts no)
+	)
 	(symbol "SGX_OX_MINI"
 		(pin_names (offset 0.508))
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(property "Reference" "U" (at -5.08 7.62 0) (effects (font (size 1.27 1.27))))
+		(property "Reference" "U" (at -5.08 10.16 0) (effects (font (size 1.27 1.27))))
 		(property "Value" "SGX_OX_MINI" (at 5.08 7.62 0) (effects (font (size 1.27 1.27)) (justify right)))
 		(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
 		(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
@@ -2125,7 +2311,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(property "Reference" "U" (at -5.08 7.62 0) (effects (font (size 1.27 1.27))))
+		(property "Reference" "U" (at -5.08 10.16 0) (effects (font (size 1.27 1.27))))
 		(property "Value" "SHT45_AD1F" (at 5.08 7.62 0) (effects (font (size 1.27 1.27)) (justify right)))
 		(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
 		(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
@@ -2144,7 +2330,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(property "Reference" "D" (at -5.08 7.62 0) (effects (font (size 1.27 1.27))))
+		(property "Reference" "D" (at -5.08 10.16 0) (effects (font (size 1.27 1.27))))
 		(property "Value" "SM712" (at 5.08 7.62 0) (effects (font (size 1.27 1.27)) (justify right)))
 		(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
 		(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
@@ -2162,7 +2348,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(property "Reference" "U" (at -5.08 34.29 0) (effects (font (size 1.27 1.27))))
+		(property "Reference" "U" (at -5.08 36.83 0) (effects (font (size 1.27 1.27))))
 		(property "Value" "STM32G071CBT7" (at 5.08 34.29 0) (effects (font (size 1.27 1.27)) (justify right)))
 		(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
 		(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
@@ -2225,7 +2411,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(property "Reference" "U" (at -5.08 8.89 0) (effects (font (size 1.27 1.27))))
+		(property "Reference" "U" (at -5.08 11.43 0) (effects (font (size 1.27 1.27))))
 		(property "Value" "THVD1410DR" (at 5.08 8.89 0) (effects (font (size 1.27 1.27)) (justify right)))
 		(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
 		(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
@@ -2248,7 +2434,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(property "Reference" "U" (at -5.08 8.89 0) (effects (font (size 1.27 1.27))))
+		(property "Reference" "U" (at -5.08 11.43 0) (effects (font (size 1.27 1.27))))
 		(property "Value" "TMP117" (at 5.08 8.89 0) (effects (font (size 1.27 1.27)) (justify right)))
 		(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
 		(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
@@ -2270,7 +2456,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(property "Reference" "U" (at -5.08 7.62 0) (effects (font (size 1.27 1.27))))
+		(property "Reference" "U" (at -5.08 10.16 0) (effects (font (size 1.27 1.27))))
 		(property "Value" "TPS7A2033PDBV" (at 5.08 7.62 0) (effects (font (size 1.27 1.27)) (justify right)))
 		(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
 		(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
@@ -2290,7 +2476,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(property "Reference" "D" (at -5.08 7.62 0) (effects (font (size 1.27 1.27))))
+		(property "Reference" "D" (at -5.08 10.16 0) (effects (font (size 1.27 1.27))))
 		(property "Value" "TVS_ARRAY_2CH" (at 5.08 7.62 0) (effects (font (size 1.27 1.27)) (justify right)))
 		(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
 		(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))

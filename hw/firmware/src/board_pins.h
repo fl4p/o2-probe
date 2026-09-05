@@ -16,6 +16,8 @@
  * From ST DS12232 Table "Pin definitions", LQFP48 column. Kept as macros so
  * the static assertions below can compare against the generated contract.
  */
+#define O2P_LQFP48_PA2   13
+#define O2P_LQFP48_PA3   14
 #define O2P_LQFP48_PA7   18
 #define O2P_LQFP48_PB0   19
 #define O2P_LQFP48_PB1   20
@@ -47,6 +49,27 @@
  */
 #define O2P_RS485_DE_PORT     GPIOC
 #define O2P_RS485_DE_PIN      6u
+
+/* The expansion/recovery UART, USART2. PA2/PA3 are USART2 TX/RX on AF1.
+ *
+ * NOTHING ON A SHIPPING PROBE USES THIS. Since 2026-09-05 these two pins land
+ * on J105/J106, a pair of solder-wire lands, and stop there: the expansion
+ * connector J2 and the R12-R16 series pack were deleted in the BOM pass
+ * (BOM-REDUCTION.md 3), but R15/R16 were NOT deletable, because this comment
+ * and bridge_main.c were already using their pads as the bench-bridge tap. The
+ * lands replace them and are a better version of the same thing - a wire land
+ * rather than half of an unfitted resistor. The LQFP's 0.5 mm pitch is still
+ * not a tap point.
+ *
+ * There is no direction pin here and there must not be one: this side is a
+ * point-to-point TTL link to one lead, not a bus.
+ */
+#define O2P_EXP_UART_TX_PORT  GPIOA
+#define O2P_EXP_UART_TX_PIN   2u
+#define O2P_EXP_UART_TX_AF    1u
+#define O2P_EXP_UART_RX_PORT  GPIOA
+#define O2P_EXP_UART_RX_PIN   3u
+#define O2P_EXP_UART_RX_AF    1u
 
 /* I2C1 on PB6/PB7, AF6. Bus is capped at 100 kHz because the LMP91000 is
  * standard-mode only (PLAN.md:234). 4.7k pull-ups are fitted (R10/R11). */
@@ -102,6 +125,8 @@ O2P_ASSERT_NET(AFE_MENB,   O2P_LQFP48_PB0);
 O2P_ASSERT_NET(ADC_DRDY,   O2P_LQFP48_PB1);
 O2P_ASSERT_NET(HEATER_PWM, O2P_LQFP48_PA8);
 O2P_ASSERT_NET(VA_MON,     O2P_LQFP48_PA7);
+O2P_ASSERT_NET(UART2_TX,   O2P_LQFP48_PA2);
+O2P_ASSERT_NET(UART2_RX,   O2P_LQFP48_PA3);
 
 /* PA7 doubles as TIM1_CH1N for the PA8 heater channel. If a future schematic
  * moves the heater off TIM1, this pairing stops being a hazard and heater.c's

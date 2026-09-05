@@ -19,6 +19,16 @@
 /* Only the writable bits are compared on readback; 15:12 are live flags. */
 #define TMP_CFG_WRITABLE_MASK 0x0FFCu
 
+static bool s_safety_armed;
+
+/* The limits o2p_tmp117_init() actually programmed, kept so that a later
+ * verification can check the THRESHOLD and not merely the mode. Therm mode
+ * with the wrong THIGH is not a cutoff at the limit this firmware chose; it is
+ * a cutoff at whatever the register happens to hold. */
+static bool s_limits_known;
+static uint16_t s_thigh_lsb;
+static uint16_t s_tlow_lsb;
+
 static bool wr16(uint8_t reg, uint16_t val)
 {
     const uint8_t tx[3] = {reg, (uint8_t)(val >> 8), (uint8_t)(val & 0xFFu)};
@@ -46,9 +56,55 @@ static int16_t c100_to_lsb(int32_t c100)
     return (int16_t)v;
 }
 
+bool o2p_tmp117_safety_armed(void)
+{
+    return s_safety_armed;
+}
+
+o2p_tmp_status_t o2p_tmp117_verify_safety(void)
+{
+    /* Nothing to verify against until init has programmed the limits, and a
+     * part that was never configured must not be able to arm itself by
+     * happening to read back something. Unevaluable is disarmed, not OK. */
+    if (!s_limits_known) {
+        s_safety_armed = false;
+        return O2P_TMP_CONFIG;
+    }
+
+    uint16_t back = 0u;
+    if (!rd16(O2P_TMP_REG_CONFIG, &back)) {
+        s_safety_armed = false;
+        return O2P_TMP_IO;
+    }
+    if ((uint16_t)(back & TMP_CFG_WRITABLE_MASK) !=
+        (uint16_t)(TMP_CFG_INTENDED & TMP_CFG_WRITABLE_MASK)) {
+        s_safety_armed = false;
+        return O2P_TMP_CONFIG;
+    }
+
+    /* The thresholds, not just the mode. THIGH is the cutoff and TLOW is its
+     * hysteresis point; either one silently reverting to the part's EEPROM
+     * default (+192 C / -256 C) leaves therm mode enabled and the config
+     * register perfectly correct, while the heater has no usable limit at
+     * all. Checking CONFIG alone cannot see that. */
+    uint16_t thigh = 0u, tlow = 0u;
+    if (!rd16(O2P_TMP_REG_THIGH, &thigh) || !rd16(O2P_TMP_REG_TLOW, &tlow)) {
+        s_safety_armed = false;
+        return O2P_TMP_IO;
+    }
+    if (thigh != s_thigh_lsb || tlow != s_tlow_lsb) {
+        s_safety_armed = false;
+        return O2P_TMP_CONFIG;
+    }
+
+    s_safety_armed = true;
+    return O2P_TMP_OK;
+}
+
 o2p_tmp_status_t o2p_tmp117_init(int16_t limit_c100, uint16_t hyst_k100)
 {
     uint16_t id = 0u;
+    s_safety_armed = false;
     if (!rd16(O2P_TMP_REG_DEVID, &id)) {
         return O2P_TMP_IO;
     }
@@ -62,27 +118,27 @@ o2p_tmp_status_t o2p_tmp117_init(int16_t limit_c100, uint16_t hyst_k100)
      * limits are set would arm the alert against whatever THIGH happens to
      * hold from EEPROM - and on a board where that pin switches 1 W into a
      * membrane, arming against an unknown threshold is not acceptable. */
-    if (!wr16(O2P_TMP_REG_THIGH, (uint16_t)c100_to_lsb(limit_c100))) {
+    s_thigh_lsb = (uint16_t)c100_to_lsb(limit_c100);
+    /* In therm mode TLOW is the hysteresis point, not a low alarm. */
+    s_tlow_lsb = (uint16_t)c100_to_lsb((int32_t)limit_c100 - (int32_t)hyst_k100);
+    s_limits_known = true;
+
+    if (!wr16(O2P_TMP_REG_THIGH, s_thigh_lsb)) {
         return O2P_TMP_IO;
     }
-    /* In therm mode TLOW is the hysteresis point, not a low alarm. */
-    if (!wr16(O2P_TMP_REG_TLOW,
-              (uint16_t)c100_to_lsb((int32_t)limit_c100 - (int32_t)hyst_k100))) {
+    if (!wr16(O2P_TMP_REG_TLOW, s_tlow_lsb)) {
         return O2P_TMP_IO;
     }
     if (!wr16(O2P_TMP_REG_CONFIG, TMP_CFG_INTENDED)) {
         return O2P_TMP_IO;
     }
 
-    uint16_t back = 0u;
-    if (!rd16(O2P_TMP_REG_CONFIG, &back)) {
-        return O2P_TMP_IO;
-    }
-    if ((uint16_t)(back & TMP_CFG_WRITABLE_MASK) !=
-        (uint16_t)(TMP_CFG_INTENDED & TMP_CFG_WRITABLE_MASK)) {
-        return O2P_TMP_CONFIG;
-    }
-    return O2P_TMP_OK;
+    /* Read back all three, not just the mode. An I2C write that is ACKed has
+     * reached the part; it has not necessarily been stored, and the limits are
+     * the half that makes this an 85 C cutoff rather than an alert at whatever
+     * EEPROM held. This is the same comparison the periodic re-verification
+     * does, so arm through it and keep one definition of "armed". */
+    return o2p_tmp117_verify_safety();
 }
 
 o2p_tmp_status_t o2p_tmp117_read_c100(int16_t *out_c100)
