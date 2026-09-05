@@ -77,6 +77,26 @@ VIA_DIMENSIONS = [
 ]
 
 
+# KiCadRoutingTools reads this tool-namespaced key out of the project file and
+# refuses to rip these nets as COLLATERAL damage (its protected_nets.py).  It is
+# not a substitute for keeping them out of --nets -- KRT's own policy is that a
+# net named exactly on the command line stays rippable, protection only filters
+# glob matches -- but it is the supported mechanism and it makes an accidental
+# `--rip-existing-nets '*'` safe instead of destructive.
+#
+# Measured 2026-09-05, before this existed: KRT deleted all seven authored
+# GUARD_REPLICA segments and all four of its vias under '*', every one of them
+# locked, while reporting other nets as protected_skipped ... "locked".
+KRT_PROTECTED_NETS = {
+    "/CELL_RE": "authored via-free: any barrel is a leakage path on the "
+                "reference node",
+    "/CELL_WE": "authored: its B.Cu dive is what lets CELL_RE stay via-free",
+    "/GUARD_REPLICA": "authored driven-guard rails around CELL_RE",
+    "/HEATER_LOW": "authored 0.80 mm heater current path",
+    "/+12V_HTR": "authored fork-tip feed and layer joins",
+}
+
+
 def apply(path: Path = PROJECT) -> None:
     data = json.loads(path.read_text())
     settings = data.setdefault("board", {}).setdefault("design_settings", {})
@@ -91,6 +111,8 @@ def apply(path: Path = PROJECT) -> None:
         default = {"name": "Default"}
         classes.append(default)
     default.update(DEFAULT_CLASS)
+    data.setdefault("kicad_routing_tools", {})["protected_nets"] = dict(
+        KRT_PROTECTED_NETS)
     path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
 
 
@@ -106,6 +128,11 @@ def verify(path: Path = PROJECT) -> str:
         actual = settings["rule_severities"].get(key)
         if actual != wanted:
             problems.append(f"severity.{key}={actual!r}, want {wanted!r}")
+    protected = data.get("kicad_routing_tools", {}).get("protected_nets", {})
+    for net, reason in KRT_PROTECTED_NETS.items():
+        if protected.get(net) != reason:
+            problems.append(f"krt protected_nets[{net}]={protected.get(net)!r}, "
+                            f"want {reason!r}")
     ignored = sorted(
         key for key, value in settings["rule_severities"].items() if value == "ignore"
     )
