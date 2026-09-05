@@ -74,11 +74,24 @@ Note the new bit-13 latch holds for 330 s past the fault, by design — a
 one-cycle converter fault used to be published for one second against a
 five-minute poll and vanished ~299 times in 300.
 
-## A sampling caveat
+## Two caveats on reading the columns
 
-Every sample halts and resumes the target, and a halted target does not advance
-`uptime_s`. So this capture perturbs, slightly, any timing reasoned out of its
-own `uptime_s` column — including the 330 s latch window above.
+**`uptime_s` reads LOW against the wall, so it is a lower bound.** Every sample
+halts and resumes the target, and a halted MCU does not advance its own
+timebase. Any interval derived from this column — including the 330 s latch
+above — is therefore *at least* that long in real time, never less.
+
+The sign is what matters. It is safe to trust this column when it says a margin
+is adequate, and unsafe to act on it when it says a margin is tight, because
+the tight case looks like an opportunity to tighten rather than like
+measurement error. Trimming `O2P_FAULT_LATCH_S` toward the poll interval on the
+strength of a captured `uptime_s` would trim against a biased number in the
+unsafe direction. Generalised, with the evidence:
+`~/dev/kb/measurement/halt-mode-sampling-biases-the-targets-own-clock.md`.
+
+**`ads_fails` saturates at 0xFFFF, it does not wrap.** A run that pins that
+column is reporting "at least 65535", not a count. It reads 32 here, which is
+the injection described above and nothing else.
 
 ## What the data actually says
 
