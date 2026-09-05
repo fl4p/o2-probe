@@ -41,11 +41,19 @@ Use `tools/o2p_capture_loop.py` for anything longer than a few minutes.
 - **09:04:03 – 09:06:34, 5 `failed` rows.** Board reflashed from the 02:03
   build. `g_rm` moved `0x200000F0` → `0x200000F4`. Part 1 ran pinned to the old
   address with `--addr`; part 2 resolves it from the ELF.
-- **09:07:04 and 09:07:34, `cell_ua = -117.34`, `faults 0x8801`.** On one boot
-  the AFE output sat at 2491 mV, within 1 mV of VREF, instead of its usual
-  ~962 mV. `ADC_RANGE` (bit 11) raised, `afe_rail` **0** — 2491 mV is nowhere
-  near a supply, so the rail guard cannot see this. Cleared on the next reset.
-  Exclude from any cell statistics; it is a converter artefact, not a current.
+- **09:07:04 and 09:07:34, `cell_ua = -117.34`, `faults 0x8801`. INJECTED.**
+  A GAIN=4 fault injection pinned the ADS1119 channel at +32767, so the AFE
+  output read 2491 mV — within 1 mV of VREF — instead of its usual ~962 mV.
+  Not a board fault. Exclude from any cell statistics: it is a pinned
+  converter, not a current.
+
+  Worth keeping for what it exposed. `ADC_RANGE` (bit 11) caught it but
+  `afe_rail` read **0**, because that column only tested 0 V and VA and
+  2491 mV is nowhere near either. The ADS1119 converts against the external
+  reference, so its full scale is VREF — a full 800 mV below VA — and a
+  converter can be hard against its own ceiling while the supply-rail test
+  sees nothing. Fixed since: the converter's full scale now counts as a rail,
+  and `cell_ua` is withheld rather than derived from a pinned conversion.
 - **Three resets between 09:06 and 09:08**, visible as `uptime_s` restarting.
 - **09:45:39 and 09:46:09, 2 `failed` rows.** The capture tool itself was
   rewritten under the run. Both are honest failures — a `TypeError` in an
