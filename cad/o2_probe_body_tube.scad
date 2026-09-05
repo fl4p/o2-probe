@@ -61,7 +61,7 @@
 $fn = 128;
 e = 0.02;
 
-part = "tube";       // tube, cap, dam, assembly
+part = "tube";       // tube, cap, cap-print, dam, assembly
 exploded = false;
 
 // ------------------------------------------------- the interfaces
@@ -101,13 +101,15 @@ assert(joint == "monolithic" || joint == "bonded",
 
 // Board. Controlled by KiCad Edge.Cuts (PLACEMENT.md).
 board_w   = 20.0;
-// 1.6, on Fab's instruction 2026-09-05, NOT the 1.0 in PLACEMENT.md. That file
-// still specifies "20.0 x 107.0 mm ... 1.0 mm, 4 layers", so the two disagree
-// and the board file is the one that would have to change. PLAN.md gates a
-// thickness change on "the tube chord/assembled-height check" -- done here: the
-// swept diagonal goes 21.93 -> 22.19 against a 27.2 bore and the head's 25.19,
-// so it clears both. The slot heights and the dam reliefs follow automatically.
-board_t   = 1.6;
+// CONFIRMED 2026-09-05 (Fab): "board_t = 1.6 is correct for Rev A". PLACEMENT.md
+// still specifies "20.0 x 107.0 mm ... 1.0 mm, 4 layers" and o2-probe.kicad_pcb's
+// stackup is a 0.910 mm dielectric; both are stale against the built board and
+// are the files that have to move, not this one.
+// PLAN.md gates a thickness change on "the tube chord/assembled-height check" --
+// done here: the swept diagonal goes 21.93 -> 22.19 against a 27.2 bore and the
+// head's 25.19, so it clears both. The slot heights and the dam reliefs follow
+// automatically.
+board_t   = 1.6;            // Rev A, confirmed
 board_len = 107.0;
 
 // Component envelope. DECLARED, NOT MEASURED -- and the distinction matters,
@@ -1028,8 +1030,30 @@ module assembly() {
     color("SlateGray") translate([0, 0, zy(dam_y) + ex*12]) dam();
 }
 
+// PRINT ORIENTATION, defined here and nowhere else -- the head file's rule, and
+// for its reason: a plate and a single-part export that each carry their own
+// copy of a flip are two chances to get it wrong.
+//
+// GLAND FACE DOWN. As modelled the cap's mouth is at z=0 and its closed gland
+// end is on top, so slicing it as-modelled starts the cap_end_t = 3 mm roof in
+// mid-air across the full dia-27.7 tube seat. That is not a bridge; it is a
+// disc with no anchor, and it carries the gland's seal notch and the hole the
+// cable passes through. Inverted, the gland face IS the first layer, the notch
+// is an open pocket in it, the spigot grows upward into free space, and the
+// mouth's rim arrives last as an open annulus. Nothing bridges either way round
+// EXCEPT the roof, which is why the flip is not cosmetic.
+//
+// The tube and the monobody need no flip: both already export cable-end-down
+// (the monobody spans z -124..+22.6, head up), which is the orientation
+// PRINTING-BODY-TUBE.md specifies and the one that makes every guide slot, lug
+// and seal land a vertical extrusion. The dam is flat and symmetric.
+module cap_printed() {
+    translate([0, 0, cap_h]) mirror([0, 0, 1]) cap();
+}
+
 if (part == "tube") tube();
 else if (part == "cap") cap();
+else if (part == "cap-print") cap_printed();
 else if (part == "dam") dam();
 else if (part == "assembly") assembly();
 else assert(false, str("unknown part '", part, "'"));

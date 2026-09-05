@@ -17,3 +17,6 @@ cad/reviews/*.log
 compostlab/o2-probe/reviews/*.log
 reviews/*.log
 cad/viewer/parts.json
+
+# sliced plates: build output, and a plate_1.gcode is ~5 MB
+cad/print/

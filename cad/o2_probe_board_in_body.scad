@@ -19,11 +19,11 @@
  *      Also missing, and NOT redrawn because none of them is near the envelope:
  *      L1 (SRN6028C, 3.0 mm), U8, U12, and the four J101-104 solder-wire pads.
  *   2. THE MESH IS A 0.91 mm BOARD. That is the dielectric stack in the board
- *      file, i.e. the ~1.0 mm build PLACEMENT.md specifies. The enclosure model
- *      is cut for board_t = 1.6 on Fab's 2026-09-05 instruction. So this picture
- *      shows the board that EXISTS in the fab data, inside a body sized for the
- *      board that was ASKED FOR. The gap is real and it is the board file that
- *      would have to move; see PRINTING-BODY-TUBE.md.
+ *      file, i.e. the ~1.0 mm build PLACEMENT.md specifies. The enclosure is cut
+ *      for board_t = 1.6, which Fab confirmed on 2026-09-05 is the correct Rev A
+ *      thickness. So this picture shows the board as the FAB DATA describes it,
+ *      inside a body sized for the board that Rev A actually IS. The gap is real,
+ *      and it is the board file that is wrong; see PRINTING-BODY-TUBE.md.
  *
  * Preview only -- never exported, and never rendered with --render: the board
  * mesh is 215k facets and CGAL would take the rest of the day. OpenCSG does the

@@ -81,12 +81,19 @@ condensate; buried in 100 %RH pore gas without it, they are not. Expect offset
 drift on CELL_RE. Put a silica sachet in the cable tail and check its colour on
 recovery — that reading is the diagnosis for anything odd in the data.
 
-## The board is 1.6 mm here, and PLACEMENT.md still says 1.0
+## The board is 1.6 mm, and the fab data is what is stale
 
-Fab, 2026-09-05: *"assume 1.6mm pcb thickness."* The KiCad board file and
-`PLACEMENT.md` both still specify **1.0 mm, 4 layers**, so the two disagree and
-the board file is the one that would have to move. Recorded rather than
-reconciled, because that is not this model's call.
+Fab, 2026-09-05: *"board_t = 1.6 is correct for Rev A"*, confirming the earlier
+*"assume 1.6mm pcb thickness."* This is settled: 1.6 mm is the Rev A board.
+
+The KiCad file and `PLACEMENT.md` have not caught up — `o2-probe.kicad_pcb`
+carries a 0.910 mm dielectric stackup and `PLACEMENT.md` still specifies
+**1.0 mm, 4 layers**. Those are the documents that are wrong, and correcting
+them is board work, not enclosure work. Two consequences for anyone reading
+them: the exported board mesh (`o2-probe-board-bin.stl`) is a 0.910 mm board, so
+`tools/board_clearance.py` reports the 1.6 mm radius separately rather than
+trusting the mesh; and any future clearance claim taken straight off that mesh
+is 0.345 mm optimistic on a back-side part.
 
 It is not a cosmetic number. `PLAN.md` gates a thickness change on "the tube
 chord/assembled-height check", so here it is:
@@ -145,15 +152,29 @@ committed as fd50a98 if it is ever wanted back.
 
 | part | solid volume | bbox | orientation | support |
 |---|---:|---|---|---|
-| **monobody** (head + tube) | 54.3 cm³ | Ø40 × 146.6 | upright, **cable end down** | none |
-| cap | 12.1 cm³ | Ø37.2 × 26.5 | upright, **mouth up** | none |
+| **monobody** (head + tube) | 48.2 cm³ | Ø40 × 146.6 | upright, **cable end down** | none |
+| cap | 7.1 cm³ | Ø37.2 × 21.5 | upright, **gland face down** | none |
 | dam (2 halves) | 1.5 cm³ | 27.2 × 30 × 4 | flat | none |
 
 ≈ 67.9 cm³ of solid across the three, so roughly **73 g** of ASA at
 1.07 g/cm³. Print them **one at a time**, not three to a plate; see the table
-below. The cap
-prints mouth up so its 8 mm sealing end is the first layer and the bayonet slots
-are cut into a vertical skirt. Nothing in either part bridges.
+below.
+
+**The cap must be flipped, and `body-cap.stl` is not the file to put on a
+plate.** As modelled its mouth is at z = 0 and the 3 mm closed end is on top, so
+slicing it as it comes starts that end in mid-air across the full Ø27.7 tube
+seat — a disc with no anchor, carrying the gland's seal notch and the hole the
+cable passes through. Measured on the two exports: as modelled the first layer is
+a bare annulus, r 16.20–18.60, the 2.4 mm skirt rim and nothing else; flipped it
+is a solid disc from r 4.25 (the gland hole) out to r 18.60. `make body-tube`
+emits **`body-cap-print.stl`** for this, and `./print.sh slice cap` uses it.
+Flipped, the gland face is the first layer, the notch is an open pocket in it,
+the spigot grows upward into free space, and the mouth arrives last as an open
+annulus. The bayonet slots are a vertical skirt either way round.
+
+The monobody needs no flip: it already exports cable-end-down, spanning
+z −124…+22.6, so every guide slot, lug and seal land is a vertical extrusion.
+Nothing in either part bridges once the cap is the right way up.
 
 ## Print settings
 

@@ -174,6 +174,16 @@ body-tube: | $(OUT)
 		fi; \
 		rm -f $(OUT)/.b-$$p.log; \
 	done
+	@# Print orientation for the cap: gland face DOWN. As modelled the 3 mm
+	@# closed end sits on top of the dia-27.7 tube seat, so slicing body-cap.stl
+	@# as-is starts that roof in mid-air. body-cap-print.stl is the one that goes
+	@# on a plate; body-cap.stl stays for the assembly views.
+	@$(OPENSCAD) --hardwarnings -D 'part="cap-print"' -o $(OUT)/body-cap-print.stl \
+		$(BODY) 2>$(OUT)/.b-capp.log || { cat $(OUT)/.b-capp.log; exit 1; }
+	@v=`sed -n 's/.*Volumes: *\([0-9]*\).*/\1/p' $(OUT)/.b-capp.log | tail -1`; \
+	 if [ "$$v" != "2" ]; then \
+		echo "FAIL cap-print: $$v volumes, expected 2"; exit 1; \
+	 fi; rm -f $(OUT)/.b-capp.log
 	@$(OPENSCAD) --hardwarnings -D 'part="dam"' -o $(OUT)/body-dam.stl \
 		$(BODY) 2>$(OUT)/.b-dam.log || { cat $(OUT)/.b-dam.log; exit 1; }
 	@v=`sed -n 's/.*Volumes: *\([0-9]*\).*/\1/p' $(OUT)/.b-dam.log | tail -1`; \
