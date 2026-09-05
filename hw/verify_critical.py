@@ -297,7 +297,19 @@ def main() -> int:
               f"wrong in {args.board}")
         for problem in problems:
             print(f"  - {problem}")
-        return 1
+        # Two severities, because they mean different things to a caller.
+        # Exit 2: authored copper is MISSING, UNLOCKED, or CELL_RE has grown a
+        # via -- the board has lost a design decision and no later step can
+        # recover it, so a routing loop must stop.
+        # Exit 1: everything is present but something has crowded CELL_RE.
+        # That is a real defect and the board must not ship, but it is a
+        # property of the routed copper AROUND the authored set, and the next
+        # routing pass can fix it.  Aborting a twelve-pass loop over a 15 um
+        # shortfall on one plane strap throws away the other eleven.
+        structural = any(p.startswith(("MISSING", "UNLOCKED"))
+                         or "must have none" in p or "must be F.Cu only" in p
+                         for p in problems)
+        return 2 if structural else 1
     print(f"OK: all {total} authored critical item(s) present in {args.board}"
           + (" and locked" if args.expect_locked else ""))
     return 0
