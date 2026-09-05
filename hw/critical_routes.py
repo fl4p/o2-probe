@@ -23,8 +23,9 @@ Four things qualify on this board.
 
 3.  **CELL_WE.**  Same argument, one rank weaker: the working electrode carries
     the measured current, so its surface leakage matters, but it is not the
-    high-impedance node CELL_RE is.  The U7 leg is authored; the TP1 and U4
-    taps are left to the router.
+    high-impedance node CELL_RE is.  It is authored in full because it is what
+    makes CELL_RE possible -- it dives to B.Cu and crosses underneath, which is
+    the only way CELL_RE reaches U4 without a via.
 
 4.  **The heater current path and the fork tip.**  RH1/RH2 -> Q2 -> J5 carries
     ~80 mA at 12 V and is the load the bench run in FAB-READINESS.md exercised.
@@ -120,6 +121,27 @@ CRITICAL_TRACKS = (
     # U7 pin 14 (/CELL_CE_DRV), which is 0.5 mm away on the same row.
     ("/CELL_RE", F, 0.25, ((12.54, 91.00), (11.60, 90.06), (11.60, 83.10),
                            (11.00, 82.50), (11.00, 81.40))),
+    # The U4 leg, and the reason the whole AFE corner is authored rather than
+    # routed.  U4 (the RE follower) is at x=3.97, and CELL_RE is FENCED from it:
+    # CELL_WE lies west of CELL_RE at both ends -- pin 12 west of pin 13 at U7,
+    # the centre land west of the east land at the cell -- so on F.Cu there is
+    # no path west that does not cross CELL_WE.  There is no way round U7
+    # either: U7 pin 15 is a 2.6 x 2.6 mm EXPOSED PAD filling the whole body
+    # footprint, so the space between its two pin rows is copper, not a lane.
+    #
+    # The resolution is to let the OTHER electrode dive.  CELL_WE takes a via
+    # pair and crosses underneath on B.Cu (below), leaving this leg a single
+    # via-free F.Cu run.  That is the right way round: CELL_RE is the node
+    # budgeted against the LMP91000's +/-900 pA input current, and a via barrel
+    # is a leakage path through the laminate that no rule scores.  CELL_WE
+    # carries the cell current into a transimpedance input and tolerates two.
+    # It reaches U4 by going EAST around U7 and back along y=74.89, under the
+    # whole AFE.  West is not available at any y: CELL_WE's branch to the cell
+    # runs x=10.40..10.00 from y=81.4 to y=91 and fences everything, and the
+    # only gap in that fence is below U7 -- which this leg uses.  The detour is
+    # 9 mm longer than a via would be and worth every millimetre.
+    ("/CELL_RE", F, 0.25, ((11.00, 82.50), (13.00, 82.50), (13.00, 75.30),
+                           (12.59, 74.89), (3.97, 74.89))),
 
     # -- The driven guard.  Two F.Cu rails at 0.275 mm either side of the run,
     # joined under it on B.Cu, fed once from R40.
@@ -147,22 +169,36 @@ CRITICAL_TRACKS = (
     # stubs, which is both better shielding and the difference between two
     # track_dangling findings and none: a rail with a free end is, to DRC,
     # exactly an unfinished route.
-    ("/GUARD_REPLICA", B, 0.30, ((10.80, 83.40), (12.15, 83.40))),
+    ("/GUARD_REPLICA", B, 0.30, ((10.885, 83.40), (12.15, 83.40))),
     ("/GUARD_REPLICA", B, 0.30, ((11.05, 89.60), (12.15, 89.60))),
     # One feed, from R40's output pad, west of everything at y=79.35: that lane
     # clears R42/R39 (bottom edge 78.97) and the R24..R27 row (top edge 79.73)
     # by 0.28 mm either side.  It crosses the barrier at x=10.80, inside the
     # 7.70..12.30 neck and 0.255 mm clear of R26.
+    # x=10.885 is not a round number by choice: CELL_WE's dive column ends at
+    # x=10.50 and R26 pad 2 begins at x=11.17, which is 0.57 mm of lane.  A
+    # 0.25 mm track centred in it clears both by 0.16 mm against a 0.15 mm
+    # rule, and nothing wider fits.
     ("/GUARD_REPLICA", B, 0.25, ((2.17, 77.00), (2.17, 79.35),
-                                 (10.80, 79.35), (10.80, 83.40))),
-    # -- CELL_WE: the same crossing, 2.1 mm west of CELL_RE.  It comes down U7's
-    # pin-12 COLUMN, not across it.  U7's south row is on 0.5 mm pitch with
-    # 0.26 mm between pad edges, so nothing fits between two pads: every pad on
-    # that row escapes straight south in its own column or not at all.  The
-    # first version cut west at y=82.40 and sat on top of pin 11's column, and
-    # the router reported /VREF_TRIM boxed_in_static at that pad.
-    ("/CELL_WE", F, 0.20, ((10.00, 91.00), (10.00, 84.00),
-                           (10.50, 83.50), (10.50, 81.40))),
+                                 (10.885, 79.35), (10.885, 83.40))),
+    # -- CELL_WE.  It leaves U7 in its own pin-12 COLUMN, not across the row:
+    # U7's south row is on 0.5 mm pitch with 0.26 mm between pad edges, so
+    # nothing fits between two pads and every pad escapes straight south or not
+    # at all.  An earlier version cut west at y=82.40, sat on top of pin 11's
+    # column, and the router reported /VREF_TRIM boxed_in_static at that pad.
+    #
+    # It then dives to B.Cu and stays there for everything west, so CELL_RE can
+    # own the F.Cu lane at y=82.50 uncrossed.  The via at (10.50,81.90) is in
+    # the 0.2 mm of clear space between U7's pad row (ends 81.70) and that lane.
+    ("/CELL_WE", F, 0.20, ((10.50, 81.40), (10.40, 81.50), (10.40, 81.90))),
+    ("/CELL_WE", B, 0.20, ((10.40, 81.90), (10.00, 82.30), (10.00, 84.50))),
+    ("/CELL_WE", F, 0.20, ((10.00, 84.50), (10.00, 91.00))),
+    # West on B.Cu at y=81.30, under U7's pad row and 0.6 mm clear of R25.
+    ("/CELL_WE", B, 0.20, ((10.40, 81.90), (10.40, 81.30), (1.30, 81.30))),
+    ("/CELL_WE", B, 0.20, ((3.33, 81.30), (3.33, 80.60))),
+    ("/CELL_WE", F, 0.20, ((3.33, 80.60), (3.33, 79.11))),
+    ("/CELL_WE", B, 0.20, ((1.30, 81.30), (1.30, 71.40))),
+    ("/CELL_WE", F, 0.20, ((1.30, 71.40), (1.30, 70.30), (1.00, 70.00))),
 
     # -- Heater current path.  The bus threads a 1.27 mm band: U11's gas
     # aperture is a 3.0 x 6.0 mm NPTH slot ending at y=98.30, and Q2's pin-1/2
@@ -217,6 +253,13 @@ CRITICAL_VIAS = (
     ("/GUARD_REPLICA", 12.15, 83.40, 0.25, 0.15),
     ("/GUARD_REPLICA", 11.05, 89.60, 0.25, 0.15),
     ("/GUARD_REPLICA", 12.15, 89.60, 0.25, 0.15),
+    # CELL_WE's two dives.  CELL_RE has none, by construction.
+    # 0.25/0.15 at the dive: a 0.45 mm barrel there left 0.035 mm to the guard
+    # feed.  The other three are ordinary 0.45/0.25.
+    ("/CELL_WE", 10.40, 81.90, 0.25, 0.15),
+    ("/CELL_WE", 10.00, 84.50, 0.45, 0.25),
+    ("/CELL_WE", 3.33, 80.60, 0.45, 0.25),
+    ("/CELL_WE", 1.30, 71.40, 0.45, 0.25),
     ("/HEATER_LOW", 17.80, 104.60, 0.45, 0.25),
     ("/+12V_HTR", 2.20, 104.40, 0.45, 0.25),
     ("/+12V_HTR", 12.25, 103.75, 0.45, 0.25),
