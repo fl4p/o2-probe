@@ -181,6 +181,18 @@ CRITICAL_TRACKS = (
     # rule, and nothing wider fits.
     ("/GUARD_REPLICA", B, 0.25, ((2.17, 77.00), (2.17, 79.35),
                                  (10.885, 79.35), (10.885, 83.40))),
+    # TP5 is on this net, and it has to be authored too or the net cannot be
+    # kept away from the router.  Leaving just this leg to KRT was tried and is
+    # worse than it sounds: with the rails absent during routing the router
+    # fills their corridor with other nets, and putting the rails back
+    # afterwards produced 32 shorts and 15 clearance violations.  A guard you
+    # restore after the fact is not a guard.
+    #
+    # x=1.50 is the 0.84 mm lane between R38's two pads (they end at 1.08 and
+    # begin at 1.92); a 0.25 mm track centred there clears both by 0.295 mm.
+    ("/GUARD_REPLICA", B, 0.25, ((2.17, 77.00), (2.17, 73.50), (1.50, 72.83),
+                                 (1.50, 66.30))),
+    ("/GUARD_REPLICA", F, 0.25, ((1.50, 66.30), (1.00, 65.80), (1.00, 65.50))),
     # -- CELL_WE.  It leaves U7 in its own pin-12 COLUMN, not across the row:
     # U7's south row is on 0.5 mm pitch with 0.26 mm between pad edges, so
     # nothing fits between two pads and every pad escapes straight south or not
@@ -197,8 +209,11 @@ CRITICAL_TRACKS = (
     ("/CELL_WE", B, 0.20, ((10.40, 81.90), (10.40, 81.30), (1.30, 81.30))),
     ("/CELL_WE", B, 0.20, ((3.33, 81.30), (3.33, 80.60))),
     ("/CELL_WE", F, 0.20, ((3.33, 80.60), (3.33, 79.11))),
-    ("/CELL_WE", B, 0.20, ((1.30, 81.30), (1.30, 71.40))),
-    ("/CELL_WE", F, 0.20, ((1.30, 71.40), (1.30, 70.30), (1.00, 70.00))),
+    # The TP1 descent hugs the board edge at x=0.80 so the guard's own descent
+    # to TP5 can have the x=1.50 lane between R38's two pads.  Both fit; only
+    # one fits at x=1.30.
+    ("/CELL_WE", B, 0.20, ((1.30, 81.30), (0.80, 80.80), (0.80, 71.00))),
+    ("/CELL_WE", F, 0.20, ((0.80, 71.00), (1.00, 70.80), (1.00, 70.00))),
 
     # -- Heater current path.  The bus threads a 1.27 mm band: U11's gas
     # aperture is a 3.0 x 6.0 mm NPTH slot ending at y=98.30, and Q2's pin-1/2
@@ -249,6 +264,7 @@ CRITICAL_VIAS = (
     # which hugs the run at +/-0.30 mm; the keepout exists to keep foreign
     # barrels away from the reference node, and guard copper at the same
     # potential is the one thing that belongs beside it.
+    ("/GUARD_REPLICA", 1.50, 66.30, 0.45, 0.25),
     ("/GUARD_REPLICA", 11.05, 83.40, 0.25, 0.15),
     ("/GUARD_REPLICA", 12.15, 83.40, 0.25, 0.15),
     ("/GUARD_REPLICA", 11.05, 89.60, 0.25, 0.15),
@@ -259,7 +275,7 @@ CRITICAL_VIAS = (
     ("/CELL_WE", 10.40, 81.90, 0.25, 0.15),
     ("/CELL_WE", 10.00, 84.50, 0.45, 0.25),
     ("/CELL_WE", 3.33, 80.60, 0.45, 0.25),
-    ("/CELL_WE", 1.30, 71.40, 0.45, 0.25),
+    ("/CELL_WE", 0.80, 71.00, 0.45, 0.25),
     ("/HEATER_LOW", 17.80, 104.60, 0.45, 0.25),
     ("/+12V_HTR", 2.20, 104.40, 0.45, 0.25),
     ("/+12V_HTR", 12.25, 103.75, 0.45, 0.25),
