@@ -1,42 +1,116 @@
 {
  "bed": {
-  "note": "membrane sealing stack: head, carrier, membrane, O-ring, retainer",
+  "note": "membrane sealing stack: head, carrier, membrane, and BOTH O-rings",
   "parts": [
-   {"spec": "o2_probe_head_end.scad:head=head",
+   {
+    "spec": "o2_probe_head_end.scad:head=head",
     "color": "#a0522d",
-    "note": "printed ASA head; the carrier's well and the six bosses"},
-   {"spec": "o2_probe_head_end.scad:bed-carrier=carrier",
+    "note": "printed ASA head; the carrier's well and the six bosses"
+   },
+   {
+    "spec": "o2_probe_head_end.scad:bed-carrier=carrier",
     "color": "#d6c36a",
-    "note": "ASA, no weld. Wet face is a FLAT land -- one tapered aperture, 16 at the face opening to the 18 spigot bore"},
-   {"spec": "o2_probe_head_end.scad:bed-membrane=membrane",
+    "note": "ASA, no weld. Wet face is a FLAT land -- one tapered aperture, 16 at the face opening to the 18 spigot bore"
+   },
+   {
+    "spec": "o2_probe_head_end.scad:bed-membrane=membrane",
     "color": "#f2f2f2",
-    "note": "PMV15T disc, 0.18 mm, clamped -- drawn at its cut diameter"},
-   {"spec": "o2_probe_head_end.scad:bed-ring=O-ring",
+    "note": "PMV15T disc, 0.18 mm, clamped -- drawn at its cut diameter"
+   },
+   {
+    "spec": "o2_probe_head_end.scad:bed-ring=O-ring (membrane bed)",
     "color": "#c62828",
-    "note": "17 x 2.5 EPDM, ON HAND and uncatalogued. Drawn at its COMPRESSED section, which is how it sits in service"},
-   {"spec": "o2_probe_head_end.scad:bed-retainer=retainer",
+    "note": "17 x 2.5 EPDM, ON HAND and uncatalogued. Drawn at its COMPRESSED section, which is how it sits in service"
+   },
+   {
+    "spec": "o2_probe_head_end.scad:bed-radial-ring=O-ring (carrier->head)",
+    "color": "#e08b3a",
+    "note": "ORS116787 24 x 1.5 EPDM, radial on the spigot into the reamed 27.1 H7 well. THE seal that keeps compost out of the cavity -- squeeze comes from the FIT, no screw is in its load path"
+   },
+   {
+    "spec": "o2_probe_head_end.scad:bed-retainer=retainer",
     "color": "#8fa9c9",
-    "note": "carries the bed groove on its UNDERSIDE and prints groove-up"}
+    "note": "carries the bed groove on its UNDERSIDE and prints groove-up"
+   }
   ]
  },
  "head-end": {
   "note": "the whole end-window head, exploded parts in assembly position",
   "parts": [
-   {"spec": "o2_probe_head_end.scad:head=head", "color": "#a0522d"},
-   {"spec": "o2_probe_head_end.scad:bed-carrier=carrier", "color": "#d6c36a"},
-   {"spec": "o2_probe_head_end.scad:bed-retainer=retainer", "color": "#8fa9c9"},
-   {"spec": "o2_probe_head_end.scad:cavity=connected gas volume",
+   {
+    "spec": "o2_probe_head_end.scad:head=head",
+    "color": "#a0522d"
+   },
+   {
+    "spec": "o2_probe_head_end.scad:bed-carrier=carrier",
+    "color": "#d6c36a"
+   },
+   {
+    "spec": "o2_probe_head_end.scad:bed-retainer=retainer",
+    "color": "#8fa9c9"
+   },
+   {
+    "spec": "o2_probe_head_end.scad:cavity=connected gas volume",
     "color": "#4f9d69",
-    "note": "the void the 5.0 cm3 budget is measured on, as a solid"}
+    "note": "the void the 5.0 cm3 budget is measured on, as a solid"
+   },
+   {
+    "spec": "o2_probe_head_end.scad:bed-radial-ring=O-ring (carrier->head)",
+    "color": "#e08b3a",
+    "note": "ORS116787 24 x 1.5 EPDM, radial on the spigot into the reamed 27.1 H7 well. THE seal that keeps compost out of the cavity -- squeeze comes from the FIT, no screw is in its load path"
+   }
   ]
  },
  "print": {
   "note": "what goes on the plate: carrier and retainer, print-oriented",
   "parts": [
-   {"spec": "o2_probe_head_end.scad:carrier-print=carrier (wet face down)",
-    "color": "#d6c36a"},
-   {"spec": "o2_probe_head_end.scad:retainer-print=retainer (groove up)",
-    "color": "#8fa9c9"}
+   {
+    "spec": "o2_probe_head_end.scad:carrier-print=carrier (wet face down)",
+    "color": "#d6c36a"
+   },
+   {
+    "spec": "o2_probe_head_end.scad:retainer-print=retainer (groove up)",
+    "color": "#8fa9c9"
+   }
+  ]
+ },
+ "onhand": {
+  "note": "SUBSTITUTION: the carrier->head ring is the on-hand 20 x 2, not the sourced 24 x 1.5",
+  "parts": [
+   {
+    "spec": "o2_probe_head_end.scad:head=head",
+    "color": "#a0522d",
+    "note": "printed ASA head; the carrier's well and the six bosses"
+   },
+   {
+    "spec": "o2_probe_head_end.scad:bed-carrier=carrier",
+    "color": "#d6c36a",
+    "note": "ASA, no weld. Wet face is a FLAT land -- one tapered aperture, 16 at the face opening to the 18 spigot bore"
+   },
+   {
+    "spec": "o2_probe_head_end.scad:bed-membrane=membrane",
+    "color": "#f2f2f2",
+    "note": "PMV15T disc, 0.18 mm, clamped -- drawn at its cut diameter"
+   },
+   {
+    "spec": "o2_probe_head_end.scad:bed-ring=O-ring (membrane bed)",
+    "color": "#c62828",
+    "note": "17 x 2.5 EPDM, ON HAND and uncatalogued. Drawn at its COMPRESSED section, which is how it sits in service"
+   },
+   {
+    "spec": "o2_probe_head_end.scad:bed-radial-ring=O-ring 20x2 (ON HAND)",
+    "color": "#e08b3a",
+    "note": "20 x 2, in the drawer, UNCATALOGUED. Spigot shrinks 26.8 -> 23.0 because the ring sizes it; wall under the groove root drops 3.42 -> 0.99 mm. Head stays 40"
+   },
+   {
+    "spec": "o2_probe_head_end.scad:bed-retainer=retainer",
+    "color": "#8fa9c9",
+    "note": "carries the bed groove on its UNDERSIDE and prints groove-up"
+   }
+  ],
+  "flags": [
+   "-D",
+   "radial_ring=\"onhand-20x2\""
   ]
  }
 }

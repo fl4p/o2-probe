@@ -154,7 +154,18 @@ const clipPlanes = [clipY, clipZ];
 const root = new THREE.Group();
 scene.add(root);
 
-const mkMaterial = (color, opacity) => new THREE.MeshStandardMaterial({
+// COINCIDENT FACES ARE THE NORMAL CASE HERE, not a modelling error: the
+// carrier's flange underside SITS ON the head's end face, the retainer sits on
+// the flange, the membrane lies on the land. Parts in contact share a plane by
+// definition, and two coplanar surfaces at the same depth speckle -- the
+// stippled patches that look like a broken mesh and are really the depth test
+// having no answer.
+//
+// polygonOffset is the fix, and it has to be PER PART: a single bias moves
+// everything equally and changes nothing. Each mesh gets its own offset in load
+// order, so the contest is decided the same way every frame and every pixel.
+// It shifts only the depth value, never the geometry -- nothing here moves.
+const mkMaterial = (color, opacity, i = 0) => new THREE.MeshStandardMaterial({
   color: new THREE.Color(color),
   metalness: 0.05, roughness: 0.62,
   // THE WHOLE POINT: both faces are drawn, so nothing vanishes when you rotate
@@ -162,6 +173,7 @@ const mkMaterial = (color, opacity) => new THREE.MeshStandardMaterial({
   side: THREE.DoubleSide,
   clippingPlanes: clipPlanes,
   transparent: opacity < 1, opacity,
+  polygonOffset: true, polygonOffsetFactor: -i, polygonOffsetUnits: -4 * i,
 });
 
 const state = { parts: [], bodies: [] };
@@ -213,6 +225,7 @@ const loadSTL = url => new Promise((res, rej) => loader.load(url, res, undefined
 
   const m0 = cfg.meta || {};
   const staleness = [];
+  let idx = 0;
   for (const p of cfg.parts) {
     let geom;
     if (p.kind === 'stl' && p.stale) staleness.push(p.name + ': ' + p.stale);
@@ -229,7 +242,7 @@ const loadSTL = url => new Promise((res, rej) => loader.load(url, res, undefined
       geom = new THREE.BoxGeometry(...p.size);
       geom.translate(...p.center);
     }
-    const mesh = new THREE.Mesh(geom, mkMaterial(p.color, 1));
+    const mesh = new THREE.Mesh(geom, mkMaterial(p.color, 1, ++idx));
     root.add(mesh);
     state.parts.push({ p, mesh });
     if (p.kind === 'stl' && p.name !== 'PCB (KiCad export)') state.bodies.push(mesh);
@@ -247,7 +260,10 @@ const loadSTL = url => new Promise((res, rej) => loader.load(url, res, undefined
   // rather than a side of it is what the extra factor stands in for.
   const dist = Math.max(size.x, size.y, size.z) * 2.2;
   camera.position.set(mid.x + dist * 0.55, mid.y + dist * 0.30, mid.z + dist * 0.75);
-  camera.near = dist / 200; camera.far = dist * 20; camera.updateProjectionMatrix();
+  // near/far as tight as the scene allows: depth precision is spent mostly in
+  // the first few percent of the range, and dist/200 on a 43 mm stack was
+  // putting the near plane at 0.5 mm for no reason.
+  camera.near = dist / 50; camera.far = dist * 6; camera.updateProjectionMatrix();
   window.view = { mid, dist };
 
   // SLIDER RANGES COME FROM THE GEOMETRY. They were hardcoded (-121..34) and

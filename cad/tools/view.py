@@ -36,6 +36,7 @@ Anything ending .scad without a part renders its default top-level object.
 import argparse
 import concurrent.futures as futures
 import glob
+import hashlib
 import http.server
 import json
 import os
@@ -95,7 +96,7 @@ def make_var(name):
     return _flag_cache[name]
 
 
-def parse_spec(spec):
+def parse_spec(spec, flags=()):
     """SPEC -> dict(kind, ...). Meshes pass through; .scad specs get rendered."""
     label = None
     if spec.endswith('.stl') or spec.endswith('.off') or spec.endswith('.3mf'):
@@ -113,8 +114,14 @@ def parse_spec(spec):
         sys.exit("view: no such model: %s" % scad)
     stem = os.path.splitext(os.path.basename(scad))[0]
     tag = re.sub(r'[^a-z0-9]+', '-', (part or 'default').lower())
+    # A scene's extra -D flags go into the CACHE NAME. Without that, two scenes
+    # of the same part under different parameters share one file and the second
+    # one silently shows the first one's geometry -- the whole point of the
+    # substitution being invisible.
+    if flags:
+        tag += '-' + hashlib.sha1(' '.join(flags).encode()).hexdigest()[:6]
     return dict(mesh=os.path.join('exports', 'view-%s-%s.stl' % (stem[:18], tag)),
-                name=label or part or stem, scad=scad, part=part)
+                name=label or part or stem, scad=scad, part=part, flags=list(flags))
 
 
 def newest_source(scad):
@@ -147,6 +154,7 @@ def render(item, force=False):
         cmd += make_var(FLAG_VAR[item['scad']]) if item['scad'] in FLAG_VAR else []
     except SystemExit as e:
         return str(e)
+    cmd += item.get('flags') or []
     if item['part']:
         cmd += ['-D', 'part="%s"' % item['part']]
     cmd += ['-o', dst, item['scad']]
@@ -279,8 +287,9 @@ def main():
     if args.scene:
         if args.scene not in scenes:
             sys.exit("view: no scene %r; --list to see them" % args.scene)
+        sflags = scenes[args.scene].get('flags', [])
         for p in scenes[args.scene]['parts']:
-            it = parse_spec(p['spec'])
+            it = parse_spec(p['spec'], p.get('flags', sflags))
             it['color'] = p.get('color')
             it['note'] = p.get('note')
             if p.get('name'):
