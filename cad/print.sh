@@ -97,6 +97,22 @@ over = json.loads(os.environ["PART_OVERRIDES"])
 bad = [k for k, v in over.items() if not isinstance(v, (str, list))]
 if bad:
     sys.exit("override(s) %s are not strings -- Orca discards JSON numbers silently" % bad)
+
+# Keys the CAD quantizes against. membrane_cartridge_common.scad derives seal
+# dimensions as integer multiples of the build layer, and tools/profile_check.py
+# gates those constants against process_asa_seal.json -- the BASE file. The
+# moment a part overrides one of them here, profile_check is validating a number
+# that did not slice the plate, and it would still report green. Rather than
+# teach that check about per-part generation, forbid the overlap: these belong
+# to the shared profile, and a part that genuinely needs a different one needs a
+# conversation, not a silent divergence.
+QUANTIZED = ("layer_height", "initial_layer_print_height", "outer_wall_line_width")
+clash = [k for k in over if k in QUANTIZED]
+if clash:
+    sys.exit("override(s) %s are quantized against by the CAD and gated by "
+             "tools/profile_check.py against the BASE profile -- overriding them "
+             "per part would make that check validate a value that did not slice "
+             "this plate" % clash)
 for k, v in over.items():
     if k not in base:
         sys.exit("override key %r is not in the base profile -- typo, or a key "
