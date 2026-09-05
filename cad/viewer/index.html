@@ -53,6 +53,9 @@
            border-radius: 5px; padding: 4px 9px; font: inherit; font-size: 11.5px;
            cursor: pointer; margin: 2px 3px 2px 0; }
   button:hover { border-color: var(--accent); }
+  #stale { display: none; background: #4a2b12; border: 1px solid #8a5a22;
+           color: #ffc37a; border-radius: 5px; padding: 6px 8px; margin: 0 0 10px;
+           font-size: 11px; line-height: 1.35; }
   #hint { position: fixed; bottom: 10px; right: 12px; color: var(--dim); font-size: 11px; }
   #err { position: fixed; inset: 0; display: none; place-items: center; padding: 40px;
          background: var(--bg); color: #ff8080; font-family: ui-monospace, monospace;
@@ -63,23 +66,24 @@
 <div id="panel">
   <h1>O₂ probe — prototype 1</h1>
   <div class="sub">printed body + real KiCad board</div>
+  <div id="stale"></div>
 
   <h2>Parts</h2>
   <div id="parts"></div>
 
   <h2>Cut lengthwise <span class="val" id="clipYv">off</span></h2>
-  <input type="range" id="clipY" min="-20" max="20" step="0.25" value="20" autocomplete="off">
+  <input type="range" id="clipY" step="0.25" autocomplete="off">
   <label class="row" style="padding-top:1px"><input type="checkbox" id="flipY" autocomplete="off">
     <span class="nm">keep the other half</span></label>
-  <div class="note" style="margin-left:0">Splits the probe down its length, on
-    the board plane. Full right = no cut.</div>
+  <div class="note" style="margin-left:0" id="noteY">Splits the probe down its
+    length, on the board plane. Full right = no cut.</div>
 
   <h2>Cut across <span class="val" id="clipZv">off</span></h2>
-  <input type="range" id="clipZ" min="-121" max="34" step="0.5" value="34" autocomplete="off">
+  <input type="range" id="clipZ" step="0.5" autocomplete="off">
   <label class="row" style="padding-top:1px"><input type="checkbox" id="flipZ" autocomplete="off">
     <span class="nm">keep the other half</span></label>
-  <div class="note" style="margin-left:0">Slides a plane along the probe axis:
-    -113 is the cable end, 0 the head joint, +33.6 the membrane face.</div>
+  <div class="note" style="margin-left:0" id="noteZ">Slides a plane along the
+    probe axis.</div>
 
   <h2>Body opacity <span class="val" id="opav">100%</span></h2>
   <input type="range" id="opa" min="8" max="100" step="1" value="100" autocomplete="off">
@@ -179,8 +183,10 @@ const loadSTL = url => new Promise((res, rej) => loader.load(url, res, undefined
   try { cfg = await (await fetch('parts.json')).json(); }
   catch (e) { return fail('Could not read parts.json — serve this over http, not file://\n\n' + e); }
 
+  const staleness = [];
   for (const p of cfg.parts) {
     let geom;
+    if (p.kind === 'stl' && p.stale) staleness.push(p.name + ': ' + p.stale);
     if (p.kind === 'stl') {
       try { geom = await loadSTL(p.file); }
       catch (e) { fail('Missing mesh: ' + p.file + '\nRun `make monobody` / `make board-mesh` first.'); continue; }
@@ -208,10 +214,45 @@ const loadSTL = url => new Promise((res, rej) => loader.load(url, res, undefined
   camera.near = dist / 200; camera.far = dist * 20; camera.updateProjectionMatrix();
   window.view = { mid, dist };
 
+  // SLIDER RANGES COME FROM THE GEOMETRY. They were hardcoded (-121..34) and
+  // that was already wrong within the hour: the model's tube grew from 113 to
+  // 124 mm and the cable end moved out past the end of its own slider, so the
+  // cut could not reach it. Bounds are read off the loaded meshes instead.
+  const bb = new THREE.Box3().setFromObject(root);
+  const pad = 0.5;
+  const cuts = [
+    [clipY, 'clipY', 'clipYv', 'flipY', 'y', bb.min.y - pad, bb.max.y + pad],
+    [clipZ, 'clipZ', 'clipZv', 'flipZ', 'z', bb.min.z - pad, bb.max.z + pad],
+  ];
+  for (const [pl, sl, lab, fl, ax, lo, hi] of cuts) {
+    const el = document.getElementById(sl);
+    el.min = lo.toFixed(2); el.max = hi.toFixed(2);
+    wireCut(pl, sl, lab, fl, ax, +el.max);
+  }
+  document.getElementById('noteZ').textContent =
+    `Slides a plane along the probe axis: ${bb.min.z.toFixed(0)} is the cable `
+    + `end, 0 the head joint, +${bb.max.z.toFixed(1)} the membrane face.`;
+
+  // A stale mesh looks exactly like a current one, so say it out loud. This is
+  // the whole reason make_viewer_parts.py records mtimes: the meshes are built
+  // from SCAD that changes under this viewer, and showing yesterday's body as
+  // though it were today's is worse than showing nothing.
+  if (staleness.length) {
+    const el = document.getElementById('stale');
+    el.style.display = 'block';
+    el.textContent = 'STALE MESH — rebuild with `make monobody` / `make board-mesh`:\n'
+                   + staleness.join('\n');
+    el.style.whiteSpace = 'pre-wrap';
+  }
+
   const m = cfg.meta;
+  // Everything here is read out of the SCAD model by make_viewer_parts.py, so
+  // it cannot quietly disagree with the geometry on screen.
   document.getElementById('facts').textContent =
-    `bore Ø${(m.bore_r * 2).toFixed(1)} · head bore Ø${(m.head_bore_r * 2).toFixed(2)}\n` +
-    `mesh board ${m.board_t_mesh} mm; model cut for ${m.board_t_model} mm`;
+    `${m.joint} · tube ${m.tube_len} · tail ${m.tail_len} · `
+    + `head socket ${m.head_socket_len} · cap engage ${m.cap_engage}\n`
+    + `bore Ø${(m.bore_r * 2).toFixed(1)} · head bore Ø${(m.head_bore_r * 2).toFixed(2)}\n`
+    + `mesh board ${m.board_t_mesh} mm; model cut for ${m.board_t_model} mm`;
 })();
 
 // --- controls ---------------------------------------------------------------
@@ -226,9 +267,14 @@ function wireCut(plane, sliderId, labelId, flipId, axis, offAt) {
   // Chrome restores form state across reloads and IGNORES autocomplete="off" on
   // range inputs, so the page was coming back with a cut already applied while
   // the markup said otherwise -- the slider read -4 with value="20" on it.
-  sl.value = offAt; fl.checked = false;
+  sl.value = sl.max; fl.checked = false;
+  // Compare against the value the slider ACTUALLY took, not the max we asked
+  // for: `step` snaps it to the grid from `min`, so a max that is not on that
+  // grid clamps lower and `v >= max` is then never true -- the cut reads as
+  // "34.0 mm" on a slider that is fully off.
+  const offAtReal = +sl.value;
   const apply = () => {
-    const v = +sl.value, off = v >= offAt;
+    const v = +sl.value, off = v >= offAtReal;
     // Flipping is a sign change on BOTH the normal and the constant, which
     // keeps the plane in the same place and swaps which side survives.
     const s = fl.checked ? 1 : -1;
@@ -239,8 +285,7 @@ function wireCut(plane, sliderId, labelId, flipId, axis, offAt) {
   };
   sl.oninput = apply; fl.onchange = apply; apply();
 }
-wireCut(clipY, 'clipY', 'clipYv', 'flipY', 'y', 20);
-wireCut(clipZ, 'clipZ', 'clipZv', 'flipZ', 'z', 34);
+// wireCut is called once the geometry is loaded -- see calibrateCuts().
 const opa = document.getElementById('opa'), opav = document.getElementById('opav');
 opa.oninput = () => {
   const a = +opa.value / 100; opav.textContent = opa.value + '%';
