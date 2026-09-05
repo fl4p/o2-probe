@@ -58,6 +58,11 @@
     "spec": "o2_probe_head_end.scad:bed-radial-ring=O-ring (carrier->head)",
     "color": "#e08b3a",
     "note": "ORS116787 24 x 1.5 EPDM, radial on the spigot into the reamed 27.1 H7 well. THE seal that keeps compost out of the cavity -- squeeze comes from the FIT, no screw is in its load path"
+   },
+   {
+    "spec": "o2_probe_head_end.scad:cap-asm=cap (debris / plowing)",
+    "color": "#6d8b74",
+    "note": "ASSEMBLY frame. part=\"cap\" is the same solid in its OWN frame (z=0 at the open end) and draws 24.3 mm low -- always cap-asm in an assembly view. Solid face outermost because it plows the pile; material enters only through the side cage windows, never straight at the membrane"
    }
   ]
  },
@@ -149,6 +154,20 @@
      "-D",
      "joint=\"monolithic\""
     ]
+   }
+  ]
+ },
+ "head-end-exploded": {
+  "note": "the model's OWN assembly(), exploded -- the only view that places the debris cap, because assembly() applies translate([0,0,head_len-cap_grip]) and part=\"cap\" does not",
+  "flags": [
+   "-D",
+   "exploded=true"
+  ],
+  "parts": [
+   {
+    "spec": "o2_probe_head_end.scad:assembly=head end (assembly, exploded)",
+    "color": "#b0b6bb",
+    "note": "one fused mesh, so no per-part colours -- but every part is where the MODEL puts it, including the cap. Use this to check placement; use the head-end scene to identify parts"
    }
   ]
  }
