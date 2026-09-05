@@ -61,7 +61,7 @@
 $fn = 128;
 e = 0.02;
 
-part = "tube";       // tube, cap, cap-print, dam, assembly
+part = "tube";       // tube, fit-coupon, cap, cap-print, dam, assembly
 exploded = false;
 
 // ------------------------------------------------- the interfaces
@@ -77,7 +77,17 @@ exploded = false;
 // the board's tip 11 mm past the cavity. The overall probe length does not
 // change -- 11 mm of Ø40 head simply becomes 11 mm of Ø32 tube.
 head_socket_len = 3.0;      // o2_probe_head_end.scad, socket_len (monolithic)
-cav_board_len   = 2.0;      // o2_probe_head_end.scad, cav_board_len
+// STILL 2.0, but it is no longer a number anyone chose -- IT IS SOLVED IN THE
+// HEAD and this is a copy that has to be re-read whenever the head moves.
+// Deleting the axial cell's neck put the retainer screws in charge of the head's
+// length: cav_board_len = max(2.0, fast_hole_h + 2 - cav_clear_len - spigot_len).
+// It went to 4.7 on 2026-09-05 while fast_hole_h was 8.0, and came back to the
+// 2.0 floor the same evening when the fastener moved to M2 (fast_hole_h 5.0), so
+// this line has already been wrong once today in each direction.
+// tools/interface_check.py reads the head's value out of a render (the INTERFACE
+// echo) rather than by regex on the source, because a max() is not regex-readable
+// -- and it is the thing that caught this copy stale both times. Run it.
+cav_board_len   = 2.0;      // o2_probe_head_end.scad, cav_board_len (SOLVED there)
 
 // HOW THE HEAD JOINS.
 //   "bonded"      the production joint: this tube slides 14 mm into the head's
@@ -428,6 +438,67 @@ station_a = [ 4.0, 24.0];   // board y
 // board loosely, and it is the only thing that does.
 station_b = (joint == "monolithic") ? [82.0, 90.0] : [86.0, 102.0];
 
+// ------------------------------------------------- the wire-end grip band
+//
+// FAB, 2026-09-05: the cable-end guides should hold the board by FRICTION, not
+// just locate it. `guide_slack` = 0.3 does not: on a 1.6 mm board it is a
+// 1.9 mm slot, and a printed slot comes out 0.1-0.2 mm under nominal in XY, so
+// the board still rattles by something like a tenth. What follows makes ONE
+// SHORT BAND of station A tight and leaves the rest of both stations at the
+// old clearance.
+//
+// WHY A BAND AND NOT THE WHOLE RAIL. The board goes in tip-first from the cable
+// end, so EVERY millimetre of its 107 mm edge is dragged through station A --
+// there is no way to put a tight feature at the cable end that the whole board
+// does not have to pass. That is not fatal (the FR4 edge is far harder than the
+// ASA, so the slot yields, not the board) but it sets two rules:
+//
+//   * keep the interference SHORT, so the drag force is a band's worth and not
+//     20 mm of it, and so each insertion shaves as little as it can;
+//   * ramp INTO it, so the board wedges rather than butts against a step.
+//
+// It is also why this is a prototype-grade hold and nothing more. Friction in
+// printed ASA is not a retention feature that survives a season at pile
+// temperature -- the same objection the header raises against the bayonet's
+// friction wedge, and it applies here unchanged. The board is retained by being
+// captive between the cap and the head cavity; the grip stops it rattling and
+// stops it falling out while the probe is being assembled upside down.
+//
+// GEOMETRY. The band sits at the HEAD-SIDE end of station A, `grip_end_gap`
+// short of the rail's end so the existing end lead-in taper stays clear of it.
+// With station A at board y 4..24 that puts the grip on board y 14..20 and the
+// ramps on 12..14 and 20..22 -- all inside the measured 0.0..28.6 clear band.
+guide_lead    = 1.5;        // end lead-in taper on every rail
+grip_len      = 6.0;        // axial length of the interference band
+grip_ramp     = 2.0;        // clearance -> grip transition at each end
+// >= guide_lead + grip_ramp, or the end taper reopens the band (asserted).
+grip_end_gap  = 4.0;        // from the head-side end of station A
+
+// THE ONE NUMBER THE PRINTER DECIDES. `grip_slack` is nominal slot height minus
+// board thickness at the band: 0.30 is the old clearance, 0.00 is a slot drawn
+// exactly the board's thickness (which, printed, is already an interference),
+// negative is drawn interference on top of that. It cannot be derived -- it is
+// the sum of this printer's XY undersize, the ASA's shrink, the board's real
+// thickness including soldermask, and how hard a "firm push" is.
+//
+// PROVISIONAL until the coupon says otherwise. `part="fit-coupon"` prints a
+// ladder of five bands, geometrically IDENTICAL to this one, on real bore and
+// real wall in the real print orientation; push the actual Rev-A board edge
+// into each and set this to the one that needs a firm push and then holds.
+// See PRINTING-BODY-TUBE.md, "Setting the wire-end grip".
+grip_slack    = 0.05;       // PROVISIONAL -- set from the coupon
+grip_measured = false;      // flip to true, with the date, once it is
+
+// The ladder the coupon prints, loosest first. 0.30 is the old clearance and is
+// in there deliberately: it is the reference for what "too loose" feels like.
+coupon_slacks = [0.30, 0.20, 0.12, 0.06, 0.00];
+coupon_pitch  = tube_od + 4;
+coupon_pad    = 4.0;        // plain rail above and below the band's ramps
+coupon_h      = grip_len + 2*grip_ramp + 2*coupon_pad;
+coupon_flange_w = 16.0;
+coupon_flange_d = 13.0;
+coupon_flange_t = 1.6;
+
 // Optional dam, see the header. Sits just gasward of the pot line, in the same
 // clear band as station B.
 dam_y = 81.0;               // board y of its cable-side face
@@ -445,6 +516,12 @@ tube_len = board_in_tube + tail_len
          - ((joint == "monolithic") ? head_socket_len : 0);
 board_y0_z = tail_len;                          // board y=0 sits here
 function zy(y) = board_y0_z + y;                // board y -> tube z
+
+// The grip band, in tube z. Station A only -- station B stays plain clearance,
+// because it is the far station and the board has to be free to find the head's
+// bore over the last 16 mm (see the station B note above).
+grip_a1 = zy(station_a[1]) - grip_end_gap;
+grip_a0 = grip_a1 - grip_len;
 
 // THE LOCK ROTATION, derived rather than measured off the checker.
 // Work it in the LAB frame, where the tube stands +z up and the cap arrives
@@ -660,7 +737,15 @@ board_diag  = sqrt(pow(board_w, 2) + pow(board_swept, 2));
 // Still a MODEL, not a measurement: it ignores the board's components, the
 // cable, the sachet and the guide rails, all of which displace gas, so it errs
 // LARGE. That is the safe direction for a budget.
-head_cavity = 4917;         // mm3, MEASURED off the cavity mesh
+// 2929, not 4917. RE-MEASURED 2026-09-05 after the standing cell deleted the
+// head's neck: `openscad $(make -s print-ASA) -D 'part="cavity"' ... | stlvol.py`.
+// The 4917 it replaces was measured on the option-C head and survived the change
+// silently -- the 2026-09-05 Codex review caught it overstating the head's share
+// by 1988 mm3. Conservative for a maximum-volume gate, but not a measurement of
+// this geometry, which is what the name claims. NOTHING CHECKS THIS COPY: it is a
+// measurement, not a duplicated parameter, so re-measure it whenever the head's
+// cavity moves.
+head_cavity = 2929;         // mm3, MEASURED off the cavity mesh (2026-09-05, ASA)
 tube_bore_area = PI*pow(tube_id/2, 2);
 tube_gas_board = tube_bore_area * board_in_tube - board_w*board_t*board_in_tube;
 tube_gas_tail  = tube_bore_area * tail_len;
@@ -700,7 +785,40 @@ assert(station_b[1] <= board_in_tube - 2.0,
        "station B runs past the end of the tube");
 assert(guide_engage + 0.5 <= 1.5,
        "guide engagement exceeds the measured edge-clear band");
+
+// The grip band and its ramps must sit inside station A with the end lead-in
+// taper clear of them at both ends, or the taper reopens the band.
+assert(grip_a0 - grip_ramp >= zy(station_a[0]) + guide_lead + 0.5,
+       str("grip band starts at z=", grip_a0 - grip_ramp,
+           ", too close to station A's cable-end lead-in"));
+assert(grip_a1 + grip_ramp <= zy(station_a[1]) - guide_lead + 0.001,
+       str("grip band ends at z=", grip_a1 + grip_ramp,
+           ", into station A's head-end lead-in"));
+// The band is inside the measured edge-clear band 0.0 .. 28.6 (see above), with
+// the ramps counted -- a ramp still touches the board edge.
+assert(grip_a1 + grip_ramp - board_y0_z <= 28.6,
+       "the grip band's head-side ramp leaves the measured edge-clear band");
+// A slot narrower than the board by more than this is not a friction fit, it is
+// a press that shaves FR4 for 100 mm. 0.15 mm of DRAWN interference sits on top
+// of the printer's own XY undersize, so it is already at the edge of what a
+// hand can push.
+assert(grip_slack >= -0.15,
+       str("grip_slack ", grip_slack, " is a press fit, not a friction fit"));
+assert(grip_slack <= guide_slack,
+       "grip_slack is looser than the clearance it is supposed to tighten");
+assert(coupon_pad >= guide_lead + grip_ramp,
+       "the coupon's end lead-in taper runs into its grip band");
 assert(lug_z + lug_h/2 < tube_len/2, "bayonet lugs are not at the cable end");
+
+echo(str("WIRE-END GRIP: station A carries a ", grip_len, " mm band at slack ",
+         grip_slack, " (slot ", board_t + grip_slack, " mm on a ", board_t,
+         " mm board), board y ", grip_a0 - board_y0_z, "..", grip_a1 - board_y0_z,
+         ", ramps ", grip_ramp, " mm. Rest of station A and all of station B stay at ",
+         guide_slack, ". ", grip_measured ? "MEASURED." :
+         "PROVISIONAL -- print part=\"fit-coupon\" and set it from the ladder."));
+echo(str("FIT COUPON: ", len(coupon_slacks), " rings, slacks ", coupon_slacks,
+         " -> slots ", [for (g = coupon_slacks) board_t + g],
+         " mm. Slice with the tube's profile, print as modelled."));
 
 echo(str("BODY TUBE: ", tube_od, " OD x ", tube_id, " ID x ", tube_len,
          " long, wall ", wall, "; cap ", cap_h, " tall, adds ",
@@ -786,16 +904,49 @@ module bore_solid(z0, z1) {
 // intersections against a 128-gon cylinder. That is not a micro-optimisation:
 // with them, one probe in tools/bayonet_check.py cost 6.5 s and the check ran
 // over five minutes.  `guide_r_max` is asserted to stay inside the wall.
-module guide(sx, z0, z1) {
-    lead = 1.5;
+// A length of slot at one height, as a CUTTING solid. Runs radially past the
+// bore in both directions so it always clears the rail it is cut from.
+module slot_cut(h, za, zb) {
+    translate([board_w/2 - guide_engage - e, -h/2, za])
+        cube([tube_id, h, zb - za]);
+}
+
+// A slot that changes height from h0 at za to h1 at zb, as a cutting solid.
+// The 2D square is centred on y=0 so linear_extrude's scale opens/closes it
+// symmetrically about the board plane -- scale [1, k] leaves the radial extent
+// alone, which matters: scaling x too would pull the cut back out of the wall.
+module slot_ramp(h0, h1, za, zb) {
+    translate([board_w/2 - guide_engage - e, 0, za])
+        linear_extrude(height = zb - za, scale = [1, h1/h0])
+            translate([0, -h0/2]) square([tube_id, h0]);
+}
+
+// One guide rail. `gs` is the slack over [g0, g1]; pass g0 = undef for a plain
+// clearance rail. See "the wire-end grip band" for why the tight part is a
+// short band and not the whole rail.
+module guide(sx, z0, z1, g0 = undef, g1 = undef, gs = 0) {
+    lead   = guide_lead;
     slot_h = board_t + guide_slack;
+    grip_h = board_t + gs;
+    has_grip = !is_undef(g0) && !is_undef(g1);
     scale([sx, 1, 1]) {
         difference() {
             translate([board_w/2 - guide_engage, -guide_body/2, z0])
                 cube([guide_r_max - board_w/2 + guide_engage, guide_body, z1 - z0]);
             // the slot, plus a lead-in taper at each end
-            translate([board_w/2 - guide_engage - e, -slot_h/2, z0 - e])
-                cube([tube_id, slot_h, z1 - z0 + 2*e]);
+            if (has_grip) {
+                // Cutting solids ABUT rather than overlap at the ramp ends, and
+                // that is deliberate: they meet at identical cross-sections, so
+                // the union is exact. e-overlaps here would be overlaps of two
+                // identical faces, which buys nothing and costs a CGAL merge.
+                slot_cut(slot_h, z0 - e, g0 - grip_ramp);
+                slot_ramp(slot_h, grip_h, g0 - grip_ramp, g0);
+                slot_cut(grip_h, g0, g1);
+                slot_ramp(grip_h, slot_h, g1, g1 + grip_ramp);
+                slot_cut(slot_h, g1 + grip_ramp, z1 + e);
+            } else {
+                slot_cut(slot_h, z0 - e, z1 + e);
+            }
             for (zz = [[z0 - e, 1], [z1 + e, -1]])
                 translate([board_w/2 - guide_engage - e, 0, zz[0]])
                     scale([1, 1, zz[1]])
@@ -923,7 +1074,7 @@ module tube() {
                         cylinder(d=lock_pilot_d, h=tube_od, $fn=32);
     }
     for (s = [1, -1]) {
-        guide(s, zy(station_a[0]), zy(station_a[1]));
+        guide(s, zy(station_a[0]), zy(station_a[1]), grip_a0, grip_a1, grip_slack);
         guide(s, zy(station_b[0]), zy(station_b[1]));
     }
 }
@@ -1010,6 +1161,60 @@ module dam() {
     translate([0, -2, 0]) dam_half(board_env_back + guide_slack, -1);
 }
 
+// ------------------------------------------------- the fit coupon
+//
+// A ladder of grip bands, printed instead of guessed. Each rung is a REAL ring
+// of this tube -- true OD, true bore, true wall, true rail, and the same
+// `guide()` module with the same `grip_len` and `grip_ramp` -- so the only thing
+// that differs between a rung and the shipping part is `grip_slack` and the
+// 20 mm of plain rail either side of the band. Fidelity is the whole point: a
+// bare pair of rails on a strip would flex, read loose, and send back a number
+// that is too tight for the real tube.
+//
+// It prints as-modelled, slot vertical, cable-end-down -- the orientation
+// PRINTING-BODY-TUBE.md specifies for the tube itself. Slice it with the SAME
+// profile as the tube. A coupon printed at a different layer height or line
+// width measures a different printer.
+//
+// Test it with the actual Rev-A board edge, not a caliper block: soldermask,
+// edge burr and router taper are all in the fit, and none of them are in 1.6.
+module coupon_one(gs, label) {
+    g0 = coupon_pad + grip_ramp;
+    g1 = g0 + grip_len;
+    difference() {
+        union() {
+            difference() {
+                union() {
+                    cylinder(d=tube_od, h=coupon_h);
+                    // Base flange: keeps a 16 mm-tall ring from tipping, and
+                    // carries the label on a face that prints flat and up.
+                    translate([-coupon_flange_w/2,
+                               -(tube_od/2 - 2 + coupon_flange_d), 0])
+                        cube([coupon_flange_w, coupon_flange_d, coupon_flange_t]);
+                }
+                translate([0, 0, -e]) cylinder(d=tube_id, h=coupon_h + 2*e);
+            }
+            // Slack in hundredths of a millimetre, raised on the flange.
+            // $fn stays low here on purpose: at the file's 128 the glyph
+            // outlines alone take CGAL minutes, and a label is a label.
+            translate([0, -(tube_od/2 - 2 + coupon_flange_d/2), coupon_flange_t])
+                linear_extrude(0.6)
+                    text(label, size=5.5, halign="center", valign="center",
+                         font="Liberation Sans:style=Bold", $fn=12);
+        }
+    }
+    for (sx = [1, -1]) guide(sx, 0, coupon_h, g0, g1, gs);
+}
+
+module fit_coupon() {
+    n = len(coupon_slacks);
+    for (i = [0:n-1])
+        translate([(i - (n - 1)/2) * coupon_pitch, 0, 0])
+            coupon_one(coupon_slacks[i],
+                       str(coupon_slacks[i] < 0.1 ? "0" : "",
+                           round(coupon_slacks[i] * 100)));
+}
+
 // Representative board, drawn only. Never exported.
 module board_stub() {
     color("ForestGreen")
@@ -1018,8 +1223,16 @@ module board_stub() {
     // RV1, the trimmer: BACK face, board x 0.25..4.75 -> tube x -9.75..-5.25.
     color("Crimson")
         translate([-9.75, -board_t/2 - 5.0, zy(71.1)]) cube([4.5, 5.0, 3.8]);
+    // The cell, STANDING on the board -- axis normal to the copper, gas face
+    // radial, centre 13.5 mm back from the tip (PLACEMENT.md's (10.0, 93.5) on a
+    // board whose gas end is y=107.0). It used to be drawn as an axial can 1 mm
+    // PAST the tip, which is cell-orientation option C, and it outlived that
+    // decision by a day: the 2026-09-05 Codex review found this preview still
+    // showing a past-end cell after the head had defaulted to standing.
     color("DarkSlateGray")
-        translate([0, 0, zy(board_len) + 1.0]) cylinder(d=14.62, h=8.3);
+        translate([0, 0, zy(board_len - 13.5)])
+            rotate([-90, 0, 0]) translate([0, 0, board_t/2])
+                cylinder(d=14.62, h=8.3);
 }
 
 module assembly() {
@@ -1052,6 +1265,7 @@ module cap_printed() {
 }
 
 if (part == "tube") tube();
+else if (part == "fit-coupon") fit_coupon();
 else if (part == "cap") cap();
 else if (part == "cap-print") cap_printed();
 else if (part == "dam") dam();

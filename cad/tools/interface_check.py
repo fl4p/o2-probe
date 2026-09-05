@@ -23,6 +23,7 @@ run in every build.
 import os
 import re
 import struct
+import shlex
 import subprocess
 import sys
 
@@ -35,8 +36,48 @@ OPENSCAD = os.environ.get('OPENSCAD', 'openscad')
 # The head's provisional MEASURE inputs, the same four the Makefile supplies.
 # It refuses to load without them, which is deliberate and not this file's
 # business to work around -- so they are passed, not defaulted away.
-PROV = ['-D', 'tube_od_meas=32.0', '-D', 'board_env_front=3.0',
-        '-D', 'board_env_back=5.0', '-D', 'cell_axial_len=13.0']
+# The head's provisional MEASURE inputs plus the process claims its seal gates
+# require -- i.e. the Makefile's ASA set, read from the Makefile rather than
+# copied, so this file cannot render a different head than `make` does.
+def _asa_flags():
+    r = subprocess.run(['make', '-s', 'print-ASA'], cwd=CAD,
+                       capture_output=True, text=True)
+    val = r.stdout.strip() if r.returncode == 0 else ''
+    if not val:
+        raise SystemExit("interface_check: cannot read ASA from cad/Makefile")
+    return shlex.split(val)
+
+
+PROV = _asa_flags()
+
+
+_iface = {}
+
+
+def head_interface(name, joint='bonded'):
+    """A number the head prints on its `INTERFACE ...` echo line.
+
+    scalar() below can only read a plain literal, and it says so rather than
+    guessing -- which is right, but it means a value that becomes DERIVED drops
+    out of the comparison entirely and the two models can then drift unchecked.
+    cav_board_len did exactly that on 2026-09-05 when the standing cell made it
+    solve against the retainer screws. So derived interface numbers are read from
+    a render instead: one openscad call, cached, parsed off a line whose spelling
+    the model's own comment pins."""
+    if joint not in _iface:
+        r = subprocess.run([OPENSCAD] + PROV + ['-D', 'joint="%s"' % joint,
+                           '-D', 'part="cavity"', '--export-format', 'asciistl',
+                           '-o', os.devnull, HEAD],
+                           capture_output=True, text=True)
+        m = re.search(r'INTERFACE ([^"]*)', r.stdout + r.stderr)
+        if not m:
+            return None
+        toks = m.group(1).split()
+        _iface[joint] = dict(zip(toks[0::2], toks[1::2]))
+    try:
+        return float(_iface[joint][name])
+    except (KeyError, ValueError):
+        return None
 
 
 def verts(path):
@@ -172,6 +213,10 @@ def head_tube_len(joint):
 
 def main():
     checks = [
+        ("tube_id",
+         (lambda od, w: None if None in (od, w) else od - 2 * w)(
+             scalar(BODY, 'tube_od'), scalar(BODY, 'wall')),
+         scalar(HEAD, 'body_tube_id')),
         ("cap_engage",
          scalar(BODY, 'cap_engage'), scalar(HEAD, 'body_cap_engage')),
         ("seal_id",
@@ -181,7 +226,7 @@ def main():
         ("head_socket_len",
          scalar(BODY, 'head_socket_len'), ternary(HEAD, 'socket_len', 'monolithic')),
         ("cav_board_len",
-         scalar(BODY, 'cav_board_len'), scalar(HEAD, 'cav_board_len')),
+         scalar(BODY, 'cav_board_len'), head_interface('cav_board_len')),
         ("board_t",
          scalar(BODY, 'board_t'), scalar(HEAD, 'board_t')),
         ("board_w",

@@ -144,8 +144,7 @@ def newest_source(scad):
 def render(item, force=False):
     """Build one mesh if it is missing or older than its model. Returns a note."""
     if not item['scad']:
-        return None if os.path.exists(os.path.join(CAD, item['mesh'])) \
-            else 'missing (not built from a model here)'
+        return rebuild_mesh(item, force)
     dst = os.path.join(CAD, item['mesh'])
     src_t = newest_source(item['scad'])
     if not force and os.path.exists(dst) and os.path.getmtime(dst) >= src_t:
@@ -172,6 +171,43 @@ def render(item, force=False):
                if re.search(r'ERROR|WARNING|Assert|empty|No such', l, re.I)]
         return 'FAILED to render:\n' + '\n'.join((why or blob)[-6:])
     print("  built %-34s %5.1fs" % (item['mesh'], time.time() - t0))
+    return None
+
+
+def rebuild_mesh(item, force=False):
+    """A mesh this file does not render, but that a scene can teach it to rebuild.
+
+    Without this, an unmanaged mesh was simply reported present-or-missing -- and
+    "present" is not "current". The head-end scene's PCB tip is produced by
+    tools/board_tip.py, which places it at the model's own board_tip_z; when that
+    datum moved 18.7 -> 16.0 on 2026-09-05 the tracked mesh stayed at 18.7 and
+    `make view SCENE=head-end` would have served the old placement indefinitely,
+    looking perfectly plausible. (Found by the 2026-09-05 Codex review, and it is
+    the SAME failure -- a stale board placement in this viewer -- that
+    board_tip.py's own docstring is about.)
+
+    A scene part may therefore carry:
+        "rebuild": ["python3", "tools/board_tip.py", "<src>", "<dst>"]
+        "deps":    ["o2_probe_head_end.scad", "exports/o2-probe-board-bin.stl"]
+    Missing deps are a hard failure, never a silent skip: a dep that cannot be
+    stat-ed is exactly the case where "it looked current" is worthless.
+    """
+    dst = os.path.join(CAD, item['mesh'])
+    cmd = item.get('rebuild')
+    if not cmd:
+        return None if os.path.exists(dst) else 'missing (not built from a model here)'
+    deps = item.get('deps') or []
+    try:
+        dep_t = max(os.path.getmtime(os.path.join(CAD, d)) for d in deps) if deps else 0
+    except OSError as e:
+        return 'cannot stat a rebuild dependency: %s' % e
+    if not force and os.path.exists(dst) and os.path.getmtime(dst) >= dep_t:
+        return None
+    t0 = time.time()
+    r = subprocess.run(cmd, cwd=CAD, capture_output=True, text=True)
+    if r.returncode != 0 or not os.path.exists(dst):
+        return 'FAILED to rebuild:\n' + ((r.stderr or r.stdout).strip()[-600:])
+    print("  rebuilt %-33s %5.1fs" % (item['mesh'], time.time() - t0))
     return None
 
 
@@ -298,6 +334,7 @@ def serve(scene, items, port, open_browser, scene_name=None):
         fresh_items = [parse_spec(p['spec'], p.get('flags', sflags)) for p in sc['parts']]
         for it, p in zip(fresh_items, sc['parts']):
             it['color'] = p.get('color'); it['note'] = p.get('note')
+            it['rebuild'] = p.get('rebuild'); it['deps'] = p.get('deps')
         print("scenes.json changed: %r now has %d part(s), rebuilding"
               % (scene_name, len(fresh_items)))
         state['items'] = fresh_items
@@ -391,6 +428,8 @@ def main():
             it = parse_spec(p['spec'], p.get('flags', sflags))
             it['color'] = p.get('color')
             it['note'] = p.get('note')
+            it['rebuild'] = p.get('rebuild')
+            it['deps'] = p.get('deps')
             if p.get('name'):
                 it['name'] = p['name']
             items.append(it)

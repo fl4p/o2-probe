@@ -3,10 +3,16 @@
  * Units: millimetres. Z runs from the tube joint toward the tip.
  *
  * The alternative to o2_probe_head.scad, built so the two can be compared on
- * numbers instead of argument. The gas window is on the END face, following
- * PLAN.md's cell-orientation option C -- cell past the board end, axis along the
- * tube. Nothing has to be found in the radial budget, which is what forces the
- * radial variant to 46 mm and 11.2 cm3.
+ * numbers instead of argument. The gas window is on the END face, so nothing has
+ * to be found in the radial budget -- which is what forces the radial variant to
+ * 46 mm and 11.2 cm3.
+ *
+ * IT NO LONGER COMMITS A CELL ORIENTATION, and that changed on 2026-09-05. This
+ * file was built around PLAN.md's option C -- cell past the board end, axis along
+ * the tube, sitting in a necked bore -- and Fab returned the design to option A,
+ * the cell STANDING on the board like any other THT part, gas face radial. The
+ * end window is orthogonal to that choice: see cell_mount, which defaults to
+ * "standing" and keeps "past-end" so the two can still be compared.
  *
  * THE SEALING STACK, compost inward (MEMBRANE.md, decision 2026-09-02):
  *
@@ -38,14 +44,27 @@ $fn = 96;
 heps = 0.02;
 view_rot = 0;               // render-only: lay the stack over for a wider image
 
-part = "assembly";   // assembly, head, carrier, retainer, cap, cavity
+part = "assembly";   // assembly, head, carrier, retainer, cap, cap-asm, cavity
 
 // Retainer fastening. Both routes are kept; "ptscrew" is the default because
 // the reason for metal threads went away when the radial O-ring took the seal
 // load off the screws. Worst case is now ~6 N, order 0.1 MPa in the thread, so
 // creep is a non-issue -- and the insert route costs 6 mm of head diameter, a
-// sole-source US-only part, a flange counterbore, and a heat-setting step 2.3 mm
-// from the O-ring's sealing bore.
+// flange counterbore, and a heat-setting step 2.3 mm from the O-ring's sealing
+// bore.
+//
+// RE-MEASURED AT M2, 2026-09-05, because the M2 insert is a smaller part and the
+// diameter penalty looked like it should have shrunk with it. It did not: head OD
+// 38 on ptscrew against 44 on insert, bolt circle Ø30.2 against Ø33.93. The bore
+// got 0.76 mm smaller and the wall did not, because insert_seal_wall (2.3, set by
+// heat-setting next to the O-ring seat) and pt_seal_wall (1.2, EJOT's boss rule)
+// are what actually separate the two routes -- not the hole. So the "6 mm" above
+// is still the measured figure at M2, not a stale one.
+//
+// What DID change is the sourcing objection: the M2.5 part was E-Z LOK's, a
+// sole-source US import that every EU specialist made special-order. The M2 part
+// is PEM IUTFC-M2, a catalogue item with ordinary distribution. If the insert
+// route is ever chosen, it is no longer chosen against a procurement problem.
 fastening = "ptscrew";      // "ptscrew" or "insert"
 exploded = false;
 // Draw the prototype-1 body below the head as well: the printed ASA tube, its
@@ -87,7 +106,20 @@ body_dir = "exports";       // where those STLs live, relative to the build cwd
 // the head begins: 113 against the bonded 127. The old single value happened to
 // place BOTH correctly -- socket_len - 127 = -113 = -113 -- which is exactly the
 // kind of coincidence that survives until one of the two numbers moves.
+// BACK TO 124.0 / 127.0. These track the head's own cav_board_len, which is now
+// SOLVED (see its note) rather than chosen: the board length is fixed, so every
+// millimetre of bore the head gains has to come out of the tube or the board tip
+// overshoots the well floor. Both numbers moved to 121.3 / 124.3 on 2026-09-05
+// while cav_board_len solved to 4.7 under an 8.0 mm screw, and moved back when
+// the fastener went to M2 and it returned to its 2.0 floor. Overall probe length
+// never changed. tools/interface_check.py compares these against the body model
+// and caught the drift both times -- run it after ANY fastener change.
 body_tube_len = monolithic ? 124.0 : 127.0;   // o2_probe_body_tube.scad, tube_len
+// The tube's BORE, and it is load-bearing here rather than decorative: with the
+// cell standing on the board, this is the hole the can has to go down, and the
+// assert that says so lives in this file because cell_seated_h does. Ø27.2 =
+// tube_od 32 - 2*wall 2.4. Duplicated, so interface_check.py compares it.
+body_tube_id = 27.2;        // o2_probe_body_tube.scad, tube_id
 body_cap_engage = 18.0;     // o2_probe_body_tube.scad, cap_engage
 body_seal_id   = 24.0;      // o2_probe_body_tube.scad, seal_id  (ORS116787)
 body_seal_cord = 1.5;       // o2_probe_body_tube.scad, seal_cord
@@ -98,30 +130,64 @@ body_groove_root = 25.0299; // o2_probe_body_tube.scad, groove_root
 tube_od_meas = undef;      // MEASURE: actual OD of the tube stock, incl. ovality
 board_env_front = undef;   // MEASURE: populated swept envelope above the board
 board_env_back = undef;    // MEASURE: populated swept envelope below the board
-cell_axial_len = undef;    // MEASURE: how far the cell + its socket project past
-                           //          the board end, real cell in a real socket
-// SOURCED 2026-09-02, ../../tech/PROBE-CARRIER-SOURCING.md: E-Z LOK FL-M25-HI-CR,
-// stainless E-Z Sonic. Stainless because brass suffers ammonia stress-corrosion
-// cracking and these sit outside the seal in NH3 condensate. Every EU specialist
-// checked makes stainless special-order only.
-insert_bore_d = 3.99;      // E-Z LOK dimensional drawing D-S.113 Rev1, 11/01/2024
-insert_bore_h = 6.7;       // INFERRED, not an E-Z LOK number: SPIROL's design-guide
-                           // rule (length + 2 pitches) applied to E-Z LOK's 5.74 mm
-                           // body. E-Z LOK publishes no hole depth anywhere.
-insert_head_d = 5.54;      // flanged only -- needs a counterbore or it holds the
-insert_head_t = 0.61;      // retainer off the face. Same drawing.
+cell_seated_h = undef;     // MEASURE: can top above the board plane, real cell in
+                           //          a real socket. PLAN.md option A computes
+                           //          8.3 (can) + 0.51 (Cambion flange) = 8.8, and
+                           //          that is arithmetic on a datasheet, not a
+                           //          seated part. It is also board_env_front in
+                           //          the tip region, so a wrong value moves the
+                           //          bore and the head OD, not just a drawing.
+// cell_axial_len IS GONE, and it is not a rename. It measured "how far the cell
+// and its socket project past the board END", which is a dimension that only
+// exists in cell-orientation option C -- the cell lying on the probe axis beyond
+// the board tip. Fab, 2026-09-05: the design is back to option A, the cell
+// STANDING on the board like any other THT part, axis normal to the copper, gas
+// face radial. Nothing projects past the board end any more, so the quantity is
+// not zero-because-unmeasured, it is zero because the feature does not exist,
+// and the 13 mm of necked bore it bought is dead volume with nothing in it.
+// See cell_mount below. HANDOFF-2026-09-05.md and RING-PCB.md are the two
+// documents written against option C.
+// M2, not M2.5. Fab, 2026-09-05: "for the o2-probe head i want the screw holes to
+// receive M2 metric screws." Only the insert route actually receives a metric
+// screw -- a thread-forming screw cuts its own non-ISO thread -- so both routes
+// were resized to nominal 2.0 and the sourcing redone at that size.
+//
+// SOURCED 2026-09-05, ../reviews/M2-FASTENING-2026-09-05.md: PennEngineering SI
+// IUTFC-M2, 300-series stainless, flanged straight-wall thru-threaded. Stainless
+// because brass suffers ammonia stress-corrosion cracking and these sit outside
+// the seal in NH3 condensate. Replaces E-Z LOK FL-M25-HI-CR, which was the M2.5
+// part and is a sole-source US import.
+// All four numbers below are from one table, PEM SI-7 (sidata.pdf, 06/2022),
+// metric block, read off the RENDERED page -- the PDF's text layer scrambles
+// these columns and must not be trusted for them.
+insert_bore_d = 3.23;      // "Hole Dia." +0.08/-0.00. Was 3.99 for the M2.5 part.
+insert_bore_h = 4.76;      // PUBLISHED "Min. Hole Depth", no longer inferred: PEM
+                           // states it, and it agrees with SPIROL's length + 2
+                           // pitches rule (3.99 + 0.8 = 4.79) to 0.03 mm.
+insert_head_d = 4.75;      // flange dia E; flanged only -- needs a counterbore or
+insert_head_t = 0.46;      // it holds the retainer off the face. T, same table.
+// Filler correction, SPIROL design guide p.5: open the hole +0.08 at >=15% filler
+// and +0.15 at >=35%, interpolating between. Unfilled ASA needs neither, so this
+// is 0 -- set it if the print material changes to a filled grade.
+insert_filler_add = 0.0;
 
-// Thread-forming screw for thermoplastics (Delta PT / EJOT PT / Plastite), A2,
-// nominal 2.5. NOT YET SOURCED: the pilot is brand-specific and belongs in the
-// next sourcing pass. 2.1 is a bare placeholder -- it was commented here as the
-// usual "0.75 x nominal", which is false arithmetic (2.1/2.5 = 0.84), so it has
-// no rationale at all and must not be treated as an anchor.
-pt_nominal = 2.5;
-pt_pilot_d = 2.1;
-// Boss OD >= 2x screw nominal is the standard rule for thread-forming in
-// plastic, and it is the hoop stress that sets it, not heat -- which is why
-// this wall is smaller than the insert's.
+// Thread-forming screw for thermoplastics, EJOT DELTA PT size 20 (nominal
+// Ø2.0 +0.08) or an equivalent Plastite/PT, A2.
+// SOURCED 2026-09-05: EJOT/ATF "DELTA PT -- predictable performance improvement
+// for thermoplastics" (2017), Design recommendations page. The rule is
+// db = 0.8 x d1 (up to 0.88 x d1 for filled or higher-strength material), NOT
+// the "0.75 x nominal" this file used to cite, which was never EJOT's number.
+pt_nominal = 2.0;
+pt_pilot_d = 0.8 * pt_nominal;    // 1.60
+// Same page: dO = 2 x d1. Boss OD >= 2x screw nominal is EJOT's own rule for
+// thread-forming in plastic, and it is the hoop stress that sets it, not heat --
+// which is why this wall is smaller than the insert's.
 pt_seal_wall = (2*pt_nominal - pt_pilot_d)/2;
+// Also EJOT's, and load-bearing rather than cosmetic: the counterbore relieves
+// edge stress and is what stops the boss cracking as the thread forms; it also
+// acts as the lead-in. dC = 1.05 x d1, depth 0.5 x d1. Cut in head().
+pt_cbore_d = 1.05 * pt_nominal;   // 2.10
+pt_cbore_h = 0.5 * pt_nominal;    // 1.00
 
 assert(!is_undef(tube_od_meas),
        "UNMEASURED: tube_od_meas -- measure the tube OD and its ovality");
@@ -129,11 +195,14 @@ assert(!is_undef(board_env_front),
        "UNMEASURED: board_env_front -- tallest component above the board plane");
 assert(!is_undef(board_env_back),
        "UNMEASURED: board_env_back -- tallest component below the board plane");
-assert(!is_undef(cell_axial_len),
-       "UNMEASURED: cell_axial_len -- seat a real cell in a real socket and measure");
+assert(!is_undef(cell_seated_h),
+       "UNMEASURED: cell_seated_h -- seat a real cell in a real socket and measure how far the can top stands off the board");
 echo(str("FASTENING: ", fastening, use_insert
-         ? " -- E-Z LOK FL-M25-HI-CR; NOTE insert_bore_h is cross-manufacturer inference, verify on a coupon"
-         : " -- thread-forming screw, A2, nominal 2.5; NOTE pt_pilot_d is NOT YET SOURCED"));
+         ? str(" -- PEM IUTFC-M2, 300-series stainless; hole ", insert_bore_d,
+               " +0.08 x ", insert_bore_h, " deep (PEM-published minimum)")
+         : str(" -- EJOT DELTA PT 20 or equivalent, A2, nominal ", pt_nominal,
+               "; pilot ", pt_pilot_d, " = 0.8 x d1, counterbore ", pt_cbore_d,
+               " x ", pt_cbore_h, " deep")));
 
 // ------------------------------------------------- design parameters
 
@@ -159,7 +228,17 @@ bore_margin = 1.5;
 
 // Window sized to match the radial variant's TWO 10x10 coupons, so the
 // comparison isolates architecture rather than area.
-window_d = 16.0;            // -> 201 mm2, against 200 mm2 for two square coupons
+//
+// REDUCED 16.0 -> 15.2 on 2026-09-05, and the 0.8 is not arbitrary: it is the
+// growth of face_wall_min from one-and-a-third beads to two, taken out of the
+// WINDOW rather than added to the groove. face_groove_id = window_d +
+// 2*face_wall_min, so the two moves cancel exactly and the groove ID stays at
+// 17.6 -- install stretch on the 17.0 ring is unchanged at 3.53%. Growing the
+// groove instead would have put it at 18.4 and stretch at 8.24%, past the 5%
+// install limit, on a ring that was ALREADY climbing out of its groove. Area is
+// the thing being spent here: 181 mm2, under the 200 mm2 two-coupon benchmark
+// this number was originally chosen to beat. Fab took that trade knowingly.
+window_d = 15.2;            // -> 181 mm2 (was 16.0 -> 201 mm2)
 
 bond_gap = 0.20;
 // TWO DIFFERENT JOBS UNDER ONE NAME, and they parted company when the joint did.
@@ -228,9 +307,10 @@ spigot_bore = 18.0;         // gas path through the spigot; >= window + margin
 // its groove -- see the echo for what a smaller head would cost.
 spigot_land = 2.4;
 flange_margin = 4.0;
-// The sealing core lives entirely in the flange, so the flange IS the core.
-flange_t = cart_t;
 carrier_fit = 0.3;
+// flange_t is DEFINED BELOW, after mem_seal: which bed is fitted decides whether
+// it is free at all. A forward reference to mem_clamped here would read undef
+// with a warning, which is the trap join_cone already documents.
 
 // WHICH MEMBRANE BED. Two are kept, and they are not variants of a preference:
 //   "cone"     the legacy bed -- O-ring 17.0 x 1.0 (ORS116731) in a groove cut
@@ -249,6 +329,39 @@ mem_seal = "clamped";
 assert(mem_seal == "cone" || mem_seal == "clamped",
        str("unknown mem_seal '", mem_seal, "'"));
 mem_clamped = (mem_seal == "clamped");
+
+// ---- carrier flange thickness = HALF THE CELL-TO-MEMBRANE PATH --------------
+//
+// It was `flange_t = cart_t`, and on the CONE bed it has to be: that bed's
+// sealing core is cut by the shared cartridge geometry in
+// membrane_cartridge_common.scad, which measures everything down from cart_t, so
+// a flange thicker or thinner than cart_t either seals the membrane off or leaves
+// the core hanging in air. The assert further down still says exactly that.
+//
+// The CLAMPED bed does not inherit that. Its core is ONE frustum cut by
+// clamped_core_cuts(window_d, spigot_bore, flange_t, ...) -- parametric on
+// flange_t, referred to nothing in the common file -- so on this bed the two
+// numbers were only ever equal by history.
+//
+// Why it is worth separating. PROTOTYPE-RESPONSE.md's build candidate calls for
+// a CELL-TO-MEMBRANE PATH of 5-10 mm, and that path is exactly
+// spigot_len + flange_t: the cell's sensing face sits at the well floor
+// -- PAST-END, where cell_z + cell_h == well_z by construction. STANDING it is
+// not: the can lies on the board cell_setback back from the tip, its top face at
+// cell_z + cell_h nowhere near well_z, and the gas turns a corner to reach it. The
+// GAS PATH echo says which case it is reporting.
+// At cart_t = 5.0 the path is 9.6 mm, at the top of the band, and it goes OVER
+// 10 mm with any ring that widens the spigot groove. The flange is also the
+// widest gas column in the head: the frustum is 217 mm3/mm, so 2 mm off it is
+// 0.45 cm3 measured on the mesh -- ~10% of the 5.0 cm3 budget, for nothing but
+// a thinner disc.
+//
+// 3.0 and not 2.0: the >= 2.0 anti-dishing floor below is the hard limit, and
+// this keeps a millimetre over it because the flange is also what the retainer
+// clamps the membrane against. The aperture opens downward as a
+// atan(1.4/flange_t) = 25 degree cone at 3.0 (15.6 at 5.0), which the carrier
+// still prints wet-face-down -- the printability echo reports the real angle.
+flange_t = mem_clamped ? 3.0 : cart_t;
 
 // SOURCED 2026-09-02, ../../tech/PROBE-CARRIER-SOURCING.md: o-ring-stocks.eu
 // ORS116787, EPDM 70 Shore A peroxide-cured, 24.0 x 1.5 DIN 3771. NOT a derived
@@ -290,22 +403,114 @@ mem_clamped = (mem_seal == "clamped");
 // spigot the stretch is 4.93% and the wall is 2.387. Rather than pretend, the
 // wall minimum for this variant is stated as 2.38 -- and that is the whole
 // concession, not a rounded-down 2.4.
-radial_ring = "ors116787";
-assert(radial_ring == "ors116787" || radial_ring == "onhand-22x2"
-       || radial_ring == "onhand-20x2",
-       str("unknown radial_ring '", radial_ring, "'"));
-onhand_ring = (radial_ring != "ors116787");
+// ---- the ring is TWO NUMBERS, not a name --------------------------------
+//
+// Fab, 2026-09-05: "make this a parameter, so its easy to adjust, depending on
+// which o-ring is available". The three-way enum this replaces could only offer
+// the three sizes someone had written a branch for; the fourth ring out of the
+// drawer needed a code change. Now the ring is its DIMENSIONS, the presets are
+// DATA, and the spigot is SOLVED from whatever ring is named.
+//
+// To use a ring that is not in the table, set two numbers and nothing else:
+//
+//     openscad -D ring_id=19 -D ring_cord=2.5 ...
+//
+// The presets stay because PROVENANCE IS NOT A DIMENSION: which ring has a
+// compound test report behind it is a fact about a part number, not about
+// "24 x 1.5", and that report is what the whole ammonia argument rests on.
+//
+//   name            id    cord  d1tol  spigot_d  wall_min  provenance
+//   "ors116787"     24.0  1.5   0.25   undef     undef     SOURCED: EPDM 70
+//                                                          peroxide, material
+//                                                          127019011, WITH the
+//                                                          compound test report
+//   "onhand-22x2"   22.0  2.0   0.22   25.8      2.38      on hand, UNCATALOGUED
+//   "onhand-20x2"   20.0  2.0   0.22   23.0      0.95      on hand, UNCATALOGUED
+//
+// undef in a preset means "derive it", which is what a custom ring always does.
+// The two spigot literals are NOT undef on purpose: they are already-verified
+// solved values, kept verbatim so this refactor cannot move a checked part by a
+// rounding step. The assert below proves the derivation reproduces them, which
+// is what stops the tabulated and solved forms drifting apart in silence.
+// The stretch column is the correction that made this table honest. My first
+// version pinned a spigot DIAMETER per preset and cross-checked it against one
+// shared 3.5% target -- and the check fired on the Ø20, which pins 23.0 where a
+// 3.5% solve gives 23.4163. The preset was not wrong; MY ASSUMPTION WAS. Each of
+// these rings was solved at its own stretch, deliberately, trading stretch
+// against the wall left under the groove: 3.50% on the Ø24, 4.93% on the Ø22,
+// 1.42% on the Ø20. One shared target cannot express that and should not try.
+//
+// So the table carries STRETCH, not diameter, and the spigot is always solved.
+// There is now exactly one source of truth for the geometry, which is why the
+// literal-vs-derivation assert that caught this could be deleted rather than
+// tuned: it existed only to police a second one.
+radial_ring_presets = [
+//   name             id    cord  d1tol  stretch     wall_min
+    ["ors116787",     24.0, 1.5,  0.25,  0.0350167,  undef],
+    ["onhand-22x2",   22.0, 2.0,  0.22,  0.0492595,  2.38 ],
+//  BROKEN AND KEPT AS A RECORD, not as an option: at 20.2837 the groove root
+//  leaves 1.1419 mm over the Ø18 spigot bore, under the hard 1.2 floor, so
+//  selecting it FAILS TO RENDER. Verified to fail identically on HEAD before
+//  this refactor, so it is inherited, not introduced. It cannot be fixed by
+//  moving the stretch either: more stretch lifts the root but breaks the 5%
+//  rule before it clears 1.2. The Ø20 needs a narrower spigot bore, i.e. a cell
+//  that no longer has to pass through it -- a different decision entirely.
+    ["onhand-20x2",   20.0, 2.0,  0.22,  0.0141850,  0.95 ],
+];
+// DEFAULT = the ring Fab actually has. ors116787 (24 x 1.5) is sourced but not
+// on the bench, so defaulting to it made every hand render and the viewer show
+// a ring nobody can fit, while only the Makefile's override kept the printed
+// plates honest. The default is what an unqualified render gets, so it has to
+// be the buildable one.
+radial_ring = "onhand-22x2";
+// Direct overrides. ring_id + ring_cord are all a new ring needs; the rest fall
+// back to the DIN band and to the derivation.
+ring_id       = undef;
+ring_cord     = undef;
+ring_id_tol   = undef;
+ring_spigot_d = undef;
+ring_wall_min = undef;
+// Override the preset's own solved stretch, or set one for a custom ring that
+// needs to trade stretch against wall the way the presets do.
+ring_stretch_override = undef;
+// The install stretch the spigot is solved TO when it is not given. 3.5% is
+// where the sourced ring already sits and is near the middle of the 1-5% window,
+// so a custom ring lands with margin at both ends instead of on a limit.
+ring_stretch_target = 0.035;
 
-oring_cord = (radial_ring == "ors116787") ? 1.5 : 2.0;
-oring_id_ordered = (radial_ring == "ors116787") ? 24.0
-                 : (radial_ring == "onhand-22x2") ? 22.0 : 20.0;
+function ring_row(n) = let (m = [for (r = radial_ring_presets) if (r[0] == n) r])
+                       len(m) > 0 ? m[0] : undef;
+_ring = ring_row(radial_ring);
+// A named ring must exist; a nameless one must be fully dimensioned. Either is
+// fine; half of each is the state where a typo silently selects a preset.
+custom_ring = !is_undef(ring_id) || !is_undef(ring_cord);
+assert(custom_ring || !is_undef(_ring),
+       str("unknown radial_ring '", radial_ring, "', and no ring_id/ring_cord ",
+           "given. Name one of ", [for (r = radial_ring_presets) r[0]],
+           ", or set ring_id and ring_cord to the ring you actually have"));
+assert(!custom_ring || (!is_undef(ring_id) && !is_undef(ring_cord)),
+       "a custom ring needs BOTH ring_id and ring_cord; one alone is half a ring");
+
+oring_id_ordered = is_undef(ring_id)   ? _ring[1] : ring_id;
+oring_cord       = is_undef(ring_cord) ? _ring[2] : ring_cord;
 // DIN ISO 3601 d1 rows: +/-0.25 at 24, +/-0.22 at 20 and 22. Only moves stretch.
-oring_id_tol = (radial_ring == "ors116787") ? 0.25 : 0.22;
-// Wall left under the groove root, over the spigot bore. 2.4 (= wall_min) is
-// what the sourced ring affords and what the head is designed to; see the note
-// above for why the Ø22 lands at 2.38 and cannot be made to land at 2.4.
-spigot_groove_wall_min = (radial_ring == "ors116787") ? wall_min
-                       : (radial_ring == "onhand-22x2") ? 2.38 : 0.95;
+// A custom ring gets the WIDER band: guessing the narrower one is the direction
+// that flatters the tolerance chain.
+oring_id_tol = !is_undef(ring_id_tol) ? ring_id_tol
+             : (custom_ring || is_undef(_ring[3])) ? 0.25 : _ring[3];
+// Wall left under the groove root, over the spigot bore. wall_min (2.4) is what
+// the sourced ring affords and what the head is designed to; see the note above
+// for why the Ø22 lands at 2.38 and cannot be made to land at 2.4.
+//
+// A CUSTOM RING DOES NOT GET TO LOWER THIS BAR. The preset concessions are
+// declared, argued, and attached to one specific ring. An automatic concession
+// would let any ring redefine the minimum to whatever it happened to afford, and
+// the assert reading it would then be measuring itself rather than the part. So
+// a custom ring is held to wall_min and fails loudly with the shortfall named --
+// set ring_wall_min explicitly to accept a thinner wall, and own the decision.
+spigot_groove_wall_min = !is_undef(ring_wall_min) ? ring_wall_min
+                       : (custom_ring || is_undef(_ring[5])) ? wall_min : _ring[5];
+onhand_ring = (radial_ring != "ors116787") || custom_ring;
 // Static radial squeeze, fraction of cord. 0.24 is not a handbook preference --
 // it is the value that CENTRES the printed well's tolerance band. At the obvious
 // 0.20 the band is -0.34/+0.10, and a printed bore errs oversize, which is the
@@ -395,9 +600,13 @@ lead_chamfer = 1.0;         // so the O-ring is not shaved on assembly
 // reacts the ring. At 3.0 that web is 1.0 mm and bows, which would bleed squeeze
 // off exactly where it is being set, so 2.0 is the target.
 //
-// DERIVED, not declared, and quantized to the BUILD: the part prints groove-up,
-// so its top face is the seal's reference plane, and a total height that is not
-// first_layer + n*layer puts that plane wherever the slicer's last layer lands.
+// DERIVED, not declared, and quantized to the BUILD: whichever face is up, a
+// total height that is not first_layer + n*layer puts a seal plane wherever the
+// slicer's last layer happens to land.  NOTE the datum MOVES with
+// face_groove_up: printed groove-up the seal plane is the top face, printed
+// groove-down it is the FIRST LAYER and the groove ROOF is what has to land on a
+// layer boundary instead.  See the depth assert -- it is the thing that checks
+// this, and it is orientation-aware for exactly that reason.
 // 0.2 + 32 x 0.12 = 4.04, web exactly 2.0. It costs 1.04 mm of probe length
 // through cap_stack.
 retainer_t = mem_clamped
@@ -417,9 +626,12 @@ bolt_n = 6;
 // distortion, not strength: heat-setting at 200+ C within a millimetre of the
 // O-ring's sealing surface will bulge it, and the leak test would fail with no
 // visible cause. This is what sets the head diameter -- see the echo.
-// 2.3 = SPIROL's boss rule (boss OD >= 2x knurl dia) on E-Z LOK's 4.60 mm body.
-// Inserco allows 1.6 for its M2.5; SPIROL is the conservative one and this wall
-// also protects the O-ring seat from the heat of installation.
+// 2.3 = SPIROL's boss rule (boss OD 2-3x insert dia, design guide p.5) on the
+// PEM part's 3.73 mm knurl: 2 x 3.73 = 7.46 boss OD around a 3.23 hole is a
+// 2.115 mm wall, and this keeps a little over it. Held at 2.3 rather than
+// relaxed to 2.115 when the part changed from the M2.5 E-Z LOK, because the
+// binding reason for this wall is thermal, not structural, and 200+ C a
+// millimetre from the O-ring's sealing surface does not care which insert it is.
 insert_seal_wall = 2.3;
 
 // The stand-off is ALSO the breathing band, so it is sized by open area, not by
@@ -434,7 +646,9 @@ cap_front_t = 2.5;          // solid plowing face
 cap_grip = 10.0;            // how far the cap reaches down the head's OD
 cap_screw_n = 2;
 cap_screw_depth = 4.0;      // BLIND: must never reach the bore
-selftap_cap = 2.1;          // cap screws carry no seal load, so self-tap is fine
+selftap_cap = 0.8 * 2.0;    // cap screws carry no seal load, so self-tap is fine.
+                            // Same EJOT 0.8 x d1 rule as pt_pilot_d, at nominal
+                            // 2.0 -- was 2.1, which was the M2.5 pilot.
 nose_taper = 4.0;
 
 // Seal-land thermometry: REMOVED 2026-09-04, deliberately -- "let's try without
@@ -474,15 +688,49 @@ mouth_d = window_d + flare_extra;        // the flare's mouth, in the flange
 // less carrier_fit. The sourced ring's 26.8 is left as the literal expression it
 // has always been, so this substitution cannot move the design of record by a
 // rounding step.
-spigot_d = (radial_ring == "onhand-22x2") ? 25.8
-         : (radial_ring == "onhand-20x2") ? 23.0
-         : mouth_d + 2*spigot_land;   // wall thick enough for a groove
-well_d = spigot_d + carrier_fit;         // the DRAWN bore, i.e. the call-out
 // H7 is +0.021/0, not +/-0.0105: a reamed bore is centred half a band ABOVE
 // nominal, never below it. The seal math must use the middle of the distribution
 // the shop actually produces, or every squeeze figure is biased loose by 0.0105.
 // The geometry is still cut at the call-out; only the seal arithmetic shifts.
+//
+// MOVED ABOVE spigot_d, which now derives from it. Left below, OpenSCAD reads it
+// before its assignment and the solved spigot silently loses 10.5 microns.
 well_bias = (well_finish == "reamed") ? 0.0105 : 0;
+
+// THE RING SIZES THE SPIGOT, which is why a substitution is not a one-liner.
+// Install stretch has to stay in 1-5%, so the groove root is pinned near
+// ID x (1 + stretch), and the spigot follows from that root plus two COMPRESSED
+// cords, less the carrier fit and the well's H7 bias. Inverting groove_root_d
+// below gives exactly:
+//
+//   spigot_d = ID x (1+stretch) + 2 x cord x (1-squeeze) - carrier_fit - well_bias
+//
+// Solved rather than tabulated, so ANY ring works instead of only the three that
+// had a branch written for them.
+// QUANTIZED TO 1 MICRON, and that is not cosmetic -- it is the whole reason this
+// derivation is safe to substitute for the literal it replaced.
+//
+// Measured the moment the literal went away: the Ø24 solves to 26.800000799...,
+// 0.8 nanometres-worth of nothing above 26.8, because the stretch constant in
+// the table is a rounded decimal. head_od then does
+//   2 * ceil(max(..., bolt_r + fast_hole_d/2 + wall_min) + 0.5)
+// and that expression lands EXACTLY on 20.0 for this part -- so 0.8 µm of
+// overshoot became ceil(20.0000004) = 21 and the head grew 40 -> 42 mm, the cap
+// 45 -> 47, silently, with every input printing unchanged. r7s0 had guarded
+// against precisely this by keeping the sourced ring's 26.8 as a literal; I
+// removed that guard, so the derivation has to be exact instead of nearly exact.
+// A spigot diameter is not meaningful past a micron in any case -- it is turned
+// or printed, and carrier_tol alone is ±0.09 mm.
+function spigot_d_for(id, cord, stretch) =
+    round(1000 * (id*(1 + stretch) + 2*cord*(1 - oring_squeeze)
+                  - carrier_fit - well_bias)) / 1000;
+ring_stretch = !is_undef(ring_stretch_override) ? ring_stretch_override
+             : custom_ring ? ring_stretch_target : _ring[4];
+spigot_d_derived = spigot_d_for(oring_id_ordered, oring_cord, ring_stretch);
+spigot_d = !is_undef(ring_spigot_d) ? ring_spigot_d : spigot_d_derived;
+// Solved, every time, for every ring: the spigot IS the derivation. Nothing to
+// cross-check, because there is no second value to disagree with.
+well_d = spigot_d + carrier_fit;         // the DRAWN bore, i.e. the call-out
 well_d_made = well_d + well_bias;
 
 // Radial O-ring groove, cut into the spigot's outside diameter. Seated OD must
@@ -603,9 +851,26 @@ oring_squeeze_real = (oring_cord_fitted - (well_d_made - groove_root_d)/2) / ori
 // Derived from the INSERT bore, not the screw's clearance hole: the insert is
 // the larger feature and the one installed hot next to the sealing surface.
 use_insert = (fastening == "insert");
-fast_hole_d = use_insert ? insert_bore_d : pt_pilot_d;
-fast_hole_h = use_insert ? insert_bore_h : 8.0;
+fast_hole_d = use_insert ? insert_bore_d + insert_filler_add : pt_pilot_d;
+// The insert's depth is now a PUBLISHED minimum, so it is used as one: the hole
+// is cut to it, not to a round number that happened to exceed it.
+fast_hole_h = use_insert ? insert_bore_h : 2 * pt_nominal + pt_cbore_h;
 fast_seal_wall = use_insert ? insert_seal_wall : pt_seal_wall;
+// The widest thing actually cut at the bolt circle. On EITHER route that is the
+// counterbore, not the hole -- and this is NOT an identity, because
+// insert_head_d and pt_cbore_d are independent sourced inputs that no derivation
+// ties to bolt_r. The thread-forming counterbore was added 2026-09-05 and is
+// 2.10 against a 1.60 pilot, so on that route the widest cut is now the
+// counterbore too. Defined here rather than beside its assert because bolt_r has
+// to be derived from it: sizing the circle off the hole and checking the
+// counterbore afterwards is how the check ends up failing something the geometry
+// could simply have avoided.
+bolt_cut_max = use_insert ? max(insert_bore_d + insert_filler_add, insert_head_d + 0.3)
+                          : max(fast_hole_d, pt_cbore_d);
+// Minimum wall from the WIDEST cut to the sealing well. Distinct from
+// fast_seal_wall, which is the boss rule at the thread; this one is the floor
+// the mouth of the counterbore must still respect.
+cut_seal_wall_min = 1.0;
 
 // The bore the fastener must stay clear of is the WELL the spigot seals into --
 // well_d = spigot_d + carrier_fit -- not the spigot itself. Using spigot_d here
@@ -620,19 +885,35 @@ fast_seal_wall = use_insert ? insert_seal_wall : pt_seal_wall;
 // which is the correct outcome -- but the answer is to derive the circle from
 // both constraints, not to shrink the membrane.
 bolt_r = max(well_d/2 + fast_seal_wall + fast_hole_d/2,
-             // m25_clear, not fast_hole_d: through the FLANGE the screw needs
+             // THIRD constraint, added 2026-09-05 with the thread-forming
+             // counterbore: the mouth of the widest cut must also keep its wall.
+             well_d/2 + cut_seal_wall_min + bolt_cut_max/2,
+             // m2_clear, not fast_hole_d: through the FLANGE the screw needs
              // its clearance hole, and that is the bigger of the two features
              // -- sizing this off the pilot leaves the assert 0.95 mm short.
-             mem_clamped ? (face_disc_d(window_d) + 0.4)/2 + 0.8 + m25_clear/2
+             mem_clamped ? (face_disc_d(window_d) + 0.4)/2 + 0.8 + m2_clear/2
                          : 0);
 
 // The flange must reach the bolt circle, which the insert now sets -- with the
 // real 3.99 bore the circle grew past a flange sized from the spigot alone.
-flange_d = max(spigot_d + 2*flange_margin, 2*bolt_r + m25_clear + 4.0);
+// The trailing constant IS the rim outboard of the screw holes: this term makes
+// flange_d = 2*bolt_r + m2_clear + K, so the rim is K/2 whatever else moves.
+// K was 4.0 -> a 2.0 mm rim -> 3.33 beads at 0.6, and the classic generator
+// gap-filled the 0.58 leftover so badly the flange printed with voids you could
+// see through (observed 2026-09-05). K = 8*face_line_w makes the rim four whole
+// beads. Rounder rather than thinner on purpose: this rim is what the six
+// screws pull against.
+flange_d = max(spigot_d + 2*flange_margin, 2*bolt_r + m2_clear + 8*face_line_w);
 
 // Head OD: the bore, or the bolt circle plus material around it. NOT a facet at
 // a radius, which is the whole point of this variant.
-head_od = 2 * ceil(max(bore_d/2 + wall_min, bolt_r + fast_hole_d/2 + wall_min) + 0.5);
+// The -1e-6 is a float guard, not a design allowance. ceil() here amplifies any
+// sub-micron overshoot into a 2 mm step of head diameter, and this expression
+// sits exactly on an integer (20.0) for the part as drawn -- the worst possible
+// place to be. Anything within a micron of the boundary is the boundary; a ring
+// whose solved spigot lands a nanometre over must not cost 2 mm of probe.
+head_od = 2 * ceil(max(bore_d/2 + wall_min,
+                       bolt_r + fast_hole_d/2 + wall_min) + 0.5 - 1e-6);
 cap_od = head_od + 2*cap_wall;
 
 // Volume, and the structural advantage of putting the cell past the board end:
@@ -646,11 +927,57 @@ join_cone = (head_od - tube_od_nominal)/2;
 assert(!monolithic || join_cone > 0,
        "the head is not wider than the tube; there is nothing to cone out to");
 
+// WHERE THE CELL SITS. This is the one decision the whole cavity length rides on.
+//
+//   "standing"  option A, and what Rev A was actually built as: the cell is a THT
+//               part on the board, axis normal to the copper, gas face radial,
+//               centre 13.5 mm back from the board tip (PLACEMENT.md, "SGX O2
+//               cell centre (10.0, 93.5)" on a board whose gas end is y=107.0).
+//               NOTHING is past the board tip, so the board runs right up to the
+//               well floor and there is no necked bore at all.
+//   "past-end"  option C: cell beyond the board end on the probe axis, sitting in
+//               a Ø(cell+2) neck. Kept because the two orientations are still
+//               being compared on numbers, not because either is provisional --
+//               but it now needs cell_axial_len supplied explicitly, since the
+//               measured-input block no longer carries one.
+cell_mount = "standing";
+assert(cell_mount == "standing" || cell_mount == "past-end",
+       str("unknown cell_mount '", cell_mount, "'"));
+cell_standing = (cell_mount == "standing");
+cell_axial_len = cell_standing ? 0 : undef;
+assert(cell_standing || !is_undef(cell_axial_len),
+       "cell_mount=past-end needs cell_axial_len -- seat a real cell in a real socket");
+
+// PLACEMENT.md, controlled datum: cell centre (10.0, 93.5) on a 20.0 x 107.0
+// board with the square gas end at y=107.0. DRAWING ONLY -- the head has no
+// feature at this z; it is here so the picture says where the gas has to get to.
+cell_setback = 13.5;        // board tip to cell axis, standing mount
+
 neck_margin = 1.0;
 neck_d = cell_d + 2*neck_margin;
 cell_disp = PI * pow(cell_d/2, 2) * cell_h;
-cav_board_len = 2.0;   // board tip inside the cavity; volume is tight
+// How far the board tip stands inside the cavity, and it is NO LONGER a free
+// 2.0. Deleting the neck moved the binding constraint onto the RETAINER SCREWS:
+// they enter from the end face and go fast_hole_h deep, at a bolt radius that
+// overlaps the bonded socket, so they cannot be allowed to reach z = socket_len
+// or they open an outside-to-gas leak path through the bond. The material behind
+// the end face is exactly cav_board_len + cav_clear_len + spigot_len, and the
+// assert further down wants fast_hole_h + 2 of it. With the neck gone that sum
+// fell to 7.3 against 10.0 and the head stopped rendering -- correctly.
+//
+// So it is SOLVED rather than chosen, and 2.0 stays as the floor for when the
+// fastener is not the binding constraint. It is the most expensive millimetre in
+// the probe: Ø25.18 less the board is 466 mm3/mm, against 254 for the spigot
+// bore and 217 for the flange core. Anything that lets fast_hole_h down -- a
+// shorter screw, the monolithic joint where there is no socket to break into --
+// buys cavity here first.
+// The necked length past the board tip. ZERO on the standing mount: the neck was
+// only ever the pocket the axial cell sat in, and with the cell on the board
+// there is nothing to pocket. 13.0 mm of Ø16.62 bore and 1.43 cm3 of connected
+// gas leave with it, and the head gets 13 mm shorter.
 cav_clear_len = cell_axial_len;          // guard_gap is OUTSIDE the membrane
+has_neck = cav_clear_len > 0;
+cav_board_len = max(2.0, fast_hole_h + 2.0 - cav_clear_len - spigot_len);
 // Now counts the spigot bore and the flare stack as well, because a bore-only
 // figure understates: it passed at 2.68 cm3 while the mesh measured 5.81.
 // The clamped core is ONE frustum through the whole flange, spigot bore to
@@ -663,8 +990,28 @@ core_gas = mem_clamped
     : PI*pow(mouth_d/2,2)*heater_shelf_t
       + PI*(cart_t - pocket_depth - heater_shelf_t)/12
         * (pow(mouth_d,2) + mouth_d*window_d + pow(window_d,2));
+// THE CAN'S DISPLACEMENT IS COUNTED ONLY WHERE ITS SHAPE IS ACTUALLY MODELLED,
+// and standing it is not -- so standing, it is never subtracted.
+//
+// This was a boolean, `cell_in_head`, that switched the WHOLE 1393 mm3 can in as
+// soon as any part of it crossed into the head. Codex review 2026-09-05 broke it
+// in one step: at cav_board_len = 6.6 only 0.41 mm of the can has entered, worth
+// ~11 mm3 of circular segment, yet both gates dropped 1393 and reported 3.68 cm3
+// against a real ~5.07 cm3. Worse, they AGREED -- because cavity() cut the same
+// wrong solid, an AXIAL cylinder at the board tip, which is where the can sits in
+// the PAST-END mount and nowhere near where it sits standing (radial, on the
+// board, cell_setback back from the tip). Two checks that share a wrong model are
+// one check.
+//
+// So the standing branch counts the can as GAS. That over-states the cavity by at
+// most the can's own volume, and over-stating is the only safe direction for a
+// gate that must never read low. If the can's real displacement is ever wanted
+// here, model the radial can -- do not reintroduce a threshold.
+//
+// The past-end branch is unchanged: there the axial cylinder IS the can.
+cell_disp_counted = has_neck ? cell_disp : 0;
 cav_net = PI*pow(bore_d/2,2)*cav_board_len - board_w*board_t*cav_board_len
-        + PI*pow(neck_d/2,2)*cav_clear_len - cell_disp
+        + PI*pow(neck_d/2,2)*cav_clear_len - cell_disp_counted
         + PI*pow(spigot_bore/2,2)*spigot_len + core_gas;
 
 well_z = socket_len + cav_board_len + cav_clear_len;   // well floor
@@ -688,9 +1035,14 @@ head_len = end_z;
 // so it stays -- but it is why this drawing shows solid where the gate assumes
 // void.
 board_tip_z = socket_len + cav_board_len;   // the board's end face
-socket_standoff = cav_clear_len - cell_h;   // derived, NOT a Cambion dimension
-cell_z = board_tip_z + socket_standoff;     // underside of the can
-board_stub = 16.0;                          // drawing length only
+socket_standoff = cav_clear_len - cell_h;   // past-end only; meaningless standing
+// STANDING: the can's axis is radial, cell_setback back from the tip, and it is
+// lifted off the copper by whatever the socket gives -- cell_seated_h is measured
+// to the can TOP, so the can's near face is cell_seated_h - cell_h off the board.
+cell_stand_off = cell_seated_h - cell_h;
+cell_z = cell_standing ? board_tip_z - cell_setback   // the can's AXIS
+                       : board_tip_z + socket_standoff;  // underside of the can
+board_stub = cell_standing ? cell_setback + cell_d/2 + 6.0 : 16.0;   // drawing only
 
 // The cap must SWALLOW the whole clamped stack, not just the drainage gap. It
 // clears the carrier flange and the retainer, then leaves the stand-off in
@@ -708,25 +1060,52 @@ guard_open = (PI*cap_od - rib_n*rib_w) * guard_gap;
 
 // ------------------------------------------------- gates
 
-assert(bore_d >= cell_d + 2*bore_margin, "bore does not clear the cell can");
+// STANDING, the head bore never has to pass the can: the board is inserted from
+// the CABLE end, down the tube, so the can's clearance is the tube's ID and the
+// board's own swept envelope -- which is what bore_d is derived from anyway.
+assert(!has_neck || bore_d >= cell_d + 2*bore_margin,
+       "bore does not clear the cell can");
+// STANDING, the can never passes the head bore -- the board is inserted from the
+// CABLE end, down the tube -- so what has to clear it is the TUBE's ID. That was
+// asserted nowhere until the 2026-09-05 Codex review pointed out that
+// cell_seated_h was a required input constraining absolutely nothing: a render
+// with cell_seated_h = 20 passed every gate while the can needed a 22.05 mm
+// radius inside a 13.6 mm bore. The swept radius is the can's far top corner.
+cell_stand_r = sqrt(pow(cell_d/2, 2) + pow(board_t/2 + cell_seated_h, 2));
+assert(!cell_standing || cell_stand_r <= body_tube_id/2 - 0.5,
+       str("the standing cell sweeps r=", cell_stand_r, " and the tube bore is r=",
+           body_tube_id/2, ": the can does not go down the tube. cell_seated_h ",
+           cell_seated_h, " is what drives this."));
+echo(str("STANDING CELL: sweeps r=", cell_stand_r, " in a r=", body_tube_id/2,
+         " tube bore -- ", body_tube_id/2 - cell_stand_r, " mm spare."));
 
-// SERVICEABILITY. The head is BONDED to the tube (see the sealing stack at the
-// top of this file), so the head never comes off and the ONLY path a cell can
-// ever take is axially OUT through the carrier well -- up the neck first, then
-// through the spigot bore. "The cell is replaceable" is a claim the geometry has
-// to earn, so it is checked rather than asserted in prose.
+// SERVICEABILITY.
+//
+// STANDING: the cell is soldered-or-socketed to the board and the board comes out
+// the CABLE end, so there is no extraction through the head and nothing here to
+// check. That is a real improvement over what this block used to have to say.
+//
+// PAST-END: the head is BONDED to the tube (see the sealing stack at the top of
+// this file), so the head never comes off and the ONLY path a cell can ever take
+// is axially OUT through the carrier well -- up the neck first, then through the
+// spigot bore. "The cell is replaceable" is a claim the geometry has to earn, so
+// it is checked rather than asserted in prose.
 cell_pull_neck   = (neck_d - cell_d)/2;
 cell_pull_spigot = (spigot_bore - cell_d)/2;
 cell_pull_travel = cell_h + socket_standoff + spigot_len;
-assert(cell_pull_neck > 0 && cell_pull_spigot > 0,
+assert(cell_standing || (cell_pull_neck > 0 && cell_pull_spigot > 0),
        str("cell cannot be withdrawn: neck clearance ", cell_pull_neck,
            " mm, spigot-bore clearance ", cell_pull_spigot,
            " mm. With the head bonded to the tube there is no second path."));
-echo(str("CELL SERVICE: withdraws axially, travel ", cell_pull_travel,
-         " mm; radial clearance ", cell_pull_neck, " mm in the neck then ",
-         cell_pull_spigot, " mm in the spigot bore. Blind reach from the head end face to the can top ",
-         end_z - well_z, " mm through a ", spigot_bore,
-         " mm bore -- NO EXTRACTION TOOL EXISTS and fingers do not fit."));
+echo(cell_standing
+     ? str("CELL SERVICE: standing mount -- the cell rides the board and comes ",
+           "out the CABLE end. No extraction through the head, no reach down the ",
+           spigot_bore, " mm spigot bore.")
+     : str("CELL SERVICE: withdraws axially, travel ", cell_pull_travel,
+           " mm; radial clearance ", cell_pull_neck, " mm in the neck then ",
+           cell_pull_spigot, " mm in the spigot bore. Blind reach from the head end face to the can top ",
+           end_z - well_z, " mm through a ", spigot_bore,
+           " mm bore -- NO EXTRACTION TOOL EXISTS and fingers do not fit."));
 assert((spigot_d - spigot_bore)/2 - oring_cord + oring_cord*oring_squeeze
        >= spigot_groove_wall_min - 1e-6,
        str("spigot wall under the O-ring groove is ",
@@ -870,9 +1249,24 @@ assert(mem_clamped || mem_ring_inner_d >= window_d,
 // Sorting is the lever this bed leans on, and unlike the radial ring's it costs
 // nothing to pull: the rings are here, and the cord band is what sets both
 // tolerance ends below.
+// SORTING IS NOT OPTIONAL ON THIS BED and the model now says so by failing.
+// With the 20% floor, the catalogue cord band alone (+/-0.09 on a 2.5 cord)
+// leaves no groove depth on the 0.12 mm layer grid that holds 20-30% across the
+// corners -- 1.80 is too shallow at the fat corner and the next step down, 1.68,
+// reaches 33%. Micrometering the rings on receipt collapses the band to +/-0.01
+// and the depth closes with room to spare. The Makefile's ASA target sets this;
+// the default stays "catalogue" so that anyone who has NOT sorted gets the
+// failure rather than the part.
 face_sorting = "catalogue";      // "catalogue" | "sorted" (micrometered on receipt)
 face_cord_tol_eff = (face_sorting == "sorted") ? 0.01 : face_cord_tol;
-face_floor = 0.15;               // leaks below this -- same floor as every other seal here
+// 0.20, not 0.15. Parker ORD 5700 Design Chart 4-3, p. 4-18, gives 20-30% for
+// the nearest FACE-SEAL cross-section (0.103 in / 2.62 mm). The 15% floor this
+// carried is the RADIAL rule, copied across from the carrier-to-head ring, and a
+// face seal is not a radial one: it has no gland-fill-driven energisation to
+// fall back on. Raised on the ORD-5700 review, 2026-09-05. It is the change that
+// makes the catalogue-ring build fail, which is the point -- it was already
+// failing, silently.
+face_floor = 0.20;
 face_ceiling = 0.30;             // takes compression set above it
 face_dtol_max = face_depth_tol_max(window_d, face_floor, face_cord_tol_eff);
 face_dtol_min = face_depth_tol_min(window_d, face_ceiling, face_cord_tol_eff);
@@ -914,7 +1308,7 @@ assert(!mem_clamped || face_fill_worst <= 0.85,
 // The membrane disc has to fit between the groove and the bolt circle, and this
 // is the dimension that killed the Ø20 x 2 alternative -- its disc lands at
 // Ø28.0 against a bolt-hole inner edge at Ø29.3.
-face_disc_edge = bolt_r - m25_clear/2 - (face_disc_d(window_d) + 0.4)/2;
+face_disc_edge = bolt_r - m2_clear/2 - (face_disc_d(window_d) + 0.4)/2;
 assert(!mem_clamped || face_disc_edge >= 0.8,
        str("the Ø", face_disc_d(window_d) + 0.4, " membrane seat leaves only ",
            face_disc_edge, " mm to the bolt holes on a Ø", 2*bolt_r,
@@ -937,27 +1331,33 @@ assert(!mem_clamped || face_web >= 1.6,
 // Tripwires. Both reduce to identities as written, and both are kept because a
 // hand-set depth or a re-sliced layer height is exactly how this bed goes back
 // to being unprintable without anything complaining.
+// The ladder is measured FROM THE PLATE, so the datum moves with the flip:
+// subtract it before asking whether the depth is a whole number of layers.
+// Checking bare multiples of face_layer_h was right only for groove-up, and
+// would reject the correct groove-down depth while accepting a wrong one.
 assert(!mem_clamped
-       || abs(face_groove_depth(window_d)/face_layer_h
-              - round(face_groove_depth(window_d)/face_layer_h)) < 1e-9,
-       str("groove depth ", face_groove_depth(window_d), " is not an integer ",
+       || abs((face_groove_depth(window_d) - face_depth_datum())/face_layer_h
+              - round((face_groove_depth(window_d) - face_depth_datum())/face_layer_h)) < 1e-9,
+       str("groove depth ", face_groove_depth(window_d), " is not ",
+           face_depth_datum(), " + an integer ",
            "number of ", face_layer_h, " mm layers, so the SLICER picks the ",
            "depth and the slicer does not know it is a seal dimension"));
-assert(!mem_clamped || (face_groove_id(window_d) - window_d)/2 >= face_wall_min,
+// 1e-9 slack because face_groove_id is DERIVED from window_d + 2*face_wall_min:
+// the check is a round trip through binary floats, and 15.2 + 2.4 - 15.2 is not
+// exactly 2.4. Without the slack this fires on the very value it is checking.
+// It still earns its keep -- it catches an OVERRIDDEN face_groove_id.
+assert(!mem_clamped ||
+       (face_groove_id(window_d) - window_d)/2 >= face_wall_min - 1e-9,
        str("the bed's inner wall is ", (face_groove_id(window_d) - window_d)/2,
-           " mm: under ", face_wall_min, " it is a sliver, not two beads"));
+           " mm: under ", face_wall_min, " it is a sliver, not ",
+           face_wall_min/face_line_w, " beads"));
 
 // ---- seal-land thermometry --------------------------------------------------
 //
 // The ledge and seal-groove clearances are the module's own; it owns the
 // geometry that decides them.
-// The widest thing actually cut at the bolt circle. On the insert route that is
-// the flange counterbore, not the insert bore -- and unlike the wall check below
-// this one is NOT an identity, because insert_head_d is an independent sourced
-// input that no derivation ties to bolt_r.
-bolt_cut_max = use_insert ? max(insert_bore_d, insert_head_d + 0.3) : fast_hole_d;
 cbore_wall = bolt_r - bolt_cut_max/2 - well_d/2;
-assert(cbore_wall >= 1.0 - 1e-6,
+assert(cbore_wall >= cut_seal_wall_min - 1e-6,
        str("the widest bolt-circle cut (", bolt_cut_max,
            " mm) leaves only ", cbore_wall,
            " mm to the sealing well; a change to insert_head_d or ",
@@ -972,12 +1372,12 @@ assert(bolt_r - fast_hole_d/2 - well_d/2 >= fast_seal_wall - 1e-6,
                      : "thread-forming hoop stress there will deform the seat"));
 assert(fast_hole_h <= head_len - socket_len - 2.0,
        "insert bore deeper than the material behind the end face");
-assert(2*bolt_r + m25_clear + 2.0 <= flange_d,
+assert(2*bolt_r + m2_clear + 2.0 <= flange_d,
        "bolt circle falls outside the carrier flange: the retainer would clamp nothing");
-assert(bolt_r - m25_clear/2 >= spigot_d/2,
+assert(bolt_r - m2_clear/2 >= spigot_d/2,
        str("the screw clearance hole through the carrier flange would break into ",
            "the spigot bore: bolt circle radius ", bolt_r, " minus half a ",
-           m25_clear, " hole lands inside the ", spigot_d/2, " mm spigot"));
+           m2_clear, " hole lands inside the ", spigot_d/2, " mm spigot"));
 assert(flange_d <= head_od,
        str("carrier flange ", flange_d, " overhangs a ", head_od, " mm head"));
 // The cap screws are RADIAL, so what they must clear is whatever void sits at
@@ -1003,8 +1403,13 @@ assert(head_od/2 - cap_screw_depth > cap_screw_void_r + 1.0,
        str("blind cap screw reaches r=", head_od/2 - cap_screw_depth,
            " but the void at z=", cap_screw_z0, "..", cap_screw_z1,
            " runs out to r=", cap_screw_void_r, ": outside-to-gas leak path"));
-assert(abs(flange_t - cart_t) < 0.001,
-       "flange must equal cart_t, else the sealing core does not reach the flange's gas face and the membrane is sealed off");
+// CONE BED ONLY. That bed's core comes out of membrane_cartridge_common.scad,
+// which measures every feature down from cart_t, so a flange that is not cart_t
+// thick either seals the membrane off or leaves the core hanging in air. The
+// clamped bed cuts its own frustum from flange_t and is free of this -- see the
+// note where flange_t is defined.
+assert(mem_clamped || abs(flange_t - cart_t) < 0.001,
+       "flange must equal cart_t on the cone bed, else the sealing core does not reach the flange's gas face and the membrane is sealed off");
 assert(flange_t >= 2.0,
        "carrier flange under 2 mm: too thin to clamp without dishing");
 assert(cap_len - cap_grip - cap_front_t >= flange_t + retainer_t + 2.0,
@@ -1017,7 +1422,26 @@ assert(cav_net <= 5000,
        str("connected volume ", cav_net/1000, " cm3 exceeds the 5.0 cm3 target"));
 
 echo(str("MEASURED IN: tube OD ", tube_od_meas, ", board swept ", board_swept,
-         ", cell axial ", cell_axial_len));
+         ", cell seated ", cell_seated_h, " (mount ", cell_mount,
+         cell_standing ? "" : str(", axial ", cell_axial_len), ")"));
+echo(str("GAS PATH membrane -> cell face: ", flange_t, " (flange core) + ",
+         spigot_len, " (spigot bore) = ", flange_t + spigot_len, " mm axial",
+         cell_standing
+         ? str(", then ", cell_setback, " mm back down the bore to a RADIAL gas ",
+               "face -- the cell stands on the board, so the path turns. ",
+               "PROTOTYPE-RESPONSE.md's 5-10 mm cell-to-membrane figure was ",
+               "written for the axial mount and does not describe this one.")
+         : " straight onto the cell face."));
+// MACHINE-READ, by tools/board_tip.py, which has to place the KiCad board mesh
+// in head coordinates and must not keep its own copy of this arithmetic. It kept
+// one -- a literal -152 in its matrix, right for the monolithic joint -- and the
+// head-end viewer drew the PCB 11 mm too deep for as long as that scene existed.
+// board_tip_z is no longer regex-readable out of this file anyway: socket_len is
+// a ternary and cav_board_len is a max(), so the value has to come from a render.
+// KEEP THE SPELLING STABLE -- the parser matches on it.
+echo(str("INTERFACE board_tip_z ", board_tip_z, " head_len ", head_len,
+         " well_z ", well_z, " cav_board_len ", cav_board_len,
+         " socket_len ", socket_len, " joint ", joint));
 echo(str("bore ", bore_d, "; head OD ", head_od, "; cap OD ", cap_od,
          " mm -- widest point of the probe"));
 echo(str("window dia ", window_d, " -> ", PI*pow(window_d/2,2), " mm2 free area"));
@@ -1104,22 +1528,30 @@ if (!mem_clamped) {
              "% on a thin-ID ring). REQUIREMENT: hold the assembled gap ",
              face_gap_nom, " to +", face_dtol_max, "/-", face_dtol_min,
              " mm, or squeeze leaves ", face_floor*100, "-", face_ceiling*100,
-             "%. The CEILING is the tighter end here, and it is the benign one ",
-             "-- compression set over years against a leak now. Cord band ",
+             "%. The tighter end is the ",
+             (face_dtol_max < face_dtol_min) ? "FLOOR, and that is the one that leaks"
+                                             : "CEILING, the benign one -- compression set over years against a leak now",
+             ". Cord band ",
              "+/-", face_cord_tol_eff, " (", face_sorting, ") = ",
              (face_squeeze(window_d, face_cord_fitted(window_d, face_ring_cord - face_cord_tol_eff), face_gap_nom)
               - face_squeeze(window_d, face_cord_fitted(window_d, face_ring_cord + face_cord_tol_eff), face_gap_nom))*-100,
              " squeeze points; the same absolute +/-0.08..0.09 costs 12.1 points ",
              "on the legacy 1.0 cord, which is the whole case for the fat ring. ",
              "Worst-corner fill ", face_fill_worst*100, "%."));
-    echo(str("MEMBRANE BED printability: no feature under one layer, no bridge, ",
-             "no unsupported groove floor. The carrier keeps its wet face DOWN ",
-             "on the plate (the flange overhangs the spigot by ",
-             (flange_d - spigot_d)/2, " mm, so it cannot print the other way ",
-             "up) and its aperture opens downward as a ",
-             atan(((spigot_bore - window_d)/2)/flange_t),
-             " degree cone; the retainer prints GROOVE UP. Slice at ",
-             face_layer_h, " mm layers or re-derive the depth."));
+    echo(str("MEMBRANE BED printability: no feature under one layer. The carrier ",
+             "keeps its wet face DOWN on the plate (the flange overhangs the ",
+             "spigot by ", (flange_d - spigot_d)/2, " mm, so it cannot print the ",
+             "other way up) and its aperture opens downward as a ",
+             atan(((spigot_bore - window_d)/2)/flange_t), " degree cone. The ",
+             "retainer prints ",
+             face_groove_up
+               ? str("GROOVE UP: nothing bridges, and the groove depth is laid ",
+                     "on solid material. Its sealing face is a TOP surface.")
+               : str("GROOVE DOWN: its sealing face is the FIRST LAYER against ",
+                     "the plate, and the groove roof BRIDGES ",
+                     face_groove_w(), " mm anchored on both walls. That roof is ",
+                     "what the O-ring bottoms on, so droop there moves squeeze."),
+             " Slice at ", face_layer_h, " mm layers or re-derive the depth."));
 }
 echo(str("MEMBRANE SEAL preload: UNVERIFIED. Sized on geometry only. The washer ",
          "bracket (38-115 N/screw) does NOT transfer -- an O-ring seals on a ",
@@ -1130,10 +1562,14 @@ echo(str("CUT LIST: PMV15T disc dia ",
          mem_clamped ? face_disc_d(window_d) : window_d + 2*land,
          carrier_is_pp && !mem_clamped ? " mm, welded into the carrier"
                                        : " mm, clamped between retainer and carrier"));
-echo(str("fasteners: ", bolt_n, "x ", use_insert ? "M2.5 into heat-set inserts"
-         : "thread-forming, nominal 2.5, into printed bosses", " on a dia ",
+// Sizes come from the parameters, not from a literal: this echo said "M2.5" for
+// a day after the fasteners were M2 because both were typed in by hand.
+echo(str("fasteners: ", bolt_n, "x ",
+         use_insert ? "M2 into PEM IUTFC-M2 heat-set inserts"
+                    : str("thread-forming, nominal ", pt_nominal,
+                          ", into printed bosses"), " on a dia ",
          2*bolt_r, " bolt circle; ", cap_screw_n,
-         "x M2.5 self-tapping for the cap (no seal load)"));
+         "x nominal-", 2.0, " self-tapping for the cap (no seal load)"));
 // Bore sections only -- UNDERSTATES, the aperture stack is connected gas too.
 // Build `cavity` and measure the mesh; that is the number that governs.
 echo(str("connected volume ", cav_net/1000,
@@ -1181,8 +1617,12 @@ module head() {
         // otherwise the board could not reach the cavity at all.
         translate([0, 0, monolithic ? -heps : socket_len])
             cylinder(d=bore_d, h=(monolithic ? socket_len + heps : 0) + cav_board_len);
-        translate([0, 0, socket_len + cav_board_len])
-            cylinder(d=neck_d, h=cav_clear_len + heps);
+        // Only the past-end mount has a neck. A zero-height cylinder is not a
+        // no-op in CGAL, it is a degenerate solid, so this is a branch and not
+        // an h=0.
+        if (has_neck)
+            translate([0, 0, socket_len + cav_board_len])
+                cylinder(d=neck_d, h=cav_clear_len + heps);
 
         // The well the spigot seals into. Its bore IS the sealing surface, so it
         // wants to be printed cleanly -- it is the one feature here whose
@@ -1192,17 +1632,24 @@ module head() {
         translate([0, 0, head_len - lead_chamfer])
             cylinder(d1=well_d, d2=well_d + 2*lead_chamfer, h=lead_chamfer + heps);
 
-        // Heat-set inserts on the bolt circle, blind from the end face, each
-        // with a counterbore for its flange -- the stainless E-Z Sonic is only
-        // made flanged, and a proud flange holds the retainer off the face.
+        // Fastener holes on the bolt circle, blind from the end face. BOTH
+        // routes get a counterbore, for different reasons.
         bolt_positions() {
             translate([0, 0, head_len - fast_hole_h])
                 cylinder(d=fast_hole_d, h=fast_hole_h + heps);
-            // Counterbore only for the insert: it is made flanged only, and a
-            // proud flange holds the retainer off the face.
+            // Insert: it is made flanged only, and a proud flange would hold the
+            // retainer off the face.
             if (use_insert)
                 translate([0, 0, head_len - insert_head_t - 0.1])
                     cylinder(d=insert_head_d + 0.3, h=insert_head_t + 0.2);
+            // Thread-forming: EJOT's counterbore is STRUCTURAL, not cosmetic --
+            // it relieves edge stress at the mouth of the boss, which is where
+            // the boss cracks as the thread forms, and it guides the screw in
+            // for the first turn. Omitting it was a real defect, not a
+            // simplification.
+            else
+                translate([0, 0, head_len - pt_cbore_h])
+                    cylinder(d=pt_cbore_d, h=pt_cbore_h + heps);
         }
 
         // Cap retention: BLIND radial holes that stop well short of the bore.
@@ -1258,7 +1705,7 @@ module carrier() {
         // clamping screws pass THROUGH it. Without these it is 5 mm of solid PP
         // in front of every boss and nothing can be assembled.
         translate([0, 0, spigot_len - heps])
-            bolt_positions() cylinder(d=m25_clear, h=flange_t + 2*heps);
+            bolt_positions() cylinder(d=m2_clear, h=flange_t + 2*heps);
     }
 }
 
@@ -1271,7 +1718,7 @@ module retainer() {
         translate([0, 0, -heps]) cylinder(d=window_d, h=retainer_t + 2*heps);
         if (mem_clamped) clamped_bed_cuts(window_d, heps);
         translate([0, 0, -heps])
-            bolt_positions() cylinder(d=m25_clear, h=retainer_t + 2*heps);
+            bolt_positions() cylinder(d=m2_clear, h=retainer_t + 2*heps);
     }
 }
 
@@ -1302,32 +1749,42 @@ coupon_sweep = 50;                  // degrees, sized for ~1 cm2 of face
 // So the inner edge is now placed so that wall_loops of the WIDEST line width we
 // might slice at still cannot reach the hole, and it is asserted rather than trusted.
 coupon_wall_reach = 6 * 0.70;       // wall_loops x widest line width considered
-coupon_r_in  = bolt_r - m25_clear/2 - coupon_wall_reach - 1.5;
-coupon_rim   = flange_d/2 - (bolt_r + m25_clear/2);
-assert(coupon_r_in + coupon_wall_reach < bolt_r - m25_clear/2,
+coupon_r_in  = bolt_r - m2_clear/2 - coupon_wall_reach - 1.5;
+// DECOUPLED FROM flange_d ON 2026-09-05. This coupon is a CONTROL SPECIMEN: its
+// job is to keep reproducing the 2.0 mm rim the voids appear in, so that the
+// fix can be judged against it. Once the flange rim was corrected to 2.4 (four
+// whole beads) a coupon derived from flange_d stopped reproducing the defect
+// and the assert below said so, correctly. Sweep it to compare: the interesting
+// pair is 2.0 (3.33 beads, defect) against 2.4 (4.00 beads, fix).
+coupon_rim   = 2.0;
+coupon_od    = 2*(bolt_r + m2_clear/2 + coupon_rim);
+assert(coupon_r_in + coupon_wall_reach < bolt_r - m2_clear/2,
        str("coupon inner edge r=", coupon_r_in, " is too close: its perimeter field ",
            "reaches r=", coupon_r_in + coupon_wall_reach, " and the hole starts at r=",
-           bolt_r - m25_clear/2, " -- the coupon would measure its own free edge"));
+           bolt_r - m2_clear/2, " -- the coupon would measure its own free edge"));
 assert(coupon_r_in > 0, str("coupon inner radius went negative: ", coupon_r_in));
-assert(abs(coupon_rim - 2.0) < 0.15,
-       str("coupon rim is ", coupon_rim, " mm, not the 2.0 the voids appear in -- ",
-           "the bolt circle or flange OD moved, so this coupon no longer reproduces ",
-           "the defect it was built for"));
-echo(str("VOID COUPON: hole dia ", m25_clear, " at r ", bolt_r,
+// The rim is now an input rather than a consequence, so the check that matters
+// is that it is a REAL width to print, not that it equals 2.0 -- pinning 2.0
+// would forbid the very comparison this coupon exists to make.
+assert(coupon_rim >= face_line_w,
+       str("coupon rim ", coupon_rim, " mm is under one ", face_line_w,
+           " bead: there is no wall left to void"));
+echo(str("VOID COUPON: hole dia ", m2_clear, " at r ", bolt_r,
          ", rim outboard ", coupon_rim, " mm, face area ",
-         (coupon_sweep/360)*PI*(pow(flange_d/2,2)-pow(coupon_r_in,2)), " mm2"));
+         (coupon_sweep/360)*PI*(pow(coupon_od/2,2)-pow(coupon_r_in,2)), " mm2",
+         "; rim = ", coupon_rim/face_line_w, " beads at ", face_line_w));
 
 module void_coupon(t) {
     intersection() {
         difference() {
-            cylinder(d=flange_d, h=t);
+            cylinder(d=coupon_od, h=t);
             translate([0, 0, -heps]) cylinder(d=2*coupon_r_in, h=t + 2*heps);
-            translate([bolt_r, 0, -heps]) cylinder(d=m25_clear, h=t + 2*heps);
+            translate([bolt_r, 0, -heps]) cylinder(d=m2_clear, h=t + 2*heps);
         }
         rotate([0, 0, -coupon_sweep/2])
             linear_extrude(t + 2*heps)
-                polygon([[0, 0], [flange_d, 0],
-                         [flange_d*cos(coupon_sweep), flange_d*sin(coupon_sweep)]]);
+                polygon([[0, 0], [coupon_od, 0],
+                         [coupon_od*cos(coupon_sweep), coupon_od*sin(coupon_sweep)]]);
     }
 }
 
@@ -1337,6 +1794,70 @@ module void_coupon(t) {
 module coupon_plate() {
     translate([0, 0, 0])  void_coupon(retainer_t);
     translate([0, 14, 0]) void_coupon(cart_t);
+}
+
+// ---- FASTENER COUPON -------------------------------------------------------
+//
+// A different coupon from void_coupon above, testing a different thing. That one
+// is about how the SLICER fills a rim; this one is about whether the fastener
+// geometry works in the material: whether a PEM IUTFC-M2 heat-sets square and
+// flush into a 3.23 hole, whether a DELTA PT 20 forms a thread in a 1.60 pilot
+// without splitting the boss, and how much torque either takes before it strips.
+// It exists because both routes are now dimensioned from vendor design guides
+// and NOTHING has been put in ASA yet -- the guides are written for moulded
+// bosses, and a printed boss is layered, anisotropic and weakest exactly where
+// the hoop stress is.
+//
+// Built from the head's own parameters, like every other coupon here, so it
+// cannot drift from the part.
+//
+// PRINTED THE SAME WAY UP AS THE HEAD. The head prints cable-end-down, so its end
+// face -- the face these holes enter -- is the TOP of the print. A coupon printed
+// the other way up would test thread-forming against a different layer structure
+// than the part has, and would pass or fail for the wrong reason.
+fcoup_wall   = 2.3;                 // to the free edge: insert_seal_wall, the
+                                    // bigger of the two routes' walls, so one
+                                    // coupon carries both
+fcoup_floor  = 1.5;                 // material under the deepest blind hole
+fcoup_t      = max(insert_bore_h, 2*pt_nominal + pt_cbore_h) + fcoup_floor;
+fcoup_pitch  = 2*(insert_bore_d/2 + fcoup_wall);   // hole spacing, walls touching
+// Four stations, left to right, all at full depth:
+//   0  insert hole, 3.23 + counterbore for the flange   -- heat-set one in
+//   1  insert hole DELIBERATELY 0.1 TIGHT (3.13)        -- the bracket, to find
+//      out which side of the +0.08/-0.00 tolerance a printed hole lands on
+//   2  thread-forming pilot 1.60 + 2.10 x 1.00 counterbore
+//   3  thread-forming pilot with NO counterbore         -- the control for
+//      EJOT's claim that the counterbore is what stops the boss cracking
+fcoup_n = 4;
+fcoup_len = fcoup_n*fcoup_pitch + 2*fcoup_wall;
+echo(str("FASTENER COUPON: ", fcoup_len, " x ", fcoup_pitch + 2*fcoup_wall,
+         " x ", fcoup_t, " mm; stations insert ", insert_bore_d, ", insert ",
+         insert_bore_d - 0.1, " (tight), PT ", pt_pilot_d, " + cbore, PT ",
+         pt_pilot_d, " bare; wall to free edge ", fcoup_wall));
+
+module fastener_coupon() {
+    w = fcoup_pitch + 2*fcoup_wall;
+    difference() {
+        translate([0, -w/2, 0]) cube([fcoup_len, w, fcoup_t]);
+        for (i = [0:fcoup_n-1]) {
+            x = fcoup_wall + fcoup_pitch/2 + i*fcoup_pitch;
+            translate([x, 0, 0]) {
+                if (i < 2) {
+                    d = insert_bore_d - (i == 1 ? 0.1 : 0) + insert_filler_add;
+                    translate([0, 0, fcoup_t - insert_bore_h])
+                        cylinder(d=d, h=insert_bore_h + heps);
+                    translate([0, 0, fcoup_t - insert_head_t - 0.1])
+                        cylinder(d=insert_head_d + 0.3, h=insert_head_t + 0.2);
+                } else {
+                    translate([0, 0, fcoup_t - 2*pt_nominal - pt_cbore_h])
+                        cylinder(d=pt_pilot_d, h=2*pt_nominal + pt_cbore_h + heps);
+                    if (i == 2)
+                        translate([0, 0, fcoup_t - pt_cbore_h])
+                            cylinder(d=pt_cbore_d, h=pt_cbore_h + heps);
+                }
+            }
+        }
+    }
 }
 
 // Connected gas volume as a solid, for mesh measurement. A bore-only figure is
@@ -1375,8 +1896,9 @@ module cavity_raw() {
             // truncated the cavity's top instead of extending its bottom.
             if (monolithic)
                 translate([0, 0, -heps]) cylinder(d=bore_d, h=socket_len + heps);
-            translate([0, 0, socket_len + cav_board_len])
-                cylinder(d=neck_d, h=cav_clear_len);
+            if (has_neck)
+                translate([0, 0, socket_len + cav_board_len])
+                    cylinder(d=neck_d, h=cav_clear_len);
             translate([0, 0, well_z - heps])
                 cylinder(d=spigot_bore, h=spigot_len + heps);
             translate([0, 0, end_z])
@@ -1403,7 +1925,18 @@ module cavity_raw() {
         // ~133 mm3 of a ~190 mm3 budget margin. Decide it with the Cambion
         // footprint in hand, not before. The assembly drawing already shows the
         // can in its true seated position.
-        translate([0, 0, socket_len + cav_board_len]) cylinder(d=cell_d, h=cell_h);
+        // PAST-END ONLY. This cylinder IS the can in that mount. It is NOT the
+        // can in the standing mount -- there the can lies radially on the board,
+        // cell_setback back from the tip -- so cutting it here would remove a
+        // solid that is not in the cavity, and it did: the boolean this replaces
+        // let it switch on the moment any part of the standing can crossed into
+        // the head, deleting all 1393 mm3 for 11 mm3 of real overlap. cav_net's
+        // cell_disp_counted is gated on the SAME has_neck, so the two models
+        // measure one solid, not two. Standing, the can is counted as gas --
+        // over-stating, which is the only safe direction for this gate.
+        if (has_neck)
+            translate([0, 0, socket_len + cav_board_len])
+                cylinder(d=cell_d, h=cell_h);
     }
 }
 
@@ -1435,7 +1968,7 @@ module cap() {
         translate([0, 0, cap_grip/2])
             cap_screw_positions()
                 translate([0, 0, head_od/2 - heps])
-                    cylinder(d=m25_clear, h=cap_wall + 2*heps);
+                    cylinder(d=m2_clear, h=cap_wall + 2*heps);
     }
 }
 
@@ -1449,6 +1982,17 @@ module screw(nominal, length, head_d, head_t) {
         translate([0, 0, -length]) cylinder(d=nominal, h=length);
         cylinder(d=head_d, h=head_t);
     }
+}
+
+// The cap in the ASSEMBLY's frame rather than its own. part="cap" renders the
+// cap with z=0 at its open end, which is what a printer or a caliper wants; a
+// viewer drawing the stack needs it where it actually sits, cap_grip down the
+// head's OD from the end face. Exposed as its own part so no consumer has to
+// carry that offset as a literal -- one that would silently go stale the next
+// time head_len or cap_grip moves. assembly() calls this too, so the two frames
+// cannot drift apart.
+module cap_assembled(e = 0) {
+    translate([0, 0, head_len - cap_grip + 13.0*e]) cap();
 }
 
 module assembly() {
@@ -1466,11 +2010,27 @@ module assembly() {
     color("ForestGreen")
         translate([-board_w/2, -board_t/2, board_tip_z - board_stub - 4.4*e])
             cube([board_w, board_t, board_stub]);
-    color("Goldenrod")
-        translate([0, 0, board_tip_z - 4.4*e])
-            cylinder(d=6.0, h=socket_standoff);
-    color("DarkSlateGray")
-        translate([0, 0, cell_z - 3.4*e]) cylinder(d=cell_d, h=cell_h);
+    // The cell. STANDING it is a THT part: axis normal to the copper, sitting
+    // cell_setback back from the board tip, lifted cell_stand_off off the board
+    // by the socket, gas face RADIAL -- which is why the gas has to come down the
+    // spigot bore and then turn. The socket is the same position marker it always
+    // was, now under the can rather than in front of it.
+    if (cell_standing) {
+        color("Goldenrod")
+            translate([0, 0, cell_z - 3.4*e])
+                rotate([-90, 0, 0]) translate([0, 0, board_t/2])
+                    cylinder(d=cell_d - 2.0, h=cell_stand_off);
+        color("DarkSlateGray")
+            translate([0, 0, cell_z - 3.4*e])
+                rotate([-90, 0, 0]) translate([0, 0, board_t/2 + cell_stand_off])
+                    cylinder(d=cell_d, h=cell_h);
+    } else {
+        color("Goldenrod")
+            translate([0, 0, board_tip_z - 4.4*e])
+                cylinder(d=6.0, h=socket_standoff);
+        color("DarkSlateGray")
+            translate([0, 0, cell_z - 3.4*e]) cylinder(d=cell_d, h=cell_h);
+    }
     // Gasket drawn at its COMPRESSED height, which is how it sits in service.
     color("DimGray") translate([0, 0, 1.6*e]) radial_ring();
     color("Khaki") translate([0, 0, well_z + 3.4*e]) carrier();
@@ -1510,7 +2070,7 @@ module assembly() {
     // into the head's bosses -- so the origin sits on the retainer's outer face.
     translate([0, 0, end_z + flange_t + retainer_t + 10.8*e])
         bolt_positions()
-            screw(pt_nominal, flange_t + retainer_t + 4.0, m25_clear + 1.6, 1.6);
+            screw(pt_nominal, flange_t + retainer_t + 4.0, m2_clear + 1.6, 1.6);
     // The cap screws go in radially, so they explode radially -- pushing them up
     // the Z axis with everything else would misrepresent how they assemble.
     translate([0, 0, head_len - cap_grip/2 + 13.0*e])
@@ -1520,7 +2080,7 @@ module assembly() {
                       selftap_cap + 1.6, 1.4);
     // The cap is a shell that swallows the rest, so it has to travel furthest
     // before an exploded view shows anything.
-    color("DimGray") translate([0, 0, head_len - cap_grip + 13.0*e]) cap();
+    color("DimGray") cap_assembled(e);
 
     if (show_body) body_stack(e);
 }
@@ -1639,14 +2199,31 @@ module carrier_printed() {
 module cap_printed() {
     translate([0, 0, cap_oal]) mirror([0, 0, 1]) cap();
 }
-// The retainer is a flat disc and needs no flip; it exists here only so the
-// three print-oriented exports read as one set.
-// The clamped retainer prints GROOVE UP. Flat side down is what the legacy ring
-// wanted and it is exactly wrong here: it would put the bed's floor -- the
-// surface that sets squeeze -- in the air over the retainer bore, which is the
-// same bridge that ruined the carrier.
+// WHICH FACE GOES ON THE PLATE, and it is a real trade, not a default.
+//
+// GROOVE UP (true) keeps the groove roof out of the air: nothing bridges, and
+// the groove depth -- which sets squeeze -- is laid down layer by layer on solid
+// material. The cost is that the sealing face is then a TOP surface.
+//
+// GROOVE DOWN (false) puts the sealing face on the plate. Fab, 2026-09-05, from
+// the printed parts and said twice: "the bed-surface is much cleaner". That is a
+// measurement and it outranks the argument that a top surface ought to be fine.
+// The cost is that the groove roof spans face_groove_w() over air. Note what
+// that is and is not: it is a bridge ANCHORED ON BOTH WALLS, not the
+// one-sided unsupported overhang that ruined the legacy carrier bed -- those are
+// different failure modes and FDM handles the first far better. The real risk is
+// narrower: that roof is the surface the O-ring bottoms on, so any droop moves a
+// dimension whose whole window is +0.054/-0.093 mm.
+//
+// The 1.2 mm inner rim is what makes this orientation viable at all. Printed
+// groove-down it is a free-standing annular wall face_groove_depth tall; at the
+// old 0.8 (one bead plus a 0.2 sliver) that wall was fragile. Two whole beads is
+// a wall. The rim fix and the flip are independent changes that happen to help
+// each other -- neither is a substitute for the other.
+
 module retainer_printed() {
-    if (mem_clamped) translate([0, 0, retainer_t]) mirror([0, 0, 1]) retainer();
+    if (mem_clamped && face_groove_up)
+        translate([0, 0, retainer_t]) mirror([0, 0, 1]) retainer();
     else retainer();
 }
 
@@ -1719,9 +2296,11 @@ else if (part == "head") head();
 else if (part == "carrier") carrier();
 else if (part == "retainer") retainer();
 else if (part == "cap") cap();
+else if (part == "cap-asm") cap_assembled();
 else if (part == "monobody") monobody();
 else if (part == "cavity") cavity();
 else if (part == "void-coupon") coupon_plate();
+else if (part == "fastener-coupon") fastener_coupon();
 else if (part == "bed-carrier") bed_element("carrier");
 else if (part == "bed-retainer") bed_element("retainer");
 else if (part == "bed-membrane") bed_element("membrane");

@@ -325,11 +325,18 @@ An exploded view hides the carrier inside the cap. Rendered with
 
 ### Open on the end variant
 
-1. **It commits cell-orientation option C** (cell past the board end, axis along
-   the tube), which `PLAN.md` risk 11 leaves open pending the socket sample
-   measurement. This is the decision, not a detail.
-2. **Volume is now the binding constraint** — 4.82 cm³ leaves 3.6 % margin, and
-   that rides on `cell_axial_len`, still a placeholder.
+1. ~~**It commits cell-orientation option C**~~ — **CLOSED 2026-09-05 the other
+   way.** Fab put the cell back on **option A, standing on the board** like a
+   normal THT part, gas face radial, centre 13.5 mm behind the tip
+   (`PLACEMENT.md`). The head follows: `cell_mount = "standing"` is the default,
+   the Ø16.62 × 13 mm neck is deleted, the board tip lands **on the well floor**,
+   and the head is **21.3 mm** long instead of 34.3. `"past-end"` is still
+   selectable, and now needs `cell_axial_len` supplied by hand.
+2. **Volume is no longer the binding constraint** — **2.93 cm³** measured on the
+   mesh against the 5.0 budget, 41 % under the 4.66 it was this morning. What can
+   put it back is `fast_hole_h`: `cav_board_len` solves against the retainer screw
+   depth, and at the M2.5 / 8.0 mm fastener it went to 4.7 mm on a bore worth
+   466 mm³/mm. The M2 move the same evening took it back to its 2.0 floor.
 3. **One window means one fouling event takes the probe out**, where the radial
    pair degraded gracefully. Two smaller windows on the same end face would
    recover this and remains unpriced.

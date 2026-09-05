@@ -10,7 +10,7 @@
    {
     "spec": "o2_probe_head_end.scad:bed-carrier=carrier",
     "color": "#d6c36a",
-    "note": "ASA, no weld. Wet face is a FLAT land -- one tapered aperture, 16 at the face opening to the 18 spigot bore"
+    "note": "ASA, no weld. Wet face is a FLAT land -- one tapered aperture, 15.2 (window_d) at the face opening to the 18 spigot bore"
    },
    {
     "spec": "o2_probe_head_end.scad:bed-membrane=membrane",
@@ -25,7 +25,7 @@
    {
     "spec": "o2_probe_head_end.scad:bed-radial-ring=O-ring (carrier->head)",
     "color": "#e08b3a",
-    "note": "ORS116787 24 x 1.5 EPDM, radial on the spigot into the reamed 27.1 H7 well. THE seal that keeps compost out of the cavity -- squeeze comes from the FIT, no screw is in its load path"
+    "note": "on-hand 22 x 2 EPDM, radial on the spigot. THE seal that keeps compost out of the cavity -- squeeze comes from the FIT, no screw is in its load path"
    },
    {
     "spec": "o2_probe_head_end.scad:bed-retainer=retainer",
@@ -45,6 +45,16 @@
     "color": "#d6c36a"
    },
    {
+    "spec": "o2_probe_head_end.scad:bed-membrane=membrane",
+    "color": "#f2f2f2",
+    "note": "PMV15T disc, 0.18 mm, clamped -- drawn at its cut diameter"
+   },
+   {
+    "spec": "o2_probe_head_end.scad:bed-ring=O-ring (membrane bed)",
+    "color": "#c62828",
+    "note": "17 x 2.5 EPDM, ON HAND and uncatalogued. Drawn at its COMPRESSED section, which is how it sits in service"
+   },
+   {
     "spec": "o2_probe_head_end.scad:bed-retainer=retainer",
     "color": "#8fa9c9"
    },
@@ -56,7 +66,7 @@
    {
     "spec": "o2_probe_head_end.scad:bed-radial-ring=O-ring (carrier->head)",
     "color": "#e08b3a",
-    "note": "ORS116787 24 x 1.5 EPDM, radial on the spigot into the reamed 27.1 H7 well. THE seal that keeps compost out of the cavity -- squeeze comes from the FIT, no screw is in its load path"
+    "note": "on-hand 22 x 2 EPDM, radial on the spigot. THE seal that keeps compost out of the cavity -- squeeze comes from the FIT, no screw is in its load path"
    },
    {
     "spec": "o2_probe_head_end.scad:cap-asm=cap (debris / plowing)",
@@ -66,7 +76,17 @@
     "spec": "exports/o2-probe-board-tip-30mm.stl",
     "name": "PCB tip (30 mm)",
     "color": "#1b5e20",
-    "note": "30 mm from the PCB tip, in head coordinates; KiCad omits 8 component models"
+    "note": "30 mm from the PCB tip, in head coordinates; KiCad omits 8 component models",
+    "rebuild": [
+     "python3",
+     "tools/board_tip.py",
+     "exports/o2-probe-board-bin.stl",
+     "exports/o2-probe-board-tip-30mm.stl"
+    ],
+    "deps": [
+     "o2_probe_head_end.scad",
+     "exports/o2-probe-board-bin.stl"
+    ]
    }
   ]
  },
@@ -94,7 +114,7 @@
    {
     "spec": "o2_probe_head_end.scad:bed-carrier=carrier",
     "color": "#d6c36a",
-    "note": "ASA, no weld. Wet face is a FLAT land -- one tapered aperture, 16 at the face opening to the 18 spigot bore"
+    "note": "ASA, no weld. Wet face is a FLAT land -- one tapered aperture, 15.2 (window_d) at the face opening to the 18 spigot bore"
    },
    {
     "spec": "o2_probe_head_end.scad:bed-membrane=membrane",

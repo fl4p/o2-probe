@@ -1,6 +1,13 @@
 # O₂ probe gas-window membrane
 
 Research date: 2026-08-22
+Revised: 2026-09-03 — membrane perimeter seal sourced: **an O-ring, `ORS116731`
+17.0 × 1.0, EPDM 70 Shore A peroxide — the same compound (127019011) as the
+carrier ring `ORS116787`, so one test report now covers both seals.** EPDM's
+ammonia compatibility closed against a primary and its organic-acid side left
+open; a compression-flow defect found in the flat-gasket pocket, which the
+O-ring resolves; carrier CAD changed from a flat pocket to a groove. See
+[Membrane perimeter gasket sourced](#membrane-perimeter-gasket-sourced-2026-09-03).
 Revised: 2026-09-02 — head hardware sourced (insert, O-ring, PP rod) with two
 evidence gaps left open, see
 [Head hardware sourced](#head-hardware-sourced-2026-09-02);
@@ -671,6 +678,13 @@ Three findings that changed the design rather than merely supplying it:
    handbook section was not opened. EPDM is the conventional choice for ammonia
    service and is expected to pass, but the entire carrier-to-head seal rests on
    it and expectation is not evidence. **Close this before ordering.**
+
+   **Closed for ammonia, 2026-09-03.** The handbook section was opened: ORD 5700
+   §VII rates EPDM 1 for ammonium hydroxide and anhydrous ammonia and 2 for hot
+   ammonia gas, and rates FKM 4 on every ammonia row. See
+   [Membrane perimeter gasket sourced](#membrane-perimeter-gasket-sourced-2026-09-03).
+   **Still open on the organic-acid side**, where EPDM is rated 4 in hot lactic
+   acid — which applies to `ORS116787` exactly as it does to the gasket.
 2. **The thread-forming screw's pilot is not sourced.** `pt_pilot_d = 2.1` is a
    placeholder with no rationale — it was described here and in the CAD as "the
    conventional 0.75 × nominal", which is arithmetically false (2.1/2.5 = 0.84;
@@ -693,6 +707,342 @@ Three findings that changed the design rather than merely supplying it:
    retainer screws must deliver. Gasket material, hardness, compression-force curve
    and minimum residual load are all unfixed. Until they are, no screw can be sized
    on anything but geometry.
+
+   **Partly answered 2026-09-03, and the question was ill-posed.** Material and
+   hardness are settled (peroxide-cured EPDM, 70 Shore A). The load is bracketed
+   by calculation at **38–115 N per screw**, not published anywhere, with a named
+   bench measurement to close it. But the preload is indeterminate as drawn
+   regardless: a flat washer sits in a near-closed pocket and cannot reach 25 %
+   compression without extruding into the gas window. **Resolved by dropping the
+   washer for an O-ring face seal** (`ORS116731`, 17.0 × 1.0, same compound as
+   the carrier ring) in a Ø17.0/Ø19.58 groove — the washer's 38–115 N/screw
+   bracket does not transfer to it, so the screw is still unsized. See
+   [Membrane perimeter gasket sourced](#membrane-perimeter-gasket-sourced-2026-09-03).
+
+### Membrane perimeter gasket sourced 2026-09-03
+
+Answers the sourcing brief in
+[GASKET-SOURCING-BRIEF.md](GASKET-SOURCING-BRIEF.md). **Compound recommended, no
+part ordered.** The brief's central question — whether EPDM's ammonia
+compatibility survives scrutiny — is answered **yes, with one named exception**;
+and the work turned up a geometry defect that has to be fixed before any gasket
+can be specified at all.
+
+#### The geometry blocks the specification (fix this first)
+
+`cartridge_core_cuts_round()` cuts **one** pocket, Ø`coupon_d + 0.3` = **21.3**,
+holding membrane *and* gasket. The gasket is Ø17.0/Ø21.0 × 1.0, so it sits in that
+pocket with **0.15 mm of radial clearance** and a free bore. Rubber is
+substantially incompressible (bulk modulus ~2 GPa against a shear modulus of a few
+MPa), so compressing it 25 % does not reduce its volume — it moves it.
+
+| quantity | value |
+|---|---:|
+| gasket volume, Ø17/Ø21 × 1.0 | 119.4 mm³ |
+| volume displaced at 25 % compression | 29.8 mm³ |
+| room available outward, to the Ø21.3 pocket wall | 7.5 mm³ |
+| therefore forced **inward, into the bore** | 22.4 mm³ |
+| resulting bore | **Ø15.84** |
+
+The bore closes past the **Ø16.0 gas window**. Two consequences, both fatal to the
+brief as written:
+
+- The gasket stops sealing *beside* the gas path and starts covering it — exactly
+  the failure the brief's "do not propose a bore ≤ 16.0 mm" rule exists to prevent.
+  The rule was applied to the *free* bore; it was never applied to the bore
+  **after compression**.
+- Because the pocket is very nearly a closed die, the load needed to reach 25 %
+  is not a material property of the gasket at all — it is set by how hard the
+  rubber is being asked to extrude. **This is why brief §4's "minimum residual
+  sealing load" has no answer as drawn**: the question is ill-posed until the
+  rubber has somewhere to go.
+
+The largest compression this pocket permits before the bore starts closing is
+**7.7 %** — well under the 15–30 % a solid-rubber face seal normally needs.
+Geometry must change; the gasket cannot be chosen around it.
+
+**The fix adopted is to stop using a flat washer at all** — see
+[The seal is an O-ring](#the-seal-is-an-o-ring-supersedes-the-cut-washer-shortlist)
+below. A torus in a groove has void by construction, so the displacement problem
+does not arise. Two flat-washer fixes were considered and rejected:
+
+- *Open the pocket* to Ø22.4 (`coupon_d + 0.3` → `coupon_d + 1.4`; threshold is
+  Ø22.17). Gas-volume cost zero, because the relief is radially outboard of the
+  sealing band. But it costs the membrane its location fit (0.15 → 0.70 mm of
+  radial float) and leaves an annular void under the membrane edge that can hold
+  condensate.
+- *Shrink the gasket OD* to ≤ Ø20.2. Works arithmetically, but drives the seal
+  land to ≤ 1.6 mm and trips `assert(land >= 2.0)`.
+
+#### EPDM survives, with one exception
+
+Primary source: **Parker O-Ring Handbook ORD 5700**, © 2021, Section VII
+compatibility tables. Ratings are 1 satisfactory, 2 fair (usually OK for a static
+seal), 3 doubtful, 4 unsatisfactory, x insufficient data.
+
+| medium | EPDM | VMQ silicone | FKM | NBR |
+|---|:--:|:--:|:--:|:--:|
+| Ammonia, gas, cold | 1 | 1 | 4 | 1 |
+| **Ammonia, gas, hot** | **2** | x | 4 | 4 |
+| Ammonium hydroxide, 3 molar | 1 | 1 | 3 | 1 |
+| Ammonium sulfide | 1 | x | 4 | 1 |
+| **Hydrogen sulfide, wet, hot** | **1** | **3** | 4 | 4 |
+| Acetic acid, 5 % / 30 % / glacial | 1 | 1 | 2 | 2 |
+| Propionic acid | 1 | 2 | 3 | 3 |
+| Formic acid | 1 | x | 4 | x |
+| Butyric acid | 2 | x | 2 | 4 |
+| Lactic acid, cold | 1 | 1 | 1 | 1 |
+| **Lactic acid, hot** | **4** | 2 | 1 | 4 |
+| Steam below 400 °F | 1 | 3 | 4 | 4 |
+
+Three things fall out of this, and the third is the finding:
+
+1. **The fluoroelastomer exclusion is now sourced, not assumed.** FKM rates 4 on
+   every ammonia row in the table. `MEMBRANE.md` and the brief already excluded
+   FKM/FFKM; that decision now rests on a primary rather than on recollection.
+2. **Silicone is worse than EPDM here, not better.** VMQ rates 3 (doubtful) on all
+   four hydrogen-sulfide rows and x on hot ammonia gas. The brief asked for
+   scepticism about silicone's hot-wet-alkaline stability; the answer is that it
+   fails earlier than that, on H₂S. Silicone is out.
+3. **EPDM's one weakness is hot lactic acid — rated 4.** Every other compost
+   medium is 1 or 2. Lactic acid is a genuine compost constituent (a signature of
+   anaerobic pockets and the early mesophilic phase), so this is not hypothetical
+   in a pile with poor aeration. Parker does not define "hot", so the temperature
+   at which the rating flips from 1 (cold) to 4 is **unverified** and could lie
+   either side of 75 °C. *This is the single strongest argument against the
+   recommendation below.*
+
+Note what the table can and cannot do. Trelleborg's materials chemist Lacy Heyduk,
+writing on compatibility charts: they "are most useful to determine the generic
+susceptibility of general classes of polymers", are compiled from single-chemical
+immersion specimens, and "most charts just list results from room-temperature
+exposure"; determining a specific material–chemical pair "requires more research",
+and an engineered grade may pass where the generic type fails. So the table above
+reliably rules FKM and silicone **out**; it does not by itself qualify a specific
+EPDM compound **in**. It also tests one chemical at a time — the mixed
+NH₃ + H₂S + organic-acid + wet/dry duty is not represented anywhere in it.
+
+#### The mechanical numbers brief §4 asked for
+
+**§4.3 Hardness — answered.** 70 ± 5 Shore A (ASTM D2240) for Freudenberg
+EP703901; the incumbent O-ring compound (Techniparts 127019011) is quoted as
+70 ± 5 **IRHD** (ASTM D1415), which is a different scale and should not be
+silently equated with Shore A.
+
+**§4.4 Compression set — answered, better than expected.** Peroxide-cured EPDM,
+DIN ISO 815 A:
+
+| compound | 22 h / 100 °C | 70 h / 100 °C | 22 h / 125 °C | 22 h / 150 °C |
+|---|:--:|:--:|:--:|:--:|
+| Freudenberg EP703901 (peroxide) | **8 %** | 12 % | 10 % | — |
+| RESOGOO E 9614 sheet (peroxide) | 25 % | — | — | — |
+| Techniparts 127019011 (peroxide, the O-ring compound) | — | — | — | 19 % |
+
+**And the long-duration answer, which no datasheet carries.** Anja Kömmling's TU
+Berlin dissertation (BAM, 2017) aged EPDM, HNBR and FKM O-rings **at 25 %
+compression** — our exact squeeze — at 150, 125, 100 and **75 °C** for up to two
+years, measuring compression set, compression force *and* leak rate. Its EPDM is
+peroxide-cured and carbon-black filled. Results:
+
+- Failure was defined at the point where a *slightly unloaded* seal began to leak,
+  which corresponded to a compression set of ~83 %; a conservative life criterion
+  of **80 % DVR** was adopted.
+- Measured: 80 % DVR at ~65 days at 150 °C, ~190 days at 125 °C.
+- Extrapolated by time–temperature superposition: **3.6 years at 100 °C,
+  14.6 years at 75 °C**, 48.6 years at 60 °C, with a cumulative error up to ±20 %.
+- **The important qualitative result:** statically clamped O-rings showed *no
+  gradual rise* in leak rate — they stayed tight until very advanced degradation,
+  and then failed. Failure appeared *earlier* only in the test where the seal is
+  slightly relieved during measurement, because that demands elastic recovery.
+
+That last point matters more than the number. Our joint is thermally cycled and
+wet–dry cycled in a printed boss that will itself creep, so the seal *is*
+repeatedly slightly unloaded. The dynamic-recovery criterion is the applicable
+one, not the static one — and "it was fine last time we checked" is exactly the
+signature this failure mode produces.
+
+Caveats, all load-bearing: that ageing is **thermo-oxidative in air**, not in
+NH₃/H₂S/organic-acid condensate; it is a different compound from any proposed
+here; and O-rings are not flat washers. It bounds the *thermal* life at 75 °C and
+says nothing about the chemical one.
+
+**§4.1 Minimum residual sealing load — no published value, and here is why.** No
+manufacturer publishes a minimum seating stress for an elastomeric face seal of
+this size; the quantity is joint-specific. The best available substitute is
+Kömmling's criterion above, which expresses end-of-life as **retained
+deformation (80 % DVR)** rather than as retained stress — a form our design can
+actually be checked against, because DVR is measurable on a recovered gasket.
+
+**§4.2 Compression modulus — calculated, not published, and stated as such.**
+Nobody publishes a compression–force curve for a die-cut washer, because it
+depends on shape factor rather than on the compound alone. Ours:
+
+- Shape factor `S = (OD − ID) / 4t = (21.0 − 17.0) / 4.0 = **1.00**`.
+- Freudenberg publishes a 100 % modulus of 4.5 MPa (ISO 37) for EP703901.
+  Neo-Hookean `σ = G(λ − λ⁻²)` at λ = 2 gives `G = 4.5 / 1.75 = 2.57 MPa`,
+  hence `E ≈ 3G = 7.7 MPa`.
+- Gent–Lindley apparent modulus `Ea = E(1 + βS²)` (β = 2 for a bonded circular
+  section, lower for carbon-black-filled rubber). Our washer is **unbonded**, so
+  the true value lies between the free-slip and fully-bonded bounds:
+  `Ea = 7.7 … 23.1 MPa`.
+- Over the 119.4 mm² seal band at 25 % compression: **σ ≈ 1.9–5.8 MPa**,
+  **F ≈ 230–690 N total, 38–115 N per screw** across six screws.
+
+Tag that bracket honestly: *calculated*, from a vendor-specification modulus, via
+a small-strain relation applied at 25 % strain where rubber is already stiffening
+nonlinearly, and it presumes the pocket has been opened so the rubber is not
+extruding. It is an order-of-magnitude sizing input for the thread-forming screw,
+**not** a preload specification. A factor of three separates its bounds.
+
+**The measurement that would settle §4.1 and §4.2 together**, and it is cheap:
+compress an actual candidate washer between two flat platens in the bench press
+with a load cell, recording force against displacement to 40 %; that yields the
+real compression–deflection curve, the load at 25 %, and the bonded/unbonded
+question at once. Then hold a set at 75 °C under 25 % compression and measure
+DVR per ISO 815 at intervals, in air and in an NH₃/H₂S/organic-acid condensate,
+to get the chemical life the literature does not provide.
+
+#### The seal is an O-ring (supersedes the cut-washer shortlist)
+
+**Previous conclusion, now withdrawn:** a die-cut washer in peroxide-cured EPDM
+sheet (RESOGOO E 9614), with a DXF-cut 50 Shore A ring as the prototype
+stand-in. That shortlist is kept below only as the fallback if the O-ring fails
+its one open risk.
+
+**What changed.** o-ring-stocks.eu's own catalogue carries a dense metric grid of
+**peroxide-cured EPDM 70 Shore A** O-rings — 1 mm ID steps, cords 1.0/1.5/2.0,
+all in stock at €0.15–0.27 — and the small sizes carry **material number
+127019011**, which is the *same compound* as the carrier's radial ring
+`ORS116787`. The compound test report already archived under
+`tech/datasheets/probe-carrier/` therefore covers **both seals**.
+
+| item | part | ID × cord | stock | price |
+|---|---|---|---:|---:|
+| **membrane perimeter seal (new)** | **ORS116731** | **17.0 × 1.0** | 1268 | €0.22 |
+| — cord 1.5, *does not fit* (see below) | ORS116732 | 17.0 × 1.5 | 5487 | €0.20 |
+| carrier radial seal (unchanged) | ORS116787 | 24.0 × 1.5 | — | — |
+
+All three: EPDM 70 Shore A, peroxide-cured, DIN 3771, material 127019011,
+FDA/EC1935-2004/NSF 61.
+
+**One part cannot serve both seals, and that is geometry, not sourcing.** The
+membrane seal nests *inside* the carrier that the other ring seals: the carrier
+ring's ID is set by the Ø27.3 well, the membrane ring's OD must fit inside the
+carrier's own wall. They are separated by the carrier wall thickness by
+construction. Freeing the geometry does not change this.
+
+**Why cord 1.0 and not 1.5.** Cord 1.0 at 25 % squeeze compresses to **0.750 mm
+— exactly the `gasket_gap` the 1.0 mm sheet gave** — so `pocket_depth` stays
+0.930 and the bore stays Ø17.0 beside a Ø16.0 window.
+
+**Gas volume, measured on the mesh, not reasoned.** I first wrote that the change
+left the connected volume "unchanged at 4849 mm³". That was an inference and it
+was wrong. `make head-end-provisional` measures the `cavity` mesh, and:
+
+| build | connected volume | margin to 5.0 cm³ |
+|---|---:|---:|
+| flat washer (HEAD, baseline) | 4849.2 mm³ | 3.0 % |
+| **O-ring, cord 1.0 (this change)** | **4807.8 mm³** | **3.8 %** |
+
+The O-ring **frees 41.4 mm³** — the groove is Ø19.58 where the washer pocket was
+Ø21.3, and the disc seat above it is only 0.18 deep instead of 0.93. So the
+change buys margin rather than spending it. (The repo's own rule applies: the
+budget is a property of the mesh, so measure what was built.)
+
+**Cord 1.5 is not a drop-in fallback**, which is also a measured result rather
+than an estimate — two asserts fire:
+
+1. `membrane_ledge` — cord 1.5 needs a Ø20.84 groove, leaving **0.23 mm** of
+   ledge inside the Ø21.3 disc pocket. It needs `land ≥ 2.77`.
+2. Raising `land` to 2.8 then grows the carrier, and the *carrier* ring's
+   install stretch goes to **6.84 %, over its 5 % rule** (`o2_probe_head_end.scad`
+   assert).
+
+So cord 1.5 perturbs the head diameter chain and the carrier seal, and its gas
+volume was not measured because the configuration will not render. **Cord 1.0 is
+the only size that fits the existing geometry.** If the cold-flow risk below
+turns out to be real, going to cord 1.5 is a carrier redesign, not a swap.
+
+**Do not use 16 × 1.0** (`ORS116724`): its bore sits exactly on the window and
+breaks the seal-beside-the-gas-path rule.
+
+**CAD consequence — implemented.** In `cad/membrane_cartridge_common.scad`:
+
+- new `mem_oring_cs = gasket_t` (cord ≡ free gasket thickness, so `gasket_gap`
+  and `pocket_depth` are shared with the square bench fixture unchanged) and
+  `mem_oring_fill = 0.80`;
+- new `groove_od()`, `oring_vol()` and `membrane_ledge()`, giving a groove of
+  **Ø17.0 / Ø19.577 × 0.75 deep** at 80 % fill, with a **0.862 mm** membrane rim
+  ledge (both echoed by the model);
+- `cartridge_core_cuts_round()` now cuts a membrane disc seat (Ø21.3 ×
+  0.18 deep) over an O-ring groove, instead of one Ø21.3 × 0.93 pocket;
+- a new assert that the ledge stays ≥ 0.5 mm, so the membrane rim can never end
+  up unsupported over the groove;
+- `assert(land >= 2.0)` keeps its threshold but changes meaning — `land` now
+  sizes the membrane disc and its ledge, not a compression band.
+
+Retention is on the groove's **outer** wall. The inner wall would be the flare
+cone, only ~Ø16.5 at that depth and far too thin to print; the old Ø21.3 pocket
+left the ring at 46 % fill, free to roll inward during assembly.
+
+**Load.** The washer bracket (38–115 N/screw) **does not transfer** — an O-ring
+seals on a line at far lower load, which is the point. The membrane-seal preload
+is still unmeasured; the bench compression test named above is now easier,
+because the part is a stock O-ring rather than a cut coupon.
+
+#### Recommendation
+
+**`ORS116731` — O-ring 17.0 × 1.0, EPDM 70 Shore A peroxide, material 127019011,
+o-ring-stocks.eu, €0.22, in stock** — in a Ø17.0/Ø19.58 × 0.75 groove. Reasons:
+EPDM is the only family rating 1 or 2 across ammonia, ammonium hydroxide, wet hot
+H₂S, acetic, propionic and formic acid at once; peroxide cure buys the
+compression set the joint depends on; it is the *same compound as the carrier
+ring*, so one test report and one compression-set assumption cover the whole
+head; it is a stocked standard part rather than a cut part at DIN 7715-5 P2; and
+and it *frees* 41.4 mm³ of gas volume (measured), taking the margin from 3.0 % to 3.8 %.
+
+**The single strongest argument against it** is no longer the sourcing but the
+counterface: **an O-ring loads the 0.18 mm porous sintered-PTFE membrane in line
+contact**, where the washer spread it over a 2 mm band. PTFE cold-flows under
+concentrated stress at temperature and PMV15T is porous, so the ring may emboss
+the membrane and the seal load then relaxes — which is precisely the failure mode
+this whole section is trying to avoid. **This risk is absent in the production
+route**, where PMV15T is welded into a PP cartridge and the joint becomes
+PP-against-ASA, rigid on rigid. It applies only to the compression-only ASA
+prototype, and it is the thing to test there.
+
+The lactic-acid finding stands unchanged and remains the chemical argument
+against EPDM in either form.
+
+#### Fallback: the cut-washer shortlist (superseded, kept for the record)
+
+| # | product | compound | hardness | temp range | CS (ISO 815) | price / MOQ / lead time |
+|---|---|---|---|---|---|---|
+| 1 | **RESOGOO EPDM E 9614** (art. 0153) sheet, cut to ring | EPDM, **peroxide-cured**, VW 2.8.1 G70 | 70 ± 5 Shore A | **−40 … +120 °C** | 25 % @ 22 h/100 °C | not published — quote required |
+| 2 | **fugendichtband24** art. 5023 DXF-1 | EPDM, **cure not stated, no TDS** | 50 Shore A | not stated | not stated | **from €8.75 incl. VAT**, single pieces, 3–4 days |
+| 3 | **ElastX24 EPDM 65** | EPDM, **cure not stated**; density 1.35 ⇒ heavily filled | 65 ± 5 Shore A | **−30 … +90 °C** | 30 % | account-gated, not obtained |
+| — | **Freudenberg EP703901** | EPDM, peroxide-cured | 70 ± 5 Shore A | — | **8 % @ 22 h/100 °C** | **moulded-part compound; not sold as sheet or in single-digit quantities** |
+
+EP703901 remains the benchmark that proves peroxide-cured EPDM can do this duty,
+and remains unavailable in prototype quantities. If the O-ring's line contact
+does damage the membrane, route 1 is the fallback — with the pocket opened to
+Ø22.4 as described above, which that route still requires.
+
+#### What this does and does not close
+
+- **Brief §4 items 1–2 are not closed by a published number and cannot be.** They
+  are answered with a calculated bracket and a named bench measurement. The screw
+  can be sized provisionally against 38–115 N per screw; it should not be frozen
+  against it.
+- **Gap 1 in [Head hardware sourced](#head-hardware-sourced-2026-09-02) — "EPDM's
+  ammonia compatibility is not verified" — is now closed for ammonia**, by
+  ORD 5700 §VII: EPDM rates 1 for ammonium hydroxide and anhydrous ammonia and 2
+  for hot ammonia gas, and this covers `ORS116787` as well as this gasket, as the
+  brief anticipated. It is **not** closed for the organic-acid side.
+- The **`land >= 2.0` assert and the `coupon_d + 0.3` pocket clearance now
+  interact**, and the CAD does not know it. Whatever the pocket becomes, a
+  compression-flow check belongs beside the existing `dry_side_gap()` assert:
+  the free bore is checked, the compressed bore is not.
 
 ### Still open with Porex
 
@@ -805,3 +1155,91 @@ Discovery and challenge searches used the following exact queries:
 The challenge searches strengthened the mechanical case for sintered PTFE and
 the fouling risk, but did not identify a better exact, publicly specified
 oleophobic baseline than PMV15T.
+
+## Source access log — gasket sourcing pass, 2026-09-03
+
+Browser surface: Playwright MCP, Chrome/152.0.0.0 (plain-Chrome UA, no
+`HeadlessChrome`), proven by navigating `about:blank` and reading the DOM before
+any fetch. Archive: `tech/datasheets/probe-gasket/` in the parent **farming**
+repository. Copyrighted vendor handbooks and the open-access thesis are recorded
+as pointers with hashes rather than committed, on size grounds.
+
+| # | document | evidence state | attempt history | route | validation | load-bearing |
+|---|---|---|---|---|---|---|
+| G1 | Techniparts/o-ring-stocks.eu **material test report 127019011**, EPDM 70 peroxide, rev 3, 2021-03-05. On disk: `tech/datasheets/probe-carrier/techniparts-epdm70-peroxide-127019011-material-test-report.pdf`, sha256 `9ea8816f…c92864` | **inspected** (1 p.) | task-local, already archived 2026-09-02 | raw text (`pdftotext -layout`) | validated (single page, self-consistent) | yes |
+| G2 | **Parker O-Ring Handbook ORD 5700**, © 2021 Parker Hannifin, 292 pp. Retrieved `https://nianticseal.com/wp-content/uploads/2024/04/ORD-5700.pdf`, sha256 `01fe9293…4a8ba9` | **partial** — §VII fluid tables pp. 164–210, §2.4.6, §2.4.11 | curl rung 1 → 200, `application/pdf`, 9 754 056 B, `%PDF-1.6`. Identity reconciled against `parker.com` catalogue page (see G3) | raw text (`pdftotext -bbox`), column mapping derived per page from rotated header x-centres | **validated** — rendered pp. 164 & 188 at 200 dpi and read visually; a first pass using one global column mapping was wrong (gave EPDM 4 for steam) and was corrected | yes |
+| G3 | ORD-5700 as currently published by Parker, `https://www.parker.com/content/dam/Parker-com/Literature/O-Ring-Division-Literature/ORD-5700.pdf` | **metadata only** | curl rung 1 → **403 (blocked, not absent)**; browser rung 4 same-origin fetch → 200, `application/pdf`, 29 925 776 B, `%PDF-1.7`. Embedded-asset XMP dates 2006–2008 ⇒ **an earlier manifestation than G2**, not a newer one | raw text (byte-level metadata only) | n/a | no — used only to establish that G2 is the later edition |
+| G4 | **Freudenberg Sealing Technologies, Technisches Datenblatt EPDM EP703901**, Änderungsindex 3, 2022-11-09. Archived, sha256 `07ac41e8…226ba8` | **inspected** (p. 1 of 5; the ASTM/ISO property block) | curl rung 1 → 200, 213 255 B | raw text | validated | yes |
+| G5 | **Kömmling, A., *Alterung und Lebensdauervorhersage von O-Ring-Dichtungen*, Dissertation, TU Berlin / BAM, 2017**, 131 pp. `https://depositonce.tu-berlin.de/bitstream/11303/6268/4/koemmling_anja.pdf`, sha256 `ee4f777b…4b02f9` | **partial** — Kurzfassung, §4.3 (ageing conditions, 25 % compression), §6 Zusammenfassung (life criterion, extrapolated lifetimes) | curl rung 1 → 200, 9 995 819 B | raw text | validated (text layer clean, figures not relied on) | yes |
+| G6 | **RESOGOO EPDM E 9614 / art. 0153**, Technisches Datenblatt, 2018-09-29. Archived, sha256 `f39dd1de…c03788` | **inspected** (2 pp., DE+EN) | curl rung 1 → 200, 156 950 B | raw text | validated | yes |
+| G7 | **ElastX24 (GM GmbH) EPDM 65** product page, `https://elastx24.de/epdm-65/` | **inspected** (property table) | browser rung 4, DOM read | raw text (live DOM, self-validating) | validated | yes |
+| G8 | ElastX24 gasket configurator, `https://elastx24.de/shop/` | **de-scoped** — pricing only; no claim depends on it, and the shortlist reports the price as unobtained | browser rung 4 → app shell rendered, configurator did not; site is **B2B account-gated** ("Dieses Angebot richtet sich ausschliesslich an gewerbliche Kunden"). **Authentication boundary — not circumvented** | route: none | n/a | no |
+| G9 | **fugendichtband24, art. 5023 DXF-1**, EPDM solid-rubber DXF cut gasket, `https://www.fugendichtband24.de/Zuschnitt-Flachdichtung-EPDM-Vollgummi-50-Shore-A-ohne-Kleber-DXF-Upload.htm` | **inspected** (price/thickness/lead-time block) | browser rung 4, DOM read | raw text (live DOM) | validated | yes — price and lead time |
+| G10 | **o-ring-stocks.eu** product catalogue (nav enumeration) | **inspected** — complete top-level category list | browser rung 4, DOM read of `/` | raw text | validated | yes — supports a bounded absence claim |
+| G11 | Koblar, D., Škofic, J., Boltežar, M., "Evaluation of the Young's Modulus of Rubber-Like Materials Bonded to Rigid Surfaces with Respect to Poisson's Ratio", *Strojniški vestnik – J. Mech. Eng.* **60**(2014)7-8, 506–511, **DOI 10.5545/sv-jme.2013.1510**. sha256 `fe0a082f…6950330` | **partial** — §0 Introduction, Eqs. (1)–(2) | curl rung 1 → 200, 2 278 380 B | raw text | validated | yes — the Gent–Lindley form used |
+| G13 | o-ring-stocks.eu **EPDM O-ring catalogue**, filtered peroxide + 70 Shore A + ID 14–26 + cord 0.8–2.1: `https://www.o-ring-stocks.eu/epdm-o-rings/?filter[54156]=0.8;2.1&filter[54161]=70&filter[54162]=14;26&filter[54174]=Peroxide` | **inspected** — the filtered result grid (dimensions, stock, price) | browser rung 4. A composed filter URL returned an unrendered shell (client-side app, **not** a block); the live UI was driven instead — a geolocation modal intercepted the range toggles and was dismissed | raw text (live DOM) | validated | yes — sizes, stock, prices |
+| G14 | o-ring-stocks.eu product pages **ORS116731** (17×1), **ORS116732** (17×1.5), **ORS116787** (24×1.5) | **inspected** — identity block: title, material number, DIN 3771 | browser rung 4, same-origin fetch + DOM parse | raw text | validated | yes — **material 127019011 confirmed identical across all three**, which is the whole basis for "one test report covers both seals" |
+| G12 | Heyduk, L., "Looking Beyond Chemical Compatibility Charts: Matching Plastic and Elastomer Seals with Fluids", Trelleborg Sealing Solutions / *Chemical Engineering*, 2020. Archived, sha256 `db9edba3…1242fd8` | **inspected** (§"Chemical compatibility charts", author block) | curl rung 1 → 200, 1 219 161 B. **No text layer** — scanned images | **OCR / rendered-page vision** (`pdftoppm` 300 dpi → `tesseract`) | validated against the rendered pages the OCR came from | no — framing and caveats only |
+
+**Build verification, 2026-09-03.** `make head-end-provisional` passes on the
+O-ring geometry: both fastening routes (thread-forming and insert) render all
+five parts as exactly one closed solid each — the target's own gate, which exists
+because "an inverted cut that leaves a zero-thickness ring" once shipped a carrier
+with no O-ring groove while every assert passed. Two errors were caught during
+this change and are recorded because neither was visible from the source:
+
+- **A name collision.** `oring_fill` is already defined in
+  `o2_probe_head_end.scad` for the *carrier's* radial ring. OpenSCAD resolves the
+  last top-level assignment across includes, so adding `oring_fill` to the shared
+  file silently clobbered it. The membrane parameters are now `mem_oring_*`.
+  Confirmed as newly introduced by rendering a pristine `git show HEAD:` copy,
+  which is clean.
+- **A verification that did not verify.** The first run was read as passing
+  because `make … | tail -25` exited 0 — but a pipeline returns the *last*
+  command's status, so a failing `make` would have been invisible. Re-run without
+  the pipe.
+
+**Bounded absence claim.** o-ring-stocks.eu/Techniparts — supplier of the
+already-qualified EPDM 70 peroxide compound 127019011 — **does not sell flat
+gaskets, washers, or sheet stock**. Searched their own site on 2026-09-03 by
+enumerating every top-level product category from the live navigation: O-rings
+(11 compound families), rubber round cords, back-up rings, X-rings, O-ring kits,
+tools. Their on-site search redirects to the homepage. Confidence in absence
+**high**, because the corpus is closed — a vendor's own complete catalogue
+navigation.
+
+**Consequence, revised 2026-09-03 after the O-ring pass.** The claim stands, but
+the conclusion first drawn from it — "the incumbent compound cannot be bought in
+this shape, so the shortlist must change supplier" — was wrong, because it
+assumed the shape. The compound *is* available from this supplier in the shape
+that matters, as an O-ring; what is absent is only the flat-washer form. An
+absence claim about a *form* was allowed to stand in for a claim about the
+*compound*, and it pointed the first sourcing pass at four new suppliers when the
+answer was in the incumbent's own catalogue.
+
+**Challenge searches (§2.1), run against the conclusion rather than for it.**
+"EPDM peroxide vs sulphur compression set" returned only distributor marketing
+pages, which the brief excludes as compatibility sources — the peroxide-cure case
+therefore rests on G4/G6 datasheet values and G5, not on those pages. Searches
+for EPDM seal failure in biogas/digestate/ammonia service and for microbial
+biodeterioration of EPDM in buried/compost service returned no substantiated
+failure mechanism; the nearest relevant hit, an EPA landfill-liner exposure
+summary, reported that butyl and EPDM liner materials "changed little during the
+exposure period", which corroborates rather than refutes. **The one refutation
+that did land came from the primary itself**: ORD 5700 rates EPDM 4 in hot lactic
+acid, and it is recorded above as the strongest argument against the
+recommendation rather than buried.
+
+**Unresolved and material.** No source found — vendor, standard or peer-reviewed —
+tests any elastomer in the *combined* NH₃ + H₂S + organic-acid + wet/dry medium at
+75 °C under sustained compression. Every compatibility datum above is
+single-chemical immersion at unstated temperature, and every ageing datum is
+thermo-oxidative in air. **What would discriminate:** compression set and
+compression–deflection on the candidate compound, held at 75 °C under 25 %
+compression, in air against a synthetic compost condensate, with lactic acid
+present. If EPDM survives that, the recommendation is safe; if it does not, the
+lactic-acid row was the reason, and FEPM (Aflas) is the nearest fallback — rated 1
+in butyric acid and 2 in hot ammonia gas, the only family in the table to clear
+both the ammonia and the organic-acid columns. It is not a drop-in answer: ORD 5700
+rates FEPM **x — insufficient data** on all four hydrogen-sulfide rows, so it
+trades a known weakness for an unmeasured one.

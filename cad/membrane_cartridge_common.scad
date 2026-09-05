@@ -68,7 +68,21 @@ heater_shelf_t = 1.0;       // dry-side heater seat, inside the seat gasket wind
 cart_t = 5.0;               // cartridge body thickness
 key = 3.0;                  // corner key size
 
-m25_clear = 2.8;            // M2.5 clearance (declared default, UNMEASURED profile)
+// Clearance holes, "mittel" (medium) row. SOURCED 2026-09-05 and then CONFIRMED
+// AGAINST THE PRIMARY the same day: Fab supplied the clause-2 "Maße" table of
+// DIN EN 20273 (the German adoption of ISO 273), which reads d=2 -> 2,2 / 2,4 /
+// 2,6 and d=2,5 -> 2,7 / 2,9 / 3,1 under Durchgangsloch d_h, Reihe fein/mittel/
+// grob. This started as a second-hand distributor chart because ISO paywalls
+// clause 2 and the free previews stop before it; it is no longer second-hand.
+// The H12/H13/H14 grade names are from that chart, NOT from the DIN page, which
+// labels the columns fein/mittel/grob only.
+// See ../reviews/M2-FASTENING-2026-09-05.md.
+m2_clear = 2.4;             // M2 mittel (fein 2.2 / mittel 2.4 / grob 2.6)
+m25_clear = 2.8;            // M2.5. CONFIRMED NOT a DIN EN 20273 value: the row
+                            // is 2.7 / 2.9 / 3.1, and 2.8 sits between fein and
+                            // mittel. Left as found because o2_probe_head.scad's
+                            // captive-nut ports are dimensioned around it; only
+                            // the head-end variant moved to M2.
 selftap_pilot = 2.1;        // M2.5 self-tapping pilot in ASA (declared default)
 
 // --- derived ----------------------------------------------------------------
@@ -420,7 +434,16 @@ face_ring_cord = 2.5;
 // DIN ISO 3601-1 / DIN 3771 tolerance rows, same table as mem_cord_tol above,
 // one band up: 1.8 < d2 <= 2.65.
 face_cord_tol  = 0.09;
-face_id_tol    = 0.22;      // d1 = 17 row; only moves stretch, second order
+// 0.21, not 0.22. The supplier's own table rows are d1 <= 18 -> +/-0.21 and
+// d1 <= 20 -> +/-0.22; 17 is in the FIRST row and this had taken the second.
+// Corrected from the ORD-5700/supplier-table review, 2026-09-05.
+face_id_tol    = 0.21;
+// The membrane is part of the gland stack, so its tolerance is part of the
+// squeeze band -- and it was missing entirely. PMV15T is 0.18 +/- 0.03, so it
+// spends 0.06 mm of gap band, which is COMPARABLE TO THE WHOLE DEPTH ALLOWANCE
+// and bigger than a sorted cord's contribution. Leaving it out was the single
+// largest omission in the band.
+membrane_t_tol = 0.03;
 // Inner groove wall. 0.8 mm, and at this profile's 0.6 line width that is ONE
 // bead plus a third -- not the two beads the first version of this comment
 // claimed. It cannot be widened: the wall stands between the Ø16 window and the
@@ -435,12 +458,39 @@ face_id_tol    = 0.22;      // d1 = 17 row; only moves stretch, second order
 // the part, the ways out are a Ø15 window (176.7 mm2, under the 180 floor), a
 // Ø20 bed ring (head grows to Ø42), or a narrower line width for this part --
 // all three are sourcing or profile decisions, not CAD ones.
-face_wall_min  = 0.8;
-// Groove width as a multiple of cord. 1.45, matching the reasoning at
-// groove_w_factor above: the binding case is not the nominal fill but the
-// worst corner (fattest cord, shallowest groove), and widening the groove is
-// the cheap axis -- it costs retainer diameter, which there is room for.
-face_groove_w_factor = 1.45;
+// The same profile's wall line width. The inner groove wall was specified as
+// "two 0.4 beads" -- that was a 0.4-nozzle assumption, and this process prints
+// 0.6-wide walls with the classic generator. See face_wall_min below.
+face_line_w    = 0.6;
+// DEFINED ABOVE face_wall_min ON PURPOSE: face_wall_min is derived from it, and
+// OpenSCAD does not resolve forward references at top level -- it silently
+// yields undef and every dimension downstream goes with it.
+//
+// MEASURED ON THE PRINTED PART, 2026-09-05: 0.8 was 1.33 beads at the 0.6 line
+// width, so the classic generator laid one bead and gap-filled a 0.2 sliver.
+// The result was a ridge rough enough to damage the PTFE membrane clamped
+// against it. Narrow lands here must be an INTEGER number of beads; 1.2 is
+// exactly two. The window shrinks to hold face_groove_id -- see window_d --
+// because growing the groove instead would raise install stretch to 8.24%.
+face_wall_min  = 2 * face_line_w;
+// Groove width as a multiple of cord. 1.45 optimised the worst-corner FILL and
+// ignored RETENTION, which is the failure that actually happened: 1.45 * 2.5 =
+// 3.625 radial on a 2.456 thinned cord leaves the ring 1.125 mm of radial
+// freedom, so a stretched ring is not captured and climbs the inner wall out
+// of the groove during assembly (observed 2026-09-05). Parker ORD 5700 Design
+// Chart 4-3 gas/vacuum row for a 2.5 cord is 3.175 mm, which is this factor:
+// slop drops to 0.36 mm and fill rises into the upper half of the 60-85% band
+// rather than sitting near its floor. Fill is asserted below, so a cord that
+// does not fit this width fails the build instead of jamming the groove.
+// Parker's exact 3.175 FAILS the hydraulic-lock assert at 85.11% worst-corner
+// fill, and that is not a rounding problem: their row assumes their groove
+// depth, ours is set by the squeeze target and quantized to 0.12 layers, so the
+// same width sits fuller. 3.25 is the nearest width that clears 85% with margin
+// (83.1%). Honest about what it buys: radial slop 0.585 -> 0.397 mm, a real but
+// MODEST improvement. If the ring still climbs out on the printed part, the
+// remedy is a retaining lip on the inner wall, not more narrowing -- there is no
+// more width left to give before the ring locks.
+face_groove_w_factor = 3.25 / 2.5;
 // THE BUILD LAYER THIS BED IS QUANTIZED TO, and it is READ OFF THE PROFILE, not
 // chosen: cad/profiles/process_asa_seal.json slices this part at 0.12 with a
 // 0.2 first layer. It was 0.2 here for a day and that was simply wrong -- a
@@ -451,10 +501,6 @@ face_groove_w_factor = 1.45;
 // away will otherwise drift the first time either moves.
 face_layer_h   = 0.12;
 face_first_layer_h = 0.2;
-// The same profile's wall line width. The inner groove wall was specified as
-// "two 0.4 beads" -- that was a 0.4-nozzle assumption, and this process prints
-// 0.6-wide walls with the classic generator. See face_wall_min below.
-face_line_w    = 0.6;
 // Membrane counterbore in the retainer's underside: TWO layers, so the disc is
 // located without asking the slicer to print a fraction of one. The retainer
 // bottoms on the carrier flange outside it, which is what makes squeeze
@@ -466,6 +512,26 @@ face_squeeze_target = 0.25;
 // --- derived ---------------------------------------------------------------
 
 // The groove's inner wall stands on the retainer bore, which is the window.
+// PRECONDITIONS, because everything below is a derivation and a derivation
+// cannot police its own inputs. Measured 2026-09-05: with face_layer_h = -0.12
+// the model exported successfully, two closed volumes, announcing a groove
+// "2.28 deep = -19 layers" -- every downstream assert passed, because each was
+// retesting a value round() or ceil() had just produced. Nonsense in, nonsense
+// out, silently, all the way to an STL. These are the only checks here that
+// test an INPUT rather than an output.
+assert(face_layer_h > 0 && face_first_layer_h > 0 && face_line_w > 0,
+       str("build parameters must be positive: layer ", face_layer_h,
+           ", first layer ", face_first_layer_h, ", line width ", face_line_w));
+assert(face_ring_id > 0 && face_ring_cord > 0,
+       str("the ring must have positive dimensions: ", face_ring_id, " x ",
+           face_ring_cord));
+assert(face_wall_min > 0 && face_disc_ledge > 0 && face_groove_w_factor > 0,
+       "wall, ledge and groove-width factor must be positive");
+assert(face_squeeze_target > 0 && face_squeeze_target < 1,
+       str("squeeze target ", face_squeeze_target, " is not a fraction"));
+assert(membrane_t > 0 && membrane_t_tol >= 0 && membrane_t_tol < membrane_t,
+       "membrane thickness and its tolerance are not physical");
+
 function face_groove_id(window_d) = window_d + 2*face_wall_min;
 // The ring is stretched onto that wall. Same 5% rule as the radial ring.
 function face_stretch(window_d) = face_groove_id(window_d)/face_ring_id - 1;
@@ -474,9 +540,33 @@ function face_cord_fitted(window_d, cord=face_ring_cord) =
 // Depth, quantized to the build layer. Solved so that the ASSEMBLED gap --
 // groove depth plus the seat's 0.02 mm of slack over the membrane -- lands as
 // close to face_squeeze_target as an integer layer count allows.
+// WHERE THE LAYER BOUNDARIES ARE, measured from the plate, and that depends on
+// which face is down. Printed with the groove UP the groove floor is cut from
+// above into a part whose own height is already first_layer + n*layer, so a
+// depth that is a whole multiple of face_layer_h lands on a boundary: datum 0.
+// Printed with the groove DOWN the roof is built up FROM the plate, where the
+// ladder is first_layer + n*layer -- and 1.80 is not on that ladder at all
+// (0.2+13*0.12 = 1.76, 0.2+14*0.12 = 1.88). Quantizing to the wrong datum does
+// not fail loudly; the slicer just picks a neighbouring layer and moves a seal
+// dimension whose entire window is 0.15 mm.
+// WHICH FACE OF THE RETAINER GOES ON THE PLATE. It lives HERE, not in the
+// consumer, and that is not a style choice: a consumer that re-assigns a
+// variable declared in an included file has that assignment HOISTED to the
+// include site, where its own locals do not exist yet. OpenSCAD then warns
+// about a variable defined two lines above and silently evaluates the
+// expression with undef -- measured 2026-09-05, `b = a ? 1 : 2` gives 1 alone
+// and 2 behind an include. A seal dimension must never be decided that way.
+face_groove_up = false;
+
+// A FUNCTION, not a variable, so it is resolved lazily and cannot be caught by
+// the same hoist.
+function face_depth_datum() = face_groove_up ? 0 : face_first_layer_h;
+
 function face_groove_depth(window_d) =
-    round((face_cord_fitted(window_d)*(1 - face_squeeze_target)
-           - (face_seat_depth - membrane_t)) / face_layer_h) * face_layer_h;
+    face_depth_datum()
+    + round((face_cord_fitted(window_d)*(1 - face_squeeze_target)
+             - (face_seat_depth - membrane_t) - face_depth_datum()) / face_layer_h)
+      * face_layer_h;
 // What the ring is actually squeezed to. The membrane sits in a seat one layer
 // deep and is 0.18 thick, so it leaves 0.02 mm of slack that the ring takes up.
 function face_gap(window_d) =
@@ -497,12 +587,34 @@ function face_fill(window_d, cord, gap) =
 // groove cut too deep; the ceiling (compression set, over years) by the FAT end
 // in one cut too shallow. Quoting only the floor -- which is what the legacy bed
 // did -- hides the tighter of the two.
+// BOTH ENDS NOW CARRY THE WHOLE CHAIN, which they did not before: these used
+// the NOMINAL-ID stretch in every case, so face_id_tol never reached squeeze,
+// fill, or the quoted depth requirement at all -- it was declared, echoed, and
+// inert. And membrane_t was treated as exact.
+//
+// The corners pair the extremes that hurt:
+//   FLOOR   thinnest cord, least stretch-thinning (fat ID), thinnest membrane
+//           (which OPENS the gap, because the seat is fixed and the membrane
+//           fills part of it)
+//   CEILING fattest cord, most thinning (thin ID), thickest membrane
+function face_stretch_at(window_d, id) = face_groove_id(window_d)/id - 1;
+function face_cord_at(window_d, cord, id) = cord * (1 - face_stretch_at(window_d, id)/2);
+// WHICH ID GOES WITH WHICH CORD END, and I had it backwards in both. Stretch is
+// groove_id/ring_id - 1, so a THIN ring stretches MORE and its cord thins MORE.
+// The smallest fitted cord -- the floor corner -- is therefore the thin cord on
+// the THIN ID, not on the fat one; and the fattest fitted cord is the fat cord on
+// the FAT ID, which stretches least. Pairing them the other way flattered the
+// floor by 0.3 squeeze points and turned a failing build into a passing one.
+// Caught by the ORD-5700 review, which reproduced 2.35187 and 2.56065 where this
+// model produced 2.3827 and 2.5607.
 function face_depth_tol_max(window_d, floor, cord_tol=face_cord_tol) =
-    face_cord_fitted(window_d, face_ring_cord - cord_tol) * (1 - floor)
-    - face_gap(window_d);
+    face_cord_at(window_d, face_ring_cord - cord_tol, face_ring_id - face_id_tol)
+      * (1 - floor)
+    - (face_gap(window_d) + membrane_t_tol);
 function face_depth_tol_min(window_d, ceiling, cord_tol=face_cord_tol) =
-    face_gap(window_d)
-    - face_cord_fitted(window_d, face_ring_cord + cord_tol) * (1 - ceiling);
+    (face_gap(window_d) - membrane_t_tol)
+    - face_cord_at(window_d, face_ring_cord + cord_tol, face_ring_id + face_id_tol)
+      * (1 - ceiling);
 
 // --- modules ---------------------------------------------------------------
 

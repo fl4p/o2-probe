@@ -75,8 +75,15 @@ HEAD_END_PARTS := head carrier retainer cap cavity
 # board_env_front/back corrected 2026-09-04 from 3.5/1.5. RV1, the 5 mm trimmer,
 # is a Bourns 3224W on B.Cu -- the BACK -- so the tall face is the back, not the
 # front. Front is L1 (L_6.3x6.3_H3). Checked in o2-probe.kicad_pcb, not assumed.
+#
+# board_env_front stays 3.0 even though the STANDING cell is 8.8 tall: it feeds
+# bore_d, and the head's bore is only the cav_board_len = 2 mm at the board tip.
+# The cell stands 13.5 mm back from that tip (PLACEMENT.md), i.e. inside the TUBE
+# -- whose Ø27.2 ID is what has to clear it, and does (Ø22.9 swept). Putting 8.8
+# here would open the head bore to Ø28.2, wider than the tube it bonds to, for a
+# can that is not in it.
 HEAD_END_PROV := -D tube_od_meas=32.0 -D board_env_front=3.0 -D board_env_back=5.0 \
-                 -D cell_axial_len=13.0
+                 -D cell_seated_h=8.8
 
 # Every single-part render must come out as exactly one closed solid. CGAL
 # reports that as "Volumes: 2" -- the body plus the infinite outer volume. An
@@ -185,7 +192,8 @@ head-end-exploded: | $(OUT)
 RING ?= onhand-22x2
 ASA := $(HEAD_END_PROV) -D 'carrier_material="asa"' -D 'carrier_fab="printed"' \
        -D 'oring_sorting="sorted"' -D 'mem_seal="clamped"' \
-       -D 'radial_ring="$(RING)"'
+       -D 'radial_ring="$(RING)"' \
+       -D 'face_sorting="sorted"'
 
 .PHONY: head-end-asa
 head-end-asa: | $(OUT)
@@ -271,10 +279,36 @@ body-tube: | $(OUT)
 	@# clear all the way in at the entry angle, clear through the twist, and
 	@# INTERFERING as soon as it is pulled from the locked pocket.
 	python3 tools/bayonet_check.py
+	@# Same reason the bayonet check exists: the wire-end grip band can be
+	@# geometrically absent while the tube is a perfect closed solid. Measure
+	@# the slot in the mesh, not in the .scad's own arithmetic.
+	python3 tools/grip_check.py tube
 	$(OPENSCAD) --viewall --autocenter --projection=p --imgsize=1500,1100 \
 		--camera=0,0,0,68,0,32,0 --colorscheme=Tomorrow \
 		-D 'part="assembly"' -D exploded=true \
 		-o $(OUT)/body-tube-preview.png $(BODY)
+
+# The wire-end grip is a printed friction fit, and no arithmetic sets it: it is
+# this printer's XY undersize plus the ASA's shrink plus the real board edge.
+# This prints the ladder that does. Slice it with the BODY TUBE profile -- a
+# coupon at a different layer height or line width measures a different printer.
+.PHONY: fit-coupon
+fit-coupon: | $(OUT)
+	$(OPENSCAD) --hardwarnings -D 'part="fit-coupon"' \
+		-o $(OUT)/body-fit-coupon.stl $(BODY) 2>$(OUT)/.b-coup.log || \
+		{ cat $(OUT)/.b-coup.log; exit 1; }
+	@# One closed solid per rung -- they are separate parts on one plate.
+	@v=`sed -n 's/.*Volumes: *\([0-9]*\).*/\1/p' $(OUT)/.b-coup.log | tail -1`; \
+	 n=`sed -n 's/.*FIT COUPON: \([0-9]*\) rings.*/\1/p' $(OUT)/.b-coup.log`; \
+	 if [ "$$v" != "$$((n+1))" ]; then \
+		echo "FAIL fit-coupon: $$v volumes, expected $$((n+1)) for $$n rings"; exit 1; \
+	 fi
+	@grep -h 'ECHO: "FIT COUPON' $(OUT)/.b-coup.log || true
+	@rm -f $(OUT)/.b-coup.log
+	python3 tools/grip_check.py coupon
+	$(OPENSCAD) --viewall --autocenter --projection=p --imgsize=1500,700 \
+		--colorscheme=Tomorrow -D 'part="fit-coupon"' \
+		-o $(OUT)/body-fit-coupon-preview.png $(BODY)
 
 # The WHOLE probe, exploded and labelled -- head stack, board, cell, and the
 # prototype-1 printed body. It imports the body STLs, so body-tube runs first.

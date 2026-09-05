@@ -37,7 +37,12 @@ fail() { echo "SEAL-CHECK FAIL: $*" >&2; exit 1; }
 # for a part whose z=0 is a seal face, and nothing in the G-code says which this
 # is. An unknown part is unevaluable, and unevaluable is a failure, not a pass.
 case "$part" in
-    monobody|cap|dam|carrier|retainer) ;;
+    # fastener-coupon is NOT a sealing part -- it is a test block for the M2
+    # insert and thread-forming bosses. It is checked here anyway, and against
+    # the same wall and layer settings, because the whole point of the coupon is
+    # to find out how a boss behaves IN THE PROCESS THE PART IS PRINTED IN. A
+    # coupon sliced at other settings answers a question nobody asked.
+    monobody|cap|dam|carrier|retainer|fastener-coupon) ;;
     "") fail "no --part given; the brim rules are part-specific and cannot be inferred from the G-code" ;;
     *)  fail "unknown --part '$part'" ;;
 esac
@@ -101,6 +106,12 @@ case "$part" in
         num brim_width 3 99 "some brim, but it must stay removable"
         eq  brim_object_gap 0.1 "a fused brim on the seal land cannot be removed without scarring it"
         eq  brim_type outer_only "an inner brim lands in the aperture and the bolt holes"
+        ;;
+    fastener-coupon)
+        # z=0 is a plain flat face that mates with nothing and carries no hole:
+        # every hole enters from the TOP, the same way up as the head prints.
+        # So the only brim requirement is that it holds a small ASA block down.
+        num brim_width 3 99 "a 36 x 12 ASA block lifts a corner without one"
         ;;
     *)
         num brim_width 3 99 "warp resistance"

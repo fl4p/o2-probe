@@ -235,8 +235,19 @@ at `y = 107`, board centreline at `x = 10`. All dimensions below are mm.
   (.022″–.046″ / 0,559–1,168 mm), but its **Ø1.93 mm mounting hole leaves only
   0.61 mm of board between holes at 2.54 mm pitch** against Cambion's 1.14 mm —
   keep 0327 as the second source, not the first choice.
-- **Cell orientation — open, decide before layout freeze (raised
-  2026-09-01).** Rev A as drawn stands the cell on the board, axis normal to
+- **Cell orientation — DECIDED 2026-09-05 (Fab): option A, standing.** The cell
+  stays a normal THT part on the board, axis normal to the copper, gas face
+  radial — i.e. Rev A as built, not a change to it. `cad/o2_probe_head_end.scad`
+  carries it as `cell_mount = "standing"` and the end-window head was rebuilt
+  around it: the Ø16.62 × 13 mm neck that option C needed is deleted, the board
+  tip lands on the well floor, the head is 21.3 mm instead of 34.3, and the
+  connected volume is 2.93 cm³. **What the decision does NOT close** is A's own
+  two costs, both still live below: the ≈2.6 mm of socket barrel out the back of
+  the board, and the three-contact thermal path to the cell. `RING-PCB.md` was
+  written against option C's neck and is superseded — see its status header.
+  The A/B/C discussion below is kept as the reasoning, not as an open question.
+
+  Rev A as drawn stands the cell on the board, axis normal to
   the copper, gas face radial. Two motives argue for laying it down instead:
   it deletes the 3 × 6 mm rear-vent aperture and everything that hangs off it
   (plane splits, copper-keepout-is-not-flow, "aperture vs standoff"), because
@@ -282,7 +293,10 @@ at `y = 107`, board centreline at `x = 10`. All dimensions below are mm.
   Confirm it, and the cell's own standoff over the flange, on a physical cell
   and socket before freeze.
 - **Primary cell datum:** SGX-OX-ROHS-Mini body centre `(10.0, 93.5)`, body
-  envelope Ø14.4 + datasheet tolerance. Rotate it with the three-pin row toward
+  envelope **Ø14.62 measured 2026-09-04** (DS-0637 Iss. 2 nominal is Ø14.4; the
+  measurement supersedes it, and `cad/o2_probe_head_end.scad` is cut to it). One
+  sample, so it is a value and not a tolerance band. `cell_h` is still the
+  datasheet's 8.3 and was NOT re-measured while the can was in hand. Rotate it with the three-pin row toward
   the dam/AFE. The pitch and row offset still come from the datasheet (2.54 mm
   pitch, 2.50 mm pin-row offset), but the *holes* come from the chosen
   receptacle's mounting-hole spec, not from the cell pin diameter, and the
@@ -298,7 +312,24 @@ at `y = 107`, board centreline at `x = 10`. All dimensions below are mm.
   it replaces.** The
   Issue 2 datasheet does not dimension the rear port, so this is an
   explicit first-article fit/flow feature rather than an invented port diameter.
-  Confirm the opening against a physical sample before production release.
+  ~~Confirm the opening against a physical sample before production release.~~
+  **MEASURED 2026-09-04 (Fab), closing this item:** the rear vent is **Ø3.2 mm**,
+  and its edge furthest from the pins sits **4.7 mm from the can edge** — so with
+  the measured Ø14.62 can, the vent centre is **1.01 mm off the can axis, away
+  from the pins**, and its near edge clears the pin row (2.50 mm offset) by
+  1.91 mm. Three consequences:
+  - **The 1.8 mm gasward slot offset is 0.79 mm off the real vent.** The vent
+    still falls inside the 6 mm slot length, so nothing occludes lengthwise.
+  - **The slot is 0.2 mm too NARROW.** 3.0 mm across against a Ø3.2 vent clips
+    0.15 mm² — 1.9 % of the port, immaterial for flow but a literal violation of
+    this bullet's own `DO NOT OBSTRUCT`. Widen to ~3.6 mm if the slot is kept.
+  - ~~**In cell-orientation option C it is probably not needed at all.**~~
+    **The escape closed on 2026-09-05: option A was chosen, the cell stands, and
+    the rear vent is needed.** The end-window head no longer has a neck for the
+    back face to breathe into — the board tip sits on the well floor and the can's
+    rear face is against the board. So the slot stays, and the two defects above
+    it (0.79 mm offset, 0.2 mm too narrow) are live items for the respin rather
+    than things option C might have deleted.
   Mark the controlled drawing `DO NOT OBSTRUCT`; solder mask/copper keepouts
   alone do not satisfy this.
 - **Heated-ring tip:** RH1 and RH2 sit on the back at `(5,96.5)` and

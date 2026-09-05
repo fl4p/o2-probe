@@ -418,7 +418,17 @@ of the seal geometry only.
 
 ## Still open, and unchanged by printing
 
-- `cell_axial_len = 13.0` is a placeholder. The 3.0 % volume margin rides on it.
+- ~~`cell_axial_len = 13.0` is a placeholder.~~ **Deleted 2026-09-05:** the cell
+  stands on the board again (`cell_mount = "standing"`), nothing projects past the
+  board tip, and the neck it sized is gone. The volume margin no longer rides on
+  it — the measured cavity is **2.93 cm³**, and what sets it now is `fast_hole_h`
+  through `cav_board_len`. **Every head, carrier and retainer printed before this
+  date was cut for the 34.3 mm head; the head is now 21.3 mm.** The carrier and
+  retainer are unaffected in section but the carrier's flange went 5.0 → 3.0 mm,
+  so those prints are superseded too.
+- `cell_seated_h = 8.8` replaces it as the unmeasured input, and it is arithmetic
+  (8.3 can + 0.51 socket flange), not a seated part. It sizes tube clearance, not
+  head length.
 - **EPDM ammonia compatibility is unverified**, gating both the O-ring and the
   membrane gasket.
 - The membrane gasket is unsourced — material, hardness, thickness, preload.
@@ -446,18 +456,43 @@ the legacy bed has three features that do not survive the inversion.
    drops it or places it a whole layer out. What is left of it is the 0.862 mm
    membrane ledge, printed as a single free-floating bead 0.18 mm above the
    plate. Those are the slivers on the face.
-2. **The O-ring groove becomes a ceiling, and its floor is bridged across the
-   hole.** Inverted, the groove's floor — the surface that *sets squeeze* — is an
-   annulus running from the flare cone at Ø16.48 out to Ø19.58, printed over air
-   at 0.93 mm, and **its inner boundary is the open aperture**. An annular ledge
-   with no inner anchor is not a bridge the slicer can span across 1.55 mm; it
-   anchors on the far rim and lays lines straight over the window. That is the
-   web in the photograph.
-3. **Nothing is a multiple of anything.** Groove 0.75 mm deep (3.75 layers) and
-   1.55 mm wide (≈3.9 beads at 0.4). The floor comes out as one bridged layer
-   plus gap fill, at whatever height the slicer rounds to. Since
-   `squeeze = 1 − gap/cord`, an uneven groove **is** an uneven seal — the
-   unevenness is not cosmetic here the way the bolt-hole voids above are.
+2. **The O-ring groove becomes a ceiling, and its floor is unsupported.**
+   Inverted, the groove's floor — the surface that *sets squeeze* — is an annulus
+   running from the flare cone at Ø16.48 out to Ø19.58, printed over air at
+   0.93 mm, with **the open aperture as its inner boundary**. It comes out as
+   overhanging perimeters, and overhanging perimeters sag.
+
+   **CORRECTED 2026-09-05; the first version of this claim was wrong.** It said
+   the slicer *bridges straight across the Ø19.58 hole* and that those extrusions
+   are the strands in the photograph. Measured instead of argued — single
+   variable, the current model with `mem_seal="cone"` against the clamped bed,
+   same profiles, same PROV flags, `radial_ring=onhand-22x2` both sides:
+
+   | feature | legacy `cone` bed | clamped bed |
+   |---|---|---|
+   | `Overhang wall` | z = 0.32, **1.04**, 5.12, 8.72 | z = 8.72 only |
+   | `Bridge infill` | **absent** | **absent** |
+   | `Internal Bridge` | z = 3.68 (Ø22.38–32.92), 4.52 | z = 4.52 |
+
+   The slicer **never bridges anything here.** The predicted overhang is real and
+   is where it was predicted — z = 1.04 spanning Ø17.10–18.31, inside the
+   Ø16.5–19.6 band — and the clamped bed removes all three legacy levels. The
+   `Internal Bridge` at z = 3.68 is Orca's *solid-over-sparse-infill* feature,
+   sits entirely **outboard** of the aperture, and has nothing to do with the
+   window.
+
+   So the uneven groove is explained. **The strands across the aperture are
+   not.** Stringing on travel moves is the obvious candidate and it is untested.
+   Nothing below should be read as explaining them.
+3. **Nothing is a multiple of anything.** Groove 0.75 mm deep — 3.75 layers at
+   0.2, 6.25 at the 0.12 this actually slices at — and 1.55 mm wide. Depth that
+   is not an integer layer count is depth the *slicer* picks, and since
+   `squeeze = 1 − gap/cord`, that pick is a seal dimension.
+
+   (An earlier version added "so the floor is one bridged layer plus gap fill".
+   **Withdrawn:** Arachne varies extrusion width and the archived Orca job
+   records `gap_fill_target=nowhere` — no gap fill is emitted. That mechanism was
+   asserted, never observed.)
 
 The common cause is that the bed was designed in the orientation it is *drawn*
 in (wet face up, where all three features are ordinary milling cuts) and printed
@@ -495,6 +530,99 @@ Consequences, all of them wanted:
 `mem_seal = "clamped"` selects it and is now the default. `mem_seal = "cone"`
 still builds the legacy bed, gates and all, for the machined-PP route.
 
+## Which side of the membrane the ring sits on
+
+Asked on review, 2026-09-05, and worth recording because the first answer —
+"it is a mirror, so it does not matter" — is only true of the seal itself.
+
+**The connectivity is symmetric; the contact mechanics are not** — and the first
+version of this section slid from one to the other without earning it. The ring never seals against the
+membrane as such; it nips the membrane against a rigid flat counterface, and the
+chain from wet to dry has the same three interfaces either way, two elastomeric
+and one rigid-on-rigid:
+
+| interface | ring on the DRY side (legacy) | ring on the WET side (now) |
+|---|---|---|
+| groove floor ↔ ring | ASA ↔ rubber | ASA ↔ rubber |
+| ring ↔ membrane | rubber ↔ PTFE | rubber ↔ PTFE |
+| **membrane ↔ rigid land** | **PTFE ↔ retainer** | **PTFE ↔ carrier** |
+
+There is **no separate carrier-to-membrane gasket in either version**, and there
+never was one: that rigid interface *is* the seal, loaded through the membrane by
+the ring, over the ring's footprint. Inboard of the footprint is legitimately
+cavity, outboard legitimately wet. The in-plane bypass through the porous PTFE
+exists identically in both, and is the same unverified-preload risk as before.
+
+**What the symmetry does not establish is that either arrangement seals.**
+Wet fluid can enter the porous PTFE at the disc rim, outboard of the ring, and
+travel laterally *through the 0.18 mm membrane* beneath the sealing line — in
+both layouts — unless the clamp collapses the media under the ring. Porex permits
+a compression seal on PMV15T, so a second gasket is not automatically required;
+but "no separate gasket is needed" is a claim about in-plane permeability under
+load that **nobody here has measured**. The defensible statement is narrower: the
+two layouts are equivalent in leak path, and both rest on the same unverified
+assumption.
+
+What differs is four other things, and they do not all point the same way.
+
+**Favouring the wet side, where it now is:**
+
+- **The membrane is backed everywhere.** This is the concrete one. In the legacy
+  bed the membrane's rim *spanned its own O-ring groove* — 1.55 mm of
+  unsupported PTFE with the ring pushing up into it from below, on top of the
+  window. The carrier land is now flat from the aperture out to Ø26.85, so the
+  only thing the membrane spans is the Ø16 window it is meant to span. Nothing
+  to dish or extrude into.
+- **Pressure loads the seal instead of unloading it.** Water head pushes the
+  membrane onto its sealing land rather than off it.
+
+  **Magnitudes corrected 2026-09-05 — the first version had both wrong.** It
+  multiplied 265 mbar over the whole Ø26.85 *coupon* for ~15 N. The coupon is not
+  the pressure-exposed area: the membrane spans the **Ø16 window**, 201 mm², so
+  **~5.3 N**. And 265 mbar is Porex's minimum **water-entry test threshold**
+  (~2.7 m of head), a breakthrough bound rather than an operating differential.
+  The ~100 N preload was a guess; Parker ORD 5700 Figure 2-5, p. 2-11, gives
+  roughly 10–20 lbf/in at 24–26 % squeeze on 70 Shore A, i.e. **~110–220 N** over
+  the installed centreline circumference. The conclusion survives and is stronger
+  than claimed — order 5 N against order 150 N — but on different numbers.
+
+**Favouring the dry side, where it was:**
+
+- **Chemical exposure.** A dry-side ring is shielded behind the membrane; a
+  wet-side ring sits in the condensate. It is not new chemistry — the radial
+  ring already lives there in the same EPDM 70 peroxide — but it is service life
+  spent for nothing, and it is the strongest argument for putting it back.
+- **The groove becomes a wet-side pocket** that can hold water against the
+  membrane, which bends this project's own no-water-trap rule
+  (`RESPONSE-CANDIDATE-VOLUME.md`, "Access-path constraint": *a recessed
+  membrane with a water-trapping outer pocket is not acceptable*). Drain slots
+  through the retainer's outer wall would fix it. **Not currently drawn.**
+
+**So the side is a consequence of the printing constraint, not a sealing
+judgement.** A dry-side ring means the groove is in the carrier; the carrier can
+only print wet-face-down (the flange overhangs the spigot by 6.05 mm per side);
+a groove in its wet face is therefore a ceiling over the open aperture, which is
+the photograph. The two ways to have a dry-side ring anyway, both with a price:
+
+1. **Give the groove a real inner wall** so its floor is a 3.6 mm bridge
+   anchored on both sides instead of strands over a hole. It prints — but a
+   bridged surface sags, and that surface is the groove depth, which is the
+   dimension this whole change bought 6× more tolerance for.
+2. **Print the carrier wet-face-up on support** under the flange overhang. The
+   support scars land on the flange *seating* face, which the radial O-ring
+   makes non-critical — it seals on the spigot, not the face. This is the option
+   to take if the exposure argument wins.
+
+**Weakest link, and it is unchanged by the side.** The rigid PTFE-on-printed-ASA
+interface is the least trustworthy joint in the chain in *both* versions. On the
+new carrier that land is the **first layer against a Textured PEI plate**, so it
+carries the plate texture directly under the seal line — the legacy version had
+the same problem on the retainer's plate-side face. Options, cheapest first: a
+smooth plate for the carrier; let the ring's line load bed the PTFE into the
+texture (plausible — PTFE cold-flows, which is listed as a risk elsewhere in this
+file); or face 0.1 mm off. **Measure this before the squeeze number** — it is
+ahead of everything else in the leak test.
+
 ## The ring: 17.0 × 2.5, chosen from what is in the drawer
 
 Three sizes were on hand — 17 × 2.5, 20 × 2, 14 × 2.5.
@@ -505,49 +633,85 @@ Three sizes were on hand — 17 × 2.5, 20 × 2, 14 × 2.5.
 | 20 × 2 | rejected on **size**: its groove puts the membrane disc at Ø28.0 against a bolt-hole inner edge at Ø29.3 |
 | 14 × 2.5 | rejected on sight: the bore is *inside* the Ø16 window |
 
-The fat cord is not a compromise, it is the second half of the fix. The DIN
-ISO 3601 cord tolerance is an **absolute** band, so ±0.09 on a 2.5 cord costs
-**5.34 squeeze points** where ±0.08 on the legacy 1.0 cord cost 12.1. That is
-what buys the depth tolerance back:
+The fat cord is not a compromise, it is the second half of the fix. The cord
+tolerance is an **absolute** band, so ±0.09 on a 2.5 cord costs far less squeeze
+than ±0.08 on the legacy 1.0 cord did. All figures below are the model's own
+echo at `face_sorting="sorted"`, after the ORD-5700 review of 2026-09-05:
 
 | | legacy 17 × 1.0 | clamped 17 × 2.5 |
 |---|---:|---:|
-| assembled gap | 0.750 | 1.820 |
-| nominal squeeze | 25.0 % | 25.9 % |
-| depth may err by | **±0.032 mm** | **+0.192 / −0.039 mm** |
-| worst-corner fill | 78.2 % | 78.8 % |
+| assembled gap | 0.750 | **1.860** |
+| nominal squeeze | 25.0 % | **24.26 %** |
+| depth may err by | ±0.032 mm | **+0.054 / −0.093 mm** |
+| worst-corner fill | 78.2 % | **74.5 %** (Parker's optimum is 75 %) |
+| groove depth | 0.75 (3.75 layers) | **1.80 = 15 × 0.12** |
 
-Both ends are quoted deliberately. The **floor** (15 %, a leak, now) is reached
-by the thin end of the cord band in a groove cut too deep; the **ceiling** (30 %,
-compression set, over years) by the fat end in one cut too shallow. The ceiling
-is the tighter end on this bed and it is the benign one — quoting only the floor,
-as the legacy bed did, would hide it. Micrometering the rings on receipt
-(`face_sorting = "sorted"`) opens the ceiling from 0.039 to 0.094 mm and costs
-nothing: the rings are here.
+**The band is 20–30 %, not 15–30 %.** Parker ORD 5700 Design Chart 4-3, p. 4-18,
+gives 20–30 % for the nearest face-seal cross-section. The 15 % floor this
+document and the model both carried was the *radial* rule, copied across from the
+carrier-to-head ring — and a face seal has no gland-fill energisation to fall back
+on. Raised to 20 % on 2026-09-05.
 
-Install stretch is 3.53 % nominal onto the Ø17.6 inner wall, 4.89 % on a ring at
-the thin end of the DIN d1 band — inside the 5 % rule, with 0.11 points to spare.
-It is asserted at that end, not at the nominal.
+**Sorting is therefore mandatory on this bed, and the model now enforces it.**
+With the 20 % floor, the catalogue cord band alone leaves *no* groove depth on the
+0.12 mm grid that holds 20–30 % across the corners: 1.80 is too shallow at the fat
+corner and the next step down, 1.68, reaches 33 %. `face_sorting="catalogue"` now
+**fails the build** with "sort the rings, or cut the groove one layer shallower";
+`make head-end-asa` sets `face_sorting="sorted"`. Micrometering rings that are
+already in the drawer costs nothing, and it is the only thing that closes the
+band.
+
+The tighter end is now the **floor** — the end that leaks — not the ceiling, and
+the model reports which end binds rather than asserting it. Three inputs that were
+missing or wrong until the review:
+
+- **the membrane is part of the gland stack.** PMV15T is 0.18 ± 0.03, so it
+  spends 0.06 mm of the gap band — more than a sorted cord does. It had been
+  treated as exact.
+- **d1 ≤ 18 is ±0.21**, not ±0.22; 17 sits in the first row and the code had the
+  second.
+- **`face_id_tol` reached nothing.** Both tolerance functions used the
+  nominal-ID stretch, so the ring's own ID band never touched squeeze, fill or
+  the quoted depth requirement. It was declared, echoed, and inert.
+
+And the corner pairing was backwards. Stretch is `groove_id/ring_id − 1`, so a
+*thin* ring stretches more and its cord thins more: the smallest fitted cord is
+the thin cord on the **thin** ID, not the fat one. Pairing them the other way
+flattered the floor and turned a failing build into a passing one.
 
 ## What this asks of the slicer
 
 **The groove depth is an integer number of layers and that is a seal dimension.**
-1.8 mm = 9 layers of 0.2. Slice this part at any other layer height and the depth
-becomes whatever the slicer rounds to — the model asserts the multiple, but it
-cannot see the slicer, so `face_layer_h` must be moved with the profile and the
-depth re-derived.
+1.80 mm = **15 × 0.12**, and 0.12 is what `profiles/process_asa_seal.json`
+actually slices at — not the 0.2 this section first assumed. The membrane seat is
+`2 × face_layer_h` = 0.24 **by construction**, so it cannot be a fractional layer
+either; an assert there would only restate its own definition. `profile_check.py`
+compares the model's layer height, first layer and line width against the profile
+that slices the plate, and `make head-end-asa` runs it before exporting.
+
+Slice at any other layer height and the depth becomes whatever the slicer rounds
+to. The model cannot see the slicer, so `face_layer_h` moves with the profile or
+the guard is a decoration.
 
 Orientation, both parts, no support:
 
-- **carrier** — wet face down, unchanged from before (the flange step forces it);
+- **carrier** — wet face down, unchanged (the flange step forces it). Note this
+  puts the membrane sealing land on the **first layer**, against Textured PEI;
 - **retainer** — **groove up**. Flat side down is what the legacy ring wanted and
-  is exactly wrong now: it would put the bed's floor in the air over the retainer
-  bore, which is the same bridge that ruined the carrier.
+  is exactly wrong now: it would put the bed's floor — the surface that sets
+  squeeze — in the air over the retainer bore.
 
-`retainer_t` moves 3.0 → **4.0**. The bed takes 2.0 mm out of the underside and
-the web that reacts the ring would otherwise be 1.0 mm, which bows and gives back
-the squeeze the groove depth was set to hold. It costs 1.0 mm of probe length
-through `cap_stack`.
+**Brim:** `brim_type` must stay `outer_only` for both parts. The shared profile
+briefly carried `outer_and_inner` with `brim_object_gap 0` for a tall tower, which
+would have fused a brim **inside the Ø16 aperture and all six bolt holes at z=0 —
+i.e. onto the carrier's sealing land**. It is now a per-part override in
+`print.sh`, with carrier and retainer pinned to gap 0.1 + `outer_only`.
+
+`retainer_t` is **4.04** = `0.2 + 32 × 0.12`, derived onto a layer boundary rather
+than rounded to 4.0: the part prints groove-up, so its top face is the bed's
+reference plane. The bed takes 2.04 mm out of the underside and the web that
+reacts the ring would otherwise be 1.0 mm, which bows and gives back the squeeze
+the groove depth was set to hold.
 
 ## Still open on this bed
 
@@ -561,4 +725,26 @@ through `cap_stack`.
   seals on a line at far lower load than the washer bracket assumed, and PTFE
   cold-flows. Mirroring the joint does not change that risk, it only moves which
   face the line lands on — now the membrane's **wet** face.
-- **Nothing has been printed yet.** Every number above is from the model.
+- **Nothing has been printed yet.** Every number above is from the model or from
+  a sliced plate, not from a part.
+- **The strands in the photograph are unexplained.** The uneven groove is
+  accounted for (unsupported overhang perimeters, measured); the web across the
+  aperture is not. Stringing is the untested hypothesis.
+- **In-plane permeation under the seal line is unmeasured**, and both bed layouts
+  depend on it. This is the one that decides whether the bed seals at all.
+- **The wet-side groove has no drainage.** Moving the bed into the retainer put it
+  on the compost side, where it can hold water against the membrane. Drain slots
+  through the retainer's outer wall are the fix and are not drawn.
+- **The sealing land carries the plate texture.** The carrier prints wet face
+  down, so the land the membrane seals against is a first layer on Textured PEI.
+  Measure this before the squeeze number.
+- **The rings are uncatalogued.** 17 × 2.5 is a size in a drawer: material,
+  hardness, cure system and cord tolerance are all assumed, and the ammonia
+  argument does **not** carry over from `ORS116731` — that rests on a specific
+  compound test report these rings do not have.
+- **Groove width is 3.625 mm**, which exceeds Parker Chart 4-3's nearest-row
+  maximum by 0.018 mm for liquids and 0.450 mm for gases/vacuum. This is a gas
+  seal. It is out of the chart on a nonstandard 2.5 mm cord, and narrowing it to
+  the gas row would push worst-corner fill from 74.5 % to about 90 %, over the
+  85 % lock limit. Unresolved — it needs either a standard cord or an argued
+  deviation, not a silent one.

@@ -79,8 +79,10 @@ Three descriptions of the heater, none of which is the same heater.
    about a problem that does not arise.
 2. **If the end-window head wins, the heater has to move to the cartridge** — and
    then it needs a lead path from the board, past the cell, through the Ø18 spigot
-   bore, that nothing has designed. So does the `cartridge_tsense_axial()` sensor
-   pocket, which has the identical problem.
+   bore, that nothing has designed. `RING-PCB.md` answers this: the fork carries
+   four conductors forward and needs no harness at all. (The
+   `cartridge_tsense_axial()` pocket had the identical problem and was removed on
+   2026-09-04 — the heater's own PCB now carries its sensor.)
 3. **And then it is a consumable.** The cartridge is the replaceable membrane part.
    A heater and a temperature sensor built into it get thrown away at every
    membrane change, and re-made blind through the same Ø18 bore that §1.5 of
@@ -421,11 +423,23 @@ Everything above is a function of `h`, and the two outcomes are opposite:
 - **h ≳ 25 W/m²K** → neither the gas gap nor a rim reaches the membrane, and the
   dry-side spreader of §2–4 is the only option on the table.
 
-The instrumentation for this is already in the model as of 2026-09-03:
-`cartridge_tsense_axial()` puts a 1.2 mm pocket on the heater ledge, 0.95 mm under
-the membrane's clamped rim, inside the seal. That gives the **warm end**. A
-temporary sensor on the membrane face during qualification gives the **cold end**.
-The pair yields η directly, and `h` by inversion of `η = 1/(1 + hL/k_air)`.
+**Superseded 2026-09-04.** The instrumentation was a 1.2 mm pocket in the heater
+ledge (`cartridge_tsense_axial()`), added 2026-09-03 back when the heater was
+assumed to live in the carrier. It is **removed**: `RING-PCB.md` puts the heater
+on a small PCB carried forward on the main board's fork, so the heat source now
+carries its own reflow-soldered sensor on two of the fork's four conductors —
+easier to source, to assemble and to connect than a sensor buried in a printed
+pocket with its own lead through the same bore.
+
+That still gives the **warm end**. A temporary sensor on the membrane face during
+qualification gives the **cold end**. The pair yields η directly, and `h` by
+inversion of `η = 1/(1 + hL/k_air)`. Note that neither ever saw the membrane's
+*centre* cold spot — that sits over the flare cone with nothing to bore into.
+
+`RING-PCB.md` §3 also prices the mounting position: head-side, the ring sits
+8.12 mm from the membrane rather than 3.82 mm, and on the gas-gap path **cannot
+reach η ≥ 0.5 at any plausible h**. So the first ring is the instrument that
+settles §7, not the finished heater.
 
 Run that before drawing any of this.
 

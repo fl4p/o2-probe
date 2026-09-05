@@ -3,6 +3,20 @@
 Date: 2026-08-23
 Status: uncalibrated sensitivity decision; geometry is not fabrication release.
 
+> **2026-09-05 — one gate below no longer describes the built geometry.**
+> The build candidate's **"cell-to-membrane path: 5–10 mm"** was written for a
+> cell facing the membrane down the probe axis. Fab put the cell back on a
+> **standing** THT mount (PLAN.md option A): its gas face is **radial**, and it
+> sits 13.5 mm behind the board tip. The path is now 8.3 mm of axial gas column
+> (3.0 flange core + 5.3 spigot bore) and then a turn — not a straight 5–10 mm
+> run, so the figure is not comparable and **must not be reported as met or
+> missed** until the 3-D model is re-run against the standing geometry.
+>
+> The other two gates are unaffected in kind and both hold: connected volume
+> **2.93 cm³** measured on the mesh against ≤5.0, and supported PMV15T free area
+> **181 mm²** against ≥180. The ≤0.25 mm membrane dry-face-to-cavity access gap
+> is a carrier feature and did not move.
+
 ## Result
 
 The shortened axial Rev-A geometry is **not well mixed**. The corrected

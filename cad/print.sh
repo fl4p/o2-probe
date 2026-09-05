@@ -45,10 +45,28 @@ part_process_overrides() {
         # h/d 4.58 with a free bore at z=0 that mates with nothing: fuse the
         # brim and put one inside the bore too. 219 -> ~1709 mm2 bonded.
         monobody) echo '{"brim_object_gap":"0","brim_type":"outer_and_inner","brim_width":"8"}' ;;
-        # z=0 is a seal land (carrier) or carries the six bolt clearance holes
-        # (retainer). A fused brim is not removable without scarring, and an
-        # inner brim narrows the clearance holes. Leave the gap, stay outside.
-        carrier|retainer) echo '{"brim_object_gap":"0.1","brim_type":"outer_only"}' ;;
+        # The carrier prints wet-face-DOWN, so its z=0 IS the membrane sealing
+        # land: any fused brim scars the surface the seal is made on. Stay
+        # outside and keep the gap.
+        carrier)  echo '{"brim_object_gap":"0.1","brim_type":"outer_only"}' ;;
+        # RETAINER, re-examined 2026-09-05 when the part was flipped to print
+        # groove-DOWN. The old note said its z=0 "carries the six bolt clearance
+        # holes"; that was the groove-UP orientation. Groove-down, z=0 is the
+        # annulus that BOTTOMS ON THE CARRIER AND SETS THE GAP, and the seat and
+        # groove are recesses -- so the first layer is a bare 6 mm ring
+        # (r 13.25-19.4) with nothing inside r13. The part spaghettified out of
+        # that empty middle on the first attempt.
+        #
+        # An inner brim was the obvious answer and it is WRONG. Both seal-check
+        # guards refused it and both reasons hold: fused (gap 0) the snap-off
+        # scar lands on the datum ring, and inner brim of any kind prints INSIDE
+        # the six M2.5 clearance holes that pass through that ring. At the 0.1
+        # gap the guard requires it would not have bonded either, so it bought
+        # nothing and cost six blocked holes. Left as outer_only on purpose.
+        #
+        # The actual first-layer fix here is not a slicer setting: residue on
+        # the nozzle tip mis-levels z, because the tip IS the levelling probe.
+        retainer) echo '{"brim_object_gap":"0.1","brim_type":"outer_only"}' ;;
         *)        echo '{}' ;;
     esac
 }
@@ -72,7 +90,12 @@ part_stl() {
         # seal, and that is exactly what the 0 vs 18 mTorr result above is about.
         carrier)  echo exports/asa-carrier-print.stl ;;   # wet face DOWN; forced by the flange step
         retainer) echo exports/asa-retainer-print.stl ;;  # groove UP; flat-side-down bridges the bed floor
-        *)        die "unknown part '$1' (monobody | cap | dam | carrier | retainer)" ;;
+        # Fastener test block: the M2 insert and thread-forming bosses, at full
+        # depth, in the process the head is printed in. Holes UP, which is the
+        # way up the head prints -- a coupon printed the other way round tests
+        # thread-forming against a layer structure the part does not have.
+        fastener-coupon) echo exports/fastener-coupon.stl ;;
+        *)        die "unknown part '$1' (monobody | cap | dam | carrier | retainer | fastener-coupon)" ;;
     esac
 }
 

@@ -470,6 +470,98 @@ worth knowing before writing another one:
 3. **An M8 × 1.0 tap** (and a Ø7.0 drill, if the printed pilot needs cleaning up).
 4. **Silica gel** for the tail.
 
+## Setting the wire-end grip — print the coupon first
+
+**Status: open. `grip_slack = 0.05` in the model is a placeholder, and nothing
+has been printed to close it.**
+
+Station A — the cable-end guide pair — now carries a **6 mm interference band**
+instead of running at clearance end to end. Away from the band both stations
+stay at the old `guide_slack = 0.3` (a 1.9 mm slot on a 1.6 mm board); inside it
+the slot closes to `board_t + grip_slack`, with a 2 mm ramp at each end so the
+board wedges in rather than butting a step. On the current numbers the band sits
+at **board y 14–20**, ramps on 12–14 and 20–22, all inside the measured 0–28.6
+clear band.
+
+**Why a short band and not a tighter rail.** The board goes in tip-first from the
+cable end, so every millimetre of its 107 mm edge has to pass through station A —
+there is no way to put a tight feature at the cable end that the whole board does
+not travel through. Keeping the interference to 6 mm keeps the push force to one
+band's worth and keeps each insertion from shaving 20 mm of ASA.
+
+**What this hold is and is not.** It stops the board rattling and stops it
+dropping out while the probe is assembled upside down. It is *not* retention:
+the board is retained by being captive between the cap and the head cavity.
+Printed-ASA friction is not something to rely on for a season at pile
+temperature — the same objection this file already raises against a friction
+bayonet, and it is not weaker here.
+
+### The coupon
+
+    make fit-coupon
+
+writes `exports/body-fit-coupon.stl` — **five rings**, each a real section of
+this tube (true OD, true Ø13.6 bore, true 2.4 mm wall, the same `guide()` rails,
+the same 6 mm band and 2 mm ramps), differing only in `grip_slack`. Each carries
+its slack in hundredths on a base flange:
+
+| label | slack | slot on a 1.6 mm board |
+|---|---:|---:|
+| `30` | 0.30 | 1.90 mm — the old clearance, the reference for "too loose" |
+| `20` | 0.20 | 1.80 mm |
+| `12` | 0.12 | 1.72 mm |
+| `06` | 0.06 | 1.66 mm |
+| `00` | 0.00 | 1.60 mm — drawn exactly the board's thickness, which printed is already an interference |
+
+Roughly 16 cm³ of ASA, ≈ 17 g.
+
+**Slice it with the body-tube profile and print it as modelled** — rings upright,
+slot vertical, exactly the orientation the tube itself uses. This is the whole
+point of the coupon: it is not measuring the geometry, which the model already
+knows, it is measuring *this printer's XY undersize at this layer height and line
+width, in this material*. A coupon printed at a different layer height or line
+width measures a different printer, and its answer does not transfer. One
+exception to "one object per plate": the five rings go on together, because the
+comparison between them is the measurement and a plate-to-plate difference would
+land straight in it.
+
+### Reading it
+
+Use the **actual Rev-A board edge**, not a caliper block or a scrap of nominal
+1.6 mm stock. Soldermask, the router's edge taper and any burr are all in the
+fit and none of them are in the number 1.6. Measure the board's real edge
+thickness with calipers first and write it down — the whole ladder is stated
+relative to 1.6, and if the board measures 1.68 the ladder has shifted.
+
+Push each ring onto the board edge over the same 6 mm the real band will grip:
+
+* **too loose** — the ring slides under its own weight, or rocks;
+* **right** — a firm push seats it, and the ring then holds the board's weight
+  hanging and survives a shake;
+* **too tight** — it needs a tool, or it leaves white stress marks or ASA swarf.
+
+Take the tightest ring that is still *right*, set `grip_slack` to it, set
+`grip_measured = true` with the date beside it, and rebuild. Then push the ring
+on and off ten times and check it still holds: a friction fit that is only good
+for one insertion is not one, and this board is meant to come back out.
+
+**If even `00` is loose**, `grip_slack` can go negative — the model allows down
+to −0.15 and refuses further, because more than that is a press fit that shaves
+FR4 for 100 mm rather than a friction fit. Add rungs to `coupon_slacks` in the
+`.scad` and print a second ladder rather than extrapolating.
+
+### The mesh check
+
+`make body-tube` and `make fit-coupon` both run `tools/grip_check.py`, which
+fires a ray through the slot in the exported STL and refuses to pass unless the
+band and the plain rail measure what the model said, on **both** rails. It exists
+for the same reason `bayonet_check.py` does: the band can be geometrically
+absent — a ramp scale applied to the wrong axis, a band placed outside its
+station — while the part is still a flawless closed solid and every assert in
+the `.scad` passes, because those asserts only compare declared numbers with
+each other. That is exactly how the lock boss was lost. An empty measurement is
+a failure, never a pass.
+
 ## One thing to check by eye before the first insertion
 
 The guide stations sit where the board's edges are clear, and the bands were
