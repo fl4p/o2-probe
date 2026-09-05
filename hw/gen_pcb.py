@@ -23,6 +23,7 @@ from thermal_design import (SIDE_THERMAL_SLOTS, THERMAL_SLOTS,
                             add_vertical_slot, ensure_gnd_bridge,
                             ensure_heater_spreader, ensure_thermal_gap,
                             save_board_preserving_project)
+from canonicalize import canonicalize
 from critical_routes import (add_critical_routes,
                              ensure_cell_re_via_keepout, ensure_gnd_plane,
                              ensure_barrier_web_keepout,
@@ -348,6 +349,12 @@ def build():
     pcbnew.ZONE_FILLER(board).Fill(board.Zones())
     save_board_preserving_project(board, OUT)
     write_stackup(OUT)
+    # pcbnew gives every item a fresh random KIID and writes the file in KIID
+    # order, so two runs of this generator on the same inputs differ in item
+    # order and in every uuid.  That is not cosmetic: a router reads the file in
+    # order, and this placement measured 22, 28 and 36 unconnected links across
+    # identical runs until the order was pinned.  See canonicalize.py.
+    canonicalize(OUT)
     # One-node KiCad "unconnected-(...)" nets are needed for schematic parity
     # but trigger a known Freerouting 2.1 null-target bug.  Omit only those
     # one-node pseudo-nets from the DSN seed; the saved KiCad board retains them.
