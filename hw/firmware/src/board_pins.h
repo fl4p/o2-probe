@@ -52,11 +52,14 @@
 
 /* The expansion/recovery UART, USART2. PA2/PA3 are USART2 TX/RX on AF1.
  *
- * NOTHING ON A SHIPPING PROBE USES THIS. R15/R16, the 33R series parts between
- * UART2_TX/UART2_RX and J2's EXP_TX/EXP_RX, are DNP (gen_sch.py:511-512), and
- * J2 itself is DNP - so on an assembled board these two pins reach the MCU-side
- * pad of R15 and R16 and stop there. Those 0603 pads are the tap point for the
- * bench bridge (src/bridge_main.c); the LQFP's 0.5 mm pitch is not.
+ * NOTHING ON A SHIPPING PROBE USES THIS. Since 2026-09-05 these two pins land
+ * on J105/J106, a pair of solder-wire lands, and stop there: the expansion
+ * connector J2 and the R12-R16 series pack were deleted in the BOM pass
+ * (BOM-REDUCTION.md 3), but R15/R16 were NOT deletable, because this comment
+ * and bridge_main.c were already using their pads as the bench-bridge tap. The
+ * lands replace them and are a better version of the same thing - a wire land
+ * rather than half of an unfitted resistor. The LQFP's 0.5 mm pitch is still
+ * not a tap point.
  *
  * There is no direction pin here and there must not be one: this side is a
  * point-to-point TTL link to one lead, not a bus.

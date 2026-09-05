@@ -70,9 +70,18 @@ void o2p_mcu_adc_init(void)
         }
     }
 
-    /* Longest sampling time. The VA_MON divider is 10k||10k = 5k source
-     * impedance and VREFINT needs a long sample by specification; nothing
-     * here is rate-limited, so there is no reason to sample fast. */
+    /* Longest sampling time -- 160.5 cycles, and it is now LOAD-BEARING, not
+     * merely free. The VA_MON divider went 10k/10k to 47k/47k in the
+     * 2026-09-05 BOM pass (BOM-REDUCTION.md 1), taking the source impedance
+     * from 5k to 23.5k to get 130 uA back off the analog rail that feeds
+     * U4/U7/U8. VIN_MON is 91k/10k = 9.0k. ST DS12232 Table 59 (Maximum ADC
+     * RAIN) allows 50k at 12 bits and 160.5 cycles, so 23.5k has 2.1x margin --
+     * and more here, because that table is quoted at a 35 MHz ADC clock and
+     * this part runs HSI16 with no PLL (mcu.c:35), making the 160.5 cycles
+     * longer in real time, not shorter. VREFINT needs a long sample by
+     * specification regardless, and nothing here is rate-limited. A future
+     * attempt to sample FASTER must re-derive against 23.5k, not against the 5k
+     * this comment used to claim: SMPR=6 (79.5 cycles) allows only 33k. */
     ADC1->SMPR = 7u;
     ADC1->CFGR1 = 0u;          /* 12-bit, single conversion, right aligned */
 

@@ -77,8 +77,13 @@ required = {
     "+12V_RAW": {"J101.1", "F1.1"},
     "RS485_A_CABLE": {"J103.1", "R2.2", "D2.1"},
     "RS485_B_CABLE": {"J104.1", "R3.2", "D2.2"},
-    "RS485_A": {"U5.6", "R2.1", "R4.1", "R5.2"},
-    "RS485_B": {"U5.7", "R3.1", "R4.2", "R6.1"},
+    # R5/R6, the 680R DNP fail-safe bias pair, are deleted: TI SLLSEY3E 9.3 and
+    # 10.2.1.4 give the THVD1410 receiver open/short/idle failsafe without
+    # external bias, and it holds per-node on a multidrop bus (10.2.1.3, up to
+    # 256 of these 1/8-unit-load receivers). R4, the 120R end-of-bus
+    # termination option, stays -- failsafe is not termination.
+    "RS485_A": {"U5.6", "R2.1", "R4.1"},
+    "RS485_B": {"U5.7", "R3.1", "R4.2"},
     "CELL_WE": {"U7.12", "U11.3", "TP1.1"},
     # CELL_RE deliberately has no exposed test point: a test-point solder-mask
     # aperture would violate the wet-leakage control for this high-impedance net.

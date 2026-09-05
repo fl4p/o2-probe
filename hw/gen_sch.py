@@ -456,7 +456,12 @@ place("#FLG05", PWRFLAG, 81.28, 50.8, value="PWR_FLAG", footprint="", in_bom=Fal
 
 place("U1", BUCK, 106.68, 33.02, value="AP63205WU-7", footprint="Package_TO_SOT_SMD:TSOT-23-6", mpn="AP63205WU-7")
 for p,n in {1:"+5V",2:"+12V_SW",3:"+12V_SW",4:"GND",5:"BUCK_SW",6:"BUCK_BST"}.items(): net("U1",p,n)
-add_passive("C1", 88.9, 43.18, "10u 25V", "Capacitor_SMD:C_1206_3216Metric", "+12V_SW", "GND")
+add_passive("C1", 88.9, 43.18, "10u 25V X7R", "Capacitor_SMD:C_1206_3216Metric", "+12V_SW", "GND",
+            note="Bulk bypass on the unregulated 7-15 V input. X7R is explicit because C7 now "
+                 "shares this exact value string: C7 carried 'X7R' before the consolidation and "
+                 "a review caught that inheriting a bare '10u 25V' would have DROPPED the "
+                 "dielectric from the input bypass of the analog LDO. Package and voltage "
+                 "rating do not imply a dielectric, and Y5V would meet both")
 add_passive("C2", 106.68, 48.26, "100n", "Capacitor_SMD:C_0402_1005Metric", "BUCK_BST", "BUCK_SW",
             note="AP63205 bootstrap. Was 0603; consolidated onto the one 100n land the rest of "
                  "the board uses. It only ever sees the BST-SW differential of about 5 V "
@@ -480,10 +485,22 @@ for ref,x,rail in (("U2",175.26,"3V3D"),("U3",203.2,"3V3A")):
     nc(ref,4)
 add_passive("C5",165.1,45.72,"1u","Capacitor_SMD:C_0603_1608Metric","+5V","GND")
 add_passive("C6",182.88,45.72,"1u","Capacitor_SMD:C_0603_1608Metric","3V3D","GND")
-add_passive("R32",190.5,20.32,"10R","Resistor_SMD:R_0805_2012Metric","+5V","+5V_ANALOG",
-            note="Fitted damped analog prefilter; footprint may take 0R or characterized bead after bench validation")
-add_passive("C7",190.5,58.42,"10u 10V X7R","Capacitor_SMD:C_0805_2012Metric","+5V_ANALOG","GND",
-            note="Place directly at U3 IN/GND; include DC-bias derating in effective capacitance")
+add_passive("R32",190.5,20.32,"10R","Resistor_SMD:R_0603_1608Metric","+5V","+5V_ANALOG",
+            note="Fitted damped analog prefilter; the footprint may still take 0R or a "
+                 "characterized bead after bench validation. Was 0805 SOLELY to keep the bead "
+                 "option open, and it was the only 0805 resistor on the board. 0603 ferrite "
+                 "beads are as available as 0805 (Murata BLM18, TDK MPZ1608), so the option "
+                 "survives the change while R_0805_2012Metric leaves the board and 10R merges "
+                 "into the one 0603 line with R2/R3")
+add_passive("C7",190.5,58.42,"10u 25V X7R","Capacitor_SMD:C_1206_3216Metric","+5V_ANALOG","GND",
+            note="Place directly at U3 IN/GND; include DC-bias derating in effective "
+                 "capacitance. Now the SAME PART as C1 (10u 25V X7R 1206). Was 10u 10V X7R "
+                 "0805 -- the dielectric is carried explicitly on BOTH so the consolidation "
+                 "cannot silently drop it. Was also "
+                 "the only 0805 capacitor on the board, so C_0805_2012Metric leaves with it. "
+                 "Raising 10V to 25V on a 5V rail is a strict improvement in DC-bias derating, "
+                 "not the voltage-rating collapse the 100n audit below forbids -- that rule "
+                 "guards against buying a HIGH-rated position to a LOW-rated line")
 add_passive("C27",210.82,60.96,"100n","Capacitor_SMD:C_0402_1005Metric","+5V_ANALOG","GND",
             note="High-frequency U3 input bypass; place directly at pins 1/2")
 add_passive("C8",213.36,45.72,"1u","Capacitor_SMD:C_0603_1608Metric","3V3A","GND")
@@ -519,17 +536,25 @@ place("U15",AZ431,215.9,101.6,value="AZ431BN-ATRG1",footprint="Package_TO_SOT_SM
            "(recommended operating conditions) and 3V3A leaves only 3.234 - 2.510 = 0.724 V "
            "of headroom, about 6% margin over that minimum, where +5V_ANALOG leaves 2.5 V")
 net("U15",1,"VREF_SHUNT"); net("U15",2,"VREF_SHUNT"); net("U15",3,"GND")
-add_passive("R41",215.9,86.36,"1.5k 1%","Resistor_SMD:R_0603_1608Metric","+5V_ANALOG","VREF_SHUNT",
-            mpn="RC0603FR-071K5L",
-            note="AZ431 bias resistor. (5.0 - 2.5)/1.5k = 1.67 mA nominal; at a -2% rail and "
-                 "the 2.510 V grade limit it is still 1.59 mA, comfortably over the 1.0 mA "
-                 "IKA minimum, and the ~27 uA drawn by the reference node is negligible "
-                 "beside it. Costs 1.67 mA on +5V_ANALOG, which is 17 mV more drop across "
-                 "R32 -- U3 still has ample headroom for 3.3 V out")
+add_passive("R41",215.9,86.36,"1k","Resistor_SMD:R_0603_1608Metric","+5V_ANALOG","VREF_SHUNT",
+            note="AZ431 bias resistor, bought to the 1k stock line R33/R36/R37/R38 already "
+                 "carry. Nominal (5.0 - 2.5)/1k = 2.50 mA. WORST CASE, and the first version of "
+                 "this note got it wrong by using the A-grade 2.510 V limit on a B-grade part: "
+                 "U15 is AZ431*B*N, and DS36721 Rev. 6's ordering table is A = 0.4% "
+                 "(2.490-2.510 V), B = 0.8% (2.480-2.520 V). With the 2.520 V limit plus the "
+                 "datasheet's 10 mV deviation over temperature (2.530 V), R41 at +1% (1.010k) "
+                 "and +5V_ANALOG at 4.900 V: (4.900 - 2.530)/1.010k - 2.530/94k = 2.32 mA. "
+                 "BOTH ENDS CHECKED against DS36721 Rev. 6 Recommended Operating Conditions, "
+                 "IKA 1.0 to 100 mA: 2.32 mA clears the floor by 2.3x where 1.5k cleared it by "
+                 "1.6x, and is 43x under the ceiling. The change ADDS 0.83 mA to +5V_ANALOG "
+                 "(2.50 against 1.67 nominal), which is 8.3 mV more drop across R32=10R; the "
+                 "AP63205's 4.95 V minimum leaves U3 ample headroom for 3.3 V out")
 add_passive("C9",233.68,86.36,"1n","Capacitor_SMD:C_0603_1608Metric","VREF_SHUNT","GND",
             note="Cathode HF decoupling, deliberately SMALL. AZ431-A Figure 15 (stability "
                  "boundary vs load capacitance, VKA=VREF curve) shows two stable regions with "
-                 "an unstable band between them; at our ~1.6 mA cathode current the lower "
+                 "an unstable band between them; at our ~2.5 mA cathode current (1.67 mA "
+                 "before R41 went 1.5k -> 1k on 2026-09-05; re-read the figure if it moves "
+                 "again, the boundary is current-dependent) the lower "
                  "stable region runs to roughly 10 nF. 1 n sits well inside it. The bulk "
                  "capacitance is C10, held OFF the cathode by R31 on purpose -- DO NOT move a "
                  "microfarad-scale cap onto this node, and do not raise this value, without "
@@ -571,8 +596,15 @@ place("D2",SM712,25.40,105.41,value="SM712-02HTG",footprint="Package_TO_SOT_SMD:
       note="Littelfuse asymmetric RS-485 TVS; locate cable-side of R2/R3")
 net("D2",1,"RS485_A_CABLE"); net("D2",2,"RS485_B_CABLE"); net("D2",3,"GND")
 add_passive("R4",55.88,82.55,"120R DNP","Resistor_SMD:R_0603_1608Metric","RS485_A","RS485_B",dnp=True)
-add_passive("R5",55.88,93.98,"680R DNP","Resistor_SMD:R_0603_1608Metric","3V3D","RS485_A",dnp=True)
-add_passive("R6",55.88,105.41,"680R DNP","Resistor_SMD:R_0603_1608Metric","RS485_B","GND",dnp=True)
+# R5/R6 (680R DNP RS-485 fail-safe bias) are DELETED.  Not merely unfitted --
+# redundant: TI SLLSEY3E 9.3 / 10.2.1.4 gives the THVD1410 receiver open-, short-
+# and idle-bus failsafe without external bias, and 10.2.1.3 allows up to 256 of
+# these 1/8-unit-load receivers, so the behaviour holds at every MULTIDROP node,
+# not only point-to-point. (An earlier draft of this cited "SLLSF11 8.3", which
+# is the wrong document; a reviewer caught it.) It does NOT replace end
+# termination, which is why R4 stays.  R4 STAYS: 120R end-of-bus termination is a real option
+# a farm cable can need, and it is the one DNP on this board that is a decision
+# left open rather than an idea left behind.
 add_passive("R7",73.66,105.41,"47k","Resistor_SMD:R_0603_1608Metric","RS485_DE","GND")
 add_passive("C11",73.66,82.55,"100n","Capacitor_SMD:C_0402_1005Metric","3V3D","GND")
 
@@ -584,7 +616,9 @@ place("U6",MCU,111.76,99.06,value="STM32G071CBT7",footprint="Package_QFP:LQFP-48
 # Pin 15 is PA4 = ADC1_IN4, one of four ADC-capable pins (11/12/15/16 =
 # PA0/PA1/PA4/PA5) left nc() on this part. CE telemetry costs one of them and no
 # ADS1119 channel.
-MCU_NETS = {4:"3V3D",5:"3V3D",6:"3V3D",7:"GND",10:"NRST",13:"UART2_TX",14:"UART2_RX",15:"CE_MON",17:"VIN_MON",18:"VA_MON",19:"AFE_MENB",20:"ADC_DRDY",21:"EXP_INT",28:"HEATER_PWM",29:"RS485_TX",30:"RS485_DE",32:"RS485_RX",35:"SWDIO",36:"SWCLK_BOOT0",42:"SWO",45:"I2C_SCL",46:"I2C_SDA"}
+# Pin 21 (EXP_INT) falls to nc() with the expansion connector.  Pins 13/14
+# (PA2/PA3, USART2) DO NOT: they keep their nets and land on J105/J106 below.
+MCU_NETS = {4:"3V3D",5:"3V3D",6:"3V3D",7:"GND",10:"NRST",13:"UART2_TX",14:"UART2_RX",15:"CE_MON",17:"VIN_MON",18:"VA_MON",19:"AFE_MENB",20:"ADC_DRDY",28:"HEATER_PWM",29:"RS485_TX",30:"RS485_DE",32:"RS485_RX",35:"SWDIO",36:"SWCLK_BOOT0",42:"SWO",45:"I2C_SCL",46:"I2C_SDA"}
 for p in range(1,49):
     if p in MCU_NETS: net("U6",p,MCU_NETS[p])
     else: nc("U6",p)
@@ -602,18 +636,47 @@ add_passive("R11",177.8,93.98,"4.7k","Resistor_SMD:R_0603_1608Metric","I2C_SDA",
 place("J3",CONN6,203.2,88.9,value="TC2030 SWD PRE-POT",footprint="Connector:Tag-Connect_TC2030-IDC-NL_2x03_P1.27mm_Vertical",note="1=VTREF 2=SWDIO 3=NRST 4=SWCLK 5=GND 6=SWO")
 for p,n in enumerate(("3V3D","SWDIO","NRST","SWCLK_BOOT0","GND","SWO"),1): net("J3",p,n)
 
-# --------------------------------------------------------------------------- expansion connector
-place("J2",CONN8,274.32,91.44,value="EXPANSION / K33",footprint="Connector_Molex:Molex_Micro-Fit_3.0_43045-0815_2x04_P3.00mm_Vertical",dnp=True,note="Tube-height gate; pad-field fallback permitted")
-for p,n in enumerate(("+12V_SW","GND","EXP_3V3","EXP_SDA","EXP_SCL","EXP_INT_OUT","EXP_TX","EXP_RX"),1): net("J2",p,n)
-add_passive("F2",251.46,78.74,"0.20A PTC DNP","o2-probe:PTC_1206_3216Metric","3V3D","EXP_3V3",dnp=True)
-for ref,y,a,b in (("R12",86.36,"I2C_SDA","EXP_SDA"),("R13",96.52,"I2C_SCL","EXP_SCL"),("R14",106.68,"EXP_INT","EXP_INT_OUT"),("R15",116.84,"UART2_TX","EXP_TX"),("R16",127.0,"UART2_RX","EXP_RX")):
-    add_passive(ref,251.46,y,"33R DNP","Resistor_SMD:R_0603_1608Metric",a,b,dnp=True)
-place("D4",TVS3,302.26,86.36,value="TPD2E2U06 DNP",footprint="Package_TO_SOT_SMD:SOT-23",mpn="TPD2E2U06QDBZR",dnp=True)
-net("D4",1,"EXP_SDA"); net("D4",2,"GND"); net("D4",3,"EXP_SCL")
-place("D5",TVS3,302.26,101.6,value="TPD2E2U06 DNP",footprint="Package_TO_SOT_SMD:SOT-23",mpn="TPD2E2U06QDBZR",dnp=True)
-net("D5",1,"EXP_TX"); net("D5",2,"GND"); net("D5",3,"EXP_RX")
-place("D6",TVS3,302.26,116.84,value="TPD2E2U06 DNP",footprint="Package_TO_SOT_SMD:SOT-23",mpn="TPD2E2U06QDBZR",dnp=True)
-net("D6",1,"EXP_INT_OUT"); net("D6",2,"GND"); nc("D6",3)
+# --------------------------------------------------------------------------- expansion connector: DELETED
+# J2 (Micro-Fit 3.0 2x04), F2, R12-R16, D4/D5/D6 are gone -- fourteen never-fitted
+# parts.  They cost nothing to buy and that is exactly why they survived four
+# revisions.  What they cost is AREA: measured on the Rev A board, the DNP set
+# held 329.2 mm2 of courtyard, 20.6% of every courtyard on a 20 x 107 board, and
+# J2 alone was 224.8 mm2 of it -- 17.2 x 13.0 mm plus two 2.41 mm NPTH mounting
+# holes, sitting at local y 60.5..73.5, the run-up to the local-70..80 AFE band
+# the two-layer work is fighting (TWO-LAYER-REFLOORPLAN.md).  On two layers an
+# NPTH is a hole through both.
+#
+# 877ac52 measured that deleting the six EXP_ SIGNALS buys one open link, and
+# concluded the connector was not worth removing.  That is a different
+# experiment: signals are copper the router can move, while the NPTH pair and
+# the courtyard are geometry it cannot.  The routing gain from THIS deletion is
+# not yet measured; the area and the 16 fewer placements are.
+#
+# R15/R16 ARE NOT IN THAT LIST, and BOM-REDUCTION.md 3 was wrong to put them
+# there.  They are not dead options: board_pins.h:56 and bridge_main.c:16 both
+# say that on an assembled board PA2/PA3 "reach the MCU-side pad of R15 and R16
+# and stop there", and that those 0603 pads -- not the LQFP's 0.5 mm pitch --
+# are where the bench bridge's TTL lead is soldered.  Deleting them would have
+# removed the attach point of a shipped firmware image (bridge_main.c,
+# bridge_uart.c, o2probe_bridge.ld) and broken the O2P_ASSERT_NET static asserts
+# on UART2_TX/UART2_RX at compile time.
+#
+# So the tap SURVIVES and gets better: J105/J106 below are solder-wire lands on
+# the same two nets.  A wire land is what that pad was always being used as, it
+# is the footprint J101-J104 already use, it carries no BOM line, and two of
+# them replace five 33R parts.  PA13/EXP_INT had no user and falls to nc().
+#
+# WHAT IS STILL LOST: the 2x04 pad field for a future daughterboard, and the
+# 0.20 A separately-fused EXP_3V3 that fed it.  J2 was DNP on every board ever
+# built, so no built board ever had either.  Fab approved the deletion on
+# 2026-09-05 against BOM-REDUCTION.md 3.
+place("J105",CONN1,251.46,116.84,value="BRIDGE TX (PA2)",footprint="Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief",
+      note="Bench-bridge TTL tap, MCU side. Laptop TTL RX <- here. 3.3 V logic ONLY: "
+           "PA2/PA3 are not 5 V tolerant on this device (bridge_main.c:23)")
+net("J105",1,"UART2_TX")
+place("J106",CONN1,251.46,127.0,value="BRIDGE RX (PA3)",footprint="Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief",
+      note="Bench-bridge TTL tap, MCU side. Laptop TTL TX -> here. See J105")
+net("J106",1,"UART2_RX")
 
 # --------------------------------------------------------------------------- AFE / ADC / cell
 place("U7",LMP,50.8,162.56,value="LMP91000SD/NOPB",footprint="Package_SON:WSON-14-1EP_4.0x4.0mm_P0.5mm_EP2.6x2.6mm",
@@ -806,28 +869,46 @@ add_passive("R18",144.78,147.32,"10k","Resistor_SMD:R_0603_1608Metric","ADC_RESE
 add_passive("R19",144.78,157.48,"10k","Resistor_SMD:R_0603_1608Metric","ADC_DRDY","3V3D")
 add_passive("C18",144.78,167.64,"100n","Capacitor_SMD:C_0402_1005Metric","3V3A","GND")
 add_passive("C19",144.78,177.8,"100n","Capacitor_SMD:C_0402_1005Metric","3V3D","GND")
-add_passive("R24",165.1,147.32,"10k 0.1%","Resistor_SMD:R_0603_1608Metric","3V3A","VA_MON",
-            mpn="P2TC0603D1002LNTA",
-            note="3V3A rail monitor divider, 1:2 into MCU PA7/ADC_IN7 and (via R37) ADS1119 "
-                 "AIN. FIRMWARE: VA_MON_MV = 2 x ADC. Like the R26/R27 VIN monitor this is a "
-                 "supply health check, so 1% would do; it uses the precision 10k only because "
-                 "R25 shares the position. NOTE the other two users of that stock position, R21 "
-                 "and R22, were deleted with the trim divider and the guard divider, so R24/R25 "
-                 "are now the only ones; revisit the grade at the next sourcing pass")
-add_passive("R25",165.1,157.48,"10k 0.1%","Resistor_SMD:R_0603_1608Metric","VA_MON","GND",
-            mpn="P2TC0603D1002LNTA",
+add_passive("R24",165.1,147.32,"47k","Resistor_SMD:R_0603_1608Metric","3V3A","VA_MON",
+            note="3V3A rail monitor divider, 1:2 into MCU PA7/ADC_IN7. FIRMWARE: VA_MON_MV = "
+                 "2 x ADC. This IS the sourcing pass the old note asked for. The position was "
+                 "0.1% 10k (P2TC0603D1002LNTA) only because R21/R22 once shared it, and those "
+                 "went with the trim and guard dividers. Nothing downstream SCALES by this "
+                 "reading -- it is rail health. Contrast VREF_MON, whose ratio main.c promotes "
+                 "into g_cyc.vref_mv and thence into the reported cell current: R34/R35 stay "
+                 "0.1% for exactly that reason and this pair does not need to. 47k rather than "
+                 "10k also drops the continuous draw on the analog rail feeding U4/U7/U8 from "
+                 "165 uA to 35 uA. Source impedance goes 5k -> 23.5k, and that is CHECKED, "
+                 "not assumed: ST DS12232 Table 59 (Maximum ADC RAIN) allows 50k at 12 bits "
+                 "and 160.5 sampling cycles, which is what mcu_adc.c already selects -- 2.1x "
+                 "margin, and more in practice because Table 59 is quoted at a 35 MHz ADC "
+                 "clock where this board runs 16 MHz. DO NOT RAISE THIS DIVIDER FURTHER: 100k "
+                 "legs would put the source at exactly the 50k limit. It releases the "
+                 "matched-pair placement adjacency the two-layer refloorplan work was holding")
+add_passive("R25",165.1,157.48,"47k","Resistor_SMD:R_0603_1608Metric","VA_MON","GND",
             note="3V3A rail monitor divider bottom leg; see R24")
-add_passive("R26",165.1,167.64,"82k 1%","Resistor_SMD:R_0603_1608Metric","+12V_SW","VIN_MON",
-            mpn="RC0603FR-1082KL",
-            note="VIN monitor divider, was 130k/20k. FIRMWARE: ratio is now 10/92 = 0.1087, "
-                 "not 0.1333 -- 15V maps to 1.63V. More ADC headroom than the old 2.00V and "
-                 "source impedance drops from 17.3k to 8.9k. 1% is adequate for a supply monitor")
-add_passive("R27",165.1,177.8,"10k 1%","Resistor_SMD:R_0603_1608Metric","VIN_MON","GND",
-            mpn="RC0603FR-0710KL",
-            note="VIN monitor divider bottom leg; see R26 for the firmware ratio change")
+add_passive("R26",165.1,167.64,"91k 1%","Resistor_SMD:R_0603_1608Metric","+12V_SW","VIN_MON",
+            mpn="RC0603FR-0791KL",
+            note="VIN monitor divider, was 130k/20k, then 82k/10k. 91k is the SAME ORDERED "
+                 "LINE as R43/R44 and that is the only reason it is 91k rather than 82k -- "
+                 "either is adequate for a supply monitor. FIRMWARE: ratio is 10/101 = 0.0990, "
+                 "so 15V maps to 1.485V and 7V to 0.693V, both inside the 3.3V ADC, and source "
+                 "impedance is 9.0k. hw_contract.h is GENERATED from these values, so the "
+                 "firmware follows the change instead of silently rescaling")
+add_passive("R27",165.1,177.8,"10k","Resistor_SMD:R_0603_1608Metric","VIN_MON","GND",
+            note="VIN monitor divider bottom leg; see R26 for the firmware ratio. The MPN went "
+                 "in a sourcing pass, not a spec change: RC0603FR-0710KL IS a generic 1% 0603 "
+                 "10k, and that stock line already exists for R8/R18/R19/R28")
 add_passive("R33",190.5,147.32,"1k","Resistor_SMD:R_0603_1608Metric","AFE_VOUT","ADC_AFE_VOUT",
             note="ADC anti-alias/input-kickback filter; place with C28 at U8 AIN0")
 add_passive("C28",208.28,147.32,"100n","Capacitor_SMD:C_0402_1005Metric","ADC_AFE_VOUT","GND")
+# R39 is KEPT, against BOM-REDUCTION.md 3, which listed it for deletion.  The
+# reason it was listed was proximity to the BMP390 block, not analysis, and its
+# bench headroom gate is NOT closed: ads1119.c still reasons about where the
+# oxygen channel sits relative to full scale, and AFE-BRING-UP-POSTMORTEM.md 175
+# uses R39's DNP state in a live leakage argument.  4.7 mm2 and no BOM line is
+# not worth foreclosing that.  Deleted DNPs on this board are ideas left behind;
+# R39 and R4 are decisions left open.
 add_passive("R39",208.28,157.48,"DNP 100k","Resistor_SMD:R_0603_1608Metric","ADC_AFE_VOUT","GND",dnp=True,
             note="Optional AFE attenuation pad; bench headroom gate selects value")
 add_passive("R37",190.5,167.64,"1k","Resistor_SMD:R_0603_1608Metric","WE_BUF","ADC_WE_BUF",
@@ -844,7 +925,10 @@ add_passive("C32",226.06,167.64,"100n","Capacitor_SMD:C_0402_1005Metric","VIN_MO
                  "when AIN3 was taken for bias telemetry; source impedance is R26||R27 = 8.9k, "
                  "so the STM32G071 sampling cap needs this and the LONGEST sampling time")
 add_passive("C33",226.06,177.8,"100n","Capacitor_SMD:C_0402_1005Metric","VA_MON","GND",
-            note="VA monitor reservoir at the MCU PA7 pin; same reason as C32, source R24||R25 = 5k")
+            note="VA monitor reservoir at the MCU PA7 pin; same reason as C32. Source is "
+                 "R24||R25 = 23.5k since the 2026-09-05 BOM pass, not the 5k this note used to "
+                 "say -- which makes this reservoir MORE load-bearing, not less, because it is "
+                 "what absorbs the ADC's sampling kick at the higher source impedance")
 add_passive("R34",190.5,187.96,"47k 0.1%","Resistor_SMD:R_0603_1608Metric","VREF_TRIM","VREF_MON_RAW",
             mpn="RT0603BRD0747KL",
             note="VREF health diagnostic divider, 1:2 into ADS1119 AIN1 measured against the "
@@ -876,12 +960,11 @@ add_passive("C20",281.94,172.72,"100n","Capacitor_SMD:C_0402_1005Metric","3V3D",
 add_passive("C21",261.62,195.58,"100n","Capacitor_SMD:C_0402_1005Metric","3V3D","GND",
             note="Local TMP117 supply bypass")
 
-place("U14",BMP390,325.12,215.90,value="BMP390 DNP",footprint="o2-probe:BMP390_LGA10_DRAFT",mpn="BMP390",dnp=True,
-      note="Optional pressure channel; footprint land geometry remains a release gate")
-for p,n in {1:"3V3D",2:"I2C_SCL",3:"GND",4:"I2C_SDA",5:"GND",6:"3V3D",8:"GND",9:"GND",10:"3V3D"}.items(): net("U14",p,n)
-nc("U14",7)
-add_passive("C23",350.52,210.82,"100n DNP","Capacitor_SMD:C_0402_1005Metric","3V3D","GND",dnp=True)
-add_passive("C24",350.52,223.52,"100n DNP","Capacitor_SMD:C_0402_1005Metric","3V3D","GND",dnp=True)
+# U14/C23/C24, the DNP BMP390 pressure channel, are DELETED.  Never fitted, and
+# the only user of o2-probe:BMP390_LGA10_DRAFT -- a footprint whose own note
+# called its land geometry an open release gate, i.e. an unverified footprint
+# carried on a released board.  It leaves the project library with the part.
+# I2C address 0x76 is now unused and free for a future pressure channel.
 
 place("Q2",NMOS,327.66,157.48,value="AO3400A",footprint="Package_TO_SOT_SMD:SOT-23",mpn="AO3400A")
 net("Q2",1,"HEATER_GATE"); net("Q2",2,"GND"); net("Q2",3,"HEATER_LOW")
@@ -1029,7 +1112,7 @@ def verify() -> None:
             expected_symbol[ref] = TESTPOINT
         elif ref == "J5":
             expected_symbol[ref] = RING_FORK
-        elif ref in ("J101", "J102", "J103", "J104"):
+        elif ref in ("J101", "J102", "J103", "J104", "J105", "J106"):
             expected_symbol[ref] = CONN1
     for ref, lib_id in expected_symbol.items():
         actual = INST[ref]["lib_id"]
@@ -1094,16 +1177,54 @@ def verify() -> None:
     # pass a pin-map check unchanged while silently invalidating the 2500 mV the
     # firmware contract asserts, so pin the part and its bias network too.
     assert INST["U15"]["value"] == "AZ431BN-ATRG1"
-    assert INST["R41"]["value"].startswith("1.5k") and ASSIGNED[("R41", "1")] == "+5V_ANALOG"
+    # 1k, not 1.5k: the bias current is a SPEC, not a preference. Diodes DS36721
+    # Rev. 6 gives IKA 1.0..100 mA, and this pin-and-value pair is what keeps the
+    # worst case (2.39 mA) inside it. Changing R41 without re-deriving that is
+    # how a reference silently leaves regulation.
+    assert INST["R41"]["value"] == "1k" and ASSIGNED[("R41", "1")] == "+5V_ANALOG"
     # Every 100n decoupling capacitor shares ONE land, so the BOM carries a single
     # 100n line and assembly a single feeder. C2, C11 and C15 were 0603 against
-    # seventeen 0402s. Deliberately scoped to 100n: values like 10u legitimately
-    # differ by package because they differ by VOLTAGE RATING (C1 is 25 V 1206,
-    # C7 is 10 V 0805), and collapsing those would be a downgrade, not a tidy-up.
+    # seventeen 0402s. Deliberately scoped to 100n: the rule guards against buying
+    # a HIGH-rated position to a LOW-rated line, which is a downgrade rather than
+    # a tidy-up. It does not forbid the reverse, and C7 is now the reverse -- it
+    # was 10 V 0805 and is now the 25 V 1206 part C1 already buys, which is more
+    # derating headroom on a 5 V rail, one line fewer, and the last 0805 off the
+    # board. Assert BOTH directions of that below.
     hundred_n = {ref: i["footprint"] for ref, i in INST.items()
                  if ref.startswith("C") and i["value"].startswith("100n")}
     assert len(set(hundred_n.values())) == 1, sorted(
         (fp, ref) for ref, fp in hundred_n.items())
+    # 0805 is gone in BOTH families -- R32 and C7 were the sole users, and each
+    # was there for a reason that survived the move (a bead option that 0603 also
+    # offers; a voltage rating that went UP). A part reappearing in 0805 should
+    # have to argue for the land, not inherit it.
+    assert not any("0805" in i["footprint"] for i in INST.values()), sorted(
+        (r, i["footprint"]) for r, i in INST.items() if "0805" in i["footprint"])
+    # The DIELECTRIC is part of the identity, not decoration: C7 carried "X7R"
+    # before it was consolidated onto C1's line, and asserting only "10u 25V"
+    # would let a Y5V part satisfy both. TPS7A20 (SLVSD95) recommends
+    # X5R/X7R/C0G for the LDO input and discourages Y5V.
+    assert INST["C7"]["value"] == INST["C1"]["value"] == "10u 25V X7R"
+    assert INST["C7"]["footprint"] == INST["C1"]["footprint"]
+    # The expansion connector and the BMP390 option are DELETED, not re-drawn
+    # smaller: a Micro-Fit or an unverified DRAFT land creeping back is the exact
+    # regression this deletion exists to prevent (BOM-REDUCTION.md 3).
+    # Micro-Fit is forbidden GLOBALLY. J5 is exempt from the DRAFT half only --
+    # the ring fork tip is legitimately a draft land (RING-PCB.md 5.1 forbids
+    # freezing the finger width before the printed bore is measured), but that
+    # is no licence for it to become a connector. The first version of this
+    # assertion excluded J5 before testing EITHER condition, and a review
+    # mutated J5's footprint to a Micro-Fit and got UNEXPECTED PASS.
+    assert not any("Micro-Fit" in i["footprint"] for i in INST.values()), sorted(
+        (r, i["footprint"]) for r, i in INST.items() if "Micro-Fit" in i["footprint"])
+    assert not any("DRAFT" in i["footprint"] for r, i in INST.items() if r != "J5"), sorted(
+        (r, i["footprint"]) for r, i in INST.items()
+        if r != "J5" and "DRAFT" in i["footprint"])
+    assert not any(n.startswith("EXP_") for n in ASSIGNED.values())
+    # R4 and R39 are the two DNPs that SURVIVED, and they survived on argument:
+    # a termination a farm cable can need, and an AFE headroom gate still open.
+    assert {r for r, i in INST.items() if i.get("dnp")} == {"R4", "R39"}, sorted(
+        r for r, i in INST.items() if i.get("dnp"))
     # Bulk capacitance must stay OFF the cathode (AZ431 stability; see C9, R31).
     assert ASSIGNED[("C9", "1")] == "VREF_SHUNT" and INST["C9"]["value"] == "1n"
     assert ASSIGNED[("C10", "1")] == "VREF_TRIM" and ASSIGNED[("R31", "1")] == "VREF_SHUNT"
@@ -1112,8 +1233,10 @@ def verify() -> None:
     # VIN monitor divider. The value is pinned because firmware converts the ADC
     # reading with this exact ratio; changing one leg without the other silently
     # rescales every reported input voltage.
-    assert ASSIGNED[("R26", "2")] == "VIN_MON" and INST["R26"]["value"].startswith("82k")
-    assert ASSIGNED[("R27", "1")] == "VIN_MON" and INST["R27"]["value"].startswith("10k")
+    # Exact, not startswith: a review mutated R26 to "91k nonsense" and both this
+    # check and gen_hw_contract.py's ohms() accepted it.
+    assert ASSIGNED[("R26", "2")] == "VIN_MON" and INST["R26"]["value"] == "91k 1%"
+    assert ASSIGNED[("R27", "1")] == "VIN_MON" and INST["R27"]["value"] == "10k"
     # Bias telemetry: the ADS1119 pair must read the BUFFERED electrodes, and the
     # two legs must be matched, or the differential measurement acquires a
     # source-impedance error larger than the bias it is there to resolve.

@@ -20,7 +20,7 @@ python3 audit_schematic.py
   -o o2-probe-schematic.pdf o2-probe.kicad_sch
 ```
 
-Current generated result: 106 components, 336 assigned package pins, 92 nets,
+Current generated result: 100 components, 306 assigned package pins, 85 nets,
 KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
 
 ## Electrical architecture
@@ -31,8 +31,12 @@ KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
 - The 7–15 V input uses a resettable fuse, input TVS, reverse-polarity P-FET,
   AP63205 fixed 5 V buck, and separate TPS7A2033 digital and analog 3.3 V rails.
   The analog LDO input is isolated from `+5V` by fitted R32=10 ohm and bypassed
-  locally by C7=10 uF X7R plus C27=100 nF on `+5V_ANALOG`. R32 uses an 0805
-  option footprint that may take 0 ohm or a characterized bead after testing;
+  locally by C7=10 uF 25 V plus C27=100 nF on `+5V_ANALOG`. R32 uses an 0603
+  option footprint that may take 0 ohm or a characterized bead after testing
+  (0603 beads are as available as 0805 — Murata BLM18, TDK MPZ1608 — so the
+  2026-09-05 package change did not cost the option, and took the last 0805
+  resistor land off the board; C7 took the last 0805 capacitor land with it by
+  becoming the same 1206 part as C1);
   a bead is not the default because its low-frequency inductance can resonate
   near the ADS1119 256 kHz modulator frequency.
 - The O2 signal chain is SGX three-electrode cell -> LMP91000 -> ADS1119. U15,
@@ -78,7 +82,8 @@ KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
   full scale at gain 4. The two rail monitors this displaced, `VA_MON` and
   `VIN_MON`, are now both on the MCU's own ADC (PA7/IN7 and PA6/IN6).
 - The processor is STM32G071CBT7. USART1 on PA9/PA10 drives the THVD1410 farm
-  RS-485 port. USART2 on PA2/PA3 is reserved for the expansion/recovery path.
+  RS-485 port. USART2 on PA2/PA3 lands on J105/J106 and is the bench-bridge
+  tap, not a connector — see the J2 entry below.
 - PC6 drives `RS485_DE`, placing the direction-control GPIO beside the USART1
   TX/RX pins, and PA7/ADC_IN7 measures `VA_MON`. These pin choices are
   generator-owned because they make the compact right-side MCU placement
@@ -126,12 +131,22 @@ KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
   drawn: a PPTC derates badly at pile temperature (F1's own note records 0.36 A
   at 85 °C for a 0.75 A part), so one holding the heater's 83 mA would nuisance-
   trip. Size it once the ring's resistance is fixed, or protect at the ring.
-- J2 is the DNP sealed-side expansion connector for a future external CO2 head:
-  switched 12 V, protected 3.3 V, I2C, interrupt, and spare UART. It is not the
-  programming connector. R15/R16 between `UART2_TX`/`UART2_RX` and J2 are DNP
-  too, so on an assembled board USART2 stops at those two pads - which is where
-  the bench bridge takes its host lead (`firmware/src/bridge_main.c`). Anything
-  that populates R15/R16 or J2 must account for that lead.
+- **J2 is DELETED**, with F2, R12-R16 and D4/D5/D6 — fourteen never-fitted
+  parts, 2026-09-05, `BOM-REDUCTION.md` §3. It was the sealed-side expansion
+  connector for a future external CO2 head (switched 12 V, fused 3.3 V, I2C,
+  interrupt, spare UART) and was never the programming connector. It was also
+  224.8 mm² of courtyard — 14 % of every courtyard on the board — plus two
+  Ø2.41 mm NPTH holes, at local y 60.5…73.5, immediately before the AFE band
+  the two-layer work is fighting. On two layers an NPTH is a hole through both.
+  What was lost: the 2x04 pad field for a daughterboard and its separately
+  fused `EXP_3V3`. J2 was DNP on every board ever built, so no built board had
+  either.
+- **R15/R16 were not deletable, and J105/J106 replace them.** `board_pins.h`
+  and `bridge_main.c` both took the bench bridge's host lead off the MCU-side
+  pads of R15/R16, so those two DNP parts were load-bearing lands. USART2 now
+  ends on two solder-wire lands, J105 `BRIDGE TX` (PA2) and J106 `BRIDGE RX`
+  (PA3) — a better tap at two footprints instead of five, and no BOM line.
+  3.3 V logic only: PA2/PA3 are not 5 V tolerant.
 - J3 is the sole pre-pot programming/recovery interface: VTREF, SWDIO, NRST,
   SWCLK/BOOT0, GND, and SWO. Post-pot firmware updates must use the RS-485
   application bootloader; the enclosure does not expose J3.
@@ -189,9 +204,9 @@ Firmware that took an absolute value would hide the answer.
 ### Diagnostic block, `0x0010`, 21 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
-0.01 K), `PRESSURE_HPA` (0 - BMP390 is DNP), `UPTIME_HI/LO`, `FW_VERSION`,
+0.01 K), `PRESSURE_HPA` (0 - the BMP390 option is deleted), `UPTIME_HI/LO`, `FW_VERSION`,
 `HW_REV`, `RESET_CAUSE`, `LMP_READBACK` (TIACN<<8 | REFCN as actually read),
-`MB_CRC_ERRS`, `MB_FRAME_ERRS`, `I2C_ERRS`, `EXP_DATA` (`0xFFFF` - J2 is DNP),
+`MB_CRC_ERRS`, `MB_FRAME_ERRS`, `I2C_ERRS`, `EXP_DATA` (`0xFFFF` - J2 is deleted),
 `SETTLE_RESTARTS` (`0x0020`), `SAMPLE_SEQ` (`0x0021`).
 
 `T_DIE` (`0x0022`) is the MCU die temperature, i16 0.01 C, `0x8000` invalid.
@@ -319,8 +334,11 @@ check is not hypothetical.
 - Fit a physical SGX-OX-ROHS-Mini sample before production qualification. The
   released first-article footprint is `SGX-OX-ROHS-Mini_ISS2`; the elongated
   aperture is deliberately a prototype fit feature, not a datasheet dimension.
-- Independently recheck the BMP390 bottom-view numbering and land geometry. The
-  DNP draft follows Bosch DS002 Figure 26 but has not been assembly-qualified.
+- ~~Independently recheck the BMP390 bottom-view numbering and land geometry.~~
+  **Closed by deletion, 2026-09-05.** U14/C23/C24 are gone and
+  `o2-probe:BMP390_LGA10_DRAFT` leaves the project library with them: an
+  unverified land on a released board was the risk, and never fitting it was
+  not a mitigation. I²C `0x76` is free for a future pressure channel.
 - D2 is one Littelfuse `SM712-02HTG` asymmetric RS-485 array in SOT-23:
   pin 1=A, pin 2=B, pin 3=GND, cable-side of R2/R3. It replaces the invalid
   earlier interpretation of SM712 as two independent SMA diodes.
@@ -335,8 +353,11 @@ check is not hypothetical.
   by measuring the `+5V_ANALOG` spectrum around 256 kHz, 1.1 MHz, and PFM burst
   components, plus ADS1119 mean/offset at heater 0%, intermediate, and 100%
   duty. Do not qualify this filter using RMS noise alone.
-- J2 may become a sealed pad field if the Micro-Fit swept envelope does not fit
-  the actual tube.
+- ~~J2 may become a sealed pad field if the Micro-Fit swept envelope does not
+  fit the actual tube.~~ **Closed by deletion, 2026-09-05** — the swept-envelope
+  question cannot be asked of a connector that is not there. A future revision
+  wanting a daughterboard lands a pad field, which is what this gate always
+  permitted.
 - Confirm every exact MPN/package pin map, MCU alternate-function assignment,
   input protection rating, heater steady-state temperature, and component
   ambient rating in the independent review before PCB transfer.
@@ -411,7 +432,15 @@ KiCad 10.0.5 reports 0 DRC errors and 0 unconnected items, and the calibrated
 audit rejects 33/33 known-bad variants. Six schematic-parity findings are
 outstanding and are not from the layout: the footprint Value fields for DZ1,
 Q1, R20, R21, R26 and R27 lag symbol values changed by a separate, in-progress
-schematic edit. They must be back to zero before release. The
+schematic edit. They must be back to zero before release.
+**AND THE BOARD IS NOW BEHIND THE SCHEMATIC BY MORE THAN THAT.** The 2026-09-05
+BOM pass (`BOM-REDUCTION.md`) is schematic-side ONLY: `gen_pcb.py` was
+deliberately NOT run, because the working tree holds another session's
+in-progress two-layer layout work in `o2-probe.kicad_pcb`. The board still
+carries J2, U14, C23/C24, R5/R6, R12-R16 and D4/D5/D6, still has R32/C7 in
+0805, and has no J105/J106. Every DRC/parity number in this section predates
+the change. Regenerate and re-measure deliberately, once, when that session
+lands. The
 27 exact courtyard pairs are
 manual-assembly exceptions and legend layers are not exported. See
 `FAB-READINESS.md`, `ASSEMBLY-EXCEPTIONS.md`, and `FAB-NOTES.md` for release

@@ -13,11 +13,12 @@
  * everything from the frame downwards, they are chosen by which one the host
  * actually uses, and neither knows about the other.
  *
- * The host lead does NOT go to J2. R15/R16 are DNP (gen_sch.py:511-512), so
- * UART2_TX/UART2_RX stop at those 0603 pads:
+ * There is no J2 any more - the expansion connector and the R12-R16 series
+ * pack went in the 2026-09-05 BOM pass. UART2_TX/UART2_RX now stop at two
+ * solder-wire lands provided for exactly this lead:
  *
- *     laptop TTL RX  <-  R15 pad, MCU side   (UART2_TX, PA2, LQFP48 pin 13)
- *     laptop TTL TX  ->  R16 pad, MCU side   (UART2_RX, PA3, LQFP48 pin 14)
+ *     laptop TTL RX  <-  J105  "BRIDGE TX"   (UART2_TX, PA2, LQFP48 pin 13)
+ *     laptop TTL TX  ->  J106  "BRIDGE RX"   (UART2_RX, PA3, LQFP48 pin 14)
  *     laptop TTL GND <-> board GND
  *
  * 3.3 V logic only. A 5 V lead on PA3 is outside the part's absolute maximum;

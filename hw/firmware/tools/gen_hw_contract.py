@@ -53,11 +53,19 @@ def load_generator():
 def ohms(value: str) -> float:
     """Parse the leading resistance token of a KiCad value string.
 
-    Accepts '82k 1%', '280R 1W', '2k 10-turn', '100k'. Raises on anything it
+    Accepts '91k 1%', '280R 1W', '2k 10-turn', '100k'. Raises on anything it
     does not fully understand rather than guessing - a misparsed divider leg
     is exactly the silent rescale this file exists to prevent.
+
+    The docstring said that before this function did it. re.match anchors only
+    the START, so the TRAILER was never checked and '91k nonsense' parsed as
+    91k -- caught by a reviewer's mutation test, 2026-09-05. The trailer is now
+    a closed vocabulary: a tolerance, a power rating, a turns count, or nothing.
     """
-    m = re.match(r"^\s*([0-9]*\.?[0-9]+)\s*([kKmMrR]?)", value)
+    m = re.match(r"^\s*([0-9]*\.?[0-9]+)\s*([kKmMrR]?)"
+                 r"(?:\s+(?:[0-9]*\.?[0-9]+\s*%"
+                 r"|[0-9]*\.?[0-9]+\s*[munpMK]?[WV]"
+                 r"|[0-9]+-turn))*\s*$", value)
     if not m:
         raise ValueError(f"cannot parse resistance from {value!r}")
     mult = {"": 1.0, "r": 1.0, "R": 1.0, "k": 1e3, "K": 1e3, "m": 1e6, "M": 1e6}[m.group(2)]

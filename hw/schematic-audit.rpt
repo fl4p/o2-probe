@@ -1,4 +1,4 @@
 O2 probe schematic connectivity audit
-components: 113
-nets: 93
+components: 100
+nets: 85
 result: PASS

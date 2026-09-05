@@ -2,7 +2,7 @@
 <export version="E">
   <design>
     <source>/Users/fab/dev/ee/hw/o2-probe/o2-probe.kicad_sch</source>
-    <date>2026-09-04T23:25:13</date>
+    <date>2026-09-05T17:36:26</date>
     <tool>Eeschema 10.0.5</tool>
     <sheet number="1" name="/" tstamps="/">
       <title_block>
@@ -25,14 +25,16 @@
   </design>
   <components>
     <comp ref="C1">
-      <value>10u 25V</value>
+      <value>10u 25V X7R</value>
       <footprint>Capacitor_SMD:C_1206_3216Metric</footprint>
       <fields>
+        <field name="Design Note">Bulk bypass on the unregulated 7-15 V input. X7R is explicit because C7 now shares this exact value string: C7 carried 'X7R' before the consolidation and a review caught that inheriting a bare '10u 25V' would have DROPPED the dielectric from the input bypass of the analog LDO. Package and voltage rating do not imply a dielectric, and Y5V would meet both</field>
         <field name="Footprint">Capacitor_SMD:C_1206_3216Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
+      <property name="Design Note" value="Bulk bypass on the unregulated 7-15 V input. X7R is explicit because C7 now shares this exact value string: C7 carried 'X7R' before the consolidation and a review caught that inheriting a bare '10u 25V' would have DROPPED the dielectric from the input bypass of the analog LDO. Package and voltage rating do not imply a dielectric, and Y5V would meet both"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="cap capacitor"/>
@@ -171,16 +173,16 @@
       </units>
     </comp>
     <comp ref="C7">
-      <value>10u 10V X7R</value>
-      <footprint>Capacitor_SMD:C_0805_2012Metric</footprint>
+      <value>10u 25V X7R</value>
+      <footprint>Capacitor_SMD:C_1206_3216Metric</footprint>
       <fields>
-        <field name="Design Note">Place directly at U3 IN/GND; include DC-bias derating in effective capacitance</field>
-        <field name="Footprint">Capacitor_SMD:C_0805_2012Metric</field>
+        <field name="Design Note">Place directly at U3 IN/GND; include DC-bias derating in effective capacitance. Now the SAME PART as C1 (10u 25V X7R 1206). Was 10u 10V X7R 0805 -- the dielectric is carried explicitly on BOTH so the consolidation cannot silently drop it. Was also the only 0805 capacitor on the board, so C_0805_2012Metric leaves with it. Raising 10V to 25V on a 5V rail is a strict improvement in DC-bias derating, not the voltage-rating collapse the 100n audit below forbids -- that rule guards against buying a HIGH-rated position to a LOW-rated line</field>
+        <field name="Footprint">Capacitor_SMD:C_1206_3216Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
-      <property name="Design Note" value="Place directly at U3 IN/GND; include DC-bias derating in effective capacitance"/>
+      <property name="Design Note" value="Place directly at U3 IN/GND; include DC-bias derating in effective capacitance. Now the SAME PART as C1 (10u 25V X7R 1206). Was 10u 10V X7R 0805 -- the dielectric is carried explicitly on BOTH so the consolidation cannot silently drop it. Was also the only 0805 capacitor on the board, so C_0805_2012Metric leaves with it. Raising 10V to 25V on a 5V rail is a strict improvement in DC-bias derating, not the voltage-rating collapse the 100n audit below forbids -- that rule guards against buying a HIGH-rated position to a LOW-rated line"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="cap capacitor"/>
@@ -224,13 +226,13 @@
       <value>1n</value>
       <footprint>Capacitor_SMD:C_0603_1608Metric</footprint>
       <fields>
-        <field name="Design Note">Cathode HF decoupling, deliberately SMALL. AZ431-A Figure 15 (stability boundary vs load capacitance, VKA=VREF curve) shows two stable regions with an unstable band between them; at our ~1.6 mA cathode current the lower stable region runs to roughly 10 nF. 1 n sits well inside it. The bulk capacitance is C10, held OFF the cathode by R31 on purpose -- DO NOT move a microfarad-scale cap onto this node, and do not raise this value, without re-reading that figure. Chart reading, not a specified number: confirm on the bench before release</field>
+        <field name="Design Note">Cathode HF decoupling, deliberately SMALL. AZ431-A Figure 15 (stability boundary vs load capacitance, VKA=VREF curve) shows two stable regions with an unstable band between them; at our ~2.5 mA cathode current (1.67 mA before R41 went 1.5k -&gt; 1k on 2026-09-05; re-read the figure if it moves again, the boundary is current-dependent) the lower stable region runs to roughly 10 nF. 1 n sits well inside it. The bulk capacitance is C10, held OFF the cathode by R31 on purpose -- DO NOT move a microfarad-scale cap onto this node, and do not raise this value, without re-reading that figure. Chart reading, not a specified number: confirm on the bench before release</field>
         <field name="Footprint">Capacitor_SMD:C_0603_1608Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
-      <property name="Design Note" value="Cathode HF decoupling, deliberately SMALL. AZ431-A Figure 15 (stability boundary vs load capacitance, VKA=VREF curve) shows two stable regions with an unstable band between them; at our ~1.6 mA cathode current the lower stable region runs to roughly 10 nF. 1 n sits well inside it. The bulk capacitance is C10, held OFF the cathode by R31 on purpose -- DO NOT move a microfarad-scale cap onto this node, and do not raise this value, without re-reading that figure. Chart reading, not a specified number: confirm on the bench before release"/>
+      <property name="Design Note" value="Cathode HF decoupling, deliberately SMALL. AZ431-A Figure 15 (stability boundary vs load capacitance, VKA=VREF curve) shows two stable regions with an unstable band between them; at our ~2.5 mA cathode current (1.67 mA before R41 went 1.5k -&gt; 1k on 2026-09-05; re-read the figure if it moves again, the boundary is current-dependent) the lower stable region runs to roughly 10 nF. 1 n sits well inside it. The bulk capacitance is C10, held OFF the cathode by R31 on purpose -- DO NOT move a microfarad-scale cap onto this node, and do not raise this value, without re-reading that figure. Chart reading, not a specified number: confirm on the bench before release"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="cap capacitor"/>
@@ -538,56 +540,6 @@
         </unit>
       </units>
     </comp>
-    <comp ref="C23">
-      <value>100n DNP</value>
-      <footprint>Capacitor_SMD:C_0402_1005Metric</footprint>
-      <fields>
-        <field name="Footprint">Capacitor_SMD:C_0402_1005Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="dnp"/>
-      <property name="ki_keywords" value="cap capacitor"/>
-      <property name="ki_fp_filters" value="C_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>c870402b-6821-50ea-ad4a-147e65535092</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
-    <comp ref="C24">
-      <value>100n DNP</value>
-      <footprint>Capacitor_SMD:C_0402_1005Metric</footprint>
-      <fields>
-        <field name="Footprint">Capacitor_SMD:C_0402_1005Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="dnp"/>
-      <property name="ki_keywords" value="cap capacitor"/>
-      <property name="ki_fp_filters" value="C_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>35565598-4988-5d4e-a46e-3eb619d622dd</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
     <comp ref="C25">
       <value>100n</value>
       <footprint>Capacitor_SMD:C_0402_1005Metric</footprint>
@@ -794,13 +746,13 @@
       <value>100n</value>
       <footprint>Capacitor_SMD:C_0402_1005Metric</footprint>
       <fields>
-        <field name="Design Note">VA monitor reservoir at the MCU PA7 pin; same reason as C32, source R24||R25 = 5k</field>
+        <field name="Design Note">VA monitor reservoir at the MCU PA7 pin; same reason as C32. Source is R24||R25 = 23.5k since the 2026-09-05 BOM pass, not the 5k this note used to say -- which makes this reservoir MORE load-bearing, not less, because it is what absorbs the ADC's sampling kick at the higher source impedance</field>
         <field name="Footprint">Capacitor_SMD:C_0402_1005Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
-      <property name="Design Note" value="VA monitor reservoir at the MCU PA7 pin; same reason as C32, source R24||R25 = 5k"/>
+      <property name="Design Note" value="VA monitor reservoir at the MCU PA7 pin; same reason as C32. Source is R24||R25 = 23.5k since the 2026-09-05 BOM pass, not the 5k this note used to say -- which makes this reservoir MORE load-bearing, not less, because it is what absorbs the ADC's sampling kick at the higher source impedance"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="cap capacitor"/>
@@ -895,84 +847,6 @@
         </unit>
       </units>
     </comp>
-    <comp ref="D4">
-      <value>TPD2E2U06 DNP</value>
-      <footprint>Package_TO_SOT_SMD:SOT-23</footprint>
-      <fields>
-        <field name="MPN">TPD2E2U06QDBZR</field>
-        <field name="Footprint">Package_TO_SOT_SMD:SOT-23</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="o2-probe" part="TVS_ARRAY_2CH" description=""/>
-      <property name="MPN" value="TPD2E2U06QDBZR"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="dnp"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>2698833c-e0e5-5ba8-acef-4b66e7baf89b</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="3"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
-    <comp ref="D5">
-      <value>TPD2E2U06 DNP</value>
-      <footprint>Package_TO_SOT_SMD:SOT-23</footprint>
-      <fields>
-        <field name="MPN">TPD2E2U06QDBZR</field>
-        <field name="Footprint">Package_TO_SOT_SMD:SOT-23</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="o2-probe" part="TVS_ARRAY_2CH" description=""/>
-      <property name="MPN" value="TPD2E2U06QDBZR"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="dnp"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>85112523-ef35-5459-a0c4-e71b22f2480a</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="3"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
-    <comp ref="D6">
-      <value>TPD2E2U06 DNP</value>
-      <footprint>Package_TO_SOT_SMD:SOT-23</footprint>
-      <fields>
-        <field name="MPN">TPD2E2U06QDBZR</field>
-        <field name="Footprint">Package_TO_SOT_SMD:SOT-23</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="o2-probe" part="TVS_ARRAY_2CH" description=""/>
-      <property name="MPN" value="TPD2E2U06QDBZR"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="dnp"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>53dee6f0-eec4-519e-a8ea-946963c517ff</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="3"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
     <comp ref="D7">
       <value>TPD2E2U06</value>
       <footprint>Package_TO_SOT_SMD:SOT-23</footprint>
@@ -1056,31 +930,6 @@
         </unit>
       </units>
     </comp>
-    <comp ref="F2">
-      <value>0.20A PTC DNP</value>
-      <footprint>o2-probe:PTC_1206_3216Metric</footprint>
-      <fields>
-        <field name="Footprint">o2-probe:PTC_1206_3216Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="Polyfuse" description="Resettable fuse, polymeric positive temperature coefficient"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="dnp"/>
-      <property name="ki_keywords" value="resettable fuse PTC PPTC polyfuse polyswitch"/>
-      <property name="ki_fp_filters" value="*polyfuse* *PTC*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>d584dc66-4022-585f-aa01-07ba6c311242</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
     <comp ref="F3">
       <value>0R FITTED</value>
       <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
@@ -1103,37 +952,6 @@
           <pins>
             <pin num="1"/>
             <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
-    <comp ref="J2">
-      <value>EXPANSION / K33</value>
-      <footprint>Connector_Molex:Molex_Micro-Fit_3.0_43045-0815_2x04_P3.00mm_Vertical</footprint>
-      <fields>
-        <field name="Design Note">Tube-height gate; pad-field fallback permitted</field>
-        <field name="Footprint">Connector_Molex:Molex_Micro-Fit_3.0_43045-0815_2x04_P3.00mm_Vertical</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="o2-probe" part="CONN_02x04" description=""/>
-      <property name="Design Note" value="Tube-height gate; pad-field fallback permitted"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="dnp"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>e4b939bc-c79f-50a1-a102-cfa8d652fc84</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-            <pin num="3"/>
-            <pin num="4"/>
-            <pin num="5"/>
-            <pin num="6"/>
-            <pin num="7"/>
-            <pin num="8"/>
           </pins>
         </unit>
       </units>
@@ -1282,6 +1100,56 @@
       <property name="ki_fp_filters" value="Connector*:*_1x??_*"/>
       <sheetpath names="/" tstamps="/"/>
       <tstamps>205ab876-94eb-5cc9-acab-d8d79253c4e8</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
+    <comp ref="J105">
+      <value>BRIDGE TX (PA2)</value>
+      <footprint>Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief</footprint>
+      <fields>
+        <field name="Design Note">Bench-bridge TTL tap, MCU side. Laptop TTL RX &lt;- here. 3.3 V logic ONLY: PA2/PA3 are not 5 V tolerant on this device (bridge_main.c:23)</field>
+        <field name="Footprint">Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief</field>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <libsource lib="Connector_Generic" part="Conn_01x01" description="Generic connector, single row, 01x01, script generated (kicad-library-utils/schlib/autogen/connector/)"/>
+      <property name="Design Note" value="Bench-bridge TTL tap, MCU side. Laptop TTL RX &lt;- here. 3.3 V logic ONLY: PA2/PA3 are not 5 V tolerant on this device (bridge_main.c:23)"/>
+      <property name="Sheetname" value="o2-probe"/>
+      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
+      <property name="ki_keywords" value="connector"/>
+      <property name="ki_fp_filters" value="Connector*:*_1x??_*"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>1764d32f-90af-51d2-ad75-83a85aeaa754</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
+    <comp ref="J106">
+      <value>BRIDGE RX (PA3)</value>
+      <footprint>Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief</footprint>
+      <fields>
+        <field name="Design Note">Bench-bridge TTL tap, MCU side. Laptop TTL TX -&gt; here. See J105</field>
+        <field name="Footprint">Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief</field>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <libsource lib="Connector_Generic" part="Conn_01x01" description="Generic connector, single row, 01x01, script generated (kicad-library-utils/schlib/autogen/connector/)"/>
+      <property name="Design Note" value="Bench-bridge TTL tap, MCU side. Laptop TTL TX -&gt; here. See J105"/>
+      <property name="Sheetname" value="o2-probe"/>
+      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
+      <property name="ki_keywords" value="connector"/>
+      <property name="ki_fp_filters" value="Connector*:*_1x??_*"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>1bcbaf5f-5711-5898-ab15-2dc343bee72e</tstamps>
       <units>
         <unit name="A">
           <pins>
@@ -1469,56 +1337,6 @@
         </unit>
       </units>
     </comp>
-    <comp ref="R5">
-      <value>680R DNP</value>
-      <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
-      <fields>
-        <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="dnp"/>
-      <property name="ki_keywords" value="R res resistor"/>
-      <property name="ki_fp_filters" value="R_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>53681f97-16b9-554f-a826-a64c715cf9c6</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
-    <comp ref="R6">
-      <value>680R DNP</value>
-      <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
-      <fields>
-        <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="dnp"/>
-      <property name="ki_keywords" value="R res resistor"/>
-      <property name="ki_fp_filters" value="R_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>8ba36c3d-280c-56ed-a352-b4d6593aea86</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
     <comp ref="R7">
       <value>47k</value>
       <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
@@ -1639,131 +1457,6 @@
         </unit>
       </units>
     </comp>
-    <comp ref="R12">
-      <value>33R DNP</value>
-      <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
-      <fields>
-        <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="dnp"/>
-      <property name="ki_keywords" value="R res resistor"/>
-      <property name="ki_fp_filters" value="R_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>fbeb8199-4666-5157-a293-a65dfa85be86</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
-    <comp ref="R13">
-      <value>33R DNP</value>
-      <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
-      <fields>
-        <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="dnp"/>
-      <property name="ki_keywords" value="R res resistor"/>
-      <property name="ki_fp_filters" value="R_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>1dbfe64b-7a27-5428-acbb-d2d4f284e0f9</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
-    <comp ref="R14">
-      <value>33R DNP</value>
-      <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
-      <fields>
-        <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="dnp"/>
-      <property name="ki_keywords" value="R res resistor"/>
-      <property name="ki_fp_filters" value="R_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>210a200e-8d30-563b-a8a4-6cf2148311f2</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
-    <comp ref="R15">
-      <value>33R DNP</value>
-      <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
-      <fields>
-        <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="dnp"/>
-      <property name="ki_keywords" value="R res resistor"/>
-      <property name="ki_fp_filters" value="R_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>7b324f02-5f12-5331-a215-e6fdfabb0f9d</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
-    <comp ref="R16">
-      <value>33R DNP</value>
-      <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
-      <fields>
-        <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="dnp"/>
-      <property name="ki_keywords" value="R res resistor"/>
-      <property name="ki_fp_filters" value="R_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>b0d97a23-243a-5a69-adfa-7f5951261afc</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
     <comp ref="R17">
       <value>100k</value>
       <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
@@ -1837,18 +1530,16 @@
       </units>
     </comp>
     <comp ref="R24">
-      <value>10k 0.1%</value>
+      <value>47k</value>
       <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
       <fields>
-        <field name="MPN">P2TC0603D1002LNTA</field>
-        <field name="Design Note">3V3A rail monitor divider, 1:2 into MCU PA7/ADC_IN7 and (via R37) ADS1119 AIN. FIRMWARE: VA_MON_MV = 2 x ADC. Like the R26/R27 VIN monitor this is a supply health check, so 1% would do; it uses the precision 10k only because R25 shares the position. NOTE the other two users of that stock position, R21 and R22, were deleted with the trim divider and the guard divider, so R24/R25 are now the only ones; revisit the grade at the next sourcing pass</field>
+        <field name="Design Note">3V3A rail monitor divider, 1:2 into MCU PA7/ADC_IN7. FIRMWARE: VA_MON_MV = 2 x ADC. This IS the sourcing pass the old note asked for. The position was 0.1% 10k (P2TC0603D1002LNTA) only because R21/R22 once shared it, and those went with the trim and guard dividers. Nothing downstream SCALES by this reading -- it is rail health. Contrast VREF_MON, whose ratio main.c promotes into g_cyc.vref_mv and thence into the reported cell current: R34/R35 stay 0.1% for exactly that reason and this pair does not need to. 47k rather than 10k also drops the continuous draw on the analog rail feeding U4/U7/U8 from 165 uA to 35 uA. Source impedance goes 5k -&gt; 23.5k, and that is CHECKED, not assumed: ST DS12232 Table 59 (Maximum ADC RAIN) allows 50k at 12 bits and 160.5 sampling cycles, which is what mcu_adc.c already selects -- 2.1x margin, and more in practice because Table 59 is quoted at a 35 MHz ADC clock where this board runs 16 MHz. DO NOT RAISE THIS DIVIDER FURTHER: 100k legs would put the source at exactly the 50k limit. It releases the matched-pair placement adjacency the two-layer refloorplan work was holding</field>
         <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="MPN" value="P2TC0603D1002LNTA"/>
-      <property name="Design Note" value="3V3A rail monitor divider, 1:2 into MCU PA7/ADC_IN7 and (via R37) ADS1119 AIN. FIRMWARE: VA_MON_MV = 2 x ADC. Like the R26/R27 VIN monitor this is a supply health check, so 1% would do; it uses the precision 10k only because R25 shares the position. NOTE the other two users of that stock position, R21 and R22, were deleted with the trim divider and the guard divider, so R24/R25 are now the only ones; revisit the grade at the next sourcing pass"/>
+      <property name="Design Note" value="3V3A rail monitor divider, 1:2 into MCU PA7/ADC_IN7. FIRMWARE: VA_MON_MV = 2 x ADC. This IS the sourcing pass the old note asked for. The position was 0.1% 10k (P2TC0603D1002LNTA) only because R21/R22 once shared it, and those went with the trim and guard dividers. Nothing downstream SCALES by this reading -- it is rail health. Contrast VREF_MON, whose ratio main.c promotes into g_cyc.vref_mv and thence into the reported cell current: R34/R35 stay 0.1% for exactly that reason and this pair does not need to. 47k rather than 10k also drops the continuous draw on the analog rail feeding U4/U7/U8 from 165 uA to 35 uA. Source impedance goes 5k -&gt; 23.5k, and that is CHECKED, not assumed: ST DS12232 Table 59 (Maximum ADC RAIN) allows 50k at 12 bits and 160.5 sampling cycles, which is what mcu_adc.c already selects -- 2.1x margin, and more in practice because Table 59 is quoted at a 35 MHz ADC clock where this board runs 16 MHz. DO NOT RAISE THIS DIVIDER FURTHER: 100k legs would put the source at exactly the 50k limit. It releases the matched-pair placement adjacency the two-layer refloorplan work was holding"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="R res resistor"/>
@@ -1865,17 +1556,15 @@
       </units>
     </comp>
     <comp ref="R25">
-      <value>10k 0.1%</value>
+      <value>47k</value>
       <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
       <fields>
-        <field name="MPN">P2TC0603D1002LNTA</field>
         <field name="Design Note">3V3A rail monitor divider bottom leg; see R24</field>
         <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="MPN" value="P2TC0603D1002LNTA"/>
       <property name="Design Note" value="3V3A rail monitor divider bottom leg; see R24"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
@@ -1893,18 +1582,18 @@
       </units>
     </comp>
     <comp ref="R26">
-      <value>82k 1%</value>
+      <value>91k 1%</value>
       <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
       <fields>
-        <field name="MPN">RC0603FR-1082KL</field>
-        <field name="Design Note">VIN monitor divider, was 130k/20k. FIRMWARE: ratio is now 10/92 = 0.1087, not 0.1333 -- 15V maps to 1.63V. More ADC headroom than the old 2.00V and source impedance drops from 17.3k to 8.9k. 1% is adequate for a supply monitor</field>
+        <field name="MPN">RC0603FR-0791KL</field>
+        <field name="Design Note">VIN monitor divider, was 130k/20k, then 82k/10k. 91k is the SAME ORDERED LINE as R43/R44 and that is the only reason it is 91k rather than 82k -- either is adequate for a supply monitor. FIRMWARE: ratio is 10/101 = 0.0990, so 15V maps to 1.485V and 7V to 0.693V, both inside the 3.3V ADC, and source impedance is 9.0k. hw_contract.h is GENERATED from these values, so the firmware follows the change instead of silently rescaling</field>
         <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="MPN" value="RC0603FR-1082KL"/>
-      <property name="Design Note" value="VIN monitor divider, was 130k/20k. FIRMWARE: ratio is now 10/92 = 0.1087, not 0.1333 -- 15V maps to 1.63V. More ADC headroom than the old 2.00V and source impedance drops from 17.3k to 8.9k. 1% is adequate for a supply monitor"/>
+      <property name="MPN" value="RC0603FR-0791KL"/>
+      <property name="Design Note" value="VIN monitor divider, was 130k/20k, then 82k/10k. 91k is the SAME ORDERED LINE as R43/R44 and that is the only reason it is 91k rather than 82k -- either is adequate for a supply monitor. FIRMWARE: ratio is 10/101 = 0.0990, so 15V maps to 1.485V and 7V to 0.693V, both inside the 3.3V ADC, and source impedance is 9.0k. hw_contract.h is GENERATED from these values, so the firmware follows the change instead of silently rescaling"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="R res resistor"/>
@@ -1921,18 +1610,16 @@
       </units>
     </comp>
     <comp ref="R27">
-      <value>10k 1%</value>
+      <value>10k</value>
       <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
       <fields>
-        <field name="MPN">RC0603FR-0710KL</field>
-        <field name="Design Note">VIN monitor divider bottom leg; see R26 for the firmware ratio change</field>
+        <field name="Design Note">VIN monitor divider bottom leg; see R26 for the firmware ratio. The MPN went in a sourcing pass, not a spec change: RC0603FR-0710KL IS a generic 1% 0603 10k, and that stock line already exists for R8/R18/R19/R28</field>
         <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="MPN" value="RC0603FR-0710KL"/>
-      <property name="Design Note" value="VIN monitor divider bottom leg; see R26 for the firmware ratio change"/>
+      <property name="Design Note" value="VIN monitor divider bottom leg; see R26 for the firmware ratio. The MPN went in a sourcing pass, not a spec change: RC0603FR-0710KL IS a generic 1% 0603 10k, and that stock line already exists for R8/R18/R19/R28"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="R res resistor"/>
@@ -2026,15 +1713,15 @@
     </comp>
     <comp ref="R32">
       <value>10R</value>
-      <footprint>Resistor_SMD:R_0805_2012Metric</footprint>
+      <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
       <fields>
-        <field name="Design Note">Fitted damped analog prefilter; footprint may take 0R or characterized bead after bench validation</field>
-        <field name="Footprint">Resistor_SMD:R_0805_2012Metric</field>
+        <field name="Design Note">Fitted damped analog prefilter; the footprint may still take 0R or a characterized bead after bench validation. Was 0805 SOLELY to keep the bead option open, and it was the only 0805 resistor on the board. 0603 ferrite beads are as available as 0805 (Murata BLM18, TDK MPZ1608), so the option survives the change while R_0805_2012Metric leaves the board and 10R merges into the one 0603 line with R2/R3</field>
+        <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="Design Note" value="Fitted damped analog prefilter; footprint may take 0R or characterized bead after bench validation"/>
+      <property name="Design Note" value="Fitted damped analog prefilter; the footprint may still take 0R or a characterized bead after bench validation. Was 0805 SOLELY to keep the bead option open, and it was the only 0805 resistor on the board. 0603 ferrite beads are as available as 0805 (Murata BLM18, TDK MPZ1608), so the option survives the change while R_0805_2012Metric leaves the board and 10R merges into the one 0603 line with R2/R3"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="R res resistor"/>
@@ -2262,18 +1949,16 @@
       </units>
     </comp>
     <comp ref="R41">
-      <value>1.5k 1%</value>
+      <value>1k</value>
       <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
       <fields>
-        <field name="MPN">RC0603FR-071K5L</field>
-        <field name="Design Note">AZ431 bias resistor. (5.0 - 2.5)/1.5k = 1.67 mA nominal; at a -2% rail and the 2.510 V grade limit it is still 1.59 mA, comfortably over the 1.0 mA IKA minimum, and the ~27 uA drawn by the reference node is negligible beside it. Costs 1.67 mA on +5V_ANALOG, which is 17 mV more drop across R32 -- U3 still has ample headroom for 3.3 V out</field>
+        <field name="Design Note">AZ431 bias resistor, bought to the 1k stock line R33/R36/R37/R38 already carry. Nominal (5.0 - 2.5)/1k = 2.50 mA. WORST CASE, and the first version of this note got it wrong by using the A-grade 2.510 V limit on a B-grade part: U15 is AZ431*B*N, and DS36721 Rev. 6's ordering table is A = 0.4% (2.490-2.510 V), B = 0.8% (2.480-2.520 V). With the 2.520 V limit plus the datasheet's 10 mV deviation over temperature (2.530 V), R41 at +1% (1.010k) and +5V_ANALOG at 4.900 V: (4.900 - 2.530)/1.010k - 2.530/94k = 2.32 mA. BOTH ENDS CHECKED against DS36721 Rev. 6 Recommended Operating Conditions, IKA 1.0 to 100 mA: 2.32 mA clears the floor by 2.3x where 1.5k cleared it by 1.6x, and is 43x under the ceiling. The change ADDS 0.83 mA to +5V_ANALOG (2.50 against 1.67 nominal), which is 8.3 mV more drop across R32=10R; the AP63205's 4.95 V minimum leaves U3 ample headroom for 3.3 V out</field>
         <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="MPN" value="RC0603FR-071K5L"/>
-      <property name="Design Note" value="AZ431 bias resistor. (5.0 - 2.5)/1.5k = 1.67 mA nominal; at a -2% rail and the 2.510 V grade limit it is still 1.59 mA, comfortably over the 1.0 mA IKA minimum, and the ~27 uA drawn by the reference node is negligible beside it. Costs 1.67 mA on +5V_ANALOG, which is 17 mV more drop across R32 -- U3 still has ample headroom for 3.3 V out"/>
+      <property name="Design Note" value="AZ431 bias resistor, bought to the 1k stock line R33/R36/R37/R38 already carry. Nominal (5.0 - 2.5)/1k = 2.50 mA. WORST CASE, and the first version of this note got it wrong by using the A-grade 2.510 V limit on a B-grade part: U15 is AZ431*B*N, and DS36721 Rev. 6's ordering table is A = 0.4% (2.490-2.510 V), B = 0.8% (2.480-2.520 V). With the 2.520 V limit plus the datasheet's 10 mV deviation over temperature (2.530 V), R41 at +1% (1.010k) and +5V_ANALOG at 4.900 V: (4.900 - 2.530)/1.010k - 2.530/94k = 2.32 mA. BOTH ENDS CHECKED against DS36721 Rev. 6 Recommended Operating Conditions, IKA 1.0 to 100 mA: 2.32 mA clears the floor by 2.3x where 1.5k cleared it by 1.6x, and is 43x under the ceiling. The change ADDS 0.83 mA to +5V_ANALOG (2.50 against 1.67 nominal), which is 8.3 mV more drop across R32=10R; the AP63205's 4.95 V minimum leaves U3 ample headroom for 3.3 V out"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="R res resistor"/>
@@ -2945,41 +2630,6 @@
         </unit>
       </units>
     </comp>
-    <comp ref="U14">
-      <value>BMP390 DNP</value>
-      <footprint>o2-probe:BMP390_LGA10_DRAFT</footprint>
-      <fields>
-        <field name="MPN">BMP390</field>
-        <field name="Design Note">Optional pressure channel; footprint land geometry remains a release gate</field>
-        <field name="Footprint">o2-probe:BMP390_LGA10_DRAFT</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="o2-probe" part="BMP390" description="DNP barometric pressure sensor; I2C address 0x76"/>
-      <property name="MPN" value="BMP390"/>
-      <property name="Design Note" value="Optional pressure channel; footprint land geometry remains a release gate"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="dnp"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>9dd54dc4-ed97-509c-af29-fa27ccc5fb7a</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="3"/>
-            <pin num="5"/>
-            <pin num="7"/>
-            <pin num="9"/>
-            <pin num="2"/>
-            <pin num="4"/>
-            <pin num="6"/>
-            <pin num="8"/>
-            <pin num="10"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
     <comp ref="U15">
       <value>AZ431BN-ATRG1</value>
       <footprint>Package_TO_SOT_SMD:SOT-23</footprint>
@@ -3232,28 +2882,6 @@
         <pin num="3" name="A" type="passive"/>
       </pins>
     </libpart>
-    <libpart lib="o2-probe" part="BMP390">
-      <description>DNP barometric pressure sensor; I2C address 0x76</description>
-      <fields>
-        <field name="Reference">U</field>
-        <field name="Value">BMP390</field>
-        <field name="Footprint"/>
-        <field name="Datasheet"/>
-        <field name="Description">DNP barometric pressure sensor; I2C address 0x76</field>
-      </fields>
-      <pins>
-        <pin num="1" name="VDDIO" type="power_in"/>
-        <pin num="2" name="SCK/SCL" type="input"/>
-        <pin num="3" name="VSS" type="power_in"/>
-        <pin num="4" name="SDI/SDA" type="bidirectional"/>
-        <pin num="5" name="SDO/SA0" type="input"/>
-        <pin num="6" name="CSB" type="input"/>
-        <pin num="7" name="INT" type="output"/>
-        <pin num="8" name="VSS" type="power_in"/>
-        <pin num="9" name="VSS" type="power_in"/>
-        <pin num="10" name="VDD" type="power_in"/>
-      </pins>
-    </libpart>
     <libpart lib="o2-probe" part="CONN_02x03">
       <fields>
         <field name="Reference">J</field>
@@ -3269,25 +2897,6 @@
         <pin num="4" name="Pin_4" type="passive"/>
         <pin num="5" name="Pin_5" type="passive"/>
         <pin num="6" name="Pin_6" type="passive"/>
-      </pins>
-    </libpart>
-    <libpart lib="o2-probe" part="CONN_02x04">
-      <fields>
-        <field name="Reference">J</field>
-        <field name="Value">CONN_02x04</field>
-        <field name="Footprint"/>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <pins>
-        <pin num="1" name="Pin_1" type="passive"/>
-        <pin num="2" name="Pin_2" type="passive"/>
-        <pin num="3" name="Pin_3" type="passive"/>
-        <pin num="4" name="Pin_4" type="passive"/>
-        <pin num="5" name="Pin_5" type="passive"/>
-        <pin num="6" name="Pin_6" type="passive"/>
-        <pin num="7" name="Pin_7" type="passive"/>
-        <pin num="8" name="Pin_8" type="passive"/>
       </pins>
     </libpart>
     <libpart lib="o2-probe" part="LMP91000">
@@ -3580,7 +3189,6 @@
       <node ref="C1" pin="1" pintype="passive"/>
       <node ref="DZ1" pin="1" pinfunction="K_1" pintype="passive"/>
       <node ref="F3" pin="1" pintype="passive"/>
-      <node ref="J2" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
       <node ref="Q1" pin="2" pinfunction="S_2" pintype="passive"/>
       <node ref="R26" pin="1" pintype="passive"/>
       <node ref="RH1" pin="1" pintype="passive"/>
@@ -3607,24 +3215,17 @@
       <node ref="C19" pin="1" pintype="passive"/>
       <node ref="C20" pin="1" pintype="passive"/>
       <node ref="C21" pin="1" pintype="passive"/>
-      <node ref="C23" pin="1" pintype="passive"/>
-      <node ref="C24" pin="1" pintype="passive"/>
       <node ref="C26" pin="1" pintype="passive"/>
       <node ref="C6" pin="1" pintype="passive"/>
-      <node ref="F2" pin="1" pintype="passive"/>
       <node ref="J3" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
       <node ref="R10" pin="2" pintype="passive"/>
       <node ref="R11" pin="2" pintype="passive"/>
       <node ref="R18" pin="2" pintype="passive"/>
       <node ref="R19" pin="2" pintype="passive"/>
-      <node ref="R5" pin="1" pintype="passive"/>
       <node ref="R8" pin="2" pintype="passive"/>
       <node ref="U10" pin="4" pinfunction="ADD0_4" pintype="input"/>
       <node ref="U10" pin="5" pinfunction="V+_5" pintype="power_in"/>
       <node ref="U12" pin="3" pinfunction="VDD_3" pintype="power_in"/>
-      <node ref="U14" pin="1" pinfunction="VDDIO_1" pintype="power_in"/>
-      <node ref="U14" pin="10" pinfunction="VDD_10" pintype="power_in"/>
-      <node ref="U14" pin="6" pinfunction="CSB_6" pintype="input"/>
       <node ref="U2" pin="5" pinfunction="OUT_5" pintype="power_out"/>
       <node ref="U5" pin="8" pinfunction="VCC_8" pintype="power_in"/>
       <node ref="U6" pin="4" pinfunction="VBAT_4" pintype="power_in"/>
@@ -3691,7 +3292,7 @@
       <node ref="R43" pin="1" pintype="passive"/>
       <node ref="U7" pin="14" pinfunction="CE_14" pintype="output"/>
     </net>
-    <net code="21" name="/CELL_RE" class="Default">
+    <net code="21" name="/CELL_RE" class="CELL_RE,Default">
       <node ref="U11" pin="2" pinfunction="RE_2" pintype="passive"/>
       <node ref="U4" pin="5" pinfunction="IN+_B_5" pintype="input"/>
       <node ref="U7" pin="13" pinfunction="RE_13" pintype="input"/>
@@ -3708,40 +3309,7 @@
       <node ref="R44" pin="1" pintype="passive"/>
       <node ref="U6" pin="15" pinfunction="PA4_15" pintype="bidirectional"/>
     </net>
-    <net code="24" name="/EXP_3V3" class="Default">
-      <node ref="F2" pin="2" pintype="passive"/>
-      <node ref="J2" pin="3" pinfunction="Pin_3_3" pintype="passive"/>
-    </net>
-    <net code="25" name="/EXP_INT" class="Default">
-      <node ref="R14" pin="1" pintype="passive"/>
-      <node ref="U6" pin="21" pinfunction="PB2_21" pintype="input"/>
-    </net>
-    <net code="26" name="/EXP_INT_OUT" class="Default">
-      <node ref="D6" pin="1" pinfunction="IO1_1" pintype="passive"/>
-      <node ref="J2" pin="6" pinfunction="Pin_6_6" pintype="passive"/>
-      <node ref="R14" pin="2" pintype="passive"/>
-    </net>
-    <net code="27" name="/EXP_RX" class="Default">
-      <node ref="D5" pin="3" pinfunction="IO2_3" pintype="passive"/>
-      <node ref="J2" pin="8" pinfunction="Pin_8_8" pintype="passive"/>
-      <node ref="R16" pin="2" pintype="passive"/>
-    </net>
-    <net code="28" name="/EXP_SCL" class="Default">
-      <node ref="D4" pin="3" pinfunction="IO2_3" pintype="passive"/>
-      <node ref="J2" pin="5" pinfunction="Pin_5_5" pintype="passive"/>
-      <node ref="R13" pin="2" pintype="passive"/>
-    </net>
-    <net code="29" name="/EXP_SDA" class="Default">
-      <node ref="D4" pin="1" pinfunction="IO1_1" pintype="passive"/>
-      <node ref="J2" pin="4" pinfunction="Pin_4_4" pintype="passive"/>
-      <node ref="R12" pin="2" pintype="passive"/>
-    </net>
-    <net code="30" name="/EXP_TX" class="Default">
-      <node ref="D5" pin="1" pinfunction="IO1_1" pintype="passive"/>
-      <node ref="J2" pin="7" pinfunction="Pin_7_7" pintype="passive"/>
-      <node ref="R15" pin="2" pintype="passive"/>
-    </net>
-    <net code="31" name="/GND" class="Default">
+    <net code="24" name="/GND" class="Default">
       <node ref="C1" pin="2" pintype="passive"/>
       <node ref="C10" pin="2" pintype="passive"/>
       <node ref="C11" pin="2" pintype="passive"/>
@@ -3754,8 +3322,6 @@
       <node ref="C19" pin="2" pintype="passive"/>
       <node ref="C20" pin="2" pintype="passive"/>
       <node ref="C21" pin="2" pintype="passive"/>
-      <node ref="C23" pin="2" pintype="passive"/>
-      <node ref="C24" pin="2" pintype="passive"/>
       <node ref="C25" pin="2" pintype="passive"/>
       <node ref="C26" pin="2" pintype="passive"/>
       <node ref="C27" pin="2" pintype="passive"/>
@@ -3775,12 +3341,8 @@
       <node ref="C9" pin="2" pintype="passive"/>
       <node ref="D1" pin="2" pinfunction="A_2" pintype="passive"/>
       <node ref="D2" pin="3" pinfunction="GND_3" pintype="passive"/>
-      <node ref="D4" pin="2" pinfunction="GND_2" pintype="passive"/>
-      <node ref="D5" pin="2" pinfunction="GND_2" pintype="passive"/>
-      <node ref="D6" pin="2" pinfunction="GND_2" pintype="passive"/>
       <node ref="D7" pin="2" pinfunction="GND_2" pintype="passive"/>
       <node ref="J102" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
-      <node ref="J2" pin="2" pinfunction="Pin_2_2" pintype="passive"/>
       <node ref="J3" pin="5" pinfunction="Pin_5_5" pintype="passive"/>
       <node ref="Q2" pin="2" pinfunction="S_2" pintype="passive"/>
       <node ref="R1" pin="2" pintype="passive"/>
@@ -3791,17 +3353,12 @@
       <node ref="R35" pin="2" pintype="passive"/>
       <node ref="R39" pin="2" pintype="passive"/>
       <node ref="R44" pin="2" pintype="passive"/>
-      <node ref="R6" pin="2" pintype="passive"/>
       <node ref="R7" pin="2" pintype="passive"/>
       <node ref="R9" pin="2" pintype="passive"/>
       <node ref="TP2" pin="1" pinfunction="1_1" pintype="passive"/>
       <node ref="U1" pin="4" pinfunction="GND_4" pintype="power_in"/>
       <node ref="U10" pin="2" pinfunction="GND_2" pintype="power_in"/>
       <node ref="U12" pin="4" pinfunction="VSS_4" pintype="power_in"/>
-      <node ref="U14" pin="3" pinfunction="VSS_3" pintype="power_in"/>
-      <node ref="U14" pin="5" pinfunction="SDO/SA0_5" pintype="input"/>
-      <node ref="U14" pin="8" pinfunction="VSS_8" pintype="power_in"/>
-      <node ref="U14" pin="9" pinfunction="VSS_9" pintype="power_in"/>
       <node ref="U15" pin="3" pinfunction="A_3" pintype="passive"/>
       <node ref="U2" pin="2" pinfunction="GND_2" pintype="power_in"/>
       <node ref="U3" pin="2" pinfunction="GND_2" pintype="power_in"/>
@@ -3818,157 +3375,151 @@
       <node ref="U8" pin="3" pinfunction="AGND_3" pintype="power_in"/>
       <node ref="U8" pin="6" pinfunction="REFN_6" pintype="input"/>
     </net>
-    <net code="32" name="/GUARD_REPLICA" class="Default">
+    <net code="25" name="/GUARD_REPLICA" class="Default">
       <node ref="R40" pin="2" pintype="passive"/>
       <node ref="TP5" pin="1" pinfunction="1_1" pintype="passive"/>
     </net>
-    <net code="33" name="/HEATER_GATE" class="Default">
+    <net code="26" name="/HEATER_GATE" class="Default">
       <node ref="Q2" pin="1" pinfunction="G_1" pintype="input"/>
       <node ref="R28" pin="2" pintype="passive"/>
       <node ref="R29" pin="1" pintype="passive"/>
       <node ref="U10" pin="3" pinfunction="ALERT_3" pintype="open_collector"/>
     </net>
-    <net code="34" name="/HEATER_LOW" class="Default">
+    <net code="27" name="/HEATER_LOW" class="Default">
       <node ref="J5" pin="2" pinfunction="HTR_LO_2" pintype="passive"/>
       <node ref="Q2" pin="3" pinfunction="D_3" pintype="passive"/>
       <node ref="RH1" pin="2" pintype="passive"/>
       <node ref="RH2" pin="2" pintype="passive"/>
     </net>
-    <net code="35" name="/HEATER_PWM" class="Default">
+    <net code="28" name="/HEATER_PWM" class="Default">
       <node ref="R28" pin="1" pintype="passive"/>
       <node ref="U6" pin="28" pinfunction="PA8_28" pintype="output"/>
     </net>
-    <net code="36" name="/I2C_SCL" class="Default">
+    <net code="29" name="/I2C_SCL" class="Default">
       <node ref="R10" pin="1" pintype="passive"/>
-      <node ref="R13" pin="1" pintype="passive"/>
       <node ref="U10" pin="1" pinfunction="SCL_1" pintype="input"/>
       <node ref="U12" pin="2" pinfunction="SCL_2" pintype="input"/>
-      <node ref="U14" pin="2" pinfunction="SCK/SCL_2" pintype="input"/>
       <node ref="U6" pin="45" pinfunction="PB6_45" pintype="bidirectional"/>
       <node ref="U7" pin="3" pinfunction="SCL_3" pintype="input"/>
       <node ref="U8" pin="14" pinfunction="SCL_14" pintype="input"/>
     </net>
-    <net code="37" name="/I2C_SDA" class="Default">
+    <net code="30" name="/I2C_SDA" class="Default">
       <node ref="R11" pin="1" pintype="passive"/>
-      <node ref="R12" pin="1" pintype="passive"/>
       <node ref="U10" pin="6" pinfunction="SDA_6" pintype="bidirectional"/>
       <node ref="U12" pin="1" pinfunction="SDA_1" pintype="bidirectional"/>
-      <node ref="U14" pin="4" pinfunction="SDI/SDA_4" pintype="bidirectional"/>
       <node ref="U6" pin="46" pinfunction="PB7_46" pintype="bidirectional"/>
       <node ref="U7" pin="4" pinfunction="SDA_4" pintype="bidirectional"/>
       <node ref="U8" pin="13" pinfunction="SDA_13" pintype="bidirectional"/>
     </net>
-    <net code="38" name="/LMP_C1" class="Default">
+    <net code="31" name="/LMP_C1" class="Default">
       <node ref="C17" pin="1" pintype="passive"/>
       <node ref="U7" pin="10" pinfunction="C1_10" pintype="passive"/>
     </net>
-    <net code="39" name="/LMP_C2" class="Default">
+    <net code="32" name="/LMP_C2" class="Default">
       <node ref="C17" pin="2" pintype="passive"/>
       <node ref="U7" pin="9" pinfunction="C2_9" pintype="passive"/>
     </net>
-    <net code="40" name="/NRST" class="Default">
+    <net code="33" name="/NRST" class="Default">
       <node ref="C15" pin="1" pintype="passive"/>
       <node ref="J3" pin="3" pinfunction="Pin_3_3" pintype="passive"/>
       <node ref="R8" pin="1" pintype="passive"/>
       <node ref="U6" pin="10" pinfunction="PF2-NRST_10" pintype="input"/>
     </net>
-    <net code="41" name="/RE_BUF" class="Default">
+    <net code="34" name="/RE_BUF" class="Default">
       <node ref="R38" pin="1" pintype="passive"/>
       <node ref="R40" pin="1" pintype="passive"/>
       <node ref="U4" pin="6" pinfunction="IN-_B_6" pintype="input"/>
       <node ref="U4" pin="7" pinfunction="OUT_B_7" pintype="output"/>
     </net>
-    <net code="42" name="/RS485_A" class="Default">
+    <net code="35" name="/RS485_A" class="Default">
       <node ref="R2" pin="1" pintype="passive"/>
       <node ref="R4" pin="1" pintype="passive"/>
-      <node ref="R5" pin="2" pintype="passive"/>
       <node ref="U5" pin="6" pinfunction="A_6" pintype="bidirectional"/>
     </net>
-    <net code="43" name="/RS485_A_CABLE" class="Default">
+    <net code="36" name="/RS485_A_CABLE" class="Default">
       <node ref="D2" pin="1" pinfunction="LINE_A_1" pintype="passive"/>
       <node ref="J103" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
       <node ref="R2" pin="2" pintype="passive"/>
     </net>
-    <net code="44" name="/RS485_B" class="Default">
+    <net code="37" name="/RS485_B" class="Default">
       <node ref="R3" pin="1" pintype="passive"/>
       <node ref="R4" pin="2" pintype="passive"/>
-      <node ref="R6" pin="1" pintype="passive"/>
       <node ref="U5" pin="7" pinfunction="B_7" pintype="bidirectional"/>
     </net>
-    <net code="45" name="/RS485_B_CABLE" class="Default">
+    <net code="38" name="/RS485_B_CABLE" class="Default">
       <node ref="D2" pin="2" pinfunction="LINE_B_2" pintype="passive"/>
       <node ref="J104" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
       <node ref="R3" pin="2" pintype="passive"/>
     </net>
-    <net code="46" name="/RS485_DE" class="Default">
+    <net code="39" name="/RS485_DE" class="Default">
       <node ref="R7" pin="1" pintype="passive"/>
       <node ref="U5" pin="2" pinfunction="~RE_2" pintype="input"/>
       <node ref="U5" pin="3" pinfunction="DE_3" pintype="input"/>
       <node ref="U6" pin="30" pinfunction="PC6_30" pintype="bidirectional"/>
     </net>
-    <net code="47" name="/RS485_RX" class="Default">
+    <net code="40" name="/RS485_RX" class="Default">
       <node ref="U5" pin="1" pinfunction="R_1" pintype="output"/>
       <node ref="U6" pin="32" pinfunction="PA10_32" pintype="input"/>
     </net>
-    <net code="48" name="/RS485_TX" class="Default">
+    <net code="41" name="/RS485_TX" class="Default">
       <node ref="U5" pin="4" pinfunction="D_4" pintype="input"/>
       <node ref="U6" pin="29" pinfunction="PA9_29" pintype="output"/>
     </net>
-    <net code="49" name="/SWCLK_BOOT0" class="Default">
+    <net code="42" name="/SWCLK_BOOT0" class="Default">
       <node ref="J3" pin="4" pinfunction="Pin_4_4" pintype="passive"/>
       <node ref="R9" pin="1" pintype="passive"/>
       <node ref="U6" pin="36" pinfunction="PA14-BOOT0_36" pintype="bidirectional"/>
     </net>
-    <net code="50" name="/SWDIO" class="Default">
+    <net code="43" name="/SWDIO" class="Default">
       <node ref="J3" pin="2" pinfunction="Pin_2_2" pintype="passive"/>
       <node ref="U6" pin="35" pinfunction="PA13_35" pintype="bidirectional"/>
     </net>
-    <net code="51" name="/SWO" class="Default">
+    <net code="44" name="/SWO" class="Default">
       <node ref="J3" pin="6" pinfunction="Pin_6_6" pintype="passive"/>
       <node ref="U6" pin="42" pinfunction="PB3_42" pintype="bidirectional"/>
     </net>
-    <net code="52" name="/TMP_CELL_EP" class="Default">
+    <net code="45" name="/TMP_CELL_EP" class="Default">
       <node ref="TP6" pin="1" pinfunction="1_1" pintype="passive"/>
       <node ref="U10" pin="7" pinfunction="EP_7" pintype="passive"/>
     </net>
-    <net code="53" name="/UART2_RX" class="Default">
-      <node ref="R16" pin="1" pintype="passive"/>
+    <net code="46" name="/UART2_RX" class="Default">
+      <node ref="J106" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
       <node ref="U6" pin="14" pinfunction="PA3_14" pintype="input"/>
     </net>
-    <net code="54" name="/UART2_TX" class="Default">
-      <node ref="R15" pin="1" pintype="passive"/>
+    <net code="47" name="/UART2_TX" class="Default">
+      <node ref="J105" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
       <node ref="U6" pin="13" pinfunction="PA2_13" pintype="output"/>
     </net>
-    <net code="55" name="/VA_MON" class="Default">
+    <net code="48" name="/VA_MON" class="Default">
       <node ref="C33" pin="1" pintype="passive"/>
       <node ref="R24" pin="2" pintype="passive"/>
       <node ref="R25" pin="1" pintype="passive"/>
       <node ref="U6" pin="18" pinfunction="PA7_18" pintype="bidirectional"/>
     </net>
-    <net code="56" name="/VIN_GATE" class="Default">
+    <net code="49" name="/VIN_GATE" class="Default">
       <node ref="DZ1" pin="2" pinfunction="A_2" pintype="passive"/>
       <node ref="Q1" pin="1" pinfunction="G_1" pintype="input"/>
       <node ref="R1" pin="1" pintype="passive"/>
     </net>
-    <net code="57" name="/VIN_MON" class="Default">
+    <net code="50" name="/VIN_MON" class="Default">
       <node ref="C32" pin="1" pintype="passive"/>
       <node ref="R26" pin="2" pintype="passive"/>
       <node ref="R27" pin="1" pintype="passive"/>
       <node ref="U6" pin="17" pinfunction="PA6_17" pintype="bidirectional"/>
     </net>
-    <net code="58" name="/VREF_MON_RAW" class="Default">
+    <net code="51" name="/VREF_MON_RAW" class="Default">
       <node ref="R34" pin="2" pintype="passive"/>
       <node ref="R35" pin="1" pintype="passive"/>
       <node ref="R36" pin="1" pintype="passive"/>
     </net>
-    <net code="59" name="/VREF_SHUNT" class="Default">
+    <net code="52" name="/VREF_SHUNT" class="Default">
       <node ref="C9" pin="1" pintype="passive"/>
       <node ref="R31" pin="1" pintype="passive"/>
       <node ref="R41" pin="2" pintype="passive"/>
       <node ref="U15" pin="1" pinfunction="REF_1" pintype="passive"/>
       <node ref="U15" pin="2" pinfunction="K_2" pintype="passive"/>
     </net>
-    <net code="60" name="/VREF_TRIM" class="Default">
+    <net code="53" name="/VREF_TRIM" class="Default">
       <node ref="C10" pin="1" pintype="passive"/>
       <node ref="R31" pin="2" pintype="passive"/>
       <node ref="R34" pin="1" pintype="passive"/>
@@ -3976,106 +3527,103 @@
       <node ref="U7" pin="11" pinfunction="VREF_11" pintype="input"/>
       <node ref="U8" pin="7" pinfunction="REFP_7" pintype="input"/>
     </net>
-    <net code="61" name="/WE_BUF" class="Default">
+    <net code="54" name="/WE_BUF" class="Default">
       <node ref="R37" pin="1" pintype="passive"/>
       <node ref="U4" pin="1" pinfunction="OUT_A_1" pintype="output"/>
       <node ref="U4" pin="2" pinfunction="IN-_A_2" pintype="input"/>
     </net>
-    <net code="62" name="unconnected-(D6-IO2-Pad3)" class="Default">
-      <node ref="D6" pin="3" pinfunction="IO2_3" pintype="passive+no_connect"/>
-    </net>
-    <net code="63" name="unconnected-(D7-IO2-Pad3)" class="Default">
+    <net code="55" name="unconnected-(D7-IO2-Pad3)" class="Default">
       <node ref="D7" pin="3" pinfunction="IO2_3" pintype="passive+no_connect"/>
     </net>
-    <net code="64" name="unconnected-(U2-NC-Pad4)" class="Default">
+    <net code="56" name="unconnected-(U2-NC-Pad4)" class="Default">
       <node ref="U2" pin="4" pinfunction="NC_4" pintype="no_connect"/>
     </net>
-    <net code="65" name="unconnected-(U3-NC-Pad4)" class="Default">
+    <net code="57" name="unconnected-(U3-NC-Pad4)" class="Default">
       <node ref="U3" pin="4" pinfunction="NC_4" pintype="no_connect"/>
     </net>
-    <net code="66" name="unconnected-(U6-PA0-Pad11)" class="Default">
+    <net code="58" name="unconnected-(U6-PA0-Pad11)" class="Default">
       <node ref="U6" pin="11" pinfunction="PA0_11" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="67" name="unconnected-(U6-PA1-Pad12)" class="Default">
+    <net code="59" name="unconnected-(U6-PA1-Pad12)" class="Default">
       <node ref="U6" pin="12" pinfunction="PA1_12" pintype="output+no_connect"/>
     </net>
-    <net code="68" name="unconnected-(U6-PA5-Pad16)" class="Default">
+    <net code="60" name="unconnected-(U6-PA5-Pad16)" class="Default">
       <node ref="U6" pin="16" pinfunction="PA5_16" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="69" name="unconnected-(U6-PA11-Pad33)" class="Default">
+    <net code="61" name="unconnected-(U6-PA11-Pad33)" class="Default">
       <node ref="U6" pin="33" pinfunction="PA11_33" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="70" name="unconnected-(U6-PA12-Pad34)" class="Default">
+    <net code="62" name="unconnected-(U6-PA12-Pad34)" class="Default">
       <node ref="U6" pin="34" pinfunction="PA12_34" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="71" name="unconnected-(U6-PA15-Pad37)" class="Default">
+    <net code="63" name="unconnected-(U6-PA15-Pad37)" class="Default">
       <node ref="U6" pin="37" pinfunction="PA15_37" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="72" name="unconnected-(U6-PB4-Pad43)" class="Default">
+    <net code="64" name="unconnected-(U6-PB2-Pad21)" class="Default">
+      <node ref="U6" pin="21" pinfunction="PB2_21" pintype="input+no_connect"/>
+    </net>
+    <net code="65" name="unconnected-(U6-PB4-Pad43)" class="Default">
       <node ref="U6" pin="43" pinfunction="PB4_43" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="73" name="unconnected-(U6-PB5-Pad44)" class="Default">
+    <net code="66" name="unconnected-(U6-PB5-Pad44)" class="Default">
       <node ref="U6" pin="44" pinfunction="PB5_44" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="74" name="unconnected-(U6-PB8-Pad47)" class="Default">
+    <net code="67" name="unconnected-(U6-PB8-Pad47)" class="Default">
       <node ref="U6" pin="47" pinfunction="PB8_47" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="75" name="unconnected-(U6-PB9-Pad48)" class="Default">
+    <net code="68" name="unconnected-(U6-PB9-Pad48)" class="Default">
       <node ref="U6" pin="48" pinfunction="PB9_48" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="76" name="unconnected-(U6-PB10-Pad22)" class="Default">
+    <net code="69" name="unconnected-(U6-PB10-Pad22)" class="Default">
       <node ref="U6" pin="22" pinfunction="PB10_22" pintype="input+no_connect"/>
     </net>
-    <net code="77" name="unconnected-(U6-PB11-Pad23)" class="Default">
+    <net code="70" name="unconnected-(U6-PB11-Pad23)" class="Default">
       <node ref="U6" pin="23" pinfunction="PB11_23" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="78" name="unconnected-(U6-PB12-Pad24)" class="Default">
+    <net code="71" name="unconnected-(U6-PB12-Pad24)" class="Default">
       <node ref="U6" pin="24" pinfunction="PB12_24" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="79" name="unconnected-(U6-PB13-Pad25)" class="Default">
+    <net code="72" name="unconnected-(U6-PB13-Pad25)" class="Default">
       <node ref="U6" pin="25" pinfunction="PB13_25" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="80" name="unconnected-(U6-PB14-Pad26)" class="Default">
+    <net code="73" name="unconnected-(U6-PB14-Pad26)" class="Default">
       <node ref="U6" pin="26" pinfunction="PB14_26" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="81" name="unconnected-(U6-PB15-Pad27)" class="Default">
+    <net code="74" name="unconnected-(U6-PB15-Pad27)" class="Default">
       <node ref="U6" pin="27" pinfunction="PB15_27" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="82" name="unconnected-(U6-PC7-Pad31)" class="Default">
+    <net code="75" name="unconnected-(U6-PC7-Pad31)" class="Default">
       <node ref="U6" pin="31" pinfunction="PC7_31" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="83" name="unconnected-(U6-PC13-Pad1)" class="Default">
+    <net code="76" name="unconnected-(U6-PC13-Pad1)" class="Default">
       <node ref="U6" pin="1" pinfunction="PC13_1" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="84" name="unconnected-(U6-PC14-Pad2)" class="Default">
+    <net code="77" name="unconnected-(U6-PC14-Pad2)" class="Default">
       <node ref="U6" pin="2" pinfunction="PC14_2" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="85" name="unconnected-(U6-PC15-Pad3)" class="Default">
+    <net code="78" name="unconnected-(U6-PC15-Pad3)" class="Default">
       <node ref="U6" pin="3" pinfunction="PC15_3" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="86" name="unconnected-(U6-PD0-Pad38)" class="Default">
+    <net code="79" name="unconnected-(U6-PD0-Pad38)" class="Default">
       <node ref="U6" pin="38" pinfunction="PD0_38" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="87" name="unconnected-(U6-PD1-Pad39)" class="Default">
+    <net code="80" name="unconnected-(U6-PD1-Pad39)" class="Default">
       <node ref="U6" pin="39" pinfunction="PD1_39" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="88" name="unconnected-(U6-PD2-Pad40)" class="Default">
+    <net code="81" name="unconnected-(U6-PD2-Pad40)" class="Default">
       <node ref="U6" pin="40" pinfunction="PD2_40" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="89" name="unconnected-(U6-PD3-Pad41)" class="Default">
+    <net code="82" name="unconnected-(U6-PD3-Pad41)" class="Default">
       <node ref="U6" pin="41" pinfunction="PD3_41" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="90" name="unconnected-(U6-PF0-Pad8)" class="Default">
+    <net code="83" name="unconnected-(U6-PF0-Pad8)" class="Default">
       <node ref="U6" pin="8" pinfunction="PF0_8" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="91" name="unconnected-(U6-PF1-Pad9)" class="Default">
+    <net code="84" name="unconnected-(U6-PF1-Pad9)" class="Default">
       <node ref="U6" pin="9" pinfunction="PF1_9" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="92" name="unconnected-(U7-NC-Pad5)" class="Default">
+    <net code="85" name="unconnected-(U7-NC-Pad5)" class="Default">
       <node ref="U7" pin="5" pinfunction="NC_5" pintype="no_connect"/>
-    </net>
-    <net code="93" name="unconnected-(U14-INT-Pad7)" class="Default">
-      <node ref="U14" pin="7" pinfunction="INT_7" pintype="output+no_connect"/>
     </net>
   </nets>
 </export>
