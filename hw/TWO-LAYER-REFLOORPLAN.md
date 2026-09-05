@@ -150,3 +150,42 @@ Related: KRT strips "dead-end input segments" after routing, which deletes the
 driven guard rails — they dangle by design.  `--keep-input-copper` is mandatory
 on this board, and every score taken without it was measured on a board that had
 lost its guard, which routes *easier*.
+
+## The noise floor is 5 links, and it is not the one canonicalize.py fixed
+
+**Measured 2026-09-05 14:00.**  `canonicalize.py` pinned item order, so re-running
+the SAME FILE reproduces exactly -- verified three times, byte for byte.  That is
+a different question from how much the outcome moves when the input changes in a
+way that should not matter, and the second question went unasked for most of a
+day.
+
+The same board, same geometry, same netlist, same pinned order, under four
+neutral net-ordering strategies (`--ordering`, which changes the search
+trajectory and nothing about the problem):
+
+| ordering | open links | vias |
+|---|---:|---:|
+| default, `mps`, `bus` | 21 | 312 |
+| `original` | 24 | 355 |
+| `inside_out` | 26 | 340 |
+
+**So a single-run difference under 6 links is not evidence.**  What that
+retrospectively supports and what it does not:
+
+- **Survives:** stock 32 -> 21 from placement (11), C17 moved pin-local +12..+19,
+  0.40/0.20 vias +20, 0.15 mm tracks +9, failing-net staged route +8 (which also
+  tripped `cell_re_surface_leakage` and was illegal regardless).
+- **Does NOT survive:** "staged routing is neutral on this board" (33 vs 32, one
+  link).  And the claim that locking a fan-out STUB costs more than locking a
+  whole net rested on 29 vs 27 -- two links, pure noise.  That mechanism is
+  withdrawn; authored escapes measured somewhere between neutral and clearly
+  worse, and these runs do not separate the two.
+
+The protocol that follows, now in `climb.sh`: propose a candidate on one
+ordering, CONFIRM it on three more, and score it on the WORST of the four.  A
+placement that wins only on its lucky trajectory is not a placement.
+
+The general form of the trap, worth carrying to any router work: pinning an
+input makes runs *repeatable*, which feels like control and is easily mistaken
+for *low variance across the comparisons you actually care about*.  Measure the
+second thing before trusting any A/B, not after committing one.
