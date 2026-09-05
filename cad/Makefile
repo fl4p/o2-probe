@@ -218,3 +218,24 @@ prototype-exploded: body-tube
 		--camera=0,0,0,72,0,25,0 --colorscheme=Tomorrow \
 		-o $(OUT)/prototype-exploded.png $(HEAD_END)
 	cd .. && python3 cad/label-prototype.py
+
+# The REAL KiCad board inside the body. Preview only -- 215k facets of board
+# mesh, so never --render. The STL comes from KiCad 10's own exporter; rebuild
+# it with `make board-mesh` when the board changes.
+KICAD_CLI ?= /Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli
+HW := /Users/fab/dev/ee/hw/o2-probe
+
+.PHONY: board-mesh
+board-mesh: | $(OUT)
+	cd $(HW) && $(KICAD_CLI) pcb export stl --force --no-dnp --subst-models \
+		--include-tracks --include-pads \
+		-o $(CURDIR)/$(OUT)/o2-probe-board.stl o2-probe.kicad_pcb
+	python3 tools/stl_ascii_to_binary.py $(OUT)/o2-probe-board.stl \
+		$(OUT)/o2-probe-board-bin.stl
+
+.PHONY: board-in-body
+board-in-body: monobody | $(OUT)
+	$(OPENSCAD) --viewall --autocenter --projection=p --imgsize=1500,1400 \
+		--camera=0,0,0,68,0,25,0 --colorscheme=Tomorrow \
+		-D 'part="section"' -o $(OUT)/board-in-body.png o2_probe_board_in_body.scad
+	python3 tools/board_clearance.py

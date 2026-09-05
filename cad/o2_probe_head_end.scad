@@ -128,7 +128,10 @@ echo(str("FASTENING: ", fastening, use_insert
 // ------------------------------------------------- design parameters
 
 board_w = 20.0;             // KiCad Edge.Cuts, controlled
-board_t = 1.0;              // KiCad, controlled
+// 1.6 on Fab's instruction 2026-09-05, against PLACEMENT.md's 1.0. It is NOT
+// cosmetic here: board_t feeds board_swept -> board_diag -> bore_d, so it moves
+// the cavity the 5.0 cm3 budget is measured on. See the volume gate.
+board_t = 1.6;              // KiCad says 1.0; Fab 2026-09-05 says assume 1.6
 // MEASURED 2026-09-04 (Fab): 14.62 mm on a real can, against DS-0637 Iss. 2's
 // 14.4 nominal -- +0.22 on diameter. A measured interface dimension supersedes a
 // datasheet nominal, so this is the number the geometry is cut to. CAUTION: it is

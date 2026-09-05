@@ -76,6 +76,27 @@ condensate; buried in 100 %RH pore gas without it, they are not. Expect offset
 drift on CELL_RE. Put a silica sachet in the cable tail and check its colour on
 recovery — that reading is the diagnosis for anything odd in the data.
 
+## The board is 1.6 mm here, and PLACEMENT.md still says 1.0
+
+Fab, 2026-09-05: *"assume 1.6mm pcb thickness."* The KiCad board file and
+`PLACEMENT.md` both still specify **1.0 mm, 4 layers**, so the two disagree and
+the board file is the one that would have to move. Recorded rather than
+reconciled, because that is not this model's call.
+
+It is not a cosmetic number. `PLAN.md` gates a thickness change on "the tube
+chord/assembled-height check", so here it is:
+
+| | 1.0 mm | **1.6 mm** | against |
+|---|---:|---:|---|
+| swept diagonal | 21.93 | **22.19** | Ø27.2 tube bore, Ø25.18 head bore — both clear |
+| head bore `bore_d` | 24.93 | **25.18** | head OD unchanged at Ø40 |
+| trimmer worst corner | r 11.19 | **r 11.34** | Ø27.2 bore — 2.26 mm spare |
+| **cavity mesh** | 4849 mm³ | **4917 mm³** | 5000 mm³ budget — **1.7 % margin, was 3.0 %** |
+
+That last row is the one to watch. The gas-volume gate now passes by 83 mm³. It
+is still a pass, and the mesh is measured rather than modelled, but there is no
+longer room to spend on anything else inside the cavity.
+
 ## The head and the tube are ONE part
 
 `make monobody` → `exports/body-monobody.stl`, **146.6 mm tall**, head and tube in

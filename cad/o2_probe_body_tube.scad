@@ -96,7 +96,13 @@ assert(joint == "monolithic" || joint == "bonded",
 
 // Board. Controlled by KiCad Edge.Cuts (PLACEMENT.md).
 board_w   = 20.0;
-board_t   = 1.0;
+// 1.6, on Fab's instruction 2026-09-05, NOT the 1.0 in PLACEMENT.md. That file
+// still specifies "20.0 x 107.0 mm ... 1.0 mm, 4 layers", so the two disagree
+// and the board file is the one that would have to change. PLAN.md gates a
+// thickness change on "the tube chord/assembled-height check" -- done here: the
+// swept diagonal goes 21.93 -> 22.19 against a 27.2 bore and the head's 25.19,
+// so it clears both. The slot heights and the dam reliefs follow automatically.
+board_t   = 1.6;
 board_len = 107.0;
 
 // Component envelope. DECLARED, NOT MEASURED -- and the distinction matters,
