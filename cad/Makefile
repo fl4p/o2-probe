@@ -332,6 +332,8 @@ board-mesh: | $(OUT)
 		-o $(CURDIR)/$(OUT)/o2-probe-board.stl o2-probe.kicad_pcb
 	python3 tools/stl_ascii_to_binary.py $(OUT)/o2-probe-board.stl \
 		$(OUT)/o2-probe-board-bin.stl
+	python3 tools/board_tip.py $(OUT)/o2-probe-board-bin.stl \
+		$(OUT)/o2-probe-board-tip-30mm.stl
 
 # The body with half of it cut away, baked by CGAL so the viewer has no CSG in
 # it -- which is what makes View > Thrown Together usable on this model. A live

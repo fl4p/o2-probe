@@ -61,6 +61,12 @@
    {
     "spec": "o2_probe_head_end.scad:cap-asm=cap (debris / plowing)",
     "color": "#6d8b74"
+   },
+   {
+    "spec": "exports/o2-probe-board-tip-30mm.stl",
+    "name": "PCB tip (30 mm)",
+    "color": "#1b5e20",
+    "note": "30 mm from the PCB tip, in head coordinates; KiCad omits 8 component models"
    }
   ]
  },
