@@ -192,7 +192,8 @@ LiFePO4 pack sits nicely inside the probe's 7–15 V window (10.0 V cutoff to
 exactly the weeks with the least sun and the most need for margin — the failure
 mode is a pack that is both cold and empty and will not accept the little charge
 that is available. AGM accepts charge to −20 °C with no lockout; the price is
-capacity derate (already in the 0.7 factor above) and a 4–6 year life. Revisit
+capacity derate (already in the 0.7 factor above) and a shorter service life
+(§3.6, which is where the numbers actually come from). Revisit
 only if the battery box ends up buried below the frost line, or the pack has a
 self-heating BMS.
 
@@ -286,6 +287,13 @@ feeds battery temperature to the SmartSolar over VE.Smart Networking, so the
 charge voltage is **temperature-compensated** — which is precisely what a
 lead-acid battery living outdoors wants, and worth real capacity and life.
 
+The datasheet makes that stronger than a preference. Victron specify
+**−24 mV/°C for a 12 V battery, centred on 25 °C**, and state that temperature
+compensation **is required** when the battery is below 10 °C or above 30 °C for
+long periods. This install is below 10 °C for months at a time, so the Smart
+Battery Sense is not an optional refinement bought for telemetry — it is the
+datasheet's own condition for reaching the published life.
+
 **Why NMC/NCM is rejected, on arithmetic rather than taste.** NMC cells charge to
 4,2 V. A 4S pack is therefore **16,8 V fully charged, above the probe's 15 V
 input ceiling** (`DESIGN.md`, 7–15 V) — a hard fail, not a derating. A 3S pack
@@ -377,6 +385,66 @@ exact failure §0 rejected the Dragino rail for.
 Arctic line starts at 100 Ah / €978. Searched LIONTRON's own 12 V catalogue and
 Offgridtec's battery range on 2026-09-04; confidence in that absence is medium
 and bounded to those two vendors.
+
+### 3.6 How long the battery lasts, and what actually ends it
+
+**Victron publish no design life for the Super Cycle range.** The AGM Super
+Cycle datasheet (fetched 2026-09-05) carries cycle life only — the three figures
+quoted in §3.4 — and **no design life in years, no float life, no
+self-discharge rate, and no temperature-vs-life table.** An earlier revision of
+this document asserted "a 4–6 year life" with no source; that figure is
+withdrawn. It is the same class of defect as the invented cycle numbers §3.4
+already corrects, and it is recorded in the kb as
+`~/dev/kb/power/victron-super-cycle-has-no-published-design-life.md`.
+
+The nearest sourced comparator is Victron's **other** AGM line, in
+`Datasheet-GEL-and-AGM-Batteries-EN.pdf`, Table 2, *design service life under
+float service*:
+
+| average temperature | AGM "Deep Cycle" | Gel "Deep Cycle" |
+|---|---:|---:|
+| 20 °C | 7–10 y | 12 y |
+| 30 °C | 4 y | 6 y |
+| 40 °C | 2 y | 3 y |
+
+**That is a different battery**, and the table is an indicator rather than this
+part's spec: the Super Cycle uses a carbon-additive chemistry, and the two lines
+differ in cycle-life value *and* test method (Super Cycle 300/700/1000 at
+100/60/40 % DoD; Deep Cycle AGM 400/600/1500 at 80/50/30 %). Borrowing the years
+figure across the line would be an unattributed substitution, and the direction
+of the error is not known.
+
+**Cycling is not the constraint at this load.** At v0's `HEATER_MAX_DUTY = 0`,
+4,1 Wh/day on 300 Wh is **1,4 % DoD/day**; at 25 % duty, 3,4 %. That is roughly
+an order of magnitude shallower than the datasheet's shallowest published point,
+so **calendar life, not cycle count, binds** — which is precisely the number the
+datasheet does not give.
+
+**Temperature works in our favour here, unusually.** Victron's table only
+extends *upward* from 20 °C, and every step up roughly halves the life. St. Peter
+at 715 m has a mean annual air temperature around 7–8 °C, so the box lives
+permanently on the cold side of the reference point rather than the usual
+solar-battery failure mode of a black enclosure baking at 40 °C.
+
+**What will actually end it — two failure modes that appear in no cycle-life
+figure:**
+
+1. **Sulfation from chronic undercharge.** The 100 W panel against a 4,1 Wh/day
+   load is enormously oversized, so any clear day fully recharges the pack, and
+   §3.2's `7E` deficit refills in ~4,7 clear days. The exposure is a multi-week
+   snow-covered or shaded run that leaves the pack sitting at low state of
+   charge — and an *uncompensated* fixed absorption voltage all winter produces
+   the same condition without any weather at all, which is the paragraph above.
+2. **Electrolyte freezing when discharged.** Fully charged lead-acid electrolyte
+   freezes near −60 °C; near 50 % SoC around −25 °C; near-flat around −8 °C. A
+   snow-covered panel and a cold snap are a *correlated* pair, so the state that
+   reaches the dangerous end is the one the site actually produces. A frozen
+   plate assembly is destroyed, not discharged.
+
+**Working expectation: 5–8 years**, bounded below by the sibling line's 20 °C
+figure being unreachable in practice and above by the cold mean temperature, and
+conditional on the temperature compensation of §3.4 actually being wired. Treat
+it as an estimate with a named basis, not a spec.
 
 ## 4. What this document does not cover
 
