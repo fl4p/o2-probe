@@ -359,3 +359,174 @@ module echo_consumables(seat_w, seat_h) {
              " x ", window, " window; seat gasket ", seat_w, " x ", seat_h,
              " outer, ", aperture_far, " x ", aperture_far, " window"));
 }
+
+// ============================================================================
+// CLAMPED FACE SEAL -- the printable bed
+// ============================================================================
+//
+// WHY THIS EXISTS. The bed above (`cartridge_core_cuts_round`) does not print.
+// Photographed 2026-09-05 on a real carrier: a web of filament strung right
+// across the aperture, ragged slivers on the flange face, and a groove of
+// visibly uneven depth. That is not a slicer setting, it is the geometry, and
+// the mechanism is exact.
+//
+// The carrier prints WET FACE DOWN (`carrier_printed()` mirrors it), because
+// the flange is 6 mm wider than the spigot and any other orientation puts that
+// step in mid-air. Wet face down turns every wet-side feature upside down:
+//
+//   1. The membrane seat is `membrane_t` = 0.18 deep -- LESS THAN ONE LAYER.
+//      There is no way to print a 0.18 mm step; the slicer either drops it or
+//      places it a whole layer out, and the 0.862 mm ledge that survives is a
+//      single free-floating bead 0.18 mm above the plate. Those are the slivers.
+//   2. The O-ring groove, inverted, becomes a CEILING. Its floor -- the surface
+//      that sets squeeze -- is an annulus from the flare cone (Ø16.48) out to
+//      Ø19.58, printed over air, and its inner boundary is the OPEN APERTURE.
+//      An annular ledge with no inner anchor is bridged straight across the
+//      hole: those are the strands in the photograph.
+//   3. Nothing is a multiple of anything. Groove 0.75 deep (3.75 layers) and
+//      1.55 wide (~3.9 beads), so the floor is one bridged layer plus gap fill.
+//      That is the uneven groove, and since squeeze = 1 - depth/cord, an uneven
+//      groove IS an uneven seal.
+//
+// THE FIX IS TO MOVE THE BED, not to tune it. The groove goes into the
+// RETAINER, which is a flat ring and prints groove-up on solid material; the
+// carrier's wet face becomes a plain flat land with one tapered aperture. The
+// seal is unchanged in kind -- the membrane is still nipped between an O-ring
+// on one side and a flat land on the other -- it is merely mirrored, so that
+// every surface that matters is printed onto something instead of over nothing.
+//
+// Consequences, all of them wanted:
+//   - the carrier has NO feature under one layer and NO bridge (the aperture
+//     opens downward as a cone, so each layer's hole is wider than the one
+//     below it);
+//   - the groove now has a REAL inner wall, so the ring cannot migrate over
+//     the gas path -- the failure `mem_ring_inner_d` above only tripwires;
+//   - the groove is on the WET side of the membrane, so it stops counting
+//     against the 5.0 cm3 connected-volume budget;
+//   - the vestigial Ø22 heater shelf goes with it (RING-PCB.md moved the heater
+//     into the spigot bore, head-side), which removes 380 mm3 of cavity.
+//
+// SIZED FOR THE RING IN THE DRAWER: 17.0 x 2.5, against the 17.0 x 1.0 the
+// legacy bed uses. The fat cord is not a compromise, it is the second half of
+// the fix: the DIN cord tolerance is an ABSOLUTE band, so it costs 3.6 squeeze
+// points on a 2.5 cord where it cost 12.1 on a 1.0, and the groove depth may
+// then err by tenths instead of hundredths. Ø20 x 2 was the alternative and
+// does not fit: its groove would put the membrane disc at Ø28, which collides
+// with the Ø32.1 bolt circle. Ø14 x 2.5 is bore-inside-the-window, dead on
+// sight.
+
+face_ring_id   = 17.0;      // ON HAND, uncatalogued: measure before trusting
+face_ring_cord = 2.5;
+// DIN ISO 3601-1 / DIN 3771 tolerance rows, same table as mem_cord_tol above,
+// one band up: 1.8 < d2 <= 2.65.
+face_cord_tol  = 0.09;
+face_id_tol    = 0.22;      // d1 = 17 row; only moves stretch, second order
+// Inner groove wall. 0.8 = two 0.4 mm beads: the smallest wall that is a
+// deliberate two-perimeter feature rather than whatever Arachne decides to do
+// with a sliver. This is the dimension the legacy bed did not have AT ALL.
+face_wall_min  = 0.8;
+// Groove width as a multiple of cord. 1.45, matching the reasoning at
+// groove_w_factor above: the binding case is not the nominal fill but the
+// worst corner (fattest cord, shallowest groove), and widening the groove is
+// the cheap axis -- it costs retainer diameter, which there is room for.
+face_groove_w_factor = 1.45;
+// The build layer this bed is quantized to. A groove depth that is not an
+// integer number of layers is a groove depth the slicer chooses, not one the
+// model does -- and squeeze is 1 - gap/cord, so that choice is a seal
+// dimension. If the part is sliced at another layer height, this must move
+// with it and the depth is re-derived.
+face_layer_h   = 0.2;
+// Membrane counterbore in the retainer's underside: exactly ONE layer, so the
+// disc is located without asking the slicer to print a fraction of one. The
+// retainer bottoms on the carrier flange outside it, which is what makes
+// squeeze geometric rather than a function of screw torque.
+face_seat_depth = 0.2;
+face_disc_ledge = 1.0;      // membrane rim outboard of the groove
+face_squeeze_target = 0.25;
+
+// --- derived ---------------------------------------------------------------
+
+// The groove's inner wall stands on the retainer bore, which is the window.
+function face_groove_id(window_d) = window_d + 2*face_wall_min;
+// The ring is stretched onto that wall. Same 5% rule as the radial ring.
+function face_stretch(window_d) = face_groove_id(window_d)/face_ring_id - 1;
+function face_cord_fitted(window_d, cord=face_ring_cord) =
+    cord * (1 - face_stretch(window_d)/2);
+// Depth, quantized to the build layer. Solved so that the ASSEMBLED gap --
+// groove depth plus the seat's 0.02 mm of slack over the membrane -- lands as
+// close to face_squeeze_target as an integer layer count allows.
+function face_groove_depth(window_d) =
+    round((face_cord_fitted(window_d)*(1 - face_squeeze_target)
+           - (face_seat_depth - membrane_t)) / face_layer_h) * face_layer_h;
+// What the ring is actually squeezed to. The membrane sits in a seat one layer
+// deep and is 0.18 thick, so it leaves 0.02 mm of slack that the ring takes up.
+function face_gap(window_d) =
+    face_groove_depth(window_d) + face_seat_depth - membrane_t;
+function face_groove_w() = face_groove_w_factor * face_ring_cord;
+function face_groove_od(window_d) = face_groove_id(window_d) + 2*face_groove_w();
+function face_disc_d(window_d) = face_groove_od(window_d) + 2*face_disc_ledge;
+// Squeeze and fill, as functions of the corner being asked about rather than of
+// the nominal -- the nominal is the one number that cannot fail.
+function face_squeeze(window_d, cord, gap) = (cord - gap) / cord;
+function face_fill(window_d, cord, gap) =
+    (PI/4 * cord*cord) / (face_groove_w() * gap);
+// The groove-depth error at which the thin end of the cord band reaches `floor`.
+// DERIVED, exactly as mem_depth_tol_max() is: nobody has measured what depth a
+// printed retainer holds, so this is stated as the REQUIREMENT it is.
+// Two of them, because this bed is bounded at BOTH ends and by different rings.
+// The floor (a leak, now) is reached by the THIN end of the cord band in a
+// groove cut too deep; the ceiling (compression set, over years) by the FAT end
+// in one cut too shallow. Quoting only the floor -- which is what the legacy bed
+// did -- hides the tighter of the two.
+function face_depth_tol_max(window_d, floor, cord_tol=face_cord_tol) =
+    face_cord_fitted(window_d, face_ring_cord - cord_tol) * (1 - floor)
+    - face_gap(window_d);
+function face_depth_tol_min(window_d, ceiling, cord_tol=face_cord_tol) =
+    face_gap(window_d)
+    - face_cord_fitted(window_d, face_ring_cord + cord_tol) * (1 - ceiling);
+
+// --- modules ---------------------------------------------------------------
+
+// The carrier's whole wet-side core, for the clamped bed: one tapered aperture
+// and nothing else. `dry_d` is the spigot bore, so the cone lands exactly on it
+// and there is no ledge anywhere in the part to bridge. Cut with the DRY face
+// at z = 0 and the wet face at z = plate_t.
+module clamped_core_cuts(window_d, dry_d, plate_t, eps=0.02) {
+    assert(dry_d >= window_d,
+           str("the dry side Ø", dry_d, " is narrower than the Ø", window_d,
+               " window: the aperture would close going down, which is both a ",
+               "constriction in front of the membrane and an overhang"));
+    assert(atan(((dry_d - window_d)/2) / plate_t) <= 45,
+           str("aperture taper is ", atan(((dry_d - window_d)/2)/plate_t),
+               " degrees off vertical; over 45 it needs support"));
+    // Overshoot ALONG THE CONE'S OWN SLOPE, not straight out. A cone extended
+    // with its end diameters unchanged is a slightly different cone: it would
+    // put the window at Ø(window_d + 2*eps*slope) and leave a four-micron ledge
+    // where the aperture meets the spigot bore -- a coincident face turned into
+    // a near-coincident one, which is the shape CGAL makes slivers out of.
+    over = (dry_d - window_d) * eps / plate_t;
+    translate([0, 0, -eps])
+        cylinder(d1=dry_d + over, d2=window_d - over, h=plate_t + 2*eps);
+}
+
+// The bed itself, cut into the retainer's underside. Call with the underside at
+// z = 0, cutting into +Z; the caller mirrors the part for printing.
+module clamped_bed_cuts(window_d, eps=0.02) {
+    depth = face_groove_depth(window_d);
+    // Membrane seat, one layer deep, +0.4 on diameter so a hand-cut disc drops in.
+    translate([0, 0, -eps])
+        cylinder(d=face_disc_d(window_d) + 0.4, h=face_seat_depth + eps);
+    // The groove, as an ANNULUS. A plain cylinder here would remove the inner
+    // wall -- which is the entire point of this bed -- and would do it silently:
+    // the part still renders as one solid and every dimension still echoes.
+    // Overshoots staggered against the seat above for the same coincident-face
+    // reason as the round core.
+    translate([0, 0, -2*eps])
+        difference() {
+            cylinder(d=face_groove_od(window_d),
+                     h=face_seat_depth + depth + 2*eps);
+            translate([0, 0, -eps])
+                cylinder(d=face_groove_id(window_d),
+                         h=face_seat_depth + depth + 4*eps);
+        }
+}

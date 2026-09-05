@@ -423,3 +423,142 @@ of the seal geometry only.
   membrane gasket.
 - The membrane gasket is unsourced — material, hardness, thickness, preload.
 - The 6 + 2 screws are unsourced, with an unsourced pilot diameter.
+
+---
+
+# The membrane bed did not print — diagnosis and fix, 2026-09-05
+
+A carrier photographed on 2026-09-05 came off the plate with **filament strung
+right across the aperture**, ragged slivers on the flange face, and a groove of
+visibly uneven depth. Every gate in the model was green when it was exported.
+This section is why, and what changed.
+
+## Why it printed like that
+
+`carrier_printed()` mirrors the part so it prints **wet face down**. That is not
+a preference and it does not change below: the flange is 6.05 mm wider than the
+spigot per side, so any other orientation puts that step in mid-air and needs
+support. Printing wet face down turns every wet-side feature upside down, and
+the legacy bed has three features that do not survive the inversion.
+
+1. **The membrane seat is thinner than one layer.** It is `membrane_t` = 0.18 mm
+   deep. At 0.2 mm layers there is no way to print a 0.18 mm step: the slicer
+   drops it or places it a whole layer out. What is left of it is the 0.862 mm
+   membrane ledge, printed as a single free-floating bead 0.18 mm above the
+   plate. Those are the slivers on the face.
+2. **The O-ring groove becomes a ceiling, and its floor is bridged across the
+   hole.** Inverted, the groove's floor — the surface that *sets squeeze* — is an
+   annulus running from the flare cone at Ø16.48 out to Ø19.58, printed over air
+   at 0.93 mm, and **its inner boundary is the open aperture**. An annular ledge
+   with no inner anchor is not a bridge the slicer can span across 1.55 mm; it
+   anchors on the far rim and lays lines straight over the window. That is the
+   web in the photograph.
+3. **Nothing is a multiple of anything.** Groove 0.75 mm deep (3.75 layers) and
+   1.55 mm wide (≈3.9 beads at 0.4). The floor comes out as one bridged layer
+   plus gap fill, at whatever height the slicer rounds to. Since
+   `squeeze = 1 − gap/cord`, an uneven groove **is** an uneven seal — the
+   unevenness is not cosmetic here the way the bolt-hole voids above are.
+
+The common cause is that the bed was designed in the orientation it is *drawn*
+in (wet face up, where all three features are ordinary milling cuts) and printed
+in the orientation the *flange* dictates.
+
+## The fix: move the bed, do not tune it
+
+The groove moves out of the carrier and into the **retainer**, whose underside it
+is cut into. The retainer is a flat ring, so it can be printed groove-up on solid
+material with no overhang anywhere. The carrier's wet face becomes a plain flat
+land with one tapered aperture.
+
+The seal is unchanged in kind. The membrane is still nipped between an O-ring on
+one side and a flat land on the other; the stack is mirrored, not redesigned:
+
+    retainer   ── O-ring in its groove ──┐
+    membrane   ─────────────────────────┤  same joint, upside down
+    carrier    ── flat land ────────────┘
+
+Consequences, all of them wanted:
+
+- the carrier has **no feature under one layer and no bridge**. Its aperture
+  opens *downward* as an 11.31° cone from Ø16 at the wet face to Ø18 at the
+  spigot bore, so every layer's hole is wider than the one below it, and the
+  cone lands exactly on the bore so there is no ledge left anywhere in the part;
+- the groove now has a **real inner wall**, 0.8 mm — two deliberate beads — on
+  the retainer bore. The legacy bed had none at all: its inner boundary was the
+  flare cone, which is also why `mem_ring_inner_d` could only ever tripwire;
+- the groove sits on the **wet side** of the membrane, so it stops counting
+  against the 5.0 cm³ connected-volume budget;
+- the vestigial Ø22 heater counterbore goes with it — `RING-PCB.md` put the
+  heater in the spigot bore, head-side — which removes 380 mm³ of cavity. Net,
+  the core void drops from 1258 + 21 mm³ to **1136 mm³**.
+
+`mem_seal = "clamped"` selects it and is now the default. `mem_seal = "cone"`
+still builds the legacy bed, gates and all, for the machined-PP route.
+
+## The ring: 17.0 × 2.5, chosen from what is in the drawer
+
+Three sizes were on hand — 17 × 2.5, 20 × 2, 14 × 2.5.
+
+| | verdict |
+|---|---|
+| **17.0 × 2.5** | **chosen.** Groove Ø17.6/Ø24.85 × 1.8, membrane disc Ø26.85, 1.03 mm clear of the bolt holes |
+| 20 × 2 | rejected on **size**: its groove puts the membrane disc at Ø28.0 against a bolt-hole inner edge at Ø29.3 |
+| 14 × 2.5 | rejected on sight: the bore is *inside* the Ø16 window |
+
+The fat cord is not a compromise, it is the second half of the fix. The DIN
+ISO 3601 cord tolerance is an **absolute** band, so ±0.09 on a 2.5 cord costs
+**5.34 squeeze points** where ±0.08 on the legacy 1.0 cord cost 12.1. That is
+what buys the depth tolerance back:
+
+| | legacy 17 × 1.0 | clamped 17 × 2.5 |
+|---|---:|---:|
+| assembled gap | 0.750 | 1.820 |
+| nominal squeeze | 25.0 % | 25.9 % |
+| depth may err by | **±0.032 mm** | **+0.192 / −0.039 mm** |
+| worst-corner fill | 78.2 % | 78.8 % |
+
+Both ends are quoted deliberately. The **floor** (15 %, a leak, now) is reached
+by the thin end of the cord band in a groove cut too deep; the **ceiling** (30 %,
+compression set, over years) by the fat end in one cut too shallow. The ceiling
+is the tighter end on this bed and it is the benign one — quoting only the floor,
+as the legacy bed did, would hide it. Micrometering the rings on receipt
+(`face_sorting = "sorted"`) opens the ceiling from 0.039 to 0.094 mm and costs
+nothing: the rings are here.
+
+Install stretch is 3.53 % nominal onto the Ø17.6 inner wall, 4.89 % on a ring at
+the thin end of the DIN d1 band — inside the 5 % rule, with 0.11 points to spare.
+It is asserted at that end, not at the nominal.
+
+## What this asks of the slicer
+
+**The groove depth is an integer number of layers and that is a seal dimension.**
+1.8 mm = 9 layers of 0.2. Slice this part at any other layer height and the depth
+becomes whatever the slicer rounds to — the model asserts the multiple, but it
+cannot see the slicer, so `face_layer_h` must be moved with the profile and the
+depth re-derived.
+
+Orientation, both parts, no support:
+
+- **carrier** — wet face down, unchanged from before (the flange step forces it);
+- **retainer** — **groove up**. Flat side down is what the legacy ring wanted and
+  is exactly wrong now: it would put the bed's floor in the air over the retainer
+  bore, which is the same bridge that ruined the carrier.
+
+`retainer_t` moves 3.0 → **4.0**. The bed takes 2.0 mm out of the underside and
+the web that reacts the ring would otherwise be 1.0 mm, which bows and gives back
+the squeeze the groove depth was set to hold. It costs 1.0 mm of probe length
+through `cap_stack`.
+
+## Still open on this bed
+
+- **The rings are uncatalogued.** 17 × 2.5 is a size in a drawer, not a part
+  number: material, hardness, cure system and cord tolerance are all assumed
+  (EPDM 70 peroxide and the DIN band are what the model uses). Micrometer the
+  cord before trusting any squeeze figure here, and do not carry the
+  ammonia-compatibility argument over from `ORS116731` — that argument rests on
+  a **specific compound test report**, which these rings do not come with.
+- **Preload is still unverified**, exactly as for the legacy bed: an O-ring
+  seals on a line at far lower load than the washer bracket assumed, and PTFE
+  cold-flows. Mirroring the joint does not change that risk, it only moves which
+  face the line lands on — now the membrane's **wet** face.
+- **Nothing has been printed yet.** Every number above is from the model.

@@ -153,6 +153,47 @@ head-end-exploded: | $(OUT)
 		-o $(OUT)/head-end-exploded.png $(HEAD_END)
 	cd .. && python3 cad/label-exploded.py
 
+# The ASA, no-weld carrier: the parts to actually print, with the clamped
+# membrane bed. Three switches have to move together and none of them is
+# cosmetic, which is why this is its own target rather than a note in a doc:
+#
+#   carrier_material=asa   no weld is possible to ASA, so the membrane is
+#                          clamped -- that IS this build
+#   carrier_fab=printed    turns on the measured shrinkage compensation on the
+#                          radial groove root. Exporting the machined geometry
+#                          and printing it is how carrier 1 came out at 24.800
+#                          and squeezed 14.90% against a 15% floor
+#   oring_sorting=sorted   a printed carrier's +/-0.09 plus a catalogue ring's
+#                          +/-0.08 spends 15.06 of 15 squeeze points and the
+#                          band assert fires. Micrometering the Ø24 x 1.5 rings
+#                          on receipt is not optional on this route
+#
+# The clamped bed's own ring (17 x 2.5, on hand) wants the same micrometer --
+# see face_sorting in the model and PRINTING-HEAD-END.md.
+ASA := $(HEAD_END_PROV) -D 'carrier_material="asa"' -D 'carrier_fab="printed"' \
+       -D 'oring_sorting="sorted"' -D 'mem_seal="clamped"'
+
+.PHONY: head-end-asa
+head-end-asa: | $(OUT)
+	@for p in carrier retainer; do \
+		$(OPENSCAD) --hardwarnings $(ASA) -D "part=\"$$p\"" \
+			-o $(OUT)/asa-$$p.stl $(HEAD_END) 2>$(OUT)/.asa-$$p.log || \
+			{ cat $(OUT)/.asa-$$p.log; exit 1; }; \
+		v=`sed -n 's/.*Volumes: *\([0-9]*\).*/\1/p' $(OUT)/.asa-$$p.log | tail -1`; \
+		if [ "$$v" != "2" ]; then \
+			echo "FAIL asa-$$p: $$v volumes, expected 2"; exit 1; \
+		fi; \
+		rm -f $(OUT)/.asa-$$p.log; \
+	done
+	@for p in carrier retainer; do \
+		$(OPENSCAD) --hardwarnings $(ASA) -D "part=\"$$p-print\"" \
+			-o $(OUT)/asa-$$p-print.stl $(HEAD_END) 2>/dev/null || \
+			{ echo "FAIL asa-$$p-print"; exit 1; }; \
+	done
+	$(OPENSCAD) $(ASA) -D 'part="plate"' -D 'plate_set="pair"' \
+		-o $(OUT)/asa-carrier-pair.3mf $(HEAD_END)
+	@echo "ASA carrier + retainer: exports/asa-*-print.stl, exports/asa-carrier-pair.3mf"
+
 # ---------------------------------------------------------------- body tube
 # Printed ASA body for prototype 1: unpotted Rev-A board, no heater ring.
 # `tube` and `cap` must each come out as ONE closed solid (CGAL "Volumes: 2");

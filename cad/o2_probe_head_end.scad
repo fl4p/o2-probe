@@ -138,10 +138,14 @@ echo(str("FASTENING: ", fastening, use_insert
 // ------------------------------------------------- design parameters
 
 board_w = 20.0;             // KiCad Edge.Cuts, controlled
-// 1.6 on Fab's instruction 2026-09-05, against PLACEMENT.md's 1.0. It is NOT
-// cosmetic here: board_t feeds board_swept -> board_diag -> bore_d, so it moves
-// the cavity the 5.0 cm3 budget is measured on. See the volume gate.
-board_t = 1.6;              // KiCad says 1.0; Fab 2026-09-05 says assume 1.6
+// CONFIRMED 2026-09-05 (Fab): "board_t = 1.6 is correct for Rev A". This is no
+// longer an assumption to be reconciled -- it is the built thickness, and the
+// fab data is what disagrees with it: o2-probe.kicad_pcb's stackup is a 0.910 mm
+// dielectric and PLACEMENT.md still specifies "1.0 mm, 4 layers". Those are the
+// files that need correcting, not this one.
+// It is NOT cosmetic here: board_t feeds board_swept -> board_diag -> bore_d, so
+// it moves the cavity the 5.0 cm3 budget is measured on. See the volume gate.
+board_t = 1.6;              // Rev A, confirmed
 // MEASURED 2026-09-04 (Fab): 14.62 mm on a real can, against DS-0637 Iss. 2's
 // 14.4 nominal -- +0.22 on diameter. A measured interface dimension supersedes a
 // datasheet nominal, so this is the number the geometry is cut to. CAUTION: it is
@@ -227,6 +231,24 @@ flange_margin = 4.0;
 // The sealing core lives entirely in the flange, so the flange IS the core.
 flange_t = cart_t;
 carrier_fit = 0.3;
+
+// WHICH MEMBRANE BED. Two are kept, and they are not variants of a preference:
+//   "cone"     the legacy bed -- O-ring 17.0 x 1.0 (ORS116731) in a groove cut
+//              into the CARRIER's wet face, bounded inward by the flare cone.
+//              Correct on paper and SOURCED, but it does not print: see the
+//              long note at the head of the CLAMPED FACE SEAL section in
+//              membrane_cartridge_common.scad, and the photograph of a real
+//              carrier with filament strung across the aperture.
+//   "clamped"  the printable bed -- O-ring 17.0 x 2.5 in a groove cut into the
+//              RETAINER's underside, over a flat carrier land. Same seal,
+//              mirrored, so that every surface that sets squeeze is printed
+//              onto solid material instead of over air.
+// The default is "clamped" because the carriers being printed now are ASA and
+// the legacy bed is the one that failed on the bench, not in the model.
+mem_seal = "clamped";
+assert(mem_seal == "cone" || mem_seal == "clamped",
+       str("unknown mem_seal '", mem_seal, "'"));
+mem_clamped = (mem_seal == "clamped");
 
 // SOURCED 2026-09-02, ../../tech/PROBE-CARRIER-SOURCING.md: o-ring-stocks.eu
 // ORS116787, EPDM 70 Shore A peroxide-cured, 24.0 x 1.5 DIN 3771. NOT a derived
@@ -318,7 +340,12 @@ oring_cord_tol = (oring_sorting == "sorted") ? 0.01 : 0.08;
 groove_w_factor = 1.40;     // groove width as a multiple of cord
 lead_chamfer = 1.0;         // so the O-ring is not shaved on assembly
 
-retainer_t = 3.0;
+// 4.0 for the clamped bed, 3.0 for the legacy one. The clamped retainer carries
+// the O-ring groove, so it loses face_seat_depth + the groove depth (2.0 mm) out
+// of its underside and what is left is the web that reacts the ring. At 3.0 that
+// web is 1.0 mm and bows, which would bleed squeeze off exactly where it is
+// being set. It costs 1.0 mm of probe length, through cap_stack.
+retainer_t = mem_clamped ? 4.0 : 3.0;
 // SIX, not four. The four-screw choice was made when the radial O-ring was
 // thought to have taken all seal load off these screws; a review found that is
 // only true of the carrier-to-head joint -- the retainer still compresses the
@@ -543,9 +570,16 @@ cav_board_len = 2.0;   // board tip inside the cavity; volume is tight
 cav_clear_len = cell_axial_len;          // guard_gap is OUTSIDE the membrane
 // Now counts the spigot bore and the flare stack as well, because a bore-only
 // figure understates: it passed at 2.68 cm3 while the mesh measured 5.81.
-core_gas = PI*pow(mouth_d/2,2)*heater_shelf_t
-         + PI*(cart_t - pocket_depth - heater_shelf_t)/12
-           * (pow(mouth_d,2) + mouth_d*window_d + pow(window_d,2));
+// The clamped core is ONE frustum through the whole flange, spigot bore to
+// window -- no Ø22 heater counterbore (RING-PCB.md put the heater in the spigot
+// bore instead) and no groove on this side of the membrane. It is 1136 mm3
+// against the legacy 1258 + 21, so the bed change BUYS cavity budget rather
+// than spending it.
+core_gas = mem_clamped
+    ? PI*flange_t/12 * (pow(spigot_bore,2) + spigot_bore*window_d + pow(window_d,2))
+    : PI*pow(mouth_d/2,2)*heater_shelf_t
+      + PI*(cart_t - pocket_depth - heater_shelf_t)/12
+        * (pow(mouth_d,2) + mouth_d*window_d + pow(window_d,2));
 cav_net = PI*pow(bore_d/2,2)*cav_board_len - board_w*board_t*cav_board_len
         + PI*pow(neck_d/2,2)*cav_clear_len - cell_disp
         + PI*pow(spigot_bore/2,2)*spigot_len + core_gas;
@@ -711,7 +745,7 @@ mem_floor = 0.15;                    // same gas-sealing floor as the radial rin
 mem_dtol_max = mem_depth_tol_max(mem_oring_cs, mem_floor);
 // Feasibility BEFORE any process claim: if the cord band alone breaks the floor,
 // a PERFECT groove cannot rescue it and the answer is a fatter cord or sorting.
-assert(mem_dtol_max > 0,
+assert(mem_clamped || mem_dtol_max > 0,
        str("cord tolerance alone (+/-", mem_cord_tol, " on a ", mem_oring_cs,
            " cord) puts squeeze at ", mem_squeeze_min(mem_oring_cs, 0)*100,
            "% before the groove depth errs at all, against a ", mem_floor*100,
@@ -723,7 +757,7 @@ assert(mem_dtol_max > 0,
 // and would fire a copied `oring_fill_max` assert spuriously.
 mem_fill_worst = mem_fill_real(window_d, mem_oring_cs + mem_cord_tol,
                                gasket_gap - mem_dtol_max, heps);
-assert(mem_fill_worst <= 0.85,
+assert(mem_clamped || mem_fill_worst <= 0.85,
        str("worst-corner membrane-groove fill is ", mem_fill_worst*100,
            "% (cord ", mem_oring_cs + mem_cord_tol, " in a ",
            gasket_gap - mem_dtol_max, " deep groove): the ring hydraulically ",
@@ -734,10 +768,90 @@ assert(mem_fill_worst <= 0.85,
 // exactly the failure the cut washer had. window_d is ALSO the retainer bore,
 // so this is what guarantees the retainer still backs the ring where it lands.
 mem_ring_inner_d = flare_d_at(cart_t - pocket_depth, window_d, heps);
-assert(mem_ring_inner_d >= window_d,
+assert(mem_clamped || mem_ring_inner_d >= window_d,
        str("the flare cone reaches ", mem_ring_inner_d, " at the groove floor, ",
            "inside the ", window_d, " window and the retainer bore: the ring ",
            "can slide over the gas path with nothing above it"));
+
+// ---- membrane perimeter seal, CLAMPED BED -----------------------------------
+// The bed in the retainer. Same six questions the radial ring answers, asked of
+// a ring that is IN THE DRAWER rather than in a catalogue -- so the first thing
+// to say about it is that its dimensions are nominal until someone puts a
+// micrometer on one.
+//
+// Sorting is the lever this bed leans on, and unlike the radial ring's it costs
+// nothing to pull: the rings are here, and the cord band is what sets both
+// tolerance ends below.
+face_sorting = "catalogue";      // "catalogue" | "sorted" (micrometered on receipt)
+face_cord_tol_eff = (face_sorting == "sorted") ? 0.01 : face_cord_tol;
+face_floor = 0.15;               // leaks below this -- same floor as every other seal here
+face_ceiling = 0.30;             // takes compression set above it
+face_dtol_max = face_depth_tol_max(window_d, face_floor, face_cord_tol_eff);
+face_dtol_min = face_depth_tol_min(window_d, face_ceiling, face_cord_tol_eff);
+face_gap_nom = face_gap(window_d);
+face_cord_fit = face_cord_fitted(window_d);
+face_sq_nom = face_squeeze(window_d, face_cord_fit, face_gap_nom);
+
+// Feasibility BEFORE any process claim, exactly as the legacy bed asks it: if
+// the cord band alone breaks a limit, a perfect groove cannot rescue it.
+assert(!mem_clamped || face_dtol_max > 0,
+       str("cord tolerance alone (+/-", face_cord_tol_eff, " on a ",
+           face_ring_cord, " cord) puts squeeze under the ", face_floor*100,
+           "% floor before the groove depth errs at all. Sort the rings, or ",
+           "cut the groove one layer shallower"));
+assert(!mem_clamped || face_dtol_min > 0,
+       str("cord tolerance alone (+/-", face_cord_tol_eff, ") puts squeeze over ",
+           face_ceiling*100, "% before the groove depth errs at all: the ring ",
+           "takes compression set. Sort the rings, or cut one layer deeper"));
+
+// Install stretch, at both ends of the ring's OWN ID band -- the nominal cannot
+// fail, and it is the thin-ID ring that overstretches.
+face_stretch_nom = face_stretch(window_d);
+face_stretch_max = face_groove_id(window_d)/(face_ring_id - face_id_tol) - 1;
+assert(!mem_clamped || face_stretch_max <= 0.05,
+       str("install stretch reaches ", face_stretch_max*100, "% on a ",
+           face_ring_id - face_id_tol, " ID ring (DIN band +/-", face_id_tol,
+           "), against the 5% rule. Narrow the inner wall, or take a larger ID"));
+
+// Worst corner for fill: fattest cord in the shallowest groove the ceiling
+// still permits. A locked ring cannot be squeezed the last few points and the
+// retainer then stops bottoming, which is what makes squeeze geometric.
+face_fill_worst = face_fill(window_d,
+                            face_cord_fitted(window_d, face_ring_cord + face_cord_tol_eff),
+                            face_gap_nom - face_dtol_min);
+assert(!mem_clamped || face_fill_worst <= 0.85,
+       str("worst-corner bed fill is ", face_fill_worst*100,
+           "%: the ring hydraulically locks. Raise face_groove_w_factor"));
+
+// The membrane disc has to fit between the groove and the bolt circle, and this
+// is the dimension that killed the Ø20 x 2 alternative -- its disc lands at
+// Ø28.0 against a bolt-hole inner edge at Ø29.3.
+face_disc_edge = bolt_r - m25_clear/2 - (face_disc_d(window_d) + 0.4)/2;
+assert(!mem_clamped || face_disc_edge >= 0.8,
+       str("the Ø", face_disc_d(window_d) + 0.4, " membrane seat leaves only ",
+           face_disc_edge, " mm to the bolt holes on a Ø", 2*bolt_r,
+           " circle. Reduce face_disc_ledge or face_groove_w_factor, or take a ",
+           "smaller-ID ring"));
+
+// What is left of the retainer over the groove. This is why retainer_t moved to
+// 4.0: the web reacts the ring, and a web that bows gives squeeze back.
+face_web = retainer_t - face_seat_depth - face_groove_depth(window_d);
+assert(!mem_clamped || face_web >= 1.6,
+       str("only ", face_web, " mm of retainer over the bed groove: it bows ",
+           "under the ring and bleeds off the squeeze the groove depth sets"));
+
+// Tripwires. Both reduce to identities as written, and both are kept because a
+// hand-set depth or a re-sliced layer height is exactly how this bed goes back
+// to being unprintable without anything complaining.
+assert(!mem_clamped
+       || abs(face_groove_depth(window_d)/face_layer_h
+              - round(face_groove_depth(window_d)/face_layer_h)) < 1e-9,
+       str("groove depth ", face_groove_depth(window_d), " is not an integer ",
+           "number of ", face_layer_h, " mm layers, so the SLICER picks the ",
+           "depth and the slicer does not know it is a seal dimension"));
+assert(!mem_clamped || (face_groove_id(window_d) - window_d)/2 >= face_wall_min,
+       str("the bed's inner wall is ", (face_groove_id(window_d) - window_d)/2,
+           " mm: under ", face_wall_min, " it is a sliver, not two beads"));
 
 // ---- seal-land thermometry --------------------------------------------------
 //
@@ -845,42 +959,81 @@ echo(str("CARRIER: ", carrier_material, carrier_is_pp
          : str(" -- printed like the head. NO weld is possible to ASA, so the ",
                "membrane is compression-only, and a styrenic under sustained ",
                "gasket load in NH3 is an environmental-stress-cracking risk")));
-echo(str("MEMBRANE SEAL: O-ring ", gasket_id(window_d), " x ", mem_oring_cs,
-         " -- o-ring-stocks.eu ORS116731, EPDM 70 Shore A peroxide, material ",
-         "127019011 (the SAME compound as the carrier ring ORS116787, so one ",
-         "test report covers both). Groove Ø", groove_od(window_d), " x ",
-         gasket_gap, " deep, bounded inward NOT by a wall but by the flare cone ",
-         "at Ø", mem_ring_inner_d, ": achieved fill ",
-         mem_fill_real(window_d, mem_oring_cs, gasket_gap, heps)*100, "%, which ",
-         "is NOT the ", mem_oring_fill*100, "% sizing basis groove_od() solved ",
-         "against a nominal annulus from Ø", gasket_id(window_d),
-         ". Membrane ledge ", membrane_ledge(window_d), " mm. Bore clears ",
-         "the flare (", flare_d_at((cart_t - membrane_t)
-                                   - gasket_t*(1 - gasket_squeeze),
-                                   window_d, heps),
-         " at the ring's far end, where the cone is widest), so it seals beside ",
-         "the gas path, not in front of it."));
-echo(str("MEMBRANE SEAL squeeze is set by GEOMETRY, not screw torque -- the ",
-         "retainer bottoms on the ledge -- nominal ",
-         (1 - gasket_gap/mem_oring_cs)*100, "%. REQUIREMENT: hold the groove ",
-         "depth to +/-", mem_dtol_max, " mm, or squeeze falls under ",
-         mem_floor*100, "%. Cord tolerance alone (+/-", mem_cord_tol,
-         ", DIN ISO 3601 d2<=1.8) already spans ",
-         mem_squeeze_min(mem_oring_cs, 0)*100, "-",
-         mem_squeeze_max(mem_oring_cs, 0)*100, "% = ",
-         (mem_squeeze_max(mem_oring_cs, 0)
-          - mem_squeeze_min(mem_oring_cs, 0))*100, " points on CATALOGUE cord. ",
-         "The radial ring spends ", oring_band_cord*100, " (", oring_sorting,
-         ") on a 1.5 cord; sorting is open to both rings and is the same lever ",
-         "here. ",
-         "Worst-corner fill ", mem_fill_worst*100, "%."));
+if (!mem_clamped) {
+    echo(str("MEMBRANE SEAL: O-ring ", gasket_id(window_d), " x ", mem_oring_cs,
+             " -- o-ring-stocks.eu ORS116731, EPDM 70 Shore A peroxide, material ",
+             "127019011 (the SAME compound as the carrier ring ORS116787, so one ",
+             "test report covers both). Groove Ø", groove_od(window_d), " x ",
+             gasket_gap, " deep, bounded inward NOT by a wall but by the flare cone ",
+             "at Ø", mem_ring_inner_d, ": achieved fill ",
+             mem_fill_real(window_d, mem_oring_cs, gasket_gap, heps)*100, "%, which ",
+             "is NOT the ", mem_oring_fill*100, "% sizing basis groove_od() solved ",
+             "against a nominal annulus from Ø", gasket_id(window_d),
+             ". Membrane ledge ", membrane_ledge(window_d), " mm. Bore clears ",
+             "the flare (", flare_d_at((cart_t - membrane_t)
+                                       - gasket_t*(1 - gasket_squeeze),
+                                       window_d, heps),
+             " at the ring's far end, where the cone is widest), so it seals beside ",
+             "the gas path, not in front of it."));
+    echo(str("MEMBRANE SEAL squeeze is set by GEOMETRY, not screw torque -- the ",
+             "retainer bottoms on the ledge -- nominal ",
+             (1 - gasket_gap/mem_oring_cs)*100, "%. REQUIREMENT: hold the groove ",
+             "depth to +/-", mem_dtol_max, " mm, or squeeze falls under ",
+             mem_floor*100, "%. Cord tolerance alone (+/-", mem_cord_tol,
+             ", DIN ISO 3601 d2<=1.8) already spans ",
+             mem_squeeze_min(mem_oring_cs, 0)*100, "-",
+             mem_squeeze_max(mem_oring_cs, 0)*100, "% = ",
+             (mem_squeeze_max(mem_oring_cs, 0)
+              - mem_squeeze_min(mem_oring_cs, 0))*100, " points on CATALOGUE cord. ",
+             "The radial ring spends ", oring_band_cord*100, " (", oring_sorting,
+             ") on a 1.5 cord; sorting is open to both rings and is the same lever ",
+             "here. ",
+             "Worst-corner fill ", mem_fill_worst*100, "%."));
+} else {
+    echo(str("MEMBRANE BED (clamped, printable): O-ring ", face_ring_id, " x ",
+             face_ring_cord, " -- ON HAND, uncatalogued, dimensions NOMINAL ",
+             "until micrometered. Groove Ø", face_groove_id(window_d), "/Ø",
+             face_groove_od(window_d), " x ", face_groove_depth(window_d),
+             " deep = ", face_groove_depth(window_d)/face_layer_h, " layers of ",
+             face_layer_h, ", cut into the RETAINER underside over a flat ",
+             "carrier land. Inner wall ", (face_groove_id(window_d) - window_d)/2,
+             " mm on the Ø", window_d, " bore -- the legacy bed had none. ",
+             "Membrane disc Ø", face_disc_d(window_d), " in a Ø",
+             face_disc_d(window_d) + 0.4, " seat, ", face_disc_edge,
+             " mm clear of the bolt holes."));
+    echo(str("MEMBRANE BED squeeze is set by GEOMETRY -- the retainer bottoms on ",
+             "the carrier face outside the seat -- nominal ", face_sq_nom*100,
+             "% on a cord thinned to ", face_cord_fit, " by ",
+             face_stretch_nom*100, "% install stretch (", face_stretch_max*100,
+             "% on a thin-ID ring). REQUIREMENT: hold the assembled gap ",
+             face_gap_nom, " to +", face_dtol_max, "/-", face_dtol_min,
+             " mm, or squeeze leaves ", face_floor*100, "-", face_ceiling*100,
+             "%. The CEILING is the tighter end here, and it is the benign one ",
+             "-- compression set over years against a leak now. Cord band ",
+             "+/-", face_cord_tol_eff, " (", face_sorting, ") = ",
+             (face_squeeze(window_d, face_cord_fitted(window_d, face_ring_cord - face_cord_tol_eff), face_gap_nom)
+              - face_squeeze(window_d, face_cord_fitted(window_d, face_ring_cord + face_cord_tol_eff), face_gap_nom))*-100,
+             " squeeze points; the same absolute +/-0.08..0.09 costs 12.1 points ",
+             "on the legacy 1.0 cord, which is the whole case for the fat ring. ",
+             "Worst-corner fill ", face_fill_worst*100, "%."));
+    echo(str("MEMBRANE BED printability: no feature under one layer, no bridge, ",
+             "no unsupported groove floor. The carrier keeps its wet face DOWN ",
+             "on the plate (the flange overhangs the spigot by ",
+             (flange_d - spigot_d)/2, " mm, so it cannot print the other way ",
+             "up) and its aperture opens downward as a ",
+             atan(((spigot_bore - window_d)/2)/flange_t),
+             " degree cone; the retainer prints GROOVE UP. Slice at ",
+             face_layer_h, " mm layers or re-derive the depth."));
+}
 echo(str("MEMBRANE SEAL preload: UNVERIFIED. Sized on geometry only. The washer ",
          "bracket (38-115 N/screw) does NOT transfer -- an O-ring seals on a ",
          "line at far lower load. Measure it. RISK: line contact on 0.18 mm ",
          "porous PTFE may cold-flow and relax; absent if the membrane is welded ",
          "into a PP cartridge and this joint becomes PP-on-ASA."));
-echo(str("CUT LIST: PMV15T disc dia ", window_d + 2*land,
-         carrier_is_pp ? " mm, welded into the carrier" : " mm, clamped in the carrier"));
+echo(str("CUT LIST: PMV15T disc dia ",
+         mem_clamped ? face_disc_d(window_d) : window_d + 2*land,
+         carrier_is_pp && !mem_clamped ? " mm, welded into the carrier"
+                                       : " mm, clamped between retainer and carrier"));
 echo(str("fasteners: ", bolt_n, "x ", use_insert ? "M2.5 into heat-set inserts"
          : "thread-forming, nominal 2.5, into printed bosses", " on a dia ",
          2*bolt_r, " bolt circle; ", cap_screw_n,
@@ -998,8 +1151,13 @@ module carrier() {
                     cylinder(d1=spigot_d - 2*lead_chamfer, d2=spigot_d,
                              h=lead_chamfer + 3*heps);
             }
-        // The sealing core, in the flange, wet face at +Z.
-        translate([0, 0, spigot_len]) cartridge_core_cuts_round(window_d, heps);
+        // The sealing core, in the flange, wet face at +Z. Under the clamped
+        // bed there is no core to speak of: the bed moved into the retainer and
+        // what is left is ONE tapered aperture, landing exactly on the spigot
+        // bore so the part contains no ledge, no sub-layer step and no bridge.
+        translate([0, 0, spigot_len])
+            if (mem_clamped) clamped_core_cuts(window_d, spigot_bore, flange_t, heps);
+            else cartridge_core_cuts_round(window_d, heps);
         // The flange sits between the retainer and the head's end face, so the
         // clamping screws pass THROUGH it. Without these it is 5 mm of solid PP
         // in front of every boss and nothing can be assembled.
@@ -1008,10 +1166,14 @@ module carrier() {
     }
 }
 
+// z = 0 is the UNDERSIDE, the face that meets the carrier -- which is where the
+// clamped bed lives. retainer_printed() flips it, so the groove is cut downward
+// into solid material on the plate rather than bridged over air.
 module retainer() {
     difference() {
         cylinder(d=flange_d, h=retainer_t);
         translate([0, 0, -heps]) cylinder(d=window_d, h=retainer_t + 2*heps);
+        if (mem_clamped) clamped_bed_cuts(window_d, heps);
         translate([0, 0, -heps])
             bolt_positions() cylinder(d=m25_clear, h=retainer_t + 2*heps);
     }
@@ -1098,15 +1260,37 @@ module cavity() {
 module cavity_raw() {
     difference() {
         union() {
+            // MONOLITHIC OPENS THE BORE FROM z=0, and this module used to start
+            // at socket_len regardless -- so the gate measured a void the
+            // monolithic part does not have and MISSED 14 mm of Ø25.19 that it
+            // does. About 6.5 cm3, more than the whole 5.0 cm3 budget, and no
+            // gate saw it because the gate is built from this same module.
+            // Found by the 2026-09-05 Codex review.
+            //
+            // The 5.0 cm3 budget is a PRODUCTION figure -- it presumes the
+            // bonded joint and a potted board, where the tube contributes
+            // nothing. Prototype 1 is 15x over it whatever this section does
+            // (see o2_probe_body_tube.scad's gas echo), so the number that has
+            // to stay honest is the BONDED one. It is now measured on the
+            // geometry it claims to describe rather than on a fixed z.
             translate([0, 0, socket_len]) cylinder(d=bore_d, h=cav_board_len);
+            // The monolithic section, as its OWN cylinder rather than as a
+            // conditional start height -- the conditional form silently
+            // truncated the cavity's top instead of extending its bottom.
+            if (monolithic)
+                translate([0, 0, -heps]) cylinder(d=bore_d, h=socket_len + heps);
             translate([0, 0, socket_len + cav_board_len])
                 cylinder(d=neck_d, h=cav_clear_len);
             translate([0, 0, well_z - heps])
                 cylinder(d=spigot_bore, h=spigot_len + heps);
-            translate([0, 0, end_z]) cartridge_core_cuts_round(window_d, heps);
+            translate([0, 0, end_z])
+                if (mem_clamped) clamped_core_cuts(window_d, spigot_bore, flange_t, heps);
+                else cartridge_core_cuts_round(window_d, heps);
         }
-        translate([-board_w/2, -board_t/2, socket_len - heps])
-            cube([board_w, board_t, cav_board_len + 2*heps]);
+        // The board runs through the whole of it, so the slot has to as well.
+        cav_board_z0 = monolithic ? -heps : socket_len - heps;
+        translate([-board_w/2, -board_t/2, cav_board_z0])
+            cube([board_w, board_t, socket_len + cav_board_len + 2*heps - cav_board_z0]);
         // OPEN, 2026-09-04: the can is cut at the BOARD END, but the socket
         // stands it off by socket_standoff (4.7 mm at the placeholder
         // cell_axial_len), so in service its sensing face sits that much CLOSER
@@ -1204,14 +1388,25 @@ module assembly() {
     // compressed cord thickness of straight channel in front of the membrane.
     // Drawn as a squashed torus -- the free cord is mem_oring_cs, so at gasket_gap
     // the section is an ellipse, which is what a seated ring actually looks like.
-    coupon_d = window_d + 2*land;
-    color("IndianRed")
-        translate([0, 0, end_z + flange_t - pocket_depth + gasket_gap/2 + 5.6*e])
-            rotate_extrude()
-                translate([(gasket_id(window_d) + mem_oring_cs)/2, 0])
-                    scale([1, gasket_gap/mem_oring_cs]) circle(d=mem_oring_cs);
+    coupon_d = mem_clamped ? face_disc_d(window_d) : window_d + 2*land;
+    // The clamped bed is the same two parts the other way up: the membrane lies
+    // ON the carrier's flat face and the ring comes down onto it from the
+    // retainer's groove, so the ring is drawn ABOVE the membrane, not below it.
+    if (mem_clamped)
+        color("IndianRed")
+            translate([0, 0, end_z + flange_t + membrane_t + face_gap_nom/2 + 6.4*e])
+                rotate_extrude()
+                    translate([(face_groove_id(window_d) + face_cord_fit)/2, 0])
+                        scale([1, face_gap_nom/face_cord_fit]) circle(d=face_cord_fit);
+    else
+        color("IndianRed")
+            translate([0, 0, end_z + flange_t - pocket_depth + gasket_gap/2 + 5.6*e])
+                rotate_extrude()
+                    translate([(gasket_id(window_d) + mem_oring_cs)/2, 0])
+                        scale([1, gasket_gap/mem_oring_cs]) circle(d=mem_oring_cs);
     color("GhostWhite")
-        translate([0, 0, end_z + flange_t - membrane_t + 7.2*e])
+        translate([0, 0, end_z + flange_t
+                         + (mem_clamped ? 0 : -membrane_t) + 5.6*e])
             cylinder(d=coupon_d, h=membrane_t);
 
     color("LightSteelBlue") translate([0, 0, end_z + flange_t + 8.8*e]) retainer();
@@ -1353,7 +1548,14 @@ module cap_printed() {
 }
 // The retainer is a flat disc and needs no flip; it exists here only so the
 // three print-oriented exports read as one set.
-module retainer_printed() { retainer(); }
+// The clamped retainer prints GROOVE UP. Flat side down is what the legacy ring
+// wanted and it is exactly wrong here: it would put the bed's floor -- the
+// surface that sets squeeze -- in the air over the retainer bore, which is the
+// same bridge that ruined the carrier.
+module retainer_printed() {
+    if (mem_clamped) translate([0, 0, retainer_t]) mirror([0, 0, 1]) retainer();
+    else retainer();
+}
 
 module plate() {
     pitch = head_od + 8;
@@ -1373,6 +1575,31 @@ module section() {
     }
 }
 
+// ---------------------------------------------------------------- viewer
+// The sealing stack, element by element, IN ASSEMBLY COORDINATES. The three.js
+// viewer loads these with identity matrices, so it does no arithmetic of its
+// own and cannot place a part by a number copied out of this file -- the same
+// rule tools/make_viewer_parts.py enforces for the body.
+module bed_element(which) {
+    if (which == "carrier") translate([0, 0, well_z]) carrier();
+    else if (which == "retainer") translate([0, 0, end_z + flange_t]) retainer();
+    else if (which == "membrane")
+        translate([0, 0, end_z + flange_t])
+            cylinder(d=mem_clamped ? face_disc_d(window_d) : window_d + 2*land,
+                     h=membrane_t);
+    else if (which == "ring")
+        translate([0, 0, end_z + flange_t
+                         + (mem_clamped ? membrane_t + face_gap_nom/2
+                                        : -pocket_depth + gasket_gap/2)])
+            rotate_extrude()
+                translate([(mem_clamped ? face_groove_id(window_d) + face_cord_fit
+                                        : gasket_id(window_d) + mem_oring_cs)/2, 0])
+                    scale([1, mem_clamped ? face_gap_nom/face_cord_fit
+                                          : gasket_gap/mem_oring_cs])
+                        circle(d=mem_clamped ? face_cord_fit : mem_oring_cs);
+    else assert(false, str("unknown bed element '", which, "'"));
+}
+
 if (part == "section") section();
 else if (part == "plate") plate();
 else if (part == "assembly") rotate([0, view_rot, 0]) assembly();
@@ -1383,6 +1610,10 @@ else if (part == "cap") cap();
 else if (part == "monobody") monobody();
 else if (part == "cavity") cavity();
 else if (part == "void-coupon") coupon_plate();
+else if (part == "bed-carrier") bed_element("carrier");
+else if (part == "bed-retainer") bed_element("retainer");
+else if (part == "bed-membrane") bed_element("membrane");
+else if (part == "bed-ring") bed_element("ring");
 // Print-oriented single-part exports, for a slicer that takes STLs as-exported
 // and cannot be trusted to re-derive the flips.
 else if (part == "carrier-print") carrier_printed();
