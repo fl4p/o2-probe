@@ -301,14 +301,47 @@ predicate is unit-tested at both rails, inside and outside the margin, and
 across the band. **It has NOT been calibrated on hardware.** The plan was to
 inject `GAIN = 4` into the per-conversion config write over SWD, making the
 real converter saturate against a 625 mV full scale while the oxygen channel
-sits ~1.06 V off zero. The attempt was abandoned rather than completed: the
-SWD link on this bench proved unreliable (roughly half of all OpenOCD
-connections failed with `cannot read IDR`, the target reset mid-session, and
-one sequence left the application flash erased and needing a re-flash).
-Continuing to drive breakpoint injection through a link that flaky risked the
-board for a guard whose logic is three lines and fully unit-tested. **This is
-the one guard in this document without a hardware known-bad behind it**, and
-it should get one when the debug link is fixed.
+sits ~1.06 V off zero. The attempt was abandoned rather than completed
+on 2026-09-04, and the reason given then was wrong. It was recorded as an
+unreliable SWD link -- roughly half of all OpenOCD connections failing with
+`cannot read IDR`, a target reset mid-session, and one sequence leaving the
+application flash erased. **None of that was a hardware fault.** A second
+session was working the same bench under a lock this session did not know
+about, and a broad `pkill -f openocd` of theirs was killing this session's
+OpenOCD mid-run; the erased application flash was a `pio run -t upload` cut
+off mid-programming by exactly that. The board and the probe were fine
+throughout. Retracted here because "the bench hardware is flaky" is the kind
+of conclusion that stops people looking, and it was contention.
+
+**This remains the one guard in this document without a hardware known-bad
+behind it.**
+
+**Prepared 2026-09-05, prediction recorded before the measurement.** The
+injection is now a compile-time one rather than a breakpoint one: a scratch
+tree outside the repository, built with `-DO2P_INJECT_CLIP_GAIN4`, which sets
+the GAIN bit in `cfg_byte()` for `O2P_ADS_MUX_AIN0_AGND` alone. Gain 4 puts
+full scale at +/-VREF/4; the oxygen channel converts against the external
+reference, measured at 2492 mV, so full scale becomes +/-623 mV while
+AFE_VOUT sits about 1.675 V above AGND at zero current. The converter is
+therefore pinned by the real signal path, which is the point -- a forged code
+would only re-test the unit tests.
+
+Predicted, so that a wrong prediction cannot be quietly reinterpreted as a
+pass:
+
+  * every O2 sample returns +32767, or within `O2P_ADS_CLIP_MARGIN` of it;
+  * `g_acc_clipped` latches and `finish_o2()` raises `O2P_F_ADC_RANGE`
+    (bit 11), so `faults` reads `0x8801` against the `0x8001` baseline;
+  * `o2_raw_ua` publishes as a sentinel, not as the rail converted into a
+    confident current;
+  * VREF and VIN, which convert on other MUX codes, stay healthy -- if they
+    move, the injection is not channel-selective and the result says nothing
+    about the guard;
+  * re-flashing the committed image restores `faults = 0x8001` with no reset
+    needed beyond the programming cycle.
+
+Blocked at time of writing on probe selection, not on the board: see
+`~/dev/kb/tooling/openocd-cannot-select-a-serialless-cmsis-dap-probe.md`.
 
 **8. Fix vs mute.** Real: it changes what is published, not what is displayed.
 A pinned channel now withholds the reading instead of emitting the rail as a
