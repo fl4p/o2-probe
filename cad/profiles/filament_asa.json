@@ -15,7 +15,7 @@
         "200"
     ],
     "close_additional_fan_first_x_layers": [
-        "1"
+        "3"
     ],
     "close_fan_the_first_x_layers": [
         "3"
@@ -67,7 +67,7 @@
         "35"
     ],
     "fan_max_speed": [
-        "80"
+        "35"
     ],
     "fan_min_speed": [
         "10"
@@ -262,10 +262,10 @@
         "0.088"
     ],
     "hot_plate_temp": [
-        "90"
+        "105"
     ],
     "hot_plate_temp_initial_layer": [
-        "90"
+        "105"
     ],
     "impact_strength_z": [
         "4.9"
@@ -310,7 +310,7 @@
         "1"
     ],
     "slow_down_layer_time": [
-        "3"
+        "12"
     ],
     "slow_down_min_speed": [
         "20"
@@ -325,10 +325,10 @@
         "100"
     ],
     "textured_plate_temp": [
-        "90"
+        "105"
     ],
     "textured_plate_temp_initial_layer": [
-        "90"
+        "105"
     ],
     "type": "filament",
     "volumetric_speed_coefficients": [
@@ -336,6 +336,6 @@
         ""
     ],
     "filament_notes": [
-        "Elegoo ASA @System resolved values, taken from a machine export on 2026-09-05 rather than through `inherits`, which the Orca CLI does not walk. ONE DELIBERATE DEVIATION from the vendor preset: filament_flow_ratio is 1.00, not Elegoo's 0.98. These parts are a gas boundary and seal_check requires 1.00-1.02 because under-extrusion at 85-90% always leaked. That is a documented override with a reason, which is the opposite of how this profile went wrong before -- it was a BAMBU ASA chain (GFB01, flow 1.00, volumetric 18, PA off, air filtration on) used against an Elegoo spool, and nothing checked the vendor. print.sh now declares FILAMENT_VENDOR/FILAMENT_ID and asserts them against the emitted gcode."
+        "Elegoo ASA (OEASAB00), material values resolved from a machine export. MACHINE-SIDE VALUES ARE NOT ELEGOO'S: fan_max_speed, slow_down_layer_time, close_additional_fan_first_x_layers and the plate temperatures are Bambu's, because they describe an ENCLOSED P1P and Elegoo's export describes Elegoo's printer. 2026-09-05: taking Elegoo's whole file put part cooling at 80% (55-80% measured in a slice) against Bambu's 35, and the bed at 90 against 100; ASA then warped off the plate on two different parts, one of which has no overhang at all. filament_flow_ratio stays 1.00 (not Elegoo's 0.98) because seal-check requires 1.00-1.02 for gas-tightness. BED 105 C SET ON REQUEST 2026-09-05. NOTE: Bambu's P1 Series FAQ states the maximum heat bed temperature is 100 C (https://wiki.bambulab.com/en/p1/manual/faq, fetched 2026-09-05). 105 is above the rated maximum; see PRINTING notes for what the machine actually does with it."
     ]
 }
