@@ -8,16 +8,44 @@ its rationale explicitly disowned in the comment (`pt_pilot_d`).
 The sizes below are now cited from `cad/o2_probe_head_end.scad` and
 `cad/membrane_cartridge_common.scad`.
 
+## DECIDED, 2026-09-05
+
+**Ø1.60 pilot + Ø2.10 × 1.00 counterbore, 4.0 mm engagement, taking a plain A2
+stainless M2 × 0.4 machine screw straight into the printed ASA boss.** Six of them
+on a Ø30.2 bolt circle, head OD 38 mm.
+
+Fab: *"VA metric screw M2"*, then, choosing off the printed coupon, *"use that
+hole / the 3rd one"* — station 3, the counterbored one. No PT screw (there are
+none in the building) and no insert. `fastening = "vascrew"` in the model; the old
+`"ptscrew"` string now hard-asserts with an explanation, because the screw really
+did change kind and only the geometry stayed put.
+
+The rest of this document is how that number was arrived at and what the
+alternatives cost. The insert route is kept and costs 6 mm of head diameter.
+
 ## What "M2" can mean here, and which one this is
 
-Only the **insert** route actually receives an ISO metric M2 screw. A
-thread-forming screw cuts its own thread, and that thread is not ISO metric: EJOT's
-DELTA PT flank is 20°/30° with a 140° root transition, deliberately unlike the 60°
-ISO profile, because the plastic female thread has to spread the stress. Tapping a
-real M2 thread into a printed boss is supported by none of the design guides read
-here and is not offered as a route.
+Three routes, not two, and the one that was chosen is the one I had initially
+written off.
 
-Both routes were resized to nominal 2.0 anyway, so the choice stays open.
+1. **Heat-set insert** — receives a true M2 screw, uncontroversially. Costs 6 mm
+   of head diameter.
+2. **Thread-forming (PT) screw** — cuts its own thread, and that thread is *not*
+   ISO metric: EJOT's DELTA PT flank is 20°/30° with a 140° root transition,
+   deliberately unlike the 60° ISO profile, because the plastic female thread has
+   to spread the stress. Also: no PT screws on hand.
+3. **A2 machine screw straight into the boss** — what was actually chosen. I first
+   described this as *"supported by none of the design guides read here and not
+   offered as a route"*, which was too strong. The guides are about **moulded
+   bosses under real load**; this joint is a retainer clamp at ~6 N, order 0.1 MPa
+   in the thread, because the radial O-ring took the seal load off these screws.
+   That is a different problem, and the coupon settled it in the material rather
+   than by argument.
+
+The pilot is the same 1.60 for routes 2 and 3, for two independent reasons that
+happen to coincide — see below. That coincidence is why 1.60 is trustworthy at
+this size, and it is also why the geometry did not have to change when the screw
+kind did.
 
 ## Route A — heat-set insert (receives a true M2 screw)
 
@@ -55,7 +83,27 @@ SPIROL's design guide also supplies two things the model now carries:
   interpolating between. `insert_filler_add` is 0 for unfilled ASA and exists so a
   filled grade is a one-line change rather than a recalculation.
 
-## Route B — thread-forming (nominal 2.0)
+## Route C — the chosen one: A2 machine screw, M2 × 0.4, direct
+
+Pilot **1.60**, and it has two independent derivations that land on the same
+number:
+
+| derivation | value | what it is the right rule for |
+|---|---|---|
+| `d − P` = 2.0 − 0.4 | **1.60** | ISO metric tap-drill, ~75 % thread engagement — a **cut** ISO thread |
+| `0.8 × d1` (EJOT) | **1.60** | core hole for direct fastening into thermoplastic — a **formed** thread |
+
+A machine screw in printed ASA does some of each, so a pilot both rules agree on
+is the defensible one. **Do not split any future difference upward.** 75 %
+engagement is already aggressive for a 60° flank in plastic; if bosses split in
+service the correction is a *larger* pilot (~1.70–1.75), not a smaller one.
+
+Counterbore Ø2.10 × 1.00 and engagement 4.0 mm are carried over from route B
+unchanged — see below for why the counterbore is structural. Station 3 of the
+coupon is exactly this hole; station 4 is the same pilot without the counterbore,
+and it exists to test whether that claim holds in printed ASA.
+
+## Route B — thread-forming (nominal 2.0), the geometry Route C inherited
 
 **EJOT DELTA PT size 20**, nominal Ø2.0 +0.08, A2, or an equivalent Plastite/PT.
 From EJOT/ATF's design-recommendations page, with d1 = 2.0:

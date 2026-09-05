@@ -46,26 +46,39 @@ view_rot = 0;               // render-only: lay the stack over for a wider image
 
 part = "assembly";   // assembly, head, carrier, retainer, cap, cap-asm, cavity
 
-// Retainer fastening. Both routes are kept; "ptscrew" is the default because
-// the reason for metal threads went away when the radial O-ring took the seal
-// load off the screws. Worst case is now ~6 N, order 0.1 MPa in the thread, so
-// creep is a non-issue -- and the insert route costs 6 mm of head diameter, a
-// flange counterbore, and a heat-setting step 2.3 mm from the O-ring's sealing
-// bore.
+// Retainer fastening. "vascrew" is the default and is DECIDED, not provisional:
+// Fab, 2026-09-05, "VA metric screw M2" and then, choosing off the printed
+// fastener coupon, "use that hole / the 3rd one". Station 3 of that coupon is a
+// Ø1.60 pilot with a Ø2.10 x 1.00 counterbore, driven directly into the printed
+// ASA boss by a plain A2 stainless M2 machine screw. No PT screw -- there are
+// none in the building -- and no insert.
 //
-// RE-MEASURED AT M2, 2026-09-05, because the M2 insert is a smaller part and the
-// diameter penalty looked like it should have shrunk with it. It did not: head OD
-// 38 on ptscrew against 44 on insert, bolt circle Ø30.2 against Ø33.93. The bore
-// got 0.76 mm smaller and the wall did not, because insert_seal_wall (2.3, set by
-// heat-setting next to the O-ring seat) and pt_seal_wall (1.2, EJOT's boss rule)
-// are what actually separate the two routes -- not the hole. So the "6 mm" above
-// is still the measured figure at M2, not a stale one.
+// Why it works here at all, when driving a 60-degree ISO flank into plastic is
+// normally the thing you talk somebody out of: the radial O-ring took the seal
+// load off these screws, so the worst case is ~6 N, order 0.1 MPa in the thread.
+// This joint is a retainer clamp, not a pressure boundary.
 //
-// What DID change is the sourcing objection: the M2.5 part was E-Z LOK's, a
-// sole-source US import that every EU specialist made special-order. The M2 part
-// is PEM IUTFC-M2, a catalogue item with ordinary distribution. If the insert
-// route is ever chosen, it is no longer chosen against a procurement problem.
-fastening = "ptscrew";      // "ptscrew" or "insert"
+// The insert route is KEPT, and it costs 6 mm of head diameter -- RE-MEASURED at
+// M2 on 2026-09-05, because the M2 insert is a smaller part and the penalty
+// looked like it should have shrunk with it. It did not: head OD 38 on vascrew
+// against 44 on insert, bolt circle Ø30.2 against Ø33.93. The bore got 0.76 mm
+// smaller and the wall did not, because insert_seal_wall (2.3, set by
+// heat-setting next to the O-ring seat) and pt_seal_wall (1.2, the boss rule)
+// are what actually separate the two routes -- not the hole.
+//
+// What DID change on that route is the sourcing objection: the M2.5 part was
+// E-Z LOK's, a sole-source US import that every EU specialist made special-order.
+// The M2 part is PEM IUTFC-M2, a catalogue item with ordinary distribution. If
+// the insert is ever needed -- a boss that strips in service, a joint that starts
+// carrying load -- it is no longer blocked on procurement.
+fastening = "vascrew";      // "vascrew" or "insert"
+assert(fastening != "ptscrew",
+       str("fastening=\"ptscrew\" was renamed to \"vascrew\" on 2026-09-05. It is ",
+           "not a rename for tidiness: the screw is an A2 machine screw cutting an ",
+           "ISO metric thread, not a PT screw forming its own non-ISO one, and the ",
+           "pilot is justified differently (see pt_pilot_d)."));
+assert(fastening == "vascrew" || fastening == "insert",
+       str("unknown fastening '", fastening, "'"));
 exploded = false;
 // Draw the prototype-1 body below the head as well: the printed ASA tube, its
 // bayonet cable cap and the dam. OFF by default, because those parts belong to
@@ -171,21 +184,36 @@ insert_head_t = 0.46;      // it holds the retainer off the face. T, same table.
 // is 0 -- set it if the print material changes to a filled grade.
 insert_filler_add = 0.0;
 
-// Thread-forming screw for thermoplastics, EJOT DELTA PT size 20 (nominal
-// Ø2.0 +0.08) or an equivalent Plastite/PT, A2.
-// SOURCED 2026-09-05: EJOT/ATF "DELTA PT -- predictable performance improvement
-// for thermoplastics" (2017), Design recommendations page. The rule is
-// db = 0.8 x d1 (up to 0.88 x d1 for filled or higher-strength material), NOT
-// the "0.75 x nominal" this file used to cite, which was never EJOT's number.
+// A2 stainless MACHINE screw, M2 x 0.4, driven straight into the printed boss.
+// The `pt_` prefix is kept because the geometry is unchanged and it is threaded
+// through a dozen expressions below; read it as "plastic thread", not "PT screw".
+//
+// THE PILOT HAS TWO INDEPENDENT DERIVATIONS AND THEY LAND ON THE SAME NUMBER,
+// which is the only reason it is trusted at this size:
+//   1.60 = d - P = 2.0 - 0.4, the ISO metric tap-drill for M2 x 0.4 (~75%
+//          thread engagement) -- the right number for a CUT ISO thread.
+//   1.60 = 0.8 x d1, EJOT/ATF's core-hole rule for direct fastening into
+//          thermoplastic (DELTA PT design recommendations, 2017) -- the right
+//          number for a FORMED thread at nominal 2.
+// A machine screw in printed ASA does some of each, so a pilot that both rules
+// agree on is the defensible one. Do NOT "split the difference" upward if this
+// ever moves: 75% engagement is already aggressive for a 60-degree flank in
+// plastic, and the far more likely correction is a LARGER pilot (~1.70-1.75) if
+// bosses split in service.
+//
+// CHOSEN ON A PRINTED COUPON, not on the arithmetic: part="fastener-coupon"
+// carries this hole with and without the counterbore, in real ASA at the real
+// depth and the real print orientation, and Fab picked the counterbored one.
 pt_nominal = 2.0;
-pt_pilot_d = 0.8 * pt_nominal;    // 1.60
-// Same page: dO = 2 x d1. Boss OD >= 2x screw nominal is EJOT's own rule for
-// thread-forming in plastic, and it is the hoop stress that sets it, not heat --
-// which is why this wall is smaller than the insert's.
+pt_pilot_d = 1.60;
+// Boss OD >= 2 x screw nominal, EJOT/ATF, same page. It is hoop stress that sets
+// this, not heat -- which is why this wall is smaller than the insert's.
 pt_seal_wall = (2*pt_nominal - pt_pilot_d)/2;
-// Also EJOT's, and load-bearing rather than cosmetic: the counterbore relieves
-// edge stress and is what stops the boss cracking as the thread forms; it also
-// acts as the lead-in. dC = 1.05 x d1, depth 0.5 x d1. Cut in head().
+// STRUCTURAL, not a chamfer, and the reason station 3 beat station 4: EJOT gives
+// the counterbore as edge-stress relief that prevents the boss cracking as the
+// thread forms, plus lead-in for the first turn. dC = 1.05 x d1, depth 0.5 x d1.
+// It is also the WIDEST cut at the bolt circle (2.10 against a 1.60 pilot), so
+// bolt_r is derived from it -- see bolt_cut_max. Cut in head().
 pt_cbore_d = 1.05 * pt_nominal;   // 2.10
 pt_cbore_h = 0.5 * pt_nominal;    // 1.00
 
@@ -200,9 +228,10 @@ assert(!is_undef(cell_seated_h),
 echo(str("FASTENING: ", fastening, use_insert
          ? str(" -- PEM IUTFC-M2, 300-series stainless; hole ", insert_bore_d,
                " +0.08 x ", insert_bore_h, " deep (PEM-published minimum)")
-         : str(" -- EJOT DELTA PT 20 or equivalent, A2, nominal ", pt_nominal,
-               "; pilot ", pt_pilot_d, " = 0.8 x d1, counterbore ", pt_cbore_d,
-               " x ", pt_cbore_h, " deep")));
+         : str(" -- A2 stainless M2 machine screw direct into the printed boss;",
+               " pilot ", pt_pilot_d, " (= M2 tap drill d-P, = 0.8 x d1),",
+               " counterbore ", pt_cbore_d, " x ", pt_cbore_h,
+               " deep, engagement ", 2*pt_nominal)));
 
 // ------------------------------------------------- design parameters
 
@@ -646,9 +675,10 @@ cap_front_t = 2.5;          // solid plowing face
 cap_grip = 10.0;            // how far the cap reaches down the head's OD
 cap_screw_n = 2;
 cap_screw_depth = 4.0;      // BLIND: must never reach the bore
-selftap_cap = 0.8 * 2.0;    // cap screws carry no seal load, so self-tap is fine.
-                            // Same EJOT 0.8 x d1 rule as pt_pilot_d, at nominal
-                            // 2.0 -- was 2.1, which was the M2.5 pilot.
+selftap_cap = pt_pilot_d;   // cap screws carry no seal load, so self-tap is fine.
+                            // Same M2 pilot as the retainer screws, and tied to
+                            // it rather than restated: one screw size in the head
+                            // (was 2.1, which was the M2.5 pilot).
 nose_taper = 4.0;
 
 // Seal-land thermometry: REMOVED 2026-09-04, deliberately -- "let's try without
@@ -1566,10 +1596,10 @@ echo(str("CUT LIST: PMV15T disc dia ",
 // a day after the fasteners were M2 because both were typed in by hand.
 echo(str("fasteners: ", bolt_n, "x ",
          use_insert ? "M2 into PEM IUTFC-M2 heat-set inserts"
-                    : str("thread-forming, nominal ", pt_nominal,
-                          ", into printed bosses"), " on a dia ",
+                    : "M2 A2 machine screws direct into printed bosses",
+         " on a dia ",
          2*bolt_r, " bolt circle; ", cap_screw_n,
-         "x nominal-", 2.0, " self-tapping for the cap (no seal load)"));
+         "x M2 self-tapping for the cap (no seal load)"));
 // Bore sections only -- UNDERSTATES, the aperture stack is connected gas too.
 // Build `cavity` and measure the mesh; that is the number that governs.
 echo(str("connected volume ", cav_net/1000,
