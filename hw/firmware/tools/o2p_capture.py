@@ -69,15 +69,29 @@ FALLBACK_ADDR = 0x200000F0        # 2026-09-04 build; only used if no ELF
 # DO NOT hand-compute these when the struct changes. This file already caused
 # one false emergency by decoding a healthy dump with a stale layout after
 # t_die was appended: uptime appeared to count backwards, VREF read 32769 and
-# the rail looked like it was collapsing. Get the numbers from the compiler:
+# the rail looked like it was collapsing.
 #
-#     cc -I src -DO2P_HOST_TEST -o /tmp/sizes /tmp/sizes.c   # sizeof/offsetof
+# And DO NOT take the numbers from a host compile of regmap.h either. That was
+# tried on 2026-09-05 and gave REGMAP_LEN 160 where the ARM build says 152:
+# o2p_regmap_t holds a pointer, 8 bytes on the x86-64 host and 4 on the
+# target. SNAPSHOT_LEN happens to agree at 56 because the snapshot is all
+# fixed-width integers - which makes the host compile look trustworthy right
+# up until it is not. Read the TARGET ELF:
 #
-# The `live not in (0, 1)` and VREF plausibility checks below are the backstop
-# that catches it when someone forgets anyway - they did catch it, twice.
+#     arm-none-eabi-gdb -batch -ex 'p sizeof(o2p_snapshot_t)' firmware.elf
+#
+# The g_rm symbol size is checked against REGMAP_LEN at startup, which caught
+# exactly the host-vs-target mistake above on its first run.
+#
+# The `live not in (0, 1)` and VREF plausibility checks below are a backstop,
+# NOT a guarantee. A peer session's 12 h capture proved it on 2026-09-05: with
+# a stale 52-byte layout the VREF check rejected one sample and passed the
+# next, which reached the CSV as status=ok carrying uptime 215547903 and
+# faults 0xffff. A wrong layout can land a plausible value in the very field
+# being checked.
 SNAPSHOT_LEN = 56
 LIVE_OFF = 2 * SNAPSHOT_LEN
-REGMAP_LEN = 0xA0
+REGMAP_LEN = 0x98
 
 U16_INVALID = 0xFFFF
 I16_INVALID = -0x8000
@@ -96,7 +110,7 @@ COLUMNS = [
 
 
 def elf_symbol(path, name):
-    """Address of `name` in a little-endian 32-bit ELF, or None.
+    """(address, size) of `name` in a little-endian 32-bit ELF, or (None, None).
 
     Reads the symbol table directly so the tool does not depend on an ARM
     toolchain being installed just to look up one address.
@@ -105,9 +119,9 @@ def elf_symbol(path, name):
         with open(path, "rb") as fh:
             data = fh.read()
     except OSError:
-        return None
+        return None, None
     if data[:4] != b"\x7fELF" or data[4] != 1:            # 32-bit only
-        return None
+        return None, None
     e_shoff, = struct.unpack_from("<I", data, 0x20)
     e_shentsize, e_shnum, _ = struct.unpack_from("<HHH", data, 0x2E)
     sections = []
@@ -123,11 +137,11 @@ def elf_symbol(path, name):
         str_off = sections[s_link][1]
         for j in range(s_size // s_entsize):
             off = s_off + j * s_entsize
-            n_off, value = struct.unpack_from("<II", data, off)
+            n_off, value, size = struct.unpack_from("<III", data, off)
             end = data.index(b"\0", str_off + n_off)
             if data[str_off + n_off:end].decode("ascii", "replace") == name:
-                return value
-    return None
+                return value, size
+    return None, None
 
 
 def read_regmap(addr, openocd, scripts, interface, target,
@@ -318,9 +332,31 @@ def main():
 
     addr = args.addr
     source = "--addr"
+    sym_size = None
     if addr is None:
-        addr = elf_symbol(args.elf, "g_rm")
+        addr, sym_size = elf_symbol(args.elf, "g_rm")
         source = f"ELF symbol g_rm in {os.path.relpath(args.elf, FIRMWARE)}"
+
+    # The offsets below are hardcoded, so this file has a layout ASSUMPTION
+    # about a struct that lives in another repository file and changes without
+    # it. The ELF settles the question: sizeof(g_rm) is recorded in the symbol
+    # table, so a mismatch means this tool is stale, full stop - no heuristic
+    # needed and no judgement call.
+    #
+    # This exists because the heuristics were demonstrably not enough. On
+    # 2026-09-05 a long-running capture whose process image predated a rebuild
+    # kept decoding a 56-byte struct as 52 bytes; the VREF plausibility check
+    # rejected one sample and PASSED the next, which reached the CSV as
+    # status=ok with uptime 215547903 and faults 0xffff. A wrong layout can
+    # put a plausible number in the one field being sanity-checked. Refuse the
+    # run rather than write rows that parse.
+    if sym_size and sym_size != REGMAP_LEN:
+        sys.exit(f"o2p_capture.py is stale: g_rm is {sym_size} bytes in "
+                 f"{os.path.relpath(args.elf, FIRMWARE)} but this tool assumes "
+                 f"{REGMAP_LEN}. The snapshot layout changed. Update "
+                 f"SNAPSHOT_LEN, REGMAP_LEN and the offsets in decode() - get "
+                 f"them from the compiler, not by counting bytes.")
+
     if addr is None:
         addr = FALLBACK_ADDR
         source = "FALLBACK (no ELF found - rebuild may have moved it)"
