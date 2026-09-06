@@ -243,28 +243,70 @@ tail_len = 22.0;
 // and a groove root, which is the one seal geometry this project has a
 // validated tolerance model for (o2_probe_head_end.scad, the carrier ring).
 //
-// SAME RING AS THE CARRIER: o-ring-stocks.eu ORS116787, EPDM 70 Shore A
-// peroxide-cured, 24.0 x 1.5 DIN 3771, house compound 127019011. One size, one
-// compound, one test report, one micrometer-sorting pass for the whole probe.
-// EPDM because ammonia attacks fluoroelastomers.
-seal_id   = 24.0;
-seal_cord = 1.5;
+// NO LONGER THE CARRIER'S RING, and that is a deliberate trade -- see the
+// collar note under cable_bore_d. It was a 24 x 1.5, chosen so the whole probe
+// ran on one size, one compound, one micrometer-sorting pass. That property is
+// gone; what was bought with it:
+//
+//   * The 24 x 1.5 needed a Ø27.3 counterbore, which only exists because it is
+//     LARGER than the Ø27.2 tube bore. The 22 x 2 seals a bore the collar
+//     makes SMALLER, so nothing has to be cut into the tube wall.
+//   * A fatter cord is a wider tolerance target. On the same reamed bore and
+//     the same printed root, the 24 x 1.5 spent over 15 of the 15 available
+//     squeeze points on tolerance alone and needed rings sorted to +/-0.01;
+//     the 22 x 2 spends about 11 on ORDINARY CATALOGUE cord. The sorting pass
+//     the old ring needed is what paid for the second size.
+//   * Install stretch drops from 4.27% to about 2%, off the 5% rule's edge.
+//
+// EPDM 70 Shore A peroxide-cured, 22.0 x 2.0 DIN 3771 -- same compound and
+// same supplier class as the carrier's ORS116787. EPDM because ammonia attacks
+// fluoroelastomers.
+seal_id   = 22.0;
+seal_cord = 2.0;
 // The same 0.2433 the head uses, and for the same reason: it is where the
 // tolerance band sits squarest, not a handbook preference.
 seal_squeeze = 0.2433;
 carrier_fit = 0.3;          // spigot to bore, diametral
 
-// The cable end is REAMED, and it has to be: as-printed, the bore's +/-0.20
-// spends 19.75 of the 15 available squeeze points on its own. Reamed it spends
-// 0.72. Ø27.3 H7 is the SAME call-out and the SAME reamer as the head's well,
-// which is the only reason this is one extra setup rather than one extra tool.
-// Drawn at the finished size: a printed bore comes out UNDER, so the reamer has
-// stock without the model having to carry a separate pre-ream diameter.
+// A COLLAR, NOT A COUNTERBORE, and that inversion is the whole reason a ring
+// Fab actually has on the bench can seal this joint.
+//
+// The seal bore used to be cut INTO the Ø27.2 tube bore, so it had to be
+// LARGER than 27.2 -- Ø27.3 -- and a bore that size needs a 24 ID ring. The
+// constraint everyone reached for was the board: board_diag is 22.18, so the
+// bore has to clear 22.68. That was never the binding one. A 22 x 2 seals
+// anything from Ø25.01 to Ø26.41; the whole of that band clears the board.
+// The ONLY thing keeping it out was the counterbore's "bigger than 27.2".
+//
+// So invert it. Add material INWARD at the cable end -- a collar of
+// (tube_id - cable_bore_d)/2 on radius, cable_bore_len long -- and ream THAT.
+// The Ø27.2 bore is never exceeded, the tube wall is never thinned (the collar
+// makes the wall THICKER here, 3.25 mm against the tube's own 2.4), and the
+// reamer, the setup and the H7 call-out are unchanged in kind.
+//
+// PRINTS WITHOUT SUPPORT, but only because of the lead cone below. The
+// monobody prints head-end down, so the cable end is UP and this file's +z
+// runs DOWNWARD through the print. The collar's material ends at
+// z=cable_bore_len, which in print order is a 0.85 mm annular ledge with
+// nothing under it -- the identical defect that spiderwebbed the head's bore
+// entry this morning. collar_lead is the 45-degree answer to it.
+//
+// Reamed for the same reason as before: as-printed the bore's +/-0.20 spends
+// 19.75 of the 15 available squeeze points on its own; reamed it spends 0.72.
+// Drawn at the finished size, so the printed collar comes out UNDER and the
+// reamer has stock without a separate pre-ream diameter in the model.
 cable_bore_finish = "reamed";
-cable_bore_d   = 27.3;      // H7, +0.021/0, ISO 286-2 18-30 band
-cable_bore_len = 12.0;      // reamed depth
+cable_bore_d   = 25.5;      // H7, +0.021/0, ISO 286-2 18-30 band
+cable_bore_len = 12.0;      // reamed depth = collar length
+// 45 degrees, so it is self-supporting whichever way the tube is laid on the
+// plate, and it doubles as the board's lead-in past the collar step.
+collar_lead    = (tube_id - cable_bore_d)/2;
 spigot_len = 8.5;
-spigot_id  = 20.0;          // cable passage; sized by the wall under the groove
+// Cable passage. NOT a cable requirement -- the M8 gland needs 8.5 -- this is
+// derived from the wall left under the groove root, and the collar's smaller
+// root is what pulled it down from 20.0. The groove_wall assert is the real
+// constraint; this number just has to satisfy it.
+spigot_id  = 17.5;
 
 // HOW THE CAP'S GROOVE IS MADE, and it is the second sealing surface -- the
 // bore is reamed and this one is not, so it is now the loose end of the chain.
@@ -272,11 +314,15 @@ spigot_id  = 20.0;          // cable passage; sized by the wall under the groove
 //               ASA carriers, o2_probe_head_end.scad carrier_tol)
 //   "machined"  turned to size, +/-0.05
 cap_fab = "printed";
-// MICROMETER-SORT THE RINGS. Not a preference: on catalogue cord the chain does
-// not close (see the band assert below), which the 2026-09-05 Codex review found
-// and this file's prose had wrong at 12.18 of 15. It is the same ring as the
-// carrier, so one sorting pass covers the whole probe.
-oring_sorting = "sorted";   // "sorted" or "catalogue"
+// CATALOGUE CORD IS ENOUGH HERE, and it is the 2 mm cord that bought that.
+// The 24 x 1.5 could not close the chain on catalogue rings -- over 15 of the
+// 15 available squeeze points went to tolerance alone, which the 2026-09-05
+// Codex review found and this file's prose had wrong at 12.18 -- so it carried
+// oring_sorting = "sorted" and a micrometer pass. The same +/-0.08 DIN ISO
+// 3601 cord tolerance is a SMALLER FRACTION of a fatter cord, and the band
+// assert below now passes at about 11 points with no sorting. The head's
+// carrier still needs its own pass; this joint no longer does.
+oring_sorting = "catalogue"; // "sorted" or "catalogue"
 
 // SHRINK COMPENSATION ON THE PRINTED ROOT. The head records three readings of a
 // root cut oversize and measured after printing -- factors 0.99040, 0.98801 and
@@ -754,8 +800,27 @@ assert(seal_band <= 0.15,
            "). Sort the rings, machine the cap's groove, or use a fatter cord."));
 assert(groove_wall >= 2.4,
        str("only ", groove_wall, " mm under the groove root, against 2.4 min"));
-assert(cable_bore_d > tube_id,
-       "the sealing counterbore is not larger than the tube bore; there is nothing to ream");
+// THIS ASSERT USED TO READ `cable_bore_d > tube_id` -- "the sealing counterbore
+// is not larger than the tube bore; there is nothing to ream". That was not a
+// law, it was the old construction written down as one, and it is exactly what
+// locked this joint to a 24 ID ring. The real requirement is only that the
+// reamer finds stock: the sealing bore must be smaller than the as-printed
+// feature it is cut into. For a COLLAR that feature is the collar itself, so
+// the sense inverts.
+assert(cable_bore_d < tube_id,
+       str("the seal bore ", cable_bore_d, " is not smaller than the ", tube_id,
+           " tube bore -- this is a COLLAR, so there is no collar to ream. If a ",
+           "counterbore is what is wanted, that is a different part; do not just ",
+           "flip this assert back."));
+assert(collar_lead > 0.2,
+       str("the collar only stands ", collar_lead,
+           " mm proud of the bore -- below one extrusion width there is no ",
+           "sealing land, only a printed artefact"));
+// The collar is where the tube is THICKEST, not thinnest -- it adds material
+// inward -- but say so in a number rather than trusting the prose.
+collar_wall = (tube_od - cable_bore_d)/2;
+assert(collar_wall >= wall,
+       str("wall at the collar is ", collar_wall, ", under the tube's own ", wall));
 assert(board_diag <= cable_bore_d - 0.5,
        "the board does not pass the cable-end sealing bore");
 assert(!lock_screw || lock_pilot_floor - lock_pilot_d/2 > lock_boss_r + 0.5,
@@ -907,9 +972,18 @@ if (ramp) echo(str("WEDGE RAMP: the pocket's deep wall closes ", ramp_close,
          detent + slot_slack, ". IT DOES NOT TIGHTEN THE SEAL -- the cable seal is ",
          "radial and its squeeze is set by the bore and the groove root. Turning ",
          "harder takes up play, nothing else."));
-echo(str("CABLE SEAL: ORS116787 24 x 1.5 EPDM, the SAME ring as the carrier. ",
-         "Bore ", cable_bore_d, " ", cable_bore_finish, " x ", cable_bore_len,
-         " deep; groove root ", groove_root, " target (CUT ", groove_root_drawn,
+// Read by tools/collar_check.py. Machine-shaped on purpose: the guard parses
+// these numbers rather than re-deriving them, so it cannot drift from the part.
+echo(str("COLLAR bore ", cable_bore_d, " len ", cable_bore_len,
+         " lead ", collar_lead, " tube_id ", tube_id, " wall ", collar_wall));
+echo(str("CABLE SEAL: ", seal_id, " x ", seal_cord, " EPDM 70 -- NOT the ",
+         "carrier's ring; this joint runs on its own size. Bore ",
+         cable_bore_d, " ", cable_bore_finish, " x ", cable_bore_len,
+         " deep, in a COLLAR standing ", collar_lead,
+         " mm proud of the ", tube_id, " bore (wall ", collar_wall,
+         " there, against ", wall, " for the tube); 45 deg lead ",
+         collar_lead, " mm long above it. ",
+         "groove root ", groove_root, " target (CUT ", groove_root_drawn,
          ", ", cap_fab, ", shrink ", cap_root_shrink, ") x ", groove_w,
          " wide on a ", spigot_od, " spigot, ", groove_wall,
          " mm under the root."));
@@ -1108,12 +1182,33 @@ module tube() {
                     for (i = [0:lug_n-1]) rotate([0, 0, i*360/lug_n]) bayonet_lug();
                 }
                 translate([0, 0, -e]) cylinder(d=tube_id, h=tube_len + 2*e);
-                // The sealing counterbore, reamed. 0.05 mm larger than the bore
-                // on radius so it is a real step the reamer can find, and 12 mm
-                // deep -- which is what pushed the lock boss to z=17 and the
-                // cap's skirt to 18: nothing internal may stand in its path.
-                translate([0, 0, -e])
-                    cylinder(d=cable_bore_d, h=cable_bore_len + e);
+            }
+            // THE SEALING COLLAR, reamed. It goes HERE, in the union that runs
+            // after the bore is cut, for the same reason the lock boss below
+            // does: it stands INSIDE the bore, so the bore subtraction would
+            // eat it whole from the outer union. That mistake has now been made
+            // twice in this file (see the note at the top of this module, and
+            // cap()'s spigot); this is the third feature it would apply to and
+            // tools/spigot_check.py exists because a mesh notices and an assert
+            // does not.
+            //
+            // Drawn as a solid cylinder minus its own bore rather than as a
+            // tube: the outer face is bounded by the tube_id it was just cut
+            // from, so there is nothing to fight over at that surface.
+            difference() {
+                union() {
+                    translate([0, 0, -e])
+                        cylinder(d=tube_id, h=cable_bore_len + e);
+                    // 45 deg lead. The collar ends at cable_bore_len and the
+                    // cable end prints UP, so without this the ledge is a
+                    // 0.85 mm unsupported annulus -- the head's spiderweb
+                    // defect, in a bore that has to seal.
+                    translate([0, 0, cable_bore_len])
+                        cylinder(d1=tube_id, d2=cable_bore_d, h=collar_lead);
+                }
+                translate([0, 0, -2*e])
+                    cylinder(d=cable_bore_d,
+                             h=cable_bore_len + collar_lead + 4*e);
             }
             // Local wall thickening for the lock screw, standing INTO the bore
             // at a height where only cable passes.
@@ -1450,4 +1545,14 @@ else if (part == "end-tube") end_element("tube");
 else if (part == "end-cap") end_element("cap");
 else if (part == "end-seal-ring") end_element("seal-ring");
 else if (part == "end-gland-ring") end_element("gland-ring");
+// MONOBODY FRAME. o2_probe_head_end.scad's monobody() is head() unioned with
+// this tube translated by -body_tube_len, so the head's z=0 is the JOINT and
+// the cable end sits at z=-tube_len. The end-* parts above are in the TUBE's
+// own frame (cable end at z=0), so dropping them into a whole-probe scene
+// beside the monobody puts them 124 mm out -- the cap floating past the wet
+// end. The viewer loads every part with an identity matrix on purpose, so the
+// placement has to live here.
+else if (part == "mono-cap")        translate([0, 0, -tube_len]) end_element("cap");
+else if (part == "mono-seal-ring")  translate([0, 0, -tube_len]) end_element("seal-ring");
+else if (part == "mono-gland-ring") translate([0, 0, -tube_len]) end_element("gland-ring");
 else assert(false, str("unknown part '", part, "'"));

@@ -134,9 +134,14 @@ body_tube_len = monolithic ? 124.0 : 127.0;   // o2_probe_body_tube.scad, tube_l
 // tube_od 32 - 2*wall 2.4. Duplicated, so interface_check.py compares it.
 body_tube_id = 27.2;        // o2_probe_body_tube.scad, tube_id
 body_cap_engage = 18.0;     // o2_probe_body_tube.scad, cap_engage
-body_seal_id   = 24.0;      // o2_probe_body_tube.scad, seal_id  (ORS116787)
-body_seal_cord = 1.5;       // o2_probe_body_tube.scad, seal_cord
-body_groove_root = 25.0299; // o2_probe_body_tube.scad, groove_root
+// THE CABLE SEAL, mirrored here for drawing. It is NO LONGER the carrier's ring:
+// the cable end went from a Ø27.3 counterbore to a Ø25.5 COLLAR, and a bore that
+// size takes a 22 x 2 instead of the carrier's 24 x 1.5. Two ring sizes now.
+// These three drifted silently when the body changed and interface_check.py is
+// what caught it -- do not hand-edit one without running `make monobody`.
+body_seal_id   = 22.0;      // o2_probe_body_tube.scad, seal_id
+body_seal_cord = 2.0;       // o2_probe_body_tube.scad, seal_cord
+body_groove_root = 22.4732; // o2_probe_body_tube.scad, groove_root
 
 // ------------------------------------------------- MEASURE THESE
 

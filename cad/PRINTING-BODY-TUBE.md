@@ -226,14 +226,19 @@ the board and the prototype is recoverable.
    the outer face is for the gland's own NBR ring and deliberately starts
    *outside* the thread's major diameter, so it costs no thread — a counterbore
    would have spent its depth out of the tapped length.
-2. **Nothing to bond.** The head is already the same part. Ream the Ø27.3 H7
-   well — it is now at the top of a 146.6 mm part, so fixture accordingly.
+2. **Nothing to bond.** The head is already the same part. Ream the Ø25.5 H7
+   **collar** at the cable end — it is now at the top of a 146.6 mm part, so
+   fixture accordingly. The collar stands 0.85 mm proud of the Ø27.2 bore, so
+   the reamer finds a real shoulder; do **not** run it past the 12 mm depth into
+   the plain bore, which is not a sealing surface and does not want the stock
+   taken out of it.
 3. Solder the cable, thread it through the cap, fit the gland.
 4. Slide the board in from the cable end, tip first, through both guide
    stations. Fit the dam halves around the board as it passes y = 81.
 5. **O-ring into the cap's spigot groove**, not onto the tube's end face. It is
-   a radial seal now: it rolls onto the Ø25.03 groove root at 4.3 % stretch and
-   seals against the reamed Ø27.3 bore as the spigot enters.
+   a radial seal now: it rolls onto the Ø22.47 groove root at 2.2 % stretch and
+   seals against the reamed Ø25.5 collar as the spigot enters. The ring is a
+   **22 × 2**, not the carrier's 24 × 1.5 — see *The cable seal* below.
 6. Cap on, push and twist. The lugs drop into their pockets after about 35°,
    and then **keep turning** — the last 22° runs the lug up a ramp that
    converges on it, and the cap comes up against a positive wall at **57°**
@@ -322,31 +327,72 @@ feature whose tolerance was never budgeted. Every piece of validated seal work i
 this project is on *radial* seals.
 
 A 24 × 1.5 cannot be a face seal here at all: ring OD 27.0 against a Ø27.2 bore,
-so it drops straight through. As a radial seal on a spigot the cap carries into
-the bore, it lands almost exactly where the carrier's ring already sits:
+so it drops straight through. It was therefore made a radial seal on a Ø27.3
+reamed **counterbore** — and that counterbore is what this section used to
+justify and now records as the wrong construction.
 
-| | value | carrier ring, for comparison |
+### The counterbore was the constraint, and it was self-inflicted
+
+A counterbore is cut *into* the Ø27.2 bore, so it must be **larger** than 27.2.
+That single fact, and nothing else, forced a 24 ID ring. The constraint everyone
+reached for was the board — `board_diag` is 22.18, so the bore has to clear
+22.68 — and **it was never the binding one**: a 22 × 2 seals anything from
+Ø25.01 to Ø26.41, and the whole of that band clears the board with room to
+spare.
+
+So the joint was inverted. Instead of removing material outward, the cable end
+now carries a **collar** — material added *inward*, `(tube_id - cable_bore_d)/2`
+on radius, 12 mm long — and the reamer goes into that. The Ø27.2 bore is never
+exceeded, and the wall at the collar is **3.25 mm**, thicker than the tube's own
+2.4, because a collar adds material rather than taking it away.
+
+| | 22 × 2 on a collar | 24 × 1.5 on a counterbore (was) |
 |---|---:|---|
-| bore | Ø27.3 H7, **reamed**, 12 mm deep | Ø27.3 H7 reamed — *the same reamer* |
-| groove root | 25.030 × 2.10 wide | 24.840 × 2.10 |
-| install stretch | 4.29 % | 3.50 % |
-| squeeze | 24.33 % | 22.98 % |
-| material under the root | 2.51 mm | 3.42 mm (2.4 min) |
+| bore | **Ø25.5 H7 reamed**, 12 mm deep | Ø27.3 H7 reamed, 12 mm deep |
+| groove root | 22.473 × 2.80 wide | 25.030 × 2.10 |
+| install stretch | **2.15 %** | 4.29 % |
+| squeeze, after stretch-thinning | 23.51 % | 24.33 % |
+| material under the root | 2.49 mm (2.4 min) | 2.51 mm |
+| wall at the seal | **3.25 mm** | 2.35 mm |
+| **rings needed** | **catalogue** | micrometer-**sorted** |
 
-**The bore must be reamed**, and even reamed the chain does NOT close on
-catalogue rings. Both numbers below were wrong when first written and are
-corrected from the 2026-09-05 Codex review (`../reviews/`):
+**It costs a second reamer, and that is the one thing the collar does not
+improve.** The head's membrane well is Ø27.3 H7, and the cable end used to be
+Ø27.3 too — one reamer, two setups. At Ø25.5 it is now a **different reamer**.
+Two ring sizes and two reamers is the price of the collar; a joint that seals
+with what is on the bench is what it buys.
+
+### The cord tolerance is why this is the better joint, not just the possible one
+
+**The bore must still be reamed** — as-printed, ±0.20 spends 13.63 of the 15
+available squeeze points on its own. What changed is the *cord*. DIN ISO 3601
+gives ±0.08 on both sizes, but ±0.08 is a smaller fraction of a 2 mm cord than
+of a 1.5 mm one, so the same catalogue ring buys a narrower squeeze band:
 
 | | squeeze points, of 15 |
 |---|---:|
-| printed bore ±0.20 alone | **13.63** (not 19.75 — that figure was bore *and* root together) |
+| printed bore ±0.20 alone | 13.63 (not 19.75 — that figure was bore *and* root together) |
 | reamed H7 bore alone | 0.72 |
-| reamed bore + printed root ±0.09 + **catalogue** cord | **15.1–15.7 — over budget** |
-| reamed bore + printed root + **sorted** cord | ~7.5 |
+| **22 × 2**: reamed bore + printed root ±0.09 + **catalogue** cord | **11.22 — passes** |
+| 24 × 1.5: reamed bore + printed root + **catalogue** cord | 15.1–15.7 — over budget |
+| 24 × 1.5: reamed bore + printed root + **sorted** cord | ~7.5 |
 
-So micrometer-sorted rings are **not the better option, they are the only one**.
-The head's own note reaches the same conclusion for the carrier ring; one sorting
-pass covers both, since it is the same ring.
+The 24 × 1.5 needed micrometer-sorted rings — *"not the better option, they are
+the only one"*, as this file correctly said at the time. **The 22 × 2 does not.**
+That sorting pass is what paid for carrying a second ring size; the head's
+carrier still needs its own, this joint no longer does.
+
+### The collar has to print, and that is not free
+
+The monobody prints **head-end down**, so the cable end is up and the collar's
+top face is a *downward-facing* annular ledge 0.85 mm wide. Left square it is an
+unsupported overhang — the identical defect that spiderwebbed the head's bore
+entry on 2026-09-06 — except strung across a surface that has to seal. It
+carries a **45° lead cone** for that reason, which doubles as the board's lead-in
+past the collar step. `tools/collar_check.py` measures both the sealing land and
+the cone **in the mesh**, and its `--selftest` includes a mutation where the cone
+is simply not drawn: every assert passes, the tube renders as a clean closed
+solid, and only the mesh check notices.
 
 `±0.09` is the **printed** figure, from seven readings on printed ASA carriers —
 an earlier draft of this file called it a machined-PP number, which was simply
@@ -462,11 +508,12 @@ worth knowing before writing another one:
      Nothing else in the probe anchors the cable. Leave a real service loop in
      the tail so the gland is never the thing taking a pull — the cable's own
      fixed-install bend radius is 5 × Ø = 19 mm, so a loop fits the tail easily.
-2. ~~The cable-end O-ring.~~ **Closed.** It is the **same ring as the carrier** —
-   ORS116787, 24 × 1.5 EPDM 70 peroxide, house compound 127019011,
-   o-ring-stocks.eu (`../tech/PROBE-CARRIER-SOURCING.md`). One size, one
-   compound, one test report and one sorting pass for the whole probe. See
-   *The cable seal* below for why it changed.
+2. ~~The cable-end O-ring.~~ **Closed — but it is no longer the carrier's ring.**
+   A **22 × 2 EPDM 70 peroxide**, DIN 3771, same compound class and supplier as
+   the carrier's ORS116787 (`../tech/PROBE-CARRIER-SOURCING.md`). The probe now
+   carries **two** ring sizes; what that bought is a joint that closes on
+   ordinary catalogue cord instead of needing a micrometer-sorting pass, and a
+   Ø27.2 bore that is never cut into. See *The cable seal* below.
 3. **An M8 × 1.0 tap** (and a Ø7.0 drill, if the printed pilot needs cleaning up).
 4. **Silica gel** for the tail.
 
