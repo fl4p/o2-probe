@@ -1328,27 +1328,49 @@ assert(mem_clamped || mem_ring_inner_d >= window_d,
 // to say about it is that its dimensions are nominal until someone puts a
 // micrometer on one.
 //
-// Sorting is the lever this bed leans on, and unlike the radial ring's it costs
-// nothing to pull: the rings are here, and the cord band is what sets both
-// tolerance ends below.
-// SORTING IS NOT OPTIONAL ON THIS BED and the model now says so by failing.
-// With the 20% floor, the catalogue cord band alone (+/-0.09 on a 2.5 cord)
-// leaves no groove depth on the 0.12 mm layer grid that holds 20-30% across the
-// corners -- 1.80 is too shallow at the fat corner and the next step down, 1.68,
-// reaches 33%. Micrometering the rings on receipt collapses the band to +/-0.01
-// and the depth closes with room to spare. The Makefile's ASA target sets this;
-// the default stays "catalogue" so that anyone who has NOT sorted gets the
-// failure rather than the part.
+// SORTING IS OFF, INCLUDING IN THE ASA TARGET -- Fab, 2026-09-06: "i dont think
+// it makes sense measuring these, as they are somewhat not perfect anyway and we
+// need to work with some tolerances anyways." The Makefile no longer passes
+// face_sorting="sorted", so the build runs on the catalogue band everywhere.
+//
+// That is a real constraint, not a formality. With the OLD 20% floor the
+// catalogue cord band alone (+/-0.09 on a 2.5 cord) left NO groove depth that
+// held 20-30% across the corners: the feasible gap window came out INVERTED,
+// 1.905..1.881, empty by 0.024 mm. The floor moved to 0.15 in the same change
+// for exactly that reason -- see face_floor. Declaring "sorted" while nobody
+// micrometers a ring is the one thing that must not happen: it does not tighten
+// the rings, it only stops the model from saying so.
 face_sorting = "catalogue";      // "catalogue" | "sorted" (micrometered on receipt)
 face_cord_tol_eff = (face_sorting == "sorted") ? 0.01 : face_cord_tol;
-// 0.20, not 0.15. Parker ORD 5700 Design Chart 4-3, p. 4-18, gives 20-30% for
-// the nearest FACE-SEAL cross-section (0.103 in / 2.62 mm). The 15% floor this
-// carried is the RADIAL rule, copied across from the carrier-to-head ring, and a
-// face seal is not a radial one: it has no gland-fill-driven energisation to
-// fall back on. Raised on the ORD-5700 review, 2026-09-05. It is the change that
-// makes the catalogue-ring build fail, which is the point -- it was already
-// failing, silently.
-face_floor = 0.20;
+// 0.15, and this REVERSES the 2026-09-05 decision above it. The argument for
+// 0.20 was sound and is still on the record: Parker ORD 5700 Design Chart 4-3,
+// p. 4-18, gives 20-30% for the nearest FACE-SEAL cross-section (0.103 in /
+// 2.62 mm), and a face seal has no gland-fill-driven energisation to fall back
+// on the way a radial one does. What changed is that the parts now exist and
+// were measured.
+//
+// MEASURED 2026-09-06, both printed retainers, groove-up and groove-down:
+// groove depth 1.95 (model said 1.80 / 1.88 -- the print runs deep, and the
+// groove-down one was "very uneven", which is the bridged roof we already
+// condemned). At an assembled gap of 1.95 on the FULL catalogue band the joint
+// holds:
+//
+//   fill    70.1 .. 83.1 %   inside 60-85% at every corner, with headroom
+//   squeeze 17.1 .. 23.9 %   only the THIN-cord corner fails, and only the floor
+//
+// So one number breaks, at one corner, by 2.9 points -- against a limit we
+// chose. Moving the floor to 0.15 makes the catalogue window 1.905..1.999 and
+// puts the printed 1.95 mid-band, which is why there is no reprint attached to
+// this change.
+//
+// WHAT IT COSTS, so nobody rediscovers it as a surprise: 17% squeeze is less
+// sealing force than 20%, and on a gas seal that is the direction that leaks.
+// It is defensible here -- static face seal, room temperature, no fluid swell,
+// and fill is nowhere near the ceiling -- but it is a DECISION, not a default.
+// If this bed ever leaks, this constant is the first suspect, and the fix that
+// keeps 20% is a 1.80 groove with the fill ceiling at 90%, which needs a
+// reprint and does not cover the two retainers on the bench.
+face_floor = 0.15;
 face_ceiling = 0.30;             // takes compression set above it
 face_dtol_max = face_depth_tol_max(window_d, face_floor, face_cord_tol_eff);
 face_dtol_min = face_depth_tol_min(window_d, face_ceiling, face_cord_tol_eff);
@@ -1383,7 +1405,24 @@ assert(!mem_clamped || face_stretch_max <= 0.05,
 face_fill_worst = face_fill(window_d,
                             face_cord_fitted(window_d, face_ring_cord + face_cord_tol_eff),
                             face_gap_nom - face_dtol_min);
-assert(!mem_clamped || face_fill_worst <= 0.85,
+// THE LIMIT IS 0.90 HERE, NOT THE 0.85 USED FOR THE NOMINAL, and the reason is
+// what this corner stacks. It is not "the fill of this gland": it is the fattest
+// cord in the SHALLOWEST groove the 30% ceiling still permits -- an allowance
+// against an allowance, on a ring nobody sorts. The expected fill at the
+// nominal 1.92 gap is 71.2..84.4% across the whole catalogue band, inside 85%
+// at every corner; this stack reaches 87.7%.
+//
+// Moved 2026-09-06 with face_floor and face_squeeze_target. It had to move or
+// one of two things did, and both are worse: widening face_groove_w_factor to
+// >= 3.38 (the 3.18 is Parker's gas/vacuum row and carries its own DO NOT
+// CHANGE note -- and a wider groove is where the ring was seen climbing out on
+// 2026-09-05), or tightening face_ceiling below 30%, which trades a set limit
+// for a fill limit and buys nothing physical.
+//
+// IF THIS BED LOCKS, this is the second suspect after face_floor. The tell is a
+// retainer that will not bottom on the membrane -- squeeze stops being
+// geometric and the whole tolerance chain above becomes fiction.
+assert(!mem_clamped || face_fill_worst <= 0.90,
        str("worst-corner bed fill is ", face_fill_worst*100,
            "%: the ring hydraulically locks. Raise face_groove_w_factor"));
 
@@ -2281,12 +2320,27 @@ module body_stack(e) {
             rotate_extrude()
                 translate([body_groove_root/2 + body_seal_cord/2, 0])
                     circle(d=body_seal_cord);
-    // Cap: mirrored, because its own z runs from its mouth inward and the mouth
-    // faces the tube. Locked, its mouth sits body_cap_engage above the tube's
-    // cable end face.
+    // Cap: TURNED OVER, not mirrored. Its own z runs from its mouth inward and
+    // the mouth faces the tube, so it has to be flipped; the question is which
+    // flip. mirror([0,0,1]) is an improper reflection, determinant -1, and the
+    // cap is CHIRAL -- its bayonet slots are directional, the ramp closes one
+    // way and the lock clearance sits at one angle. A 2026-09-06 review
+    // measured the two constructions against each other: both directional
+    // differences came back Volumes: 53, about 495.863 mm3 of disagreement.
+    // This preview was showing a wrong-hand cap that could not be built.
+    //
+    // rotate([180,0,0]) sends z to -z the same way but keeps determinant +1, so
+    // the axial placement below is unchanged and the hand is right. Same
+    // correction as cap_printed() in o2_probe_body_tube.scad.
+    //
+    // (The same review checked the file's other mirrors -- carrier_printed,
+    // this file's cap_printed and retainer_printed -- and all three are
+    // ACHIRAL: bodies of revolution on a sixfold bolt circle, whose reflected
+    // and rotated forms differ by 0.000000 mm3 and no triangles. Those mirrors
+    // are harmless and were left alone.)
     color("DarkOrange")
         translate([0, 0, tube_seat_z - body_tube_len - cap_drop + body_cap_engage])
-            mirror([0, 0, 1]) import(str(body_dir, "/body-cap.stl", convexity=10));
+            rotate([180, 0, 0]) import(str(body_dir, "/body-cap.stl", convexity=10));
 }
 
 // Every printable part, laid out flat and print-oriented, as ONE file. Handing

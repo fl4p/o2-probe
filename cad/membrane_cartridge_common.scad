@@ -552,7 +552,16 @@ face_first_layer_h = 0.2;
 // modelled.
 face_seat_depth = 0;
 face_disc_ledge = 1.0;      // membrane rim outboard of the groove
-face_squeeze_target = 0.25;
+// 0.22, not 0.25 -- moved 2026-09-06 with face_floor 0.20 -> 0.15, because the
+// floor change alone does not build. The old 0.25 solves the nominal depth to
+// 1.80, and 1.80 sits OUTSIDE the catalogue-band feasible window (1.905..1.999):
+// the ceiling assert fires, the fat-cord corner passing 30% before the groove
+// depth errs at all. 0.22 solves to 1.92 -- one layer deeper -- where the full
+// catalogue band holds squeeze 18.4..25.0% and fill 71.2..84.4%, every corner
+// inside. Anything from 0.21 to 0.24 quantizes to the same 1.92, so this is not
+// a knife-edge choice. 1.92 is also within 0.03 of the 1.95 both printed
+// retainers actually gauge.
+face_squeeze_target = 0.22;
 
 // --- derived ---------------------------------------------------------------
 

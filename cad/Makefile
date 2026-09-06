@@ -175,8 +175,15 @@ head-end-exploded: | $(OUT)
 #                          band assert fires. Micrometering the Ø24 x 1.5 rings
 #                          on receipt is not optional on this route
 #
-# The clamped bed's own ring (17 x 2.5, on hand) wants the same micrometer --
-# see face_sorting in the model and PRINTING-HEAD-END.md.
+# THE CLAMPED BED'S OWN RING NO LONGER DOES. face_sorting="sorted" used to be
+# passed here too; it was dropped 2026-09-06 on Fab's call -- "i dont think it
+# makes sense measuring these" -- so the face bed runs on the catalogue band and
+# face_floor moved 0.20 -> 0.15 to make that band feasible. See face_sorting and
+# face_floor in o2_probe_head_end.scad for the measured numbers behind it.
+#
+# oring_sorting above is the RADIAL ring and is UNCHANGED: it still claims the
+# Ø24 x 1.5 rings are micrometered on receipt. That claim has not been retested
+# and is not covered by the face-bed decision.
 #
 # WHICH RADIAL RING THE EXPORTS ARE CUT FOR. Default onhand-22x2, and that is not
 # a preference: Fab confirmed 2026-09-05 there is no 24 x 1.5 in the building, so
@@ -192,8 +199,7 @@ head-end-exploded: | $(OUT)
 RING ?= onhand-22x2
 ASA := $(HEAD_END_PROV) -D 'carrier_material="asa"' -D 'carrier_fab="printed"' \
        -D 'oring_sorting="sorted"' -D 'mem_seal="clamped"' \
-       -D 'radial_ring="$(RING)"' \
-       -D 'face_sorting="sorted"'
+       -D 'radial_ring="$(RING)"'
 
 .PHONY: head-end-asa
 head-end-asa: | $(OUT)
