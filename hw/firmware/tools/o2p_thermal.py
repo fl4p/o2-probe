@@ -57,6 +57,15 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from o2p_update import Bus, ModbusException, SerialLink  # noqa: E402  # type: ignore[import-not-found]
+# The decoders are IMPORTED, not copied. o2p_poll.py already transcribes the
+# register map and already checks itself against src/regmap.h at startup; a
+# second transcription here would be a second thing to keep in step, and the
+# one that rotted would be the one nobody was watching.
+from o2p_poll import (  # noqa: E402  # type: ignore[import-not-found]
+    CSV_COLUMNS as POLL_COLUMNS,
+    check_against_source as poll_check_against_source,
+    decode_diag, decode_primary,
+)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, os.pardir, "src")
@@ -192,47 +201,19 @@ def check_against_source():
 
 
 # --------------------------------------------------------------------------
-# Decoding. Sentinels become None; they are the firmware saying "do not trust
-# me" and must never be plotted or averaged as a number.
-
-def u16(v):
-    return None if v == U16_INVALID else v
-
-
-def i16(v):
-    if v == I16_INVALID:
-        return None
-    return v - 0x10000 if v & 0x8000 else v
-
-
-def scaled(v, div):
-    return None if v is None else v / div
-
+# Sampling. One transaction per block, decoded by o2p_poll's decoders so the
+# thermal log and the Modbus log cannot disagree about what a register means.
 
 def fault_names(word):
     return [n for i, n in enumerate(FAULT_BITS) if word & (1 << i)]
 
 
 def sample(bus):
-    p = bus.read(PRIMARY_BASE, PRIMARY_COUNT)
-    d = bus.read(DIAG_BASE, DIAG_COUNT)
-    return {
-        "o2_comp_pct": scaled(u16(p[0]), 100.0),
-        "o2_raw_ua": scaled(i16(p[1]), 100.0),
-        "t_tip_c": scaled(i16(p[2]), 100.0),
-        "t_chamber_c": scaled(i16(p[3]), 100.0),
-        "rh_pct": scaled(u16(p[4]), 100.0),
-        "heater_duty_pct": p[5] / 100.0,
-        "faults": p[6],
-        "faults_named": "|".join(fault_names(p[6])),
-        "va_mv": d[0x01],
-        "vin_mv": d[0x02],
-        "t_die_c": scaled(i16(d[0x12]), 100.0),
-        "uptime_s": (d[0x06] << 16) | d[0x07],
-        "sample_seq": d[0x11],
-        "status": "ok",
-        "detail": "",
-    }
+    row = decode_primary(bus.read(PRIMARY_BASE, PRIMARY_COUNT))
+    row.update(decode_diag(bus.read(DIAG_BASE, DIAG_COUNT)))
+    row["status"] = "ok"
+    row["detail"] = ""
+    return row
 
 
 def sample_retry(bus, retries):
@@ -523,7 +504,7 @@ class Fixture:
         return failed
 
 
-def run(args, bus, writer):
+def run(args, bus, writer, poll_writer=None):
     snap, orig_setpoint, blocking, warn = preflight(
         bus, args.duty, args.retries, args.ohm, args.theta_guess,
         args.tip_max)
@@ -575,6 +556,13 @@ def run(args, bus, writer):
                     rows.append(row)
                     if writer:
                         writer.writerow({c: row.get(c, "") for c in CSV_COLUMNS})
+                    if poll_writer:
+                        # Same row, the ordinary Modbus-log schema. The 15 s
+                        # logger has to give up the port for the run; without
+                        # this the continuous record would have an hour-long
+                        # hole exactly where the interesting thing happened.
+                        poll_writer.writerow({c: row.get(c, "")
+                                              for c in POLL_COLUMNS})
                     _show_row(row)
                     why = _check_abort(row, phase, duty, t_phase, args)
                     if why:
@@ -1044,6 +1032,26 @@ def load_csv(path):
 
 # --------------------------------------------------------------------------
 
+def _port_in_use(port):
+    """True if another process holds the serial device.
+
+    Only ever used to REFUSE. A false negative just means the run proceeds and
+    fails on the port itself, which is the same outcome as not checking; a
+    false positive would block a legitimate run, so an unusable lsof is
+    treated as "not in use" rather than as evidence.
+    """
+    import subprocess
+    try:
+        out = subprocess.run(["lsof", "-t", port], capture_output=True,
+                             text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    # lsof exits 1 with no output when nothing holds the file. Judge by the
+    # OUTPUT, not the status - `lsof | head` returning 0 is how the last check
+    # of this kind reported every port as busy.
+    return bool(out.stdout.strip())
+
+
 def main():
     ap = argparse.ArgumentParser(
         description=(__doc__ or "").split("\n")[0],
@@ -1099,6 +1107,12 @@ def main():
     ap.add_argument("--analyze", metavar="CSV",
                     help="fit an existing run and exit; touches no hardware")
     ap.add_argument("--plot", metavar="PNG", help="write a plot of the fit")
+    ap.add_argument("--poll-csv", metavar="CSV",
+                    help="ALSO append every sample to this file in "
+                         "o2p_poll.py's schema. The run owns the serial port, "
+                         "so point this at the file the 15 s logger was "
+                         "writing and the continuous record carries straight "
+                         "through the experiment instead of stopping for it.")
     ap.add_argument("--no-check", action="store_true",
                     help="skip the startup check against src/")
     args = ap.parse_args()
@@ -1119,23 +1133,36 @@ def main():
 
     link = SerialLink(args.port, args.baud, args.parity, args.timeout)
     bus = Bus(link, args.addr)
-    writer = fh = None
-    if args.csv and not args.preflight:
-        exists = os.path.exists(args.csv) and os.path.getsize(args.csv) > 0
-        fh = open(args.csv, "a", buffering=1, newline="")
-        writer = csv.DictWriter(fh, fieldnames=CSV_COLUMNS,
-                                extrasaction="ignore")
+    def _open(path, columns):
+        exists = os.path.exists(path) and os.path.getsize(path) > 0
+        handle = open(path, "a", buffering=1, newline="")
+        w = csv.DictWriter(handle, fieldnames=columns, extrasaction="ignore")
         if not exists:
-            writer.writeheader()
+            w.writeheader()
+        return handle, w
+
+    writer = poll_writer = fh = poll_fh = None
+    if not args.preflight:
+        if args.csv:
+            fh, writer = _open(args.csv, CSV_COLUMNS)
+        if args.poll_csv:
+            # Appending to a file another process is writing would interleave
+            # half-lines. The logger has to be stopped first, and saying so is
+            # cheaper than explaining a corrupted CSV later.
+            if _port_in_use(args.port):
+                sys.exit("!! something else already holds %s - stop the "
+                         "logger before starting the run" % args.port)
+            poll_fh, poll_writer = _open(args.poll_csv, POLL_COLUMNS)
     try:
-        return run(args, bus, writer)
+        return run(args, bus, writer, poll_writer)
     except Refusal as exc:
         print("\n!! %s" % exc)
         return 1
     finally:
         link.close()
-        if fh:
-            fh.close()
+        for handle in (fh, poll_fh):
+            if handle:
+                handle.close()
 
 
 if __name__ == "__main__":

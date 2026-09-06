@@ -182,6 +182,16 @@ would say *why* duty is zero is not published anywhere on the bus (see §9), so
 a run that quietly logged zeros would be indistinguishable from a probe with no
 heater fitted.
 
+**It keeps the ordinary log running.** Only one process can hold the serial
+port, so the 15 s Modbus logger has to stop for the duration — which would put
+an hour-long hole in the continuous record exactly where the interesting thing
+happened. `--poll-csv` appends every sample to that same file in
+`o2p_poll.py`'s schema as well, at the run's own (denser) interval, so the
+record carries straight through the experiment. The tool refuses to start if
+something still holds the port, rather than interleaving half-lines into
+somebody else's CSV. The decoders are imported from `o2p_poll.py` rather than
+copied, so the two logs cannot disagree about what a register means.
+
 **It reports applied duty, never commanded duty.** Every row carries both,
 from `HEATER_DUTY` (0x0005) and from what the script asked for. If they
 disagree, an interlock refused and the run aborts and says so.
