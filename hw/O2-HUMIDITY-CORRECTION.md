@@ -395,6 +395,65 @@ current to the fraction the cell actually sees, and that is still the wet-basis
 fraction. Everything here is about what is done with that fraction afterwards,
 and about calibrating `K` against the right number in the first place.
 
+## 8. Reproducibility of the O₂ channel: what actually moves it
+
+Measured 2026-09-06 on the bench rig (bare probe, **open** glass jar, wet paper
+towel, still room air, 12.0 V). Three disturbances were separated by direct
+experiment, and two of the three turned out not to matter.
+
+| disturbance | effect on `o2_raw` | persistence |
+|---|---:|---|
+| heater excursion, 5.3 K (4 % duty, 600 s) | **+0.3 %** | transient, ~20 min, recovers |
+| clean restart, cell unbiased 10 min | **+0.03 %** | none — within noise |
+| restart accompanying a flash/SWD session | **±0.16 … 0.52 %** | persistent, sign random (n = 5) |
+
+![O₂ across a heater step and a clean restart](doc/img/o2-heater-step-recovery-2026-09-06.webp)
+
+*The canonical five-panel figure. The heater step is the feature at 14:00 — tip
+and chamber up 5.3 K, RH falling 70.5 → 54.7 %, duty flat at 4.0 %, VIN steady.
+O₂ is drawn on both wet and dry basis. The gap near 15:10 is the bias-interruption
+test: the probe was parked in its bootloader for 10 min with the cell unbiased,
+then served its 15-minute `SETTLING` window.*
+
+**The heater excursion is real but transient.** +0.3 %, peaking about five
+minutes *after* the heater goes off and decaying over ~20 min — two orders of
+magnitude slower than the thermal τ, so it is a cell process, not temperature
+tracking. It never undershoots. Two confounds were excluded rather than assumed:
+absolute humidity *rose* slightly across the step (p_w 23.0 → 24.2 hPa), which
+pushes O₂ **down**; and exchange with room air would pull the reading toward
+20.95 %vol dry, also **down**. Both point the wrong way, so neither explains it.
+
+**A clean restart does essentially nothing — +0.03 %.** This was measured by
+writing `CMD_STAY` (0xB005) to `O2P_REG_UPD_CMD`, which resets the app into the
+loader; the loader holds the cell **unbiased** in service mode and calls
+`start_application()` after `SERVICE_IDLE_MS` (10 min) with no frames addressed
+to the probe. The poller must be stopped for the window or its own traffic
+refreshes that idle timer and strands the probe. Nothing is flashed:
+`cmd_boot` is gated on a staged image, `cmd_stay` is not.
+
+This is the useful result, and it corrects a working assumption held earlier the
+same day. **A restart is not worth ±0.5 %.** The 15-minute `SETTLING` window is
+conservative in the right direction and the cell genuinely returns to where it
+was. Note also that an MCU reset alone would *not* have tested this: `main.c`
+only re-verifies the LMP91000 and skips reconfiguration when the registers read
+back intact, so the bias survives a plain reset. Ten minutes in the loader is
+what actually drops it.
+
+**What remains unexplained** is the ±0.4 % scatter across the five logged
+reboots, since neither a thermal excursion nor a bias interruption produces a
+persistent step of that size. What those five have in common is that each
+accompanied a **flash or SWD session**, so the candidate is the flash write or
+the debug attach disturbing the analog rail or the LMP91000 reference while the
+cell is biased. Untested — it needs a stage-and-abort (`CMD_BEGIN` then
+`CMD_ABORT`) to get the flash-write disturbance without changing the running
+image, which writes to the staging slot and so needs a decision first.
+
+**Consequence for use.** Absolute O₂ is reproducible to ~0.03 % across a
+restart, ~0.3 % for twenty minutes after a duty change, and to no better than
+~0.5 % across a flashing session. Rates measured over windows long compared to
+20 minutes are unaffected by all three, which is the standing argument for
+treating rates as the robust product of this channel.
+
 ## 7. Sources
 
 * Randle, P. and Flegg, P.B. (1978). *Oxygen measurements in a mushroom compost

@@ -145,7 +145,78 @@ installation, not of the board.
   DBGMCU reads back 0 for every register unless `RCC_APBENR1` DBGEN is set
   first.
 
-## 7. What to do with the result
+## 7. Measured results, and what to do with them
+
+### 7.0 Bench measurements, 2026-09-06
+
+**State the medium with the number — it is a property of the installation, not
+of the board.** All three rows below are the *same* installation: a bare probe
+standing in an **open** glass jar with a wet paper towel, still room air,
+ambient ~25 °C, 12.0 V rail. Open, not sealed: the jar exchanges with the room,
+so this is free convection to still room air.
+
+| run | duty | ΔT | θ | τ | C | note |
+|---|---:|---:|---:|---:|---:|---|
+| 2026-09-06 drift-cancelled, 2 cycles | 3.7 % | 5.65 K | **117.0 K/W** | 110.2 s | 0.94 J/K | spread 0.3 over 2 cycles |
+| 2026-09-06 single cycle, 600 s halves | 4.0 % | 4.61 K | **112.9 K/W** | 129.3 s | 1.15 J/K | ON half only 4.6 τ — asymptote extrapolated |
+| 2026-09-04 re-fit | — | — | 105 K/W | — | — | that step ran only 3.2 τ; published as 98 |
+
+![Drift-cancelled two-cycle fit, 2026-09-06](doc/img/thermal-fit-drift-cancelled-2026-09-06.webp)
+
+*Two-cycle drift-cancelled run, θ = 117.0 K/W, τ = 110.2 s. Reproduce with:*
+`python3 firmware/tools/o2p_thermal.py --analyze bench-logs/thermal-2026-09-06.csv --vin-mv 12000 --plot out.webp`
+
+![Single-cycle 600 s fit, 2026-09-06](doc/img/thermal-fit-2026-09-06.webp)
+
+*Single cycle, 600 s halves, θ = 112.9 K/W. The ON half is flagged SHORT (4.6 τ),
+so its asymptote is extrapolated; the OFF half ran 5.6 τ and fit cleanly.*
+`python3 firmware/tools/o2p_thermal.py --analyze bench-logs/o2-recovery-2026-09-06.csv --plot out.webp`
+
+**`--vin-mv 12000` is mandatory on `thermal-2026-09-06.csv` and is not a
+cosmetic flag.** That log predates the VIN divider fix, so its `vin_mv` column
+reads ~10.5 V for a DMM-confirmed 12.0 V rail. Since `P = duty·VIN²/R`, an
+under-read rail under-estimates power and *inflates* θ: analysing that file on
+its logged rail returns **155.7 K/W** instead of 117.0, a 33 % error, with no
+outward sign that anything is wrong. The tool prints a loud banner when the
+override is used and disables the rail-stability exclusion along with it.
+
+Take **θ ≈ 113–117 K/W** for this installation. The 2026-09-04 value of 98 K/W
+is low because the step was far too short (§6, and the tool now warns); re-fitting
+the same log with the current estimator gives 105.
+
+**This is an optimistic bound for a buried probe, and the reason is the medium.**
+Free convection to room air is a *better* heat path than a probe packed in damp
+compost with no air movement. A pile figure will be different and is still
+unmeasured — which is why `POWER.md` §3.2 has deliberately **not** been updated
+from these numbers. Measure it in a pile before spending the panel budget.
+
+Two supporting numbers from the same runs:
+
+- **`tip − chamber` peaked at +0.220 K across a 5.65 K excursion.** U10 and U12
+  are one thermal node, confirming §3: `O2P_HB_DT_LIMIT` (4.00 K) is inert on
+  Rev A and cannot fire.
+- **`tip − die` swung 5.81 K** over the same excursion and is the usable runaway
+  reference.
+
+### 7.1 What the heater does to the O₂ channel
+
+Measured 2026-09-06 on the same rig, and it is not zero: a **5.3 K** chamber
+excursion (4 % duty, 600 s) moved the cell **+0.3 %**, peaking about five
+minutes *after* the heater went off and decaying over roughly **20 minutes**
+before settling slightly above where it started. It never undershoots.
+
+Twenty minutes is two orders of magnitude longer than the thermal τ, so this is
+a slow cell process, not the cell tracking temperature. It is *not* water
+dilution — absolute humidity rose slightly across the step, which pushes O₂ the
+other way — and it is not gas exchange with the room, which would pull the
+reading toward 20.95 %vol dry and therefore also downward. See
+`O2-HUMIDITY-CORRECTION.md` §8.
+
+The consequence for the heater loop: **a duty change quietly costs the oxygen
+channel ~0.3 % for twenty minutes.** Rates over windows long compared to that
+are unaffected; a level read shortly after a duty change is not.
+
+## 7.2 What to do with the result
 
 Put θ and the conditions into `compostlab/o2-probe/POWER.md` §3.2, replace the
 assumed-duty table with the measured row, and re-pick the panel and battery.
