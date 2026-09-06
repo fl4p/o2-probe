@@ -256,6 +256,27 @@ def sample_retry(bus, retries):
 # assumed pass. Every message names the remedy, because the interlock mask
 # that would otherwise explain the zero duty is not published.
 
+def rh_after_heating(rh_pct, t_c, dt_k):
+    """Chamber RH after a dT rise at constant absolute humidity.
+
+    d(ln RH)/dT = -L / (Rv * T^2), the same Clausius-Clapeyron relation
+    PILE-THERMAL-TEST.md section 2 inverts to get its 3 K design point - this
+    is that arithmetic run forwards. About -6 % per kelvin near room
+    temperature, which is why a 20 K excursion does not just overheat the cell,
+    it collapses the very measurement the loop is regulating.
+    """
+    L, RV = 2.45e6, 461.5          # J/kg, J/(kg K)
+    t_k = t_c + 273.15
+    return rh_pct * math.exp(-(L / (RV * t_k * t_k)) * dt_k)
+
+
+def predict_step(duty_pct, vin_mv, ohm, theta):
+    """(power W, expected dT K) for a duty step. theta is a GUESS, see below."""
+    v = vin_mv / 1000.0
+    power = (duty_pct / 100.0) * v * v / ohm
+    return power, power * theta
+
+
 class Refusal(Exception):
     """A precondition that makes the measurement meaningless. Never proceed."""
 
@@ -266,7 +287,8 @@ class Abort(Exception):
     this point are real data and still get fitted; only the rest is lost."""
 
 
-def preflight(bus, want_duty_pct, retries, quiet=False):
+def preflight(bus, want_duty_pct, retries, ohm=HEATER_OHM,
+              theta_guess=98.0, tip_max=55.0, quiet=False):
     """Return (snapshot, list of blocking problems, list of warnings)."""
     snap = sample_retry(bus, retries)
     if snap["status"] != "ok":
@@ -326,7 +348,68 @@ def preflight(bus, want_duty_pct, retries, quiet=False):
                     % (rh, rh - RH_SETPOINT_MIN_X100 / 100.0,
                        RH_SETPOINT_MIN_X100 / 100.0))
 
-    # 3. Things that are merely suspicious.
+    # 3. Is the duty SANE for the coupling we expect?
+    #
+    # PILE-THERMAL-TEST.md section 4 says "start at 2000 (20.00 %)", and that
+    # is right for a pile, where theta is expected near 10-20 K/W and 20 %
+    # buys 2-4 K. On a still-air bench at ~98 K/W the SAME command is a 20 K
+    # excursion: it takes the cell past its 60 C rating and, worse, drops
+    # chamber RH by a third - straight through the setpoint, out of
+    # saturation, and the applied duty stops being the duty you asked for.
+    # The measurement destroys its own precondition. Predict it and say so.
+    pred_line = None
+    if snap["t_tip_c"] is not None and snap["vin_mv"]:
+        power, dt = predict_step(want_duty_pct, snap["vin_mv"], ohm, theta_guess)
+        tip_end = snap["t_tip_c"] + dt
+        # What the chamber has to start at for this step to stay saturated,
+        # with 5 %RH of margin left at the top of the step. Heating LOWERS RH,
+        # so the constraint is on the END of the ON half, not the start.
+        margin = RH_SETPOINT_MIN_X100 / 100.0 + 5.0
+        t_ch = snap["t_chamber_c"] if snap["t_chamber_c"] is not None else 25.0
+        need_rh = margin / (rh_after_heating(1.0, t_ch, dt) or 1.0)
+        pred_line = ("  predicted     %.2f %% -> %.1f mW -> +%.1f K at the "
+                     "assumed %.0f K/W (tip %.1f C); needs the chamber to "
+                     "start at %.0f %%RH"
+                     % (want_duty_pct, power * 1000.0, dt, theta_guess,
+                        tip_end, need_rh))
+        if dt < 1.5:
+            warn.append("--duty %g is predicted to raise the tip only %.2f K. "
+                        "That is measurable - the TMP117 resolves 0.0078 K - "
+                        "but it is thin against ambient drift, and theta is "
+                        "dT/P, so the fractional error in dT is the fractional "
+                        "error in theta. Consider --duty %.1f."
+                        % (want_duty_pct, dt,
+                           _duty_for(3.0, snap["vin_mv"], ohm, theta_guess)))
+        if tip_end >= tip_max:
+            blocking.append(
+                "--duty %g would put the tip at about %.1f C (%.1f K rise at "
+                "the assumed %.0f K/W), at or past the --tip-max %.1f C. Use "
+                "--duty %.1f for a 3 K rise, or --theta-guess if you already "
+                "know this installation couples better."
+                % (want_duty_pct, tip_end, dt, theta_guess, tip_max,
+                   _duty_for(3.0, snap["vin_mv"], ohm, theta_guess)))
+        elif rh is not None:
+            rh_end = rh_after_heating(rh, snap["t_chamber_c"] or 25.0, dt)
+            if rh_end <= RH_SETPOINT_MIN_X100 / 100.0:
+                blocking.append(
+                    "--duty %g is predicted to raise the tip %.1f K, which "
+                    "takes chamber RH from %.1f %% to about %.1f %% - below "
+                    "the %.0f %% setpoint. The loop would leave saturation "
+                    "mid-step and stop applying the duty you asked for, so "
+                    "the run would measure nothing. Use --duty %.1f (about "
+                    "3 K), or raise the chamber humidity further."
+                    % (want_duty_pct, dt, rh, rh_end,
+                       RH_SETPOINT_MIN_X100 / 100.0,
+                       _duty_for(3.0, snap["vin_mv"], ohm, theta_guess)))
+            elif rh_end <= RH_SETPOINT_MIN_X100 / 100.0 + 3.0:
+                warn.append("heating %.1f K is predicted to take RH from "
+                            "%.1f %% to %.1f %%, only %.1f %% above the "
+                            "setpoint. Watch heater_duty_pct for the loop "
+                            "coming out of saturation."
+                            % (dt, rh, rh_end,
+                               rh_end - RH_SETPOINT_MIN_X100 / 100.0))
+
+    # 4. Things that are merely suspicious.
     if "HEATER_RUNAWAY" in named:
         blocking.append(
             "FAULTS carries HEATER_RUNAWAY. That latch survives until reset "
@@ -362,7 +445,15 @@ def preflight(bus, want_duty_pct, retries, quiet=False):
         print("  RH_SETPOINT   %d (%.2f %%)" % (cfg, cfg / 100.0))
         print("  FAULTS        0x%04X  %s"
               % (snap["faults"], snap["faults_named"] or "none"))
+        if pred_line:
+            print(pred_line)
     return snap, cfg, blocking, warn
+
+
+def _duty_for(dt_k, vin_mv, ohm, theta):
+    """The duty that would give a dT of dt_k at the assumed theta."""
+    v = vin_mv / 1000.0
+    return 100.0 * (dt_k / theta) * ohm / (v * v)
 
 
 def _f(v, places=2):
@@ -433,7 +524,9 @@ class Fixture:
 
 
 def run(args, bus, writer):
-    snap, orig_setpoint, blocking, warn = preflight(bus, args.duty, args.retries)
+    snap, orig_setpoint, blocking, warn = preflight(
+        bus, args.duty, args.retries, args.ohm, args.theta_guess,
+        args.tip_max)
     for w in warn:
         print("  ** %s" % w)
     if blocking:
@@ -964,10 +1057,13 @@ def main():
     ap.add_argument("--parity", default="E", choices=["N", "E", "O"])
     ap.add_argument("--timeout", type=float, default=1.0)
     ap.add_argument("--retries", type=int, default=2)
-    ap.add_argument("--duty", type=float, default=20.0,
-                    help="percent, applied during the ON half (default 20). "
-                         "Pick it for a 2-5 K rise; start here and adjust "
-                         "after the first cycle.")
+    ap.add_argument("--duty", type=float, default=4.0,
+                    help="percent, applied during the ON half (default 4, "
+                         "which is ~4 K in still air and is what the "
+                         "2026-09-04 bench used). Pick it for a 2-5 K rise. A "
+                         "PILE couples far better and wants several times "
+                         "more - preflight predicts the rise and tells you "
+                         "the duty that would give 3 K.")
     ap.add_argument("--half", type=float, default=300.0,
                     help="seconds per half-cycle (default 300). Must be at "
                          "least 5 tau or the asymptote is guesswork.")
@@ -984,6 +1080,12 @@ def main():
                     help="heater resistance (default %g, RH1||RH2). MEASURE it "
                          "if a ring PCB is fitted - a ring parallels these."
                          % HEATER_OHM)
+    ap.add_argument("--theta-guess", type=float, default=98.0,
+                    help="K/W assumed ONLY to sanity-check --duty before the "
+                         "run (default 98, the still-air bench figure in "
+                         "PILE-THERMAL-TEST.md section 1). It never enters the "
+                         "result - the whole point is to measure it. Lower it "
+                         "for a pile, where coupling is far tighter.")
     ap.add_argument("--rms-max", type=float, default=0.30,
                     help="a half-cycle whose exponential fit misses by more "
                          "than this RMS (K) is excluded from theta (default "

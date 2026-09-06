@@ -280,14 +280,15 @@ What must hold:
 | `VIN` ≥ 9000 mV and `VA` in tolerance | `HB_SUPPLY` | `VIN_LOW`/`VA_LOW` in `FAULTS` |
 | measured RH **above** `RH_SETPOINT` | (loop simply asks for 0 duty) | 0x0004 against 0x0033 |
 
-**Blocker 1 — the rail.** As of 2026-09-06 this bench reads `VIN_MON` =
-**7958 mV** against the 9000 mV `O2P_VIN_LOW_MV` threshold in `main.c`, so
-`VIN_LOW` is set, `supply_ok` is false, and `HB_SUPPLY` pins duty at zero. The
-same firmware on the same board read **11960 mV on 2026-09-04**, which is
-strong evidence the monitor is fine and the *supply* changed — measure the
-input with a meter before adjusting anything, because `P = duty·VIN²/R` and a
-wrong VIN scales θ by its square. (The reading being dead flat sample to sample
-is not evidence of a stuck channel: the 91k/10k divider gives 8.1 mV per LSB in
+**Blocker 1 — the rail. RESOLVED 2026-09-06.** This bench briefly read
+`VIN_MON` = **7958 mV** against the 9000 mV `O2P_VIN_LOW_MV` threshold in
+`main.c`, setting `VIN_LOW`, clearing `supply_ok` and pinning duty at zero
+through `HB_SUPPLY`. It was the supply, not the monitor: with 12 V/1 A back on
+the input the same board reads **11950 mV**, against **11960 mV** logged on
+2026-09-04. Three very different rails, three correct readings — the VIN
+channel is trustworthy, which matters because `P = duty·VIN²/R` and an error
+here scales θ by its square. (The reading being flat sample to sample is not
+evidence of a stuck channel either: the 91k/10k divider gives 8.1 mV per LSB in
 VIN terms against 1.6 mV for `VA_MON`, so a quiet rail parks on one code.)
 
 **Blocker 2 — dry room air.** `o2p_config_valid()` in `regmap.c` accepts
@@ -297,15 +298,37 @@ bench, **no legal setpoint saturates the loop**, so the heater cannot be
 commanded over Modbus at all. This is why §4 says the field case is *easier*
 than the bench: in a pile RH is near 100 % and 50 % saturates trivially.
 
+**How much humidity is enough** is not "above 50 %", because heating *lowers*
+RH and the constraint is on the *end* of the ON half. At constant absolute
+humidity `d(ln RH)/dT = −L/(R_v·T²)`, about −6 % per kelvin near room
+temperature — the same Clausius–Clapeyron relation §2 inverts to get its 3 K
+design point, run forwards. Leaving 5 %RH of margin above the 50 % setpoint:
+
+| duty | P | ΔT at 98 K/W | chamber must start at |
+|---:|---:|---:|---:|
+| 2 % | 20 mW | 2.0 K | 62 %RH |
+| 3 % | 31 mW | 3.0 K | 66 %RH |
+| 4 % | 41 mW | 4.0 K | 70 %RH |
+
+`--preflight` computes that row for whatever `--duty` you pass and prints it.
+
+**Note the duty.** §4 step 4 says "start at `2000` (20.00 %)", and that is right
+for a *pile*, where θ near 10–20 K/W makes 20 % a 2–4 K step. On a still-air
+bench at ~98 K/W the same command is a **20 K** excursion: past the cell's
+60 °C rating, and it would drop chamber RH by a third — through the setpoint,
+out of saturation, and the applied duty stops matching the commanded one. The
+measurement would destroy its own precondition. The tool defaults to 4 %,
+predicts the rise from `--theta-guess` (98 K/W, used *only* for this check and
+never in the result), and refuses a duty that would overshoot either limit.
+
 Two ways out on the bench:
 
 1. **Raise the chamber humidity.** Closed box, damp sponge not touching the
-   probe, wait for RH above ~60 % so there is headroom — heating *lowers* RH,
-   and if it falls back through the setpoint mid-cycle the loop leaves
-   saturation and the applied duty stops matching the commanded one. The tool
-   warns when the margin is under 5 %RH and the log shows it happening. A
-   closed box is also a fair still-air boundary, which is the upper bound θ
-   this measurement is for.
+   probe, wait for the RH in the table above — ~70 % for the default 4 % duty,
+   ~62 % if you drop to 2 %. The tool warns when the margin is under 5 %RH,
+   refuses when the step is predicted to fall through the setpoint, and the log
+   shows it happening if it does anyway. A closed box is also a fair still-air
+   boundary, which is the upper bound θ this measurement is for.
 2. **Write the setpoint below the floor over SWD**, bypassing the validator.
    This is what the 2026-09-04 run did. It needs a debugger on the probe, and
    §6's last bullet applies: halting the core resets the board on the ~4.1 s
