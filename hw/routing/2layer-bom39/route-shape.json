@@ -1,0 +1,97 @@
+{
+  "board": "/private/tmp/codex-o2-probe-route.HkAago/o2-probe-2layer-work/final-bom39-zero/o2-probe.kicad_pcb",
+  "metrics": {
+    "arcs": 0,
+    "board": "/private/tmp/codex-o2-probe-route.HkAago/o2-probe-2layer-work/final-bom39-zero/o2-probe.kicad_pcb",
+    "copper_layers": [
+      "F.Cu",
+      "B.Cu"
+    ],
+    "copper_length_mm": 2002.47,
+    "declared_directions": {},
+    "direction_conformance": {
+      "B.Cu": null,
+      "F.Cu": null
+    },
+    "full_stack_via_fraction": null,
+    "full_stack_vias": null,
+    "max_via_net": "/GND",
+    "max_vias_on_a_net": 72,
+    "per_layer": {
+      "B.Cu": {
+        "length_mm": 1015.72,
+        "segments": 573
+      },
+      "F.Cu": {
+        "length_mm": 986.76,
+        "segments": 539
+      }
+    },
+    "routed_nets": 54,
+    "segment_length_mm": {
+      "mean": 1.801,
+      "median": 1.062,
+      "p90": 4.088
+    },
+    "segments": 1112,
+    "short_segment_fraction": 0.10341726618705036,
+    "short_segment_threshold_mm": 0.2,
+    "via_layer_spans": {
+      "F.Cu->B.Cu": 269
+    },
+    "vias": 269,
+    "vias_by_net": {
+      "/+12V_FUSED": 3,
+      "/+12V_HTR": 2,
+      "/+12V_SW": 14,
+      "/+5V": 5,
+      "/+5V_ANALOG": 3,
+      "/3V3A": 14,
+      "/3V3D": 10,
+      "/ADC_AFE_VOUT": 4,
+      "/ADC_DRDY": 3,
+      "/ADC_RESET": 1,
+      "/ADC_RE_BUF": 1,
+      "/ADC_VREF_MON": 3,
+      "/ADC_WE_BUF": 1,
+      "/AFE_MENB": 9,
+      "/AFE_VOUT": 5,
+      "/BUCK_BST": 2,
+      "/CELL_CE": 3,
+      "/CELL_CE_DRV": 1,
+      "/CELL_WE": 5,
+      "/CE_MON": 3,
+      "/GND": 72,
+      "/GUARD_REPLICA": 7,
+      "/HEATER_GATE": 3,
+      "/HEATER_LOW": 1,
+      "/HEATER_PWM": 3,
+      "/I2C_SCL": 14,
+      "/I2C_SDA": 20,
+      "/LMP_C1": 1,
+      "/LMP_C2": 1,
+      "/NRST": 4,
+      "/RE_BUF": 4,
+      "/RS485_A": 2,
+      "/RS485_B": 2,
+      "/RS485_DE": 3,
+      "/RS485_RX": 2,
+      "/RS485_TX": 2,
+      "/SWCLK_BOOT0": 3,
+      "/SWDIO": 2,
+      "/SWO": 4,
+      "/TMP_CELL_EP": 1,
+      "/UART2_RX": 1,
+      "/UART2_TX": 4,
+      "/VA_MON": 3,
+      "/VIN_GATE": 2,
+      "/VIN_MON": 3,
+      "/VREF_SHUNT": 2,
+      "/VREF_TRIM": 8,
+      "/WE_BUF": 3
+    },
+    "vias_per_routed_net": 4.981481481481482
+  },
+  "pid": 4669,
+  "verdict": "reported"
+}

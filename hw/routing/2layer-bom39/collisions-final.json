@@ -1,0 +1,15 @@
+{
+ "board": "/private/tmp/codex-o2-probe-route.HkAago/o2-probe-2layer-work/final-bom39-zero/o2-probe.kicad_pcb",
+ "verdict": "clean",
+ "findings": [],
+ "inventory": {
+  "layers": {
+   "F.Cu": 1003,
+   "B.Cu": 959
+  },
+  "items": 1962
+ },
+ "pid": 2353,
+ "board_size": 1085722,
+ "board_mtime": 1788651292.8181348
+}
