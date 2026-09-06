@@ -407,16 +407,38 @@ def show_status(bus):
 
 
 def wait_for(bus, want, timeout, what):
+    """Poll the state register until it reaches `want`.
+
+    Silence is EXPECTED here and is not an error. The thing being waited for
+    is usually a flash erase, and the probe cannot answer Modbus while its
+    flash controller has the bus - so a bare "no reply" during the wait means
+    the operation is in progress, which is precisely the case this function
+    exists to sit through. Raising on it aborted a push whose erase had in
+    fact succeeded (observed 2026-09-06: the probe was left in READY while the
+    tool exited with a traceback).
+
+    Only the TIMEOUT is failure. A transport error is remembered so that a
+    timeout can say what it kept hitting rather than just "timed out".
+    """
     t0 = time.time()
+    last_exc = None
     while time.time() - t0 < timeout:
-        st, err, _ = status(bus)
+        try:
+            st, err, _ = status(bus)
+            last_exc = None
+        except (ModbusException, IOError, OSError) as exc:
+            last_exc = exc
+            time.sleep(0.1)
+            continue
         if st == want:
             return
         if st == STATES.index("ERROR"):
             raise SystemExit("!! probe reports ERROR/%s while waiting for %s"
                              % (ERRORS[err] if err < len(ERRORS) else err, what))
         time.sleep(0.05)
-    raise SystemExit("!! timed out waiting for %s" % what)
+    raise SystemExit("!! timed out waiting for %s%s"
+                     % (what, "" if last_exc is None
+                        else " (last transport error: %s)" % last_exc))
 
 
 def show_bridge(link):
