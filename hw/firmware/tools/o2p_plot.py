@@ -40,7 +40,12 @@ VIN_LOW_MV = 9000               # main.c O2P_VIN_LOW_MV
 # label, [(column, legend, colour)], optional right-axis (column, label, colour)
 PANELS = [
     ("O$_2$ (%vol)",
-     [("o2_comp_pct", "compensated", "tab:blue")],
+     [("o2_comp_pct", "as published (wet basis)", "tab:blue"),
+      # Drawn only when the column exists. The firmware publishes wet basis
+      # until fe27d20 is on the board; plot_poll.py --dry-basis computes the
+      # corrected column offline so the size of the artefact is visible on the
+      # same axes as the number it corrupts.
+      ("o2_dry_pct", "dry basis (corrected)", "tab:cyan")],
      ("o2_raw_ua", "cell current (uA)", "tab:purple")),
     ("temperature (C)",
      [("t_tip_c", "tip (TMP117)", "tab:red"),
