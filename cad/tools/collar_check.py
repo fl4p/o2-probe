@@ -25,12 +25,15 @@ So this measures the MESH, and it measures the two things that can go wrong:
   1. THE COLLAR IS THERE. Eaten by the bore, the cable end reads tube_id/2
      instead of cable_bore_d/2 -- a Ø27.2 hole where a Ø25.5 sealing land should
      be. A 22 x 2 ring in a 27.2 bore is not a loose seal, it is no seal.
-  2. THE LEAD CONE IS THERE. The monobody prints head-end down, so this file's
-     +z runs downward through the print and the collar's top face is a
-     downward-facing annular ledge. Unchamfered it is an unsupported overhang of
-     collar_lead -- the identical defect that spiderwebbed the head's bore entry
-     on 2026-09-06, except here it is strung across the sealing surface. The
-     cone is not cosmetic and it must not be silently lost.
+  2. THE LEAD CONE IS THERE. NOT for support -- the first version of this
+     docstring claimed the monobody prints head-end down and that the cone was
+     holding up an overhang, and both halves were wrong. It prints CABLE-END
+     DOWN (measured in the sliced g-code: the collar's Ø25.5 bore is the first
+     12 mm off the plate), so the collar is supported for its whole length and
+     the step above it is top-facing. The cone is the BOARD'S LEAD-IN past the
+     collar step, and it keeps a sealing land from ending in a sharp internal
+     corner. Worth checking because it is easy to delete and nothing else
+     would notice -- not because its absence would spiderweb.
 
 Numbers come from the model's own COLLAR echo, so this checker re-derives
 nothing and cannot drift from the part it is checking (the rule grip_check.py
@@ -75,10 +78,17 @@ def model_numbers(scad=SCAD):
     """The COLLAR echo, straight from the model. Never recomputed here."""
     r = subprocess.run(
         # --export-format is REQUIRED with /dev/null: it has no suffix, and
-        # without one OpenSCAD refuses outright.
-        [OPENSCAD, '--export-format', 'asciistl', '-o', os.devnull,
-         '-D', 'part="tube"', scad],
+        # without one OpenSCAD refuses outright. --hardwarnings because an
+        # echo can be emitted BEFORE a later failure, and numbers scraped from
+        # a run that then died would be paired with whatever stale mesh is on
+        # disk -- a pass built from two different versions of the part.
+        [OPENSCAD, '--hardwarnings', '--export-format', 'asciistl',
+         '-o', os.devnull, '-D', 'part="tube"', scad],
         cwd=CAD, capture_output=True, text=True)
+    if r.returncode != 0:
+        die('the model did not evaluate (openscad exit %d) -- the COLLAR echo '
+            'cannot be trusted even if one was printed, so this is a FAILURE, '
+            'not an OK.\n%s' % (r.returncode, (r.stderr or r.stdout)[-2000:]))
     m = re.search(r'COLLAR bore ([\d.]+) len ([\d.]+) lead ([\d.]+)'
                   r' tube_id ([\d.]+) wall ([\d.]+)', r.stdout + r.stderr)
     if not m:
@@ -147,14 +157,32 @@ def check(path, n):
                      if max(z for _, z in t) >= lo
                      and min(z for _, z in t) <= hi),
                     default=float('inf'))
+        # BOTH SIDES. The first version asked only `inner > r_bore + 0.05`,
+        # which catches a collar that is missing or too shallow and waves
+        # through one that is too DEEP -- a bore bored undersize, a radial
+        # spoke left across it, a partial collar. Every one of those makes
+        # `inner` SMALLER, so the guard got quieter as the part got worse.
+        # That is checklist item 2, and this file's own docstring cites the
+        # monotonicity rule while the test broke it.
+        #
+        # Too small is not a cosmetic error either: the reamer would have to
+        # take out more than its stock, and short of that the cap's Ø25.2
+        # spigot does not enter at all.
         if inner > r_bore + 0.05:
             fails.append(
                 'collar: the smallest radius through z %.2f..%.2f is %.3f, not '
-                'the %.3f sealing land%s -- the collar is ABSENT from the mesh, '
+                'the %.3f sealing land%s -- the collar is ABSENT or too shallow, '
                 'and the ring would sit in open bore'
                 % (lo, hi, inner, r_bore,
                    ' (it reads as the plain %.3f bore)' % r_tube
                    if abs(inner - r_tube) < 0.05 else ''))
+        elif inner < r_bore - 0.05:
+            fails.append(
+                'collar: the smallest radius through z %.2f..%.2f is %.3f, '
+                '%.3f mm INSIDE the %.3f sealing land -- something stands in '
+                'the bore. The reamer has more than its stock to remove, and '
+                'until it is reamed the cap spigot does not enter'
+                % (lo, hi, inner, r_bore - inner, r_bore))
 
     # 2. THE LEAD CONE IS PRESENT. Its two ends are where the mesh does carry
     #    vertices, so this one is asked of vertices: the collar's top face at
@@ -167,8 +195,8 @@ def check(path, n):
 
     if n['lead'] <= 0.2:
         fails.append('cone: collar_lead is %.3f -- below one extrusion width '
-                     'there is no lead, only an unsupported ledge over the '
-                     'sealing surface' % n['lead'])
+                     'there is no lead at all, just a square step at the mouth '
+                     'of the sealing land' % n['lead'])
     else:
         if not at(n['len'], r_tube):
             fails.append('cone: no material at r=%.3f on z=%.3f -- the cone '
@@ -176,10 +204,10 @@ def check(path, n):
         if not at(n['len'] + n['lead'], r_bore):
             fails.append(
                 'cone: nothing at r=%.3f on z=%.3f -- the collar ends in a '
-                '%.2f mm ledge instead of a 45 deg lead. The cable end prints '
-                'UP, so that ledge is an unsupported overhang ACROSS THE '
-                'SEALING BORE' % (r_bore, n['len'] + n['lead'],
-                                  r_tube - r_bore))
+                '%.2f mm square step instead of a 45 deg lead -- the board '
+                'loses its lead-in past the collar and the sealing land ends '
+                'in a sharp internal corner' % (r_bore, n['len'] + n['lead'],
+                                                r_tube - r_bore))
 
     if fails:
         for f in fails:
@@ -219,6 +247,23 @@ def selftest():
         # clean closed solid, but the cone is not in the geometry. This is the
         # shape of every defect in this file's history -- the arithmetic goes on
         # describing a feature the mesh no longer has.
+        # THE MONOTONICITY CASE. Bore driven UNDERSIZE: renders as a clean
+        # closed solid, every seal assert still passes (they are arithmetic on
+        # cable_bore_d, which is what moved), and the old test waved it through
+        # because `inner` only got smaller. This is the direction the guard was
+        # blind in.
+        # Note it patches the GEOMETRY, not cable_bore_d: moving the variable
+        # trips the seal asserts and the model never renders, so it would be
+        # caught for an unrelated reason and the mesh test would go on being
+        # unexercised. Cutting the collar's bore 1.5 mm undersize leaves every
+        # assert passing and the tube a clean closed solid.
+        ('collar-bored-undersize',
+         lambda s: s.replace('''                translate([0, 0, -2*e])
+                    cylinder(d=cable_bore_d,
+                             h=cable_bore_len + collar_lead + 4*e);''',
+                             '''                translate([0, 0, -2*e])
+                    cylinder(d=cable_bore_d - 1.5,
+                             h=cable_bore_len + collar_lead + 4*e);''', 1)),
         ('cone-not-drawn',
          lambda s: s.replace(
              '''                    translate([0, 0, cable_bore_len])

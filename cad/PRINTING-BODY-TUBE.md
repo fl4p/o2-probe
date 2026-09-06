@@ -275,7 +275,7 @@ turned instead of rattling over the 0.65 mm the flat pocket left it. Residual
 play once home is **0.20 mm**, down from 0.65. That is all it does. It cannot
 tighten the seal, because the cable seal is radial and its squeeze is set by the
 reamed bore and the groove root — turn as hard as you like and the squeeze is
-the same 22.7 %. A ramp that *did* compress a face seal would be sizing an
+the same 23.51 %. A ramp that *did* compress a face seal would be sizing an
 elastomer by hand torque, i.e. exactly the sustained strain on ASA at 75 °C that
 `MEMBRANE.md`'s rule forbids.
 
@@ -318,7 +318,7 @@ the twist, zero at the locked depth — and **positive overlap when pulled from 
 lock**, which is the known-bad calibration. Without that last case the check
 would happily pass a cap with no lugs at all.
 
-## The cable seal — radial, and the same ring as the carrier
+## The cable seal — radial, and **no longer** the carrier's ring
 
 It started as a 28 × 2 **face** seal squeezed by the cap, and that was the wrong
 joint twice over. It needed a second ring size, and — the part that actually
@@ -330,6 +330,41 @@ A 24 × 1.5 cannot be a face seal here at all: ring OD 27.0 against a Ø27.2 bor
 so it drops straight through. It was therefore made a radial seal on a Ø27.3
 reamed **counterbore** — and that counterbore is what this section used to
 justify and now records as the wrong construction.
+
+### First, what is actually known about this ring — which is less than an earlier draft of this file claimed
+
+An earlier version called it *"EPDM 70 peroxide-cured, DIN 3771, same compound and
+supplier class as ORS116787."* The repository's own inventory record says otherwise,
+and the record is right (`o2_probe_head_end.scad`, `"onhand-22x2"`):
+
+> 22 × 2, on hand, **UNCATALOGUED** — material, cure system and cord tolerance all
+> assumed. **TEMPORARY**, for a squeeze and leak test on a part that can be printed
+> today.
+
+So: no part number, no lot, no compound test report, no supplier tolerance. Stating
+those as fact was prose stronger than its source, and `oring_sorting = "catalogue"`
+then applied a *tolerance specification* to a ring with no catalogue entry.
+
+**The design of record is still ORS116787, 24 × 1.5** — it has the compound test
+report the ammonia argument rests on. What follows is the joint for a **squeeze and
+leak test on a part that can be built today**. Anything buried for a season needs
+either real measurements or a sourced part number.
+
+**One waiver is live, and it is recorded rather than silent.** With the DIN ISO 3601
+±0.22 band on a nominal 22.0 ID, install stretch at the worst corner is **0.73 %**
+against the 1 % this design requires. Nominal is 2.15 % and squeeze stays inside
+15–30 % at *both* corners, so what is waived is **the ring staying seated on the
+spigot during assembly, not the seal**. That distinction is the reason it is waived
+and not deleted: a ring that will not stay on the spigot falls off in your hand and
+you notice; squeeze out of window is invisible and buried. `seal_stretch_corner_waived`
+carries it, the model prints a `WAIVED, NOT PASSED` line on every render, and the
+squeeze corners remain hard asserts.
+
+The ring was measured once — ID 22.3, cord 2.05 — which would have put *nominal*
+stretch at 0.44 % and demanded a **Ø26.0** collar rather than Ø25.5. Fab judged the
+reading unreliable (a free O-ring deforms under calipers) and instructed that nominal
+dimensions be assumed. **If that reading is ever confirmed, the bore is wrong and the
+tube must be rebored to Ø26.0 H7.**
 
 ### The counterbore was the constraint, and it was self-inflicted
 
@@ -351,7 +386,7 @@ exceeded, and the wall at the collar is **3.25 mm**, thicker than the tube's own
 | bore | **Ø25.5 H7 reamed**, 12 mm deep | Ø27.3 H7 reamed, 12 mm deep |
 | groove root | 22.473 × 2.80 wide | 25.030 × 2.10 |
 | install stretch | **2.15 %** | 4.29 % |
-| squeeze, after stretch-thinning | 23.51 % | 24.33 % |
+| squeeze, after stretch-thinning | 23.51 % | 22.67 % |
 | material under the root | 2.49 mm (2.4 min) | 2.51 mm |
 | wall at the seal | **3.25 mm** | 2.35 mm |
 | **rings needed** | **catalogue** | micrometer-**sorted** |
@@ -364,16 +399,16 @@ with what is on the bench is what it buys.
 
 ### The cord tolerance is why this is the better joint, not just the possible one
 
-**The bore must still be reamed** — as-printed, ±0.20 spends 13.63 of the 15
+**The bore must still be reamed** — as-printed, ±0.20 spends 10.11 of the 15
 available squeeze points on its own. What changed is the *cord*. DIN ISO 3601
 gives ±0.08 on both sizes, but ±0.08 is a smaller fraction of a 2 mm cord than
 of a 1.5 mm one, so the same catalogue ring buys a narrower squeeze band:
 
 | | squeeze points, of 15 |
 |---|---:|
-| printed bore ±0.20 alone | 13.63 (not 19.75 — that figure was bore *and* root together) |
-| reamed H7 bore alone | 0.72 |
-| **22 × 2**: reamed bore + printed root ±0.09 + **catalogue** cord | **11.22 — passes** |
+| printed bore ±0.20 alone | **10.11** on the 2 mm cord (13.63 was the 1.5 mm cord's figure; 19.75 was bore *and* root together) |
+| reamed H7 bore alone | **0.53** on the 2 mm cord (0.72 was the 1.5 mm cord) |
+| **22 × 2**: reamed bore + printed root ±0.09 + **catalogue** cord (±0.09, and the ring's own ±0.22 ID) | **12.49 — passes** |
 | 24 × 1.5: reamed bore + printed root + **catalogue** cord | 15.1–15.7 — over budget |
 | 24 × 1.5: reamed bore + printed root + **sorted** cord | ~7.5 |
 
@@ -420,7 +455,7 @@ leaves the O-ring doing only the job it is good at.
 
 It is **blind**, and that is the whole design of it: a hole through the tube wall
 at that height would vent the sealed volume past the seal plane. The wall is
-thickened on the *inside* at z = 6, where nothing but cable passes, so the pilot
+thickened on the *inside* at z = 17, where nothing but cable passes, so the pilot
 gets 3.5 mm of engagement and still leaves 1.75 mm of material to the bore. The
 cap's clearance is an arc ±10° wide, so the screw finds its pilot anywhere in the
 pocket's own play.

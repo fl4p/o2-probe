@@ -130,8 +130,20 @@ part_process_overrides() {
         # notch came out dirty; the lesson was already in this file one line up
         # and simply was not carried across.
         #
-        # internal_bridge_speed as well as bridge_speed: this is a roof over a
-        # POCKET, not an open span, and Orca drives the two from separate keys.
+        # BOTH KEYS, and the reason is not the one first written here. This
+        # said the notch roof is a roof over a POCKET and therefore an
+        # `Internal Bridge`. Orca actually labels that layer `Overhang wall`
+        # (cap plate z 1.28); the only `Internal Bridge` was the larger cap-end
+        # seat roof at z 2.48. The override is still right and still needed --
+        # the two features are driven from separate keys and both must be
+        # slowed -- but it lands on the notch roof by way of a DIFFERENT key
+        # than the comment claimed. Verified in the emitted g-code, twice.
+        #
+        # 2026-09-06 postscript: neither key was ever the fix. The notch roof
+        # bridged because the 0.35 mm lip between the gland hole and the notch
+        # is unprintable, so the roof had nothing to land on. The pocket moved
+        # to the cap's INNER face and the overhang is gone from the plate
+        # entirely. These overrides stay for the seat roof.
         cap)      echo '{"bridge_speed":["25","25"],"internal_bridge_speed":"25"}' ;;
         *)        echo '{}' ;;
     esac

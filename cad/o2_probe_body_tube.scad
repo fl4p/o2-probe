@@ -258,11 +258,67 @@ tail_len = 22.0;
 //     the old ring needed is what paid for the second size.
 //   * Install stretch drops from 4.27% to about 2%, off the 5% rule's edge.
 //
-// EPDM 70 Shore A peroxide-cured, 22.0 x 2.0 DIN 3771 -- same compound and
-// same supplier class as the carrier's ORS116787. EPDM because ammonia attacks
-// fluoroelastomers.
+// WHAT IS ACTUALLY KNOWN ABOUT THIS RING, which is less than an earlier
+// version of this comment claimed. It said "EPDM 70 Shore A peroxide-cured,
+// 22.0 x 2.0 DIN 3771 -- same compound and same supplier class as the
+// carrier's ORS116787". The head's own inventory record says otherwise, and it
+// is the record that is right (o2_probe_head_end.scad, "onhand-22x2"):
+//
+//     22 x 2, on hand, UNCATALOGUED -- material, cure system and cord
+//     tolerance all assumed. TEMPORARY, for a squeeze and leak test on a
+//     part that can be printed today.
+//
+// So: no part number, no lot, no compound test report, and no supplier
+// tolerance. Stating those as fact was prose stronger than its source, and it
+// then carried a tolerance SPECIFICATION -- oring_sorting = "catalogue" -- on
+// a ring with no catalogue entry to specify it.
+//
+// It also quietly made a bench substitute into the design of record. The
+// design of record is still ORS116787, 24 x 1.5, which has the compound test
+// report the ammonia argument rests on. THIS IS THE RING FOR A SQUEEZE AND
+// LEAK TEST ON A PART THAT CAN BE BUILT TODAY. Anything buried for a season
+// needs either measurements (seal_id_tol_meas / seal_cord_tol_meas above) or
+// a sourced part number.
+//
+// EPDM is the one part that is established, and it is not negotiable: ammonia
+// attacks fluoroelastomers.
 seal_id   = 22.0;
 seal_cord = 2.0;
+// MEASURE THE RING AND PUT THE NUMBERS HERE. Both default to the DIN ISO 3601
+// catalogue bands, and for this ring even those are an assumption -- the head's
+// inventory record calls the on-hand 22 x 2 UNCATALOGUED, with material, cure
+// system AND cord tolerance all assumed. The catalogue band is what makes the
+// stretch assert below fail at its low corner, so measuring is not paperwork:
+// it is the cheapest way to close this joint. Set them to half the spread of
+// several readings, e.g. seal_id_tol_meas = 0.05.
+seal_id_tol_meas   = undef;   // MEASURE: ring ID, half-spread of the readings
+seal_cord_tol_meas = undef;   // MEASURE: cord, half-spread of the readings
+
+// THE LOW-STRETCH CORNER IS WAIVED, ON FAB'S INSTRUCTION, 2026-09-06.
+//
+// What is being accepted, stated plainly so nobody has to reconstruct it:
+// with the DIN ISO 3601 +/-0.22 band on a nominal 22.0 ID, install stretch at
+// the worst corner is 0.7345% against the 1% this file requires. Nominal is
+// 2.151% and squeeze is inside 15-30% at BOTH corners, so what is waived is
+// the ring staying seated on the spigot during assembly -- not the seal.
+//
+// It is waived rather than deleted because the distinction is real and worth
+// keeping: a ring that will not stay on the spigot is VISIBLE AT ASSEMBLY --
+// it falls off in your hand, you notice, you fit it again. Squeeze out of
+// window is invisible and buried for a season. Those do not deserve the same
+// guard strength. The squeeze corners below remain hard asserts.
+//
+// It was measured once and the reading did not hold up: ID 22.3 / cord 2.05,
+// which would have put NOMINAL stretch at 0.437% and needed a O26.0 bore. Fab
+// judged the measurement unreliable -- a free O-ring deforms under calipers --
+// and instructed that nominal dimensions be assumed. That is the right call
+// for proceeding, and it is an ASSUMPTION, not a measurement.
+//
+// TO DISCHARGE THIS: measure the ring properly (laid flat, several readings,
+// micrometer on the cord), set seal_id_tol_meas / seal_cord_tol_meas above,
+// and set this back to false. At a realistic +/-0.05 the corner clears 1%
+// on its own and the waiver stops being needed.
+seal_stretch_corner_waived = true;
 // The same 0.2433 the head uses, and for the same reason: it is where the
 // tolerance band sits squarest, not a handbook preference.
 seal_squeeze = 0.2433;
@@ -284,12 +340,27 @@ carrier_fit = 0.3;          // spigot to bore, diametral
 // makes the wall THICKER here, 3.25 mm against the tube's own 2.4), and the
 // reamer, the setup and the H7 call-out are unchanged in kind.
 //
-// PRINTS WITHOUT SUPPORT, but only because of the lead cone below. The
-// monobody prints head-end down, so the cable end is UP and this file's +z
-// runs DOWNWARD through the print. The collar's material ends at
-// z=cable_bore_len, which in print order is a 0.85 mm annular ledge with
-// nothing under it -- the identical defect that spiderwebbed the head's bore
-// entry this morning. collar_lead is the 45-degree answer to it.
+// PRINTS WITHOUT SUPPORT, and NOT because of the lead cone -- an earlier
+// version of this comment claimed the cone was load-bearing and it was wrong.
+// The monobody prints CABLE-END DOWN: body-monobody.stl spans model z
+// -124.02..+10.30 and slices to 134.36 mm, so Orca lays the cable end (model
+// z -124) on the bed. Measured in the sliced g-code, the collar's Ø25.5 bore
+// is the FIRST 12 mm off the plate (toolpath r 13.015 from print z 0.30 to
+// 12.30, stepping to 13.865 above it).
+//
+// So the collar is printed straight onto the bed and is supported for its
+// whole length, and going UP the bore WIDENS 25.5 -> 27.2, which makes the
+// step a TOP-facing surface with material below it. There is no overhang here
+// in either orientation.
+//
+// collar_lead is kept for two reasons that remain true: it is the board's
+// lead-in past the collar step, and it avoids a sharp internal corner at the
+// root of a sealing land. It is not preventing a defect.
+//
+// (The head's bore entry IS a real overhang and was fixed this morning: with
+// the cable end down the bore NARROWS 27.2 -> 25.18 going up, so that ledge
+// faces downward. Same part, opposite sense -- which is exactly why this is
+// worth stating from the measured g-code rather than from memory.)
 //
 // Reamed for the same reason as before: as-printed the bore's +/-0.20 spends
 // 19.75 of the 15 available squeeze points on its own; reamed it spends 0.72.
@@ -314,7 +385,13 @@ spigot_id  = 17.5;
 //               ASA carriers, o2_probe_head_end.scad carrier_tol)
 //   "machined"  turned to size, +/-0.05
 cap_fab = "printed";
-// CATALOGUE CORD IS ENOUGH HERE, and it is the 2 mm cord that bought that.
+// "CATALOGUE" IS A CLAIM THIS RING HAS NOT EARNED -- see the provenance note
+// above. It is left here because it is the least-flattering assumption
+// available for an uncatalogued ring (the DIN ISO 3601 band is wider than any
+// sorted stock would be), NOT because the ring is known to meet it. Measure it
+// and the bands above take over.
+//
+// The 2 mm cord genuinely does buy tolerance margin, and that part stands.
 // The 24 x 1.5 could not close the chain on catalogue rings -- over 15 of the
 // 15 available squeeze points went to tolerance alone, which the 2026-09-05
 // Codex review found and this file's prose had wrong at 12.18 -- so it carried
@@ -715,16 +792,32 @@ gland_notch_depth = gland_seal_cord * (1 - gland_seal_squeeze);
 // wall work at all: if the groove's inner wall fell inside the thread's major
 // diameter it would take its depth out of the tapped length, and 3 mm is
 // already only 3 turns of M8 x 1.0.
-assert(gland_notch_id >= gland_hole_d + 0.4,
-       str("the gland seal notch runs to dia ", gland_notch_id,
-           ", inside the ", gland_hole_d,
-           " mm clearance hole -- it would break into the hole instead of ",
-           "sitting on the face the gland bears on"));
+// THIS ASSERT USED TO DEMAND 0.4 mm ON DIAMETER -- 0.2 mm on radius -- between
+// the clearance hole and the notch, which is a THIRD of one extrusion width. It
+// passed at 9.20 against 8.90 while the feature it guarded could not be built at
+// all. A printability limit written below the printer's resolution is not a
+// guard; it is a number that always says yes.
+//
+// The pocket is a counterbore now, so there is no lip to be too thin and the
+// old assert has nothing left to check. What replaces it is the constraint that
+// actually binds: the pocket must not eat the thread's clearance hole edge-on,
+// and it must leave a real floor.
+assert(gland_notch_od > gland_hole_d + 2*wall_line_w,
+       str("the gland seal pocket is only ", (gland_notch_od - gland_hole_d)/2,
+           " mm wider than the clearance hole on radius; under one extrusion ",
+           "(", wall_line_w, ") there is no pocket wall to retain the ring"));
 // And it must leave a floor. 1.5 mm is two 0.6 mm walls plus a skin, on a face
 // that carries the whole cable pull through the gland's flange.
 assert(cap_end_t - gland_notch_depth >= 1.5,
        str("only ", cap_end_t - gland_notch_depth,
-           " mm of cap end left under the seal notch"));
+           " mm of cap end left under the seal pocket"));
+// The pocket is in the INNER face now, so it takes its depth out of the length
+// the gland clamps -- which the outer-face annulus deliberately did not. Say so
+// in an assert rather than in prose: what the nut and flange squeeze between
+// them is the remaining land, and it is still the whole strain relief.
+assert(cap_end_t - gland_notch_depth <= gland_wall_max + 1e-9,
+       str("clamped land is ", cap_end_t - gland_notch_depth,
+           " mm, past the ", gland_wall_max, " mm this gland can close on"));
 assert(gland_notch_od + 2*cap_wall <= tube_od + cap_fit + 2*cap_wall,
        "the gland seal notch runs out past the cap's rim");
 // The plastic sits between the gland's flange and its nut, so the wall cannot
@@ -756,20 +849,55 @@ seal_cord_thin  = 1 - seal_stretch/2;
 seal_cord_fit   = seal_cord * seal_cord_thin;
 seal_squeeze_real = (seal_cord_fit - seal_gland)/seal_cord_fit;
 
-// THE WORST CORNER, which is what decides whether this seals at all. Three
-// things vary, not one: the reamed bore, the cap's groove root, and the cord of
-// the ring itself. Least squeeze is the widest gland on the thinnest cord.
-bore_tol  = (cable_bore_finish == "reamed") ? 0.0105 : 0.20;  // ISO 286-2 H7
+// THE WORST CORNER, which is what decides whether this seals at all. FOUR
+// things vary, not three, and the first version of this got three of them
+// wrong -- every error in the flattering direction, which is how it reported
+// 11.217 points against a real 12.490. The 2026-09-06 Codex review found all
+// three and an independent recomputation reproduced its numbers exactly.
+//
+//   1. THE CORD ROW. +/-0.08 is the DIN ISO 3601 row for cords THROUGH 1.8 mm.
+//      A 2.0 cord is in the d2 <= 2.65 row, +/-0.09. Moving from a 1.5 to a
+//      2.0 cord changed the row and the constant did not follow.
+//   2. H7 IS ONE-SIDED. O25.5 H7 is +0.021/-0, i.e. 25.500..25.521 -- not
+//      25.5 +/- 0.0105. A symmetric band puts half the tolerance on the side
+//      the fit does not have.
+//   3. THE RING'S OWN ID VARIES. DIN ISO 3601 d1 is +/-0.22 at 22, which
+//      o2_probe_head_end.scad:530 already documents and this file omitted
+//      ENTIRELY. It is the term that moves stretch, and stretch is what the
+//      1% minimum guards.
+//
+// And the thinning was frozen at nominal stretch. Stretch is not constant
+// across the corners -- it is exactly what the root and ID extremes move --
+// so seal_cord_thin belongs INSIDE the corner, not outside it. Enumerating is
+// cheap and it is the only way an assert can speak for the part rather than
+// for the middle of it.
+bore_lo   = cable_bore_d;                                     // H7: +tol/-0
+bore_hi   = cable_bore_d + ((cable_bore_finish == "reamed") ? 0.021 : 0.40);
 root_tol  = (cap_fab == "machined") ? 0.05 : 0.09;
-cord_tol  = (oring_sorting == "sorted") ? 0.01 : 0.08;        // DIN ISO 3601
-seal_pair_tol = bore_tol + root_tol;
-cord_min = (seal_cord - cord_tol) * seal_cord_thin;
-cord_max = (seal_cord + cord_tol) * seal_cord_thin;
-gland_min = ((cable_bore_d - groove_root) - seal_pair_tol)/2;
-gland_max = ((cable_bore_d - groove_root) + seal_pair_tol)/2;
-squeeze_max = (cord_max - gland_min)/cord_max;
-squeeze_min = (cord_min - gland_max)/cord_min;
-seal_band      = squeeze_max - squeeze_min;
+// d2 row by cord, not by habit. Sorting is a bench operation on cord only.
+cord_tol  = !is_undef(seal_cord_tol_meas) ? seal_cord_tol_meas
+          : (oring_sorting == "sorted") ? 0.01
+          : (seal_cord <= 1.80) ? 0.08 : 0.09;                // DIN ISO 3601
+// d1 row by ID. UNMEASURED RING: this is the catalogue band, and for the
+// on-hand 22 x 2 even that is an assumption (see the provenance note above).
+seal_id_tol = !is_undef(seal_id_tol_meas) ? seal_id_tol_meas
+            : (seal_id >= 23.0) ? 0.25 : 0.22;
+
+// Every corner, evaluated properly. `_c` are the achieved squeezes.
+_corners = [ for (D = [bore_lo, bore_hi])
+             for (R = [groove_root - root_tol, groove_root + root_tol])
+             for (C = [seal_cord - cord_tol, seal_cord + cord_tol])
+             for (I = [seal_id - seal_id_tol, seal_id + seal_id_tol])
+               let (st = (R - I)/I, cf = C*(1 - st/2), gl = (D - R)/2)
+                 [ (cf - gl)/cf, st ] ];
+squeeze_min = min([for (c = _corners) c[0]]);
+squeeze_max = max([for (c = _corners) c[0]]);
+stretch_min = min([for (c = _corners) c[1]]);
+stretch_max = max([for (c = _corners) c[1]]);
+seal_band   = squeeze_max - squeeze_min;
+// Kept for the echo, but they are now attributions of a measured band rather
+// than the band itself -- the corners above are the authority.
+seal_pair_tol  = (bore_hi - bore_lo)/2 + root_tol;
 seal_band_pair = seal_pair_tol / seal_cord_fit;
 seal_band_cord = seal_band - seal_band_pair;
 
@@ -781,21 +909,42 @@ seal_band_cord = seal_band - seal_band_pair;
 // bayonet on its own is no longer a lock and must not be treated as one.
 assert(lock_screw,
        "a radial cable seal supplies no axial preload, so the bayonet has no spring: the lock screw is not optional with this seal");
-assert(seal_stretch <= 0.05,
-       str("install stretch ", seal_stretch*100, "% exceeds the 5% rule"));
-assert(seal_stretch >= 0.01,
-       str("install stretch is only ", seal_stretch*100,
-           "%; the ring would not stay seated on the spigot"));
-assert(seal_squeeze_real >= 0.15,
-       str("squeeze after stretch-thinning is only ", seal_squeeze_real*100,
-           "%; a static radial seal wants 15% or more"));
+// THESE USED TO CHECK THE NOMINAL ONLY, which is the middle of the part and
+// not the part. seal_stretch is 2.15% and passed cleanly while the low corner
+// sits at 0.73% -- under the 1% this same file says is needed to keep the ring
+// seated. An assert on the nominal cannot fail for a tolerance reason, so it
+// was never testing what its message claimed.
+assert(stretch_max <= 0.05,
+       str("install stretch reaches ", stretch_max*100,
+           "% at its worst corner, past the 5% rule (nominal is ",
+           seal_stretch*100, "%)"));
+assert(seal_stretch_corner_waived || stretch_min >= 0.01,
+       str("install stretch falls to ", stretch_min*100,
+           "% at its worst corner -- under the 1% that keeps the ring seated ",
+           "on the spigot. Nominal is ", seal_stretch*100,
+           "%, so this is a TOLERANCE failure, not a sizing one: it comes from ",
+           "the ring's own ID band (+/-", seal_id_tol,
+           "). MEASURE THE RING and set seal_id_tol_meas / seal_cord_tol_meas ",
+           "-- the head's record says this ring is UNCATALOGUED, so the band ",
+           "being applied to it is itself an assumption."));
+assert(squeeze_min >= 0.15,
+       str("squeeze falls to ", squeeze_min*100,
+           "% at its worst corner; a static radial seal wants 15% or more ",
+           "(nominal is ", seal_squeeze_real*100, "%)"));
+// A NARROW BAND IN THE WRONG PLACE IS STILL WRONG. seal_band <= 0.15 proves the
+// spread fits the window; it does not prove the spread is INSIDE it. The head
+// carries this pair and the body did not.
+assert(squeeze_max <= 0.30,
+       str("squeeze reaches ", squeeze_max*100,
+           "% at its worst corner; past 30% the ring takes a compression set ",
+           "and stops being a spring"));
 // The 15-30% window is 15 points wide, so tolerance alone must not span it.
-// THIS IS THE ASSERT THAT FAILS ON CATALOGUE RINGS, and the prose in
-// PRINTING-BODY-TUBE.md claimed 12.18 of 15 when the real figure is over 15.
+// NOT SUFFICIENT ON ITS OWN -- squeeze_min/squeeze_max above are what place the
+// band inside the window; this only says it FITS. Both are needed.
 assert(seal_band <= 0.15,
        str("tolerance alone spans ", seal_band*100, " squeeze points -- ",
-           seal_band_pair*100, " from the seal pair (bore +/-", bore_tol,
-           ", root +/-", root_tol, ") and ", seal_band_cord*100,
+           seal_band_pair*100, " from the seal pair (bore ", bore_hi - bore_lo,
+           " one-sided, root +/-", root_tol, ") and ", seal_band_cord*100,
            " from the cord (+/-", cord_tol,
            "). Sort the rings, machine the cap's groove, or use a fatter cord."));
 assert(groove_wall >= 2.4,
@@ -990,9 +1139,16 @@ echo(str("CABLE SEAL: ", seal_id, " x ", seal_cord, " EPDM 70 -- NOT the ",
 echo(str("CABLE SEAL squeeze: ", seal_squeeze*100, "% is the SIZING BASIS; ",
          "after ", seal_stretch*100, "% stretch thins the cord the ring ",
          "actually delivers ", seal_squeeze_real*100, "%."));
+if (seal_stretch_corner_waived && stretch_min < 0.01)
+    echo(str("WAIVED, NOT PASSED -- install stretch reaches down to ",
+             stretch_min*100, "% at its worst corner, under the 1% that keeps ",
+             "the ring seated on the spigot. Waived by Fab 2026-09-06 on the ",
+             "nominal-dimensions assumption; the ring is UNCATALOGUED and its ",
+             "+/-", seal_id_tol, " ID band is itself assumed. Squeeze is still ",
+             "asserted at both corners. Measure the ring to discharge this."));
 echo(str("CABLE SEAL tolerance: ", seal_band*100, " of 15 squeeze points -- ",
          seal_band_pair*100, " seal pair (bore ", cable_bore_finish, " +/-",
-         bore_tol, ", root ", cap_fab, " +/-", root_tol, "), ",
+         (bore_hi - bore_lo), " one-sided, root ", cap_fab, " +/-", root_tol, "), ",
          seal_band_cord*100, " cord (", oring_sorting, " +/-", cord_tol,
          "). Worst case ", squeeze_min*100, "-", squeeze_max*100, "%."));
 echo(str("BOARD: y=0 at z=", board_y0_z, ", tube end face at board y=",
@@ -1199,10 +1355,11 @@ module tube() {
                 union() {
                     translate([0, 0, -e])
                         cylinder(d=tube_id, h=cable_bore_len + e);
-                    // 45 deg lead. The collar ends at cable_bore_len and the
-                    // cable end prints UP, so without this the ledge is a
-                    // 0.85 mm unsupported annulus -- the head's spiderweb
-                    // defect, in a bore that has to seal.
+                    // 45 deg lead. NOT a support fix: the cable end prints
+                    // DOWN (see collar_lead), so this step is top-facing and
+                    // needs no chamfer to print. It is the board's lead-in
+                    // past the collar, and it keeps the sealing land from
+                    // ending in a sharp internal corner.
                     translate([0, 0, cable_bore_len])
                         cylinder(d1=tube_id, d2=cable_bore_d, h=collar_lead);
                 }
@@ -1296,15 +1453,33 @@ module cap() {
             // clearance for the gland's thread; its nut lands on the inside
             translate([0, 0, cap_bore_depth - e])
                 cylinder(d=gland_hole_d, h=cap_end_t + 2*e);
-            // The gland's seal notch, in the OUTER face, cut inward. Sits
-            // entirely outside the thread's major diameter, so the tapped
-            // length stays the full cap_end_t.
-            translate([0, 0, cap_h - gland_notch_depth])
-                difference() {
-                    cylinder(d=gland_notch_od, h=gland_notch_depth + e);
-                    translate([0, 0, -e])
-                        cylinder(d=gland_notch_id, h=gland_notch_depth + 3*e);
-                }
+            // THE GLAND'S SEAL POCKET, IN THE INNER FACE. It was an annular
+            // notch in the OUTER face and that could not be printed. The lip
+            // between the O8.5 clearance hole and the O9.2 notch is 0.35 mm on
+            // radius -- smaller than one 0.60 mm extrusion -- so it simply did
+            // not appear, and the notch floor then bridged out over the cable
+            // hole anchored on ONE side. Fab saw the result as spiderweb around
+            // the cable hole, twice, and slowing the roof to 25 mm/s did not
+            // touch it because it was never a bridging-speed problem.
+            //
+            // Measured in that plate's own g-code: nothing inside r 5.793 for
+            // print z 0.20..1.16 (the lip absent, hole and notch merged), then
+            // material at r 4.544 on z 1.28 with no material under it, which
+            // Orca itself labelled `Overhang wall`.
+            //
+            // On the INNER face the same recess is a groove that opens UPWARD
+            // into the O17.5 passage: its floor is laid on solid end wall and
+            // nothing spans the hole. That also lets it be a plain COUNTERBORE
+            // rather than an annulus, which deletes the 0.35 mm knife edge
+            // instead of leaving the slicer to drop it silently.
+            //
+            // THE TRADE, and it is a real one: the ring now seals under the
+            // gland's NUT instead of under its FLANGE. Same face seal on the
+            // same annulus, and the nut was always the inside fastener, but it
+            // is not how this gland's own NBR ring is meant to be fitted. The
+            // flange now bears directly on a flat printed outer face.
+            translate([0, 0, cap_bore_depth - e])
+                cylinder(d=gland_notch_od, h=gland_notch_depth + e);
             for (i = [0:lug_n-1]) rotate([0, 0, i*360/lug_n]) bayonet_slot();
             // Lock-screw clearance. An ARC, not a hole: it is +/- lock_slot_arc
             // wide so the screw still finds its pilot anywhere in the pocket's
@@ -1475,15 +1650,32 @@ module cap_printed() {
     // print it is a rigid motion -- rotate([180,0,0]), determinant +1 -- and
     // for a CHIRAL part the two are not the same object. This cap is chiral:
     // the bayonet has an entry slot at [0, entry_arc] and a pocket at negative
-    // angles, so a reflection sends the lug round the other way and the printed
-    // cap will not mate with the tube it was validated against.
+    // angles, so a reflection sends the lug round the other way.
+    //
+    // WHAT THE WRONG HAND ACTUALLY COSTS, corrected. This said the mirrored cap
+    // "will not mate with the tube it was validated against", and that is
+    // overstated -- a second review put the real STL blobs against each other
+    // and the reflected cap DOES go on: it enters through the alternate 180 deg
+    // slot at 185 deg, seats at 150 deg with 0.000018 mm3 of contact, holds
+    // 36.301 mm3 against a 2 mm pull, and still finds a clear lock-screw path.
+    // What it loses is the ramp: it seats at the FREE POCKET, before the
+    // converging wall, so it never takes up the designed rattle and never
+    // reaches the positive stop. A worse joint that feels like a working one,
+    // which is more dangerous than one that will not go on at all.
     //
     // Measured 2026-09-06: difference(cap_printed(), rigid flip) came back with
     // Volumes: 34, i.e. the two solids genuinely differ -- they are not two
     // spellings of one flip. Found by an independent review; verified here
     // before acting on it, because the first version of that test used
-    // `use <>` (which imports modules but NOT the variables they read) and both
-    // sides rendered empty, which looks exactly like agreement.
+    // `use <>` and both sides rendered empty, which looks exactly like
+    // agreement. The reason given for that was ALSO wrong, and the correction
+    // matters to anyone writing the next such test: `use <>` does import the
+    // modules, and they render fine in the defining file's own scope. What the
+    // caller does not get is the VARIABLES -- so a caller-side `cap_h` is
+    // undefined, the translate collapses, and the comparison is meaningless
+    // while both operands still render. A geometric guard built on `use <>`
+    // must therefore FAIL CLOSED on undefined-variable warnings; silence there
+    // is not agreement.
     //
     // Every cap printed before this date is the mirror image.
     translate([0, 0, cap_h]) rotate([180, 0, 0]) cap();

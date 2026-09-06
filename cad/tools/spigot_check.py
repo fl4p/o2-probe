@@ -202,9 +202,39 @@ def main():
     # window for the wall test above and the wrong one for reading the root.
     root_meas = min((r for r, z in v if gz0 - 0.05 <= z <= gz1 + 0.05
                      and r >= n['id'] / 2.0 + 0.5), default=float('nan'))
+
+    # 3. THE GROOVE IS NOT TOO DEEP. This was MISSING and it is the same
+    #    monotonicity hole the collar check had: test 2 asks whether wall
+    #    material still crosses the groove band, so cutting the groove DEEPER
+    #    removes more of that material and the check gets HAPPIER. A root at
+    #    half its intended diameter would sail through -- while the gland grows,
+    #    squeeze collapses and the joint leaks. As the part gets worse a guard
+    #    must not get quieter (checklist item 2).
+    #
+    #    root_meas was already computed here and then only PRINTED. A number
+    #    reported and never compared is decoration, and `nan` printed as part of
+    #    an "OK" line -- an unevaluable measurement reading as a pass, which is
+    #    checklist item 1 in the same breath.
+    if root_meas != root_meas:          # nan
+        fails.append('groove: the root could not be measured in the mesh at all '
+                     '(no vertex in the band) -- unevaluable is a FAILURE, not '
+                     'an OK')
+    elif abs(root_meas - r_root) > 0.10:
+        fails.append('groove: root measures r=%.3f against the %.3f the model '
+                     'cuts, %.3f mm out. %s'
+                     % (root_meas, r_root, abs(root_meas - r_root),
+                        'Too DEEP: the gland opens up and squeeze falls toward '
+                        'a leak.' if root_meas < r_root else
+                        'Too SHALLOW: the ring is over-squeezed and takes a set.'))
+    if fails:
+        for f in fails:
+            print('FAIL ' + f)
+        return 1
     print('spigot_check OK: spigot at r=%.3f over %.2f mm; groove band clear of '
-          'wall, measured root %.3f (expected %.3f). Measured on the mesh.'
-          % (r_spig, max(on_od) - min(on_od), root_meas, r_root))
+          'wall, root measures %.3f against %.3f cut (%.3f mm out, 0.10 allowed). '
+          'Measured on the mesh.'
+          % (r_spig, max(on_od) - min(on_od), root_meas, r_root,
+             abs(root_meas - r_root)))
     return 0
 
 
