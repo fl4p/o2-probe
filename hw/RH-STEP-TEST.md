@@ -100,6 +100,65 @@ correction is the thing under test — applying it here would assume the answer.
 For each step fit `I(t) = I_∞ + a·exp(−t/τ_fast) + b·exp(−t/τ_slow)` and report
 `a`, `b`, and both time constants with the measured Δp_w and ΔT beside them.
 
+## 6b. Also do the temperature step here — it cannot be done in room air
+
+The complementary experiment (**hold p_w, step T**) gives the cell tempco, which
+`O2-HUMIDITY-CORRECTION.md` §10 showed is not identifiable from any data so far.
+It belongs in this session, over the **KCl** jar, and the reason is a control
+constraint discovered the hard way on 2026-09-06 (below).
+
+Over a saturated slurry, only the board is heated. The slurry is a large
+room-temperature vapour reservoir, so it **pins p_w** while the board's
+temperature rises — a genuine constant-`p_w` step, which is exactly what the
+open bench cannot give.
+
+Steps 0 → 4 → 9 → 0 % of `HEATER_MAX_DUTY`, 45/45/60 min. Separate by time
+constant as in §4: fast (τ ≈ 110–130 s) is the tempco, slow (10–40 min) is the
+film desorbing. The return to 0 is the reversibility test.
+
+### The constraint: RH_SETPOINT has a 50 % floor and the loop is positive-acting
+
+`HEATER_MAX_DUTY` does not command duty. It **caps** it. Duty comes from the RH
+loop, which asks for heat only while measured RH is **above** `RH_SETPOINT`, and
+`RH_SETPOINT` cannot legally go below **50.00 %** (`regmap.c
+o2p_config_valid`). The fixture works by driving the setpoint to that floor so
+the loop saturates and duty pins at the cap.
+
+**Attempted 2026-09-06 22:51Z on the open bench at 54.4 %RH and it failed.**
+4 % duty dried the chamber through the setpoint in under two minutes; the loop
+left saturation, duty collapsed, RH recovered, duty returned:
+
+```
+   60 s  RH 51.38     120 s  RH 49.14     181 s  RH 50.14
+  241 s  RH 49.84     301 s  RH 49.82     361 s  RH 50.36
+```
+
+A limit cycle around the 50 % floor, tip oscillating 24.3–26.5 °C. No step, no
+time constant, nothing fittable. Aborted at 1690 s and the registers restored.
+
+`o2p_thermal.py` preflight states this outright — at or below the floor "NO
+legal setpoint saturates it and the heater cannot be commanded over Modbus at
+all", with a warning band just above it. The check passed in the jar at 95 %RH
+the day before and was not re-run after the board was dried to room air.
+
+**So: the heater needs ≥ ~60 %RH ambient to be commandable at all, and more
+headroom the harder it is driven.** The KCl jar at 84.3 % gives 34 % of margin,
+which survives a 10 K step. This is also a product finding: *a buried probe in
+dry gas cannot use its own heater*, because the setpoint floor removes the only
+control handle.
+
+Fitting a tempco to the limit cycle is refused. What can be said is that
+`o2_raw` stayed within 100.66–100.80 µA through ~2 K of tip oscillation at
+constant `p_w`, which hints the tempco is small — a hint, not a number.
+
+### Script requirement
+
+Handle **SIGTERM** as well as SIGINT. The 2026-09-06 script caught only
+`KeyboardInterrupt`; SIGINT did not take, SIGTERM killed it outright, and it
+died with `HEATER_MAX_DUTY` still at 4 % — the registers had to be written back
+by hand. `o2p_thermal.py`'s own `main()` installs a SIGTERM handler that raises
+`KeyboardInterrupt` for exactly this reason. Copy it.
+
 ## 7. What is not available
 
 The clean electrical discriminator — sweep the LMP91000 bias and see whether
