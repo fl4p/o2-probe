@@ -272,6 +272,39 @@ def build_scene(items, force=False):
     return {'meta': meta, 'parts': parts}
 
 
+def _sources_sig(items):
+    """Fingerprint of what every part is BUILT FROM, for auto-rebuild.
+
+    _scene_sig below watches scenes.json -- the part LIST. This watches the
+    part CONTENTS: the .scad (and anything it includes) for rendered parts, and
+    the declared deps for meshes produced by an external command. Those are two
+    different staleness questions and only the first one was ever asked, so a
+    server went on serving a model that had been edited under it. That is not
+    theoretical: on 2026-09-06 a cap was fixed in the .scad and the running
+    viewer kept showing the broken one, because render() only re-checks mtimes
+    at startup.
+
+    Returns (signature, problems). A file that cannot be stat-ed contributes
+    None to the signature and a line to `problems` -- it is NEVER quietly
+    treated as unchanged, because "I could not look" and "it is current" are
+    the two things a staleness check must not confuse.
+    """
+    sig, problems = [], []
+    for it in items:
+        try:
+            if it.get('scad'):
+                sig.append((it['mesh'], newest_source(it['scad'])))
+            else:
+                deps = it.get('deps') or []
+                sig.append((it['mesh'],
+                            max((os.path.getmtime(os.path.join(CAD, d))
+                                 for d in deps), default=0.0)))
+        except OSError as e:
+            problems.append('%s: %s' % (it.get('name', '?'), e))
+            sig.append((it['mesh'], None))
+    return tuple(sig), problems
+
+
 def _scene_sig(name):
     """A cheap fingerprint of one scene's part list, or None if unreadable.
 
@@ -303,7 +336,14 @@ def serve(scene, items, port, open_browser, scene_name=None):
     own root, so a server started in the viewer directory answers the page and
     404s every mesh -- which looks like a broken model, not a broken path.
     """
-    state = {'scene': scene, 'items': items, 'sig': _scene_sig(scene_name)}
+    # 'src' is the signature LAST ATTEMPTED, not last succeeded. That is
+    # deliberate and it is what stops a render storm: a failing render leaves
+    # the mesh older than its source, so a "did it succeed" test would report
+    # stale forever and the page would re-render every poll. Recording the
+    # attempt means one rebuild per source change, and a failure shows up in
+    # the page's existing "N of M parts did NOT rebuild" banner instead.
+    state = {'scene': scene, 'items': items, 'sig': _scene_sig(scene_name),
+             'src': _sources_sig(items)[0]}
 
     def refresh():
         """Re-read scenes.json; rebuild if this scene's part list has changed.
@@ -340,6 +380,7 @@ def serve(scene, items, port, open_browser, scene_name=None):
         state['items'] = fresh_items
         state['scene'] = build_scene(fresh_items)
         state['sig'] = sig
+        state['src'] = _sources_sig(fresh_items)[0]
 
     class Handler(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *a, **kw):
@@ -358,10 +399,25 @@ def serve(scene, items, port, open_browser, scene_name=None):
             if self.path.split('?')[0] in ('/scene.json', '/viewer/scene.json'):
                 refresh()
                 return self._json(state['scene'])
-            if self.path.split('?')[0] in ('/rebuild', '/viewer/rebuild'):
-                print("rebuild requested from the page")
+            if self.path.split('?')[0] in ('/stale', '/viewer/stale'):
+                # STAT ONLY -- no render, no CGAL. This is polled, so it has to
+                # stay cheap enough that polling is not itself the cost.
                 refresh()
-                fresh = build_scene(state['items'], force=True)
+                sig, problems = _sources_sig(state['items'])
+                return self._json({'stale': sig != state['src'],
+                                   'problems': problems})
+            if self.path.split('?')[0] in ('/rebuild', '/viewer/rebuild'):
+                auto = 'auto=1' in (self.path.split('?') + [''])[1]
+                print("rebuild requested from the page"
+                      + (" (auto: a source changed)" if auto else ""))
+                refresh()
+                # An auto rebuild is NOT forced: render() already skips whatever
+                # is current, so only the part whose model actually moved is
+                # re-rendered. Forcing here would re-render a nine-part scene
+                # every time one file was touched. The manual button still
+                # forces, because that is what a human presses it for.
+                fresh = build_scene(state['items'], force=not auto)
+                state['src'] = _sources_sig(state['items'])[0]
                 # Carry the scene's identity across. A rebuild that renamed the
                 # scene back to its default is how the page came back titled
                 # "cad" after showing "bed" a minute earlier.

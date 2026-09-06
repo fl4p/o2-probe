@@ -324,11 +324,12 @@ const fmtBox = b => {
 // viewer, and the old answer was "go back to the terminal, re-run a target,
 // reload, lose your camera". tools/view.py answers /rebuild by re-rendering
 // every part it owns; this swaps the geometry in place and keeps the view.
-async function rebuild() {
+async function rebuild(auto) {
   const btn = document.getElementById('rebuild');
-  btn.disabled = true; btn.textContent = 'rendering…';
+  btn.disabled = true; btn.textContent = auto ? 'model changed — rendering…' : 'rendering…';
   try {
-    const cfg = await (await fetch('rebuild', {cache: 'no-store'})).json();
+    const cfg = await (await fetch(auto ? 'rebuild?auto=1' : 'rebuild',
+                                   {cache: 'no-store'})).json();
     const loader2 = new STLLoader();
     for (const { p, mesh } of state.parts) {
       const fresh = cfg.parts.find(q => q.name === p.name);
@@ -352,7 +353,7 @@ async function rebuild() {
       : '';
     btn.textContent = bad.length
       ? ('FAILED on ' + bad.length + ' of ' + cfg.parts.length)
-      : 'Rebuilt ' + new Date().toLocaleTimeString();
+      : (auto ? 'Auto-rebuilt ' : 'Rebuilt ') + new Date().toLocaleTimeString();
   } catch (e) {
     btn.textContent = 'rebuild failed — is this served by tools/view.py?';
   }
@@ -362,7 +363,42 @@ async function rebuild() {
 addEventListener('keydown', e => {
   if (e.key === 'r' || e.key === 'R') rebuild();
 });
-document.getElementById('rebuild').onclick = rebuild;
+document.getElementById('rebuild').onclick = () => rebuild(false);
+
+// AUTO-REBUILD ON A SOURCE CHANGE.
+//
+// The meshes come from SCAD that is edited while this page is open, and until
+// now the page had no way to know: the server only compared mtimes at startup,
+// so an edited model went on being served indefinitely and looked completely
+// plausible. Measured 2026-09-06 -- a cap was fixed in the .scad and the live
+// viewer kept showing the broken geometry, twice, until the server was killed
+// by hand.
+//
+// /stale is a STAT-ONLY endpoint, so polling it is nearly free; the render only
+// happens when a source has actually moved. rebuild() swaps the geometry in
+// place, so the camera survives -- this never reloads the page.
+//
+// The server records the signature it LAST ATTEMPTED, so a model that fails to
+// render is retried once per edit rather than on every poll.
+let autoBusy = false;
+setInterval(async () => {
+  // Not while a rebuild is in flight, and not for a tab nobody is looking at.
+  if (autoBusy || document.hidden) return;
+  let s;
+  try { s = await (await fetch('stale', {cache: 'no-store'})).json(); }
+  catch (e) { return; }            // served from disk, or the server is gone
+  const el = document.getElementById('stale');
+  if (s.problems && s.problems.length) {
+    // A source that cannot be stat-ed is NOT "unchanged". Say so on the page
+    // rather than letting it read as a clean, current model.
+    el.style.display = 'block';
+    el.style.whiteSpace = 'pre-wrap';
+    el.textContent = 'cannot check freshness:\n' + s.problems.join('\n');
+  }
+  if (!s.stale) return;
+  autoBusy = true;
+  try { await rebuild(true); } finally { autoBusy = false; }
+}, 2000);
 
 // --- controls ---------------------------------------------------------------
 // autocomplete="off" on every control above is not cosmetic: without it Chrome
