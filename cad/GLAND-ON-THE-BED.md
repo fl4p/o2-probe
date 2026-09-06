@@ -64,7 +64,7 @@ chord that stays inside this annulus is
 against a groove only 3.25 mm wide radially. `bridge_angle` cannot help: the ring
 is symmetric, so every angle yields the same worst chord.
 
-## The one untried lever: bridge speed 25 (sliced 2026-09-06, NOT YET PRINTED)
+## The one untried lever: bridge speed 25 (sliced and PRINTED 2026-09-06, not yet measured)
 
 Everything above says *where* the bridge is, not that it must fail. The groove-down
 flip failed once, at the shared `bridge_speed` of 50 mm/s, and that was never varied.
@@ -107,6 +107,28 @@ Two side effects worth knowing before reading a result:
   which of them worked: neither.
 
 `bridge_flow` stays at 1 for the same reason.
+
+### It printed, 2026-09-06 -- which is not the same as the bridge being good
+
+Ran 33/33 layers, `FINISH`, `print_error 0`, **`no active HMS` for the whole job**.
+Layer 17 went down at 12:01:33; the part stayed on the plate and there was no
+spaghetti out of the empty middle, which is what killed the first groove-down
+attempt.
+
+**That settles adhesion and it settles nothing about the seal.** A bridge that sagged
+is still a bridge that printed. The chamber camera cannot resolve 0.1 mm on a 0.245 mm
+window, and the finished top face is 4.04 mm above a roof nobody has looked at. The
+part has to come off and be gauged -- see *How the verdict gets made* below, which was
+written before this print and is unchanged by it.
+
+Two aborts preceded it, and what fixed them was not in the slicer: a strand on the
+nozzle tip and the plate seating. Both attempts reached stage 14 identically and then
+diverged at stage 1 -- abort on 2026-09-06 09:38, pass at 11:49. `stg_cur` at the
+abort was the diagnostic, exactly as `doc/levelling-faults.md` says; the HMS text was
+not. Neither latched code was the cause: `0300_0100_0003_0008` was the bed clamping
+105 to 100, and `0300_0B00_0001_0004` is the nozzle-cleaning entry that
+`doc/telemetry.md` records appearing on successful runs too.
+
 
 **How the verdict gets made, and it is not by looking at it.** The whole squeeze
 window is 0.245 mm wide (see *Numbers used*). A roof that has sagged 0.1 mm looks
