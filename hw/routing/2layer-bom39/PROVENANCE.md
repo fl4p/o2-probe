@@ -19,8 +19,8 @@ its acceptance ledger is `acceptance-ledger.json`.
 - `critical_routes.py` here is Codex's rewrite (301 diff lines against the repo's). The repo's
   verifier reports 14 of its 57 locked items missing on this board: nine `/CELL_WE` tracks, two
   `/CELL_WE` vias, three `/GUARD_REPLICA` tracks. `/CELL_RE` is unchanged: one F.Cu polyline, no
-  vias, guarded. Fab, 2026-09-06: "i never put these CELL_WE and guard rules, i dont care. if it
-  works." The CELL_WE and guard-replica locks were agent-authored; waived.
+  vias, guarded. Fab, 2026-09-06, verbatim: `i never put these "CELL_WE and guard" rules, i dont care. if it works..`
+  The CELL_WE and guard-replica locks were agent-authored; waived.
 - J105 and J106 use the project-local `SolderWireNoRelief_*` footprints in `lib/o2-probe.pretty`:
   the library part carries an unnumbered 2.2 mm relief NPTH 10.2 mm from origin that landed in the
   routing band (R41 at 0.185 mm against a 0.2 mm rule, on the unrouted seed).
