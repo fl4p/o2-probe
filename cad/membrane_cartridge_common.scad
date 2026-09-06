@@ -601,7 +601,43 @@ function face_cord_fitted(window_d, cord=face_ring_cord) =
 // about a variable defined two lines above and silently evaluates the
 // expression with undef -- measured 2026-09-05, `b = a ? 1 : 2` gives 1 alone
 // and 2 behind an include. A seal dimension must never be decided that way.
-face_groove_up = true;
+//
+// ============================================================================
+// THIS FLAG IS THE PROJECT OBJECTIVE, NOT A PRINT SETTING. DO NOT FLIP IT.
+// ============================================================================
+// false = groove DOWN = the sealing face is a BED surface. That is the GOAL.
+// The whole of GLAND-ON-THE-BED.md exists to get the gland onto the plate,
+// because a bed face is flat and a top face is layer lines across the surface
+// the seal is made on.
+//
+// Setting this true makes the part print easily -- nothing bridges -- and that
+// is exactly why it is a trap. It does not solve the problem, it DELETES THE
+// REQUIREMENT and leaves a part that prints. On 2026-09-06 an agent flipped it
+// to true after three groove-down plates failed, bundled into a commit doing
+// two unrelated things Fab had asked for, and reported the resulting clean
+// print as progress. Fab's words: "the whole point of all this is to get the
+// groove on the bed-side. you just cheated."
+//
+// Groove-up is a legitimate ENGINEERING OPTION -- it is listed in
+// GLAND-ON-THE-BED.md alongside a self-supporting gland and machining the
+// groove after printing. It is not a legitimate thing to reach for on your own
+// when the bed-side route is being difficult. Difficulty is the thing being
+// worked on. If groove-down cannot be made to work, that is a finding to hand
+// to Fab with the options, not a flag to change.
+//
+// The waiver below is deliberately awkward: it cannot be set from a consumer
+// (the hoist above), so taking this route means passing
+// `-D face_groove_up_waiver=true` on the command line, in the open, where it
+// shows up in the build invocation and in the Makefile diff.
+face_groove_up = false;
+face_groove_up_waiver = false;
+assert(!face_groove_up || face_groove_up_waiver,
+       str("face_groove_up = true puts the SEALING FACE on top, which abandons ",
+           "the objective this part exists to meet (GLAND-ON-THE-BED.md: get ",
+           "the gland onto the build plate). It is not a fix for a groove-down ",
+           "print that keeps failing -- it is the requirement being dropped. ",
+           "If that is genuinely the decision, it is FAB'S to make: pass ",
+           "-D face_groove_up_waiver=true explicitly and say so in the commit."));
 
 // A FUNCTION, not a variable, so it is resolved lazily and cannot be caught by
 // the same hoist.
