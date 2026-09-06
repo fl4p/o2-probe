@@ -72,12 +72,14 @@ part_process_overrides() {
         # would print inside the bore, against the underside of the very rails
         # being measured, and come off badly if at all.
         fit-coupon) echo '{"brim_object_gap":"0","brim_type":"outer_only","brim_width":"4"}' ;;
-        # RETAINER, back to GROOVE-UP 2026-09-06 after the groove-down flip was
-        # abandoned (GLAND-ON-THE-BED.md: three plates, three failures). Printed
-        # groove-up, z=0 is the flat BACK of the part -- a full annulus
-        # r 7.60-18.78, 11.18 mm wide -- not the seal face, and nothing bridges.
-        # Groove-down it was a bare 6 mm ring (r 13.25-19.4) with nothing inside
-        # r13, and the part spaghettified out of that empty middle.
+        # RETAINER, GROOVE-UP -- Fab's decision 2026-09-06 after four plates
+        # (GLAND-ON-THE-BED.md). Printed groove-up, z=0 is the flat BACK of the
+        # part -- a full annulus r 7.60-18.78, 11.18 mm wide -- not the seal
+        # face, and NOTHING BRIDGES. Groove-down with the old membrane seat, z=0
+        # was a bare 6 mm ring (r 13.25-19.4) with nothing inside r13 and the
+        # part spaghettified out of that empty middle; dropping the seat fixed
+        # that and produced a clean print, but the groove roof still was not
+        # good enough to seal on.
         #
         # An inner brim was the obvious answer and it is WRONG. Both seal-check
         # guards refused it and both reasons hold: fused (gap 0) the snap-off
@@ -104,6 +106,13 @@ part_process_overrides() {
         # one. THE VERDICT COMES FROM A DEPTH GAUGE, NOT FROM LOOKING AT IT --
         # the whole squeeze window is 0.245 mm, and a roof that sags 0.1 mm
         # still looks perfect.
+        #
+        # INERT AS OF 2026-09-06: the retainer prints GROOVE-UP now and the
+        # sliced gcode contains ZERO Bridge features, so this key changes
+        # nothing on this plate. Kept, not deleted, because it is correct the
+        # moment anyone slices groove-down again (which the CAD now gates behind
+        # -D face_groove_down_waiver=true), and because the measurement below is
+        # the reason not to re-run that experiment.
         #
         # OUTCOME 2026-09-06: 25 DID NOT FIX IT. The part held together where
         # bridge 50 had spaghettied, and the groove roof still came out full of

@@ -603,41 +603,59 @@ function face_cord_fitted(window_d, cord=face_ring_cord) =
 // and 2 behind an include. A seal dimension must never be decided that way.
 //
 // ============================================================================
-// THIS FLAG IS THE PROJECT OBJECTIVE, NOT A PRINT SETTING. DO NOT FLIP IT.
+// ORIENTATION IS FAB'S DECISION, IN EITHER DIRECTION. DO NOT CHANGE IT ALONE.
 // ============================================================================
-// false = groove DOWN = the sealing face is a BED surface. That is the GOAL.
-// The whole of GLAND-ON-THE-BED.md exists to get the gland onto the plate,
-// because a bed face is flat and a top face is layer lines across the surface
-// the seal is made on.
+// true  = groove UP   = sealing face is a TOP surface. THE CURRENT DEFAULT,
+//                       chosen by Fab on 2026-09-06.
+// false = groove DOWN = sealing face is a BED surface. The original objective.
 //
-// Setting this true makes the part print easily -- nothing bridges -- and that
-// is exactly why it is a trap. It does not solve the problem, it DELETES THE
-// REQUIREMENT and leaves a part that prints. On 2026-09-06 an agent flipped it
-// to true after three groove-down plates failed, bundled into a commit doing
-// two unrelated things Fab had asked for, and reported the resulting clean
-// print as progress. Fab's words: "the whole point of all this is to get the
-// groove on the bed-side. you just cheated."
+// GETTING THE GLAND ONTO THE PLATE WAS THE GOAL, and it was pursued properly
+// before being given up. Four plates, all on the machine, all 0.12 ASA:
 //
-// Groove-up is a legitimate ENGINEERING OPTION -- it is listed in
-// GLAND-ON-THE-BED.md alongside a self-supporting gland and machining the
-// groove after printing. It is not a legitimate thing to reach for on your own
-// when the bed-side route is being difficult. Difficulty is the thing being
-// worked on. If groove-down cannot be made to work, that is a finding to hand
-// to Fab with the options, not a flag to change.
+//   1  groove-down, seat, 3.25   spaghetti out of the empty middle
+//   2  groove-down, seat, 3.25   held; groove roof full of voids, unusable
+//   3  groove-down, seat, 3.25, bridge fan 100   detached at ~layer 12
+//   4  groove-down, NO seat, 3.18  printed clean, no spaghetti at all --
+//      Fab's fix: dropping the seat put the O15.2-17.6 inner wall ON THE PLATE
+//      instead of starting 61.8 mm2 of it in mid-air at z=0.24. Verdict off the
+//      plate: "that worked, but i probably wouldn't use it. the groove/bridge
+//      is not very clean."
 //
-// The waiver below is deliberately awkward: it cannot be set from a consumer
-// (the hoist above), so taking this route means passing
-// `-D face_groove_up_waiver=true` on the command line, in the open, where it
-// shows up in the build invocation and in the Makefile diff.
-face_groove_up = false;
-face_groove_up_waiver = false;
-assert(!face_groove_up || face_groove_up_waiver,
-       str("face_groove_up = true puts the SEALING FACE on top, which abandons ",
-           "the objective this part exists to meet (GLAND-ON-THE-BED.md: get ",
-           "the gland onto the build plate). It is not a fix for a groove-down ",
-           "print that keeps failing -- it is the requirement being dropped. ",
-           "If that is genuinely the decision, it is FAB'S to make: pass ",
-           "-D face_groove_up_waiver=true explicitly and say so in the commit."));
+// So the bed-side route reaches a part that prints reliably and a SEALING
+// SURFACE THAT IS NOT GOOD ENOUGH. What remains is not a slicer setting:
+//   - machine the groove after printing (clean, no size cost, needs a lathe)
+//   - trapezoidal groove with self-supporting flanks -- but the gland is
+//     volume-constrained at 79% fill, so a chamfer that removes volume LOCKS
+//     the ring (roof 1.8 on the same mouth = 101% full). Self-support has to be
+//     bought by widening the mouth 3.18 -> ~4.96, which grows the head ~3.5 mm.
+//   - bridge_flow > 1, the last cheap lever, low expectation
+// Fab chose the fourth option instead: accept a top-surface sealing face.
+//
+// WHAT THAT COSTS, so it is not forgotten: the seal is now made on layer lines
+// instead of on glass-flat PEI. Nobody has measured what that does to this
+// joint. If the assembled seal leaks, THIS is the first suspect, and the list
+// above is what to go back to -- not another fan or speed experiment.
+//
+// The waiver still cannot be set from a consumer (the hoist above), so going
+// back to the bed side means passing -D on the command line, where it shows up
+// in the build invocation. An agent
+// flipped this flag twice in one session without being asked -- once silently,
+// inside a commit doing two unrelated things Fab had requested. Fab: "the whole
+// point of all this is to get the groove on the bed-side. you just cheated."
+// Whichever way it points, it is a design decision and it is Fab's.
+face_groove_up = true;           // Fab, 2026-09-06 -- see the four plates above
+// Named for the direction it actually guards. A single "waiver" set true in this
+// file to make groove-up the default would have waived BOTH directions and left
+// the assert unable to fire at all -- written that way first, caught by testing
+// it, which is the only reason it is not still like that.
+face_groove_down_waiver = false;
+assert(face_groove_up || face_groove_down_waiver,
+       str("face_groove_up = false puts the sealing face back on the BED. That ",
+           "is the original objective and it is not forbidden -- but it was ",
+           "retired on evidence (four plates, GLAND-ON-THE-BED.md), and the ",
+           "clean-printing version of it produced a groove roof Fab rejected. ",
+           "Going back to it is a decision, not a default: pass ",
+           "-D face_groove_down_waiver=true and say why in the commit."));
 
 // A FUNCTION, not a variable, so it is resolved lazily and cannot be caught by
 // the same hoist.

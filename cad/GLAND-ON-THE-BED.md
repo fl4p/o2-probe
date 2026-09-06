@@ -2,21 +2,84 @@
 
 **Question.** The retainer's sealing face should be a bed surface, not a top
 surface. Printed that way (`face_groove_up = false`) the O-ring groove becomes a
-void open to the plate and its roof bridges, which failed on the machine
-2026-09-05. Can the groove move somewhere that prints without a bridge?
+void open to the plate and its roof bridges. Can that be made to work, or can the
+groove move somewhere that prints without a bridge?
 
-**Update 2026-09-06:** before conceding the bridge, the one lever never tried on it
--- `bridge_speed` 50 -> 25 -- has been sliced. See *The one untried lever*. The rest
-of this document stands: it says where the bridge is and why moving it does not work,
-and none of that is affected by whether 25 mm/s prints it cleanly.
+## ANSWERED 2026-09-06: NO. The gland goes on top.
 
-**Verdict: the option I proposed -- move the groove into the carrier -- does not
-work, for a reason that also kills every variant of "put it in the other part".**
-The two-piece retainer looked like the survivor and does not survive either --
-see option A, retracted. What is left is a self-supporting gland, machining the
-groove after printing, or accepting a top-surface sealing face (groove-up).
+**Fab's decision, after four plates: `face_groove_up = true` is the default.** The
+sealing face is a top surface. This document is now the record of why, and of
+what to go back to if that turns out to leak.
+
+| # | orientation | seat | groove | outcome |
+|---|---|---|---|---|
+| 1 | down | yes | 3.25 | spaghetti out of the empty middle |
+| 2 | down | yes | 3.25 | held; groove roof full of voids, part unusable |
+| 3 | down | yes | 3.25, **bridge fan 100** | detached at ~layer 12, never reached the roof |
+| 4 | down | **no** | **3.18** | **printed clean, no spaghetti at all** -- and the roof still was not good enough |
+
+**The two cheap slicer levers both failed and one made it worse.** `bridge_speed`
+50 -> 25 moved the failure (spaghetti -> voids) without removing it, which is
+evidence that strand dwell time was never the binding constraint. `overhang_fan_speed`
+35 -> 100 cost ASA its bed adhesion and detached the part before the roof was
+even reached.
+
+**The geometry change is the only one that did anything, and it was Fab's.**
+Dropping the membrane seat put the Ø15.2-17.6 inner wall ON THE PLATE. With the
+seat it never touched the plate at all: it began at z=0.24 in mid-air -- seat
+recess open to the plate beneath it, groove open outboard -- **61.8 mm² of
+material starting on nothing.** That island is what plate 1 spaghettied out of,
+and this document had already named that same cut when it retracted the
+two-piece variant. Plate 4 had no spaghetti and a silent failure detector
+(peak 0.000 over 123 samples). Fab, off the plate: *"that worked, but i probably
+wouldn't use it. the groove/bridge is not very clean."*
+
+So the bed-side route ends at a part that prints reliably and a **sealing surface
+that is not good enough**. Narrowing the groove barely helps: the span is
+`2·√(w·(ri+ro))`, so 3.25 -> 3.18 moved the worst chord only 16.46 -> 16.26 mm,
+and the radius term dominates -- moving the groove outward makes it worse, and a
+thinner cord in its own ISO groove at the same radius still spans ~16.9 mm.
+**Roof width is the only real lever, and the groove ID is pinned by the Ø15.2 gas
+path plus its 1.2 mm wall.**
+
+## What to go back to, if the top-surface seal leaks
+
+In order. **None of these is a slicer setting** -- that avenue is exhausted, and
+another fan or speed experiment is not a plan.
+
+1. **Machine the groove after printing.** Clean by construction, no size cost,
+   keeps the sealing face on the bed. Annular groove r 8.8-11.98, 1.88 deep in
+   ASA. Needs a lathe setup.
+2. **Trapezoidal groove with self-supporting flanks.** Blocked in place, and the
+   arithmetic is the interesting part: **the gland is volume-constrained.** At
+   79.2% fill there is no volume to give, so a chamfer that removes it locks the
+   ring -- a 1.8 mm roof on the same 3.18 mouth is **101.2% full**. Self-support
+   has to be bought by widening the mouth:
+
+   | roof | mouth | fill | bridge span | bridged area |
+   |---|---|---|---|---|
+   | today (rectangular) | 3.18 | 79.2% | 16.26 mm | 207.6 mm² |
+   | 1.20 | 4.96 | 81.8% | **9.99 mm** | **78.3 mm²** |
+   | 1.60 | 5.36 | 72.4% | 11.53 mm | 104.5 mm² |
+
+   -38% on span and -62% on bridged area, at a cost of ~3.5 mm on the head
+   diameter (groove OD 23.96 -> 27.52). Derived, not built.
+3. **`bridge_flow` above 1.** The last cheap lever, and smaller than the two that
+   already failed.
+
+## What the top-surface face costs, so it is not forgotten
+
+The seal is now made on **layer lines instead of glass-flat PEI**, and nobody has
+measured what that does to this joint. If the assembled seal leaks, that is the
+first suspect and the list above is the response. Groove depth has still never
+been measured on a printed part in any orientation -- the verdict on any of this
+is a depth gauge against `face_groove_depth`, not an eyeball, because the whole
+squeeze window is 0.245 mm and a 0.1 mm error looks perfect.
 
 ## Status: RECORDED VARIANT, NOT BUILT
+
+(Superseded by the verdict above; kept because the two-piece retraction below is
+still the reason not to revisit that idea.)
 
 Decided 2026-09-05: **we stay with the single-piece retainer already printed.**
 Option A below (the two-piece split) was written here as the recommended variant
@@ -24,7 +87,8 @@ and has since been **retracted** -- it does not work as described. Nothing in
 `cad/` builds a gland ring or a cap plate, and no parameter selects one. It is
 kept, struck through, because the reason it fails is worth not rediscovering.
 
-`face_groove_up` stays `false`. If the variant is ever built, the entry points
+`face_groove_up` is now `true` (see the verdict above; it was `false` when this
+section was written). If the variant is ever built, the entry points
 are `clamped_bed_cuts()` in `membrane_cartridge_common.scad` (the groove would
 become a through slot) and `retainer()` / `retainer_printed()` in
 `o2_probe_head_end.scad` (which would split into two parts and two plates).
