@@ -748,3 +748,44 @@ the groove depth was set to hold.
   the gas row would push worst-corner fill from 74.5 % to about 90 %, over the
   85 % lock limit. Unresolved — it needs either a standard cord or an argued
   deviation, not a silent one.
+
+## The bore entry at the monolithic joint (fixed 2026-09-06)
+
+The monobody prints cable-end-down, so the head's bore lands on top of the tube's.
+Those bores are not the same size — tube `body_tube_id` 27.20, head `bore_d` 25.18 —
+and the difference used to arrive as a **square annular ledge 1.01 mm wide**, hanging
+over the tube bore with nothing under it. Around a 79 mm circumference at a 0.6 mm
+line that is roughly 1.7 perimeters printed entirely in air.
+
+Observed on the first monobody, by Fab: *"spiderweb filament … filament spans across
+the hole"*, right below the neck. The same failure the membrane carrier had.
+
+**The slicer had already reported it and nobody read the report.** `plate_1.gcode`
+carried `; FEATURE: Overhang wall` at `Z_HEIGHT 124.16` — model z 0.10, this ledge and
+no other. Extracting them is one line and is worth doing on every new plate:
+
+```sh
+awk '/^; Z_HEIGHT: /{z=$3} /^; FEATURE: Overhang wall/{print z}' plate_1.gcode \
+  | sort -n | uniq -c
+```
+
+The fix is geometry, not a slicer setting: `bore_lead_h`, a 45° cone from the tube
+bore up to the head bore. 45° because it is the self-supporting limit *and* because it
+falls under Orca's overhang classifier — at 0.12 mm layers on a 0.6 mm line a 45° wall
+is 20 % unsupported against a 25 % threshold, so the feature stops being an overhang
+rather than merely becoming a better-printed one.
+
+Verified: the `Z 124.16` entry is gone from the re-slice, every other overhang is
+unchanged, print time moved 4 h 00 m 34 s → 4 h 00 m 23 s, and the head's mesh volume
+fell 5712.9 → 5671.7 mm³ (−41.2), against 41.4 mm³ predicted for the cone.
+
+The cone is cut in `cavity()` as well as in the head body. Leaving it out of the
+cavity would have made the measured gas volume describe a part other than the one
+being printed — the same defect the 2026-09-05 review found in this module.
+
+**Bonded is deliberately untouched.** There the step is at the socket floor, it is
+3.6 mm rather than 1.01, and it is the tube's stop face — a functional surface, not a
+transition. If the bonded head is ever printed this way up it needs its own answer.
+
+**Still open:** 8 `Overhang wall` entries remain at model z 6.10, inside the head above
+the neck. Not investigated.

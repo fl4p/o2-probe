@@ -723,6 +723,39 @@ board_swept = board_env_front + board_t + board_env_back;
 board_diag = sqrt(pow(board_w, 2) + pow(board_swept, 2));
 bore_d = max(board_diag + 2*bore_margin, cell_d + 2*bore_margin);
 
+// SELF-SUPPORTING BORE ENTRY, monolithic only.
+//
+// The monobody prints cable-end-DOWN, so the head's bore arrives on top of the
+// tube's. The tube bore is body_tube_id (27.2) and the head's is bore_d
+// (25.18), so the joint used to step inward by (27.2-25.18)/2 = 1.01 mm as a
+// SQUARE LEDGE -- an annulus of head material hanging over the tube bore with
+// nothing whatever beneath it. At a 0.6 line that is ~1.7 perimeters laid
+// across open air, all the way round a 79 mm circumference, and on ASA at 35%
+// fan it droops and strings. Fab saw exactly that on the first monobody:
+// "spiderweb filament ... filament spans across the hole", right below the neck.
+// The slicer had said so too and it was not read: plate_1.gcode carries an
+// `Overhang wall` at Z 124.16, which is model z 0.10 -- this ledge and no other.
+//
+// The fix is geometry, not a slicer setting: a 45 deg cone from the tube bore
+// up to the head bore. 45 is chosen because it is the self-supporting limit AND
+// because it lands under Orca's overhang classifier -- at 0.12 mm layers on a
+// 0.6 mm line a 45 deg wall is 20% unsupported against a 25% threshold, so the
+// feature stops being an overhang rather than becoming a better-printed one.
+//
+// It only ever OPENS the bore (d1 = body_tube_id > bore_d), so no clearance
+// this bore is derived from -- board_diag, cell_d -- can be violated by it.
+// Bonded is deliberately untouched: there the socket bore is larger still and
+// its floor is the tube's stop face, which is a functional surface, not a
+// transition. See PRINTING-HEAD-END.md.
+bore_lead_h = monolithic ? (body_tube_id - bore_d)/2 : 0;
+assert(!monolithic || bore_lead_h <= socket_len,
+       str("the bore lead-in is ", bore_lead_h, " mm but only ", socket_len,
+           " mm of socket to live in: it would run past the joint into the board bore"));
+assert(bore_lead_h >= 0,
+       str("body_tube_id ", body_tube_id, " is not larger than bore_d ", bore_d,
+           " -- the head bore is wider than the tube it joins, so the step is a",
+           " LEDGE ON THE TUBE and this lead-in cuts the wrong way"));
+
 mouth_d = window_d + flare_extra;        // the flare's mouth, in the flange
 // Ø23.0 for the on-hand ring: solved from the root it needs (20.0 x 1.035 =
 // 20.7 -- see radial_ring above) plus two compressed cords, less carrier_fit.
@@ -1662,6 +1695,10 @@ module head() {
         // otherwise the board could not reach the cavity at all.
         translate([0, 0, monolithic ? -heps : socket_len])
             cylinder(d=bore_d, h=(monolithic ? socket_len + heps : 0) + cav_board_len);
+        // The 45 deg lead-in that keeps that bore entry off the overhang list.
+        if (monolithic && bore_lead_h > 0)
+            translate([0, 0, -heps])
+                cylinder(d1=body_tube_id + 2*heps, d2=bore_d, h=bore_lead_h + heps);
         // Only the past-end mount has a neck. A zero-height cylinder is not a
         // no-op in CGAL, it is a degenerate solid, so this is a branch and not
         // an h=0.
@@ -1958,6 +1995,13 @@ module cavity_raw() {
             // truncated the cavity's top instead of extending its bottom.
             if (monolithic)
                 translate([0, 0, -heps]) cylinder(d=bore_d, h=socket_len + heps);
+            // The lead-in is part of the gas volume too. Leaving it out of the
+            // cavity would make the measured number describe a part that is not
+            // the one being printed -- the exact defect the comment above this
+            // block records being found by review.
+            if (monolithic && bore_lead_h > 0)
+                translate([0, 0, -heps])
+                    cylinder(d1=body_tube_id + 2*heps, d2=bore_d, h=bore_lead_h + heps);
             if (has_neck)
                 translate([0, 0, socket_len + cav_board_len])
                     cylinder(d=neck_d, h=cav_clear_len);
