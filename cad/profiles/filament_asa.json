@@ -262,10 +262,10 @@
         "0.088"
     ],
     "hot_plate_temp": [
-        "105"
+        "100"
     ],
     "hot_plate_temp_initial_layer": [
-        "105"
+        "100"
     ],
     "impact_strength_z": [
         "4.9"
@@ -325,10 +325,10 @@
         "100"
     ],
     "textured_plate_temp": [
-        "105"
+        "100"
     ],
     "textured_plate_temp_initial_layer": [
-        "105"
+        "100"
     ],
     "type": "filament",
     "volumetric_speed_coefficients": [
@@ -336,6 +336,6 @@
         ""
     ],
     "filament_notes": [
-        "Elegoo ASA (OEASAB00), material values resolved from a machine export. MACHINE-SIDE VALUES ARE NOT ELEGOO'S: fan_max_speed, slow_down_layer_time, close_additional_fan_first_x_layers and the plate temperatures are Bambu's, because they describe an ENCLOSED P1P and Elegoo's export describes Elegoo's printer. 2026-09-05: taking Elegoo's whole file put part cooling at 80% (55-80% measured in a slice) against Bambu's 35, and the bed at 90 against 100; ASA then warped off the plate on two different parts, one of which has no overhang at all. filament_flow_ratio stays 1.00 (not Elegoo's 0.98) because seal-check requires 1.00-1.02 for gas-tightness. BED 105 C SET ON REQUEST 2026-09-05. NOTE: Bambu's P1 Series FAQ states the maximum heat bed temperature is 100 C (https://wiki.bambulab.com/en/p1/manual/faq, fetched 2026-09-05). 105 is above the rated maximum; see PRINTING notes for what the machine actually does with it. NO PRESSURE ADVANCE: this profile carries no enable_pressure_advance and no pressure_advance key, and the emitted gcode reads enable_pressure_advance = 0. Orca's official Elegoo ASA @System preset supplies enable=1 / PA=0.04, so if PA is wanted for this spool it must be added deliberately -- an earlier claim that the rebuild kept PA 0.04 was false. The vendor/id guard in print.sh cannot see an absent key."
+        "Elegoo ASA (OEASAB00), material values resolved from a machine export. MACHINE-SIDE VALUES ARE NOT ELEGOO'S: fan_max_speed, slow_down_layer_time, close_additional_fan_first_x_layers and the plate temperatures are Bambu's, because they describe an ENCLOSED P1P and Elegoo's export describes Elegoo's printer. 2026-09-05: taking Elegoo's whole file put part cooling at 80% (55-80% measured in a slice) against Bambu's 35, and the bed at 90 against 100; ASA then warped off the plate on two different parts, one of which has no overhang at all. filament_flow_ratio stays 1.00 (not Elegoo's 0.98) because seal-check requires 1.00-1.02 for gas-tightness. BED 100 C. It was set to 105 on request 2026-09-05 and put back to 100 on request 2026-09-06, after the machine showed what 105 actually costs. Bambu's P1 Series FAQ states the maximum heat bed temperature is 100 C (https://wiki.bambulab.com/en/p1/manual/faq, fetched 2026-09-05) and the wiki HMS table lists P1 Series 100 against X1 Series 110, so the ceiling is the P1's own. Nothing along the path objects to 105: Orca slices it, emits M140/M190 S105, and slice-check reports bed=105C. The MACHINE clamps to 100 and latches HMS 0300_0100_0003_0008 (the temperature of the heated bed exceeds the limit and automatically adjusts to the limit temperature) for the attempt. So 105 delivered no extra heat and planted a spurious entry in the HMS list on EVERY job, 21 s after start -- measured on the 2026-09-06 retainer plate. That is a real cost: attributing a later fault depends on a clean HMS baseline, and this setting guaranteed the list was never clean. NO PRESSURE ADVANCE: this profile carries no enable_pressure_advance and no pressure_advance key, and the emitted gcode reads enable_pressure_advance = 0. Orca's official Elegoo ASA @System preset supplies enable=1 / PA=0.04, so if PA is wanted for this spool it must be added deliberately -- an earlier claim that the rebuild kept PA 0.04 was false. The vendor/id guard in print.sh cannot see an absent key."
     ]
 }
