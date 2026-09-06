@@ -284,24 +284,58 @@ def _sources_sig(items):
     viewer kept showing the broken one, because render() only re-checks mtimes
     at startup.
 
-    Returns (signature, problems). A file that cannot be stat-ed contributes
-    None to the signature and a line to `problems` -- it is NEVER quietly
-    treated as unchanged, because "I could not look" and "it is current" are
-    the two things a staleness check must not confuse.
+    THE OUTPUT IS WATCHED TOO, and that was missing. This function used to
+    fingerprint only what a part is BUILT FROM, never whether the part is
+    actually THERE. So a render that failed -- or was never run -- left the
+    source signature perfectly stable and this reported `{"stale": false,
+    "problems": []}` while the mesh did not exist on disk. Measured 2026-09-06
+    on the `probe` scene: nine parts declared, the monobody's STL absent, and
+    the viewer would have drawn the membrane stack and the cable-end cap
+    floating in space with NO BODY and no complaint. A missing part leaves no
+    hole to notice, which is exactly why it has to be checked rather than seen
+    -- the same failure mode as a 3D export that silently drops a footprint.
+
+    Returns (signature, problems). A file that cannot be stat-ed -- source OR
+    output -- contributes None to the signature and a line to `problems`; it is
+    NEVER quietly treated as unchanged, because "I could not look" and "it is
+    current" are the two things a staleness check must not confuse.
+
+    No rebuild loop: the caller records the signature it LAST ATTEMPTED, so a
+    part that stays broken keeps reporting its problem without asking for a
+    fresh rebuild every poll.
     """
     sig, problems = [], []
     for it in items:
         try:
             if it.get('scad'):
-                sig.append((it['mesh'], newest_source(it['scad'])))
+                src = newest_source(it['scad'])
             else:
                 deps = it.get('deps') or []
-                sig.append((it['mesh'],
-                            max((os.path.getmtime(os.path.join(CAD, d))
-                                 for d in deps), default=0.0)))
+                src = max((os.path.getmtime(os.path.join(CAD, d))
+                           for d in deps), default=0.0)
         except OSError as e:
             problems.append('%s: %s' % (it.get('name', '?'), e))
-            sig.append((it['mesh'], None))
+            src = None
+        # Does the thing this part actually renders EXIST, and is it non-empty?
+        # An empty file is the shape a killed or crashed openscad leaves behind.
+        out = None
+        mesh = it.get('mesh')
+        if mesh:
+            path = mesh if os.path.isabs(mesh) else os.path.join(CAD, mesh)
+            try:
+                st = os.stat(path)
+                if st.st_size == 0:
+                    problems.append('%s: %s is EMPTY -- the render produced no '
+                                    'geometry, so this part is MISSING from the '
+                                    'scene' % (it.get('name', '?'), mesh))
+                else:
+                    out = st.st_mtime
+            except OSError:
+                problems.append('%s: %s does not exist -- this part is MISSING '
+                                'from the scene, which looks identical to a '
+                                'scene that never had it'
+                                % (it.get('name', '?'), mesh))
+        sig.append((mesh, src, out))
     return tuple(sig), problems
 
 

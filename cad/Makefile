@@ -290,6 +290,14 @@ body-tube: | $(OUT)
 	@# because all of them are arithmetic on variables and none touches the
 	@# mesh. Measure the feature, not the model's opinion of it.
 	python3 tools/spigot_check.py
+	@# The spigot's counterpart, and the fourth feature in this file that lives
+	@# INSIDE the bore and would be eaten whole by the bore subtraction if it
+	@# were unioned one level out -- which is how the lock boss and the spigot
+	@# were each really written once. Also proves the 45 deg lead is still
+	@# there: without it the collar's top face is an unsupported overhang
+	@# strung across the sealing surface, which is the head's spiderweb defect
+	@# relocated onto an O-ring land.
+	python3 tools/collar_check.py
 	$(OPENSCAD) --viewall --autocenter --projection=p --imgsize=1500,1100 \
 		--camera=0,0,0,68,0,32,0 --colorscheme=Tomorrow \
 		-D 'part="assembly"' -D exploded=true \

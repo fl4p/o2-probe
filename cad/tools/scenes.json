@@ -182,12 +182,12 @@
   ]
  },
  "cable-end": {
-  "note": "the CABLE end: tube, bayonet cap and BOTH its O-rings. The radial ring on the cap's spigot is the seal; the gland ring in the outer face seals the gland body to the cap.",
+  "note": "the CABLE end: tube, bayonet cap and BOTH its O-rings. The radial 22 x 2 on the cap's spigot seals against the tube's \u00d825.5 COLLAR; the gland ring in the outer face seals the gland body to the cap.",
   "parts": [
    {
     "spec": "o2_probe_body_tube.scad:end-tube=tube",
     "color": "#a0522d",
-    "note": "reamed cable-end bore 27.3 H7 -- the surface the radial ring seals against"
+    "note": "printed ASA; the cable end now carries a COLLAR -- material added INWARD to \u00d825.5 H7, reamed, 12 mm long, standing 0.85 mm proud of the \u00d827.2 bore with a 45 deg lead above it. It is NOT a counterbore: the old \u00d827.3 had to be larger than the tube bore, which is exactly what forced a 24 ID ring"
    },
    {
     "spec": "o2_probe_body_tube.scad:end-cap=cap (cable end)",
@@ -197,12 +197,60 @@
    {
     "spec": "o2_probe_body_tube.scad:end-seal-ring=O-ring (radial, cable seal)",
     "color": "#c62828",
-    "note": "24 x 1.5, on the spigot. Drawn at its COMPRESSED section: 4.29% stretch, 22.7% squeeze. Supplies NO axial preload, which is why the M3 lock screw is not optional"
+    "note": "22 x 2 EPDM 70 -- the ring ON HAND. Drawn at its INSTALLED section: 2.15% stretch onto the \u00d822.473 groove root, 23.5% squeeze against the \u00d825.5 collar. Catalogue cord is enough (11.2 of 15 tolerance points); the 24 x 1.5 it replaces needed micrometer-sorted rings"
    },
    {
     "spec": "o2_probe_body_tube.scad:end-gland-ring=O-ring (gland face seal)",
     "color": "#e08b3a",
     "note": "in the cap's OUTER face notch, squeezed by the gland flange -- a different seal from the radial one"
+   }
+  ]
+ },
+ "probe": {
+  "note": "THE WHOLE PROBE, as it assembles. Monobody (head and tube are one printed part) with the membrane stack at the wet end and the bayonet cap at the cable end. Both cable-end O-rings and the membrane bed's two are drawn at their INSTALLED sections, so what you see is how they sit in service, not free.",
+  "parts": [
+   {
+    "spec": "o2_probe_head_end.scad:monobody=monobody (head + tube, ONE part)",
+    "color": "#a0522d",
+    "note": "4 h 07 m, 33.5 cm3 of ASA. The head is unchanged by the collar work -- it reprints only because it is the same part as the tube"
+   },
+   {
+    "spec": "o2_probe_head_end.scad:bed-carrier=carrier",
+    "color": "#d6c36a",
+    "note": "ASA, no weld; the membrane's clamping ring"
+   },
+   {
+    "spec": "o2_probe_head_end.scad:bed-membrane=membrane",
+    "color": "#f2f2f2",
+    "note": "PMV15T disc, 0.18 mm, drawn at its cut diameter"
+   },
+   {
+    "spec": "o2_probe_head_end.scad:bed-ring=O-ring (membrane bed)",
+    "color": "#c62828",
+    "note": "17 x 2.5 EPDM, on hand"
+   },
+   {
+    "spec": "o2_probe_head_end.scad:bed-radial-ring=O-ring (carrier -> head)",
+    "color": "#e53935",
+    "note": "the carrier's radial seal -- the joint the cable seal is modelled on"
+   },
+   {
+    "spec": "o2_probe_head_end.scad:bed-retainer=retainer",
+    "color": "#8d6e63"
+   },
+   {
+    "spec": "o2_probe_body_tube.scad:mono-cap=cap (cable end)",
+    "color": "#ff8c00",
+    "note": "bayonet, twists 57 deg to a positive stop; M3 lock screw is the retention"
+   },
+   {
+    "spec": "o2_probe_body_tube.scad:mono-seal-ring=O-ring 22 x 2 (cable seal, ON HAND)",
+    "color": "#c62828",
+    "note": "2.15% stretch, 23.5% squeeze against the \u00d825.5 collar"
+   },
+   {
+    "spec": "o2_probe_body_tube.scad:mono-gland-ring=O-ring (gland face seal)",
+    "color": "#e08b3a"
    }
   ]
  }

@@ -105,6 +105,24 @@ def verts(path):
     return out
 
 
+def tris(path):
+    """Facets as [(r, z), (r, z), (r, z)]. verts() cannot answer a question
+    about the MIDDLE of a prismatic face; a triangle can."""
+    pat = re.compile(r'vertex\s+([-\d.eE+]+)\s+([-\d.eE+]+)\s+([-\d.eE+]+)')
+    cur, out = [], []
+    with open(path, errors='ignore') as f:
+        for line in f:
+            m = pat.search(line)
+            if not m:
+                continue
+            x, y, z = (float(g) for g in m.groups())
+            cur.append((math.hypot(x, y), z))
+            if len(cur) == 3:
+                out.append(cur)
+                cur = []
+    return out
+
+
 def main():
     n = model_numbers()
     path = sys.argv[1] if len(sys.argv) > 1 else render_cap()
@@ -130,25 +148,63 @@ def main():
                          'expected (len %.2f - chamfer %.2f)'
                          % (span, r_spig, want, n['len'], n['chamfer']))
 
-    # 2. THE GROOVE IS CUT IN IT. A spigot with no groove holds no ring, and the
-    #    groove is the half that a nesting error takes first.
-    in_spig = [r for r, z in v if z0 - 0.05 <= z <= z1 + 0.05]
-    if not in_spig:
-        fails.append('groove: no cap geometry at all in the spigot band')
-    else:
-        got = min(r for r in in_spig if r >= n['id'] / 2.0 - 0.05)
-        if got > r_root + 0.05:
-            fails.append('groove: the smallest radius on the spigot is %.3f, but '
-                         'the groove root should reach %.3f -- no groove is cut'
-                         % (got, r_root))
+    # 2. THE GROOVE IS CUT IN IT -- tested by ABSENCE OF MATERIAL, not by the
+    #    presence of a small radius somewhere.
+    #
+    #    THE FIRST VERSION OF THIS WAS A MUTE BUTTON and a review caught it.
+    #    It asked for the smallest radius anywhere on the spigot band, above a
+    #    floor of spigot_id/2. The Ø20 cable passage wall sits at r=10 for the
+    #    whole of that band, so the answer was always 10, always <= the required
+    #    root, and always a pass. A rendered, closed cap with groove_w=0 passed
+    #    with exit 0 -- the guard could not see the very feature it named.
+    #    The spigot tip chamfer (r 12.5) would have done the same job one level
+    #    up, so raising the floor would not have fixed it either.
+    #
+    #    What actually distinguishes a cut groove from no groove is whether the
+    #    spigot's OUTER WALL still runs through the groove's z-band. So: take
+    #    the band INTERIOR (shrunk by `edge`, which drops the groove's own two
+    #    side walls, whose triangles sit exactly on the boundary) and look for
+    #    any TRIANGLE that crosses it carrying material at a radius meaningfully
+    #    outside the root. Triangles, not vertices: a plain cylinder has
+    #    vertices only at its ends, so vertex sampling sees nothing at all in
+    #    the middle of the band -- which is exactly the missing-groove case.
+    gz0 = z1 - n['len'] + n['chamfer'] + 1.2
+    gz1 = gz0 + n['groove_w']
+    edge = 0.20
+    band = (gz0 + edge, gz1 - edge)
+    wall = r_root + 0.15                 # clear of the root surface itself
+    intruders = 0
+    for tri in tris(path):
+        zs = [z for _, z in tri]
+        if max(zs) < band[0] or min(zs) > band[1]:
+            continue                     # does not cross the band interior
+        if any(wall <= r <= n['od'] / 2.0 + 0.05 for r, _ in tri):
+            intruders += 1
+    if band[1] <= band[0]:
+        fails.append('groove: groove_w %.3f is too small to test (band interior '
+                     'is empty) -- treat as NO GROOVE' % n['groove_w'])
+    elif intruders:
+        fails.append('groove: %d facets still carry spigot wall between r=%.3f '
+                     'and the OD through the groove band z %.3f..%.3f -- the '
+                     'groove is not cut, or is too shallow to hold the ring'
+                     % (intruders, wall, band[0], band[1]))
 
     if fails:
         for f in fails:
             print('FAIL ' + f)
         return 1
-    print('spigot_check OK: spigot at r=%.3f over %.2f mm, groove root %.3f '
-          '(measured on the mesh, not on the model\'s arithmetic)'
-          % (r_spig, max(on_od) - min(on_od), r_root))
+    # Report the MEASURED numbers. The first version printed the model-derived
+    # r_root here while claiming mesh measurement -- provenance the guard had
+    # not earned (guard checklist item 6).
+    # Over the FULL band, not the shrunk interior: the root cylinder's own
+    # vertices sit on the band EDGES, so the interior contains none of them and
+    # the first version of this line reported `nan`. The interior is the right
+    # window for the wall test above and the wrong one for reading the root.
+    root_meas = min((r for r, z in v if gz0 - 0.05 <= z <= gz1 + 0.05
+                     and r >= n['id'] / 2.0 + 0.5), default=float('nan'))
+    print('spigot_check OK: spigot at r=%.3f over %.2f mm; groove band clear of '
+          'wall, measured root %.3f (expected %.3f). Measured on the mesh.'
+          % (r_spig, max(on_od) - min(on_od), root_meas, r_root))
     return 0
 
 
