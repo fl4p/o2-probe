@@ -177,11 +177,30 @@ must not guess:
    model OA/250". The gas is desiccated before it reaches the instrument, so
    every percentage in that paper is dry-basis.
 
-   The paper corroborates itself: it reports the stack's outer zone at "about
-   20 %" and "always greater than 18 %" at 50–60 °C. Wet-basis, ambient air at
-   60 °C and saturation reads 16.8 %vol (§2). A wet-basis instrument could not
-   have produced those numbers. Two independent confirmations — the stated
-   method and the value it yields in near-ambient gas.
+   **An earlier draft of this section also argued that the paper corroborates
+   itself numerically** — that its outer zone at "about 20 %" and "greater than
+   18 %" at 50–60 °C could not have come from a wet-basis instrument. *That
+   argument does not hold and has been withdrawn.* Adversarial review read the
+   zone-by-zone data it rested on: the outer-**top** region is near 20 % but
+   generally **below 30 °C**, and the outer-centre/bottom is above 18 % at
+   50–60 °C — where saturated air still reads about 18.4 %. The paper never
+   measured RH in those boundary zones, and they are plausibly cooler and drier
+   from ambient ventilation. The values are *consistent* with the stated dried
+   method; they do not independently prove it. The method statement carries this
+   on its own.
+
+   **The independent confirmation comes from other instruments instead**, and
+   there are three (§7): Kane & Mullins' Orsat, which is dry-basis by
+   construction because the confining water saturates the gas identically before
+   and after absorption; Schulze's ambient condensate trap, which is
+   *condensed-to-room-temperature* rather than dry, leaving ~2.3 % residual
+   vapour; and — the one that matters most — VanderGheynst *et al.* (1997), who
+   built an **in-situ** O₂/RH/temperature probe for exactly this environment,
+   calibrated its water-vapour response experimentally, published on a dry air
+   basis, and validated against gas chromatography of the same gas. The
+   convention is not an artefact of sample lines that we are the first to notice
+   in situ; someone reporting an in-situ cell in hot saturated gas already made
+   the same choice.
 3. **Both**, on separate registers.
 
 **Recommendation: publish dry-basis on `O2_COMP` and keep wet-basis available.**
@@ -193,22 +212,41 @@ never lost.
 Whatever is chosen, the register map's prose must say which basis it is. A
 number whose basis is undocumented is worse than either choice.
 
-### The thresholds are dry-basis too, so the alarm points do not move
+### The thresholds are on the same basis — but the famous one is not a measurement
 
-The number everyone quotes — 5 %vol as the floor for aerobic activity — traces
-through Randle & Flegg (1978) p. 322 to its primary sources: "There is evidence
-(Schulze, 1962; Kane and Mullins, 1973) that thermophilic organisms are active
-in compost while the oxygen concentration remains above 5 %." Both are measured
-with the dried-sample method above.
+**The practically important consequence of this document** is that a probe
+publishing wet-basis crosses a 5 %vol alarm line *while the pile still holds
+6.2 %vol dry* at 60 °C, flagging anaerobia that is not there. Correcting to
+dry-basis puts our register on the same footing as the published numbers, so no
+threshold has to be restated as a function of temperature — which is not a thing
+anyone will do correctly in a dashboard.
 
-**That is the practically important consequence of this whole document.** Since
-the published thresholds are dry-basis and the probe currently publishes
-wet-basis, a probe left uncorrected would cross a 5 % alarm line *while the
-pile still held 6.2 %vol dry* at 60 °C — flagging anaerobia that is not there.
-Correcting to dry-basis means the existing literature thresholds transfer
-unchanged; no alarm point needs re-deriving. Publishing wet-basis would require
-every threshold to be restated as a function of temperature, which is not a
-thing anyone will do correctly in a dashboard.
+**What must not be claimed is that the thresholds therefore transfer unchanged**,
+because the most-quoted one does not survive contact with its own sources. Randle
+& Flegg (1978) p. 322 attributes it: "There is evidence (Schulze, 1962; Kane and
+Mullins, 1973) that thermophilic organisms are active in compost while the oxygen
+concentration remains above 5 %." Both were read (§7):
+
+* **Schulze 1962 states no threshold.** He throttled air "so that the residual
+  oxygen concentration in the **exhaust gas** remained between 5 and 10 %" — an
+  operating band the author chose, for the mixed outflow of a 55-gallon drum, not
+  for pore gas and not as a biological floor.
+* **Kane & Mullins 1973 contains no oxygen threshold at all.** Its only "5 %" is
+  the CO₂ in a 95 % N₂ / 5 % CO₂ sparging mixture used to show the isolates
+  require aerobic conditions — a qualitative result, not a number.
+
+So the canonical 5 % is a citation cascade. **The figure with an actual
+manipulated-variable experiment behind it is Suler & Finstein 1977** — 2 % O₂
+severely restricted CO₂ formation, while 10 % performed the same as 18 %. Cite
+them for an alarm, and Schulze only for the basis pedigree. Note also what Suler
+& Finstein do *not* establish: that 10 % is a universal biological floor. It is
+the level at which their system stopped being limited by oxygen.
+
+**Setting the alarm number is therefore out of scope for this document**, which
+is about the measurement basis. It needs its own evidence, and the temperature
+coupling makes a flat percentage suspect in any case: oxygen is less soluble in
+warm water, so a hot pile needs a *higher* gas-phase O₂ to deliver the same
+dissolved O₂ to organisms living in wet biofilms.
 
 ### What that paper says about the actual goal
 
@@ -297,13 +335,36 @@ and about calibrating `K` against the right number in the first place.
   stack.* Scientia Horticulturae 8:315–323. Elsevier. Local copy:
   `~/dev/ha/farming/oxygen-mushroom.pdf`. Read in full. The method statement on
   p. 317 is the load-bearing citation for the dry-basis question.
+* VanderGheynst, J.S., Walker, L.P. and VanderGheynst, G.B. (1997).
+  *Development and analysis of oxygen-sensing probes for in situ monitoring of
+  unsaturated solid-state biodegradation processes.* J. Air & Waste Manage.
+  Assoc. 47(10):1041–1050. DOI 10.1080/10473289.1997.10464402. **Read in full.**
+  The in-situ precedent, and architecturally near-identical to this board: an
+  O₂ + RH + temperature probe run buried for 71 days above 60 °C, whose
+  water-vapour response was calibrated experimentally and whose output is
+  published on a dry air basis, validated against GC. Its eq. (1) writes the
+  cell law in terms of `PO₂/P` — over *total* pressure — which is the argument
+  for §3c's `K` normalisation.
 * Schulze, K.L. (1962). *Continuous thermophilic composting.* Appl. Microbiol.
-  10:108–122. — cited by the above as a primary source for the 5 % threshold.
-  NOT YET RETRIEVED.
+  10(2):108–122. DOI 10.1128/am.10.2.108-122.1962. **Read in full.** Cited as
+  the primary source for the 5 % threshold; **does not contain one** (see §4).
+  Measured *exhaust gas* through an ambient condensate water trap, so
+  condensed-to-room-temperature rather than dry.
 * Kane, B.E. and Mullins, J.T. (1973). *Thermophilic fungi in a municipal waste
-  compost system.* Mycologia 65:1087–1100. — the other primary source for the
-  5 % threshold. NOT YET RETRIEVED.
+  compost system.* Mycologia 65(5):1087–1100. DOI 10.1080/00275514.1973.12019529.
+  **Read in full.** The other cited source for the 5 % threshold; **contains no
+  oxygen threshold**. Sampled through a Hays Orsat, which is dry-basis by
+  construction — the second independent confirmation of the convention.
+* Suler, D.J. and Finstein, M.S. (1977). — the figure that *does* rest on a
+  manipulated-variable experiment: 2 % O₂ severely restricted CO₂ formation,
+  10 % ≈ 18 %. Already in `compostlab-literature`. NOT YET READ FIRST-HAND here.
 * Waksman, S.A., Cordon, T.C. and Hulpoi, N. (1939). *Influence of temperature
-  upon the microbial population and decomposition processes in composts of
-  stable manure.* Soil Sci. 47:83–98. — source for the 50–65 °C thermophile
-  optimum. NOT YET RETRIEVED.
+  upon the microbiological population and decomposition processes in composts of
+  stable manure.* Soil Sci. 47(2):83–114. DOI 10.1097/00010694-193902000-00001.
+  Source for the 50–65 °C thermophile optimum. Title page read; body NOT read.
+  (Randle & Flegg cite this as 83–98 and as "microbial population"; both are
+  wrong — the paper begins on p. 83 and says "MICROBIOLOGICAL".)
+
+All five are archived in `compostlab-literature/` with checksums — see its
+`monitoring-control/INDEX.md` and `microbiology/INDEX.md`, which record for each
+what it does and does not support.
