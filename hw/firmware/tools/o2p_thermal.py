@@ -899,8 +899,16 @@ def _quality(seg, fit, args):
     looks exactly like a real result.
     """
     flags = []
-    vins = [r["vin_mv"] for r in seg
-            if r.get("vin_mv") is not None and math.isfinite(r["vin_mv"])]
+    if args.vin_mv:
+        # The logged rail has been overridden, so checking ITS stability proves
+        # nothing - it is the channel we just declared untrustworthy. The
+        # override is only ever right for a rail measured externally and known
+        # to be steady; that judgement is the operator's and is recorded in the
+        # header of the analysis output.
+        vins = [float(args.vin_mv)]
+    else:
+        vins = [r["vin_mv"] for r in seg
+                if r.get("vin_mv") is not None and math.isfinite(r["vin_mv"])]
     if not vins:
         # No rail reading at all. P is duty*VIN^2, so without VIN there is no
         # power and therefore no theta - and an unevaluable input must never
@@ -960,7 +968,7 @@ FATAL_FLAGS = ("UNSTABLE_VIN", "FAULTED", "NOISY", "NO_VIN", "NON_FINITE",
                "BAD_TAU", "TAU_UNIDENTIFIABLE", "DUTY_VARIES", "TOO_SHORT")
 
 
-def _seg_power_w(seg, ohm):
+def _seg_power_w(seg, ohm, vin_override_mv=None):
     """Mean electrical power over a segment, averaged the right way round.
 
     P is duty x VIN^2, and the mean of a product is not the product of the
@@ -969,7 +977,8 @@ def _seg_power_w(seg, ohm):
     """
     ps = []
     for r in seg:
-        d, v = r.get("heater_duty_pct"), r.get("vin_mv")
+        d = r.get("heater_duty_pct")
+        v = vin_override_mv if vin_override_mv else r.get("vin_mv")
         if d is None or v is None:
             continue
         volts = v / 1000.0
@@ -1016,7 +1025,7 @@ def _fit_segment(seg, args):
             "edge": edge,
             "duty": _mean(duties),
             "duty_spread": (max(duties) - min(duties)) if duties else float("nan"),
-            "power_w": _seg_power_w(steady, args.ohm),
+            "power_w": _seg_power_w(steady, args.ohm, args.vin_mv),
             "vin": _mean([r["vin_mv"] for r in seg])}
 
 
@@ -1122,6 +1131,11 @@ def analyse(rows, args):
             _plot(rows, fits, args)
         return
 
+    if args.vin_mv:
+        print("\n  !! VIN OVERRIDDEN to %d mV. The logged rail is NOT being "
+              "used. Every power below is computed from the override, and the "
+              "rail-stability exclusion is disabled because the logged channel "
+              "has been declared untrustworthy." % args.vin_mv)
     print("\n--- theta = dT / P,  C = tau / theta,  P = duty * VIN^2 / %g ohm ---"
           % ohm)
     print("  cycle     dT         P        theta       C        tau    baseline")
@@ -1362,6 +1376,14 @@ def main():
                     help="heater resistance (default %g, RH1||RH2). MEASURE it "
                          "if a ring PCB is fitted - a ring parallels these."
                          % HEATER_OHM)
+    ap.add_argument("--vin-mv", type=float, default=None,
+                    help="use this rail voltage (mV) instead of the logged "
+                         "VIN_MON. For when the rail is known from a meter and "
+                         "the probe's own channel is not trusted - e.g. an "
+                         "image predating e31d5ac, where vin_mv was ADS1119 "
+                         "AIN3 (the buffered reference electrode) scaled by the "
+                         "VIN divider and had nothing to do with the supply. "
+                         "P scales with VIN^2, so this moves theta a lot.")
     ap.add_argument("--theta-guess", type=float, default=98.0,
                     help="K/W assumed ONLY to sanity-check --duty before the "
                          "run (default 98, the still-air bench figure in "
