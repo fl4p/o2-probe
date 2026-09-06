@@ -124,9 +124,23 @@ must not guess:
    humidity even when aeration is unchanged, which makes the primary channel
    track the weather and the heater duty rather than the pile.
 2. **Dry-basis** — oxygen as a fraction of the water-free gas. This is what
-   lab instruments and Dräger tubes report, what the compost literature means
-   by "O₂ %", and what is comparable across sites and seasons. It is also what
-   makes a trend line mean respiration rather than humidity.
+   the compost literature means by "O₂ %", and what is comparable across sites
+   and seasons. It is also what makes a trend line mean respiration rather than
+   humidity.
+
+   **This is now sourced rather than assumed.** Randle & Flegg (1978),
+   *Oxygen measurements in a mushroom compost stack*, Scientia Horticulturae
+   8:315–323, states the method outright (p. 317): samples were "passed
+   through a **cold trap and silica gel indicator to cool and dry the sample**
+   before it was passed through a paramagnetic oxygen analyser, Taylor-Servomex
+   model OA/250". The gas is desiccated before it reaches the instrument, so
+   every percentage in that paper is dry-basis.
+
+   The paper corroborates itself: it reports the stack's outer zone at "about
+   20 %" and "always greater than 18 %" at 50–60 °C. Wet-basis, ambient air at
+   60 °C and saturation reads 16.8 %vol (§2). A wet-basis instrument could not
+   have produced those numbers. Two independent confirmations — the stated
+   method and the value it yields in near-ambient gas.
 3. **Both**, on separate registers.
 
 **Recommendation: publish dry-basis on `O2_COMP` and keep wet-basis available.**
@@ -137,6 +151,55 @@ never lost.
 
 Whatever is chosen, the register map's prose must say which basis it is. A
 number whose basis is undocumented is worse than either choice.
+
+### The thresholds are dry-basis too, so the alarm points do not move
+
+The number everyone quotes — 5 %vol as the floor for aerobic activity — traces
+through Randle & Flegg (1978) p. 322 to its primary sources: "There is evidence
+(Schulze, 1962; Kane and Mullins, 1973) that thermophilic organisms are active
+in compost while the oxygen concentration remains above 5 %." Both are measured
+with the dried-sample method above.
+
+**That is the practically important consequence of this whole document.** Since
+the published thresholds are dry-basis and the probe currently publishes
+wet-basis, a probe left uncorrected would cross a 5 % alarm line *while the
+pile still held 6.2 %vol dry* at 60 °C — flagging anaerobia that is not there.
+Correcting to dry-basis means the existing literature thresholds transfer
+unchanged; no alarm point needs re-deriving. Publishing wet-basis would require
+every threshold to be restated as a function of temperature, which is not a
+thing anyone will do correctly in a dashboard.
+
+### What that paper says about the actual goal
+
+Relevant to an operator aiming at a diverse microbiome rather than merely
+"not anaerobic" — its conclusion is that oxygen was *not* the limiting factor
+(p. 322–323):
+
+> Compost temperatures exceeded 65 °C for much of the time in the inner and
+> middle zones which comprise 60 % of the stack volume, indicating that
+> **microbial activity was restricted by overheating in the stack rather than
+> by lack of oxygen**, a situation which probably occurs widely in commercial
+> mushroom production.
+
+Optimum for the three thermophile groups — fungi, actinomycetes, bacteria — is
+50–65 °C (Waksman et al., 1939). O₂ exceeded 5 % in 86 % of the stack volume
+and 10 % in 79 %, while temperature was out of range in 60 % of it. If that
+generalises, **the probe's temperature channel is at least as load-bearing as
+its oxygen channel**, and the pairing is what diagnoses a pile — which is an
+argument for the diagnostic block being uplinked, not just `O2_COMP`.
+
+Two further observations from the same dataset that bear on deployment:
+
+* **Oxygen varies more horizontally than vertically**, and the inner-bottom
+  region sat below 2 %vol continuously while the outer zone stayed near
+  ambient. A single buried probe reports its own region, not the stack. Probe
+  placement is a measurement decision, not an installation convenience.
+* **O₂ and temperature are anti-correlated with a specific, diagnosable
+  signature** across a turn: turning cools the pile toward 50 °C, which
+  stimulates activity and crashes O₂; O₂ recovers once temperature plateaus
+  near 70 °C and activity is suppressed by heat. A probe logging both should
+  reproduce that shape, which makes it a field validation target for this
+  hardware rather than only a biological observation.
 
 ## 5. Proposed change
 
@@ -186,3 +249,20 @@ The cell law itself (`S = K·ln(1/(1−C))`, DS-0637) is untouched: it relates
 current to the fraction the cell actually sees, and that is still the wet-basis
 fraction. Everything here is about what is done with that fraction afterwards,
 and about calibrating `K` against the right number in the first place.
+
+## 7. Sources
+
+* Randle, P. and Flegg, P.B. (1978). *Oxygen measurements in a mushroom compost
+  stack.* Scientia Horticulturae 8:315–323. Elsevier. Local copy:
+  `~/dev/ha/farming/oxygen-mushroom.pdf`. Read in full. The method statement on
+  p. 317 is the load-bearing citation for the dry-basis question.
+* Schulze, K.L. (1962). *Continuous thermophilic composting.* Appl. Microbiol.
+  10:108–122. — cited by the above as a primary source for the 5 % threshold.
+  NOT YET RETRIEVED.
+* Kane, B.E. and Mullins, J.T. (1973). *Thermophilic fungi in a municipal waste
+  compost system.* Mycologia 65:1087–1100. — the other primary source for the
+  5 % threshold. NOT YET RETRIEVED.
+* Waksman, S.A., Cordon, T.C. and Hulpoi, N. (1939). *Influence of temperature
+  upon the microbial population and decomposition processes in composts of
+  stable manure.* Soil Sci. 47:83–98. — source for the 50–65 °C thermophile
+  optimum. NOT YET RETRIEVED.
