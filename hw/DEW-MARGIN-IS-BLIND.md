@@ -1,5 +1,35 @@
 # The dew-margin channel cannot see condensation on the membrane
 
+> **READ THIS FIRST — configuration caveat added 2026-09-06 after review.**
+> The article measured here is **not potted, has no tube, and therefore has no
+> designed sensor chamber**: the SHT45 and the cell share a volume many times
+> larger than the design intends, and the "chamber RH" is a boundary layer
+> against a bare PCB rather than a defined gas volume. **None of the numbers
+> below are product behaviour.** A potted, tubed chamber couples the gas tightly
+> to the board and could largely close the +4.0 K offset that produces the
+> effect, which would make the on-PCB proxy serviceable after validation.
+>
+> What survives configuration: the firmware has **no independent membrane or
+> housing temperature**, so it cannot guarantee membrane dew margin in any
+> assembly that permits a thermal gradient. That is an observability defect and
+> it is real. Everything else here is a bare-board observation awaiting a
+> potted, tubed repeat.
+>
+> Three further corrections from the same review:
+>
+> * **"Inverts" is too strong.** `T_tip − Td(RH)` still falls monotonically with
+>   RH; one operating point cannot establish a reversed response. The honest
+>   description is a **false-safe error relative to a colder location**.
+> * **`DEW_SUSPECT` is not unable to fire** — the code raises it whenever the
+>   computed margin ≤ 0. What it cannot do is protect an independently colder
+>   membrane. And it is not a third *interlock*: `DEW_MARGIN` is a metric and
+>   `DEW_SUSPECT` its downstream fault, so the "three interlocks" framing
+>   overcounts. Two, not three.
+> * **The thermocouple measured gas near the membrane, not the membrane
+>   surface.** Calling −2.60 K the true margin *at the membrane* assumes equal
+>   vapour pressure across the two locations and membrane ≈ gas temperature.
+>   Neither was measured.
+
 **Measured 2026-09-06 on the bench. While the probe's membrane was 2.4–2.6 K
 BELOW the dew point and visibly in supersaturated gas, `DEW_MARGIN` published
 +1.3 to +1.4 K — "safe" — `DEW_SUSPECT` never fired, not even latched in
@@ -130,7 +160,14 @@ a measurement nuisance.
 −0.67 µA, ~80 s, with a double bottom. RH rose smoothly (84.8 → 86.1 %) with no
 corresponding feature.
 
-**Confirmed as real cell current, not an electrical glitch.** Through the dip
+**Rails and digital transport were clean, but this does NOT confirm real cell
+current** (corrected 2026-09-06 after review). `afe_vout` and `o2_raw` are
+derived from the **same averaged ADS1119 code** (`main.c:475`), so they are not
+independent channels and their agreement proves nothing about the analogue
+front end. The predicted step is also 4.69 mV for 0.67 µA through 7 kΩ, and the
+log moves 967 → 972 mV, not the 971 mV stated below. Steady rails and zero
+CRC/I²C errors exclude gross supply and digital-transport failures; they do not
+exclude an analogue AFE or ADC transient. Through the dip
 `vref` held 2494 mV, `va` 3288–3290 mV, `vin` 11960 mV, `i2c_errs` 0,
 `mb_crc_errs` 0. `afe_vout` moved *with* it, 967 → 971 mV: 0.6 µA through the
 7 kΩ TIA predicts ~4.2 mV against 4 mV observed. Two independent channels agree.
@@ -159,6 +196,22 @@ rather than for twenty minutes. On current hardware a buried probe would:
 
 The two artefacts have opposite signs and different timescales, so they will not
 cancel and cannot be calibrated out together.
+
+### The heater-only envelope is EMPTY at the worst-case pile point
+
+Found by review, 2026-09-06, and it is the most consequential result in this
+document. DS-0637 permits at most **60 °C** and **90 %RH continuous,
+non-condensing**. Start from the design's worst case — 60 °C gas at 100 %RH —
+and ask what local temperature reduces RH to 90 % by heating alone: about
+**62.3 °C** on the firmware's own Magnus curve. That is **above the cell's
+temperature rating**, and slightly beyond the fit's stated range as well.
+
+**So neither the main-board heater nor a ring heater can satisfy both ratings
+simultaneously at a saturated 60 °C pile.** No amount of heater sizing fixes
+this; the two limits close against each other. Resolving it needs one of: a cell
+with a different envelope, active water removal rather than heating, or a
+reduced pile-temperature specification. **This should be settled before any
+respin, because it may decide the cell rather than the heater.**
 
 **The cell is also outside its rated envelope here.** SGX DS-0637 Issue 2 gives
 15–90 %RH *non-condensing* for continuous operation (0–99 % short term), and

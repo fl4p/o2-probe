@@ -157,7 +157,7 @@ so this is free convection to still room air.
 
 | run | duty | ΔT | θ | τ | C | note |
 |---|---:|---:|---:|---:|---:|---|
-| 2026-09-06 drift-cancelled, 2 cycles | 3.7 % | 5.65 K | **117.0 K/W** | 110.2 s | 0.94 J/K | spread 0.3 over 2 cycles |
+| 2026-09-06 drift-cancelled, 2 cycles | 3.7 % | 4.45 K | **117.0 K/W** | 110.2 s | 0.94 J/K | all six half-cycles flagged SHORT; only 2 cycles in the mean |
 | 2026-09-06 single cycle, 600 s halves | 4.0 % | 4.61 K | **112.9 K/W** | 129.3 s | 1.15 J/K | ON half only 4.6 τ — asymptote extrapolated |
 | 2026-09-04 re-fit | — | — | 105 K/W | — | — | that step ran only 3.2 τ; published as 98 |
 
@@ -180,7 +180,27 @@ its logged rail returns **155.7 K/W** instead of 117.0, a 33 % error, with no
 outward sign that anything is wrong. The tool prints a loud banner when the
 override is used and disables the rail-stability exclusion along with it.
 
-Take **θ ≈ 113–117 K/W** for this installation. The 2026-09-04 value of 98 K/W
+**These are preliminary bare-jar estimates, not a range and not a product
+bound** (corrected 2026-09-06 after review, which found the table's first ΔT
+wrong and the word "range" unearned):
+
+* the ΔT column is the *fitted asymptote difference* of §5, not the raw tip
+  excursion. An earlier version of this table put **5.65 K** in that cell, which
+  is the whole-run raw range and is inconsistent with its own θ: at 3.7 %, 12.0 V
+  and 140 Ω, `P = 38.06 mW`, so θ = 117.0 K/W requires **ΔT = 4.45 K**. The 5.65 K
+  figure would have implied 148 K/W.
+* every half-cycle in the 117.0 K/W run was flagged `SHORT`, and the 112.9 K/W
+  result is a single one-sided cycle with no drift cancellation. Quoting the two
+  endpoints as "113–117" presents two different-quality estimates as uncertainty
+  bounds. They are not.
+* **the claim that free convection to room air is a better heat path than damp
+  compost is unsupported**, and contradicts this tool's own expectation that a
+  pile couples *better*. Withdrawn; the sign of the pile correction is unknown.
+
+`POWER.md` §3.2 is deliberately NOT updated from these, and that caution must
+govern solar sizing until a pile measurement exists.
+
+Provisionally, **θ is of order 110–120 K/W in this bare-jar installation.** The 2026-09-04 value of 98 K/W
 is low because the step was far too short (§6, and the tool now warns); re-fitting
 the same log with the current estimator gives 105.
 

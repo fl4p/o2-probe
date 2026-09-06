@@ -176,8 +176,17 @@ VanderGheynst's device is also a heated zirconia FCX-UW (p. 1042), not an SGX
 biased liquid-electrolyte cell, so that paper cannot settle the SGX either way.
 Reopening this needs an SGX-specific construction or pressure-coefficient
 statement, or a controlled pressure sweep at constant mole fraction on this cell.
-Until then the pressure work item is **withdrawn**, and the "defect" it described
-in `o2.c` is not a defect.
+Until then the pressure work item is **withdrawn**.
+
+**AND THE WITHDRAWAL HAS NOT BEEN PROPAGATED INTO THE FIRMWARE — this is an open
+code defect, not a resolved one** (found by review, 2026-09-06; an earlier
+version of this paragraph wrongly claimed the firmware never had it). `o2.c`
+stores `cal->cal_p_hpa` at the air point and the cell law refers the measured
+current back by `P_cal/P_meas`, with a comment that still asserts the retracted
+partial-pressure premise. It is a no-op on Rev A **only** because `P_cal` and
+`P_meas` both come from `ASSUMED_P_HPA` and are equal; populating the BMP390
+activates unsupported behaviour. Either remove the normalisation or obtain an
+SGX-specific pressure coefficient before Rev B fits a barometer.
 Correcting only the dilution factor against a real barometer reading — which is
 what the first implementation of this document did — leaves about **−3.2 % to
 +3.2 %** of the weather term on the answer, i.e. it fixes less than a quarter of
@@ -404,7 +413,7 @@ experiment, and two of the three turned out not to matter.
 | disturbance | effect on `o2_raw` | persistence |
 |---|---:|---|
 | heater excursion, 5.3 K (4 % duty, 600 s) | **+0.3 %** | transient, ~20 min, recovers |
-| clean restart, cell unbiased 10 min | **+0.03 %** | none — within noise |
+| clean restart, bias MAINTAINED | **+0.03 %** | none — within noise |
 | restart accompanying a flash/SWD session | **±0.16 … 0.52 %** | persistent, sign random (n = 5) |
 
 ![O₂ across a heater step and a clean restart](doc/img/o2-heater-step-recovery-2026-09-06.webp)
@@ -412,7 +421,13 @@ experiment, and two of the three turned out not to matter.
 *The canonical five-panel figure. The heater step is the feature at 14:00 — tip
 and chamber up 5.3 K, RH falling 70.5 → 54.7 %, duty flat at 4.0 %, VIN steady.
 O₂ is drawn on both wet and dry basis. The gap near 15:10 is the bias-interruption
-test: the probe was parked in its bootloader for 10 min with the cell unbiased,
+test: the probe was parked in its bootloader for 10 min. **Corrected 2026-09-06
+after review: the cell was NOT unbiased.** `AFE_MENB` is active-low and R17
+(100 k, `gen_sch.py:690`) holds it there deliberately, so the LMP91000 stays
+enabled through MCU reset — `lmp91000.c:9` says so explicitly. The loader
+comment claiming "its cell is not biased" is wrong. This measured a **reset
+with bias maintained**, which is the weaker claim; a genuine bias interruption
+is untested, and DS-0637 warns it can need 15 min of settling. The probe was
 then served its 15-minute `SETTLING` window.*
 
 **The heater excursion is real but transient.** +0.3 %, peaking about five
