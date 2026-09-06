@@ -64,7 +64,7 @@ chord that stays inside this annulus is
 against a groove only 3.25 mm wide radially. `bridge_angle` cannot help: the ring
 is symmetric, so every angle yields the same worst chord.
 
-## The one untried lever: bridge speed 25 (sliced and PRINTED 2026-09-06, not yet measured)
+## The one untried lever: bridge speed 25 -- TRIED 2026-09-06, DOES NOT FIX IT
 
 Everything above says *where* the bridge is, not that it must fail. The groove-down
 flip failed once, at the shared `bridge_speed` of 50 mm/s, and that was never varied.
@@ -108,18 +108,37 @@ Two side effects worth knowing before reading a result:
 
 `bridge_flow` stays at 1 for the same reason.
 
-### It printed, 2026-09-06 -- which is not the same as the bridge being good
+### It printed and the part is a mess -- the lever is spent
 
 Ran 33/33 layers, `FINISH`, `print_error 0`, **`no active HMS` for the whole job**.
 Layer 17 went down at 12:01:33; the part stayed on the plate and there was no
 spaghetti out of the empty middle, which is what killed the first groove-down
 attempt.
 
-**That settles adhesion and it settles nothing about the seal.** A bridge that sagged
-is still a bridge that printed. The chamber camera cannot resolve 0.1 mm on a 0.245 mm
-window, and the finished top face is 4.04 mm above a roof nobody has looked at. The
-part has to come off and be gauged -- see *How the verdict gets made* below, which was
-written before this print and is unchanged by it.
+**And the part is unusable.** Fab's verdict off the plate, 2026-09-06: "it's a mess."
+The retained camera frames say the same and say *where*: at layer 17 the annulus over
+the groove is already mottled with voids while the outer flat annulus is clean, and by
+the last layer that same ring is lumpy and cratered. The roof came out with holes in
+it and every solid layer above inherited them. The clean outer flat is what proves the
+diagnosis is local to the bridge rather than a general first-layer or flow problem.
+
+**So the answer to the question at the top of this document is no, and the cheap lever
+is spent.** Attempt 1 (bridge 50) failed by spaghetti out of the empty middle; attempt
+2 (bridge 25) held together and failed by surface quality. Halving the speed moved the
+failure without removing it, which is evidence that the strand's dwell time was not the
+binding constraint. The 16.47 mm worst chord over a 3.25 mm groove is.
+
+No depth gauge reading was taken, and there is no point taking one on this part: you
+cannot measure a squeeze surface that has voids in it. Groove depth on a printed part
+remains unmeasured in **every** orientation.
+
+**What is left, in order of cost.** (1) The bridge fan -- `overhang_fan_speed` is 35 on
+this plate, the ASA cap, and a bridge is the one place where local cooling buys more
+than warping costs. That is one more plate and the only untried single variable.
+(2) `bridge_flow` above 1. (3) Give up on the flip and take the options this document
+already lists: a self-supporting gland, machining the groove after printing, or a
+top-surface sealing face. Nothing here has changed the case against moving the groove
+into another part.
 
 Two aborts preceded it, and what fixed them was not in the slicer: a strand on the
 nozzle tip and the plate seating. Both attempts reached stage 14 identically and then
