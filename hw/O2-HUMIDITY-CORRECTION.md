@@ -448,6 +448,13 @@ cell is biased. Untested — it needs a stage-and-abort (`CMD_BEGIN` then
 `CMD_ABORT`) to get the flash-write disturbance without changing the running
 image, which writes to the staging slot and so needs a decision first.
 
+**A fourth disturbance, larger than all of these, is condensation.** Measured
+2026-09-06: a slow **+0.6 µA** surface-leakage term appearing above ~85–90 %RH,
+and transient **−0.67 µA** dips from liquid water over the diffusion capillary.
+Opposite signs, different timescales, so they neither cancel nor calibrate out
+together — and the probe raises no fault while either is happening. See
+`DEW-MARGIN-IS-BLIND.md`.
+
 **Consequence for use.** Absolute O₂ is reproducible to ~0.03 % across a
 restart, ~0.3 % for twenty minutes after a duty change, and to no better than
 ~0.5 % across a flashing session. Rates measured over windows long compared to

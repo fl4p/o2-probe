@@ -194,7 +194,10 @@ Two supporting numbers from the same runs:
 
 - **`tip − chamber` peaked at +0.220 K across a 5.65 K excursion.** U10 and U12
   are one thermal node, confirming §3: `O2P_HB_DT_LIMIT` (4.00 K) is inert on
-  Rev A and cannot fire.
+  Rev A and cannot fire. The same geometry costs two more interlocks — see
+  `DEW-MARGIN-IS-BLIND.md`, which measured the board running **+4.0 K above the
+  gas** and the dew-margin channel reporting +1.43 K "safe" while the membrane
+  was 2.6 K below the dew point.
 - **`tip − die` swung 5.81 K** over the same excursion and is the usable runaway
   reference.
 
