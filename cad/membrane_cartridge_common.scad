@@ -490,7 +490,26 @@ face_wall_min  = 2 * face_line_w;
 // MODEST improvement. If the ring still climbs out on the printed part, the
 // remedy is a retaining lip on the inner wall, not more narrowing -- there is no
 // more width left to give before the ring locks.
-face_groove_w_factor = 3.18 / 2.5;   // 3.25 -> 3.18 on Fab's ask 2026-09-06: that is ALL the fill gate allows (84.97% worst corner against an 85% ceiling)
+//
+// 3.25 -> 3.18 on Fab's ask 2026-09-06, which is ALL the assert allows: 3.175 --
+// Parker's exact gas/vacuum figure -- still fails at 85.1078% worst-corner fill,
+// the same number this note already recorded, so removing the membrane seat
+// bought no room here.
+//
+// DO NOT "CORRECT" THIS TO THE ISO 3601 WIDTH. That table's flange-seal row for
+// a 2.5 cord is 3.90 x 1.90, and its neighbours (2.00 -> 3.40, 2.62 -> 4.00,
+// 3.00 -> 4.60) all sit at 61-67% fill, so 3.90 is genuinely what the standard
+// says and it is tempting: it would put this gland at 69.3% worst-corner fill
+// instead of 84.97%. It was proposed on 2026-09-06 and is WRONG FOR THIS PART
+// on two counts, both already known above:
+//   1. ISO 3601's flange row is the GENERAL-PURPOSE one. This is a gas seal,
+//      and Parker ORD 5700 Chart 4-3's gas/vacuum row is 3.175 for a 2.5 cord.
+//   2. The wide groove is the configuration where the stretched ring CLIMBED THE
+//      INNER WALL AND CAME OUT during assembly, observed 2026-09-05. Widening
+//      walks straight back into a measured failure.
+// It also costs 2 mm of head diameter (38 -> 40, cap 43 -> 45), because the
+// bolt circle follows the groove OD.
+face_groove_w_factor = 3.18 / 2.5;
 // THE BUILD LAYER THIS BED IS QUANTIZED TO, and it is READ OFF THE PROFILE, not
 // chosen: cad/profiles/process_asa_seal.json slices this part at 0.12 with a
 // 0.2 first layer. It was 0.2 here for a day and that was simply wrong -- a
