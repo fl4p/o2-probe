@@ -1,6 +1,11 @@
 # O₂ probe gas-window membrane
 
 Research date: 2026-08-22
+Revised: 2026-09-06 — qualification step 2 gained a written soak,
+wetting-threshold and condensation procedure; the headline point is that a
+clean-water soak sits ~54× below the minimum water-entry pressure and can only
+decide specimen integrity, never material fitness. See
+[Soak and wetting procedure](#soak-and-wetting-procedure).
 Revised: 2026-09-03 — membrane perimeter seal sourced: **an O-ring, `ORS116731`
 17.0 × 1.0, EPDM 70 Shore A peroxide — the same compound (127019011) as the
 carrier ring `ORS116787`, so one test report now covers both seals.** EPDM's
@@ -426,6 +431,113 @@ vendor pressure-flow values.
   field-cleaning method.
 - Include the planned two-week saturated soak and condensation cycles from
   [PLAN.md](PLAN.md).
+
+#### Soak and wetting procedure
+
+*Added 2026-09-06.* The bullets above name the exposures; this subsection is the
+procedure, and it exists mainly to stop the obvious version of the test from
+being run and believed.
+
+**What a clean-water soak can and cannot decide.** PMV15T's water-entry pressure
+is 265 mbar minimum and 370 mbar typical (§ [Rev-A material](#rev-a-material-porex-pmv15t)),
+which is **2.71 m and 3.78 m of water column** respectively. A coupon standing in
+5 cm of water sees **≈ 4.9 mbar — about 1/54 of the guaranteed minimum**. Liquid
+water therefore *must* not pass, and if it does the finding is a defect in that
+specimen — a pinhole, a damaged weld, or bypass at the carrier seal — not a
+property of the material. Run the clean-water immersion as an **integrity and
+build check on every arm**, and never report its result as membrane
+qualification.
+
+Both WEP figures are Porex QC values with no national standard behind them and
+are explicitly not specification values, so they bound our expectation only; they
+are not an acceptance limit and must not become a guard threshold
+(§ [Rev-A material](#rev-a-material-porex-pmv15t)).
+
+**The failure mode that matters is blockage at zero differential pressure.** A
+surfactant-bearing or organic film that wets the outer face covers the pores and
+throttles O₂ diffusion without any liquid crossing the membrane. Every acceptance
+criterion in this step is therefore a **gas-transport** measurement, not a
+leak observation.
+
+**Arms.** Carry three, because the membrane is not the only thing being soaked:
+
+1. bare PMV15T coupon;
+2. membrane ultrasonically welded into the replaceable PP disc;
+3. the complete carrier with the `ORS116731` perimeter O-ring in its groove.
+
+Arms 2 and 3 test open questions rather than the film: whether the weld densifies
+the edge zone and moves local WEP or airflow (asked of Porex 2026-08-27, answer
+outstanding — see [PMV15T-REPLY-2026-08-27.txt](PMV15T-REPLY-2026-08-27.txt)),
+and whether the groove seal holds without a bypass path
+(§ [Membrane perimeter gasket sourced](#membrane-perimeter-gasket-sourced-2026-09-03)).
+
+**Dye every aqueous exposure** (fluorescein or methylene blue). Perimeter bypass
+at the weld line or the O-ring groove is a more likely source of liquid on the
+dry side than through-pore transport, and dye separates the two immediately.
+Without it, a seal defect reads as a membrane failure.
+
+**Measurement, per exposure state.** Record baseline → wetted → after gravity
+drainage → after drying, for each arm:
+
+- `t63` and `t90` on a 20.9 → 10 % O₂ step in the step-1 carrier, which is the
+  quantity the probe actually depends on; airflow at fixed ΔP is an acceptable
+  faster proxy for screening but is not the acceptance metric;
+- specimen mass gain, as the direct indicator of pore filling;
+- photographs, and a micrograph of the exposed face against the reserved
+  unexposed control from the same lot (§ [Qualification plan](#qualification-plan),
+  step 4).
+
+Acceptance is **fractional recovery of `t63` against the arm's own dry baseline**
+after drainage and again after drying. Set the fraction from the probe response
+budget before testing, as required at the head of this plan — do not derive it
+from vendor airflow figures.
+
+**Wetting-threshold ladder.** Neither immersion nor leachate answers *how far* the
+grade-8 treatment is from being wetted; a pass or fail gives no margin. Bracket
+it with liquids of decreasing surface tension and record the highest surface
+tension at which the face wets:
+
+- an **aqueous** series — water/isopropanol or water/ethanol dilutions — covering
+  roughly 72 down to ~22 mN m⁻¹. This is the band compost leachate lives in and
+  the band the oil series below does not reach. Take the surface tension of each
+  mixture from a cited table or measure it; do not interpolate by eye.
+- the **AATCC TM118 oil series** itself, which is the scale the grade-8 claim was
+  made on. Re-running it reproduces the vendor's own datasheet claim on the
+  material we actually received. Grade 8 is the top of the scale, so a pass is
+  `≥ 8` and does not resolve further. **We do not hold a copy of TM118**: take the
+  liquid list and its surface tensions from the standard before quoting any
+  number from it, and label the series `unverified` until that is done.
+
+**This ladder doubles as the outstanding identity check.** The received sample
+sheet has not been confirmed as PMV15T rather than untreated PMV15
+(§ [Sample received](#sample-received-2026-09-02)); the two share thickness and
+WEP and differ only in the oleophobic treatment
+(§ [S16](#sources)). Untreated PMV15 will wet at a
+markedly higher surface tension than the treated grade, so the aqueous series
+discriminates them without a laboratory.
+
+**Durations and conditions.**
+
+- Clean-water integrity check: short, on every arm, before anything else.
+- Leachate soak: the **two-week saturated soak at operating temperature** from
+  [PLAN.md](PLAN.md), with wet/dry cycling, on real compost leachate. This is the
+  exposure that can disqualify the material.
+- **Condensation outranks immersion for realism.** The field case is a coupon
+  held below the dew point in saturated compost gas, not a submerged one. Run the
+  cold-coupon-in-warm-saturated-gas case alongside the soak and weight it higher
+  when the two disagree.
+- A hydrostatic WEP confirmation needs ~3 m of head or a pressure pot. Worth doing
+  **once, on one coupon, as a lot check**; it is not worth repeating per arm.
+
+**Handling rules, which are part of the procedure and not advice.**
+
+- Never touch the membrane face. Skin oils wet a grade-8 surface and the result is
+  indistinguishable from material failure.
+- Never clean a test coupon with detergent. Surfactant residue blocks pores
+  permanently and contaminates every later exposure of that specimen.
+- Do not soak with the SGX-OX-ROHS-Mini fitted.
+- Keep the reserved unexposed coupons from the same lot out of the test area
+  entirely (§ [Qualification plan](#qualification-plan), step 4).
 
 ### 3. Chemical and mechanical ageing
 
