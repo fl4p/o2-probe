@@ -106,6 +106,61 @@ part_process_overrides() {
         # the whole squeeze window is 0.245 mm, and a roof that sags 0.1 mm
         # still looks perfect.
         retainer) echo '{"brim_object_gap":"0.1","brim_type":"outer_only","bridge_speed":["25","25"]}' ;;
+        # THE GLAND'S SEAL NOTCH IS A BRIDGE, and it was missed. The cap prints
+        # gland face DOWN, so that notch is a void from the bed up to
+        # gland_notch_depth and its roof bridges 1.8 mm of air -- the SAME
+        # feature the retainer above already carries an override for, on the
+        # same reasoning. Sliced 2026-09-06 with no overrides at all and the
+        # notch came out dirty; the lesson was already in this file one line up
+        # and simply was not carried across.
+        #
+        # internal_bridge_speed as well as bridge_speed: this is a roof over a
+        # POCKET, not an open span, and Orca drives the two from separate keys.
+        cap)      echo '{"bridge_speed":["25","25"],"internal_bridge_speed":"25"}' ;;
+        *)        echo '{}' ;;
+    esac
+}
+# PER-PART FILAMENT OVERRIDES, added 2026-09-06. Cooling is a FILAMENT setting in
+# Orca, not a process one, so the machinery above cannot reach it -- and there is
+# exactly one filament profile shared by every part. Without this, raising the
+# bridge fan for the retainer would also raise it for the 146.6 mm monobody
+# tower, which is the last part on this machine that wants more cooling.
+#
+# SAFE BECAUSE THE MATERIAL GUARDS DO NOT READ THIS FILE. seal_check.sh gates
+# filament_flow_ratio (1.00-1.02, gas-tightness) and filament_type, slice-check
+# gates filament_type, and the vendor/id assertions below read filament_vendor
+# and filament_ids -- ALL of them out of the EMITTED gcode, so a per-part
+# divergence still has to survive them. tools/profile_check.py reads only
+# process_asa_seal.json, so nothing here can blind it either.
+#
+# The identity keys are forbidden anyway (see FORBIDDEN in the merge): a part
+# that needs a different MATERIAL needs a different spool and a conversation,
+# not a per-part override.
+part_filament_overrides() {
+    case "$1" in
+        # THE BRIDGE FAN, on Fab's ask 2026-09-06, after bridge_speed 25 failed.
+        # This is the second lever and it is deliberately the ONLY thing that
+        # changes from the plate that just failed -- bridge_speed stays 25.
+        #
+        # overhang_fan_speed is what a bridge path actually gets: measured on
+        # that plate, the Bridge feature at z 2.12 emitted M106 S89, and
+        # 89/255 = 35% = this key. It is NOT the fan_max_speed ramp, and a
+        # bridge takes it unconditionally regardless of overhang_fan_threshold.
+        #
+        # 35 -> 100 and not something in between: the previous plate is the
+        # 35 datum, so a middling value buys an ambiguous result for a whole
+        # print. The blast is scoped to overhang and bridge PATHS only -- the
+        # rest of every layer still runs the ASA ramp (fan_max_speed 35), which
+        # is what the cap is protecting. On a 4.04 mm disc there is no tall
+        # cross-section for a cold shock to warp.
+        #
+        # WHAT WOULD MAKE THIS A BAD TRADE: ASA at 100% local cooling can
+        # under-bond the bridge layer to the solid above it, and that web IS the
+        # part that reacts the O-ring. If the roof comes out flat but the web
+        # delaminates, that is a worse failure than the one being fixed, and it
+        # will not be visible from the top -- section the part rather than
+        # trusting the surface.
+        retainer) echo '{"overhang_fan_speed":["100"]}' ;;
         *)        echo '{}' ;;
     esac
 }
@@ -246,8 +301,41 @@ json.dump(base, open(sys.argv[2], "w"), indent=4, ensure_ascii=False)
 print("  process overrides: %s" % (over or "none"))
 MERGE
 
+    # Same again for the filament, and for the same reason: what was sliced ends
+    # up next to the plate instead of having to be inferred from the shared file
+    # plus a memory of which part it was.
+    local filam="print/$part/filament.json"
+    PART_OVERRIDES="$(part_filament_overrides "$part")" python3 - "$FILAMENT" "$filam" <<'MERGE'
+import json, os, sys, collections
+base = json.load(open(sys.argv[1]), object_pairs_hook=collections.OrderedDict)
+over = json.loads(os.environ["PART_OVERRIDES"])
+bad = [k for k, v in over.items() if not isinstance(v, (str, list))]
+if bad:
+    sys.exit("override(s) %s are not strings -- Orca discards JSON numbers silently" % bad)
+
+# The material's IDENTITY and its gas-tightness are not per-part properties.
+# Every one of these is asserted downstream out of the emitted gcode, so an
+# override could not hide anyway -- it would just turn a guard into a failed
+# slice at the end of a slow step. Refuse it here, where the message can say why.
+FORBIDDEN = ("filament_type", "filament_vendor", "filament_ids",
+             "filament_flow_ratio", "filament_settings_id")
+clash = [k for k in over if k in FORBIDDEN]
+if clash:
+    sys.exit("override(s) %s name the MATERIAL, which is a property of the spool "
+             "in the extruder and not of the part on the plate. seal_check.sh and "
+             "slice-check assert these from the emitted gcode; a part that needs a "
+             "different material needs a different spool" % clash)
+for k, v in over.items():
+    if k not in base:
+        sys.exit("override key %r is not in the base filament profile -- typo, or "
+                 "a key Orca will ignore" % k)
+    base[k] = v
+json.dump(base, open(sys.argv[2], "w"), indent=4, ensure_ascii=False)
+print("  filament overrides: %s" % (over or "none"))
+MERGE
+
     "$ORCA" --load-settings "$PWD/$MACHINE;$PWD/$proc" \
-            --load-filaments "$PWD/$FILAMENT" \
+            --load-filaments "$PWD/$filam" \
             --arrange 1 --slice 0 --outputdir "$PWD/print/$part" \
             --export-3mf "$plate" "$PWD/$stl" >"print/$part/orca.log" 2>&1 \
         || { tail -20 "print/$part/orca.log"; die "slice failed"; }
