@@ -283,6 +283,13 @@ body-tube: | $(OUT)
 	@# geometrically absent while the tube is a perfect closed solid. Measure
 	@# the slot in the mesh, not in the .scad's own arithmetic.
 	python3 tools/grip_check.py tube
+	@# And the cap's sealing spigot, for the same reason a third time: on
+	@# 2026-09-06 it was DELETED IN FULL by a mis-nested seat cut and the part
+	@# still rendered as one closed solid, so `Volumes: 2` passed and every
+	@# seal assert -- stretch, squeeze, tolerance band -- passed with it,
+	@# because all of them are arithmetic on variables and none touches the
+	@# mesh. Measure the feature, not the model's opinion of it.
+	python3 tools/spigot_check.py
 	$(OPENSCAD) --viewall --autocenter --projection=p --imgsize=1500,1100 \
 		--camera=0,0,0,68,0,32,0 --colorscheme=Tomorrow \
 		-D 'part="assembly"' -D exploded=true \

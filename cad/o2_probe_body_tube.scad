@@ -1150,7 +1150,34 @@ module tube() {
 module cap() {
     difference() {
         union() {
-            cylinder(d=tube_od + cap_fit + 2*cap_wall, h=cap_h);
+            // THE SEAT IS CUT HERE, NOT BELOW, AND THAT NESTING IS THE WHOLE
+            // POINT. This is the SECOND time this exact mistake has been made in
+            // this file -- see tube(), which already carries the note "the boss
+            // has to be unioned on AFTER the bore is cut, because it stands
+            // inside the bore -- put it in the outer union and the bore
+            // subtraction eats it whole ... It was written the wrong way round
+            // and shipped."
+            //
+            // The spigot is dia 27.0 spanning z 10..18.5. The tube's seat is
+            // dia 32.4 spanning z -e..18.5, so the seat CONTAINS the spigot
+            // completely. With the seat in the outer subtraction the spigot was
+            // deleted in full: the rendered cap had no material at the spigot OD
+            // (r 13.50) and none at the groove root (r 12.515) -- measured on
+            // the mesh 2026-09-06, after Fab looked at the assembly and said of
+            // the O-ring "it has no purpose there". It had none. There was
+            // nothing for it to seal against.
+            //
+            // NOTHING CAUGHT THIS. The part still rendered as one closed solid,
+            // so `Volumes: 2` passed. Every seal assert -- stretch, squeeze,
+            // tolerance band -- is arithmetic on variables and never touches the
+            // mesh, so they all passed too, describing a feature that was not in
+            // the part. A cap printed 2026-09-06 has no sealing spigot at all.
+            difference() {
+                cylinder(d=tube_od + cap_fit + 2*cap_wall, h=cap_h);
+                // the tube's seat
+                translate([0, 0, -e])
+                    cylinder(d=tube_od + cap_fit, h=cap_bore_depth + e);
+            }
             // The sealing spigot, reaching back out of the cap's inner face and
             // into the tube's reamed bore. Chamfered at its tip so the ring is
             // not shaved on assembly.
@@ -1161,9 +1188,6 @@ module cap() {
                 cylinder(d=spigot_od, h=spigot_len - lead_chamfer + e);
         }
         union() {
-            // the tube's seat
-            translate([0, 0, -e])
-                cylinder(d=tube_od + cap_fit, h=cap_bore_depth + e);
             // the radial O-ring groove, in the spigot
             translate([0, 0, cap_bore_depth - spigot_len + lead_chamfer + 1.2])
                 difference() {
@@ -1299,10 +1323,35 @@ module board_stub() {
                 cylinder(d=14.62, h=8.3);
 }
 
+// THE CAP'S PLACE IN THE ASSEMBLY, defined ONCE.
+//
+// It was written twice and one copy was wrong: assembly() used a bare
+// `translate([0,0,-cap_bore_depth])` with NO rotation, which stands the cap
+// mouth-outward and butts it end-to-end against the tube instead of sliding it
+// over. Measured: tube z 0..124, cap z -18.5..+3.0 -- the two never overlap, so
+// the bayonet lugs engaged nothing and the radial O-ring floated in an empty
+// bore. Every part was a correct solid; only the view was a lie, which is
+// exactly the kind of error a preview is supposed to catch rather than commit.
+//
+// Two things are load-bearing here and both were missing:
+//   rotate([180,0,0])  the bayonet angle derivation above ALREADY assumes this
+//                      ("Placing the cap is rotate([180,0,0])", and it is what
+//                      flips the handedness of every cap angle). A mirror()
+//                      would put the z's in the same place and silently reverse
+//                      the bayonet's chirality, so it must be a real rotation.
+//   cap_engage         NOT cap_bore_depth. The tube's end face stops at
+//                      cap_engage; the remaining face_clear is the gap to the
+//                      cap's inner face, which is a clearance, not engagement.
+// tools/make_viewer_parts.py builds the same transform independently and had it
+// right (`0,0,-1` with `-tube_len + cap_engage`); this is now the agreeing pair.
+module place_cap(dz = 0) {
+    translate([0, 0, cap_engage + dz]) rotate([180, 0, 0]) children();
+}
+
 module assembly() {
     ex = exploded ? 1 : 0;
     color("Sienna") tube();
-    color("Tan") translate([0, 0, -cap_bore_depth - ex*25]) cap();
+    color("Tan") place_cap(-ex*25) cap();
     board_stub();
     color("SlateGray") translate([0, 0, zy(dam_y) + ex*12]) dam();
 }
@@ -1328,10 +1377,60 @@ module cap_printed() {
     translate([0, 0, cap_h]) mirror([0, 0, 1]) cap();
 }
 
+// Machine-readable spigot geometry, for tools/spigot_check.py. The seal asserts
+// above are arithmetic on these variables and CANNOT see whether the feature
+// survived into the mesh -- which is exactly how the spigot came to be deleted
+// in full while every one of them passed. The checker re-derives nothing.
+echo(str("SPIGOT od ", spigot_od, " id ", spigot_id, " len ", spigot_len,
+         " chamfer ", lead_chamfer, " bore_depth ", cap_bore_depth,
+         " groove_root_drawn ", groove_root_drawn, " groove_w ", groove_w));
+
+// ---------------------------------------------------------------- viewer
+// The CABLE-END stack, element by element, IN ASSEMBLY COORDINATES -- the same
+// contract o2_probe_head_end.scad's bed_element() honours, and for the same
+// reason: the three.js viewer loads every part with an identity matrix, so a
+// part that is not already placed here cannot be placed at all without the
+// viewer doing arithmetic on a number copied out of this file.
+//
+// Placement is taken from assembly() and must stay equal to it: the tube sits
+// at the origin and the cap is pulled back by cap_bore_depth so its inner face
+// lands on the tube's end face.
+module end_element(which) {
+    if (which == "tube") tube();
+    else if (which == "cap") place_cap() cap();
+    // THE RADIAL CABLE SEAL -- the one that keeps the sealed volume sealed.
+    // Drawn SQUEEZED, like the head's radial_ring(): the gland is seal_gland
+    // per side and the section bulges axially to keep its area. A free circle
+    // at the free cord would look like a ring resting in a groove rather than
+    // one filling it, which is the opposite of what this ring does.
+    else if (which == "seal-ring")
+        place_cap() translate([0, 0, cap_bore_depth - spigot_len
+                                    + lead_chamfer + 1.2 + groove_w/2])
+            rotate_extrude()
+                translate([groove_root/2 + seal_gland/2, 0])
+                    scale([seal_gland/seal_cord, seal_cord/seal_gland])
+                        circle(d=seal_cord);
+    // The GLAND's own face ring, in the cap's outer end face. Different seal,
+    // different job: this one seals the gland body to the cap, and it is a FACE
+    // seal squeezed by the gland's flange -- not the radial one above.
+    else if (which == "gland-ring")
+        place_cap() translate([0, 0, cap_h - gland_notch_depth/2])
+            rotate_extrude()
+                translate([gland_notch_mean/2, 0])
+                    scale([gland_notch_w/gland_seal_cord,
+                           gland_notch_depth/gland_seal_cord])
+                        circle(d=gland_seal_cord);
+    else assert(false, str("unknown end element '", which, "'"));
+}
+
 if (part == "tube") tube();
 else if (part == "fit-coupon") fit_coupon();
 else if (part == "cap") cap();
 else if (part == "cap-print") cap_printed();
 else if (part == "dam") dam();
 else if (part == "assembly") assembly();
+else if (part == "end-tube") end_element("tube");
+else if (part == "end-cap") end_element("cap");
+else if (part == "end-seal-ring") end_element("seal-ring");
+else if (part == "end-gland-ring") end_element("gland-ring");
 else assert(false, str("unknown part '", part, "'"));
