@@ -169,8 +169,10 @@ log moves 967 → 972 mV, not the 971 mV stated below. Steady rails and zero
 CRC/I²C errors exclude gross supply and digital-transport failures; they do not
 exclude an analogue AFE or ADC transient. Through the dip
 `vref` held 2494 mV, `va` 3288–3290 mV, `vin` 11960 mV, `i2c_errs` 0,
-`mb_crc_errs` 0. `afe_vout` moved *with* it, 967 → 971 mV: 0.6 µA through the
-7 kΩ TIA predicts ~4.2 mV against 4 mV observed. Two independent channels agree.
+`mb_crc_errs` 0. `afe_vout` moved *with* it, 967 → 972 mV. ~~0.6 µA through the
+7 kΩ TIA predicts ~4.2 mV against 4 mV observed. Two independent channels
+agree.~~ Withdrawn: the two registers share one ADS1119 conversion, so this is
+one channel restated, not a corroboration.
 
 Current *removed* means less oxygen reaching the electrode, and the fastest way
 to do that is liquid water over the diffusion capillary. The double bottom fits

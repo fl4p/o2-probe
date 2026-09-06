@@ -472,9 +472,13 @@ together — and the probe raises no fault while either is happening. See
 
 **Consequence for use.** Absolute O₂ is reproducible to ~0.03 % across a
 restart, ~0.3 % for twenty minutes after a duty change, and to no better than
-~0.5 % across a flashing session. Rates measured over windows long compared to
-20 minutes are unaffected by all three, which is the standing argument for
-treating rates as the robust product of this channel.
+~0.5 % across a flashing session. Only the ~0.3 % heater transient decays away;
+the restart and flashing offsets are **persistent steps**, so any rate window
+that straddles one carries the whole step divided by the window length.
+Corrected 2026-09-06: the earlier claim that rates are "unaffected by all three"
+was wrong. Rates are robust only across windows containing no restart and no
+reflash — which is an operational constraint on the product, not a property of
+the channel.
 
 ## 7. Sources
 
