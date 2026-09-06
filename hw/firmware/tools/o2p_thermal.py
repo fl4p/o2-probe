@@ -860,6 +860,35 @@ def _segments(rows):
     return out
 
 
+def _steady_part(seg):
+    """The segment minus its command-latency head.
+
+    The firmware's control loop runs at 1 Hz and this samples every few
+    seconds, so the FIRST sample after a duty change routinely still reports
+    the previous duty - the command has been accepted but not yet acted on.
+    That is command latency, not a duty that varied, and counting it as
+    variation flagged DUTY_VARIES on every single ON half of a live run,
+    which would have excluded all of them and returned no theta at all.
+
+    Only a leading run is skipped, and only while the duty disagrees with the
+    rest of the segment. A duty that changes LATER - the loop falling out of
+    saturation, which is the failure this check exists to catch - is still
+    seen.
+    """
+    duties = [r.get("heater_duty_pct") for r in seg]
+    known = [d for d in duties if d is not None]
+    if len(known) < 3:
+        return seg
+    settled = known[-1]
+    i = 0
+    while i < len(seg) - 2 and duties[i] is not None \
+            and abs(duties[i] - settled) > 1e-9:
+        i += 1
+        if i >= 2:            # more than a couple of samples is not latency
+            return seg
+    return seg[i:] if i else seg
+
+
 def _quality(seg, fit, args):
     """Reasons this half-cycle's asymptote cannot be believed.
 
@@ -979,14 +1008,15 @@ def _fit_segment(seg, args):
     asym, asym_from = inf, "fit"
     if span >= 8.0 * tau and len(y) >= n_tail:
         asym, asym_from = _mean(y[-n_tail:]), "tail"
-    duties = [r["heater_duty_pct"] for r in seg
+    steady = _steady_part(seg)
+    duties = [r["heater_duty_pct"] for r in steady
               if r.get("heater_duty_pct") is not None]
     return {"inf": inf, "asym": asym, "asym_from": asym_from, "t0": t0,
             "tau": tau, "rms": rms, "span": span, "n": len(y), "refit": refit,
             "edge": edge,
             "duty": _mean(duties),
             "duty_spread": (max(duties) - min(duties)) if duties else float("nan"),
-            "power_w": _seg_power_w(seg, args.ohm),
+            "power_w": _seg_power_w(steady, args.ohm),
             "vin": _mean([r["vin_mv"] for r in seg])}
 
 
@@ -1085,6 +1115,11 @@ def analyse(rows, args):
     if not results:
         print("\nno usable on/off pair - theta needs both asymptotes, and "
               "nothing here supplies a clean one.")
+        # Draw it anyway. A run that produced no number is exactly the run
+        # somebody needs to LOOK at, and having the plot live only on the
+        # success path is the wrong way round.
+        if args.plot:
+            _plot(rows, fits, args)
         return
 
     print("\n--- theta = dT / P,  C = tau / theta,  P = duty * VIN^2 / %g ohm ---"
@@ -1130,50 +1165,51 @@ def _mean(xs):
 
 
 def _plot(rows, fits, args):
+    """THE figure, plus this tool's fit drawn on the temperature panel.
+
+    The layout is not this tool's business - it lives in o2p_plot.py and is
+    shared with every other tool that plots this board, so two runs an hour
+    apart can actually be compared. All that is added here is the fit, drawn
+    ON the data rather than quoted beside it: if the tail is not flat, the
+    picture has to say so.
+    """
     try:
-        import matplotlib
-        matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
+        import o2p_plot
     except ImportError:
         print("\n  (matplotlib not available - no plot written)")
         return
     ok = [r for r in rows if r.get("status") == "ok"]
-    fig, axes = plt.subplots(2, 1, sharex=True, figsize=(11, 6),
-                             gridspec_kw={"height_ratios": [3, 1]})
-    axes[0].plot([r["t_s"] for r in ok], [r["t_tip_c"] for r in ok],
-                 ".-", ms=3, lw=1, color="tab:red", label="T_TIP (TMP117)")
-    axes[0].plot([r["t_s"] for r in ok], [r["t_die_c"] for r in ok],
-                 ".-", ms=2, lw=0.8, color="tab:gray", alpha=0.7,
-                 label="MCU die (across the barrier)")
-    # The fit drawn ON the data, not quoted beside it: if the tail is not flat
-    # the picture has to say so.
-    for (cycle, phase), seg in _segments(ok):
-        f = fits.get((cycle, phase))
-        if not f:
-            continue
-        t = [r["t_s"] for r in seg if r["t_tip_c"] is not None]
-        if not t:
-            continue
-        xs = [t[0] + i * (t[-1] - t[0]) / 100.0 for i in range(101)]
-        ys = [f["inf"] + (f["t0"] - f["inf"]) * math.exp(-(x - t[0]) / f["tau"])
-              for x in xs]
-        axes[0].plot(xs, ys, "-", lw=1.4, color="black", alpha=0.6)
-        axes[0].axhline(f["inf"], xmin=0, xmax=0, color="black")
-    axes[0].set_ylabel("temperature (C)")
-    axes[0].grid(alpha=0.3)
-    axes[0].legend(fontsize=8)
-    axes[0].set_title("o2-probe heater step - black is the fitted asymptote")
-    axes[1].step([r["t_s"] for r in ok], [r["heater_duty_pct"] for r in ok],
-                 where="post", color="tab:blue", lw=1, label="applied (0x0005)")
-    axes[1].step([r["t_s"] for r in ok], [r["cmd_duty_pct"] for r in ok],
-                 where="post", color="tab:orange", lw=1, ls="--",
-                 label="commanded")
-    axes[1].set_ylabel("duty (%)")
-    axes[1].set_xlabel("seconds")
-    axes[1].grid(alpha=0.3)
-    axes[1].legend(fontsize=8)
-    fig.tight_layout()
-    fig.savefig(args.plot, dpi=140)
+
+    def overlay(by_label):
+        ax = None
+        for label, axis in by_label.items():
+            if label.startswith("temperature"):
+                ax = axis
+        if ax is None:
+            return
+        for (cycle, phase), seg in _segments(ok):
+            f = fits.get((cycle, phase))
+            if not f:
+                continue
+            t = [r["t_s"] for r in seg if r.get("t_tip_c") is not None]
+            if not t or f["tau"] <= 0:
+                continue
+            xs = [t[0] + i * (t[-1] - t[0]) / 100.0 for i in range(101)]
+            ys = [f["inf"] + (f["t0"] - f["inf"])
+                  * math.exp(-(x - t[0]) / f["tau"]) for x in xs]
+            bad = not f.get("usable", True)
+            ax.plot(xs, ys, "-", lw=1.4,
+                    color="tab:red" if bad else "black",
+                    ls=":" if bad else "-", alpha=0.75)
+
+    try:
+        o2p_plot.plot(rows, args.plot,
+                      title="o2-probe heater step - black is the fitted "
+                            "asymptote (red dotted = excluded)",
+                      overlay=overlay)
+    except (ValueError, OSError) as exc:
+        print("\n  !! could not write %s: %s" % (args.plot, exc))
+        return
     print("\n  wrote %s" % args.plot)
 
 
@@ -1275,7 +1311,15 @@ def _port_in_use(port):
     # lsof exits 1 with no output when nothing holds the file. Judge by the
     # OUTPUT, not the status - `lsof | head` returning 0 is how the last check
     # of this kind reported every port as busy.
-    return bool(out.stdout.strip())
+    #
+    # And exclude OURSELVES. This runs after SerialLink has already opened the
+    # port, so the tool was reliably detecting its own handle and refusing to
+    # start every single time - a guard that fires on the one process it is
+    # supposed to permit is just a broken program.
+    mine = os.getpid()
+    others = [int(x) for x in out.stdout.split() if x.strip().isdigit()
+              and int(x) != mine]
+    return bool(others)
 
 
 def main():
