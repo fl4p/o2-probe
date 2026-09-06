@@ -1,0 +1,333 @@
+#!/usr/bin/env python3
+"""Poll the o2-probe over Modbus RTU - what the Dragino reads, on a laptop.
+
+The node on the farm cable is an RS485-LS whose reads are literal
+pre-programmed FC03 frames. This is the same thing from a serial port: a
+USB-RS485 dongle, or a spare board flashed `-e bridge` with a USB-TTL lead on
+its USART2 pads. The bridge is transparent, so nothing here knows or cares
+which one is in the path - address the PROBE (default 3), not the bridge.
+
+    python3 tools/o2p_poll.py --port /dev/cu.usbserial-0001
+    python3 tools/o2p_poll.py --port ... --diag          # + the diagnostic block
+    python3 tools/o2p_poll.py --port ... out.csv --count 240 --interval 30
+
+This is the Modbus twin of tools/o2p_capture.py, which reads the same register
+map over SWD. Use that one when the board is on a debugger; use this one when
+it is on a cable - and only this one proves the cable.
+
+It refuses to print a number it cannot justify:
+
+  * The register map is transcribed from src/regmap.h and CHECKED against it at
+    startup (--no-check to skip). A firmware that moved a register decodes to
+    plausible garbage otherwise, which is the failure this file exists to avoid.
+  * Sentinels are the firmware saying "do not trust me": 0xFFFF for the
+    unsigned channels, 0x8000 for the signed ones. They become an explicit
+    `invalid`, never a value, and an empty cell in CSV - so a plot shows a hole
+    rather than 65535.
+  * O2 is reported as untrustworthy whenever FAULTS says so, using the same
+    masks the firmware uses (faults.h), not a hand-copied bit list. A reading
+    that is numerically fine but arrives with SETTLING set is not a reading.
+  * A failed poll writes an explicit `status=failed` row carrying the reason.
+    Never a silent gap, never a stale value carried forward.
+
+Exit status is 1 if any poll failed, so a wrapper can tell.
+"""
+
+import argparse
+import csv
+import os
+import re
+import sys
+import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from o2p_update import Bus, ModbusException, SerialLink  # noqa: E402  # type: ignore[import-not-found]
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+SRC = os.path.join(HERE, os.pardir, "src")
+
+U16_INVALID = 0xFFFF
+I16_INVALID = 0x8000
+
+PRIMARY_BASE, PRIMARY_COUNT = 0x0000, 8
+DIAG_BASE, DIAG_COUNT = 0x0010, 21
+
+# Bit -> name. Checked against src/faults.h at startup.
+FAULT_BITS = [
+    "SETTLING", "I2C_FAIL_LMP", "I2C_FAIL_ADS", "I2C_FAIL_TMP",
+    "I2C_FAIL_SHT", "AFE_CONFIG_MISMATCH", "VA_LOW", "VIN_LOW",
+    "HEATER_RUNAWAY", "TEMP_OVER", "DEW_SUSPECT", "ADC_RANGE",
+    "CAL_DEFAULT", "ADS_DRDY_STUCK", "ADS_CONFIG_LOST", "HEATER_DISABLED",
+]
+
+# The two masks the firmware itself tests. Never test a single bit: splitting
+# DRDY out of I2C_FAIL_ADS once broke every site that did (faults.h).
+INVALIDATE_O2 = ["SETTLING", "I2C_FAIL_LMP", "I2C_FAIL_ADS",
+                 "AFE_CONFIG_MISMATCH", "VA_LOW", "ADS_DRDY_STUCK",
+                 "ADS_CONFIG_LOST", "ADC_RANGE"]
+INVALIDATE_O2_COMP = INVALIDATE_O2 + ["CAL_DEFAULT"]
+
+CSV_COLUMNS = [
+    "utc", "status", "detail", "sample_seq", "settle_s",
+    "o2_comp_pct", "o2_raw_ua", "t_tip_c", "t_chamber_c", "rh_pct",
+    "heater_duty_pct", "faults", "faults_named", "o2_trusted",
+    "vref_mv", "va_mv", "vin_mv", "afe_mv", "dew_margin_k", "t_die_c",
+    "uptime_s", "fw", "hw", "reset_cause", "lmp_readback",
+    "mb_crc_errs", "mb_frame_errs", "i2c_errs", "settle_restarts",
+    "faults_ever", "faults_ever_named", "ads_fail_count", "exp_data",
+]
+
+
+# --------------------------------------------------------------------------
+# Agreement with the firmware. A decode table is a copy of a header, and a copy
+# rots; this makes it fail loudly at startup instead of quietly at the reading.
+
+def _read(name):
+    with open(os.path.join(SRC, name), "r") as fh:
+        return fh.read()
+
+
+def check_against_source():
+    """Verify this file's map still matches src/. Returns a list of problems."""
+    bad = []
+    try:
+        regmap, faults = _read("regmap.h"), _read("faults.h")
+    except OSError as exc:
+        return ["cannot read src/: %s" % exc]
+
+    def const(text, name):
+        m = re.search(r"#define\s+%s\s+(\w+)" % re.escape(name), text)
+        return int(m.group(1).rstrip("uU"), 0) if m else None
+
+    for name, want in (("O2P_REG_PRIMARY_BASE", PRIMARY_BASE),
+                       ("O2P_REG_PRIMARY_COUNT", PRIMARY_COUNT),
+                       ("O2P_REG_DIAG_BASE", DIAG_BASE),
+                       ("O2P_REG_DIAG_COUNT", DIAG_COUNT)):
+        got = const(regmap, name)
+        if got is None:
+            bad.append("%s not found in regmap.h" % name)
+        elif got != want:
+            bad.append("%s is 0x%X in regmap.h, this tool assumes 0x%X"
+                       % (name, got, want))
+
+    for bit, name in enumerate(FAULT_BITS):
+        m = re.search(r"O2P_F_%s\s*=\s*1u?\s*<<\s*(\d+)" % re.escape(name), faults)
+        if not m:
+            bad.append("fault O2P_F_%s not found in faults.h" % name)
+        elif int(m.group(1)) != bit:
+            bad.append("fault %s is bit %s in faults.h, this tool assumes %d"
+                       % (name, m.group(1), bit))
+
+    m = re.search(r"#define\s+O2P_FAULTS_INVALIDATE_O2\s*\((.*?)\)", faults, re.S)
+    if not m:
+        bad.append("O2P_FAULTS_INVALIDATE_O2 not found in faults.h")
+    else:
+        want = set(re.findall(r"O2P_F_(\w+)", m.group(1)))
+        if want != set(INVALIDATE_O2):
+            bad.append("INVALIDATE_O2 differs from faults.h: firmware has %s, "
+                       "this tool has %s"
+                       % (sorted(want), sorted(INVALIDATE_O2)))
+    return bad
+
+
+# --------------------------------------------------------------------------
+# Decoding. Every conversion is one-way and explicit; a sentinel returns None.
+
+def u16(v):
+    return None if v == U16_INVALID else v
+
+
+def i16(v):
+    if v == I16_INVALID:
+        return None
+    return v - 0x10000 if v & 0x8000 else v
+
+
+def scaled(v, div):
+    return None if v is None else v / div
+
+
+def fault_names(word):
+    return [n for i, n in enumerate(FAULT_BITS) if word & (1 << i)]
+
+
+def decode_primary(r):
+    faults = r[6]
+    named = fault_names(faults)
+    o2_ok = not any(n in named for n in INVALIDATE_O2_COMP)
+    return {
+        "o2_comp_pct": scaled(u16(r[0]), 100.0),
+        "o2_raw_ua": scaled(i16(r[1]), 100.0),
+        "t_tip_c": scaled(i16(r[2]), 100.0),
+        "t_chamber_c": scaled(i16(r[3]), 100.0),
+        "rh_pct": scaled(u16(r[4]), 100.0),
+        "heater_duty_pct": r[5] / 100.0,
+        "faults": faults,
+        "faults_named": "|".join(named),
+        "settle_s": r[7],
+        "o2_trusted": o2_ok,
+    }
+
+
+def decode_diag(r):
+    ever = fault_names(r[0x13])
+    return {
+        "vref_mv": r[0x00], "va_mv": r[0x01], "vin_mv": r[0x02],
+        "afe_mv": r[0x03],
+        "dew_margin_k": scaled(i16(r[0x04]), 100.0),
+        "uptime_s": (r[0x06] << 16) | r[0x07],
+        "fw": "0x%04X" % r[0x08], "hw": "0x%04X" % r[0x09],
+        "reset_cause": "0x%04X" % r[0x0A],
+        "lmp_readback": "0x%04X" % r[0x0B],
+        "mb_crc_errs": r[0x0C], "mb_frame_errs": r[0x0D], "i2c_errs": r[0x0E],
+        "exp_data": None if r[0x0F] == U16_INVALID else r[0x0F],
+        "settle_restarts": r[0x10],
+        "sample_seq": r[0x11],
+        "t_die_c": scaled(i16(r[0x12]), 100.0),
+        "faults_ever": r[0x13],
+        "faults_ever_named": "|".join(ever),
+        "ads_fail_count": r[0x14],
+    }
+
+
+def poll(bus, want_diag):
+    row = decode_primary(bus.read(PRIMARY_BASE, PRIMARY_COUNT))
+    if want_diag:
+        row.update(decode_diag(bus.read(DIAG_BASE, DIAG_COUNT)))
+    row["status"] = "ok"
+    row["detail"] = ""
+    return row
+
+
+# --------------------------------------------------------------------------
+
+def fmt(v, unit="", places=2):
+    if v is None:
+        return "invalid"
+    if isinstance(v, float):
+        return ("%%.%df%%s" % places) % (v, unit)
+    return "%s%s" % (v, unit)
+
+
+def show(row):
+    if row["status"] != "ok":
+        print("  !! %s: %s" % (row["status"], row["detail"]))
+        return
+    trust = "" if row["o2_trusted"] else "   <- NOT TRUSTWORTHY, see faults"
+    print("  O2            %s%s" % (fmt(row["o2_comp_pct"], " %vol"), trust))
+    print("  cell current  %s" % fmt(row["o2_raw_ua"], " uA"))
+    print("  tip / chamber %s / %s"
+          % (fmt(row["t_tip_c"], " C"), fmt(row["t_chamber_c"], " C")))
+    print("  humidity      %s" % fmt(row["rh_pct"], " %RH"))
+    print("  heater duty   %s" % fmt(row["heater_duty_pct"], " %"))
+    print("  settling      %s" % ("settled" if row["settle_s"] == 0
+                                  else "%d s remaining" % row["settle_s"]))
+    print("  faults        0x%04X%s"
+          % (row["faults"],
+             "  " + row["faults_named"] if row["faults_named"] else "  none"))
+    # Every row is pre-filled with empty strings for the CSV writer, so
+    # presence of the key proves nothing - the VALUE is what says whether the
+    # diagnostic block was actually read.
+    if row.get("vref_mv", "") != "":
+        print("  rails         VREF %d mV  VA %d mV  VIN %d mV  AFE %d mV"
+              % (row["vref_mv"], row["va_mv"], row["vin_mv"], row["afe_mv"]))
+        print("  dew margin    %s" % fmt(row["dew_margin_k"], " K"))
+        print("  die temp      %s" % fmt(row["t_die_c"], " C"))
+        print("  uptime        %d s   seq %d   fw %s hw %s"
+              % (row["uptime_s"], row["sample_seq"], row["fw"], row["hw"]))
+        print("  errors        crc %d  frame %d  i2c %d  ads_fail %d  "
+              "settle_restarts %d"
+              % (row["mb_crc_errs"], row["mb_frame_errs"], row["i2c_errs"],
+                 row["ads_fail_count"], row["settle_restarts"]))
+        print("  faults ever   0x%04X%s"
+              % (row["faults_ever"],
+                 "  " + row["faults_ever_named"] if row["faults_ever_named"]
+                 else "  none"))
+
+
+def main():
+    ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
+    ap.add_argument("csv", nargs="?", help="output CSV; appends if it exists")
+    ap.add_argument("--port", required=True,
+                    help="serial line: a USB-RS485 dongle, or a USB-TTL lead "
+                         "into a board flashed -e bridge")
+    ap.add_argument("--addr", type=int, default=3,
+                    help="the PROBE's Modbus address (default 3). The bridge "
+                         "is transparent; do not address it here.")
+    ap.add_argument("--baud", type=int, default=9600)
+    ap.add_argument("--parity", default="E", choices=["N", "E", "O"])
+    ap.add_argument("--timeout", type=float, default=1.0)
+    ap.add_argument("--retries", type=int, default=2,
+                    help="retries per poll before the row is marked failed")
+    ap.add_argument("--diag", action="store_true",
+                    help="also read the diagnostic block at 0x0010")
+    ap.add_argument("--count", type=int, default=1,
+                    help="number of polls (0 = forever)")
+    ap.add_argument("--interval", type=float, default=30.0, help="seconds")
+    ap.add_argument("--no-check", action="store_true",
+                    help="skip the startup check against src/regmap.h")
+    args = ap.parse_args()
+
+    if not args.no_check:
+        problems = check_against_source()
+        if problems:
+            sys.exit("!! this tool's register map disagrees with src/:\n   "
+                     + "\n   ".join(problems)
+                     + "\n   Fix the tool, or --no-check if you know better.")
+
+    if args.diag:
+        # 21 registers plus overhead is well inside a 256-byte ADU, but say so
+        # rather than discovering it on a long cable.
+        assert DIAG_COUNT * 2 + 5 < 256
+
+    link = SerialLink(args.port, args.baud, args.parity, args.timeout)
+    bus = Bus(link, args.addr)
+
+    writer = fh = None
+    if args.csv:
+        exists = os.path.exists(args.csv) and os.path.getsize(args.csv) > 0
+        fh = open(args.csv, "a", buffering=1, newline="")
+        writer = csv.DictWriter(fh, fieldnames=CSV_COLUMNS, extrasaction="ignore")
+        if not exists:
+            writer.writeheader()
+
+    failures = 0
+    n = 0
+    try:
+        while args.count == 0 or n < args.count:
+            n += 1
+            stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            row = {c: "" for c in CSV_COLUMNS}
+            row["utc"] = stamp
+            last = None
+            for attempt in range(args.retries + 1):
+                try:
+                    row.update(poll(bus, args.diag))
+                    last = None
+                    break
+                except ModbusException as exc:
+                    last = "modbus exception %d (%s)" % (exc.code, exc)
+                except (IOError, OSError) as exc:
+                    last = "%s: %s" % (type(exc).__name__, exc)
+                if attempt < args.retries:
+                    time.sleep(0.2)
+            if last is not None:
+                failures += 1
+                row["status"], row["detail"] = "failed", last
+            print("%s  addr %d" % (stamp, args.addr))
+            show(row)
+            if writer:
+                writer.writerow(row)
+            if args.count == 0 or n < args.count:
+                time.sleep(args.interval)
+    except KeyboardInterrupt:
+        print("\ninterrupted")
+    finally:
+        link.close()
+        if fh:
+            fh.close()
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
