@@ -64,7 +64,7 @@ chord that stays inside this annulus is
 against a groove only 3.25 mm wide radially. `bridge_angle` cannot help: the ring
 is symmetric, so every angle yields the same worst chord.
 
-## The one untried lever: bridge speed 25 -- TRIED 2026-09-06, DOES NOT FIX IT
+## Both cheap levers, tried 2026-09-06: NEITHER FIXES IT
 
 Everything above says *where* the bridge is, not that it must fail. The groove-down
 flip failed once, at the shared `bridge_speed` of 50 mm/s, and that was never varied.
@@ -132,13 +132,47 @@ No depth gauge reading was taken, and there is no point taking one on this part:
 cannot measure a squeeze surface that has voids in it. Groove depth on a printed part
 remains unmeasured in **every** orientation.
 
-**What is left, in order of cost.** (1) The bridge fan -- `overhang_fan_speed` is 35 on
-this plate, the ASA cap, and a bridge is the one place where local cooling buys more
-than warping costs. That is one more plate and the only untried single variable.
-(2) `bridge_flow` above 1. (3) Give up on the flip and take the options this document
-already lists: a self-supporting gland, machining the groove after printing, or a
-top-surface sealing face. Nothing here has changed the case against moving the groove
-into another part.
+### Attempt 3: the bridge fan at 100% -- WORSE, the part detached
+
+The second lever, tried the same afternoon and the last cheap one. `overhang_fan_speed`
+35 -> 100 for the retainer only, everything else held: `bridge_speed` still 25,
+`fan_max_speed` still 35. Verified in the toolpaths as `M106 S255` inside the Bridge
+feature against `S25` on the rest of each layer, so the blast really was scoped to
+overhang and bridge paths. One variable against attempt 2.
+
+**It detached the part.** At 12:42:25, around layer 12 -- *before* the groove roof at
+layer 17 -- the disc came off the plate and the ring was loose on the bed. The printer
+ran to `FINISH`, 100%, 33/33 layers, `print_error 0`, extruding into air for the last
+twenty minutes. Nothing on the machine noticed.
+
+This is the failure that was written down as the risk before the plate was started, and
+it arrived earlier in the part than predicted: 100% local cooling on ASA costs
+adhesion, and on a 4.04 mm disc there is not enough part above the first layers to hold
+it down while the outer wall contracts. The bridge was never reached, so **attempt 3
+says nothing about the roof** -- it only closes the fan lever.
+
+### Where that leaves the flip
+
+| # | bridge speed | bridge fan | outcome |
+|---|---|---|---|
+| 1 | 50 | 35 | spaghetti out of the empty middle |
+| 2 | 25 | 35 | held; groove roof full of voids, part unusable |
+| 3 | 25 | **100** | **detached at ~layer 12, never reached the roof** |
+
+Three plates, three failures, and the two cheap single-variable levers are spent. Speed
+moved the failure without removing it; cooling made it worse. What is left is
+`bridge_flow` above 1, which is a smaller lever than either of those and is not worth a
+plate on its own after this.
+
+**Recommendation: stop trying to print the gland face down.** The remaining options are
+the ones this document already lists and none of them is a slicer setting -- a
+self-supporting gland profile, machining the groove after printing, or accepting a
+top-surface sealing face (`face_groove_up = true`). Nothing measured today has changed
+the case against moving the groove into another part.
+
+`overhang_fan_speed` has been REMOVED from the retainer's overrides in `print.sh` rather
+than left at 100: a known-bad value sitting in a config is a trap for whoever slices
+next. The reason it is bad is recorded there.
 
 Two aborts preceded it, and what fixed them was not in the slicer: a strand on the
 nozzle tip and the plate seating. Both attempts reached stage 14 identically and then

@@ -105,6 +105,14 @@ part_process_overrides() {
         # one. THE VERDICT COMES FROM A DEPTH GAUGE, NOT FROM LOOKING AT IT --
         # the whole squeeze window is 0.245 mm, and a roof that sags 0.1 mm
         # still looks perfect.
+        #
+        # OUTCOME 2026-09-06: 25 DID NOT FIX IT. The part held together where
+        # bridge 50 had spaghettied, and the groove roof still came out full of
+        # voids -- the failure moved rather than went away, which says strand
+        # dwell time was not the binding constraint. The 16.47 mm worst chord
+        # over a 3.25 mm groove is. Kept at 25 because it is strictly better
+        # than 50 here, NOT because it works. If the flip is abandoned for a
+        # top-surface sealing face there is no bridge at all and this is moot.
         retainer) echo '{"brim_object_gap":"0.1","brim_type":"outer_only","bridge_speed":["25","25"]}' ;;
         # THE GLAND'S SEAL NOTCH IS A BRIDGE, and it was missed. The cap prints
         # gland face DOWN, so that notch is a void from the bed up to
@@ -138,29 +146,24 @@ part_process_overrides() {
 # not a per-part override.
 part_filament_overrides() {
     case "$1" in
-        # THE BRIDGE FAN, on Fab's ask 2026-09-06, after bridge_speed 25 failed.
-        # This is the second lever and it is deliberately the ONLY thing that
-        # changes from the plate that just failed -- bridge_speed stays 25.
+        # THE BRIDGE FAN AT 100 IS KNOWN-BAD. DO NOT PUT IT BACK.
         #
-        # overhang_fan_speed is what a bridge path actually gets: measured on
-        # that plate, the Bridge feature at z 2.12 emitted M106 S89, and
-        # 89/255 = 35% = this key. It is NOT the fan_max_speed ramp, and a
-        # bridge takes it unconditionally regardless of overhang_fan_threshold.
+        # Tried 2026-09-06 as the second lever after bridge_speed 25 failed:
+        # overhang_fan_speed 35 -> 100 for the retainer only, verified in the
+        # toolpaths as M106 S255 inside the Bridge feature against S25 on the
+        # rest of each layer, so the cooling really was scoped to overhang and
+        # bridge paths. It still DETACHED THE PART -- at 12:42:25, around layer
+        # 12, BEFORE the groove roof at layer 17. The printer then ran to FINISH,
+        # 100%, 33/33, print_error 0, extruding into air for twenty minutes.
         #
-        # 35 -> 100 and not something in between: the previous plate is the
-        # 35 datum, so a middling value buys an ambiguous result for a whole
-        # print. The blast is scoped to overhang and bridge PATHS only -- the
-        # rest of every layer still runs the ASA ramp (fan_max_speed 35), which
-        # is what the cap is protecting. On a 4.04 mm disc there is no tall
-        # cross-section for a cold shock to warp.
+        # 100% local cooling costs ASA its adhesion, and a 4.04 mm disc has no
+        # mass above the first layers to hold it down while the outer wall
+        # contracts. The plate never reached the bridge, so it says nothing about
+        # the roof -- it only closes the lever. GLAND-ON-THE-BED.md, attempt 3.
         #
-        # WHAT WOULD MAKE THIS A BAD TRADE: ASA at 100% local cooling can
-        # under-bond the bridge layer to the solid above it, and that web IS the
-        # part that reacts the O-ring. If the roof comes out flat but the web
-        # delaminates, that is a worse failure than the one being fixed, and it
-        # will not be visible from the top -- section the part rather than
-        # trusting the surface.
-        retainer) echo '{"overhang_fan_speed":["100"]}' ;;
+        # This case is left EMPTY on purpose. A known-bad value sitting in a
+        # config is a trap for whoever slices next, and the retainer inherits the
+        # shared ASA cap of 35 exactly like every other part.
         *)        echo '{}' ;;
     esac
 }
