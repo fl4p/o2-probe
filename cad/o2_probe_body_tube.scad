@@ -284,15 +284,27 @@ tail_len = 22.0;
 // attacks fluoroelastomers.
 seal_id   = 22.0;
 seal_cord = 2.0;
-// MEASURE THE RING AND PUT THE NUMBERS HERE. Both default to the DIN ISO 3601
-// catalogue bands, and for this ring even those are an assumption -- the head's
-// inventory record calls the on-hand 22 x 2 UNCATALOGUED, with material, cure
-// system AND cord tolerance all assumed. The catalogue band is what makes the
-// stretch assert below fail at its low corner, so measuring is not paperwork:
-// it is the cheapest way to close this joint. Set them to half the spread of
-// several readings, e.g. seal_id_tol_meas = 0.05.
-seal_id_tol_meas   = undef;   // MEASURE: ring ID, half-spread of the readings
-seal_cord_tol_meas = undef;   // MEASURE: cord, half-spread of the readings
+// THESE STAY undef. MEASURING THE RING IS NOT AN AVAILABLE MOVE -- Fab ruled it
+// out and gave the reason, and it is a good one: a free O-ring deforms under
+// calipers, so the reading is a function of how hard you squeezed. It was tried
+// once and produced ID 22.3 / cord 2.05, which would have put nominal stretch at
+// 0.437% and demanded a O26.0 bore -- a reading that, taken seriously, would
+// have redesigned the joint around an artefact of the measurement. He judged it
+// unreliable and instructed that NOMINAL dimensions be assumed. Restated
+// 2026-09-07: "i will not measure rings, i told you before why."
+//
+// SO DO NOT PROPOSE IT AS THE FIX. Every corner these bands drive must be closed
+// with GEOMETRY -- bore diameter, groove root, mouth clearance -- or accepted
+// explicitly and recorded. An earlier version of this file, and a whole evening
+// of my recommendations on 2026-09-06, kept pointing at "measure the ring" as
+// the discharge for the open corners. That path was already closed and I had
+// been told so.
+//
+// If a properly-conditioned measurement ever does appear -- a ring supported in
+// a bore or on a pin, not compressed between caliper jaws, several readings --
+// these are where it goes, as half the spread. Nothing else changes.
+seal_id_tol_meas   = undef;   // ruled out: see above. Catalogue band applies.
+seal_cord_tol_meas = undef;   // ruled out: see above. Catalogue band applies.
 
 // NO WAIVER. There was one here -- the low-stretch corner, 0.7345% against a
 // 1% minimum, waived on the nominal-dimensions assumption. It is gone because
@@ -328,8 +340,11 @@ seal_stretch_corner_waived = false;
 //
 // THAT IS WHAT THESE FLAGS MEAN AND NOTHING MORE. They do not make the cap
 // correct; they record that the checks could not be evaluated on real numbers
-// and that a person decided to proceed. Measuring the ring retires both: at
-// +/-0.03 the window opens cleanly over seal_squeeze 0.25-0.26.
+// and that a person decided to proceed. These are NOT discharged by measuring
+// the ring -- that is ruled out, with reason, at seal_id_tol_meas. They are
+// discharged by geometry: the mouth relief opened the lead-in past tube_id and
+// closed the corner it was blocking. What remains under these flags is the
+// bespoke cap's own squeeze/stretch corners against ONE measured tube.
 seal_band_waived = false;
 // The same 0.2433 the head uses, and for the same reason: it is where the
 // tolerance band sits squarest, not a handbook preference.
@@ -1078,16 +1093,30 @@ seal_ring_od_max = max([ for (R = [groove_root - root_tol, groove_root + root_to
 seal_lead_r   = (seal_ring_od_max - cable_bore_d)/2 + bore_lead_margin
                                                     + bore_print_undersize_r;
 bore_lead_h   = seal_lead_r / tan(bore_lead_ang);
-// AND THE CONE CANNOT BE WIDER THAN THE TUBE IT IS CUT IN. The cut wants to
-// open to cable_bore_d + 2*seal_lead_r, but the collar is a ridge standing
-// inward from tube_id, so anything past tube_id removes collar that is already
-// gone and buys nothing. The mesh says so plainly: the cut asks for O27.59 and
-// the first half-millimetre of the bore measures O27.19, which is tube_id.
+// THE CONE USED TO BE CAPPED AT tube_id AND IS NOT ANY MORE. It was cut inside
+// the collar's own difference(), whose outer surface IS tube_id, so it stopped
+// at O27.2 no matter what it asked for -- and the mesh, not the model, is what
+// said so. The cut now happens in tube()'s outer difference() and passes into
+// the tube wall, so the mouth is the full cut diameter.
 //
-// This is the CAP on how much lead-in this joint can ever have, and it is not
-// a comfortable one -- see the clearance report below.
-bore_mouth_drawn   = min(cable_bore_d + 2*seal_lead_r, tube_id);
+// The cap was not a nuisance, it was the binding constraint: at O27.2 the mouth
+// printed to 26.80 and the worst in-band ring (26.892) did not fit through it,
+// with no groove root anywhere in the feasible squeeze window able to fix it.
+bore_mouth_drawn   = cable_bore_d + 2*seal_lead_r;
 bore_mouth_printed = bore_mouth_drawn - 2*bore_print_undersize_r;
+
+// WHAT THE RELIEF COSTS: tube wall at the mouth, at its thinnest, before the
+// cone tapers back to full section within bore_lead_h. Three 0.60 mm lines is
+// the floor -- under that the mouth is a rim, not a wall, and the cable end is
+// exactly where the cap is pushed on and twisted by hand.
+mouth_wall      = (tube_od - bore_mouth_drawn)/2;
+mouth_wall_min  = 1.80;
+assert(mouth_wall >= mouth_wall_min,
+       str("the mouth relief opens to ", bore_mouth_drawn, " and leaves only ",
+           mouth_wall, " mm of tube wall at the cable end, under the ",
+           mouth_wall_min, " mm floor. The relief is driven by the ring's worst ",
+           "corner and the printed undersize -- reduce the CORD or the groove ",
+           "root, do not thin the wall further."));
 
 // HOW MUCH ROOM THE RING ACTUALLY HAS AT THE MOUTH. Once tube_id caps the cone
 // this stops being a derived identity and becomes a real measurement of the
@@ -1113,15 +1142,16 @@ assert(bore_mouth_clear > 0,
            "with bore_lead_ang -- it needs a thinner cord, a bigger tube_id, or ",
            "a counterbore at the mouth."));
 
-// AND THE WORST CORNER DOES NOT CLEAR. This is reported, not asserted, and the
-// distinction is deliberate: it is driven entirely by the CATALOGUE +/-0.09 cord
-// and +/-0.22 ID bands on a ring nobody has measured. Asserting on an assumed
-// band would block every build on a number we invented. Measuring the ring
-// collapses those bands to about +/-0.03 and the corner clears on its own --
-// which is why "measure the 22 x 2" is now load-bearing and not housekeeping.
+// THE WORST CORNER, REPORTED EITHER WAY. It used to fail here, and the fix was
+// geometric: the mouth relief cuts past tube_id, so the fattest in-band ring now
+// clears with the full bore_lead_margin. This echo stays because the corner is
+// the thing that actually gates assembly, and it must be visible when a cord,
+// a bore or an undersize figure changes and eats the margin again.
 //
-// DO NOT silence this by widening bore_lead_ang. The mouth is tube_id and the
-// cone stops there; the angle only changes how DEEP the cut is, not how wide.
+// DO NOT silence a future failure here by widening bore_lead_ang -- the angle
+// changes how DEEP the cut is, not how wide -- and do not reach for measuring
+// the ring, which is ruled out at seal_id_tol_meas. The levers are the mouth
+// relief (bounded by mouth_wall_min), the groove root, and the cord.
 echo(bore_mouth_clear_max > 0
      ? str("MOUTH CLEARANCE: ", bore_mouth_clear_max,
            " mm even at the ring's worst corner -- the lead-in is sufficient.")
@@ -1129,9 +1159,11 @@ echo(bore_mouth_clear_max > 0
            " mm but the WORST-CORNER ring (", seal_ring_od_max, ") is ",
            -bore_mouth_clear_max, " mm too big for the ", bore_mouth_printed,
            " printed mouth. The cone is capped at tube_id and cannot open ",
-           "further. MEASURE THE 22 x 2 (ID and cord, laid flat) -- at +/-0.03 ",
-           "the corner clears. Until then a fat ring from the bag may refuse ",
-           "to enter, which is exactly the 2026-09-06 bench failure."));
+           "further without cutting into the tube wall past mouth_wall_min. ",
+           "Open the mouth relief, drop the groove root, or go to a thinner ",
+           "cord -- NOT to a micrometer: measuring the ring is ruled out. A fat ",
+           "ring from the bag would refuse to enter, which is exactly the ",
+           "2026-09-06 bench failure."));
 
 // What the cone costs: every millimetre of it is parallel bore the ring no
 // longer has to seal against.
@@ -1167,7 +1199,7 @@ assert(seal_land >= seal_land_min,
            "under the ", seal_land_min, " mm floor. The cone is sized off the ",
            "ring's WORST corner (OD ", seal_ring_od_max, ") and the printed ",
            "undersize (", bore_print_undersize_r, " on radius) -- so shrink it ",
-           "by MEASURING the ring or the bore, not by lowering this floor."));
+           "by dropping the groove root or the cord, not by lowering this floor."));
 echo(str("BORE LEAD-IN: ", bore_lead_ang, " deg x ", bore_lead_h,
          // KEEP THIS PHRASE. tools/collar_check.py parses "opening the mouth to
          // <d>" out of this line and treats a missing match as an unevaluable
@@ -1175,11 +1207,11 @@ echo(str("BORE LEAD-IN: ", bore_lead_ang, " deg x ", bore_lead_h,
          // mesh actually has -- i.e. after the tube_id cap -- because that is
          // what the check measures the mesh against.
          " mm deep, opening the mouth to ", bore_mouth_drawn,
-         " (the cut asks for ", cable_bore_d + 2*seal_lead_r,
-         " and is CAPPED at tube_id), which is ",
+         " (cut in the TUBE, not the collar, leaving ", mouth_wall,
+         " mm of wall there), which is ",
          bore_mouth_printed, " once printed -- ESTIMATED, not measured: the ",
          bore_print_undersize_r, " radial undersize was measured on MONO-R2's ",
-         "O25.7 collar bore and is EXTRAPOLATED to this O27.2 entry, which has ",
+         "O25.7 collar bore and is EXTRAPOLATED to this wider mouth, which has ",
          "never been printed or measured. The ring is ",
          seal_ring_od, " across nominal and ", seal_ring_od_max,
          " at its worst corner, which is what the cone is sized on; it stands ",
@@ -1260,9 +1292,10 @@ assert(seal_stretch_corner_waived || stretch_min >= 0.01,
            "on the spigot. Nominal is ", seal_stretch*100,
            "%, so this is a TOLERANCE failure, not a sizing one: it comes from ",
            "the ring's own ID band (+/-", seal_id_tol,
-           "). MEASURE THE RING and set seal_id_tol_meas / seal_cord_tol_meas ",
-           "-- the head's record says this ring is UNCATALOGUED, so the band ",
-           "being applied to it is itself an assumption."));
+           "). The head's record says this ring is UNCATALOGUED, so the band ",
+           "being applied to it is itself an assumption -- but measuring it is ",
+           "ruled out (see seal_id_tol_meas), so close this with GEOMETRY: ",
+           "raise the bore, or raise the groove root toward the ring ID."));
 assert(seal_band_waived || squeeze_min >= 0.15,
        str("squeeze falls to ", squeeze_min*100,
            "% at its worst corner; a static radial seal wants 15% or more ",
@@ -1713,12 +1746,18 @@ module tube() {
                 translate([0, 0, -2*e])
                     cylinder(d=cable_bore_d,
                              h=cable_bore_len + collar_lead + 4*e);
-                // The O-ring's lead-in at the MOUTH. Cut after the bore, in the
-                // same difference(), so it opens the mouth rather than standing
-                // in it -- the nesting mistake this file has shipped twice.
-                translate([0, 0, -e])
-                    cylinder(d1=cable_bore_d + 2*seal_lead_r + 2*e,
-                             d2=cable_bore_d, h=bore_lead_h + e);
+                // THE O-RING'S LEAD-IN IS NOT CUT HERE. It used to be, and that
+                // was a THIRD nesting error of the same family as the two this
+                // module already documents -- only inverted. The other two put a
+                // feature in the wrong union and the bore ate it; this one put a
+                // CUT in the wrong difference, where the collar's own O27.2
+                // outer surface bounded it. The cone silently stopped at tube_id
+                // and no assert noticed, because the model happily reported the
+                // diameter it MEANT to cut. The mesh is what caught it.
+                //
+                // It now lives in the OUTER difference() at the end of this
+                // module, where it cuts the collar and the tube wall together
+                // and can actually open the mouth. See "MOUTH RELIEF" there.
             }
             // Local wall thickening for the lock screw, standing INTO the bore
             // at a height where only cable passes.
@@ -1739,6 +1778,40 @@ module tube() {
                 rotate([0, 0, lock_a_tube]) rotate([0, 90, 0])
                     translate([0, 0, lock_pilot_floor])
                         cylinder(d=lock_pilot_d, h=tube_od, $fn=32);
+        // MOUTH RELIEF -- the O-ring's lead-in, cut at THIS level so it is
+        // bounded by the TUBE and not by the collar it passes through.
+        //
+        // WHY IT MOVED HERE. The collar is drawn as a solid O27.2 cylinder minus
+        // its own bore, so a cone cut inside THAT difference() could never open
+        // wider than tube_id. It was capped at O27.2 -> O26.80 printed, and the
+        // ring's worst tolerance corner is O26.892: the fattest in-band ring did
+        // not fit through its own lead-in. Cutting here takes the last 0.2 mm
+        // out of the tube wall instead, which is where the room actually is.
+        //
+        // AND IT BELONGS IN THIS difference(), NOT BESIDE THE guide() CALLS
+        // BELOW. Those are a sibling statement -- guides are rails that get
+        // UNIONED on after this difference closes. Putting the cone there
+        // unioned a solid cone into the mouth and plugged the bore for 2.6 mm,
+        // and it still rendered as a clean 2-volume solid with every assert and
+        // every echo unchanged, because the numbers never depended on where the
+        // geometry landed. Fourth instance of this family in this file, first
+        // one inverted -- a CUT in the wrong scope rather than a feature. The
+        // mesh caught it; nothing else did.
+        //
+        // THIS IS THE ONLY REMAINING LEVER, measured rather than preferred.
+        // Sweeping seal_squeeze 0.15..0.30 through this file's own asserts, the
+        // feasible window is 0.23..0.25 -- below it install stretch or the 15%
+        // squeeze floor fails, above it the 30% ceiling or the 5% stretch rule
+        // does -- and at ALL THREE feasible values the worst-corner ring is
+        // still 0.044 to 0.116 mm too big for a tube_id mouth. No groove root
+        // closes it, and measuring the ring is ruled out (see seal_id_tol_meas).
+        // So the mouth opens, or the joint keeps a fail-open corner.
+        //
+        // WHAT IT COSTS: tube wall at the very mouth, tapering back to full
+        // section within bore_lead_h. Asserted at mouth_wall.
+        translate([0, 0, -e])
+            cylinder(d1=bore_mouth_drawn + 2*e, d2=cable_bore_d,
+                     h=bore_lead_h + e);
     }
     for (s = [1, -1]) {
         guide(s, zy(station_a[0]), zy(station_a[1]),
