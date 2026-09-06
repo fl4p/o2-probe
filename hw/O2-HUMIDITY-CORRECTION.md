@@ -607,3 +607,89 @@ The experiment that would settle it holds `p_w` constant and steps temperature �
 which is what the heater does once the board is dry and the humidity has
 plateaued. That is the run to do next, and it is the same run that tests whether
 the unexplained +0.6 µA rise is a reversible moisture film.
+
+## 10. THE CORRECTION IS CORRECT AND MAKES THE NUMBER WORSE (2026-09-06)
+
+Fab, from the `--dry-basis` plot: *"shouldn't the dry-basis line be more
+straight? its very sensitive to humidity."* It should be, and it is not.
+
+**The correction itself checks out.** `o2p_psychro.dry_from_wet` computes
+`wet · P/(P − p_w)` — right direction, right magnitude, chamber temperature,
+`check_against_source()` passing. The applied gap tracks `p_w` exactly as it
+must: +0.25 %vol at `p_w` = 12.1 hPa, +1.16 %vol at 52.8 hPa.
+
+**And the corrected line is 2.5× more variable than the uncorrected one.**
+
+| | range over 2026-09-06 |
+|---|---|
+| as published (uncorrected) | 20.82 → 21.25 %vol, **0.43 pp** |
+| dry basis (corrected) | 21.22 → 22.30 %vol, **1.08 pp** |
+
+Room air holds dry-basis O₂ constant, so the corrected line is the one that
+should be flat. It is the one that moves.
+
+### Why: the cell does not show the dilution
+
+Over the day `p_w` went 12.1 → 52.8 → 19.5 hPa. Dilution requires the cell
+current to fall ~4 % across that and come back. It did not move 1 %.
+
+Decomposing windows, predicted-from-dilution against observed on `o2_raw`:
+
+| window | min | Δp_w hPa | ΔT K | pred | obs | resid |
+|---|---|---|---|---|---|---|
+| heater ramp, drying | 12 | −4.5 | +2.28 | +0.47 % | +0.38 % | **−0.09 %** |
+| jar opened, wetting | 9 | +22.6 | +8.50 | −2.29 % | −0.29 % | +2.00 % |
+| morning → pre-jar | 296 | +12.6 | +2.80 | −1.26 % | +0.29 % | +1.55 % |
+| wet peak → post-jar | 94 | −15.8 | −7.33 | +1.64 % | +0.83 % | −0.81 % |
+| the dry soak | 78 | −12.3 | −3.69 | +1.26 % | −0.51 % | −1.76 % |
+| whole day | 483 | +7.4 | +0.42 | −0.74 % | +0.19 % | +0.93 % |
+
+The residuals are ±2 %, larger than the correction being applied, and they do
+not sort by duration or by ΔT — the whole-day window has ΔT = +0.42 K and still
+carries +0.93 %.
+
+### Near-isothermal pairs: the sign is wrong, 13 times out of 13
+
+Selecting 10-minute means separated by |ΔT_chamber| < 0.35 K and |Δp_w| > 6 hPa
+gives 13 pairs. **Every one of them has the cell current rising as water vapour
+rises**, where dilution requires it to fall. Residual +0.76 % to +2.54 %,
+roughly +0.11 to +0.26 %/hPa of `p_w` against the model's −0.10 %/hPa.
+
+So on this article the cell's humidity response is **opposite in sign and larger
+in magnitude** than the dilution the correction removes. Correcting for an
+effect the signal does not show injects that effect. That is the plot.
+
+### What this is, and what it retracts
+
+It is the same artefact as the unexplained **+0.6 µA rise with an 85–90 %RH
+knee** from the dew test (`DEW-MARGIN-IS-BLIND.md`): a positive,
+humidity-driven current. On a **bare, unpotted board with the AFE exposed**, a
+moisture film raising surface leakage into the TIA is the obvious candidate and
+remains unproven — there is still no guarded/unguarded comparison and no
+leakage-resistance measurement.
+
+**This reopens something I retracted this afternoon.** I withdrew "the cell and
+the RH sensor are not sampling the same gas" because one fast window — the
+heater ramp — matched the dilution prediction to 0.01 %. That window is real and
+still matches. But it was a single agreeing window and I generalised a day's
+behaviour from it. The day contradicts it. The claim goes back to **open**,
+though the mechanism I would now favour is a leakage artefact on unpotted FR4
+rather than two gas volumes.
+
+**It also weakens §9b.** The +0.51 %/K tempco there assumed the whole soak
+residual was temperature. These windows give −0.04, +0.24, +0.55, +0.11 and
++0.48 %/K depending on which one is used, and +2.2 %/K over the whole day. There
+is no consistent tempco in this data. Treat §9b as an upper bound on nothing in
+particular until the artefact is separated.
+
+### The experiment that settles it
+
+Step RH at **constant temperature** and watch `o2_raw`. Every humidity change
+today came with a temperature change, which is why nothing here is identifiable.
+Then repeat **potted**: if the artefact is a surface film, potting removes it,
+and if it survives potting it is the cell and the dry-basis correction is wrong
+about this cell.
+
+Until then the dry-basis correction cannot be validated on this hardware, and
+flashing `fe27d20` would replace a number that is wrong by a known constant with
+one that is wrong by a humidity-dependent amount.
