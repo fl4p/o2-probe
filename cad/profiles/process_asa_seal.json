@@ -10,6 +10,7 @@
         "50",
         "50"
     ],
+    "internal_bridge_speed": "150%",
     "brim_object_gap": "0.1",
     "brim_type": "outer_only",
     "brim_width": "5",
