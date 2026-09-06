@@ -89,13 +89,23 @@ def model_numbers(scad=SCAD):
         die('the model did not evaluate (openscad exit %d) -- the COLLAR echo '
             'cannot be trusted even if one was printed, so this is a FAILURE, '
             'not an OK.\n%s' % (r.returncode, (r.stderr or r.stdout)[-2000:]))
+    out = r.stdout + r.stderr
     m = re.search(r'COLLAR bore ([\d.]+) len ([\d.]+) lead ([\d.]+)'
-                  r' tube_id ([\d.]+) wall ([\d.]+)', r.stdout + r.stderr)
+                  r' tube_id ([\d.]+) wall ([\d.]+)', out)
     if not m:
         die('the model emitted no COLLAR echo -- cannot evaluate, so this is a '
             'FAILURE, not an OK.\n' + (r.stderr or r.stdout)[-2000:])
+    # The O-ring's lead-in at the mouth. Its ABSENCE is a failure, not a default:
+    # without it the ring meets a square edge and the cap does not go on, which
+    # is what the tube on the bench did on 2026-09-06.
+    lead = re.search(r'BORE LEAD-IN: ([\d.]+) deg x ([\d.]+) mm deep, '
+                     r'opening the mouth to ([0-9]+\.?[0-9]*)', out)
+    if not lead:
+        die('the model emitted no BORE LEAD-IN echo. No echo means the mouth '
+            'lead-in is not modelled, which is unevaluable, which is a FAILURE.')
     k = [float(x) for x in m.groups()]
-    return dict(bore=k[0], len=k[1], lead=k[2], tube_id=k[3], wall=k[4])
+    return dict(bore=k[0], len=k[1], lead=k[2], tube_id=k[3], wall=k[4],
+                lead_h=float(lead.group(2)), mouth_d=float(lead.group(3)))
 
 
 def render_tube(scad=SCAD):
@@ -148,7 +158,13 @@ def check(path, n):
     #    collar -- which is indistinguishable from the collar being absent. That
     #    is precisely the hole that made spigot_check's first groove test a mute
     #    button, and it is not being dug twice.
-    lo, hi = 0.30, n['len'] - 0.30
+    # THE BAND STARTS PAST THE LEAD-IN. It used to start at 0.30, which was
+    # right while the mouth was a square edge and wrong the moment a chamfer was
+    # cut there on 2026-09-06: 0.30 is now ON the chamfer, where the bore is
+    # deliberately oversize. Taking a MINIMUM hid that -- the cone's own far end
+    # sits at r_bore, so the test passed and would have gone on passing even if
+    # the chamfer had eaten the whole sealing land.
+    lo, hi = n['lead_h'] + 0.30, n['len'] - 0.30
     if hi <= lo:
         fails.append('collar: length %.3f is too short to test (band interior '
                      'is empty) -- treat as NO COLLAR' % n['len'])
@@ -183,6 +199,19 @@ def check(path, n):
                 'the bore. The reamer has more than its stock to remove, and '
                 'until it is reamed the cap spigot does not enter'
                 % (lo, hi, inner, r_bore - inner, r_bore))
+
+    # 1b. THE MOUTH IS ACTUALLY OPEN. The land test above is a minimum, so it
+    #     cannot tell a chamfered mouth from a square one -- and a square one is
+    #     what stopped the cap going on. Ask the mesh directly.
+    r_mouth = n['mouth_d'] / 2.0
+    face = min((r for r, z in verts if z < 0.05), default=float('inf'))
+    if face < r_mouth - 0.10:
+        fails.append(
+            'mouth: the cable-end face carries material in to r=%.3f, but the '
+            'lead-in should open it to r=%.3f. The O-ring stands proud of the '
+            '%.3f bore and has to be squeezed in by that ramp; against a square '
+            'edge it shaves or rolls and the cap does not seat -- exactly what '
+            'the bench found on 2026-09-06.' % (face, r_mouth, r_bore))
 
     # 2. THE LEAD CONE IS PRESENT. Its two ends are where the mesh does carry
     #    vertices, so this one is asked of vertices: the collar's top face at
@@ -264,6 +293,13 @@ def selftest():
                              '''                translate([0, 0, -2*e])
                     cylinder(d=cable_bore_d - 1.5,
                              h=cable_bore_len + collar_lead + 4*e);''', 1)),
+        # THE MOUTH CHAMFER DELETED. Renders clean, every assert passes (the
+        # arithmetic still describes a chamfer), the sealing land is perfect --
+        # and the cap does not go on. The exact defect found on the bench.
+        ('mouth-chamfer-gone',
+         lambda s: s.replace('''                translate([0, 0, -e])
+                    cylinder(d1=cable_bore_d + 2*seal_lead_r + 2*e,
+                             d2=cable_bore_d, h=bore_lead_h + e);''', '', 1)),
         ('cone-not-drawn',
          lambda s: s.replace(
              '''                    translate([0, 0, cable_bore_len])

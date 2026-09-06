@@ -31,6 +31,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CAD = os.path.dirname(HERE)
 BODY = os.path.join(CAD, 'o2_probe_body_tube.scad')
 HEAD = os.path.join(CAD, 'o2_probe_head_end.scad')
+SHELL = os.path.join(CAD, 'o2_probe_gas_shell.scad')
 OUT = os.path.join(CAD, 'exports')
 OPENSCAD = os.environ.get('OPENSCAD', 'openscad')
 # The head's provisional MEASURE inputs, the same four the Makefile supplies.
@@ -164,6 +165,40 @@ def fusion():
     return []
 
 
+def cavity_mesh(joint):
+    """Render the head's connected-gas cavity for one joint and weigh the mesh.
+
+    The body model has to carry the head's cavity volume as a number -- it has no
+    way to render the head -- and until 2026-09-06 that number was a hand-copied
+    measurement with a comment on it saying, in as many words, that nothing
+    checked it. It was wrong by 1988 mm3 in the direction that flatters a
+    maximum-volume budget.
+
+    A copied measurement is only as good as the thing that re-takes it. This is
+    that thing: it re-renders the cavity and weighs it, so the body's literal is
+    compared against the geometry rather than against the last person to edit it.
+    """
+    stl = os.path.join(OUT, '.iface-cav-%s.stl' % joint)
+    r = subprocess.run([OPENSCAD, '--hardwarnings'] + PROV
+                       + ['-D', 'joint="%s"' % joint, '-D', 'part="cavity"',
+                          '-o', stl, HEAD],
+                       capture_output=True, text=True)
+    if r.returncode != 0 or not os.path.exists(stl):
+        return None
+    v = mesh_volume(stl)
+    os.remove(stl)
+    return v
+
+
+def body_head_cavity(joint):
+    """The body's copy, written as a ternary on `joint`."""
+    m = re.search(r'^head_cavity\s*=\s*\(joint == "monolithic"\)\s*\?\s*'
+                  r'([\d.]+)\s*:\s*([\d.]+)\s*;', open(BODY).read(), re.M)
+    if not m:
+        return None
+    return float(m.group(1) if joint == 'monolithic' else m.group(2))
+
+
 def scalar(path, name):
     """A top-level `name = <number>;` assignment. Returns None if it is not a
     plain literal -- a computed value is not something this check can compare,
@@ -244,13 +279,60 @@ def main():
     if None not in (cb, cord, sq):
         root = cb - 2 * cord * (1 - sq)
     checks.append(("groove_root", root, scalar(HEAD, 'body_groove_root')))
+    # ---- the gas shell, a THIRD file restating the same interfaces.
+    #
+    # It is the newest and therefore the most likely to rot: it mirrors numbers
+    # from BOTH other models, and it is the only part whose fit is decided by a
+    # dimension of the cable end (the collar bore it has to pass through). When
+    # cable_bore_d moved 25.5 -> 25.7 on 2026-09-06 the shell's OD moved with it;
+    # nothing but this check would have noticed if it had not.
+    if os.path.exists(SHELL):
+        shell_pairs = [
+            ('board_w', BODY, 'board_w'), ('board_t', BODY, 'board_t'),
+            ('board_len', BODY, 'board_len'),
+            ('guide_engage', BODY, 'guide_engage'),
+            ('guide_body', BODY, 'guide_body'),
+            ('collar_bore', BODY, 'cable_bore_d'),
+            ('cell_d', HEAD, 'cell_d'), ('cell_h', HEAD, 'cell_h'),
+        ]
+        for mine, src, theirs in shell_pairs:
+            checks.append(("shell %s" % mine, scalar(SHELL, mine),
+                           scalar(src, theirs)))
+        # tube_id is derived in the body, as it is for the head.
+        checks.append(("shell tube_id", scalar(SHELL, 'tube_id'),
+                       (lambda od, w: None if None in (od, w) else od - 2 * w)(
+                           scalar(BODY, 'tube_od'), scalar(BODY, 'wall'))))
+        # cell_y is the PLACEMENT.md datum; the head holds the same fact as a
+        # setback from the board tip. Different spelling, one number.
+        bl, sb = scalar(BODY, 'board_len'), scalar(HEAD, 'cell_setback')
+        checks.append(("shell cell_y", scalar(SHELL, 'cell_y'),
+                       None if None in (bl, sb) else bl - sb))
+        # cell_seated_h is an UNMEASURED input the Makefile supplies. The shell
+        # has to use the same provisional value the head is rendered with, or the
+        # gas gap over the sensing face is sized against a different cell.
+        prov_seated = None
+        for i, tok in enumerate(PROV):
+            if tok.startswith('cell_seated_h='):
+                prov_seated = float(tok.split('=', 1)[1])
+        checks.append(("shell cell_seated_h", scalar(SHELL, 'cell_seated_h'),
+                       prov_seated))
+
+    # The head's cavity volume, re-measured rather than trusted. Tolerance is
+    # 1 mm3: this is one mesh weighed twice by the same code, so anything above
+    # rounding means the literal has gone stale, which is the whole failure this
+    # check exists to catch.
+    for j in ('bonded', 'monolithic'):
+        checks.append(("head_cavity (%s)" % j, body_head_cavity(j),
+                       cavity_mesh(j), 1.0))
 
     bad = 0
-    for name, a, b in checks:
+    for check in checks:
+        name, a, b = check[0], check[1], check[2]
+        tol = check[3] if len(check) > 3 else 1e-3
         if a is None or b is None:
             print("  ?? %-22s could not read (body=%s head=%s)" % (name, a, b))
             bad += 1
-        elif abs(a - b) > 1e-3:
+        elif abs(a - b) > tol:
             print("  FAIL %-20s body=%-10g head=%-10g  DRIFTED" % (name, a, b))
             bad += 1
         else:

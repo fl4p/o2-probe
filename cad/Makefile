@@ -451,3 +451,42 @@ viewer: viewer-parts
 	@echo "serving on http://127.0.0.1:8777/viewer/?parts=parts.json   (ctrl-c to stop)"
 	@(sleep 1; open "http://127.0.0.1:8777/viewer/?parts=parts.json") &
 	@python3 -m http.server 8777 --bind 127.0.0.1
+
+# ------------------------------------------------- the gas shell
+#
+# The wall between the sensor chamber and the electronics chamber, for a COATED
+# board rather than a potted one. See CELL-SERVICE-AND-THE-WALL.md.
+#
+# Two gates, and the second is the one that matters. Each half must be a closed
+# solid, as everywhere else in this project. Then the CONNECTED GAS inside the
+# shell's span is weighed on the mesh -- not modelled, weighed -- because the two
+# largest terms in it (the annulus around a shell that has to pass the cable-end
+# collar, and the channels its guide rails run through) are exactly the terms a
+# hand-written volume model leaves out. head_cavity in the body model was wrong
+# for a year for want of this kind of gate.
+#
+# The ceiling is what the 5.0 cm3 response budget has LEFT after the head spends
+# its share: 2071 mm3 bonded, 633 monolithic. Neither is reachable today and the
+# target says so rather than passing quietly -- so it reports the number and the
+# shortfall instead of pretending a gate it cannot meet. Fix the head's spigot
+# bore, not this file's threshold.
+SHELL_SCAD := o2_probe_gas_shell.scad
+
+.PHONY: gas-shell
+gas-shell: | $(OUT)
+	@for p in half-front half-back; do \
+		$(OPENSCAD) --hardwarnings -D "part=\"$$p\"" \
+			-o $(OUT)/shell-$$p.stl $(SHELL_SCAD) 2>$(OUT)/.s-$$p.log || \
+			{ cat $(OUT)/.s-$$p.log; exit 1; }; \
+		v=`sed -n 's/.*Volumes: *\([0-9]*\).*/\1/p' $(OUT)/.s-$$p.log | tail -1`; \
+		if [ "$$v" != "2" ]; then \
+			echo "FAIL shell $$p: Volumes: $$v, not 2 -- not one closed solid"; \
+			exit 1; \
+		fi; \
+		rm -f $(OUT)/.s-$$p.log; \
+	done
+	@echo "gas-shell: both halves are closed solids"
+	@$(OPENSCAD) --hardwarnings -D 'part="gas"' --export-format asciistl \
+		-o $(OUT)/shell-gas-ascii.stl $(SHELL_SCAD) 2>/dev/null
+	@python3 tools/shell_volume.py $(OUT)/shell-gas-ascii.stl
+	@python3 tools/interface_check.py

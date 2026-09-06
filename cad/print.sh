@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 # Slice the O2 probe body for the P1P in ASA.
 #
-#   ./print.sh slice <part>   monobody | cap | dam | carrier | retainer
+#   ./print.sh slice <part>   monobody | cap | cap-fit | dam | carrier | retainer
 #                             fastener-coupon | fit-coupon
 #                             (ONE part per plate, always)
 #   ./print.sh upload <part>  send the plate (verified by size, material cross-checked)
-#   ./print.sh start  <part>  start it -- blocks until lift-off
+#   ./print.sh start  <part>  start it -- blocks until lift-off, then watches
+#                             for the verdict in the background and pops a
+#                             desktop notification on finish OR failure
+#   ./print.sh watch  [part]  watch the running job in this terminal instead
+#   ./print.sh notify-test    prove the notification path works
 #   ./print.sh status
 #
 # ONE PART PER PLATE is not a preference. PRINTING-BODY-TUBE.md: identical parts
@@ -43,26 +47,39 @@ PROCESS="${PROCESS:-profiles/process_asa_seal.json}"
 # JSON STRINGS -- a number is silently discarded (doc/slicer-presets.md).
 part_process_overrides() {
     case "$1" in
-        # A free bore at z=0 that mates with nothing: fuse the brim and put one
-        # inside the bore too. 223 mm2 of part -> 2455 mm2 bonded.
+        # THE BORE AT z=0 IS THE SEAL BORE. It did not used to be, and this
+        # override plus the seal_check rule that enforced it both still said
+        # "a free bore at z=0 that mates with nothing: fuse the brim and put one
+        # inside the bore too". That sentence was written when the cable end was
+        # a plain O27.2 that the cap skirt merely went OVER.
         #
-        # WIDTH 12, not 8, on Fab's ask 2026-09-05 -- and 12 rather than more,
-        # because THE INNER BRIM SATURATES. It closes the O27.2 bore at 13.6 mm,
-        # so past ~10 every extra millimetre is outer-only, and the outer edge is
-        # where a partial lift starts:
-        #     8 mm  outer 1005 + inner 483 = 1711 mm2   (O48)
-        #    12 mm  outer 1659 + inner 573 = 2455 mm2   (O56)  +44%
-        #    16 mm  outer 2413 + inner 581 = 3217 mm2   (O64)  +88%
-        # 16 is not worth it at brim_object_gap 0: the brim is WELDED to the part,
-        # and a fused O64 skirt on a O32 tube is chisel work.
+        # Since 56407da the cable end is the COLLAR -- O25.5 (O25.7 now), 12 mm
+        # deep, H7, reamed -- and the cap's spigot goes INTO it with an O-ring.
+        # It is the most precision-critical surface on the part.
         #
-        # THIS IS BELT-AND-BRACES, NOT THE FIX. The 2026-09-05 failure at layer
-        # 928 was a directional thermal gradient (the printer stood in direct
-        # sun, since moved into a closed room), and its contributing cause --
-        # Bambu's default brim_object_gap 0.1, which parked 581 mm2 of brim
-        # BESIDE the part instead of attaching it -- is the "0" above. The tower
-        # also lost 12.2 mm of height (146.6 -> 134.4) when the head's neck went.
-        monobody) echo '{"brim_object_gap":"0","brim_type":"outer_and_inner","brim_width":"12"}' ;;
+        # An inner brim of width 12 in a O25.5 hole does not ring the bore, it
+        # FILLS it: brim_width 12 > the 12.75 mm bore radius, so it runs from
+        # r=12.52 all the way to r=1.09. Measured off print/monobody/plate_1.gcode
+        # (2026-09-06): 1601 extruding points on layer 1, a 0.2 mm disc O25.64
+        # across the bore, WELDED at brim_object_gap 0. The cap's O25.2 spigot
+        # cannot enter a plugged bore, and that is exactly what happened.
+        #
+        # So: OUTER ONLY, and the width goes 12 -> 16 to buy the area back.
+        # print.sh used to reject 16 because "a fused O64 skirt on a O32 tube is
+        # chisel work" -- true, and cheap chisel work on the OUTSIDE of a part,
+        # against a fused disc in the one bore that has to finish at H7:
+        #     was  12 mm  outer 1659 + inner  573 = 2455 mm2
+        #     now  16 mm  outer 2413 + inner    0 = 2413 mm2   (-1.7%)
+        # The bond area is the same to within noise and nothing lands in the bore.
+        #
+        # THIS IS BELT-AND-BRACES, NOT THE FIX for lifting. The 2026-09-05
+        # failure at layer 928 was a directional thermal gradient (the printer
+        # stood in direct sun, since moved into a closed room), and its
+        # contributing cause -- Bambu's default brim_object_gap 0.1, which parked
+        # 581 mm2 of brim BESIDE the part instead of attaching it -- is the "0"
+        # below. The tower also lost 12.2 mm of height (146.6 -> 134.4) when the
+        # head's neck went.
+        monobody) echo '{"brim_object_gap":"0","brim_type":"outer_only","brim_width":"16"}' ;;
         # The carrier prints wet-face-DOWN, so its z=0 IS the membrane sealing
         # land: any fused brim scars the surface the seal is made on. Stay
         # outside and keep the gap.
@@ -144,7 +161,7 @@ part_process_overrides() {
         # is unprintable, so the roof had nothing to land on. The pocket moved
         # to the cap's INNER face and the overhang is gone from the plate
         # entirely. These overrides stay for the seat roof.
-        cap)      echo '{"bridge_speed":["25","25"],"internal_bridge_speed":"25"}' ;;
+        cap|cap-fit) echo '{"bridge_speed":["25","25"],"internal_bridge_speed":"25"}' ;;
         *)        echo '{}' ;;
     esac
 }
@@ -244,10 +261,68 @@ WIPE_TEMP="${WIPE_TEMP:-270}"
 
 die() { echo "error: $*" >&2; exit 1; }
 
+# ------------------------------------------------------------------ notify
+#
+# A 4 h print that fails at layer 928 and says so only to a scrollback nobody is
+# reading is a wasted afternoon; that is exactly how the 2026-09-05 monobody was
+# lost. So a job ends with a desktop notification either way.
+#
+# THE VERDICT COMES FROM p1p-watch, NOT FROM THIS SCRIPT. ~/dev/ee/p1p/bin/
+# _watch.py already distinguishes the five terminal states that matter -- FINISH,
+# FAULT, STOPPED, PAUSE (resumable, reported immediately) and the SILENT ABORT
+# where the printer goes IDLE at 0 % having printed nothing -- and its own
+# docstring records that treating IDLE as "done" reports success for a job that
+# printed nothing. Reimplementing that here would get it wrong a second time.
+# Exit 0 is success; anything else is a failure whose reason is on stdout.
+#
+# NEVER SILENT ON FAILURE. If the notifier itself cannot run, say so on the
+# terminal rather than swallowing it -- an unraised alarm looks exactly like a
+# print that is still going.
+notify() {
+    local title=$1 msg=$2 sound=${3:-Ping}
+    if command -v terminal-notifier >/dev/null 2>&1; then
+        terminal-notifier -title "$title" -message "$msg" \
+                          -sound "$sound" -group o2probe-print >/dev/null \
+            && return 0
+    fi
+    osascript -e "display notification \"${msg//\"/\\\"}\" with title \"$title\" sound name \"$sound\"" >/dev/null 2>&1 \
+        && return 0
+    echo "  (could not raise a desktop notification -- $title: $msg)" >&2
+}
+
+# Watch the RUNNING job to a verdict and notify. Blocks; that is the point.
+# p1p-watch has to see the job active before it will believe a FINISH (a FINISH
+# seen before it ever saw the job running may be the PREVIOUS job), so this is
+# only meaningful once the print has actually lifted off.
+cmd_watch() {
+    local part=${1:-} label out rc
+    label=${part:+ $part}
+    echo "watching the printer for a verdict$label (Ctrl-C to stop watching; the print carries on)"
+    set +e
+    out=$("$P1P/p1p-watch" "${WATCH_POLLS:-960}" "${WATCH_INTERVAL:-30}" 2>&1)
+    rc=$?
+    set -e
+    if [[ $rc -eq 0 ]]; then
+        echo "$out"
+        notify "P1P finished${label}" "${out:-FINISH} -- the plate is NOT known to be clear" Glass
+    else
+        echo "$out" >&2
+        # Hero, not Ping: this one is meant to be heard from another room.
+        notify "P1P FAILED${label}" "${out:-no verdict}" Hero
+    fi
+    return $rc
+}
+
 part_stl() {
     case "$1" in
         monobody) echo exports/body-monobody.stl ;;
         cap)      echo exports/body-cap-print.stl ;;   # gland face DOWN; body-cap.stl would bridge its own roof
+        # A CAP CUT TO ONE MEASURED TUBE, not to the drawing. Built by
+        # `make cap-fit BORE=<measured>`; see the waiver note in
+        # o2_probe_body_tube.scad. It is a different part number on purpose --
+        # it will NOT fit a tube reamed to the drawing, and a spare that gets
+        # mixed in with the generic caps is a bad afternoon.
+        cap-fit)  echo exports/body-cap-fit.stl ;;
         dam)      echo exports/body-dam.stl ;;
         # The head-end seal parts, printed ASA, clamped membrane bed. Both are
         # the *-print orientation and neither may share a plate: they carry the
@@ -398,7 +473,28 @@ case "${1:-}" in
     upload) shift; [[ $# -eq 1 ]] || die "upload takes one part"
             "$P1P/p1p-upload" "print/$1/o2probe-$1.gcode.3mf" ;;
     start)  shift; [[ $# -eq 1 ]] || die "start takes one part"
-            "$P1P/p1p-start" "o2probe-$1.gcode.3mf" ;;
+            "$P1P/p1p-start" "o2probe-$1.gcode.3mf"
+            # Lift-off has happened by here, so the watcher can arm on a job it
+            # has seen running. Detached, so the terminal comes back: a 4 h
+            # print should not hold a shell hostage to get a notification out of
+            # it. NOTIFY=0 opts out; `./print.sh watch` does it in-terminal.
+            #
+            # nohup, not setsid -- setsid does not exist on macOS and a launcher
+            # built on it fails with "command not found", leaving no process and
+            # a log that looks exactly like a watcher that started and died.
+            if [[ ${NOTIFY:-1} != 0 ]]; then
+                mkdir -p "print/$1"
+                log="print/$1/watch.log"
+                nohup "${BASH_SOURCE[0]}" watch "$1" >"$log" 2>&1 &
+                echo "  watching for the verdict in the background (pid $!, log $log)"
+                echo "  a notification will pop on finish OR failure. NOTIFY=0 to skip."
+            fi ;;
+    watch)  shift; cmd_watch "${1:-}" ;;
+    notify-test) shift
+            # Because "the notification did not appear" and "the print is still
+            # going" look identical, and only one of them is a problem.
+            notify "P1P notification test" "If you can see this, notifications work." Ping
+            echo "sent. If nothing appeared, check System Settings > Notifications." ;;
     status) "$P1P/p1p-status" ;;
     *)      sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac

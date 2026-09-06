@@ -47,7 +47,10 @@ case "$part" in
     # same walls and layers for the same reason as fastener-coupon: it measures
     # how a slot comes out IN THE PROCESS THE TUBE IS PRINTED IN, and a coupon
     # sliced at other settings answers a question nobody asked.
-    monobody|cap|dam|carrier|retainer|fastener-coupon|fit-coupon) ;;
+    # cap-fit is the cap, cut to one measured tube. Same geometry class, same
+    # bridges, same brim rules -- so it is checked exactly as `cap` is, and it
+    # is named separately only so the PART is traceable, never to soften a rule.
+    monobody|cap|cap-fit|dam|carrier|retainer|fastener-coupon|fit-coupon) ;;
     "") fail "no --part given; the brim rules are part-specific and cannot be inferred from the G-code" ;;
     *)  fail "unknown --part '$part'" ;;
 esac
@@ -93,8 +96,17 @@ num filament_flow_ratio 1.00 1.02 "0.95 is deliberate under-extrusion; 85-90% al
 # But the correct value is OPPOSITE for different parts on this same profile,
 # which is why --part is mandatory:
 #
-#   monobody  h/d 4.58, and its bore at z=0 mates with nothing (the cap skirt
-#             goes OVER the tube). Fuse the brim, and put one in the bore.
+#   monobody  h/d 4.58, so it needs a fused brim -- but its bore at z=0 is the
+#             SEAL BORE and nothing may be printed in it. This rule used to read
+#             "its bore at z=0 mates with nothing (the cap skirt goes OVER the
+#             tube). Fuse the brim, and put one in the bore." That was true of a
+#             plain O27.2 cable end and became false at 56407da, when the cable
+#             end became the O25.5 collar the cap's spigot enters on an O-ring.
+#             The rule did not move with the part, so THIS CHECK REQUIRED THE
+#             DEFECT: brim_width 12 in a O25.5 bore is wider than its 12.75 mm
+#             radius, so the inner brim filled the bore with a welded 0.2 mm
+#             disc and the cap would not go on (measured 2026-09-06, 1601 points
+#             on layer 1 of print/monobody/plate_1.gcode). Outer only now.
 #   carrier   prints WET FACE DOWN, so z=0 IS the membrane sealing land. A fused
 #             brim cannot be removed without scarring the surface the seal is
 #             made on, and an inner brim lands on the O16 aperture rim and the
@@ -105,7 +117,7 @@ case "$part" in
     monobody)
         num brim_width 6 99 "h/d 4.58 in ASA is a warp and tip candidate"
         eq  brim_object_gap 0 "a brim with a gap is not holding the part down"
-        eq  brim_type outer_and_inner "the bore at z=0 mates with nothing -- use it"
+        eq  brim_type outer_only "the bore at z=0 is the O-ring seal bore -- an inner brim FILLS it and the cap will not go on"
         ;;
     carrier|retainer)
         num brim_width 3 99 "some brim, but it must stay removable"
@@ -198,5 +210,12 @@ NOZZLE
 awk -v v="$eff" 'BEGIN{exit !(v+0 >= 265 && v+0 <= 280)}' \
     || fail "nozzle target at first extrusion is ${eff}C, wanted 265-280 (the wipe runs 20 below it)"
 echo "  nozzle at first extrusion = ${eff}C"
+
+# GEOMETRY, not settings. Everything above this line reads the header and trusts
+# that the named settings produce the intended part. The 2026-09-06 monobody
+# proves that is not enough: its header was correct by the rules in force, and
+# the bore was still plugged. This asks where the extruder actually went.
+python3 "$(dirname "$0")/bore_clear.py" "$g" --part "$part" \
+    || fail "something is printed inside the cable-end seal bore (see above)"
 
 echo "seal-check OK"
