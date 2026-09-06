@@ -52,7 +52,25 @@
  * and the defaults put HEATER_MAX_DUTY at 0, i.e. heater off. The fail-safe
  * direction of a layout change is therefore "no heat", which is the only
  * direction it is allowed to fail in. */
-#define CONFIG_LAYOUT_VERSION 2u
+/* 3: added assumed_p_hpa / cal_air_frac_x1000 (registers 0x0042/0x0043) for
+ * the water-vapour correction, and with them a CHANGE OF MEANING that a
+ * silent migration would get wrong.
+ *
+ * A version-2 record's cal_air_na was taken under the old assumption that the
+ * air point sat in DRY air. It did not - it sat in moist room air - so K was
+ * 1-2 % high, by an amount that depended on a humidity nobody recorded. That
+ * humidity is not recoverable from the stored record, so there is no
+ * migration that can be honest: any value this firmware invented for
+ * cal_air_frac_x1000 would be a guess wearing a calibration's units.
+ *
+ * So the bump DISCARDS the old record, as it always has. The probe comes up
+ * on defaults, which means cal_air_na = 0, which means CAL_DEFAULT, which
+ * means O2_COMP publishes the sentinel until someone takes a fresh air point.
+ * RECALIBRATION IS REQUIRED after this firmware update; the alternative was
+ * carrying a 1-2 % bias forward under a version number that claimed to have
+ * removed it. The defaults also still put HEATER_MAX_DUTY at 0, so the
+ * fail-safe direction of a layout change remains "no heat". */
+#define CONFIG_LAYOUT_VERSION 3u
 
 /* Fixed 64-byte record, so the layout does not move when a config field is
  * added and the flash image stays recognisable across firmware versions. */

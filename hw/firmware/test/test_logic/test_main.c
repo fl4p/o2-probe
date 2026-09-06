@@ -175,7 +175,7 @@ static void test_config_struct_has_no_implicit_padding(void)
     /* The struct is written to flash byte-for-byte and hashed with a CRC.
      * Padding the compiler may leave uninitialised would make that CRC
      * non-deterministic and produce spurious "corrupt config" at boot. */
-    TEST_ASSERT_EQUAL_UINT(sizeof(int32_t) + 9 * sizeof(uint16_t) + 6,
+    TEST_ASSERT_EQUAL_UINT(sizeof(int32_t) + 11 * sizeof(uint16_t) + 6,
                            sizeof(o2p_config_t));
 }
 
@@ -271,11 +271,39 @@ static void test_measurement_registers_are_not_writable(void)
 
 /* ------------------------------------------------------- oxygen the maths */
 
+/* Standard sea-level pressure. Every row of the table in
+ * O2-HUMIDITY-CORRECTION.md section 2 is computed at this P, so the vapour
+ * vectors below reproduce those numbers exactly. */
+#define TEST_P_HPA 1013.25f
+
+static o2p_gas_t gas_at(float t_c, float rh_pct, float p_hpa)
+{
+    o2p_gas_t g;
+    g.rh_pct = rh_pct;
+    g.t_c = t_c;
+    g.p_hpa = p_hpa;
+    g.valid = true;
+    return g;
+}
+
+/* Bone-dry air. The vapour correction must be EXACTLY a no-op here, which is
+ * also what keeps every pre-existing oxygen test meaning what it used to. */
+static o2p_gas_t dry_air(void)
+{
+    return gas_at(25.0f, 0.0f, TEST_P_HPA);
+}
+
+static bool cal_air_dry(o2p_cal_t *cal, int32_t na, int16_t t100)
+{
+    o2p_gas_t g = dry_air();
+    return o2p_calibrate_air(cal, na, t100, &g);
+}
+
 static void test_air_calibration_round_trips(void)
 {
     o2p_cal_t cal = {0};
     cal.tempco_per_k = 0.0f;
-    TEST_ASSERT_TRUE(o2p_calibrate_air(&cal, 70000, 2500));
+    TEST_ASSERT_TRUE(cal_air_dry(&cal, 70000, 2500));
 
     float c = 0;
     TEST_ASSERT_EQUAL(O2P_OK, o2p_fraction_from_current(&cal, 70000, 2500, &c));
@@ -304,7 +332,7 @@ static void test_inverted_cell_polarity_is_reported_not_clamped(void)
      * (SCHEMATIC-REVIEW.md M4). A negative current must surface as RANGE so
      * the bench sees it, not be clamped to a comfortable 0.00 %vol. */
     o2p_cal_t cal = {0};
-    TEST_ASSERT_TRUE(o2p_calibrate_air(&cal, 70000, 2500));
+    TEST_ASSERT_TRUE(cal_air_dry(&cal, 70000, 2500));
     float c = 0;
     TEST_ASSERT_EQUAL(O2P_RANGE, o2p_fraction_from_current(&cal, -70000, 2500, &c));
     TEST_ASSERT_TRUE(c < 0.0f);
@@ -314,7 +342,7 @@ static void test_inverted_cell_polarity_is_reported_not_clamped(void)
 static void test_overrange_is_not_clamped_into_plausibility(void)
 {
     o2p_cal_t cal = {0};
-    TEST_ASSERT_TRUE(o2p_calibrate_air(&cal, 70000, 2500));
+    TEST_ASSERT_TRUE(cal_air_dry(&cal, 70000, 2500));
     float c = 0;
     /* Far above the cell's 30 % overload limit. */
     TEST_ASSERT_EQUAL(O2P_RANGE, o2p_fraction_from_current(&cal, 190000, 2500, &c));
@@ -326,7 +354,7 @@ static void test_monotonic_across_the_whole_range(void)
     /* As the cell current worsens toward zero the reported oxygen must fall
      * monotonically and never flip back into a plausible mid-range value. */
     o2p_cal_t cal = {0};
-    TEST_ASSERT_TRUE(o2p_calibrate_air(&cal, 70000, 2500));
+    TEST_ASSERT_TRUE(cal_air_dry(&cal, 70000, 2500));
     float prev = 1e9f;
     for (int32_t na = 100000; na >= 0; na -= 1000) {
         float c = 0;
@@ -340,7 +368,7 @@ static void test_monotonic_across_the_whole_range(void)
 static void test_absurd_tempco_cannot_produce_a_number(void)
 {
     o2p_cal_t cal = {0};
-    TEST_ASSERT_TRUE(o2p_calibrate_air(&cal, 70000, 2500));
+    TEST_ASSERT_TRUE(cal_air_dry(&cal, 70000, 2500));
     cal.tempco_per_k = -0.05f;          /* drives the gain through zero at +20 K */
     float c = 0;
     TEST_ASSERT_EQUAL(O2P_UNEVALUABLE,
@@ -386,9 +414,9 @@ static void test_implausible_air_point_is_rejected(void)
     /* A calibration taken in nitrogen, or with the cell unplugged, must not
      * overwrite a good one. */
     o2p_cal_t cal = {0};
-    TEST_ASSERT_TRUE(o2p_calibrate_air(&cal, 70000, 2500));
-    TEST_ASSERT_FALSE(o2p_calibrate_air(&cal, 200, 2500));
-    TEST_ASSERT_FALSE(o2p_calibrate_air(&cal, 900000, 2500));
+    TEST_ASSERT_TRUE(cal_air_dry(&cal, 70000, 2500));
+    TEST_ASSERT_FALSE(cal_air_dry(&cal, 200, 2500));
+    TEST_ASSERT_FALSE(cal_air_dry(&cal, 900000, 2500));
     TEST_ASSERT_EQUAL_INT32(70000, cal.cal_air_na);
 }
 
@@ -518,14 +546,15 @@ static void test_gain_registers_read_back_what_was_written(void)
 
 static void test_config_block_read_covers_the_gains(void)
 {
-    /* The block grew from 16 to 18 registers. A read of all 18 must succeed;
-     * 19 must not, or the boundary rule has quietly stopped being enforced. */
+    /* The block grew from 16 to 18 registers with the gains, and to 20 with
+     * ASSUMED_P_HPA and CAL_AIR_FRAC. A read of all 20 must succeed; 21 must
+     * not, or the boundary rule has quietly stopped being enforced. */
     uint8_t req[16], rsp[O2P_MB_MAX_ADU];
-    const uint8_t all[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x12};
+    const uint8_t all[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x14};
     size_t n = framed(req, all, sizeof(all));
-    TEST_ASSERT_EQUAL_UINT(3 + 36 + 2, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
+    TEST_ASSERT_EQUAL_UINT(3 + 40 + 2, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
 
-    const uint8_t over[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x13};
+    const uint8_t over[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x15};
     n = framed(req, over, sizeof(over));
     o2p_mb_dispatch(req, n, 3, &handlers, rsp);
     TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS, rsp[2]);
@@ -594,6 +623,390 @@ static void test_snapshot_is_invalid_before_the_first_sample(void)
     TEST_ASSERT_EQUAL_UINT16(O2P_U16_INVALID, s->rh_chamber);
     TEST_ASSERT_TRUE((s->faults & O2P_F_SETTLING) != 0);
     TEST_ASSERT_FALSE(o2p_o2_valid(s->faults));
+}
+
+
+/* ------------------------------------------------- oxygen: water vapour
+ *
+ * Every vector here comes from O2-HUMIDITY-CORRECTION.md, which is the spec
+ * for this correction: section 2's table, section 3b's calibration bias,
+ * section 1's bench observation, and section 5's guard rules. The document
+ * computes its table at standard sea-level pressure, so TEST_P_HPA does too;
+ * the numbers below are the document's own, to the digit it prints.
+ */
+
+static void test_vapour_table_from_the_spec(void)
+{
+    /* "reads" in the section 2 table is the oxygen fraction actually PRESENT
+     * in fully aerated air at that condition - the thing a wet-basis channel
+     * publishes and the thing the correction has to undo. */
+    static const struct { float t, rh, reads; } row[] = {
+        {25.0f,  50.0f, 20.620f},
+        {25.0f, 100.0f, 20.293f},
+        {40.0f, 100.0f, 19.424f},
+        {60.0f, 100.0f, 16.815f},   /* the operating point: -19.7 % */
+        {75.0f, 100.0f, 12.902f},   /* the excursion, beyond the Magnus fit */
+    };
+    /* The tolerance is the DOCUMENT'S rounding, not slack in the code: the
+     * table prints three decimals of %vol derived from a p_w printed to two
+     * decimals of kPa, so its 19.424 is this arithmetic's 19.42299 and its
+     * 12.902 is 12.89838. Five millivol still separates rows that are two
+     * whole %vol apart, so nothing is being waved through - and if the
+     * correction were dropped entirely, every row would be out by 0.3 to 8
+     * %vol, three orders of magnitude past this. */
+    for (unsigned i = 0; i < sizeof(row) / sizeof(row[0]); i++) {
+        o2p_gas_t g = gas_at(row[i].t, row[i].rh, TEST_P_HPA);
+        float c = 0.0f;
+        TEST_ASSERT_EQUAL(O2P_OK, o2p_air_fraction(&g, &c));
+        TEST_ASSERT_FLOAT_WITHIN(0.005f, row[i].reads, c * 100.0f);
+
+        /* And the correction is the exact inverse: wet -> dry recovers dry
+         * air, which is the whole claim. */
+        float dry_c = 0.0f;
+        TEST_ASSERT_EQUAL(O2P_OK, o2p_dry_from_wet(&g, c, &dry_c));
+        TEST_ASSERT_FLOAT_WITHIN(0.00002f, O2P_C_AIR, dry_c);
+    }
+}
+
+static void test_dry_air_correction_is_exactly_a_no_op(void)
+{
+    /* 0 %RH: p_w is exactly zero, the factor is exactly one. Not "close to" -
+     * a special case for zero would be a branch that could rot, so this must
+     * hold bit-for-bit through the general path. */
+    o2p_gas_t g = dry_air();
+    float c = 0.0f;
+    TEST_ASSERT_EQUAL(O2P_OK, o2p_dry_from_wet(&g, 0.20946f, &c));
+    TEST_ASSERT_EQUAL_FLOAT(0.20946f, c);
+
+    float pw = 12345.0f;
+    TEST_ASSERT_EQUAL(O2P_OK, o2p_vapour_pressure_hpa(&g, &pw));
+    TEST_ASSERT_EQUAL_FLOAT(0.0f, pw);
+
+    /* At every temperature, including ones where saturated air is a huge
+     * correction. Dryness, not coldness, is what makes it a no-op. */
+    for (float t = -20.0f; t <= O2P_VAPOUR_T_MAX_C; t += 5.0f) {
+        o2p_gas_t d = gas_at(t, 0.0f, TEST_P_HPA);
+        float x = 0.0f;
+        TEST_ASSERT_EQUAL(O2P_OK, o2p_dry_from_wet(&d, 0.15f, &x));
+        TEST_ASSERT_EQUAL_FLOAT(0.15f, x);
+    }
+}
+
+static void test_calibration_in_moist_air_rescales_k(void)
+{
+    /* Section 3b. The air point is taken in ambient room air, which is moist;
+     * attributing that current to dry 20.946 % makes K too small and every
+     * later reading too large, by an amount nobody ever sees because it is
+     * baked in. The three rows are the document's. */
+    static const struct { float t, rh, c_true, k_err_pct; } row[] = {
+        {23.4f, 42.3f, 0.2070f, 1.37f},   /* the air point this bench took */
+        {25.0f, 60.0f, 0.2055f, 2.15f},
+        {20.0f, 80.0f, 0.2056f, 2.11f},
+    };
+    for (unsigned i = 0; i < sizeof(row) / sizeof(row[0]); i++) {
+        o2p_gas_t g = gas_at(row[i].t, row[i].rh, TEST_P_HPA);
+        o2p_cal_t cal = {0};
+        TEST_ASSERT_TRUE(o2p_calibrate_air(&cal, 70000, 2340, &g));
+        TEST_ASSERT_FLOAT_WITHIN(0.0001f, row[i].c_true, cal.air_frac);
+
+        /* K = S_air / ln(1/(1-C)). The old code used the dry C for every air
+         * point; the error that introduces is what the table quotes. */
+        float k_true = 70000.0f / logf(1.0f / (1.0f - cal.air_frac));
+        float k_dry  = 70000.0f / O2P_LN_AIR;
+        TEST_ASSERT_FLOAT_WITHIN(0.02f, row[i].k_err_pct,
+                                 (k_true / k_dry - 1.0f) * 100.0f);
+
+        /* And the round trip closes: the cell current recorded at the air
+         * point converts back to the fraction that was actually there, and
+         * the correction lifts that to dry air. */
+        float c_wet = 0.0f;
+        TEST_ASSERT_EQUAL(O2P_OK,
+                          o2p_fraction_from_current(&cal, 70000, 2340, &c_wet));
+        TEST_ASSERT_FLOAT_WITHIN(0.0002f, row[i].c_true, c_wet);
+        float c_dry = 0.0f;
+        TEST_ASSERT_EQUAL(O2P_OK,
+                          o2p_dry_fraction_from_current(&cal, 70000, 2340, &g,
+                                                        &c_dry));
+        TEST_ASSERT_FLOAT_WITHIN(0.0002f, O2P_C_AIR, c_dry);
+    }
+}
+
+static void test_bench_humidity_step_no_longer_moves_the_channel(void)
+{
+    /* Section 1, measured 2026-09-06 with the probe undisturbed and no fault
+     * flags: raising a closed chamber from 42.3 %RH / 23.4 C to 63.9 %RH /
+     * 25.0 C moved the raw cell current from 100.20 to 99.68 uA, and moved
+     * the published oxygen by -0.48 %.
+     *
+     * Calibrate at the first point - the chamber is aerated room air - and
+     * the second point must come back to the same dry-basis number. */
+    o2p_gas_t g1 = gas_at(23.4f, 42.3f, TEST_P_HPA);
+    o2p_gas_t g2 = gas_at(25.0f, 63.9f, TEST_P_HPA);
+
+    o2p_cal_t cal = {0};
+    /* The cell's own temperature coefficient, ~+0.2 %/K, which section 1
+     * identifies as the rest of the observed step. It is a shipped default of
+     * ZERO in the firmware because SGX publishes no curve, so this test also
+     * shows what that costs: with it, the corrected channel is flat; without
+     * it, what remains is the tempco and not the humidity. */
+    cal.tempco_per_k = 0.002f;
+    TEST_ASSERT_TRUE(o2p_calibrate_air(&cal, 100200, 2340, &g1));
+
+    float wet1 = 0.0f, wet2 = 0.0f;
+    TEST_ASSERT_EQUAL(O2P_OK,
+                      o2p_fraction_from_current(&cal, 100200, 2340, &wet1));
+    TEST_ASSERT_EQUAL(O2P_OK,
+                      o2p_fraction_from_current(&cal, 99680, 2500, &wet2));
+    /* The uncorrected channel moves, and by about what was seen. */
+    TEST_ASSERT_TRUE((wet1 - wet2) * 100.0f > 0.05f);
+
+    float dry1 = 0.0f, dry2 = 0.0f;
+    TEST_ASSERT_EQUAL(O2P_OK,
+                      o2p_dry_fraction_from_current(&cal, 100200, 2340, &g1,
+                                                    &dry1));
+    TEST_ASSERT_EQUAL(O2P_OK,
+                      o2p_dry_fraction_from_current(&cal, 99680, 2500, &g2,
+                                                    &dry2));
+    /* 0.02 %vol is two counts of the published register and well inside the
+     * ~0.1 %vol the raw channel resolves. The uncorrected pair above is five
+     * times that. */
+    TEST_ASSERT_FLOAT_WITHIN(0.0002f, dry1, dry2);
+    TEST_ASSERT_FLOAT_WITHIN(0.0002f, O2P_C_AIR, dry1);
+}
+
+static void test_vapour_correction_fails_closed(void)
+{
+    o2p_cal_t cal = {0};
+    o2p_gas_t good = gas_at(25.0f, 50.0f, TEST_P_HPA);
+    TEST_ASSERT_TRUE(o2p_calibrate_air(&cal, 70000, 2500, &good));
+
+    float c = 12345.0f;
+
+    /* The SHT45 did not deliver this cycle. There is no RH and no chamber
+     * temperature, and the ONLY acceptable answer is the sentinel: falling
+     * through to the wet-basis number while still calling it corrected is the
+     * failure this whole file is against. */
+    o2p_gas_t none = gas_at(25.0f, 50.0f, TEST_P_HPA);
+    none.valid = false;
+    TEST_ASSERT_EQUAL(O2P_UNEVALUABLE, o2p_dry_from_wet(&none, 0.20f, &c));
+    TEST_ASSERT_EQUAL(O2P_UNEVALUABLE,
+                      o2p_dry_fraction_from_current(&cal, 70000, 2500, &none, &c));
+    TEST_ASSERT_EQUAL_UINT16(O2P_U16_INVALID,
+                             o2p_encode_percent(O2P_UNEVALUABLE, c));
+    TEST_ASSERT_EQUAL_FLOAT(12345.0f, c);   /* nothing was written */
+
+    /* A humidity that is not a humidity. 0 %RH is legal (and a no-op);
+     * negative and >100 are sensor faults, not dry air. */
+    o2p_gas_t bad_rh = gas_at(25.0f, -1.0f, TEST_P_HPA);
+    TEST_ASSERT_EQUAL(O2P_UNEVALUABLE, o2p_dry_from_wet(&bad_rh, 0.20f, &c));
+    bad_rh.rh_pct = 101.0f;
+    TEST_ASSERT_EQUAL(O2P_UNEVALUABLE, o2p_dry_from_wet(&bad_rh, 0.20f, &c));
+
+    /* Temperature sentinel. O2P_I16_INVALID is 0x8000, i.e. -327.68 C once
+     * scaled, which is below the Magnus singularity; a NaN gets there from
+     * the same place by another route. */
+    o2p_gas_t bad_t = gas_at((float)O2P_I16_INVALID * 0.01f, 50.0f, TEST_P_HPA);
+    TEST_ASSERT_EQUAL(O2P_UNEVALUABLE, o2p_dry_from_wet(&bad_t, 0.20f, &c));
+    bad_t.t_c = NAN;
+    TEST_ASSERT_EQUAL(O2P_UNEVALUABLE, o2p_dry_from_wet(&bad_t, 0.20f, &c));
+
+    /* P of zero - which is exactly what PRESSURE_HPA publishes with the
+     * BMP390 DNP, so this is the case a missing ASSUMED_P_HPA would hit. It
+     * must not divide by it and must not assume a standard atmosphere. */
+    o2p_gas_t no_p = gas_at(25.0f, 50.0f, 0.0f);
+    TEST_ASSERT_EQUAL(O2P_UNEVALUABLE, o2p_dry_from_wet(&no_p, 0.20f, &c));
+    TEST_ASSERT_EQUAL(O2P_UNEVALUABLE, o2p_air_fraction(&no_p, &c));
+    TEST_ASSERT_FALSE(o2p_calibrate_air(&cal, 70000, 2500, &no_p));
+    /* ...and the refused calibration left the good one standing. */
+    TEST_ASSERT_EQUAL_INT32(70000, cal.cal_air_na);
+
+    /* An air point taken with no humidity reading is refused outright rather
+     * than stored against an assumed dry atmosphere: that assumption IS the
+     * 1-2 % bias in K, and it would be permanent. */
+    TEST_ASSERT_FALSE(o2p_calibrate_air(&cal, 70000, 2500, &none));
+    TEST_ASSERT_FALSE(o2p_calibrate_air(&cal, 70000, 2500, NULL));
+
+    /* An unknown air fraction cannot convert either. A stored calibration
+     * from before this change has cal_air_na but no fraction, and it must
+     * produce the sentinel rather than a 1-2 %-biased number. */
+    o2p_cal_t stale = {0};
+    stale.cal_air_na = 70000;
+    stale.cal_temp_c100 = 2500;
+    stale.air_frac = 0.0f;
+    TEST_ASSERT_EQUAL(O2P_UNEVALUABLE,
+                      o2p_fraction_from_current(&stale, 70000, 2500, &c));
+}
+
+static void test_vapour_correction_is_monotonic(void)
+{
+    /* As the gas gets wetter, the dry-basis answer must rise and keep rising.
+     * A correction that folds back would read as the pile RE-aerating exactly
+     * when it is hottest and wettest. Swept to 100 %RH and to 75 C, not just
+     * near room conditions. */
+    for (float t = 0.0f; t <= 75.0f; t += 5.0f) {
+        float prev = -1.0f;
+        for (float rh = 0.0f; rh <= 100.0f; rh += 1.0f) {
+            o2p_gas_t g = gas_at(t, rh, TEST_P_HPA);
+            float c = 0.0f;
+            TEST_ASSERT_EQUAL(O2P_OK, o2p_dry_from_wet(&g, 0.16f, &c));
+            TEST_ASSERT_TRUE(c >= prev);
+            prev = c;
+        }
+    }
+    /* And monotonic in temperature at fixed humidity, for the same reason. */
+    float prev = -1.0f;
+    for (float t = 0.0f; t <= 75.0f; t += 1.0f) {
+        o2p_gas_t g = gas_at(t, 100.0f, TEST_P_HPA);
+        float c = 0.0f;
+        TEST_ASSERT_EQUAL(O2P_OK, o2p_dry_from_wet(&g, 0.16f, &c));
+        TEST_ASSERT_TRUE(c >= prev);
+        prev = c;
+    }
+    /* Monotonic in pressure too: less total pressure, more of it water, more
+     * correction. */
+    prev = -1.0f;
+    for (float p = (float)O2P_P_HPA_MAX; p >= (float)O2P_P_HPA_MIN; p -= 10.0f) {
+        o2p_gas_t g = gas_at(50.0f, 90.0f, p);
+        float c = 0.0f;
+        TEST_ASSERT_EQUAL(O2P_OK, o2p_dry_from_wet(&g, 0.16f, &c));
+        TEST_ASSERT_TRUE(c >= prev);
+        prev = c;
+    }
+}
+
+static void test_vapour_correction_is_bounded_not_infinite(void)
+{
+    float c = 999.0f;
+    /* Beyond the temperature ceiling the Magnus fit is extrapolation and the
+     * correction is no longer small. Refused, not clamped, and refused for
+     * every humidity above zero - and it must STAY refused as the input gets
+     * worse rather than coming back with a number. */
+    for (float t = O2P_VAPOUR_T_MAX_C + 0.1f; t <= 200.0f; t += 5.0f) {
+        o2p_gas_t g = gas_at(t, 100.0f, TEST_P_HPA);
+        TEST_ASSERT_EQUAL(O2P_UNEVALUABLE, o2p_dry_from_wet(&g, 0.16f, &c));
+        TEST_ASSERT_EQUAL(O2P_UNEVALUABLE, o2p_air_fraction(&g, &c));
+    }
+    TEST_ASSERT_EQUAL_FLOAT(999.0f, c);
+
+    /* p_w approaching P sends P/(P-p_w) to infinity. At a thin 500 hPa the
+     * vapour bound bites well before the temperature one does, so both guards
+     * are exercised. */
+    o2p_gas_t thin = gas_at(75.0f, 100.0f, (float)O2P_P_HPA_MIN);
+    TEST_ASSERT_EQUAL(O2P_UNEVALUABLE, o2p_dry_from_wet(&thin, 0.16f, &c));
+    TEST_ASSERT_EQUAL_FLOAT(999.0f, c);
+
+    /* Just inside the bound the correction is large but finite, and it is
+     * still a correction rather than a clamp. */
+    o2p_gas_t hot = gas_at(75.0f, 100.0f, TEST_P_HPA);
+    float ok = 0.0f;
+    TEST_ASSERT_EQUAL(O2P_OK, o2p_dry_from_wet(&hot, 0.12898f, &ok));
+    TEST_ASSERT_FLOAT_WITHIN(0.0005f, O2P_C_AIR, ok);
+
+    /* A pressure outside the register's window is not a pressure. */
+    o2p_gas_t low = gas_at(25.0f, 50.0f, (float)O2P_P_HPA_MIN - 1.0f);
+    TEST_ASSERT_EQUAL(O2P_UNEVALUABLE, o2p_dry_from_wet(&low, 0.16f, &c));
+    o2p_gas_t high = gas_at(25.0f, 50.0f, (float)O2P_P_HPA_MAX + 1.0f);
+    TEST_ASSERT_EQUAL(O2P_UNEVALUABLE, o2p_dry_from_wet(&high, 0.16f, &c));
+
+    /* And the correction can carry a wet reading that is INSIDE the cell's
+     * rated window out of it: 27.0 %vol wet at 60 C saturated is 33.7 %vol
+     * dry. The window belongs to the published number, so that is a RANGE
+     * result - the sentinel - and not a clamp into plausibility. */
+    o2p_cal_t cal = {0};
+    o2p_gas_t g = gas_at(60.0f, 100.0f, TEST_P_HPA);
+    TEST_ASSERT_TRUE(o2p_calibrate_air(&cal, 70000, 6000, &g));
+    float big = 0.0f;
+    o2p_status_t st = o2p_dry_fraction_from_current(&cal, 120000, 6000, &g, &big);
+    TEST_ASSERT_EQUAL(O2P_RANGE, st);
+    TEST_ASSERT_EQUAL_UINT16(O2P_U16_INVALID, o2p_encode_percent(st, big));
+}
+
+static void test_pressure_and_air_fraction_registers_are_bounded(void)
+{
+    /* ASSUMED_P_HPA scales oxygen directly - sea level to 715 m is 8 % - so
+     * an out-of-range write must be refused rather than installed. And the
+     * default must be the documented site value, not zero, because zero is
+     * the one value that makes the correction unevaluable. */
+    TEST_ASSERT_EQUAL_UINT16(O2P_P_HPA_DEFAULT, rm.cfg.assumed_p_hpa);
+    TEST_ASSERT_EQUAL_UINT16(0, rm.cfg.cal_air_frac_x1000);
+
+    uint8_t req[16], rsp[O2P_MB_MAX_ADU];
+    const uint8_t zero_p[] = {0x03, 0x06, 0x00, 0x42, 0x00, 0x00};
+    size_t n = framed(req, zero_p, sizeof(zero_p));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE, rsp[2]);
+    TEST_ASSERT_EQUAL_UINT16(O2P_P_HPA_DEFAULT, rm.cfg.assumed_p_hpa);
+
+    const uint8_t huge_p[] = {0x03, 0x06, 0x00, 0x42, 0x0B, 0xB8};  /* 3000 */
+    n = framed(req, huge_p, sizeof(huge_p));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE, rsp[2]);
+
+    const uint8_t good_p[] = {0x03, 0x06, 0x00, 0x42, 0x03, 0xF5};  /* 1013 */
+    n = framed(req, good_p, sizeof(good_p));
+    TEST_ASSERT_EQUAL_UINT(8, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
+    TEST_ASSERT_EQUAL_UINT16(1013, rm.cfg.assumed_p_hpa);
+
+    /* CAL_AIR_FRAC: zero means "unknown", which is legal; anything else must
+     * be a fraction air can actually have. 20946 is dry air. */
+    const uint8_t nitrogen[] = {0x03, 0x06, 0x00, 0x43, 0x00, 0x64};  /* 0.1 % */
+    n = framed(req, nitrogen, sizeof(nitrogen));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE, rsp[2]);
+
+    const uint8_t air[] = {0x03, 0x06, 0x00, 0x43, 0x51, 0xD2};       /* 20946 */
+    n = framed(req, air, sizeof(air));
+    TEST_ASSERT_EQUAL_UINT(8, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
+    TEST_ASSERT_EQUAL_UINT16(20946, rm.cfg.cal_air_frac_x1000);
+
+    /* Both read back through the config block. */
+    const uint8_t rd[] = {0x03, 0x03, 0x00, 0x42, 0x00, 0x02};
+    n = framed(req, rd, sizeof(rd));
+    TEST_ASSERT_EQUAL_UINT(3 + 4 + 2, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
+    TEST_ASSERT_EQUAL_UINT16(1013, (rsp[3] << 8) | rsp[4]);
+    TEST_ASSERT_EQUAL_UINT16(20946, (rsp[5] << 8) | rsp[6]);
+}
+
+static void test_o2_comp_needs_the_humidity_sensor(void)
+{
+    /* O2_COMP is dry basis, so it depends on the SHT45 the way it already
+     * depended on the calibration constant. A dead humidity sensor must
+     * invalidate the compensated channel and leave the raw one alone. */
+    TEST_ASSERT_FALSE(o2p_o2_comp_valid(O2P_F_I2C_FAIL_SHT));
+    TEST_ASSERT_TRUE(o2p_o2_valid(O2P_F_I2C_FAIL_SHT));
+    TEST_ASSERT_TRUE(o2p_o2_comp_valid(0u));
+}
+
+static void test_p_sat_has_exactly_one_implementation(void)
+{
+    /* psychro.c owns the Magnus coefficients and o2.c uses them through this
+     * function. The check that they have not been forked is that the dew
+     * point and the saturation pressure agree: at the dew point, the vapour
+     * pressure of the original gas IS the saturation pressure. */
+    static const struct { float t, rh; } pt[] = {
+        {20.0f, 50.0f}, {25.0f, 100.0f}, {40.0f, 85.0f}, {60.0f, 90.0f},
+    };
+    for (unsigned i = 0; i < sizeof(pt) / sizeof(pt[0]); i++) {
+        float td = 0.0f, es_t = 0.0f, es_td = 0.0f;
+        TEST_ASSERT_TRUE(o2p_dewpoint_c(pt[i].t, pt[i].rh, &td));
+        TEST_ASSERT_TRUE(o2p_p_sat_hpa(pt[i].t, &es_t));
+        TEST_ASSERT_TRUE(o2p_p_sat_hpa(td, &es_td));
+        TEST_ASSERT_FLOAT_WITHIN(0.01f, es_t * pt[i].rh * 0.01f, es_td);
+    }
+    /* The two anchor points of the fit itself, so a changed coefficient is
+     * caught here and not only through a derived quantity. */
+    float es0 = 0.0f, es100 = 0.0f;
+    TEST_ASSERT_TRUE(o2p_p_sat_hpa(0.0f, &es0));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 6.112f, es0);
+    /* And 100 C, where the fit returns 1038.4 hPa against the true 1013.25:
+     * 2.5 % high, because the Sonntag coefficients are stated only to about
+     * +60 C. Pinned to what the fit ACTUALLY gives rather than to physics, so
+     * that a changed coefficient fails here instead of hiding inside the
+     * error the extrapolation already has. It is also why the oxygen
+     * correction refuses above O2P_VAPOUR_T_MAX_C rather than extrapolating
+     * further. */
+    TEST_ASSERT_TRUE(o2p_p_sat_hpa(100.0f, &es100));
+    TEST_ASSERT_FLOAT_WITHIN(0.5f, 1038.4f, es100);
 }
 
 /* ---------------------------------------------------------- psychrometry */
@@ -1511,6 +1924,16 @@ int main(void)
     RUN_TEST(test_fault_latch_never_hides_a_current_fault);
     RUN_TEST(test_validity_matrix);
     RUN_TEST(test_snapshot_is_invalid_before_the_first_sample);
+    RUN_TEST(test_vapour_table_from_the_spec);
+    RUN_TEST(test_dry_air_correction_is_exactly_a_no_op);
+    RUN_TEST(test_calibration_in_moist_air_rescales_k);
+    RUN_TEST(test_bench_humidity_step_no_longer_moves_the_channel);
+    RUN_TEST(test_vapour_correction_fails_closed);
+    RUN_TEST(test_vapour_correction_is_monotonic);
+    RUN_TEST(test_vapour_correction_is_bounded_not_infinite);
+    RUN_TEST(test_pressure_and_air_fraction_registers_are_bounded);
+    RUN_TEST(test_o2_comp_needs_the_humidity_sensor);
+    RUN_TEST(test_p_sat_has_exactly_one_implementation);
     RUN_TEST(test_dewpoint_reference_points);
     RUN_TEST(test_dewpoint_refuses_impossible_humidity);
     RUN_TEST(test_dew_margin_sign);

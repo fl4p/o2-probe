@@ -82,9 +82,31 @@ enum {
     | O2P_F_ADC_RANGE )
 
 /* Everything above, plus the reasons the CONVERSION cannot be trusted even
- * when the current reading is fine. */
+ * when the current reading is fine.
+ *
+ * I2C_FAIL_SHT is here since 2026-09-06, and it is a real change of meaning:
+ * O2_COMP now publishes DRY BASIS, so it depends on the SHT45's humidity and
+ * chamber temperature the way it already depended on the calibration
+ * constant. Without them the water-vapour term cannot be computed, and at the
+ * operating point that term is up to 20 % (O2-HUMIDITY-CORRECTION.md 2) -
+ * publishing the wet-basis number in its place would be a 20 % error wearing
+ * the corrected channel's name, in the direction that reads as anoxia. The
+ * raw cell current is untouched: it does not need the SHT45 and keeps its own
+ * mask, so a dead humidity sensor costs the derived channel and not the
+ * evidence. This also covers the 30 s mask after an SHT45 heater pulse.
+ *
+ * NOTE for anyone adding a bit for this: there is no room. All sixteen are
+ * allocated (13 and 14 were already reclaimed from the deleted J2 expansion),
+ * and the word is a published wire contract with the ChirpStack decoder, so
+ * renumbering is not available either. Where the correction is unevaluable
+ * for a reason no existing bit describes - gas beyond O2P_VAPOUR_T_MAX_C, or
+ * water vapour past half the total pressure - the channel publishes its
+ * SENTINEL, which the register map already defines as "no oxygen number this
+ * cycle" and the decoder already rejects. Both of those conditions are above
+ * 60 C, so TEMP_OVER accompanies them in practice. */
 #define O2P_FAULTS_INVALIDATE_O2_COMP ( \
       O2P_FAULTS_INVALIDATE_O2 \
+    | O2P_F_I2C_FAIL_SHT        \
     | O2P_F_CAL_DEFAULT )
 
 /* "The ADS1119 did not deliver a conversion this phase", for the callers that

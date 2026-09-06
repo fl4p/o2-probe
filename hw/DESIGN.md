@@ -192,7 +192,7 @@ pile produces; a mistyped `AT+COMMAND` must look like a fault, not like anoxia.
 
 | Reg | Name | Encoding | Invalid |
 |---|---|---|---|
-| 0 | `O2_COMP` | u16, %vol x 100 | `0xFFFF` |
+| 0 | `O2_COMP` | u16, %vol x 100, **dry basis** | `0xFFFF` |
 | 1 | `O2_RAW` | i16, cell uA x 100 | `0x8000` |
 | 2 | `T_TIP` | i16, 0.01 C (TMP117) | `0x8000` |
 | 3 | `T_CHAMBER` | i16, 0.01 C (SHT45) | `0x8000` |
@@ -204,6 +204,23 @@ pile produces; a mistyped `AT+COMMAND` must look like a fault, not like anoxia.
 `O2_RAW` is signed deliberately: the SGX sign convention is an open release gate
 (`SCHEMATIC-REVIEW.md` M4) and the bench air-versus-nitrogen pair settles it.
 Firmware that took an absolute value would hide the answer.
+
+**`O2_COMP` is dry basis** - oxygen as a fraction of the water-free gas - and
+`O2_RAW` is the uncorrected cell current. Water vapour is a gas and it displaces
+everything else pro rata, so a wet-basis number falls as the pile gets hotter and
+wetter even when aeration has not changed: in a 60 C pile at 100 %RH, fully
+aerated air is 16.815 %vol wet against 20.946 dry, a 19.7 % error in the
+direction that reads as anoxia. Dry basis is what the compost literature, a
+Draeger tube and a lab instrument all report, and the only basis on which a trend
+means respiration rather than weather. The correction is
+`C_dry = C_wet * P / (P - p_w)` with `p_w = RH/100 * p_sat(T_chamber)`, and the
+air point is corrected the same way when it is taken, because a current measured
+in moist air attributed to dry 20.946 % mis-scales K by 1-2 % permanently. When
+RH, chamber temperature or `P` is unavailable the correction cannot be evaluated
+and `O2_COMP` publishes `0xFFFF`; it never falls back to the wet-basis number
+under the corrected name, and `I2C_FAIL_SHT` now invalidates the compensated
+channel for that reason. Full argument, bench evidence and test vectors:
+`O2-HUMIDITY-CORRECTION.md`.
 
 ### Diagnostic block, `0x0010`, 21 registers, read-only
 
@@ -230,14 +247,15 @@ latch self-clears, so the rate would be lost without a counter. A probe that
 glitches once and one that glitches hourly read identically between events
 otherwise.
 
-### Config block, `0x0030`, 18 registers, read/write, flash-backed
+### Config block, `0x0030`, 20 registers, read/write, flash-backed
 
 `SLAVE_ADDR`, `BAUD_CODE`, `PARITY_CODE`, `RH_SETPOINT`, `DT_MAX_K`,
 `HEATER_MAX_DUTY`, `HEATER_PWM_HZ`, `CAL_AIR_NA_HI/LO`, `CAL_TEMP_C100`,
 `TEMPCO_PPM_K`, `SHT_PULSE_H`, `SHT_PULSE_TRIG`, `CAL_TRIGGER`, `COMMIT`,
 `CONFIG_CRC` (read-only), then the two PI gains:
 `HEATER_KP` at `0x0040` and
-`HEATER_KI` at `0x0041`, both in 0.01 units.
+`HEATER_KI` at `0x0041`, both in 0.01 units, and the two water-vapour fields:
+`ASSUMED_P_HPA` at `0x0042` and `CAL_AIR_FRAC` at `0x0043`.
 
 The two heater gains are registers rather than compile-time constants because
 the plant they tune can only be characterised in a real pile:
@@ -247,6 +265,33 @@ updater and a full image transfer. Adding them moved the config block from
 16 to 18 registers and took the flash record's layout version to 2, so a
 version-1 record falls back to defaults - and the defaults hold
 `HEATER_MAX_DUTY` at 0, so a layout change fails towards no heat.
+
+`ASSUMED_P_HPA` (`0x0042`) is the total pressure the water-vapour correction
+uses, in hPa, bounded 500-1100 and defaulting to 930 - the 715 m Steingrubenhof
+site. It exists because the BMP390 option is deleted and `PRESSURE_HPA` reads 0,
+so without it the correction has no `P` at all. A probe deployed anywhere else
+must have it written: sea level is 8 % away and pressure scales oxygen directly.
+Calibrating in situ cancels the altitude term, since the air point and the
+measurement then share the same `P`; it does not cancel the +/-3.5 % of weather,
+which is not correctable in firmware without a barometer.
+
+`CAL_AIR_FRAC` (`0x0043`) is the oxygen fraction actually present when the air
+point was taken, %vol x 1000, and it is written by the `CAL_TRIGGER` routine
+together with `CAL_AIR_NA`. The air point is taken in moist room air, so the
+recorded current belongs to the wet fraction (0.2070 at the 23.4 C / 42.3 %RH
+point this bench used, not 0.20946); attributing it to dry air makes K 1.4 %
+high for the life of the probe, and a probe calibrated in a damp shed and one
+calibrated in a dry lab then genuinely disagree. Zero means "unknown" and
+`O2_COMP` stays invalid. `CAL_AIR_NA` still holds exactly what the ADC read, so
+it remains comparable with `O2_RAW` in air.
+
+Adding these two took the config block to 20 registers and the flash record's
+layout version to **3**. A version-2 record is discarded rather than migrated,
+because the humidity at its air point was never recorded and cannot be
+recovered - any `CAL_AIR_FRAC` this firmware invented for it would be a guess
+wearing a calibration's units. **Recalibration is therefore required after this
+update:** the probe comes up on defaults, `CAL_DEFAULT` is raised, and `O2_COMP`
+publishes the sentinel until a fresh air point is taken.
 
 A multi-register write is validated against a copy and committed all-or-nothing,
 so a frame setting a legal address and an illegal baud rate changes neither.

@@ -1,18 +1,137 @@
 #include "o2.h"
 #include "faults.h"
+#include "psychro.h"
 
 #include <math.h>
 #include <stddef.h>
 
-bool o2p_calibrate_air(o2p_cal_t *cal, int32_t cell_na, int16_t temp_c100)
+o2p_status_t o2p_vapour_pressure_hpa(const o2p_gas_t *gas, float *out_pw_hpa)
 {
+    if (gas == NULL || out_pw_hpa == NULL) {
+        return O2P_UNEVALUABLE;
+    }
+    /* Not measured this cycle. There is no number to compute from and no
+     * defensible substitute: assuming dry air biases oxygen high by up to
+     * 20 % at the operating point, assuming saturation biases it low. */
+    if (!gas->valid) {
+        return O2P_UNEVALUABLE;
+    }
+    if (!isfinite(gas->rh_pct) || !(gas->rh_pct >= 0.0f) ||
+        !(gas->rh_pct <= 100.0f)) {
+        return O2P_UNEVALUABLE;
+    }
+    if (!isfinite(gas->t_c) || !(gas->t_c <= O2P_VAPOUR_T_MAX_C)) {
+        return O2P_UNEVALUABLE;
+    }
+    /* p_sat shares psychro.c's Magnus coefficients with the dew-margin
+     * channel; there is deliberately no second copy of them here. */
+    float es = 0.0f;
+    if (!o2p_p_sat_hpa(gas->t_c, &es)) {
+        return O2P_UNEVALUABLE;
+    }
+    float pw = es * (gas->rh_pct * 0.01f);
+    if (!isfinite(pw) || !(pw >= 0.0f)) {
+        return O2P_UNEVALUABLE;
+    }
+    *out_pw_hpa = pw;
+    return O2P_OK;
+}
+
+/* Shared bound check: the total pressure, and how much of it is water.
+ * Returns the dilution factor (P - p_w)/P on success, which is the one number
+ * both directions of the correction are built from. */
+static o2p_status_t dilution_factor(const o2p_gas_t *gas, float *out_f)
+{
+    float pw = 0.0f;
+    o2p_status_t st = o2p_vapour_pressure_hpa(gas, &pw);
+    if (st != O2P_OK) {
+        return st;
+    }
+    /* A total pressure outside the configurable window is not a pressure.
+     * Zero in particular: it is what PRESSURE_HPA publishes with the BMP390
+     * DNP, and dividing by it would produce an infinity that later compares
+     * as a plausible fraction. */
+    float p = gas->p_hpa;
+    if (!isfinite(p) || !(p >= (float)O2P_P_HPA_MIN) ||
+        !(p <= (float)O2P_P_HPA_MAX)) {
+        return O2P_UNEVALUABLE;
+    }
+    /* p_w approaching P sends P/(P - p_w) to infinity. Refuse, do not clamp:
+     * a clamped correction publishes a number that is neither the wet value
+     * nor the dry one, under the dry one's name. */
+    if (!(pw <= p * O2P_VAPOUR_MAX_PW_FRACTION)) {
+        return O2P_UNEVALUABLE;
+    }
+    float f = (p - pw) / p;
+    if (!isfinite(f) || !(f > 0.0f) || !(f <= 1.0f)) {
+        return O2P_UNEVALUABLE;
+    }
+    *out_f = f;
+    return O2P_OK;
+}
+
+o2p_status_t o2p_air_fraction(const o2p_gas_t *gas, float *out_c)
+{
+    if (out_c == NULL) {
+        return O2P_UNEVALUABLE;
+    }
+    float f = 0.0f;
+    o2p_status_t st = dilution_factor(gas, &f);
+    if (st != O2P_OK) {
+        return st;
+    }
+    *out_c = O2P_C_AIR * f;
+    return O2P_OK;
+}
+
+o2p_status_t o2p_dry_from_wet(const o2p_gas_t *gas, float c_wet,
+                              float *out_c_dry)
+{
+    if (out_c_dry == NULL) {
+        return O2P_UNEVALUABLE;
+    }
+    if (!isfinite(c_wet)) {
+        return O2P_UNEVALUABLE;
+    }
+    float f = 0.0f;
+    o2p_status_t st = dilution_factor(gas, &f);
+    if (st != O2P_OK) {
+        return st;
+    }
+    /* At 0 %RH, p_w is exactly 0, f is exactly 1, and this is exactly the
+     * identity - no special case, so there is no branch that can rot. */
+    float c = c_wet / f;
+    if (!isfinite(c)) {
+        return O2P_UNEVALUABLE;
+    }
+    *out_c_dry = c;
+    return O2P_OK;
+}
+
+bool o2p_calibrate_air(o2p_cal_t *cal, int32_t cell_na, int16_t temp_c100,
+                       const o2p_gas_t *gas)
+{
+    if (cal == NULL) {
+        return false;
+    }
     /* A bad calibration must never overwrite a good one, so an implausible
      * air point is rejected rather than stored. */
     if (!o2p_cal_air_plausible(cell_na)) {
         return false;
     }
+    /* Nor may an air point of unknown humidity: it would bake a 1-2 % bias of
+     * unknown sign into K for the life of the probe (O2-HUMIDITY-CORRECTION
+     * 3b). Refusing leaves the previous calibration standing. */
+    float c_air = 0.0f;
+    if (o2p_air_fraction(gas, &c_air) != O2P_OK) {
+        return false;
+    }
+    if (!(c_air >= O2P_CAL_FRAC_MIN) || !(c_air <= O2P_CAL_FRAC_MAX)) {
+        return false;
+    }
     cal->cal_air_na = cell_na;
     cal->cal_temp_c100 = temp_c100;
+    cal->air_frac = c_air;
     return true;
 }
 
@@ -44,9 +163,24 @@ o2p_status_t o2p_fraction_from_current(const o2p_cal_t *cal,
     }
     s /= gain;
 
-    float k = (float)cal->cal_air_na / O2P_LN_AIR;
-    /* k is positive by construction (cal_air_na > 0), so no divide guard is
-     * needed beyond the check above. */
+    /* K is referenced to the fraction that was ACTUALLY THERE at the air
+     * point, not to dry air. Using O2P_LN_AIR here - which is what this line
+     * did until 2026-09-06 - attributes a moist-air current to a dry-air
+     * fraction and mis-scales every subsequent reading by 1-2 %. An unknown
+     * or implausible air fraction is refused rather than defaulted, because
+     * defaulting it IS the bug. */
+    if (!isfinite(cal->air_frac) ||
+        !(cal->air_frac >= O2P_CAL_FRAC_MIN) ||
+        !(cal->air_frac <= O2P_CAL_FRAC_MAX)) {
+        return O2P_UNEVALUABLE;
+    }
+    float ln_air = logf(1.0f / (1.0f - cal->air_frac));
+    if (!isfinite(ln_air) || !(ln_air > 0.0f)) {
+        return O2P_UNEVALUABLE;
+    }
+    float k = (float)cal->cal_air_na / ln_air;
+    /* k is positive by construction (cal_air_na > 0 and ln_air > 0), so no
+     * divide guard is needed beyond the checks above. */
 
     float ratio = s / k;
     if (!isfinite(ratio)) {
@@ -65,6 +199,44 @@ o2p_status_t o2p_fraction_from_current(const o2p_cal_t *cal,
     *out_c = c;
 
     if (c < 0.0f || c > O2P_C_MAX) {
+        return O2P_RANGE;
+    }
+    return O2P_OK;
+}
+
+o2p_status_t o2p_dry_fraction_from_current(const o2p_cal_t *cal,
+                                           int32_t cell_na,
+                                           int16_t temp_c100,
+                                           const o2p_gas_t *gas,
+                                           float *out_c_dry)
+{
+    if (out_c_dry == NULL) {
+        return O2P_UNEVALUABLE;
+    }
+    float c_wet = 0.0f;
+    o2p_status_t st = o2p_fraction_from_current(cal, cell_na, temp_c100,
+                                                &c_wet);
+    if (st == O2P_UNEVALUABLE) {
+        return st;
+    }
+    /* The gas is evaluated even when the wet fraction was already RANGE, so
+     * that a probe reporting an inverted polarity or an overload still says
+     * so rather than being masked by a missing SHT45 - but an unevaluable gas
+     * still wins, because there is no dry-basis number to publish. */
+    float c_dry = 0.0f;
+    o2p_status_t vst = o2p_dry_from_wet(gas, c_wet, &c_dry);
+    if (vst != O2P_OK) {
+        return O2P_UNEVALUABLE;
+    }
+    *out_c_dry = c_dry;
+    if (st != O2P_OK) {
+        return st;
+    }
+    /* Correcting to dry basis can carry a wet-basis reading that was inside
+     * the cell's window out of it - 25 %vol wet at 60 C saturated is 31 %vol
+     * dry. The window belongs to the published number, so it is re-applied
+     * here rather than inherited. */
+    if (c_dry < 0.0f || c_dry > O2P_C_MAX) {
         return O2P_RANGE;
     }
     return O2P_OK;

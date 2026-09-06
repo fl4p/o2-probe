@@ -103,6 +103,9 @@ static void load_cal_from_config(void)
     g_cal.cal_air_na = g_rm.cfg.cal_air_na;
     g_cal.cal_temp_c100 = g_rm.cfg.cal_temp_c100;
     g_cal.tempco_per_k = (float)g_rm.cfg.tempco_ppm_per_k * 1e-6f;
+    /* %vol x 1000 -> fraction. Zero stays zero, i.e. "the humidity at the air
+     * point is unknown", and o2.c refuses to convert on it. */
+    g_cal.air_frac = (float)g_rm.cfg.cal_air_frac_x1000 * 1e-5f;
 }
 
 /* Convert an AIN0 code to cell current in nanoamps.
@@ -413,6 +416,31 @@ static void finish_vref(o2p_snapshot_t *s)
 }
 
 
+/* The gas the cell is in this cycle, for the water-vapour correction.
+ *
+ * `valid` is false whenever the SHT45 did not deliver BOTH a humidity and a
+ * chamber temperature, and that propagates all the way to a sentinel on
+ * O2_COMP - see O2P_FAULTS_INVALIDATE_O2_COMP, which now carries
+ * I2C_FAIL_SHT for exactly this reason. Substituting the tip temperature
+ * would be worse than refusing: the tip is heated, so its saturation pressure
+ * is not the gas's, and a plausible wrong correction is the failure mode this
+ * firmware is written against.
+ *
+ * P comes from the barometer when there is one. There is not: the BMP390 is
+ * DNP on Rev A and PRESSURE_HPA publishes 0, so this is the ASSUMED_P_HPA
+ * register in practice. The test is written against the snapshot anyway so
+ * that populating the part on a later revision needs no change here. */
+static o2p_gas_t cycle_gas(const o2p_snapshot_t *s)
+{
+    o2p_gas_t g;
+    g.valid = g_cyc.chamber_ok && g_cyc.rh_ok;
+    g.rh_pct = (float)g_cyc.rh * 0.01f;
+    g.t_c = (float)g_cyc.t_chamber * 0.01f;
+    g.p_hpa = (s->pressure_hpa != 0u) ? (float)s->pressure_hpa
+                                      : (float)g_rm.cfg.assumed_p_hpa;
+    return g;
+}
+
 static void finish_o2(o2p_snapshot_t *s)
 {
     if ((g_cyc.faults & O2P_FAULTS_ADS_NO_CONVERSION) != 0u) {
@@ -451,6 +479,8 @@ static void finish_o2(o2p_snapshot_t *s)
         g_cyc.faults |= O2P_F_CAL_DEFAULT;
     }
 
+    const o2p_gas_t gas = cycle_gas(s);
+
     /* A non-zero temperature coefficient with no temperature is not a
      * compensated reading. Rather than silently applying a zero correction
      * and presenting the result as compensated, refuse it. */
@@ -458,10 +488,15 @@ static void finish_o2(o2p_snapshot_t *s)
         g_cyc.faults |= O2P_F_I2C_FAIL_TMP;
         s->o2_comp = O2P_U16_INVALID;
     } else {
+        /* DRY BASIS. The dilution term is up to 20 % at the operating point,
+         * and it is unevaluable without RH, chamber temperature and P - in
+         * which case this returns UNEVALUABLE and o2p_encode_percent emits
+         * the sentinel. It does not fall back to the wet-basis number: that
+         * would publish the uncorrected reading under the corrected name. */
         float c = 0.0f;
-        o2p_status_t st = o2p_fraction_from_current(
+        o2p_status_t st = o2p_dry_fraction_from_current(
             &cal, cell_na,
-            (t_gas != O2P_I16_INVALID) ? t_gas : cal.cal_temp_c100, &c);
+            (t_gas != O2P_I16_INVALID) ? t_gas : cal.cal_temp_c100, &gas, &c);
         if (st == O2P_RANGE) {
             g_cyc.faults |= O2P_F_ADC_RANGE;
         }
@@ -476,11 +511,19 @@ static void finish_o2(o2p_snapshot_t *s)
          * would make calibration impossible. */
         if (o2p_o2_valid(g_cyc.faults) &&
             o2p_calibrate_air(&g_cal, cell_na,
-                              (t_gas != O2P_I16_INVALID) ? t_gas : 2500)) {
+                              (t_gas != O2P_I16_INVALID) ? t_gas : 2500,
+                              &gas)) {
             g_rm.cfg.cal_air_na = g_cal.cal_air_na;
             g_rm.cfg.cal_temp_c100 = g_cal.cal_temp_c100;
+            /* Stored WITH the air point, never separately: a cal_air_na
+             * without the fraction it was taken at is the 1-2 % bias again. */
+            g_rm.cfg.cal_air_frac_x1000 =
+                (uint16_t)(g_cal.air_frac * 100000.0f + 0.5f);
         }
-        /* A refused calibration leaves the old constants in place. */
+        /* A refused calibration leaves the old constants in place. An air
+         * point taken with the SHT45 down is refused here, not stored with an
+         * assumed humidity: O2-HUMIDITY-CORRECTION.md 3b measures that
+         * assumption as a permanent +1.4 to +2.2 % error in K. */
     }
 }
 

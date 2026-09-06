@@ -32,6 +32,15 @@ void o2p_config_defaults(o2p_config_t *cfg)
     cfg->cal_temp_c100 = 2500;
     cfg->tempco_ppm_per_k = 0;            /* SGX publishes no curve for this part */
     cfg->sht_pulse_interval_h = 8u;       /* PLAN.md:312, every 6-12 h */
+    /* Total pressure for the water-vapour correction. Rev A has no barometer,
+     * so this is the only P the firmware has; 930 hPa is the 715 m
+     * Steingrubenhof site. A probe deployed elsewhere must have it written. */
+    cfg->assumed_p_hpa = O2P_P_HPA_DEFAULT;
+    /* No air point, so no air fraction. Zero means "unknown", which keeps
+     * O2_COMP invalid until a calibration supplies both together - it must
+     * NOT default to dry air, because assuming dry air at the air point is
+     * precisely the 1-2 % bias this field exists to remove. */
+    cfg->cal_air_frac_x1000 = 0u;
     /* Heater loop. max_duty of zero means the loop is OFF by configuration as
      * well as by the compile guard: two independent switches, so enabling the
      * heater is never a single edit. See heater.h for the bench prerequisites.
@@ -106,6 +115,21 @@ bool o2p_config_valid(const o2p_config_t *cfg)
         return false;
     }
     if (cfg->sht_pulse_interval_h == 0u || cfg->sht_pulse_interval_h > 168u) {
+        return false;
+    }
+    /* The assumed total pressure scales oxygen directly, so it is bounded
+     * rather than merely non-zero: zero would divide, and 5 hPa or 3000 hPa
+     * would rescale every reading without ever looking like a fault. There is
+     * no "unset" value - the default is always installed. */
+    if (cfg->assumed_p_hpa < O2P_P_HPA_MIN || cfg->assumed_p_hpa > O2P_P_HPA_MAX) {
+        return false;
+    }
+    /* Zero means "air point of unknown humidity", which is legal and keeps
+     * O2_COMP invalid. Any other value must be a fraction air can actually
+     * have; %vol x 1000, so 20946 is dry air. */
+    if (cfg->cal_air_frac_x1000 != 0u &&
+        (cfg->cal_air_frac_x1000 < (uint16_t)(O2P_CAL_FRAC_MIN * 100000.0f) ||
+         cfg->cal_air_frac_x1000 > (uint16_t)(O2P_CAL_FRAC_MAX * 100000.0f))) {
         return false;
     }
     return true;
@@ -257,6 +281,8 @@ static uint16_t read_config(const o2p_regmap_t *rm, uint16_t a)
     case O2P_REG_CAL_TEMP_C100:   return (uint16_t)c->cal_temp_c100;
     case O2P_REG_TEMPCO_PPM_K:    return (uint16_t)c->tempco_ppm_per_k;
     case O2P_REG_SHT_PULSE_H:     return c->sht_pulse_interval_h;
+    case O2P_REG_ASSUMED_P_HPA:   return c->assumed_p_hpa;
+    case O2P_REG_CAL_AIR_FRAC:    return c->cal_air_frac_x1000;
     /* The trigger registers read back as zero: they are edges, not state.
      * Reading a 1 would suggest a calibration is pending when it is not. */
     case O2P_REG_SHT_PULSE_TRIG:  return 0u;
@@ -348,6 +374,8 @@ static uint8_t apply_config_word(o2p_config_t *c, uint16_t a, uint16_t v,
     case O2P_REG_CAL_TEMP_C100:   c->cal_temp_c100 = (int16_t)v; break;
     case O2P_REG_TEMPCO_PPM_K:    c->tempco_ppm_per_k = (int16_t)v; break;
     case O2P_REG_SHT_PULSE_H:     c->sht_pulse_interval_h = v; break;
+    case O2P_REG_ASSUMED_P_HPA:   c->assumed_p_hpa = v; break;
+    case O2P_REG_CAL_AIR_FRAC:    c->cal_air_frac_x1000 = v; break;
     default:
         return O2P_MB_EX_ILLEGAL_ADDRESS;
     }

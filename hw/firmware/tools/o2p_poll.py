@@ -65,7 +65,11 @@ FAULT_BITS = [
 INVALIDATE_O2 = ["SETTLING", "I2C_FAIL_LMP", "I2C_FAIL_ADS",
                  "AFE_CONFIG_MISMATCH", "VA_LOW", "ADS_DRDY_STUCK",
                  "ADS_CONFIG_LOST", "ADC_RANGE"]
-INVALIDATE_O2_COMP = INVALIDATE_O2 + ["CAL_DEFAULT"]
+# O2_COMP is DRY BASIS, so it also needs the SHT45: without RH and chamber
+# temperature the water-vapour term cannot be computed, and that term is up to
+# 20 % at the operating point. Kept in step with O2P_FAULTS_INVALIDATE_O2_COMP
+# in faults.h.
+INVALIDATE_O2_COMP = INVALIDATE_O2 + ["I2C_FAIL_SHT", "CAL_DEFAULT"]
 
 CSV_COLUMNS = [
     "utc", "status", "detail", "sample_seq", "settle_s",
@@ -220,7 +224,7 @@ def show(row):
         print("  !! %s: %s" % (row["status"], row["detail"]))
         return
     trust = "" if row["o2_trusted"] else "   <- NOT TRUSTWORTHY, see faults"
-    print("  O2            %s%s" % (fmt(row["o2_comp_pct"], " %vol"), trust))
+    print("  O2 (dry)      %s%s" % (fmt(row["o2_comp_pct"], " %vol"), trust))
     print("  cell current  %s" % fmt(row["o2_raw_ua"], " uA"))
     print("  tip / chamber %s / %s"
           % (fmt(row["t_tip_c"], " C"), fmt(row["t_chamber_c"], " C")))

@@ -27,7 +27,12 @@
 
 /* ---- Primary block: 0x0000, 8 registers ---- */
 enum {
+    /* DRY BASIS: oxygen as a fraction of the WATER-FREE gas, %vol * 100,
+     * 0xFFFF invalid. See the note below - the basis is the whole point. */
     O2P_REG_O2_COMP      = 0x0000u, /* u16  %vol * 100        0xFFFF invalid */
+    /* Uncorrected cell current. Neither humidity- nor pressure-corrected and
+     * deliberately so: it is the raw evidence, and the only channel that
+     * still means something when the SHT45 is gone. */
     O2P_REG_O2_RAW       = 0x0001u, /* i16  cell uA * 100     0x8000 invalid */
     O2P_REG_T_TIP        = 0x0002u, /* i16  0.01 C (TMP117)   0x8000 invalid */
     O2P_REG_T_CHAMBER    = 0x0003u, /* i16  0.01 C (SHT45)    0x8000 invalid */
@@ -38,6 +43,25 @@ enum {
 };
 #define O2P_REG_PRIMARY_BASE  0x0000u
 #define O2P_REG_PRIMARY_COUNT 8u
+
+/* O2_COMP IS DRY BASIS - oxygen as a fraction of the water-free gas.
+ *
+ * A number whose basis is undocumented is worse than either choice, so:
+ * water vapour is a gas and it displaces everything else pro rata, which
+ * makes wet-basis oxygen fall as the pile gets hotter and wetter even when
+ * aeration has not changed at all. In a 60 C pile at 100 %RH, fully aerated
+ * air is 16.815 %vol wet against 20.946 dry - a 19.7 % error in the direction
+ * that looks like anoxia, and the exact condition this probe exists for.
+ * Dry basis is what the compost literature, a Draeger tube and a lab
+ * instrument all report, and the only basis on which a trend line means
+ * respiration rather than weather.
+ *
+ * The correction needs RH, chamber temperature and total pressure. When it
+ * cannot be evaluated - SHT45 gone or masked, gas beyond the Magnus fit,
+ * water vapour past half the total pressure - O2_COMP publishes 0xFFFF. It
+ * NEVER publishes the wet-basis number under the dry-basis name. Rev A has no
+ * barometer, so P comes from ASSUMED_P_HPA (0x0042).
+ * Argument and evidence: O2-HUMIDITY-CORRECTION.md. */
 
 /* ---- Diagnostic block: 0x0010, 19 registers, read-only ---- */
 enum {
@@ -95,7 +119,7 @@ enum {
 #define O2P_REG_DIAG_BASE  0x0010u
 #define O2P_REG_DIAG_COUNT 21u
 
-/* ---- Config block: 0x0030, 18 registers, read/write, flash-backed ---- */
+/* ---- Config block: 0x0030, 20 registers, read/write, flash-backed ---- */
 enum {
     O2P_REG_SLAVE_ADDR      = 0x0030u,
     O2P_REG_BAUD_CODE       = 0x0031u,
@@ -125,9 +149,24 @@ enum {
      * loop and not tuning it. */
     O2P_REG_HEATER_KP       = 0x0040u, /* proportional gain x100 */
     O2P_REG_HEATER_KI       = 0x0041u, /* integral gain x100, per second */
+    /* Assumed total pressure in hPa, used whenever PRESSURE_HPA reads 0 -
+     * which on Rev A is always, the BMP390 being DNP. Without it the
+     * water-vapour correction has no P and O2_COMP cannot be computed at all.
+     * Defaults to 930 hPa, the 715 m Steingrubenhof site; a probe deployed
+     * anywhere else MUST have this written, because P scales oxygen directly
+     * and sea level is 8 % away. Range O2P_P_HPA_MIN..MAX. */
+    O2P_REG_ASSUMED_P_HPA   = 0x0042u, /* u16 hPa */
+    /* The oxygen fraction actually present when the air point was taken,
+     * %vol x 1000 (20946 = dry air). NOT a duplicate of O2P_C_AIR: the air
+     * point is taken in moist room air, so the current in CAL_AIR_NA belongs
+     * to the wet fraction, and attributing it to dry air mis-scales K by
+     * 1-2 % for the life of the probe. Written by the CAL_TRIGGER routine
+     * from the SHT45 and ASSUMED_P_HPA; a hand-written CAL_AIR_NA should be
+     * accompanied by this. Zero means "unknown" and O2_COMP stays invalid. */
+    O2P_REG_CAL_AIR_FRAC    = 0x0043u, /* u16 %vol x 1000 */
 };
 #define O2P_REG_CONFIG_BASE  0x0030u
-#define O2P_REG_CONFIG_COUNT 18u
+#define O2P_REG_CONFIG_COUNT 20u
 
 /* Deliberate magics rather than "write 1". A flash cycle and a recalibration
  * are both destructive and both are one stray bit away in a noisy RS-485
@@ -163,10 +202,12 @@ typedef struct {
     uint16_t sht_pulse_interval_h;    /* 16 */
     uint16_t heater_kp_x100;          /* 18 */
     uint16_t heater_ki_x100;          /* 20 */
-    uint8_t  slave_addr;              /* 22 */
-    uint8_t  baud_code;               /* 23 */
-    uint8_t  parity_code;             /* 24 */
-    uint8_t  reserved[3];             /* 25..27 */
+    uint16_t assumed_p_hpa;           /* 22 */
+    uint16_t cal_air_frac_x1000;      /* 24 */
+    uint8_t  slave_addr;              /* 26 */
+    uint8_t  baud_code;               /* 27 */
+    uint8_t  parity_code;             /* 28 */
+    uint8_t  reserved[3];             /* 29..31 */
 } o2p_config_t;
 
 /* Live measurement snapshot, published atomically by the sampler. */
