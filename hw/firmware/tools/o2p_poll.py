@@ -172,8 +172,14 @@ def decode_primary(r):
 def decode_diag(r):
     ever = fault_names(r[0x13])
     return {
-        "vref_mv": r[0x00], "va_mv": r[0x01], "vin_mv": r[0x02],
-        "afe_mv": r[0x03],
+        # The rail monitors carry the SAME 0xFFFF sentinel as every other
+        # unsigned channel: regmap.c pre-fills the snapshot with
+        # O2P_U16_INVALID and main.c leaves it there when the ADC read fails,
+        # raising VA_LOW/VIN_LOW rather than publishing a number. Without u16()
+        # here an unreadable rail was logged as 65535 mV - a 65 volt reading
+        # that a plot draws as a spike and an average silently believes.
+        "vref_mv": u16(r[0x00]), "va_mv": u16(r[0x01]),
+        "vin_mv": u16(r[0x02]), "afe_mv": u16(r[0x03]),
         "dew_margin_k": scaled(i16(r[0x04]), 100.0),
         "uptime_s": (r[0x06] << 16) | r[0x07],
         "fw": "0x%04X" % r[0x08], "hw": "0x%04X" % r[0x09],
@@ -229,8 +235,9 @@ def show(row):
     # presence of the key proves nothing - the VALUE is what says whether the
     # diagnostic block was actually read.
     if row.get("vref_mv", "") != "":
-        print("  rails         VREF %d mV  VA %d mV  VIN %d mV  AFE %d mV"
-              % (row["vref_mv"], row["va_mv"], row["vin_mv"], row["afe_mv"]))
+        print("  rails         VREF %s  VA %s  VIN %s  AFE %s"
+              % tuple(fmt(row[k], " mV", 0) if row[k] is not None else "invalid"
+                      for k in ("vref_mv", "va_mv", "vin_mv", "afe_mv")))
         print("  dew margin    %s" % fmt(row["dew_margin_k"], " K"))
         print("  die temp      %s" % fmt(row["t_die_c"], " C"))
         print("  uptime        %d s   seq %d   fw %s hw %s"

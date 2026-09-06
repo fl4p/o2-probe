@@ -119,6 +119,18 @@ def _read(name):
         return fh.read()
 
 
+def _strip_c_comments(text):
+    """Remove /* */ and // comments.
+
+    The regexes below are unanchored, so a STALE COMMENTED-OUT definition
+    sitting above a changed live one would satisfy the check and report
+    agreement that does not exist. Stripping first makes that particular
+    fail-open impossible. String literals are left alone - none of the
+    constants read here live inside one."""
+    text = re.sub(r"/\*.*?\*/", " ", text, flags=re.S)
+    return re.sub(r"//[^\n]*", " ", text)
+
+
 def check_against_source():
     """Verify this file's constants still match src/. Returns problems."""
     bad = []
@@ -130,6 +142,9 @@ def check_against_source():
         contract = _read("hw_contract.h")
     except OSError as exc:
         return ["cannot read src/: %s" % exc]
+    regmap_h, regmap_c, faults_h, main_c, contract = (
+        _strip_c_comments(t) for t in
+        (regmap_h, regmap_c, faults_h, main_c, contract))
 
     def define(text, name, cast=lambda s: int(s.rstrip("uU"), 0)):
         m = re.search(r"#define\s+%s\s+([-\w.]+)" % re.escape(name), text)
@@ -404,6 +419,17 @@ def preflight(bus, want_duty_pct, retries, ohm=HEATER_OHM,
     if snap["t_tip_c"] is None:
         blocking.append("T_TIP reads its invalid sentinel; there is nothing "
                         "to measure.")
+    elif snap["t_tip_c"] >= tip_max:
+        blocking.append(
+            "T_TIP is already %.2f C, at or above the --tip-max %.2f C. The "
+            "in-run abort only fires AFTER a duty has been written; refusing "
+            "here is what stops a hot probe being commanded hotter."
+            % (snap["t_tip_c"], tip_max))
+    if snap["t_chamber_c"] is None:
+        blocking.append(
+            "T_CHAMBER reads its invalid sentinel. The firmware's "
+            "O2P_HB_NO_CHAMBER interlock will hold duty at 0, so the run "
+            "would command heat and measure none.")
     if cfg < RH_SETPOINT_MIN_X100 or cfg > RH_SETPOINT_MAX_X100:
         warn.append("RH_SETPOINT reads %d (%.2f %%), outside the window the "
                     "validator accepts - this probe was configured by "
@@ -449,33 +475,60 @@ class Fixture:
 
     Separate from the run loop on purpose: the restore has to happen on paths
     the run loop never reaches - an exception, a signal, an abort - and a probe
-    left with a live HEATER_MAX_DUTY keeps heating with nobody watching.
+    left with a live HEATER_MAX_DUTY keeps heating with nobody watching. The
+    firmware has no deadman on this; nothing takes the heat away on its own
+    until the 80 C firmware clamp or the 85 C TMP117 alert, both far above the
+    cell's 60 C rating.
+
+    Three rules, each of which was a defect found by review before it was one:
+
+      * `armed` is set BEFORE the first write, not after. A write whose reply
+        was lost may still have been APPLIED, so "we never confirmed it" is
+        not the same as "it did not happen" - and only the pessimistic reading
+        is safe.
+      * `restore()` blocks SIGINT and SIGTERM while it runs. A second Ctrl-C
+        landing inside the restore used to kill the process mid-way, between
+        zeroing the duty and putting the setpoint back - or before either.
+      * `restore()` retries against a wall-clock deadline rather than the
+        run's ordinary retry count. Giving up after 3 attempts is right for a
+        reading and wrong for the write that takes the heat away.
     """
+
+    RESTORE_DEADLINE_S = 30.0
 
     def __init__(self, bus, retries):
         self.bus = bus
         self.retries = retries
         self.orig_setpoint = None
         self.armed = False
+        self.hot = False          # a nonzero duty has been commanded at least once
 
-    def _write(self, addr, value):
+    def _write(self, addr, value, deadline=None):
         last = None
-        for attempt in range(self.retries + 1):
+        attempt = 0
+        while True:
             try:
                 self.bus.write(addr, [value])
                 return
             except (ModbusException, IOError, OSError) as exc:
                 last = exc
-            if attempt < self.retries:
-                time.sleep(0.2)
-        raise IOError("write of 0x%04X = %d failed: %s" % (addr, value, last))
+            attempt += 1
+            if deadline is None:
+                if attempt > self.retries:
+                    break
+            elif time.monotonic() >= deadline:
+                break
+            time.sleep(0.2)
+        raise IOError("write of 0x%04X = %d failed after %d attempts: %s"
+                      % (addr, value, attempt, last))
 
     def arm(self, orig_setpoint):
         """Saturate the loop. Duty stays 0 until set_duty() is called."""
         self.orig_setpoint = orig_setpoint
+        # Pessimistic BEFORE the first write. See the class docstring.
+        self.armed = True
         self._write(REG_HEATER_MAX_DUTY, 0)
         self._write(REG_RH_SETPOINT, RH_SETPOINT_MIN_X100)
-        self.armed = True
         back = self.bus.read(REG_RH_SETPOINT, 1)[0]
         if back != RH_SETPOINT_MIN_X100:
             raise Refusal("RH_SETPOINT read back as %d after writing %d - the "
@@ -483,25 +536,79 @@ class Fixture:
                           % (back, RH_SETPOINT_MIN_X100))
 
     def set_duty(self, duty_pct):
+        if duty_pct > 0.0:
+            self.hot = True
         self._write(REG_HEATER_MAX_DUTY, int(round(duty_pct * 100.0)))
 
     def restore(self):
-        """Always called. Returns a list of things that did NOT go back."""
+        """Always called. Returns a list of things that did NOT go back.
+
+        Never raises: a restore that fails has to be REPORTED, and an
+        exception here would replace whatever the caller was already handling.
+        """
         if not self.armed:
             return []
+        blocked = False
+        try:
+            signal.pthread_sigmask(signal.SIG_BLOCK,
+                                   {signal.SIGINT, signal.SIGTERM})
+            blocked = True
+        except (AttributeError, OSError, ValueError):
+            pass          # not fatal; the retries below still help
         failed = []
-        for addr, value, what in (
-                (REG_HEATER_MAX_DUTY, 0, "HEATER_MAX_DUTY -> 0"),
-                (REG_RH_SETPOINT, self.orig_setpoint, "RH_SETPOINT -> %d"
-                 % self.orig_setpoint)):
-            try:
-                self._write(addr, value)
-            except (IOError, OSError) as exc:
-                failed.append("%s: %s" % (what, exc))
-        # The commit magic is deliberately never written: this configuration is
-        # a fixture, and a fixture that survives a power cycle is a bug.
-        self.armed = False
+        try:
+            deadline = time.monotonic() + self.RESTORE_DEADLINE_S
+            # Duty first, always. If only one of the two writes gets through,
+            # the one that matters is the one that stops the heat.
+            for addr, value, what in (
+                    (REG_HEATER_MAX_DUTY, 0, "HEATER_MAX_DUTY -> 0"),
+                    (REG_RH_SETPOINT, self.orig_setpoint,
+                     "RH_SETPOINT -> %s" % self.orig_setpoint)):
+                if value is None:
+                    continue
+                try:
+                    self._write(addr, value, deadline=deadline)
+                except (IOError, OSError) as exc:
+                    failed.append("%s: %s" % (what, exc))
+                deadline = max(deadline, time.monotonic() + 5.0)
+            # Prove it, do not assume it. The write returning is the bridge
+            # saying the frame went out; the readback is the probe saying it
+            # took effect.
+            if not failed:
+                try:
+                    back = self.bus.read(REG_HEATER_MAX_DUTY, 1)[0]
+                    if back != 0:
+                        failed.append("HEATER_MAX_DUTY reads back %d after "
+                                      "being set to 0" % back)
+                except (ModbusException, IOError, OSError) as exc:
+                    failed.append("could not read HEATER_MAX_DUTY back: %s"
+                                  % exc)
+            # The commit magic is deliberately never written: this
+            # configuration is a fixture, and a fixture that survives a power
+            # cycle is a bug.
+            if not failed:
+                self.armed = False
+        finally:
+            if blocked:
+                try:
+                    signal.pthread_sigmask(signal.SIG_UNBLOCK,
+                                           {signal.SIGINT, signal.SIGTERM})
+                except (OSError, ValueError):
+                    pass
         return failed
+
+
+def _report_restore(fixture, failed):
+    if failed:
+        print("\n!! THE PROBE WAS NOT RESTORED. IT MAY STILL BE HEATING.")
+        for f in failed:
+            print("   - %s" % f)
+        print("   HEATER_MAX_DUTY may still be non-zero and RH_SETPOINT at "
+              "%d. Power-cycle the probe, or re-run with --preflight to see "
+              "what it is actually doing." % RH_SETPOINT_MIN_X100)
+    elif fixture.armed is False and fixture.orig_setpoint is not None:
+        print("\nrestored: HEATER_MAX_DUTY = 0 (read back), RH_SETPOINT = %d "
+              "(not committed to flash)" % fixture.orig_setpoint)
 
 
 def run(args, bus, writer, poll_writer=None):
@@ -527,7 +634,8 @@ def run(args, bus, writer, poll_writer=None):
     rows = []
     t_start = time.time()
     aborted = None
-    restore_failed = []
+    unexpected = None
+    consec_fail = 0
 
     def on_signal(signum, frame):
         raise KeyboardInterrupt("signal %d" % signum)
@@ -553,6 +661,20 @@ def run(args, bus, writer, poll_writer=None):
                         "phase": phase,
                         "cmd_duty_pct": duty,
                     })
+                    # A single failed poll is a gap in the log. A RUN of them
+                    # while the heater is on is a probe we can no longer see
+                    # or command, and continuing would be commanding heat
+                    # blind - so it aborts into the restore instead.
+                    if row["status"] == "ok":
+                        consec_fail = 0
+                    else:
+                        consec_fail += 1
+                        if fixture.hot and consec_fail >= args.max_fail:
+                            raise Abort(
+                                "%d consecutive failed polls with the heater "
+                                "commanded on - the probe is unreachable and "
+                                "must not be left heating blind"
+                                % consec_fail)
                     rows.append(row)
                     if writer:
                         writer.writerow({c: row.get(c, "") for c in CSV_COLUMNS})
@@ -576,23 +698,24 @@ def run(args, bus, writer, poll_writer=None):
     except KeyboardInterrupt as exc:
         aborted = "interrupted (%s)" % exc
         print("\n!! %s" % aborted)
+    except BaseException as exc:            # noqa: BLE001 - deliberate
+        # Anything at all - a Refusal from arm(), a bug in this file, a
+        # SystemExit - must still take the heat away before it propagates.
+        # Re-raised below, after the restore has been done and reported.
+        aborted = "unexpected %s: %s" % (type(exc).__name__, exc)
+        unexpected = exc
     finally:
-        # Restore runs on EVERY path out of the loop, including the Refusal
-        # raised by an abort - which is why it is here and not after it. A
-        # `return` inside `finally` would swallow that exception, so the
-        # failure is recorded and acted on below instead.
-        signal.signal(signal.SIGTERM, old_term)
+        # Restore FIRST, then hand the signal disposition back. Doing it the
+        # other way round left a window in which a second SIGTERM killed the
+        # process during the write that takes the heat away.
         restore_failed = fixture.restore()
+        signal.signal(signal.SIGTERM, old_term)
+        _report_restore(fixture, restore_failed)
 
+    if unexpected is not None:
+        raise unexpected
     if restore_failed:
-        print("\n!! THE PROBE WAS NOT RESTORED. It may still be heating.")
-        for f in restore_failed:
-            print("   - %s" % f)
-        print("   Power-cycle it, or re-run with --preflight to check.")
         return 2
-    if fixture.orig_setpoint is not None:
-        print("\nrestored: HEATER_MAX_DUTY = 0, RH_SETPOINT = %d "
-              "(not committed to flash)" % fixture.orig_setpoint)
 
     analyse(rows, args)
     if aborted:
@@ -682,27 +805,42 @@ def _fit_exp(t, y):
         resid = [yi - (inf + amp * bi) for bi, yi in zip(b, y)]
         return sum(r * r for r in resid), inf, amp
 
+    def scan(lo, hi, steps):
+        out = None
+        for k in range(steps):
+            tau = lo * (hi / lo) ** (k / (steps - 1.0))
+            got = sse_for(tau)
+            if got and (out is None or got[0] < out[0]):
+                out = (got[0], got[1], got[2], tau)
+        return out
+
     # Scan wide: a well-coupled probe settles fast, a still-air one slowly, and
     # the point of the measurement is that we do not know which.
     lo, hi = max(span / 200.0, 0.5), span * 5.0
-    best = None
-    for k in range(400):
-        tau = lo * (hi / lo) ** (k / 399.0)
-        got = sse_for(tau)
-        if got and (best is None or got[0] < best[0]):
-            best = (got[0], got[1], got[2], tau)
+    best = scan(lo, hi, 400)
     if best is None:
         return None
+    # A minimum sitting ON a boundary is not a minimum, it is the edge of the
+    # search. Push the boundary out and look again - and if it still will not
+    # come inside, say so, because the fit is then unidentifiable: a segment
+    # far shorter than tau cannot distinguish "slow exponential" from
+    # "straight line", and a straight line fitted at the boundary returns a
+    # confident asymptote that is simply wrong.
+    for _ in range(5):
+        if best[3] < hi * 0.99:
+            break
+        hi *= 4.0
+        got = scan(lo, hi, 400)
+        if got and got[0] < best[0]:
+            best = got
+    edge = best[3] >= hi * 0.99 or best[3] <= lo * 1.01
     # Refine around the winner.
     tau0 = best[3]
-    lo, hi = tau0 / 1.2, tau0 * 1.2
-    for k in range(200):
-        tau = lo * (hi / lo) ** (k / 199.0)
-        got = sse_for(tau)
-        if got and got[0] < best[0]:
-            best = (got[0], got[1], got[2], tau)
+    got = scan(tau0 / 1.2, tau0 * 1.2, 200)
+    if got and got[0] < best[0]:
+        best = got
     sse, inf, amp, tau = best
-    return inf, inf + amp, tau, math.sqrt(sse / n)
+    return inf, inf + amp, tau, math.sqrt(sse / n), edge
 
 
 def _segments(rows):
@@ -732,11 +870,34 @@ def _quality(seg, fit, args):
     looks exactly like a real result.
     """
     flags = []
-    vins = [r["vin_mv"] for r in seg if r.get("vin_mv") is not None]
-    if vins:
+    vins = [r["vin_mv"] for r in seg
+            if r.get("vin_mv") is not None and math.isfinite(r["vin_mv"])]
+    if not vins:
+        # No rail reading at all. P is duty*VIN^2, so without VIN there is no
+        # power and therefore no theta - and an unevaluable input must never
+        # come out as a pass.
+        flags.append("NO_VIN")
+    else:
         spread = (max(vins) - min(vins)) / max(_mean(vins), 1.0)
         if spread > args.vin_tol:
             flags.append("UNSTABLE_VIN(%.0f%%)" % (100.0 * spread))
+    if fit and not all(math.isfinite(fit[k])
+                       for k in ("inf", "asym", "t0", "tau", "rms")):
+        flags.append("NON_FINITE")
+    if fit and fit["tau"] <= 0.0:
+        flags.append("BAD_TAU")
+    if fit and fit.get("edge"):
+        # tau pinned to the edge of the search: the segment cannot distinguish
+        # a slow exponential from a straight line, and the asymptote it
+        # reports is an artefact of where the scan stopped.
+        flags.append("TAU_UNIDENTIFIABLE")
+    if fit and math.isfinite(fit.get("duty_spread", float("nan"))) \
+            and fit["duty"] > 0.0 \
+            and fit["duty_spread"] > max(0.05 * fit["duty"], 0.02):
+        # A duty that MOVED is not a step. The loop coming out of saturation
+        # looks exactly like this, and the fit would report it as one clean
+        # fixed-power response.
+        flags.append("DUTY_VARIES(%.2f%%)" % fit["duty_spread"])
     faulted = set()
     for r in seg:
         for n in (r.get("faults_named") or "").split("|"):
@@ -746,8 +907,19 @@ def _quality(seg, fit, args):
         flags.append("FAULTED(%s)" % ",".join(sorted(faulted)))
     if fit and fit["rms"] > args.rms_max:
         flags.append("NOISY(rms %.2f K)" % fit["rms"])
-    if fit and fit["span"] / fit["tau"] < 5.0:
-        flags.append("SHORT(%.1f tau)" % (fit["span"] / fit["tau"]))
+    if fit and fit["tau"] > 0.0:
+        ratio = fit["span"] / fit["tau"]
+        # Extrapolating an asymptote is legitimate - it is the whole advantage
+        # over the slope method, and the real 2026-09-04 step at 3.2 tau is
+        # perfectly usable. But there is a floor. Below one time constant the
+        # data is barely distinguishable from a straight line, the amplitude
+        # and tau trade off almost freely, and the fit returns a confident
+        # asymptote that is mostly an artefact: a synthetic 0.1-tau segment
+        # with a true 98 K/W came back as 105 K/W with a 1 mK residual.
+        if ratio < 1.0:
+            flags.append("TOO_SHORT(%.2f tau)" % ratio)
+        elif ratio < 5.0:
+            flags.append("SHORT(%.1f tau)" % ratio)
     return flags
 
 
@@ -755,7 +927,25 @@ def _quality(seg, fit, args):
 # SHORT is not among them: the exponential fit EXTRAPOLATES the asymptote, so a
 # short step is recoverable in a way the slope method never was - it just wants
 # saying, loudly, because it is the trap the bench fell into.
-FATAL_FLAGS = ("UNSTABLE_VIN", "FAULTED", "NOISY")
+FATAL_FLAGS = ("UNSTABLE_VIN", "FAULTED", "NOISY", "NO_VIN", "NON_FINITE",
+               "BAD_TAU", "TAU_UNIDENTIFIABLE", "DUTY_VARIES", "TOO_SHORT")
+
+
+def _seg_power_w(seg, ohm):
+    """Mean electrical power over a segment, averaged the right way round.
+
+    P is duty x VIN^2, and the mean of a product is not the product of the
+    means. With a duty or a rail that moved, mean(duty)*mean(VIN)^2 is simply a
+    different number - so average the per-sample power instead.
+    """
+    ps = []
+    for r in seg:
+        d, v = r.get("heater_duty_pct"), r.get("vin_mv")
+        if d is None or v is None:
+            continue
+        volts = v / 1000.0
+        ps.append((d / 100.0) * volts * volts / ohm)
+    return _mean(ps) if ps else float("nan")
 
 
 def _fit_segment(seg, args):
@@ -764,7 +954,7 @@ def _fit_segment(seg, args):
     fit = _fit_exp(t, y)
     if fit is None:
         return None
-    inf, t0, tau, rms = fit
+    inf, t0, tau, rms, edge = fit
     span = t[-1] - t[0]
     refit = False
     # A segment far longer than tau carries history that is not part of THIS
@@ -776,7 +966,7 @@ def _fit_segment(seg, args):
         yy = [v for x, v in zip(t, y) if x >= cut]
         again = _fit_exp(tt, yy) if len(tt) >= 8 else None
         if again and again[3] < rms:
-            inf, t0, tau, rms = again
+            inf, t0, tau, rms, edge = again
             span, t, y, refit = tt[-1] - tt[0], tt, yy, True
     # Prefer a MEASURED asymptote to an extrapolated one - but only once the
     # measurement has earned it. The tail mean is biased LOW by construction:
@@ -789,9 +979,14 @@ def _fit_segment(seg, args):
     asym, asym_from = inf, "fit"
     if span >= 8.0 * tau and len(y) >= n_tail:
         asym, asym_from = _mean(y[-n_tail:]), "tail"
+    duties = [r["heater_duty_pct"] for r in seg
+              if r.get("heater_duty_pct") is not None]
     return {"inf": inf, "asym": asym, "asym_from": asym_from, "t0": t0,
             "tau": tau, "rms": rms, "span": span, "n": len(y), "refit": refit,
-            "duty": _mean([r["heater_duty_pct"] for r in seg]),
+            "edge": edge,
+            "duty": _mean(duties),
+            "duty_spread": (max(duties) - min(duties)) if duties else float("nan"),
+            "power_w": _seg_power_w(seg, args.ohm),
             "vin": _mean([r["vin_mv"] for r in seg])}
 
 
@@ -859,13 +1054,29 @@ def analyse(rows, args):
                 "board." % cycle)
             continue
         dt = on["asym"] - _mean(neigh)
-        vin_v = on["vin"] / 1000.0
-        power = (on["duty"] / 100.0) * vin_v * vin_v / ohm
-        if power <= 0.0:
-            skipped.append("cycle %d: 0.00 %% applied - commanded duty is not "
-                           "applied duty, and an interlock refused" % cycle)
+        power = on["power_w"]
+        # Every one of these was a way for a nonsense number to reach the
+        # headline. An unevaluable input is a refusal, not a result.
+        if not math.isfinite(power) or power <= 0.0:
+            skipped.append("cycle %d: applied power is %s - commanded duty is "
+                           "not applied duty, and an interlock refused"
+                           % (cycle, "unevaluable" if not math.isfinite(power)
+                              else "%.1f mW" % (power * 1000.0)))
+            continue
+        if not math.isfinite(dt):
+            skipped.append("cycle %d: dT is unevaluable" % cycle)
+            continue
+        if dt <= 0.0:
+            skipped.append(
+                "cycle %d: the tip ENDED %.3f K cooler than its baseline while "
+                "%.2f %% duty was applied. That is not a heater step - suspect "
+                "the phase labelling, or ambient falling faster than the "
+                "heater raised it." % (cycle, -dt, on["duty"]))
             continue
         theta = dt / power
+        if not math.isfinite(theta) or theta <= 0.0:
+            skipped.append("cycle %d: theta is unevaluable" % cycle)
+            continue
         results.append((cycle, dt, power, theta, on["tau"] / theta, on["tau"],
                         len(neigh)))
 
@@ -884,9 +1095,20 @@ def analyse(rows, args):
               % (cycle, dt, power * 1000.0, theta, cap, tau,
                  "both sides" if nb == 2 else "ONE side (drift uncancelled)"))
 
-    thetas = [r[3] for r in results]
-    caps = [r[4] for r in results]
-    taus = [r[5] for r in results]
+    # A one-sided cycle has no drift cancellation - the run starts with ON, so
+    # cycle 1 always is one. Averaging it into the headline drags the answer
+    # by the drift it was supposed to remove (2.5 K/W on the synthetic set), so
+    # it is reported per-cycle but kept OUT of the mean whenever a two-sided
+    # cycle exists.
+    two_sided = [r for r in results if r[6] == 2]
+    used = two_sided or results
+    if two_sided and len(two_sided) != len(results):
+        print("\n  (%d one-sided cycle(s) excluded from the mean below - no "
+              "drift cancellation; they are listed above)"
+              % (len(results) - len(two_sided)))
+    thetas = [r[3] for r in used]
+    caps = [r[4] for r in used]
+    taus = [r[5] for r in used]
     print("\n  theta   %6.1f K/W" % _mean(thetas)
           + ("   (spread %.1f over %d cycles)"
              % (max(thetas) - min(thetas), len(thetas)) if len(thetas) > 1
@@ -1015,7 +1237,11 @@ def load_csv(path):
                 continue
             if last is None or abs(d - last) > 1e-9:
                 new_phase = "on" if d > 0.0 else "off"
-                if new_phase == "on":
+                # A cycle begins when the heater turns ON, not whenever the
+                # duty VALUE changes. A ramp 1,2,...,20 % is one ON half whose
+                # duty moved - which _quality flags as DUTY_VARIES - and not
+                # twenty cycles, nineteen of which would have no OFF half.
+                if new_phase == "on" and phase != "on":
                     cycle += 1
                 elif cycle == 0:
                     cycle = 1     # a log that starts cold, before any step
@@ -1065,6 +1291,10 @@ def main():
     ap.add_argument("--parity", default="E", choices=["N", "E", "O"])
     ap.add_argument("--timeout", type=float, default=1.0)
     ap.add_argument("--retries", type=int, default=2)
+    ap.add_argument("--max-fail", type=int, default=5,
+                    help="abort and restore after this many CONSECUTIVE failed "
+                         "polls while the heater is on (default 5). A probe "
+                         "that cannot be read must not be left heating.")
     ap.add_argument("--duty", type=float, default=4.0,
                     help="percent, applied during the ON half (default 4, "
                          "which is ~4 K in still air and is what the "

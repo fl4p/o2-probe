@@ -367,7 +367,10 @@ class Bus:
         # that must not be mistaken for success.
         if rsp[1] != 16:
             raise IOError("reply is function %d, not FC16" % rsp[1])
-        if len(rsp) < 6:
+        if len(rsp) != 8:
+            # Exact, not a minimum. SwdLink.exchange() ignores expect_len, so a
+            # long reply is not truncated for us the way SerialLink truncates
+            # it - and a trailing byte means the framing is not what we think.
             raise IOError("FC16 reply is %d bytes, expected 8" % len(rsp))
         echo_addr, echo_count = struct.unpack(">HH", rsp[2:6])
         if echo_addr != addr or echo_count != len(values):
