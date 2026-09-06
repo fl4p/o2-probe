@@ -1374,7 +1374,24 @@ module assembly() {
 // PRINTING-BODY-TUBE.md specifies and the one that makes every guide slot, lug
 // and seal land a vertical extrusion. The dam is flat and symmetric.
 module cap_printed() {
-    translate([0, 0, cap_h]) mirror([0, 0, 1]) cap();
+    // ROTATE, NOT MIRROR, and the difference is a whole part.
+    //
+    // mirror([0,0,1]) has determinant -1: it REFLECTS. Turning a part over to
+    // print it is a rigid motion -- rotate([180,0,0]), determinant +1 -- and
+    // for a CHIRAL part the two are not the same object. This cap is chiral:
+    // the bayonet has an entry slot at [0, entry_arc] and a pocket at negative
+    // angles, so a reflection sends the lug round the other way and the printed
+    // cap will not mate with the tube it was validated against.
+    //
+    // Measured 2026-09-06: difference(cap_printed(), rigid flip) came back with
+    // Volumes: 34, i.e. the two solids genuinely differ -- they are not two
+    // spellings of one flip. Found by an independent review; verified here
+    // before acting on it, because the first version of that test used
+    // `use <>` (which imports modules but NOT the variables they read) and both
+    // sides rendered empty, which looks exactly like agreement.
+    //
+    // Every cap printed before this date is the mirror image.
+    translate([0, 0, cap_h]) rotate([180, 0, 0]) cap();
 }
 
 // Machine-readable spigot geometry, for tools/spigot_check.py. The seal asserts
