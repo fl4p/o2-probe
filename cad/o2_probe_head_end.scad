@@ -1595,11 +1595,22 @@ if (!mem_clamped) {
              face_layer_h, ", cut into the RETAINER underside over a flat ",
              "carrier land. Inner wall ", (face_groove_id(window_d) - window_d)/2,
              " mm on the Ø", window_d, " bore -- the legacy bed had none. ",
-             "Membrane disc Ø", face_disc_d(window_d), " in a Ø",
-             face_disc_d(window_d) + 0.4, " seat, ", face_disc_edge,
-             " mm clear of the bolt holes."));
-    echo(str("MEMBRANE BED squeeze is set by GEOMETRY -- the retainer bottoms on ",
-             "the carrier face outside the seat -- nominal ", face_sq_nom*100,
+             face_seat_depth > 0
+               ? str("Membrane disc Ø", face_disc_d(window_d), " in a Ø",
+                     face_disc_d(window_d) + 0.4, " seat, ", face_disc_edge,
+                     " mm clear of the bolt holes.")
+               : str("NO SEAT (face_seat_depth 0): the membrane must COVER at ",
+                     "least Ø", face_disc_d(window_d), " so the ring lands on it ",
+                     "and not off its edge, and it is NOT located or recessed -- ",
+                     "it lies between the retainer face and the carrier and sets ",
+                     "where the joint stops. A hand-cut SQUARE must be at least ",
+                     face_disc_d(window_d), " across the flats; its corners then ",
+                     "reach r ", face_disc_d(window_d)*sqrt(2)/2,
+                     " against a bolt circle at r ", bolt_r, ".")));
+    echo(str("MEMBRANE BED squeeze ", face_seat_depth > 0
+               ? "is set by GEOMETRY -- the retainer bottoms on the carrier face outside the seat"
+               : "is NOT set by geometry any more: with no seat the retainer bottoms ON THE MEMBRANE, so the assembled gap depends on where a hand-cut blank lands and on how much 0.18 mm PTFE creeps under six screws. MEASURE IT",
+             " -- nominal ", face_sq_nom*100,
              "% on a cord thinned to ", face_cord_fit, " by ",
              face_stretch_nom*100, "% install stretch (", face_stretch_max*100,
              "% on a thin-ID ring). REQUIREMENT: hold the assembled gap ",

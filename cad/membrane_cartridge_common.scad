@@ -490,7 +490,7 @@ face_wall_min  = 2 * face_line_w;
 // MODEST improvement. If the ring still climbs out on the printed part, the
 // remedy is a retaining lip on the inner wall, not more narrowing -- there is no
 // more width left to give before the ring locks.
-face_groove_w_factor = 3.25 / 2.5;
+face_groove_w_factor = 3.18 / 2.5;   // 3.25 -> 3.18 on Fab's ask 2026-09-06: that is ALL the fill gate allows (84.97% worst corner against an 85% ceiling)
 // THE BUILD LAYER THIS BED IS QUANTIZED TO, and it is READ OFF THE PROFILE, not
 // chosen: cad/profiles/process_asa_seal.json slices this part at 0.12 with a
 // 0.2 first layer. It was 0.2 here for a day and that was simply wrong -- a
@@ -501,11 +501,37 @@ face_groove_w_factor = 3.25 / 2.5;
 // away will otherwise drift the first time either moves.
 face_layer_h   = 0.12;
 face_first_layer_h = 0.2;
-// Membrane counterbore in the retainer's underside: TWO layers, so the disc is
-// located without asking the slicer to print a fraction of one. The retainer
-// bottoms on the carrier flange outside it, which is what makes squeeze
-// geometric rather than a function of screw torque.
-face_seat_depth = 2 * face_layer_h;
+// Membrane counterbore in the retainer's underside. Was 2 * face_layer_h: two
+// layers, so the disc is located without asking the slicer to print a fraction
+// of one, and the retainer bottoms on the carrier flange OUTSIDE it, which is
+// what made squeeze geometric rather than a function of screw torque.
+//
+// ZERO ON FAB'S INSTRUCTION 2026-09-06: "i dont think we need that membran
+// seat, i just cut a square out of the PTFE and throw it there."
+//
+// KNOW WHAT THIS GIVES UP, because it is not just a located disc. A square
+// cannot both fit the seat and reach the groove -- the largest square the
+// O26.5 seat took was 18.74 across, and the smallest that covers the groove OD
+// plus its rim is 26.10 -- so a hand-cut square was never sitting in the seat
+// anyway. It lands on the SEALING FACE, holds the joint open by the membrane
+// thickness, and takes the gap from 1.82 to 2.00, i.e. squeeze from 25.89% to
+// 18.56%, BELOW the 20% floor. That is the looseness Fab could feel, and
+// removing the seat makes it the permanent design rather than a fit error.
+//
+// What replaces the lost datum: nothing here. The joint now bottoms wherever
+// the membrane happens not to be, so the assembled gap depends on where a
+// hand-cut square lands and on how much 0.18 mm PTFE creeps under six M2.5
+// screws. face_gap() below still reports the geometric number and it is now an
+// ESTIMATE, not a datum. MEASURE THE ASSEMBLED GAP before trusting a squeeze
+// figure off this build.
+//
+// The alternative that was NOT taken, recorded so it does not have to be
+// rediscovered: enlarge the seat instead of deleting it, out past the largest
+// square anyone would cut, and keep a narrow bottoming land outboard of it.
+// That keeps squeeze geometric AND swallows a rough square. It costs a thinner
+// land (the bolt circle at r 15.25 ends up inside the pocket) and was not
+// modelled.
+face_seat_depth = 0;
 face_disc_ledge = 1.0;      // membrane rim outboard of the groove
 face_squeeze_target = 0.25;
 
@@ -556,21 +582,46 @@ function face_cord_fitted(window_d, cord=face_ring_cord) =
 // about a variable defined two lines above and silently evaluates the
 // expression with undef -- measured 2026-09-05, `b = a ? 1 : 2` gives 1 alone
 // and 2 behind an include. A seal dimension must never be decided that way.
-face_groove_up = false;
+face_groove_up = true;
 
 // A FUNCTION, not a variable, so it is resolved lazily and cannot be caught by
 // the same hoist.
 function face_depth_datum() = face_groove_up ? 0 : face_first_layer_h;
 
+// DOES THE MEMBRANE FIT INSIDE THE SEAT, or does it hold the joint open?
+// This is the whole difference between the two designs and it was implicit
+// before, which made it wrong the moment face_seat_depth went to 0.
+//
+//  seat >= membrane_t  the disc is recessed, the retainer's face bottoms on the
+//                      CARRIER, and the ring is squeezed to (seat+depth) - t.
+//  seat <  membrane_t  the membrane stands proud of the recess by (t - seat), so
+//                      the FACE bottoms on the MEMBRANE and rides that much
+//                      higher. Working it through: the roof ends up depth + t
+//                      above the carrier and the membrane top is t above it, so
+//                      the gap is just `depth` -- the seat and the membrane
+//                      thickness cancel out of the answer entirely.
+//
+// Fab, 2026-09-06: "the o-ring is thick enough to stand out of the groove and
+// touch the membrane first." True -- it stands 0.696 mm proud -- but what SETS
+// squeeze is where the joint stops, not what touches first, and without a seat
+// the stop is the membrane.
+function face_seat_offset() =
+    face_seat_depth >= membrane_t ? face_seat_depth - membrane_t : 0;
 function face_groove_depth(window_d) =
     face_depth_datum()
     + round((face_cord_fitted(window_d)*(1 - face_squeeze_target)
-             - (face_seat_depth - membrane_t) - face_depth_datum()) / face_layer_h)
+             - face_seat_offset() - face_depth_datum()) / face_layer_h)
       * face_layer_h;
-// What the ring is actually squeezed to. The membrane sits in a seat one layer
-// deep and is 0.18 thick, so it leaves 0.02 mm of slack that the ring takes up.
+// What the ring is actually squeezed to.
+//
+// THE OLD FORM WAS `depth + face_seat_depth - membrane_t`, which silently
+// assumed the disc was always recessed. At face_seat_depth = 0 that under-reports
+// the gap by a whole membrane thickness: it would have derived depth 2.04 and
+// reported gap 1.86 / squeeze 24.26%, where the assembled joint actually holds
+// 2.04 and squeezes 16.9% -- BELOW the 20% floor, reported as comfortably inside
+// it. 0.18 mm is 7.4 squeeze points on this cord; the whole budget is 15.
 function face_gap(window_d) =
-    face_groove_depth(window_d) + face_seat_depth - membrane_t;
+    face_groove_depth(window_d) + face_seat_offset();
 function face_groove_w() = face_groove_w_factor * face_ring_cord;
 function face_groove_od(window_d) = face_groove_id(window_d) + 2*face_groove_w();
 function face_disc_d(window_d) = face_groove_od(window_d) + 2*face_disc_ledge;
@@ -644,9 +695,14 @@ module clamped_core_cuts(window_d, dry_d, plate_t, eps=0.02) {
 // z = 0, cutting into +Z; the caller mirrors the part for printing.
 module clamped_bed_cuts(window_d, eps=0.02) {
     depth = face_groove_depth(window_d);
-    // Membrane seat, one layer deep, +0.4 on diameter so a hand-cut disc drops in.
-    translate([0, 0, -eps])
-        cylinder(d=face_disc_d(window_d) + 0.4, h=face_seat_depth + eps);
+    // Membrane seat, +0.4 on diameter so a hand-cut disc drops in. GUARDED:
+    // face_seat_depth is 0 by default now (see its declaration), and an
+    // unguarded cylinder of height eps here is a degenerate sliver that CGAL
+    // will still union in -- a zero-depth "seat" that shows up as a facet ring
+    // on the sealing face and would be invisible in every echoed dimension.
+    if (face_seat_depth > 0)
+        translate([0, 0, -eps])
+            cylinder(d=face_disc_d(window_d) + 0.4, h=face_seat_depth + eps);
     // The groove, as an ANNULUS. A plain cylinder here would remove the inner
     // wall -- which is the entire point of this bed -- and would do it silently:
     // the part still renders as one solid and every dimension still echoes.

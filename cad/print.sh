@@ -72,13 +72,12 @@ part_process_overrides() {
         # would print inside the bore, against the underside of the very rails
         # being measured, and come off badly if at all.
         fit-coupon) echo '{"brim_object_gap":"0","brim_type":"outer_only","brim_width":"4"}' ;;
-        # RETAINER, re-examined 2026-09-05 when the part was flipped to print
-        # groove-DOWN. The old note said its z=0 "carries the six bolt clearance
-        # holes"; that was the groove-UP orientation. Groove-down, z=0 is the
-        # annulus that BOTTOMS ON THE CARRIER AND SETS THE GAP, and the seat and
-        # groove are recesses -- so the first layer is a bare 6 mm ring
-        # (r 13.25-19.4) with nothing inside r13. The part spaghettified out of
-        # that empty middle on the first attempt.
+        # RETAINER, back to GROOVE-UP 2026-09-06 after the groove-down flip was
+        # abandoned (GLAND-ON-THE-BED.md: three plates, three failures). Printed
+        # groove-up, z=0 is the flat BACK of the part -- a full annulus
+        # r 7.60-18.78, 11.18 mm wide -- not the seal face, and nothing bridges.
+        # Groove-down it was a bare 6 mm ring (r 13.25-19.4) with nothing inside
+        # r13, and the part spaghettified out of that empty middle.
         #
         # An inner brim was the obvious answer and it is WRONG. Both seal-check
         # guards refused it and both reasons hold: fused (gap 0) the snap-off
