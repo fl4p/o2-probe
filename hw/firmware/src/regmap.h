@@ -119,7 +119,7 @@ enum {
 #define O2P_REG_DIAG_BASE  0x0010u
 #define O2P_REG_DIAG_COUNT 21u
 
-/* ---- Config block: 0x0030, 20 registers, read/write, flash-backed ---- */
+/* ---- Config block: 0x0030, 21 registers, read/write, flash-backed ---- */
 enum {
     O2P_REG_SLAVE_ADDR      = 0x0030u,
     O2P_REG_BAUD_CODE       = 0x0031u,
@@ -153,8 +153,15 @@ enum {
      * which on Rev A is always, the BMP390 being DNP. Without it the
      * water-vapour correction has no P and O2_COMP cannot be computed at all.
      * Defaults to 930 hPa, the 715 m Steingrubenhof site; a probe deployed
-     * anywhere else MUST have this written, because P scales oxygen directly
-     * and sea level is 8 % away. Range O2P_P_HPA_MIN..MAX. */
+     * anywhere else should have this written. NOT because "sea level is 8 %
+     * away" - that was this comment's claim until 2026-09-06 and it confuses
+     * a difference in absolute pressure with an error in the published
+     * number. P appears twice, in K and in the dilution factor, and the two
+     * uses largely cancel: calibrating AND deploying at sea level on this
+     * default costs about +2 % relative, not +8 %. The +/-3.5 % of WEATHER
+     * does not cancel, because it moves P after K is fixed, and is worth
+     * about -4.2 %/+4.1 % at 60 C/100 %RH - see CAL_P_HPA below.
+     * Range O2P_P_HPA_MIN..MAX. */
     O2P_REG_ASSUMED_P_HPA   = 0x0042u, /* u16 hPa */
     /* The oxygen fraction actually present when the air point was taken,
      * %vol x 1000 (20946 = dry air). NOT a duplicate of O2P_C_AIR: the air
@@ -164,9 +171,25 @@ enum {
      * from the SHT45 and ASSUMED_P_HPA; a hand-written CAL_AIR_NA should be
      * accompanied by this. Zero means "unknown" and O2_COMP stays invalid. */
     O2P_REG_CAL_AIR_FRAC    = 0x0043u, /* u16 %vol x 1000 */
+    /* The TOTAL PRESSURE in force when the air point was taken, hPa, 0 =
+     * unknown. Not a duplicate of ASSUMED_P_HPA: that one is the pressure NOW
+     * and this one is the pressure THEN, and the cell's gain is proportional
+     * to total pressure because it answers to pO2 = C * P. K is fixed at the
+     * air point, so a measurement taken at a different P needs its current
+     * normalised by P_cal/P_meas before the inverse - without which even a
+     * populated barometer would correct the vapour dilution and leave the
+     * cell's own pressure-dependent gain uncorrected.
+     *
+     * Written by the CAL_TRIGGER routine from whatever P was in force then.
+     * Zero means "unknown", and the conversion then assumes P_cal == P_meas,
+     * i.e. no correction - which is exactly the pre-2026-09-06 behaviour and
+     * is what a Rev A board with no barometer gets anyway, since P_meas is
+     * then ASSUMED_P_HPA and equals P_cal by construction.
+     * Range 0, or O2P_P_HPA_MIN..MAX. */
+    O2P_REG_CAL_P_HPA       = 0x0044u, /* u16 hPa, 0 = unknown */
 };
 #define O2P_REG_CONFIG_BASE  0x0030u
-#define O2P_REG_CONFIG_COUNT 20u
+#define O2P_REG_CONFIG_COUNT 21u
 
 /* Deliberate magics rather than "write 1". A flash cycle and a recalibration
  * are both destructive and both are one stray bit away in a noisy RS-485
@@ -204,10 +227,11 @@ typedef struct {
     uint16_t heater_ki_x100;          /* 20 */
     uint16_t assumed_p_hpa;           /* 22 */
     uint16_t cal_air_frac_x1000;      /* 24 */
-    uint8_t  slave_addr;              /* 26 */
-    uint8_t  baud_code;               /* 27 */
-    uint8_t  parity_code;             /* 28 */
-    uint8_t  reserved[3];             /* 29..31 */
+    uint16_t cal_p_hpa;               /* 26 */
+    uint8_t  slave_addr;              /* 28 */
+    uint8_t  baud_code;               /* 29 */
+    uint8_t  parity_code;             /* 30 */
+    uint8_t  reserved[1];             /* 31 */
 } o2p_config_t;
 
 /* Live measurement snapshot, published atomically by the sampler. */

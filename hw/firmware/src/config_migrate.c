@@ -1,0 +1,215 @@
+#include "config_migrate.h"
+
+#include "modbus_pdu.h"
+
+#include <string.h>
+
+/* The magic and the record size are shared with config_flash.h, which cannot
+ * be included here: it pulls in the flash map and the current record layout,
+ * and this file's entire job is to be about the OLD ones. They are pinned
+ * against it by a static assert in config_flash.c instead, so a change to
+ * either is caught at compile time rather than at the first field upgrade. */
+#define MIGRATE_CONFIG_MAGIC 0x4F325043u   /* "O2PC" */
+#define MIGRATE_RECORD_SIZE  64u
+
+/* ---- layout version 2 ---------------------------------------------------
+ *
+ * As shipped before 2026-09-06: no assumed_p_hpa, no cal_air_frac_x1000, no
+ * cal_p_hpa. 28 bytes, and slave_addr sits at offset 22. */
+typedef struct {
+    int32_t  cal_air_na;              /* 0 */
+    uint16_t rh_setpoint_x100;        /* 4 */
+    uint16_t dt_max_k_x100;           /* 6 */
+    uint16_t heater_max_duty_x100;    /* 8 */
+    uint16_t heater_pwm_hz;           /* 10 */
+    int16_t  cal_temp_c100;           /* 12 */
+    int16_t  tempco_ppm_per_k;        /* 14 */
+    uint16_t sht_pulse_interval_h;    /* 16 */
+    uint16_t heater_kp_x100;          /* 18 */
+    uint16_t heater_ki_x100;          /* 20 */
+    uint8_t  slave_addr;              /* 22 */
+    uint8_t  baud_code;               /* 23 */
+    uint8_t  parity_code;             /* 24 */
+    uint8_t  reserved[3];             /* 25..27 */
+} o2p_config_v2_t;
+_Static_assert(sizeof(o2p_config_v2_t) == 28u, "v2 config layout is 28 bytes");
+
+/* ---- layout version 3 ---------------------------------------------------
+ *
+ * The water-vapour fields, without the calibration pressure that version 4
+ * adds. 32 bytes, and slave_addr moved to offset 26 - which is why a cast
+ * would be wrong rather than merely untidy.
+ *
+ * No board has ever run a version-3 record: version 3 existed for the length
+ * of one commit that could not be built. It is decoded anyway, because the
+ * cost is one struct and the alternative is a version whose records are
+ * silently unreadable if one ever did reach a board. */
+typedef struct {
+    int32_t  cal_air_na;              /* 0 */
+    uint16_t rh_setpoint_x100;        /* 4 */
+    uint16_t dt_max_k_x100;           /* 6 */
+    uint16_t heater_max_duty_x100;    /* 8 */
+    uint16_t heater_pwm_hz;           /* 10 */
+    int16_t  cal_temp_c100;           /* 12 */
+    int16_t  tempco_ppm_per_k;        /* 14 */
+    uint16_t sht_pulse_interval_h;    /* 16 */
+    uint16_t heater_kp_x100;          /* 18 */
+    uint16_t heater_ki_x100;          /* 20 */
+    uint16_t assumed_p_hpa;           /* 22 */
+    uint16_t cal_air_frac_x1000;      /* 24 */
+    uint8_t  slave_addr;              /* 26 */
+    uint8_t  baud_code;               /* 27 */
+    uint8_t  parity_code;             /* 28 */
+    uint8_t  reserved[3];             /* 29..31 */
+} o2p_config_v3_t;
+_Static_assert(sizeof(o2p_config_v3_t) == 32u, "v3 config layout is 32 bytes");
+
+/* The record wrapper is the same shape in every version - magic, layout
+ * version, sequence, configuration, CRC, reserved tail to 64 bytes - so only
+ * the configuration's size moves, and with it the CRC's offset. */
+#define REC_HDR_BYTES 12u   /* magic + layout_version + sequence */
+
+static uint32_t rd_u32(const uint8_t *p)
+{
+    uint32_t v;
+    memcpy(&v, p, sizeof(v));
+    return v;
+}
+
+static uint16_t rd_u16(const uint8_t *p)
+{
+    uint16_t v;
+    memcpy(&v, p, sizeof(v));
+    return v;
+}
+
+/* CRC-16/MODBUS over everything up to but excluding the crc field, exactly as
+ * the version that wrote the record computed it. The reserved tail is not
+ * covered, in any version. */
+static bool record_crc_ok(const uint8_t *rec, size_t cfg_bytes)
+{
+    size_t crc_off = REC_HDR_BYTES + cfg_bytes;
+    uint16_t want = rd_u16(rec + crc_off);
+    uint8_t tmp[MIGRATE_RECORD_SIZE];
+    memcpy(tmp, rec, MIGRATE_RECORD_SIZE);
+    /* The stored CRC was computed with the crc field zeroed. */
+    tmp[crc_off] = 0u;
+    tmp[crc_off + 1u] = 0u;
+    return o2p_mb_crc16(tmp, crc_off) == want;
+}
+
+/* The one policy statement, applied identically to every old version.
+ *
+ * TRANSPORT AND TUNING SURVIVE; THE AIR POINT DOES NOT. The air point is the
+ * only thing whose MEANING changed - a pre-v3 cal_air_na was recorded against
+ * an assumed dry atmosphere at an unrecorded humidity, and from v4 a
+ * calibration also has to say what pressure it was taken at. Anything this
+ * function cannot state honestly is left at its default, which for the three
+ * calibration fields is zero, which is what raises CAL_DEFAULT and holds
+ * O2_COMP on its sentinel until an operator takes a fresh air point.
+ *
+ * assumed_p_hpa is NOT carried from v3 either, for the same reason in reverse:
+ * it is meaningful, but it is only meaningful next to the air point it was in
+ * force for, and that air point is being discarded. The default reinstalls the
+ * documented site value. */
+static void carry_common(o2p_config_t *out,
+                         uint16_t rh_setpoint_x100, uint16_t dt_max_k_x100,
+                         uint16_t heater_max_duty_x100, uint16_t heater_pwm_hz,
+                         int16_t cal_temp_c100, int16_t tempco_ppm_per_k,
+                         uint16_t sht_pulse_interval_h,
+                         uint16_t heater_kp_x100, uint16_t heater_ki_x100,
+                         uint8_t slave_addr, uint8_t baud_code,
+                         uint8_t parity_code)
+{
+    /* Reachability. The whole reason this file exists. */
+    out->slave_addr = slave_addr;
+    out->baud_code = baud_code;
+    out->parity_code = parity_code;
+    /* Heater configuration. Unchanged in meaning across every version here,
+     * and re-tuning a loop in a buried pile is not a thing an operator can
+     * do. max_duty comes across as stored, including a stored zero. */
+    out->rh_setpoint_x100 = rh_setpoint_x100;
+    out->dt_max_k_x100 = dt_max_k_x100;
+    out->heater_max_duty_x100 = heater_max_duty_x100;
+    out->heater_pwm_hz = heater_pwm_hz;
+    out->heater_kp_x100 = heater_kp_x100;
+    out->heater_ki_x100 = heater_ki_x100;
+    /* Maintenance schedule and the cell's temperature coefficient: both are
+     * settings rather than measurements, and neither changed meaning. */
+    out->sht_pulse_interval_h = sht_pulse_interval_h;
+    out->tempco_ppm_per_k = tempco_ppm_per_k;
+    /* The temperature the old air point was taken at. It is kept because it
+     * is the reference for tempco and it costs nothing to be right about;
+     * with cal_air_na zeroed nothing converts from it until a fresh air point
+     * overwrites it anyway. */
+    out->cal_temp_c100 = cal_temp_c100;
+
+    /* Discarded, explicitly rather than by omission. */
+    out->cal_air_na = 0;
+    out->cal_air_frac_x1000 = 0u;
+    out->cal_p_hpa = 0u;
+}
+
+bool o2p_config_migrate(const void *record, size_t len,
+                        o2p_config_t *out, uint32_t *out_seq)
+{
+    if (record == NULL || out == NULL || out_seq == NULL ||
+        len < MIGRATE_RECORD_SIZE) {
+        return false;
+    }
+    const uint8_t *rec = (const uint8_t *)record;
+    if (rd_u32(rec) != MIGRATE_CONFIG_MAGIC) {
+        return false;
+    }
+    uint32_t version = rd_u32(rec + 4u);
+    uint32_t sequence = rd_u32(rec + 8u);
+    const uint8_t *cfg = rec + REC_HDR_BYTES;
+
+    o2p_config_t migrated;
+    o2p_config_defaults(&migrated);
+
+    switch (version) {
+    case 2u: {
+        if (!record_crc_ok(rec, sizeof(o2p_config_v2_t))) {
+            return false;
+        }
+        o2p_config_v2_t v2;
+        memcpy(&v2, cfg, sizeof(v2));
+        carry_common(&migrated, v2.rh_setpoint_x100, v2.dt_max_k_x100,
+                     v2.heater_max_duty_x100, v2.heater_pwm_hz,
+                     v2.cal_temp_c100, v2.tempco_ppm_per_k,
+                     v2.sht_pulse_interval_h, v2.heater_kp_x100,
+                     v2.heater_ki_x100, v2.slave_addr, v2.baud_code,
+                     v2.parity_code);
+        break;
+    }
+    case 3u: {
+        if (!record_crc_ok(rec, sizeof(o2p_config_v3_t))) {
+            return false;
+        }
+        o2p_config_v3_t v3;
+        memcpy(&v3, cfg, sizeof(v3));
+        carry_common(&migrated, v3.rh_setpoint_x100, v3.dt_max_k_x100,
+                     v3.heater_max_duty_x100, v3.heater_pwm_hz,
+                     v3.cal_temp_c100, v3.tempco_ppm_per_k,
+                     v3.sht_pulse_interval_h, v3.heater_kp_x100,
+                     v3.heater_ki_x100, v3.slave_addr, v3.baud_code,
+                     v3.parity_code);
+        break;
+    }
+    default:
+        /* Version 1, or something from the future, or a half-erased page. */
+        return false;
+    }
+
+    /* A migrated record faces exactly the check a Modbus write would. A
+     * migration that produced an out-of-range baud code or an implausible
+     * heater limit is a failed migration: the caller falls back to full
+     * defaults, which is the old behaviour and the safe one. */
+    if (!o2p_config_valid(&migrated)) {
+        return false;
+    }
+    *out = migrated;
+    *out_seq = sequence;
+    return true;
+}

@@ -93,10 +93,17 @@ This is not fixed by correcting the measurement — it is a bias in `K` itself,
 and it must be fixed at the point the air cal is taken. A probe calibrated in a
 damp shed and one calibrated in a dry lab do not agree today, by about 1 %.
 
-### 3c. Total pressure — 8 % from altitude, ±3.5 % from weather, unmeasured
+### 3c. Total pressure — ±4.2 % from weather at the operating point, unmeasured
+
+**Revised 2026-09-06 after an adversarial review of the implementation.** The
+first version of this section said "8 % from altitude" and implied weather
+largely cancels. Both halves were wrong in the same way: they quoted
+differences in *absolute pressure* as if they were errors in the *published
+number*, and they did not notice that `P` enters the calculation twice.
 
 The cell reads `pO₂ = C · P`. Both corrections above need `P`, and **the BMP390
-is DNP on Rev A**, so `PRESSURE_HPA` publishes 0.
+is DNP on Rev A**, so `PRESSURE_HPA` publishes 0 and the firmware uses the
+`ASSUMED_P_HPA` config register instead.
 
 ```
 altitude    0 m -> 101.3 kPa
@@ -104,16 +111,50 @@ altitude  715 m ->  93.0 kPa   (-8.2 %)   <- Steingrubenhof, 48.01475N 8.03294E
 weather at one site: ~97-104 kPa          (+/- 3.5 %)
 ```
 
-A probe calibrated at sea level and deployed at 715 m reads 8 % low before any
-humidity is involved. Weather alone moves it ±3.5 % at a fixed site — which is
-the same order as the effect the whole heater exists to protect, and it is
-**not correctable in firmware without a barometer**.
+**Where `P` actually appears.** Twice, and in opposite directions:
 
-Calibrating *in situ* cancels the altitude term (both cal and measurement share
-`P`) but not the weather term. That makes in-situ air calibration a requirement
-rather than a convenience, and it is worth reconsidering whether the BMP390
-should be populated on Rev B — the vapour correction needs `P` anyway, and the
-only alternative is a config register holding an assumed constant.
+1. In `K`. The air point fixes `K = S_air / ln(1/(1−C_cal))`, and `S_air` was
+   produced at the calibration pressure, because the cell answers to `pO₂`.
+   `K` therefore *carries* `P_cal` inside it.
+2. In the dilution factor `P / (P − p_w)` that converts wet basis to dry.
+
+Because the two uses partially cancel, an `ASSUMED_P_HPA` that is simply wrong
+by a constant is far less damaging than the 8.2 % suggests. Calibrating **and**
+deploying at sea level with the 930 hPa default left in place, air point at
+25 °C/50 %RH and read out at 60 °C/100 %RH, publishes about **21.4 %vol, near
++2 % relative** — not 8 % low. (The review computed 21.386 %vol / +2.10 %;
+recomputing it here against `psychro.c`'s own Magnus coefficients gives
+21.417 %vol / +2.25 %. The two agree on the order and disagree on the last
+digit, which is the point: the residual depends on both the calibration and the
+measurement conditions, so it is a range and not a constant. Both are about
+2 %, and neither is 8 %.)
+
+**Weather does not cancel, and it is the larger error.** `P` moving after the
+air point was taken changes the cell's gain without changing `K`. At the same
+60 °C/100 %RH operating point, ±3.5 % of weather makes fully aerated air
+publish about **20.073–21.813 %vol dry against a true 20.946 — −4.17 % to
++4.14 % relative.** That is the largest uncorrected term left in the oxygen
+channel, roughly twice the in-situ altitude residual above, and about a fifth
+of the vapour term this document was written about.
+
+**What in-situ calibration does and does not buy.** It cancels the *systematic*
+part — a constant offset in the assumed `P` appears in both `K` and the
+dilution factor and largely divides out — so in-situ air calibration remains a
+requirement rather than a convenience. It does nothing about weather, which
+moves `P_meas` after `K` is already fixed.
+
+**It is not correctable in firmware without a barometer.** It is not
+uncorrectable in principle, and the distinction matters for Rev B: with a
+populated BMP390 the fix is to normalise the measured current by `P_cal/P_meas`
+before the inverse, which requires the calibration pressure to have been stored.
+Correcting only the dilution factor against a real barometer reading — which is
+what the first implementation of this document did — leaves about **−3.2 % to
++3.2 %** of the weather term on the answer, i.e. it fixes less than a quarter of
+it. So the firmware now records `CAL_P_HPA` (`0x0044`) at the moment an air
+point is taken and applies that normalisation. With no barometer fitted
+`P_meas == P_cal == ASSUMED_P_HPA`, the ratio is exactly 1, and it changes no
+number today; it is the structure without which even a populated barometer would
+not fix this.
 
 ## 4. The decision this needs, which is a spec decision
 

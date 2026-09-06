@@ -65,11 +65,15 @@ FAULT_BITS = [
 INVALIDATE_O2 = ["SETTLING", "I2C_FAIL_LMP", "I2C_FAIL_ADS",
                  "AFE_CONFIG_MISMATCH", "VA_LOW", "ADS_DRDY_STUCK",
                  "ADS_CONFIG_LOST", "ADC_RANGE"]
-# O2_COMP is DRY BASIS, so it also needs the SHT45: without RH and chamber
-# temperature the water-vapour term cannot be computed, and that term is up to
-# 20 % at the operating point. Kept in step with O2P_FAULTS_INVALIDATE_O2_COMP
-# in faults.h.
-INVALIDATE_O2_COMP = INVALIDATE_O2 + ["I2C_FAIL_SHT", "CAL_DEFAULT"]
+# O2_COMP is DRY BASIS, so it also needs the calibration constant. It needs the
+# SHT45 too, but I2C_FAIL_SHT is deliberately NOT here: the same bit is raised
+# for the SHT45's own scheduled de-creep pulse, and the firmware bridges that
+# 30 s gap from the last measured chamber reading (O2P_RH_MAX_AGE_S in o2.h)
+# rather than blanking the channel. When the data really is too old the
+# firmware publishes the SENTINEL, which this tool already decodes to None.
+# Kept in step with O2P_FAULTS_INVALIDATE_O2_COMP in faults.h, and now checked
+# against it - see check_against_source().
+INVALIDATE_O2_COMP = INVALIDATE_O2 + ["CAL_DEFAULT"]
 
 CSV_COLUMNS = [
     "utc", "status", "detail", "sample_seq", "settle_s",
@@ -122,15 +126,28 @@ def check_against_source():
             bad.append("fault %s is bit %s in faults.h, this tool assumes %d"
                        % (name, m.group(1), bit))
 
-    m = re.search(r"#define\s+O2P_FAULTS_INVALIDATE_O2\s*\((.*?)\)", faults, re.S)
-    if not m:
-        bad.append("O2P_FAULTS_INVALIDATE_O2 not found in faults.h")
-    else:
+    # BOTH masks, not just the raw one. Checking only INVALIDATE_O2 was a hole
+    # a reviewer found by deleting this tool's compensated list outright and
+    # watching the check still pass: the copy that had actually changed in the
+    # firmware was the one nothing compared.
+    for macro, mine in (("O2P_FAULTS_INVALIDATE_O2", INVALIDATE_O2),
+                        ("O2P_FAULTS_INVALIDATE_O2_COMP", INVALIDATE_O2_COMP)):
+        m = re.search(r"#define\s+%s\s*\((.*?)\)" % re.escape(macro),
+                      faults, re.S)
+        if not m:
+            bad.append("%s not found in faults.h" % macro)
+            continue
         want = set(re.findall(r"O2P_F_(\w+)", m.group(1)))
-        if want != set(INVALIDATE_O2):
-            bad.append("INVALIDATE_O2 differs from faults.h: firmware has %s, "
-                       "this tool has %s"
-                       % (sorted(want), sorted(INVALIDATE_O2)))
+        # The compensated macro is written in terms of the raw one, so expand
+        # that reference the way the preprocessor would.
+        if "O2P_FAULTS_INVALIDATE_O2" in m.group(1):
+            raw = re.search(r"#define\s+O2P_FAULTS_INVALIDATE_O2\s*\((.*?)\)",
+                            faults, re.S)
+            if raw:
+                want |= set(re.findall(r"O2P_F_(\w+)", raw.group(1)))
+        if want != set(mine):
+            bad.append("%s differs from faults.h: firmware has %s, this tool "
+                       "has %s" % (macro, sorted(want), sorted(mine)))
     return bad
 
 

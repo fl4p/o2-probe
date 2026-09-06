@@ -84,6 +84,11 @@ static uint16_t g_ads_fail_count;         /* cycles with no ADS conversion */
  * Initialised so the first cycle is not masked. */
 static uint32_t g_sht_pulse_ms;
 static uint32_t g_next_sht_pulse_s;
+/* The last chamber reading that was actually measured, so the 30 s mask after
+ * a scheduled SHT45 de-creep pulse is BRIDGED rather than published as an
+ * oxygen sentinel three times a day. Bounded by O2P_RH_MAX_AGE_S; see o2.h
+ * for the derivation and for why a dead sensor still reaches the sentinel. */
+static o2p_gas_cache_t g_gas_cache;
 #define O2P_SHT_RECOVERY_MS 30000u
 
 static void restart_settling(void)
@@ -106,6 +111,9 @@ static void load_cal_from_config(void)
     /* %vol x 1000 -> fraction. Zero stays zero, i.e. "the humidity at the air
      * point is unknown", and o2.c refuses to convert on it. */
     g_cal.air_frac = (float)g_rm.cfg.cal_air_frac_x1000 * 1e-5f;
+    /* Zero stays zero, i.e. "the pressure at the air point is unknown", which
+     * o2.c reads as P_cal == P_meas and applies no pressure normalisation. */
+    g_cal.cal_p_hpa = (float)g_rm.cfg.cal_p_hpa;
 }
 
 /* Convert an AIN0 code to cell current in nanoamps.
@@ -419,12 +427,18 @@ static void finish_vref(o2p_snapshot_t *s)
 /* The gas the cell is in this cycle, for the water-vapour correction.
  *
  * `valid` is false whenever the SHT45 did not deliver BOTH a humidity and a
- * chamber temperature, and that propagates all the way to a sentinel on
- * O2_COMP - see O2P_FAULTS_INVALIDATE_O2_COMP, which now carries
- * I2C_FAIL_SHT for exactly this reason. Substituting the tip temperature
- * would be worse than refusing: the tip is heated, so its saturation pressure
- * is not the gas's, and a plausible wrong correction is the failure mode this
+ * chamber temperature this cycle. Substituting the TIP temperature would be
+ * worse than refusing: the tip is heated, so its saturation pressure is not
+ * the gas's, and a plausible wrong correction is the failure mode this
  * firmware is written against.
+ *
+ * What IS substituted is the chamber's own last measured reading, for at most
+ * O2P_RH_MAX_AGE_S. That is not a fallback to a plausible number - it is the
+ * same sensor's real measurement, bounded by an age that covers the 30 s
+ * post-pulse mask and nothing longer. Past the cap the gas stays invalid and
+ * O2_COMP publishes its sentinel, so a dead SHT45 is still reported as one;
+ * what no longer happens is a scheduled de-creep pulse blanking the primary
+ * oxygen channel and labelling it a bus failure.
  *
  * P comes from the barometer when there is one. There is not: the BMP390 is
  * DNP on Rev A and PRESSURE_HPA publishes 0, so this is the ASSUMED_P_HPA
@@ -438,6 +452,9 @@ static o2p_gas_t cycle_gas(const o2p_snapshot_t *s)
     g.t_c = (float)g_cyc.t_chamber * 0.01f;
     g.p_hpa = (s->pressure_hpa != 0u) ? (float)s->pressure_hpa
                                       : (float)g_rm.cfg.assumed_p_hpa;
+    /* Only a measured gas enters the cache; the bridging happens at the use
+     * site, so the caller can still tell a fresh reading from a bridged one. */
+    o2p_gas_cache_update(&g_gas_cache, &g, g_uptime_s);
     return g;
 }
 
@@ -479,7 +496,13 @@ static void finish_o2(o2p_snapshot_t *s)
         g_cyc.faults |= O2P_F_CAL_DEFAULT;
     }
 
-    const o2p_gas_t gas = cycle_gas(s);
+    /* Two gases, and the difference is deliberate. `fresh` is what the SHT45
+     * delivered THIS cycle and nothing else; `gas` is that, or the same
+     * sensor's last measurement if it is younger than O2P_RH_MAX_AGE_S. The
+     * published conversion may bridge; an air-point calibration may not. */
+    const o2p_gas_t fresh = cycle_gas(s);
+    o2p_gas_t gas = fresh;
+    (void)o2p_gas_cache_apply(&g_gas_cache, &gas, g_uptime_s);
 
     /* A non-zero temperature coefficient with no temperature is not a
      * compensated reading. Rather than silently applying a zero correction
@@ -509,16 +532,23 @@ static void finish_o2(o2p_snapshot_t *s)
         /* Judge the raw channel, not the compensated one: a probe that has
          * never been calibrated always fails the compensated test, which
          * would make calibration impossible. */
+        /* `fresh`, NOT `gas`: a calibration is permanent, so it gets a
+         * humidity measured in this cycle or none at all. Bridging a 30 s gap
+         * is right for a sample that will be superseded in a second and wrong
+         * for a constant that every later reading divides by. */
         if (o2p_o2_valid(g_cyc.faults) &&
             o2p_calibrate_air(&g_cal, cell_na,
                               (t_gas != O2P_I16_INVALID) ? t_gas : 2500,
-                              &gas)) {
+                              &fresh)) {
             g_rm.cfg.cal_air_na = g_cal.cal_air_na;
             g_rm.cfg.cal_temp_c100 = g_cal.cal_temp_c100;
             /* Stored WITH the air point, never separately: a cal_air_na
-             * without the fraction it was taken at is the 1-2 % bias again. */
+             * without the fraction it was taken at is the 1-2 % bias again,
+             * and one without the pressure it was taken at leaves the cell's
+             * pressure-dependent gain permanently uncorrected. */
             g_rm.cfg.cal_air_frac_x1000 =
                 (uint16_t)(g_cal.air_frac * 100000.0f + 0.5f);
+            g_rm.cfg.cal_p_hpa = (uint16_t)(g_cal.cal_p_hpa + 0.5f);
         }
         /* A refused calibration leaves the old constants in place. An air
          * point taken with the SHT45 down is refused here, not stored with an

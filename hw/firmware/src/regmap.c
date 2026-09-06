@@ -41,6 +41,10 @@ void o2p_config_defaults(o2p_config_t *cfg)
      * NOT default to dry air, because assuming dry air at the air point is
      * precisely the 1-2 % bias this field exists to remove. */
     cfg->cal_air_frac_x1000 = 0u;
+    /* Nor a calibration pressure. Zero means "unknown", which the conversion
+     * reads as P_cal == P_meas - no pressure normalisation - rather than as
+     * some assumed atmosphere. It is written together with the air point. */
+    cfg->cal_p_hpa = 0u;
     /* Heater loop. max_duty of zero means the loop is OFF by configuration as
      * well as by the compile guard: two independent switches, so enabling the
      * heater is never a single edit. See heater.h for the bench prerequisites.
@@ -130,6 +134,16 @@ bool o2p_config_valid(const o2p_config_t *cfg)
     if (cfg->cal_air_frac_x1000 != 0u &&
         (cfg->cal_air_frac_x1000 < (uint16_t)(O2P_CAL_FRAC_MIN * 100000.0f) ||
          cfg->cal_air_frac_x1000 > (uint16_t)(O2P_CAL_FRAC_MAX * 100000.0f))) {
+        return false;
+    }
+    /* The calibration pressure. Zero is legal and means "unknown" - the
+     * conversion then applies no pressure normalisation at all. Any other
+     * value has to be a pressure, and the same window as ASSUMED_P_HPA:
+     * P_cal/P_meas scales oxygen directly, so a 5 hPa or 3000 hPa cal
+     * pressure would rescale every reading without ever looking like a
+     * fault. */
+    if (cfg->cal_p_hpa != 0u &&
+        (cfg->cal_p_hpa < O2P_P_HPA_MIN || cfg->cal_p_hpa > O2P_P_HPA_MAX)) {
         return false;
     }
     return true;
@@ -283,6 +297,7 @@ static uint16_t read_config(const o2p_regmap_t *rm, uint16_t a)
     case O2P_REG_SHT_PULSE_H:     return c->sht_pulse_interval_h;
     case O2P_REG_ASSUMED_P_HPA:   return c->assumed_p_hpa;
     case O2P_REG_CAL_AIR_FRAC:    return c->cal_air_frac_x1000;
+    case O2P_REG_CAL_P_HPA:       return c->cal_p_hpa;
     /* The trigger registers read back as zero: they are edges, not state.
      * Reading a 1 would suggest a calibration is pending when it is not. */
     case O2P_REG_SHT_PULSE_TRIG:  return 0u;
@@ -376,6 +391,7 @@ static uint8_t apply_config_word(o2p_config_t *c, uint16_t a, uint16_t v,
     case O2P_REG_SHT_PULSE_H:     c->sht_pulse_interval_h = v; break;
     case O2P_REG_ASSUMED_P_HPA:   c->assumed_p_hpa = v; break;
     case O2P_REG_CAL_AIR_FRAC:    c->cal_air_frac_x1000 = v; break;
+    case O2P_REG_CAL_P_HPA:       c->cal_p_hpa = v; break;
     default:
         return O2P_MB_EX_ILLEGAL_ADDRESS;
     }

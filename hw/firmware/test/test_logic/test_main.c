@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include "ads1119.h"
+#include "config_migrate.h"
 #include "die_temp.h"
 #include "faults.h"
 #include "heater_ctl.h"
@@ -175,8 +176,12 @@ static void test_config_struct_has_no_implicit_padding(void)
     /* The struct is written to flash byte-for-byte and hashed with a CRC.
      * Padding the compiler may leave uninitialised would make that CRC
      * non-deterministic and produce spurious "corrupt config" at boot. */
-    TEST_ASSERT_EQUAL_UINT(sizeof(int32_t) + 11 * sizeof(uint16_t) + 6,
+    TEST_ASSERT_EQUAL_UINT(sizeof(int32_t) + 12 * sizeof(uint16_t) + 4,
                            sizeof(o2p_config_t));
+    /* And it did not GROW: cal_p_hpa was placed where the reserved bytes
+     * already were, so the flash record's 64-byte frame and the CRC boundary
+     * inside it are untouched by this field. */
+    TEST_ASSERT_EQUAL_UINT(32u, sizeof(o2p_config_t));
 }
 
 static void test_read_across_block_gap_is_refused(void)
@@ -546,15 +551,16 @@ static void test_gain_registers_read_back_what_was_written(void)
 
 static void test_config_block_read_covers_the_gains(void)
 {
-    /* The block grew from 16 to 18 registers with the gains, and to 20 with
-     * ASSUMED_P_HPA and CAL_AIR_FRAC. A read of all 20 must succeed; 21 must
-     * not, or the boundary rule has quietly stopped being enforced. */
+    /* The block grew from 16 to 18 registers with the gains, to 20 with
+     * ASSUMED_P_HPA and CAL_AIR_FRAC, and to 21 with CAL_P_HPA. A read of all
+     * 21 must succeed; 22 must not, or the boundary rule has quietly stopped
+     * being enforced. */
     uint8_t req[16], rsp[O2P_MB_MAX_ADU];
-    const uint8_t all[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x14};
+    const uint8_t all[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x15};
     size_t n = framed(req, all, sizeof(all));
-    TEST_ASSERT_EQUAL_UINT(3 + 40 + 2, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
+    TEST_ASSERT_EQUAL_UINT(3 + 42 + 2, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
 
-    const uint8_t over[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x15};
+    const uint8_t over[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x16};
     n = framed(req, over, sizeof(over));
     o2p_mb_dispatch(req, n, 3, &handlers, rsp);
     TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS, rsp[2]);
@@ -967,14 +973,23 @@ static void test_pressure_and_air_fraction_registers_are_bounded(void)
     TEST_ASSERT_EQUAL_UINT16(20946, (rsp[5] << 8) | rsp[6]);
 }
 
-static void test_o2_comp_needs_the_humidity_sensor(void)
+static void test_o2_comp_validity_is_data_age_not_the_sht_fault_bit(void)
 {
-    /* O2_COMP is dry basis, so it depends on the SHT45 the way it already
-     * depended on the calibration constant. A dead humidity sensor must
-     * invalidate the compensated channel and leave the raw one alone. */
-    TEST_ASSERT_FALSE(o2p_o2_comp_valid(O2P_F_I2C_FAIL_SHT));
+    /* I2C_FAIL_SHT is raised for the SHT45's own SCHEDULED de-creep pulse as
+     * well as for a dead sensor, so using it as O2_COMP's validity criterion
+     * blanked the primary oxygen channel for 30 s three times a day and
+     * labelled scheduled maintenance a bus failure. The criterion is the AGE
+     * of the chamber reading instead - see the cache tests below - and this
+     * pins the mask so the bit cannot quietly come back. */
+    TEST_ASSERT_TRUE(o2p_o2_comp_valid(O2P_F_I2C_FAIL_SHT));
     TEST_ASSERT_TRUE(o2p_o2_valid(O2P_F_I2C_FAIL_SHT));
     TEST_ASSERT_TRUE(o2p_o2_comp_valid(0u));
+    TEST_ASSERT_EQUAL_HEX16(0u,
+                            O2P_FAULTS_INVALIDATE_O2_COMP & O2P_F_I2C_FAIL_SHT);
+    /* The calibration constant still does invalidate it, and the raw channel
+     * is still the one that survives a dead humidity sensor. */
+    TEST_ASSERT_FALSE(o2p_o2_comp_valid(O2P_F_CAL_DEFAULT));
+    TEST_ASSERT_TRUE(o2p_o2_valid(O2P_F_CAL_DEFAULT));
 }
 
 static void test_p_sat_has_exactly_one_implementation(void)
@@ -1882,6 +1897,537 @@ static void test_fault_latch_never_hides_a_current_fault(void)
 }
 
 
+/* ------------------------------------------- config migration (layout v2)
+ *
+ * The failure this prevents is not a lost calibration - that one is real and
+ * deliberate. It is a probe that stops answering its master.
+ *
+ * A record whose layout_version did not match used to be discarded whole, and
+ * the defaults it fell back to include slave address 3, 9600 baud, even
+ * parity. A probe an operator had moved to another address, baud or parity
+ * therefore went silent the moment it took a firmware update - on hardware
+ * that is potted and buried in a compost pile, with no way back in over the
+ * bus. The calibration argument justifies discarding two fields; it never
+ * justified discarding the transport.
+ */
+
+/* The version-2 configuration exactly as it sat in flash: 28 bytes, no
+ * assumed_p_hpa, no cal_air_frac_x1000, no cal_p_hpa, and slave_addr at offset
+ * 22 rather than 28. Written out here rather than derived from the current
+ * struct, because the whole point is that the two layouts differ. */
+typedef struct {
+    int32_t  cal_air_na;
+    uint16_t rh_setpoint_x100;
+    uint16_t dt_max_k_x100;
+    uint16_t heater_max_duty_x100;
+    uint16_t heater_pwm_hz;
+    int16_t  cal_temp_c100;
+    int16_t  tempco_ppm_per_k;
+    uint16_t sht_pulse_interval_h;
+    uint16_t heater_kp_x100;
+    uint16_t heater_ki_x100;
+    uint8_t  slave_addr;
+    uint8_t  baud_code;
+    uint8_t  parity_code;
+    uint8_t  reserved[3];
+} test_cfg_v2_t;
+
+#define TEST_CFG_MAGIC 0x4F325043u
+#define TEST_REC_BYTES 64u
+
+/* Build the 64-byte record a version-2 probe would have on its config page,
+ * CRC and all. `crc_ok` false corrupts it, to prove the CRC is still checked
+ * on the migration path and not only on the current-version one. */
+static void build_v2_record(uint8_t rec[TEST_REC_BYTES],
+                            const test_cfg_v2_t *cfg, uint32_t seq,
+                            bool crc_ok)
+{
+    memset(rec, 0, TEST_REC_BYTES);
+    uint32_t magic = TEST_CFG_MAGIC, ver = 2u;
+    memcpy(rec + 0, &magic, 4);
+    memcpy(rec + 4, &ver, 4);
+    memcpy(rec + 8, &seq, 4);
+    memcpy(rec + 12, cfg, sizeof(*cfg));
+    /* crc lives immediately after the configuration and covers everything
+     * before it, with its own two bytes zero - which they already are. */
+    uint16_t crc = o2p_mb_crc16(rec, 12u + sizeof(*cfg));
+    if (!crc_ok) {
+        crc ^= 0xFFFFu;
+    }
+    memcpy(rec + 12u + sizeof(*cfg), &crc, 2);
+}
+
+/* A probe that has been deployed: moved off every default the transport has,
+ * with a tuned heater and a real air point. */
+static test_cfg_v2_t deployed_v2(void)
+{
+    test_cfg_v2_t c;
+    memset(&c, 0, sizeof(c));
+    c.cal_air_na = 98765;          /* a real air point, taken in moist air */
+    c.rh_setpoint_x100 = 7500u;
+    c.dt_max_k_x100 = 250u;
+    c.heater_max_duty_x100 = 3000u;
+    c.heater_pwm_hz = 1500u;
+    c.cal_temp_c100 = 2140;
+    c.tempco_ppm_per_k = 2000;
+    c.sht_pulse_interval_h = 12u;
+    c.heater_kp_x100 = 450u;
+    c.heater_ki_x100 = 60u;
+    c.slave_addr = 17u;                  /* not the default 3 */
+    c.baud_code = O2P_BAUD_38400;        /* not the default 9600 */
+    c.parity_code = O2P_PARITY_NONE;     /* not the default even */
+    return c;
+}
+
+static void test_v2_migration_keeps_the_probe_reachable(void)
+{
+    const test_cfg_v2_t v2 = deployed_v2();
+    uint8_t rec[TEST_REC_BYTES];
+    build_v2_record(rec, &v2, 42u, true);
+
+    o2p_config_t out;
+    uint32_t seq = 0u;
+    memset(&out, 0xAA, sizeof(out));
+    TEST_ASSERT_TRUE(o2p_config_migrate(rec, sizeof(rec), &out, &seq));
+
+    /* THE POINT. All three transport fields survive verbatim; if any of them
+     * defaulted, this probe would be answering at address 3 / 9600 / 8E1 and
+     * its master would be talking to nothing. */
+    TEST_ASSERT_EQUAL_UINT8(17u, out.slave_addr);
+    TEST_ASSERT_EQUAL_UINT8(O2P_BAUD_38400, out.baud_code);
+    TEST_ASSERT_EQUAL_UINT8(O2P_PARITY_NONE, out.parity_code);
+
+    /* And the settings an operator tuned in a pile and cannot easily retune. */
+    TEST_ASSERT_EQUAL_UINT16(7500u, out.rh_setpoint_x100);
+    TEST_ASSERT_EQUAL_UINT16(250u, out.dt_max_k_x100);
+    TEST_ASSERT_EQUAL_UINT16(3000u, out.heater_max_duty_x100);
+    TEST_ASSERT_EQUAL_UINT16(1500u, out.heater_pwm_hz);
+    TEST_ASSERT_EQUAL_UINT16(450u, out.heater_kp_x100);
+    TEST_ASSERT_EQUAL_UINT16(60u, out.heater_ki_x100);
+    TEST_ASSERT_EQUAL_UINT16(12u, out.sht_pulse_interval_h);
+    TEST_ASSERT_EQUAL_INT16(2000, out.tempco_ppm_per_k);
+    TEST_ASSERT_EQUAL_INT16(2140, out.cal_temp_c100);
+
+    /* THE CALIBRATION, AND ONLY THE CALIBRATION, IS DISCARDED. The v2 air
+     * point was taken against an assumed DRY atmosphere at a humidity nobody
+     * recorded, so no honest air fraction exists for it - and from layout 4 a
+     * calibration must also say what pressure it was taken at. Zero on all
+     * three is what raises CAL_DEFAULT and holds O2_COMP on its sentinel. */
+    TEST_ASSERT_EQUAL_INT32(0, out.cal_air_na);
+    TEST_ASSERT_EQUAL_UINT16(0u, out.cal_air_frac_x1000);
+    TEST_ASSERT_EQUAL_UINT16(0u, out.cal_p_hpa);
+    /* Which is exactly what the sampler tests for before substituting the
+     * datasheet nominal and raising CAL_DEFAULT. */
+    TEST_ASSERT_TRUE(out.cal_air_na <= 0);
+    /* ...and a conversion on it refuses rather than inventing a number. */
+    o2p_cal_t cal = {0};
+    cal.cal_air_na = out.cal_air_na;
+    cal.air_frac = (float)out.cal_air_frac_x1000 * 1e-5f;
+    float c = 0.0f;
+    TEST_ASSERT_EQUAL(O2P_UNEVALUABLE,
+                      o2p_fraction_from_current(&cal, 70000, 2500, &c));
+
+    /* Fields that did not exist in v2 come up on their documented defaults,
+     * not on whatever the old reserved bytes happened to hold. */
+    TEST_ASSERT_EQUAL_UINT16(O2P_P_HPA_DEFAULT, out.assumed_p_hpa);
+
+    /* The sequence carries across, so the higher-sequence-wins choice between
+     * the two config pages still works after a migration. */
+    TEST_ASSERT_EQUAL_UINT32(42u, seq);
+
+    /* And the result is something the live register interface would accept. */
+    TEST_ASSERT_TRUE(o2p_config_valid(&out));
+}
+
+static void test_v2_migration_falls_back_to_defaults_when_it_cannot_be_trusted(void)
+{
+    uint8_t rec[TEST_REC_BYTES];
+    o2p_config_t out;
+    uint32_t seq = 0u;
+
+    /* A record that migrates to something INVALID is a failed migration, not
+     * a configuration. 250 is past O2P_MB_ADDR_MAX (247), so this record would
+     * install an unaddressable probe; the caller must fall back to full
+     * defaults, which is the old behaviour and the safe one. */
+    test_cfg_v2_t bad = deployed_v2();
+    bad.slave_addr = 250u;
+    build_v2_record(rec, &bad, 7u, true);
+    TEST_ASSERT_FALSE(o2p_config_migrate(rec, sizeof(rec), &out, &seq));
+
+    /* An illegal baud code, for the same reason. */
+    bad = deployed_v2();
+    bad.baud_code = 9u;
+    build_v2_record(rec, &bad, 7u, true);
+    TEST_ASSERT_FALSE(o2p_config_migrate(rec, sizeof(rec), &out, &seq));
+
+    /* A heater setpoint outside the cell's rating: the migration must not be
+     * a way to install a configuration a Modbus write would have refused. */
+    bad = deployed_v2();
+    bad.rh_setpoint_x100 = 9900u;
+    build_v2_record(rec, &bad, 7u, true);
+    TEST_ASSERT_FALSE(o2p_config_migrate(rec, sizeof(rec), &out, &seq));
+
+    /* A corrupt record is still corrupt. The CRC is checked at the OLD
+     * layout's offset - 40 bytes in, not 44 - so a migration path that
+     * borrowed the current offset would pass garbage through here. */
+    test_cfg_v2_t good = deployed_v2();
+    build_v2_record(rec, &good, 7u, false);
+    TEST_ASSERT_FALSE(o2p_config_migrate(rec, sizeof(rec), &out, &seq));
+
+    /* Wrong magic, an unknown version, and a short buffer: all refused. */
+    build_v2_record(rec, &good, 7u, true);
+    rec[0] ^= 0xFFu;
+    TEST_ASSERT_FALSE(o2p_config_migrate(rec, sizeof(rec), &out, &seq));
+
+    build_v2_record(rec, &good, 7u, true);
+    uint32_t v1 = 1u;
+    memcpy(rec + 4, &v1, 4);
+    TEST_ASSERT_FALSE(o2p_config_migrate(rec, sizeof(rec), &out, &seq));
+
+    build_v2_record(rec, &good, 7u, true);
+    TEST_ASSERT_FALSE(o2p_config_migrate(rec, sizeof(rec) - 1u, &out, &seq));
+    TEST_ASSERT_FALSE(o2p_config_migrate(NULL, sizeof(rec), &out, &seq));
+}
+
+/* ------------------------------------------------ oxygen: total pressure
+ *
+ * The cell answers to pO2 = C * P, so its current at a given fraction is
+ * proportional to total pressure. K is fixed once at the air point and
+ * therefore belongs to the pressure that air point was taken at. Correcting
+ * only the vapour dilution - which is what this firmware did between
+ * 2026-09-06 and this change - leaves the cell's own pressure-dependent gain
+ * on the answer.
+ */
+
+/* The physical cell, as a test oracle: what current does an SGX cell actually
+ * produce in fully aerated air at this temperature, humidity and TOTAL
+ * PRESSURE, given a K taken at p_cal? The (p_act / p_cal) factor is the term
+ * the firmware has to undo. */
+static int32_t cell_na_in_air(const o2p_cal_t *cal, float t_c, float rh,
+                              float p_act, float p_cal)
+{
+    float pw = 0.0f;
+    o2p_gas_t g = gas_at(t_c, rh, p_act);
+    TEST_ASSERT_EQUAL(O2P_OK, o2p_vapour_pressure_hpa(&g, &pw));
+    float c_wet = O2P_C_AIR * (p_act - pw) / p_act;
+    float k = (float)cal->cal_air_na / logf(1.0f / (1.0f - cal->air_frac));
+    float s = k * logf(1.0f / (1.0f - c_wet)) * (p_act / p_cal);
+    return (int32_t)(s + 0.5f);
+}
+
+static void test_equal_pressures_change_nothing(void)
+{
+    /* THE NO-OP PROOF. Rev A has no barometer, so P_meas is ASSUMED_P_HPA and
+     * P_cal was that same register when the air point was taken: the ratio is
+     * exactly 1. This must be bit-for-bit identical to a calibration that
+     * records no pressure at all, or the change is not the structural no-op it
+     * claims to be. */
+    o2p_gas_t g = gas_at(25.0f, 50.0f, 930.0f);
+    o2p_cal_t with_p = {0};
+    TEST_ASSERT_TRUE(o2p_calibrate_air(&with_p, 70000, 2500, &g));
+    TEST_ASSERT_EQUAL_FLOAT(930.0f, with_p.cal_p_hpa);
+
+    o2p_cal_t no_p = with_p;
+    no_p.cal_p_hpa = 0.0f;          /* "unknown", as every stored record is */
+
+    for (int32_t na = 30000; na <= 120000; na += 7000) {
+        for (float t = 5.0f; t <= 60.0f; t += 11.0f) {
+            o2p_gas_t m = gas_at(t, 80.0f, 930.0f);
+            float a = 0.0f, b = 0.0f;
+            o2p_status_t sa = o2p_dry_fraction_from_current(&with_p, na,
+                                                            (int16_t)(t * 100.0f),
+                                                            &m, &a);
+            o2p_status_t sb = o2p_dry_fraction_from_current(&no_p, na,
+                                                            (int16_t)(t * 100.0f),
+                                                            &m, &b);
+            TEST_ASSERT_EQUAL(sb, sa);
+            /* Bit-identical, not merely close. */
+            TEST_ASSERT_EQUAL_MEMORY(&b, &a, sizeof(a));
+            TEST_ASSERT_EQUAL_UINT16(o2p_encode_percent(sb, b),
+                                     o2p_encode_percent(sa, a));
+        }
+    }
+}
+
+static void test_unknown_calibration_pressure_is_no_correction_not_a_divide(void)
+{
+    /* Zero is the stored value of every calibration taken before layout 4, and
+     * of every migrated record. It must mean "assume P_cal == P_meas", never
+     * "divide by zero" and never "assume a standard atmosphere". */
+    o2p_gas_t g = gas_at(25.0f, 50.0f, 930.0f);
+    o2p_cal_t cal = {0};
+    TEST_ASSERT_TRUE(o2p_calibrate_air(&cal, 70000, 2500, &g));
+    cal.cal_p_hpa = 0.0f;
+
+    /* Evaluated, finite and sane at a measurement pressure far from the cal
+     * one - it simply is not corrected for it. */
+    o2p_gas_t far_p = gas_at(25.0f, 50.0f, (float)O2P_P_HPA_MAX);
+    float c = 0.0f;
+    TEST_ASSERT_EQUAL(O2P_OK,
+                      o2p_dry_fraction_from_current(&cal, 70000, 2500, &far_p, &c));
+    TEST_ASSERT_TRUE(isfinite(c));
+    TEST_ASSERT_TRUE(c > 0.0f && c < O2P_C_MAX);
+
+    /* And a negative or non-finite stored pressure is treated the same way -
+     * as no correction - rather than producing an inverted gain. */
+    cal.cal_p_hpa = -930.0f;
+    float d = 0.0f;
+    TEST_ASSERT_EQUAL(O2P_OK,
+                      o2p_dry_fraction_from_current(&cal, 70000, 2500, &far_p, &d));
+    TEST_ASSERT_EQUAL_MEMORY(&c, &d, sizeof(c));
+    cal.cal_p_hpa = NAN;
+    TEST_ASSERT_EQUAL(O2P_OK,
+                      o2p_dry_fraction_from_current(&cal, 70000, 2500, &far_p, &d));
+    TEST_ASSERT_EQUAL_MEMORY(&c, &d, sizeof(c));
+}
+
+static void test_pressure_normalisation_has_the_right_sign_and_size(void)
+{
+    /* The reviewer's scenario, and its arithmetic reproduced to the digit.
+     * Air point at 930 hPa, 25 C / 50 %RH; read out at the operating point,
+     * 60 C / 100 %RH; weather then moves the ACTUAL pressure by +/-3.5 %. */
+    const float p_cal = 930.0f;
+    o2p_gas_t cal_gas = gas_at(25.0f, 50.0f, p_cal);
+    o2p_cal_t cal = {0};
+    TEST_ASSERT_TRUE(o2p_calibrate_air(&cal, 70000, 2500, &cal_gas));
+    TEST_ASSERT_EQUAL_FLOAT(p_cal, cal.cal_p_hpa);
+
+    static const struct { float f, no_baro_pct; } row[] = {
+        {0.965f, 20.073f},   /* -4.17 % relative */
+        {1.000f, 20.946f},   /*  exact           */
+        {1.035f, 21.813f},   /* +4.14 % relative */
+    };
+    for (unsigned i = 0; i < sizeof(row) / sizeof(row[0]); i++) {
+        const float p_act = p_cal * row[i].f;
+        const int32_t na = cell_na_in_air(&cal, 60.0f, 100.0f, p_act, p_cal);
+
+        /* (1) NO BAROMETER, which is Rev A. The firmware only has the assumed
+         * 930, so it cannot see the weather at all and the error stands. This
+         * is the number the review computed, and it is why the fix is called
+         * structural: nothing here changes it. */
+        o2p_gas_t assumed = gas_at(60.0f, 100.0f, p_cal);
+        float c_assumed = 0.0f;
+        TEST_ASSERT_EQUAL(O2P_OK,
+                          o2p_dry_fraction_from_current(&cal, na, 6000,
+                                                        &assumed, &c_assumed));
+        TEST_ASSERT_FLOAT_WITHIN(0.01f, row[i].no_baro_pct, c_assumed * 100.0f);
+
+        /* (2) BAROMETER FITTED, no K normalisation - the state of the
+         * firmware before this change. Correcting the vapour term against the
+         * real pressure while leaving K at its calibration pressure still
+         * leaves about -3.21 %/+3.18 % on the answer. */
+        o2p_cal_t unnormalised = cal;
+        unnormalised.cal_p_hpa = 0.0f;
+        o2p_gas_t measured = gas_at(60.0f, 100.0f, p_act);
+        float c_half = 0.0f;
+        TEST_ASSERT_EQUAL(O2P_OK,
+                          o2p_dry_fraction_from_current(&unnormalised, na, 6000,
+                                                        &measured, &c_half));
+
+        /* (3) BAROMETER FITTED AND K NORMALISED. Fully aerated air comes back
+         * as fully aerated air at any pressure - which is the claim. */
+        float c_full = 0.0f;
+        TEST_ASSERT_EQUAL(O2P_OK,
+                          o2p_dry_fraction_from_current(&cal, na, 6000,
+                                                        &measured, &c_full));
+        TEST_ASSERT_FLOAT_WITHIN(0.0002f, O2P_C_AIR, c_full);
+
+        /* Direction: the correction moves the half-corrected number TOWARDS
+         * the truth, and by more than it was ever away from it after. */
+        float err_half = fabsf(c_half - O2P_C_AIR);
+        float err_full = fabsf(c_full - O2P_C_AIR);
+        TEST_ASSERT_TRUE(err_full <= err_half);
+        if (row[i].f != 1.000f) {
+            /* At the two weather extremes the half-corrected error is real
+             * and about 3.2 % relative; the fully corrected one is noise. */
+            TEST_ASSERT_TRUE(err_half / O2P_C_AIR > 0.03f);
+            TEST_ASSERT_TRUE(err_full / O2P_C_AIR < 0.001f);
+            /* And the sign is right: less pressure reads low uncorrected. */
+            if (row[i].f < 1.0f) {
+                TEST_ASSERT_TRUE(c_half < O2P_C_AIR);
+            } else {
+                TEST_ASSERT_TRUE(c_half > O2P_C_AIR);
+            }
+        }
+    }
+}
+
+static void test_cal_pressure_register_is_bounded(void)
+{
+    /* 0 is legal and means "unknown"; anything else must be a pressure in the
+     * same window as ASSUMED_P_HPA, because P_cal/P_meas scales oxygen
+     * directly and a fat-fingered 5 hPa would rescale every reading without
+     * ever looking like a fault. */
+    TEST_ASSERT_EQUAL_UINT16(0u, rm.cfg.cal_p_hpa);
+
+    uint8_t req[16], rsp[O2P_MB_MAX_ADU];
+    const uint8_t tiny[] = {0x03, 0x06, 0x00, 0x44, 0x00, 0x05};
+    size_t n = framed(req, tiny, sizeof(tiny));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE, rsp[2]);
+    TEST_ASSERT_EQUAL_UINT16(0u, rm.cfg.cal_p_hpa);
+
+    const uint8_t huge[] = {0x03, 0x06, 0x00, 0x44, 0x0B, 0xB8};   /* 3000 */
+    n = framed(req, huge, sizeof(huge));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE, rsp[2]);
+
+    const uint8_t site[] = {0x03, 0x06, 0x00, 0x44, 0x03, 0xA2};   /* 930 */
+    n = framed(req, site, sizeof(site));
+    TEST_ASSERT_EQUAL_UINT(8, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
+    TEST_ASSERT_EQUAL_UINT16(930u, rm.cfg.cal_p_hpa);
+
+    /* Zero is writable again: "this calibration's pressure is unknown" has to
+     * be expressible, or a migrated record could not be represented. */
+    const uint8_t unknown[] = {0x03, 0x06, 0x00, 0x44, 0x00, 0x00};
+    n = framed(req, unknown, sizeof(unknown));
+    TEST_ASSERT_EQUAL_UINT(8, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
+    TEST_ASSERT_EQUAL_UINT16(0u, rm.cfg.cal_p_hpa);
+
+    /* And it reads back through the config block. */
+    const uint8_t rd[] = {0x03, 0x03, 0x00, 0x44, 0x00, 0x01};
+    n = framed(req, rd, sizeof(rd));
+    TEST_ASSERT_EQUAL_UINT(3 + 2 + 2, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
+    TEST_ASSERT_EQUAL_UINT16(0u, (rsp[3] << 8) | rsp[4]);
+}
+
+/* ------------------------------------------- chamber cache and its age cap
+ *
+ * The SHT45's own de-creep heater fires every 8 h by default and the chamber
+ * channels are masked for 30 s afterwards. With dry-basis O2_COMP depending on
+ * RH, that used to blank the primary oxygen channel three times a day and
+ * label the gap I2C_FAIL_SHT - scheduled maintenance reported as a bus
+ * failure. The bridge is bounded by O2P_RH_MAX_AGE_S, and the bound is what
+ * keeps a dead sensor from being bridged forever.
+ */
+
+static void test_a_pulse_gap_is_bridged_and_a_dead_sensor_is_not(void)
+{
+    o2p_cal_t cal = {0};
+    o2p_gas_t fresh = gas_at(45.0f, 88.0f, 930.0f);
+    TEST_ASSERT_TRUE(o2p_calibrate_air(&cal, 70000, 4500, &fresh));
+
+    o2p_gas_cache_t cache;
+    memset(&cache, 0, sizeof(cache));
+
+    /* Before the first real reading there is nothing to bridge with, and the
+     * cache must not invent one. */
+    o2p_gas_t g = fresh;
+    g.valid = false;
+    TEST_ASSERT_FALSE(o2p_gas_cache_apply(&cache, &g, 1000u));
+    TEST_ASSERT_FALSE(g.valid);
+
+    /* A measured cycle at t = 1000 s. */
+    o2p_gas_cache_update(&cache, &fresh, 1000u);
+    TEST_ASSERT_TRUE(cache.valid);
+
+    float ref = 0.0f;
+    TEST_ASSERT_EQUAL(O2P_OK,
+                      o2p_dry_fraction_from_current(&cal, 70000, 4500, &fresh, &ref));
+
+    /* THE PULSE. The chamber channels are masked for the whole recovery
+     * window; every cycle inside it carries no RH and no chamber temperature.
+     * 31 s is the worst case the derivation in o2.h covers - 30 s of mask plus
+     * the sample quantisation - and it must still publish, from the same
+     * sensor's own last measurement rather than from a substitute. */
+    for (uint32_t dt = 1u; dt <= O2P_RH_MAX_AGE_S; dt++) {
+        o2p_gas_t masked = gas_at(45.0f, 88.0f, 930.0f);
+        masked.rh_pct = 0.0f;      /* what a masked cycle actually carries */
+        masked.t_c = 0.0f;
+        masked.valid = false;
+        /* A masked cycle must never enter the cache: 0 %RH at 0 C is a
+         * perfectly plausible reading, and caching it would turn a missing
+         * sensor into a confident dry-air correction. */
+        o2p_gas_cache_update(&cache, &masked, 1000u + dt);
+        TEST_ASSERT_EQUAL_UINT32(1000u, cache.taken_s);
+
+        TEST_ASSERT_TRUE(o2p_gas_cache_apply(&cache, &masked, 1000u + dt));
+        TEST_ASSERT_TRUE(masked.valid);
+        float c = 0.0f;
+        TEST_ASSERT_EQUAL(O2P_OK,
+                          o2p_dry_fraction_from_current(&cal, 70000, 4500,
+                                                        &masked, &c));
+        TEST_ASSERT_EQUAL_MEMORY(&ref, &c, sizeof(c));
+        TEST_ASSERT_NOT_EQUAL(O2P_U16_INVALID, o2p_encode_percent(O2P_OK, c));
+    }
+
+    /* The cap covers the recovery window it was derived against, with margin,
+     * and is not merely equal to it. */
+    TEST_ASSERT_TRUE(O2P_RH_MAX_AGE_S > 32u);
+
+    /* ONE SECOND PAST THE CAP the value is unevaluable, and the channel takes
+     * its sentinel exactly as it did before. Monotonic: it must stay refused
+     * as the gap grows, not come back with a number. */
+    for (uint32_t dt = O2P_RH_MAX_AGE_S + 1u; dt <= O2P_RH_MAX_AGE_S + 600u;
+         dt += 7u) {
+        o2p_gas_t stale = gas_at(45.0f, 88.0f, 930.0f);
+        stale.valid = false;
+        TEST_ASSERT_FALSE(o2p_gas_cache_apply(&cache, &stale, 1000u + dt));
+        TEST_ASSERT_FALSE(stale.valid);
+        float c = 12345.0f;
+        TEST_ASSERT_EQUAL(O2P_UNEVALUABLE,
+                          o2p_dry_fraction_from_current(&cal, 70000, 4500,
+                                                        &stale, &c));
+        TEST_ASSERT_EQUAL_UINT16(O2P_U16_INVALID,
+                                 o2p_encode_percent(O2P_UNEVALUABLE, c));
+        TEST_ASSERT_EQUAL_FLOAT(12345.0f, c);   /* nothing was written */
+    }
+
+    /* A GENUINELY DEAD SHT45 - one that simply never answers again - reaches
+     * the sentinel and stays there. This is the case the age cap exists to
+     * keep separate from the pulse, and the one a cache without a cap would
+     * have papered over forever. The fault bit is still raised by the sampler
+     * throughout; it is just no longer what decides validity. */
+    for (uint32_t t = 1000u + O2P_RH_MAX_AGE_S + 1u; t <= 1000u + 86400u;
+         t += 3600u) {
+        o2p_gas_t dead = gas_at(45.0f, 88.0f, 930.0f);
+        dead.valid = false;
+        o2p_gas_cache_update(&cache, &dead, t);       /* never accepted */
+        TEST_ASSERT_FALSE(o2p_gas_cache_apply(&cache, &dead, t));
+        float c = 0.0f;
+        TEST_ASSERT_EQUAL(O2P_UNEVALUABLE,
+                          o2p_dry_fraction_from_current(&cal, 70000, 4500,
+                                                        &dead, &c));
+    }
+    /* ...and the bit it raises is still a bit, still reported, and still
+     * outside both validity masks - the report and the criterion are now two
+     * different things on purpose. */
+    TEST_ASSERT_TRUE(O2P_F_I2C_FAIL_SHT != 0u);
+    TEST_ASSERT_EQUAL_HEX16(0u, O2P_FAULTS_INVALIDATE_O2 & O2P_F_I2C_FAIL_SHT);
+    TEST_ASSERT_EQUAL_HEX16(0u,
+                            O2P_FAULTS_INVALIDATE_O2_COMP & O2P_F_I2C_FAIL_SHT);
+}
+
+static void test_a_fresh_reading_is_never_overridden_by_the_cache(void)
+{
+    o2p_gas_cache_t cache;
+    memset(&cache, 0, sizeof(cache));
+    o2p_gas_t old_gas = gas_at(20.0f, 30.0f, 930.0f);
+    o2p_gas_cache_update(&cache, &old_gas, 100u);
+
+    o2p_gas_t now = gas_at(55.0f, 95.0f, 930.0f);
+    TEST_ASSERT_TRUE(o2p_gas_cache_apply(&cache, &now, 101u));
+    TEST_ASSERT_EQUAL_FLOAT(55.0f, now.t_c);
+    TEST_ASSERT_EQUAL_FLOAT(95.0f, now.rh_pct);
+
+    /* And an out-of-range reading cannot enter the cache at all, so a failing
+     * part cannot leave a poisoned entry behind to be bridged from. */
+    o2p_gas_t bad = gas_at(25.0f, 150.0f, 930.0f);
+    o2p_gas_cache_update(&cache, &bad, 200u);
+    TEST_ASSERT_EQUAL_UINT32(100u, cache.taken_s);
+    bad.t_c = NAN;
+    bad.rh_pct = 50.0f;
+    o2p_gas_cache_update(&cache, &bad, 200u);
+    TEST_ASSERT_EQUAL_UINT32(100u, cache.taken_s);
+
+    /* An uptime that has gone backwards - which only a wrap can do, at 136
+     * years - ages out rather than reading as fresh. */
+    o2p_gas_t g = gas_at(20.0f, 30.0f, 930.0f);
+    g.valid = false;
+    TEST_ASSERT_FALSE(o2p_gas_cache_apply(&cache, &g, 99u));
+}
+
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -1932,7 +2478,15 @@ int main(void)
     RUN_TEST(test_vapour_correction_is_monotonic);
     RUN_TEST(test_vapour_correction_is_bounded_not_infinite);
     RUN_TEST(test_pressure_and_air_fraction_registers_are_bounded);
-    RUN_TEST(test_o2_comp_needs_the_humidity_sensor);
+    RUN_TEST(test_o2_comp_validity_is_data_age_not_the_sht_fault_bit);
+    RUN_TEST(test_v2_migration_keeps_the_probe_reachable);
+    RUN_TEST(test_v2_migration_falls_back_to_defaults_when_it_cannot_be_trusted);
+    RUN_TEST(test_equal_pressures_change_nothing);
+    RUN_TEST(test_unknown_calibration_pressure_is_no_correction_not_a_divide);
+    RUN_TEST(test_pressure_normalisation_has_the_right_sign_and_size);
+    RUN_TEST(test_cal_pressure_register_is_bounded);
+    RUN_TEST(test_a_pulse_gap_is_bridged_and_a_dead_sensor_is_not);
+    RUN_TEST(test_a_fresh_reading_is_never_overridden_by_the_cache);
     RUN_TEST(test_p_sat_has_exactly_one_implementation);
     RUN_TEST(test_dewpoint_reference_points);
     RUN_TEST(test_dewpoint_refuses_impossible_humidity);

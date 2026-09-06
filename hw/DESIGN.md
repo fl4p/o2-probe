@@ -218,9 +218,21 @@ air point is corrected the same way when it is taken, because a current measured
 in moist air attributed to dry 20.946 % mis-scales K by 1-2 % permanently. When
 RH, chamber temperature or `P` is unavailable the correction cannot be evaluated
 and `O2_COMP` publishes `0xFFFF`; it never falls back to the wet-basis number
-under the corrected name, and `I2C_FAIL_SHT` now invalidates the compensated
-channel for that reason. Full argument, bench evidence and test vectors:
-`O2-HUMIDITY-CORRECTION.md`.
+under the corrected name.
+
+The criterion for "unavailable" is the **age of the chamber reading**, not the
+`I2C_FAIL_SHT` bit. That bit was briefly used for it, on 2026-09-06, and it is
+the wrong instrument: the same bit is raised for the SHT45's own scheduled
+de-creep pulse, whose 30 s recovery mask then blanked the primary oxygen channel
+three times a day and labelled firmware-ordered maintenance a bus failure. The
+sampler instead keeps the last measured `(RH, T_chamber)` pair and bridges a gap
+of up to `O2P_RH_MAX_AGE_S` = 45 s with it - 30 s of mask plus the 1.1 s blocking
+pulse plus a second of 1 Hz sample quantisation is 32.1 s worst case, so 45 s is
+that with 40 % margin and nothing more. Past the cap the value is unevaluable and
+`O2_COMP` takes its sentinel, so a genuinely dead SHT45 still reports as one; and
+an air-point calibration is never bridged, because a permanent constant gets a
+humidity measured in its own cycle or none at all. Full argument, bench evidence
+and test vectors: `O2-HUMIDITY-CORRECTION.md`.
 
 ### Diagnostic block, `0x0010`, 21 registers, read-only
 
@@ -247,33 +259,49 @@ latch self-clears, so the rate would be lost without a counter. A probe that
 glitches once and one that glitches hourly read identically between events
 otherwise.
 
-### Config block, `0x0030`, 20 registers, read/write, flash-backed
+### Config block, `0x0030`, 21 registers, read/write, flash-backed
 
 `SLAVE_ADDR`, `BAUD_CODE`, `PARITY_CODE`, `RH_SETPOINT`, `DT_MAX_K`,
 `HEATER_MAX_DUTY`, `HEATER_PWM_HZ`, `CAL_AIR_NA_HI/LO`, `CAL_TEMP_C100`,
 `TEMPCO_PPM_K`, `SHT_PULSE_H`, `SHT_PULSE_TRIG`, `CAL_TRIGGER`, `COMMIT`,
 `CONFIG_CRC` (read-only), then the two PI gains:
 `HEATER_KP` at `0x0040` and
-`HEATER_KI` at `0x0041`, both in 0.01 units, and the two water-vapour fields:
-`ASSUMED_P_HPA` at `0x0042` and `CAL_AIR_FRAC` at `0x0043`.
+`HEATER_KI` at `0x0041`, both in 0.01 units, and the three water-vapour and
+pressure fields: `ASSUMED_P_HPA` at `0x0042`, `CAL_AIR_FRAC` at `0x0043` and
+`CAL_P_HPA` at `0x0044`.
 
 The two heater gains are registers rather than compile-time constants because
 the plant they tune can only be characterised in a real pile:
 `THERMAL-BARRIER.md` bounds the PCB conduction path, not ring-to-gas. The
 alternative was reflashing to change a number, which post-pot means the RS-485
 updater and a full image transfer. Adding them moved the config block from
-16 to 18 registers and took the flash record's layout version to 2, so a
-version-1 record falls back to defaults - and the defaults hold
-`HEATER_MAX_DUTY` at 0, so a layout change fails towards no heat.
+16 to 18 registers and took the flash record's layout version to 2. A version-1
+record still falls back to defaults - version 1 predates any deployed probe and
+has no decoder - and the defaults hold `HEATER_MAX_DUTY` at 0, so a layout
+change fails towards no heat.
 
 `ASSUMED_P_HPA` (`0x0042`) is the total pressure the water-vapour correction
 uses, in hPa, bounded 500-1100 and defaulting to 930 - the 715 m Steingrubenhof
 site. It exists because the BMP390 option is deleted and `PRESSURE_HPA` reads 0,
-so without it the correction has no `P` at all. A probe deployed anywhere else
-must have it written: sea level is 8 % away and pressure scales oxygen directly.
-Calibrating in situ cancels the altitude term, since the air point and the
-measurement then share the same `P`; it does not cancel the +/-3.5 % of weather,
-which is not correctable in firmware without a barometer.
+so without it the correction has no `P` at all.
+
+**What a wrong `ASSUMED_P_HPA` actually costs, corrected 2026-09-06.** This
+section used to say "sea level is 8 % away", which is the difference in
+absolute pressure and not the error in the published number. `P` appears
+twice - once in the air point's own oxygen fraction and once in the
+measurement's dilution factor - and the two uses partially cancel. Leaving the
+930 default in place while calibrating *and* deploying at sea level gives about
+**+2.10 % relative** at a 25 C / 50 %RH air point read out at 60 C / 100 %RH,
+not +8 %. The residual depends on both conditions, so it is a range rather than
+a constant, and it is still worth getting right - but 2 % is the number to
+quote.
+
+What does *not* cancel is the weather. `P` moving +/-3.5 % after the air point
+was taken produces about **-4.17 % / +4.14 % relative** on the published value
+at that same 60 C / 100 %RH operating point - four times the size of the
+in-situ altitude residual above, and the largest uncorrected term left in the
+oxygen channel. **It is not correctable without a barometer**, and Rev A has
+none. With one, `CAL_P_HPA` below is what corrects it.
 
 `CAL_AIR_FRAC` (`0x0043`) is the oxygen fraction actually present when the air
 point was taken, %vol x 1000, and it is written by the `CAL_TRIGGER` routine
@@ -285,13 +313,37 @@ calibrated in a dry lab then genuinely disagree. Zero means "unknown" and
 `O2_COMP` stays invalid. `CAL_AIR_NA` still holds exactly what the ADC read, so
 it remains comparable with `O2_RAW` in air.
 
-Adding these two took the config block to 20 registers and the flash record's
-layout version to **3**. A version-2 record is discarded rather than migrated,
-because the humidity at its air point was never recorded and cannot be
-recovered - any `CAL_AIR_FRAC` this firmware invented for it would be a guess
-wearing a calibration's units. **Recalibration is therefore required after this
-update:** the probe comes up on defaults, `CAL_DEFAULT` is raised, and `O2_COMP`
-publishes the sentinel until a fresh air point is taken.
+`CAL_P_HPA` (`0x0044`) is the total pressure in force when the air point was
+taken, in hPa, `0` meaning unknown. It is not a duplicate of `ASSUMED_P_HPA`:
+that one is the pressure *now* and this one is the pressure *then*. The cell
+answers to `pO2 = C * P`, so its current at a given fraction is proportional to
+total pressure, and `K` is fixed once at the air point and therefore carries
+that pressure inside it. A measurement made at a different `P` has its current
+normalised by `P_cal / P_meas` before the inverse; without that step, correcting
+the vapour dilution against a real barometer reading would still leave about
+-3.2 % / +3.2 % of the weather term on the answer - the correction would be
+half-applied. With no barometer fitted, `P_meas` is `ASSUMED_P_HPA` and `P_cal`
+was the same register, the ratio is exactly `1`, and this changes no published
+number on Rev A. It is the structure that makes populating the BMP390 an actual
+fix rather than a partial one. A stored `0` is read as `P_cal == P_meas`, i.e.
+no normalisation - never as an assumed atmosphere.
+
+Adding these three took the config block to 21 registers and the flash record's
+layout version to **4** (version 3 existed for one commit and never reached a
+board). **An older record is now migrated rather than discarded**, and the
+difference is not cosmetic: discarding it defaulted the whole structure,
+including `SLAVE_ADDR`, `BAUD_CODE` and `PARITY_CODE`, so a probe an operator
+had moved off the default transport stopped answering its master the moment it
+took a firmware update - unrecoverably, on hardware that is potted and buried.
+The migration carries transport, heater tuning, pulse interval, tempco and
+`CAL_TEMP_C100` forward, and zeroes `CAL_AIR_NA`, `CAL_AIR_FRAC` and
+`CAL_P_HPA` and nothing else, because the air point is the only thing whose
+meaning changed: a version-2 `CAL_AIR_NA` was taken against an assumed dry
+atmosphere at a humidity nobody recorded. A migration that fails validation
+still falls back to full defaults. **Recalibration is therefore still required
+after this update:** `CAL_DEFAULT` is raised and `O2_COMP` publishes the
+sentinel until a fresh air point is taken. What is no longer required is a trip
+to the pile.
 
 A multi-register write is validated against a copy and committed all-or-nothing,
 so a frame setting a legal address and an illegal baud rate changes neither.

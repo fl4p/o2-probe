@@ -132,13 +132,31 @@ bool o2p_calibrate_air(o2p_cal_t *cal, int32_t cell_na, int16_t temp_c100,
     cal->cal_air_na = cell_na;
     cal->cal_temp_c100 = temp_c100;
     cal->air_frac = c_air;
+    /* K is fixed here and carries this pressure inside it, so the pressure
+     * has to be stored with it. gas->p_hpa has already passed the window
+     * check inside o2p_air_fraction(), so it is a real pressure by the time
+     * it gets here. Storing it is what lets a later measurement at a
+     * different P be normalised instead of silently mis-scaled. */
+    cal->cal_p_hpa = gas->p_hpa;
     return true;
 }
 
-o2p_status_t o2p_fraction_from_current(const o2p_cal_t *cal,
-                                       int32_t cell_na,
-                                       int16_t temp_c100,
-                                       float *out_c)
+/* The cell law, with the measurement referred back to the conditions K was
+ * taken at.
+ *
+ * `p_meas_hpa` is the total pressure NOW, or 0 for "do not normalise". The
+ * cell answers to pO2 = C * P, so the same fraction at a different total
+ * pressure produces a proportionally different current; K is fixed once at
+ * the air point and therefore belongs to P_cal. Referring the measured
+ * current back by P_cal/P_meas is what makes the inverse valid at any other
+ * pressure. Correcting the vapour dilution alone - which is all this firmware
+ * did before 2026-09-06 - leaves this term on the answer.
+ */
+static o2p_status_t fraction_from_current_at_p(const o2p_cal_t *cal,
+                                               int32_t cell_na,
+                                               int16_t temp_c100,
+                                               float p_meas_hpa,
+                                               float *out_c)
 {
     if (cal == NULL || out_c == NULL) {
         return O2P_UNEVALUABLE;
@@ -162,6 +180,26 @@ o2p_status_t o2p_fraction_from_current(const o2p_cal_t *cal,
         return O2P_UNEVALUABLE;
     }
     s /= gain;
+
+    /* Pressure normalisation, referred to the calibration pressure.
+     *
+     * A cal_p_hpa of zero means the air point predates this field or was
+     * taken with no pressure in force. Unknown is read as P_cal == P_meas -
+     * no correction - rather than as an assumed atmosphere, because assuming
+     * one would rescale every reading of a probe whose stored calibration
+     * never claimed a pressure. On Rev A there is no barometer, so P_meas is
+     * ASSUMED_P_HPA and P_cal was that same register when the air point was
+     * taken: the ratio is exactly 1 and this changes no published number.
+     * What it changes is that populating the BMP390 now fixes the weather
+     * term instead of correcting only half of it. */
+    if (cal->cal_p_hpa > 0.0f && isfinite(cal->cal_p_hpa) &&
+        isfinite(p_meas_hpa) && p_meas_hpa > 0.0f) {
+        float p_ratio = cal->cal_p_hpa / p_meas_hpa;
+        if (!isfinite(p_ratio) || !(p_ratio > 0.0f)) {
+            return O2P_UNEVALUABLE;
+        }
+        s *= p_ratio;
+    }
 
     /* K is referenced to the fraction that was ACTUALLY THERE at the air
      * point, not to dry air. Using O2P_LN_AIR here - which is what this line
@@ -204,6 +242,17 @@ o2p_status_t o2p_fraction_from_current(const o2p_cal_t *cal,
     return O2P_OK;
 }
 
+o2p_status_t o2p_fraction_from_current(const o2p_cal_t *cal,
+                                       int32_t cell_na,
+                                       int16_t temp_c100,
+                                       float *out_c)
+{
+    /* No pressure supplied, so no pressure normalisation. This entry point is
+     * the wet-basis cell law on its own; the published path goes through
+     * o2p_dry_fraction_from_current(), which has the gas and does normalise. */
+    return fraction_from_current_at_p(cal, cell_na, temp_c100, 0.0f, out_c);
+}
+
 o2p_status_t o2p_dry_fraction_from_current(const o2p_cal_t *cal,
                                            int32_t cell_na,
                                            int16_t temp_c100,
@@ -213,9 +262,14 @@ o2p_status_t o2p_dry_fraction_from_current(const o2p_cal_t *cal,
     if (out_c_dry == NULL) {
         return O2P_UNEVALUABLE;
     }
+    /* The pressure the cell is in NOW, so the cell law can be referred back to
+     * the pressure K was taken at. A gas that is not valid carries no usable
+     * pressure either; o2p_dry_from_wet() below refuses it, and passing 0
+     * here means the normalisation is simply not applied on the way. */
+    float p_meas = (gas != NULL && gas->valid) ? gas->p_hpa : 0.0f;
     float c_wet = 0.0f;
-    o2p_status_t st = o2p_fraction_from_current(cal, cell_na, temp_c100,
-                                                &c_wet);
+    o2p_status_t st = fraction_from_current_at_p(cal, cell_na, temp_c100,
+                                                 p_meas, &c_wet);
     if (st == O2P_UNEVALUABLE) {
         return st;
     }
@@ -258,4 +312,56 @@ uint16_t o2p_encode_percent(o2p_status_t st, float c)
         return O2P_U16_INVALID;
     }
     return (uint16_t)(pct100 + 0.5f);
+}
+
+/* --- the last-good chamber reading -------------------------------------- */
+
+void o2p_gas_cache_update(o2p_gas_cache_t *c, const o2p_gas_t *fresh,
+                          uint32_t now_s)
+{
+    if (c == NULL || fresh == NULL) {
+        return;
+    }
+    /* Only a gas that was actually MEASURED this cycle may enter the cache.
+     * A masked or failed cycle carries zeroed fields, and 0 %RH at 0 C is a
+     * perfectly plausible reading - caching it would turn a missing sensor
+     * into a confident dry-air correction, which is the whole failure mode
+     * this file is written against. */
+    if (!fresh->valid) {
+        return;
+    }
+    if (!isfinite(fresh->rh_pct) || !(fresh->rh_pct >= 0.0f) ||
+        !(fresh->rh_pct <= 100.0f) || !isfinite(fresh->t_c)) {
+        return;
+    }
+    c->rh_pct = fresh->rh_pct;
+    c->t_c = fresh->t_c;
+    c->taken_s = now_s;
+    c->valid = true;
+}
+
+bool o2p_gas_cache_apply(const o2p_gas_cache_t *c, o2p_gas_t *gas,
+                         uint32_t now_s)
+{
+    if (gas == NULL) {
+        return false;
+    }
+    if (gas->valid) {
+        return true;          /* a fresh reading is never overridden */
+    }
+    if (c == NULL || !c->valid) {
+        return false;
+    }
+    /* Unsigned difference, so an uptime that has wrapped past 2^32 seconds
+     * (136 years) cannot present a future timestamp as a fresh one. A
+     * now_s BEFORE taken_s wraps to a huge age and fails the cap, which is
+     * the safe direction. */
+    uint32_t age = now_s - c->taken_s;
+    if (age > O2P_RH_MAX_AGE_S) {
+        return false;         /* unevaluable: the caller publishes the sentinel */
+    }
+    gas->rh_pct = c->rh_pct;
+    gas->t_c = c->t_c;
+    gas->valid = true;
+    return true;
 }

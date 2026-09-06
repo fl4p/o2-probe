@@ -67,11 +67,26 @@
 #define O2P_P_HPA_MIN 500u
 #define O2P_P_HPA_MAX 1100u
 /* 715 m, Steingrubenhof (48.01475N 8.03294E) - the site this probe is built
- * for, per O2-HUMIDITY-CORRECTION.md 3c. A DEPLOYMENT ELSEWHERE MUST WRITE
- * THIS REGISTER: at sea level the default is 8 % low. Calibrating in situ
- * cancels the altitude term because both the air point and the measurement
- * then share the same P; it does not cancel the +/-3.5 % of weather, which is
- * not correctable in firmware without a barometer. */
+ * for, per O2-HUMIDITY-CORRECTION.md 3c.
+ *
+ * "8 % low at sea level" is what this comment used to say and it is WRONG.
+ * The 8.2 % is the altitude difference in absolute pressure; it is not the
+ * error in the published number, because P appears twice - once in the air
+ * point's own fraction and once in the measurement's dilution - and the two
+ * uses partially cancel. Calibrating and deploying at sea level with this
+ * default left in place gives about +2.10 % relative at a 25 C/50 %RH air
+ * point read out at 60 C/100 %RH, not +8 %. Getting it right still matters,
+ * and a DEPLOYMENT ELSEWHERE SHOULD WRITE THIS REGISTER - but the number to
+ * quote is 2 %, and the residual depends on both conditions.
+ *
+ * What in-situ calibration cancels is the SYSTEMATIC part: with CAL_P_HPA
+ * recorded, K carries the pressure it was taken at and the measurement is
+ * normalised by P_cal/P_meas, so an assumed P that is wrong by a constant
+ * cancels exactly. What it cannot cancel is the +/-3.5 % of WEATHER, which
+ * moves P_meas after the air point was taken - about -4.17 %/+4.14 % relative
+ * on the published number at 60 C/100 %RH. That is not correctable in
+ * firmware without a barometer; with one, the CAL_P_HPA normalisation is
+ * what corrects it. */
 #define O2P_P_HPA_DEFAULT 930u
 
 /* Above this the vapour correction is refused rather than extrapolated.
@@ -144,6 +159,24 @@ typedef struct {
      * meant. Zero or out of range means "unknown", and the conversion refuses
      * rather than assuming dry air. */
     float   air_frac;
+    /* The TOTAL PRESSURE in force when cal_air_na was measured, hPa.
+     *
+     * The cell answers to pO2 = C * P, so its current at a given fraction is
+     * proportional to total pressure. K is fixed once, at the air point, and
+     * therefore carries that pressure inside it: a measurement made at a
+     * different P must have its current normalised by P_cal/P_meas before the
+     * inverse, or the pressure difference lands on the answer as gain error.
+     * The vapour-dilution factor uses P as well, but correcting only that
+     * leaves this one uncorrected - which was the state of this firmware
+     * until 2026-09-06.
+     *
+     * ZERO MEANS UNKNOWN, and unknown is read as P_cal == P_meas, i.e. no
+     * normalisation. That is not a guess dressed as a measurement: with no
+     * barometer fitted, P_meas is ASSUMED_P_HPA and P_cal was the same
+     * register, so the ratio is exactly 1 and the branch changes no number on
+     * Rev A. It is the structure that lets a populated BMP390 actually fix
+     * the weather term. */
+    float   cal_p_hpa;
 } o2p_cal_t;
 
 /* The air point's fraction is stored as %vol x 1000 in a u16 config register,
@@ -243,5 +276,72 @@ bool o2p_calibrate_air(o2p_cal_t *cal, int32_t cell_na, int16_t temp_c100,
 
 /* %vol * 100, clamped into the Modbus u16 range, or O2P_U16_INVALID. */
 uint16_t o2p_encode_percent(o2p_status_t st, float c);
+
+/* --- the last-good chamber reading, and how old it may be ----------------
+ *
+ * THE PROBLEM THIS SOLVES. The SHT45's own de-creep heater fires on a
+ * schedule - every 8 h by default - and the chamber channels are masked for
+ * O2P_SHT_RECOVERY_MS (30 s) afterwards, because a post-pulse reading is of a
+ * deliberately heated element. Until 2026-09-06 that mask also carried
+ * I2C_FAIL_SHT, and with dry-basis O2_COMP depending on RH, every scheduled
+ * pulse blanked the primary oxygen channel for 30 s - three times a day - and
+ * labelled scheduled maintenance as a sensor failure. With 15-30 minute
+ * uplinks and a commensurate pulse schedule, a coincident sample loses a
+ * whole O2 uplink.
+ *
+ * THE FIX IS TO MAKE VALIDITY A MATTER OF DATA AGE, NOT OF A FAULT BIT.
+ * Chamber RH and gas temperature are slowly varying - the chamber is a sealed
+ * volume against a thermal mass with a ~110 s time constant (theta = 117 K/W,
+ * C = 0.94 J/K, measured 2026-09-06) - so a 30 s gap is a gap to be bridged,
+ * not a failure to be reported. Past the cap the value is unevaluable and
+ * O2_COMP takes its sentinel exactly as before: a dead SHT45 still reaches
+ * the sentinel, it just takes O2P_RH_MAX_AGE_S to get there, and the fault
+ * bit is raised throughout either way.
+ */
+
+/* Maximum age of a cached chamber reading, in seconds.
+ *
+ * Derived from the recovery window it has to cover, not chosen round:
+ *
+ *   30.0 s  O2P_SHT_RECOVERY_MS, the post-pulse mask (main.c)
+ *  + 1.1 s  the pulse command itself, which BLOCKS for 1100 ms
+ *           (o2p_sht4x_heater_pulse, sht4x.c) and is inside the mask because
+ *           main.c timestamps the mask BEFORE issuing it
+ *  + 1.0 s  the 1 Hz sample cycle: the last good reading may be a full cycle
+ *           older than the pulse, and the first post-recovery cycle may land
+ *           a full cycle after the window closes
+ *  = 32.1 s worst case from last good reading to first fresh one
+ *
+ * 45 s leaves 40 % margin on that and nothing more. It is nowhere near the
+ * several minutes on which chamber RH actually moves, so a bridged sample is
+ * not a stale one; and it is short enough that a genuinely dead SHT45 reaches
+ * the sentinel inside one sample of any realistic uplink schedule. Raising it
+ * to cover a longer pulse would need the same arithmetic redone, which is why
+ * it is here with the derivation rather than as a number at the use site. */
+#define O2P_RH_MAX_AGE_S 45u
+
+/* The most recent chamber reading that was actually measured. */
+typedef struct {
+    float    rh_pct;
+    float    t_c;
+    uint32_t taken_s;   /* uptime second it was taken */
+    bool     valid;     /* false until the first real reading */
+} o2p_gas_cache_t;
+
+/* Record a freshly measured gas. Ignores anything not marked valid, so a
+ * masked or failed cycle can never poison the cache with a substitute. */
+void o2p_gas_cache_update(o2p_gas_cache_t *c, const o2p_gas_t *fresh,
+                          uint32_t now_s);
+
+/* Fill `gas`'s humidity and temperature from the cache when this cycle has
+ * none of its own. Returns true if `gas` came out valid.
+ *
+ * A gas that is already valid is left completely alone. Otherwise the cache
+ * is used only if it holds a reading and that reading is at most
+ * O2P_RH_MAX_AGE_S old; past that the gas stays invalid and the caller
+ * publishes the sentinel. The pressure field is NOT cached - it comes from
+ * the barometer or a config register and is available every cycle. */
+bool o2p_gas_cache_apply(const o2p_gas_cache_t *c, o2p_gas_t *gas,
+                         uint32_t now_s);
 
 #endif /* O2P_O2_H */
