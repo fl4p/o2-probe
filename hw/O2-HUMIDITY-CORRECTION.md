@@ -27,16 +27,27 @@ Two things make this a physical result rather than a processing artefact:
   value.** A compensation bug would make the two diverge. The `o2_comp`/`o2_raw`
   ratio is unchanged to five significant figures — which incidentally shows
   `TEMPCO_PPM_K` is zero and the temperature correction is doing nothing.
-* **The residual is the cell's own temperature coefficient.** Chamber
-  temperature rose 1.6 K over the same window; at the ~+0.2 %/K these cells
-  show, that is +0.3 %. Dilution −0.8 % plus tempco +0.3 % gives the −0.5 %
-  observed.
+* **The residual is unattributed.** Chamber temperature rose 1.6 K over the
+  same window, and at the ~+0.2 %/K these cells show that would be +0.3 %, which
+  closes the gap between the −0.8 % predicted and the −0.5 % observed. But a
+  single uncontrolled 1.6 K rise cannot *separate* the cell's tempco from the
+  TIA, the reference, chamber pressure, equilibration lag, or an error in the RH
+  sensor itself — they all move together here. Treat the arithmetic as
+  consistent, not as an identification. (Codex review, 2026-09-06.)
 
 ## 2. The physics
 
-An amperometric cell responds to the **partial pressure** of oxygen, `pO₂`, not
-to its mole fraction. Water vapour is a gas: adding it to a fixed-volume,
-fixed-total-pressure mixture displaces everything else pro rata.
+> **RETRACTED 2026-09-06.** An earlier version of this section asserted that
+> the cell responds to the **partial pressure** of oxygen rather than to its
+> mole fraction, and built a `P_cal/P_meas` correction on top of that. The
+> source cited for it says the opposite — see §3a. The dilution physics below
+> is unaffected and stands; it is a statement about mole fractions and never
+> needed the partial-pressure premise.
+
+Water vapour is a gas: adding it to a mixture **at constant total pressure**
+displaces everything else pro rata. (Constant total pressure is the load-bearing
+condition — in a sealed rigid volume the vapour would raise `P` instead and
+dilute nothing.)
 
 ```
 C_wet = C_dry * (P - p_w) / P
@@ -47,7 +58,12 @@ pressure. `p_sat` is already in the firmware — `psychro.c` computes it with
 Sonntag Magnus coefficients for the dew-margin channel, and the same function
 serves here.
 
-Dry air is 20.946 %vol O₂ (`O2P_C_AIR`, `o2.h:29`). The same air, saturated:
+Dry air is 20.946 %vol O₂ (`O2P_C_AIR`, `o2.h:29`). The same air, saturated —
+computed with the **host** helper `o2p_psychro.py`, whose Magnus prefactor is
+6.1094, not the firmware's 6.112 (`psychro.h:27`). The two disagree in the
+fourth significant figure (firmware: 19.423 / 16.813 / 12.898 for the 40/60/75 °C
+rows). These are therefore illustrative values, **not exact firmware test
+vectors**; §5's vectors must be generated from `psychro.h` itself:
 
 | condition | p_w | reads | error |
 |---|---:|---:|---:|
@@ -143,10 +159,25 @@ dilution factor and largely divides out — so in-situ air calibration remains a
 requirement rather than a convenience. It does nothing about weather, which
 moves `P_meas` after `K` is already fixed.
 
-**It is not correctable in firmware without a barometer.** It is not
-uncorrectable in principle, and the distinction matters for Rev B: with a
-populated BMP390 the fix is to normalise the measured current by `P_cal/P_meas`
-before the inverse, which requires the calibration pressure to have been stored.
+**RETRACTED 2026-09-06 — do not implement `P_cal/P_meas`.** The argument above
+rests on `K` carrying `P_cal` inside it, i.e. on the cell being a partial-pressure
+device. The paper cited for that says the opposite. VanderGheynst eq. (3) gives
+`D ∝ 1/P`, eq. (8) *defines* `xO₂ = PO₂/P` as the oxygen **mole fraction**, and
+eq. (9) is `V = −β₁D'·ln(1 − xO₂)`: the leading `P` of eq. (1) cancels and the
+output is a function of mole fraction, near pressure-**independent**. That is the
+capillary mass-flow law, the same shape as the SGX datasheet's own
+`S = K·ln(1/(1−C))`. Alphasense AAN 009 pp. 1–2 draws exactly this line:
+capillary mass-flow cells are nearly pressure-independent, membrane
+partial-pressure cells scale with `P`.
+
+So `P` appears **once**, in the dilution factor — not twice — and normalising the
+current by `P_cal/P_meas` would inject a pressure error rather than remove one.
+VanderGheynst's device is also a heated zirconia FCX-UW (p. 1042), not an SGX
+biased liquid-electrolyte cell, so that paper cannot settle the SGX either way.
+Reopening this needs an SGX-specific construction or pressure-coefficient
+statement, or a controlled pressure sweep at constant mole fraction on this cell.
+Until then the pressure work item is **withdrawn**, and the "defect" it described
+in `o2.c` is not a defect.
 Correcting only the dilution factor against a real barometer reading — which is
 what the first implementation of this document did — leaves about **−3.2 % to
 +3.2 %** of the weather term on the answer, i.e. it fixes less than a quarter of
@@ -190,14 +221,32 @@ must not guess:
    on its own.
 
    **The independent confirmation comes from other instruments instead**, and
-   there are three (§7): Kane & Mullins' Orsat, which is dry-basis by
-   construction because the confining water saturates the gas identically before
-   and after absorption; Schulze's ambient condensate trap, which is
-   *condensed-to-room-temperature* rather than dry, leaving ~2.3 % residual
-   vapour; and — the one that matters most — VanderGheynst *et al.* (1997), who
-   built an **in-situ** O₂/RH/temperature probe for exactly this environment,
-   calibrated its water-vapour response experimentally, published on a dry air
-   basis, and validated against gas chromatography of the same gas. The
+   there are three (§7): Kane & Mullins' Orsat, which is dry-basis *provided it
+   is operated the standard way* — Shepherd's NBS description (Res. Paper 266,
+   p. 147) saturates the gas before every measurement and equalises temperature
+   and pressure, so the vapour cancels out of the volume ratio. Kane names a
+   "modified Hays Orsat" (p. 1089) but documents neither the modification nor the
+   confining liquid, so for that instrument this is **inference from general
+   practice, not source verification** (corrected 2026-09-06). Then Schulze's
+   ambient condensate trap, which is *condensed-to-room-temperature* rather than
+   dry: the residual is whatever saturation holds at the trap temperature, 2.30 %
+   at 20 °C and sea level but ~3.12 % at 25 °C. Schulze states a condensate trap
+   (p. 109) and room-temperature analysis (p. 115) but gives neither the room
+   temperature nor the outlet RH, so the defensible statement is
+   "room-temperature condensate basis, probably near saturation", not a fixed
+   2.3 % (corrected 2026-09-06). And — the one that matters most —
+   VanderGheynst *et al.* (1997), who built an **in-situ** O₂/RH/temperature probe
+   for exactly this environment, calibrated its water-vapour response
+   experimentally, published on a dry air basis, and validated against gas
+   chromatography. Stated precisely, because an earlier version of this document
+   ran two separate tests together (corrected 2026-09-06): sensors stayed
+   operational and calibratable after **as many as** 71 days in situ (pp. 1041,
+   1049); the GC comparison was a **separate 42-day** test, of which 17 days were
+   above 60 °C (p. 1048); and the manual samples were drawn **within 15 cm of**
+   the probe rather than from the same gas volume — the authors invoke that
+   separation themselves to explain the residual disagreement (pp. 1043, 1048).
+   Its oxygen element was a heated zirconia FCX-UW (p. 1042), not an SGX cell, so
+   it is a precedent for the *basis convention*, not for this cell's behaviour. The
    convention is not an artefact of sample lines that we are the first to notice
    in situ; someone reporting an in-situ cell in hot saturated gas already made
    the same choice.
@@ -227,15 +276,26 @@ because the most-quoted one does not survive contact with its own sources. Randl
 Mullins, 1973) that thermophilic organisms are active in compost while the oxygen
 concentration remains above 5 %." Both were read (§7):
 
-* **Schulze 1962 states no threshold.** He throttled air "so that the residual
-  oxygen concentration in the **exhaust gas** remained between 5 and 10 %" — an
-  operating band the author chose, for the mixed outflow of a 55-gallon drum, not
-  for pore gas and not as a biological floor.
-* **Kane & Mullins 1973 contains no oxygen threshold at all.** Its only "5 %" is
-  the CO₂ in a 95 % N₂ / 5 % CO₂ sparging mixture used to show the isolates
-  require aerobic conditions — a qualitative result, not a number.
+* **Schulze 1962 does state a 5 % minimum** — corrected 2026-09-06; an earlier
+  version of this document claimed he states none. His conclusion (p. 121) reads:
+  "The rate of aeration can be controlled by measuring the residual oxygen
+  concentration in the exhaust gas. **A minimum of 5 % residual oxygen by volume
+  should be maintained.**" What survives of the criticism is narrower and still
+  matters: this is a prescriptive *operating* minimum for the mixed **exhaust
+  gas** of a 55-gallon drum — the same band he ran experimentally at 5–10 %
+  (p. 111) — not a pore-gas figure and not a measured biological floor.
+* **Kane & Mullins 1973 does report an O₂ observation** — corrected 2026-09-06;
+  an earlier version claimed its only "5 %" was the 95 % N₂ / 5 % CO₂ culture
+  mixture. That mixture is present (pp. 1090, 1097), but so is this, on p. 1090:
+  "thermogenesis is reduced in the middle zones where the O₂ concentration drops
+  below 5 %. It has been reported that insufficient O₂ can result in poor
+  thermogenesis." It is an **observational association** in a depth profile, not
+  a manipulated-variable experiment — the zone that was low in O₂ also differed
+  in temperature, aeration and position — but it is not absent.
 
-So the canonical 5 % is a citation cascade. **The figure with an actual
+So the canonical 5 % is real in the literature, and is an exhaust-gas operating
+target plus an observational association. What it has never been is a
+manipulated pore-gas threshold. **The figure with an actual
 manipulated-variable experiment behind it is Suler & Finstein 1977** — 2 % O₂
 severely restricted CO₂ formation, while 10 % performed the same as 18 %. Cite
 them for an alarm, and Schulze only for the basis pedigree. Note also what Suler
@@ -260,8 +320,14 @@ Relevant to an operator aiming at a diverse microbiome rather than merely
 > by lack of oxygen**, a situation which probably occurs widely in commercial
 > mushroom production.
 
-Optimum for the three thermophile groups — fungi, actinomycetes, bacteria — is
-50–65 °C (Waksman et al., 1939). O₂ exceeded 5 % in 86 % of the stack volume
+Waksman *et al.* (1939) tested discrete temperatures and found the most rapid
+decomposition at **50 °C** with thermophilic fungi active there, while at 65 °C
+bacteria and actinomycetes predominated and fungi were "seldom found" (p. 97);
+75 °C was rejected. So the paper supports useful thermophilic activity **across**
+50 and 65 °C with a shifting community, *not* a common 50–65 °C optimum shared by
+all three groups — corrected 2026-09-06, an earlier version claimed the latter.
+For a diverse microbiome that distinction is the point: 65 °C is already past the
+fungi. O₂ exceeded 5 % in 86 % of the stack volume
 and 10 % in 79 %, while temperature was out of range in 60 % of it. If that
 generalises, **the probe's temperature channel is at least as load-bearing as
 its oxygen channel**, and the pairing is what diagnoses a pile — which is an
@@ -339,29 +405,53 @@ and about calibrating `K` against the right number in the first place.
   *Development and analysis of oxygen-sensing probes for in situ monitoring of
   unsaturated solid-state biodegradation processes.* J. Air & Waste Manage.
   Assoc. 47(10):1041–1050. DOI 10.1080/10473289.1997.10464402. **Read in full.**
-  The in-situ precedent, and architecturally near-identical to this board: an
-  O₂ + RH + temperature probe run buried for 71 days above 60 °C, whose
-  water-vapour response was calibrated experimentally and whose output is
-  published on a dry air basis, validated against GC. Its eq. (1) writes the
-  cell law in terms of `PO₂/P` — over *total* pressure — which is the argument
-  for §3c's `K` normalisation.
+  The in-situ precedent: an O₂ + RH + temperature probe, water-vapour response
+  calibrated experimentally, output published on a dry air basis. Corrected
+  2026-09-06 — an earlier version overstated this on two counts. (i) The tests
+  are separate: operational/calibratable after **as many as** 71 days in situ
+  (pp. 1041, 1049), while the GC comparison was a **42-day** test with 17 days
+  above 60 °C (p. 1048), and its manual samples came from **within 15 cm of** the
+  probe, not the same gas volume (pp. 1043, 1048). (ii) It is **not**
+  architecturally near-identical: its oxygen element is a heated zirconia FCX-UW
+  (p. 1042), not a biased liquid-electrolyte three-electrode cell. It is a
+  precedent for the dry-basis *convention* and nothing more.
+  Its eq. (1) was previously read as writing the cell law over *total* pressure
+  and used to justify §3c's `K` normalisation. That reading is **wrong and now
+  retracted**: eq. (3) gives `D ∝ 1/P`, eq. (8) defines `xO₂ = PO₂/P` as the
+  **mole fraction**, and eq. (9) is `V = −β₁D'·ln(1 − xO₂)`. The pressure
+  cancels; the sensor is near pressure-independent.
 * Schulze, K.L. (1962). *Continuous thermophilic composting.* Appl. Microbiol.
   10(2):108–122. DOI 10.1128/am.10.2.108-122.1962. **Read in full.** Cited as
-  the primary source for the 5 % threshold; **does not contain one** (see §4).
-  Measured *exhaust gas* through an ambient condensate water trap, so
-  condensed-to-room-temperature rather than dry.
+  the primary source for the 5 % threshold; it **does contain one** — "A minimum
+  of 5 % residual oxygen by volume should be maintained", p. 121 (corrected
+  2026-09-06; this entry previously said it did not). It is an operating minimum
+  for mixed *exhaust gas*, matching the 5–10 % band he ran at (p. 111), not a
+  pore-gas or biological floor. Measured through an ambient condensate water
+  trap, so condensed-to-room-temperature rather than dry; the residual vapour
+  depends on the unstated trap temperature.
 * Kane, B.E. and Mullins, J.T. (1973). *Thermophilic fungi in a municipal waste
   compost system.* Mycologia 65(5):1087–1100. DOI 10.1080/00275514.1973.12019529.
-  **Read in full.** The other cited source for the 5 % threshold; **contains no
-  oxygen threshold**. Sampled through a Hays Orsat, which is dry-basis by
-  construction — the second independent confirmation of the convention.
+  **Read in full.** The other cited source for the 5 % threshold; it **does
+  report one**, as an observational association — "thermogenesis is reduced in
+  the middle zones where the O₂ concentration drops below 5 %", p. 1090
+  (corrected 2026-09-06; this entry previously said it contained none). Not a
+  manipulated-variable experiment: the low-O₂ zone also differed in temperature,
+  aeration and depth. Sampled through a **modified** Hays Orsat (p. 1089); a
+  standard water-confined Orsat is dry-basis by construction, but the
+  modification and confining liquid are undocumented, so treating this as a
+  second independent confirmation is inference, not verification.
 * Suler, D.J. and Finstein, M.S. (1977). — the figure that *does* rest on a
   manipulated-variable experiment: 2 % O₂ severely restricted CO₂ formation,
-  10 % ≈ 18 %. Already in `compostlab-literature`. NOT YET READ FIRST-HAND here.
+  10 % ≈ 18 % (pp. 348–349, confirmed first-hand by the 2026-09-06 review).
+  Already in `compostlab-literature`. Still the only manipulated-variable O₂
+  figure in the corpus.
 * Waksman, S.A., Cordon, T.C. and Hulpoi, N. (1939). *Influence of temperature
   upon the microbiological population and decomposition processes in composts of
   stable manure.* Soil Sci. 47(2):83–114. DOI 10.1097/00010694-193902000-00001.
-  Source for the 50–65 °C thermophile optimum. Title page read; body NOT read.
+  Corrected 2026-09-06: does **not** establish a 50–65 °C optimum common to
+  fungi, actinomycetes and bacteria. Most rapid decomposition at **50 °C** with
+  thermophilic fungi active; at 65 °C bacteria and actinomycetes predominated and
+  fungi were "seldom found" (p. 97); 75 °C rejected.
   (Randle & Flegg cite this as 83–98 and as "microbial population"; both are
   wrong — the paper begins on p. 83 and says "MICROBIOLOGICAL".)
 
