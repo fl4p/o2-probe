@@ -543,3 +543,67 @@ the channel.
 All five are archived in `compostlab-literature/` with checksums — see its
 `monitoring-control/INDEX.md` and `microbiology/INDEX.md`, which record for each
 what it does and does not support.
+
+## 9. THE CORRECTION IS NOT RUNNING ON THE DEVICE (2026-09-06, measured)
+
+Noticed by Fab during the drift-floor soak. Confirmed from the log, without
+touching the bus.
+
+**Evidence.** If the dilution correction were live, `o2_comp / o2_raw` would
+equal `1 / (K · f)` with `f = (P − p_w)/P`, so the ratio would move with `p_w`.
+Across the whole of 2026-09-06 the chamber swept RH 42 → 94 % and 23 → 42 °C,
+carrying `p_w` from about 12 to 50 hPa. At `ASSUMED_P_HPA` = 930 that is a 4.3 %
+swing in `1/f`. Measured:
+
+| utc | comp/raw | RH % | T_ch °C |
+|---|---|---|---|
+| 11:05 | 0.209418 | 42.3 | 23.37 |
+| 17:08 | 0.208989 | 50.0 | 42.06 |
+| 16:27 | 0.209157 | 93.7 | 33.92 |
+| 18:54 | 0.209305 | 68.7 | 23.93 |
+
+Total spread **±0.15 %**, unstructured, and consistent with the 0.01 %vol
+quantisation of `O2_COMP`. `o2_comp` is `o2_raw` times a **constant**.
+
+Isolating the soak alone (17:50 → 19:04, `p_w` 31.83 → 19.50 hPa): the ratio
+*rose* 0.099 % where the correction requires it to *fall* 1.34 %.
+
+**Cause.** The code is present in the tree (`fe27d20`) and in the built ELFs —
+`nm` shows `o2p_air_fraction`, `o2p_dry_from_wet`, `dilution_factor` in
+`.pio/build/o2probe/firmware.elf`. It is not in the image the probe is running.
+The board-revision decision has blocked flashing since before `fe27d20` landed,
+so the device still carries the pre-dry-basis firmware. `O2P_FW_VERSION` is
+`0x0001` on both sides and cannot distinguish them.
+
+**Consequence, and it is the one this file exists to prevent.** `regmap.h:61`
+promises register 0x0000 "NEVER publishes the wet-basis number under the
+dry-basis name." Right now it does exactly that. On the bench it is harmless.
+It must not reach a pile, a decoder, or Home Assistant in this state.
+
+Every `o2_comp` figure logged today is therefore an uncorrected number. The
+reproducibility figures in §8 are unaffected in kind — they were taken across
+small humidity excursions — but they are not dry-basis numbers and must not be
+quoted as such.
+
+### 9b. A free by-product: a first cell tempco, and why it is not usable yet
+
+Because the correction is absent, `o2_raw` over the soak is clean evidence.
+Room air holds dry-basis O₂ constant, so with `p_w` falling 31.83 → 19.50 hPa
+dilution alone should have raised the current **+1.37 %** (P = 930). Observed
+**−0.53 %**. The residual is **−1.87 % over −3.71 K**, i.e. a cell temperature
+coefficient of **+0.51 %/K** (≈ +5000 ppm/K, P = 930; +0.47 %/K at 1013).
+
+That is **2.5× the ~0.2 %/K** assumed in the earlier analysis, and 2.7× the
++0.184 µA/K in `bench-logs/swd-capture-2026-09-05-NOTES.md` — which was itself
+taken across an uncontrolled humidity change and is confounded the same way.
+
+**Do not write this into `TEMPCO_PPM_K`.** Over this window
+`r(T, p_w) = 0.991`: the board cooled and dried together, so the temperature
+and dilution terms are not separately identifiable, and the whole residual has
+been attributed to temperature by assumption. The number is an upper bound on
+the tempco, not a measurement of it.
+
+The experiment that would settle it holds `p_w` constant and steps temperature —
+which is what the heater does once the board is dry and the humidity has
+plateaued. That is the run to do next, and it is the same run that tests whether
+the unexplained +0.6 µA rise is a reversible moisture film.
