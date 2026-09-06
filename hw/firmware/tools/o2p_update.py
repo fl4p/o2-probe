@@ -342,12 +342,38 @@ class Bus:
 
     def read(self, addr, count):
         rsp = self._txn(struct.pack(">BHH", 3, addr, count), 5 + 2 * count)
+        # Check the SHAPE, not just the CRC. A reply one register short still
+        # passes CRC and address, and slicing it blind unpacks the two CRC
+        # bytes as the last register - a plausible-looking number that is
+        # actually a checksum. Other short lengths raise struct.error out of
+        # the middle of a caller that promised to log a failed row instead.
+        if rsp[1] != 3:
+            raise IOError("reply is function %d, not FC03" % rsp[1])
+        if rsp[2] != 2 * count:
+            raise IOError("reply declares %d data bytes, asked for %d"
+                          % (rsp[2], 2 * count))
+        if len(rsp) != 5 + 2 * count:
+            raise IOError("reply is %d bytes, expected %d"
+                          % (len(rsp), 5 + 2 * count))
         return list(struct.unpack(">%dH" % count, rsp[3:3 + 2 * count]))
 
     def write(self, addr, values):
         pdu = struct.pack(">BHHB", 16, addr, len(values), 2 * len(values))
         pdu += b"".join(struct.pack(">H", v) for v in values)
-        self._txn(pdu, 8)
+        rsp = self._txn(pdu, 8)
+        # FC16 echoes the address and count it actually applied. A device that
+        # wrote somewhere else, or wrote fewer registers, says so here - and a
+        # config write that silently landed elsewhere is exactly the failure
+        # that must not be mistaken for success.
+        if rsp[1] != 16:
+            raise IOError("reply is function %d, not FC16" % rsp[1])
+        if len(rsp) < 6:
+            raise IOError("FC16 reply is %d bytes, expected 8" % len(rsp))
+        echo_addr, echo_count = struct.unpack(">HH", rsp[2:6])
+        if echo_addr != addr or echo_count != len(values):
+            raise IOError("FC16 echoed addr 0x%04X count %d, wrote 0x%04X "
+                          "count %d" % (echo_addr, echo_count, addr,
+                                        len(values)))
 
 
 class ModbusException(Exception):

@@ -7,6 +7,11 @@ K/W. `compostlab/o2-probe/POWER.md` §3.2 sizes the whole power system off an
 measurement. It is deliberately cheap — the method was proven on the bench on
 2026-09-04 and takes about an hour in the field.
 
+**The procedure is executable.** `firmware/tools/o2p_thermal.py` runs the
+square wave, logs it, and fits it, over nothing but the Modbus cable — see §8.
+Read §§1–7 for what the number means and §9 for what has to be true before the
+heater will run at all.
+
 ## 1. What is already known
 
 **Bench reference, 2026-09-04, first article, no ring fitted, still air.** A
@@ -156,3 +161,153 @@ Two things the same dataset gives away for free:
   is ever respun with the sensors left where they are, it still cannot, and the
   interlock
   should be deleted rather than shipped as decoration.
+
+## 8. Running it: `firmware/tools/o2p_thermal.py`
+
+```sh
+cd firmware
+python3 tools/o2p_thermal.py --port /dev/cu.usbserial-0001 --preflight
+python3 tools/o2p_thermal.py --port /dev/cu.usbserial-0001 run.csv \
+        --duty 20 --half 300 --cycles 3 --interval 5
+python3 tools/o2p_thermal.py --analyze run.csv --plot run.png
+```
+
+It does §4 and §5 of this document, and it does them in the order that keeps
+the answer honest:
+
+**It refuses before it writes.** `--preflight` runs every precondition in §9
+and stops. The run does the same checks first and will not touch a register if
+any of them fails. This matters more than it sounds: the interlock mask that
+would say *why* duty is zero is not published anywhere on the bus (see §9), so
+a run that quietly logged zeros would be indistinguishable from a probe with no
+heater fitted.
+
+**It reports applied duty, never commanded duty.** Every row carries both,
+from `HEATER_DUTY` (0x0005) and from what the script asked for. If they
+disagree, an interlock refused and the run aborts and says so.
+
+**It always puts the registers back.** `HEATER_MAX_DUTY` to 0 and
+`RH_SETPOINT` to whatever it was, on every exit path — Ctrl-C, abort,
+unhandled exception, SIGTERM. The commit magic (0x003E) is never written: this
+configuration is a measurement fixture, and a fixture that survives a power
+cycle is a bug. If the restore itself fails it says so and exits 2, because a
+probe left with a live `HEATER_MAX_DUTY` keeps heating with nobody watching.
+
+**It aborts on its own.** `T_TIP` at `--tip-max` (default 55 °C, below the
+cell's 60 °C rating and well below the firmware's own 80 °C clamp), a
+`HEATER_RUNAWAY` latch, the rail falling out of tolerance under load, or
+commanded duty that is still not applied after a few samples. An aborted run is
+still fitted — partial data beats no data — but the exit status is non-zero so
+a wrapper cannot bank the number.
+
+**It excludes half-cycles it cannot believe**, rather than averaging them in.
+A segment is dropped if its rail moved by more than `--vin-tol` (2 %, because
+`P` scales with `VIN²` and a rail that moved was not one experiment), if it
+carries `VIN_LOW`/`VA_LOW`/`HEATER_RUNAWAY`/`I2C_FAIL_TMP`, or if the
+exponential misses by more than `--rms-max` (0.30 K; clean bench fits land near
+0.04 K). Exclusions are printed with the reason. A *short* half-cycle is
+flagged but kept — the fit extrapolates the asymptote, which is exactly what
+the slope method could not do.
+
+### How the fit works, and why not scipy
+
+`T(t) = T_inf + (T_0 - T_inf)·exp(-t/τ)`, per half-cycle. τ enters
+non-linearly and everything else linearly, so the tool scans τ and solves the
+other two exactly at each step. No optimiser, no local minimum, no dependency
+beyond the standard library (matplotlib only for `--plot`) — it has to run on
+whatever laptop is at the pile.
+
+Two refinements, both of which changed an answer:
+
+- **Asymptote from the tail, but only past 8 τ.** The mean of the last fifth of
+  a segment is the more robust estimator once a step has genuinely settled, but
+  it is biased *low* by construction — at 5 τ the tail is still climbing
+  through 98–99 % of the step, which cost 2.5 K/W on synthetic data with a
+  known answer. Below 8 τ the tool uses the fitted asymptote and says so.
+- **Re-fit long segments on their last 6 τ.** A segment far longer than τ
+  carries thermal history that this step did not cause, and one exponential
+  cannot describe both.
+
+`dT` is always the **change in `T_TIP`** across the step, paired against the
+mean of the neighbouring OFF asymptotes so a linear drift cancels. It is never
+`T_TIP − T_CHAMBER`; see §3.
+
+### Validation
+
+Against synthetic data built from a known θ = 98.0 K/W, τ = 77 s, C = 0.79 J/K
+with a 0.5 K/h drift and 5 mK of noise, the tool returns **98.0 K/W** on both
+drift-cancelled cycles (95–96 K/W on the first cycle, which has a baseline on
+one side only — visible in the `baseline` column).
+
+Re-fitting the real 2026-09-04 bench log (`bench-logs/heater-2026-09-04.csv`,
+`--analyze` reads it directly) reproduces the baseline to 0.08 K — 25.94 °C
+against the 26.02 °C in §1 — and correctly **excludes** that log's trailing OFF
+half, which runs straight through the board being powered down. It returns
+**105 K/W against the 98 K/W published in §1**, and the difference is
+instructive rather than alarming: that step ran only ~3.2 τ, and §1 took its
+last sample as the asymptote. At 3.2 τ a step is ~96 % settled, so 98 K/W is
+low by about the amount observed. The two numbers are within the extrapolation
+uncertainty of a step that short, and neither is worth defending — **which is
+the argument for `--half ≥ 460 s` on the re-run.** Until then, treat §1's 98
+K/W as "roughly 100 K/W in still air", not as a measured figure to three
+significant digits.
+
+## 9. Preconditions, and the two that block the bench today
+
+Duty is not commandable. The firmware's loop regulates chamber RH, and
+`HEATER_MAX_DUTY` only pins the output *while that loop is saturated*. Around
+that sit the dozen interlocks in `firmware/src/heater_ctl.h`, any one of which
+forces duty to zero.
+
+**Gap worth closing: `HEATER_BLOCK` is not published.** `heater_ctl.h` says the
+interlock mask is "published in the diagnostic block as HEATER_BLOCK";
+`main.c` computes it into `g_cyc.heater_block`; and there is no such address in
+`regmap.h`. `main.c` acknowledges the omission in a comment. So a probe that
+refuses to heat reports only `HEATER_DISABLED` — "not driving this cycle,
+whatever the reason" — and the reason is exactly what a buried probe cannot be
+asked twice for. `o2p_thermal.py` compensates by testing every precondition it
+can reach from outside and naming the remainder in its abort message, but that
+is a workaround. **A single diagnostic register would replace it.**
+
+What must hold:
+
+| Precondition | Interlock | How to check |
+|---|---|---|
+| Build has `O2P_HEATER_ENABLE=1` | `HB_NOT_COMPILED` | not observable on the bus; `pio run -e o2probe_heater_enabled` |
+| `HEATER_MAX_DUTY` non-zero | `HB_CONFIG_OFF` | the tool sets it |
+| TMP117 therm-mode alert armed | `HB_SAFETY` | not observable; `I2C_FAIL_TMP` in `FAULTS` is the proxy |
+| Fresh RH, tip and chamber | `HB_NO_RH`/`NO_TIP`/`NO_CHAMBER` | sentinels in 0x0002/0x0003/0x0004 |
+| `VIN` ≥ 9000 mV and `VA` in tolerance | `HB_SUPPLY` | `VIN_LOW`/`VA_LOW` in `FAULTS` |
+| measured RH **above** `RH_SETPOINT` | (loop simply asks for 0 duty) | 0x0004 against 0x0033 |
+
+**Blocker 1 — the rail.** As of 2026-09-06 this bench reads `VIN_MON` =
+**7958 mV** against the 9000 mV `O2P_VIN_LOW_MV` threshold in `main.c`, so
+`VIN_LOW` is set, `supply_ok` is false, and `HB_SUPPLY` pins duty at zero. The
+same firmware on the same board read **11960 mV on 2026-09-04**, which is
+strong evidence the monitor is fine and the *supply* changed — measure the
+input with a meter before adjusting anything, because `P = duty·VIN²/R` and a
+wrong VIN scales θ by its square. (The reading being dead flat sample to sample
+is not evidence of a stuck channel: the 91k/10k divider gives 8.1 mV per LSB in
+VIN terms against 1.6 mV for `VA_MON`, so a quiet rail parks on one code.)
+
+**Blocker 2 — dry room air.** `o2p_config_valid()` in `regmap.c` accepts
+`RH_SETPOINT` only in 50.00–90.00 %RH, and the loop is positive-acting: it asks
+for duty only while measured RH is *above* the setpoint. At the 42 %RH on this
+bench, **no legal setpoint saturates the loop**, so the heater cannot be
+commanded over Modbus at all. This is why §4 says the field case is *easier*
+than the bench: in a pile RH is near 100 % and 50 % saturates trivially.
+
+Two ways out on the bench:
+
+1. **Raise the chamber humidity.** Closed box, damp sponge not touching the
+   probe, wait for RH above ~60 % so there is headroom — heating *lowers* RH,
+   and if it falls back through the setpoint mid-cycle the loop leaves
+   saturation and the applied duty stops matching the commanded one. The tool
+   warns when the margin is under 5 %RH and the log shows it happening. A
+   closed box is also a fair still-air boundary, which is the upper bound θ
+   this measurement is for.
+2. **Write the setpoint below the floor over SWD**, bypassing the validator.
+   This is what the 2026-09-04 run did. It needs a debugger on the probe, and
+   §6's last bullet applies: halting the core resets the board on the ~4.1 s
+   IWDG unless `DBGMCU_APB_FZ1` bit 12 is set, and DBGMCU reads back zero until
+   `RCC_APBENR1` DBGEN is set first.
