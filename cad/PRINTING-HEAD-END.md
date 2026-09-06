@@ -629,37 +629,98 @@ Three sizes were on hand — 17 × 2.5, 20 × 2, 14 × 2.5.
 
 | | verdict |
 |---|---|
-| **17.0 × 2.5** | **chosen.** Groove Ø17.6/Ø24.85 × 1.8, membrane disc Ø26.85, 1.03 mm clear of the bolt holes |
+| **17.0 × 2.5** | **chosen.** Groove Ø17.6/Ø23.96 × 1.92, no seat: the membrane must simply COVER Ø25.96 |
 | 20 × 2 | rejected on **size**: its groove puts the membrane disc at Ø28.0 against a bolt-hole inner edge at Ø29.3 |
 | 14 × 2.5 | rejected on sight: the bore is *inside* the Ø16 window |
 
 The fat cord is not a compromise, it is the second half of the fix. The cord
 tolerance is an **absolute** band, so ±0.09 on a 2.5 cord costs far less squeeze
 than ±0.08 on the legacy 1.0 cord did. All figures below are the model's own
-echo at `face_sorting="sorted"`, after the ORD-5700 review of 2026-09-05:
+echo, on the **catalogue** cord band:
 
 | | legacy 17 × 1.0 | clamped 17 × 2.5 |
 |---|---:|---:|
-| assembled gap | 0.750 | **1.860** |
-| nominal squeeze | 25.0 % | **24.26 %** |
-| depth may err by | ±0.032 mm | **+0.054 / −0.093 mm** |
-| worst-corner fill | 78.2 % | **74.5 %** (Parker's optimum is 75 %) |
-| groove depth | 0.75 (3.75 layers) | **1.80 = 15 × 0.12** |
+| assembled gap | 0.750 | **1.920** |
+| nominal squeeze | 25.0 % | **21.82 %** |
+| depth may err by | ±0.032 mm | **+0.049 / −0.098 mm** |
+| worst-corner fill | 78.2 % | **87.7 %** (see below — it is a stacked corner) |
+| groove depth | 0.75 (3.75 layers) | **1.92 = 16 × 0.12** |
+
+### 2026-09-06 REVERSED THE TWO DECISIONS BELOW. Read this before re-deriving them.
+
+The section that follows this one used to say the band was 20–30 % and that
+micrometer-sorting the rings was mandatory. **Both are now false**, and the
+reasoning that produced them is kept below because it is sound and you will
+otherwise rediscover it and change the model back.
+
+Fab, 2026-09-06: *"i dont think it makes sense measuring these, as they are
+somewhat not perfect anyway and we need to work with some tolerances anyways."*
+`make head-end-asa` no longer passes `face_sorting="sorted"`. Nobody micrometers
+these rings, so the model must not declare that they are micrometered — a
+declared tolerance nobody verifies does not tighten a ring, it only stops the
+model from saying so.
+
+That single change forces three others, because the catalogue band genuinely is
+harder to satisfy:
+
+| constant | was → now | why it had to move |
+|---|---|---|
+| `face_floor` | 0.20 → **0.15** | on catalogue, the 20 % floor and the 85 % fill ceiling **cross**: the feasible assembled gap comes out inverted, 1.905…1.881 — empty by 0.024 mm. No groove depth satisfies both |
+| `face_squeeze_target` | 0.25 → **0.22** | 0.25 solves the depth to 1.80, outside the new window, and the ceiling assert fires. 0.22 solves to 1.92. Anything 0.21–0.24 quantizes to the same 1.92 |
+| worst-corner fill cap | 0.85 → **0.90** | that corner stacks the fattest cord against the shallowest groove the 30 % ceiling permits — an allowance against an allowance — and reaches 87.7 %. Expected fill at 1.92 is 71.2–84.4 % across the whole catalogue band, inside 85 % at every corner |
+
+The alternative to the last one was widening `face_groove_w_factor` to ≥ 3.38.
+That constant is Parker's gas/vacuum row, carries its own DO-NOT-CHANGE note, and
+a wider groove is where the ring was seen climbing out on 2026-09-05.
+
+**Why this needed no reprint.** Both printed retainers gauge **1.95** deep —
+groove-up and groove-down, against modelled 1.80 and 1.88, so the print runs deep
+and the two offsets do not agree, which still wants a caliper-zero check. At an
+assembled gap of 1.95 on the full catalogue band the joint holds fill 70.1–83.1 %
+and squeeze 17.1–23.9 %: only the thin-cord corner failed, only against the
+floor, by 2.9 points. The requirement window is now 1.822–1.969 and 1.95 sits
+inside it.
+
+**What it costs, so nobody rediscovers it as a surprise.** 17 % squeeze is less
+sealing force than 20 %, and on a gas seal that is the direction that leaks. It
+is defensible here — static face seal, room temperature, no fluid swell, fill
+nowhere near its ceiling — but it is a *decision*, not a default. **If this bed
+leaks, `face_floor` is the first suspect and the worst-corner fill cap the
+second.** The fix that keeps 20 % is a 1.80 groove with the fill ceiling at 90 %,
+which needs a reprint and does not cover the two retainers on the bench.
+
+`oring_sorting` for the **radial** ring is untouched and still claims
+micrometered Ø24 × 1.5. Same unverified shape, different ring, not covered by
+this decision.
+
+### The hand-cut square fouls the bolt circle, and the model says so
+
+With no seat the membrane is not located by anything — it lies loose between the
+retainer face and the carrier land. It only has to **cover** the ring: at least
+**Ø25.96**, so the O-ring lands on membrane and not off its edge.
+
+A *square* blank big enough to do that is 25.96 across the flats, and its corners
+then reach **r 18.36** — against a bolt circle at **r 15.18**. The corners run
+past the screws. Trim them, cut an octagon, or accept that the blank is pierced
+when the screws go in. Fab, 2026-09-06: *"i cannot cut round circles so precisely
+yet (we might have to make stencil)"* — a stencil at Ø25.96–28 is the clean fix
+and is not built.
+
+### The superseded argument, kept because it is correct on its own terms
 
 **The band is 20–30 %, not 15–30 %.** Parker ORD 5700 Design Chart 4-3, p. 4-18,
 gives 20–30 % for the nearest face-seal cross-section. The 15 % floor this
 document and the model both carried was the *radial* rule, copied across from the
 carrier-to-head ring — and a face seal has no gland-fill energisation to fall back
-on. Raised to 20 % on 2026-09-05.
+on. Raised to 20 % on 2026-09-05, **lowered again to 15 % on 2026-09-06** for the
+reasons above: the 20 % floor is right in the abstract and unreachable on a ring
+nobody measures.
 
-**Sorting is therefore mandatory on this bed, and the model now enforces it.**
+**Sorting was therefore mandatory on this bed, and the model enforced it.**
 With the 20 % floor, the catalogue cord band alone leaves *no* groove depth on the
 0.12 mm grid that holds 20–30 % across the corners: 1.80 is too shallow at the fat
-corner and the next step down, 1.68, reaches 33 %. `face_sorting="catalogue"` now
-**fails the build** with "sort the rings, or cut the groove one layer shallower";
-`make head-end-asa` sets `face_sorting="sorted"`. Micrometering rings that are
-already in the drawer costs nothing, and it is the only thing that closes the
-band.
+corner and the next step down, 1.68, reaches 33 %. That is still true — it is why
+the floor had to move rather than the depth.
 
 The tighter end is now the **floor** — the end that leaks — not the ceiling, and
 the model reports which end binds rather than asserting it. Three inputs that were
@@ -682,10 +743,15 @@ flattered the floor and turned a failing build into a passing one.
 ## What this asks of the slicer
 
 **The groove depth is an integer number of layers and that is a seal dimension.**
-1.80 mm = **15 × 0.12**, and 0.12 is what `profiles/process_asa_seal.json`
-actually slices at — not the 0.2 this section first assumed. The membrane seat is
-`2 × face_layer_h` = 0.24 **by construction**, so it cannot be a fractional layer
-either; an assert there would only restate its own definition. `profile_check.py`
+1.92 mm = **16 × 0.12**, and 0.12 is what `profiles/process_asa_seal.json`
+actually slices at — not the 0.2 this section first assumed. **There is no
+membrane seat any more** (`face_seat_depth = 0`, dropped 2026-09-06 on Fab's ask
+— *"i just cut a square out of the PTFE and throw it there"*), so the old note
+about the seat being `2 × face_layer_h` by construction no longer applies. With
+no seat the retainer bottoms **on the membrane**, which means squeeze is no
+longer set by geometry alone: it depends on where a hand-cut blank lands and how
+much 0.18 mm PTFE creeps under six screws. The model echoes MEASURE IT, and that
+measurement is the one that actually closes this bed. `profile_check.py`
 compares the model's layer height, first layer and line width against the profile
 that slices the plate, and `make head-end-asa` runs it before exporting.
 
