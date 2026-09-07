@@ -392,3 +392,82 @@ Wiring standby into the sampler remains blocked on the protocol question in
 own conclusion that **USART1 wake-from-Stop saves 1800 µA and needs the
 receiver on** — the two levers are still alternatives, and Stop-1 remains the
 bigger one.
+
+---
+
+# Physical layer: is RS-485 the right choice on a battery?
+
+Asked 2026-09-07, prompted by Truebner shipping a low-voltage UART variant of the SMT100.
+
+## What Truebner actually ships
+
+From truebner.de/en/smt100.php, fetched 2026-09-07: RS-485 (TBUS/ASCII or Modbus),
+SDI-12, analog 0-10 V (0-1/0-3/0-5 V on request), 4-20 mA, and **"Low voltage UART
+(especially for IoT radio modules)"**. They did not pick a winner; they shipped the trade.
+
+Application Note AN007 (02/2022) describes the SMT100 LV: 3.1-15 V supply, 3 V UART
+levels, UART lines protected by 1 kOhm series resistors, internal 3 V rail behind an
+ultra-low-dropout regulator, aimed explicitly at lithium primary cells. And:
+
+> "The UART interface is typically used for **point-to-point** communication with a
+> **single sensor** (master - slave configuration)."
+
+That parenthetical on the product page - *especially for IoT radio modules* - is the whole
+point. The LV variant exists for a sensor wired to one radio node, not for a bus.
+
+## The ordering that matters
+
+**The physical layer is the second-order question. Who initiates is first-order.**
+
+A slave must listen, and listening is what costs. If this probe stays a polled Modbus
+slave, swapping RS-485 for UART saves the transceiver's 700 uA but leaves the MCU's
+**1800 uA** awake to catch the poll - 24 % of the problem, paid for in noise immunity.
+Fix initiation instead (USART1 wake-on-address, or scheduled transmit) and RS-485 drops to
+the ~70 uA standby that R45 allows, at which point the physical layer stops mattering.
+
+So the order of work is: **initiation, then clock, then physical layer.** The first two are
+worth 2-4x between them. The third is worth 630 uA already recovered by the RE/DE split.
+
+## What RS-485 buys in this deployment specifically
+
+The probe is potted with the cell *and* the STM32 in the pile, at the end of a long cable.
+That is the case RS-485 exists for:
+
+- **+/-15 V common-mode range.** THVD1410 receiver thresholds are specified over a +/-15 V
+  common-mode range (SLLSEY3E electrical table), and the driver survives -7 V to +12 V.
+  The probe shares a ground with a heater switching 86 mA down a long wet cable; ground
+  offset between probe and logger is not hypothetical.
+- **Differential signalling**, so common-mode pickup cancels.
+- **A protected front end**: transceiver plus the SM712 TVS. The LV variant's protection is
+  1 kOhm series resistors - reasonable for a sealed sensor the vendor replaces, thin for a
+  potted one-off that cannot be opened.
+- **Multi-drop.** The cable already carries two SMT100s. UART is point-to-point; each
+  sensor would need its own pair.
+- **The field updater.** loader_main.c reflashes a potted probe over that same pair.
+
+## When LV/UART would genuinely be right
+
+If the electronics moved *out* of the pile into a dry enclosure beside the radio, with only
+a short lead to the cell. Then RS-485 is overhead. That is a mechanical redesign, and the
+tip is in the pile by construction, so it is not today's board.
+
+The more interesting alternative is **SDI-12**, not plain UART: the agriculture standard for
+battery soil probes, addressable and multi-drop on one wire, built around sensors that
+sleep between measurements, and available on the SMT100. But it is 1200 baud and would mean
+replacing the Modbus stack *including the RS-485 updater*. Large rewrite, working bus - not
+recommended.
+
+## Conclusion
+
+**Keep RS-485.** The RE/DE split removes the power objection. Spend the effort on
+initiation and the clock-down.
+
+## The system-level caveat, unmeasured
+
+If the probe is polled by an ESP32 node (the Chirpstack migration), that node has to be
+awake to poll, and its budget is not in this document. Do not assume it is small and do not
+assume it is large: a bare ESP32 module in deep sleep is tens of microamps, while a
+development board carrying an LDO and a USB-UART bridge is milliamps, and for infrequent
+reporting the radio's per-uplink energy usually dominates both. **Measure the actual node
+board before optimising this probe further** - the answer may change whether the probe
+should be polled at all, which is the first-order question above.
