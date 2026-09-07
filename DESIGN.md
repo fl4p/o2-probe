@@ -118,14 +118,25 @@ Firmware that took an absolute value would hide the answer.
 `MB_CRC_ERRS`, `MB_FRAME_ERRS`, `I2C_ERRS`, `EXP_DATA` (`0xFFFF` - J2 is DNP),
 `SETTLE_RESTARTS` (`0x0020`), `SAMPLE_SEQ` (`0x0021`).
 
-### Config block, `0x0030`, 18 registers, read/write, flash-backed
+### Config block, `0x0030`, 20 registers, read/write, flash-backed
 
 `SLAVE_ADDR`, `BAUD_CODE`, `PARITY_CODE`, `RH_SETPOINT`, `DT_MAX_K`,
 `HEATER_MAX_DUTY`, `HEATER_PWM_HZ`, `CAL_AIR_NA_HI/LO`, `CAL_TEMP_C100`,
 `TEMPCO_PPM_K`, `SHT_PULSE_H`, `SHT_PULSE_TRIG`, `CAL_TRIGGER`, `COMMIT`,
 `CONFIG_CRC` (read-only), then the two PI gains:
 `HEATER_KP` at `0x0040` and
-`HEATER_KI` at `0x0041`, both in 0.01 units.
+`HEATER_KI` at `0x0041`, both in 0.01 units, and the cell zero point:
+`CAL_ZERO_NA_HI/LO` at `0x0042/0x0043`, i32 nanoamps, signed, default 0.
+
+The zero point is not a refinement. DS-0637 allows a zero signal of `< 0.4 %vol
+O₂` — 1194 nA, 100× one ADC LSB and 8× the LMP91000's internal-zero error — and
+with no `I0` term that whole error folded into the air point and became a slope
+error across the low range, where the compost decision lives.
+`O2-CORRECTION-MODEL-BUDGET.md` has the propagation. It is signed because the
+SGX polarity convention is still open (`SCHEMATIC-REVIEW.md` M4), and it is
+bounded on both the register-write path and the calibration routine — the air
+point is refused while the zero it will be netted against is implausible,
+because `K` is `air − zero`.
 
 The two heater gains are registers rather than compile-time constants because
 the plant they tune can only be characterised in a real pile:
@@ -134,7 +145,9 @@ alternative was reflashing to change a number, which post-pot means the RS-485
 bootloader and a full image transfer. Adding them moved the config block from
 16 to 18 registers and took the flash record's layout version to 2, so a
 version-1 record falls back to defaults - and the defaults hold
-`HEATER_MAX_DUTY` at 0, so a layout change fails towards no heat.
+`HEATER_MAX_DUTY` at 0, so a layout change fails towards no heat. Adding
+`CAL_ZERO_NA_HI/LO` did the same thing again: 18 to 20 registers, `o2p_config_t`
+28 to 32 bytes, layout version 3.
 
 A multi-register write is validated against a copy and committed all-or-nothing,
 so a frame setting a legal address and an illegal baud rate changes neither.
@@ -197,6 +210,14 @@ check is not hypothetical.
   by measuring the `+5V_ANALOG` spectrum around 256 kHz, 1.1 MHz, and PFM burst
   components, plus ADS1119 mean/offset at heater 0%, intermediate, and 100%
   duty. Do not qualify this filter using RMS noise alone.
+- **The DNP BMP390 is now a quantified measurement gap, not just an unfitted
+  part.** `PRESSURE_HPA` reads 0, and the cell responds to *partial* pressure:
+  the site's ±2 kPa of weather is ±0.45 %O₂ at air and ±0.11 %O₂ at 5 %O₂,
+  which is several times the entire calibration uncertainty a proper campaign
+  can reach (`O2-CORRECTION-MODEL-BUDGET.md` §4). Either fit the part, or
+  publish an external barometric pressure into the register from the gateway
+  and say in the data record which was done. The 715 m site elevation itself
+  (93.0 kPa, −8.2 %) is absorbed by an in-situ air point; the weather is not.
 - J2 may become a sealed pad field if the Micro-Fit swept envelope does not fit
   the actual tube.
 - Confirm every exact MPN/package pin map, MCU alternate-function assignment,

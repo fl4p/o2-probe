@@ -640,6 +640,23 @@ verification discipline established by `/Users/fab/dev/ee/hw/tmp117-probe/`:
   measured after the saturated soak, and a full remove/refit cycle proving the
   15-min settling behaviour and the post-swap air-point**; **final calibration with the complete gas path** (membrane, window,
   chamber, heater running) — bare-cell calibration is insufficient.
+- **Calibration campaign — the sequence is set by `O2-CORRECTION-MODEL-BUDGET.md`,
+  not by intuition.** N₂ zero + dry air at **five temperatures spanning 10–60 °C**
+  (whole probe isothermal, ≥10 min plateaus) is the load-bearing part: it is what
+  turns ±1.3 %O₂ at 55 °C into ±0.05 %O₂. DS-0637 **Issue 2** publishes a
+  temperature curve for the cell (≈ +0.2 %/K, not yet digitised), but it is the
+  bare cell from another population — it sets the expectation, it does not
+  replace a per-probe fit that also captures the AFE. The air point must be corrected to wet basis from
+  logged RH and pressure; ignoring room humidity at 22 °C/50 %RH poisons the span
+  by 0.28 %O₂. Blended dilution points come *after* that and are weighted by their
+  reference uncertainty — they fit the zero and test the log law, and adding them
+  **unweighted makes `K` up to 9× worse**, which is the one way this campaign can
+  quietly fail. Two further passes have no substitute:
+  a **CO₂ series** (5/10/20 % CO₂ at fixed O₂ — the 4-series figure of 0.3 % of
+  signal per 1 %CO₂ is worth +0.23 %O₂ at 5 %O₂ in pile gas and is unverified on
+  the Mini), and, if the fitted α turns out large, a **split-temperature pass**
+  holding the AFE fixed while the cell moves — an isothermal sweep fits
+  α_cell + α_AFE together, and the heater running is exactly what splits them.
 - Field: probe joins the RS485 bus beside the Apogee reference per
   compostlab `research/COMPOST-O2-SENSORS-BUDGET.md` §First-experiment.
 

@@ -22,7 +22,7 @@ firmware's scale factors are **generated** from the schematic (see
 | | |
 |---|---|
 | Schematic / PCB | released for a bare-board first article; ERC and DRC clean |
-| Firmware v0 | builds, 49 host tests pass — **has never run on hardware** |
+| Firmware v0 | builds, 61 host tests pass — **has never run on hardware** |
 | Firmware v1 heater loop | implemented and **shipped disabled**, pending the TMP117 alert fault test |
 | Cell fit, enclosure fit, potting | unqualified; physical sample gates open |
 | RS-485 bootloader | **does not exist** |
@@ -58,6 +58,38 @@ soil probes and a Dragino RS485-LS acting as LoRaWAN master.
 The board is 20.0 × 107.0 mm, four layers on a 1.0 mm stack, split by a potting
 datum at y = 82 mm with a thermal break beyond it so the gas-side tip can be
 heated without heating the whole probe.
+
+## How well it can read
+
+`O2-CORRECTION-MODEL-BUDGET.md` propagates the part datasheets through the law
+the firmware actually implements. Three results decide how the probe is
+calibrated and what may be claimed for it:
+
+- **The digitiser is nowhere near the limit.** One ADS1119 LSB is 10.9 nA =
+  0.002 %O₂, and an averaged sample is 3.2 nA. The cell's own datasheet zero
+  signal — `< 0.4 %vol O₂`, DS-0637 — is 1706 nA, 150× that and 12× the
+  LMP91000's ±0.04 % internal-zero error. Multiplicative chain errors (5 % TIA
+  gain accuracy, ±0.01 % ADC gain) cancel exactly, because the reading depends
+  only on `S/K` and `K` comes from an air point through the same chain.
+- **The tempco is the whole game.** With an air point alone — what ships today
+  — the error at 55 °C is ~1.3 %O₂ in air and 0.3–0.5 %O₂ in the 2–5 % range
+  where the compost decision lives. Any temperature sweep collapses that below
+  0.03 %O₂. **DS-0637 Issue 2 does publish an output-versus-temperature curve**
+  (≈ +0.2 %/K, eyeballed, not yet digitised); it is the cell alone, from another
+  population, without our electronics, so a per-probe fit is still the plan.
+- **The terms calibration cannot touch are larger than calibration error.**
+  Water-vapour dilution of saturated pore gas is −0.18 %O₂ per K at 55 °C;
+  barometric weather is ±0.45 %O₂ at air and is uncorrectable because the
+  BMP390 is DNP; CO₂ enhancement (0.3 % of signal per 1 %CO₂, 4-series figure,
+  unverified on the Mini) is +0.23 %O₂ at 5 %O₂ in pile gas.
+
+Counter-intuitively, **an unweighted fit gets worse as dilution points are
+added** — up to 9× worse on `K` — because each blend injects its own 1–2 %
+reference error into a fit whose best reference, air at ±0.005 %O₂ once RH and
+pressure are logged, was already free. Weight each residual by its own
+reference uncertainty and the same points neither help nor hurt. Either way the
+dilution series earns its place on the zero and the log law, not on
+sensitivity.
 
 ## Layout
 
@@ -123,6 +155,7 @@ python3 tools/check_regmap_docs.py        # prose register map vs regmap.h
 |---|---|
 | `DESIGN.md` | architecture, I²C address map, register map, release gates |
 | `firmware/FIRMWARE.md` | register map, fault semantics, bring-up procedure |
+| `O2-CORRECTION-MODEL-BUDGET.md` | what a dilution + tempco calibration can and cannot buy |
 | `SCHEMATIC-REVIEW.md` | review findings M1–M4 and their closures |
 | `FAB-READINESS.md` | what must pass before fabrication and assembly |
 | `THERMAL-BARRIER.md` | the ~98 K/W tip isolation, the heater's plant model |
