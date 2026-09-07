@@ -1098,3 +1098,143 @@ Still open, and none of it is small:
 * **The range is 6.5 K and 17 hPa.** A pile is 158 hPa and 30 K beyond it.
 * Nothing here is in firmware. `O2P_TEMPCO_DEFAULT` is still 0, which remains
   the right default until these two numbers reproduce on a second article.
+
+## 14. CODEX REVIEW OF SECTION 13: the flash decision reverses (2026-09-07)
+
+Independent adversarial review of `8a4a870`/`2f722e6`, run with network and a
+headed browser. Access verified: it fetched the Sensirion SHT45 page title, ran
+a live Crossref query, and text-extracted the Alphasense capillary-cell notes.
+SGX's own site and DS-0637 timed out, so anything specific to this part remains
+`unverified` - the same rung-6 wall as before.
+
+Full log: `bench-logs/codex-tempco-review-2026-09-07.log`. Verdict: **do not
+flash, do not backfill.** I have reproduced the two findings that carry that
+decision and they are correct.
+
+### 14.1 The one that matters: full correction is WORSE than none, at alpha < 0.55
+
+Section 12.2 said *"flashing still wins there, by roughly 2.5x."* **That is
+wrong, and the error is mine.** I compared the over-correction against the FULL
+modelled dilution as if an uncorrected probe carried all 20.4 % of it. It does
+not - it carries only the part the cell actually shows, `alpha*(1-f)`.
+
+Correctly, with `f = (P - p_w)/P` and the cell showing `alpha` of the dilution:
+
+    uncorrected error  = -alpha*(1-f)
+    full-correction error = (1 - alpha*(1-f))/f - 1
+
+Setting those equal gives a clean threshold, **alpha = 1/(1+f)**. At pile
+conditions (100 %RH, 55 C, p_w = 158 hPa, P = 930) that is **0.546**:
+
+| alpha | uncorrected | full correction | better |
+|---|---|---|---|
+| 0.442 (fitted) | -7.50 % | +11.40 % | **none** |
+| 0.458 (at P=963) | -7.77 % | +11.08 % | **none** |
+| 0.546 | -9.26 % | +9.28 % | tie |
+| 0.600 | -10.18 % | +8.17 % | full |
+| 1.000 | -16.97 % | 0 | full |
+
+The fitted alpha sits **below** the threshold. Flashing `fe27d20` would make the
+pile number worse, not better. Section 12's own step-fit of 0.55 lands on the
+tie, and section 13's 0.442 is clearly under it. Every version of this argument
+I have written today had the arithmetic wrong in the same direction.
+
+The reviewer also corrected the stakes figure in my brief: an alpha error of 0.2
+against a 20 % correction is 4 % *relative*, about **0.7-0.9 %vol**, not 4 %vol.
+Still material against a 5-15 %vol anaerobic threshold.
+
+### 14.2 The standard errors are worse than section 13's already-corrected ones
+
+Residual ACF 0.54 at 50 s, 0.37 at 10 min. Integrated autocorrelation puts
+**effective n at about 26**, against 6505 bench observations. A 60-minute
+delete-block jackknife gives a half-width of **+/-0.09 to 0.10** on alpha - four
+times the +/-0.023 I reached by widening the HAC bandwidth, and ten times the
++/-0.010 published in section 13. `joint.py` also treats one index lag as the
+same interval for 5 s and 5 min records.
+
+That interval **straddles the 0.546 threshold**. So the honest statement is not
+"flashing is wrong" but "this data cannot tell you whether flashing helps or
+hurts", which is a stronger argument for not doing it yet.
+
+### 14.3 My model-selection row was circular in implementation, and section 10 was right
+
+`joint.py:68` never refits a humidity-only model - it reuses `ALPHA` from the
+two-term regression and drops the temperature term at evaluation time. An honest
+humidity-only refit gives **alpha = -0.030**, residual sd 0.0344 pp against
+0.0345 pp for no correction at all. Reproduced exactly.
+
+So humidity alone is not merely weak, it is **absent** on this day's data. That
+is section 10's finding, unqualified, and section 12 was wrong to describe it as
+not surviving. What survives is narrower: humidity is detectable only once
+temperature is in the model.
+
+The two-term model does still win AICc/BIC and same-session holdouts (5-fold
+RMSE 0.0126 %vol against 0.0307 for temperature-only). But leg transfer is
+inconsistent - A->N 0.343 % log-RMSE against 0.134 % for an intercept-only
+model. **It interpolates this day's trajectory; it is not a demonstrated
+calibration.**
+
+### 14.4 The hysteresis retraction overstated what it retracted
+
+I cannot reproduce the earlier 0.948 +/- 0.115 either, and neither could the
+reviewer: it exists only as prose in `VESSEL-MARKS-2026-09-07.md:36` with no
+committed estimator. The reviewer's humidity-only N value is -0.279, matching my
+-0.273. So section 13 did not "add temperature to the earlier regression" - it
+ran a different regression and compared against a number whose derivation is
+lost.
+
+Weaker claim, which is what the data supports: **the two-term fits do not
+require different alpha for the two directions** (0.401 and 0.405 under the
+reviewer's windows). That explicit hysteresis is unnecessary is established.
+That the old asymmetry was entirely omitted-temperature bias is not.
+
+### 14.5 Everything else
+
+* **(c) True oxygen was never held constant, and nobody checked.** At ~100 uA
+  Faraday gives 0.023 mL O2/h; over the 5 h in vessel N that is 0.115 mL, which
+  moves a 115 mL headspace by 0.1 %vol - the same size as the effects being
+  attributed to sensor artefacts. Vessel volume, leakage and venting state were
+  never recorded. There was no reference analyser and no blank.
+* **(a) Data accounting.** The pool is 6505 bench + **40** LoRa points, not the
+  6529 + 16 I stated; only the A2 leg is 16. Duration-weighting moves alpha
+  0.442 -> 0.485 and tempco 0.220 -> 0.249 %/K; dropping the LoRa points moves
+  alpha to 0.428.
+* **(b) Collinearity is not fatal but identification is weak.** VIF is 1.74 over
+  the whole run (6.03 on the N leg, 13.97 on A2), so the design matrix is not
+  near-singular and the A/N agreement is real. But adding segment intercepts
+  moves alpha 0.442 -> **0.347**, which is sensitivity to unmodelled regimes, not
+  a stable coefficient.
+* **(c) A contaminated interval was left in.** `rh-step-2026-09-07-conditions.md:53`
+  requires excluding the SHT45 de-creep pulse; `joint.py` excludes nothing.
+  Removing it moves the A-leg two-term fit from (0.397, +0.016 %/K) to
+  (0.369, +0.137 %/K).
+* **(b) Pressure.** 930 is hard-coded; Fab gives the bench value as **963 hPa**.
+  alpha 0.442 -> 0.458, and the threshold is unchanged at 0.545. Not the
+  explanation for anything, but the firmware's `ASSUMED_P_HPA` should be 963 -
+  a register write, not a reflash.
+
+### 14.6 What survived
+
+* The OLS point estimates reproduce exactly: alpha 0.4421, tempco +0.2198 %/K.
+* alpha is well away from both 0 and 1 even under block-aware intervals.
+* The two-term model beats every alternative *within this session*.
+* **The tempco is externally plausible.** Alphasense's own capillary-cell notes
+  (AAN005, AAN009) describe a capillary-flow dependence of roughly **+0.17 to
+  +0.20 %/K**, against my +0.220. That is the first independent support any
+  number in this file has had. Transfer to the SGX part is `unverified` - the
+  DS-0637 fetch timed out.
+* Magnus/Sonntag as implemented is numerically adequate: 157.74 hPa at 55 C
+  against NIST, within 0.32 % through 60 C. The attribution of 17.62/243.12 to
+  Sonntag specifically was not verified.
+
+### 14.7 Consequences
+
+1. **Do not flash `fe27d20`** on this evidence. Not because the correction is
+   wrong, but because at the fitted alpha it makes the pile number worse, and
+   the interval straddles the threshold where that flips.
+2. **Do not run the backfill.** Same reason; `o2p_backfill_dry.py` stays unrun.
+3. The `ASSUMED_P_HPA` register should go to 963 regardless - it is right under
+   every model.
+4. The experiment that would settle it is unchanged and is now the only thing
+   worth doing: **an isobaric temperature sweep**, plus a reference oxygen
+   measurement so "the gas was air" stops being an assumption.

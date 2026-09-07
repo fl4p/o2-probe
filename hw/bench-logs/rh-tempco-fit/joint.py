@@ -1,5 +1,6 @@
 import json,math,datetime
-P=930.0;T0=25.0
+P=963.0;T0=25.0   # 963 hPa is the measured bench value (Fab, 2026-09-07); the
+                  # firmware register still says 930, which is a separate bug
 def es(t): return 6.112*math.exp(17.62*t/(243.12+t))
 S={}
 for l in open("w12.ndjson"):
@@ -26,7 +27,12 @@ def ols(X,y):
     beta=[M[i][k]/M[i][i] for i in range(k)]
     XtXi=[[M[i][k+1+j]/M[i][i] for j in range(k)] for i in range(k)]
     res=[y[n]-sum(beta[i]*X[n][i] for i in range(k)) for n in range(len(y))]
-    L=max(1,int(4*(len(y)/100.0)**(2/9.)))
+    # Bandwidth by the usual rule is ~10 index lags = 50 s here, against residual
+    # autocorrelation that is still 0.37 at 10 min. That understates the errors ~2x,
+    # and a delete-block jackknife at 60 min says 4x. 360 lags = 30 min is the
+    # honest floor for the BENCH rows; note the index-lag unit differs between the
+    # 5 s and 5 min records, which this still does not handle.
+    L=360
     Om=[[0.0]*k for _ in range(k)]
     for lag in range(L+1):
         w=1.0 if lag==0 else 1.0-lag/(L+1.0)
@@ -64,8 +70,15 @@ def rep(v,lab):
     print("  %-46s sd %.4f pp   range %.3f pp"%(lab,sd,max(v)-min(v)))
 print("\nflatness over the whole 12 h (true value constant: both vessels are air)")
 rep([r[4] for r in rows],"published, uncorrected")
+# The humidity-only row must be REFITTED, not the two-term alpha evaluated with
+# the temperature term dropped - that was the circular comparison the 2026-09-07
+# review caught. Refitting gives alpha = -0.030, i.e. no humidity response at all
+# without temperature in the model, which is section 10's original finding.
+b1,_=ols([[1.0,r[3]] for r in rows],y)
+A1=b1[1]/dil
+print("  humidity-only REFIT: alpha = %+.3f"%A1)
 for a,tc,lab in ((1.0,0.0,"full dilution, no temperature"),
-                 (ALPHA,0.0,"alpha=%.2f, no temperature"%ALPHA),
+                 (A1,0.0,"humidity only, refitted (alpha=%+.3f)"%A1),
                  (ALPHA,TC,"alpha=%.2f + tempco %+.3f %%/K"%(ALPHA,TC*100))):
     v,K=series(a,tc); rep(v,lab)
 json.dump({"alpha":ALPHA,"se_alpha":SEA,"tempco":TC,"se_tempco":SET},open("joint.json","w"))
