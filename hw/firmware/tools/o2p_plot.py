@@ -99,6 +99,28 @@ def plot(rows, out_path, title=None, overlay=None):
     """Draw THE figure. `overlay(ax_by_label)` may add to a panel afterwards."""
     if not rows:
         raise ValueError("nothing to plot")
+
+    # A CSV that is not a poll log gets here with rows full of unrecognised
+    # keys, every series comes out empty, the axes are degenerate, and
+    # matplotlib dies inside FreeType with "raster overflow" -- an error that
+    # names a glyph rasteriser and not the file you passed. Measured
+    # 2026-09-07 by handing this the RH-step marker CSV by mistake. Say what
+    # is actually wrong, while the filename is still in scope.
+    series = [k for _, left, right in PANELS
+              for k in [c[0] for c in left] + ([right[0]] if right else [])]
+    if not any(num(r, k) is not None for r in rows for k in series):
+        raise ValueError(
+            "no plottable column found -- is this a poll log?\n"
+            "   expected at least one of: %s\n"
+            "   this file has:            %s"
+            % (", ".join(series[:6]) + ", ...",
+               ", ".join(sorted(rows[0].keys())[:8]) or "(no columns)"))
+    x_probe, _, _ = _xaxis(rows)
+    if not any(v is not None for v in x_probe):
+        raise ValueError("no usable time column -- expected 't_s', 'utc' or "
+                         "'iso_time'; this file has: %s"
+                         % (", ".join(sorted(rows[0].keys())[:8]) or "(none)"))
+
     ok = [r for r in rows if r.get("status", "ok") == "ok"]
     failed_idx = [i for i, r in enumerate(rows)
                   if r.get("status", "ok") not in ("ok", "")]
