@@ -980,3 +980,40 @@ The step is still running. Let it reach steady state, then step it back
 leakage film should show hysteresis, dilution should not. Then repeat potted -
 §10's second test, still not done. Until the 0.60 reproduces on both directions
 it is one number from one step.
+
+### 12.6 The best fit, and the window it cannot be fitted on
+
+Fitting `alpha` - the fraction of the modelled dilution the cell shows - by
+minimising the scatter of the dry-basis number, with K set so the mean is
+20.95 %vol. 6545 samples, 01:58Z -> 14:26Z, bench cable at 5 s to 10:53Z and
+LoRaWAN at 5 min after.
+
+| window | conditions | best alpha | sd of dry basis | sd of published |
+|---|---|---|---|---|
+| whole 12 h | corr(T, p_w) = **+0.65** | **0.00** | 0.0345 pp | 0.0345 pp |
+| the step, 12:30Z on | DT = +0.57 K | **0.55** | **0.0095 pp** | 0.0681 pp |
+| step, 12:36Z on | DT = +0.54 K | 0.53 | 0.0092 pp | 0.0548 pp |
+
+**Two different answers from the same day, and the disagreement is the point.**
+Over the whole 12 h temperature and water vapour rise together, so the fit
+cannot tell them apart and lands on "apply no correction at all" - which is
+exactly the conclusion section 10 drew from windows of that shape. Across the
+step they are decoupled, and the same estimator gives 0.55 and tightens the
+scatter **7x**, from 0.068 to 0.0095 pp. Full correction gives 0.057 pp - an
+improvement on published, but six times worse than the fitted one.
+
+So section 10's alpha = 0 was not wrong about its data. It was fitted on a
+window where alpha is not identifiable, and no amount of care with those
+windows would have found this. That is worth stating plainly because the
+overnight soak in section 11 has the same defect and reached the same kind of
+non-result.
+
+`bench-logs/o2-12h-dilution-fit-2026-09-07.png` plots all three against p_w
+and T.
+
+**What this is not.** One step, one direction, one article, 35 minutes, and
+the step had not finished when the fit was taken. alpha = 0.55 is a
+measurement of this cell over 24 -> 9 hPa, not a coefficient for the part, and
+the mechanism that removes the other 45 % is still unidentified - the surface
+leakage of section 10 remains the candidate and remains unproven. The
+reverse step is what turns it into a coefficient.
