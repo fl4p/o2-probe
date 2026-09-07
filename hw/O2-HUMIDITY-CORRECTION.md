@@ -750,56 +750,93 @@ excluded), n = 4662:
 The earlier 2.5 h floor (sd 0.044 %, +0.008 %/h) was not a short-window
 artefact. Everything under investigation in §9 and §10 is 20–50× this.
 
-### 11.2 T and p_w finally separated: r = +0.014
+### 11.2 T and p_w decorrelate overnight — but this does NOT identify a tempco
 
-This is the point of the overnight window and it was not planned. Across the day
-the two regressors were collinear at **r(T, p_w) = +0.991**, which is why §9b
-said the tempco was not identifiable. Overnight, with the room cooling while the
-outdoor air wetted, they moved **against** each other:
+**Substantially corrected 2026-09-07 after review.** Three numbers in the first
+version of this section were wrong and the conclusion drawn from them was too
+strong. What is kept is below; what was withdrawn is stated explicitly.
+
+Overnight the two regressors do decorrelate, and that part reproduces:
 
 | window | n | r(T, p_w) | T span | p_w span |
 |---|---|---|---|---|
-| day 11:05–17:50 | — | **+0.991** | — | — |
+| day 11:05–17:50 | 3363 | **+0.849** | 19.07 K | 40.72 hPa |
+| soak 17:50–19:04 — *the actual §9b window* | 1027 | **+0.992** | 3.78 K | 12.20 hPa |
 | overnight 23:30–06:33 | 4662 | **+0.014** | 1.64 K | 1.77 hPa |
 
-Multiple regression of `o2_raw` on T, p_w and time over that window:
+**The +0.991 printed here before was not the day.** It belongs to the 17:50–19:04
+soak, which is where §9b's +0.51 %/K actually came from. It was carried into a
+row labelled "day" from a different window.
 
-| term | coefficient |
-|---|---|
-| T | **+0.23 %/K** (sub-windows +0.21 … +0.29) |
-| p_w | −0.028 %/hPa |
-| time | +0.003 %/h |
+Ordinary least squares of `o2_raw` on T, p_w and time, whole window, no
+decimation:
 
-**+0.23 %/K is the assumed ~0.2 %/K, not 2.5× it.** The +0.51 %/K of §9b was a
-collinearity artefact: it was the vapour term and the temperature term added
-together, because in that data they were the same regressor. §9b already carried
-"do not carry this number forward"; this is the measurement that says why.
-Retire it. `O2P_TEMPCO_DEFAULT` remains 0.0f, and ~0.2 %/K is what the cell
-appears to want.
+| term | published before | correct |
+|---|---|---|
+| T | +0.23 %/K | **+0.2386 %/K** |
+| p_w | −0.028 %/hPa | **−0.0373 %/hPa** |
+| time | +0.003 %/h | **+0.0064 %/h** |
 
-Nothing here licenses shipping a tempco. 1.64 K of span at one temperature is a
-local slope, not a curve, and this cell is uncalibrated over temperature.
+The p_w and time figures came from a **decimated** fit (every 12th sample) run
+separately, and were printed in a table labelled with the full window's n and
+span. Decimation moves the p_w coefficient by 34 %, which is itself a warning
+about how weakly it is determined.
 
-### 11.3 The p_w coefficient still does not settle — the step test is still required
+**And the tempco is not identified.** The claim "sub-windows +0.21 … +0.29 %/K"
+is false. The two halves give:
 
-Pooled overnight gives −0.028 %/hPa against a dilution prediction of −0.109 %/hPa
-at 930 hPa. That looks decisive and is not. Split in half:
+| half | r(T, p_w) | r(p_w, t) | d(raw)/dT |
+|---|---|---|---|
+| 00:00–03:00 | +0.458 | −0.500 | **+0.278 %/K** |
+| 03:00–06:33 | +0.134 | **+0.933** | **+0.025 %/K** |
+
+An order of magnitude apart, not a stable range. The overall r = +0.014 is
+**numerical decorrelation produced by a changing trajectory** — the second half
+is dominated by p_w rising almost perfectly with time — not physical
+identification. The lever arm is not the problem (0.239 %/K over 1.64 K spans
+0.39 %, five times the 0.069 % floor); the non-stationarity is.
+
+**What stands:** retiring +0.51 %/K *from use* is justified, because its source
+window was collinear at r = +0.992 and it cannot be separated there. **What is
+withdrawn:** that +0.51 was demonstrably "the vapour and temperature terms added
+together", and that +0.23 %/K is the replacement. It is a local, model-dependent
+association from one night at one temperature.
+
+`O2P_TEMPCO_DEFAULT` remains 0.0f, and nothing here licenses changing it. That
+was the defensible conclusion in the first version too, and it is the only one
+that survives.
+
+### 11.3 The p_w coefficient does not settle — and the reason is structure, not just noise
+
+Pooled overnight gives **−0.0373 %/hPa** against a dilution prediction of
+−0.105 %/hPa at 965 hPa (the measured bench pressure; see
+`bench-logs/rh-step-2026-09-07-conditions.md`). Split in half, on the full
+undecimated fit:
 
 | half | p_w span | d(raw)/d(p_w) |
 |---|---|---|
-| 00:00–03:00 | 0.37 hPa | **−0.137 %/hPa** |
-| 03:00–06:33 | 1.77 hPa | **+0.069 %/hPa** |
+| 00:00–03:00 | 0.37 hPa | **−0.173 %/hPa** |
+| 03:00–06:33 | 1.77 hPa | **+0.072 %/hPa** |
 
-The two halves straddle both hypotheses and disagree by 0.21 %/hPa, roughly ten
-times the 1σ that ordinary least squares reports. The reported σ is therefore
-wrong — the residuals are strongly autocorrelated at 5 s sampling and decimating
-to 1/min does not fix it — and the p_w span in the tighter half is 0.37 hPa,
-which is not a lever at all.
+The previously printed −0.137 was the decimated fit of that half (or the full fit
+of 23:30–03:00, which spans 0.54 hPa) shown against the 00:00–03:00 label and
+span. Corrected above.
 
-**The overnight data cannot decide dilution versus artefact.** What it does do is
-show why the step test is the right instrument: `RH-STEP-TEST.md` puts
-**20.687 hPa** on this axis, against the 1.77 hPa the room supplied by itself.
-Whatever the coefficient is, a factor of twelve more lever arm will show it.
+The halves straddle both hypotheses. The earlier text blamed autocorrelated σ and
+a short lever arm; **that is only half right**, because the second half has the
+full 1.77 hPa span and still comes out positive. What the reversal actually
+rejects is a **stationary constant-coefficient model** of this night: there is
+time-dependent structure the regression is not carrying.
+
+**The overnight data cannot decide dilution versus artefact**, and the step test
+is still the right instrument. But the earlier line — "whatever the coefficient
+is, a factor of twelve more lever arm will show it" — is **too strong if the
+coefficient is regime-dependent**, which the split-half reversal is evidence for.
+
+`RH-STEP-TEST.md:39` says the A→K span is **20.6 hPa**; the "20.687" printed here
+was false precision, and the same document says at :250 that nominal salt values
+are not measured values — the SHT45 reading is the humidity of record. In the
+event the run used A and N, not K.
 
 ### 11.4 The dry-basis path is still absent, as expected
 
