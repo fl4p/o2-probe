@@ -892,3 +892,91 @@ dropout — a 1.9-point step, in the wrong direction for the trend, decaying bac
 over ~45 s. That is the signature of an SHT soft reset, not a bus retry. `o2_raw`
 was undisturbed throughout (100.65–100.76). n = 1, cause unknown, and it happened
 while the board was being heated; watch for it during the step test.
+
+## 12. THE NEAR-ISOTHERMAL STEP §10 ASKED FOR: right sign, ~1.75x too strong (2026-09-07)
+
+§10 ended with an experiment: *"Step RH at constant temperature and watch
+`o2_raw`."* The vessel transfer at 2026-09-07T13:20Z is that experiment. Probe
+moved from the saturated-NaCl vessel to the dry jar; both hold air, so the true
+dry-basis oxygen is 20.95 %vol in both and must not move.
+
+**Conditions.** p_w 24.0 -> 8.7 hPa (RH 66.4 -> 23.3 %) in 35 min.
+T_chamber 27.27 -> 27.84 C, **DT = +0.57 K** across a Dp_w of -15.3 hPa. That is
+the decoupling every earlier window lacked. Recorded over LoRaWAN at 5 min
+(the bench cable was unplugged at 10:53Z), 8 post-step samples, still moving at
+the time of writing.
+
+### 12.1 The cell DOES show the dilution, at ~60 % of the modelled magnitude
+
+Predicted from dilution alone, referred to the pre-step sample:
+
+| p_w drop | predicted Draw | observed Draw | obs/pred |
+|---|---|---|---|
+| -6.1 hPa | +0.67 % | +0.45 % | 0.67 |
+| -9.4 | +1.03 % | +0.62 % | 0.60 |
+| -11.3 | +1.25 % | +0.79 % | 0.63 |
+| -12.7 | +1.40 % | +0.75 % | 0.54 |
+| -13.6 | +1.50 % | +0.91 % | 0.61 |
+| -14.3 | +1.58 % | +0.95 % | 0.60 |
+| -14.9 | +1.65 % | +0.99 % | 0.60 |
+
+The ratio is **flat at 0.60**, not rising - so this is not the cell lagging
+into agreement, it is a proportionally smaller response. A lag would show the
+ratio climbing toward 1.
+
+**This is the opposite sign to §10's near-isothermal pairs.** Those pairs were
+hours apart and crossed restarts, reflashes and ~0.9 % of drift; this is one
+within-run step. On confounding it is the better evidence, by the same argument
+§10 already accepted for the heater-ramp window. §10's headline - *"the cell
+does not show the dilution"* - **does not survive this step**. What survives is
+its weaker form: something positive and humidity-driven opposes the dilution
+and cancels roughly 40 % of it, which is still consistent with the unproven
+surface-leakage mechanism on unpotted FR4.
+
+### 12.2 What the correction does to the published number
+
+Mean over the settled pre-step samples against the post-step ones, both air:
+
+| | pre (RH ~66) | post (RH <35) | step change (should be 0) |
+|---|---|---|---|
+| as published, uncorrected | 21.151 | 21.323 | **+0.173 pp** |
+| full dry-basis correction | 21.693 | 21.564 | **-0.130 pp** |
+
+The correction is **directionally right and about 1.75x too strong** on this
+article. It cuts the humidity-driven error by 25 % and flips its sign.
+
+Extrapolated to pile conditions (100 %RH, 55 C, p_w = 158 hPa) the modelled
+correction is 20.4 %. At 0.60 response the cell shows 12 %; correcting the full
+20.4 % leaves ~8 % of the wrong sign against ~20 % of the right sign
+uncorrected. **Flashing still wins there, by roughly 2.5x** - but that
+extrapolates a coefficient measured over 24 -> 9 hPa to 158 hPa, which is a
+16x lever arm on an effect whose mechanism is unidentified. It is not a
+validated number.
+
+### 12.3 What this retracts from my own work today
+
+`bench-logs/O2-COMP-MISSING-DILUTION-2026-09-07.md` was written before I read
+this file. Its measurement stands and is independent confirmation of §9 - 3573
+bench samples over RH 33.6-65.1 give a stored K constant to 0.015 % under "no
+dilution applied" and drifting 0.49 % under "applied", so the running image
+does not correct. Its **recommendation** was wrong: it treated the correction
+as obviously right and the fix as a reflash. §10 had already measured the
+opposite, and this section only partly rehabilitates it.
+
+### 12.4 Flashing has a cost that has to be planned for
+
+`config_flash.h:65` - a version bump zeroes `cal_air_na`, `cal_air_frac_x1000`
+and `cal_p_hpa`, because a v2 air point was taken in air of unrecorded
+humidity. Zeroed calibration means `CAL_DEFAULT`, and `CAL_DEFAULT` invalidates
+O2_COMP. **The oxygen channel publishes its sentinel from the moment of flash
+until a fresh air point is taken** - Grafana goes blank, not wrong. The probe
+in the dry jar is a valid air point, so the recalibration is one Modbus write,
+but it has to happen in the same session as the flash.
+
+### 12.5 What would settle the coefficient
+
+The step is still running. Let it reach steady state, then step it back
+(dry -> NaCl) and check the ratio reproduces on the wetting direction; a
+leakage film should show hysteresis, dilution should not. Then repeat potted -
+§10's second test, still not done. Until the 0.60 reproduces on both directions
+it is one number from one step.
