@@ -5,9 +5,9 @@ Recorded during the run, before analysis, so the assumptions are on the record.
 | item | value | source |
 |---|---|---|
 | barometric pressure | **965 hPa** | Fab's phone, 2026-09-07 ~07:00Z |
-| pressure basis | taken as **station** (what the cell sees) | assumed; implies ~400 m, self-consistent for a phone barometer. If the reading was sea-level-reduced the true station value is lower. |
+| pressure basis | taken as **station** (what the cell sees) | ASSUMED, not established. At 1013.25 sea level this implies ~410 m. If 965 were instead sea-level-reduced, station would be ~933.6 hPa at 278 m or ~931.2 at 300 m - at which point the firmware's 930 default would be almost exactly right. Geography cannot settle what the phone app displayed; ask the app. |
 | dilution reference | **-0.1052 %/hPa** | -100/(965 - p_w), p_w ~14.3 hPa |
-| firmware `ASSUMED_P_HPA` (0x0042) | 930 hPa | **wrong by +3.6 % for this bench** - never set for this location |
+| firmware `ASSUMED_P_HPA` (0x0042) | 930 hPa | 930 is **-3.63 %** relative to 965; the predicted slope magnitude is **+3.82 %** larger at 930. The earlier "wrong by +3.6 %" conflated those. Never set for this location. |
 | vessel A | glass tankard, whole body fits, granular desiccant | **vented** - loose ceramic lid, confirmed by photo |
 | vessel N | saturated NaCl slurry | not yet used |
 | article | assembled, in the unibody | not potted, not tubed |
@@ -54,12 +54,35 @@ What the photo settles, and what it raises:
   window 07:16:56Z to ~07:23:00Z is contaminated - the published RH runs up to
   1.63 %RH low and takes ~325 s to return to the undisturbed curve. Exclude it
   from any fit. See `SHT-DECREEP-MASK-IS-TOO-SHORT.md`.
-* **Cell/SHT45 cavity: SAME OPEN CAVITY** (Fab, 2026-09-07, during the run).
-  The two sensors share one gas volume, so the SHT45's `p_w` *is* the cell's
-  `p_w`. This retires the "the cell and the RH sensor are not sampling the same
-  gas" hypothesis of `O2-HUMIDITY-CORRECTION.md` - which had been retracted,
-  reopened by section 10, and attacked again in review - on a fact about the
-  assembly rather than another regression. It does not say the two sensors
-  respond at the same *speed*: the SHT45 is fast and the cell sits behind a
-  diffusion membrane, so a lag between them is still possible and has to be
-  excluded on the shape of the response, not on this.
+* **THE CELL IS NOT ON THE PCB** (Fab, 2026-09-07, during the run). The
+  footprint has the wrong pin order, so the cell is flying on copper wires
+  soldered to the board, and it therefore sits **closer to the membrane than
+  the SHT45 does**. This is the single most important interpretive fact in this
+  file and it was not known when the timing analysis was done.
+
+  It supplies, as a measured property of the assembly, the explanation the
+  review offered as a hypothesis: the two sensors sit at *different depths in
+  the diffusion path*, so the cell sees a gas change first because it is nearer
+  the gas, not because the SHT45 is slow. Sensirion's v7.3 datasheet gives
+  tau63 = 4 s and says the membrane does not alter it, so an intrinsically slow
+  SHT45 was never credible anyway.
+
+  Consequences:
+  - The "cell leads the SHT45" observation is **explained by geometry** and is
+    not evidence about the cell, a film, or the humidity correction.
+  - Defining `t = 0` from the SHT45's departure is **circular**: it timestamps
+    the step at the downstream sensor.
+  - No transport timing measured on this article transfers to the product. The
+    cell's position is a bodge, not the design position.
+  - The flying leads add exposed unpotted conductor, which is not neutral for
+    the leakage-film hypothesis this whole investigation is about.
+
+* **Cell/SHT45 cavity: same open cavity** (Fab, 2026-09-07, during the run).
+  This retires the *permanent* form of the "two gas volumes" hypothesis - there
+  are not two sealed volumes. **It does NOT establish that the SHT45's `p_w` is
+  the cell's `p_w`**, which is how it was first written here and was too strong.
+  One open cavity that is drying slowly and is not stirred sustains transient
+  spatial gradients, and the entry above says the two sensors are at different
+  places in one.
+
+  Corrected 2026-09-07 after review.
