@@ -820,6 +820,17 @@ it is contaminated by the correction under test.
 
 ### 11.5 First-ever `I2C_FAIL_SHT`, and the fail-safe worked
 
+> **CORRECTED 2026-09-07.** The diagnosis below is wrong. This was not a
+> hardware fault of unknown cause: it was the **scheduled SHT45 de-creep heater
+> pulse**, firing on its 8 h timer (`regmap.c:34`, `main.c:861-870`). The event
+> repeated at 2026-09-07T07:16:59Z, 7 h 59 m 24 s later, with the probe
+> untouched. The interlock observation stands - duty did go 0.14 -> 0.0 in the
+> same sample - but the trigger was maintenance, not a failure, which makes it
+> a different and more interesting fact: the condensation heater stops for
+> ~25 s every 8 hours by design. The "recovery is not clean" paragraph is also
+> explained: the sensor was hot. See `SHT-DECREEP-MASK-IS-TOO-SHORT.md`, which
+> measures the disturbance at ~350 s against a 30 s mask.
+
 23:17:28Z–23:17:56Z, 5 samples, 26 s — the only occurrence in the whole log, and
 it landed inside the aborted heater run.
 
