@@ -1,3 +1,19 @@
+# ---------------------------------------------------------------------------
+# Electronics half (repo root: KiCad project, firmware/)
+# ---------------------------------------------------------------------------
+
+# KiCad session and recovery files
+~*.lck
+_autosave-*.kicad_pcb
+*-backups/
+
+# PlatformIO build tree
+firmware/.pio/
+
+# ---------------------------------------------------------------------------
+# Mechanical half (cad/)
+# ---------------------------------------------------------------------------
+
 # Measured-mesh gate artifact: rebuilt by `make head-end-provisional`,
 # and a half-MB ASCII duplicate of a tracked binary STL.
 cad/exports/head-end-cavity-ascii.stl
@@ -10,7 +26,6 @@ cad/exports/*.gcode.3mf
 # on a headless machine with no GL context ("Invalid OpenGL version 3.4"). Build
 # detritus, regenerated every run, and nothing reads it.
 00000.log
-__pycache__/
 cad/exports/o2-probe-board.stl
 cad/exports/o2-probe-board-bin.stl
 cad/reviews/*.log
@@ -23,11 +38,6 @@ cad/print/
 cad/viewer/scene.json
 cad/exports/view-*.stl
 
-# Playwright MCP scratch output -- page snapshots and console logs dropped in the
-# CWD by any browser-using agent session. Megabytes, regenerated constantly, and
-# nothing ever reads it back.
-.playwright-mcp/
-
 # ASCII intermediate weighed by tools/shell_volume.py. Same case as
 # head-end-cavity-ascii.stl above: a duplicate of geometry we already have.
 cad/exports/shell-gas-ascii.stl
@@ -38,3 +48,13 @@ cad/exports/.head.log
 
 # Camera bridge runtime log.
 cad/p1p-stream.log
+
+# ---------------------------------------------------------------------------
+# Both halves
+# ---------------------------------------------------------------------------
+__pycache__/
+
+# Playwright MCP scratch output -- page snapshots and console logs dropped in the
+# CWD by any browser-using agent session. Megabytes, regenerated constantly, and
+# nothing ever reads it back.
+.playwright-mcp/
