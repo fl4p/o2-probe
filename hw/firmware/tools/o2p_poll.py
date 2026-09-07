@@ -287,7 +287,16 @@ def main():
     ap.add_argument("--timeout", type=float, default=1.0)
     ap.add_argument("--retries", type=int, default=2,
                     help="retries per poll before the row is marked failed")
-    ap.add_argument("--reopen-after", type=int, default=12, metavar="N",
+    def nonneg(v):
+        n = int(v)
+        if n < 0:
+            # The trigger is `consecutive % N == 0`, under which -12 behaves as
+            # 12 and -1 reopens after every single failure. Accidental
+            # semantics, not a feature.
+            raise argparse.ArgumentTypeError(
+                "--reopen-after must be >= 0 (0 disables); got %d" % n)
+        return n
+    ap.add_argument("--reopen-after", type=nonneg, default=12, metavar="N",
                     help="reopen the serial link after N consecutive failed "
                          "polls (0 disables). A handle can wedge while the "
                          "device is fine: on 2026-09-07 a session held for 14 h "

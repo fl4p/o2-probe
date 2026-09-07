@@ -72,6 +72,7 @@ def main():
 
     note = o2p_plot.plot(
         rows, args.out,
+        source=args.csv,
         title=args.title or ("o2-probe over Modbus - %s"
                              % os.path.basename(args.csv)))
     print("wrote %s  (%d rows, %s)" % (args.out, len(rows), note))

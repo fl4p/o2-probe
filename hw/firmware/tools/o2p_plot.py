@@ -80,8 +80,16 @@ def num(row, key):
 def _xaxis(rows):
     """(x values, formatter, label). Seconds when the log has them, else UTC."""
     import datetime as dt
-    if rows and rows[0].get("t_s") not in (None, ""):
-        return ([num(r, "t_s") for r in rows], None, "seconds")
+    # Choose on the whole column, and only a COMPLETE one. Deciding from
+    # rows[0] alone (the original) meant a blank first-row t_s hid valid t_s in
+    # every later row. But accepting a partially populated column is worse than
+    # it looks: one None in x survives the guard and then kills matplotlib
+    # inside tight_layout with "float() argument must be ... not NoneType",
+    # which is the same class of unreadable failure this guard exists to stop.
+    if rows:
+        t_s = [num(r, "t_s") for r in rows]
+        if all(v is not None for v in t_s):
+            return (t_s, None, "seconds")
     out = []
     for r in rows:
         stamp = r.get("utc") or r.get("iso_time") or ""
@@ -95,7 +103,7 @@ def _xaxis(rows):
     return (out, mdates.DateFormatter("%H:%M:%S"), "UTC")
 
 
-def plot(rows, out_path, title=None, overlay=None):
+def plot(rows, out_path, title=None, overlay=None, source=None):
     """Draw THE figure. `overlay(ax_by_label)` may add to a panel afterwards."""
     if not rows:
         raise ValueError("nothing to plot")
@@ -110,16 +118,20 @@ def plot(rows, out_path, title=None, overlay=None):
               for k in [c[0] for c in left] + ([right[0]] if right else [])]
     if not any(num(r, k) is not None for r in rows for k in series):
         raise ValueError(
-            "no plottable column found -- is this a poll log?\n"
+            "%sno plottable column found -- is this a poll log?\n"
             "   expected at least one of: %s\n"
             "   this file has:            %s"
-            % (", ".join(series[:6]) + ", ...",
+            % ("%s: " % source if source else "",
+               ", ".join(series[:6]) + ", ...",
                ", ".join(sorted(rows[0].keys())[:8]) or "(no columns)"))
     x_probe, _, _ = _xaxis(rows)
-    if not any(v is not None for v in x_probe):
-        raise ValueError("no usable time column -- expected 't_s', 'utc' or "
-                         "'iso_time'; this file has: %s"
-                         % (", ".join(sorted(rows[0].keys())[:8]) or "(none)"))
+    missing = sum(1 for v in x_probe if v is None)
+    if missing:
+        raise ValueError(
+            "%s%s of %d row(s) have no usable timestamp -- expected 't_s', "
+            "'utc' or 'iso_time'.\n   this file has: %s"
+            % ("%s: " % source if source else "", missing or "all", len(rows),
+               ", ".join(sorted(rows[0].keys())[:8]) or "(none)"))
 
     ok = [r for r in rows if r.get("status", "ok") == "ok"]
     failed_idx = [i for i, r in enumerate(rows)
@@ -162,6 +174,7 @@ def plot(rows, out_path, title=None, overlay=None):
             ax.text(x_ok[0] if x_ok else 0, VIN_LOW_MV,
                     " VIN_LOW interlock (main.c)", fontsize=7, color="red",
                     va="bottom")
+            y and ax.set_ylim((min(y)-1,max(y)+1))
         if label.startswith("O$_2$"):
             for xv in untrusted_x:
                 ax.axvspan(xv, xv, color="red", alpha=0.10)
