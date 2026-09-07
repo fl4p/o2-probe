@@ -263,7 +263,7 @@ cd firmware
 python3 tools/o2p_thermal.py --port /dev/cu.usbserial-0001 --preflight
 python3 tools/o2p_thermal.py --port /dev/cu.usbserial-0001 run.csv \
         --duty 20 --half 300 --cycles 3 --interval 5
-python3 tools/o2p_thermal.py --analyze run.csv --plot run.png
+python3 tools/o2p_thermal.py --analyze run.csv --plot run.webp
 ```
 
 It does §4 and §5 of this document, and it does them in the order that keeps

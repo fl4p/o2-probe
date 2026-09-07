@@ -8,7 +8,7 @@ pile, over nothing but the Modbus cable.
 
     python3 tools/o2p_thermal.py --port /dev/cu.usbserial-0001 --preflight
     python3 tools/o2p_thermal.py --port ... run.csv --duty 20 --half 300
-    python3 tools/o2p_thermal.py --analyze run.csv --plot run.png
+    python3 tools/o2p_thermal.py --analyze run.csv --plot run.webp
 
 WHAT IT DOES. Duty is not commandable directly - the firmware's loop regulates
 chamber RH, not duty. So the tool saturates that loop (RH_SETPOINT to its legal

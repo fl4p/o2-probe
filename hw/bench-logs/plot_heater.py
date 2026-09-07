@@ -143,9 +143,9 @@ ax1.text(sum(gap_spans[0]) / 2 if gap_spans else 0, np.nanmax(tip),
          fontsize=8, color="#555") if gap_spans else None
 
 fig.tight_layout(rect=[0, 0, 1, .95])
-fig.savefig("heater-step.png", dpi=150)
+fig.savefig("heater-step.webp", dpi=150)
 print("gaps broken:", [(f"{a:.0f}", f"{b:.0f}") for a, b in gap_spans])
 print(f"duty={np.nanmean(duty[seg]):.2f}%  P={P*1000:.1f}mW  dT={dT:.3f}K  "
       f"theta={theta:.1f}K/W  tau={tau:.0f}s  C={C:.2f}J/K  "
       f"gain={dT/np.nanmean(duty[seg]):.3f}K/%")
-print("wrote heater-step.png")
+print("wrote heater-step.webp")

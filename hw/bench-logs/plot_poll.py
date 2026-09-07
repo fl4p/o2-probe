@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Plot a CSV written by firmware/tools/o2p_poll.py.
 
-    python3 bench-logs/plot_poll.py modbus-poll-2026-09-06.csv -o poll.png
+    python3 bench-logs/plot_poll.py modbus-poll-2026-09-06.csv -o poll.webp
 
 There is deliberately almost nothing here. The figure - which panels, in which
 order, with which thresholds drawn on them - is defined once in
@@ -25,7 +25,7 @@ import o2p_psychro  # noqa: E402  # type: ignore[import-not-found]
 def main():
     ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
     ap.add_argument("csv")
-    ap.add_argument("-o", "--out", default="poll.png")
+    ap.add_argument("-o", "--out", default="poll.webp")
     ap.add_argument("--title", default=None)
     ap.add_argument("--dry-basis", action="store_true",
                     help="also compute and plot O2 on a DRY basis. The probe "

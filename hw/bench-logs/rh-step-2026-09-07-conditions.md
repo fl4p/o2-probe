@@ -15,7 +15,7 @@ Recorded during the run, before analysis, so the assumptions are on the record.
 
 ## Vessel A as built (photo, 2026-09-07)
 
-![Probe in vessel A](rh-step-2026-09-07-vessel-A.png)
+![Probe in vessel A](rh-step-2026-09-07-vessel-A.webp)
 
 A glass tankard, granular desiccant filling the base, the probe standing
 upright in it, and a heavy two-tone ceramic lid **resting** on the rim.
