@@ -1352,14 +1352,8 @@ collinear one.
 
 ### 15.6 Open, in order
 
-1. **The cooldown leg.** The same 12 K traversed downward with p_w flat is the
-   tempco measured in reverse. If +0.309 %/K reproduces, the number stops
-   depending on one leg and one direction. This is free - it only needs the
-   logging left alone.
-2. **The 0.13 pp step at the heat gun.** The corrected trace drops 20.93 ->
-   20.80 %vol at 15:20Z and does not return. The model explains the ramp and not
-   the step. Local wall heating the SHT45 saw and the cell did not, or desiccant
-   outgassing that settled to a new equilibrium.
+1. ~~**The cooldown leg.**~~ CLOSED - see §15.8. It reproduces.
+2. ~~**The 0.13 pp step at the heat gun.**~~ CLOSED - see §15.8. It reverses.
 3. **Resolving the transient needs the cp2102 at 5 s**, not the LoRa link. See
    §15.7 - 15 s is not available over the air, and the node gives up the bus to
    the bench lead anyway.
@@ -1401,3 +1395,56 @@ To go faster over the air the POLL must shrink, not the interval: dropping the
 diagnostic block leaves 31 B (44 B PHY, 92.4 ms, 9.2 s floor) and the primary
 block still carries O2_RAW, T_TIP, T_CHAMBER, RH_CHAMBER, HEATER_DUTY, FAULTS
 and SETTLE_S - every input this fit reads. Only supervision is lost.
+
+### 15.8 The cooldown reproduces the tempco, and the heat-gun step reverses
+
+Fab insulated the jar at ~18:10Z so it would come back down slowly. That turned
+the cooldown into a usable leg: 9.00 K over ~2 h, against the heating leg's
+9.07 K. Refit through 18:11Z (`bench-logs/rh-tempco-fit/sweep_fit.py`, which now
+auto-detects the peak and fits both directions):
+
+    stage 1  tempco   +0.284 +/- 0.014 %/K   n=71, dT 9.07 K, p_w range 1.46 hPa
+    stage 2  alpha    +0.453 +/- 0.052       n=28, dp_w 18.2 hPa, dT 1.00 K
+    cooldown tempco   +0.261 +/- 0.010 %/K   n=72, dT 9.00 K   (alpha held)
+
+**+0.284 and +0.261 are 1.3 sigma apart.** The same coefficient, measured in
+both directions over 9 K each. This is the first number in this document that
+has reproduced independently of the leg it was fitted on. The earlier 4.4 K
+cooldown gave +0.196 +/- 0.045 and was explicitly flagged as not yet a
+reproduction; it wasn't - it was half a leg.
+
+Corrected flatness over the whole day:
+
+    uncorrected      sd 0.231 pp      raw trace runs 21.03 -> 22.03 -> 21.20 %vol
+    full dilution    sd 0.174 pp
+    dilution only    sd 0.201 pp
+    two-term         sd 0.018 pp      13x
+
+**The heat-gun step is not a step.** Mean corrected O2 by segment:
+
+    dry-down          20.937   -0.013 pp
+    heating           20.874   -0.076 pp
+    early cooldown    20.930   -0.020 pp
+    late cooldown     20.958   +0.008 pp
+
+It sags while hot and comes back. So §15.6 item 2's two candidate causes - local
+wall heating of the SHT45, or desiccant outgassing to a new equilibrium - are
+both wrong: neither reverses on cooling. What is left is that a single linear
+tempco does not fully describe the cell at 42 C, which is a 0.076 pp model
+residual, not a 0.13 pp offset.
+
+**The caveat.** The cooldown is the worse-conditioned leg:
+
+    heating     dp_w/dT 0.130 hPa/K   corr(T,p_w) +0.871
+    cooldown    dp_w/dT 0.389 hPa/K   corr(T,p_w) +0.976
+
+The insulation slowed the ramp but p_w tracked T three times more closely coming
+down than going up, so the cooldown leans on alpha being right in a way the
+heating leg does not. It agrees, which is real evidence - but it is one clean
+measurement plus one consistent with it, not two independent ones.
+
+**The decision does not move.** alpha = 0.453 +/- 0.052 is 1.8 sigma below the
+0.545 threshold of §15.4, so full dry-basis correction is still worse than none
+at pile conditions, and the two-term form is still what should be flashed. alpha
+remains the weak half: +/- 0.052 resting on one 2 h dry-down.
+

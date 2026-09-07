@@ -36,7 +36,9 @@ def jk(Q,fn,block):
     n=len(out);m=sum(out)/n
     return math.sqrt((n-1)/n*sum((o-m)**2 for o in out)),n
 L=[(r[0],r[1],r[2],r[3],math.log(r[1])) for r in rows]
-H=[r for r in L if U(7,15,26)<=r[0]<U(7,16,30)]
+PK=max((r for r in L if r[0]>=U(7,15,0)),key=lambda r:r[2])
+H=[r for r in L if U(7,15,26)<=r[0]<=PK[0]]
+C=[r for r in L if r[0]>PK[0]]
 TC=slope(H,2,4); SE_TC,nb1=jk(H,lambda q:slope(q,2,4),600)
 D=[r for r in L if U(7,13,17)<=r[0]<U(7,15,15)]
 mw=sum(r[3] for r in D)/len(D); dil=-1.0/(P-mw)
@@ -49,7 +51,16 @@ print("stage 1  tempco = %+.3f +/- %.3f %%/K   (n=%d, dT=%.2f K, p_w range %.2f 
       %(TC*100,SE_TC*100,len(H),max(r[2] for r in H)-min(r[2] for r in H),max(r[3] for r in H)-min(r[3] for r in H),nb1))
 print("stage 2  alpha  = %+.3f +/- %.3f       (n=%d, dp_w=%.1f hPa, dT=%.2f K, %d blocks)"
       %(A,SE_A,len(D),max(r[3] for r in D)-min(r[3] for r in D),max(r[2] for r in D)-min(r[2] for r in D),nb2))
-json.dump(dict(alpha=A,se_alpha=SE_A,tempco=TC,se_tempco=SE_TC,P=P,n=len(rows)),open("sweep.json","w"),indent=1)
+def tempco_at(Q,alpha):
+    n=len(Q);dl=-1.0/(P-sum(r[3] for r in Q)/n)
+    Q2=[(r[0],r[2],r[4]-alpha*dl*r[3]) for r in Q]
+    return slope(Q2,1,2)
+TCC=SEC=None
+if len(C)>=8:
+    TCC=tempco_at(C,A); SEC,_=jk(C,lambda q:tempco_at(q,A),600)
+    print("cooldown tempco = %+.3f +/- %.3f %%/K   (n=%d, dT=%.2f K, dp_w=%.2f hPa, alpha held)"
+          %(TCC*100,SEC*100,len(C),max(r[2] for r in C)-min(r[2] for r in C),max(r[3] for r in C)-min(r[3] for r in C)))
+json.dump(dict(alpha=A,se_alpha=SE_A,tempco=TC,se_tempco=SE_TC,tempco_cooldown=TCC,se_tempco_cooldown=SEC,P=P,n=len(rows)),open("sweep.json","w"),indent=1)
 
 import matplotlib; matplotlib.use("Agg")
 import matplotlib.pyplot as plt, matplotlib.dates as mdates
@@ -78,20 +89,22 @@ ax.legend(loc="upper left",fontsize=9,framealpha=.95,prop={"family":"monospace",
 ax.grid(alpha=.25)
 ax.set_title("o2-probe 2026-09-07: the first sweep that separates the two coefficients\n"
              "tempco %+.3f +/- %.3f %%/K from the ISOBARIC heat (p_w flat to %.1f hPa over %.1f K)   |   "
-             "a = %.3f +/- %.3f from the ISOTHERMAL dry-down (p_w -%.0f hPa)"
+             "a = %.3f +/- %.3f from the ISOTHERMAL dry-down (p_w -%.0f hPa)%s"
              %(TC*100,SE_TC*100,max(r[3] for r in H)-min(r[3] for r in H),
-               max(r[2] for r in H)-min(r[2] for r in H),A,SE_A,max(r[3] for r in D)-min(r[3] for r in D)),
+               max(r[2] for r in H)-min(r[2] for r in H),A,SE_A,max(r[3] for r in D)-min(r[3] for r in D),
+               ("   |   cooldown gives %+.3f +/- %.3f %%/K"%(TCC*100,SEC*100)) if TCC is not None else ""),
              fontsize=10.5,loc="left")
 marks=[(U(7,10,53),"bench logger stops (cp2102)","#8e44ad"),
        (U(7,11,11),"LoRa node resumes\n\nsame probe -> merged","#8e44ad"),
        (U(7,13,17),"\n\n\ndesiccant in\n-> isothermal dry-down","#16a085"),
        (U(7,15,20),"heat gun ~1 min\n(excluded)","#c0392b"),
-       (U(7,15,26),"\n\n\n\n\nisobaric heat\n-> tempco leg","#c0392b")]
+       (U(7,15,26),"\n\n\n\n\nisobaric heat\n-> tempco leg","#c0392b"),
+       (PK[0],"\n\npeak, then\ncooldown","#8e44ad")]
 for t,lab,col in marks:
     d=datetime.datetime.fromtimestamp(t,datetime.UTC)
     for a_ in (ax,bx): a_.axvline(d,color=col,lw=1.0,ls=":")
     ax.annotate(lab,xy=(d,ax.get_ylim()[1]),xytext=(4,-6),textcoords="offset points",fontsize=7.6,color=col,va="top")
-for a0,a1,col in [(U(7,13,17),U(7,15,15),"#16a085"),(U(7,15,26),U(7,16,30),"#c0392b")]:
+for a0,a1,col in [(U(7,13,17),U(7,15,15),"#16a085"),(U(7,15,26),PK[0],"#c0392b"),(PK[0],rows[-1][0],"#8e44ad")]:
     for a_ in (ax,bx):
         a_.axvspan(datetime.datetime.fromtimestamp(a0,datetime.UTC),
                    datetime.datetime.fromtimestamp(min(a1,rows[-1][0]),datetime.UTC),color=col,alpha=.07,zorder=0)
