@@ -32,7 +32,33 @@ steepen with time, which is the opposite of what is seen.
 *earlier* than the SHT45. That is the other lag - a lagging **reference** - and
 it produces exactly this decay with no second mechanism required.
 
-## Claim 2 (STANDS, measured after Fab's observation): the cell leads the SHT45
+## Claim 2 (RETRACTED as an inference; the observation is explained by geometry)
+
+> **2026-09-07, after review and after Fab reported the assembly.** The cell is
+> **not on the PCB** - the footprint has the wrong pin order, so it flies on
+> copper wires and sits **closer to the membrane than the SHT45**. The lead is
+> therefore where the sensors are, not what they are. Nothing below is evidence
+> about the cell, a film, or the humidity correction.
+>
+> The statistics were also weaker than presented:
+> * The fractional table normalises to each channel's value at +8 min, which is
+>   **not a plateau** - `p_w` was 13.39 hPa there and still falling to 11.63 at
+>   +20 min. With a -300..-120 s baseline instead of the last minute the
+>   midpoint difference is **68 s, not 104 s**, and the five differences span
+>   37-140 s rather than approximating a constant delay.
+> * The cross-correlation is **inconclusive**. A phase-randomised null
+>   preserving the derivative spectra puts the 95th percentile of the scanned
+>   maximum at **0.203**, above the quoted 0.177; the lag was chosen by
+>   searching, which biases the maximum upward.
+> * `t = 0` is taken from the SHT45's own departure - the **downstream** sensor.
+>   Circular.
+> * The "6x" ratio at t=0 rests on a 0.045 uA numerator against a 0.039 % cell
+>   noise floor: about 1.15 sigma.
+>
+> What survives: the cell's response precedes the SHT45's, and the reason is
+> that it is nearer the gas.
+
+### The original claim, kept for the record: the cell leads the SHT45
 
 Fraction of each channel's +8 min change:
 
@@ -71,13 +97,24 @@ difference between two fully equilibrated states is not, whatever either
 sensor's time constant. Hence: dwell to equilibrium in each vessel and difference
 the plateaus; stop quoting ramp slopes.
 
-## Claim 4 (MADE): the cell cannot respond before the gas changes
+## Claim 4 (WRONG - the dichotomy was not exhaustive)
 
-So if the cell genuinely leads, either the SHT45 is slow in this cavity, or the
-cell was kicked at t=0 by something that is not water - handling, or the jar's
-air differing from room air in more than humidity. The blank (A -> out -> A,
-zero gas change, identical handling) is what separates these, which promotes it
-from a control to the test that decides the interpretation.
+The claim was: the cell cannot respond before the gas changes, so either the
+SHT45 is slow in this cavity, or the cell was kicked at t=0 by something that is
+not water.
+
+**There is a third option and it is the true one.** The gas does not change
+everywhere at once. In one slowly drying, unstirred vessel the two sensors sit
+at different depths in the diffusion path, and the cell - flying on wires,
+nearer the membrane - reaches the new humidity first. The premise "the cell
+cannot respond before the gas changes" is true and useless: the gas *at the
+cell* changed first.
+
+The review raised this as a possibility before Fab reported the assembly. Both
+arrived at it independently; only one of them was me.
+
+The blank is still worth running, but it no longer decides the interpretation -
+it now measures the handling artefact it was always meant to measure.
 
 ## A marginal feature, recorded so it is not silently dropped
 
@@ -89,5 +126,14 @@ feature, not clean enough to ignore.
 ## Still open
 
 * Venting of the glass jar is UNCONFIRMED.
-* Whether the SHT45 in this cavity is genuinely ~160 s slow, which would be
-  surprising for a part whose bare response is ~8 s.
+* ~~Whether the SHT45 is genuinely ~160 s slow.~~ **Closed.** Sensirion v7.3
+  Table 1 gives RH **tau63 = 4 s** at 25 C and 1 m/s airflow, and 6.1 says the
+  integrated membrane does not alter the specified response time. (The "~8 s"
+  written here was wrong by 2x.) A ~160 s *system* response in stagnant cavity
+  gas remains entirely plausible - the datasheet makes application response
+  design-dependent - but it is the cavity and the sensor placement, not the
+  part.
+* **The source CSV was not committed when these claims were written**, and the
+  window contains 42 duplicate UTC values and 51 duplicate `sample_seq` values
+  from three pollers contending on the port (my error). Pseudo-replication of
+  that kind inflates the degrees of freedom behind any correlation here.
