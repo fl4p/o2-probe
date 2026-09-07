@@ -1017,3 +1017,84 @@ measurement of this cell over 24 -> 9 hPa, not a coefficient for the part, and
 the mechanism that removes the other 45 % is still unidentified - the surface
 leakage of section 10 remains the candidate and remains unproven. The
 reverse step is what turns it into a coefficient.
+
+## 13. THE RAMP IS THE ROOM, AND WITH T IN THE MODEL THE HYSTERESIS DISAPPEARS (2026-09-07)
+
+Fab, on the section 12 plot: *"whats the ramp between 8:00 and 12:00?"* and
+*"i think we need to consider temperature in the model too."* Both right, and
+the second one closes section 12.
+
+The ramp is the leg into **vessel N**, marked at 08:11:47Z in
+`bench-logs/rh-step-markers-2026-09-07.csv`. p_w rose 12.5 hPa over it - and so
+did the room, by **3.36 K**, at r(T, p_w) = **+0.91**. Section 12's alpha was
+fitted on p_w alone, so the whole temperature response was left in the residual
+and appears as a ramp.
+
+### 13.1 Per leg, with T in the model, HAC standard errors
+
+`ln(o2_raw) ~ 1 + p_w + T`. alpha is the p_w coefficient divided by the
+dilution reference `-1/(P - p_w)`.
+
+| leg | direction | DT | Dp_w | r(T,p_w) | alpha | tempco %/K |
+|---|---|---|---|---|---|---|
+| A 06:56-08:10 | drying | 0.27 K | 5.8 hPa | -0.81 | **0.399 +/- 0.014** | +0.006 +/- 0.055 |
+| N 08:14-10:52 | **wetting** | 3.36 K | 12.5 hPa | +0.91 | **0.403 +/- 0.021** | +0.244 +/- 0.005 |
+| A2 13:16-> | drying | 0.77 K | 17.0 hPa | -0.96 | 0.524 +/- 0.070 | +0.165 +/- 0.192 |
+| whole 12 h | both | 6.5 K | 17.4 hPa | +0.65 | **0.442 +/- 0.010** | +0.220 +/- 0.004 |
+
+**The direction split is gone.** The reviewed result recorded in
+`bench-logs/VESSEL-MARKS-2026-09-07.md` - drying 0.480 +/- 0.084 against
+wetting 0.948 +/- 0.115, read as hysteresis - was p_w alone. Put T in and the
+two legs give 0.399 and 0.403. The mechanism of the artefact is plain in the
+table: on the wetting leg T and p_w are correlated at +0.91 and the tempco is
+positive, so omitting T loads the temperature response onto p_w and inflates
+it. On the drying leg r is negative and DT is 0.27 K, so there is nothing to
+inflate. That is the entire asymmetry.
+
+VESSEL-MARKS asked what the second drying leg would return: *"If drying again
+returns ~0.48 while the morning's wetting returned ~0.95, the asymmetry is real
+and is a hysteresis."* It returned 0.524 on p_w alone - but the wetting leg
+returns 0.403 once T is included, so the premise of the test does not hold.
+**No hysteresis is required by this data.**
+
+### 13.2 The two-term model is flat over the whole day
+
+Both vessels hold air, so the true dry-basis number is constant for all 12 h.
+6545 samples, p_w 6.6 -> 24.0 hPa, T 21.6 -> 28.1 C:
+
+| model | sd | range |
+|---|---|---|
+| published, uncorrected | 0.0345 pp | 0.400 pp |
+| full dilution (alpha = 1), no T | 0.0784 pp | 0.442 pp |
+| fitted dilution (alpha = 0.44), no T | 0.0469 pp | 0.321 pp |
+| **alpha = 0.44 + tempco +0.220 %/K** | **0.0095 pp** | **0.085 pp** |
+
+Humidity alone is *worse than publishing nothing* - 0.047 against 0.034 - which
+is section 10's finding and it was not wrong. Temperature alone is not enough
+either. Together they take the residual to a third of the published scatter and
+a fifth of its range, flat across a vessel change in each direction.
+
+`bench-logs/o2-12h-dilution-tempco-fit-2026-09-07.png`.
+
+### 13.3 What this does and does not license
+
+Section 11.2 concluded the overnight soak did not identify a tempco, and
+section 10 retired the +0.51 %/K of 9b. Neither is contradicted: those windows
+could not separate the terms, and this one can only because the N leg supplies
+3.4 K of range and the A legs supply p_w range at near-constant T. The
+identification comes from combining legs, not from any single one.
+
+Still open, and none of it is small:
+
+* **alpha is not explained.** 0.44 of the modelled dilution, mechanism
+  unknown. The section 10 surface-leakage candidate would produce exactly this
+  and is still unproven - no guarded/unguarded comparison, no leakage
+  measurement, and the cell is not on the PCB but flying on wires nearer the
+  membrane than the SHT45, so the two sensors do not see the same gas at the
+  same time.
+* **+0.220 %/K rests on one warming ramp** with r(T, p_w) = +0.91. The A-leg
+  cross-check is what makes it credible - alpha reproduces there with T
+  absent - but a deliberate isobaric temperature sweep has still never been run.
+* **The range is 6.5 K and 17 hPa.** A pile is 158 hPa and 30 K beyond it.
+* Nothing here is in firmware. `O2P_TEMPCO_DEFAULT` is still 0, which remains
+  the right default until these two numbers reproduce on a second article.
