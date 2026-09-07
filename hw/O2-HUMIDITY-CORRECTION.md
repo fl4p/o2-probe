@@ -726,3 +726,121 @@ about this cell.
 Until then the dry-basis correction cannot be validated on this hardware, and
 flashing `fe27d20` would replace a number that is wrong by a known constant with
 one that is wrong by a humidity-dependent amount.
+
+## 11. THE OVERNIGHT SOAK DECOUPLES T FROM p_w AND RETIRES THE +0.51 %/K (2026-09-07)
+
+Dry soak on the open bench, probe bare in room air, heater off
+(`HEATER_MAX_DUTY = 0`, verified by read-back), 2026-09-06T17:50:33Z →
+2026-09-07T06:32:56Z, 8479 `ok` samples at 5 s in
+`bench-logs/modbus-poll-2026-09-06.csv`. No resets, no CRC errors, uptime
+continuous to 54942 s.
+
+### 11.1 The drift floor holds over 7 hours, not just 2.5
+
+Clean post-heater window 23:30 → 06:33 (the 22:51–23:22 heater accident
+excluded), n = 4662:
+
+| quantity | value |
+|---|---|
+| `o2_raw` mean | 100.371 µA |
+| sd | 0.069 % |
+| residual sd after T, p_w, t | 0.038 % |
+| drift term | +0.003 ± 0.002 %/h — not distinguishable from zero |
+
+The earlier 2.5 h floor (sd 0.044 %, +0.008 %/h) was not a short-window
+artefact. Everything under investigation in §9 and §10 is 20–50× this.
+
+### 11.2 T and p_w finally separated: r = +0.014
+
+This is the point of the overnight window and it was not planned. Across the day
+the two regressors were collinear at **r(T, p_w) = +0.991**, which is why §9b
+said the tempco was not identifiable. Overnight, with the room cooling while the
+outdoor air wetted, they moved **against** each other:
+
+| window | n | r(T, p_w) | T span | p_w span |
+|---|---|---|---|---|
+| day 11:05–17:50 | — | **+0.991** | — | — |
+| overnight 23:30–06:33 | 4662 | **+0.014** | 1.64 K | 1.77 hPa |
+
+Multiple regression of `o2_raw` on T, p_w and time over that window:
+
+| term | coefficient |
+|---|---|
+| T | **+0.23 %/K** (sub-windows +0.21 … +0.29) |
+| p_w | −0.028 %/hPa |
+| time | +0.003 %/h |
+
+**+0.23 %/K is the assumed ~0.2 %/K, not 2.5× it.** The +0.51 %/K of §9b was a
+collinearity artefact: it was the vapour term and the temperature term added
+together, because in that data they were the same regressor. §9b already carried
+"do not carry this number forward"; this is the measurement that says why.
+Retire it. `O2P_TEMPCO_DEFAULT` remains 0.0f, and ~0.2 %/K is what the cell
+appears to want.
+
+Nothing here licenses shipping a tempco. 1.64 K of span at one temperature is a
+local slope, not a curve, and this cell is uncalibrated over temperature.
+
+### 11.3 The p_w coefficient still does not settle — the step test is still required
+
+Pooled overnight gives −0.028 %/hPa against a dilution prediction of −0.109 %/hPa
+at 930 hPa. That looks decisive and is not. Split in half:
+
+| half | p_w span | d(raw)/d(p_w) |
+|---|---|---|
+| 00:00–03:00 | 0.37 hPa | **−0.137 %/hPa** |
+| 03:00–06:33 | 1.77 hPa | **+0.069 %/hPa** |
+
+The two halves straddle both hypotheses and disagree by 0.21 %/hPa, roughly ten
+times the 1σ that ordinary least squares reports. The reported σ is therefore
+wrong — the residuals are strongly autocorrelated at 5 s sampling and decimating
+to 1/min does not fix it — and the p_w span in the tighter half is 0.37 hPa,
+which is not a lever at all.
+
+**The overnight data cannot decide dilution versus artefact.** What it does do is
+show why the step test is the right instrument: `RH-STEP-TEST.md` puts
+**20.687 hPa** on this axis, against the 1.77 hPa the room supplied by itself.
+Whatever the coefficient is, a factor of twelve more lever arm will show it.
+
+### 11.4 The dry-basis path is still absent, as expected
+
+`o2_comp / o2_raw` across the whole day and night, p_w sweeping 12 → 31 hPa:
+
+| time | ratio |
+|---|---|
+| 11:05Z | 0.209418 |
+| 17:00Z | 0.209073 |
+| 20:00Z | 0.209337 |
+| 23:00Z | 0.209210 |
+| 02:00Z | 0.209330 |
+| 06:30Z | 0.209339 |
+
+Constant to ±0.08 %. No reflash happened, so this is confirmation rather than
+news, but it also means every number in §11 is a raw-current number and none of
+it is contaminated by the correction under test.
+
+### 11.5 First-ever `I2C_FAIL_SHT`, and the fail-safe worked
+
+23:17:28Z–23:17:56Z, 5 samples, 26 s — the only occurrence in the whole log, and
+it landed inside the aborted heater run.
+
+```
+23:17:28Z f=                              rh=49.91 Tch=24.32 duty=0.14
+23:17:35Z f=I2C_FAIL_SHT|HEATER_DISABLED  rh=BLANK Tch=--    duty=0.0
+...
+23:18:01Z f=                              rh=48.00 Tch=24.21 duty=0.0
+```
+
+Two things to keep.
+
+**The interlock is real.** The heater was commanding duty (0.07, then 0.14 %)
+when the RH sensor vanished. In the *same* sample the fault raised
+`HEATER_DISABLED` and duty went to 0.0. Losing the only feedback sensor stops the
+heater rather than leaving it running open-loop against a stale setpoint. That is
+the behaviour `heater_ctl.c` is supposed to have and this is the first time it
+has been observed rather than read.
+
+**The recovery is not clean.** RH came back at 48.00 against 49.91 before the
+dropout — a 1.9-point step, in the wrong direction for the trend, decaying back
+over ~45 s. That is the signature of an SHT soft reset, not a bus retry. `o2_raw`
+was undisturbed throughout (100.65–100.76). n = 1, cause unknown, and it happened
+while the board was being heated; watch for it during the step test.
