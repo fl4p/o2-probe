@@ -31,12 +31,17 @@ _Static_assert(FLASH_PAGE_SIZE == 2048u, "unexpected flash page size");
 
 #define CONFIG_MAGIC 0x4F325043u   /* "O2PC" */
 /* 2: added heater_kp_x100 / heater_ki_x100 (registers 0x0040/0x0041).
- * Bumping this makes a version-1 record unreadable rather than
+ * 3: added cal_zero_na (registers 0x0042/0x0043), which grew o2p_config_t from
+ *    28 to 32 bytes. A version-2 record is therefore a DIFFERENT layout, and
+ *    without this bump it would be rejected only because offsetof(crc) moved
+ *    and its CRC is checked over the wrong length - fail-safe by accident,
+ *    with a 1-in-65536 hole. The bump makes it fail-safe by construction.
+ * Bumping this makes an older record unreadable rather than
  * mis-interpreted, so an older probe's stored config falls back to defaults -
  * and the defaults put HEATER_MAX_DUTY at 0, i.e. heater off. The fail-safe
  * direction of a layout change is therefore "no heat", which is the only
  * direction it is allowed to fail in. */
-#define CONFIG_LAYOUT_VERSION 2u
+#define CONFIG_LAYOUT_VERSION 3u
 
 /* Fixed 64-byte record, so the layout does not move when a config field is
  * added and the flash image stays recognisable across firmware versions. */

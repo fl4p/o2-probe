@@ -62,7 +62,6 @@ static o2p_heater_state_t g_heat;
 #define O2P_N_O2   8u
 
 static o2p_regmap_t g_rm;
-static o2p_cal_t g_cal;
 
 static uint32_t g_settle_deadline_s;
 static uint32_t g_uptime_s;
@@ -87,11 +86,29 @@ static void restart_settling(void)
     g_settle_deadline_s = deadline;
 }
 
-static void load_cal_from_config(void)
+/* Built FRESH from g_rm.cfg on every use, never cached.
+ *
+ * It used to be a static copy refreshed only at boot and after COMMIT, which
+ * meant an accepted Modbus write to CAL_AIR_NA, CAL_ZERO_NA, CAL_TEMP_C100 or
+ * TEMPCO_PPM_K changed the readback AND the CONFIG_CRC while the conversion
+ * kept using the old constants until the operator happened to commit. A master
+ * could therefore verify its calibration by CRC and still be reading numbers
+ * produced by the previous one - the worst shape a provenance bug can take,
+ * because the check that exists to catch it reports success. The heater has
+ * always read g_rm.cfg live (see the o2p_heater_inputs_t below); calibration
+ * was the outlier. Found by the 2026-09-07 Codex review. */
+static o2p_cal_t cal_from_config(void)
 {
-    g_cal.cal_air_na = g_rm.cfg.cal_air_na;
-    g_cal.cal_temp_c100 = g_rm.cfg.cal_temp_c100;
-    g_cal.tempco_per_k = (float)g_rm.cfg.tempco_ppm_per_k * 1e-6f;
+    o2p_cal_t cal;
+    cal.cal_air_na = g_rm.cfg.cal_air_na;
+    /* The zero point comes only from the register; there is no automatic
+     * nitrogen trigger to match CAL_TRIGGER, because taking a zero needs a
+     * bottle on the bench and nothing on the probe can tell nitrogen from a
+     * dead cell. An operator writes the fitted value. */
+    cal.cal_zero_na = g_rm.cfg.cal_zero_na;
+    cal.cal_temp_c100 = g_rm.cfg.cal_temp_c100;
+    cal.tempco_per_k = (float)g_rm.cfg.tempco_ppm_per_k * 1e-6f;
+    return cal;
 }
 
 /* Convert an AIN0 code to cell current in nanoamps.
@@ -352,13 +369,28 @@ static void finish_o2(o2p_snapshot_t *s)
                                      : (g_cyc.tip_ok ? g_cyc.t_tip
                                                      : O2P_I16_INVALID);
 
-    o2p_cal_t cal = g_cal;
+    o2p_cal_t cal = cal_from_config();
     if (cal.cal_air_na <= 0) {
         /* Never calibrated. Substitute the datasheet nominal so the raw
          * channel still converts, and raise CAL_DEFAULT - which invalidates
          * the COMPENSATED channel, because that nominal spans 0.04-0.10 mA. */
         cal.cal_air_na = O2P_CAL_AIR_NOMINAL_NA;
         g_cyc.faults |= O2P_F_CAL_DEFAULT;
+    }
+
+    /* No zero point taken. Unlike the air point there is nothing to
+     * substitute - zero IS the substitute, and it is what the law degrades to
+     * - so the reading stands and the fault says which accuracy regime it was
+     * produced in (faults.h, CAL_ZERO_DEFAULT).
+     *
+     * A stored 0 is read as "never taken" rather than "measured as zero".
+     * Those are indistinguishable in the register, and this is the direction
+     * the ambiguity must fail in: a bench that genuinely measures 0 nA gets a
+     * flag it can explain, while the alternative silently certifies every
+     * uncalibrated probe. One LSB is 10.9 nA, so a bench with a real zero
+     * point has a value to write. */
+    if (cal.cal_zero_na == 0) {
+        g_cyc.faults |= O2P_F_CAL_ZERO_DEFAULT;
     }
 
     /* A non-zero temperature coefficient with no temperature is not a
@@ -384,11 +416,12 @@ static void finish_o2(o2p_snapshot_t *s)
         /* Judge the raw channel, not the compensated one: a probe that has
          * never been calibrated always fails the compensated test, which
          * would make calibration impossible. */
+        o2p_cal_t taken = cal_from_config();
         if (o2p_o2_valid(g_cyc.faults) &&
-            o2p_calibrate_air(&g_cal, cell_na,
+            o2p_calibrate_air(&taken, cell_na,
                               (t_gas != O2P_I16_INVALID) ? t_gas : 2500)) {
-            g_rm.cfg.cal_air_na = g_cal.cal_air_na;
-            g_rm.cfg.cal_temp_c100 = g_cal.cal_temp_c100;
+            g_rm.cfg.cal_air_na = taken.cal_air_na;
+            g_rm.cfg.cal_temp_c100 = taken.cal_temp_c100;
         }
         /* A refused calibration leaves the old constants in place. */
     }
@@ -572,7 +605,6 @@ int main(void)
 
     o2p_regmap_init(&g_rm);
     (void)o2p_config_load(&g_rm.cfg);   /* defaults on absence or corruption */
-    load_cal_from_config();
 
     bring_up_devices();
     o2p_modbus_init(&g_rm.cfg);
@@ -621,7 +653,6 @@ int main(void)
             if (g_rm.commit_pending) {
                 g_rm.commit_pending = false;
                 (void)o2p_config_store(&g_rm.cfg);
-                load_cal_from_config();
             }
             /* De-creep maintenance, on the configured interval as well as on
              * demand. PLAN.md:312 asks for every 6-12 h; the interval is a

@@ -15,8 +15,16 @@
  *    compostlab research/COMPOST-O2.md section 6.
  *
  *  - CAL_DEFAULT does NOT invalidate either, but it must reach the decoder: an
- *    uncalibrated cell is 0.07 +/- 0.03 mA in air, so the reading can be 40 %
- *    out. It is real data of known-poor accuracy, not garbage.
+ *    uncalibrated cell is 0.1 +/- 0.03 mA in air (DS-0637 Issue 2), so the
+ *    reading can be 30 % out. It is real data of known-poor accuracy, not garbage.
+ *
+ *  - CAL_ZERO_DEFAULT is the same shape as TEMP_OVER, not as CAL_DEFAULT, and
+ *    the difference is quantitative. A missing AIR point leaves the scale
+ *    factor unknown to +/-43 %; a missing ZERO point leaves a bounded offset,
+ *    DS-0637's 'Zero Signal (20 C) < 0.4 %vol O2', so the reading is wrong by
+ *    at most 0.4 %O2 and least where the pile is most interesting. That is a
+ *    known, bounded accuracy regime - flag it, do not discard it.
+ *    ../O2-CORRECTION-MODEL-BUDGET.md has the propagation.
  */
 #ifndef O2P_FAULTS_H
 #define O2P_FAULTS_H
@@ -38,7 +46,15 @@ enum {
     O2P_F_DEW_SUSPECT         = 1u << 10,
     O2P_F_ADC_RANGE           = 1u << 11, /* converter saturated or out of window */
     O2P_F_CAL_DEFAULT         = 1u << 12, /* running on datasheet nominal, not a cal */
-    O2P_F_EXP_PRESENT         = 1u << 13,
+    /* Bit 13 was EXP_PRESENT, reserved for the J2 expansion header. J2 is DNP
+     * on Rev A, NO firmware ever wrote the bit, and the presence answer is
+     * already published in EXP_DATA (0xFFFF = absent), so the bit carried
+     * nothing. It is spent here instead. NOTE: tech/chirpstack/codec/
+     * _o2_regs.js independently retired bits 13/14 on 2026-09-04 and named
+     * them ads_drdy_stuck / ads_config_lost - names no firmware implements.
+     * That collision is Fab's to arbitrate; the decoder's positional table is
+     * updated to match THIS file, which is the map. */
+    O2P_F_CAL_ZERO_DEFAULT    = 1u << 13, /* no zero point taken; offset <= 0.4 %vol */
     O2P_F_EXP_FAIL            = 1u << 14,
     O2P_F_HEATER_DISABLED     = 1u << 15, /* always set in v0 */
 };
@@ -70,6 +86,14 @@ enum {
 #define O2P_FAULTS_INVALIDATE_O2_COMP ( \
       O2P_FAULTS_INVALIDATE_O2 \
     | O2P_F_CAL_DEFAULT )
+
+/* CAL_ZERO_DEFAULT appears in NEITHER mask, deliberately. It is in no
+ * invalidation list for the same reason TEMP_OVER is not: the reading is
+ * real, its error is bounded and documented, and a compost decision taken at
+ * 5 %O2 does not change because the number might be 5.4 %. Widening this to
+ * an invalidating fault would blank the compensated channel on every probe
+ * built so far - none has a zero point, and there is no bench to take one on
+ * yet - which is how a guard gets switched off rather than satisfied. */
 
 /* The chamber channels have their own dependencies: RH and chamber
  * temperature come from the SHT45, tip temperature from the TMP117. */

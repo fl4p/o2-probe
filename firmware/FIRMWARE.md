@@ -13,7 +13,7 @@ PlatformIO + STM32Cube (HAL headers, direct CMSIS register code).
 edit it by hand.
 
 ```sh
-pio test -e native      # portable logic, 23 cases
+pio test -e native      # portable logic, 59 cases
 pio run  -e o2probe     # cross build
 pio run  -e o2probe -t upload
 python3 tools/gen_hw_contract.py            # regenerate after a schematic change
@@ -75,11 +75,12 @@ No, and the reason is narrower than "there is no wireless path". There is one.
 It is 40 bytes wide, it takes about **65 hours**, and it cannot create the
 thing it would need to talk to.
 
-The arithmetic below is for this image: `firmware.bin` is **23,524 bytes**,
-18.5 % of the 126,976-byte application space. (PlatformIO's banner says 18.4 %
-because it counts 23,320 bytes of `text`+`data` and not the inter-section
-padding that a flash image still has to carry over the wire. Use the image
-size, not the banner, for any transport estimate.) A differential scheme would
+The arithmetic below is for this image: `firmware.bin` is **23,916 bytes**,
+18.8 % of the 126,976-byte application space. (PlatformIO's banner reports the
+same percentage on a different quantity: it counts 23,912 bytes of
+`text`+`data` and not the inter-section padding that a flash image still has to
+carry over the wire. Use the image size, not the banner, for any transport
+estimate.) A differential scheme would
 do better, but not by the order of magnitude that would change the answer.
 
 ### The wireless path that does exist: `A8`, and its 40-byte ceiling
@@ -108,8 +109,8 @@ What kills it is the ceiling. The same section caps `AT+CFGDEV` at **40 bytes**:
 | CFGDEV command budget | 40 B |
 | less FC16 framing (addr, FC, start, count, byte count, CRC) | −9 B |
 | whole 16-bit registers | 30 B of image per downlink |
-| downlinks for 23,524 bytes | **785** |
-| at `AT+TDC` = 300 s | **65.4 h** |
+| downlinks for 23,916 bytes | **798** |
+| at `AT+TDC` = 300 s | **66.5 h** |
 
 Nearly three days, and that is the *floor*: no retries, no erase waits, no
 handshake. (Whether the 40 bytes counts the CRC the node appends when `MM=1`
@@ -121,10 +122,10 @@ figure gets worse, not better.)
 data rate never enters into it. For reference: EU868 allows 51 application
 bytes at DR0 and 242 at DR5 — the 242 assuming no repeater and empty `FOpts`,
 222 otherwise — but no data rate lets one downlink carry more than 40 bytes of
-CFGDEV. Airtime is likewise not the limit: 785 SF12 downlinks of 57 PHY bytes
-is 2,630 ms each, 2,064 s of transmitter time (0.57 h), which under continuous
-10 % duty-cycle pacing on the 869.4–869.65 MHz band is about 5.7 h elapsed —
-well inside the 65 h the cadence already costs.
+CFGDEV. Airtime is likewise not the limit: 798 SF12 downlinks of 57 PHY bytes
+is 2,630 ms each, 2,099 s of transmitter time (0.58 h), which under continuous
+10 % duty-cycle pacing on the 869.4–869.65 MHz band is about 5.8 h elapsed —
+well inside the 66 h the cadence already costs.
 
 That cadence is the other half. A Class A node opens receive windows only
 after its own uplink, and RX1 and RX2 are two windows of **one** opportunity —
@@ -251,17 +252,29 @@ then two that exist because supervision here is *sampled*, not continuous:
   two polls means the sampler has stalled, even though every other register
   still holds a plausible value.
 
-### Config block — `0x0030`, 18 registers, read/write, flash-backed
+### Config block — `0x0030`, 20 registers, read/write, flash-backed
 
 `SLAVE_ADDR`, `BAUD_CODE`, `PARITY_CODE`, `RH_SETPOINT`, `DT_MAX_K`,
 `HEATER_MAX_DUTY`, `HEATER_PWM_HZ`, `CAL_AIR_NA_HI/LO`, `CAL_TEMP_C100`,
 `TEMPCO_PPM_K`, `SHT_PULSE_H`, `SHT_PULSE_TRIG`, `CAL_TRIGGER`, `COMMIT`,
-`CONFIG_CRC` (read-only), plus the two PI gains, both in 0.01 units:
+`CONFIG_CRC` (read-only), plus four appended registers:
 
 | Reg | | |
 |---|---|---|
-| `0x0040` | `HEATER_KP` | proportional gain |
-| `0x0041` | `HEATER_KI` | integral gain, per second |
+| `0x0040` | `HEATER_KP` | proportional gain, 0.01 units |
+| `0x0041` | `HEATER_KI` | integral gain, 0.01 units per second |
+| `0x0042` | `CAL_ZERO_NA_HI` | cell zero current, i32 nA, **signed**, default 0 |
+| `0x0043` | `CAL_ZERO_NA_LO` | |
+
+`CAL_ZERO_NA` is appended rather than placed beside `CAL_AIR_NA` at
+`0x0037/0x0038` where it belongs logically. **No existing address moved**, and
+none may: `AT+COMMAND` frames name literal addresses, and a renumbered map is a
+node that reads the wrong register without saying so.
+
+Write it as one FC16 of both words. A single-word write cannot pass the bound
+(below), which is the mechanism that forces `HI` and `LO` to arrive together —
+the same trick `CAL_AIR_NA` uses. Both are covered by `CONFIG_CRC`, so a master
+can confirm the probe is running the calibration it wrote.
 
 The gains are registers on purpose. The plant is unmeasured — the thermal path
 is an engineering bound, not a measurement — so they will need tuning against a
@@ -275,6 +288,176 @@ plant, and both zero simply means the loop never asks for heat.
 A multi-register write is validated against a copy and committed all-or-nothing
 — a frame that sets a legal address and an illegal baud rate changes neither.
 Serial changes take effect only after the response has left the wire.
+
+### Calibration: what the three constants mean
+
+The cell is logarithmic, not linear (`DS-0637` Issue 1):
+
+```
+S = I0 + K * (1 + alpha*(T - T0)) * ln( 1 / (1 - C) )
+```
+
+| Constant | Register | How it is obtained |
+|---|---|---|
+| `K` | derived from `CAL_AIR_NA` **net of** `CAL_ZERO_NA` | air point, `CAL_TRIGGER` or written directly |
+| `I0` | `CAL_ZERO_NA` `0x0042/0x0043` | nitrogen point, fitted on the bench and written |
+| `alpha` | `TEMPCO_PPM_K` `0x003A` | temperature sweep; **0 = no compensation**, which is what ships |
+| `T0` | `CAL_TEMP_C100` `0x0039` | the temperature the air point was taken at |
+
+Three things about that law are easy to get wrong, and the firmware is explicit
+about each.
+
+**The zero is not a rounding term.** DS-0637 rates the zero signal at
+`< 0.4 %vol O2 (20 C)` — up to **1194 nA** at a nominal cell, which is 8× the
+LMP91000's internal-zero error and 100× a converter LSB. Folded into the air
+point instead of subtracted it stops being an offset and becomes a *slope*
+error across the whole low-O₂ range, which is precisely where the compost
+decision lives: 0.37 vs 0.20 %O₂ at the 2 %O₂ point.
+
+**The tempco scales `K`, not the measured current.** Those are the same
+operation only while `I0` is zero. With a zero present, applying the gain to
+`S` hands the zero a temperature dependence nobody has measured — worth
+0.54 %O₂ at the 2 % point for a worst-case in-window zero under the
+membrane-regime `alpha`. Pinned by
+`test_tempco_scales_k_and_not_the_measured_current`.
+
+**The zero itself is not temperature-corrected.** DS-0637 publishes no
+zero-vs-temperature figure and no sweep has measured one, so it is a constant.
+An invented coefficient would be worse than none, because the number coming out
+would look compensated. Same reasoning as `TEMPCO_PPM_K`'s default of 0.
+
+`CAL_ZERO_NA` is **signed**, and deliberately so in both directions:
+`SCHEMATIC-REVIEW.md` M4 leaves the SGX polarity convention open, and the
+electronic offsets it competes with have no fixed sign either. It is bounded to
+**±5000 nA** — about 3× the worst in-spec cell, so an aged part is still
+calibratable, while an air point mistakenly written into the zero registers, or
+a byte-swapped word, is refused rather than stored. An out-of-window value
+returns exception 03 and changes nothing; a zero at or above the air point can
+only be reached by bypassing that bound, and the conversion returns
+`UNEVALUABLE` rather than a number if it ever is.
+
+### The honest accuracy claim
+
+Numbers from [`../O2-CORRECTION-MODEL-BUDGET.md`](../O2-CORRECTION-MODEL-BUDGET.md),
+which propagates part datasheets through this exact law. They are an estimate,
+not a measurement — **no calibration data exists yet.**
+
+| Calibration actually performed | at air | at 2–5 %O₂ |
+|---|---|---|
+| Air point only, `alpha` = 0 — **what ships today** | **±1.3 %O₂** | **±0.3–0.5 %O₂** |
+| N₂ + air at 5 temperatures, fit weighted by reference uncertainty | ±0.05 %O₂ (1σ) | ±0.05 %O₂ (1σ) |
+
+The 1.3 %O₂ is not resolution and it is not the converter — the digitiser is
+two orders of magnitude away from mattering. It is the uncompensated tempco at
+55 °C. A temperature sweep is the single change that collapses it, and until
+one is run, `TEMPCO_PPM_K = 0` is correctly labelled *no compensation applied*
+rather than a compensation.
+
+**A fitted `alpha` is a LUMPED cell + AFE coefficient.** The LMP91000 datasheet
+(`SNAS506I`) specifies no TIA-gain tempco and no internal-zero-divider drift —
+only `TcVOS_RW`, which moves the bias and not the gain. So an isothermal
+whole-probe sweep fits `alpha_cell + alpha_AFE` and cannot separate them. For a
+probe whose cell and AFE sit on one board that lumped number is the *right* one
+to use in the field — **except when the heater is running**, which is exactly
+the condition that splits the two temperatures. Do not tune the heater loop
+around an assumed `alpha`, and if the measured `alpha` is large enough for
+heater gradients to matter, the split-temperature pass in §5 of the budget doc
+is a prerequisite to enabling the loop.
+
+On top of calibration uncertainty, and larger than it, sit four terms no O₂-only
+calibration can see: wet- versus dry-basis definition (up to 3.5 %O₂ at 55 °C if
+confused), barometric weather (±0.45 %O₂ at air — `PRESSURE_HPA` reads 0 because
+the BMP390 is DNP, so this is uncorrectable on-board), CO₂ enhancement
+(+0.2–0.3 %O₂ at compost concentrations) and cell ageing (±1 %O₂ at air over
+life, re-spanned by the field air point). Decide wet or dry basis *before* the
+calibration: the tempco fit and a vapour correction both key off temperature and
+will otherwise absorb each other.
+
+### Guard review, in writing — the zero bound and the corrected law
+
+The checklist every guard in this repository has to answer, for `CAL_ZERO_NA`
+and for `o2p_fraction_from_current()`.
+
+1. **Unevaluable input.** There is no path from a constant that cannot be
+   trusted to a number. `cal_air_na <= 0` is `UNEVALUABLE` as before; a net air
+   point outside the window two plausible constants can reach is `UNEVALUABLE`;
+   the tempco-gain window is unchanged and still `UNEVALUABLE` outside it; the
+   `isfinite` checks stand. `UNEVALUABLE` writes **no** value to `*out_c`, and
+   `o2p_encode_percent()` maps everything but `OK` to `0xFFFF`. The specific
+   trap here is a *tiny* K rather than a negative one: at a net of 1 nA every
+   real current saturates the `exp()` and `C` comes out as exactly 1.0000 —
+   finite, positive, and encodable. That is why the floor is a floor and not a
+   sign test.
+2. **Monotonicity.** `test_zero_bound_rejects_the_far_tail_not_just_near_misses`
+   checks both edges, both signs, a swapped-halves value 10⁴ out, and
+   `INT32_MIN`/`INT32_MAX`, then sweeps outward geometrically — the verdict
+   never comes back to PASS. `test_monotonic_across_the_whole_range_with_a_zero`
+   re-runs the current sweep with the zero and a tempco live, down past the zero
+   into the negative-fraction region, and ends below zero rather than folding
+   back into a plausible mid-range reading.
+3. **Preconditions.** The zero is a *precondition of the air point*, not an
+   unrelated register: K is `(air − zero)`, so `o2p_calibrate_air()` checks the
+   stored zero as well as its own reading and refuses the calibration outright
+   if the zero is out of window. The conversion re-derives the net from the
+   struct it was handed rather than trusting that it came through a checked
+   path. `_Static_assert` in `o2.h` proves that widening the zero bound to reach
+   the air-point floor fails the build instead of the field.
+4. **Source of truth.** `src/regmap.h` is the map; `tools/check_regmap_docs.py`
+   fails the build if this document disagrees with it. The bound itself is
+   derived from DS-0637's `< 0.4 %vol O2` and stated as such at its definition;
+   `O2P_NET_AIR_MIN/MAX_NA` are *derived from the two bounds*, not a third magic
+   number, so they cannot drift out of agreement with them.
+5. **Persistence.** A refused zero leaves the previous value standing — it is
+   validated against a copy of the config and committed all-or-nothing, so a
+   half-written 32-bit value cannot be stored. A refused air point likewise
+   leaves the old constants in place. Nothing caches a "verified" flag: the
+   bounds are re-evaluated on every write and the net is re-derived on every
+   conversion.
+6. **Provenance.** An accepted calibration write takes effect on the *next
+   conversion*, not at `COMMIT`: `cal_from_config()` builds the constants fresh
+   every cycle. Until 2026-09-07 a cached copy was refreshed only at boot and
+   after `COMMIT`, so a master could verify a new calibration by `CONFIG_CRC`
+   and still be reading numbers produced by the old one — the worst shape a
+   provenance bug can take, since the check meant to catch it reported success.
+   Found by the 2026-09-07 Codex review. `COMMIT` still does what it says:
+   persist to flash. `CONFIG_CRC` covers `cal_zero_na`, so a master can tell that
+   the probe is running the calibration it wrote and not a stale one
+   (`test_zero_point_is_covered_by_the_config_crc`). `CAL_DEFAULT` still marks a
+   substituted air point, and **`CAL_ZERO_DEFAULT` (bit 13) now marks a missing
+   zero point**, so a probe running on air alone says so on every uplink instead
+   of publishing `O2_COMP` with a clean fault word. It invalidates nothing — the
+   error it announces is bounded at 0.4 %O₂, see the fault-word section. Expect
+   it set fleet-wide until a zero point exists; that is the honest state, not a
+   defect in the flag.
+
+   **What is still not reported, and cannot be from this file:** the raise
+   condition lives in `main.c`'s sampler, which is *not* in the native build's
+   `build_src_filter`, so no host test observes the bit being set — only its
+   semantics are covered (`test_missing_zero_point_flags_without_invalidating`,
+   `test_zero_fault_bit_does_not_collide_with_its_neighbours`). That gap is
+   structural and predates this change: no sampler logic is host-tested.
+7. **Known-bad calibration.** Constructed and observed, not argued.
+   `test_written_zero_point_must_also_be_plausible` writes the byte-swapped
+   −1200 nA (−77 856 769 nA) and an air point into the zero registers and
+   watches both bounce with exception 03 and no state change.
+   `test_zero_at_or_above_the_air_point_is_unevaluable` builds nets of 0, −20000
+   and **1 nA** and watches each refuse. For the tempco move,
+   `test_tempco_scales_k_and_not_the_measured_current` was run against a
+   deliberately re-broken `o2.c` carrying the old placement, which returned
+   1.4566 %O₂ for a true 2.0000 % and failed the assertion — the test pins the
+   semantics rather than describing them.
+8. **Fix versus mute.** Neither change silences anything. The zero term alters
+   the published number by up to 0.4 %O₂ at the low end; moving the tempco to K
+   alters it by up to 0.54 %O₂ at 2 %O₂ under the membrane-regime `alpha`. The
+   accuracy statement above got *worse*, not better: `±1.3 %O₂ at air` is now
+   written down where it was previously not stated at all.
+
+**Runtime cost.** One extra 64-bit subtract, two compares and one float
+multiply per 1 Hz conversion on a Cortex-M0+; the `int64` subtraction is a
+two-instruction sequence, not a library call. Measured, by building `HEAD` and
+this change side by side: `firmware.bin` 23,516 → 23,916 bytes, **+400**, which
+is 0.3 % of the application space and adds ~1.1 h to the wireless-transport
+estimate above. Nothing is in the Modbus path.
 
 Two actions need a magic value, not a `1`:
 
@@ -304,7 +487,8 @@ roughly 10 000 flash cycles and stalls the CPU for tens of milliseconds. A
 | 10 | `DEW_SUSPECT` | no |
 | 11 | `ADC_RANGE` | **yes** |
 | 12 | `CAL_DEFAULT` | **`O2_COMP` only — see below** |
-| 13/14 | `EXP_PRESENT` / `EXP_FAIL` | no |
+| 13 | `CAL_ZERO_DEFAULT` | **no — see below** |
+| 14 | `EXP_FAIL` | no |
 | 15 | `HEATER_DISABLED` | no — set whenever the loop is not driving, for any reason |
 
 Two exceptions that are easy to "tidy" into wrongness, so they are also
@@ -324,6 +508,33 @@ enforced by `_Static_assert` in `src/faults.c`:
   out, and 12 %vol against a true 21 %vol is indistinguishable from a real and
   alarming result. That is not lower-confidence data, it is an unknown scale
   factor wearing the units of a measurement.
+
+- **`CAL_ZERO_DEFAULT` invalidates nothing.** It has the shape of `TEMP_OVER`,
+  not of `CAL_DEFAULT`, and the difference is quantitative. A missing *air*
+  point leaves the scale factor unknown to ±43 %; a missing *zero* point leaves
+  a bounded offset — DS-0637's `Zero Signal (20 °C) < 0.4 %vol O₂` — so the
+  reading is wrong by at most 0.4 %O₂, and least where the pile is most
+  interesting. Flag it, do not discard it. Making it invalidate would blank the
+  compensated channel on every probe built so far, since none has a zero point
+  and there is no bench yet to take one on — which is how a guard gets switched
+  off rather than satisfied. `../O2-CORRECTION-MODEL-BUDGET.md` has the
+  propagation.
+
+  **A stored `CAL_ZERO_NA` of 0 is read as "never taken", not as "measured as
+  zero".** The register cannot distinguish them, and this is the direction the
+  ambiguity must fail in: a bench that genuinely measures 0 nA gets a flag it
+  can explain, whereas the other choice silently certifies every uncalibrated
+  probe. One ADC LSB is 10.9 nA, so a bench holding a real zero point has a
+  value to write.
+
+  **Bit 13 was `EXP_PRESENT`.** J2 is DNP on Rev A, no firmware ever wrote the
+  bit, and the presence answer is already published in `EXP_DATA`
+  (`0xFFFF` = absent), so it carried nothing. The fault word is otherwise full.
+  Note that `tech/chirpstack/codec/_o2_regs.js` independently retired bits
+  13/14 on 2026-09-04 and named them `ads_drdy_stuck` / `ads_config_lost` —
+  names no firmware implements. The decoder's bit 13 now matches this file;
+  **bit 14's disagreement is unresolved** and belongs to whoever lands the ADS
+  supervision.
 
 A related rule with the same shape: if a non-zero temperature coefficient is
 configured but no temperature is available, `O2_COMP` is invalid rather than
@@ -470,10 +681,14 @@ Three things that are easy to get wrong:
    the thing it is checking cannot detect that thing drifting.
 4. Cross-check `VA_MON_MV` (MCU ADC1_IN7 via VREFINT) against the ADS1119's
    AIN2 reading of the same node. They must agree.
-5. Air point after ≥15 minutes settled: expect 0.07 ± 0.03 mA, i.e. ~490 mV
-   across the 7 kΩ TIA. Write `0xCA11` to `CAL_TRIGGER`, then `0x5AC1` to
-   `COMMIT`.
-6. Nitrogen zero: < 0.4 %vol per DS-0637.
+5. Air point after ≥15 minutes settled: expect 0.1 ± 0.03 mA (DS-0637 Issue 2),
+   i.e. ~700 mV across the 7 kΩ TIA — 490 mV was Issue 1's 0.07 mA. Internal
+   zero sits at 1.675 V, so the output swings down to ~0.98 V, and the 30 %
+   overload point (152 µA, 1.06 V) still clears ground with margin. Write
+   `0xCA11` to `CAL_TRIGGER`, then `0x5AC1` to `COMMIT`.
+6. Nitrogen zero: < 0.4 %vol per DS-0637 — with the Issue 2 nominal that is up
+   to 1706 nA. Write the measured value to `CAL_ZERO_NA_HI/LO` (FC16, both
+   halves in one frame) to clear `CAL_ZERO_DEFAULT`.
 7. **Resolve the cell sign convention** from the air/N₂ pair — this closes
    `SCHEMATIC-REVIEW.md` M4.
 8. Modbus at 9600 8E1: FC03 of `0x0000`+8; illegal-address and
@@ -690,6 +905,37 @@ phase became blocking: the decision runs inside the existing publish step.
   first-article and bootloader validation; **never RDP 2**, which would remove
   every recovery path from a device whose SWD connector is already inside the
   potting.
+- **`CONFIG_LAYOUT_VERSION` has not been bumped for `cal_zero_na`, and it must
+  be.** Adding the field moved every later member of `o2p_config_t` and grew it
+  from 28 to 32 bytes, so a config record written by an older image is no longer
+  this layout. `src/config_flash.c` exists to catch exactly that — its version
+  gate makes an old record fall back to defaults instead of being
+  mis-interpreted, and the defaults put `HEATER_MAX_DUTY` at 0, which is the
+  only direction a layout change is allowed to fail in. The bump (2 → 3) was
+  **not** made here because `config_flash.c` was outside this change's file
+  boundary. Without it an old record is caught only by its CRC being computed
+  over the wrong length — fail-safe with probability 65535/65536, by accident
+  rather than by design. **Do this before flashing any board that has ever
+  stored a configuration.**
+- **`../DESIGN.md` still documents the config block as 18 registers.**
+  `tools/check_regmap_docs.py` fails the `o2probe` build on this, deliberately:
+  the map is a wire contract and a stale prose copy is how someone writes an
+  `AT+COMMAND` against an address that moved. `DESIGN.md` was outside this
+  change's file boundary, so **the target build does not currently pass from a
+  clean tree** — it needs one heading edit (`0x0030`, 20 registers) and the two
+  `CAL_ZERO_NA` rows. The compile itself is clean; verified by running the build
+  with the checker temporarily narrowed to `FIRMWARE.md`.
+- **There is no `ZERO_TRIGGER` to match `CAL_TRIGGER`.** The air point can be
+  taken by the probe itself because it can be told it is in air; nothing on the
+  probe can tell nitrogen from a dead cell, an unplugged cell, or a collapsed
+  bias, and an automatic zero would happily store any of them. The fitted `I0`
+  is written to `0x0042/0x0043` by whoever ran the bench. If a trigger is ever
+  added it needs a plausibility test the air point does not: "the reading is
+  small" is exactly what a broken cell also looks like.
+- **The zero has no temperature coefficient**, because none has been measured.
+  The 5-temperature N₂ + air campaign in `../O2-CORRECTION-MODEL-BUDGET.md` §7
+  produces one for free; until it is run, `I0` is a constant and the firmware
+  says so rather than extrapolating.
 - **The heater gains are compile-time constants, and they should not be.** The
   plant gain cannot be known until the loop runs on hardware, and once a probe
   is potted there is no SWD to reflash it through — so tuning has to happen

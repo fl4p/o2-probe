@@ -173,7 +173,7 @@ static void test_config_struct_has_no_implicit_padding(void)
     /* The struct is written to flash byte-for-byte and hashed with a CRC.
      * Padding the compiler may leave uninitialised would make that CRC
      * non-deterministic and produce spurious "corrupt config" at boot. */
-    TEST_ASSERT_EQUAL_UINT(sizeof(int32_t) + 9 * sizeof(uint16_t) + 6,
+    TEST_ASSERT_EQUAL_UINT(2 * sizeof(int32_t) + 9 * sizeof(uint16_t) + 6,
                            sizeof(o2p_config_t));
 }
 
@@ -379,6 +379,295 @@ static void test_written_calibration_must_also_be_plausible(void)
     TEST_ASSERT_EQUAL_INT32(0, rm.cfg.cal_air_na);
 }
 
+static void test_zero_point_round_trips_at_a_low_oxygen_point(void)
+{
+    /* A known I0 must come back out as the right fraction where it matters -
+     * the 2 %O2 end, which is where the compost decision lives and where the
+     * zero is the largest term in the budget
+     * (../O2-CORRECTION-MODEL-BUDGET.md S3).
+     *
+     * Truth: I0 = 1000 nA, K = 297821 nA per ln-unit (a nominal 70 uA cell),
+     * so the raw air reading is 71000 nA and the raw current at C = 0.02 is
+     *   1000 + 297821 * ln(1/(1-0.02)) = 1000 + 6016.2 = 7016.2 nA. */
+    o2p_cal_t cal = {0};
+    cal.cal_zero_na = 1000;
+    TEST_ASSERT_TRUE(o2p_calibrate_air(&cal, 71000, 2500));
+
+    float c = 0;
+    TEST_ASSERT_EQUAL(O2P_OK, o2p_fraction_from_current(&cal, 71000, 2500, &c));
+    TEST_ASSERT_FLOAT_WITHIN(0.0005f, O2P_C_AIR, c);
+
+    TEST_ASSERT_EQUAL(O2P_OK, o2p_fraction_from_current(&cal, 7016, 2500, &c));
+    TEST_ASSERT_FLOAT_WITHIN(0.0002f, 0.02f, c);
+
+    /* And the whole point of having the term: ignoring the same 1000 nA -
+     * i.e. what today's air-point-only calibration does - reads 2.33 %O2 for a
+     * true 2.00 %. That 0.33 pp is the error the budget doc's design A
+     * carries at this point, reproduced here rather than asserted in prose. */
+    o2p_cal_t folded = {0};
+    TEST_ASSERT_TRUE(o2p_calibrate_air(&folded, 71000, 2500));
+    TEST_ASSERT_EQUAL(O2P_OK, o2p_fraction_from_current(&folded, 7016, 2500, &c));
+    TEST_ASSERT_FLOAT_WITHIN(0.0005f, 0.0233f, c);
+}
+
+static void test_negative_zero_is_legal_because_the_sign_gate_is_open(void)
+{
+    /* SCHEMATIC-REVIEW.md M4 leaves the SGX polarity convention unresolved, so
+     * a fitted zero may legitimately come out negative. Refusing negatives
+     * would refuse the correct calibration on half the outcomes of that gate. */
+    o2p_cal_t cal = {0};
+    cal.cal_zero_na = -1000;
+    TEST_ASSERT_TRUE(o2p_calibrate_air(&cal, 69000, 2500));
+
+    float c = 0;
+    TEST_ASSERT_EQUAL(O2P_OK, o2p_fraction_from_current(&cal, 69000, 2500, &c));
+    TEST_ASSERT_FLOAT_WITHIN(0.0005f, O2P_C_AIR, c);
+}
+
+static void test_zero_bound_rejects_the_far_tail_not_just_near_misses(void)
+{
+    /* Near misses AND the far tail, in both directions. A bound that only
+     * holds close to its edge is the classic way a guard flips back to PASS on
+     * absurd input - a byte-swapped write is not a near miss, it is 10^7 out. */
+    TEST_ASSERT_TRUE(o2p_cal_zero_plausible(0));
+    TEST_ASSERT_TRUE(o2p_cal_zero_plausible(1194));    /* the DS-0637 limit */
+    TEST_ASSERT_TRUE(o2p_cal_zero_plausible(O2P_ZERO_CAL_ABS_MAX_NA));
+    TEST_ASSERT_TRUE(o2p_cal_zero_plausible(-O2P_ZERO_CAL_ABS_MAX_NA));
+
+    TEST_ASSERT_FALSE(o2p_cal_zero_plausible(O2P_ZERO_CAL_ABS_MAX_NA + 1));
+    TEST_ASSERT_FALSE(o2p_cal_zero_plausible(-O2P_ZERO_CAL_ABS_MAX_NA - 1));
+    TEST_ASSERT_FALSE(o2p_cal_zero_plausible(70000));      /* an air point */
+    TEST_ASSERT_FALSE(o2p_cal_zero_plausible(-70000));
+    TEST_ASSERT_FALSE(o2p_cal_zero_plausible(292552705));  /* swapped halves */
+    TEST_ASSERT_FALSE(o2p_cal_zero_plausible(-77856769));
+    TEST_ASSERT_FALSE(o2p_cal_zero_plausible(INT32_MAX));
+    TEST_ASSERT_FALSE(o2p_cal_zero_plausible(INT32_MIN));
+
+    /* Monotonic in the far tail: sweep outward and the verdict must never
+     * come back. */
+    for (int32_t n = O2P_ZERO_CAL_ABS_MAX_NA + 1; n < 2000000000; n *= 3) {
+        TEST_ASSERT_FALSE(o2p_cal_zero_plausible(n));
+        TEST_ASSERT_FALSE(o2p_cal_zero_plausible(-n));
+    }
+}
+
+static void test_calibrate_air_refuses_an_implausible_stored_zero(void)
+{
+    /* Both paths that can set a calibration must honour both bounds. The air
+     * point is taken NET of the stored zero, so an air reading that passes its
+     * own check still produces a wrong K against a bogus zero. */
+    o2p_cal_t cal = {0};
+    cal.cal_zero_na = 50000;                 /* out of window */
+    TEST_ASSERT_FALSE(o2p_calibrate_air(&cal, 70000, 2500));
+    TEST_ASSERT_EQUAL_INT32(0, cal.cal_air_na);   /* nothing stored */
+}
+
+static void test_zero_at_or_above_the_air_point_is_unevaluable(void)
+{
+    /* Reached only by filling the struct directly - the bounds make it
+     * unreachable through either checked path, which is why o2.h asserts that
+     * at compile time. The conversion refuses it anyway: a non-positive or
+     * tiny K must never produce a number.
+     *
+     * Note what the failure looks like WITHOUT this check. At net = 1 nA,
+     * K = 4.3 nA per ln-unit, so a 7000 nA reading gives exp(-1600) = 0 and
+     * C = 1.0000 exactly: finite, positive, and encoded as 100.00 %vol if the
+     * RANGE test were ever loosened. It is not "obviously" an error. */
+    float c = 12345.0f;
+
+    o2p_cal_t equal = {0};
+    equal.cal_air_na = 70000;
+    equal.cal_zero_na = 70000;               /* net 0 */
+    TEST_ASSERT_EQUAL(O2P_UNEVALUABLE,
+                      o2p_fraction_from_current(&equal, 7000, 2500, &c));
+
+    o2p_cal_t above = {0};
+    above.cal_air_na = 70000;
+    above.cal_zero_na = 90000;               /* net negative */
+    TEST_ASSERT_EQUAL(O2P_UNEVALUABLE,
+                      o2p_fraction_from_current(&above, 7000, 2500, &c));
+
+    o2p_cal_t sliver = {0};
+    sliver.cal_air_na = 70000;
+    sliver.cal_zero_na = 69999;              /* net 1 nA */
+    TEST_ASSERT_EQUAL(O2P_UNEVALUABLE,
+                      o2p_fraction_from_current(&sliver, 7000, 2500, &c));
+
+    /* The other tail: a zero so negative that the net overflows a plain int32
+     * subtraction. That must be a rejection, not undefined behaviour. */
+    o2p_cal_t overflow = {0};
+    overflow.cal_air_na = 70000;
+    overflow.cal_zero_na = INT32_MIN;
+    TEST_ASSERT_EQUAL(O2P_UNEVALUABLE,
+                      o2p_fraction_from_current(&overflow, 7000, 2500, &c));
+
+    /* Nothing above wrote a value. */
+    TEST_ASSERT_EQUAL_FLOAT(12345.0f, c);
+}
+
+static void test_tempco_scales_k_and_not_the_measured_current(void)
+{
+    /* THE point of moving the correction from S to K. With I0 = 0 the two
+     * placements are algebraically identical, so this test says nothing unless
+     * I0 != 0; with I0 != 0 it separates them by 27x its tolerance.
+     *
+     * The comparison is against the placement o2.c used to have - the tempco
+     * applied to the MEASURED CURRENT - carried forward naively once a zero
+     * exists, i.e. C = 1 - exp(-(S/gain - I0)/K). Note it is NOT enough to
+     * subtract the zero and then divide the remainder by the gain: that IS the
+     * new law rearranged, and a "check" written that way passes against either
+     * implementation. Measured, not assumed: the wrong variant was written into
+     * o2.c and this case still passed, which is why the numbers below come from
+     * the naive form.
+     *
+     * Setup, at the ends of the ranges the budget doc says are real:
+     *   I0    = 4000 nA        - a badly aged but still in-window zero
+     *   K     = 297823 nA/ln-unit (a nominal 70 uA cell), air point 74000 nA
+     *   alpha = +2 %/K         - the solid-membrane bound,
+     *                            ../O2-CORRECTION-MODEL-BUDGET.md S5
+     *   read at 60.00 C against a 25.00 C calibration -> gain = 1.70
+     *
+     * A true 2.000 %O2 then presents 14229 nA, and:
+     *   tempco on K (this code):  2.000 %O2, the truth
+     *   tempco on S (the old):    1.457 %O2 - 0.54 pp out, and wrong in the
+     *                             direction that makes an anoxic pile look
+     *                             more anoxic than it is. */
+    o2p_cal_t cal = {0};
+    cal.cal_zero_na = 4000;
+    TEST_ASSERT_TRUE(o2p_calibrate_air(&cal, 74000, 2500));
+    cal.tempco_per_k = 0.02f;
+
+    float c = 0;
+    TEST_ASSERT_EQUAL(O2P_OK, o2p_fraction_from_current(&cal, 14229, 6000, &c));
+    TEST_ASSERT_FLOAT_WITHIN(0.0002f, 0.02f, c);
+
+    /* The air point itself is unmoved at the calibration temperature - the
+     * change must not have shifted the one point that was already right. */
+    TEST_ASSERT_EQUAL(O2P_OK, o2p_fraction_from_current(&cal, 74000, 2500, &c));
+    TEST_ASSERT_FLOAT_WITHIN(0.0005f, O2P_C_AIR, c);
+
+    /* And the invariant behind the whole change, which is sharper than any
+     * tolerance: a reading exactly AT the zero current is 0.00 %vol at EVERY
+     * temperature, because the zero carries no temperature dependence. Under
+     * tempco-on-S it does not even stay non-negative - at 60 C it comes out at
+     * -0.55 %vol, i.e. O2P_RANGE rather than O2P_OK. */
+    for (int16_t t = 1000; t <= 6000; t = (int16_t)(t + 500)) {
+        TEST_ASSERT_EQUAL(O2P_OK, o2p_fraction_from_current(&cal, 4000, t, &c));
+        TEST_ASSERT_FLOAT_WITHIN(1e-6f, 0.0f, c);
+    }
+}
+
+static void test_written_zero_point_must_also_be_plausible(void)
+{
+    /* The register path, with the same swapped-halves failure the air point
+     * has. An intended -1200 nA is 0xFFFF 0xFB50; written the wrong way round
+     * it is 0xFB50 0xFFFF = -77 856 769 nA, which would make the net air point
+     * hugely negative. */
+    uint8_t req[32], rsp[O2P_MB_MAX_ADU];
+    const uint8_t swapped[] = {0x03, 0x10, 0x00, 0x42, 0x00, 0x02, 0x04,
+                               0xFB, 0x50, 0xFF, 0xFF};
+    size_t n = framed(req, swapped, sizeof(swapped));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE, rsp[2]);
+    TEST_ASSERT_EQUAL_INT32(0, rm.cfg.cal_zero_na);
+
+    /* Correctly ordered, the same value is accepted and reads back. */
+    const uint8_t good[] = {0x03, 0x10, 0x00, 0x42, 0x00, 0x02, 0x04,
+                            0xFF, 0xFF, 0xFB, 0x50};
+    n = framed(req, good, sizeof(good));
+    size_t len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_UINT(8, len);
+    TEST_ASSERT_EQUAL_INT32(-1200, rm.cfg.cal_zero_na);
+
+    const uint8_t rd[] = {0x03, 0x03, 0x00, 0x42, 0x00, 0x02};
+    n = framed(req, rd, sizeof(rd));
+    len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_UINT(9, len);
+    TEST_ASSERT_EQUAL_HEX16(0xFFFF, (uint16_t)((rsp[3] << 8) | rsp[4]));
+    TEST_ASSERT_EQUAL_HEX16(0xFB50, (uint16_t)((rsp[5] << 8) | rsp[6]));
+
+    /* An air point written into the zero registers is refused, and leaves the
+     * accepted value standing rather than half-overwriting it. */
+    const uint8_t airpoint[] = {0x03, 0x10, 0x00, 0x42, 0x00, 0x02, 0x04,
+                                0x00, 0x01, 0x11, 0x70};   /* 70000 nA */
+    n = framed(req, airpoint, sizeof(airpoint));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE, rsp[2]);
+    TEST_ASSERT_EQUAL_INT32(-1200, rm.cfg.cal_zero_na);
+
+    /* A single-register FC06 to the HI half alone is refused for the same
+     * reason the air point's is: half a value cannot pass the bound. */
+    const uint8_t half[] = {0x03, 0x06, 0x00, 0x42, 0x00, 0x10};
+    n = framed(req, half, sizeof(half));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE, rsp[2]);
+    TEST_ASSERT_EQUAL_INT32(-1200, rm.cfg.cal_zero_na);
+}
+
+static void test_zero_point_is_covered_by_the_config_crc(void)
+{
+    /* CONFIG_CRC is what a master uses to confirm the probe is running the
+     * configuration it thinks it wrote. A calibration constant outside it
+     * would let the zero change with the CRC unmoved. */
+    uint16_t before = o2p_config_crc(&rm.cfg);
+
+    uint8_t req[32], rsp[O2P_MB_MAX_ADU];
+    const uint8_t w[] = {0x03, 0x10, 0x00, 0x42, 0x00, 0x02, 0x04,
+                         0x00, 0x00, 0x04, 0xB0};      /* +1200 nA */
+    size_t n = framed(req, w, sizeof(w));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_INT32(1200, rm.cfg.cal_zero_na);
+    TEST_ASSERT_NOT_EQUAL(before, o2p_config_crc(&rm.cfg));
+
+    /* And the register reports the live config, not a cached value. */
+    const uint8_t rd[] = {0x03, 0x03, 0x00, 0x3F, 0x00, 0x01};
+    n = framed(req, rd, sizeof(rd));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_HEX16(o2p_config_crc(&rm.cfg),
+                            (uint16_t)((rsp[3] << 8) | rsp[4]));
+}
+
+static void test_config_block_read_covers_the_zero_registers(void)
+{
+    /* The block grew to 20 registers. A read of the whole block must still be
+     * one legal FC03 - the Dragino's AT+COMMAND frames are literal. */
+    uint8_t req[16], rsp[O2P_MB_MAX_ADU];
+    const uint8_t body[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x14};
+    size_t n = framed(req, body, sizeof(body));
+    size_t len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_UINT(3u + 40u + 2u, len);
+    TEST_ASSERT_EQUAL_HEX8(0x03, rsp[1]);
+
+    /* One past the end is still refused. */
+    const uint8_t over[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x15};
+    n = framed(req, over, sizeof(over));
+    len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_UINT(5, len);
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS, rsp[2]);
+}
+
+static void test_monotonic_across_the_whole_range_with_a_zero(void)
+{
+    /* The monotonicity sweep again, with the zero term live and a tempco on
+     * top of it. As the current falls the reported oxygen must fall with it
+     * and never flip back into a plausible mid-range value - including well
+     * below the zero, where the fraction is negative and RANGE. */
+    o2p_cal_t cal = {0};
+    cal.cal_zero_na = 1200;
+    TEST_ASSERT_TRUE(o2p_calibrate_air(&cal, 71200, 2500));
+    cal.tempco_per_k = 0.0025f;
+
+    float prev = 1e9f;
+    for (int32_t na = 120000; na >= -20000; na -= 500) {
+        float c = 0;
+        o2p_status_t st = o2p_fraction_from_current(&cal, na, 5500, &c);
+        TEST_ASSERT_NOT_EQUAL(O2P_UNEVALUABLE, st);
+        TEST_ASSERT_TRUE(c <= prev + 1e-6f);
+        prev = c;
+    }
+    TEST_ASSERT_TRUE(prev < 0.0f);
+}
+
 static void test_implausible_air_point_is_rejected(void)
 {
     /* A calibration taken in nitrogen, or with the cell unplugged, must not
@@ -391,6 +680,42 @@ static void test_implausible_air_point_is_rejected(void)
 }
 
 /* ------------------------------------------------------- validity matrix */
+
+static void test_missing_zero_point_flags_without_invalidating(void)
+{
+    /* The two calibration faults are deliberately different shapes. A missing
+     * AIR point is an unknown scale factor (+/-43 %) and invalidates the
+     * compensated channel; a missing ZERO point is a bounded offset
+     * (DS-0637: < 0.4 %vol O2) and invalidates nothing. Getting this backwards
+     * in either direction is a real failure: invalidating would blank every
+     * probe built so far, and folding it into CAL_DEFAULT would discard good
+     * data for a 0.4 %O2 effect. */
+    TEST_ASSERT_TRUE(o2p_o2_valid(O2P_F_CAL_ZERO_DEFAULT));
+    TEST_ASSERT_TRUE(o2p_o2_comp_valid(O2P_F_CAL_ZERO_DEFAULT));
+    /* It is its own bit, not an alias of CAL_DEFAULT. */
+    TEST_ASSERT_NOT_EQUAL(O2P_F_CAL_DEFAULT, O2P_F_CAL_ZERO_DEFAULT);
+    /* Both together: the air point still rules the compensated channel. */
+    TEST_ASSERT_FALSE(o2p_o2_comp_valid(O2P_F_CAL_DEFAULT | O2P_F_CAL_ZERO_DEFAULT));
+    TEST_ASSERT_TRUE(o2p_o2_valid(O2P_F_CAL_DEFAULT | O2P_F_CAL_ZERO_DEFAULT));
+    /* And it does not rescue a channel something else killed. */
+    TEST_ASSERT_FALSE(o2p_o2_valid(O2P_F_CAL_ZERO_DEFAULT | O2P_F_ADC_RANGE));
+}
+
+static void test_zero_fault_bit_does_not_collide_with_its_neighbours(void)
+{
+    /* The fault word is FULL - all sixteen bits are assigned - so this bit was
+     * taken from the retired EXP_PRESENT. A collision would silently merge two
+     * conditions in the uplink, where the decoder's table is positional. */
+    uint16_t assigned = (uint16_t)(
+        O2P_F_SETTLING | O2P_F_I2C_FAIL_LMP | O2P_F_I2C_FAIL_ADS |
+        O2P_F_I2C_FAIL_TMP | O2P_F_I2C_FAIL_SHT | O2P_F_AFE_CONFIG_MISMATCH |
+        O2P_F_VA_LOW | O2P_F_VIN_LOW | O2P_F_HEATER_RUNAWAY | O2P_F_TEMP_OVER |
+        O2P_F_DEW_SUSPECT | O2P_F_ADC_RANGE | O2P_F_CAL_DEFAULT |
+        O2P_F_CAL_ZERO_DEFAULT | O2P_F_EXP_FAIL | O2P_F_HEATER_DISABLED);
+    TEST_ASSERT_EQUAL_HEX16(0xFFFFu, assigned);   /* all sixteen, no overlap */
+    TEST_ASSERT_EQUAL_HEX16(0x2000u, O2P_F_CAL_ZERO_DEFAULT);
+}
+
 
 static void test_uncalibrated_invalidates_comp_but_not_raw(void)
 {
@@ -515,17 +840,23 @@ static void test_gain_registers_read_back_what_was_written(void)
 
 static void test_config_block_read_covers_the_gains(void)
 {
-    /* The block grew from 16 to 18 registers. A read of all 18 must succeed;
-     * 19 must not, or the boundary rule has quietly stopped being enforced. */
+    /* The block grew from 16 to 18 registers when the PI gains landed, and to
+     * 20 with CAL_ZERO_NA. A read that stops at the gains must still succeed,
+     * and the gains must still be the last two words it returns - appending
+     * the zero registers must not have shifted them.
+     *
+     * The block boundary itself moved with the block, so it is asserted at its
+     * new edge in test_config_block_read_covers_the_zero_registers rather than
+     * here; leaving it at 19 would have made this test pass on a map where the
+     * rule had stopped being enforced at all. */
     uint8_t req[16], rsp[O2P_MB_MAX_ADU];
     const uint8_t all[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x12};
     size_t n = framed(req, all, sizeof(all));
     TEST_ASSERT_EQUAL_UINT(3 + 36 + 2, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
-
-    const uint8_t over[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x13};
-    n = framed(req, over, sizeof(over));
-    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
-    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS, rsp[2]);
+    TEST_ASSERT_EQUAL_UINT16(rm.cfg.heater_kp_x100,
+                             (uint16_t)((rsp[3 + 32] << 8) | rsp[3 + 33]));
+    TEST_ASSERT_EQUAL_UINT16(rm.cfg.heater_ki_x100,
+                             (uint16_t)((rsp[3 + 34] << 8) | rsp[3 + 35]));
 }
 
 static void test_validity_matrix(void)
@@ -1017,9 +1348,21 @@ int main(void)
     RUN_TEST(test_overrange_is_not_clamped_into_plausibility);
     RUN_TEST(test_monotonic_across_the_whole_range);
     RUN_TEST(test_absurd_tempco_cannot_produce_a_number);
+    RUN_TEST(test_zero_point_round_trips_at_a_low_oxygen_point);
+    RUN_TEST(test_negative_zero_is_legal_because_the_sign_gate_is_open);
+    RUN_TEST(test_zero_bound_rejects_the_far_tail_not_just_near_misses);
+    RUN_TEST(test_calibrate_air_refuses_an_implausible_stored_zero);
+    RUN_TEST(test_zero_at_or_above_the_air_point_is_unevaluable);
+    RUN_TEST(test_tempco_scales_k_and_not_the_measured_current);
+    RUN_TEST(test_written_zero_point_must_also_be_plausible);
+    RUN_TEST(test_zero_point_is_covered_by_the_config_crc);
+    RUN_TEST(test_config_block_read_covers_the_zero_registers);
+    RUN_TEST(test_monotonic_across_the_whole_range_with_a_zero);
     RUN_TEST(test_implausible_air_point_is_rejected);
     RUN_TEST(test_written_calibration_must_also_be_plausible);
     RUN_TEST(test_uncalibrated_invalidates_comp_but_not_raw);
+    RUN_TEST(test_missing_zero_point_flags_without_invalidating);
+    RUN_TEST(test_zero_fault_bit_does_not_collide_with_its_neighbours);
     RUN_TEST(test_discovery_alias_refuses_writes);
     RUN_TEST(test_snapshot_reset_clears_every_measurement_channel);
     RUN_TEST(test_heater_gains_are_writable_and_bounded);

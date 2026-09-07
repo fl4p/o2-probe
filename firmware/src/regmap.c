@@ -29,6 +29,11 @@ void o2p_config_defaults(o2p_config_t *cfg)
      * fresh board reports low-confidence data rather than nothing, and says
      * so. */
     cfg->cal_air_na = 0;
+    /* No zero point either. Zero here means "not measured", and it is also
+     * the correct arithmetic identity for that: the law degrades exactly to
+     * the air-point-only behaviour, so an uncalibrated probe is not silently
+     * given a zero correction it never had. */
+    cfg->cal_zero_na = 0;
     cfg->cal_temp_c100 = 2500;
     cfg->tempco_ppm_per_k = 0;            /* SGX publishes no curve for this part */
     cfg->sht_pulse_interval_h = 8u;       /* PLAN.md:312, every 6-12 h */
@@ -92,6 +97,23 @@ bool o2p_config_valid(const o2p_config_t *cfg)
      * HI and LO to be written together in one FC16, because a half-written
      * value cannot pass. */
     if (cfg->cal_air_na != 0 && !o2p_cal_air_plausible(cfg->cal_air_na)) {
+        return false;
+    }
+    /* The zero has no "0 means never set" escape, because 0 is inside its
+     * plausible window already - a cell with no measured zero and a cell whose
+     * measured zero is genuinely 0 nA are the same arithmetic. So this is an
+     * unconditional bound, and it is checked HERE as well as in
+     * o2p_calibrate_air() for the reason the air point exists to remember: a
+     * Modbus write is a second path that can set a calibration, and only the
+     * first one used to check.
+     *
+     * The same swapped-halves failure applies. Writing an intended -1200 nA as
+     * 0xFB50 0xFFFF instead of 0xFFFF 0xFB50 gives -77 856 769 nA, which would
+     * make the net air point negative and, unbounded, would drive every
+     * reading to a saturated 1.0 fraction. Bounding it here also forces HI and
+     * LO to be written together in one FC16, because a half-written value
+     * cannot pass. */
+    if (!o2p_cal_zero_plausible(cfg->cal_zero_na)) {
         return false;
     }
     if (cfg->sht_pulse_interval_h == 0u || cfg->sht_pulse_interval_h > 168u) {
@@ -232,6 +254,8 @@ static uint16_t read_config(const o2p_regmap_t *rm, uint16_t a)
     case O2P_REG_HEATER_KI:       return c->heater_ki_x100;
     case O2P_REG_CAL_AIR_NA_HI:   return (uint16_t)((uint32_t)c->cal_air_na >> 16);
     case O2P_REG_CAL_AIR_NA_LO:   return (uint16_t)((uint32_t)c->cal_air_na & 0xFFFFu);
+    case O2P_REG_CAL_ZERO_NA_HI:  return (uint16_t)((uint32_t)c->cal_zero_na >> 16);
+    case O2P_REG_CAL_ZERO_NA_LO:  return (uint16_t)((uint32_t)c->cal_zero_na & 0xFFFFu);
     case O2P_REG_CAL_TEMP_C100:   return (uint16_t)c->cal_temp_c100;
     case O2P_REG_TEMPCO_PPM_K:    return (uint16_t)c->tempco_ppm_per_k;
     case O2P_REG_SHT_PULSE_H:     return c->sht_pulse_interval_h;
@@ -314,6 +338,13 @@ static uint8_t apply_config_word(o2p_config_t *c, uint16_t a, uint16_t v,
         break;
     case O2P_REG_CAL_AIR_NA_LO:
         c->cal_air_na = (int32_t)(((uint32_t)c->cal_air_na & 0xFFFF0000u) | v);
+        break;
+    case O2P_REG_CAL_ZERO_NA_HI:
+        c->cal_zero_na = (int32_t)(((uint32_t)v << 16) |
+                                   ((uint32_t)c->cal_zero_na & 0xFFFFu));
+        break;
+    case O2P_REG_CAL_ZERO_NA_LO:
+        c->cal_zero_na = (int32_t)(((uint32_t)c->cal_zero_na & 0xFFFF0000u) | v);
         break;
     case O2P_REG_CAL_TEMP_C100:   c->cal_temp_c100 = (int16_t)v; break;
     case O2P_REG_TEMPCO_PPM_K:    c->tempco_ppm_per_k = (int16_t)v; break;

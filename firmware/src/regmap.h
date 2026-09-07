@@ -72,7 +72,7 @@ enum {
 #define O2P_REG_DIAG_BASE  0x0010u
 #define O2P_REG_DIAG_COUNT 18u
 
-/* ---- Config block: 0x0020, 16 registers, read/write, flash-backed ---- */
+/* ---- Config block: 0x0030, 20 registers, read/write, flash-backed ---- */
 enum {
     O2P_REG_SLAVE_ADDR      = 0x0030u,
     O2P_REG_BAUD_CODE       = 0x0031u,
@@ -102,9 +102,27 @@ enum {
      * loop and not tuning it. */
     O2P_REG_HEATER_KP       = 0x0040u, /* proportional gain x100 */
     O2P_REG_HEATER_KI       = 0x0041u, /* integral gain x100, per second */
+    /* Cell zero current, i32 nanoamps, SIGNED, default 0 = no zero point.
+     *
+     * Appended at the end rather than placed beside CAL_AIR_NA_HI/LO at
+     * 0x0037/0x0038 where they belong logically. The map is a published
+     * contract - AT+COMMAND frames on the Dragino name literal addresses - so
+     * nothing already in it may be renumbered to make room. Read them with
+     * CAL_AIR_NA in one FC03 of the whole config block; the addresses are
+     * apart, the meaning is not.
+     *
+     * DS-0637 rates the zero signal "< 0.4 %vol O2" (~1194 nA at a nominal
+     * cell), which is 8-100x every electronic offset in the chain. Folded into
+     * the air point it becomes a slope error across the whole low-O2 range;
+     * subtracted here it is an offset. See ../O2-CORRECTION-MODEL-BUDGET.md.
+     *
+     * Bounded by o2p_cal_zero_plausible() on write, like the air point - an
+     * out-of-window value is refused, not stored. */
+    O2P_REG_CAL_ZERO_NA_HI  = 0x0042u,
+    O2P_REG_CAL_ZERO_NA_LO  = 0x0043u,
 };
 #define O2P_REG_CONFIG_BASE  0x0030u
-#define O2P_REG_CONFIG_COUNT 18u
+#define O2P_REG_CONFIG_COUNT 20u
 
 /* Deliberate magics rather than "write 1". A flash cycle and a recalibration
  * are both destructive and both are one stray bit away in a noisy RS-485
@@ -131,20 +149,31 @@ enum { O2P_PARITY_NONE = 0u, O2P_PARITY_ODD = 1u, O2P_PARITY_EVEN = 2u };
  * of the 4-byte alignment. */
 typedef struct {
     int32_t  cal_air_na;              /* 0 */
-    uint16_t rh_setpoint_x100;        /* 4 */
-    uint16_t dt_max_k_x100;           /* 6 */
-    uint16_t heater_max_duty_x100;    /* 8 */
-    uint16_t heater_pwm_hz;           /* 10 */
-    int16_t  cal_temp_c100;           /* 12 */
-    int16_t  tempco_ppm_per_k;        /* 14 */
-    uint16_t sht_pulse_interval_h;    /* 16 */
-    uint16_t heater_kp_x100;          /* 18 */
-    uint16_t heater_ki_x100;          /* 20 */
-    uint8_t  slave_addr;              /* 22 */
-    uint8_t  baud_code;               /* 23 */
-    uint8_t  parity_code;             /* 24 */
-    uint8_t  reserved[3];             /* 25..27 */
+    int32_t  cal_zero_na;             /* 4 */
+    uint16_t rh_setpoint_x100;        /* 8 */
+    uint16_t dt_max_k_x100;           /* 10 */
+    uint16_t heater_max_duty_x100;    /* 12 */
+    uint16_t heater_pwm_hz;           /* 14 */
+    int16_t  cal_temp_c100;           /* 16 */
+    int16_t  tempco_ppm_per_k;        /* 18 */
+    uint16_t sht_pulse_interval_h;    /* 20 */
+    uint16_t heater_kp_x100;          /* 22 */
+    uint16_t heater_ki_x100;          /* 24 */
+    uint8_t  slave_addr;              /* 26 */
+    uint8_t  baud_code;               /* 27 */
+    uint8_t  parity_code;             /* 28 */
+    uint8_t  reserved[3];             /* 29..31 */
 } o2p_config_t;
+
+/* NOTE for whoever lands this: adding cal_zero_na moved every field after it
+ * and grew the struct from 28 to 32 bytes, so a config record written by an
+ * older image no longer parses as this layout. config_flash.c gates exactly
+ * that with CONFIG_LAYOUT_VERSION, whose comment says a layout change must
+ * bump it so an old record falls back to defaults instead of being
+ * mis-interpreted. That bump (2 -> 3) is required and is NOT in this change:
+ * config_flash.c was outside its file boundary. Without it the old record's
+ * CRC is computed over the wrong length and rejects with probability
+ * 65535/65536 - fail-safe by accident, not by design. Bump it. */
 
 /* Live measurement snapshot, published atomically by the sampler. */
 typedef struct {
