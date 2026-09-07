@@ -47,7 +47,7 @@ void o2p_config_defaults(o2p_config_t *cfg)
      * some assumed atmosphere. It is written together with the air point. */
     cfg->cal_p_hpa = 0u;
     /* Full gas-law dilution, i.e. the behaviour of every firmware before
-     * 2026-09-07. NOT the 0.453 the sweep measured: that is one cell's
+     * 2026-09-07. NOT the 0.402 the sweep measured: that is one cell's
      * coefficient, and a default is a claim about all of them. It is also not
      * the safe value - at pile conditions full correction is worse than none
      * below alpha = 0.545 - which is why DIL_ALPHA is a per-probe bench
@@ -411,59 +411,68 @@ static uint8_t apply_config_word(o2p_config_t *c, uint16_t a, uint16_t v,
     case O2P_REG_CAL_AIR_FRAC:    c->cal_air_frac_x1000 = v; break;
     case O2P_REG_CAL_P_HPA:       c->cal_p_hpa = v; break;
     case O2P_REG_DIL_ALPHA:
-        /* An air point recorded under one alpha does not describe the cell
-         * under another: CAL_AIR_FRAC is C_air * f_eff(alpha_old) and K is
-         * fixed against it, so leaving it alone would rescale every later
-         * reading by the ratio.
-         *
-         * It is RE-REFERENCED rather than discarded, because no information
-         * is missing. f_eff = 1 - alpha*(1-f) inverts exactly:
-         *
-         *     alpha_old * (1 - f) = 1 - air_frac_old / C_AIR
-         *     air_frac_new = C_AIR * (1 - (alpha_new/alpha_old)*(that))
-         *
-         * The air point's humidity and pressure are still in there; only the
-         * cell model changed, and this restates the same measurement under
-         * the new one. Zeroing it instead was the first design and it was
-         * worse in two concrete ways: it forced a recalibration for a change
-         * that needs none, and inside a whole-block FC16 - the ordinary way a
-         * master rewrites configuration - CAL_AIR_FRAC at 0x0043 is applied
-         * BEFORE this register at 0x0045, so a correct block write would have
-         * silently lost the calibration it carried.
-         *
-         * alpha_old = 0 is the one case that cannot be inverted: at alpha 0
-         * the stored fraction is C_AIR whatever the humidity was, and (1-f)
-         * is genuinely gone. That, and any result outside the plausible
-         * window, falls back to zero - "unknown", which holds O2_COMP on its
-         * sentinel until a fresh air point. Refuse, never invent. */
-        if (v != c->dil_alpha_x1000) {
-            uint16_t old_a = c->dil_alpha_x1000;
-            uint16_t frac = c->cal_air_frac_x1000;
-            c->dil_alpha_x1000 = v;
-            if (frac != 0u) {
-                if (old_a == 0u) {
-                    c->cal_air_frac_x1000 = 0u;
-                } else {
-                    float f_old = (float)frac * 1e-5f;
-                    float dil = (1.0f - f_old / O2P_C_AIR) *
-                                ((float)v / (float)old_a);
-                    float f_new = O2P_C_AIR * (1.0f - dil);
-                    float x1000 = f_new * 100000.0f + 0.5f;
-                    if (isfinite(x1000) &&
-                        x1000 >= O2P_CAL_FRAC_MIN * 100000.0f &&
-                        x1000 <= O2P_CAL_FRAC_MAX * 100000.0f) {
-                        c->cal_air_frac_x1000 = (uint16_t)x1000;
-                    } else {
-                        c->cal_air_frac_x1000 = 0u;
-                    }
-                }
-            }
-        }
+        /* The VALUE ONLY. Restating CAL_AIR_FRAC is a TRANSACTION-level
+         * decision, not a per-word one - see reference_air_frac() and its
+         * caller below. Doing it here was wrong in a way a whole-block FC16
+         * makes routine: words are applied in ascending order, so 0x0043
+         * lands before 0x0045, and a master writing the pair it actually
+         * wants had its own correct fraction transformed a second time. */
+        c->dil_alpha_x1000 = v;
         break;
     default:
         return O2P_MB_EX_ILLEGAL_ADDRESS;
     }
     return 0u;
+}
+
+/* Restate a stored air fraction under a new alpha.
+ *
+ * CAL_AIR_FRAC is C_air * f_eff(alpha_old) and K is fixed against it, so a
+ * new alpha would rescale every later reading by the ratio if it were left
+ * alone. f_eff = 1 - alpha*(1-f) inverts exactly, so nothing has to be
+ * re-measured:
+ *
+ *     alpha_old * (1 - f) = 1 - air_frac_old / C_AIR
+ *     air_frac_new        = C_AIR * (1 - (alpha_new/alpha_old) * that)
+ *
+ * WHEN IT REFUSES, which is the half adversarial review found missing. The
+ * stored fraction is %vol x 1000 in a u16, so (1-f) is recovered from a
+ * QUANTISED number and the recovery is then divided by alpha_old. One LSB of
+ * CAL_AIR_FRAC therefore becomes 1e-5/alpha_old of air fraction, and as
+ * alpha_old shrinks that grows without bound: by alpha_old = 0.001 the stored
+ * value rounds to 20946 for EVERY humidity, so (1-f) is not imprecise, it is
+ * gone. Treating only exact zero as loss - which is what this did - turned an
+ * unrecoverable fraction into a plausible wrong one, measured at ~0.12 pp.
+ * The quantity to bound is the ALPHA RATIO: C_AIR cancels out of the error
+ * term, so one LSB in becomes alpha_new/alpha_old LSB out.
+ *
+ * So the floor is on the RECOVERED ERROR rather than on alpha itself, and
+ * refusing means zero: "unknown", which holds O2_COMP on its sentinel until a
+ * fresh air point. Never a number nobody can justify. */
+static void reference_air_frac(o2p_config_t *c, uint16_t alpha_old)
+{
+    uint16_t frac = c->cal_air_frac_x1000;
+    if (frac == 0u) {
+        return;                     /* never calibrated; nothing to restate */
+    }
+    if (alpha_old == 0u ||
+        ((float)c->dil_alpha_x1000 / (float)alpha_old)
+            > O2P_AIR_FRAC_MAX_AMPLIFY) {
+        c->cal_air_frac_x1000 = 0u;
+        return;
+    }
+    float f_old = (float)frac * 1e-5f;
+    float dil = (1.0f - f_old / O2P_C_AIR) *
+                ((float)c->dil_alpha_x1000 / (float)alpha_old);
+    float f_new = O2P_C_AIR * (1.0f - dil);
+    float x100000 = f_new * 100000.0f + 0.5f;
+    if (isfinite(x100000) &&
+        x100000 >= O2P_CAL_FRAC_MIN * 100000.0f &&
+        x100000 <= O2P_CAL_FRAC_MAX * 100000.0f) {
+        c->cal_air_frac_x1000 = (uint16_t)x100000;
+    } else {
+        c->cal_air_frac_x1000 = 0u;
+    }
 }
 
 uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_t *in)
@@ -491,6 +500,11 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
     o2p_config_t trial = rm->cfg;
     bool serial_changed = false;
     bool want_commit = false, want_cal = false, want_pulse = false;
+    /* Transaction scope for the alpha restatement. A master that writes
+     * CAL_AIR_FRAC in the SAME frame has supplied the value it wants, and it
+     * must not then be transformed as though it belonged to the old alpha. */
+    uint16_t alpha_before = trial.dil_alpha_x1000;
+    bool frac_written = false;
 
     for (uint16_t i = 0; i < count; i++) {
         uint16_t a = (uint16_t)(addr + i);
@@ -519,6 +533,9 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
             want_pulse = (v == 1u);
             break;
         default: {
+            if (a == O2P_REG_CAL_AIR_FRAC) {
+                frac_written = true;
+            }
             uint8_t ex = apply_config_word(&trial, a, v, &serial_changed);
             if (ex != 0u) {
                 return ex;
@@ -526,6 +543,12 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
             break;
         }
         }
+    }
+
+    /* AFTER the whole frame, so word order inside it cannot matter, and only
+     * when the master did not state the fraction itself. */
+    if (trial.dil_alpha_x1000 != alpha_before && !frac_written) {
+        reference_air_frac(&trial, alpha_before);
     }
 
     if (!o2p_config_valid(&trial)) {

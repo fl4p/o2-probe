@@ -191,8 +191,10 @@ enum {
      *
      * How much of the water-vapour dilution this cell's current actually
      * shows. The gas law says the correction is P/(P-p_w); the 2026-09-07
-     * sweep says the cell moves only alpha of it, alpha = 0.453 +/- 0.052
-     * (O2-HUMIDITY-CORRECTION.md 15.3), so the factor applied is
+     * sweep says the cell moves only alpha of it, alpha = 0.402 +/- 0.046
+     * (O2-HUMIDITY-CORRECTION.md 15.3, in the concentration domain this
+     * register is applied in - the log-current regression's 0.453 divided by
+     * the cell law's local gain 1.1273), so the factor applied is
      * f_eff = 1 - alpha*(1 - (P-p_w)/P). At 1000 this register changes
      * nothing and the firmware behaves as it did before.
      *

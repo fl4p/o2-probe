@@ -42,18 +42,41 @@ C=[r for r in L if r[0]>PK[0]]
 TC=slope(H,2,4); SE_TC,nb1=jk(H,lambda q:slope(q,2,4),600)
 D=[r for r in L if U(7,13,17)<=r[0]<U(7,15,15)]
 mw=sum(r[3] for r in D)/len(D); dil=-1.0/(P-mw)
+# THE UNITS THE FIRMWARE CONSUMES, which are not the units this regression is
+# natural in. Adversarial review 2026-09-07, confirmed numerically below.
+#
+# The regression gives d ln(I)/d p_w and divides by the ideal concentration
+# slope -1/(P-p_w), so its alpha lives in the LOG-CURRENT domain. The firmware
+# applies alpha to CONCENTRATION and then goes through the cell's log law,
+# C = 1 - exp(-S/K). The two differ by the local gain of that law:
+#
+#     d ln S / d ln C = C / ((1-C) * L(C)),  L(C) = -ln(1-C)
+#
+# which at 20.946 %vol is 1.1273. So alpha_firmware = alpha_log / 1.1273.
+# Reporting 0.453 and writing it into DIL_ALPHA overstates the correction by
+# 12 %, worth about +0.17 pp on a 20.95 %vol reading at pile conditions.
+AMP = O2P_C_AIR_L = None
+def logamp(c):
+    L=-math.log(1-c); return c/((1-c)*L)
+AMP = logamp(0.20946)
+
 def alpha_at(Q,tc):
     Q2=[(r[0],r[3],r[4]-tc*r[2]) for r in Q]
-    return slope(Q2,1,2)/dil
+    return slope(Q2,1,2)/dil/AMP
 A=alpha_at(D,TC); SE_A,nb2=jk(D,lambda q:alpha_at(q,TC),600)
 SE_A=math.sqrt(SE_A**2+((alpha_at(D,TC-SE_TC)-alpha_at(D,TC+SE_TC))/2)**2)
 print("stage 1  tempco = %+.3f +/- %.3f %%/K   (n=%d, dT=%.2f K, p_w range %.2f hPa, %d blocks)"
       %(TC*100,SE_TC*100,len(H),max(r[2] for r in H)-min(r[2] for r in H),max(r[3] for r in H)-min(r[3] for r in H),nb1))
 print("stage 2  alpha  = %+.3f +/- %.3f       (n=%d, dp_w=%.1f hPa, dT=%.2f K, %d blocks)"
       %(A,SE_A,len(D),max(r[3] for r in D)-min(r[3] for r in D),max(r[2] for r in D)-min(r[2] for r in D),nb2))
+print("         (log-current domain %+.3f, / %.4f for the cell law)"%(A*AMP,AMP))
 def tempco_at(Q,alpha):
+    # alpha comes back to the LOG-CURRENT domain here (x AMP), because this
+    # regression is on ln(I): the tempco itself needs no conversion - the
+    # firmware divides the CURRENT by (1 + tempco*dT), the same domain it is
+    # fitted in - but the alpha term being removed from ln(I) does.
     n=len(Q);dl=-1.0/(P-sum(r[3] for r in Q)/n)
-    Q2=[(r[0],r[2],r[4]-alpha*dl*r[3]) for r in Q]
+    Q2=[(r[0],r[2],r[4]-alpha*AMP*dl*r[3]) for r in Q]
     return slope(Q2,1,2)
 TCC=SEC=None
 if len(C)>=8:

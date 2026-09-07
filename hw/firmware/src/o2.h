@@ -145,8 +145,13 @@ typedef struct {
      * The gas law is not in question: water vapour displaces oxygen pro rata,
      * and at 60 C saturated that is a 20 % effect. What the 2026-09-07 sweep
      * measured is that this cell's CURRENT moves only a fraction of it -
-     * alpha = 0.453 +/- 0.052 over an 18.2 hPa isothermal dry-down
-     * (O2-HUMIDITY-CORRECTION.md 15.3). A capillary cell is a diffusion
+     * alpha = 0.402 +/- 0.046 over an 18.2 hPa isothermal dry-down
+     * (O2-HUMIDITY-CORRECTION.md 15.3 and 15.9). That is the value the FIRMWARE consumes. The sweep's regression is on ln(current)
+     * and yields 0.453 in that domain; the firmware applies alpha to
+     * CONCENTRATION and then goes through the cell's log law, whose local gain
+     * d ln S/d ln C = C/((1-C)L(C)) is 1.1273 at 20.946 %vol. 0.453/1.1273 =
+     * 0.402. Flashing the log-domain number would overstate the correction by
+     * 12 %, about +0.17 pp at pile conditions. A capillary cell is a diffusion
      * barrier, not an open port, so its transport partly re-references
      * itself to the wet gas; whatever the mechanism, the number is what the
      * cell does.
@@ -163,8 +168,9 @@ typedef struct {
      * alpha = 1 is the naive full correction and is what this firmware did
      * until 2026-09-07. It is NOT the safe default: at pile conditions the
      * threshold below which full correction is worse than no correction is
-     * alpha = 1/(1+f) = 0.545, and this cell is 1.8 sigma under it (15.4).
-     * The default stays 1.0 all the same, because 0.453 is one cell's
+     * alpha = 1/(1+f) = 0.545 - a threshold derived from f_eff, so it is
+     * already in THIS domain - and this cell is 3.1 sigma under it (15.4).
+     * The default stays 1.0 all the same, because 0.402 is one cell's
      * measured coefficient and a firmware default is a claim about every
      * cell. Write DIL_ALPHA (0x0045) per probe. */
     float   dil_alpha;
@@ -244,7 +250,7 @@ static inline bool o2p_cal_air_plausible(int32_t cell_na)
 
 /* Dilution efficacy, see o2p_cal_t::dil_alpha. 1.0 is the full gas-law
  * correction - the behaviour before 2026-09-07 - and is the default because a
- * measured 0.453 belongs to the cell it was measured on.
+ * measured 0.402 belongs to the cell it was measured on.
  *
  * The ceiling is 2.0 rather than 1.0: a cell that over-responds to vapour is
  * not something anyone has excluded, and a bound that forbids it would be an
@@ -254,6 +260,26 @@ static inline bool o2p_cal_air_plausible(int32_t cell_na)
  * correction becomes a divide by nothing. */
 #define O2P_DIL_ALPHA_DEFAULT 1.0f
 #define O2P_DIL_ALPHA_MAX     2.0f
+
+/* How far one LSB of the stored air fraction may be amplified by a DIL_ALPHA
+ * restatement before it is refused instead.
+ *
+ * THE ARITHMETIC, because the first attempt at this guard bounded the wrong
+ * quantity. CAL_AIR_FRAC is the fraction x 100000, so one LSB is 1e-5. The
+ * inversion is
+ *
+ *     air_frac_new = C_AIR * (1 - (1 - air_frac_old/C_AIR) * a_new/a_old)
+ *
+ * and C_AIR cancels out of the error term exactly: an error d in air_frac_old
+ * lands on air_frac_new as d * (a_new/a_old). So the amplification is the
+ * ALPHA RATIO and nothing else - not 1/a_old, which is what the first version
+ * bounded and which let a_old = 0.001 -> 0.453 through untouched.
+ *
+ * 10 counts is 1e-4 of fraction, which is 0.01 %vol - exactly one LSB of
+ * O2_COMP as published. So the rule is "a restatement may not move the
+ * published number by more than its own resolution", which is the tightest
+ * bound that is still about the measurement rather than about the float. */
+#define O2P_AIR_FRAC_MAX_AMPLIFY 10.0f
 
 /* Water-vapour partial pressure in hPa for `gas`, RH/100 * p_sat(T).
  *

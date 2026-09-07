@@ -2549,7 +2549,7 @@ static void test_a_fresh_reading_is_never_overridden_by_the_cache(void)
 /* --------------------------------------------- dilution efficacy (alpha) --
  *
  * The gas law is not in dispute; how much of it the CELL SHOWS is. The
- * 2026-09-07 sweep put this cell at alpha = 0.453 +/- 0.052 over an 18.2 hPa
+ * 2026-09-07 sweep put this cell at alpha = 0.402 +/- 0.046 over an 18.2 hPa
  * isothermal dry-down, with the tempco identified separately on a disjoint
  * isobaric leg (O2-HUMIDITY-CORRECTION.md 15.3). These tests pin the three
  * things that can go wrong with putting a number like that in firmware:
@@ -2559,14 +2559,26 @@ static void test_a_fresh_reading_is_never_overridden_by_the_cache(void)
  */
 
 /* alpha the sweep measured, and its %vol x 1000 register spelling. */
-#define TEST_ALPHA      0.453f
-#define TEST_ALPHA_X1K  453u
+#define TEST_ALPHA      0.402f
+#define TEST_ALPHA_X1K  402u
 
 /* What a cell with efficacy `alpha` actually puts out in fully aerated air.
  * The gas is diluted by f; the CELL responds as though it were diluted by
  * f_eff. Pressure is held equal to the calibration pressure here - the
- * pressure term has its own oracle above and mixing them would test neither. */
-static int32_t cell_na_alpha(const o2p_cal_t *cal, float t_c, float rh,
+ * pressure term has its own oracle above and mixing them would test neither.
+ *
+ * `k` IS PASSED IN, NOT DERIVED FROM cal->air_frac, and that is the whole
+ * difference between an oracle and a mirror. An earlier version computed
+ * k = cal_air_na / L(cal->air_frac) - but cal->air_frac is produced by
+ * o2p_calibrate_air(), which is under test. If o2p_air_fraction() used the
+ * WRONG fraction, this oracle adopted the same wrong fraction and the round
+ * trip closed anyway. Review 2026-09-07 called it circular on the calibration
+ * side, and it was: the test passed for a year of alphas and would have
+ * passed for the wrong one too.
+ *
+ * Now k comes from the physics, computed once from a first-principles air
+ * point, and the calibration has to AGREE with it rather than define it. */
+static int32_t cell_na_alpha(float k, float t_c, float rh,
                              float p_hpa, float alpha)
 {
     float pw = 0.0f;
@@ -2574,8 +2586,19 @@ static int32_t cell_na_alpha(const o2p_cal_t *cal, float t_c, float rh,
     TEST_ASSERT_EQUAL(O2P_OK, o2p_vapour_pressure_hpa(&g, &pw));
     float f_eff = 1.0f - alpha * (pw / p_hpa);
     float c_app = O2P_C_AIR * f_eff;
-    float k = (float)cal->cal_air_na / logf(1.0f / (1.0f - cal->air_frac));
     return (int32_t)(k * logf(1.0f / (1.0f - c_app)) + 0.5f);
+}
+
+/* The cell constant, from the physics and nothing the firmware computed: a
+ * cell that yields `na` at these conditions with this efficacy. */
+static float k_from_air_point(int32_t na, float t_c, float rh, float p_hpa,
+                              float alpha)
+{
+    float pw = 0.0f;
+    o2p_gas_t g = gas_at(t_c, rh, p_hpa);
+    TEST_ASSERT_EQUAL(O2P_OK, o2p_vapour_pressure_hpa(&g, &pw));
+    float c_app = O2P_C_AIR * (1.0f - alpha * (pw / p_hpa));
+    return (float)na / logf(1.0f / (1.0f - c_app));
 }
 
 static void test_alpha_one_is_the_full_gas_law(void)
@@ -2654,17 +2677,24 @@ static void test_a_cell_with_this_alpha_reads_dry_air_at_any_humidity(void)
      * and largest where it matters. */
     o2p_cal_t cal = { .dil_alpha = TEST_ALPHA };
     o2p_gas_t cal_gas = gas_at(23.4f, 42.3f, 963.0f);
-    /* A self-consistent air point: the current a TEST_ALPHA cell produces at
-     * the calibration conditions, given the K this same calibration derives. */
-    cal.cal_air_na = 70000;
-    cal.air_frac = 0.0f;
+    /* K from the PHYSICS, before the firmware sees anything. Everything below
+     * is then checked against it rather than against itself. */
+    const float k_true = k_from_air_point(70000, 23.4f, 42.3f, 963.0f,
+                                          TEST_ALPHA);
     TEST_ASSERT_TRUE(o2p_calibrate_air(&cal, 70000, 2340, &cal_gas));
     TEST_ASSERT_EQUAL_INT16(2340, cal.cal_temp_c100);
+    /* THE NON-CIRCULAR ASSERTION: the fraction the firmware stored must be
+     * the one the physics says was present, to a part in 10^4. This is what
+     * catches an o2p_air_fraction() that used f instead of f_eff - the case
+     * the old oracle structurally could not see. */
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f,
+                             1.0f - expf(-(float)cal.cal_air_na / k_true),
+                             cal.air_frac);
 
     const float rhs[] = {5.0f, 20.0f, 42.3f, 60.0f, 85.0f, 100.0f};
     for (size_t i = 0; i < sizeof(rhs) / sizeof(rhs[0]); i++) {
         o2p_gas_t g = gas_at(23.4f, rhs[i], 963.0f);
-        int32_t na = cell_na_alpha(&cal, 23.4f, rhs[i], 963.0f, TEST_ALPHA);
+        int32_t na = cell_na_alpha(k_true, 23.4f, rhs[i], 963.0f, TEST_ALPHA);
         float c = 0.0f;
         TEST_ASSERT_EQUAL(O2P_OK,
                           o2p_dry_fraction_from_current(&cal, na, 2340, &g, &c));
@@ -2680,7 +2710,7 @@ static void test_a_cell_with_this_alpha_reads_dry_air_at_any_humidity(void)
     o2p_cal_t naive = cal;
     naive.dil_alpha = 1.0f;
     o2p_gas_t wet = gas_at(23.4f, 100.0f, 963.0f);
-    int32_t na = cell_na_alpha(&cal, 23.4f, 100.0f, 963.0f, TEST_ALPHA);
+    int32_t na = cell_na_alpha(k_true, 23.4f, 100.0f, 963.0f, TEST_ALPHA);
     float over = 0.0f;
     TEST_ASSERT_EQUAL(O2P_OK,
                       o2p_dry_fraction_from_current(&naive, na, 2340, &wet, &over));
@@ -2748,7 +2778,7 @@ static void test_dil_alpha_register_bounds_and_default(void)
 {
     o2p_config_t c;
     o2p_config_defaults(&c);
-    /* The default is the full gas law, NOT the measured 0.453: a firmware
+    /* The default is the full gas law, NOT the measured 0.402: a firmware
      * default is a claim about every cell. */
     TEST_ASSERT_EQUAL_UINT16(1000u, c.dil_alpha_x1000);
     TEST_ASSERT_TRUE(o2p_config_valid(&c));
@@ -2778,16 +2808,16 @@ static void test_writing_dil_alpha_re_references_the_air_fraction(void)
      * C_AIR * f = 0.20682. */
     rm.cfg.cal_air_frac_x1000 = 20682u;
     uint8_t req[16], rsp[O2P_MB_MAX_ADU];
-    const uint8_t body[] = {0x03, 0x06, 0x00, 0x45, 0x01, 0xC5};  /* 453 */
+    const uint8_t body[] = {0x03, 0x06, 0x00, 0x45, 0x01, 0x92};  /* 402 */
     size_t n = framed(req, body, sizeof(body));
     o2p_mb_dispatch(req, n, 3, &handlers, rsp);
     TEST_ASSERT_EQUAL_HEX8(0x06, rsp[1]);            /* echoed, not an exception */
     TEST_ASSERT_EQUAL_UINT16(TEST_ALPHA_X1K, rm.cfg.dil_alpha_x1000);
-    /* 1 - f = 0.012608; at alpha 0.453 that is 0.005712, so the fraction
-     * moves from 0.20682 up towards dry air, to 0.20826. It must move UP -
+    /* 1 - f = 0.012604; at alpha 0.402 that is 0.005067, so the fraction
+     * moves from 0.20682 up towards dry air, to 0.20840. It must move UP -
      * a smaller alpha means the cell showed less of the dilution than the
      * old model credited it with. */
-    TEST_ASSERT_UINT16_WITHIN(2u, 20826u, rm.cfg.cal_air_frac_x1000);
+    TEST_ASSERT_UINT16_WITHIN(2u, 20840u, rm.cfg.cal_air_frac_x1000);
     TEST_ASSERT_TRUE(rm.cfg.cal_air_frac_x1000 > 20682u);
     TEST_ASSERT_TRUE(rm.cfg.cal_air_frac_x1000 < 20946u);   /* never past dry */
     TEST_ASSERT_TRUE(o2p_config_valid(&rm.cfg));
@@ -2843,14 +2873,20 @@ static void test_a_whole_block_write_does_not_lose_the_calibration(void)
     rm.cfg.cal_air_frac_x1000 = 0u;
 
     /* FC16 over ASSUMED_P_HPA, CAL_AIR_FRAC, CAL_P_HPA, DIL_ALPHA -
-     * 0x0042..0x0045, the four registers this change is written with. */
+     * 0x0042..0x0045, the four registers this change is written with.
+     *
+     * A MASTER THAT STATES THE FRACTION IS TAKEN LITERALLY. It said, in one
+     * frame, "the air fraction is 20682 and alpha is 453"; transforming the
+     * number it just supplied would be second-guessing it, and which of the
+     * two it meant would depend on word order inside the frame. The
+     * restatement is for a write that changes alpha ALONE. */
     uint8_t req[32], rsp[O2P_MB_MAX_ADU];
     const uint8_t body[] = {
         0x03, 0x10, 0x00, 0x42, 0x00, 0x04, 0x08,
         0x03, 0xC3,          /* 0x0042 ASSUMED_P_HPA = 963  */
         0x50, 0xCA,          /* 0x0043 CAL_AIR_FRAC  = 20682 */
         0x03, 0xC3,          /* 0x0044 CAL_P_HPA     = 963  */
-        0x01, 0xC5,          /* 0x0045 DIL_ALPHA     = 453  */
+        0x01, 0x92,          /* 0x0045 DIL_ALPHA     = 402  */
     };
     size_t n = framed(req, body, sizeof(body));
     o2p_mb_dispatch(req, n, 3, &handlers, rsp);
@@ -2859,9 +2895,49 @@ static void test_a_whole_block_write_does_not_lose_the_calibration(void)
     TEST_ASSERT_EQUAL_UINT16(963u, rm.cfg.assumed_p_hpa);
     TEST_ASSERT_EQUAL_UINT16(963u, rm.cfg.cal_p_hpa);
     TEST_ASSERT_EQUAL_UINT16(TEST_ALPHA_X1K, rm.cfg.dil_alpha_x1000);
-    /* The calibration survived the frame AND was restated for the new alpha. */
-    TEST_ASSERT_UINT16_WITHIN(2u, 20826u, rm.cfg.cal_air_frac_x1000);
+    /* Verbatim - not zeroed, and not transformed either. */
+    TEST_ASSERT_EQUAL_UINT16(20682u, rm.cfg.cal_air_frac_x1000);
     TEST_ASSERT_TRUE(o2p_config_valid(&rm.cfg));
+
+    /* Whereas alpha ALONE, in its own frame, does restate it - and the two
+     * paths must not be confused, because one word of a frame decides which
+     * applies. */
+    rm.cfg.dil_alpha_x1000 = 1000u;
+    rm.cfg.cal_air_frac_x1000 = 20682u;
+    const uint8_t alone[] = {0x03, 0x06, 0x00, 0x45, 0x01, 0x92};
+    n = framed(req, alone, sizeof(alone));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_UINT16_WITHIN(2u, 20840u, rm.cfg.cal_air_frac_x1000);
+}
+
+static void test_an_unrecoverable_alpha_refuses_rather_than_inventing(void)
+{
+    /* The restatement divides by alpha_old, and CAL_AIR_FRAC is quantised to
+     * 1e-5, so one LSB becomes 1e-5/alpha_old of air fraction. Below about
+     * alpha_old = 0.01 the stored value rounds to dry air for EVERY humidity
+     * and (1-f) is not imprecise, it is GONE.
+     *
+     * The first implementation treated only exact zero as loss and happily
+     * produced a plausible wrong fraction from an unrecoverable one - a
+     * measured ~0.12 pp of permanent calibration error, passing validation
+     * and looking like a calibration. */
+    uint8_t req[16], rsp[O2P_MB_MAX_ADU];
+    const uint8_t to_402[] = {0x03, 0x06, 0x00, 0x45, 0x01, 0x92};
+
+    rm.cfg.dil_alpha_x1000 = 1u;               /* alpha_old = 0.001 */
+    rm.cfg.cal_air_frac_x1000 = 20946u;        /* what ANY humidity rounds to */
+    size_t n = framed(req, to_402, sizeof(to_402));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_UINT16(TEST_ALPHA_X1K, rm.cfg.dil_alpha_x1000);
+    TEST_ASSERT_EQUAL_UINT16(0u, rm.cfg.cal_air_frac_x1000);
+
+    /* alpha_old = 1.000 is recoverable and must still work, or the guard has
+     * eaten the ordinary path it exists to protect. */
+    rm.cfg.dil_alpha_x1000 = 1000u;
+    rm.cfg.cal_air_frac_x1000 = 20682u;
+    n = framed(req, to_402, sizeof(to_402));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_UINT16_WITHIN(2u, 20840u, rm.cfg.cal_air_frac_x1000);
 }
 
 int main(void)
@@ -2906,6 +2982,7 @@ int main(void)
     RUN_TEST(test_dil_alpha_register_bounds_and_default);
     RUN_TEST(test_writing_dil_alpha_re_references_the_air_fraction);
     RUN_TEST(test_a_whole_block_write_does_not_lose_the_calibration);
+    RUN_TEST(test_an_unrecoverable_alpha_refuses_rather_than_inventing);
     RUN_TEST(test_v4_migration_keeps_the_air_point);
     RUN_TEST(test_clip_detection);
     RUN_TEST(test_fault_latch_preserves_a_one_cycle_event);
