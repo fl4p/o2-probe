@@ -1238,3 +1238,166 @@ That the old asymmetry was entirely omitted-temperature bias is not.
 4. The experiment that would settle it is unchanged and is now the only thing
    worth doing: **an isobaric temperature sweep**, plus a reference oxygen
    measurement so "the gas was air" stops being an assumption.
+
+## 15. THE SWEEP THAT SEPARATES THE TWO COEFFICIENTS (2026-09-07, measured)
+
+§14 ended by naming the one experiment worth doing: an isobaric temperature
+sweep. Fab ran it the same afternoon - jar heated from below, with a ~1 minute
+burst from a 100 °C heat gun at 15:20Z to speed the ramp. It worked, and it is
+the first leg in this file where the temperature coefficient is identified
+rather than inferred through its correlation with p_w.
+
+Two things had to be settled first.
+
+### 15.1 The series was split across two device names, and is now one
+
+The probe was on the cp2102 bench lead until 10:52:59Z and on the LoRa node's
+RS-485 bus from 11:11:32Z. Same physical probe, same `probe=3`, two `device`
+labels, zero overlapping samples - `platformio.ini:127` explains why both cannot
+run at once: the bench lead and the ESP32's GP1 drive the same bridge USART2
+pads.
+
+The bench history was relabeled to the node's identity and re-imported, then the
+old copy was deleted:
+
+    device=farm-node-01, dev_eui=34b7dafffe5b84e0, probe=3   (source=cp2102 dropped)
+    14513 samples, 2026-09-06 11:05:13Z .. continuous
+
+The raw pre-merge export is kept at `bench-logs/o2-probe-bench-raw-backup-2026-09-07.ndjson.gz`
+(453956 samples, 31 metrics). The `source` label had to go: a label that differs
+between the halves makes Grafana draw two series, which is the thing the merge
+was for.
+
+### 15.2 The jar is COVERED, NOT SEALED - and that is load-bearing
+
+Heating a SEALED jar raises total pressure in proportion to absolute
+temperature, so pO2 rises with it and a partial-pressure cell reporting
++1/T = +0.32 %/K would simply be CORRECT. The measured slope over the heating
+leg is +0.356 %/K by endpoints. Those two numbers agree to 0.03 %/K, so the
+whole interpretation of this experiment turned on the vessel's venting state -
+the thing `rh-step-markers-2026-09-07.csv` records as "VENTING TO CONFIRM" and
+which had never been confirmed.
+
+Fab, 2026-09-07: the jar is covered, not sealed. Total pressure therefore stays
+ambient, pO2 is constant through the heat, and NONE of the slope is the gas law.
+
+Had it been sealed, alpha would have come out at 0.579 - above the 0.545
+threshold - and the flash decision would have reversed back. One word of vessel
+description moved the recommendation.
+
+### 15.3 The two-stage fit
+
+The legs are disjoint, so neither coefficient is fitted through the other's
+variation. `bench-logs/rh-tempco-fit/sweep_fit.py`:
+
+    stage 1  ISOBARIC heat      15:26-16:20Z  n=32  dT 7.50 K  p_w flat to 1.02 hPa
+             tempco = +0.309 +/- 0.015 %/K
+    stage 2  ISOTHERMAL dry-down 13:17-15:15Z  n=28  dp_w -18.2 hPa  dT 1.00 K
+             alpha  = +0.441 +/- 0.054   (tempco held at stage 1; the propagated
+                                          contribution is only +/-0.008)
+
+Flatness over the plotted window (`bench-logs/o2-sweep-2026-09-07.png`):
+
+    published, uncorrected        sd 0.119 pp
+    full dilution, alpha=1.00     sd 0.107 pp
+    dilution only, alpha=0.44     sd 0.109 pp
+    dilution + tempco             sd 0.023 pp
+
+Five times flatter than uncorrected, and the best any model in this file has
+managed. The uncorrected trace runs 21.14 -> 21.94 %vol across the sweep; the
+two-term model holds 20.95 +/- 0.02 through an 18 hPa humidity collapse AND a
+12 K heat.
+
+### 15.4 The decision does not move
+
+alpha = 0.441 +/- 0.054 sits 2.0 sigma BELOW the 0.545 threshold at pile
+conditions (P=963, p_w=158 hPa, f=0.8359):
+
+    alpha 0.441   uncorrected  -7.20 %    full correction +11.01 %  -> none
+    alpha 0.385   uncorrected  -6.32 %    full correction +12.07 %  -> none
+    alpha 0.493   uncorrected  -8.09 %    full correction  +9.95 %  -> none
+
+Full correction is the worse option across the whole +/-1 sigma band and at
+every pile temperature checked (35, 45, 55 °C). §14's verdict stands: do NOT
+flash the full dry-basis correction, do NOT rewrite the historical samples.
+What has changed is that it now rests on an identified fit instead of a
+collinear one.
+
+### 15.5 What this retracts, and what it does not support
+
+- **§13's +0.220 %/K was an artefact of collinearity.** Slicing the record by
+  conditioning shows +0.22 appears ONLY where T and p_w are inseparable:
+
+        slice                       VIF    tempco %/K
+        09-06 hot leg 16:00-17:10   1.3      +0.076
+        overnight 09-07             1.1      +0.133
+        A desiccant                 2.1      -0.012
+        whole 24 h record           6.4      +0.035
+        N NaCl warming              9.1      +0.233
+        09-06 cooldown              9.7      +0.218
+
+- **The Alphasense corroboration is withdrawn.** §14.5 offered AAN005/AAN009's
+  +0.17..+0.20 %/K as the first external support for +0.220. The identified
+  value is +0.309 +/- 0.015 %/K, which agrees with neither Alphasense nor the
+  capillary-diffusion expectation I ~ T^0.75 (0.75/T = +0.240 %/K). We are
+  1.3-1.8x high against both. That is now a real discrepancy to chase rather
+  than a coincidence to lean on.
+
+- **No lag or rate-dependence claim survives.** A tau scan on the heating leg
+  appeared to find the cell leading the SHT45 by 300 s. Fab, 2026-09-07: the
+  sampling rate is too slow to display a lag. It is - the uplink cadence is
+  30 s to 5 min, 300 s is one sample interval, and the fitted window shrinks as
+  tau grows. The fast/slow tempco spread (0.36 vs 0.24 %/K) rests on a 7-point
+  window and is not resolvable either. Neither is in the model.
+
+### 15.6 Open, in order
+
+1. **The cooldown leg.** The same 12 K traversed downward with p_w flat is the
+   tempco measured in reverse. If +0.309 %/K reproduces, the number stops
+   depending on one leg and one direction. This is free - it only needs the
+   logging left alone.
+2. **The 0.13 pp step at the heat gun.** The corrected trace drops 20.93 ->
+   20.80 %vol at 15:20Z and does not return. The model explains the ramp and not
+   the step. Local wall heating the SHT45 saw and the cell did not, or desiccant
+   outgassing that settled to a new equilibrium.
+3. **Resolving the transient needs the cp2102 at 5 s**, not the LoRa link. See
+   §15.7 - 15 s is not available over the air, and the node gives up the bus to
+   the bench lead anyway.
+4. **`ASSUMED_P_HPA` (0x0042) should be written to 963**, still. Unchanged from
+   §14.7, still a register write rather than a reflash.
+5. **A reference oxygen measurement.** "The gas was air" remains an assumption
+   under every number here, and the cell's own consumption (§14.5, 0.023 mL/h,
+   ~0.1 %vol in a 115 mL headspace) is the same size as the effects being fitted.
+
+### 15.7 Why the cadence is 30 s and not faster
+
+The poll asks two questions (`node-prototype/src/poll.h`): the 8-register
+primary block and the 21-register diagnostic block, replies 21 B and 47 B of
+Modbus ADU. Application payload 8 + (2+21) + (2+47) = 80 B, PHY 93 B. Airtime
+and the EU868 1 % duty-cycle floor:
+
+    SF7 (DR5)   164.1 ms   floor 16.4 s
+    SF8 (DR4)   287.2 ms   floor 28.7 s
+    SF9 (DR3)   513.0 ms   floor 51.3 s
+
+15 s is illegal even at SF7 (1.09 %). 20 s looked fine at SF7 (0.82 %) until
+ChirpStack's link metrics were actually queried - VictoriaMetrics stores no DR,
+RSSI or SNR, which is why this needed a gRPC call and is worth fixing:
+
+    rx_packets_per_dr, 6 h    128 uplinks DR5 (SF7),  38 DR3 (SF9)
+    most recent hour           24 DR5, 14 DR3   -> 37 % at SF9
+    gw_rssi -78 dBm, gw_snr +12.3 dB, 4 x OTAA errors
+
+The link is strong enough for SF7; the DR3 traffic is the node restarting at the
+region default after each join and ADR walking back up, so every reboot buys a
+stretch of SF9. Blended over the observed mix the mean airtime is 244 ms, which
+makes 20 s a 1.22 % duty cycle - over the limit, enforced by the stack deferring
+frames, so the cadence would go ragged rather than fast. Ragged gaps inside a
+thermal transient are indistinguishable from sensor behaviour.
+
+30 s is 0.81 % under the observed mix and 0.55 % at DR5. It stays.
+
+To go faster over the air the POLL must shrink, not the interval: dropping the
+diagnostic block leaves 31 B (44 B PHY, 92.4 ms, 9.2 s floor) and the primary
+block still carries O2_RAW, T_TIP, T_CHAMBER, RH_CHAMBER, HEATER_DUTY, FAULTS
+and SETTLE_S - every input this fit reads. Only supervision is lost.
