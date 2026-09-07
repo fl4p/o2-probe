@@ -243,7 +243,7 @@ an air-point calibration is never bridged, because a permanent constant gets a
 humidity measured in its own cycle or none at all. Full argument, bench evidence
 and test vectors: `O2-HUMIDITY-CORRECTION.md`.
 
-### Diagnostic block, `0x0010`, 21 registers, read-only
+### Diagnostic block, `0x0010`, 24 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
 0.01 K), `PRESSURE_HPA` (0 - the BMP390 option is deleted), `UPTIME_HI/LO`, `FW_VERSION`,
@@ -267,6 +267,17 @@ fault word carries a bounded latch so such an event survives to the next poll
 latch self-clears, so the rate would be lost without a counter. A probe that
 glitches once and one that glitches hourly read identically between events
 otherwise.
+
+`WE_BUF_MV` (`0x0025`), `RE_BUF_MV` (`0x0026`) and `CELL_BIAS_MV` (`0x0027`) are
+the buffered cell electrodes on ADS1119 AIN2/AIN3 and the bias between them
+(`WE - RE`, i16, `0x8000` invalid). Specified here from the start and not
+implemented until 2026-09-08: AIN3 was meanwhile sampled and published as
+`vin_mv` until `e31d5ac` removed it. Cell bias is what fails silently — the
+working point walks off target while every other register stays plausible — and
+it is the only channel that distinguishes a cell that changed from a measurement
+that changed. Sampled after the oxygen channel so that adding it cannot alter
+which channel precedes AIN0.
+
 
 ### Config block, `0x0030`, 22 registers, read/write, flash-backed
 

@@ -610,7 +610,7 @@ fault, not like anoxia.
 convention as an open release gate, and the bench air-versus-nitrogen pair is
 what settles it. Firmware that took an absolute value would hide the answer.
 
-### Diagnostic block — `0x0010`, 21 registers, read-only
+### Diagnostic block — `0x0010`, 24 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
 0.01 K), `PRESSURE_HPA` (0 — BMP390 is DNP), `UPTIME_HI/LO`, `FW_VERSION`,
@@ -643,6 +643,19 @@ then two that exist because supervision here is *sampled*, not continuous:
   such an event is *seen*; this is how often. A rate is what separates a one-off
   from a failing part, and since the latch self-clears the count would otherwise
   be lost.
+
+- `WE_BUF_MV` `0x0025`, `RE_BUF_MV` `0x0026`, `CELL_BIAS_MV` `0x0027` — the
+  buffered cell electrodes on ADS1119 AIN2/AIN3, in millivolts at the pin, and
+  the bias between them (`WE - RE`, i16, `0x8000` invalid). This is the
+  differential cell-bias telemetry DESIGN.md has always specified and nothing
+  implemented. It is the channel that separates *the cell changed* from *the
+  measurement changed*: a potentiostat whose counter electrode runs out of
+  headroom walks its working point off target while every other register stays
+  plausible. Sampled **after** the oxygen channel, deliberately — putting them
+  before it would change which channel the mux leaves when it converts AIN0,
+  and that is the leading suspect for the 0.51 % step in `O2_RAW` across the
+  2026-09-07 install. Telemetry that exists to explain a number must not be
+  able to move it.
 
 ### Config block — `0x0030`, 22 registers, read/write, flash-backed
 

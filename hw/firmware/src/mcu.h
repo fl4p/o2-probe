@@ -24,6 +24,12 @@
  */
 #define O2P_SYSCLK_HZ 16000000u
 
+/* RESET_CAUSE when the flags could not be recovered: an application running
+ * under a bootloader that clears RCC_CSR without parking it. Not a bitfield -
+ * no RCC_CSR flag lives above bit 7 of the shifted value - so it cannot be
+ * mistaken for a real combination. */
+#define O2P_RESET_CAUSE_UNKNOWN 0xFFFFu
+
 void o2p_clock_init(void);
 
 /* Free-running millisecond counter from SysTick. Wraps after 49 days; every

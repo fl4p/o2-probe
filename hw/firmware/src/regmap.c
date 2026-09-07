@@ -187,6 +187,9 @@ void o2p_snapshot_reset(o2p_snapshot_t *s)
     s->dew_margin_x100 = O2P_I16_INVALID;
     s->t_die = O2P_I16_INVALID;
     s->exp_data = O2P_U16_INVALID;
+    s->we_buf_mv = O2P_U16_INVALID;
+    s->re_buf_mv = O2P_U16_INVALID;
+    s->cell_bias_mv = O2P_I16_INVALID;
     /* 0xFFFF, not 0. Zero is a perfectly possible real reading for every one
      * of these - 0 mV on a collapsed rail, an all-zero LMP91000 register image
      * after a reset - so publishing zero for "not measured" is exactly the
@@ -283,6 +286,9 @@ static uint16_t read_diag(const o2p_snapshot_t *s, uint16_t a)
     case O2P_REG_T_DIE:         return (uint16_t)s->t_die;
     case O2P_REG_FAULTS_EVER:   return s->faults_ever;
     case O2P_REG_ADS_FAIL_COUNT: return s->ads_fail_count;
+    case O2P_REG_WE_BUF_MV:    return s->we_buf_mv;
+    case O2P_REG_RE_BUF_MV:    return s->re_buf_mv;
+    case O2P_REG_CELL_BIAS_MV: return (uint16_t)s->cell_bias_mv;
     case O2P_REG_SAMPLE_SEQ:    return s->sample_seq;
     /* Named explicitly rather than left to the default. This arm used to
      * return sample_seq for anything unmatched, so every register added to

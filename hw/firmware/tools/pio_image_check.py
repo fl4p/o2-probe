@@ -19,6 +19,7 @@ look like a bridge that has stopped answering.
 """
 import os
 import re
+import shutil
 import struct
 import subprocess
 
@@ -75,6 +76,53 @@ def check_mailbox(env, elf):
         print("image check: SWD mailbox at 0x%08X" % got)
 
 
+def check_shared_layout(env, target):
+    """g_o2p_bootreq must sit at the BASE of SHARED in every image.
+
+    The bootloader is flashed over SWD before potting and is never updated by
+    the RS-485/BLE path, so a probe in the field pairs a v0 loader with whatever
+    application it is given. Both agree on the boot request only because they
+    agree on its ADDRESS, and within one input section the linker orders objects
+    as it pleases: adding g_o2p_bootinfo to `.shared` silently moved the request
+    to +8 in the application while the deployed loader still read the base. The
+    old loader would then read boot-info as a request, and a word that happened
+    to match O2P_BOOTREQ_STAY would strand a potted probe in the bootloader.
+
+    A _Static_assert cannot see link order, so the check has to be here.
+    """
+    elf = str(target[0]).replace(".bin", ".elf")
+    if not os.path.exists(elf):
+        return
+    nm = shutil.which("arm-none-eabi-nm") or shutil.which("nm")
+    if nm is None:
+        print("shared layout: no nm on PATH - NOT CHECKED")
+        return
+    try:
+        out = subprocess.run([nm, "-n", elf], capture_output=True, text=True,
+                             check=True).stdout
+    except (subprocess.CalledProcessError, OSError) as exc:
+        print("*** could not read symbols from %s: %s" % (elf, exc))
+        env.Exit(1)
+        return
+    syms = {}
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) == 3 and parts[2].startswith("g_o2p_boot"):
+            syms[parts[2]] = int(parts[0], 16)
+    if "g_o2p_bootreq" not in syms:
+        return                      # image does not use the shared region
+    if syms["g_o2p_bootreq"] != SRAM_BASE:
+        print("*** g_o2p_bootreq is at 0x%08X, not the base of SHARED "
+              "(0x%08X). A v0 bootloader reads the boot request at the base; "
+              "moving it strands the probe. Fix the input-section order in "
+              "ldscript/*.ld." % (syms["g_o2p_bootreq"], SRAM_BASE))
+        env.Exit(1)
+        return
+    extra = ", ".join("%s @ 0x%08X" % (k, v) for k, v in sorted(syms.items(),
+                                                               key=lambda kv: kv[1]))
+    print("shared layout: %s" % extra)
+
+
 def check_image(source, target, env):  # noqa: ARG001 - SCons signature
     path = str(target[0])
     with open(path, "rb") as f:
@@ -103,6 +151,8 @@ def check_image(source, target, env):  # noqa: ARG001 - SCons signature
         env.Exit(1)
     print("image check: %s MSP 0x%08X, reset 0x%08X, inside 0x%08X+%dK"
           % (name, msp, reset, base, size // 1024))
+    check_shared_layout(env, target)
+
     if name == "bridge":
         check_mailbox(env, str(source[0]))
 

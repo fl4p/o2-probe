@@ -66,6 +66,7 @@ static o2p_heater_state_t g_heat;
  * lowest noise, because 0.1 %vol is about 30 codes. */
 #define O2P_N_VREF 2u
 #define O2P_N_O2   8u
+#define O2P_N_CELL 4u
 
 static o2p_regmap_t g_rm;
 static o2p_cal_t g_cal;
@@ -155,6 +156,8 @@ typedef enum {
     PH_TEMPS,      /* TMP117 + SHT45 */
     PH_VREF,       /* ADS1119 AIN1 against the INTERNAL reference */
     PH_O2,         /* ADS1119 AIN0, O2P_N_O2 conversions */
+    PH_WE,         /* ADS1119 AIN2, WE_BUF */
+    PH_RE,         /* ADS1119 AIN3, RE_BUF */
     PH_PUBLISH,
 } phase_t;
 
@@ -463,6 +466,49 @@ static o2p_gas_t cycle_gas(const o2p_snapshot_t *s)
     return g;
 }
 
+/* WE_BUF and RE_BUF, the buffered cell electrodes on AIN2/AIN3.
+ *
+ * Buffered straight to the pin - no divider - so the code converts to
+ * millivolts and stops. Referenced to the external VREF, the same reference
+ * the oxygen channel uses, because the point of the pair is the DIFFERENCE and
+ * a difference across two references measures the references.
+ *
+ * SAMPLED AFTER PH_O2 ON PURPOSE. Putting them before it would change which
+ * channel the mux leaves when it converts AIN0, and a channel change in front
+ * of the oxygen conversion is the leading suspect for the 0.51 % step in
+ * O2_RAW across the 2026-09-07 install. Ordering them behind O2 makes this
+ * telemetry unable to move the number it exists to explain.
+ */
+static void finish_electrode(o2p_snapshot_t *s, bool working)
+{
+    if ((g_cyc.faults & O2P_FAULTS_ADS_NO_CONVERSION) != 0u) {
+        return;
+    }
+    int32_t code = g_acc / (int32_t)O2P_N_CELL;
+    int32_t uv = o2p_ads1119_code_to_uv(code, g_cyc.vref_mv);
+    int32_t mv = uv / 1000;
+    if (mv < 0) {
+        mv = 0;
+    }
+    if (mv > 65534) {
+        mv = 65534;
+    }
+    if (working) {
+        s->we_buf_mv = (uint16_t)mv;
+    } else {
+        s->re_buf_mv = (uint16_t)mv;
+        /* Both halves present, and neither is the invalid sentinel, or the
+         * bias stays invalid. A difference computed from one real reading and
+         * one 0xFFFF is a number, which is the problem. */
+        if (s->we_buf_mv != O2P_U16_INVALID) {
+            int32_t bias = (int32_t)s->we_buf_mv - mv;
+            if (bias > 32767) { bias = 32767; }
+            if (bias < -32767) { bias = -32767; }
+            s->cell_bias_mv = (int16_t)bias;
+        }
+    }
+}
+
 static void finish_o2(o2p_snapshot_t *s)
 {
     if ((g_cyc.faults & O2P_FAULTS_ADS_NO_CONVERSION) != 0u) {
@@ -697,6 +743,20 @@ static bool sampler_step(void)
     case PH_O2:
         if (accumulate(O2P_ADS_MUX_AIN0_AGND, O2P_ADS_DR_20SPS, true, O2P_N_O2)) {
             finish_o2(s);
+            g_phase = PH_WE; g_sub = 0; g_acc = 0; g_acc_clipped = false;
+        }
+        break;
+
+    case PH_WE:
+        if (accumulate(O2P_ADS_MUX_AIN2_AGND, O2P_ADS_DR_90SPS, true, O2P_N_CELL)) {
+            finish_electrode(s, true);
+            g_phase = PH_RE; g_sub = 0; g_acc = 0; g_acc_clipped = false;
+        }
+        break;
+
+    case PH_RE:
+        if (accumulate(O2P_ADS_MUX_AIN3_AGND, O2P_ADS_DR_90SPS, true, O2P_N_CELL)) {
+            finish_electrode(s, false);
             g_phase = PH_PUBLISH;
         }
         break;

@@ -75,6 +75,8 @@ SECTIONS
     . = ALIGN(4);
     KEEP(*(.shared))
     . = ALIGN(4);
+    KEEP(*(.shared.info))
+    . = ALIGN(4);
   } >SHARED
 
   /* The startup code into "FLASH" Rom type memory */

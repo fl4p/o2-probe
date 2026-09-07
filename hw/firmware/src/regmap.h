@@ -115,9 +115,25 @@ enum {
      * rate is what separates a one-off from a failing part, and the latch
      * self-clears, so without this the count is lost. */
     O2P_REG_ADS_FAIL_COUNT  = 0x0024u,
+    /* The buffered cell electrodes, and the bias between them.
+     *
+     * AIN2/AIN3 carry WE_BUF and RE_BUF. DESIGN.md specified differential
+     * cell-bias telemetry on them and nothing ever implemented it; AIN3 was
+     * meanwhile being sampled and published as vin_mv, which e31d5ac removed.
+     * So the probe has never reported the one quantity that separates "the
+     * cell changed" from "the measurement changed" - the question a 0.51 %
+     * step in O2_RAW on 2026-09-07 could not be answered from telemetry.
+     *
+     * CELL_BIAS is WE - RE, the potentiostat's actual working point. It is
+     * what goes wrong silently: if the counter electrode runs out of headroom
+     * the bias walks off its target while every other register stays
+     * plausible. 0x8000 invalid, as everywhere else. */
+    O2P_REG_WE_BUF_MV       = 0x0025u, /* u16 mV at the pin, 0xFFFF invalid */
+    O2P_REG_RE_BUF_MV       = 0x0026u, /* u16 mV at the pin, 0xFFFF invalid */
+    O2P_REG_CELL_BIAS_MV    = 0x0027u, /* i16 mV, WE - RE, 0x8000 invalid */
 };
 #define O2P_REG_DIAG_BASE  0x0010u
-#define O2P_REG_DIAG_COUNT 21u
+#define O2P_REG_DIAG_COUNT 24u
 
 /* ---- Config block: 0x0030, 21 registers, read/write, flash-backed ---- */
 enum {
@@ -296,6 +312,9 @@ typedef struct {
     int16_t  t_die;
     uint16_t faults_ever;
     uint16_t ads_fail_count;
+    uint16_t we_buf_mv;
+    uint16_t re_buf_mv;
+    int16_t  cell_bias_mv;
 } o2p_snapshot_t;
 
 /* Reset every channel to its invalid sentinel. The sampler calls this at the
