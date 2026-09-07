@@ -111,22 +111,64 @@ can be cut only by disabling its receiver (RE = VCC), which deafens the probe to
 
 ## Recommendations, in order of value
 
-1. **Decide the heater duty policy.** It is the whole budget. If dew control needs more
+> **UPDATED 2026-09-07: the heater IS needed** (Fab, this session). That settles the
+> ranking below and demotes every MCU-side item on this page. With the heater running at
+> a plausible duty, the entire firmware programme -- clock-down, Stop 1, the RE/DE
+> standby split -- is worth **under 7 %** (28.4 -> 30.3 d at 12 % duty), because 1500 uA
+> at 3V3 is 8.8 mW against a 123 mW heater. Treat items 2-4 as over-optimisation until
+> item 1 is measured. See "What the heater actually costs" immediately below.
+
+### What the heater actually costs, and what it demands of the battery
+
+What a 10 Ah pack (120 Wh gross, 96 Wh usable) buys:
+
+| heater duty | total | days |
+|---|---|---|
+| 2 % | 37.7 mW | 106 |
+| 4 % | 58.3 mW | 69 |
+| 8 % | 99.5 mW | 40 |
+| 12 % | 140.6 mW | 28 |
+| 20 % | 223 mW | 18 |
+| 100 % | 1046 mW | 3.8 |
+
+Inverted -- the most duty a 10 Ah pack sustains for a given run length:
+
+| target | budget | max heater duty |
+|---|---|---|
+| 42 d (6 weeks) | 95 mW | **7.6 %** |
+| 70 d (10 weeks) | 57 mW | **3.9 %** |
+| 120 d | 33 mW | **1.6 %** |
+
+And PILE-THERMAL-TEST.md §2 maps that duty to the one unmeasured physical quantity,
+theta, the tip-to-medium thermal resistance: 98 K/W (bench, still air) -> 3.0 % duty and
+an 8 Ah pack; 50 -> 5.9 % and 10 Ah; 20 -> 14.7 % and 15 Ah; 10 -> 29.4 % and 20 Ah.
+**A 10 Ah pack implicitly assumes theta ~ 50 K/W**, i.e. that wet compost couples no
+better than half of still air. Still air is the *best* case for the heater -- worst
+coupling, least power for a given rise -- so the real value is expected to be lower and
+the duty higher. Nothing measured supports 50 yet.
+
+1. **Measure theta in the pile.** PILE-THERMAL-TEST.md, about an hour, executable today
+   via `firmware/tools/o2p_thermal.py` over the Modbus cable, method already proven on
+   the bench 2026-09-04. It is worth **up to 4x on the pack size**, against <7 % for
+   everything else on this page. This is the only lever that matters while the heater
+   runs.
+2. **Decide the heater duty policy.** It is the whole budget. If dew control needs more
    than ~12 % duty, a 10 Ah battery is the wrong battery, not the firmware's problem.
-2. **Clock down to Range 2 / 2 MHz, or Low-power run.** The cheapest large win: one
-   constant (`mcu.h:25`), one I2C clock-source line, and a bench test. 233 d -> 480-509 d.
-   See the addendum for the three costs and why an earlier draft of this file wrongly
-   dismissed it.
-3. **If the probe is moving to LoRaWAN anyway** (the Chirpstack migration), the Modbus
+3. **Clock down to Range 2 / 2 MHz, or Low-power run.** One constant (`mcu.h:25`), one
+   I2C clock-source line, and a bench test. 233 d -> 480-509 d **with the heater off** --
+   but only 28.4 -> 30.3 d at 12 % duty. Worth doing only if the heater turns out to be
+   cheap, or if the build ships with it disabled. See the addendum for the three costs
+   and why an earlier draft of this file wrongly dismissed it outright.
+4. **If the probe is moving to LoRaWAN anyway** (the Chirpstack migration), the Modbus
    slave model goes with the cable. A scheduled wake → sample → transmit → Stop 1 node
    drops the MCU and the transceiver together, which is 87 % of the as-built draw. This
    is an architecture change, not an optimisation.
-4. **Sample cadence.** 1 Hz is meaningless for compost O2, which moves over hours. Every
+5. **Sample cadence.** 1 Hz is meaningless for compost O2, which moves over hours. Every
    sample interval longer than ~5 min converts the ADS1119's 315 µA into a rounding error.
-5. **Rev B:** bring the digital LDO's EN and the transceiver's supply to GPIO; keep 3V3A
+6. **Rev B:** bring the digital LDO's EN and the transceiver's supply to GPIO; keep 3V3A
    ungated for the bias. Consider a buck with single-µA quiescent if the deep-sleep floor
    ever matters.
-6. **Not worth doing:** replacing the 12→5→3.3 chain with a single 12→3.3 buck. It wastes
+7. **Not worth doing:** replacing the 12→5→3.3 chain with a single 12→3.3 buck. It wastes
    2.87 mA × 1.7 V = 4.9 mW, 29 % of the as-built draw but only 0.5 % of a heated one.
 
 ## Unverified
