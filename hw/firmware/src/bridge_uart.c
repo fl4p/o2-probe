@@ -20,6 +20,22 @@ static void de_release(void)
     O2P_RS485_DE_PORT->BSRR = (1u << (O2P_RS485_DE_PIN + 16u));
 }
 
+/* /RE, the Rev B split (PC7), ACTIVE LOW. This image never wants standby; it
+ * moves this pin only to keep Rev A's behaviour, where the one shared net
+ * deafened the receiver for the length of every transmission. A bridge that
+ * heard its own bus-side transmission would accumulate it and forward it back
+ * up to the host as if a probe had answered. Low - listening - on every other
+ * path; R45's 47k holds it there before this code runs. */
+static void re_disable(void)
+{
+    O2P_RS485_RE_PORT->BSRR = (1u << O2P_RS485_RE_PIN);
+}
+
+static void re_enable(void)
+{
+    O2P_RS485_RE_PORT->BSRR = (1u << (O2P_RS485_RE_PIN + 16u));
+}
+
 static void pin_af(GPIO_TypeDef *port, uint32_t pin, uint32_t af)
 {
     port->OSPEEDR |= (3u << (pin * 2u));
@@ -63,15 +79,24 @@ void o2p_buart_init_bus(o2p_buart_t *b, uint32_t baud, uint8_t parity_code)
     RCC->APBENR2 |= RCC_APBENR2_USART1EN;
 
     /* DE low before the pin is an output at all. R7's 47k already holds the
-     * transceiver in receive through reset; this keeps it there while the
-     * bridge configures itself, so plugging the bench probe into a live farm
-     * cable does not mute the SMT100s. */
+     * driver disabled through reset; this keeps it there while the bridge
+     * configures itself, so plugging the bench probe into a live farm cable
+     * does not mute the SMT100s. */
     de_release();
     O2P_RS485_DE_PORT->OTYPER &= ~(1u << O2P_RS485_DE_PIN);
     O2P_RS485_DE_PORT->OSPEEDR |= (3u << (O2P_RS485_DE_PIN * 2u));
     O2P_RS485_DE_PORT->MODER =
         (O2P_RS485_DE_PORT->MODER & ~(3u << (O2P_RS485_DE_PIN * 2u))) |
         (1u << (O2P_RS485_DE_PIN * 2u));
+
+    /* /RE low, same order and for the same reason: the level is written before
+     * MODER so the pin cannot glitch high on its way to becoming an output. */
+    re_enable();
+    O2P_RS485_RE_PORT->OTYPER &= ~(1u << O2P_RS485_RE_PIN);
+    O2P_RS485_RE_PORT->OSPEEDR |= (3u << (O2P_RS485_RE_PIN * 2u));
+    O2P_RS485_RE_PORT->MODER =
+        (O2P_RS485_RE_PORT->MODER & ~(3u << (O2P_RS485_RE_PIN * 2u))) |
+        (1u << (O2P_RS485_RE_PIN * 2u));
 
     pin_af(O2P_RS485_TX_PORT, O2P_RS485_TX_PIN, O2P_RS485_TX_AF);
     pin_af(O2P_RS485_RX_PORT, O2P_RS485_RX_PIN, O2P_RS485_RX_AF);
@@ -157,6 +182,7 @@ void o2p_buart_send(o2p_buart_t *b, o2p_buart_t *peer, const uint8_t *buf,
 
     if (b->drives_de) {
         de_assert();
+        re_disable();   /* do not accumulate our own transmission */
     }
     for (size_t i = 0; i < len; i++) {
         while ((u->ISR & USART_ISR_TXE_TXFNF) == 0u) {
@@ -181,10 +207,12 @@ void o2p_buart_send(o2p_buart_t *b, o2p_buart_t *peer, const uint8_t *buf,
     }
 done:
     /* One release, on every path including the timeouts. DE stuck high does
-     * not merely mute this board: PC6 drives DE and ~RE together, so it
-     * silences every other node on the same cable. */
+     * not merely mute this board - it drives the shared cable and silences
+     * every other node on it. /RE goes back low in the same breath, or the
+     * bridge would be deaf to the reply it exists to carry. */
     if (b->drives_de) {
         de_release();
+        re_enable();
     }
     u->ICR = USART_ICR_TCCF;
 }

@@ -26,17 +26,52 @@ static void de_release(void)
     O2P_RS485_DE_PORT->BSRR = (1u << (O2P_RS485_DE_PIN + 16u));
 }
 
+/* /RE, the Rev B split (PC7). ACTIVE LOW: low listens, high deafens.
+ *
+ * THE LOADER NEVER USES STANDBY. The only reason it touches this pin at all is
+ * ECHO: on Rev A the single shared net deafened the receiver for the duration
+ * of every transmission, so the loader never heard its own reply. With /RE left
+ * low during a transmit the reply lands straight back in s_buf, the receiver
+ * timeout frames it, and o2p_luart_poll() hands loader_main.c a frame that
+ * carries this probe's OWN address and a valid CRC - which o2p_mb_classify()
+ * duly returns as O2P_MB_EXECUTE. The loader would answer itself, and it would
+ * do it while a technician is trying to reflash a potted probe. So /RE is
+ * driven high with DE and low again on every exit path, byte-for-byte the Rev A
+ * behaviour.
+ *
+ * Outside a transmission this pin is LOW, always. R45's 47k already holds it
+ * there through reset, before any of this code runs; that is what makes the
+ * loader reachable at all on a probe whose application is gone. */
+static void re_disable(void)
+{
+    O2P_RS485_RE_PORT->BSRR = (1u << O2P_RS485_RE_PIN);
+}
+
+static void re_enable(void)
+{
+    O2P_RS485_RE_PORT->BSRR = (1u << (O2P_RS485_RE_PIN + 16u));
+}
+
 static void gpio_init(void)
 {
     /* DE low before the pin becomes an output at all. R7's 47k already holds
-     * the transceiver in receive through reset; this keeps it there while the
-     * loader configures itself. */
+     * the driver disabled through reset; this keeps it there while the loader
+     * configures itself. */
     de_release();
     O2P_RS485_DE_PORT->OTYPER &= ~(1u << O2P_RS485_DE_PIN);
     O2P_RS485_DE_PORT->OSPEEDR |= (3u << (O2P_RS485_DE_PIN * 2u));
     O2P_RS485_DE_PORT->MODER =
         (O2P_RS485_DE_PORT->MODER & ~(3u << (O2P_RS485_DE_PIN * 2u))) |
         (1u << (O2P_RS485_DE_PIN * 2u));
+
+    /* /RE low, likewise before MODER, so the receiver cannot blink off on the
+     * way to becoming an output. R45's 47k held it there already. */
+    re_enable();
+    O2P_RS485_RE_PORT->OTYPER &= ~(1u << O2P_RS485_RE_PIN);
+    O2P_RS485_RE_PORT->OSPEEDR |= (3u << (O2P_RS485_RE_PIN * 2u));
+    O2P_RS485_RE_PORT->MODER =
+        (O2P_RS485_RE_PORT->MODER & ~(3u << (O2P_RS485_RE_PIN * 2u))) |
+        (1u << (O2P_RS485_RE_PIN * 2u));
 
     const uint32_t pins[2] = { O2P_RS485_TX_PIN, O2P_RS485_RX_PIN };
     for (unsigned i = 0; i < 2u; i++) {
@@ -130,6 +165,7 @@ void o2p_luart_send(const uint8_t *buf, size_t len)
     }
     const uint32_t t0 = o2p_millis();
     de_assert();
+    re_disable();       /* do not hear our own reply; see re_disable() above */
     for (size_t i = 0; i < len; i++) {
         while ((USART1->ISR & USART_ISR_TXE_TXFNF) == 0u) {
             if (o2p_elapsed(t0, TX_TIMEOUT_MS)) {
@@ -147,15 +183,19 @@ void o2p_luart_send(const uint8_t *buf, size_t len)
     }
 done:
     /* One release, on every path including the timeouts. DE stuck high does
-     * not merely mute this probe: PC6 drives DE and ~RE together, so it
-     * silences the two SMT100s on the same cable. */
+     * not merely mute this probe - it drives the shared cable and silences the
+     * two SMT100s on it. /RE goes back low in the same breath: a loader that
+     * exits this function deaf is a loader that cannot be talked to again, and
+     * the whole point of this image is to be reachable when nothing else is. */
     de_release();
+    re_enable();
     USART1->ICR = USART_ICR_TCCF;
 }
 
 void o2p_luart_deinit(void)
 {
     de_release();
+    re_enable();        /* hand the application a LISTENING transceiver */
     USART1->CR1 = 0u;
     /* Reset the peripheral rather than merely disabling it, so the
      * application's own init starts from the same register state it would

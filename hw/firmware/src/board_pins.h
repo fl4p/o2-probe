@@ -26,6 +26,7 @@
 #define O2P_LQFP48_PA8   28
 #define O2P_LQFP48_PA9   29
 #define O2P_LQFP48_PC6   30
+#define O2P_LQFP48_PC7   31
 #define O2P_LQFP48_PA10  32
 #define O2P_LQFP48_PB6   45
 #define O2P_LQFP48_PB7   46
@@ -46,10 +47,41 @@
  * plain output driven in software; see modbus_rtu.c for the TC-interrupt
  * release. PLAN.md:261 says "USART+DE"; that is not achievable on this board.
  *
- * R7 (47k) pulls DE down, so the transceiver is a receiver through MCU reset.
+ * R7 (47k) pulls DE down, so the driver is DISABLED through MCU reset, and
+ * main.c's bus-jam backstop leans on exactly that: it is the release path that
+ * does not depend on this CPU running code. R7 is not to be removed or
+ * repurposed. Since Rev B split /RE onto its own pin, R7 no longer decides
+ * whether the part LISTENS - R45 does; see O2P_RS485_RE_* below. Both defaults
+ * are still passive, which is the property that matters.
  */
 #define O2P_RS485_DE_PORT     GPIOC
 #define O2P_RS485_DE_PIN      6u
+
+/* Receiver enable, REV B. /RE is the THVD1410's pin 2 and it is ACTIVE LOW:
+ * drive it LOW to hear the bus, HIGH to deafen the receiver. On Rev A it was
+ * shorted to DE, which made the part's 0.1 uA standby (/RE high, DE low)
+ * uncommandable and left the receiver burning 700 uA forever - 24 % of the
+ * whole board's idle draw (POWER-BUDGET.md). Rev B splits it onto PC7, the
+ * package neighbour of PC6.
+ *
+ * PC7 carries no ADC channel - DS12232 Rev 1 Table 12 "Pin assignment and
+ * description" leaves its "Additional functions" cell empty - so it cannot
+ * collide with mcu_adc.c, and its only alternate functions are UCPD2_FRSTX,
+ * TIM3_CH2 and TIM2_CH4, none of them used. Like DE it is a plain
+ * software-driven output; there is no hardware /RE anywhere on this part.
+ *
+ * SAFETY, and the reason this is more than "a second GPIO": an undriven /RE
+ * floats HIGH on the part's 2 MOhm internal pull-up, which is DEAF, and every
+ * MCU GPIO is high-impedance out of reset. R45 (47k to GND) is what makes
+ * receiver-enabled the passive default: 3.3 V * 47k/(47k + 2M) = 76 mV against
+ * a 0.8 V VIL. So a probe sitting in the RS-485 bootloader - or with no
+ * working application at all - still hears the bus, and the field-reflash path
+ * of SCHEMATIC-REVIEW.md M2 survives. Firmware must never leave this pin
+ * high-impedance as a way of "not caring", and anything that drives it high
+ * needs a bounded path back to low.
+ */
+#define O2P_RS485_RE_PORT     GPIOC
+#define O2P_RS485_RE_PIN      7u
 
 /* The expansion/recovery UART, USART2. PA2/PA3 are USART2 TX/RX on AF1.
  *
@@ -133,6 +165,7 @@
 O2P_ASSERT_NET(RS485_TX,   O2P_LQFP48_PA9);
 O2P_ASSERT_NET(RS485_RX,   O2P_LQFP48_PA10);
 O2P_ASSERT_NET(RS485_DE,   O2P_LQFP48_PC6);
+O2P_ASSERT_NET(RS485_RE,   O2P_LQFP48_PC7);
 O2P_ASSERT_NET(I2C_SCL,    O2P_LQFP48_PB6);
 O2P_ASSERT_NET(I2C_SDA,    O2P_LQFP48_PB7);
 O2P_ASSERT_NET(AFE_MENB,   O2P_LQFP48_PB0);
@@ -142,6 +175,13 @@ O2P_ASSERT_NET(VA_MON,     O2P_LQFP48_PA7);
 O2P_ASSERT_NET(VIN_MON,    O2P_LQFP48_PA6);
 O2P_ASSERT_NET(UART2_TX,   O2P_LQFP48_PA2);
 O2P_ASSERT_NET(UART2_RX,   O2P_LQFP48_PA3);
+
+/* REV B split: DE and /RE must be DIFFERENT pins. If a future schematic ties
+ * them back together the standby state disappears again and, worse,
+ * o2p_modbus_rx_standby(true) would start DRIVING the shared cable while
+ * trying to go deaf. */
+_Static_assert(O2P_HW_NET_RS485_DE_PIN != O2P_HW_NET_RS485_RE_PIN,
+               "RS485_DE and RS485_RE share an MCU pin again - the Rev B split is undone");
 
 /* PA7 doubles as TIM1_CH1N for the PA8 heater channel. If a future schematic
  * moves the heater off TIM1, this pairing stops being a hazard and heater.c's

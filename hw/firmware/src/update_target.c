@@ -121,6 +121,12 @@ void o2p_update_target_reboot_to_loader(bool stay)
      * two SMT100s with it. R7's 47k pull-down does the same job through the
      * reset itself; this makes it true one instruction earlier. */
     O2P_RS485_DE_PORT->BSRR = (1u << (O2P_RS485_DE_PIN + 16u));
+    /* And /RE low with it (Rev B, PC7): whatever this application had asked of
+     * the receiver, the image about to run is a bootloader whose only job is
+     * to be TALKED TO. The reset returns the pin to high-impedance and R45's
+     * 47k does the same thing a moment later, exactly as R7 does for DE; this
+     * makes it true one instruction earlier. */
+    O2P_RS485_RE_PORT->BSRR = (1u << (O2P_RS485_RE_PIN + 16u));
     __DSB();
     NVIC_SystemReset();
 }

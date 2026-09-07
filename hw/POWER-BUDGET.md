@@ -312,3 +312,83 @@ Stop 1 with USART1 wake-on-address is the 3.8x, and needs the watchdog rethink.
 
 One consequence worth seeing: at 2 MHz the THVD1410's 700 µA becomes **51 % of the whole
 budget**. Clocking down is what makes the Rev B standby split worth doing.
+
+---
+
+# Implemented, 2026-09-07: the RE/DE split (schematic + firmware only)
+
+The blocker described above — "Reaching 0.1 µA needs a Rev B net cut and one
+more GPIO" — is now cut in `gen_sch.py`. **No PCB work has been done**, so on
+copper `U5.2` is still shorted to `U5.3`; this is a change to the source of
+truth and to firmware, not to a fabricable board.
+
+- `U5` pin 2 (`/RE`) moves from `RS485_DE` to a new net **`RS485_RE`**.
+- `MCU_NETS` gains **pin 31 = PC7**. Verified against DS12232 Rev 1 Table 12
+  ("Pin assignment and description"), LQFP48/UFQFPN48 column: PC6 = 30,
+  PC7 = 31, and PC7's *Additional functions* cell is empty, so no ADC channel
+  is lost and `mcu_adc.c` cannot collide with it.
+- **`R45`, 47 k `RS485_RE` → GND.** `/RE` is active low and floats *high* on
+  the part's 2 MΩ internal pull-up; MCU GPIOs are high-impedance out of reset.
+  Without R45 a probe that reset into the RS-485 bootloader would be **deaf**,
+  and a potted one unrecoverable. Sized against the **guaranteed** spec rather
+  than the 2 MΩ typical: SLLSEY3E gives `IIN = ±6.2 µA` max for D/DE/RE, and
+  `V_IL` max 0.8 V, so worst case `6.2 µA × 47k = 291 mV` — a **2.75× margin**.
+- **R7 is untouched.** DE keeps its own 47 k pull-down, so `main.c:857-880`'s
+  argument — reset plus R7 releases the bus with no code running — is unchanged.
+  R45 is the same idea applied to the other enable.
+
+## Correction to the table above: the win is 630 µA, not ~700 µA
+
+The row `RE=VCC, DE=0 V, D open → 0.1 µA` is the *part's* number. **This board
+cannot reach it**, because commanding standby means driving `/RE` high against
+R45: `3.3 V / 47 k = 70.2 µA`. So:
+
+| | receiver on | standby, as implemented | standby, part's floor |
+|---|---|---|---|
+| transceiver + its pull-down | 700 µA | **70.3 µA** | 0.1 µA |
+
+A 10× cut, not 7000×. That is enough to matter against today's 2.87 mA total,
+but note where it lands in the duty-cycled column: at a **28.6 µA** total,
+R45 alone would be the largest single load on the board.
+
+The largest pull-down that still *guarantees* a low is `0.8 V / 6.2 µA = 129 kΩ`,
+so no resistor can better ~26 µA. The weaker alternatives are not a gentle trade —
+they are out of spec:
+
+| R45 | V(/RE) worst case | vs 0.8 V V_IL | standby current |
+|---|---|---|---|
+| **47 k (fitted)** | 291 mV | **2.75×** | 70 µA |
+| 100 k | 620 mV | 1.29× | 33 µA |
+| 129 k | 800 mV | 1.00× — at the limit | 26 µA |
+| 220 k | 1.36 V | **fails** | 15 µA |
+| 470 k | 2.91 V | **fails** | 7 µA |
+
+A resistor structurally cannot reach the 0.1 µA the split was made for. Only
+omitting R45 and having the loader drive `/RE` low in early init can, and that
+trades a sub-millisecond deaf window between reset and the first GPIO write.
+
+Note the asymmetry with R7: **R7 on DE is a bus-safety part** — an undriven DE
+could jam the shared cable and silence both SMT100s, which is why `main.c:857-880`
+leans on it. R45 is not: an undriven `/RE` makes only *this* probe deaf, and only
+while it is in reset, when it cannot answer anyway.
+
+**Fab chose 47 k on 2026-09-07** — robust, passive, no init-order dependency, and
+630 µA of the available 700 µA.
+
+## Firmware
+
+`o2p_modbus_rx_standby(bool)` in `modbus_rtu.c` enters and leaves the state.
+**Nothing calls it.** Default runtime behaviour is byte-for-byte what Rev A did:
+`/RE` is driven high exactly where the old shared net went high (transmit) and
+low again on every exit path, including the timeout backstops. `loader_uart.c`
+and `bridge_uart.c` do the same, for echo suppression only — with `/RE` left
+low during their own transmissions the loader would parse its own reply as a
+request (it carries this probe's address and a valid CRC), which is why "just
+don't drive the pin in the loader" is *not* the safe simplification it looks
+like.
+
+Wiring standby into the sampler remains blocked on the protocol question in
+"The protocol objections to unsolicited transmission" above, and on this page's
+own conclusion that **USART1 wake-from-Stop saves 1800 µA and needs the
+receiver on** — the two levers are still alternatives, and Stop-1 remains the
+bigger one.

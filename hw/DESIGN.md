@@ -88,10 +88,19 @@ KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
 - The processor is STM32G071CBT7. USART1 on PA9/PA10 drives the THVD1410 farm
   RS-485 port. USART2 on PA2/PA3 lands on J105/J106 and is the bench-bridge
   tap, not a connector — see the J2 entry below.
-- PC6 drives `RS485_DE`, placing the direction-control GPIO beside the USART1
-  TX/RX pins, and PA7/ADC_IN7 measures `VA_MON`. These pin choices are
-  generator-owned because they make the compact right-side MCU placement
-  routable without changing the electrical functions.
+- PC6 drives `RS485_DE` and **PC7 drives `RS485_RE`**, placing both
+  direction-control GPIOs beside the USART1 TX/RX pins, and PA7/ADC_IN7
+  measures `VA_MON`. These pin choices are generator-owned because they make
+  the compact right-side MCU placement routable without changing the electrical
+  functions.
+- The THVD1410's two enables are on **separate** nets and separate GPIOs, and
+  each has its own 47 k pull-down: R7 on `RS485_DE` (driver off by default —
+  the bus-jam release path `main.c` relies on) and **R45 on `RS485_RE`**
+  (receiver *on* by default, since `/RE` is active low and floats high on a
+  2 MΩ internal pull-up, and a probe in the bootloader must still hear the
+  bus). Rev A shorted the two together, which made the transceiver's 0.1 µA
+  standby state uncommandable; see `POWER-BUDGET.md` for what the split buys
+  and what R45 costs. **The PCB has not been reworked for this yet.**
 - One TMP117 measures the warm tip near the membrane carrier. Its open-drain
   ALERT is wired directly to the MOSFET gate so a correctly configured active
   alarm can pull the heater off while MCU PWM drives through R28; R29 provides
