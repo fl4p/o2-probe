@@ -42,9 +42,17 @@ not at 60 °C:
 ## 3. The heater is not the problem — the cell's temperature ceiling is
 
 Note the fourth column. Across the entire 40–75 °C range, going from saturated
-to 90 %RH costs a strikingly constant **2.0–2.5 K**. That is a trivial thermal
-ask: at the bench-measured θ ≈ 117 K/W it is roughly 17–21 mW, a couple of
-percent duty.
+to 90 %RH costs a strikingly constant **2.0–2.5 K**. That is, on any plausible θ, a small
+thermal ask — at the bench figure of ~117 K/W it would be 17–21 mW.
+
+**That parenthesis is the one place this document leans on the bare article,
+and it should not** (corrected 2026-09-07 after review). §"Scope note" claims
+nothing here depends on the bench rig; 117 K/W came from a bare probe in an
+open jar with every half-cycle flagged SHORT, and `PILE-THERMAL-TEST.md` says
+outright it is not a product bound. `heater_ctl.h:24` says the plant gain is
+unknown. So the milliwatt figure is illustrative only. **The argument does not
+need it:** what matters is that the required rise is ~2 K rather than tens of
+kelvin, which is a statement about the Magnus curve, not about this board.
 
 So the humidity job is easy and the main-board heater can plainly do it. What
 fails is the *temperature* job, and heating makes temperature worse. The two
@@ -109,10 +117,16 @@ _Static_assert((O2P_FAULTS_INVALIDATE_O2 & O2P_F_TEMP_OVER) == 0,
                "TEMP_OVER must not invalidate: ... (PLAN.md:211-228)");
 ```
 
-Checking the cited range: **PLAN.md lines 211–228 are the I²C address map and
-the expansion-connector specification.** They contain no decision about fault
-masks. The one adjacent sentence that *is* about this topic — line 210 — says
-the opposite: "> 60 °C cell temperature **invalidates** data".
+Checking the cited range (line numbers corrected 2026-09-07): PLAN.md 207–211
+is the deployment-ceiling paragraph, **line 211 being the tail of the
+invalidation sentence itself** — "compostlab/research/COMPOST-O2.md §6". Line
+212 is blank; the I²C map runs 213–219; the expansion connector begins at 221.
+
+So the cited range 211–228 is not, as this document first said, wholly the I²C
+map. It is worse than that: **it opens on the tail of the very rule it is cited
+as overturning** — line 210, "> 60 °C cell temperature **invalidates** data" —
+and everything after line 212 is unrelated hardware specification. There is no
+decision about fault masks anywhere in it.
 
 So the policy is asserted, compile-time-locked, and attributed to a passage
 that says the reverse, in a file no longer present in the repository. The
@@ -138,8 +152,9 @@ Settled:
   main-board heater. The temperature half has no heater solution at all.
 - `TEMP_OVER` fires at 60 °C on **gas**, not at the derated ceiling on the
   **cell**, contrary to the design record.
-- `faults.h:10` and `faults.c:11` cite PLAN.md for the opposite of what
-  PLAN.md says, and PLAN.md is not in this repository.
+- `faults.h:10` and `faults.c:11` cite a PLAN.md range that opens on the tail
+  of the opposite rule and otherwise contains only the I²C map and the
+  expansion connector. PLAN.md is not in this repository.
 
 Not settled, and needing Fab:
 

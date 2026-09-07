@@ -591,7 +591,14 @@ Because the correction is absent, `o2_raw` over the soak is clean evidence.
 Room air holds dry-basis O₂ constant, so with `p_w` falling 31.83 → 19.50 hPa
 dilution alone should have raised the current **+1.37 %** (P = 930). Observed
 **−0.53 %**. The residual is **−1.87 % over −3.71 K**, i.e. a cell temperature
-coefficient of **+0.51 %/K** (≈ +5000 ppm/K, P = 930; +0.47 %/K at 1013).
+coefficient of **+0.51 %/K** (P = 930; +0.47 %/K at 1013).
+
+**Do not carry this number forward.** §10 supersedes it: the residual it is
+computed from is not known to be temperature at all. It is not even an upper
+bound, since the uncontrolled terms — drift, restart offsets, the humidity
+artefact — have no established sign and could mask a larger coefficient as
+easily as inflate a smaller one. It is recorded because the arithmetic was
+published, not because it is usable.
 
 That is **2.5× the ~0.2 %/K** assumed in the earlier analysis, and 2.7× the
 +0.184 µA/K in `bench-logs/swd-capture-2026-09-05-NOTES.md` — which was itself
@@ -652,8 +659,24 @@ carries +0.93 %.
 
 Selecting 10-minute means separated by |ΔT_chamber| < 0.35 K and |Δp_w| > 6 hPa
 gives 13 pairs. **Every one of them has the cell current rising as water vapour
-rises**, where dilution requires it to fall. Residual +0.76 % to +2.54 %,
-roughly +0.11 to +0.26 %/hPa of `p_w` against the model's −0.10 %/hPa.
+rises**, where dilution requires it to fall.
+
+Three corrections, 2026-09-07, none of which changes the sign:
+
+1. **The count is not robust.** An independent reconstruction with complete,
+   UTC-aligned bins gets **11**; allowing partial endpoint bins gets 15. The
+   bin origin and completeness rule were never stated. Read it as "every
+   qualifying pair", not as thirteen tests.
+2. **"13 of 13" overstates the independence.** The pairs reuse the same
+   underlying stretches, and every one puts the wetter sample *later*, so they
+   also cross restarts and heater operation. They are one time-ordered
+   contrast sampled several ways, not thirteen experiments.
+3. **+0.11…+0.26 %/hPa is the residual, not the current slope.** The raw
+   current slopes are **+0.006…+0.154 %/hPa**. The residual is what remains
+   after subtracting the expected negative dilution. And that dilution is
+   −0.109…−0.114 %/hPa at 930 hPa, not the −0.10 %/hPa quoted here, which
+   belongs to 1013 hPa — Rev A has no barometer and the bench pressure was
+   never recorded.
 
 So on this article the cell's humidity response is **opposite in sign and larger
 in magnitude** than the dilution the correction removes. Correcting for an

@@ -42,7 +42,20 @@ A → K spans **20.6 hPa**, which is 2.0 % of total pressure. Signals expected:
 * yesterday's fitted artefact: **+2.3 to +5.4 %**
 
 Both are far above the 0.01 µA log resolution and the ±0.15 % day-scale
-scatter, so the sign alone decides it.
+scatter.
+
+**But the sign alone does NOT decide it** (corrected 2026-09-07). If the
+artefact sits at the low end of its range, +2.3 % against a dilution of −2.2 to
+−2.5 % nets out *negative*, and a run with both mechanisms present would be
+read as "dilution only". The endpoint is a weak test; §4's shape test is the
+real one, and §4 has its own limits.
+
+The dilution magnitude itself is uncertain because **Rev A has no barometer and
+the true ambient pressure is not measured.** At 930 hPa the A→K span is 2.22 %
+of total and predicts −2.235 %; at 1013 hPa it is 2.04 % and −2.051 %. The
+firmware's `ASSUMED_P_HPA` is 930 for a 715 m site, which is *not* where this
+bench is. Record a local barometric reading — a phone or the weather service is
+enough — before the run, and use it in the analysis rather than 930 or 1013.
 
 ## 3. Sequence
 
@@ -60,7 +73,13 @@ work on the bench.
 
 Step 4 is not optional. It is the control that measures the handling artefact —
 opening a lid, moving the probe, body warmth — against a gas change of zero.
-Any response there is subtracted from steps 1–3.
+
+**One late blank is not enough** (corrected 2026-09-07). Subtracting it from
+A→K and K→A assumes the handling effect is stationary and additive, which is
+exactly what a sorption artefact would violate. Run a blank at **both**
+endpoints — A→A′ before step 2 and K→K′ after it — so the handling response is
+measured at the humidity where it is used. If time forces a choice, keep the
+wet-end blank: that is where a film is most likely.
 
 ## 4. Predictions, written before the run
 
@@ -73,10 +92,36 @@ Any response there is subtracted from steps 1–3.
 
 **The discriminator is the shape of the step, not its endpoint.** If a fast
 negative step is followed by a slow positive drift that overtakes it, both
-mechanisms are present and their sizes fall straight out of the fit. That
-conclusion survives even if the absolute magnitudes are off.
+mechanisms are present and their sizes fall straight out of the fit.
 
-Hysteresis on K→A is close to decisive on its own: gas dilution has none.
+**But this is suggestive, not identifying** (corrected 2026-09-07). A single
+humidity-sensitive assembly can have a fast electrical/diffusive component and
+a slow sorption or electrolyte component *of opposite sign*, and hysteresis can
+come from the vessel or the PCB equilibrating rather than from a leakage film.
+A two-exponential fit separates timescales; it does not assign mechanisms to
+them. Treat two components as evidence that two processes exist, and let the
+potted repeat — not this fit — say which is which.
+
+## 4b. Define the pressure boundary — the control that was missing
+
+The cell answers to O₂ *partial* pressure, so what the vessel does to *total*
+pressure changes the expected signal, and the plan did not say (review 2026-09-07):
+
+* **rigid sealed jar** — vapour adds to the gas already there, total pressure
+  rises, and O₂ partial pressure barely moves. **Expected dilution ≈ 0.**
+* **vented, constant total pressure** — vapour displaces dry gas pro rata, O₂
+  partial pressure falls. This is the case the correction models.
+* **an imperfect lid or a cable exit** — an uncontrolled mixture of the two.
+
+With no barometer on Rev A this is unmeasurable from inside, and **a sealed jar
+alone can produce "no dilution" from a perfectly normal cell** — which is a
+candidate explanation for §10's whole result that has nothing to do with a
+leakage film.
+
+**Therefore: vent every vessel.** A hypodermic-needle or pinhole vent in the lid
+equalises pressure on a timescale of seconds while leaving the vapour
+equilibrium hours-long. Record which vessels were vented. An unvented run does
+not test what this document claims to test.
 
 ## 5. Handling rules
 
@@ -112,9 +157,27 @@ room-temperature vapour reservoir, so it **pins p_w** while the board's
 temperature rises — a genuine constant-`p_w` step, which is exactly what the
 open bench cannot give.
 
-Steps 0 → 4 → 9 → 0 % of `HEATER_MAX_DUTY`, 45/45/60 min. Separate by time
+Steps 0 → 2 → 4 → 0 % of `HEATER_MAX_DUTY`, 45/45/60 min. Separate by time
 constant as in §4: fast (τ ≈ 110–130 s) is the tempco, slow (10–40 min) is the
 film desorbing. The return to 0 is the reversibility test.
+
+**Corrected 2026-09-07 after review — the original plan said 4 → 9 % and would
+have failed exactly as the open-bench run did.** RH headroom is not linear
+subtraction: heating divides RH by the saturation-pressure ratio. From 84.3 %RH
+at 24 °C,
+
+| duty | P | ΔT at 98 K/W | RH after | ΔT at 117 K/W | RH after |
+|---|---|---|---|---|---|
+| 2 % | 20.6 mW | 2.02 K | 74.8 % | 2.41 K | 73.1 % |
+| 4 % | 41.1 mW | 4.03 K | 66.4 % | 4.81 K | 63.5 % |
+| 6 % | 61.7 mW | 6.05 K | 59.1 % | 7.22 K | 55.3 % |
+| **9 %** | 92.6 mW | 9.07 K | **49.8 %** | 10.83 K | **45.1 %** |
+
+The 9 % step crosses the 50.00 % floor on *either* θ, drops the loop out of
+saturation, and limit-cycles. **6 % is the last step with real margin and 4 %
+is the safe one.** The claim that 34 points of headroom "survives a 10 K step"
+was the same linear-subtraction error that produced the failed open-bench run,
+made twice in one night.
 
 ### The constraint: RH_SETPOINT has a 50 % floor and the loop is positive-acting
 
@@ -142,8 +205,9 @@ all", with a warning band just above it. The check passed in the jar at 95 %RH
 the day before and was not re-run after the board was dried to room air.
 
 **So: the heater needs ≥ ~60 %RH ambient to be commandable at all, and more
-headroom the harder it is driven.** The KCl jar at 84.3 % gives 34 % of margin,
-which survives a 10 K step. This is also a product finding: *a buried probe in
+headroom the harder it is driven.** The KCl jar at 84.3 % gives 34 points of margin at
+room temperature, which is worth about a 6 K step and no more — see the table
+in §6b. This is also a product finding: *a buried probe in
 dry gas cannot use its own heater*, because the setpoint floor removes the only
 control handle.
 
@@ -180,7 +244,11 @@ whether `fe27d20` should be flashed.
 
 - two or three sealable jars, ideally identical (step 4 needs two)
 - table salt, and salt substitute (KCl) if the supermarket has it — NaCl alone
-  still works, at a smaller span
+  still works, at a smaller span. **Check the labels**: iodised salt with
+  anti-caking agent and "salt substitute" cut with NaCl are not the pure fixed
+  points Greenspan tabulates. They will still give a stable, repeatable
+  humidity, which is what this test needs — but do not quote 75.3 / 84.3 % as
+  measured values afterwards. The SHT45 reading is the humidity of record.
 - silica gel packets, or salt/rice dried in the oven and cooled sealed
 - something inert to stand the probe on above the slurry
 - all of it left in the room overnight

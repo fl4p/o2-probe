@@ -36,6 +36,11 @@ SRC = os.path.join(HERE, os.pardir, "src")
 # Python cannot include a C header.
 MAGNUS_A = 17.62
 MAGNUS_B = 243.12
+# Sonntag prefactor. MUST match O2P_MAGNUS_ES0_HPA in src/psychro.h - this
+# module had 6.1094 hardcoded in p_sat_hpa() while the firmware used 6.112,
+# and check_against_source() did not compare it, so the mismatch survived a
+# passing check (Codex review 2026-09-07, finding 8).
+MAGNUS_ES0_HPA = 6.112
 # src/o2.h O2P_C_AIR - oxygen volume fraction of DRY air.
 C_AIR_PCT = 20.946
 
@@ -49,7 +54,7 @@ def p_sat_hpa(t_c):
     """Saturation vapour pressure over water, hPa. None if unevaluable."""
     if t_c is None or not math.isfinite(t_c) or t_c <= -MAGNUS_B:
         return None
-    return 6.1094 * math.exp(MAGNUS_A * t_c / (MAGNUS_B + t_c))
+    return MAGNUS_ES0_HPA * math.exp(MAGNUS_A * t_c / (MAGNUS_B + t_c))
 
 
 def p_water_hpa(t_c, rh_pct):
@@ -89,7 +94,8 @@ def check_against_source():
         return m.group(1).rstrip("fuU") if m else None
 
     for fname, checks in (("psychro.h", (("O2P_MAGNUS_A", MAGNUS_A),
-                                         ("O2P_MAGNUS_B", MAGNUS_B))),
+                                         ("O2P_MAGNUS_B", MAGNUS_B),
+                                         ("O2P_MAGNUS_ES0_HPA", MAGNUS_ES0_HPA))),
                           ("o2.h", (("O2P_C_AIR", C_AIR_PCT / 100.0),))):
         try:
             with open(os.path.join(SRC, fname)) as fh:
