@@ -21,5 +21,12 @@ Recorded during the run, before analysis, so the assumptions are on the record.
   the same trap - the desiccant removes ~16 hPa of vapour, and if the jar is
   sealed the total pressure falls with it while pO2 barely moves. Fab was asked
   to rest the lid loose or shim it. Confirm before the result is quoted.
-* **Cell/SHT45 cavity question unanswered.** Whether both sit in the same open
-  cavity of the unibody decides whether "two gas volumes" can be excluded.
+* **Cell/SHT45 cavity: SAME OPEN CAVITY** (Fab, 2026-09-07, during the run).
+  The two sensors share one gas volume, so the SHT45's `p_w` *is* the cell's
+  `p_w`. This retires the "the cell and the RH sensor are not sampling the same
+  gas" hypothesis of `O2-HUMIDITY-CORRECTION.md` - which had been retracted,
+  reopened by section 10, and attacked again in review - on a fact about the
+  assembly rather than another regression. It does not say the two sensors
+  respond at the same *speed*: the SHT45 is fast and the cell sits behind a
+  diffusion membrane, so a lag between them is still possible and has to be
+  excluded on the shape of the response, not on this.
