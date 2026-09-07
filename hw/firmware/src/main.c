@@ -114,6 +114,11 @@ static void load_cal_from_config(void)
     /* Zero stays zero, i.e. "the pressure at the air point is unknown", which
      * o2.c reads as P_cal == P_meas and applies no pressure normalisation. */
     g_cal.cal_p_hpa = (float)g_rm.cfg.cal_p_hpa;
+    /* x1000 -> fraction. Zero is a real setting here, not "unknown": it means
+     * apply no vapour correction. o2.c refuses only a value that is not a
+     * number or is past O2P_DIL_ALPHA_MAX, and o2p_config_valid() has already
+     * bounded what can reach this. */
+    g_cal.dil_alpha = (float)g_rm.cfg.dil_alpha_x1000 * 1e-3f;
 }
 
 /* Convert an AIN0 code to cell current in nanoamps.

@@ -64,6 +64,35 @@ typedef struct {
 } o2p_config_v3_t;
 _Static_assert(sizeof(o2p_config_v3_t) == 32u, "v3 config layout is 32 bytes");
 
+/* ---- layout version 4 ---------------------------------------------------
+ *
+ * As shipped from 2026-09-06: the full water-vapour set including the
+ * calibration pressure, and no dilution efficacy. 32 bytes - the same SIZE as
+ * v3, which is why the version word and not the length is what decodes a
+ * record, and why record_crc_ok() is given the size explicitly.
+ *
+ * This is the version every board in the field is running. */
+typedef struct {
+    int32_t  cal_air_na;              /* 0 */
+    uint16_t rh_setpoint_x100;        /* 4 */
+    uint16_t dt_max_k_x100;           /* 6 */
+    uint16_t heater_max_duty_x100;    /* 8 */
+    uint16_t heater_pwm_hz;           /* 10 */
+    int16_t  cal_temp_c100;           /* 12 */
+    int16_t  tempco_ppm_per_k;        /* 14 */
+    uint16_t sht_pulse_interval_h;    /* 16 */
+    uint16_t heater_kp_x100;          /* 18 */
+    uint16_t heater_ki_x100;          /* 20 */
+    uint16_t assumed_p_hpa;           /* 22 */
+    uint16_t cal_air_frac_x1000;      /* 24 */
+    uint16_t cal_p_hpa;               /* 26 */
+    uint8_t  slave_addr;              /* 28 */
+    uint8_t  baud_code;               /* 29 */
+    uint8_t  parity_code;             /* 30 */
+    uint8_t  reserved[1];             /* 31 */
+} o2p_config_v4_t;
+_Static_assert(sizeof(o2p_config_v4_t) == 32u, "v4 config layout is 32 bytes");
+
 /* The record wrapper is the same shape in every version - magic, layout
  * version, sequence, configuration, CRC, reserved tail to 64 bytes - so only
  * the configuration's size moves, and with it the CRC's offset. */
@@ -181,6 +210,37 @@ bool o2p_config_migrate(const void *record, size_t len,
                      v2.sht_pulse_interval_h, v2.heater_kp_x100,
                      v2.heater_ki_x100, v2.slave_addr, v2.baud_code,
                      v2.parity_code);
+        break;
+    }
+    case 4u: {
+        /* The one version whose air point survives, because v5 changed
+         * nothing about what it meant - see config_flash.h. carry_common() is
+         * NOT used here: its whole policy is "discard the calibration", and
+         * applying it would force a recalibration on every deployed probe for
+         * a field that defaults to the behaviour it already had. */
+        if (!record_crc_ok(rec, sizeof(o2p_config_v4_t))) {
+            return false;
+        }
+        o2p_config_v4_t v4;
+        memcpy(&v4, cfg, sizeof(v4));
+        migrated.cal_air_na = v4.cal_air_na;
+        migrated.rh_setpoint_x100 = v4.rh_setpoint_x100;
+        migrated.dt_max_k_x100 = v4.dt_max_k_x100;
+        migrated.heater_max_duty_x100 = v4.heater_max_duty_x100;
+        migrated.heater_pwm_hz = v4.heater_pwm_hz;
+        migrated.cal_temp_c100 = v4.cal_temp_c100;
+        migrated.tempco_ppm_per_k = v4.tempco_ppm_per_k;
+        migrated.sht_pulse_interval_h = v4.sht_pulse_interval_h;
+        migrated.heater_kp_x100 = v4.heater_kp_x100;
+        migrated.heater_ki_x100 = v4.heater_ki_x100;
+        migrated.assumed_p_hpa = v4.assumed_p_hpa;
+        migrated.cal_air_frac_x1000 = v4.cal_air_frac_x1000;
+        migrated.cal_p_hpa = v4.cal_p_hpa;
+        migrated.slave_addr = v4.slave_addr;
+        migrated.baud_code = v4.baud_code;
+        migrated.parity_code = v4.parity_code;
+        /* dil_alpha_x1000 keeps the default o2p_config_defaults() installed,
+         * 1000, which is the arithmetic v4 performed. */
         break;
     }
     case 3u: {

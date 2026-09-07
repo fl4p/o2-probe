@@ -83,8 +83,22 @@
  * a fresh air point. What is no longer required is a trip to the pile. A
  * migration that fails validation falls back to full defaults, which still put
  * HEATER_MAX_DUTY at 0, so the fail-safe direction of a layout change remains
- * "no heat". */
-#define CONFIG_LAYOUT_VERSION 4u
+ * "no heat".
+ *
+ * 5: added dil_alpha_x1000 (register 0x0045), how much of the water-vapour
+ * dilution the cell actually shows. 36 bytes; the two grown bytes come out of
+ * the record's reserved tail, so the record is still 64 and the CRC still
+ * sits immediately after the configuration.
+ *
+ * v4 -> v5 IS THE ONE MIGRATION THAT KEEPS THE AIR POINT. Every earlier bump
+ * discarded it because its MEANING changed - a pre-v3 air point did not know
+ * its own humidity, a pre-v4 one did not know its own pressure. Nothing about
+ * a v4 air point changed here: the new field defaults to 1000, alpha = 1.0
+ * reproduces the v4 arithmetic exactly, and a probe that comes up on this
+ * firmware publishes the same numbers it did on the last one. It stops
+ * publishing them the moment someone writes DIL_ALPHA, which is deliberate
+ * and is that register's business (regmap.h). */
+#define CONFIG_LAYOUT_VERSION 5u
 
 /* Fixed 64-byte record, so the layout does not move when a config field is
  * added and the flash image stays recognisable across firmware versions. */

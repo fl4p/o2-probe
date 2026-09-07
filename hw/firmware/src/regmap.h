@@ -187,9 +187,33 @@ enum {
      * then ASSUMED_P_HPA and equals P_cal by construction.
      * Range 0, or O2P_P_HPA_MIN..MAX. */
     O2P_REG_CAL_P_HPA       = 0x0044u, /* u16 hPa, 0 = unknown */
+    /* DILUTION EFFICACY, x1000. 1000 = the full gas-law correction.
+     *
+     * How much of the water-vapour dilution this cell's current actually
+     * shows. The gas law says the correction is P/(P-p_w); the 2026-09-07
+     * sweep says the cell moves only alpha of it, alpha = 0.453 +/- 0.052
+     * (O2-HUMIDITY-CORRECTION.md 15.3), so the factor applied is
+     * f_eff = 1 - alpha*(1 - (P-p_w)/P). At 1000 this register changes
+     * nothing and the firmware behaves as it did before.
+     *
+     * A PER-CELL BENCH COEFFICIENT, not a field trim. It takes two disjoint
+     * legs to identify - an isothermal humidity ramp for alpha and an
+     * isobaric temperature ramp for TEMPCO_PPM_K - and it is not derivable
+     * from anything the probe can see in a pile.
+     *
+     * WRITING IT RESTATES CAL_AIR_FRAC (0x0043) under the new alpha. The
+     * stored air fraction is C_air * f_eff(alpha_old) and K is fixed against
+     * it, so leaving it alone would rescale every later reading by the ratio.
+     * Nothing has to be re-measured to fix that - f_eff inverts exactly - so
+     * no recalibration is required and the register is safe to write in any
+     * order, including inside a whole-block FC16. The one case that cannot be
+     * inverted is alpha_old = 0, where the humidity at the air point is
+     * genuinely gone; that falls back to zero, i.e. "unknown".
+     * Range 0..2000, see O2P_DIL_ALPHA_MAX. */
+    O2P_REG_DIL_ALPHA       = 0x0045u, /* u16 alpha x 1000 */
 };
 #define O2P_REG_CONFIG_BASE  0x0030u
-#define O2P_REG_CONFIG_COUNT 21u
+#define O2P_REG_CONFIG_COUNT 22u
 
 /* Deliberate magics rather than "write 1". A flash cycle and a recalibration
  * are both destructive and both are one stray bit away in a noisy RS-485
@@ -232,7 +256,14 @@ typedef struct {
     uint8_t  baud_code;               /* 29 */
     uint8_t  parity_code;             /* 30 */
     uint8_t  reserved[1];             /* 31 */
+    uint16_t dil_alpha_x1000;         /* 32 */
+    uint8_t  reserved2[2];            /* 34 */
 } o2p_config_t;
+/* The record wrapper in config_flash.h is a fixed 64 bytes and pads to it, so
+ * growing this struct spends the record's reserved tail rather than moving
+ * the CRC into a new place. Pinned so a field added without checking the
+ * arithmetic fails to compile instead of shifting every offset by two. */
+_Static_assert(sizeof(o2p_config_t) == 36u, "config layout is 36 bytes");
 
 /* Live measurement snapshot, published atomically by the sampler. */
 typedef struct {

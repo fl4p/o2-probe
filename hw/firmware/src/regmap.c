@@ -4,6 +4,7 @@
 #include "heater_ctl.h"
 #include "o2.h"
 
+#include <math.h>
 #include <stddef.h>
 #include <string.h>
 
@@ -45,6 +46,14 @@ void o2p_config_defaults(o2p_config_t *cfg)
      * reads as P_cal == P_meas - no pressure normalisation - rather than as
      * some assumed atmosphere. It is written together with the air point. */
     cfg->cal_p_hpa = 0u;
+    /* Full gas-law dilution, i.e. the behaviour of every firmware before
+     * 2026-09-07. NOT the 0.453 the sweep measured: that is one cell's
+     * coefficient, and a default is a claim about all of them. It is also not
+     * the safe value - at pile conditions full correction is worse than none
+     * below alpha = 0.545 - which is why DIL_ALPHA is a per-probe bench
+     * write and why O2-HUMIDITY-CORRECTION.md 15.4 is about a DECISION and
+     * not about a default. */
+    cfg->dil_alpha_x1000 = (uint16_t)(O2P_DIL_ALPHA_DEFAULT * 1000.0f);
     /* Heater loop. max_duty of zero means the loop is OFF by configuration as
      * well as by the compile guard: two independent switches, so enabling the
      * heater is never a single edit. See heater.h for the bench prerequisites.
@@ -144,6 +153,14 @@ bool o2p_config_valid(const o2p_config_t *cfg)
      * fault. */
     if (cfg->cal_p_hpa != 0u &&
         (cfg->cal_p_hpa < O2P_P_HPA_MIN || cfg->cal_p_hpa > O2P_P_HPA_MAX)) {
+        return false;
+    }
+    /* Dilution efficacy. Zero IS legal and means "apply no vapour correction
+     * at all" - a real choice, and the one that beats full correction on this
+     * cell. There is no "unset": the default is always installed, so unlike
+     * the calibration fields a zero here is an instruction rather than an
+     * absence. The ceiling is the same one o2.c enforces. */
+    if (cfg->dil_alpha_x1000 > (uint16_t)(O2P_DIL_ALPHA_MAX * 1000.0f)) {
         return false;
     }
     return true;
@@ -298,6 +315,7 @@ static uint16_t read_config(const o2p_regmap_t *rm, uint16_t a)
     case O2P_REG_ASSUMED_P_HPA:   return c->assumed_p_hpa;
     case O2P_REG_CAL_AIR_FRAC:    return c->cal_air_frac_x1000;
     case O2P_REG_CAL_P_HPA:       return c->cal_p_hpa;
+    case O2P_REG_DIL_ALPHA:       return c->dil_alpha_x1000;
     /* The trigger registers read back as zero: they are edges, not state.
      * Reading a 1 would suggest a calibration is pending when it is not. */
     case O2P_REG_SHT_PULSE_TRIG:  return 0u;
@@ -392,6 +410,56 @@ static uint8_t apply_config_word(o2p_config_t *c, uint16_t a, uint16_t v,
     case O2P_REG_ASSUMED_P_HPA:   c->assumed_p_hpa = v; break;
     case O2P_REG_CAL_AIR_FRAC:    c->cal_air_frac_x1000 = v; break;
     case O2P_REG_CAL_P_HPA:       c->cal_p_hpa = v; break;
+    case O2P_REG_DIL_ALPHA:
+        /* An air point recorded under one alpha does not describe the cell
+         * under another: CAL_AIR_FRAC is C_air * f_eff(alpha_old) and K is
+         * fixed against it, so leaving it alone would rescale every later
+         * reading by the ratio.
+         *
+         * It is RE-REFERENCED rather than discarded, because no information
+         * is missing. f_eff = 1 - alpha*(1-f) inverts exactly:
+         *
+         *     alpha_old * (1 - f) = 1 - air_frac_old / C_AIR
+         *     air_frac_new = C_AIR * (1 - (alpha_new/alpha_old)*(that))
+         *
+         * The air point's humidity and pressure are still in there; only the
+         * cell model changed, and this restates the same measurement under
+         * the new one. Zeroing it instead was the first design and it was
+         * worse in two concrete ways: it forced a recalibration for a change
+         * that needs none, and inside a whole-block FC16 - the ordinary way a
+         * master rewrites configuration - CAL_AIR_FRAC at 0x0043 is applied
+         * BEFORE this register at 0x0045, so a correct block write would have
+         * silently lost the calibration it carried.
+         *
+         * alpha_old = 0 is the one case that cannot be inverted: at alpha 0
+         * the stored fraction is C_AIR whatever the humidity was, and (1-f)
+         * is genuinely gone. That, and any result outside the plausible
+         * window, falls back to zero - "unknown", which holds O2_COMP on its
+         * sentinel until a fresh air point. Refuse, never invent. */
+        if (v != c->dil_alpha_x1000) {
+            uint16_t old_a = c->dil_alpha_x1000;
+            uint16_t frac = c->cal_air_frac_x1000;
+            c->dil_alpha_x1000 = v;
+            if (frac != 0u) {
+                if (old_a == 0u) {
+                    c->cal_air_frac_x1000 = 0u;
+                } else {
+                    float f_old = (float)frac * 1e-5f;
+                    float dil = (1.0f - f_old / O2P_C_AIR) *
+                                ((float)v / (float)old_a);
+                    float f_new = O2P_C_AIR * (1.0f - dil);
+                    float x1000 = f_new * 100000.0f + 0.5f;
+                    if (isfinite(x1000) &&
+                        x1000 >= O2P_CAL_FRAC_MIN * 100000.0f &&
+                        x1000 <= O2P_CAL_FRAC_MAX * 100000.0f) {
+                        c->cal_air_frac_x1000 = (uint16_t)x1000;
+                    } else {
+                        c->cal_air_frac_x1000 = 0u;
+                    }
+                }
+            }
+        }
+        break;
     default:
         return O2P_MB_EX_ILLEGAL_ADDRESS;
     }

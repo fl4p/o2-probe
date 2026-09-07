@@ -140,6 +140,34 @@ typedef struct {
      * rather than a datasheet constant. Above 60 C it is extrapolation by
      * explicit decision (PLAN.md:211-228). */
     float   tempco_per_k;
+    /* How much of the modelled water-vapour dilution the CELL ACTUALLY SHOWS.
+     *
+     * The gas law is not in question: water vapour displaces oxygen pro rata,
+     * and at 60 C saturated that is a 20 % effect. What the 2026-09-07 sweep
+     * measured is that this cell's CURRENT moves only a fraction of it -
+     * alpha = 0.453 +/- 0.052 over an 18.2 hPa isothermal dry-down
+     * (O2-HUMIDITY-CORRECTION.md 15.3). A capillary cell is a diffusion
+     * barrier, not an open port, so its transport partly re-references
+     * itself to the wet gas; whatever the mechanism, the number is what the
+     * cell does.
+     *
+     * So the dilution factor the CORRECTION uses is not f = (P-p_w)/P but
+     *
+     *     f_eff = 1 - alpha * (1 - f)
+     *
+     * and the same f_eff appears on both sides - in the air point's fraction
+     * and in the measurement - because it describes the cell, not the gas.
+     * Using f there and f_eff here, or the reverse, would leave a residual
+     * that no calibration can remove.
+     *
+     * alpha = 1 is the naive full correction and is what this firmware did
+     * until 2026-09-07. It is NOT the safe default: at pile conditions the
+     * threshold below which full correction is worse than no correction is
+     * alpha = 1/(1+f) = 0.545, and this cell is 1.8 sigma under it (15.4).
+     * The default stays 1.0 all the same, because 0.453 is one cell's
+     * measured coefficient and a firmware default is a claim about every
+     * cell. Write DIL_ALPHA (0x0045) per probe. */
+    float   dil_alpha;
     /* Temperature at which cal_air_na was taken, in 0.01 C. */
     int16_t cal_temp_c100;
     /* The oxygen volume fraction actually PRESENT when cal_air_na was
@@ -214,6 +242,19 @@ static inline bool o2p_cal_air_plausible(int32_t cell_na)
  * like a correction had been made. */
 #define O2P_TEMPCO_DEFAULT 0.0f
 
+/* Dilution efficacy, see o2p_cal_t::dil_alpha. 1.0 is the full gas-law
+ * correction - the behaviour before 2026-09-07 - and is the default because a
+ * measured 0.453 belongs to the cell it was measured on.
+ *
+ * The ceiling is 2.0 rather than 1.0: a cell that over-responds to vapour is
+ * not something anyone has excluded, and a bound that forbids it would be an
+ * assumption wearing a range check. What it does forbid is a fat-fingered
+ * write - alpha is what stands between the published number and the raw one,
+ * and beyond 2.0 with p_w at its own ceiling, f_eff reaches zero and the
+ * correction becomes a divide by nothing. */
+#define O2P_DIL_ALPHA_DEFAULT 1.0f
+#define O2P_DIL_ALPHA_MAX     2.0f
+
 /* Water-vapour partial pressure in hPa for `gas`, RH/100 * p_sat(T).
  *
  * O2P_UNEVALUABLE - and NOTHING written - if the gas is not measured, the
@@ -221,17 +262,29 @@ static inline bool o2p_cal_air_plausible(int32_t cell_na)
  * O2P_VAPOUR_T_MAX_C. */
 o2p_status_t o2p_vapour_pressure_hpa(const o2p_gas_t *gas, float *out_pw_hpa);
 
-/* The oxygen volume fraction actually present in fully aerated air at these
- * conditions: O2P_C_AIR * (P - p_w) / P. This is what an air-point
- * calibration is really taken against. */
-o2p_status_t o2p_air_fraction(const o2p_gas_t *gas, float *out_c);
+/* What the CELL reads in fully aerated air at these conditions:
+ * O2P_C_AIR * f_eff, f_eff = 1 - alpha*(1 - (P-p_w)/P). This is what an
+ * air-point calibration is really taken against, and it carries alpha for the
+ * same reason the measurement does - K is fixed against this number, so if
+ * the two sides disagree about how much dilution the cell shows, the
+ * disagreement lands on every later reading as gain error. At alpha = 1 it is
+ * the plain gas-law fraction O2P_C_AIR * (P - p_w) / P. */
+o2p_status_t o2p_air_fraction(const o2p_gas_t *gas, float alpha, float *out_c);
 
-/* Wet-basis fraction -> dry-basis: C_dry = C_wet * P / (P - p_w).
+/* Apparent fraction -> dry basis: C_dry = C_wet / f_eff, with
+ * f_eff = 1 - alpha*(1 - (P-p_w)/P) - the full gas-law correction
+ * C_wet * P / (P - p_w) exactly when alpha = 1.
  *
- * Exactly a no-op at 0 %RH, by construction rather than by a special case.
- * Monotonically increasing in RH and in temperature, and REFUSED rather than
- * folded back or clamped once p_w passes O2P_VAPOUR_MAX_PW_FRACTION of P. */
-o2p_status_t o2p_dry_from_wet(const o2p_gas_t *gas, float c_wet,
+ * Exactly a no-op at 0 %RH for ANY alpha, by construction rather than by a
+ * special case: p_w = 0 gives f = 1 gives f_eff = 1. Monotonically increasing
+ * in RH and in temperature for alpha > 0, and REFUSED rather than folded back
+ * or clamped once p_w passes O2P_VAPOUR_MAX_PW_FRACTION of P, or once alpha
+ * drives f_eff to zero.
+ *
+ * An alpha that is not finite or lies outside 0..O2P_DIL_ALPHA_MAX is
+ * UNEVALUABLE, not silently replaced by 1.0: a substituted alpha would
+ * publish the naive correction under the fitted one's name. */
+o2p_status_t o2p_dry_from_wet(const o2p_gas_t *gas, float c_wet, float alpha,
                               float *out_c_dry);
 
 /* Convert a measured cell current to oxygen volume fraction.

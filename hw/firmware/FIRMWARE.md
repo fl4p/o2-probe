@@ -644,7 +644,7 @@ then two that exist because supervision here is *sampled*, not continuous:
   from a failing part, and since the latch self-clears the count would otherwise
   be lost.
 
-### Config block — `0x0030`, 18 registers, read/write, flash-backed
+### Config block — `0x0030`, 22 registers, read/write, flash-backed
 
 `SLAVE_ADDR`, `BAUD_CODE`, `PARITY_CODE`, `RH_SETPOINT`, `DT_MAX_K`,
 `HEATER_MAX_DUTY`, `HEATER_PWM_HZ`, `CAL_AIR_NA_HI/LO`, `CAL_TEMP_C100`,
@@ -655,6 +655,44 @@ then two that exist because supervision here is *sampled*, not continuous:
 |---|---|---|
 | `0x0040` | `HEATER_KP` | proportional gain |
 | `0x0041` | `HEATER_KI` | integral gain, per second |
+
+…the water-vapour and pressure fields, and the cell's dilution efficacy:
+
+| Reg | | |
+|---|---|---|
+| `0x0042` | `ASSUMED_P_HPA` | total pressure now, hPa (no barometer on Rev A) |
+| `0x0043` | `CAL_AIR_FRAC` | O₂ fraction present at the air point, %vol × 1000 |
+| `0x0044` | `CAL_P_HPA` | total pressure then, hPa; 0 = unknown |
+| `0x0045` | `DIL_ALPHA` | dilution efficacy × 1000; 1000 = full gas law |
+
+`DIL_ALPHA` is the fraction of the modelled water-vapour dilution the cell's
+current actually shows, so the factor applied is
+`f_eff = 1 − α·(1 − (P−p_w)/P)` rather than `(P−p_w)/P`. The 2026-09-07 sweep
+measured `α = 0.453 ± 0.052` on this cell against a separately identified
+tempco of `+0.284 ± 0.014 %/K` (`O2-HUMIDITY-CORRECTION.md` §15). The same α
+appears in the air point's fraction and in the measurement — K is fixed against
+the first, so if the two sides disagreed the difference would land on every
+reading as gain error. Default 1000, which is the plain gas law and is
+bit-for-bit what earlier firmware did; **not** 453, because that is one cell's
+coefficient and a default is a claim about every cell.
+
+Writing it **restates** `CAL_AIR_FRAC` under the new α rather than discarding
+it. The stored fraction is `C_air · f_eff(α_old)` and K is fixed against it, so
+leaving it alone would rescale every later reading by the ratio — but nothing
+has to be re-measured, because `f_eff = 1 − α·(1−f)` inverts exactly:
+
+```
+α_old·(1−f) = 1 − air_frac_old / C_AIR
+air_frac_new = C_AIR · (1 − (α_new/α_old)·(1−f)·α_old)
+```
+
+So **no recalibration is needed**, and the register is safe to write in any
+order — including inside a whole-block FC16, where `0x0043` is applied before
+`0x0045` and a zeroing implementation would have silently dropped the
+calibration the same frame supplied. The one uninvertible case is `α_old = 0`:
+at α 0 the stored fraction is `C_AIR` whatever the humidity was, so `(1−f)` is
+gone and the field falls back to 0, "unknown". Identifying α still takes two
+disjoint bench legs and cannot be derived from anything a buried probe sees.
 
 The gains are registers on purpose. The plant is unmeasured — the thermal path
 is an engineering bound, not a measurement — so they will need tuning against a
@@ -772,7 +810,7 @@ which the device reports no result either — that is a device fault and stays o
 `I2C_FAIL_ADS`, because "no valid ready was observed" does not by itself
 implicate the pin.
 
-Bit 13 now reports a DRDY line that will not release — a *pin* failure, deliberately
+Bit 13 reports a DRDY line that will not release — a *pin* failure, deliberately
 separate from `I2C_FAIL_ADS`, because the bus can be perfectly healthy while
 this pin is not. Reporting the one as the other is what sent a healthy
 ADS1119 back as scrap; the fault word said "I²C" and the board was believed.
@@ -962,27 +1000,41 @@ Three things that are easy to get wrong:
 - **Keep the SWCLK lead short.** It is the same net as BOOT0 with only a 100 kΩ
   pull-down, so a long dangling wire is an antenna on a boot-mode strap.
 
-1. **Trim RV1 to `VREF_TRIM` = 2.500 V at TP4** — then **measure the actual
-   bias.** The LMP91000's 24 % step is the top one it offers, so nominally
-   0.24 × 2.500 V = 600.0 mV, and the SGX's ±10 mV window implies VREF within
-   about ±42 mV. 2.500 V sits at roughly 60 % of RV1's travel. **Firmware
-   cannot do this** — it can only verify VREF via `VREF_MON_MV`.
+1. **There is nothing to trim. Read the bias instead.** RV1 is deleted
+   (`POTTING.md` §1.2): the cell must be swappable with the board potted, and a
+   trimmer on the potted side is unreachable after cure — every cell change
+   would have needed a trim nobody can perform. U15, an AZ431B 2.5 V shunt, sets
+   `VREF_TRIM` = 2.500 V, and `VREF_MON_MV` verifies it against the window in
+   `hw_contract.h` (2489–2511 mV, the reference's own guaranteed spec including
+   30 ppm/°C over 100 °C).
 
-   **But trimming TP4 does not prove the cell sees −600 ± 10 mV.** The
-   LMP91000's bias programming carries its own error — `PLAN.md:174` records
-   ±2 % of VREF, i.e. ±50 mV, which alone is five times the cell's window — so
-   the nominal product of two nominal numbers is not an acceptance test.
-   Measure the real V(WE) − V(RE) at the fitted cell and adjust RV1 against
-   *that*, over supply and temperature. Note `CELL_RE` deliberately has no test
-   point or via (it is a guarded trace), so this measurement is taken at the
-   cell pins. An overbiased cell drifts or degrades, and no firmware can undo
-   it once the probe is potted.
+   **Trimming VREF was never the right lever anyway.** The error being
+   compensated is the LMP91000's *internal* bias step tolerance — `PLAN.md:174`
+   records ±2 % of VREF, i.e. ±50 mV, five times the cell's ±10 mV window — and
+   moving VREF compensates an internal percentage error by shifting its input.
+   VREF is not where the ±2 % lives, so measuring VREF cannot substitute either.
+   The only node carrying the real information is the differential
+   **V(WE) − V(RE)**, and it is now a measured channel: U4A and U4B buffer the
+   two electrodes into ADS1119 AIN2/AIN3, read differentially at gain 4
+   (±625 mV full scale, ~19 µV/LSB). Report it; do not try to correct it.
+
+   What makes measuring sufficient is the *plateau*: on the diffusion-limited
+   part of the O₂ reduction wave sensitivity is flat, so an in-situ gas
+   calibration absorbs whatever bias the board actually has. **That plateau is
+   still ungated** — `POTTING.md` §1.4 wants a bias sweep in air at 20 °C and
+   again at 75 °C. If the plateau is narrower than ±50 mV the exit is the
+   discrete potentiostat, not a trimmer. Note `CELL_RE` still has no test point
+   or via (it is a guarded trace), so a probe-based cross-check is taken at the
+   cell pins; the buffered copy is available at the ADC without disturbing it.
 2. I²C scan → exactly `0x40`, `0x44`, `0x48`, `0x49`.
 3. `VREF_MON_MV` should read ≈2500. It is measured on AIN1 against the
    ADS1119's *internal* 2.048 V reference, because a converter referenced to
    the thing it is checking cannot detect that thing drifting.
-4. Cross-check `VA_MON_MV` (MCU ADC1_IN7 via VREFINT) against the ADS1119's
-   AIN2 reading of the same node. They must agree.
+4. `VA_MON_MV` (MCU ADC1_IN7) and `VIN_MON_MV` (MCU ADC1_IN6) are **both** on
+   the MCU's own ADC now — the ADS1119 channels they used to occupy were taken
+   by the bias telemetry, so the old cross-check against AIN2 no longer exists.
+   Each source impedance (5 kΩ and 8.9 kΩ) needs the longest sampling time;
+   C33 and C32 are the reservoirs that make that work.
 5. Air point after ≥15 minutes settled: expect 0.07 ± 0.03 mA, i.e. ~490 mV
    across the 7 kΩ TIA. Write `0xCA11` to `CAL_TRIGGER`, then `0x5AC1` to
    `COMMIT`.

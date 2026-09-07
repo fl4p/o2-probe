@@ -268,7 +268,7 @@ latch self-clears, so the rate would be lost without a counter. A probe that
 glitches once and one that glitches hourly read identically between events
 otherwise.
 
-### Config block, `0x0030`, 21 registers, read/write, flash-backed
+### Config block, `0x0030`, 22 registers, read/write, flash-backed
 
 `SLAVE_ADDR`, `BAUD_CODE`, `PARITY_CODE`, `RH_SETPOINT`, `DT_MAX_K`,
 `HEATER_MAX_DUTY`, `HEATER_PWM_HZ`, `CAL_AIR_NA_HI/LO`, `CAL_TEMP_C100`,
@@ -278,6 +278,21 @@ otherwise.
 `HEATER_KI` at `0x0041`, both in 0.01 units, and the three water-vapour and
 pressure fields: `ASSUMED_P_HPA` at `0x0042`, `CAL_AIR_FRAC` at `0x0043` and
 `CAL_P_HPA` at `0x0044`.
+The cell's dilution efficacy `DIL_ALPHA` sits at `0x0045`.
+
+`DIL_ALPHA` (`0x0045`, alpha x 1000, default 1000) is how much of the
+water-vapour dilution the cell's current actually shows. The gas law says the
+correction is `P/(P-p_w)`; the 2026-09-07 sweep says this cell moves only
+`alpha = 0.453 +/- 0.052` of it, so the factor applied is
+`f_eff = 1 - alpha*(1 - (P-p_w)/P)` — on both sides, the air point's fraction
+and the measurement, because it describes the cell rather than the gas. The
+default of 1000 is the plain gas law and reproduces every earlier firmware
+exactly; it is deliberately not 453, because that is one cell's measured
+coefficient and a default is a claim about all of them. Writing this register
+restates `CAL_AIR_FRAC` under the new alpha — the stored fraction was computed
+with the old one and `K` is fixed against it — which inverts exactly, so no
+recalibration is required and the write is order-independent. See
+`O2-HUMIDITY-CORRECTION.md` §15.
 
 The two heater gains are registers rather than compile-time constants because
 the plant they tune can only be characterised in a real pile:

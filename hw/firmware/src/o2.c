@@ -37,11 +37,26 @@ o2p_status_t o2p_vapour_pressure_hpa(const o2p_gas_t *gas, float *out_pw_hpa)
     return O2P_OK;
 }
 
-/* Shared bound check: the total pressure, and how much of it is water.
- * Returns the dilution factor (P - p_w)/P on success, which is the one number
- * both directions of the correction are built from. */
-static o2p_status_t dilution_factor(const o2p_gas_t *gas, float *out_f)
+/* Shared bound check: the total pressure, how much of it is water, and how
+ * much of that the cell actually shows.
+ *
+ * Returns f_eff = 1 - alpha*(1 - (P - p_w)/P), the one number both directions
+ * of the correction are built from - the air point's fraction and the
+ * measurement's dry-basis divide. There is deliberately ONE function, so the
+ * two sides cannot drift apart: an f here and an f_eff there is a gain error
+ * that no calibration removes.
+ *
+ * alpha = 1 gives the plain gas-law factor and is bit-identical to what this
+ * function computed before 2026-09-07. */
+static o2p_status_t dilution_factor(const o2p_gas_t *gas, float alpha,
+                                    float *out_f)
 {
+    /* An alpha that is not a number is not "no correction". Refuse it; the
+     * caller emits the sentinel. */
+    if (!isfinite(alpha) || !(alpha >= 0.0f) ||
+        !(alpha <= O2P_DIL_ALPHA_MAX)) {
+        return O2P_UNEVALUABLE;
+    }
     float pw = 0.0f;
     o2p_status_t st = o2p_vapour_pressure_hpa(gas, &pw);
     if (st != O2P_OK) {
@@ -66,17 +81,24 @@ static o2p_status_t dilution_factor(const o2p_gas_t *gas, float *out_f)
     if (!isfinite(f) || !(f > 0.0f) || !(f <= 1.0f)) {
         return O2P_UNEVALUABLE;
     }
-    *out_f = f;
+    /* The cell's share of it. Checked on its own rather than trusted from f's
+     * check: alpha above 1 pushes f_eff BELOW f, and at the p_w ceiling it can
+     * reach zero, which would divide. */
+    float f_eff = 1.0f - alpha * (1.0f - f);
+    if (!isfinite(f_eff) || !(f_eff > 0.0f) || !(f_eff <= 1.0f)) {
+        return O2P_UNEVALUABLE;
+    }
+    *out_f = f_eff;
     return O2P_OK;
 }
 
-o2p_status_t o2p_air_fraction(const o2p_gas_t *gas, float *out_c)
+o2p_status_t o2p_air_fraction(const o2p_gas_t *gas, float alpha, float *out_c)
 {
     if (out_c == NULL) {
         return O2P_UNEVALUABLE;
     }
     float f = 0.0f;
-    o2p_status_t st = dilution_factor(gas, &f);
+    o2p_status_t st = dilution_factor(gas, alpha, &f);
     if (st != O2P_OK) {
         return st;
     }
@@ -84,7 +106,7 @@ o2p_status_t o2p_air_fraction(const o2p_gas_t *gas, float *out_c)
     return O2P_OK;
 }
 
-o2p_status_t o2p_dry_from_wet(const o2p_gas_t *gas, float c_wet,
+o2p_status_t o2p_dry_from_wet(const o2p_gas_t *gas, float c_wet, float alpha,
                               float *out_c_dry)
 {
     if (out_c_dry == NULL) {
@@ -94,12 +116,13 @@ o2p_status_t o2p_dry_from_wet(const o2p_gas_t *gas, float c_wet,
         return O2P_UNEVALUABLE;
     }
     float f = 0.0f;
-    o2p_status_t st = dilution_factor(gas, &f);
+    o2p_status_t st = dilution_factor(gas, alpha, &f);
     if (st != O2P_OK) {
         return st;
     }
-    /* At 0 %RH, p_w is exactly 0, f is exactly 1, and this is exactly the
-     * identity - no special case, so there is no branch that can rot. */
+    /* At 0 %RH, p_w is exactly 0, f is exactly 1, f_eff is exactly 1 for any
+     * alpha, and this is exactly the identity - no special case, so there is
+     * no branch that can rot. */
     float c = c_wet / f;
     if (!isfinite(c)) {
         return O2P_UNEVALUABLE;
@@ -123,7 +146,7 @@ bool o2p_calibrate_air(o2p_cal_t *cal, int32_t cell_na, int16_t temp_c100,
      * unknown sign into K for the life of the probe (O2-HUMIDITY-CORRECTION
      * 3b). Refusing leaves the previous calibration standing. */
     float c_air = 0.0f;
-    if (o2p_air_fraction(gas, &c_air) != O2P_OK) {
+    if (o2p_air_fraction(gas, cal->dil_alpha, &c_air) != O2P_OK) {
         return false;
     }
     if (!(c_air >= O2P_CAL_FRAC_MIN) || !(c_air <= O2P_CAL_FRAC_MAX)) {
@@ -278,7 +301,7 @@ o2p_status_t o2p_dry_fraction_from_current(const o2p_cal_t *cal,
      * so rather than being masked by a missing SHT45 - but an unevaluable gas
      * still wins, because there is no dry-basis number to publish. */
     float c_dry = 0.0f;
-    o2p_status_t vst = o2p_dry_from_wet(gas, c_wet, &c_dry);
+    o2p_status_t vst = o2p_dry_from_wet(gas, c_wet, cal->dil_alpha, &c_dry);
     if (vst != O2P_OK) {
         return O2P_UNEVALUABLE;
     }
