@@ -287,6 +287,14 @@ def main():
     ap.add_argument("--timeout", type=float, default=1.0)
     ap.add_argument("--retries", type=int, default=2,
                     help="retries per poll before the row is marked failed")
+    ap.add_argument("--reopen-after", type=int, default=12, metavar="N",
+                    help="reopen the serial link after N consecutive failed "
+                         "polls (0 disables). A handle can wedge while the "
+                         "device is fine: on 2026-09-07 a session held for 14 h "
+                         "read 0 bytes for 12 min while the probe kept "
+                         "sampling and answered a fresh session instantly. "
+                         "Reopening does NOT mark anything ok - failed rows "
+                         "stay failed, and the reopen is recorded in `detail`.")
     ap.add_argument("--diag", action="store_true",
                     help="also read the diagnostic block at 0x0010")
     ap.add_argument("--count", type=int, default=1,
@@ -320,6 +328,7 @@ def main():
             writer.writeheader()
 
     failures = 0
+    consecutive = 0
     n = 0
     try:
         while args.count == 0 or n < args.count:
@@ -341,7 +350,28 @@ def main():
                     time.sleep(0.2)
             if last is not None:
                 failures += 1
+                consecutive += 1
                 row["status"], row["detail"] = "failed", last
+                if args.reopen_after and consecutive % args.reopen_after == 0:
+                    # The link, not the transaction. Never changes this row's
+                    # verdict: a dead device keeps failing after a reopen, which
+                    # is the point - this must not become a way to launder a
+                    # real fault into silence.
+                    try:
+                        link.close()
+                    except Exception:
+                        pass
+                    try:
+                        link = SerialLink(args.port, args.baud, args.parity,
+                                          args.timeout)
+                        bus = Bus(link, args.addr)
+                        note = "reopened link after %d consecutive failures" % consecutive
+                    except Exception as exc:
+                        note = "reopen FAILED after %d: %s" % (consecutive, exc)
+                    row["detail"] = "%s; %s" % (last, note)
+                    print("!! " + note)
+            else:
+                consecutive = 0
             print("%s  addr %d" % (stamp, args.addr))
             show(row)
             if writer:
