@@ -1404,7 +1404,7 @@ the cooldown into a usable leg: 9.00 K over ~2 h, against the heating leg's
 auto-detects the peak and fits both directions):
 
     stage 1  tempco   +0.284 +/- 0.014 %/K   n=71, dT 9.07 K, p_w range 1.46 hPa
-    stage 2  alpha    +0.453 +/- 0.052       n=28, dp_w 18.2 hPa, dT 1.00 K
+    stage 2  alpha    +0.402 +/- 0.046       n=28, dp_w 18.2 hPa, dT 1.00 K
     cooldown tempco   +0.261 +/- 0.010 %/K   n=72, dT 9.00 K   (alpha held)
 
 **+0.284 and +0.261 are 1.3 sigma apart.** The same coefficient, measured in
@@ -1443,8 +1443,75 @@ down than going up, so the cooldown leans on alpha being right in a way the
 heating leg does not. It agrees, which is real evidence - but it is one clean
 measurement plus one consistent with it, not two independent ones.
 
-**The decision does not move.** alpha = 0.453 +/- 0.052 is 1.8 sigma below the
+**The decision does not move.** alpha = 0.402 +/- 0.046 is 3.1 sigma below the
 0.545 threshold of §15.4, so full dry-basis correction is still worse than none
 at pile conditions, and the two-term form is still what should be flashed. alpha
-remains the weak half: +/- 0.052 resting on one 2 h dry-down.
+remains the weak half: +/- 0.046 resting on one 2 h dry-down.
+
+These are the CORRECTED figures - see §15.9. This section originally reported
+alpha = 0.453 +/- 0.052 and a 1.8 sigma margin, in the wrong units.
+
+### 15.9 The alpha was in the wrong units
+
+Found by adversarial review on 2026-09-07, with the register write queued and
+minutes from reaching the probe. It is the most consequential error in this
+document, and it is not in the data - it is in what the number was taken to
+mean.
+
+**Two domains, and the fit was in the wrong one.** The stage-2 estimator
+regresses `ln(I)` on `p_w` and divides by the ideal concentration slope
+`-1/(P-p_w)`:
+
+    alpha_log = [d ln(I) / d p_w] / [-1/(P - p_w)]
+
+so `alpha = 1` there means the CURRENT follows the ideal dilution exactly. The
+firmware does something different: it applies alpha to CONCENTRATION,
+`f_eff = 1 - alpha*(1-f)`, and only then goes through the cell's log law
+`C = 1 - exp(-S/K)`. The two are separated by that law's local gain,
+
+    d ln S / d ln C = C / ((1-C) * L(C)),   L(C) = -ln(1-C)
+
+which at 20.946 %vol is **1.1273**. A cell law that is 13 % away from linear
+at the operating point is not a detail; it is the whole difference between the
+two parameterisations.
+
+**Confirmed two ways, because one would not have been enough.**
+
+    analytic     0.4533 / 1.1273                        = 0.4021
+    numeric      refit the same dry-down leg in the
+                 firmware's own formulation, minimising
+                 the corrected trace                    = 0.4050
+
+They agree to 0.7 %. So the coefficient to write into `DIL_ALPHA` is **402**,
+not 453.
+
+**What flashing 453 would have cost.** It overstates the correction by 12 %.
+At pile conditions that is about **+0.17 pp** on a 20.95 %vol reading -
+against the 0.21 pp that a 1 % error costs, i.e. most of the error budget
+spent on a units mistake. On the bench it would have been nearly invisible:
+over the dry-down's 18.2 hPa the two differ by ~0.02 pp, the same size as the
+fit's own residual. That is what makes it the dangerous kind of error - the
+data it was fitted on cannot see it.
+
+**The decision moves the right way.** The threshold `alpha < 1/(1+f) = 0.545`
+is derived from `f_eff`, so it was ALREADY in the concentration domain; it was
+the measurement that was in the wrong one. Comparing like with like, this cell
+is **3.1 sigma** below the threshold rather than 1.8. §15.4's conclusion is
+unchanged and better supported than it was when it was written.
+
+**The tempco needed no conversion** and is unchanged at +0.284 +/- 0.014 %/K.
+The firmware divides the CURRENT by `(1 + tempco*dT)`, which is the same
+domain the regression is in. Only the term that crosses the cell law moves.
+
+`sweep_fit.py` now reports the firmware's number and prints the log-domain one
+beside it, so the two cannot be confused again, and `tempco_at()` converts
+back where it removes the alpha term from `ln(I)`.
+
+**Why the tests did not catch it, which is the part worth keeping.** The
+end-to-end firmware test builds a synthetic cell, calibrates it, and reads it
+across the humidity range - and it passed at 0.453. Its oracle derived the
+cell constant K from `cal->air_frac`, a value produced by the very function
+under test, so it adopted whatever the code believed and the round trip closed
+regardless. A test that cannot fail is not evidence. K now comes from the
+physics and the calibration has to agree with it.
 
