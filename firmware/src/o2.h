@@ -105,6 +105,17 @@ typedef struct {
 #define O2P_AIR_CAL_MIN_NA  20000
 #define O2P_AIR_CAL_MAX_NA 200000
 
+/* The ceiling for a point MEASURED in air right now, as opposed to a stored
+ * constant. Issue 2's population tops out at 0.13 mA and a cell only loses
+ * sensitivity with age, so 150 uA leaves headroom over the strongest new cell
+ * while refusing the readings that are not air at all. See o2p_calibrate_air(),
+ * which is the only place this applies. */
+#define O2P_FRESH_AIR_CAL_MAX_NA 150000
+_Static_assert(O2P_FRESH_AIR_CAL_MAX_NA <= O2P_AIR_CAL_MAX_NA,
+               "a freshly measured air point must be no broader than a stored one");
+_Static_assert(O2P_FRESH_AIR_CAL_MAX_NA > O2P_AIR_CAL_MIN_NA,
+               "fresh air-point window must not be empty");
+
 static inline bool o2p_cal_air_plausible(int32_t cell_na)
 {
     return cell_na >= O2P_AIR_CAL_MIN_NA && cell_na <= O2P_AIR_CAL_MAX_NA;
@@ -202,15 +213,24 @@ _Static_assert(O2P_NET_AIR_MIN_NA <= O2P_NET_AIR_MAX_NA,
  *
  * The ceiling is 1 %/K, five times the ~+0.2 %/K slope of the DS-0637 Issue 2
  * curve, so a bench characterisation has room and a fat-fingered or
- * byte-swapped write does not. Tcal is bounded to the cell's rated range,
- * which is what kills the negative-Tcal gain collapse.
+ * byte-swapped write does not.
+ *
+ * Tcal spans the cell's PUBLISHED operating range, -40 to +60 C. This said
+ * -20 C and called that "the cell's rated range", which was simply wrong -
+ * DS-0637 rates -40 C - and would have refused a legitimate cold-chamber
+ * calibration (third review, 2026-09-08). Note that the Tcal bound is NOT
+ * what prevents a collapsed gain term: at the widened floor, -10000 ppm/K
+ * over a -40..+60 C span still reaches gain 0. What actually catches that is
+ * the runtime `gain > 0.05` guard in o2p_fraction_from_current(), which
+ * returns UNEVALUABLE rather than a number - the correct place for it, since
+ * it depends on the measurement temperature and not on the config alone.
  *
  * This is a PLAUSIBILITY bound, not a correctness guarantee: a legal +3000
  * ppm/K over a 40 K span still moves a true 5.000 % to 4.880 %. What bounds
  * the residual is a real characterisation, not this check. See
  * O2-CORRECTION-MODEL-BUDGET.md section 5. */
 #define O2P_TEMPCO_ABS_MAX_PPM_K 10000
-#define O2P_CAL_TEMP_MIN_C100    (-2000)  /* -20 C */
+#define O2P_CAL_TEMP_MIN_C100    (-4000)  /* -40 C, DS-0637 operating range */
 #define O2P_CAL_TEMP_MAX_C100      6000   /* +60 C */
 
 static inline bool o2p_tempco_plausible(int32_t ppm_per_k)

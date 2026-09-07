@@ -25,6 +25,32 @@ bool o2p_calibrate_air(o2p_cal_t *cal, int32_t cell_na, int16_t temp_c100)
     if (!o2p_cal_zero_plausible(cal->cal_zero_na)) {
         return false;
     }
+    /* A FRESHLY MEASURED air point is held to a tighter window than a stored
+     * one. o2p_cal_air_plausible() spans 20-200 uA because a STORED constant
+     * must accommodate an aged cell and a hand-entered value; but a cell does
+     * not gain sensitivity with age, so a reading above Issue 2's 0.13 mA
+     * population maximum is not air - it is the wrong gas, a wrong bias, or a
+     * fault.
+     *
+     * This replaces a veto the 2026-09-08 reorder removed. When the air point
+     * was taken AFTER the conversion, a 180 uA reading converted to ~34.6 %O2
+     * against the old constants, tripped ADC_RANGE, and o2p_o2_valid() refused
+     * the calibration. Taking the point first is right for provenance, but it
+     * lost that check, and 180 uA would have silently overwritten a good
+     * calibration and then read back a perfect 20.946 %. Found by the third
+     * review, which was correct that "loses no check that mattered" was false. */
+    if (cell_na > O2P_FRESH_AIR_CAL_MAX_NA) {
+        return false;
+    }
+    /* The calibration temperature is stored into the live config, and an
+     * out-of-range value makes that config fail o2p_config_valid() - which
+     * would reject every LATER Modbus write and every commit until someone
+     * repaired CAL_TEMP_C100 over a bus the probe had just made hostile.
+     * Enforce the bound at the point of storage instead, so the invariant
+     * "the live config is always valid" cannot be broken from this path. */
+    if (!o2p_cal_temp_plausible(temp_c100)) {
+        return false;
+    }
     cal->cal_air_na = cell_na;
     cal->cal_temp_c100 = temp_c100;
     return true;

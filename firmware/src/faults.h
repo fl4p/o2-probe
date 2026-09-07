@@ -20,7 +20,7 @@
  *
  *  - CAL_ZERO_DEFAULT is the same shape as TEMP_OVER, not as CAL_DEFAULT, and
  *    the difference is quantitative. A missing AIR point leaves the scale
- *    factor unknown to +/-43 %; a missing ZERO point leaves a bounded offset,
+ *    factor unknown to +/-30 %; a missing ZERO point leaves a bounded offset,
  *    DS-0637's 'Zero Signal (20 C) < 0.4 %vol O2', so the reading is wrong by
  *    at most 0.4 %O2 and least where the pile is most interesting. That is a
  *    known, bounded accuracy regime - flag it, do not discard it.
@@ -68,9 +68,9 @@ enum {
  *
  * O2_COMP is that current divided by a calibration constant. Without an air
  * point there IS no constant - the datasheet nominal spans 0.04 to 0.10 mA,
- * so a substituted nominal can be wrong by -43 % to +43 %. A number that may
- * be 43 % out is not "lower-confidence data", it is an unknown scale factor
- * wearing the units of a measurement, and 12 %vol against a true 21 %vol is
+ * so a substituted nominal can be wrong by -30 % to +30 %. A number that may
+ * be 30 % out is not "lower-confidence data", it is an unknown scale factor
+ * wearing the units of a measurement, and 15.2 %vol against a true 21 %vol is
  * indistinguishable from a real, alarming result. So CAL_DEFAULT invalidates
  * the compensated channel while leaving the raw one intact. */
 #define O2P_FAULTS_INVALIDATE_O2 ( \

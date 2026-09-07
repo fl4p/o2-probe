@@ -22,7 +22,7 @@ firmware's scale factors are **generated** from the schematic (see
 | | |
 |---|---|
 | Schematic / PCB | released for a bare-board first article; ERC and DRC clean |
-| Firmware v0 | builds, 61 host tests pass — **has never run on hardware** |
+| Firmware v0 | builds, 69 host tests pass — **has never run on hardware** |
 | Firmware v1 heater loop | implemented and **shipped disabled**, pending the TMP117 alert fault test |
 | Cell fit, enclosure fit, potting | unqualified; physical sample gates open |
 | RS-485 bootloader | **does not exist** |
@@ -43,7 +43,7 @@ Two consequences worth stating plainly:
 SGX-OX-ROHS-Mini ──▶ LMP91000 ──▶ ADS1119 ──▶ STM32G071CBT7 ──▶ THVD1410 ──▶ RS-485
  biased 3-electrode  potentiostat  16-bit ADC   Cortex-M0+,        half duplex
  cell, −600 mV,      7 kΩ TIA,     ratiometric  Modbus RTU slave
- 0.07 mA in air      67 % zero     to VREF      9600 8E1
+ 0.10 mA in air      67 % zero     to VREF      9600 8E1
 ```
 
 Alongside: a TMP117 at the warm tip whose alert pin is wired straight to the

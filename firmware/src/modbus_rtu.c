@@ -140,6 +140,7 @@ void o2p_modbus_reconfigure(const o2p_config_t *cfg)
     s_tx_active = false;
     s_rx_len = 0u;
     s_frame_ready = false;
+    s_rx_poisoned = false;
     usart_configure(cfg);
     NVIC_EnableIRQ(USART1_IRQn);
 }
@@ -163,6 +164,17 @@ void USART1_IRQHandler(void)
     if ((isr & (USART_ISR_ORE | USART_ISR_FE | USART_ISR_NE | USART_ISR_PE)) != 0u) {
         USART1->ICR = USART_ICR_ORECF | USART_ICR_FECF | USART_ICR_NECF | USART_ICR_PECF;
         s_rx_len = 0u;
+        /* POISON the frame, do not merely truncate it. Clearing s_rx_len alone
+         * was not enough and the flag that was supposed to say so was declared
+         * and never used (found 2026-09-08): the fall-through below re-stores
+         * the errored byte at index 0, so a line error on the FIRST byte of a
+         * request restarts the frame from that byte and the remaining bytes
+         * arrive intact. A parity error whose data bits happen to be correct
+         * then yields a perfectly valid CRC and the request EXECUTES - which
+         * is exactly the "answering a half-heard request" this comment claims
+         * cannot happen. The flag is now set here and tested at frame-ready,
+         * so the silence is real. */
+        s_rx_poisoned = true;
         if (s_frame_errors != 0xFFFFu) {
             s_frame_errors++;
         }
@@ -184,11 +196,24 @@ void USART1_IRQHandler(void)
 
     if ((isr & USART_ISR_RTOF) != 0u) {
         USART1->ICR = USART_ICR_RTOCF;
-        if (!s_frame_ready && s_rx_len > 0u) {
+        if (!s_frame_ready && s_rx_len > 0u && !s_rx_poisoned) {
+            /* TIMESTAMP the frame here, at the silent interval that ends it.
+             * s_frame_ms was read by the response deadline below and assigned
+             * NOWHERE - it sat at 0 for the life of the probe, so once uptime
+             * passed 400 ms o2p_elapsed() was true for every frame and the
+             * probe answered nothing, ever. Against a Dragino polling every
+             * five minutes that is a probe which is mute on the bus from the
+             * first half-second onward. The host suite cannot see it: the RTU
+             * transport is excluded from the native build. Found by the
+             * 2026-09-08 review; this is the deadline actually starting. */
+            s_frame_ms = o2p_millis();
             s_frame_ready = true;
         } else {
             s_rx_len = 0u;
         }
+        /* A poisoned frame dies at its own end-of-frame gap, not at the next
+         * byte, so the poison clears here and the next frame starts clean. */
+        s_rx_poisoned = false;
     }
 
     if ((isr & USART_ISR_TC) != 0u) {

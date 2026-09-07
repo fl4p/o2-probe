@@ -163,8 +163,14 @@ cheap.
 > 40 °C. A best affine fit over 10–60 °C gives ≈ +0.176 %/K and leaves residuals near
 > ±0.8 % of the 20 °C output, i.e. **≈ ±0.15 %O₂ near air** — three times the ±0.05
 > headline of §3, and a term §3 *cannot* see, because `fit_mc.py` makes the response
-> exactly linear by construction. Adding temperature points to the campaign therefore
-> cannot expose this error; only fitting real data against a real curve can.
+> exactly linear by construction. Adding synthetic temperature points **to the Monte
+> Carlo** therefore cannot expose it — but a **real** multi-temperature campaign can,
+> and directly: fit the affine model to measured data and read the curvature straight
+> off the residuals against calibration temperature. (An earlier revision of this
+> paragraph said the campaign itself could not expose the error. That was wrong, and it
+> mattered: it would have argued against running the very experiment that settles the
+> question. Corrected after the third review.) So step 1 of §7 should retain its
+> residuals versus temperature, not just its fitted `α`.
 >
 > **These readings are a second eyeballing, not a digitisation** — a model's visual
 > reading of a chart, recorded here as UNVERIFIED. They are strong enough to retire
@@ -272,8 +278,11 @@ With that in hand the defensible statement is:
 > cell ageing (±1 %O₂ at air over life, re-spanned by the field air point).
 
 Without the temperature sweep — i.e. exactly what ships today — the honest claim is
-**±1.3 %O₂ at air and ±0.3…0.5 %O₂ in the 2–5 % range**, and `O2P_TEMPCO_DEFAULT = 0`
-is correctly labelled in `o2.h` as no compensation rather than a compensation.
+**±1.3 %O₂ at air and ±0.3…0.5 %O₂ in the 2–5 % range, both at 55 °C**. Those are points
+on a rising curve, not bounds: the same model gives **+1.47 %O₂ at air/60 °C** and
+**0.58 %O₂ at 5 %O₂/65 °C**, outside the range just quoted. Never quote either figure
+without the temperature attached. `O2P_TEMPCO_DEFAULT = 0` is correctly labelled in
+`o2.h` as no compensation rather than a compensation.
 
 ## 8. Adversarial review, 2026-09-07
 
@@ -395,3 +404,65 @@ all-or-nothing. The flash record is exactly 64 bytes and a v2 record cannot be a
 as v3. Removing `g_cal` did fix the unbounded stale-cache bug. The `0.00005/0.2095` air
 reference is the correct spelling of ±0.005 %O₂. `≈ +0.2 %/K` survives as sign and order
 of magnitude — but not as proof the single linear coefficient closes the model.
+
+## 10. Third adversarial review, 2026-09-08
+
+A third reviewer was run against `d89765b`, told §8 and §9 were the thing under test, and
+asked specifically to find where a claimed fix does not fix its stated problem or
+introduced a new defect. It did both, and it found something neither earlier round had
+looked at.
+
+### The one that matters most: the probe was mute on the bus
+
+**`s_frame_ms` was read by the Modbus response deadline and assigned nowhere.** It sat at
+0 for the life of the probe, so `o2p_elapsed(0, 400)` was true for every frame once
+uptime passed 400 ms, and every request was discarded as "too old to answer". A probe
+polled every five minutes would have answered **nothing, ever**, from the first
+half-second onward.
+
+This is pre-existing — not from this review cycle's changes, and older than the
+provenance and calibration work both earlier rounds spent their attention on. It survived
+two adversarial reviews because `modbus_rtu.c` is excluded from the host build, so no
+test could see it, and because the first two rounds were pointed at the conversion path.
+The lesson is finding 12's, sharpened: **the untested files are where the fatal bug was**,
+and a green 69/69 says nothing about them. Now timestamped where the end-of-frame gap is
+detected.
+
+Alongside it, `s_rx_poisoned` was also declared and never used, so the ISR's promise that
+a parity or framing error produces silence was not kept: the error handler clears the
+buffer and then falls through and re-stores the errored byte, restarting the frame from
+it. A parity error whose data bits happen to be correct yields a valid CRC and the
+request **executes**. Now set on the line error and tested at frame-ready.
+
+### Regressions this cycle introduced, and other fixes
+
+| # | Finding | Disposition |
+|---|---|---|
+| 3 | `commit_after_cal` could be stranded forever: `finish_o2()`'s ADS-failure early return never consumes it, and a repeatedly failing ADS still publishes and feeds the watchdog | **Confirmed regression, fixed.** The commit is released on that path, so an acknowledged config write is persisted instead of being lost at the next reboot. `cal_requested` stays set to retry. Worse than the race it replaced, exactly as claimed. |
+| 4 | `o2p_calibrate_air()` stored `cal_temp_c100` unconditionally, so an automatic calibration could create a config that `o2p_config_valid()` rejects — **blocking every later Modbus write and commit** until someone repaired the register over a bus the probe had just made hostile | **Confirmed regression, fixed.** The bound is enforced at the point of storage. Swept by a test over the whole `int16` range asserting the two guards agree exactly. |
+| 4b | The −20 °C floor was described as "the cell's rated range" and is not — DS-0637 rates **−40 °C** | **Confirmed, corrected to −40 °C.** The round-2 test asserting −36 °C implausible was itself wrong and is inverted. Note the consequence: round 2's attack config is legal again, because both values are individually legitimate. What catches the collapsed gain is the **runtime** `gain > 0.05` guard returning `UNEVALUABLE` — the right place, since it depends on measurement temperature and not on the config alone. Now tested. |
+| 6 | A calibration could be taken during the mandatory 15-minute settle: the gate ran before `cycle_publish()` adds `SETTLING`, so a transient current could become the permanent air constant of a sample invalidated seconds later | **Confirmed, fixed.** The settle deadline is tested directly. |
+| 8 | The reorder removed a real veto. A 180 µA reading used to convert to ~34.6 %O₂ against the old constants, trip `ADC_RANGE` and be refused; afterwards it was accepted and read back a perfect 20.946 % | **Confirmed, fixed** — and "loses no check that mattered" in §9 was false. A freshly *measured* air point is now held to 150 µA, above Issue 2's 130 µA population maximum, while the *stored* window stays 20–200 µA for aged and hand-entered constants. A cell does not gain sensitivity with age. |
+| 13 | Issue 1 arithmetic still in six places: `0.07 mA` in the README chain, `0.04–0.10 mA` and `±43 %` in `faults.h`/`faults.c`/`main.c`/`FIRMWARE.md`, and a "true air reads 12 %" example | **Confirmed; §9's claim that these were fixed was wrong.** Issue 2 is 0.07–0.13 mA about 0.10 mA, i.e. **±30 %**, and substituting the nominal makes true air read **15.2–26.3 %**, not 12–30 %. All corrected. Stale test counts (61, 59) also corrected. |
+| 14, 15 | §7 repeated ±1.3 / ±0.3–0.5 without the 55 °C qualifier; §5 concluded that a temperature campaign could not expose the curvature | **Both confirmed and corrected.** §15 mattered most: it argued against running the very experiment that settles the question. A real multi-temperature campaign exposes curvature directly through residuals against calibration temperature; only adding *synthetic* points to a linear-by-construction Monte Carlo cannot. |
+
+### Still open, and now harder to defend
+
+- **The async provenance window (7)** is unchanged, and the reviewer is right that the
+  main loop polls Modbus *between* `PH_O2` and the publish step, so the window is wider
+  than "inside one cycle". It argues this is a design defect needing a sample epoch, not
+  a documentation note, because `CONFIG_CRC` is *presented* as provenance. That is a
+  fair reading and it needs a register.
+- **Silent flash-commit failure (9).** The reviewer rejects "all sixteen fault bits are
+  allocated" as a reason, and is correct: a status register or a verifiable commit
+  protocol needs no fault bit. This is now a design task, not a blocked one.
+- **`CAL_ZERO_DEFAULT` (10)** and **the decoder/firmware register mismatch (11)** stand
+  as in §9. On (11) the reviewer adds the operational consequence: the decoder accepts
+  only 21- or 24-register replies while firmware serves 18 and **rejects longer reads
+  with exception 02**, so a node issuing the documented poll gets no diagnostic block at
+  all. That is a live integration defect, not future work.
+- **No host test observes the sampler, the RTU ISR or flash (12)**, and this round
+  proved what that costs. Two of the five round-2 tests were also judged weak: the
+  calibrate-and-commit test observes only the intermediate flags, and the commit-alone
+  test passes under both old and new behaviour. Both stand as regression guards, neither
+  is evidence the fix completes.

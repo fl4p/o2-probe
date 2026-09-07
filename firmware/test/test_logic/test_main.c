@@ -628,17 +628,29 @@ static void test_absurd_tempco_is_refused(void)
 
 static void test_calibration_temperature_is_bounded(void)
 {
-    /* The review's second case drove the gain term to 0.04 with Tcal -36 C,
-     * making a NEGATIVE current evaluate to exactly 5 %. Tcal is held to the
-     * cell's rated range, which is what forecloses it. */
-    TEST_ASSERT_FALSE(o2p_cal_temp_plausible(-3600));
-    TEST_ASSERT_FALSE(o2p_cal_temp_plausible(9000));
+    /* Tcal spans the cell's PUBLISHED operating range, -40..+60 C. The bound
+     * was briefly -20 C, wrongly described as the cell's rating; -36 C is a
+     * legitimate cold-chamber calibration and must be ACCEPTED. */
+    TEST_ASSERT_TRUE(o2p_cal_temp_plausible(-3600));
     TEST_ASSERT_TRUE(o2p_cal_temp_plausible(2500));
+    TEST_ASSERT_FALSE(o2p_cal_temp_plausible(-4001));
+    TEST_ASSERT_FALSE(o2p_cal_temp_plausible(9000));
 
     o2p_config_t cfg;
     o2p_config_defaults(&cfg);
-    cfg.cal_temp_c100 = -3600;
+    cfg.cal_temp_c100 = 9000;
     TEST_ASSERT_FALSE(o2p_config_valid(&cfg));
+
+    /* The second review's attack (Tcal -36 C, tempco -10000 ppm/K) is legal
+     * again by design, because BOTH values are individually legitimate. What
+     * catches the collapsed gain it produces is the runtime guard, which
+     * returns UNEVALUABLE and NO value - not a plausible wrong number. */
+    o2p_cal_t cal = {.cal_air_na = 100000, .cal_zero_na = 0,
+                     .cal_temp_c100 = -3600, .tempco_per_k = -0.010f};
+    float c = -1.0f;
+    TEST_ASSERT_EQUAL(O2P_UNEVALUABLE,
+                      o2p_fraction_from_current(&cal, 50000, 6000, &c));
+    TEST_ASSERT_EQUAL_FLOAT(-1.0f, c);   /* out_c untouched */
 }
 
 static void test_out_of_range_tempco_write_is_refused_over_modbus(void)
@@ -694,6 +706,65 @@ static void test_commit_on_its_own_is_not_deferred(void)
 
     TEST_ASSERT_TRUE(rm.commit_pending);
     TEST_ASSERT_FALSE(rm.commit_after_cal);
+}
+
+/* ---- third review, 2026-09-08 ---- */
+
+static void test_fresh_air_point_above_the_population_is_refused(void)
+{
+    /* The reorder that fixed provenance removed an implicit veto: an air point
+     * taken with the wrong gas used to convert out of range against the OLD
+     * constants and trip ADC_RANGE, which refused the calibration. 180 uA is
+     * above Issue 2's 130 uA population maximum and a cell does not gain
+     * sensitivity with age, so it must not overwrite a good calibration. */
+    o2p_cal_t cal = {.cal_air_na = 100000, .cal_zero_na = 1200,
+                     .cal_temp_c100 = 2500, .tempco_per_k = 0.0f};
+    TEST_ASSERT_FALSE(o2p_calibrate_air(&cal, 180000, 2500));
+    TEST_ASSERT_EQUAL_INT32(100000, cal.cal_air_na);   /* untouched */
+
+    /* A real air point still calibrates. */
+    TEST_ASSERT_TRUE(o2p_calibrate_air(&cal, 105000, 2500));
+    TEST_ASSERT_EQUAL_INT32(105000, cal.cal_air_na);
+}
+
+static void test_calibration_cannot_store_an_invalid_temperature(void)
+{
+    /* o2p_calibrate_air() writes cal_temp_c100 straight into the live config.
+     * An out-of-range value would make that config fail o2p_config_valid(),
+     * which rejects every LATER Modbus write and every commit - the probe
+     * would refuse repair over the bus it just made hostile. */
+    o2p_cal_t cal = {.cal_air_na = 100000, .cal_zero_na = 0,
+                     .cal_temp_c100 = 2500, .tempco_per_k = 0.0f};
+    TEST_ASSERT_FALSE(o2p_calibrate_air(&cal, 100000, 6500));   /* +65 C */
+    TEST_ASSERT_EQUAL_INT16(2500, cal.cal_temp_c100);
+
+    /* -40 C is the cell's published floor and must still be accepted: the
+     * bound was briefly -20 C, which would have refused a legitimate cold
+     * calibration. */
+    TEST_ASSERT_TRUE(o2p_calibrate_air(&cal, 100000, -4000));
+
+    /* Whatever this path stores must always leave the config valid. */
+    o2p_config_t cfg;
+    o2p_config_defaults(&cfg);
+    cfg.cal_temp_c100 = cal.cal_temp_c100;
+    TEST_ASSERT_TRUE(o2p_config_valid(&cfg));
+}
+
+static void test_every_storable_calibration_temperature_keeps_config_valid(void)
+{
+    /* Monotonic sweep of the whole int16 range: the two guards must agree
+     * exactly, or a value one accepts and the other rejects bricks writes. */
+    o2p_config_t cfg;
+    o2p_config_defaults(&cfg);
+    for (int32_t t = -32768; t <= 32767; t += 7) {
+        o2p_cal_t cal = {.cal_air_na = 100000, .cal_zero_na = 0,
+                         .cal_temp_c100 = 2500, .tempco_per_k = 0.0f};
+        bool stored = o2p_calibrate_air(&cal, 100000, (int16_t)t);
+        if (stored) {
+            cfg.cal_temp_c100 = cal.cal_temp_c100;
+            TEST_ASSERT_TRUE(o2p_config_valid(&cfg));
+        }
+    }
 }
 
 static void test_zero_point_is_covered_by_the_config_crc(void)
@@ -1452,6 +1523,9 @@ int main(void)
     RUN_TEST(test_out_of_range_tempco_write_is_refused_over_modbus);
     RUN_TEST(test_calibrate_and_commit_in_one_frame_defers_the_commit);
     RUN_TEST(test_commit_on_its_own_is_not_deferred);
+    RUN_TEST(test_fresh_air_point_above_the_population_is_refused);
+    RUN_TEST(test_calibration_cannot_store_an_invalid_temperature);
+    RUN_TEST(test_every_storable_calibration_temperature_keeps_config_valid);
     RUN_TEST(test_zero_point_is_covered_by_the_config_crc);
     RUN_TEST(test_config_block_read_covers_the_zero_registers);
     RUN_TEST(test_monotonic_across_the_whole_range_with_a_zero);

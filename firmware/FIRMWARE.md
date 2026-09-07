@@ -13,7 +13,7 @@ PlatformIO + STM32Cube (HAL headers, direct CMSIS register code).
 edit it by hand.
 
 ```sh
-pio test -e native      # portable logic, 59 cases
+pio test -e native      # portable logic, 69 cases
 pio run  -e o2probe     # cross build
 pio run  -e o2probe -t upload
 python3 tools/gen_hw_contract.py            # regenerate after a schematic change
@@ -330,7 +330,7 @@ would look compensated. Same reasoning as `TEMPCO_PPM_K`'s default of 0.
 `CAL_ZERO_NA` is **signed**, and deliberately so in both directions:
 `SCHEMATIC-REVIEW.md` M4 leaves the SGX polarity convention open, and the
 electronic offsets it competes with have no fixed sign either. It is bounded to
-**±5000 nA** — about 3× the worst in-spec cell, so an aged part is still
+**±5000 nA** — 2.9× the nominal cell's zero and 2.25× the worst in-spec one, so an aged part is still
 calibratable, while an air point mistakenly written into the zero registers, or
 a byte-swapped word, is refused rather than stored. An out-of-window value
 returns exception 03 and changes nothing; a zero at or above the air point can
@@ -533,14 +533,14 @@ enforced by `_Static_assert` in `src/faults.c`:
   through a known transimpedance — and is meaningful with no calibration at
   all; it is also the channel the bench uses to resolve the open sign-convention
   gate. `O2_COMP` is that current divided by a constant nobody has measured:
-  the datasheet nominal spans 0.04–0.10 mA, so a substituted value can be 43 %
-  out, and 12 %vol against a true 21 %vol is indistinguishable from a real and
+  the datasheet nominal spans 0.07–0.13 mA, so a substituted value can be 30 %
+  out, and 15.2 %vol against a true 21 %vol is indistinguishable from a real and
   alarming result. That is not lower-confidence data, it is an unknown scale
   factor wearing the units of a measurement.
 
 - **`CAL_ZERO_DEFAULT` invalidates nothing.** It has the shape of `TEMP_OVER`,
   not of `CAL_DEFAULT`, and the difference is quantitative. A missing *air*
-  point leaves the scale factor unknown to ±43 %; a missing *zero* point leaves
+  point leaves the scale factor unknown to ±30 %; a missing *zero* point leaves
   a bounded offset — DS-0637's `Zero Signal (20 °C) < 0.4 %vol O₂` — so the
   reading is wrong by at most 0.4 %O₂, and least where the pile is most
   interesting. Flag it, do not discard it. Making it invalidate would blank the

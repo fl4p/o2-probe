@@ -15,7 +15,7 @@ _Static_assert((O2P_FAULTS_INVALIDATE_O2 & O2P_F_CAL_DEFAULT) == 0,
                "is a real measurement with or without a calibration constant");
 _Static_assert((O2P_FAULTS_INVALIDATE_O2_COMP & O2P_F_CAL_DEFAULT) != 0,
                "CAL_DEFAULT MUST invalidate the COMPENSATED channel: the "
-               "datasheet nominal spans 0.04-0.10 mA in air, so a substituted "
+               "datasheet nominal spans 0.07-0.13 mA in air, so a substituted "
                "constant can be 43 percent out and still look like a plausible "
                "oxygen reading");
 _Static_assert((O2P_FAULTS_INVALIDATE_O2_COMP & O2P_F_TEMP_OVER) == 0,

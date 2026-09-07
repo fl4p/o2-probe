@@ -352,6 +352,24 @@ static void finish_vin(o2p_snapshot_t *s)
 static void finish_o2(o2p_snapshot_t *s)
 {
     if ((g_cyc.faults & O2P_F_I2C_FAIL_ADS) != 0u) {
+        /* No conversion this cycle, so no air point can be taken - but a
+         * commit deferred behind that calibration must NOT wait for an ADS
+         * that may never come back. A repeatedly failing ADS still reaches
+         * PH_PUBLISH and still feeds the watchdog, so the probe stays up and
+         * responsive with the flag set forever; a reboot would then lose a
+         * configuration write the master was told had succeeded. That is
+         * strictly worse than the race the deferral was added to fix (third
+         * review, 2026-09-08).
+         *
+         * So the commit is released here and the config is persisted as it
+         * stands. cal_requested deliberately stays set: the calibration is a
+         * separate, retryable request and it will be taken when the converter
+         * recovers. It will then land in RAM only, which is the documented
+         * behaviour of a bare CAL_TRIGGER and needs a further COMMIT. */
+        if (g_rm.commit_after_cal) {
+            g_rm.commit_after_cal = false;
+            g_rm.commit_pending = true;
+        }
         return;
     }
     int32_t code = g_acc / (int32_t)O2P_N_O2;
@@ -395,7 +413,17 @@ static void finish_o2(o2p_snapshot_t *s)
     if (g_rm.cal_requested) {
         g_rm.cal_requested = false;
         o2p_cal_t taken = cal_from_config();
-        if (o2p_o2_valid(g_cyc.faults) &&
+        /* SETTLING is not in g_cyc.faults yet - cycle_publish() adds it - so
+         * o2p_o2_valid() alone would accept an air point taken during the
+         * documented 15-minute post-bias settle, store a transient current as
+         * the probe's permanent air constant, and invalidate the very sample
+         * it came from seconds later. Test the deadline directly (third
+         * review, 2026-09-08). The request is dropped rather than held: an
+         * operator who calibrates too early should be told by the unchanged
+         * constants, not surprised by a calibration landing a quarter of an
+         * hour after they asked for it. */
+        bool settled = (g_uptime_s >= g_settle_deadline_s);
+        if (settled && o2p_o2_valid(g_cyc.faults) &&
             o2p_calibrate_air(&taken, cell_na,
                               (t_gas != O2P_I16_INVALID) ? t_gas : 2500)) {
             g_rm.cfg.cal_air_na = taken.cal_air_na;
@@ -417,7 +445,7 @@ static void finish_o2(o2p_snapshot_t *s)
     if (cal.cal_air_na <= 0) {
         /* Never calibrated. Substitute the datasheet nominal so the raw
          * channel still converts, and raise CAL_DEFAULT - which invalidates
-         * the COMPENSATED channel, because that nominal spans 0.04-0.10 mA. */
+         * the COMPENSATED channel, because that nominal spans 0.07-0.13 mA. */
         cal.cal_air_na = O2P_CAL_AIR_NOMINAL_NA;
         g_cyc.faults |= O2P_F_CAL_DEFAULT;
     }
