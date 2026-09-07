@@ -699,6 +699,16 @@ behaviour from it. The day contradicts it. The claim goes back to **open**,
 though the mechanism I would now favour is a leakage artefact on unpotted FR4
 rather than two gas volumes.
 
+**And the reviewer turned that back on me, correctly.** Saying "the day
+contradicts it" is too strong. The heater-ramp window is a *within-run* contrast
+over twelve minutes; the day-scale pairs are hours apart and cross restarts,
+reflashes and ~0.9 % of drift. On confounding alone the fast window is the
+*better* evidence, and it should carry more weight than the pairs, not less. The
+honest statement is that a clean short window agrees with dilution while
+long-baseline contrasts do not — which is itself a clue about timescale, and the
+reason §"The experiment that settles it" is a step test rather than another
+survey of the log.
+
 **It also weakens §9b.** The +0.51 %/K tempco there assumed the whole soak
 residual was temperature. These windows give −0.04, +0.24, +0.55, +0.11 and
 +0.48 %/K depending on which one is used, and +2.2 %/K over the whole day. There
