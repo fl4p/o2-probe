@@ -73,10 +73,14 @@ calibrated and what may be claimed for it:
   only on `S/K` and `K` comes from an air point through the same chain.
 - **The tempco is the whole game.** With an air point alone — what ships today
   — the error at 55 °C is ~1.3 %O₂ in air and 0.3–0.5 %O₂ in the 2–5 % range
-  where the compost decision lives. Any temperature sweep collapses that below
+  where the compost decision lives — those are the **55 °C** figures, and they
+  keep rising (1.47 %O₂ at 60 °C). Any temperature sweep collapses that below
   0.03 %O₂. **DS-0637 Issue 2 does publish an output-versus-temperature curve**
   (≈ +0.2 %/K, eyeballed, not yet digitised); it is the cell alone, from another
   population, without our electronics, so a per-probe fit is still the plan.
+  The curve also looks **visibly non-linear above 40 °C**, which would mean one
+  linear coefficient cannot close the model — recorded as unverified until
+  `dsdig` digitises it, because a chart read by eye is not a sourced number.
 - **The terms calibration cannot touch are larger than calibration error.**
   Water-vapour dilution of saturated pore gas is −0.18 %O₂ per K at 55 °C;
   barometric weather is ±0.45 %O₂ at air and is uncorrectable because the

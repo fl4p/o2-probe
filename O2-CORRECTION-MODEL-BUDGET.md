@@ -13,6 +13,18 @@ and `model/` package actually implement. Monte-Carlo scripts are reproduced in �
 > fit: weighted by each point's own reference uncertainty, they neither help
 > nor hurt. The tables below are the corrected ones.
 
+> **Second review, 2026-09-08 (§9).** A fresh reviewer was pointed at the committed
+> state and told that §8 was the thing under test. It confirmed the corrected tables
+> reproduce and survive every weighting variant tried, and found five things §8 had
+> not: a **sample/config provenance gap** (a published value could carry a
+> `CONFIG_CRC` describing a *different* calibration), a **combined
+> `CAL_TRIGGER`+`COMMIT` frame** that persisted the pre-calibration image, **two
+> unbounded config constants** that made a legal write return 4.503 %O₂ for a true
+> 5.000 % with a clean fault word, a **wrong rationale** for the flash version bump,
+> and the fact that the **vendor curve is materially non-linear**, so one `α` cannot
+> close the model (§5). Fixed where fixable; §9 lists what is escalated rather than
+> patched.
+
 ## 1. The model under test
 
 `model/src/o2_lumped/physics.py` and `firmware/src/o2.c` share one static law:
@@ -143,7 +155,25 @@ spread means the *population* varies enough that a per-unit fit is still worth d
 
 That value is **eyeballed, not digitised**, so it is not yet a sourced number and
 `O2P_TEMPCO_DEFAULT` stays 0. Digitising it with `dsdig` is the next step and it is
-cheap. What it already settles:
+cheap.
+
+> **The curve is visibly not a straight line, and a single `α` cannot close it.**
+> The 2026-09-08 review read the mean curve as roughly 97.3 / 100 / 104.1 / 104.9 /
+> 106.2 % of the 20 °C output at 10 / 20 / 40 / 50 / 60 °C — flattening markedly above
+> 40 °C. A best affine fit over 10–60 °C gives ≈ +0.176 %/K and leaves residuals near
+> ±0.8 % of the 20 °C output, i.e. **≈ ±0.15 %O₂ near air** — three times the ±0.05
+> headline of §3, and a term §3 *cannot* see, because `fit_mc.py` makes the response
+> exactly linear by construction. Adding temperature points to the campaign therefore
+> cannot expose this error; only fitting real data against a real curve can.
+>
+> **These readings are a second eyeballing, not a digitisation** — a model's visual
+> reading of a chart, recorded here as UNVERIFIED. They are strong enough to retire
+> "one linear coefficient is sufficient" as an assumption and not strong enough to put
+> a number in firmware. `dsdig` settles both, and this is now the reason it is not
+> optional: if the curvature is real, the fit needs a quadratic term or a restricted
+> temperature range, which is a change to the model, not to a constant.
+
+What the eyeballed slope already settles:
 
 - **The magnitude is the capillary one.** A continuum-diffusion barrier gives
   `D ∝ T^1.75` against a molar density `∝ 1/T`, so `I ∝ T^0.75` → +0.25 %/K at 300 K.
@@ -300,3 +330,68 @@ Argued but not changed:
 
 Scripts: `analysis/budget.py`, `analysis/fit_mc.py`, `analysis/field.py`; each is ~60 lines and
 takes the constants above as its only inputs.
+
+## 9. Second adversarial review, 2026-09-08
+
+A second Codex reviewer was run against the committed state of `f4aac90` + `b5554e2`,
+told explicitly that §8 was under test and not to be trusted, and asked to find where a
+claimed fix does not fix the stated problem. It verified its own access (911 kB TI PDF
+fetched through the browser, page 2 of DS-0637 Issue 2 rendered and hashed) and re-ran
+the host suite itself. Thirteen findings; every one was re-derived here before acting.
+
+### Fixed in code
+
+| # | Finding | Disposition |
+|---|---|---|
+| 1 | `finish_o2()` converted the sample, *then* applied a requested air point, so `PH_PUBLISH` shipped the old value under the new `CONFIG_CRC` | **Confirmed and fixed.** The air point is now taken *before* the conversion, so the published value, the readback and the CRC are one calibration. Also makes a calibration cycle read ~20.95 % immediately instead of one cycle late. |
+| 2 | One FC16 spanning `CAL_TRIGGER` and `COMMIT` raised both flags, and the main loop persisted the **pre**-calibration image while the calibration stayed in RAM | **Confirmed and fixed.** A co-requested commit is deferred until `finish_o2()` has taken the point (`commit_after_cal`). A lone commit is unaffected. Two tests. |
+| 3 | `tempco_ppm_per_k` and `cal_temp_c100` were unbounded: `α` = +20000 ppm/K at 60 °C returns **4.503 %O₂ for a true 5.000 %** with `O2P_OK`; a far-negative `T0` collapsed the gain term to 0.04 | **Confirmed and fixed.** Both bounded in `o2p_config_valid()` (`o2.h`: ±10000 ppm/K = 5× the vendor slope; `T0` to the cell's rated −20…+60 °C). Three tests, verified by known-bad calibration — with the bound widened the write is *accepted*. A plausibility bound, not a correctness guarantee: a legal +3000 ppm/K over 40 K still moves 5.000 % to 4.880 %. |
+| 8 | The "1-in-65536" rationale for the flash version bump was wrong | **Confirmed and fixed**, and re-derived independently here. Reading a v2 record as v3 hashes `msg ‖ CRC16(msg) ‖ 00 00`, which is identically zero and matches the relocated zero CRC field — the CRC check **passes** deterministically. What rejects a v2 record is `slave_addr` landing on a zeroed reserved byte. Two stale notes telling a maintainer to make the already-made bump were removed. |
+| 9 | `O2P_ZERO_CAL_ABS_MAX_NA` documented as "about 3× the worst in-spec cell"; 5000/2218 = 2.25× | **Confirmed and fixed** (2.9× nominal, 2.25× worst-case). The Issue-1-derived **1194 nA** also still appeared in `regmap.h` and `FIRMWARE.md`; both now 1706 nA. |
+| 10 | The derived net-air window assumed, without asserting, a non-negative zero magnitude and `AIR_MIN ≤ AIR_MAX` | **Confirmed and fixed.** Three more `_Static_assert`s. Editing only `O2P_AIR_CAL_MAX_NA` to 9000 used to invert the window and make *every* conversion unevaluable while the existing assertion passed. |
+| 11 | The GLS weight used `dI/dC = K/(1−C)`, omitting the gain factor | **Confirmed and fixed.** Re-ran: σ(K)/K unchanged at 0.094/0.097/0.093/0.120 % — weights only need to be right up to a common scale. Corrected anyway, because a wrong derivative in a reusable weighting rule is load-bearing the next time. |
+| 5, 6 | The accuracy headline is a simulation target quoted without scope, and the vendor curve is materially non-linear | **Confirmed; claims rewritten.** ±1.3 %O₂ is the **55 °C** value (+1.47 at 60 °C, 0.58 at 5 %O₂/65 °C), now stated with the temperature attached in `FIRMWARE.md`. The non-linearity is recorded in §5 as **UNVERIFIED** — it is a second eyeballing of a plot, not a digitisation, and per project rule a model's visual chart reading is never promoted to a sourced number. It is enough to retire "one linear coefficient suffices" as an assumption. |
+
+### Escalated, not patched — these need a decision
+
+- **The remaining provenance window (from #1).** A sample still carries no config
+  identity, so an asynchronous Modbus write between `PH_O2` and `PH_PUBLISH` can still
+  pair a value with a CRC describing a different config. Closing it means latching a
+  config CRC or epoch **into the sample**, which costs a diagnostic register — and the
+  diagnostic block is exactly where the decoder has already drifted (below). Documented
+  in `FIRMWARE.md` as open rather than papered over.
+- **A failed flash commit is silent** (#2). `o2p_config_store()`'s return is discarded
+  in `main.c`. It cannot simply be reported: **all sixteen fault bits are allocated**,
+  bit 13 having just gone to `CAL_ZERO_DEFAULT`. This needs a fault-word decision, not
+  a patch.
+- **No v2→v3 config migration** (#7). A reflashed probe loses air calibration, address,
+  baud and parity together, so a re-addressed probe presents as *dead*, not reset.
+  Harmless only while nothing is deployed; write the migration before the first field
+  unit, or plan bench re-provisioning.
+- **`CAL_ZERO_DEFAULT` is transmitted but nothing downstream acts on it** (#4). The
+  decoder names bit 13 correctly yet still derives `comp_ok` from the sentinel alone;
+  the Grafana panel still calls bit 13 `ADS_DRDY_STUCK` and treats `0xB000` as unknown.
+  The reviewer argues the missing state is a machine-actionable **degraded quality**,
+  which is neither today's fully-valid number nor the blanking §8 rejected. That is the
+  same open decision §8 left for Fab, now with the downstream evidence attached.
+- **The decoder reads three registers the firmware never implemented** (#13). It decodes
+  `t_die`, `faults_ever` and `ads_fail_count` past the end of an 18-register diagnostic
+  block, and Grafana queries `gas_faults_ever`. The firmware, not the decoder, is behind:
+  a fault-ever latch and an ADS failure counter are real work, and they interact with
+  both bullets above. Bit 14 (`EXP_FAIL` vs `ads_config_lost`) remains adrift.
+- **No host test observes the sampler** (#12). `platformio.ini` excludes `main.c`,
+  `config_flash.c` and `modbus_rtu.c`, so the cache removal, the publish ordering, the
+  flash migration and the serial handover are all untested by construction — the two
+  ordering fixes above are verified at the regmap boundary, not end-to-end. The suite
+  is 66/66 and that number should not be read as covering the state machine.
+
+### Survived
+
+The corrected tables reproduce. "Weakly-referenced dilution points are harmless under
+proper weighting" survived oracle-K, fitted-K, fully temperature-dependent weights,
+iterative reweighting and a deliberately remote starting point. Drawing one gradient per
+temperature level is the right correction. Rejected Modbus writes are genuinely
+all-or-nothing. The flash record is exactly 64 bytes and a v2 record cannot be accepted
+as v3. Removing `g_cal` did fix the unbounded stale-cache bug. The `0.00005/0.2095` air
+reference is the correct spelling of ±0.005 %O₂. `≈ +0.2 %/K` survives as sign and order
+of magnitude — but not as proof the single linear coefficient closes the model.

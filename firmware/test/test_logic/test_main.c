@@ -604,6 +604,98 @@ static void test_written_zero_point_must_also_be_plausible(void)
     TEST_ASSERT_EQUAL_INT32(-1200, rm.cfg.cal_zero_na);
 }
 
+/* ---- 2026-09-08 review: bounds on the temperature-correction constants ---- */
+
+static void test_absurd_tempco_is_refused(void)
+{
+    /* The review's case: cal_air 95000, zero -5000, Tcal 20 C, tempco +20000
+     * ppm/K, gas at 60 C returned 4.503 %vol for a true 5.000 % with O2P_OK
+     * set. The config that made it possible must not be storable. */
+    TEST_ASSERT_FALSE(o2p_tempco_plausible(20000));
+    TEST_ASSERT_FALSE(o2p_tempco_plausible(-20000));
+    /* Five times the DS-0637 curve's slope is still room for a bench
+     * characterisation, so the bound must not refuse a real one. */
+    TEST_ASSERT_TRUE(o2p_tempco_plausible(2000));
+    TEST_ASSERT_TRUE(o2p_tempco_plausible(-2000));
+    TEST_ASSERT_TRUE(o2p_tempco_plausible(0));
+
+    o2p_config_t cfg;
+    o2p_config_defaults(&cfg);
+    TEST_ASSERT_TRUE(o2p_config_valid(&cfg));
+    cfg.tempco_ppm_per_k = 20000;
+    TEST_ASSERT_FALSE(o2p_config_valid(&cfg));
+}
+
+static void test_calibration_temperature_is_bounded(void)
+{
+    /* The review's second case drove the gain term to 0.04 with Tcal -36 C,
+     * making a NEGATIVE current evaluate to exactly 5 %. Tcal is held to the
+     * cell's rated range, which is what forecloses it. */
+    TEST_ASSERT_FALSE(o2p_cal_temp_plausible(-3600));
+    TEST_ASSERT_FALSE(o2p_cal_temp_plausible(9000));
+    TEST_ASSERT_TRUE(o2p_cal_temp_plausible(2500));
+
+    o2p_config_t cfg;
+    o2p_config_defaults(&cfg);
+    cfg.cal_temp_c100 = -3600;
+    TEST_ASSERT_FALSE(o2p_config_valid(&cfg));
+}
+
+static void test_out_of_range_tempco_write_is_refused_over_modbus(void)
+{
+    /* The bound has to bind on the path an operator actually uses. */
+    int16_t before = rm.cfg.tempco_ppm_per_k;
+    uint8_t req[32], rsp[O2P_MB_MAX_ADU];
+    /* FC16, TEMPCO_PPM_K (0x003A) = 20000 (0x4E20). */
+    const uint8_t w[] = {0x03, 0x10, 0x00, 0x3A, 0x00, 0x01, 0x02, 0x4E, 0x20};
+    size_t n = framed(req, w, sizeof(w));
+    size_t rn = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_TRUE(rn > 0);
+    TEST_ASSERT_EQUAL_HEX8(0x90, rsp[1]);   /* exception */
+    TEST_ASSERT_EQUAL_INT16(before, rm.cfg.tempco_ppm_per_k);
+}
+
+static void test_calibrate_and_commit_in_one_frame_defers_the_commit(void)
+{
+    /* One FC16 spanning CAL_TRIGGER and COMMIT used to raise both flags at
+     * once, so the main loop persisted the PRE-calibration image while the
+     * calibration landed in RAM only. The commit must now wait for the
+     * calibration to be taken. */
+    rm.cal_requested = false;
+    rm.commit_pending = false;
+    rm.commit_after_cal = false;
+
+    uint8_t req[64], rsp[O2P_MB_MAX_ADU];
+    /* CAL_TRIGGER is 0x003D, COMMIT 0x003E - adjacent, so one frame covers
+     * both. Write the magics into the pair. */
+    uint8_t w[] = {0x03, 0x10, 0x00, 0x3D, 0x00, 0x02, 0x04,
+                   (uint8_t)(O2P_CAL_MAGIC >> 8), (uint8_t)(O2P_CAL_MAGIC & 0xFF),
+                   (uint8_t)(O2P_COMMIT_MAGIC >> 8), (uint8_t)(O2P_COMMIT_MAGIC & 0xFF)};
+    size_t n = framed(req, w, sizeof(w));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+
+    TEST_ASSERT_TRUE(rm.cal_requested);
+    TEST_ASSERT_TRUE(rm.commit_after_cal);
+    /* The whole point: nothing is written to flash before the air point. */
+    TEST_ASSERT_FALSE(rm.commit_pending);
+}
+
+static void test_commit_on_its_own_is_not_deferred(void)
+{
+    rm.cal_requested = false;
+    rm.commit_pending = false;
+    rm.commit_after_cal = false;
+
+    uint8_t req[32], rsp[O2P_MB_MAX_ADU];
+    uint8_t w[] = {0x03, 0x10, 0x00, 0x3E, 0x00, 0x01, 0x02,
+                   (uint8_t)(O2P_COMMIT_MAGIC >> 8), (uint8_t)(O2P_COMMIT_MAGIC & 0xFF)};
+    size_t n = framed(req, w, sizeof(w));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+
+    TEST_ASSERT_TRUE(rm.commit_pending);
+    TEST_ASSERT_FALSE(rm.commit_after_cal);
+}
+
 static void test_zero_point_is_covered_by_the_config_crc(void)
 {
     /* CONFIG_CRC is what a master uses to confirm the probe is running the
@@ -1355,6 +1447,11 @@ int main(void)
     RUN_TEST(test_zero_at_or_above_the_air_point_is_unevaluable);
     RUN_TEST(test_tempco_scales_k_and_not_the_measured_current);
     RUN_TEST(test_written_zero_point_must_also_be_plausible);
+    RUN_TEST(test_absurd_tempco_is_refused);
+    RUN_TEST(test_calibration_temperature_is_bounded);
+    RUN_TEST(test_out_of_range_tempco_write_is_refused_over_modbus);
+    RUN_TEST(test_calibrate_and_commit_in_one_frame_defers_the_commit);
+    RUN_TEST(test_commit_on_its_own_is_not_deferred);
     RUN_TEST(test_zero_point_is_covered_by_the_config_crc);
     RUN_TEST(test_config_block_read_covers_the_zero_registers);
     RUN_TEST(test_monotonic_across_the_whole_range_with_a_zero);

@@ -77,13 +77,24 @@ def run(dsg, ntrial=1500):
         I = model((I0_TRUE, K_TRUE, A_TRUE), Ctrue, Ttrue)
         I = I + rng.normal(0, sig_I(I))
         # Weight each residual by its TOTAL uncertainty, current noise combined
-        # with the reference gas propagated through dI/dC = K/(1-C). Without
-        # this the fit believes a 2 %-relative cylinder as much as an air point
-        # good to 0.005 %O2, which is what made added points look harmful.
+        # with the reference gas propagated through the model's own derivative
+        #     dI/dC = K*(1 + a*(T - T0)) / (1 - C).
+        # Without this the fit believes a 2 %-relative cylinder as much as an
+        # air point good to 0.005 %O2, which is what made added points look
+        # harmful.
+        #
+        # The gain factor was missing until 2026-09-08 (the comment said
+        # dI/dC = K/(1-C), the one-temperature form). Restoring it moves
+        # sigma(K)/K by under 0.002 points - designs D/E land at 0.0955 % and
+        # 0.0941 % - because the weights only have to be right up to a common
+        # scale for GLS. Corrected because a wrong derivative in a weighting
+        # rule is the kind of thing that is harmless here and load-bearing the
+        # next time someone reuses it.
         if WEIGHTED:
             sref = np.array([GRADE[gs[i]]*max(Cs[i],1e-9) for i in range(len(Cs))])
             sref = np.repeat(sref, len(Ts))
-            w = np.hypot(sig_I(I), K_TRUE*sref/(1.0-grid_C))
+            gain = 1.0 + A_TRUE*(grid_T - T0)
+            w = np.hypot(sig_I(I), K_TRUE*gain*sref/(1.0-grid_C))
         else:
             w = sig_I(I)
         free = dsg["free"]

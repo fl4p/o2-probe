@@ -111,8 +111,11 @@ enum {
      * CAL_AIR_NA in one FC03 of the whole config block; the addresses are
      * apart, the meaning is not.
      *
-     * DS-0637 rates the zero signal "< 0.4 %vol O2" (~1194 nA at a nominal
-     * cell), which is 8-100x every electronic offset in the chain. Folded into
+     * DS-0637 rates the zero signal "< 0.4 %vol O2 (20 C)" - 1706 nA at Issue
+     * 2's nominal 100 uA cell, 2218 nA at the top of the population. (This
+     * said 1194 nA, which was derived from Issue 1's 70 uA nominal and went
+     * stale when the rest of the tree moved to Issue 2; corrected 2026-09-08.)
+     * Either way it is 8-100x every electronic offset in the chain. Folded into
      * the air point it becomes a slope error across the whole low-O2 range;
      * subtracted here it is an offset. See ../O2-CORRECTION-MODEL-BUDGET.md.
      *
@@ -165,15 +168,18 @@ typedef struct {
     uint8_t  reserved[3];             /* 29..31 */
 } o2p_config_t;
 
-/* NOTE for whoever lands this: adding cal_zero_na moved every field after it
- * and grew the struct from 28 to 32 bytes, so a config record written by an
- * older image no longer parses as this layout. config_flash.c gates exactly
- * that with CONFIG_LAYOUT_VERSION, whose comment says a layout change must
- * bump it so an old record falls back to defaults instead of being
- * mis-interpreted. That bump (2 -> 3) is required and is NOT in this change:
- * config_flash.c was outside its file boundary. Without it the old record's
- * CRC is computed over the wrong length and rejects with probability
- * 65535/65536 - fail-safe by accident, not by design. Bump it. */
+/* Adding cal_zero_na moved every field after it and grew the struct from 28 to
+ * 32 bytes, so a config record written by an older image no longer parses as
+ * this layout. CONFIG_LAYOUT_VERSION in config_flash.c gates exactly that, and
+ * the bump (2 -> 3) IS made - it landed in the same commit as this field.
+ *
+ * This note used to say the bump was still required, and that without it an
+ * old record would be caught by its CRC "with probability 65535/65536". Both
+ * halves were wrong and both are corrected at CONFIG_LAYOUT_VERSION: the CRC
+ * check would have passed deterministically, and what rejects a v2 record is
+ * a field-placement coincidence in o2p_config_valid(). Corrected 2026-09-08
+ * after a review found the stale instruction still telling a maintainer to
+ * redo work that was already done. */
 
 /* Live measurement snapshot, published atomically by the sampler. */
 typedef struct {
@@ -221,6 +227,10 @@ typedef struct {
     volatile bool serial_reconfig_pending;
     volatile bool commit_pending;
     volatile bool cal_requested;
+    /* Set when ONE FC16 asked for both a calibration and a commit. The commit
+     * then waits for the calibration to be taken, instead of racing it. See
+     * o2p_regmap_write() and finish_o2(). */
+    volatile bool commit_after_cal;
     volatile bool sht_pulse_requested;
 } o2p_regmap_t;
 

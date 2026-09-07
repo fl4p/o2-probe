@@ -115,7 +115,9 @@ static inline bool o2p_cal_air_plausible(int32_t cell_na)
  * DS-0637 rates the zero signal "< 0.4 %vol O2 (20 C)". Under the log law that
  * is K * ln(1/(1-0.004)) = 0.0040080 * K, i.e. 1706 nA at Issue 2's nominal
  * 100 uA air point and 2218 nA at the 130 uA top of the population. The bound
- * is set at 5000 nA - about 3x the worst in-spec cell - so that an aged or
+ * is set at 5000 nA - 2.9x the nominal cell's zero and 2.25x the worst
+ * in-spec one (this said "about 3x the worst in-spec cell", which was the
+ * nominal ratio mislabelled; 2026-09-08 review) - so that an aged or
  * marginal part is still calibratable, while the failure this bound exists to
  * catch cannot pass: 5000 nA is 1.68 %O2 equivalent, so an air point
  * mistakenly written into the zero registers, a byte-swapped word, or a cell
@@ -158,6 +160,19 @@ static inline bool o2p_cal_zero_plausible(int32_t zero_na)
 _Static_assert(O2P_NET_AIR_MIN_NA > 0,
                "zero-point bound must not reach the air-point floor");
 
+/* The three assumptions the derivation above rests on, asserted rather than
+ * assumed. The 2026-09-08 review found the window itself correct but
+ * under-asserted: editing ONLY O2P_AIR_CAL_MAX_NA to 9000 leaves the
+ * assertion above passing while producing NET_MIN 15000 > NET_MAX 14000, so
+ * every conversion returns UNEVALUABLE and the probe reports nothing at all.
+ * A component-bound edit that inverts the window is a build error now. */
+_Static_assert(O2P_ZERO_CAL_ABS_MAX_NA >= 0,
+               "zero bound is a magnitude; a negative one inverts both edges");
+_Static_assert(O2P_AIR_CAL_MIN_NA <= O2P_AIR_CAL_MAX_NA,
+               "air-point window must not be inverted");
+_Static_assert(O2P_NET_AIR_MIN_NA <= O2P_NET_AIR_MAX_NA,
+               "derived net-air window must not be inverted");
+
 /* Datasheet nominal for an uncalibrated cell: 0.1 mA in air (DS-0637 Issue 2,
  * 28-May-2026). The tolerance on that is +/-0.03 mA, i.e. +/-30 %, which is
  * why using it sets CAL_DEFAULT rather than passing silently.
@@ -175,6 +190,39 @@ _Static_assert(O2P_NET_AIR_MIN_NA > 0,
  * applied", which is honest - an invented coefficient would be worse than
  * none, because it would look like a correction had been made. */
 #define O2P_TEMPCO_DEFAULT 0.0f
+
+/* Plausibility bounds on the two temperature-correction constants.
+ *
+ * Added 2026-09-08: the review found both unbounded, and built a legal config
+ * out of it. cal_air 95000, zero -5000, Tcal 20 C, tempco +20000 ppm/K, gas at
+ * 60 C returns 4.503 %vol for a true 5.000 % with O2P_OK set - a 0.5 point
+ * error, five times the discrimination this probe exists to provide, wearing a
+ * clean fault word. A second config (Tcal -36 C, tempco -10000 ppm/K) drove the
+ * gain term to 0.04 and made a NEGATIVE current evaluate to exactly 5 %.
+ *
+ * The ceiling is 1 %/K, five times the ~+0.2 %/K slope of the DS-0637 Issue 2
+ * curve, so a bench characterisation has room and a fat-fingered or
+ * byte-swapped write does not. Tcal is bounded to the cell's rated range,
+ * which is what kills the negative-Tcal gain collapse.
+ *
+ * This is a PLAUSIBILITY bound, not a correctness guarantee: a legal +3000
+ * ppm/K over a 40 K span still moves a true 5.000 % to 4.880 %. What bounds
+ * the residual is a real characterisation, not this check. See
+ * O2-CORRECTION-MODEL-BUDGET.md section 5. */
+#define O2P_TEMPCO_ABS_MAX_PPM_K 10000
+#define O2P_CAL_TEMP_MIN_C100    (-2000)  /* -20 C */
+#define O2P_CAL_TEMP_MAX_C100      6000   /* +60 C */
+
+static inline bool o2p_tempco_plausible(int32_t ppm_per_k)
+{
+    return ppm_per_k >= -O2P_TEMPCO_ABS_MAX_PPM_K &&
+           ppm_per_k <= O2P_TEMPCO_ABS_MAX_PPM_K;
+}
+
+static inline bool o2p_cal_temp_plausible(int32_t c100)
+{
+    return c100 >= O2P_CAL_TEMP_MIN_C100 && c100 <= O2P_CAL_TEMP_MAX_C100;
+}
 
 /* Convert a measured cell current to oxygen volume fraction.
  *

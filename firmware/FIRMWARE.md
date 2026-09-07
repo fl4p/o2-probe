@@ -308,7 +308,8 @@ Three things about that law are easy to get wrong, and the firmware is explicit
 about each.
 
 **The zero is not a rounding term.** DS-0637 rates the zero signal at
-`< 0.4 %vol O2 (20 C)` — up to **1194 nA** at a nominal cell, which is 8× the
+`< 0.4 %vol O2 (20 C)` — **1706 nA** at Issue 2's nominal 100 µA cell and
+**2218 nA** at the top of the population, which is 8× the
 LMP91000's internal-zero error and 100× a converter LSB. Folded into the air
 point instead of subtracted it stops being an offset and becomes a *slope*
 error across the whole low-O₂ range, which is precisely where the compost
@@ -346,6 +347,14 @@ not a measurement — **no calibration data exists yet.**
 |---|---|---|
 | Air point only, `alpha` = 0 — **what ships today** | **±1.3 %O₂** | **±0.3–0.5 %O₂** |
 | N₂ + air at 5 temperatures, fit weighted by reference uncertainty | ±0.05 %O₂ (1σ) | ±0.05 %O₂ (1σ) |
+
+**Read the first row as "at 55 °C", not as a bound.** It is a point on a curve
+that keeps rising: the same model gives **+1.47 %O₂ at 60 °C**, and the 2–5 %
+figure reaches 0.58 %O₂ at 65 °C — outside the stated 0.3–0.5. Quote these with
+the temperature attached or not at all. The second row is **predicted parameter
+uncertainty under the assumptions of §3**, not a measured accuracy, and it
+excludes model closure — including the fact that the vendor curve behind
+`alpha` is visibly not a straight line (§5). Neither row is a specification.
 
 The 1.3 %O₂ is not resolution and it is not the converter — the digitiser is
 two orders of magnitude away from mattering. It is the uncompensated tempco at
@@ -419,10 +428,30 @@ and for `o2p_fraction_from_current()`.
    after `COMMIT`, so a master could verify a new calibration by `CONFIG_CRC`
    and still be reading numbers produced by the old one — the worst shape a
    provenance bug can take, since the check meant to catch it reported success.
-   Found by the 2026-09-07 Codex review. `COMMIT` still does what it says:
-   persist to flash. `CONFIG_CRC` covers `cal_zero_na`, so a master can tell that
-   the probe is running the calibration it wrote and not a stale one
-   (`test_zero_point_is_covered_by_the_config_crc`). `CAL_DEFAULT` still marks a
+   Found by the 2026-09-07 Codex review. `CONFIG_CRC` covers `cal_zero_na`, so
+   a master can tell *which configuration the probe holds*
+   (`test_zero_point_is_covered_by_the_config_crc`).
+
+   **What `CONFIG_CRC` does not tell it is which configuration produced the
+   sample sitting beside it.** The 2026-09-08 review showed the sample carries
+   no config identity: `CONFIG_CRC` is computed live at read time, so a
+   configuration write landing between `PH_O2` and `PH_PUBLISH` publishes a
+   value converted under the old constants next to a CRC describing the new
+   ones. Two of the three ways in were closed —
+   the self-inflicted one, where `finish_o2()` converted the sample and *then*
+   applied a requested air point (the air point is now taken **before** the
+   conversion, so the published value and the readback agree), and a combined
+   `CAL_TRIGGER`+`COMMIT` frame that used to persist the pre-calibration image
+   (the commit now waits for the calibration). The remaining window is an
+   asynchronous Modbus write inside one cycle, and it is **open**: closing it
+   needs a config CRC or epoch latched into the sample, which costs a
+   diagnostic register. Do not read a matching `CONFIG_CRC` as proof that the
+   adjacent `O2_COMP` was produced under it.
+
+   `COMMIT` still does what it says — persist to flash — with one caveat the
+   same review raised: `o2p_config_store()`'s return is discarded in `main.c`,
+   so a *failed* flash write is silent. The fault word has no bit left to
+   report it (all 16 are allocated), so this needs a decision, not a patch. `CAL_DEFAULT` still marks a
    substituted air point, and **`CAL_ZERO_DEFAULT` (bit 13) now marks a missing
    zero point**, so a probe running on air alone says so on every uplink instead
    of publishing `O2_COMP` with a clean fault word. It invalidates nothing — the
@@ -905,18 +934,19 @@ phase became blocking: the decision runs inside the existing publish step.
   first-article and bootloader validation; **never RDP 2**, which would remove
   every recovery path from a device whose SWD connector is already inside the
   potting.
-- **`CONFIG_LAYOUT_VERSION` has not been bumped for `cal_zero_na`, and it must
-  be.** Adding the field moved every later member of `o2p_config_t` and grew it
-  from 28 to 32 bytes, so a config record written by an older image is no longer
-  this layout. `src/config_flash.c` exists to catch exactly that — its version
-  gate makes an old record fall back to defaults instead of being
-  mis-interpreted, and the defaults put `HEATER_MAX_DUTY` at 0, which is the
-  only direction a layout change is allowed to fail in. The bump (2 → 3) was
-  **not** made here because `config_flash.c` was outside this change's file
-  boundary. Without it an old record is caught only by its CRC being computed
-  over the wrong length — fail-safe with probability 65535/65536, by accident
-  rather than by design. **Do this before flashing any board that has ever
-  stored a configuration.**
+- **A v2 board reflashed to v3 loses its entire stored configuration.**
+  `CONFIG_LAYOUT_VERSION` **has** been bumped (2 → 3) for `cal_zero_na`, so an
+  older record is refused rather than mis-parsed — the right call, and the
+  defaults it falls back to put `HEATER_MAX_DUTY` at 0, the only direction a
+  layout change may fail in. But the fallback is total: air calibration, slave
+  address, baud and parity all revert together, so **a probe that had been
+  re-addressed stops answering the poll it was configured for and presents as a
+  dead probe rather than a reset one.** No migration path was written. This is
+  acceptable only while no v2 unit is deployed; write the migration, or plan to
+  re-provision every probe on the bench, before the first field unit ships.
+  (An earlier revision of this bullet said the bump was still outstanding and
+  that the CRC would catch an old record "with probability 65535/65536". The
+  bump is done, and that CRC claim was wrong — see `config_flash.c`.)
 - **`../DESIGN.md` still documents the config block as 18 registers.**
   `tools/check_regmap_docs.py` fails the `o2probe` build on this, deliberately:
   the map is a wire contract and a stale prose copy is how someone writes an

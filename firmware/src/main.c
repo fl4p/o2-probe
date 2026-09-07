@@ -369,6 +369,50 @@ static void finish_o2(o2p_snapshot_t *s)
                                      : (g_cyc.tip_ok ? g_cyc.t_tip
                                                      : O2P_I16_INVALID);
 
+    /* Air-point calibration FIRST, if an operator asked for one, so that the
+     * value published from this cycle and the CONFIG_CRC/readback describing
+     * it are the same calibration.
+     *
+     * This used to run after the conversion, at the end of this function. The
+     * 2026-09-08 review found the consequence: the sample was converted with
+     * the OLD constants, then g_rm.cfg was changed, and PH_PUBLISH shipped the
+     * old number under a readback and CONFIG_CRC that described the new one.
+     * A master that did the obvious thing - calibrate, then read back the CRC
+     * to confirm - was confirming a calibration it had not yet seen applied.
+     * That is the same class of defect as the g_cal cache removed on
+     * 2026-09-07, just one cycle wide instead of unbounded.
+     *
+     * Taking the point first also makes the cycle self-consistent in the way
+     * an operator expects: calibrate in air and THIS sample reads ~20.95 %,
+     * rather than one stale cycle followed by a correct one.
+     *
+     * Judge the raw channel, not the compensated one: a probe that has never
+     * been calibrated always fails the compensated test, which would make
+     * calibration impossible. o2p_calibrate_air() bounds the current itself,
+     * so moving ahead of the conversion loses no check that mattered - the
+     * only fault this no longer sees is an ADC_RANGE raised by converting
+     * against the constants we are about to replace. */
+    if (g_rm.cal_requested) {
+        g_rm.cal_requested = false;
+        o2p_cal_t taken = cal_from_config();
+        if (o2p_o2_valid(g_cyc.faults) &&
+            o2p_calibrate_air(&taken, cell_na,
+                              (t_gas != O2P_I16_INVALID) ? t_gas : 2500)) {
+            g_rm.cfg.cal_air_na = taken.cal_air_na;
+            g_rm.cfg.cal_temp_c100 = taken.cal_temp_c100;
+        }
+        /* A refused calibration leaves the old constants in place. */
+
+        /* A commit asked for in the SAME frame waits until here, so that what
+         * reaches flash is the calibration the master was acknowledged for.
+         * Raised even when the point was refused: the operator asked for the
+         * live config to be persisted, and the live config is what it gets. */
+        if (g_rm.commit_after_cal) {
+            g_rm.commit_after_cal = false;
+            g_rm.commit_pending = true;
+        }
+    }
+
     o2p_cal_t cal = cal_from_config();
     if (cal.cal_air_na <= 0) {
         /* Never calibrated. Substitute the datasheet nominal so the raw
@@ -410,21 +454,6 @@ static void finish_o2(o2p_snapshot_t *s)
         s->o2_comp = o2p_encode_percent(st, c);
     }
 
-    /* Air-point calibration, if an operator asked for one. */
-    if (g_rm.cal_requested) {
-        g_rm.cal_requested = false;
-        /* Judge the raw channel, not the compensated one: a probe that has
-         * never been calibrated always fails the compensated test, which
-         * would make calibration impossible. */
-        o2p_cal_t taken = cal_from_config();
-        if (o2p_o2_valid(g_cyc.faults) &&
-            o2p_calibrate_air(&taken, cell_na,
-                              (t_gas != O2P_I16_INVALID) ? t_gas : 2500)) {
-            g_rm.cfg.cal_air_na = taken.cal_air_na;
-            g_rm.cfg.cal_temp_c100 = taken.cal_temp_c100;
-        }
-        /* A refused calibration leaves the old constants in place. */
-    }
 }
 
 static void cycle_publish(o2p_snapshot_t *s)

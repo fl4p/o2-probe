@@ -32,15 +32,40 @@ _Static_assert(FLASH_PAGE_SIZE == 2048u, "unexpected flash page size");
 #define CONFIG_MAGIC 0x4F325043u   /* "O2PC" */
 /* 2: added heater_kp_x100 / heater_ki_x100 (registers 0x0040/0x0041).
  * 3: added cal_zero_na (registers 0x0042/0x0043), which grew o2p_config_t from
- *    28 to 32 bytes. A version-2 record is therefore a DIFFERENT layout, and
- *    without this bump it would be rejected only because offsetof(crc) moved
- *    and its CRC is checked over the wrong length - fail-safe by accident,
- *    with a 1-in-65536 hole. The bump makes it fail-safe by construction.
+ *    28 to 32 bytes and moved offsetof(crc) from 40 to 44. A version-2 record
+ *    is therefore a DIFFERENT layout, and this bump is what makes rejecting it
+ *    fail-safe by construction rather than by accident.
+ *
+ *    An earlier comment here claimed that without the bump a v2 record would
+ *    be caught by its CRC "with a 1-in-65536 hole". That was wrong in both
+ *    halves, and the 2026-09-08 review worked it out on a real v2 default
+ *    image. Reading a v2 record as v3 hashes the first 44 bytes, which are the
+ *    12-byte header, the 28-byte v2 config, the v2 CRC itself, and two zero
+ *    bytes of the v2 reserved tail - and CRC16(msg || CRC16(msg)) is
+ *    identically zero, with trailing zero bytes leaving the register at zero.
+ *    The comparison value at the relocated offset 44 is another pair of zeroed
+ *    reserved bytes. So the CRC check does not fail with probability
+ *    65535/65536; it PASSES, deterministically. What actually rejects a v2
+ *    record without the bump is o2p_config_valid(): v3's slave_addr at offset
+ *    26 lands on a v2 reserved byte and reads 0, which is below the Modbus
+ *    address floor. Relying on that would be relying on a coincidence of
+ *    field placement, which is exactly what the version gate exists to avoid.
  * Bumping this makes an older record unreadable rather than
  * mis-interpreted, so an older probe's stored config falls back to defaults -
  * and the defaults put HEATER_MAX_DUTY at 0, i.e. heater off. The fail-safe
  * direction of a layout change is therefore "no heat", which is the only
- * direction it is allowed to fail in. */
+ * direction it is allowed to fail in.
+ *
+ * WHAT THIS COSTS, and it is not nothing: a v2 probe reflashed to v3 loses
+ * BOTH stored records and reverts to defaults entirely - air calibration,
+ * slave address, baud and parity together. A probe that had been re-addressed
+ * off the default therefore stops answering the poll it was configured for,
+ * and looks like a dead probe rather than a reset one. A known-layout
+ * migration (read v2, copy the fields that did not move, initialise
+ * cal_zero_na to 0, rewrite as v3) would have preserved all of it and was not
+ * written. Raised by the 2026-09-08 review; acceptable ONLY because no v2
+ * probe is deployed yet. Write the migration before the first field unit
+ * ships, or plan to re-provision every probe over the bench after the update. */
 #define CONFIG_LAYOUT_VERSION 3u
 
 /* Fixed 64-byte record, so the layout does not move when a config field is

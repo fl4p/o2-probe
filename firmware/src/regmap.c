@@ -35,7 +35,12 @@ void o2p_config_defaults(o2p_config_t *cfg)
      * given a zero correction it never had. */
     cfg->cal_zero_na = 0;
     cfg->cal_temp_c100 = 2500;
-    cfg->tempco_ppm_per_k = 0;            /* SGX publishes no curve for this part */
+    /* 0 = no compensation applied. DS-0637 Issue 2 DOES publish an output-vs-
+     * temperature curve, but no coefficient, and a slope eyeballed off a plot
+     * is not a sourced number - so the default stays 0 until the curve is
+     * digitised. (This said "SGX publishes no curve for this part", which was
+     * true of Issue 1 only; corrected 2026-09-08.) See o2.h O2P_TEMPCO_DEFAULT. */
+    cfg->tempco_ppm_per_k = 0;
     cfg->sht_pulse_interval_h = 8u;       /* PLAN.md:312, every 6-12 h */
     /* Heater loop. max_duty of zero means the loop is OFF by configuration as
      * well as by the compile guard: two independent switches, so enabling the
@@ -114,6 +119,18 @@ bool o2p_config_valid(const o2p_config_t *cfg)
      * LO to be written together in one FC16, because a half-written value
      * cannot pass. */
     if (!o2p_cal_zero_plausible(cfg->cal_zero_na)) {
+        return false;
+    }
+    /* The temperature correction's two constants. Unbounded until 2026-09-08,
+     * when a review built a legal config that returned 4.503 %vol for a true
+     * 5.000 % with a clean fault word. Both bounds and the worked cases are in
+     * o2.h; the short version is that the tempco ceiling is 5x the DS-0637
+     * curve's slope and Tcal is held to the cell's rated range, which is what
+     * stops a far-negative Tcal collapsing the gain term toward zero. */
+    if (!o2p_tempco_plausible(cfg->tempco_ppm_per_k)) {
+        return false;
+    }
+    if (!o2p_cal_temp_plausible(cfg->cal_temp_c100)) {
         return false;
     }
     if (cfg->sht_pulse_interval_h == 0u || cfg->sht_pulse_interval_h > 168u) {
@@ -423,11 +440,27 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
          * mid-frame and make the probe unreachable at both settings. */
         rm->serial_reconfig_pending = true;
     }
-    if (want_commit) {
-        rm->commit_pending = true;
-    }
+    /* "Calibrate and save" in ONE frame must mean exactly that, in that order.
+     *
+     * Both flags are collected independently above, so a single FC16 spanning
+     * CAL_TRIGGER and COMMIT used to raise both at once - and the main loop
+     * services commit_pending as soon as the reply is off the wire, which is
+     * typically well before the next finish_o2() reaches the air routine. The
+     * flash then stored the PRE-calibration image, the calibration landed in
+     * RAM only, and the master had a successful write acknowledging both. A
+     * power cycle silently discarded the calibration it had just confirmed.
+     * Found by the 2026-09-08 review.
+     *
+     * So a co-requested commit is deferred: finish_o2() raises commit_pending
+     * once the calibration has actually been taken. A commit asked for on its
+     * own is unaffected and still runs at the next quiet moment. */
     if (want_cal) {
         rm->cal_requested = true;
+        if (want_commit) {
+            rm->commit_after_cal = true;
+        }
+    } else if (want_commit) {
+        rm->commit_pending = true;
     }
     if (want_pulse) {
         rm->sht_pulse_requested = true;
