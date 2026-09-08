@@ -305,6 +305,47 @@ enum {
 #define O2P_REG_CONFIG_BASE  0x0030u
 #define O2P_REG_CONFIG_COUNT 24u
 
+/* ---- Heater test block: 0x0050, 2 registers, read/write, VOLATILE ----
+ *
+ * The bench override. It exists so the ring can be driven open-loop at a
+ * chosen duty, at any humidity, without the dT clamp - which is the only way
+ * to characterise a thermal plant that the RH loop was written to regulate
+ * but that nobody has ever measured (heater_ctl.h says so in its own header).
+ *
+ * DELIBERATELY NOT IN THE CONFIG BLOCK, and therefore not in flash. A test
+ * mode that survives a power cycle is a test mode that gets left on in a
+ * potted probe two metres down a compost pile. Arming is lost on reset, on
+ * brownout, and on every path that re-runs o2p_regmap_init(), and there is no
+ * register write anywhere that can make it persistent.
+ *
+ * WHAT IT DOES NOT BYPASS, and this is the point of listing them: the TMP117
+ * therm-mode cutoff (O2P_HB_SAFETY), a missing tip temperature
+ * (O2P_HB_NO_TIP), the absolute tip limit at O2P_HEATER_TIP_LIMIT_C100
+ * (O2P_HB_TIP_LIMIT), the rail fault, the runaway latch, the PA7 pin-integrity
+ * assertion, and HEATER_MAX_DUTY - which still caps the commanded duty and
+ * still disables the heater outright at zero. Override removes the reasons
+ * the loop declines to CONTROL; it removes none of the reasons the hardware
+ * declines to BURN.
+ *
+ * With TIP_LIMIT and its 5 K release left in place, an armed override is a
+ * bang-bang thermostat between 75.00 and 80.00 C. That is not a limitation
+ * worked around - for "drive the tip to 80 C" it is the whole mechanism. */
+enum {
+    /* Write O2P_HEATER_TEST_MAGIC to arm, 0 to disarm. Reads back 1 or 0
+     * rather than the magic: what a reader wants to know is whether the
+     * override is live, and echoing a token invites a read-modify-write to
+     * re-arm it by accident. */
+    O2P_REG_HEATER_TEST_ARM  = 0x0050u,
+    /* Open-loop duty while armed, 0.01 %. Clamped to HEATER_MAX_DUTY. */
+    O2P_REG_HEATER_TEST_DUTY = 0x0051u,
+};
+#define O2P_REG_HTEST_BASE  0x0050u
+#define O2P_REG_HTEST_COUNT 2u
+
+/* Same reasoning as O2P_COMMIT_MAGIC: energising 1 W into the membrane must
+ * not be one flipped bit away in a frame that happened to pass CRC. */
+#define O2P_HEATER_TEST_MAGIC 0x8EA7u
+
 /* Deliberate magics rather than "write 1". A flash cycle and a recalibration
  * are both destructive and both are one stray bit away in a noisy RS-485
  * frame that happened to pass CRC; requiring a 16-bit token makes an accident
@@ -314,10 +355,17 @@ enum {
 #define O2P_CAL_MAGIC    0xCA11u
 
 /* Bumped whenever the WIRE contract changes, which is the only thing a master
- * can act on: 0x0002 is the diagnostic block growing from 24 registers to 26.
+ * can act on: 0x0002 was the diagnostic block growing from 24 registers to 26,
+ * and 0x0003 is 26 to 28 (CMD_RESULT, CAL_STATE) plus the config block
+ * growing to 24 with the CAL_ZERO_NA pair.
+ *
+ * It was left at 0x0002 across that change, which made the register a liar by
+ * its own stated rule and gave a master no way to tell a 28-register probe
+ * from a 26-register one before reading it. Found by review 2026-09-08.
+ *
  * For "which build is this", read BUILD_ID (0x0028/0x0029) - this number is
  * hand-maintained and says nothing about the binary. */
-#define O2P_FW_VERSION 0x0002u  /* v0.2 - diag block is 26 registers */
+#define O2P_FW_VERSION 0x0003u  /* v0.3 - diag 28 registers, config 24 */
 
 /* Overridden by tools/pio_build_id.py on every target build. The default is
  * reached only by the host test build, and means "no stamp", never a commit. */
@@ -372,8 +420,15 @@ typedef struct {
     int32_t  cal_zero_na;             /* 36 */
 } o2p_config_t;
 /* The record wrapper in config_flash.h is a fixed 64 bytes and pads to it, so
- * growing this struct spends the record's reserved tail rather than moving
- * the CRC into a new place. Pinned so a field added without checking the
+ * growing this struct spends the record's RESERVED TAIL rather than the frame.
+ *
+ * The CRC does move - it sits immediately after the configuration, so it went
+ * from byte 48 in v5 to byte 52 in v6. That is safe only because
+ * config_migrate.c computes the CRC offset from the VERSION-SPECIFIC
+ * configuration size, so a v5 record is never checked at the v6 offset. An
+ * earlier version of this comment claimed the CRC did not move at all, which
+ * would have made the version-specific length look like dead code to anyone
+ * tidying up. Corrected after review, 2026-09-08. Pinned so a field added without checking the
  * arithmetic fails to compile instead of shifting every offset by two. */
 _Static_assert(sizeof(o2p_config_t) == 40u, "config layout is 40 bytes");
 
@@ -436,6 +491,11 @@ typedef struct {
      * master has a successful write acknowledging both. */
     volatile bool commit_after_cal;
     volatile bool sht_pulse_requested;
+    /* Heater bench override, 0x0050/0x0051. Volatile by construction: these
+     * are the only two settable quantities in this struct with no home in
+     * o2p_config_t, and they have none on purpose - see the block comment. */
+    volatile bool heater_test_armed;
+    volatile uint16_t heater_test_duty_x100;
     /* Packed CMD_RESULT, see O2P_REG_CMD_RESULT. One 16-bit word so a Modbus
      * reader never sees a half-updated pair. */
     volatile uint16_t cmd_result;

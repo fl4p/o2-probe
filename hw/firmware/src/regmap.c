@@ -140,6 +140,11 @@ bool o2p_config_valid(const o2p_config_t *cfg)
         cfg->tempco_ppm_per_k < -O2P_TEMPCO_ABS_MAX_PPM_K) {
         return false;
     }
+    /* The other end of the gain subtraction. Bounding alpha alone bounds
+     * nothing while T_cal is free. */
+    if (!o2p_cal_temp_plausible(cfg->cal_temp_c100)) {
+        return false;
+    }
     if (cfg->cal_air_na != 0 && !o2p_cal_air_plausible(cfg->cal_air_na)) {
         return false;
     }
@@ -408,6 +413,14 @@ uint8_t o2p_regmap_read(void *ctx, uint16_t addr, uint16_t count, uint16_t *out)
         }
         return 0u;
     }
+    if (in_block(addr, count, O2P_REG_HTEST_BASE, O2P_REG_HTEST_COUNT)) {
+        for (uint16_t i = 0; i < count; i++) {
+            out[i] = ((uint16_t)(addr + i) == O2P_REG_HEATER_TEST_ARM)
+                         ? (rm->heater_test_armed ? 1u : 0u)
+                         : rm->heater_test_duty_x100;
+        }
+        return 0u;
+    }
     /* The updater's two blocks. Routed rather than implemented here: the same
      * engine answers these registers in the bootloader, where none of the
      * rest of this file exists. */
@@ -450,12 +463,21 @@ static uint8_t apply_config_word(o2p_config_t *c, uint16_t a, uint16_t v,
     case O2P_REG_HEATER_PWM_HZ:   c->heater_pwm_hz = v; break;
     case O2P_REG_HEATER_KP:       c->heater_kp_x100 = v; break;
     case O2P_REG_HEATER_KI:       c->heater_ki_x100 = v; break;
+    /* Writing either half is what MARKS the zero point as taken. Without this
+     * the flag was initialised to 0, read by CAL_STATE, and never set anywhere
+     * in production code - so a probe that had been zeroed went on reporting
+     * NO_ZERO forever while the arithmetic used the new value. The flag exists
+     * precisely because 0 nA is both a real measured zero and the
+     * never-measured default; a flag nothing sets cannot tell them apart.
+     * Found by review 2026-09-08. */
     case O2P_REG_CAL_ZERO_NA_HI:
         c->cal_zero_na = (int32_t)(((uint32_t)v << 16) |
                                    ((uint32_t)c->cal_zero_na & 0xFFFFu));
+        c->cal_zero_taken = 1u;
         break;
     case O2P_REG_CAL_ZERO_NA_LO:
         c->cal_zero_na = (int32_t)(((uint32_t)c->cal_zero_na & 0xFFFF0000u) | v);
+        c->cal_zero_taken = 1u;
         break;
     case O2P_REG_CAL_AIR_NA_HI:
         c->cal_air_na = (int32_t)(((uint32_t)v << 16) |
@@ -464,7 +486,14 @@ static uint8_t apply_config_word(o2p_config_t *c, uint16_t a, uint16_t v,
     case O2P_REG_CAL_AIR_NA_LO:
         c->cal_air_na = (int32_t)(((uint32_t)c->cal_air_na & 0xFFFF0000u) | v);
         break;
-    case O2P_REG_CAL_TEMP_C100:   c->cal_temp_c100 = (int16_t)v; break;
+    case O2P_REG_CAL_TEMP_C100: {
+        int16_t t = (int16_t)v;
+        if (!o2p_cal_temp_plausible(t)) {
+            return O2P_MB_EX_ILLEGAL_VALUE;
+        }
+        c->cal_temp_c100 = t;
+        break;
+    }
     case O2P_REG_TEMPCO_PPM_K: {
         int16_t t = (int16_t)v;
         if (t > O2P_TEMPCO_ABS_MAX_PPM_K || t < -O2P_TEMPCO_ABS_MAX_PPM_K) {
@@ -553,6 +582,38 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
          in_block(addr, count, O2P_REG_UPDDATA_BASE, O2P_REG_UPDDATA_COUNT))) {
         return o2p_update_write(rm->upd, addr, count, in);
     }
+    /* The heater bench override. Handled here rather than through the config
+     * machinery below because it deliberately has no flash-backed home: it
+     * must not be reachable by COMMIT, must not appear in the config CRC, and
+     * must not survive a reset. Validated and applied all-or-nothing on the
+     * same principle as the config block - a frame that arms the override and
+     * then names an illegal duty must do neither. */
+    if (in_block(addr, count, O2P_REG_HTEST_BASE, O2P_REG_HTEST_COUNT)) {
+        bool arm = rm->heater_test_armed;
+        uint16_t duty = rm->heater_test_duty_x100;
+        for (uint16_t i = 0; i < count; i++) {
+            uint16_t a = (uint16_t)(addr + i);
+            uint16_t v = in[i];
+            if (a == O2P_REG_HEATER_TEST_ARM) {
+                /* Only the magic arms. Anything else disarms rather than
+                 * erroring: a master trying to switch the heater OFF must
+                 * always succeed, whatever it writes. */
+                arm = (v == O2P_HEATER_TEST_MAGIC);
+            } else {
+                if (v > 10000u) {
+                    return O2P_MB_EX_ILLEGAL_VALUE;
+                }
+                duty = v;
+            }
+        }
+        /* Duty first, then arm. The opposite order leaves a window of one
+         * control cycle in which the override is live carrying the PREVIOUS
+         * duty, and on a 1 Hz loop that window is long enough to drive it. */
+        rm->heater_test_duty_x100 = duty;
+        rm->heater_test_armed = arm;
+        return 0u;
+    }
+
     /* Only the config block and the updater are writable. The primary and
      * diagnostic blocks are measurements; a master that tries to write one is
      * confused, and letting it through would let the bus fabricate readings. */

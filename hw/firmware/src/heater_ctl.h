@@ -101,6 +101,20 @@ enum {
  * neither can be fixed inside the detector, because it cannot tell sparse
  * sampling of a real event from isolated glimpses without knowing the rate. */
 #define O2P_HEATER_RUNAWAY_MAX_GAP_S 5u
+/* Commanded duty at or below this still counts as "we are not asking for
+ * heat", in 0.01 %. Exactly-zero was too strict: a FET stuck fully on while
+ * the loop happens to be asking for a few percent produced heat nobody
+ * commanded, and every call reset the evidence because the duty was nonzero.
+ * Saturated compost holds the humidity error positive indefinitely, so the
+ * loop need never return to exactly zero.
+ *
+ * The genuinely dangerous case was already covered from the other side: heat
+ * that pushes the tip past dt_max trips interlocks(), which zeroes the duty
+ * and then arms this detector. What this threshold adds is the case where the
+ * thermal outcome stays inside the safe envelope but the FET is stuck anyway -
+ * broken humidity control and wasted power rather than a hazard. Found by
+ * review 2026-09-08. */
+#define O2P_HEATER_RUNAWAY_IDLE_DUTY_X100 500u
 #define O2P_HEATER_RUNAWAY_MARGIN_K100 200
 
 /* Runaway threshold on tip-minus-DIE.

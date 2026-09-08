@@ -1,6 +1,7 @@
 #include "config_migrate.h"
 
 #include "modbus_pdu.h"
+#include "o2.h"
 
 #include <string.h>
 
@@ -322,10 +323,41 @@ bool o2p_config_migrate(const void *record, size_t len,
         return false;
     }
 
-    /* A migrated record faces exactly the check a Modbus write would. A
-     * migration that produced an out-of-range baud code or an implausible
-     * heater limit is a failed migration: the caller falls back to full
-     * defaults, which is the old behaviour and the safe one. */
+    /* SANITISE THE FIELDS THIS VERSION NEWLY BOUNDS, BEFORE VALIDATING.
+     *
+     * v5 and earlier accepted any int16_t in tempco_ppm_per_k and
+     * cal_temp_c100; v6 bounds both, because together they set the gain and an
+     * unbounded pair reports a true 5.00 %vol as 1.84 %vol. Copying such a
+     * value across and THEN validating would fail the whole record - and a
+     * failed record means full defaults, which resets slave_addr, baud and
+     * parity. A potted probe on a non-default address would simply disappear
+     * from its master on a firmware update, for a field it is not even using.
+     * Found by review 2026-09-08: "everything survives" was false for part of
+     * the legal v5 state space.
+     *
+     * So the offending FIELD is reset, not the record. Zero tempco means "no
+     * compensation", which is the honest reading of a coefficient we have just
+     * decided we cannot trust, and it is the shipped default anyway. An
+     * out-of-range calibration temperature takes the default with the air
+     * point cleared alongside it, because a calibration whose reference
+     * temperature is nonsense is not a calibration - and unlike the tempco,
+     * silently substituting 25 C would keep converting against a reference the
+     * probe never saw. */
+    if (migrated.tempco_ppm_per_k > O2P_TEMPCO_ABS_MAX_PPM_K ||
+        migrated.tempco_ppm_per_k < -O2P_TEMPCO_ABS_MAX_PPM_K) {
+        migrated.tempco_ppm_per_k = 0;
+    }
+    if (!o2p_cal_temp_plausible(migrated.cal_temp_c100)) {
+        migrated.cal_temp_c100 = 2500;
+        migrated.cal_air_na = 0;            /* raises CAL_DEFAULT */
+        migrated.cal_air_frac_x1000 = 0u;
+        migrated.cal_p_hpa = 0u;
+    }
+
+    /* What remains faces exactly the check a Modbus write would. A migration
+     * that produced an out-of-range baud code or an implausible heater limit
+     * is still a failed migration: the caller falls back to full defaults,
+     * which is the old behaviour and the safe one. */
     if (!o2p_config_valid(&migrated)) {
         return false;
     }

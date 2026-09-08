@@ -302,6 +302,24 @@ static inline bool o2p_cal_zero_plausible(int32_t zero_na)
  * tempco. */
 #define O2P_TEMPCO_ABS_MAX_PPM_K 5000
 
+/* Bound on the stored CALIBRATION TEMPERATURE, 0.01 C. Without it the tempco
+ * bound above bounds nothing: gain is 1 + alpha*(T_meas - T_cal), so an
+ * unbounded T_cal makes the product unbounded whatever alpha is limited to.
+ * i16 admits 0x8000 = -327.68 C, which with alpha at its own limit gives a
+ * gain of 2.76 and reports a true 5.00 %vol as 1.84 %vol - across the compost
+ * turn threshold, in range, below TEMP_OVER, and with a completely clean fault
+ * word. Found by review 2026-09-08, which also disproved the comment claiming
+ * gain magnitude was "owned" by the tempco bound; it is owned by BOTH ends of
+ * this subtraction. -40..+60 C spans any environment an air or nitrogen point
+ * is credibly taken in. */
+#define O2P_CAL_TEMP_MIN_C100 (-4000)
+#define O2P_CAL_TEMP_MAX_C100   6000
+
+static inline bool o2p_cal_temp_plausible(int16_t c100)
+{
+    return c100 >= O2P_CAL_TEMP_MIN_C100 && c100 <= O2P_CAL_TEMP_MAX_C100;
+}
+
 #define O2P_TEMPCO_DEFAULT 0.0f
 
 /* Dilution efficacy, see o2p_cal_t::dil_alpha. 1.0 is the full gas-law

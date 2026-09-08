@@ -15,8 +15,15 @@ _Static_assert(O2P_RS485_TX_PORT == O2P_RS485_RX_PORT,
                "USART1 TX and RX are no longer on the same GPIO bank");
 
 static uint8_t s_rx[O2P_MB_MAX_ADU];
-static volatile uint16_t s_rx_len;
-static volatile bool s_frame_ready;
+/* THE state of the receiver, and the same object the host tests drive. This
+ * used to be three separate variables here with the transition rules written
+ * out a second time next to them; the header's helpers were then a PARALLEL
+ * COPY that the tests exercised and the ISR did not, which is not coverage of
+ * anything. The two had already drifted: o2p_mb_rx_reset() cleared the poison
+ * and the reconfiguration path here did not, so a line error racing a serial
+ * reconfiguration could poison and discard the next valid frame. Found by
+ * review 2026-09-08. */
+static volatile o2p_mb_rx_t s_rx_state;
 
 static uint8_t s_tx[O2P_MB_MAX_ADU];
 static volatile uint16_t s_tx_len;
@@ -26,11 +33,17 @@ static volatile uint32_t s_tx_start_ms;
 
 static volatile uint16_t s_crc_errors;
 static volatile uint16_t s_frame_errors;
-/* Set when any byte of the frame being assembled arrived with a line error.
- * Cleared only by the receiver timeout that ends the frame. */
-static volatile bool s_rx_poisoned;
 /* When the completed frame was framed, for the response deadline below. */
 static volatile uint32_t s_frame_ms;
+
+/* The helpers take a plain pointer; the state is volatile because the ISR
+ * writes it. Copy in, run the SHIPPED decision, copy out - so there is exactly
+ * one implementation of the transition rules and the tests drive it. */
+#define RX_APPLY(expr_stmt) do {              \
+    o2p_mb_rx_t rx_ = *(o2p_mb_rx_t *)&s_rx_state; \
+    expr_stmt;                                \
+    s_rx_state = rx_;                         \
+} while (0)
 
 static uint8_t s_own_addr = 3u;
 static uint32_t s_baud = 9600u;
@@ -168,8 +181,9 @@ void o2p_modbus_init(const o2p_config_t *cfg)
 {
     RCC->APBENR2 |= RCC_APBENR2_USART1EN;
     gpio_init();
-    s_rx_len = 0u;
-    s_frame_ready = false;
+    o2p_mb_rx_t rx_ = *(o2p_mb_rx_t *)&s_rx_state;
+    o2p_mb_rx_reset(&rx_);
+    s_rx_state = rx_;
     s_tx_active = false;
     usart_configure(cfg);
     NVIC_SetPriority(USART1_IRQn, 1u);
@@ -182,8 +196,9 @@ void o2p_modbus_reconfigure(const o2p_config_t *cfg)
     de_release();
     re_restore();
     s_tx_active = false;
-    s_rx_len = 0u;
-    s_frame_ready = false;
+    o2p_mb_rx_t rx_ = *(o2p_mb_rx_t *)&s_rx_state;
+    o2p_mb_rx_reset(&rx_);
+    s_rx_state = rx_;
     usart_configure(cfg);
     NVIC_EnableIRQ(USART1_IRQn);
 }
@@ -207,8 +222,7 @@ void USART1_IRQHandler(void)
     if ((isr & (USART_ISR_ORE | USART_ISR_FE | USART_ISR_NE | USART_ISR_PE)) != 0u) {
         USART1->ICR = USART_ICR_ORECF | USART_ICR_FECF | USART_ICR_NECF | USART_ICR_PECF;
         /* POISON, do not merely truncate - see o2p_mb_rx_line_error(). */
-        s_rx_len = 0u;
-        s_rx_poisoned = true;
+        RX_APPLY(o2p_mb_rx_line_error(&rx_));
         if (s_frame_errors != 0xFFFFu) {
             s_frame_errors++;
         }
@@ -221,16 +235,14 @@ void USART1_IRQHandler(void)
         /* Never overwrite a frame the main loop has not consumed, and never
          * run off the end of the buffer. An over-long frame is truncated to
          * "too long", which fails the CRC check and is dropped. */
-        if (!s_frame_ready && s_rx_len < O2P_MB_MAX_ADU) {
-            s_rx[s_rx_len++] = b;
-        } else if (s_rx_len >= O2P_MB_MAX_ADU) {
-            s_rx_len = O2P_MB_MAX_ADU;   /* saturate, stay flagged as too long */
-        }
+        RX_APPLY(o2p_mb_rx_byte(&rx_, b, s_rx, (uint16_t)O2P_MB_MAX_ADU));
     }
 
     if ((isr & USART_ISR_RTOF) != 0u) {
         USART1->ICR = USART_ICR_RTOCF;
-        if (!s_frame_ready && s_rx_len > 0u && !s_rx_poisoned) {
+        bool completed_;
+        RX_APPLY(completed_ = o2p_mb_rx_gap(&rx_));
+        if (completed_) {
             /* Stamp the frame HERE, in the interrupt that completed it. The
              * deadline below is "how long has this request been waiting for
              * the main loop", and a timestamp that is never taken reads as
@@ -238,12 +250,7 @@ void USART1_IRQHandler(void)
              * of uptime onwards, so every frame is dropped and the probe
              * answers nothing, forever. */
             s_frame_ms = o2p_millis();
-            s_frame_ready = true;
-        } else if (!s_frame_ready) {
-            s_rx_len = 0u;
         }
-        /* The poison lasts exactly one frame; the gap is what ends it. */
-        s_rx_poisoned = false;
     }
 
     if ((isr & USART_ISR_TC) != 0u) {
@@ -260,8 +267,11 @@ void USART1_IRQHandler(void)
                 s_tx_active = false;
                 /* Discard anything the transceiver echoed back into RX while
                  * we were driving the bus. */
-                s_rx_len = 0u;
-                s_frame_ready = false;
+                {
+                    o2p_mb_rx_t rx_ = *(o2p_mb_rx_t *)&s_rx_state;
+                    o2p_mb_rx_reset(&rx_);
+                    s_rx_state = rx_;
+                }
             }
         }
     }
@@ -336,11 +346,11 @@ bool o2p_modbus_poll(o2p_regmap_t *rm)
         }
     }
 
-    if (!s_frame_ready) {
+    if (!s_rx_state.ready) {
         return false;
     }
 
-    uint16_t len = s_rx_len;
+    uint16_t len = s_rx_state.len;
 
     /* Drop a request we took too long to reach. The Dragino master's Modbus
      * timeout is about 1 s; a reply sent after it has given up does not just
@@ -348,8 +358,11 @@ bool o2p_modbus_poll(o2p_regmap_t *rm)
      * next and corrupts another slave's answer. Better one lost poll than a
      * frame injected into someone else's exchange. */
     if (o2p_elapsed(s_frame_ms, O2P_MB_RESPONSE_DEADLINE_MS)) {
-        s_rx_len = 0u;
-        s_frame_ready = false;
+        {
+            o2p_mb_rx_t rx_ = *(o2p_mb_rx_t *)&s_rx_state;
+            o2p_mb_rx_reset(&rx_);
+            s_rx_state = rx_;
+        }
         if (s_frame_errors != 0xFFFFu) {
             s_frame_errors++;
         }
@@ -376,8 +389,9 @@ bool o2p_modbus_poll(o2p_regmap_t *rm)
         }
     }
 
-    s_rx_len = 0u;
-    s_frame_ready = false;
+    o2p_mb_rx_t rx_ = *(o2p_mb_rx_t *)&s_rx_state;
+    o2p_mb_rx_reset(&rx_);
+    s_rx_state = rx_;
     return true;
 }
 

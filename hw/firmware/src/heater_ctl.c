@@ -136,8 +136,9 @@ static void update_runaway(o2p_heater_state_t *st,
     if (!in->drive_possible) {
         return;
     }
-    /* Commanded heat is not runaway. */
-    if (duty_x100 != 0u) {
+    /* Commanded heat is not runaway - but "commanded" has to mean a duty that
+     * could actually explain the excess, not merely a nonzero one. */
+    if (duty_x100 > O2P_HEATER_RUNAWAY_IDLE_DUTY_X100) {
         st->zero_duty_timing = false;
         st->runaway_evidence_s = 0u;
         return;
@@ -160,8 +161,12 @@ static void update_runaway(o2p_heater_state_t *st,
             hot = true;
         }
     }
-    /* Die-referenced: the one that can actually see a stuck-on FET, because
-     * the die is across the thermal barrier and does not follow the tip. */
+    /* Die-referenced: the one that can see a stuck-on FET while the loop is
+     * idle, because the die is across the thermal barrier and does not follow
+     * the tip. It does NOT see a FET stuck on while the loop is commanding
+     * substantial heat - nothing here can, without a thermal model of the
+     * plant. That case is covered from the other side, by the dt_max interlock
+     * zeroing the duty, and only for excursions large enough to trip it. */
     if (in->die_valid) {
         int32_t dd = (int32_t)in->t_tip_c100 - (int32_t)in->t_die_c100;
         if (dd > O2P_HEATER_RUNAWAY_DIE_K100) {

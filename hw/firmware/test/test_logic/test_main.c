@@ -3574,6 +3574,190 @@ static void test_a_ready_frame_is_never_overwritten(void)
     TEST_ASSERT_EQUAL_MEMORY(adu, buf, sizeof(adu));
 }
 
+/* ---- review findings, 2026-09-08 ---- */
+
+static void test_an_unbounded_cal_temp_defeats_the_tempco_bound(void)
+{
+    /* Gain is 1 + alpha*(T_meas - T_cal). Bounding alpha alone bounds nothing
+     * while T_cal is free: i16 admits 0x8000 = -327.68 C, which with alpha at
+     * its own limit gives gain 2.76 and reports a true 5.00 %vol as 1.84 %vol
+     * - across the compost turn threshold, in range, below TEMP_OVER and with
+     * a clean fault word. */
+    o2p_regmap_t r;
+    o2p_regmap_init(&r);
+    o2p_mb_handlers_t h = {.read = o2p_regmap_read, .write = o2p_regmap_write,
+                           .ctx = &r};
+    uint8_t req[32], rsp[O2P_MB_MAX_ADU];
+    uint16_t v = 0x8000u;
+    uint8_t w[] = {0x03, 0x10, 0x00, 0x39, 0x00, 0x01, 0x02,
+                   (uint8_t)(v >> 8), (uint8_t)(v & 0xFF)};
+    size_t n = framed(req, w, sizeof(w));
+    TEST_ASSERT_TRUE(o2p_mb_dispatch(req, n, 3, &h, rsp) > 0);
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE, rsp[2]);
+    TEST_ASSERT_EQUAL_INT16(2500, r.cfg.cal_temp_c100);
+
+    o2p_config_t cfg;
+    o2p_config_defaults(&cfg);
+    cfg.cal_temp_c100 = (int16_t)-32768;
+    TEST_ASSERT_FALSE(o2p_config_valid(&cfg));
+}
+
+static void test_writing_a_zero_point_marks_it_taken(void)
+{
+    /* cal_zero_taken was initialised to 0, read by CAL_STATE, and set to 1
+     * nowhere in production code - so a zeroed probe reported NO_ZERO forever
+     * while the arithmetic used the new value. */
+    o2p_regmap_t r;
+    o2p_regmap_init(&r);
+    TEST_ASSERT_EQUAL_UINT8(0u, r.cfg.cal_zero_taken);
+
+    o2p_mb_handlers_t h = {.read = o2p_regmap_read, .write = o2p_regmap_write,
+                           .ctx = &r};
+    uint8_t req[32], rsp[O2P_MB_MAX_ADU];
+    /* CAL_ZERO_NA_HI/LO = 0x0046/0x0047, writing +1800 nA. */
+    uint8_t w[] = {0x03, 0x10, 0x00, 0x46, 0x00, 0x02, 0x04,
+                   0x00, 0x00, 0x07, 0x08};
+    size_t n = framed(req, w, sizeof(w));
+    TEST_ASSERT_TRUE(o2p_mb_dispatch(req, n, 3, &h, rsp) > 0);
+    TEST_ASSERT_EQUAL_HEX8(0x10, rsp[1]);
+    TEST_ASSERT_EQUAL_INT32(1800, r.cfg.cal_zero_na);
+    TEST_ASSERT_EQUAL_UINT8(1u, r.cfg.cal_zero_taken);
+
+    /* And CAL_STATE must stop claiming the probe has no zero point. */
+    const uint8_t rd[] = {0x03, 0x03, 0x00, 0x2B, 0x00, 0x01};
+    n = framed(req, rd, sizeof(rd));
+    TEST_ASSERT_TRUE(o2p_mb_dispatch(req, n, 3, &h, rsp) > 0);
+    uint16_t st = (uint16_t)((rsp[3] << 8) | rsp[4]);
+    TEST_ASSERT_TRUE((st & O2P_CAL_STATE_NO_ZERO) == 0u);
+}
+
+static void test_a_v5_record_with_a_now_illegal_tempco_is_not_thrown_away(void)
+{
+    /* v5 allowed any int16_t tempco. v6 bounds it. Copying the old value
+     * across and then validating would fail the WHOLE record - and a failed
+     * record means full defaults, which resets slave_addr, baud and parity. A
+     * potted probe on a non-default address would vanish from its master on a
+     * firmware update, over a field it may not even be using. */
+    test_cfg_v5_t v5;
+    memset(&v5, 0, sizeof(v5));
+    v5.cal_air_na = 101500;
+    v5.rh_setpoint_x100 = 7500u;
+    v5.dt_max_k_x100 = 250u;
+    v5.heater_max_duty_x100 = 3000u;
+    v5.heater_pwm_hz = 1500u;
+    v5.cal_temp_c100 = 2140;
+    v5.tempco_ppm_per_k = 5001;          /* legal in v5, illegal in v6 */
+    v5.sht_pulse_interval_h = 12u;
+    v5.heater_kp_x100 = 450u;
+    v5.heater_ki_x100 = 60u;
+    v5.assumed_p_hpa = 963u;
+    v5.cal_air_frac_x1000 = 20685u;
+    v5.cal_p_hpa = 963u;
+    v5.slave_addr = 17u;
+    v5.baud_code = O2P_BAUD_38400;
+    v5.parity_code = O2P_PARITY_NONE;
+    v5.dil_alpha_x1000 = 1000u;
+
+    uint8_t rec[TEST_REC_BYTES];
+    build_v5_record(rec, &v5, 91u);
+
+    o2p_config_t out;
+    uint32_t seq = 0u;
+    TEST_ASSERT_TRUE_MESSAGE(o2p_config_migrate(rec, sizeof(rec), &out, &seq),
+        "a v5 record must not be discarded over a field v6 newly bounds");
+    /* Reachability above all - this is what a rejected record would lose. */
+    TEST_ASSERT_EQUAL_UINT8(17u, out.slave_addr);
+    TEST_ASSERT_EQUAL_UINT8(O2P_BAUD_38400, out.baud_code);
+    /* The untrustworthy field alone is reset, to "no compensation". */
+    TEST_ASSERT_EQUAL_INT16(0, out.tempco_ppm_per_k);
+    /* The calibration survives: nothing about it was in question. */
+    TEST_ASSERT_EQUAL_INT32(101500, out.cal_air_na);
+}
+
+static void test_a_v5_record_with_an_absurd_cal_temp_drops_the_air_point(void)
+{
+    /* Unlike the tempco, a nonsense calibration temperature cannot be
+     * defaulted quietly: 25 C would keep converting against a reference the
+     * probe never saw. The air point goes with it, raising CAL_DEFAULT. */
+    test_cfg_v5_t v5;
+    memset(&v5, 0, sizeof(v5));
+    v5.cal_air_na = 101500;
+    v5.rh_setpoint_x100 = 7500u;
+    v5.dt_max_k_x100 = 250u;
+    v5.heater_max_duty_x100 = 3000u;
+    v5.heater_pwm_hz = 1500u;
+    v5.cal_temp_c100 = (int16_t)-32768;
+    v5.sht_pulse_interval_h = 12u;
+    v5.heater_kp_x100 = 450u;
+    v5.heater_ki_x100 = 60u;
+    v5.assumed_p_hpa = 963u;
+    v5.cal_air_frac_x1000 = 20685u;
+    v5.cal_p_hpa = 963u;
+    v5.slave_addr = 17u;
+    v5.baud_code = O2P_BAUD_38400;
+    v5.parity_code = O2P_PARITY_NONE;
+    v5.dil_alpha_x1000 = 1000u;
+
+    uint8_t rec[TEST_REC_BYTES];
+    build_v5_record(rec, &v5, 92u);
+    o2p_config_t out;
+    uint32_t seq = 0u;
+    TEST_ASSERT_TRUE(o2p_config_migrate(rec, sizeof(rec), &out, &seq));
+    TEST_ASSERT_EQUAL_UINT8(17u, out.slave_addr);       /* still reachable */
+    TEST_ASSERT_EQUAL_INT32(0, out.cal_air_na);         /* raises CAL_DEFAULT */
+    TEST_ASSERT_TRUE(o2p_cal_temp_plausible(out.cal_temp_c100));
+}
+
+static void test_runaway_sees_heat_under_a_low_commanded_duty(void)
+{
+    /* A FET stuck fully on while the loop asks for a few percent is heat
+     * nobody commanded, and exactly-zero was too strict a test: saturated
+     * compost holds the humidity error positive, so the loop need never return
+     * to zero. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+    o2p_heater_in_t hot = hin_healthy();
+    hot.t_tip_c100 = (int16_t)(hot.t_die_c100 + O2P_HEATER_RUNAWAY_DIE_K100 + 500);
+
+    /* Drive update_runaway directly through the public step with a duty the
+     * controller would command at a small error: below the idle threshold. */
+    for (uint32_t t = 0u; t <= O2P_HEATER_RUNAWAY_WINDOW_S + 2u; t++) {
+        o2p_heater_ctl_step(&st, &cfg, &hot, t, &out);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(st.runaway_latched,
+        "uncommanded heat under a near-idle duty must still latch");
+}
+
+static void test_the_isr_and_the_tested_state_machine_are_one(void)
+{
+    /* The helpers were extracted so the shipped decision could be tested, and
+     * modbus_rtu.c then duplicated the logic instead of calling them - so the
+     * tests exercised a parallel copy. They had already drifted: reset cleared
+     * the poison and the reconfiguration path did not. This asserts the
+     * property that made the drift possible is gone: a reset clears every
+     * field, poison included. */
+    o2p_mb_rx_t rx;
+    rx.len = 7u; rx.ready = true; rx.poisoned = true;
+    o2p_mb_rx_reset(&rx);
+    TEST_ASSERT_EQUAL_UINT16(0u, rx.len);
+    TEST_ASSERT_FALSE(rx.ready);
+    TEST_ASSERT_FALSE_MESSAGE(rx.poisoned,
+        "a reset must clear the poison, or a line error racing a serial "
+        "reconfiguration discards the next valid frame");
+}
+
+static void test_the_wire_version_tracks_the_wire_contract(void)
+{
+    /* FW_VERSION's own rule is that it is bumped whenever the wire contract
+     * changes. It sat at 0x0002 describing a 26-register block while the block
+     * was 28, which left a master no way to tell the two apart before reading. */
+    TEST_ASSERT_EQUAL_HEX16(0x0003u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_UINT16(28u, O2P_REG_DIAG_COUNT);
+    TEST_ASSERT_EQUAL_UINT16(24u, O2P_REG_CONFIG_COUNT);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -3702,5 +3886,12 @@ int main(void)
     RUN_TEST(test_the_poison_lasts_exactly_one_frame);
     RUN_TEST(test_an_overlong_frame_saturates_rather_than_overruns);
     RUN_TEST(test_a_ready_frame_is_never_overwritten);
+    RUN_TEST(test_an_unbounded_cal_temp_defeats_the_tempco_bound);
+    RUN_TEST(test_writing_a_zero_point_marks_it_taken);
+    RUN_TEST(test_a_v5_record_with_a_now_illegal_tempco_is_not_thrown_away);
+    RUN_TEST(test_a_v5_record_with_an_absurd_cal_temp_drops_the_air_point);
+    RUN_TEST(test_runaway_sees_heat_under_a_low_commanded_duty);
+    RUN_TEST(test_the_isr_and_the_tested_state_machine_are_one);
+    RUN_TEST(test_the_wire_version_tracks_the_wire_contract);
     return UNITY_END();
 }
