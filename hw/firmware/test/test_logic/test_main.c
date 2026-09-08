@@ -618,17 +618,40 @@ static void test_clip_detection(void)
 static void test_validity_matrix(void)
 {
     static const uint16_t invalidating[] = {
-        O2P_F_SETTLING, O2P_F_I2C_FAIL_LMP, O2P_F_I2C_FAIL_ADS,
+        O2P_F_I2C_FAIL_LMP, O2P_F_I2C_FAIL_ADS,
         O2P_F_AFE_CONFIG_MISMATCH, O2P_F_VA_LOW, O2P_F_ADC_RANGE,
         O2P_F_ADS_DRDY_STUCK, O2P_F_ADS_CONFIG_LOST,
     };
     for (unsigned i = 0; i < sizeof(invalidating) / sizeof(invalidating[0]); i++) {
         TEST_ASSERT_FALSE(o2p_o2_valid(invalidating[i]));
+        TEST_ASSERT_FALSE(o2p_o2_comp_valid(invalidating[i]));
     }
+
+    /* SETTLING and CAL_DEFAULT are the two faults that split the channels.
+     * Both say the DIVISOR is unusable - no equilibrium yet, or no calibration
+     * constant - while the cell current underneath is a real measurement.
+     * Before 2026-09-08 SETTLING blanked the raw channel too, which deleted
+     * the settling transient itself for 900 s after every reset. */
+    TEST_ASSERT_TRUE_MESSAGE(o2p_o2_valid(O2P_F_SETTLING),
+        "an unsettled cell still has a real current, and it is the only "
+        "record of the cell settling");
+    TEST_ASSERT_FALSE_MESSAGE(o2p_o2_comp_valid(O2P_F_SETTLING),
+        "no %vol derived from a cell that has not reached equilibrium is "
+        "trustworthy");
+    TEST_ASSERT_TRUE(o2p_o2_valid(O2P_F_CAL_DEFAULT));
+    TEST_ASSERT_FALSE(o2p_o2_comp_valid(O2P_F_CAL_DEFAULT));
+
+    /* The split must survive the two arriving together - the state a probe is
+     * actually in on its first power-up out of the potting jig. */
+    TEST_ASSERT_TRUE(o2p_o2_valid(O2P_F_SETTLING | O2P_F_CAL_DEFAULT));
+    TEST_ASSERT_FALSE(o2p_o2_comp_valid(O2P_F_SETTLING | O2P_F_CAL_DEFAULT));
+
+    /* ...and that an ACQUISITION fault still wins over both. */
+    TEST_ASSERT_FALSE(o2p_o2_valid(O2P_F_SETTLING | O2P_F_ADS_DRDY_STUCK));
+
     /* The two documented exceptions. Both mark the reading as lower quality;
      * neither discards it. */
     TEST_ASSERT_TRUE(o2p_o2_valid(O2P_F_TEMP_OVER));
-    TEST_ASSERT_TRUE(o2p_o2_valid(O2P_F_CAL_DEFAULT));
     TEST_ASSERT_TRUE(o2p_o2_valid(O2P_F_TEMP_OVER | O2P_F_CAL_DEFAULT |
                                   O2P_F_HEATER_DISABLED | O2P_F_DEW_SUSPECT));
     /* And a fault that does invalidate still does so in company. */
@@ -645,7 +668,14 @@ static void test_snapshot_is_invalid_before_the_first_sample(void)
     TEST_ASSERT_EQUAL_HEX16((uint16_t)O2P_I16_INVALID, (uint16_t)s->t_die);
     TEST_ASSERT_EQUAL_UINT16(O2P_U16_INVALID, s->rh_chamber);
     TEST_ASSERT_TRUE((s->faults & O2P_F_SETTLING) != 0);
-    TEST_ASSERT_FALSE(o2p_o2_valid(s->faults));
+    /* Assert the VALUE, not the mask. "No conversion has happened yet" is a
+     * property of the snapshot, and o2p_snapshot_reset() enforces it directly;
+     * testing o2p_o2_valid() here used the fault mask as a PROXY for it, so
+     * this case broke on 2026-09-08 when SETTLING stopped invalidating the raw
+     * channel - even though the sentinel it actually cares about was still
+     * correctly in place. */
+    TEST_ASSERT_EQUAL_HEX16((uint16_t)O2P_I16_INVALID, (uint16_t)s->o2_raw);
+    TEST_ASSERT_FALSE(o2p_o2_comp_valid(s->faults));
 }
 
 
@@ -2548,7 +2578,13 @@ static void test_the_o2_verdict_freeze_cannot_drop_a_state_fault(void)
      * electrode phases are ALLOWED to have raised are dropped. */
     uint16_t verdict =
         (uint16_t)(at_o2 | (now & (uint16_t)~O2P_FAULTS_POST_O2));
-    TEST_ASSERT_FALSE(o2p_o2_valid(verdict));
+    /* The property under test is that the late-raised STATE FAULT SURVIVES the
+     * freeze. Asserting !o2p_o2_valid() tested that only by proxy, through
+     * SETTLING's membership of the raw mask - so when that membership moved
+     * on 2026-09-08 the regression test for 3c8d884 started failing without
+     * the regression coming back. Assert the bit, then the consequence. */
+    TEST_ASSERT_TRUE_MESSAGE((verdict & O2P_F_SETTLING) != 0u,
+        "the freeze must not drop a state fault raised after PH_O2");
     TEST_ASSERT_FALSE(o2p_o2_comp_valid(verdict));
 
     /* And it still does the job it was introduced for: an ADS failure in
@@ -4256,7 +4292,10 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    TEST_ASSERT_EQUAL_HEX16(0x0005u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x0006u, O2P_FW_VERSION);
+    /* 0x0006: the raw channel stopped going silent for 900 s after a reset. */
+    TEST_ASSERT_TRUE((O2P_FAULTS_INVALIDATE_O2 & O2P_F_SETTLING) == 0u);
+    TEST_ASSERT_TRUE((O2P_FAULTS_INVALIDATE_O2_COMP & O2P_F_SETTLING) != 0u);
     TEST_ASSERT_EQUAL_UINT16(28u, O2P_REG_DIAG_COUNT);
     TEST_ASSERT_EQUAL_UINT16(24u, O2P_REG_CONFIG_COUNT);
     /* 0x0004: the heater test block appeared at an address that previously

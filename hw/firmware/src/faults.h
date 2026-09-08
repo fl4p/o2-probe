@@ -70,10 +70,29 @@ enum {
  * be 43 % out is not "lower-confidence data", it is an unknown scale factor
  * wearing the units of a measurement, and 12 %vol against a true 21 %vol is
  * indistinguishable from a real, alarming result. So CAL_DEFAULT invalidates
- * the compensated channel while leaving the raw one intact. */
+ * the compensated channel while leaving the raw one intact.
+ *
+ * SETTLING IS THE SAME KIND OF FACT, and until 2026-09-08 it was on the wrong
+ * mask. Warmup says the cell has not reached equilibrium, so no %vol derived
+ * from it can be trusted - but the current is still a real measurement of what
+ * the cell is doing, and during warmup it is the ONLY record of the cell
+ * recovering. Blanking it destroyed exactly the evidence the settle window
+ * exists to bound.
+ *
+ * Measured cost of having it here: after each of two power cycles on
+ * 2026-09-08 the probe published a full fault word, a counting-down SETTLE_S,
+ * uptime, temperatures and humidity - and 0x8000 for the cell current, for
+ * 900 s each time. The 101.04 -> 100.60 uA recovery transient across that
+ * window was never recorded by anything, on any transport, including a Modbus
+ * master standing at the probe. "Is 900 s long enough" cannot be answered from
+ * data the gate deleted.
+ *
+ * It is STATED on the compensated mask below rather than merely removed here,
+ * because that mask is defined in terms of this one. Deleting the bit without
+ * restating it would silently strip the warmup gate from the oxygen verdict
+ * too - which is the regression 3c8d884 already shipped once. */
 #define O2P_FAULTS_INVALIDATE_O2 ( \
-      O2P_F_SETTLING            \
-    | O2P_F_I2C_FAIL_LMP        \
+      O2P_F_I2C_FAIL_LMP        \
     | O2P_F_I2C_FAIL_ADS        \
     | O2P_F_AFE_CONFIG_MISMATCH \
     | O2P_F_VA_LOW              \
@@ -139,6 +158,7 @@ enum {
  * 60 C, so TEMP_OVER accompanies them in practice. */
 #define O2P_FAULTS_INVALIDATE_O2_COMP ( \
       O2P_FAULTS_INVALIDATE_O2 \
+    | O2P_F_SETTLING           \
     | O2P_F_CAL_DEFAULT )
 
 /* "The ADS1119 did not deliver a conversion this phase", for the callers that

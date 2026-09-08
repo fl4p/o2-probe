@@ -409,9 +409,17 @@ enum {
  * setpoint and its two gains. Wire-visible for the same reason: 0x0062-0x0064
  * answered exception 02 under 0x0004.
  *
+ * 0x0006 is O2_RAW (0x0001) no longer being blanked by SETTLING. A master
+ * that saw the 0x8000 sentinel for the whole 900 s after every reset now gets
+ * cell current throughout. The sentinel's MEANING is unchanged; its frequency
+ * is not. A consumer that inferred "the probe reset" from the gap in that
+ * channel must read SETTLE_S (0x0007) or the SETTLING fault bit instead -
+ * both were already in every frame, and both stayed populated across exactly
+ * the window the current went missing.
+ *
  * For "which build is this", read BUILD_ID (0x0028/0x0029) - this number is
  * hand-maintained and says nothing about the binary. */
-#define O2P_FW_VERSION 0x0005u  /* v0.5 - heater test block grows to 5 */
+#define O2P_FW_VERSION 0x0006u  /* v0.6 - O2_RAW survives the settle window */
 
 /* Overridden by tools/pio_build_id.py on every target build. The default is
  * reached only by the host test build, and means "no stamp", never a commit. */

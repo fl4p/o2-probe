@@ -880,7 +880,7 @@ staging slot back.
 
 | Bit | Name | Invalidates O₂? |
 |---|---|---|
-| 0 | `SETTLING` | **yes** |
+| 0 | `SETTLING` | **`O2_COMP` only — see below** |
 | 1 | `I2C_FAIL_LMP` | **yes** |
 | 2 | `I2C_FAIL_ADS` | **yes** |
 | 3 | `I2C_FAIL_TMP` | no (tip temperature only) |
@@ -948,6 +948,26 @@ enforced by `_Static_assert` in `src/faults.c`:
   out, and 12 %vol against a true 21 %vol is indistinguishable from a real and
   alarming result. That is not lower-confidence data, it is an unknown scale
   factor wearing the units of a measurement.
+
+`SETTLING` splits the two channels the same way, and until 2026-09-08 it did
+not. Warmup means the cell has not reached equilibrium, so no %vol derived from
+it can be trusted — but the current is still a real measurement of what the
+cell is doing, and during warmup it is the *only* record of the cell recovering.
+Blanking `O2_RAW` destroyed exactly the evidence the settle window exists to
+bound: after two power cycles on 2026-09-08 the probe published a full fault
+word, a counting-down `SETTLE_S`, uptime, temperatures and humidity — and
+`0x8000` for cell current, for 900 s each time. The 101.04 → 100.60 µA recovery
+transient across that window was recorded by nothing, on any transport,
+including a Modbus master standing at the probe.
+
+`SETTLING` is *stated* on the compensated mask rather than merely removed from
+the raw one, because `O2P_FAULTS_INVALIDATE_O2_COMP` is defined in terms of
+`O2P_FAULTS_INVALIDATE_O2`; deleting the bit without restating it would
+silently strip the warmup gate from the oxygen verdict as well. Both directions
+are pinned by `_Static_assert` in `faults.c`.
+
+Consumers that used the gap in `O2_RAW` to spot a reset must read `SETTLE_S`
+(`0x0007`) or bit 0 instead. Both were already in every frame throughout.
 
 A related rule with the same shape: if a non-zero temperature coefficient is
 configured but no temperature is available, `O2_COMP` is invalid rather than

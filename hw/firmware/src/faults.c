@@ -20,9 +20,27 @@ _Static_assert((O2P_FAULTS_INVALIDATE_O2_COMP & O2P_F_CAL_DEFAULT) != 0,
                "oxygen reading");
 _Static_assert((O2P_FAULTS_INVALIDATE_O2_COMP & O2P_F_TEMP_OVER) == 0,
                "TEMP_OVER must not invalidate either channel");
-_Static_assert((O2P_FAULTS_INVALIDATE_O2 & O2P_F_SETTLING) != 0,
-               "SETTLING must invalidate: the cell needs up to 15 min after a "
-               "bias interruption (DS-0637)");
+_Static_assert((O2P_FAULTS_INVALIDATE_O2_COMP & O2P_F_SETTLING) != 0,
+               "SETTLING must invalidate the COMPENSATED channel: the cell "
+               "needs up to 15 min after a bias interruption (DS-0637), and no "
+               "%vol derived from a cell that has not reached equilibrium is "
+               "trustworthy");
+/* The other half of that classification, and the reason it is asserted rather
+ * than left to the mask definition: O2P_FAULTS_INVALIDATE_O2_COMP is written
+ * in terms of O2P_FAULTS_INVALIDATE_O2, so moving a bit between them is a
+ * one-line edit that can silently strip a gate from the verdict (3c8d884) or
+ * silently restore one to the raw channel. Both directions are pinned.
+ *
+ * Warmup does not make the cell current meaningless - it makes it
+ * UNINTERPRETABLE AS OXYGEN, which is a statement about the divisor, not the
+ * measurement. During warmup the current is the only record of the cell
+ * recovering, and blanking it deleted the 101.04 -> 100.60 uA transient across
+ * both power cycles on 2026-09-08, which was the evidence for whether the
+ * 900 s window is long enough. Same reasoning as CAL_DEFAULT above. */
+_Static_assert((O2P_FAULTS_INVALIDATE_O2 & O2P_F_SETTLING) == 0,
+               "SETTLING must NOT invalidate the RAW channel: cell current is "
+               "a real measurement of an unsettled cell, and it is the only "
+               "record of the settling transient itself");
 _Static_assert((O2P_FAULTS_INVALIDATE_O2 & O2P_F_ADS_DRDY_STUCK) != 0,
                "ADS_DRDY_STUCK must invalidate: a DRDY that will not release "
                "means the converter either produced nothing or would hand back "
