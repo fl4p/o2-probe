@@ -115,6 +115,14 @@ _Static_assert(O2P_BRIDGE_BUS_BAUD * O2P_BUART_TX_TIMEOUT_MS >= 2816000u &&
                O2P_BRIDGE_HOST_BAUD * O2P_BUART_TX_TIMEOUT_MS >= 2816000u,
                "at this baud a full 256-byte ADU takes longer than "
                "O2P_BUART_TX_TIMEOUT_MS and would be truncated mid-frame");
+/* The bus rate is no longer only the build-time constant -- a master may move
+ * it (see g_bus_baud) -- so the floor has to hold for the SLOWEST rate the
+ * bridge will accept, not merely for the one it booted at. Checking only the
+ * macro would pass a build whose first re-rate truncates every long frame. */
+_Static_assert(O2P_BRIDGE_BAUD_1 * O2P_BUART_TX_TIMEOUT_MS >= 2816000u &&
+               O2P_BRIDGE_BAUD_2 * O2P_BUART_TX_TIMEOUT_MS >= 2816000u &&
+               O2P_BRIDGE_BAUD_3 * O2P_BUART_TX_TIMEOUT_MS >= 2816000u,
+               "a selectable bus rate is below the transmit-timeout floor");
 
 /* There is deliberately NO assertion that the host link is at least as fast as
  * the bus. An earlier version had one, on the reasoning that a slower host
@@ -138,10 +146,35 @@ enum {
     BR_REG_COUNT    = 8u,
 };
 #define BR_IDENT   0xB21Du
-#define BR_VERSION 1u
+/* 2: BR_REG_BUS_BAUD became writable (FC16, one register). The host reads this
+ * before it moves the probe's own BAUD_CODE -- a v1 bridge answers reads
+ * identically and would forward the probe's frames at a rate it cannot change,
+ * leaving the probe unreachable until its probation timer or a reset saved it.
+ * So the version is the discriminator, not a trial write. */
+#define BR_VERSION 2u
+#define BR_VERSION_RERATEABLE 2u
 
 static o2p_buart_t g_bus;
 static o2p_buart_t g_host;
+
+/* The bus rate the bridge is USING, which is the build-time constant only
+ * until a master moves it. BR_REG_BUS_BAUD reports this and not the macro:
+ * the register exists to answer "what rate is this cable running at", and
+ * after a re-rate the macro is the wrong answer to that question.
+ *
+ * Why the bridge can be moved at all: the probe's own BAUD_CODE is already
+ * negotiable and already protected by an auto-revert (serial_probation.h) --
+ * it goes back to the old rate unless a unicast frame proves the master
+ * followed it within 10 s. What was missing was the other half. A firmware
+ * push is ~141 blocks of 240 bytes and the RS-485 hop is 0.302 s of each at
+ * 9600, so this is where a push's time actually goes.
+ *
+ * The bridge deliberately has NO auto-revert of its own, and does not need
+ * one: it is reachable over the host lead whatever the cable is doing, so a
+ * bridge left at a rate nothing answers at is one FC06 away from correct. The
+ * probe is the end that can strand itself, and that is the end with the timer.
+ */
+static uint32_t g_bus_baud = O2P_BRIDGE_BUS_BAUD;
 
 static void snapshot(uint16_t *r)
 {
@@ -151,9 +184,27 @@ static void snapshot(uint16_t *r)
     r[BR_REG_BUS_RX]    = g_bus.frames;
     r[BR_REG_HOST_DROP] = g_host.drops;
     r[BR_REG_BUS_DROP]  = g_bus.drops;
-    r[BR_REG_BUS_BAUD]  = (uint16_t)(O2P_BRIDGE_BUS_BAUD / 100u);
+    r[BR_REG_BUS_BAUD]  = (uint16_t)(g_bus_baud / 100u);
     r[BR_REG_PARITY]    = (uint16_t)((O2P_BRIDGE_BUS_PARITY << 8) |
                                      O2P_BRIDGE_HOST_PARITY);
+}
+
+/* Carry out a write o2p_bridge_reply accepted. Called only AFTER the reply has
+ * been sent, because the reply has to leave at the rate the master is still
+ * listening at -- and only on the host lead, which this never touches.
+ *
+ * The bus port is idle here by construction: the bridge is half duplex and
+ * single threaded, this frame was answered locally so nothing was put on the
+ * cable for it, and any bus frame in flight is a reply to a request that
+ * finished long ago. o2p_buart_set_baud discards a partial receive for the
+ * remaining case, a frame that began arriving from another master mid-swap. */
+static void apply(const o2p_bridge_action_t *act)
+{
+    if (!act->set_bus_baud || act->bus_baud == g_bus_baud) {
+        return;
+    }
+    g_bus_baud = act->bus_baud;
+    o2p_buart_set_baud(&g_bus, g_bus_baud, O2P_BRIDGE_BUS_PARITY);
 }
 
 /* True if the frame was for the bridge itself and must NOT reach the cable. */
@@ -167,11 +218,13 @@ static bool answered_locally(const uint8_t *f, size_t n)
      * asking some other node to answer as us. */
     uint16_t regs[BR_REG_COUNT];
     uint8_t rsp[5u + 2u * BR_REG_COUNT];
+    o2p_bridge_action_t act;
     snapshot(regs);
 
     const size_t len = o2p_bridge_reply((uint8_t)O2P_BRIDGE_ADDR, regs,
-                                        BR_REG_COUNT, f, n, rsp);
+                                        BR_REG_COUNT, f, n, rsp, &act);
     o2p_buart_send(&g_host, &g_bus, rsp, len);   /* len 0 sends nothing */
+    apply(&act);
     return true;
 }
 
@@ -205,14 +258,19 @@ static bool mailbox_run(uint8_t *frame, uint32_t serving)
     uint16_t regs[BR_REG_COUNT];
     uint8_t rsp[5u + 2u * BR_REG_COUNT];
     if (O2P_BRIDGE_ADDR != O2P_MB_ADDR_BROADCAST && frame[0] == O2P_BRIDGE_ADDR) {
+        o2p_bridge_action_t act;
         snapshot(regs);
         const size_t n = o2p_bridge_reply((uint8_t)O2P_BRIDGE_ADDR, regs,
-                                          BR_REG_COUNT, frame, len, rsp);
+                                          BR_REG_COUNT, frame, len, rsp, &act);
         for (size_t i = 0; i < n; i++) {
             m->rx[i] = rsp[i];
         }
         m->rx_len = (uint32_t)n;
         m->status = O2P_MBX_LOCAL;
+        /* Over SWD there is no reply to get out first -- the debugger reads
+         * rx[] after the fact -- but the ordering costs nothing and keeps one
+         * rule for both transports. */
+        apply(&act);
         return true;
     }
 

@@ -114,6 +114,20 @@ void o2p_buart_init_host(o2p_buart_t *b, uint32_t baud, uint8_t parity_code)
     instance_init(b, USART2, false, baud, parity_code);
 }
 
+void o2p_buart_set_baud(o2p_buart_t *b, uint32_t baud, uint8_t parity_code)
+{
+    USART_TypeDef *u = b->usart;
+    /* usart_config drops CR1 to zero first, which disables the receiver; the
+     * pin, clock and DE setup instance_init did are untouched, and so are
+     * frames/drops -- a re-rate is not a fresh bridge, and a counter that
+     * restarted here would hide the drops the re-rate itself caused. */
+    usart_config(u, baud, parity_code);
+    u->ICR = USART_ICR_PECF | USART_ICR_FECF | USART_ICR_NECF |
+             USART_ICR_ORECF | USART_ICR_RTOCF;
+    b->len = 0u;
+    b->poisoned = false;
+}
+
 void o2p_buart_accumulate(o2p_buart_t *b)
 {
     USART_TypeDef *u = b->usart;

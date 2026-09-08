@@ -43,6 +43,23 @@ void o2p_buart_init_bus(o2p_buart_t *b, uint32_t baud, uint8_t parity_code);
  * point to point, and there is nothing else on it. */
 void o2p_buart_init_host(o2p_buart_t *b, uint32_t baud, uint8_t parity_code);
 
+/* Re-rate a running instance, keeping its diagnostic counters.
+ *
+ * Only the BUS side is ever re-rated in practice, and only to run a firmware
+ * push faster than the farm's 9600: the probe's own BAUD_CODE negotiation has
+ * an auto-revert (serial_probation.h) but the bridge's rate was a build-time
+ * constant, so the two could not be moved together. See bridge_main.c.
+ *
+ * Any partially received frame is discarded and the sticky error flags are
+ * cleared. Bytes that arrived at the old rate and bytes that arrive at the new
+ * one are not one frame, and keeping the tail of the first would hand the
+ * caller a frame assembled from two different line rates.
+ *
+ * The caller is responsible for calling this only while the port is idle --
+ * there is no way to un-transmit half an outgoing frame.
+ */
+void o2p_buart_set_baud(o2p_buart_t *b, uint32_t baud, uint8_t parity_code);
+
 /* Drain whatever has arrived into this instance's buffer, without deciding
  * whether a frame is complete. Callable at any time, and cheap.
  *

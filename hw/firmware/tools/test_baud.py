@@ -127,10 +127,18 @@ class FakeLine:
     """A serial line with a rate, carrying frames only when both ends agree."""
 
     def __init__(self, probe, baud=SLOW, bridge=False, bridge_lost=0,
-                 bridge_garbage=False, bridge_short=False):
+                 bridge_garbage=False, bridge_short=False, bridge_version=1,
+                 bridge_deaf=False):
         self.probe = probe
+        # `baud` is THIS END of the lead. With a bridge in the path that is the
+        # host lead, which must never move; the cable is `bus_baud`, and only
+        # the bridge can move it.
         self.baud = baud
         self.bridge = bridge
+        self.bridge_version = bridge_version
+        self.bridge_deaf = bridge_deaf    # accepts the write, does not act
+        self.bus_baud = baud
+        self.bridge_retimes = []
         self.bridge_lost = bridge_lost        # first N bridge replies dropped
         self.bridge_garbage = bridge_garbage  # answers, but not as a bridge
         self.bridge_short = bridge_short      # answers with a fragment
@@ -140,7 +148,12 @@ class FakeLine:
         self.baud = baud
         self.retimes.append(baud)
 
-    def _bridge_reply(self, addr):
+    def wire_baud(self):
+        """The rate the PROBE actually sees. Not the same object as this end
+        once a bridge is forwarding, which is the whole point of the case."""
+        return self.bus_baud if self.bridge else self.baud
+
+    def _bridge_reply(self, addr, pdu=b""):
         if self.bridge_short:
             # Two bytes. Not silence - something on 250 began to answer - and
             # for a while this arrived as NoReply and was read as "no bridge".
@@ -155,23 +168,51 @@ class FakeLine:
         if self.bridge_lost > 0:
             self.bridge_lost -= 1
             return b""
-        regs = [u.BRIDGE_IDENT, 1, 0, 0, 0, 0, SLOW // 100, 0x0202]
-        rsp = (bytes([addr, 3, 2 * len(regs)])
-               + b"".join(struct.pack(">H", v) for v in regs))
+        if pdu[:1] == b"\x10":
+            # FC16 to the bridge: the only writable register is the bus rate.
+            reg, count = struct.unpack(">HH", pdu[1:5])
+            val = struct.unpack(">H", pdu[6:8])[0]
+            if reg != u.BRIDGE_REG_BUS_BAUD or count != 1:
+                rsp = bytes([addr, 0x90, 2])
+                return rsp + struct.pack("<H", u.crc16(rsp))
+            if self.bridge_version < u.BRIDGE_VERSION_RERATEABLE:
+                rsp = bytes([addr, 0x90, 1])   # illegal function, as v1 does
+                return rsp + struct.pack("<H", u.crc16(rsp))
+            if not self.bridge_deaf:
+                self.bus_baud = val * 100
+                self.bridge_retimes.append(self.bus_baud)
+            rsp = bytes([addr, 0x10]) + pdu[1:5]
+            return rsp + struct.pack("<H", u.crc16(rsp))
+        regs = [u.BRIDGE_IDENT, self.bridge_version, 0, 0, 0, 0,
+                self.bus_baud // 100, 0x0202]
+        # Honour the requested window rather than always sending the whole
+        # block: the retimer reads back ONE register, and a fake that answered
+        # a one-register read with eight would fail Bus.read's shape check for
+        # a reason the real bridge never produces.
+        first, count = 0, len(regs)
+        if len(pdu) >= 5 and pdu[0] == 3:
+            first, count = struct.unpack(">HH", pdu[1:5])
+        if first + count > len(regs):
+            rsp = bytes([addr, 0x83, 2])
+            return rsp + struct.pack("<H", u.crc16(rsp))
+        window = regs[first:first + count]
+        rsp = (bytes([addr, 3, 2 * len(window)])
+               + b"".join(struct.pack(">H", v) for v in window))
         return rsp + struct.pack("<H", u.crc16(rsp))
 
     def exchange(self, adu, expect_len):
         del expect_len
         addr, pdu = adu[0], adu[1:-2]
         if addr == u.BRIDGE_ADDR:
-            return self._bridge_reply(addr)
+            return self._bridge_reply(addr, pdu)
         if addr != self.probe.addr:
             return b""
         # The rate is the wire. A frame sent at the wrong one is not heard,
         # and the probe's reply to a frame it never heard does not exist.
-        if self.baud != u.BAUD_CODES[self.probe.baud_code]:
+        if self.wire_baud() != u.BAUD_CODES[self.probe.baud_code]:
             return b""
-        if self.probe.deaf_at is not None and self.baud == self.probe.deaf_at:
+        if (self.probe.deaf_at is not None
+                and self.wire_baud() == self.probe.deaf_at):
             return b""
         rsp_pdu = self.probe.frame(pdu)
         pending = None
@@ -298,11 +339,59 @@ def main():
     line = FakeLine(p)
     case("probe refuses the write", p, line, SLOW, SLOW_CODE, False)
 
-    # A bridge forwards at a rate compiled into it. Nothing may move.
+    # A v1 bridge forwards at a rate compiled into it. Nothing may move.
     p = FakeProbe()
     line = FakeLine(p, bridge=True)
-    case("bridge in the path", p, line, SLOW, SLOW_CODE, False)
-    check("bridge in the path: no write was attempted", p.writes == [],
+    case("v1 bridge in the path", p, line, SLOW, SLOW_CODE, False)
+    check("v1 bridge in the path: no write was attempted", p.writes == [],
+          "wrote %r" % (p.writes,))
+
+    # A v2 bridge CAN be moved, and this is the case the change exists for.
+    # What has to be true is not merely that the probe ends up fast: it is that
+    # the cable moved and THIS END DID NOT. Retiming the host lead to follow
+    # the probe would cut the only connection that still works.
+    p = FakeProbe()
+    line = FakeLine(p, bridge=True, bridge_version=2)
+    restore = case("v2 bridge is re-rated", p, line, SLOW, FAST_CODE, True)
+    check("v2 bridge: the cable moved to %d" % FAST, line.bus_baud == FAST,
+          "cable is at %d" % line.bus_baud)
+    check("v2 bridge: the host lead never moved",
+          line.retimes == [], "host lead retimed %r" % (line.retimes,))
+    check("v2 bridge: the bridge was told once, going up",
+          line.bridge_retimes == [FAST], "%r" % (line.bridge_retimes,))
+    restore()
+    check("v2 bridge: the probe is back at %d" % SLOW,
+          p.baud_code == SLOW_CODE, "probe at %d" % p.baud_code)
+    check("v2 bridge: the cable is back at %d" % SLOW,
+          line.bus_baud == SLOW, "cable at %d" % line.bus_baud)
+
+    # A bridge that ACCEPTS the write and does not act on it. The FC16 echo
+    # confirms the address and the count, never the value, so a bridge that
+    # answered and stayed put would look identical to one that moved -- and the
+    # tool would then push into a cable at a rate nothing on it is using. The
+    # read-back is what makes the two distinguishable; the probe must be found
+    # and put back, not left fast behind a slow cable.
+    p = FakeProbe()
+    line = FakeLine(p, bridge=True, bridge_version=2, bridge_deaf=True)
+    # The probe ends up fast behind a slow cable and cannot be reached to be put
+    # back -- the one outcome this design cannot avoid from here, and the exact
+    # reason serial_probation.h exists. Two things are required of it: that the
+    # restore has already been RUN and reported (so no callable is handed back
+    # for a caller to run again), and that nothing was raised -- the caller
+    # asked for a push, not for a cable diagnosis.
+    restore = case("v2 bridge that does not act", p, line, SLOW, FAST_CODE,
+                   False)
+    check("deaf bridge: the cable never moved", line.bus_baud == SLOW,
+          "cable at %d" % line.bus_baud)
+    check("deaf bridge: nothing was raised at the caller", restore is None)
+
+    # A bridge running at a rate this firmware has no code for. There would be
+    # nowhere defined to put the cable back, so it is not touched.
+    p = FakeProbe()
+    line = FakeLine(p, bridge=True, bridge_version=2)
+    line.bus_baud = 57600
+    case("v2 bridge on an unknown rate", p, line, SLOW, SLOW_CODE, False)
+    check("unknown bridge rate: no write was attempted", p.writes == [],
           "wrote %r" % (p.writes,))
 
     # ONE LOST FRAME MUST NOT LOOK LIKE "no bridge". A bridge is asked
@@ -333,11 +422,22 @@ def main():
     check("fragment on the bridge address: no write was attempted",
           p.writes == [], "wrote %r" % (p.writes,))
 
-    # No set_baud at all: the --swd transport.
+    # No set_baud at all: the --swd transport, with nothing else to move.
     p = FakeProbe()
     line = SwdLikeLine(p)
     case("no retimable transport", p, line, SLOW, SLOW_CODE, False)
     check("no retimable transport: no write was attempted", p.writes == [])
+
+    # --swd THROUGH a v2 bridge is retimable after all: the mailbox answers the
+    # bridge's own address, so the cable can be moved by a register write even
+    # though this transport has no rate of its own. This is the one case whose
+    # answer the change reverses, and it used to be refused before the bridge
+    # was ever asked.
+    p = FakeProbe()
+    line = SwdLikeLine(p, bridge=True, bridge_version=2)
+    case("swd through a v2 bridge", p, line, SLOW, FAST_CODE, True)
+    check("swd through a v2 bridge: the cable moved", line.bus_baud == FAST,
+          "cable is at %d" % line.bus_baud)
 
     # A probe that says nothing. An unreadable baud code is not permission to
     # write one.

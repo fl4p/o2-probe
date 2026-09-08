@@ -102,6 +102,18 @@ def bridge_problems(tool):
     want = {
         "BRIDGE_ADDR": one(r"#define O2P_BRIDGE_ADDR\s+(\d+)u", "O2P_BRIDGE_ADDR"),
         "BRIDGE_IDENT": one(r"#define BR_IDENT\s+(0x[0-9A-Fa-f]+)u", "BR_IDENT"),
+        # The version at which the bus rate became writable. If the firmware
+        # ever raised BR_VERSION for an unrelated reason and this stayed put,
+        # the tool would try to re-rate a bridge that cannot, and strand the
+        # probe behind it; if the firmware LOWERED it, the tool would refuse a
+        # bridge that can. Both are silent, and only this check sees them.
+        "BRIDGE_VERSION_RERATEABLE":
+            one(r"#define BR_VERSION_RERATEABLE\s+(\d+)u",
+                "BR_VERSION_RERATEABLE"),
+        # Which register carries it. The tool writes this number; the firmware
+        # decides what it means.
+        "BRIDGE_REG_BUS_BAUD":
+            one(r"BR_REG_BUS_BAUD\s*=\s*(\d+)u", "BR_REG_BUS_BAUD"),
     }
     for name, value in want.items():
         if value is None:
@@ -112,6 +124,29 @@ def bridge_problems(tool):
         elif int(m.group(1), 0) != value:
             out.append("tools/o2p_update.py %s = %d, src/bridge_main.c says %d"
                        % (name, int(m.group(1), 0), value))
+
+    ver = one(r"#define BR_VERSION\s+(\d+)u", "BR_VERSION")
+    rer = want.get("BRIDGE_VERSION_RERATEABLE")
+    if ver is not None and rer is not None and ver < rer:
+        out.append("src/bridge_main.c reports BR_VERSION %d but says the bus "
+                   "rate is writable from %d - no bridge would ever be "
+                   "re-rated" % (ver, rer))
+
+    # The rates the bridge accepts, against the probe's own enum. A bridge that
+    # would take a rate the probe cannot reach is a way to move the cable
+    # somewhere the probe is not, and the tool picks its target from the PROBE
+    # table -- so the check is that the firmware's two lists agree.
+    rep = open(os.path.join(FW, "src", "bridge_reply.h"), encoding="utf-8").read()
+    accepts = set(int(m, 0) for m in
+                  re.findall(r"#define O2P_BRIDGE_BAUD_\d+\s+(\d+)u", rep))
+    tbl = re.search(r"^BAUD_CODES = \{(.*)\}$", tool, re.M)
+    codes = set(int(v) for v in re.findall(r":\s*(\d+)", tbl.group(1))) \
+        if tbl else set()
+    if accepts and codes and accepts != codes:
+        out.append("src/bridge_reply.h accepts bus rates %s, the tool's "
+                   "BAUD_CODES has %s - one of them can name a rate the other "
+                   "cannot reach"
+                   % (sorted(accepts), sorted(codes)))
 
     # The SWD mailbox: a literal address and a literal layout at both ends,
     # with a debugger in between that will happily read whatever is at the

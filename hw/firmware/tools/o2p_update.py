@@ -97,6 +97,16 @@ ERRORS = ["NONE", "STATE", "LENGTH", "SEQUENCE", "ALIGN", "FLASH", "CRC",
           "IMAGE", "NOIMAGE"]
 LOADER_BIT = 0x8000
 
+# The identity a bootloader falls back to when it cannot read the probe's
+# stored transport settings: read_serial()'s defaults in src/loader_main.c.
+# A loader potted before 2026-09-08 cannot read the frozen transport block
+# (src/transport_record.h), so on a probe whose configuration layout has since
+# moved past that loader's, this is where it answers - whatever address the
+# probe was commissioned at. See FIRMWARE.md, "How the loader knows where the
+# probe is on the bus".
+LOADER_FALLBACK_ADDR = 3
+LOADER_FALLBACK_BAUD = 9600
+
 ALIGN = 8
 IMAGE_MIN = 256
 
@@ -118,6 +128,14 @@ MBX_STATUS = ["IDLE", "REPLIED", "SILENT", "LOCAL", "REJECTED"]
 
 BRIDGE_ADDR = 250
 BRIDGE_IDENT = 0xB21D
+# BR_REG_BUS_BAUD, in baud/100 so 38400 fits a register (src/bridge_main.c).
+BRIDGE_REG_BUS_BAUD = 6
+# The bridge version at which that register became WRITABLE. A v1 bridge
+# answers every read identically, so nothing about a read distinguishes it -
+# and moving the probe in front of one leaves the probe talking a rate the
+# bridge cannot follow. The version is the discriminator; a trial write is not,
+# because the failure it would probe for is the one that strands the probe.
+BRIDGE_VERSION_RERATEABLE = 2
 BRIDGE_FIELDS = ["ident", "version", "frames from host", "frames from bus",
                  "host frames dropped", "bus frames dropped", "bus baud/100",
                  "parity bus:host"]
@@ -604,17 +622,111 @@ def probe_baud_code(bus):
     return code if code in BAUD_CODES else None
 
 
+class BridgeRetimer(object):
+    """A bench bridge's BUS side, wearing a serial link's `set_baud`/`.baud`.
+
+    The negotiation has to move whatever this end of the cable is, and that is
+    not always the same object. On a direct RS-485 dongle it is the dongle, and
+    the link retimes itself. Through a bench bridge the dongle (or the BLE
+    node) talks to the bridge's HOST lead, which must not move at all - the
+    thing that has to follow the probe is the bridge's own bus port, one
+    Modbus register away. Presenting both as the same two names keeps that
+    difference out of negotiate_baud, _restore_baud and resync.
+
+    It is also the better-instrumented of the two: a dongle cannot be asked
+    what rate it is on, while the bridge reports its live rate in the same
+    register, so every change here is read back rather than assumed.
+    """
+
+    def __init__(self, link, baud):
+        self.bus = Bus(link, BRIDGE_ADDR)
+        self.baud = baud
+
+    def set_baud(self, baud):
+        """Move the cable. Raises if the bridge did not take it.
+
+        Deliberately loud where SerialLink.set_baud cannot fail: this one is a
+        frame over the wire and can be lost or refused, and a caller that
+        believed a silent failure would go on to talk into a cable running at
+        a rate it is not using. The read-back is what turns FC16's echo - which
+        confirms the address and count but never the value - into a fact.
+        """
+        self.bus.write(BRIDGE_REG_BUS_BAUD, [baud // 100])
+        got = self.bus.read(BRIDGE_REG_BUS_BAUD, 1)[0] * 100
+        if got != baud:
+            raise IOError("the bridge reports %d baud after being asked for "
+                          "%d" % (got, baud))
+        self.baud = baud
+
+
+def bridge_status(link, probe_addr):
+    """(is_a_bridge, version, bus_baud) for whatever is at BRIDGE_ADDR.
+
+    `is_a_bridge` follows bridge_in_the_path exactly - True, False or None for
+    unknowable - and the other two are None unless it is True.
+    """
+    if probe_addr == BRIDGE_ADDR:
+        return None, None, None
+    bus = Bus(link, BRIDGE_ADDR)
+    for _ in range(BRIDGE_PROBES):
+        try:
+            r = bus.read(0, len(BRIDGE_FIELDS))
+        except NoReply:
+            continue
+        except ModbusException:
+            return None, None, None
+        except (IOError, OSError):
+            return None, None, None
+        if r[0] != BRIDGE_IDENT:
+            return False, None, None
+        return True, r[1], r[BRIDGE_REG_BUS_BAUD] * 100
+    return False, None, None
+
+
+def retimable_line(link, probe_addr):
+    """(line, why_not): the end of the cable that must follow the probe.
+
+    `line` is an object with `set_baud` and `.baud`, or None - in which case
+    `why_not` is the sentence to print. Nothing here changes anything; it only
+    establishes which of the three situations we are in.
+    """
+    is_bridge, version, bus_baud = bridge_status(link, probe_addr)
+
+    if is_bridge is None:
+        return None, ("could not rule out a bridge in the path")
+    if is_bridge:
+        if version is None or version < BRIDGE_VERSION_RERATEABLE:
+            return None, ("a bench bridge v%s is forwarding, and its bus rate "
+                          "is compiled in - reflash it to move the cable"
+                          % ("?" if version is None else version))
+        if code_for_baud(bus_baud) is None:
+            # The bridge is on a rate this firmware has no code for, so there
+            # is no way to say where it should be put back to.
+            return None, ("the bridge reports %d baud, which this tool has no "
+                          "code for" % bus_baud)
+        return BridgeRetimer(link, bus_baud), None
+
+    # No bridge. The link itself is the cable, if it can be retimed at all.
+    if getattr(link, "set_baud", None) is None:
+        return None, ("this transport cannot be retimed and no bridge "
+                      "answered, so nothing here can follow the probe")
+    return link, None
+
+
 def bridge_in_the_path(link, probe_addr):
     """True if a bench bridge is forwarding for us, None if unknowable.
 
-    This is the question that decides whether the probe's baud may be touched
-    at all. The bridge's BUS side is compiled in (`O2P_BRIDGE_BUS_BAUD`,
-    src/bridge_main.c) and it defaults to the same 9600 as its host side, so a
-    mismatch between this end's rate and the probe's declared rate does NOT
-    detect it: on the standard bench setup both legs are 9600 and the two
-    agree. Raising the probe there would leave it talking 38400 to a bridge
-    that only ever speaks 9600 - unreachable until its next reset, over a lead
-    that cannot reset it.
+    Kept for --bridge and for callers that only want the yes/no; the baud
+    negotiation uses bridge_status()/retimable_line(), which need the version
+    as well. Both must answer the same way about presence.
+
+    The bridge's BUS side was compiled in before BRIDGE_VERSION_RERATEABLE
+    (`O2P_BRIDGE_BUS_BAUD`, src/bridge_main.c) and it defaults to the same 9600
+    as its host side, so a mismatch between this end's rate and the probe's
+    declared rate does NOT detect it: on the standard bench setup both legs are
+    9600 and the two agree. Raising the probe in front of an OLD bridge leaves
+    it talking 38400 to one that only ever speaks 9600 - unreachable until its
+    next reset, over a lead that cannot reset it.
 
     So it is asked directly, the same way `--bridge` asks: the bridge answers
     for ITSELF at its reserved address and forwards everything else.
@@ -671,7 +783,7 @@ def confirm_baud(bus, want_code):
     return True
 
 
-def resync(link, bus, candidates, settle):
+def resync(line, bus, candidates, settle):
     """Find the rate the probe is actually on, and return it, or None.
 
     Called whenever a switch did not land the way it was asked to. The
@@ -682,7 +794,15 @@ def resync(link, bus, candidates, settle):
     depend on it.
     """
     for baud in candidates:
-        link.set_baud(baud)
+        try:
+            line.set_baud(baud)
+        except (IOError, OSError):
+            # Only a bridge's set_baud can fail, and a bridge that will not
+            # move cannot be moved for any candidate either -- but say nothing
+            # and try the rest anyway: the alternative is inferring the state
+            # of the whole cable from one frame, which is the mistake this
+            # function exists to avoid.
+            continue
         time.sleep(settle)
         code = probe_baud_code(bus)
         if code is not None and BAUD_CODES[code] == baud:
@@ -699,7 +819,97 @@ def rate_candidates(*preferred):
     return out
 
 
-def find_probe(link, bus, settle=0.2):
+def looks_like_o2p(bus):
+    """Is the thing answering on this address one of OUR probes?
+
+    Asked before an address sweep is allowed to conclude anything, because the
+    fallback address is 3 and address 3 on a farm cable may well be somebody
+    else's instrument. A well-formed FC03 reply is not identification: it says
+    a Modbus device exists, not which one. So the update block is read and its
+    fields are required to be in range - a state and an error this tool has
+    names for, and a loader version that is a plausible small integer. A
+    device that has some unrelated meaning for 0x0050 will almost always fail
+    one of them, and one that passes all of them is answering the update
+    block's contract, which is the only definition of "our probe" this tool
+    has.
+
+    Errs towards NO. A false yes here starts a firmware push at a stranger.
+    """
+    try:
+        st, err, _ = status(bus)
+        ident = bus.read(R_LOADER_VER, 3)
+    except (ModbusException, IOError, OSError):
+        return False
+    return st < len(STATES) and err < len(ERRORS) and ident[0] <= 16
+
+
+def sweep_identity(line, bus, addr, rates, settle):
+    """Try one address at each rate in turn, using the UPDATE block.
+
+    Deliberately not the config block. The bootloader refuses every register
+    outside the update window (loader_main.c's loader_read), so a probe
+    sitting in its bootloader - the entire population this hunt exists for -
+    answers R_STATUS and is silent on R_BAUD_CODE. A sweep built on the config
+    registers therefore cannot see the one thing it was written to find.
+
+    Leaves the bus and the link on the identity that answered, and returns
+    True; otherwise restores both and returns False.
+    """
+    started_addr, started_baud = bus.addr, line.baud
+    bus.addr = addr
+    for baud in rates:
+        line.set_baud(baud)
+        if settle:
+            time.sleep(settle)
+        if looks_like_o2p(bus):
+            return True
+    bus.addr = started_addr
+    line.set_baud(started_baud)
+    return False
+
+
+def find_at_fallback_identity(line, bus, settle=0.2):
+    """Look for the probe at the BOOTLOADER's default identity.
+
+    The last resort of find_probe(), and it exists for one specific failure:
+    an old bootloader that cannot read the probe's stored transport settings
+    falls back to address 3 / 9600 / even parity, silently, on exactly the
+    probe whose application is broken enough to need the bootloader. Sweeping
+    the configured identity alone would report such a probe unreachable when
+    it is sitting there answering, at an address the operator never chose.
+
+    Only address and baud are swept. Parity is not: this end has no way to
+    change it mid-run, and the fallback parity is even, which is both the
+    default and what every probe on this cable is provisioned with.
+
+    On success the bus and the link are LEFT at the identity that answered, so
+    the caller can go on to talk to it, and both the address and the rate are
+    printed - an operator who did not know the probe had fallen back needs to
+    be told, not quietly rescued.
+    """
+    if bus.addr == LOADER_FALLBACK_ADDR:
+        return False
+    if line is None:
+        # Nothing here can be retimed -- no bridge answered and this transport
+        # has no rate of its own -- so there is no hunt to make. Through a
+        # BRIDGE this is not `link`: hunting on the host lead would only break
+        # the one connection that is working, and would never reach the cable
+        # the probe is actually on.
+        return False
+    started_addr = bus.addr
+    print("   no answer at address %d; trying the bootloader's fallback "
+          "identity (address %d)" % (started_addr, LOADER_FALLBACK_ADDR))
+    if not sweep_identity(line, bus, LOADER_FALLBACK_ADDR,
+                          rate_candidates(LOADER_FALLBACK_BAUD), settle):
+        return False
+    print("!! answering at address %d, %d baud - not the %d you asked for. A "
+          "bootloader that cannot read the stored transport settings falls "
+          "back to this identity; see FIRMWARE.md."
+          % (LOADER_FALLBACK_ADDR, line.baud, started_addr))
+    return True
+
+
+def find_probe(line, bus, settle=0.2):
     """Make contact, hunting for the probe's rate if the given one is wrong.
 
     An interrupted earlier run - or the one unrecoverable case in
@@ -712,22 +922,41 @@ def find_probe(link, bus, settle=0.2):
     """
     if probe_baud_code(bus) is not None:
         return True
-    if getattr(link, "set_baud", None) is None:
+    # The config register is silent. That is what a WRONG RATE looks like, and
+    # it is also what a probe sitting in its BOOTLOADER looks like at exactly
+    # the right one - the loader refuses every register outside the update
+    # block. Ask the update block before concluding anything about the rate,
+    # or the hunt below walks away from a probe it is already talking to.
+    if looks_like_o2p(bus):
+        return True
+    if line is None:
+        # Nothing here can be retimed -- no bridge answered and this transport
+        # has no rate of its own -- so there is no hunt to make. Through a
+        # BRIDGE this is not `link`: hunting on the host lead would only break
+        # the one connection that is working, and would never reach the cable
+        # the probe is actually on.
         return False
-    started = link.baud
+    started = line.baud
     print("   no answer at %d; trying the other rates this firmware supports"
           % started)
-    at = resync(link, bus, [b for b in rate_candidates() if b != started],
-                settle)
+    others = [b for b in rate_candidates() if b != started]
+    at = resync(line, bus, others, settle)
     if at is None:
-        link.set_baud(started)            # leave it where the operator put it
-        return False
+        line.set_baud(started)            # leave it where the operator put it
+        # Same question again for a bootloader: resync() asks the config
+        # block, so it cannot see one at any rate.
+        if sweep_identity(line, bus, bus.addr, others, settle):
+            print("!! the probe is at %d, not %d, and is answering from its "
+                  "BOOTLOADER." % (line.baud, started))
+            return True
+        return find_at_fallback_identity(line, bus, settle)
     print("!! the probe is at %d, not %d - an interrupted run probably left "
           "it there." % (at, started))
     return True
 
 
-def negotiate_baud(link, bus, home_code, settle=0.2):
+def negotiate_baud(link, bus, home_code, settle=0.2, line=None,
+                   why_not=None):
     """Move the probe to the fastest rate it offers, for this transfer only.
 
     `home_code` is where the probe must be LEFT: normally the rate the cable
@@ -746,21 +975,39 @@ def negotiate_baud(link, bus, home_code, settle=0.2):
     (src/serial_probation.h); this tool must still behave as though it is
     talking to an older probe, because it may be.
 
+    WHICH END FOLLOWS THE PROBE is not always this process. Through a bench
+    bridge the serial handle here is the HOST lead, which must not move at all;
+    the thing that has to follow is the bridge's own bus port, one register
+    away (BridgeRetimer). retimable_line() decides which of the two it is
+    holding, and that is also where the refusals live.
+
     It declines, and says so, whenever it cannot establish that the switch is
     safe AND reversible:
 
-      * over --swd, or any transport with no set_baud: the cable's rate is
-        compiled into the bridge,
-      * with a bench bridge in the path, or one that cannot be ruled out,
+      * a bench bridge older than v%d: its bus rate is compiled in, so moving
+        the probe in front of it strands the probe,
+      * anything on the bridge address that cannot be read as a bridge,
+      * no bridge AND a transport with no set_baud - nothing here can follow,
+      * a bridge already on a rate this tool has no code for: nowhere defined
+        to put it back,
       * when the probe will not report a baud code this tool has a rate for.
 
     None of those are failures of the push; they just leave it at 9600.
-    """
-    retime = getattr(link, "set_baud", None)
-    if retime is None:
-        print("   baud: left as built - over --swd the cable's rate is the "
-              "bridge's compiled-in one")
+
+    Nor is a bridge that will not take the write. That is a frame over a wire
+    and it can be refused, lost, or answered without being acted on, so it is
+    reported and unwound like any other rate that did not verify - never raised
+    at a caller that only asked for a push.
+    """ % BRIDGE_VERSION_RERATEABLE
+    # WHICH END has to follow the probe is settled first, because the answer
+    # decides whether any of the rest may happen at all. Through a bench bridge
+    # it is the bridge's bus port, not this process's serial handle.
+    if line is None and why_not is None:
+        line, why_not = retimable_line(link, bus.addr)
+    if line is None:
+        print("   baud: left as built - %s" % why_not)
         return None
+    retime = line.set_baud
 
     fast_code = fastest_code()
     fast = BAUD_CODES[fast_code]
@@ -768,21 +1015,13 @@ def negotiate_baud(link, bus, home_code, settle=0.2):
     was = probe_baud_code(bus)
     if was is None:
         print("   baud: staying at %d - no usable answer from the probe's "
-              "BAUD_CODE register" % link.baud)
+              "BAUD_CODE register" % line.baud)
         return None
     if was == fast_code and was == home_code:
         print("   baud: already at %d, the fastest this firmware offers" % fast)
         return None
 
-    bridged = bridge_in_the_path(link, bus.addr)
-    if bridged is not False:
-        print("   baud: staying at %d - %s" % (
-            link.baud,
-            "a bench bridge is forwarding, and its bus rate is compiled in"
-            if bridged else "could not rule out a bridge in the path"))
-        return None
-
-    restore = _restore_baud(link, bus, home_code, settle)
+    restore = _restore_baud(line, bus, home_code, settle)
 
     if was == fast_code:
         # Already fast, but not where it must be left. Nothing to raise; the
@@ -818,8 +1057,17 @@ def negotiate_baud(link, bus, home_code, settle=0.2):
         # wire (src/main.c, the deferred-work block), so this end must not
         # retime into the middle of that.
         time.sleep(settle)
-        retime(fast)
-        time.sleep(settle)
+        # This can FAIL where a dongle's set_baud cannot: through a bridge it
+        # is a frame over the wire, and the bridge may refuse it, lose it, or
+        # answer without acting. That is a condition of the cable, not a bug,
+        # so it lands in the same "did not verify" path as everything else
+        # here rather than being raised at a caller who only asked for a push.
+        try:
+            retime(fast)
+        except (IOError, OSError) as e:
+            print("   baud: this end would not follow (%s)" % e)
+        else:
+            time.sleep(settle)
         if confirm_baud(bus, fast_code):
             print("   baud: %d confirmed over %d frames" % (fast, VERIFY_FRAMES))
             return restore
@@ -835,7 +1083,7 @@ def negotiate_baud(link, bus, home_code, settle=0.2):
     return restore
 
 
-def _restore_baud(link, bus, home_code, settle):
+def _restore_baud(line, bus, home_code, settle):
     """Put the probe back on `home_code`, and this end with it.
 
     Returns the rate the probe ended on, or None if it could not be found at
@@ -852,14 +1100,14 @@ def _restore_baud(link, bus, home_code, settle):
         try:
             for attempt in range(RESTORE_ATTEMPTS):
                 del attempt
-                if link.baud == home and confirm_baud(bus, home_code):
+                if line.baud == home and confirm_baud(bus, home_code):
                     print("   baud: back at %d" % home)
                     return home
                 # Find the probe first: writing the retraction at a rate it
                 # cannot hear is what makes the failure permanent, and a
                 # single unretried write is how a lost REQUEST - as opposed to
                 # a lost reply - strands it.
-                at = resync(link, bus, rate_candidates(home, link.baud), settle)
+                at = resync(line, bus, rate_candidates(home, line.baud), settle)
                 if at is None:
                     break
                 if at == home:
@@ -869,10 +1117,10 @@ def _restore_baud(link, bus, home_code, settle):
                 except (ModbusException, IOError, OSError):
                     pass                  # asked again next lap, or verified
                 time.sleep(settle)
-                link.set_baud(home)
+                line.set_baud(home)
                 time.sleep(settle)
 
-            at = resync(link, bus, rate_candidates(home, link.baud), settle)
+            at = resync(line, bus, rate_candidates(home, line.baud), settle)
             if at == home:
                 print("   baud: back at %d" % home)
                 return home
@@ -888,7 +1136,7 @@ def _restore_baud(link, bus, home_code, settle):
             # branch above deliberately does the opposite: there the probe was
             # found, and the line is left where it is so `--boot` can reach
             # it.)
-            link.set_baud(home)
+            line.set_baud(home)
             print("!! baud: the probe answers at no rate this firmware "
                   "supports. NOTHING WAS COMMITTED - reset or power-cycle it "
                   "and it returns to its stored rate; firmware from "
@@ -1172,17 +1420,23 @@ def run(args, link):
     # Before anything is diagnosed as a dead probe or a bad lead: an earlier
     # run of THIS tool may have left it at a rate nobody asked for.
     if not args.bridge:
-        find_probe(link, bus)
+        find_probe(line, bus)
+
+    # WHICH OBJECT IS THE CABLE, resolved once and used everywhere below.
+    # Through a bench bridge it is NOT `link`: `link` is then the host lead,
+    # and retiming that to follow the probe would cut the only connection that
+    # still works. Everything from here on that moves a rate moves this.
+    line, why_not = retimable_line(link, bus.addr)
 
     # --status/--abort/--stay do their one thing and return before any
     # restore exists, so a probe found off the provisioned rate is REPORTED
     # rather than silently accepted. Only a push has a reason to move it, and
     # only a push puts it back.
-    if hasattr(link, "set_baud") and link.baud != args.baud and (
+    if line is not None and line.baud != args.baud and (
             args.status or args.abort or args.stay):
         print("!! this run leaves the probe at %d. Push an image, or set it "
               "back by hand: it is register 0x%04X, and nothing here has been "
-              "committed to flash." % (link.baud, R_BAUD_CODE))
+              "committed to flash." % (line.baud, R_BAUD_CODE))
 
     if args.status:
         show_status(bus)
@@ -1227,18 +1481,13 @@ def run(args, link):
     restore = None
     if args.no_speedup:
         pass
-    elif not hasattr(link, "set_baud"):
-        # Said HERE and not inside negotiate_baud, which run() never reaches
-        # on this transport - so the operator used to be told nothing at all
-        # about the speed-up that did not happen.
-        print("   baud: left as built - over --swd the cable's rate is the "
-              "bridge's compiled-in one")
     elif home_code is None:
         print("   baud: staying at %d - this firmware has no code for that "
               "rate, so there would be nothing to put the probe back to"
               % args.baud)
     else:
-        restore = negotiate_baud(link, bus, home_code)
+        restore = negotiate_baud(link, bus, home_code, line=line,
+                                 why_not=why_not)
 
     ended_at = None
     try:
@@ -1258,12 +1507,12 @@ def run(args, link):
         # the probe is ACTUALLY on - the one the restore just reported - and
         # not at the one it was supposed to be put back to. Sending it into
         # the void instead would throw away the fix.
-        if (restore is not None and ended_at is not None
-                and ended_at != link.baud):
+        if (restore is not None and line is not None and ended_at is not None
+                and ended_at != line.baud):
             print("   sending the boot command at %d, where the probe "
                   "actually is; the reset returns it to its stored rate"
                   % ended_at)
-            link.set_baud(ended_at)
+            line.set_baud(ended_at)
         bus.write(R_CMD, [CMD_STAY if args.stay else CMD_BOOT])
         # The probe resets while this reply is on the wire, so there is
         # nothing further to read; give it the settling time before anyone

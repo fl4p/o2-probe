@@ -30,6 +30,7 @@ static const uint16_t REGS[NREGS] = {
 };
 
 static uint8_t g_rsp[5u + 2u * NREGS];
+static o2p_bridge_action_t g_act;
 
 /* Build a well-formed request and append a correct CRC. */
 static size_t request(uint8_t *out, uint8_t addr, uint8_t fc, uint16_t first,
@@ -51,7 +52,7 @@ static size_t ask(uint8_t fc, uint16_t first, uint16_t count)
 {
     uint8_t req[8];
     const size_t n = request(req, ADDR, fc, first, count);
-    return o2p_bridge_reply(ADDR, REGS, NREGS, req, n, g_rsp);
+    return o2p_bridge_reply(ADDR, REGS, NREGS, req, n, g_rsp, &g_act);
 }
 
 static void assert_crc_ok(size_t len)
@@ -125,7 +126,7 @@ static void test_a_corrupt_frame_is_answered_with_silence(void)
     const size_t n = request(req, ADDR, O2P_MB_FC_READ_HOLDING, 0u, NREGS);
     req[3] ^= 0x01u;                       /* CRC now belongs to another frame */
     TEST_ASSERT_EQUAL_UINT(0u, o2p_bridge_reply(ADDR, REGS, NREGS, req, n,
-                                                g_rsp));
+                                                g_rsp, &g_act));
 }
 
 static void test_a_frame_too_short_to_hold_a_crc_is_answered_with_silence(void)
@@ -133,18 +134,178 @@ static void test_a_frame_too_short_to_hold_a_crc_is_answered_with_silence(void)
     const uint8_t req[3] = { ADDR, O2P_MB_FC_READ_HOLDING, 0u };
     for (size_t n = 0; n <= sizeof(req); n++) {
         TEST_ASSERT_EQUAL_UINT(0u, o2p_bridge_reply(ADDR, REGS, NREGS, req, n,
-                                                    g_rsp));
+                                                    g_rsp, &g_act));
     }
 }
 
 /* --- what must produce an exception, not a guess ------------------------ */
 
-static void test_a_write_is_refused_the_bridge_has_nothing_to_set(void)
+static void test_an_unsupported_write_function_is_refused(void)
 {
+    /* FC06 stays refused. Only FC16 was given a meaning -- it is the dialect
+     * the probe's own config block is written with, so a bridge that answered
+     * a second verb would be the only device on the cable that did. */
     uint8_t req[8];
-    const size_t n = request(req, ADDR, 0x10u, 0u, 1u);
-    const size_t len = o2p_bridge_reply(ADDR, REGS, NREGS, req, n, g_rsp);
-    assert_exception(len, 0x10u, O2P_MB_EX_ILLEGAL_FUNCTION);
+    const size_t n = request(req, ADDR, O2P_MB_FC_WRITE_SINGLE, 6u,
+                             (uint16_t)(O2P_BRIDGE_BAUD_3 / 100u));
+    const size_t len = o2p_bridge_reply(ADDR, REGS, NREGS, req, n, g_rsp, &g_act);
+    assert_exception(len, O2P_MB_FC_WRITE_SINGLE, O2P_MB_EX_ILLEGAL_FUNCTION);
+    TEST_ASSERT_FALSE(g_act.set_bus_baud);
+}
+
+/* ---- the one writable register: the bus rate ---- */
+
+/* An FC16 request of `count` registers carrying `value`, with `bytes` declared
+ * as the byte count. The malformed shapes are reachable by lying about the
+ * last two, which is what the length and consistency checks are for. */
+static size_t write_frame(uint8_t *out, uint16_t reg, uint16_t count,
+                          uint8_t bytes, uint16_t value)
+{
+    out[0] = ADDR;
+    out[1] = O2P_MB_FC_WRITE_MULTIPLE;
+    out[2] = (uint8_t)(reg >> 8);
+    out[3] = (uint8_t)(reg & 0xFFu);
+    out[4] = (uint8_t)(count >> 8);
+    out[5] = (uint8_t)(count & 0xFFu);
+    out[6] = bytes;
+    out[7] = (uint8_t)(value >> 8);
+    out[8] = (uint8_t)(value & 0xFFu);
+    const uint16_t crc = o2p_mb_crc16(out, 9u);
+    out[9] = (uint8_t)(crc & 0xFFu);
+    out[10] = (uint8_t)(crc >> 8);
+    return 11u;
+}
+
+static size_t write_reg(uint16_t reg, uint16_t value)
+{
+    uint8_t req[11];
+    const size_t n = write_frame(req, reg, 1u, 2u, value);
+    return o2p_bridge_reply(ADDR, REGS, NREGS, req, n, g_rsp, &g_act);
+}
+
+static void test_the_bus_rate_can_be_moved_to_each_supported_value(void)
+{
+    const uint32_t bauds[3] = {O2P_BRIDGE_BAUD_1, O2P_BRIDGE_BAUD_2,
+                               O2P_BRIDGE_BAUD_3};
+    for (unsigned i = 0; i < 3u; i++) {
+        const size_t len = write_reg(6u, (uint16_t)(bauds[i] / 100u));
+        /* FC16 answers with the address and count it applied, so the master
+         * can confirm what landed rather than infer it from the absence of an
+         * exception. */
+        TEST_ASSERT_EQUAL_UINT(8u, len);
+        assert_crc_ok(len);
+        TEST_ASSERT_EQUAL_UINT8(ADDR, g_rsp[0]);
+        TEST_ASSERT_EQUAL_UINT8(O2P_MB_FC_WRITE_MULTIPLE, g_rsp[1]);
+        TEST_ASSERT_EQUAL_UINT16(6u, (uint16_t)((g_rsp[2] << 8) | g_rsp[3]));
+        TEST_ASSERT_EQUAL_UINT16(1u, (uint16_t)((g_rsp[4] << 8) | g_rsp[5]));
+        TEST_ASSERT_TRUE(g_act.set_bus_baud);
+        TEST_ASSERT_EQUAL_UINT32(bauds[i], g_act.bus_baud);
+    }
+}
+
+static void test_an_unsupported_rate_is_refused_and_commands_nothing(void)
+{
+    /* The two ways to get this wrong are a rate no probe can follow and a
+     * value that is not a rate at all. Both must leave the cable where it is:
+     * the bridge is the only thing on the bus that stays reachable after a bad
+     * move, and only because it did not make one. */
+    const uint16_t bad[6] = {0u, 1u, 24u, 48u, 576u, 0xFFFFu};
+    for (unsigned i = 0; i < 6u; i++) {
+        const size_t len = write_reg(6u, bad[i]);
+        assert_exception(len, O2P_MB_FC_WRITE_MULTIPLE,
+                         O2P_MB_EX_ILLEGAL_VALUE);
+        TEST_ASSERT_FALSE(g_act.set_bus_baud);
+    }
+}
+
+static void test_no_other_register_is_writable(void)
+{
+    /* Known-bad calibration for the address check: walk the whole block plus
+     * one past it, at a value that WOULD be accepted at register 6. */
+    for (uint16_t reg = 0u; reg <= NREGS; reg++) {
+        if (reg == 6u) {
+            continue;
+        }
+        const size_t len = write_reg(reg, (uint16_t)(O2P_BRIDGE_BAUD_3 / 100u));
+        assert_exception(len, O2P_MB_FC_WRITE_MULTIPLE,
+                         O2P_MB_EX_ILLEGAL_ADDRESS);
+        TEST_ASSERT_FALSE(g_act.set_bus_baud);
+    }
+}
+
+static void test_a_multi_register_write_is_refused_whole(void)
+{
+    /* A block that spans register 6 also spans a counter, and there is no way
+     * to apply the half that is legal without also claiming the half that is
+     * not. The declared byte count is checked against the count for the same
+     * reason: they are two statements of the same thing, and a frame where
+     * they disagree is not a frame this bridge understands. */
+    uint8_t req[11];
+    size_t n = write_frame(req, 6u, 2u, 4u, 384u);
+    size_t len = o2p_bridge_reply(ADDR, REGS, NREGS, req, n, g_rsp, &g_act);
+    assert_exception(len, O2P_MB_FC_WRITE_MULTIPLE, O2P_MB_EX_ILLEGAL_VALUE);
+    TEST_ASSERT_FALSE(g_act.set_bus_baud);
+
+    n = write_frame(req, 6u, 1u, 4u, 384u);   /* count and byte count disagree */
+    len = o2p_bridge_reply(ADDR, REGS, NREGS, req, n, g_rsp, &g_act);
+    assert_exception(len, O2P_MB_FC_WRITE_MULTIPLE, O2P_MB_EX_ILLEGAL_VALUE);
+    TEST_ASSERT_FALSE(g_act.set_bus_baud);
+
+    n = write_frame(req, 6u, 0u, 2u, 384u);   /* nothing to write */
+    len = o2p_bridge_reply(ADDR, REGS, NREGS, req, n, g_rsp, &g_act);
+    assert_exception(len, O2P_MB_FC_WRITE_MULTIPLE, O2P_MB_EX_ILLEGAL_VALUE);
+    TEST_ASSERT_FALSE(g_act.set_bus_baud);
+}
+
+static void test_a_caller_that_cannot_act_refuses_the_write(void)
+{
+    /* Unevaluable input, guard-checklist rule 1. A caller passing NULL has no
+     * way to re-rate anything, so the write must fail loudly rather than be
+     * answered and dropped. */
+    uint8_t req[11];
+    const size_t n = write_frame(req, 6u, 1u, 2u,
+                                 (uint16_t)(O2P_BRIDGE_BAUD_3 / 100u));
+    const size_t len = o2p_bridge_reply(ADDR, REGS, NREGS, req, n, g_rsp, NULL);
+    assert_exception(len, O2P_MB_FC_WRITE_MULTIPLE,
+                     O2P_MB_EX_ILLEGAL_FUNCTION);
+}
+
+static void test_a_corrupt_write_is_answered_with_silence(void)
+{
+    /* A write must clear the same bar a read does. Its address byte is no more
+     * trustworthy than a read's, and acting on a corrupt one is worse: it
+     * moves the cable rather than reporting a counter. */
+    uint8_t req[11];
+    const size_t n = write_frame(req, 6u, 1u, 2u,
+                                 (uint16_t)(O2P_BRIDGE_BAUD_3 / 100u));
+    req[8] ^= 0x01u;   /* the value, now disagreeing with the CRC */
+    TEST_ASSERT_EQUAL_UINT(0u, o2p_bridge_reply(ADDR, REGS, NREGS, req, n,
+                                                g_rsp, &g_act));
+    TEST_ASSERT_FALSE(g_act.set_bus_baud);
+}
+
+static void test_a_write_of_the_wrong_length_is_refused(void)
+{
+    /* Every length but eleven, with a CRC that is correct for it -- so what is
+     * being refused is the shape and not the checksum. */
+    for (size_t n = 4u; n <= 16u; n++) {
+        if (n == 11u) {
+            continue;
+        }
+        uint8_t req[16];
+        memset(req, 0, sizeof(req));
+        req[0] = ADDR;
+        req[1] = O2P_MB_FC_WRITE_MULTIPLE;
+        req[3] = 6u;
+        const uint16_t crc = o2p_mb_crc16(req, n - 2u);
+        req[n - 2] = (uint8_t)(crc & 0xFFu);
+        req[n - 1] = (uint8_t)(crc >> 8);
+        const size_t len = o2p_bridge_reply(ADDR, REGS, NREGS, req, n, g_rsp,
+                                            &g_act);
+        assert_exception(len, O2P_MB_FC_WRITE_MULTIPLE,
+                         O2P_MB_EX_ILLEGAL_VALUE);
+        TEST_ASSERT_FALSE(g_act.set_bus_baud);
+    }
 }
 
 static void test_a_read_of_the_wrong_length_is_refused(void)
@@ -158,7 +319,7 @@ static void test_a_read_of_the_wrong_length_is_refused(void)
     req[7] = (uint8_t)(crc & 0xFFu);
     req[8] = (uint8_t)(crc >> 8);
     const size_t len = o2p_bridge_reply(ADDR, REGS, NREGS, req, sizeof(req),
-                                        g_rsp);
+                                        g_rsp, &g_act);
     assert_exception(len, O2P_MB_FC_READ_HOLDING, O2P_MB_EX_ILLEGAL_VALUE);
 }
 
@@ -227,7 +388,14 @@ int main(void)
     RUN_TEST(test_the_last_register_alone_is_readable);
     RUN_TEST(test_a_corrupt_frame_is_answered_with_silence);
     RUN_TEST(test_a_frame_too_short_to_hold_a_crc_is_answered_with_silence);
-    RUN_TEST(test_a_write_is_refused_the_bridge_has_nothing_to_set);
+    RUN_TEST(test_an_unsupported_write_function_is_refused);
+    RUN_TEST(test_the_bus_rate_can_be_moved_to_each_supported_value);
+    RUN_TEST(test_an_unsupported_rate_is_refused_and_commands_nothing);
+    RUN_TEST(test_no_other_register_is_writable);
+    RUN_TEST(test_a_multi_register_write_is_refused_whole);
+    RUN_TEST(test_a_caller_that_cannot_act_refuses_the_write);
+    RUN_TEST(test_a_corrupt_write_is_answered_with_silence);
+    RUN_TEST(test_a_write_of_the_wrong_length_is_refused);
     RUN_TEST(test_a_read_of_the_wrong_length_is_refused);
     RUN_TEST(test_reads_off_the_end_are_refused_and_stay_refused);
     RUN_TEST(test_only_a_possible_adu_is_transmitted);
