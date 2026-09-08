@@ -492,10 +492,29 @@ static uint8_t apply_config_word(o2p_config_t *c, uint16_t a, uint16_t v,
         break;
     }
 
+    /* CHANGED, not merely written. `c` is the trial copy, which still holds
+     * the live value for any field this frame has not touched, so comparing
+     * against it is comparing against the running configuration.
+     *
+     * Writing a register its own current value must be a no-op, because a
+     * master that rewrites its whole config block - a normal thing to do -
+     * touches all three of these every time. Treating that as a change armed
+     * a ten-second probation and, with a COMMIT in the same frame, deferred
+     * it behind proof that would never come from a master polling at five
+     * minutes: the commit could then only ever report FAILED. It would also
+     * arm a probation whose fallback is FLASH on a probe whose RAM settings
+     * deliberately differ from it - which is exactly the state the field
+     * updater creates - and drop it back mid-transfer. */
     switch (a) {
-    case O2P_REG_SLAVE_ADDR:      c->slave_addr = (uint8_t)v; *serial_changed = true; break;
-    case O2P_REG_BAUD_CODE:       c->baud_code = (uint8_t)v;  *serial_changed = true; break;
-    case O2P_REG_PARITY_CODE:     c->parity_code = (uint8_t)v; *serial_changed = true; break;
+    case O2P_REG_SLAVE_ADDR:
+        if (c->slave_addr != (uint8_t)v) { c->slave_addr = (uint8_t)v; *serial_changed = true; }
+        break;
+    case O2P_REG_BAUD_CODE:
+        if (c->baud_code != (uint8_t)v) { c->baud_code = (uint8_t)v; *serial_changed = true; }
+        break;
+    case O2P_REG_PARITY_CODE:
+        if (c->parity_code != (uint8_t)v) { c->parity_code = (uint8_t)v; *serial_changed = true; }
+        break;
     case O2P_REG_RH_SETPOINT:     c->rh_setpoint_x100 = v; break;
     case O2P_REG_DT_MAX_K:        c->dt_max_k_x100 = v; break;
     case O2P_REG_HEATER_MAX_DUTY: c->heater_max_duty_x100 = v; break;

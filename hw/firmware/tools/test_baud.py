@@ -28,11 +28,17 @@ reason the switch is safe at all. A tool that retimed before the reply would
 send its write into the void and fail every case here.
 
 WHAT THIS FILE CANNOT TEST: whether `settle` is long enough for a real probe.
-The fake's deferred switch is instantaneous, so a settle of zero passes. The
-bound comes from the firmware instead - the deferred-work block runs
-serial_reconfig_pending FIRST, ahead of the flash store and the updater's page
-erase, and the longest blocking element before it is one 80 ms ADS1119
-conversion.
+The fake's deferred switch is instantaneous, so a settle of zero passes here.
+
+The real bound is NOT 0.2 s. serial_reconfig_pending is serviced first WITHIN
+the deferred block, but the block also contains a flash page erase and the
+SHT45 decreep pulse (`o2p_sht4x_heater_pulse`, over a second), and those delay
+entry to the NEXT pass - so the probe can be up to a second or so late in
+switching. What actually covers that is confirm_baud's retry budget:
+VERIFY_ATTEMPTS tries per frame at the link timeout, about 3 s for the first
+frame alone. `settle` only buys the common case a clean first attempt. Saying
+"80 ms" here, as this file first did, quoted the wrong number by about 15x and
+made a margin look designed that is in fact carried by the retries.
 
 The frames are real: the fake speaks ADUs, so the tool's own Bus does the CRC,
 the address check and the FC16 echo check exactly as it does on a cable.
@@ -121,12 +127,13 @@ class FakeLine:
     """A serial line with a rate, carrying frames only when both ends agree."""
 
     def __init__(self, probe, baud=SLOW, bridge=False, bridge_lost=0,
-                 bridge_garbage=False):
+                 bridge_garbage=False, bridge_short=False):
         self.probe = probe
         self.baud = baud
         self.bridge = bridge
         self.bridge_lost = bridge_lost        # first N bridge replies dropped
         self.bridge_garbage = bridge_garbage  # answers, but not as a bridge
+        self.bridge_short = bridge_short      # answers with a fragment
         self.retimes = []
 
     def set_baud(self, baud):
@@ -134,6 +141,10 @@ class FakeLine:
         self.retimes.append(baud)
 
     def _bridge_reply(self, addr):
+        if self.bridge_short:
+            # Two bytes. Not silence - something on 250 began to answer - and
+            # for a while this arrived as NoReply and was read as "no bridge".
+            return b"\x01\x02"
         if self.bridge_garbage:
             # A well-formed frame from the right address whose CRC is wrong:
             # something IS on 250 and it is not a bridge this tool knows.
@@ -312,6 +323,16 @@ def main():
     check("garbage on the bridge address: no write was attempted",
           p.writes == [])
 
+    # A FRAGMENT on address 250. Two bytes is too short to carry a CRC, so it
+    # used to be classified as silence alongside a genuine timeout - and
+    # silence is what grants permission to write the baud register. Only a
+    # zero-byte read is silence now.
+    p = FakeProbe()
+    line = FakeLine(p, bridge_short=True)
+    case("a fragment on the bridge address", p, line, SLOW, SLOW_CODE, False)
+    check("fragment on the bridge address: no write was attempted",
+          p.writes == [], "wrote %r" % (p.writes,))
+
     # No set_baud at all: the --swd transport.
     p = FakeProbe()
     line = SwdLikeLine(p)
@@ -351,6 +372,19 @@ def main():
     check("stranded probe: found", found)
     check("stranded probe: line moved to 38400", line.baud == FAST,
           "line is at %d" % line.baud)
+
+    # The whole point of finding it: HOME IS --baud, not wherever find_probe
+    # landed. Deriving home from the moved line made this run confirm the
+    # stranding it exists to undo - "already at the fastest this firmware
+    # offers" - on a cable whose SMT100s are at 9600.
+    p = FakeProbe(baud_code=FAST_CODE)
+    line = FakeLine(p, baud=SLOW)
+    u.find_probe(line, u.Bus(line, PROBE_ADDR), settle=0.0)
+    restore = negotiate(line, home_code=SLOW_CODE)     # home from args.baud
+    check("stranded probe: a restore is offered", restore is not None)
+    if restore is not None:
+        check("stranded probe: put back to 9600", restore() == SLOW)
+        check("stranded probe: probe at code 0", p.baud_code == SLOW_CODE)
 
     # And not found: the line must be left where the operator put it, so the
     # next error message is about the settings they passed.

@@ -202,7 +202,7 @@ def config_problems(tool):
                        "0x%04X" % (tool_name, int(t.group(1), 0), hdr_name,
                                    int(h.group(1), 0)))
 
-    # code -> rate, both sides. The tool picks max(BAUD_CODES) as "the
+    # code -> rate, both sides. The tool picks the highest-RATE code as "the
     # fastest", so a code the header has and the tool does not is not cosmetic
     # - it is a speed-up the tool silently declines to take. A code the TOOL
     # has and the header does not is the dangerous direction: it would ask a
@@ -244,6 +244,36 @@ def config_problems(tool):
             out.append("tools/o2p_update.py offers baud code %d, which "
                        "o2p_config_valid() refuses: O2P_BAUD_MAX_CODE = %d"
                        % (max(tool_rates), limit))
+
+    # THE TWO COPIES THAT FAIL OPEN. The enum declares the codes; these two
+    # switches are what actually set a divisor, and both end in
+    # `default: 9600`. A code added to the enum and to MAX_CODE but not to
+    # these is accepted by o2p_config_valid(), reported back by the register
+    # map, agreed on by this tool - and runs the USART at 9600 while every
+    # other copy says otherwise. Nothing about that is visible on the bus; the
+    # probe simply stops answering and no counter moves.
+    #
+    # Pinning the DECLARATION and not the code that consumes it is guard-review
+    # item 4, and this check had exactly that hole.
+    for path, what in (("modbus_rtu.c", "the application's baud_from_code()"),
+                       ("loader_main.c", "the bootloader's read_serial()")):
+        text = open(os.path.join(FW, "src", path), encoding="utf-8").read()
+        rates = {int(mm.group(1)): int(mm.group(2)) for mm in
+                 re.finditer(r"case O2P_BAUD_(\d+):\s*(?:\*baud =\s*)?"
+                             r"(?:return\s*)?(\d+)u", text)}
+        if not rates:
+            out.append("src/%s no longer maps baud codes in a form this "
+                       "check can read" % path)
+            continue
+        # The switch cases name the codes by RATE (`case O2P_BAUD_19200:`),
+        # so what is checked is that each one assigns the rate its own name
+        # claims. The default arm supplies 9600, so that code is legitimately
+        # absent; every OTHER code must be present and must agree with itself.
+        want = {r: r for r in hdr_rates.values() if r != 9600}
+        if rates != want:
+            out.append("%s maps %r, src/regmap.h's enum declares %r "
+                       "(9600 comes from the default arm)"
+                       % (what, rates, want))
     return out
 
 

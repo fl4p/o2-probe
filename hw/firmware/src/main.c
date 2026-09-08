@@ -131,37 +131,8 @@ static void serial_probation_service(void)
 {
     o2p_sp_outcome_t out = o2p_sp_service(&g_serial_probation, o2p_millis(),
                                           o2p_modbus_frames_ok());
-    if (out == O2P_SP_WAIT) {
-        return;
-    }
-
-    g_rm.serial_probation = false;
-
-    if (out == O2P_SP_REVERT) {
-        /* Only the three reachability fields go back. Anything else the same
-         * frame set is a measurement or a control parameter, and it was
-         * accepted on its own terms - the master's inability to reach the new
-         * ADDRESS says nothing about whether it meant the new RH setpoint.
-         * Reverting those too would make one mistyped baud code silently
-         * discard a batch of deliberate settings. */
-        g_rm.cfg.slave_addr = g_serial_probation.prev_slave_addr;
-        g_rm.cfg.baud_code = g_serial_probation.prev_baud_code;
-        g_rm.cfg.parity_code = g_serial_probation.prev_parity_code;
+    if (o2p_sp_apply(&g_serial_probation, out, &g_rm)) {
         o2p_modbus_reconfigure(&g_rm.cfg);
-    }
-
-    if (g_rm.commit_after_serial) {
-        g_rm.commit_after_serial = false;
-        if (out == O2P_SP_CONFIRMED) {
-            g_rm.commit_pending = true;
-        } else {
-            /* The master asked for settings it then could not reach to be
-             * made permanent. Refusing is the whole point; saying so is what
-             * keeps it from looking like a flash failure. Whoever reads
-             * CMD_RESULT next is by construction talking to the probe at the
-             * OLD settings, so the FAILED is reachable. */
-            o2p_regmap_set_commit_result(&g_rm, O2P_CMD_FAILED);
-        }
     }
 }
 

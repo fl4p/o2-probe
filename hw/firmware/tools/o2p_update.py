@@ -386,7 +386,13 @@ class Bus:
         adu += struct.pack("<H", crc16(adu))
         rsp = self.link.exchange(adu, expect_len)
         if len(rsp) < 3:
-            raise NoReply("no reply (got %d bytes)" % len(rsp))
+            if not rsp:
+                raise NoReply("no reply")
+            # 1 or 2 bytes is NOT silence. Something on this address started
+            # to answer, and the bridge check must not read the fragment as
+            # "nobody is there" and take that for permission.
+            raise IOError("truncated reply (%d bytes): %s"
+                          % (len(rsp), rsp.hex()))
         if crc16(rsp[:-2]) != struct.unpack("<H", rsp[-2:])[0]:
             raise IOError("bad CRC in reply: %s" % rsp.hex())
         if rsp[0] != self.addr:
@@ -436,6 +442,9 @@ class Bus:
 
 class NoReply(IOError):
     """Nothing came back at all.
+
+    Raised ONLY for a zero-byte read. A one- or two-byte fragment is a
+    malformed answer, not silence, and goes out as a plain IOError.
 
     Its own type because SILENCE and A MALFORMED ANSWER mean opposite things
     to the bridge check: silence at address 250 is evidence there is no bridge
@@ -714,7 +723,7 @@ def find_probe(link, bus, settle=0.2):
         link.set_baud(started)            # leave it where the operator put it
         return False
     print("!! the probe is at %d, not %d - an interrupted run probably left "
-          "it there. It will be put back before this one ends." % (at, started))
+          "it there." % (at, started))
     return True
 
 
@@ -1165,6 +1174,16 @@ def run(args, link):
     if not args.bridge:
         find_probe(link, bus)
 
+    # --status/--abort/--stay do their one thing and return before any
+    # restore exists, so a probe found off the provisioned rate is REPORTED
+    # rather than silently accepted. Only a push has a reason to move it, and
+    # only a push puts it back.
+    if hasattr(link, "set_baud") and link.baud != args.baud and (
+            args.status or args.abort or args.stay):
+        print("!! this run leaves the probe at %d. Push an image, or set it "
+              "back by hand: it is register 0x%04X, and nothing here has been "
+              "committed to flash." % (link.baud, R_BAUD_CODE))
+
     if args.status:
         show_status(bus)
         return 0
@@ -1190,24 +1209,36 @@ def run(args, link):
     with open(args.image, "rb") as f:
         image = f.read()
 
-    # Where the probe must be LEFT. --baud names the rate the cable is
-    # provisioned at, which is the rate the Dragino masters it at and the rate
-    # the SMT100s on it need. If it is not a rate this firmware has a code
-    # for, there is nothing to put back TO, and the speed-up is declined
-    # rather than guessed at.
-    home_code = code_for_baud(link.baud) if hasattr(link, "set_baud") else None
+    # Where the probe must be LEFT: ARGS.BAUD, and never link.baud.
+    #
+    # find_probe() may have just moved this end onto a rate an interrupted run
+    # stranded the probe at. Deriving home from the line would then make the
+    # stranded rate the destination - so the run that exists to rescue a probe
+    # from 38400 would confirm it there, on a cable whose SMT100s are at 9600,
+    # and print "already at the fastest this firmware offers" while doing it.
+    # --baud is the operator's statement of what the cable runs at, and it is
+    # the only thing here that a previous failure cannot have corrupted.
+    home_code = code_for_baud(args.baud) if hasattr(link, "set_baud") else None
 
     # Negotiated after the status read, which is deliberately done at the rate
     # the operator asked for: if anything about the link is wrong, it should
     # be reported against the settings they passed and not against one this
     # tool chose for them.
     restore = None
-    if not args.no_speedup and home_code is not None:
-        restore = negotiate_baud(link, bus, home_code)
-    elif not args.no_speedup and hasattr(link, "set_baud"):
+    if args.no_speedup:
+        pass
+    elif not hasattr(link, "set_baud"):
+        # Said HERE and not inside negotiate_baud, which run() never reaches
+        # on this transport - so the operator used to be told nothing at all
+        # about the speed-up that did not happen.
+        print("   baud: left as built - over --swd the cable's rate is the "
+              "bridge's compiled-in one")
+    elif home_code is None:
         print("   baud: staying at %d - this firmware has no code for that "
               "rate, so there would be nothing to put the probe back to"
-              % link.baud)
+              % args.baud)
+    else:
+        restore = negotiate_baud(link, bus, home_code)
 
     ended_at = None
     try:

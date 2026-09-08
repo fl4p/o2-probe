@@ -430,6 +430,97 @@ static void test_the_commit_gate_is_the_only_way_in(void)
     TEST_ASSERT_TRUE(rm.commit_pending);
 }
 
+static void test_writing_a_serial_register_its_own_value_changes_nothing(void)
+{
+    /* A master that rewrites its whole config block touches all three
+     * reachability registers every time. Treating that as a change armed a
+     * ten-second probation and, with a COMMIT in the same frame, deferred it
+     * behind proof that a five-minute Dragino poll would never deliver - so
+     * the commit could only ever report FAILED. */
+    uint16_t vals[14];
+    TEST_ASSERT_EQUAL_UINT8(0, o2p_regmap_read(&rm, 0x0031, 14, vals));
+    vals[13] = O2P_COMMIT_MAGIC;                    /* 0x3E COMMIT, no change */
+    TEST_ASSERT_EQUAL_UINT8(0, o2p_regmap_write(&rm, 0x0031, 14, vals));
+    TEST_ASSERT_FALSE(rm.serial_reconfig_pending);
+    TEST_ASSERT_FALSE(rm.serial_probation);
+    TEST_ASSERT_FALSE(rm.commit_after_serial);
+    TEST_ASSERT_TRUE(rm.commit_pending);
+}
+
+static void test_apply_confirmed_promotes_the_waiting_commit(void)
+{
+    o2p_serial_probation_t p = {0};
+    o2p_sp_arm(&p, 1000u, 7u, 3u, O2P_BAUD_9600, O2P_PARITY_EVEN);
+    rm.cfg.baud_code = O2P_BAUD_38400;
+    rm.serial_probation = true;
+    rm.commit_after_serial = true;
+
+    TEST_ASSERT_FALSE(o2p_sp_apply(&p, O2P_SP_CONFIRMED, &rm));
+    TEST_ASSERT_FALSE(rm.serial_probation);
+    TEST_ASSERT_FALSE(rm.commit_after_serial);
+    TEST_ASSERT_TRUE(rm.commit_pending);
+    /* And the new settings STAY. */
+    TEST_ASSERT_EQUAL_UINT8(O2P_BAUD_38400, rm.cfg.baud_code);
+}
+
+static void test_apply_revert_restores_only_the_three_fields(void)
+{
+    o2p_serial_probation_t p = {0};
+    o2p_sp_arm(&p, 1000u, 7u, 5u, O2P_BAUD_9600, O2P_PARITY_EVEN);
+    rm.cfg.slave_addr = 9u;
+    rm.cfg.baud_code = O2P_BAUD_38400;
+    rm.cfg.parity_code = O2P_PARITY_NONE;
+    rm.cfg.rh_setpoint_x100 = 4242u;      /* set by the same frame */
+    rm.serial_probation = true;
+
+    TEST_ASSERT_TRUE(o2p_sp_apply(&p, O2P_SP_REVERT, &rm));
+    TEST_ASSERT_EQUAL_UINT8(5u, rm.cfg.slave_addr);
+    TEST_ASSERT_EQUAL_UINT8(O2P_BAUD_9600, rm.cfg.baud_code);
+    TEST_ASSERT_EQUAL_UINT8(O2P_PARITY_EVEN, rm.cfg.parity_code);
+    /* The master's inability to reach the new ADDRESS says nothing about
+     * whether it meant the new setpoint. Reverting that too would let one
+     * mistyped baud code silently discard a batch of deliberate settings. */
+    TEST_ASSERT_EQUAL_UINT16(4242u, rm.cfg.rh_setpoint_x100);
+    TEST_ASSERT_FALSE(rm.serial_probation);
+}
+
+static void test_a_revert_fails_a_commit_in_either_queue(void)
+{
+    /* commit_after_cal has to be named explicitly. finish_o2() can run long
+     * after the probation resolved, and by then the gate is open - so the
+     * master would be told OK for a configuration whose serial change was
+     * silently undone, where the non-cal path says FAILED. Two answers to one
+     * question is worse than the wrong one. */
+    o2p_serial_probation_t p = {0};
+    o2p_sp_arm(&p, 1000u, 7u, 3u, O2P_BAUD_9600, O2P_PARITY_EVEN);
+    rm.serial_probation = true;
+    rm.commit_after_cal = true;
+    o2p_regmap_set_commit_result(&rm, O2P_CMD_PENDING);
+
+    TEST_ASSERT_TRUE(o2p_sp_apply(&p, O2P_SP_REVERT, &rm));
+    TEST_ASSERT_FALSE(rm.commit_after_cal);
+    TEST_ASSERT_FALSE(rm.commit_pending);
+    TEST_ASSERT_EQUAL_UINT8(O2P_CMD_FAILED,
+                            O2P_CMD_RESULT_COMMIT(rm.cmd_result));
+
+    /* The calibration itself survives; it can be committed again at settings
+     * that work. */
+    TEST_ASSERT_EQUAL_UINT8(O2P_CMD_NONE, O2P_CMD_RESULT_CAL(rm.cmd_result));
+}
+
+static void test_apply_is_a_no_op_while_the_probation_is_undecided(void)
+{
+    o2p_serial_probation_t p = {0};
+    rm.cfg.baud_code = O2P_BAUD_38400;
+    rm.serial_probation = true;
+    rm.commit_after_serial = true;
+    TEST_ASSERT_FALSE(o2p_sp_apply(&p, O2P_SP_WAIT, &rm));
+    TEST_ASSERT_TRUE(rm.serial_probation);
+    TEST_ASSERT_TRUE(rm.commit_after_serial);
+    TEST_ASSERT_FALSE(rm.commit_pending);
+    TEST_ASSERT_EQUAL_UINT8(O2P_BAUD_38400, rm.cfg.baud_code);
+}
+
 static void test_measurement_registers_are_not_writable(void)
 {
     uint8_t req[16], rsp[O2P_MB_MAX_ADU];
@@ -4998,5 +5089,10 @@ int main(void)
     RUN_TEST(test_a_commit_riding_a_serial_change_waits_for_it);
     RUN_TEST(test_a_commit_with_no_serial_change_is_not_delayed);
     RUN_TEST(test_the_commit_gate_is_the_only_way_in);
+    RUN_TEST(test_writing_a_serial_register_its_own_value_changes_nothing);
+    RUN_TEST(test_apply_confirmed_promotes_the_waiting_commit);
+    RUN_TEST(test_apply_revert_restores_only_the_three_fields);
+    RUN_TEST(test_a_revert_fails_a_commit_in_either_queue);
+    RUN_TEST(test_apply_is_a_no_op_while_the_probation_is_undecided);
     return UNITY_END();
 }

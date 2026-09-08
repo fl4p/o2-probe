@@ -15,7 +15,7 @@ PlatformIO + STM32Cube (HAL headers, direct CMSIS register code).
 edit it by hand.
 
 ```sh
-pio test -e native      # portable logic, 218 cases
+pio test -e native      # portable logic, 223 cases
 pio run  -e o2probe     # cross build: the application, linked at 0x08004000
 pio run  -e loader      # cross build: the RS-485 bootloader, at 0x08000000
 pio run  -e loader  -t upload    # flash the bootloader FIRST, once
@@ -643,6 +643,11 @@ So a change to any of the three is applied **on probation** (`src/serial_probati
 - Only the three fields revert. Anything else the same frame set was accepted
   on its own terms; one mistyped baud code must not silently discard a batch of
   deliberate settings.
+- Writing one of the three **its own current value is a no-op** and arms
+  nothing. A master rewriting its whole config block touches all three every
+  time, and treating that as a change would put a `COMMIT` in the same frame
+  behind proof that a five-minute Dragino poll never delivers — so that commit
+  could only ever report `FAILED`.
 
 A timer rather than "provisional until `COMMIT`", because the commit would have
 to arrive over the very link whose viability is in question — a master that
@@ -654,7 +659,18 @@ would put the unreachable settings in flash; the timer would then restore the
 RAM config and leave the probe answering at the old rate while flash held the
 new — so its very next reset would strand it permanently. `BAUD_CODE` and
 `COMMIT` in one frame therefore returns `CMD_RESULT` = `PENDING`, and becomes
-`OK` when the new settings are proven or `FAILED` when they are not. Whoever
+`OK` when the new settings are proven or `FAILED` when they are not — and a
+revert fails an outstanding commit in *either* queue, including one riding a
+calibration, because `finish_o2()` can run after the probation has already
+resolved and would otherwise report `OK` for a configuration whose serial
+change was undone.
+
+That `FAILED` is byte-identical to the one a worn flash page produces. The
+fault word has no spare bit and a new diagnostic register would move the block
+the ChirpStack decoder parses, so the two are not distinguishable on the bus
+today; what separates them in practice is that this one is read at the *old*
+settings. A distinct `CMD_RESULT` code would fix it and is a register-semantics
+change, so it is Fab's call rather than a silent one. Whoever
 reads that result is by construction talking to the probe at the settings that
 work, so the `FAILED` is reachable. The two-frame procedure needs nothing
 special: the `COMMIT` frame arrives at the new settings and *is* the proof.

@@ -30,15 +30,20 @@
  * probe at the new settings can never retract them either. The timer is the
  * only mechanism here that does not depend on the link working.
  *
- * Nothing in this file touches hardware or global state - values in, decision
- * out - so main.c's serial handling is testable on the host, which is where
- * this file's tests live (test/test_logic/test_main.c).
+ * Nothing in this file touches hardware or a global - values and one register
+ * map in, decision out - so main.c's serial handling is testable on the host,
+ * which is where this file's tests live (test/test_logic/test_main.c). What
+ * remains untestable there is the two lines main.c keeps: arming before the
+ * transport switch, and calling o2p_modbus_reconfigure() when apply() says
+ * to.
  */
 #ifndef O2P_SERIAL_PROBATION_H
 #define O2P_SERIAL_PROBATION_H
 
 #include <stdbool.h>
 #include <stdint.h>
+
+#include "regmap.h"
 
 /* How long a new setting has to prove itself.
  *
@@ -127,6 +132,70 @@ static inline o2p_sp_outcome_t o2p_sp_service(o2p_serial_probation_t *p,
         return O2P_SP_REVERT;
     }
     return O2P_SP_WAIT;
+}
+
+/* Apply an outcome to the register map. Returns true if the caller must
+ * reconfigure the transport, i.e. if the live serial settings just changed.
+ *
+ * Here rather than in main.c so that it has tests. main.c cannot be built on
+ * the host - it reaches CMSIS through every driver it calls - and this is the
+ * part of the mechanism most worth testing: which fields go back, which
+ * commits die with them, and the fact that the fallback is the caller's
+ * stored triplet and not anything read out of the config being replaced.
+ */
+static inline bool o2p_sp_apply(const o2p_serial_probation_t *p,
+                                o2p_sp_outcome_t out, o2p_regmap_t *rm)
+{
+    if (out == O2P_SP_WAIT) {
+        return false;
+    }
+
+    rm->serial_probation = false;
+
+    if (out == O2P_SP_CONFIRMED) {
+        if (rm->commit_after_serial) {
+            rm->commit_after_serial = false;
+            rm->commit_pending = true;
+        }
+        return false;
+    }
+
+    /* Only the three reachability fields go back. Anything else the same
+     * frame set is a measurement or a control parameter, and it was accepted
+     * on its own terms - the master's inability to reach the new ADDRESS says
+     * nothing about whether it meant the new RH setpoint. Reverting those too
+     * would make one mistyped baud code silently discard a batch of
+     * deliberate settings. */
+    rm->cfg.slave_addr = p->prev_slave_addr;
+    rm->cfg.baud_code = p->prev_baud_code;
+    rm->cfg.parity_code = p->prev_parity_code;
+
+    /* EVERY outstanding commit fails, whichever queue it is sitting in. The
+     * master asked for settings it then could not reach to be made permanent,
+     * and that request is refused however it was phrased.
+     *
+     * commit_after_cal has to be named explicitly. A frame that asked for a
+     * calibration AND a serial change AND a commit puts the commit in that
+     * queue, and finish_o2() can run long after the probation resolved: by
+     * then serial_probation is false, the gate lets the commit straight
+     * through, and the master is told OK for a configuration whose serial
+     * change was silently undone. The same event through the non-cal path
+     * says FAILED. Two answers to one question is worse than the wrong one.
+     *
+     * The calibration itself is untouched and stays in RAM; a master that
+     * wants it persisted can COMMIT again, at settings that now work.
+     *
+     * NOTE: this is the same O2P_CMD_FAILED a worn flash page produces. The
+     * fault word has no spare bit and a new diagnostic register would move
+     * the block the ChirpStack decoder parses, so the two are not
+     * distinguishable on the bus today - see FIRMWARE.md. What separates them
+     * in practice is that this one is read at the OLD settings. */
+    if (rm->commit_after_serial || rm->commit_after_cal) {
+        rm->commit_after_serial = false;
+        rm->commit_after_cal = false;
+        o2p_regmap_set_commit_result(rm, O2P_CMD_FAILED);
+    }
+    return true;
 }
 
 #endif /* O2P_SERIAL_PROBATION_H */

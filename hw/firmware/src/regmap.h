@@ -635,7 +635,11 @@ void o2p_regmap_set_commit_result(o2p_regmap_t *rm, uint8_t status);
 
 /* Ask for the live config to be written to flash.
  *
- * THE ONLY WAY commit_pending IS EVER RAISED. A commit taken while a serial
+ * The only way a commit is REQUESTED. (main.c raises commit_pending directly
+ * in one place - promoting a request this function deferred, on the far side
+ * of the gate - so this is the only entry, not the only assignment.)
+ *
+ * A commit taken while a serial
  * change is still on probation would persist settings that have not been shown
  * to work: the probation timer would then put the RAM config back and leave
  * flash holding the unreachable ones, so the probe would come up on them at
