@@ -109,14 +109,22 @@ def build(g) -> str:
     r28, r29 = val("R28"), val("R29")
 
     # --- strapping that fixes the I2C addresses ---------------------------
+    # These are the ADDRESS STRAP pins, and getting the numbers right matters:
+    # this check used to read U8.2/U8.3 (DGND/AGND) and U10.5 (V+), which are
+    # not strap pins at all. It passed only because those power pins happen to
+    # sit on the same nets the straps do, so it would have gone on passing
+    # while a real strap change silently invalidated the hard-coded 0x40/0x49
+    # addresses below. Per gen_sch.py's own symbol definitions, ADS1119 A0/A1
+    # are pins 15/16 and TMP117 ADD0 is pin 4. Found by the fifth review,
+    # 2026-09-08; the strapping itself was and is correct.
     straps = {
-        "ADS1119 A0 (U8.2)": net_of("U8", 2),
-        "ADS1119 A1 (U8.3)": net_of("U8", 3),
-        "TMP117 ADD0 (U10.5)": net_of("U10", 5),
+        "ADS1119 A0 (U8.15)": net_of("U8", 15),
+        "ADS1119 A1 (U8.16)": net_of("U8", 16),
+        "TMP117 ADD0 (U10.4)": net_of("U10", 4),
     }
-    if straps["ADS1119 A0 (U8.2)"] != "GND" or straps["ADS1119 A1 (U8.3)"] != "GND":
+    if straps["ADS1119 A0 (U8.15)"] != "GND" or straps["ADS1119 A1 (U8.16)"] != "GND":
         raise SystemExit(f"ADS1119 address strapping moved: {straps}")
-    if straps["TMP117 ADD0 (U10.5)"] != "3V3D":
+    if straps["TMP117 ADD0 (U10.4)"] != "3V3D":
         raise SystemExit(f"TMP117 ADD0 strapping moved: {straps}")
 
     # --- the heater gate is a wired-OR with the TMP117 ALERT --------------

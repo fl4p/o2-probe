@@ -388,10 +388,22 @@ static void finish_o2(o2p_snapshot_t *s)
          * explicitly and the commit released, so nothing is stranded and
          * nothing is persisted while it could still have changed. */
         if (g_rm.cal_requested) {
+            if (g_rm.cal_renewed) {
+                g_rm.cal_renewed = false;
+                g_cal_wait_cycles = 0u;
+            }
+            g_cal_wait_cycles++;
+            /* Post-increment compare: the Nth failure abandons. Written as
+             * `if (c < MAX) c++; else abandon`, this waited for MAX+1 failures
+             * - four, not the three the comment and the budget doc both
+             * claimed (fifth review, 2026-09-08). A small error, but the
+             * documented number was wrong, which is how a bounded wait stops
+             * being a bound anyone can reason about. */
             if (g_cal_wait_cycles < O2P_CAL_WAIT_MAX_CYCLES) {
-                g_cal_wait_cycles++;
+                /* keep waiting */
             } else {
                 g_rm.cal_requested = false;
+                g_rm.cal_renewed = false;
                 g_cal_wait_cycles = 0u;
                 if (g_rm.commit_after_cal) {
                     g_rm.commit_after_cal = false;
@@ -441,6 +453,7 @@ static void finish_o2(o2p_snapshot_t *s)
      * against the constants we are about to replace. */
     if (g_rm.cal_requested) {
         g_rm.cal_requested = false;
+        g_rm.cal_renewed = false;
         g_cal_wait_cycles = 0u;
         o2p_cal_t taken = cal_from_config();
         /* SETTLING is not in g_cyc.faults yet - cycle_publish() adds it - so
@@ -576,9 +589,16 @@ static void cycle_publish(o2p_snapshot_t *s)
             .t_chamber_c100   = g_cyc.t_chamber,
             /* Heating adds ~86 mA. A rail already out of tolerance is not the
              * place to put more load, and VA_LOW in particular means the AFE
-             * may have lost its bias already. */
+             * may have lost its bias already.
+             *
+             * I2C_FAIL_ADS belongs in this test even though it is not a rail
+             * fault: finish_vin() returns early on a latched ADS failure and
+             * therefore never raises VIN_LOW, so an UNMEASURED input rail read
+             * as "no fault" and authorised the load. An interlock whose input
+             * is missing must fail closed, not open (fifth review). */
             .supply_ok        = (g_cyc.faults &
-                                 (O2P_F_VA_LOW | O2P_F_VIN_LOW)) == 0u,
+                                 (O2P_F_VA_LOW | O2P_F_VIN_LOW |
+                                  O2P_F_I2C_FAIL_ADS)) == 0u,
         };
         o2p_heater_out_t hout = {0u, 0u};
         o2p_heater_ctl_step(&g_heat, &hcfg, &hin, g_uptime_s, &hout);

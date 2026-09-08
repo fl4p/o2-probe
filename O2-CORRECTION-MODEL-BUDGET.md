@@ -515,3 +515,64 @@ calibration command path — now carrying four distinct refusal reasons, a bound
 a deferred commit — is entirely inside `main.c`. Every fix in this section is verified at
 the regmap boundary or by direct unit call, not end-to-end. That gap is now the largest
 single risk in this firmware, ahead of anything in the correction model.
+
+## 12. Fifth adversarial review, 2026-09-08
+
+Run against `5b49a09` and told its primary job was to test whether round 4's fixes
+repeated the pattern §11 named. **They did**, most importantly in the gain guard.
+
+### The gain guard was the wrong mechanism, twice
+
+Round 4 replaced `gain > 0.05f` with `0.5 < gain < 2.0`, and this review walked through it
+**from the inside**: α = +9999 ppm/K over a 100 K span gives gain 1.9999, and a true
+5 %O₂ reports as **2.53 %** with `O2P_OK`. Narrowing an interval does not close a class
+when the damaging values are *inside* it. Worse, the same bound *rejected* a legal
+configuration — α = +10000 ppm/K at the widest legal span gives gain exactly 2.0 and
+returned `UNEVALUABLE` forever, a guard refusing inputs its own contract permits.
+
+The mechanism was wrong from the start. A gain of 1.9999 is **not detectably bad at
+conversion time**: if α really is that large the correction is correct, and if it is not,
+nothing in `o2.c` can tell. So the defence moved to where it belongs:
+
+- **`O2P_TEMPCO_ABS_MAX_PPM_K` 10000 → 5000**, i.e. 2.5× the published curve instead of
+  5×. This is now the number that bounds the damage, so it is the number that has to be
+  defensible — and 2.5× a published curve is, where 5× was not. Worst legal correction is
+  now a factor of 1.5, not 2.
+- **The runtime check is documented as a backstop**, sized to admit exactly the box the
+  configuration validator accepts (0.45–1.55) and nothing else. It catches a corrupted
+  float or an out-of-contract caller. It does not certify the coefficient, and the code
+  now says so.
+
+A wrong-but-legal α remains undetectable by any runtime check. Only characterisation
+bounds it. That is a limitation to state, not to guard away.
+
+### Also fixed
+
+| # | Finding | Disposition |
+|---|---|---|
+| 2 | The "three-cycle" ADS wait actually waited **four** — `if (c < MAX) c++` | **Confirmed and fixed.** Small, but a bound nobody can compute is not a bound. |
+| 3 | A repeated `CAL_TRIGGER` inherited the previous request's **exhausted** retry budget, so an operator retrying got a shorter grace period each time, silently | **Confirmed and fixed** with a renewal flag. |
+| 5 | An ADS failure made the heater's supply interlock **fail open**: `finish_vin()` returns early on a latched ADS fault and never raises `VIN_LOW`, so an *unmeasured* rail authorised ~86 mA | **Confirmed and fixed.** An interlock whose input is missing must fail closed. Dormant only because the heater is compiled out. |
+| 7 | `sht4x.c` **repeats the tautological-range-check defect** — both bounds equal the transfer function's own image over all 65536 words, so neither could ever fire | **Confirmed and fixed** against the part's rated −40…+125 °C and 0–100 %RH. The same class as the TMP117 bug found in round 4, in the driver next door. |
+| 9 | `o2p_mcu_adc_read_vdda_mv()` bounded its inputs but not its **result**: a corrupted VREFINT sample yields 4350 mV on a part that cannot run there, and supervision only ever checks for *low* voltage | **Confirmed and fixed.** |
+| 10 | The heater runaway detector accumulated its 60 s window **without requiring valid evidence**, so an outage followed by one high-ΔT sample latched immediately — contradicting its own "sustained" contract and permanently disabling heat for a reason that never happened | **Confirmed and fixed.** |
+| 6 | `gen_hw_contract.py` checked the **wrong pins** for the I²C address straps — U8.2/U8.3 (DGND/AGND) and U10.5 (V+) instead of U8.15/16 and U10.4. It passed only because those power pins sit on the same nets | **Confirmed and fixed.** The strapping itself is correct and the addresses are right; the guard was proving it by coincidence. |
+| 8 | §11 escalated the TMP117 threshold readback as bench work. It is ordinary firmware | **Correct, and I was wrong to escalate it.** `verify_safety()` now reads back `THIGH`/`TLOW` against what it programmed. The *physical* ALERT fault test remains a genuine release gate; conflating the two was over-broad scoping that deferred work I could simply do. |
+| 12 | The TMP117 fix cited **SNIS189**; the datasheet is **SNOSD82D** | Fixed. The limits themselves were confirmed correct. |
+| 11 | The 155 µA stack is arithmetically right, but the 1.05 temperature factor is a *mean* curve read by eye, so "covers the full legitimate population" is **unverified** | **Accepted as unverified**, and the unsupported "cells only lose sensitivity with age" rationale is deleted rather than re-argued. Resolved by digitising the curve, not by asserting harder. |
+
+### Still open
+
+Finding 1 is the one that keeps coming back and it is now clearly a **design** gap, not a
+bug: the deferred calibration and commit are **not a transaction**. There is no
+configuration snapshot, no request generation, no durability across reboot, and no
+completion result — so a config write after `COMMIT` is swept into that commit, a reboot
+between request and execution loses an acknowledged command silently, and a flash failure
+is still discarded. Five rounds have each fixed one ordering; the class needs a snapshot
+plus a generation counter plus a command-result register. That is a contract change and it
+is Fab's call.
+
+The review also corrected §11's scoping of the command-result register: a calibration can
+be refused **eight** ways, not four — settling, invalid temperature, implausible current,
+implausible zero, plus LMP I/O, AFE mismatch, `VA_LOW` and `ADC_RANGE` through
+`o2p_o2_valid()` — and every one of them returns Modbus success.

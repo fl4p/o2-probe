@@ -12,6 +12,14 @@
 #ifndef O2P_MCU_ADC_H
 #define O2P_MCU_ADC_H
 
+/* Plausible VDDA window, millivolts. The STM32G071 is rated 1.7-3.6 V; this is
+ * wider than the board's 3.3 V nominal on purpose, so a marginal-but-real rail
+ * is still measured and can trip VA_LOW rather than vanishing as a failed
+ * read. Outside it the computed rail is not a low voltage, it is a corrupted
+ * VREFINT conversion - see o2p_mcu_adc_read_vdda_mv(). */
+#define O2P_VDDA_PLAUSIBLE_MIN_MV 1600u
+#define O2P_VDDA_PLAUSIBLE_MAX_MV 3700u
+
 #include <stdbool.h>
 #include <stdint.h>
 

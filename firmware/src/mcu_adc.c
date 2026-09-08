@@ -93,7 +93,23 @@ bool o2p_mcu_adc_read_vdda_mv(uint16_t *out_mv)
     if (!convert(O2P_ADC_CH_VREFINT, &raw) || raw == 0u) {
         return false;
     }
-    *out_mv = (uint16_t)(((uint32_t)O2P_VREFINT_CAL_VDDA_MV * cal) / raw);
+    uint32_t vdda = ((uint32_t)O2P_VREFINT_CAL_VDDA_MV * cal) / raw;
+    /* Bound the RESULT, not just its inputs. A corrupted VREFINT sample passes
+     * the raw != 0 test and produces an arbitrarily large VDDA - a sample of
+     * 1138 against a 1650 calibration word yields 4350 mV, which this part
+     * cannot run at - and every rail derived from it inherits the error. The
+     * supervision downstream only ever checks for LOW voltage, so an
+     * impossibly high VDDA raised no fault at all and could additionally
+     * overflow the uint16 cast. An unevaluable rail must be reported as a
+     * failed read, not as a number (fifth review, 2026-09-08).
+     *
+     * The STM32G071 is rated 1.7-3.6 V; the window below is deliberately wider
+     * than the board's 3.3 V nominal so a genuinely marginal but real rail is
+     * still measured and can trip the VA_LOW threshold that exists for it. */
+    if (vdda < O2P_VDDA_PLAUSIBLE_MIN_MV || vdda > O2P_VDDA_PLAUSIBLE_MAX_MV) {
+        return false;
+    }
+    *out_mv = (uint16_t)vdda;
     return true;
 }
 

@@ -131,6 +131,20 @@ static void update_runaway(o2p_heater_state_t *st,
         st->zero_duty_timing = false;
         return;
     }
+    /* The window must be 60 s of ACTUAL EVIDENCE, so a cycle we cannot
+     * evaluate restarts it rather than silently counting toward it.
+     *
+     * This test used to sit after the window check and simply return, which
+     * meant 60 s of invalid tip/chamber readings followed by ONE high-dT
+     * sample latched runaway immediately - contradicting the "sustained"
+     * requirement in heater_ctl.h. It fails safe, but it permanently disables
+     * heating after a transient sensor outage, and a heater that latched off
+     * for a reason that never actually happened is a fault report nobody can
+     * diagnose. Found by the fifth review, 2026-09-08. */
+    if (!in->tip_valid || !in->chamber_valid) {
+        st->zero_duty_timing = false;
+        return;
+    }
     if (!st->zero_duty_timing) {
         st->zero_duty_timing = true;
         st->zero_duty_since_s = now_s;
@@ -139,9 +153,6 @@ static void update_runaway(o2p_heater_state_t *st,
     /* Unsigned subtraction, so a wrap of now_s is harmless. */
     if ((uint32_t)(now_s - st->zero_duty_since_s) < O2P_HEATER_RUNAWAY_WINDOW_S) {
         return;
-    }
-    if (!in->tip_valid || !in->chamber_valid) {
-        return;   /* cannot evaluate; not evidence either way */
     }
     int32_t dt = (int32_t)in->t_tip_c100 - (int32_t)in->t_chamber_c100;
     if (dt > (int32_t)cfg->dt_max_k100 + O2P_HEATER_RUNAWAY_MARGIN_K100) {

@@ -221,25 +221,34 @@ _Static_assert(O2P_NET_AIR_MIN_NA <= O2P_NET_AIR_MAX_NA,
  * clean fault word. A second config (Tcal -36 C, tempco -10000 ppm/K) drove the
  * gain term to 0.04 and made a NEGATIVE current evaluate to exactly 5 %.
  *
- * The ceiling is 1 %/K, five times the ~+0.2 %/K slope of the DS-0637 Issue 2
+ * The ceiling is 0.5 %/K, 2.5x the ~+0.2 %/K slope of the DS-0637 Issue 2
  * curve, so a bench characterisation has room and a fat-fingered or
  * byte-swapped write does not.
+ *
+ * This was 1 %/K until the fifth review showed why that was too loose: at
+ * 10000 ppm/K over the widest legal span the correction multiplies the reading
+ * by 2, and a true 5 %O2 reports as 2.53 % with a clean fault word. No runtime
+ * guard can catch that - if the coefficient is real the correction is right,
+ * and if it is wrong nothing at conversion time can tell. THIS BOUND is what
+ * limits the damage, so it is the number that has to be defensible, and 2.5x a
+ * published curve is defensible where 5x was not. See o2.c's gain backstop,
+ * which is now sized to admit exactly the box this bound defines.
  *
  * Tcal spans the cell's PUBLISHED operating range, -40 to +60 C. This said
  * -20 C and called that "the cell's rated range", which was simply wrong -
  * DS-0637 rates -40 C - and would have refused a legitimate cold-chamber
  * calibration (third review, 2026-09-08). Note that the Tcal bound is NOT
  * what prevents a collapsed gain term: at the widened floor, -10000 ppm/K
- * over a -40..+60 C span still reaches gain 0. What actually catches that is
- * the runtime `gain > 0.05` guard in o2p_fraction_from_current(), which
- * returns UNEVALUABLE rather than a number - the correct place for it, since
- * it depends on the measurement temperature and not on the config alone.
+ * over a -40..+60 C span would still reach gain 0. What bounds that is this
+ * coefficient ceiling, not the runtime guard: at 5000 ppm/K the worst legal
+ * gain is 0.5. The runtime check in o2p_fraction_from_current() is a backstop
+ * against corrupted floats, not a certificate that the coefficient is right.
  *
  * This is a PLAUSIBILITY bound, not a correctness guarantee: a legal +3000
  * ppm/K over a 40 K span still moves a true 5.000 % to 4.880 %. What bounds
  * the residual is a real characterisation, not this check. See
  * O2-CORRECTION-MODEL-BUDGET.md section 5. */
-#define O2P_TEMPCO_ABS_MAX_PPM_K 10000
+#define O2P_TEMPCO_ABS_MAX_PPM_K 5000
 #define O2P_CAL_TEMP_MIN_C100    (-4000)  /* -40 C, DS-0637 operating range */
 #define O2P_CAL_TEMP_MAX_C100      6000   /* +60 C */
 

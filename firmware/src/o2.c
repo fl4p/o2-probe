@@ -27,10 +27,12 @@ bool o2p_calibrate_air(o2p_cal_t *cal, int32_t cell_na, int16_t temp_c100)
     }
     /* A FRESHLY MEASURED air point is held to a tighter window than a stored
      * one. o2p_cal_air_plausible() spans 20-200 uA because a STORED constant
-     * must accommodate an aged cell and a hand-entered value; but a cell does
-     * not gain sensitivity with age, so a reading above Issue 2's 0.13 mA
-     * population maximum is not air - it is the wrong gas, a wrong bias, or a
-     * fault.
+     * must accommodate an aged cell and a hand-entered value. The fresh
+     * ceiling comes from the stacked legal tolerance corner instead - see
+     * o2.h. An earlier version of this comment justified it with "a cell does
+     * not gain sensitivity with age", which DS-0637 does not say; that claim
+     * is removed rather than re-argued, and the ceiling stands on the
+     * tolerance stack alone.
      *
      * This replaces a veto the 2026-09-08 reorder removed. When the air point
      * was taken AFTER the conversion, a 180 uA reading converted to ~34.6 %O2
@@ -96,21 +98,32 @@ o2p_status_t o2p_fraction_from_current(const o2p_cal_t *cal,
      * plausible fraction. */
     float dt = ((float)temp_c100 - (float)cal->cal_temp_c100) * 0.01f;
     float gain = 1.0f + cal->tempco_per_k * dt;
-    /* A temperature correction that HALVES or DOUBLES the cell's sensitivity
-     * is not a correction, it is a broken coefficient. The published curve
-     * moves about 0.2 %/K, so even the widest legal span (-40 to +60 C) at a
-     * realistic tempco stays inside 0.8-1.2; the bound below leaves 2.5x
-     * margin on that and still forecloses the whole collapsed-gain family.
+    /* This guard is a BACKSTOP, and it is important to be honest about what it
+     * cannot do. Two reviews in a row treated it as the thing that makes a bad
+     * tempco safe, and it is not:
      *
-     * This was `gain > 0.05f`, chosen only to keep K away from zero, and the
-     * fourth review walked straight through it: Tcal -40 C, T +55 C and the
-     * maximum legal -10000 ppm/K give gain exactly 0.05, which in binary32
-     * rounds to 0.0500000119 and compares GREATER than the 0.0500000007
-     * threshold. Every value satisfied its own published guard, and the
-     * conversion returned 5.001 %O2 with O2P_OK from a NEGATIVE current.
-     * A near-zero floor was the wrong shape: it asked "is K non-zero" when the
-     * question is "is this a plausible temperature correction". */
-    if (!(gain > 0.5f) || !(gain < 2.0f)) {
+     *   - `gain > 0.05f` was walked through by a binary32 corner (round 4).
+     *   - `0.5 < gain < 2.0` was then walked through from the inside (round 5):
+     *     alpha +9999 ppm/K over a 100 K span gives gain 1.9999, and a true
+     *     5 %O2 reports as 2.53 % with O2P_OK. Narrowing an interval does not
+     *     close a class when the damaging values are INSIDE it.
+     *
+     * The mechanism was wrong. A gain of 1.9999 is not detectably bad here: if
+     * alpha really is +9999 ppm/K the correction is CORRECT, and if it is not,
+     * nothing at conversion time can tell. What actually bounds the error is
+     * the coefficient bound in o2.h - now 5000 ppm/K, 2.5x the published curve
+     * instead of 5x - and, ultimately, a real characterisation. See
+     * O2-CORRECTION-MODEL-BUDGET.md section 12.
+     *
+     * So the window below is set to admit the WHOLE legal box and nothing
+     * else: |alpha| <= 5000 ppm/K over the widest legal span (-40..+60 C, so
+     * |dT| <= 100 K) gives gain in [0.5, 1.5], and the guard sits just outside
+     * that. It catches a corrupted float, a NaN and an out-of-contract caller.
+     * It does NOT certify the coefficient. Deliberately no longer rejects
+     * anything the configuration validator accepts - the previous bound made a
+     * legal config produce UNEVALUABLE forever, which is a guard refusing the
+     * inputs its own contract permits. */
+    if (!(gain > 0.45f) || !(gain < 1.55f)) {
         return O2P_UNEVALUABLE;
     }
 

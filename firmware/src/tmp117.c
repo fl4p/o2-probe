@@ -53,6 +53,12 @@ bool o2p_tmp117_safety_armed(void)
     return s_safety_armed;
 }
 
+/* The thresholds this driver programmed, kept so verification can prove the
+ * part still holds THEM rather than merely that therm mode is enabled. */
+static uint16_t s_thigh_lsb;
+static uint16_t s_tlow_lsb;
+static bool     s_limits_set;
+
 o2p_tmp_status_t o2p_tmp117_verify_safety(void)
 {
     uint16_t back = 0u;
@@ -65,6 +71,30 @@ o2p_tmp_status_t o2p_tmp117_verify_safety(void)
         s_safety_armed = false;
         return O2P_TMP_CONFIG;
     }
+    /* CONFIG alone is not the interlock. It says therm mode is enabled; it
+     * says nothing about the THRESHOLD the alert fires at, and an alert armed
+     * against a corrupted THIGH is an alert against an unknown temperature -
+     * on a pin that switches 1 W into the membrane carrier. Verifying the two
+     * limit registers is ordinary firmware work, and the fifth review was
+     * right that escalating it wholesale to the physical ALERT bench test was
+     * too broad a scope: the bench test proves the PIN cuts the heater, this
+     * proves the part is still comparing against the number we set.
+     *
+     * Both remain necessary. This does not discharge the release gate in
+     * DESIGN.md that says the cutoff is not credited until fault-tested. */
+    if (!s_limits_set) {
+        s_safety_armed = false;
+        return O2P_TMP_CONFIG;
+    }
+    uint16_t thigh = 0u, tlow = 0u;
+    if (!rd16(O2P_TMP_REG_THIGH, &thigh) || !rd16(O2P_TMP_REG_TLOW, &tlow)) {
+        s_safety_armed = false;
+        return O2P_TMP_IO;
+    }
+    if (thigh != s_thigh_lsb || tlow != s_tlow_lsb) {
+        s_safety_armed = false;
+        return O2P_TMP_CONFIG;
+    }
     s_safety_armed = true;
     return O2P_TMP_OK;
 }
@@ -73,6 +103,7 @@ o2p_tmp_status_t o2p_tmp117_init(int16_t limit_c100, uint16_t hyst_k100)
 {
     uint16_t id = 0u;
     s_safety_armed = false;
+    s_limits_set = false;
     if (!rd16(O2P_TMP_REG_DEVID, &id)) {
         return O2P_TMP_IO;
     }
@@ -86,12 +117,15 @@ o2p_tmp_status_t o2p_tmp117_init(int16_t limit_c100, uint16_t hyst_k100)
      * limits are set would arm the alert against whatever THIGH happens to
      * hold from EEPROM - and on a board where that pin switches 1 W into a
      * membrane, arming against an unknown threshold is not acceptable. */
-    if (!wr16(O2P_TMP_REG_THIGH, (uint16_t)c100_to_lsb(limit_c100))) {
+    s_thigh_lsb = (uint16_t)c100_to_lsb(limit_c100);
+    if (!wr16(O2P_TMP_REG_THIGH, s_thigh_lsb)) {
         return O2P_TMP_IO;
     }
     /* In therm mode TLOW is the hysteresis point, not a low alarm. */
-    if (!wr16(O2P_TMP_REG_TLOW,
-              (uint16_t)c100_to_lsb((int32_t)limit_c100 - (int32_t)hyst_k100))) {
+    s_tlow_lsb = (uint16_t)c100_to_lsb((int32_t)limit_c100 - (int32_t)hyst_k100);
+    s_limits_set = true;
+    if (!wr16(O2P_TMP_REG_TLOW, s_tlow_lsb)) {
+        s_limits_set = false;
         return O2P_TMP_IO;
     }
     if (!wr16(O2P_TMP_REG_CONFIG, TMP_CFG_INTENDED)) {
@@ -132,7 +166,7 @@ o2p_tmp_status_t o2p_tmp117_read_c100(int16_t *out_c100)
      * correction, where at a legal +0.2 %/K it turns a true 5 %O2 into roughly
      * 10 %. Found by the fourth review, 2026-09-08.
      *
-     * TI rates the TMP117 -55..+150 C (SNIS189). A reading outside that is not
+     * TI rates the TMP117 -55..+150 C (SNOSD82D). A reading outside that is not
      * a cold day, it is a bus error, and it is reported as one. */
     if (c100 < O2P_TMP117_MIN_C100 || c100 > O2P_TMP117_MAX_C100) {
         return O2P_TMP_IO;

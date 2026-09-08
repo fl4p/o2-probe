@@ -231,6 +231,9 @@ typedef struct {
      * then waits for the calibration to be taken, instead of racing it. See
      * o2p_regmap_write() and finish_o2(). */
     volatile bool commit_after_cal;
+    /* Set by a fresh CAL_TRIGGER so the sampler restarts the retry budget
+     * rather than letting a renewed request inherit an exhausted one. */
+    volatile bool cal_renewed;
     volatile bool sht_pulse_requested;
 } o2p_regmap_t;
 

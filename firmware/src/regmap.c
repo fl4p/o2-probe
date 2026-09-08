@@ -455,6 +455,12 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
      * once the calibration has actually been taken. A commit asked for on its
      * own is unaffected and still runs at the next quiet moment. */
     if (want_cal) {
+        /* A NEW trigger is a new request and gets a full retry budget. Without
+         * this, a second CAL_TRIGGER inherited the exhausted counter of the
+         * one before it and was discarded on the very next failed conversion -
+         * an operator retrying a calibration got a shorter grace period each
+         * time, silently (fifth review, 2026-09-08). */
+        rm->cal_renewed = true;
         rm->cal_requested = true;
         if (want_commit) {
             rm->commit_after_cal = true;

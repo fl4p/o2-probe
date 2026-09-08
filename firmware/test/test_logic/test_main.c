@@ -16,6 +16,8 @@
 #include "psychro.h"
 #include "regmap.h"
 #include "tmp117.h"
+#include "sht4x.h"
+#include "mcu_adc.h"
 
 static o2p_regmap_t rm;
 static o2p_mb_handlers_t handlers;
@@ -526,27 +528,32 @@ static void test_tempco_scales_k_and_not_the_measured_current(void)
      *   I0    = 4000 nA        - a badly aged but still in-window zero
      *   K     = 297823 nA/ln-unit (a 70 uA cell, Issue 2's low population edge),
      *                            air point 74000 nA
-     *   alpha = +2 %/K         - the solid-membrane bound,
-     *                            ../O2-CORRECTION-MODEL-BUDGET.md S5
-     *   read at 60.00 C against a 25.00 C calibration -> gain = 1.70
+     *   alpha = +0.5 %/K       - the ceiling O2P_TEMPCO_ABS_MAX_PPM_K allows,
+     *                            2.5x the DS-0637 Issue 2 curve
+     *   read at 60.00 C against a -20.00 C calibration -> gain = 1.40
      *
-     * A true 2.000 %O2 then presents 14229 nA, and:
+     * A true 2.000 %O2 then presents 12424 nA, and:
      *   tempco on K (this code):  2.000 %O2, the truth
-     *   tempco on S (the old):    1.457 %O2 - 0.54 pp out, and wrong in the
+     *   tempco on S (the old):    1.623 %O2 - 0.38 pp out, and wrong in the
      *                             direction that makes an anoxic pile look
-     *                             more anoxic than it is. */
+     *                             more anoxic than it is.
+     *
+     * This used alpha = +2 %/K, the "solid-membrane bound", until 2026-09-08.
+     * That branch is dead physics - Issue 2's published curve is ~+0.2 %/K -
+     * and 20000 ppm/K is no longer a storable coefficient, so the case was
+     * recomputed at the widest correction the contract now permits. */
     o2p_cal_t cal = {0};
     cal.cal_zero_na = 4000;
-    TEST_ASSERT_TRUE(o2p_calibrate_air(&cal, 74000, 2500));
-    cal.tempco_per_k = 0.02f;
+    TEST_ASSERT_TRUE(o2p_calibrate_air(&cal, 74000, -2000));
+    cal.tempco_per_k = 0.005f;
 
     float c = 0;
-    TEST_ASSERT_EQUAL(O2P_OK, o2p_fraction_from_current(&cal, 14229, 6000, &c));
+    TEST_ASSERT_EQUAL(O2P_OK, o2p_fraction_from_current(&cal, 12424, 6000, &c));
     TEST_ASSERT_FLOAT_WITHIN(0.0002f, 0.02f, c);
 
     /* The air point itself is unmoved at the calibration temperature - the
      * change must not have shifted the one point that was already right. */
-    TEST_ASSERT_EQUAL(O2P_OK, o2p_fraction_from_current(&cal, 74000, 2500, &c));
+    TEST_ASSERT_EQUAL(O2P_OK, o2p_fraction_from_current(&cal, 74000, -2000, &c));
     TEST_ASSERT_FLOAT_WITHIN(0.0005f, O2P_C_AIR, c);
 
     /* And the invariant behind the whole change, which is sharper than any
@@ -799,49 +806,47 @@ static void test_commit_after_a_separate_cal_trigger_still_waits(void)
     TEST_ASSERT_FALSE(rm.commit_pending);
 }
 
-static void test_collapsed_tempco_gain_cannot_produce_a_number(void)
+static void test_the_round4_attack_config_is_no_longer_storable(void)
 {
-    /* The fourth review's binary32 corner: Tcal -40 C, T +55 C and the maximum
-     * legal -10000 ppm/K give a gain of exactly 0.05, which rounds ABOVE a
-     * 0.05f threshold and returned 5.001 %O2 with O2P_OK from a negative
-     * current. Every input satisfies its own published guard. */
-    o2p_cal_t cal = {.cal_air_na = 100000, .cal_zero_na = -5000,
-                     .cal_temp_c100 = -4000, .tempco_per_k = -0.010f};
-    TEST_ASSERT_TRUE(o2p_cal_air_plausible(cal.cal_air_na));
-    TEST_ASSERT_TRUE(o2p_cal_zero_plausible(cal.cal_zero_na));
-    TEST_ASSERT_TRUE(o2p_cal_temp_plausible(cal.cal_temp_c100));
-    TEST_ASSERT_TRUE(o2p_tempco_plausible(-10000));
-
-    float c = -1.0f;
-    TEST_ASSERT_EQUAL(O2P_UNEVALUABLE,
-                      o2p_fraction_from_current(&cal, -3854, 5500, &c));
-    TEST_ASSERT_EQUAL_FLOAT(-1.0f, c);   /* and NO value */
-
-    /* A realistic correction is unaffected: +0.2 %/K over a 35 K span. */
-    o2p_cal_t ok = {.cal_air_na = 100000, .cal_zero_na = 0,
-                    .cal_temp_c100 = 2000, .tempco_per_k = 0.002f};
-    TEST_ASSERT_EQUAL(O2P_OK, o2p_fraction_from_current(&ok, 50000, 5500, &c));
+    /* Round 4's counterexample (alpha -10000 ppm/K over a 100 K span, gain
+     * 0.05, returning 5.001 %O2 with O2P_OK) is now foreclosed at the
+     * CONFIGURATION layer rather than by a runtime interval. Narrowing the
+     * runtime window was the wrong mechanism - round 5 walked through
+     * 0.5..2.0 from the inside - because a large gain is only wrong if the
+     * coefficient is wrong, which conversion time cannot know. */
+    TEST_ASSERT_FALSE(o2p_tempco_plausible(-10000));
+    TEST_ASSERT_FALSE(o2p_tempco_plausible(10000));
+    o2p_config_t cfg;
+    o2p_config_defaults(&cfg);
+    cfg.tempco_ppm_per_k = -10000;
+    TEST_ASSERT_FALSE(o2p_config_valid(&cfg));
 }
 
-static void test_tempco_gain_guard_is_monotonic_in_the_coefficient(void)
+static void test_gain_backstop_still_catches_an_out_of_contract_coefficient(void)
 {
-    /* Far tail as well as near miss: as the coefficient worsens the verdict
-     * must not flip back to OK. */
-    bool seen_unevaluable = false;
-    for (int32_t ppm = 0; ppm >= -10000; ppm -= 100) {
-        o2p_cal_t cal = {.cal_air_na = 100000, .cal_zero_na = 0,
-                         .cal_temp_c100 = -4000,
-                         .tempco_per_k = (float)ppm * 1e-6f};
-        float c = 0.0f;
-        o2p_status_t st = o2p_fraction_from_current(&cal, 50000, 6000, &c);
-        if (st == O2P_UNEVALUABLE) {
-            seen_unevaluable = true;
-        } else {
-            TEST_ASSERT_FALSE_MESSAGE(seen_unevaluable,
-                "verdict flipped back to evaluable as the tempco worsened");
-        }
+    /* The backstop exists for a corrupted float or a caller that bypassed
+     * validation - not for coefficients the validator accepts. A tempco that
+     * could never be stored must still produce NO value rather than a
+     * plausible one. */
+    o2p_cal_t cal = {.cal_air_na = 100000, .cal_zero_na = 0,
+                     .cal_temp_c100 = -4000, .tempco_per_k = -0.05f};
+    float c = -1.0f;
+    TEST_ASSERT_EQUAL(O2P_UNEVALUABLE,
+                      o2p_fraction_from_current(&cal, 50000, 6000, &c));
+    TEST_ASSERT_EQUAL_FLOAT(-1.0f, c);
+
+    /* Monotonic: once out of contract, worse stays refused. */
+    bool seen = false;
+    for (int32_t ppm = -20000; ppm >= -60000; ppm -= 500) {
+        o2p_cal_t k = {.cal_air_na = 100000, .cal_zero_na = 0,
+                       .cal_temp_c100 = -4000,
+                       .tempco_per_k = (float)ppm * 1e-6f};
+        float v = 0.0f;
+        o2p_status_t st = o2p_fraction_from_current(&k, 50000, 6000, &v);
+        if (st == O2P_UNEVALUABLE) { seen = true; }
+        else { TEST_ASSERT_FALSE(seen); }
     }
-    TEST_ASSERT_TRUE(seen_unevaluable);
+    TEST_ASSERT_TRUE(seen);
 }
 
 static void test_tmp117_rejects_readings_outside_the_part_range(void)
@@ -868,6 +873,68 @@ static void test_fresh_air_ceiling_clears_the_stacked_legal_corner(void)
     TEST_ASSERT_TRUE(O2P_FRESH_AIR_CAL_MAX_NA >= 150500);
     /* But the 180 uA wrong-gas case it exists for is still refused. */
     TEST_ASSERT_TRUE(O2P_FRESH_AIR_CAL_MAX_NA < 180000);
+}
+
+/* ---- fifth review, 2026-09-08 ---- */
+
+static void test_no_legal_config_is_refused_by_the_gain_backstop(void)
+{
+    /* A guard must not reject the inputs its own contract permits. The
+     * previous bound (0.5..2.0) made alpha = +10000 ppm/K over the widest
+     * legal span produce UNEVALUABLE forever from a perfectly valid config.
+     * Sweep the whole legal box and assert every corner evaluates. */
+    o2p_config_t cfg;
+    o2p_config_defaults(&cfg);
+    for (int32_t ppm = -O2P_TEMPCO_ABS_MAX_PPM_K;
+         ppm <= O2P_TEMPCO_ABS_MAX_PPM_K; ppm += 250) {
+        for (int32_t tcal = O2P_CAL_TEMP_MIN_C100;
+             tcal <= O2P_CAL_TEMP_MAX_C100; tcal += 1000) {
+            for (int32_t tmeas = -4000; tmeas <= 6000; tmeas += 1000) {
+                cfg.tempco_ppm_per_k = (int16_t)ppm;
+                cfg.cal_temp_c100 = (int16_t)tcal;
+                TEST_ASSERT_TRUE(o2p_config_valid(&cfg));
+                o2p_cal_t cal = {.cal_air_na = 100000, .cal_zero_na = 0,
+                                 .cal_temp_c100 = (int16_t)tcal,
+                                 .tempco_per_k = (float)ppm * 1e-6f};
+                float c = 0.0f;
+                o2p_status_t st = o2p_fraction_from_current(
+                    &cal, 50000, (int16_t)tmeas, &c);
+                TEST_ASSERT_TRUE_MESSAGE(st != O2P_UNEVALUABLE,
+                    "a configuration the validator accepts must still convert");
+            }
+        }
+    }
+}
+
+static void test_tempco_ceiling_bounds_the_worst_legal_correction(void)
+{
+    /* The coefficient bound, not the runtime guard, is what limits the damage
+     * a wrong-but-legal alpha can do. At the ceiling over the widest legal
+     * span the correction must stay within a factor of two. */
+    float worst = 1.0f + (float)O2P_TEMPCO_ABS_MAX_PPM_K * 1e-6f * 100.0f;
+    float least = 1.0f - (float)O2P_TEMPCO_ABS_MAX_PPM_K * 1e-6f * 100.0f;
+    TEST_ASSERT_TRUE(worst <= 1.5f);
+    TEST_ASSERT_TRUE(least >= 0.5f);
+}
+
+static void test_sht4x_range_checks_are_not_tautological(void)
+{
+    /* The transfer functions map every 16-bit word into -45..130 C and
+     * -6..119 %RH. Bounds equal to those images can never fire. */
+    TEST_ASSERT_TRUE(O2P_SHT_T_MIN_C100 > -4500);
+    TEST_ASSERT_TRUE(O2P_SHT_T_MAX_C100 < 13000);
+    TEST_ASSERT_TRUE(O2P_SHT_RH_MIN_X100 > -600);
+    TEST_ASSERT_TRUE(O2P_SHT_RH_MAX_X100 < 11900);
+}
+
+static void test_vdda_bounds_reject_an_impossible_rail(void)
+{
+    /* A corrupted VREFINT sample yields an arbitrarily large VDDA, and the
+     * supervision downstream only ever tests for LOW voltage. */
+    uint32_t bogus = (3000u * 1650u) / 1138u;      /* ~4350 mV */
+    TEST_ASSERT_TRUE(bogus > O2P_VDDA_PLAUSIBLE_MAX_MV);
+    TEST_ASSERT_TRUE(3300u >= O2P_VDDA_PLAUSIBLE_MIN_MV &&
+                     3300u <= O2P_VDDA_PLAUSIBLE_MAX_MV);
 }
 
 static void test_zero_point_is_covered_by_the_config_crc(void)
@@ -1630,10 +1697,14 @@ int main(void)
     RUN_TEST(test_calibration_cannot_store_an_invalid_temperature);
     RUN_TEST(test_every_storable_calibration_temperature_keeps_config_valid);
     RUN_TEST(test_commit_after_a_separate_cal_trigger_still_waits);
-    RUN_TEST(test_collapsed_tempco_gain_cannot_produce_a_number);
-    RUN_TEST(test_tempco_gain_guard_is_monotonic_in_the_coefficient);
+    RUN_TEST(test_the_round4_attack_config_is_no_longer_storable);
+    RUN_TEST(test_gain_backstop_still_catches_an_out_of_contract_coefficient);
     RUN_TEST(test_tmp117_rejects_readings_outside_the_part_range);
     RUN_TEST(test_fresh_air_ceiling_clears_the_stacked_legal_corner);
+    RUN_TEST(test_no_legal_config_is_refused_by_the_gain_backstop);
+    RUN_TEST(test_tempco_ceiling_bounds_the_worst_legal_correction);
+    RUN_TEST(test_sht4x_range_checks_are_not_tautological);
+    RUN_TEST(test_vdda_bounds_reject_an_impossible_rail);
     RUN_TEST(test_zero_point_is_covered_by_the_config_crc);
     RUN_TEST(test_config_block_read_covers_the_zero_registers);
     RUN_TEST(test_monotonic_across_the_whole_range_with_a_zero);

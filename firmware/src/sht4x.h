@@ -11,6 +11,17 @@
 #ifndef O2P_SHT4X_H
 #define O2P_SHT4X_H
 
+/* The part's rated ranges (Sensirion SHT4x datasheet V7.3), in 0.01 units.
+ * These bound the RATING, unlike the transfer function's own image, which any
+ * 16-bit word satisfies by construction - see o2p_sht4x_measure(). */
+#define O2P_SHT_T_MIN_C100 (-4000)
+#define O2P_SHT_T_MAX_C100  12500
+/* RH is rated 0-100 %. The transfer function overshoots slightly by design and
+ * the datasheet says to clamp, so a few percent outside is tolerated and then
+ * clamped; far outside is a broken part, not overshoot. */
+#define O2P_SHT_RH_MIN_X100 (-300)
+#define O2P_SHT_RH_MAX_X100  10300
+
 #include <stdbool.h>
 #include <stdint.h>
 

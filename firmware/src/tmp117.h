@@ -45,7 +45,7 @@ enum {
 /* 1 LSB = 7.8125 m degC (SNOSD82D 7.6.2). */
 #define O2P_TMP_LSB_UC 7813   /* micro-degrees, rounded from 7812.5 */
 
-/* The part's rated operating range (SNIS189), in 0.01 C. A conversion outside
+/* The part's rated operating range (SNOSD82D), in 0.01 C. A conversion outside
  * this is a bus error, not weather - see o2p_tmp117_read(), where the check
  * that was supposed to enforce this was tautological until 2026-09-08. */
 #define O2P_TMP117_MIN_C100 (-5500)
