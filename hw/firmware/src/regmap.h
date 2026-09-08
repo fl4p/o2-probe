@@ -594,6 +594,10 @@ typedef struct {
      * are the only two settable quantities in this struct with no home in
      * o2p_config_t, and they have none on purpose - see the block comment. */
     volatile bool heater_test_armed;
+    /* Bumped on every 0 -> 1 arm. The control loop compares it between cycles
+     * to notice a disarm/re-arm pair that was served inside one 1 Hz interval
+     * and would otherwise be invisible - see o2p_heater_state_t.last_session. */
+    volatile uint8_t heater_test_session;
     volatile uint16_t heater_test_duty_x100;
     /* O2P_I16_INVALID means "no temperature target": the override then runs
      * open loop on heater_test_duty_x100. */

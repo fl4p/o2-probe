@@ -3561,6 +3561,144 @@ static void test_a_rejected_setpoint_frame_changes_no_register(void)
     TEST_ASSERT_EQUAL_UINT16(20u, r.heater_test_ki_x100);
 }
 
+static void test_zeroing_the_gains_stops_the_heater(void)
+{
+    /* The defect: the integrator was cleared only on a MODE change, and both
+     * gains accept zero. Wind the loop up, then write kp = ki = 0 - p is zero
+     * and nothing further accumulates, so the output stayed parked at the
+     * stale integral and "both gains to zero" produced sustained duty. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    in.rh_x100 = 10000u;                 /* saturated: wind it up */
+    for (unsigned i = 0; i < 120u; i++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, i, &out);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(out.duty_x100 > 0u, "the loop should be driving");
+    TEST_ASSERT_TRUE_MESSAGE(st.integ > 0.0f, "and carrying an integral");
+
+    cfg.kp_x100 = 0u;
+    cfg.ki_x100 = 0u;
+    o2p_heater_ctl_step(&st, &cfg, &in, 200u, &out);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.duty_x100,
+        "zero gains must mean zero output, not the last integral");
+}
+
+static void test_p_only_tuning_stays_legal(void)
+{
+    /* The fix clears the integrator whenever ki is zero, so check it did not
+     * outlaw a P-only controller - a reasonable thing to want on a plant
+     * nobody has characterised. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    cfg.ki_x100 = 0u;
+    cfg.kp_x100 = 200u;
+    in.rh_x100 = (uint16_t)(cfg.setpoint_x100 + 1000u);   /* 10 %RH above */
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_TRUE_MESSAGE(out.duty_x100 > 0u, "P-only must still drive");
+    TEST_ASSERT_EQUAL_FLOAT(0.0f, st.integ);
+}
+
+static void test_rearming_does_not_inherit_the_previous_integral(void)
+{
+    /* A disarm and re-arm served between two 1 Hz decisions changes neither
+     * the mode tag nor any input, so the loop resumed a fresh bench run
+     * carrying the previous run's wind-up. The session counter is what makes
+     * that edge visible. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    cfg.test_override = true;
+    cfg.test_tip_sp_valid = true;
+    cfg.test_tip_sp_c100 = 6000;         /* tip loop, far above ambient */
+    cfg.test_kp_x100 = 50u;
+    cfg.test_ki_x100 = 10u;
+    cfg.session = 1u;
+    for (unsigned i = 0; i < 60u; i++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, i, &out);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(st.integ > 0.0f, "the tip loop should wind up");
+
+    /* Disarmed and re-armed between cycles: same mode, new session. */
+    cfg.session = 2u;
+    o2p_heater_ctl_step(&st, &cfg, &in, 100u, &out);
+
+    /* The step RESETS and then integrates once, so the integral is not zero
+     * afterwards - it is exactly what a controller starting from nothing
+     * would hold. Compare against that rather than against zero, which is why
+     * this runs a second, freshly reset controller through the identical
+     * step: it asserts "started from zero wind-up" instead of asserting an
+     * implementation detail about ordering. */
+    o2p_heater_state_t fresh;
+    o2p_heater_ctl_reset(&fresh);
+    o2p_heater_out_t fout;
+    o2p_heater_ctl_step(&fresh, &cfg, &in, 100u, &fout);
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(fresh.integ, st.integ,
+        "a new override session must start from zero wind-up");
+    TEST_ASSERT_EQUAL_UINT16(fout.duty_x100, out.duty_x100);
+}
+
+static void test_arming_cannot_erase_runaway_evidence(void)
+{
+    /* The abuse: the detector used to clear its accumulated evidence on every
+     * armed sample, and the caller runs at 1 Hz against a 60 s window - so one
+     * armed sample every 60 s held the counter at zero forever while a stuck
+     * FET went on heating. Arming may now FREEZE the detector; it may not wipe
+     * it. Alternating arm/disarm therefore only delays the latch. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    cfg.max_duty_x100 = 0u;          /* CONFIG_OFF: duty is zero throughout */
+    in.die_valid = true;
+    in.t_tip_c100 = 6000;
+    in.t_die_c100 = 2800;            /* 32 K over the die: uncommanded heat */
+
+    /* Alternate armed / disarmed every cycle for well over two windows. */
+    for (uint32_t t = 0u; t < (O2P_HEATER_RUNAWAY_WINDOW_S * 3u); t++) {
+        cfg.test_override = (t % 2u) == 0u;
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(st.runaway_latched,
+        "alternating arm/disarm must not hold the detector at zero forever");
+}
+
+static void test_a_continuously_armed_override_still_suppresses(void)
+{
+    /* The residual, asserted so it stays a KNOWN limit rather than becoming a
+     * surprise: while armed we cannot tell commanded heat, or a hot bath, from
+     * a stuck FET, so accumulation stops. This is why the mode is volatile,
+     * magic-gated and documented as attended. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    cfg.test_override = true;
+    cfg.test_duty_x100 = 0u;
+    in.die_valid = true;
+    in.t_tip_c100 = 6000;
+    in.t_die_c100 = 2800;
+    for (uint32_t t = 0u; t < (O2P_HEATER_RUNAWAY_WINDOW_S * 3u); t++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+    }
+    TEST_ASSERT_FALSE_MESSAGE(st.runaway_latched,
+        "an external bath under an armed override must not latch runaway");
+}
+
 static void test_autonomous_heating_needs_consent(void)
 {
     /* The guarantee that O2P_HEATER_ENABLE=0 used to provide for free. With
@@ -4646,6 +4784,11 @@ int main(void)
     RUN_TEST(test_the_heater_test_block_is_not_part_of_the_config);
     RUN_TEST(test_the_heater_test_block_does_not_shadow_the_updater);
     RUN_TEST(test_the_tip_thresholds_form_a_ladder);
+    RUN_TEST(test_zeroing_the_gains_stops_the_heater);
+    RUN_TEST(test_p_only_tuning_stays_legal);
+    RUN_TEST(test_rearming_does_not_inherit_the_previous_integral);
+    RUN_TEST(test_arming_cannot_erase_runaway_evidence);
+    RUN_TEST(test_a_continuously_armed_override_still_suppresses);
     RUN_TEST(test_autonomous_heating_needs_consent);
     RUN_TEST(test_the_bench_override_does_not_need_consent);
     RUN_TEST(test_consent_is_never_carried_across_a_migration);

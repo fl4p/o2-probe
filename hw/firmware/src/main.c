@@ -769,6 +769,7 @@ static void cycle_publish(o2p_snapshot_t *s)
              * volatile on purpose and must not acquire a flash-backed twin. */
             .rh_consent      = (g_rm.cfg.heater_rh_consent ==
                                 O2P_HEATER_RH_CONSENT_MAGIC),
+            .session         = g_rm.heater_test_session,
             .test_override   = g_rm.heater_test_armed,
             .test_duty_x100  = g_rm.heater_test_duty_x100,
             .test_tip_sp_valid =

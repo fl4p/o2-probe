@@ -680,6 +680,12 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
         rm->heater_test_tip_sp_c100 = sp;
         rm->heater_test_kp_x100 = kp;
         rm->heater_test_ki_x100 = ki;
+        /* Count the ARM EDGE, before the flag the loop reads, so the loop can
+         * never see a new session's arm carrying the previous session's
+         * counter. Re-arming while already armed is not a new session. */
+        if (arm && !rm->heater_test_armed) {
+            rm->heater_test_session = (uint8_t)(rm->heater_test_session + 1u);
+        }
         rm->heater_test_armed = arm;
         return 0u;
     }

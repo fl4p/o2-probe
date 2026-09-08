@@ -167,8 +167,26 @@ static void update_runaway(o2p_heater_state_t *st,
      * operator standing at the bench - which is the whole reason this mode
      * requires a magic word and cannot survive a reset. */
     if (cfg->test_override) {
-        st->zero_duty_timing = false;
-        st->runaway_evidence_s = 0u;
+        /* FREEZE the detector; do not wipe it. It used to clear both the
+         * timing and the accumulated evidence, which made arming a way to
+         * erase the detector's memory - and because the caller runs at 1 Hz
+         * against a 60 s window, one armed sample every 60 s held the counter
+         * at zero forever while a genuinely stuck FET went on heating.
+         *
+         * The clock is still advanced, so an armed sample does not look like
+         * a gap in observation to the next disarmed one. That is what stops
+         * alternating arm/disarm from resetting the evidence: disarmed
+         * samples continue to accumulate from where they left off, so the
+         * latch is delayed in proportion to the duty cycle of the abuse
+         * rather than prevented outright.
+         *
+         * What remains, unavoidably, is that CONTINUOUSLY armed suppresses
+         * accumulation - while armed we cannot distinguish commanded heat, or
+         * a hot bath, from a stuck FET. That residual is exactly why this mode
+         * needs a magic word, cannot survive a reset, and is documented as
+         * attended. */
+        st->zero_duty_timing = true;
+        st->zero_duty_since_s = now_s;
         return;
     }
     /* Commanded heat is not runaway - but "commanded" has to mean a duty that
@@ -246,12 +264,29 @@ static void update_runaway(o2p_heater_state_t *st,
  * `mode` zeroes the integrator whenever the controlled quantity changes: an
  * integral wound up in 0.01 %RH has no meaning in 0.01 K, and carrying it
  * across would slam the output on the first cycle after a mode switch. */
-static uint16_t pi_step(o2p_heater_state_t *st, uint8_t mode,
+static uint16_t pi_step(o2p_heater_state_t *st, uint8_t mode, uint8_t session,
                         float e, float kp, float ki, float max_duty)
 {
-    if (st->last_mode != mode) {
+    if (st->last_mode != mode || st->last_session != session) {
+        /* Mode change, or a NEW override session. The session counter exists
+         * because a disarm and re-arm served between two 1 Hz decisions is
+         * invisible to the mode tag alone - the loop would resume a fresh
+         * bench run carrying the previous run's integral. */
         st->integ = 0.0f;
         st->last_mode = mode;
+        st->last_session = session;
+    }
+
+    /* An integrator is the accumulated INTEGRAL ACTION, so with no integral
+     * gain there is none to hold. Without this, writing ki = 0 leaves whatever
+     * was already wound up contributing forever: with kp = 0 too, p is zero,
+     * nothing further accumulates, and the output stays parked at the stale
+     * integral - so "I set both gains to zero" produces sustained duty rather
+     * than none. Found by review 2026-09-08. Clearing here rather than
+     * refusing a zero gain keeps P-only tuning (ki = 0, kp > 0) legal, which
+     * is a reasonable thing to want on an unmeasured plant. */
+    if (ki == 0.0f) {
+        st->integ = 0.0f;
     }
 
     const float p = kp * e;
@@ -319,7 +354,7 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
          * which the override does not suppress and which returned above. */
         const float e = (float)((int32_t)cfg->test_tip_sp_c100 -
                                 (int32_t)in->t_tip_c100);
-        duty = pi_step(st, O2P_HEATER_MODE_TIP, e,
+        duty = pi_step(st, O2P_HEATER_MODE_TIP, cfg->session, e,
                        (float)cfg->test_kp_x100 * 0.01f,
                        (float)cfg->test_ki_x100 * 0.01f,
                        max_duty);
@@ -338,7 +373,7 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
     } else {
         /* Positive error means too humid, which means not enough heat. */
         const float e = (float)in->rh_x100 - (float)cfg->setpoint_x100;
-        duty = pi_step(st, O2P_HEATER_MODE_RH, e,
+        duty = pi_step(st, O2P_HEATER_MODE_RH, cfg->session, e,
                        (float)cfg->kp_x100 * 0.01f,
                        (float)cfg->ki_x100 * 0.01f,
                        max_duty);

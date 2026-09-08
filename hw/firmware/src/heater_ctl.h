@@ -216,6 +216,9 @@ typedef struct {
      * present, and migrations carry that maximum forward by design. This is
      * the consent that replaces the compile flag's guarantee. */
     bool     rh_consent;
+    /* Increments on every 0 -> 1 arm of the bench override. Only equality
+     * between consecutive cycles is used, so wrapping is harmless. */
+    uint8_t  session;
     /* TIP TEMPERATURE SETPOINT MODE. When test_tip_sp_valid is set, the
      * override closes a PI loop on tip temperature instead of commanding
      * test_duty_x100 open loop.
@@ -273,6 +276,10 @@ typedef struct {
      * them cannot inherit a wound-up integral whose units and plant are both
      * different. See O2P_HEATER_MODE_*. */
     uint8_t  last_mode;
+    /* Which override session the integrator belongs to. A disarm and re-arm
+     * served between two 1 Hz decisions changes neither the mode nor any
+     * input, so without this a new bench run inherits the last one's wind-up. */
+    uint8_t  last_session;
 } o2p_heater_state_t;
 
 enum {
