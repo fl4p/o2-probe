@@ -860,7 +860,7 @@ then two that exist because supervision here is *sampled*, not continuous:
   a commit. `FW_VERSION` is now bumped only when the wire contract changes, and
   is `0x0002` for this 26-register block.
 
-### Config block — `0x0030`, 25 registers, read/write, flash-backed
+### Config block — `0x0030`, 27 registers, read/write, flash-backed
 
 - `CAL_ZERO_NA_HI` `0x0046`, `CAL_ZERO_NA_LO` `0x0047` — cell dark current,
   i32 nanoamps, **signed**. Subtracted from every measured current *and* from
@@ -875,6 +875,61 @@ then two that exist because supervision here is *sampled*, not continuous:
 `HEATER_MAX_DUTY`, `HEATER_PWM_HZ`, `CAL_AIR_NA_HI/LO`, `CAL_TEMP_C100`,
 `TEMPCO_PPM_K`, `SHT_PULSE_H`, `SHT_PULSE_TRIG`, `CAL_TRIGGER`, `COMMIT`,
 `CONFIG_CRC` (read-only), plus the two PI gains, both in 0.01 units:
+
+`TIP_SETPOINT` (`0x0049`) and `HEATER_TIP_CONSENT` (`0x004A`) are the
+**persistent tip-temperature loop** — the flash-backed counterpart of the
+volatile bench override at `0x0060`.
+
+Until this block existed, nothing in the firmware regulated a *temperature*:
+the only loop was on chamber RH, and the one way to hold a tip temperature was
+to arm the override, which needs an operator and which every reset clears. That
+is correct for a characterisation run and useless for anything that must
+survive a power cycle — a reflash on 2026-09-08 ended a bath comparison
+mid-experiment for exactly this reason.
+
+`TIP_SETPOINT` is an i16 in 0.01 °C. `0x8000` is the sentinel and means the
+mode is off; anything else must lie in `0..8000` (0.00–80.00 °C), the same
+envelope and the same sentinel as the override's `0x0062`, so an operator who
+learned one has learned both. A negative that is not the sentinel is refused
+rather than quietly meaning "never heat".
+
+`HEATER_TIP_CONSENT` takes the magic `0x71C0` — a **third** token, distinct
+from both `0x8EA7` (bench arm) and `0x9C07` (RH consent). The three authorise
+different things, and this one is the largest permission of the three: holding
+an absolute temperature, unattended, until someone writes the sentinel back.
+Reusing the RH magic would let consent given for a loop that sits a few kelvin
+above ambient silently authorise one that sits tens of kelvin above it. A
+stored setpoint whose consent is missing **refuses** — it raises `NO_CONSENT`
+and holds duty at zero rather than falling through to the RH loop, because
+silently running a different control law than the one configured is worse than
+not running at all.
+
+Precedence is **override > persistent tip > RH**: an armed override means an
+operator is at the bench now, and their intent outranks anything a previous
+session committed to flash.
+
+The persistent mode suppresses exactly **one** interlock, `NO_RH` — a
+temperature loop has no use for humidity. `NO_CHAMBER` and `DT_LIMIT` stay
+live, unlike under the override, which suppresses them because exceeding the
+0–4 K envelope *is* the experiment and an operator owns that. Here nobody is
+present, so the envelope keeps its meaning. On Rev A this costs nothing (the dT
+clamp is structurally inert — tip and chamber are one thermal node), but on a
+revision with a thermally separated sensor it is the difference between a loop
+that holds 80 °C in a pile and one that refuses to. Refusing is correct.
+
+Neither consent is **ever** carried across a config migration, and the setpoint
+always lands on the sentinel: an upgrade leaves both autonomous loops off,
+whatever the old record said.
+
+There is **no persistent gain pair**. The flash record is fixed at 64 bytes, of
+which 14 are header and CRC, so the config may not exceed 50 and only six bytes
+were free — four went to the setpoint and its consent. Both tip loops therefore
+share the volatile gains at `0x0063`/`0x0064` and a reset restores the
+conservative defaults. That is the right thing to lose: gains are tuning, and a
+probe resuming after a power cycle on saturate-early/integrate-slowly defaults
+is safer than one resuming on somebody's aggressive bench tuning. What had to
+survive a reset is the target and the authorisation to pursue it.
+
 
 | Reg | | |
 |---|---|---|

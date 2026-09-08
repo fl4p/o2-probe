@@ -183,6 +183,7 @@ enum {
 #define O2P_HEATER_TEST_KP_X100_DEFAULT 5000u
 #define O2P_HEATER_TEST_KI_X100_DEFAULT 50u
 
+
 typedef struct {
     uint16_t setpoint_x100;    /* target chamber RH, 0.01 %RH */
     uint16_t dt_max_k100;      /* tip-above-chamber clamp, 0.01 K */
@@ -238,6 +239,37 @@ typedef struct {
      * do not transfer - error here is in 0.01 K. */
     uint16_t test_kp_x100;
     uint16_t test_ki_x100;
+    /* PERSISTENT TIP SETPOINT MODE (registers 0x0049..0x004C), the flash-backed
+     * counterpart of the volatile block above.
+     *
+     * Precedence is override > persistent tip > RH, and it is not arbitrary:
+     * an armed override means an operator is standing at the bench right now,
+     * and their intent outranks anything a previous session committed to
+     * flash.
+     *
+     * WHAT THIS MODE SUPPRESSES, and it is one interlock rather than the
+     * override's three. NO_RH only: a temperature loop genuinely has no use
+     * for humidity, and refusing to hold a commanded temperature because the
+     * SHT45 is in its de-creep window would be a refusal with no reason
+     * behind it.
+     *
+     * NO_CHAMBER and DT_LIMIT stay LIVE, unlike under the override. The
+     * override suppresses them because exceeding the 0-4 K envelope IS the
+     * experiment and an operator is present to own that. Here nobody is
+     * present, so the envelope keeps its meaning. On Rev A this costs
+     * nothing - the dT clamp is structurally inert, tip and chamber being one
+     * thermal node - but on a revision with a thermally separated sensor it
+     * is the difference between a loop that holds 80 C in a pile and one that
+     * refuses to. Refusing is correct: holding a tip tens of kelvin above the
+     * chamber with nobody watching is the exact thing the envelope exists to
+     * prevent. */
+    bool     tip_consent;
+    bool     tip_sp_valid;
+    int16_t  tip_sp_c100;
+    /* No gains of its own: it uses test_kp_x100/test_ki_x100 above. The flash
+     * record had six spare bytes and the setpoint plus its consent took four;
+     * see O2P_REG_HEATER_TIP_CONSENT for why the target and the authorisation
+     * are the two things that had to survive a reset. */
 } o2p_heater_cfg_t;
 
 typedef struct {
@@ -286,6 +318,12 @@ enum {
     O2P_HEATER_MODE_RH   = 0u,  /* the shipped humidity loop */
     O2P_HEATER_MODE_OPEN = 1u,  /* override, open-loop duty */
     O2P_HEATER_MODE_TIP  = 2u,  /* override, tip-temperature loop */
+    /* The PERSISTENT tip loop. A distinct tag from O2P_HEATER_MODE_TIP even
+     * though the control law is identical, because pi_step() resets the
+     * integrator on a mode change and these two modes have different gains
+     * and different authorisation. Sliding between them with a wound-up
+     * integral would carry a bench run's history into an unattended one. */
+    O2P_HEATER_MODE_TIP_AUTO = 3u,
 };
 
 typedef struct {

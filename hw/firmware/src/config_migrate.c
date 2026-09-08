@@ -123,6 +123,91 @@ typedef struct {
 } o2p_config_v5_t;
 _Static_assert(sizeof(o2p_config_v5_t) == 36u, "v5 config layout is 36 bytes");
 
+/* v6 and v7. BOTH WERE UNREACHABLE UNTIL NOW, and that was a live hazard.
+ *
+ * config_flash.c sends any record whose layout_version differs from the
+ * current one through this function, and a `default: return false` here makes
+ * the caller fall back to FULL DEFAULTS - which resets slave_addr, baud_code
+ * and parity_code. That is precisely the "potted probe disappears from its
+ * master on a firmware update" outcome read_record()'s own comment says must
+ * not happen. Versions 6 and 7 were appended without adding cases here, so
+ * every bump since has silently carried that hole; bumping to 8 is what would
+ * have detonated it, because v7 is the version actually on the bench probe.
+ *
+ * Both are strict PREFIXES of the current layout, so the fields are copied
+ * one by one rather than by a block memcpy. That is not stylistic: v8 places
+ * tip_setpoint_c100 over v7's reserved3[2], where a v7 record holds zeros, and
+ * zero is a legal setpoint meaning "hold 0.00 C" rather than "off". A prefix
+ * copy would arm a temperature loop on every upgraded probe. Copying named
+ * fields leaves o2p_config_defaults()' sentinel in place instead. */
+typedef struct {
+    int32_t  cal_air_na;              /* 0 */
+    uint16_t rh_setpoint_x100;        /* 4 */
+    uint16_t dt_max_k_x100;           /* 6 */
+    uint16_t heater_max_duty_x100;    /* 8 */
+    uint16_t heater_pwm_hz;           /* 10 */
+    int16_t  cal_temp_c100;           /* 12 */
+    int16_t  tempco_ppm_per_k;        /* 14 */
+    uint16_t sht_pulse_interval_h;    /* 16 */
+    uint16_t heater_kp_x100;          /* 18 */
+    uint16_t heater_ki_x100;          /* 20 */
+    uint16_t assumed_p_hpa;           /* 22 */
+    uint16_t cal_air_frac_x1000;      /* 24 */
+    uint16_t cal_p_hpa;               /* 26 */
+    uint8_t  slave_addr;              /* 28 */
+    uint8_t  baud_code;               /* 29 */
+    uint8_t  parity_code;             /* 30 */
+    uint8_t  reserved[1];             /* 31 */
+    uint16_t dil_alpha_x1000;         /* 32 */
+    uint8_t  cal_zero_taken;          /* 34 */
+    uint8_t  reserved2[1];            /* 35 */
+    int32_t  cal_zero_na;             /* 36 */
+} o2p_config_v6_t;
+_Static_assert(sizeof(o2p_config_v6_t) == 40u, "v6 config layout is 40 bytes");
+
+typedef struct {
+    o2p_config_v6_t v6;               /* 0 */
+    uint16_t heater_rh_consent;       /* 40 */
+    uint8_t  reserved3[2];            /* 42 */
+} o2p_config_v7_t;
+_Static_assert(sizeof(o2p_config_v7_t) == 44u, "v7 config layout is 44 bytes");
+
+/* Carry a v6-shaped body. Unlike carry_common(), the CALIBRATION SURVIVES:
+ * nothing about what cal_air_na, the zero point or the dilution model mean
+ * changed between v6, v7 and v8 - the only additions were consent fields and
+ * a setpoint - so discarding a good air point here would force a needless
+ * recalibration on every probe in the field. */
+static void carry_v6_body(o2p_config_t *out, const o2p_config_v6_t *v)
+{
+    out->cal_air_na = v->cal_air_na;
+    out->rh_setpoint_x100 = v->rh_setpoint_x100;
+    out->dt_max_k_x100 = v->dt_max_k_x100;
+    out->heater_max_duty_x100 = v->heater_max_duty_x100;
+    out->heater_pwm_hz = v->heater_pwm_hz;
+    out->cal_temp_c100 = v->cal_temp_c100;
+    out->tempco_ppm_per_k = v->tempco_ppm_per_k;
+    out->sht_pulse_interval_h = v->sht_pulse_interval_h;
+    out->heater_kp_x100 = v->heater_kp_x100;
+    out->heater_ki_x100 = v->heater_ki_x100;
+    out->assumed_p_hpa = v->assumed_p_hpa;
+    out->cal_air_frac_x1000 = v->cal_air_frac_x1000;
+    out->cal_p_hpa = v->cal_p_hpa;
+    out->dil_alpha_x1000 = v->dil_alpha_x1000;
+    out->cal_zero_taken = v->cal_zero_taken;
+    out->cal_zero_na = v->cal_zero_na;
+    /* Reachability. The whole reason this file exists. */
+    out->slave_addr = v->slave_addr;
+    out->baud_code = v->baud_code;
+    out->parity_code = v->parity_code;
+    /* NEITHER CONSENT IS EVER CARRIED, and tip_setpoint_c100 keeps the
+     * sentinel o2p_config_defaults() put there. An upgrade always lands with
+     * both autonomous loops off, whatever the old record said - the same rule
+     * heater_rh_consent has had since v7, applied to the new one before it can
+     * acquire a history of exceptions. */
+    out->heater_rh_consent = 0u;
+    out->heater_tip_consent = 0u;
+}
+
 /* The record wrapper is the same shape in every version - magic, layout
  * version, sequence, configuration, CRC, reserved tail to 64 bytes - so only
  * the configuration's size moves, and with it the CRC's offset. */
@@ -308,6 +393,25 @@ bool o2p_config_migrate(const void *record, size_t len,
         migrated.slave_addr = v5.slave_addr;
         migrated.baud_code = v5.baud_code;
         migrated.parity_code = v5.parity_code;
+        break;
+    }
+    case 6u: {
+        if (!record_crc_ok(rec, sizeof(o2p_config_v6_t))) {
+            return false;
+        }
+        o2p_config_v6_t v6;
+        memcpy(&v6, cfg, sizeof(v6));
+        carry_v6_body(&migrated, &v6);
+        break;
+    }
+    case 7u: {
+        if (!record_crc_ok(rec, sizeof(o2p_config_v7_t))) {
+            return false;
+        }
+        o2p_config_v7_t v7;
+        memcpy(&v7, cfg, sizeof(v7));
+        carry_v6_body(&migrated, &v7.v6);
+        /* v7.heater_rh_consent is deliberately NOT read. See carry_v6_body. */
         break;
     }
     case 3u: {

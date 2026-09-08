@@ -39,9 +39,23 @@ static uint16_t interlocks(o2p_heater_state_t *st,
     }
     /* Autonomous heating needs explicit consent; attended bench driving does
      * not, because arming the override IS the authorisation and it cannot
-     * survive a reset. */
-    if (!cfg->test_override && !cfg->rh_consent) {
-        block |= O2P_HB_NO_CONSENT;
+     * survive a reset.
+     *
+     * Which consent depends on which loop the stored configuration asks for.
+     * A stored tip setpoint selects the temperature loop, and an UNCONSENTED
+     * one REFUSES rather than falling through to the RH loop. Silently running
+     * a different control law than the one configured would be the worst of
+     * both: the operator sees the ring driving, assumes their setpoint took,
+     * and is actually watching a humidity loop. An unevaluable authorisation
+     * must not read as permission to do something else. */
+    if (!cfg->test_override) {
+        if (cfg->tip_sp_valid) {
+            if (!cfg->tip_consent) {
+                block |= O2P_HB_NO_CONSENT;
+            }
+        } else if (!cfg->rh_consent) {
+            block |= O2P_HB_NO_CONSENT;
+        }
     }
     if (!in->safety_armed) {
         /* The TMP117's therm-mode alert is the hardware cutoff. Driving 1 W
@@ -49,11 +63,16 @@ static uint16_t interlocks(o2p_heater_state_t *st,
          * is precisely what DESIGN.md:47-51 refuses to credit. */
         block |= O2P_HB_SAFETY;
     }
-    if (!in->rh_valid && !cfg->test_override) {
+    if (!in->rh_valid && !cfg->test_override && !cfg->tip_sp_valid) {
         /* No humidity means no controlled quantity. Note this also covers the
          * SHT45 de-creep window: main.c marks the chamber invalid while the
          * element is deliberately warm, and a loop that trusted that reading
-         * would see the pulse as the pile drying out and back off. */
+         * would see the pulse as the pile drying out and back off.
+         *
+         * Suppressed for the persistent tip loop, which controls a
+         * temperature and has no use for humidity at all. This is the ONLY
+         * interlock that mode suppresses - NO_CHAMBER and DT_LIMIT stay live,
+         * because unlike the bench override it runs with nobody present. */
         block |= O2P_HB_NO_RH;
     }
     if (!in->tip_valid) {
@@ -370,6 +389,20 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
         if (duty > cfg->max_duty_x100) {
             duty = cfg->max_duty_x100;
         }
+    } else if (cfg->tip_sp_valid) {
+        /* PERSISTENT tip-temperature loop. Same control law and same sign
+         * convention as the override's, with flash-backed gains and its own
+         * mode tag so the integrator restarts when authority changes hands.
+         *
+         * cfg->tip_consent is guaranteed true here: an unconsented setpoint
+         * raises O2P_HB_NO_CONSENT in interlocks() and returned above.
+         * in->tip_valid is guaranteed for the same reason NO_TIP gives. */
+        const float e = (float)((int32_t)cfg->tip_sp_c100 -
+                                (int32_t)in->t_tip_c100);
+        duty = pi_step(st, O2P_HEATER_MODE_TIP_AUTO, cfg->session, e,
+                       (float)cfg->test_kp_x100 * 0.01f,
+                       (float)cfg->test_ki_x100 * 0.01f,
+                       max_duty);
     } else {
         /* Positive error means too humid, which means not enough heat. */
         const float e = (float)in->rh_x100 - (float)cfg->setpoint_x100;

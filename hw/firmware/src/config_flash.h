@@ -103,6 +103,13 @@
  * v5 offset stays where it is: the migration then carries a v5 record intact
  * and the only field it cannot fill is the one a v5 probe never had. */
 /* Version 7 appends heater_rh_consent (register 0x0048), consent to
+ * Version 8 appends the persistent tip-temperature setpoint, its consent and
+ * its gains (registers 0x0049..0x004C). Same append-only shape as 6 and 7, so
+ * a v7 record migrates by zero-fill - with one exception the migration has to
+ * handle explicitly, because 0 is a legal setpoint and the "off" value is the
+ * sentinel rather than zero. Autonomous temperature heating never survives a
+ * migration, exactly like RH consent.
+ *
  * AUTONOMOUS heating. Appended for the same reason version 6 was: every v6
  * offset stays put, so the migration is a zero-fill rather than a re-layout.
  *
@@ -112,7 +119,7 @@
  * inventing one would be the migration granting an authorisation nobody
  * gave. Every upgrade therefore lands with autonomous heating off, whatever
  * heater_max_duty_x100 it carried across. */
-#define CONFIG_LAYOUT_VERSION 7u
+#define CONFIG_LAYOUT_VERSION 8u
 
 /* Fixed 64-byte record, so the layout does not move when a config field is
  * added and the flash image stays recognisable across firmware versions. */
