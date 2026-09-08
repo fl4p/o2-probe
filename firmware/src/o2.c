@@ -96,7 +96,21 @@ o2p_status_t o2p_fraction_from_current(const o2p_cal_t *cal,
      * plausible fraction. */
     float dt = ((float)temp_c100 - (float)cal->cal_temp_c100) * 0.01f;
     float gain = 1.0f + cal->tempco_per_k * dt;
-    if (!(gain > 0.05f) || !(gain < 20.0f)) {
+    /* A temperature correction that HALVES or DOUBLES the cell's sensitivity
+     * is not a correction, it is a broken coefficient. The published curve
+     * moves about 0.2 %/K, so even the widest legal span (-40 to +60 C) at a
+     * realistic tempco stays inside 0.8-1.2; the bound below leaves 2.5x
+     * margin on that and still forecloses the whole collapsed-gain family.
+     *
+     * This was `gain > 0.05f`, chosen only to keep K away from zero, and the
+     * fourth review walked straight through it: Tcal -40 C, T +55 C and the
+     * maximum legal -10000 ppm/K give gain exactly 0.05, which in binary32
+     * rounds to 0.0500000119 and compares GREATER than the 0.0500000007
+     * threshold. Every value satisfied its own published guard, and the
+     * conversion returned 5.001 %O2 with O2P_OK from a NEGATIVE current.
+     * A near-zero floor was the wrong shape: it asked "is K non-zero" when the
+     * question is "is this a plausible temperature correction". */
+    if (!(gain > 0.5f) || !(gain < 2.0f)) {
         return O2P_UNEVALUABLE;
     }
 

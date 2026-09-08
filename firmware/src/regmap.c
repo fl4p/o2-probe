@@ -460,7 +460,22 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
             rm->commit_after_cal = true;
         }
     } else if (want_commit) {
-        rm->commit_pending = true;
+        /* A COMMIT that arrives while a calibration is still outstanding waits
+         * for it too, exactly as if both had been in one frame.
+         *
+         * The one-frame case was fixed first, and that fix was incomplete in
+         * the worst possible way: the DOCUMENTED commissioning procedure is
+         * two requests - "write CAL_TRIGGER, then COMMIT" (FIRMWARE.md) - and
+         * a COMMIT-only frame did not notice the pending calibration. The main
+         * loop then persisted the PRE-calibration image, the air point landed
+         * in RAM only, and the operator's calibration was lost at the next
+         * power cycle after both writes returned success. Found by the fourth
+         * review, 2026-09-08. */
+        if (rm->cal_requested) {
+            rm->commit_after_cal = true;
+        } else {
+            rm->commit_pending = true;
+        }
     }
     if (want_pulse) {
         rm->sht_pulse_requested = true;

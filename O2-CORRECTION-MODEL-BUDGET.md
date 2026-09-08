@@ -446,6 +446,15 @@ request **executes**. Now set on the line error and tested at frame-ready.
 | 13 | Issue 1 arithmetic still in six places: `0.07 mA` in the README chain, `0.04–0.10 mA` and `±43 %` in `faults.h`/`faults.c`/`main.c`/`FIRMWARE.md`, and a "true air reads 12 %" example | **Confirmed; §9's claim that these were fixed was wrong.** Issue 2 is 0.07–0.13 mA about 0.10 mA, i.e. **±30 %**, and substituting the nominal makes true air read **15.2–26.3 %**, not 12–30 %. All corrected. Stale test counts (61, 59) also corrected. |
 | 14, 15 | §7 repeated ±1.3 / ±0.3–0.5 without the 55 °C qualifier; §5 concluded that a temperature campaign could not expose the curvature | **Both confirmed and corrected.** §15 mattered most: it argued against running the very experiment that settles the question. A real multi-temperature campaign exposes curvature directly through residuals against calibration temperature; only adding *synthetic* points to a linear-by-construction Monte Carlo cannot. |
 
+> **Rows above were audited by the fourth review and five of them overstated
+> completeness.** The `commit_after_cal` row fixed only the one-frame case and left
+> the documented two-request procedure broken; the ADS-release row traded a stranded
+> commit for a premature one that lost the calibration; the gain-guard row named a
+> guard that a binary32 corner walks straight through; the fresh-air row rested on a
+> claim DS-0637 does not make; and "all Issue 1 arithmetic corrected" was false for
+> the second time. All are now genuinely fixed and recorded in §11. Treat any
+> "confirmed and fixed" in this document as a claim to be re-tested, not a receipt.
+
 ### Still open, and now harder to defend
 
 - **The async provenance window (7)** is unchanged, and the reviewer is right that the
@@ -466,3 +475,43 @@ request **executes**. Now set on the line error and tested at frame-ready.
   calibrate-and-commit test observes only the intermediate flags, and the commit-alone
   test passes under both old and new behaviour. Both stand as regression guards, neither
   is evidence the fix completes.
+
+## 11. Fourth adversarial review, 2026-09-08
+
+Run against `1fca66f`, pointed at the files with no host coverage on the theory that round
+3's fatal bug proved where the defects live. It cleared the drivers — **no second
+`s_frame_ms` exists**; both Modbus fixes survive scrutiny, including the question of
+whether a stranded poison flag could re-mute the probe (it cannot: every RTOF clears it).
+The flash A/B protocol survives in full. But it found ten more, and its most useful work
+was auditing §10's own honesty: **five of seven "fixed" rows overstated completeness.**
+
+### The calibration command protocol was broken in three more ways
+
+| # | Finding | Disposition |
+|---|---|---|
+| 1 | The **documented** commissioning procedure — write `CAL_TRIGGER`, then `COMMIT` as two requests — still persisted the pre-calibration image. The round-2 fix covered only both tokens inside one FC16 | **Confirmed and fixed.** A `COMMIT` arriving while a calibration is outstanding now defers exactly as the one-frame case does. This is the sequence the manual tells an operator to use, so the original fix closed the rare path and left the common one open. |
+| 2 | Round 3's ADS-failure release traded a stranded commit for a **premature** one: it persisted the pre-calibration config while the request was still outstanding, and when the ADS recovered the air point landed in RAM with no commit behind it | **Confirmed and fixed.** The wait is now *bounded* (three cycles) rather than released immediately or held forever: a transient fault gets grace, a persistent one abandons the calibration explicitly and then releases the commit. Neither stranded nor premature. |
+| 3 | A calibration was accepted with a **fabricated 25.00 °C** reference when both temperature sensors failed — temperature faults are deliberately outside the raw-O₂ validity mask, so nothing caught it | **Confirmed and fixed.** A calibration now requires a *measured* temperature. Substituting a fallback for the *conversion* is recoverable; storing one as the permanent calibration reference is not — the probe would carry a false reference for life while looking calibrated. |
+| 5 | `gain > 0.05f` does not catch every legal collapsed gain: Tcal −40 °C, T +55 °C, α −10000 ppm/K gives exactly 0.05, which in binary32 rounds to 0.0500000119 and compares **greater** than the threshold. Returns **5.001 %O₂ with `O2P_OK`** from a negative current, every input inside its own published guard | **Confirmed and fixed.** The floor was the wrong *shape* — it asked "is K non-zero" when the question is "is this a plausible temperature correction". Now bounded to 0.5–2.0: a correction that halves or doubles sensitivity is a broken coefficient. Tested at the exact corner and swept for monotonicity. |
+| 8 | The TMP117 range check was **tautological** — any `int16` raw word converts into the range it was tested against, so every bus pattern was accepted as a temperature. One flipped MSB turns 25 °C into −231 °C, which at a legal tempco turns a true 5 %O₂ into ~10 % | **Confirmed and fixed.** Bounded against the part's rated −55…+150 °C (SNIS189). This is the guard-checklist's "unevaluable input must not mean OK" failing in a driver no review had opened. |
+| 6 | The 150 µA fresh-air ceiling rejects an allowed corner: 130 µA × 1.05 (temperature) × 1.05 (TIA gain) × 1.05 (lifetime drift, whose sign DS-0637 does **not** restrict) = 150.5 µA. The "a cell only loses sensitivity with age" rationale is not in the datasheet | **Confirmed and fixed** — ceiling raised to 155 µA. A destructive guard must not treat an allowed corner as impossible. The 180 µA wrong-gas case it exists for is still refused. |
+| 7 | The SHT heater-recovery return skipped the `TEMP_OVER` test while `finish_o2()` still used the TMP117 fallback, so a 70 °C sample was published tempco-corrected without the extrapolation qualifier | **Confirmed and fixed.** The tip-temperature overtemperature test now runs on that path too. Round 3 raised this and it was not addressed then. |
+| 4 | A refused calibration is still reported as Modbus success. `CAL_TRIGGER` reads back zero, there is no result/status register, and comparing constants is ambiguous when the old value matches | **Confirmed, NOT fixed — escalated.** With the settling, temperature, fresh-current and zero refusals now in place there are four ways to be silently refused, so this matters more than when it was one. It needs a command-result register, which is a contract change. |
+| 9 | `s_safety_armed` reads back only `CONFIG`, never `THIGH`/`TLOW`, so a corrupted threshold still certifies the autonomous heater cutoff as armed | **Confirmed, NOT fixed — escalated.** Dormant (`O2P_HEATER_ENABLE=0`), but it is precisely the interlock `DESIGN.md` says must be fault-tested before the heater may ever run. It belongs with that bench test, not with a review fix. |
+| 10 | "All Issue 1 arithmetic corrected" in §10 was **false for the second time** — stale values remained in `faults.h`, `DESIGN.md`, and four test fixtures | **Confirmed and fixed.** The new numbers themselves were verified correct: Issue 2 is 0.07–0.13 mA, ±30 %, true air reads 15.1705–26.3282 %. |
+
+### What this round establishes about the process
+
+Three rounds in a row have found that the previous round's fix was incomplete or
+introduced a new defect, and this round found five of seven `§10` rows overstating what
+was fixed. The failure mode is consistent and worth naming: **a fix aimed at the specific
+case a reviewer described, rather than at the class it belongs to.** The one-frame
+`CAL_TRIGGER`+`COMMIT` fix that missed the documented two-request sequence is the clearest
+example; the near-zero gain floor that a rounding corner walks through is the same error
+in arithmetic.
+
+`main.c`, `modbus_rtu.c` and `config_flash.c` still have **no host coverage**, and the
+calibration command path — now carrying four distinct refusal reasons, a bounded wait and
+a deferred commit — is entirely inside `main.c`. Every fix in this section is verified at
+the regmap boundary or by direct unit call, not end-to-end. That gap is now the largest
+single risk in this firmware, ahead of anything in the correction model.

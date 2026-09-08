@@ -64,6 +64,12 @@ static o2p_heater_state_t g_heat;
 static o2p_regmap_t g_rm;
 
 static uint32_t g_settle_deadline_s;
+/* Cycles a pending calibration may wait for a failed ADS before it is
+ * abandoned and any commit deferred behind it is released. Bounded so that
+ * neither the calibration nor the commit can be stranded indefinitely; see
+ * finish_o2(). Three cycles is a transient converter fault, not an outage. */
+#define O2P_CAL_WAIT_MAX_CYCLES 3u
+static uint8_t g_cal_wait_cycles;
 static uint32_t g_uptime_s;
 static uint16_t g_settle_restarts;
 static uint16_t g_sample_seq;
@@ -249,6 +255,17 @@ static void phase_temps(o2p_snapshot_t *s)
      * signature into the DEW_SUSPECT classifier PLAN.md:312 asks for. */
     if (!o2p_elapsed(g_sht_pulse_ms, O2P_SHT_RECOVERY_MS)) {
         g_cyc.faults |= O2P_F_I2C_FAIL_SHT;
+        /* The chamber channels are suppressed during recovery, but the TIP
+         * reading is still good and finish_o2() still falls back to it for the
+         * oxygen correction - so the overtemperature test below must not be
+         * skipped with them. Returning here published a 70 C sample, tempco-
+         * corrected, WITHOUT the TEMP_OVER qualifier that says the reading is
+         * extrapolated past the cell's rated range, and the only visible fault
+         * was the SHT recovery we caused ourselves. Found by the fourth
+         * review, 2026-09-08. */
+        if (g_cyc.tip_ok && g_cyc.t_tip > O2P_TEMP_OVER_C100) {
+            g_cyc.faults |= O2P_F_TEMP_OVER;
+        }
         return;
     }
 
@@ -352,23 +369,35 @@ static void finish_vin(o2p_snapshot_t *s)
 static void finish_o2(o2p_snapshot_t *s)
 {
     if ((g_cyc.faults & O2P_F_I2C_FAIL_ADS) != 0u) {
-        /* No conversion this cycle, so no air point can be taken - but a
-         * commit deferred behind that calibration must NOT wait for an ADS
-         * that may never come back. A repeatedly failing ADS still reaches
-         * PH_PUBLISH and still feeds the watchdog, so the probe stays up and
-         * responsive with the flag set forever; a reboot would then lose a
-         * configuration write the master was told had succeeded. That is
-         * strictly worse than the race the deferral was added to fix (third
-         * review, 2026-09-08).
+        /* No conversion this cycle, so no air point can be taken. A commit
+         * deferred behind that calibration must not wait forever - a
+         * repeatedly failing ADS still reaches PH_PUBLISH and still feeds the
+         * watchdog, so the probe stays up and responsive, and a reboot would
+         * lose a configuration write the master was told had succeeded.
          *
-         * So the commit is released here and the config is persisted as it
-         * stands. cal_requested deliberately stays set: the calibration is a
-         * separate, retryable request and it will be taken when the converter
-         * recovers. It will then land in RAM only, which is the documented
-         * behaviour of a bare CAL_TRIGGER and needs a further COMMIT. */
-        if (g_rm.commit_after_cal) {
-            g_rm.commit_after_cal = false;
-            g_rm.commit_pending = true;
+         * But releasing the commit IMMEDIATELY, as the third review's fix did,
+         * is also wrong: it persists the PRE-calibration image while the
+         * calibration request is still outstanding, and when the converter
+         * recovers the air point lands in RAM with no commit behind it. The
+         * operator asked for "calibrate and save" and got "save the old one,
+         * then calibrate into RAM" - one premature commit and a lost
+         * calibration. Found by the fourth review, 2026-09-08.
+         *
+         * So the wait is BOUNDED instead. A few cycles of grace for a
+         * transient converter fault, then the calibration is abandoned
+         * explicitly and the commit released, so nothing is stranded and
+         * nothing is persisted while it could still have changed. */
+        if (g_rm.cal_requested) {
+            if (g_cal_wait_cycles < O2P_CAL_WAIT_MAX_CYCLES) {
+                g_cal_wait_cycles++;
+            } else {
+                g_rm.cal_requested = false;
+                g_cal_wait_cycles = 0u;
+                if (g_rm.commit_after_cal) {
+                    g_rm.commit_after_cal = false;
+                    g_rm.commit_pending = true;
+                }
+            }
         }
         return;
     }
@@ -412,6 +441,7 @@ static void finish_o2(o2p_snapshot_t *s)
      * against the constants we are about to replace. */
     if (g_rm.cal_requested) {
         g_rm.cal_requested = false;
+        g_cal_wait_cycles = 0u;
         o2p_cal_t taken = cal_from_config();
         /* SETTLING is not in g_cyc.faults yet - cycle_publish() adds it - so
          * o2p_o2_valid() alone would accept an air point taken during the
@@ -423,9 +453,19 @@ static void finish_o2(o2p_snapshot_t *s)
          * constants, not surprised by a calibration landing a quarter of an
          * hour after they asked for it. */
         bool settled = (g_uptime_s >= g_settle_deadline_s);
-        if (settled && o2p_o2_valid(g_cyc.faults) &&
-            o2p_calibrate_air(&taken, cell_na,
-                              (t_gas != O2P_I16_INVALID) ? t_gas : 2500)) {
+        /* And a calibration needs a MEASURED temperature, not a fallback one.
+         * The conversion may substitute cal_temp_c100 for a missing gas
+         * temperature - that only means "assume we are at the calibration
+         * temperature", which is recoverable and self-correcting. Storing a
+         * fabricated 25.00 C AS the calibration temperature is not: it becomes
+         * the permanent reference every later tempco correction is measured
+         * against, so a probe that calibrated with both temperature sensors
+         * down carries a false reference for the rest of its life while
+         * looking perfectly calibrated. Temperature faults are deliberately
+         * absent from the raw-O2 validity mask, so o2p_o2_valid() does not
+         * catch this. Found by the fourth review, 2026-09-08. */
+        if (settled && t_gas != O2P_I16_INVALID && o2p_o2_valid(g_cyc.faults) &&
+            o2p_calibrate_air(&taken, cell_na, t_gas)) {
             g_rm.cfg.cal_air_na = taken.cal_air_na;
             g_rm.cfg.cal_temp_c100 = taken.cal_temp_c100;
         }

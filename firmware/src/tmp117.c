@@ -121,7 +121,20 @@ o2p_tmp_status_t o2p_tmp117_read_c100(int16_t *out_c100)
     }
     /* count * 7812.5 uC -> 0.01 C is count * 100 / 128. */
     int32_t c100 = ((int32_t)(int16_t)raw * 100) / 128;
-    if (c100 > 32767 || c100 < -32768) {
+    /* Bound against the PART's rated range, not against int16.
+     *
+     * This used to test c100 against +/-32767, which is tautological: the
+     * conversion of any int16 raw word lands in -25600..+25599, so the check
+     * could never fail and every 16-bit pattern the bus produced was accepted
+     * as a temperature. A single flipped MSB turns the 25 C word 0x0C80 into
+     * -231 C, which passed without I2C_FAIL_TMP - and when the SHT is
+     * unavailable that value becomes the gas temperature for the oxygen
+     * correction, where at a legal +0.2 %/K it turns a true 5 %O2 into roughly
+     * 10 %. Found by the fourth review, 2026-09-08.
+     *
+     * TI rates the TMP117 -55..+150 C (SNIS189). A reading outside that is not
+     * a cold day, it is a bus error, and it is reported as one. */
+    if (c100 < O2P_TMP117_MIN_C100 || c100 > O2P_TMP117_MAX_C100) {
         return O2P_TMP_IO;
     }
     *out_c100 = (int16_t)c100;

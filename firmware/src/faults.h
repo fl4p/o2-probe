@@ -67,7 +67,7 @@ enum {
  * channel the bench uses to resolve the open sign-convention gate.
  *
  * O2_COMP is that current divided by a calibration constant. Without an air
- * point there IS no constant - the datasheet nominal spans 0.04 to 0.10 mA,
+ * point there IS no constant - the datasheet nominal spans 0.07 to 0.13 mA,
  * so a substituted nominal can be wrong by -30 % to +30 %. A number that may
  * be 30 % out is not "lower-confidence data", it is an unknown scale factor
  * wearing the units of a measurement, and 15.2 %vol against a true 21 %vol is

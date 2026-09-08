@@ -129,7 +129,7 @@ Firmware that took an absolute value would hide the answer.
 `CAL_ZERO_NA_HI/LO` at `0x0042/0x0043`, i32 nanoamps, signed, default 0.
 
 The zero point is not a refinement. DS-0637 allows a zero signal of `< 0.4 %vol
-O₂` — 1194 nA, 100× one ADC LSB and 8× the LMP91000's internal-zero error — and
+O₂` — 1706 nA at Issue 2's nominal cell, 150× one ADC LSB and 12× the LMP91000's internal-zero error — and
 with no `I0` term that whole error folded into the air point and became a slope
 error across the low range, where the compost decision lives.
 `O2-CORRECTION-MODEL-BUDGET.md` has the propagation. It is signed because the

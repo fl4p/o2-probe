@@ -106,11 +106,21 @@ typedef struct {
 #define O2P_AIR_CAL_MAX_NA 200000
 
 /* The ceiling for a point MEASURED in air right now, as opposed to a stored
- * constant. Issue 2's population tops out at 0.13 mA and a cell only loses
- * sensitivity with age, so 150 uA leaves headroom over the strongest new cell
- * while refusing the readings that are not air at all. See o2p_calibrate_air(),
- * which is the only place this applies. */
-#define O2P_FRESH_AIR_CAL_MAX_NA 150000
+ * constant. See o2p_calibrate_air(), the only place it applies.
+ *
+ * Set from the STACKED legal corner rather than from the population top: the
+ * fourth review pointed out that 130 uA (Issue 2 maximum) x 1.05 (the +60 C
+ * end of the temperature curve) x 1.05 (LMP91000 TIA gain accuracy, SNAS506I
+ * 6.5) x 1.05 (the <5 % lifetime drift, whose SIGN DS-0637 does not restrict)
+ * reaches 150.5 uA - just above the 150 uA this was first set to. The original
+ * rationale claimed a cell "only loses sensitivity with age", which the
+ * datasheet does not say. A guard that destroys a good calibration must not
+ * treat an allowed corner as impossible, so the ceiling clears it.
+ *
+ * It still does the job it exists for: the 180 uA case that motivated it - a
+ * wrong gas or an electrical fault silently overwriting a good calibration -
+ * remains well outside. */
+#define O2P_FRESH_AIR_CAL_MAX_NA 155000
 _Static_assert(O2P_FRESH_AIR_CAL_MAX_NA <= O2P_AIR_CAL_MAX_NA,
                "a freshly measured air point must be no broader than a stored one");
 _Static_assert(O2P_FRESH_AIR_CAL_MAX_NA > O2P_AIR_CAL_MIN_NA,

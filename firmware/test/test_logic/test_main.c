@@ -15,6 +15,7 @@
 #include "o2.h"
 #include "psychro.h"
 #include "regmap.h"
+#include "tmp117.h"
 
 static o2p_regmap_t rm;
 static o2p_mb_handlers_t handlers;
@@ -386,7 +387,8 @@ static void test_zero_point_round_trips_at_a_low_oxygen_point(void)
      * zero is the largest term in the budget
      * (../O2-CORRECTION-MODEL-BUDGET.md S3).
      *
-     * Truth: I0 = 1000 nA, K = 297821 nA per ln-unit (a nominal 70 uA cell),
+     * Truth: I0 = 1000 nA, K = 297821 nA per ln-unit (a 70 uA cell, the LOW
+     * edge of Issue 2's 70-130 uA population, not its nominal),
      * so the raw air reading is 71000 nA and the raw current at C = 0.02 is
      *   1000 + 297821 * ln(1/(1-0.02)) = 1000 + 6016.2 = 7016.2 nA. */
     o2p_cal_t cal = {0};
@@ -430,7 +432,7 @@ static void test_zero_bound_rejects_the_far_tail_not_just_near_misses(void)
      * holds close to its edge is the classic way a guard flips back to PASS on
      * absurd input - a byte-swapped write is not a near miss, it is 10^7 out. */
     TEST_ASSERT_TRUE(o2p_cal_zero_plausible(0));
-    TEST_ASSERT_TRUE(o2p_cal_zero_plausible(1194));    /* the DS-0637 limit */
+    TEST_ASSERT_TRUE(o2p_cal_zero_plausible(1706));    /* the DS-0637 limit at Issue 2 nominal */
     TEST_ASSERT_TRUE(o2p_cal_zero_plausible(O2P_ZERO_CAL_ABS_MAX_NA));
     TEST_ASSERT_TRUE(o2p_cal_zero_plausible(-O2P_ZERO_CAL_ABS_MAX_NA));
 
@@ -522,7 +524,8 @@ static void test_tempco_scales_k_and_not_the_measured_current(void)
      *
      * Setup, at the ends of the ranges the budget doc says are real:
      *   I0    = 4000 nA        - a badly aged but still in-window zero
-     *   K     = 297823 nA/ln-unit (a nominal 70 uA cell), air point 74000 nA
+     *   K     = 297823 nA/ln-unit (a 70 uA cell, Issue 2's low population edge),
+     *                            air point 74000 nA
      *   alpha = +2 %/K         - the solid-membrane bound,
      *                            ../O2-CORRECTION-MODEL-BUDGET.md S5
      *   read at 60.00 C against a 25.00 C calibration -> gain = 1.70
@@ -767,6 +770,106 @@ static void test_every_storable_calibration_temperature_keeps_config_valid(void)
     }
 }
 
+/* ---- fourth review, 2026-09-08 ---- */
+
+static void test_commit_after_a_separate_cal_trigger_still_waits(void)
+{
+    /* The DOCUMENTED commissioning procedure is two requests: write
+     * CAL_TRIGGER, then COMMIT. The one-frame fix did not cover it, so the
+     * commit persisted the PRE-calibration image and the air point was lost at
+     * the next power cycle - after both writes returned success. */
+    rm.cal_requested = false;
+    rm.commit_pending = false;
+    rm.commit_after_cal = false;
+
+    uint8_t req[32], rsp[O2P_MB_MAX_ADU];
+    uint8_t cal[] = {0x03, 0x10, 0x00, 0x3D, 0x00, 0x01, 0x02,
+                     (uint8_t)(O2P_CAL_MAGIC >> 8), (uint8_t)(O2P_CAL_MAGIC & 0xFF)};
+    size_t n = framed(req, cal, sizeof(cal));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_TRUE(rm.cal_requested);
+
+    uint8_t com[] = {0x03, 0x10, 0x00, 0x3E, 0x00, 0x01, 0x02,
+                     (uint8_t)(O2P_COMMIT_MAGIC >> 8), (uint8_t)(O2P_COMMIT_MAGIC & 0xFF)};
+    n = framed(req, com, sizeof(com));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+
+    /* Must defer, exactly as if both had been in one frame. */
+    TEST_ASSERT_TRUE(rm.commit_after_cal);
+    TEST_ASSERT_FALSE(rm.commit_pending);
+}
+
+static void test_collapsed_tempco_gain_cannot_produce_a_number(void)
+{
+    /* The fourth review's binary32 corner: Tcal -40 C, T +55 C and the maximum
+     * legal -10000 ppm/K give a gain of exactly 0.05, which rounds ABOVE a
+     * 0.05f threshold and returned 5.001 %O2 with O2P_OK from a negative
+     * current. Every input satisfies its own published guard. */
+    o2p_cal_t cal = {.cal_air_na = 100000, .cal_zero_na = -5000,
+                     .cal_temp_c100 = -4000, .tempco_per_k = -0.010f};
+    TEST_ASSERT_TRUE(o2p_cal_air_plausible(cal.cal_air_na));
+    TEST_ASSERT_TRUE(o2p_cal_zero_plausible(cal.cal_zero_na));
+    TEST_ASSERT_TRUE(o2p_cal_temp_plausible(cal.cal_temp_c100));
+    TEST_ASSERT_TRUE(o2p_tempco_plausible(-10000));
+
+    float c = -1.0f;
+    TEST_ASSERT_EQUAL(O2P_UNEVALUABLE,
+                      o2p_fraction_from_current(&cal, -3854, 5500, &c));
+    TEST_ASSERT_EQUAL_FLOAT(-1.0f, c);   /* and NO value */
+
+    /* A realistic correction is unaffected: +0.2 %/K over a 35 K span. */
+    o2p_cal_t ok = {.cal_air_na = 100000, .cal_zero_na = 0,
+                    .cal_temp_c100 = 2000, .tempco_per_k = 0.002f};
+    TEST_ASSERT_EQUAL(O2P_OK, o2p_fraction_from_current(&ok, 50000, 5500, &c));
+}
+
+static void test_tempco_gain_guard_is_monotonic_in_the_coefficient(void)
+{
+    /* Far tail as well as near miss: as the coefficient worsens the verdict
+     * must not flip back to OK. */
+    bool seen_unevaluable = false;
+    for (int32_t ppm = 0; ppm >= -10000; ppm -= 100) {
+        o2p_cal_t cal = {.cal_air_na = 100000, .cal_zero_na = 0,
+                         .cal_temp_c100 = -4000,
+                         .tempco_per_k = (float)ppm * 1e-6f};
+        float c = 0.0f;
+        o2p_status_t st = o2p_fraction_from_current(&cal, 50000, 6000, &c);
+        if (st == O2P_UNEVALUABLE) {
+            seen_unevaluable = true;
+        } else {
+            TEST_ASSERT_FALSE_MESSAGE(seen_unevaluable,
+                "verdict flipped back to evaluable as the tempco worsened");
+        }
+    }
+    TEST_ASSERT_TRUE(seen_unevaluable);
+}
+
+static void test_tmp117_rejects_readings_outside_the_part_range(void)
+{
+    /* The old check compared the converted value against int16 bounds, which
+     * any int16 raw word satisfies by construction - so every bus pattern was
+     * accepted as a temperature. A single flipped MSB turns 25 C into -231 C.  */
+    TEST_ASSERT_TRUE(O2P_TMP117_MIN_C100 > -25600);   /* i.e. not tautological */
+    TEST_ASSERT_TRUE(O2P_TMP117_MAX_C100 <  25599);
+
+    /* 0x0C80 is +25.00 C; clearing the MSB pattern to 0x8C80 is -231.0 C. */
+    int32_t good = ((int32_t)(int16_t)0x0C80 * 100) / 128;
+    int32_t bad  = ((int32_t)(int16_t)0x8C80 * 100) / 128;
+    TEST_ASSERT_EQUAL_INT32(2500, good);
+    TEST_ASSERT_TRUE(good >= O2P_TMP117_MIN_C100 && good <= O2P_TMP117_MAX_C100);
+    TEST_ASSERT_TRUE(bad < O2P_TMP117_MIN_C100);
+}
+
+static void test_fresh_air_ceiling_clears_the_stacked_legal_corner(void)
+{
+    /* 130 uA population max x 1.05 (temperature) x 1.05 (TIA gain accuracy)
+     * x 1.05 (lifetime drift, sign unrestricted by DS-0637) = 150.5 uA. A
+     * destructive guard must not reject an allowed corner. */
+    TEST_ASSERT_TRUE(O2P_FRESH_AIR_CAL_MAX_NA >= 150500);
+    /* But the 180 uA wrong-gas case it exists for is still refused. */
+    TEST_ASSERT_TRUE(O2P_FRESH_AIR_CAL_MAX_NA < 180000);
+}
+
 static void test_zero_point_is_covered_by_the_config_crc(void)
 {
     /* CONFIG_CRC is what a master uses to confirm the probe is running the
@@ -884,9 +987,9 @@ static void test_uncalibrated_invalidates_comp_but_not_raw(void)
 {
     /* An uncalibrated cell still measures a real current, so the RAW channel
      * stands. The COMPENSATED channel is that current divided by a constant
-     * nobody has measured - the datasheet nominal spans 0.04-0.10 mA - so a
-     * 12 %vol reading against a true 21 %vol would be indistinguishable from
-     * a genuinely alarming result. */
+     * nobody has measured - the datasheet nominal spans 0.07-0.13 mA - so a
+     * 15.2 %vol reading against a true 21 %vol would be indistinguishable
+     * from a genuinely alarming result. */
     TEST_ASSERT_TRUE(o2p_o2_valid(O2P_F_CAL_DEFAULT));
     TEST_ASSERT_FALSE(o2p_o2_comp_valid(O2P_F_CAL_DEFAULT));
     /* TEMP_OVER still invalidates neither. */
@@ -1526,6 +1629,11 @@ int main(void)
     RUN_TEST(test_fresh_air_point_above_the_population_is_refused);
     RUN_TEST(test_calibration_cannot_store_an_invalid_temperature);
     RUN_TEST(test_every_storable_calibration_temperature_keeps_config_valid);
+    RUN_TEST(test_commit_after_a_separate_cal_trigger_still_waits);
+    RUN_TEST(test_collapsed_tempco_gain_cannot_produce_a_number);
+    RUN_TEST(test_tempco_gain_guard_is_monotonic_in_the_coefficient);
+    RUN_TEST(test_tmp117_rejects_readings_outside_the_part_range);
+    RUN_TEST(test_fresh_air_ceiling_clears_the_stacked_legal_corner);
     RUN_TEST(test_zero_point_is_covered_by_the_config_crc);
     RUN_TEST(test_config_block_read_covers_the_zero_registers);
     RUN_TEST(test_monotonic_across_the_whole_range_with_a_zero);
