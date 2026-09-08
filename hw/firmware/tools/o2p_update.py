@@ -13,6 +13,13 @@ This is the executable copy of the protocol in `src/update.h`. It speaks plain
 Modbus RTU - FC03 and FC16, nothing else - so everything it does can also be
 done by hand, or by a Dragino `A8` downlink at 24 bytes a block.
 
+If a push is interrupted - a dropped BLE link to the node is the usual way -
+just run it again. The transfer is self-addressing, so the tool reads back what
+the probe already has and carries on from there whenever the probe's declared
+length, CRC and byte count prove the slot holds a prefix of this exact image.
+When anything about that is unclear it erases and starts over instead;
+`--no-resume` forces that.
+
 Two things worth knowing before running it against a live bus:
 
   * The Dragino node is the master on the farm cable. Two masters collide, so
@@ -470,7 +477,122 @@ def show_bridge(link):
     return 0
 
 
-def push(bus, image, block_bytes, retries):
+def resume_point(bus, image_len, crc, block_bytes):
+    """Decide whether the probe's staging slot already holds a PREFIX OF THIS
+    EXACT IMAGE, and if so where the transfer left off.
+
+    Returns (seq, received) to carry on from, or None to start with a clean
+    BEGIN. Either way it says why, because "it re-erased" and "it resumed"
+    are both surprising if you expected the other one.
+
+    The protocol is self-addressing on purpose - src/update.h explains that
+    the sequence number rides in every block precisely so a transfer is
+    recoverable rather than a stream - so a dropped BLE link mid-push does not
+    have to cost the 126 blocks already in the slot. What it must never cost
+    is correctness: resuming into a slot holding a DIFFERENT image splices two
+    binaries. COMMIT's CRC catches that, but only after the whole transfer has
+    been spent, so the decision is made here and made conservatively.
+
+    Every one of these must hold. Anything that raises, reads short, or reads
+    back something that is not a number is NOT a maybe - it is a no. An
+    unevaluable check is never permission.
+
+      * state is RECEIVING (a transfer in flight) or READY (erased, nothing
+        written yet - see below),
+      * the length the probe declares equals the padded length of this image,
+      * the CRC-32 it declares equals this image's,
+      * RECEIVED is exactly what NEXT_SEQ blocks of THIS block size would
+        have put in the slot.
+
+    That last one is the one that catches a previous run started with a
+    different --block-bytes: 24-byte `A8` blocks and 240-byte wire blocks
+    declare the same length and CRC, so len+CRC alone would happily resume at
+    "block 40" meaning byte 960 while the slot holds byte 9600. It is written
+    as min(NEXT_SEQ * block_bytes, image_len) rather than the bare product
+    because only the FINAL block of an image may be short: a run that got
+    every block in but died before COMMIT sits in RECEIVING with
+    RECEIVED == declared length, and the bare product would decline exactly
+    the resume that costs the most to redo.
+
+    READY is included because update.c's write_data() accepts a block in
+    READY as well as RECEIVING, and READY is reached only from ERASING once
+    every staging page has been erased - so a READY probe whose declared
+    numbers match this image is an erased slot waiting for block 0, and a
+    fresh BEGIN would erase it again for nothing.
+
+    One limit is worth naming: 0x0055..0x0058 read back `pending_len` and
+    `pending_crc`, not `declared_len`/`declared_crc` (update.c read_reg()).
+    Those are the same during a transfer that only this tool has touched -
+    they are latched at BEGIN and write_control() cannot move the target of a
+    transfer in flight - but a second master that wrote LEN/CRC without a
+    command would move the READBACK. The farm cable has one master at a time
+    by rule; if that were ever untrue, COMMIT's CRC is still the backstop.
+    """
+    try:
+        st, err, _ = status(bus)
+        state_name = STATES[st] if st < len(STATES) else str(st)
+        if st not in (STATES.index("READY"), STATES.index("RECEIVING")):
+            print("   starting fresh: the probe is in %s, which holds no "
+                  "transfer to continue" % state_name)
+            return None
+
+        # 0x0055..0x0058 in one frame: LEN_HI, LEN_LO, CRC_HI, CRC_LO.
+        lc = bus.read(R_LEN_HI, 4)
+        rc = bus.read(R_RECV_HI, 2)
+        nxt = bus.read(R_NEXT_SEQ, 1)
+        if len(lc) != 4 or len(rc) != 2 or len(nxt) != 1:
+            print("   starting fresh: the probe's transfer registers read "
+                  "short")
+            return None
+        their_len = (int(lc[0]) << 16) | int(lc[1])
+        their_crc = (int(lc[2]) << 16) | int(lc[3])
+        received = (int(rc[0]) << 16) | int(rc[1])
+        next_seq = int(nxt[0])
+    except Exception as e:              # noqa: BLE001 - see the docstring
+        # Deliberately everything. A resume is an optimisation and a wrong
+        # one costs a whole transfer, so any question this function cannot
+        # answer is answered "no".
+        print("   starting fresh: could not read the probe's transfer state "
+              "(%s)" % e)
+        return None
+
+    if their_len != image_len:
+        print("   starting fresh: the probe declares %d bytes, this image is "
+              "%d - the slot holds a different image" % (their_len, image_len))
+        return None
+    if their_crc != crc:
+        print("   starting fresh: declared CRC %08X differs from this image's "
+              "%08X - the slot holds a different image"
+              % (their_crc, crc))
+        return None
+
+    expected = min(next_seq * block_bytes, image_len)
+    if received != expected:
+        print("   starting fresh: the probe holds %d bytes but %d blocks of "
+              "%d would be %d - the previous run used a different block size"
+              % (received, next_seq, block_bytes, expected))
+        return None
+
+    if st == STATES.index("READY"):
+        if next_seq != 0 or received != 0:
+            print("   starting fresh: READY with %d bytes already received is "
+                  "not a state this tool can explain" % received)
+            return None
+        print("   the staging slot is already erased for this exact image; "
+              "skipping the re-erase and starting at block 0")
+        return (0, 0)
+
+    if next_seq == 0:
+        print("   starting fresh: the probe is RECEIVING but has nothing in "
+              "the slot yet")
+        return None
+
+    print("   resuming at block %d, %d of %d bytes already in the slot"
+          % (next_seq, received, image_len))
+    return (next_seq, received)
+
+
+def push(bus, image, block_bytes, retries, no_resume=False):
     if block_bytes % ALIGN or block_bytes < ALIGN:
         raise SystemExit("!! block size must be a multiple of %d bytes" % ALIGN)
     advertised = bus.read(R_BLOCK_MAX, 1)[0] * 2
@@ -490,15 +612,24 @@ def push(bus, image, block_bytes, retries):
           % (len(image), crc, (len(image) + block_bytes - 1) // block_bytes,
              block_bytes))
 
-    # Length, CRC and BEGIN in one frame - the form that also fits a 40-byte
-    # `A8` downlink. The probe applies the command after the numbers.
-    bus.write(R_CMD, [CMD_BEGIN,
-                      len(image) >> 16, len(image) & 0xFFFF,
-                      crc >> 16, crc & 0xFFFF])
-    wait_for(bus, STATES.index("READY"), 10.0, "the staging-slot erase")
+    if no_resume:
+        print("   --no-resume: erasing and starting from block 0")
+        start = None
+    else:
+        start = resume_point(bus, len(image), crc, block_bytes)
 
-    seq = 0
-    sent = 0
+    if start is None:
+        # Length, CRC and BEGIN in one frame - the form that also fits a
+        # 40-byte `A8` downlink. The probe applies the command after the
+        # numbers.
+        bus.write(R_CMD, [CMD_BEGIN,
+                          len(image) >> 16, len(image) & 0xFFFF,
+                          crc >> 16, crc & 0xFFFF])
+        wait_for(bus, STATES.index("READY"), 10.0, "the staging-slot erase")
+        seq, sent = 0, 0
+    else:
+        seq, sent = start
+
     t0 = time.time()
     while sent < len(image):
         chunk = image[sent:sent + block_bytes]
@@ -560,6 +691,10 @@ def main():
     ap.add_argument("--block-bytes", type=int, default=240,
                     help="240 on a wire; 24 through a Dragino A8 downlink")
     ap.add_argument("--retries", type=int, default=3)
+    ap.add_argument("--no-resume", action="store_true",
+                    help="always erase and push from block 0, even when the "
+                         "probe is holding a verified prefix of this exact "
+                         "image from an interrupted run")
     ap.add_argument("--timeout", type=float, default=1.0)
     ap.add_argument("--status", action="store_true", help="report and exit")
     ap.add_argument("--bridge", action="store_true",
@@ -619,11 +754,17 @@ def run(args, link):
         return 0
 
     if not args.image:
-        ap.error("an image is required unless --status/--abort/--stay is given")
+        # NOT ap.error(): `ap` lives in main() and this is run(), so that
+        # line raised NameError instead of printing usage - the tool crashed
+        # on its own argument check. SystemExit is what the rest of this file
+        # raises anyway.
+        raise SystemExit("!! an image is required unless --status/--abort/"
+                         "--stay is given")
 
     show_status(bus)
     with open(args.image, "rb") as f:
-        push(bus, f.read(), args.block_bytes, args.retries)
+        push(bus, f.read(), args.block_bytes, args.retries,
+             no_resume=args.no_resume)
 
     if args.boot or args.stay:
         bus.write(R_CMD, [CMD_STAY if args.stay else CMD_BOOT])
