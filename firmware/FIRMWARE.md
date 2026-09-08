@@ -13,7 +13,7 @@ PlatformIO + STM32Cube (HAL headers, direct CMSIS register code).
 edit it by hand.
 
 ```sh
-pio test -e native      # portable logic, 83 cases
+pio test -e native      # portable logic, 87 cases
 pio run  -e o2probe     # cross build
 pio run  -e o2probe -t upload
 python3 tools/gen_hw_contract.py            # regenerate after a schematic change

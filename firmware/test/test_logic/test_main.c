@@ -808,22 +808,22 @@ static void test_commit_after_a_separate_cal_trigger_still_waits(void)
 
 static void test_tempco_bound_rejects_gross_corruption_only(void)
 {
-    /* The bound's ONLY job is catching a byte-swapped word or a misplaced
-     * decimal - not certifying accuracy. Three rounds tried to make it carry
-     * safety it cannot carry: at any legal value a wrong coefficient is
-     * indistinguishable at conversion time from a right one, and even 5000
-     * ppm/K over 100 K already moves a true 5 %O2 to 3.36 %. Accuracy is a
-     * property of the calibration data. */
+    /* The bound screens gross implausibility. It does NOT certify accuracy: a
+     * plausible-but-wrong coefficient passes and still moves a reading past
+     * the decision tolerance, which is why the accuracy claim belongs to
+     * calibration data. Note the bound is also NOT a byte-swap screen - tempco
+     * is a single 16-bit register, so a swapped 1000 (0x03E8 -> 0xE803) lands
+     * at -6141 and would pass any bound this wide. That claim was in an
+     * earlier revision and was simply wrong. */
     TEST_ASSERT_TRUE(o2p_tempco_plausible(2000));    /* the published curve */
     TEST_ASSERT_TRUE(o2p_tempco_plausible(3200));    /* its +3 sigma envelope */
     TEST_ASSERT_TRUE(o2p_tempco_plausible(-3200));
-    /* A lumped cell+AFE coefficient is NOT bounded by any datasheet - LMP91000
-     * publishes no TIA gain tempco - so a characterisation somewhat above the
-     * cell-only envelope must not be refused. Refusing it would block
-     * calibration outright, which is worse than the failure it prevents. */
-    TEST_ASSERT_TRUE(o2p_tempco_plausible(8000));
-
-    /* Gross corruption is still refused. */
+    /* The ceiling is PROVISIONAL and generous over the cell curve, but silence
+     * in the LMP91000 datasheet about TIA gain tempco means UNKNOWN, not
+     * arbitrarily large. Widening to 10000 reintroduced a known clean-fault
+     * failure, so the bound stands and is raised only against a measurement. */
+    TEST_ASSERT_TRUE(o2p_tempco_plausible(5000));
+    TEST_ASSERT_FALSE(o2p_tempco_plausible(10000));
     TEST_ASSERT_FALSE(o2p_tempco_plausible(32000));
     TEST_ASSERT_FALSE(o2p_tempco_plausible(-32000));
     o2p_config_t cfg;
@@ -832,18 +832,60 @@ static void test_tempco_bound_rejects_gross_corruption_only(void)
     TEST_ASSERT_FALSE(o2p_config_valid(&cfg));
 }
 
+static void test_the_known_collapsed_gain_corner_stays_refused(void)
+{
+    /* Round 4 found it, round 6 reintroduced it by widening the guard: alpha
+     * -10000 ppm/K, Tcal -40 C, read at 55 C gives a binary32 gain of
+     * 0.0500000194, which passes a `> 0.05f` test and returned ~5 %O2 with
+     * O2P_OK from a NEGATIVE current. It must be refused at the config layer
+     * AND produce no value if it ever reaches the conversion. */
+    TEST_ASSERT_FALSE(o2p_tempco_plausible(-10000));
+
+    o2p_cal_t cal = {.cal_air_na = 100000, .cal_zero_na = -5000,
+                     .cal_temp_c100 = -4000, .tempco_per_k = -0.010f};
+    float c = -1.0f;
+    TEST_ASSERT_EQUAL(O2P_UNEVALUABLE,
+                      o2p_fraction_from_current(&cal, -3854, 5500, &c));
+    TEST_ASSERT_EQUAL_FLOAT(-1.0f, c);
+}
+
 static void test_extrapolation_above_60c_still_converts(void)
 {
-    /* faults.h promises TEMP_OVER is a still-valid extrapolation, and the
-     * round-5 window (0.45..1.55) silently revoked that: a legal config read
-     * at 70 C hit the edge and returned UNEVALUABLE. A guard must not cancel
-     * a contract the probe exists to honour in a thermophilic pile. */
+    /* faults.h promises TEMP_OVER is a still-valid extrapolation, and a guard
+     * must not silently cancel it. Any REALISTIC calibration - a sane
+     * calibration temperature and a coefficient within the cell curve's
+     * +/-3 sigma envelope - must convert across the whole operating range
+     * including the thermophilic extrapolation to 85 C. */
+    for (int32_t ppm = -3200; ppm <= 3200; ppm += 400) {
+        for (int32_t tcal = 0; tcal <= 4000; tcal += 500) {
+            o2p_cal_t cal = {.cal_air_na = 100000, .cal_zero_na = 0,
+                             .cal_temp_c100 = (int16_t)tcal,
+                             .tempco_per_k = (float)ppm * 1e-6f};
+            for (int32_t tmeas = -1000; tmeas <= 8500; tmeas += 500) {
+                float c = 0.0f;
+                TEST_ASSERT_EQUAL_MESSAGE(O2P_OK,
+                    o2p_fraction_from_current(&cal, 50000, (int16_t)tmeas, &c),
+                    "a realistic calibration must convert across the whole range");
+            }
+        }
+    }
+}
+
+static void test_extreme_corner_yields_no_value_rather_than_a_wrong_one(void)
+{
+    /* The deliberate consequence of a physics-justified window: combining the
+     * ceiling coefficient with an extreme calibration temperature asks for a
+     * correction that more than halves the cell's sensitivity, which is not a
+     * credible temperature correction whatever the register says. That returns
+     * UNEVALUABLE and NO value - the tri-state contract working, not the
+     * extrapolation contract breaking. Pinned so the distinction is deliberate
+     * rather than discovered again. */
     o2p_cal_t cal = {.cal_air_na = 100000, .cal_zero_na = 0,
-                     .cal_temp_c100 = -4000, .tempco_per_k = 0.005f};
-    float c = 0.0f;
-    TEST_ASSERT_EQUAL(O2P_OK, o2p_fraction_from_current(&cal, 50000, 7000, &c));
-    cal.tempco_per_k = -0.005f;
-    TEST_ASSERT_EQUAL(O2P_OK, o2p_fraction_from_current(&cal, 50000, 7000, &c));
+                     .cal_temp_c100 = -4000, .tempco_per_k = -0.005f};
+    float c = -3.0f;
+    TEST_ASSERT_EQUAL(O2P_UNEVALUABLE,
+                      o2p_fraction_from_current(&cal, 50000, 7000, &c));
+    TEST_ASSERT_EQUAL_FLOAT(-3.0f, c);
 }
 
 static void test_gain_backstop_still_catches_an_out_of_contract_coefficient(void)
@@ -1649,6 +1691,52 @@ static void test_runaway_does_not_false_positive_on_cold_start(void)
     TEST_ASSERT_TRUE((out.block & O2P_HB_RUNAWAY) == 0u);
 }
 
+static void test_runaway_does_not_latch_on_two_isolated_samples(void)
+{
+    /* The defect round 6's fix still had: holding the start timestamp across
+     * invalid samples let the ELAPSED test count the unobserved gap, so two
+     * isolated high samples 60 s apart latched with no evidence between them.
+     * Evidence must be accumulated, not inferred from wall time. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;
+    o2p_heater_in_t hot = hin_healthy();
+    hot.t_tip_c100 = 5000;
+    hot.t_chamber_c100 = (int16_t)(hot.t_tip_c100 - (int16_t)cfg.dt_max_k100 -
+                                   O2P_HEATER_RUNAWAY_MARGIN_K100 - 50);
+    o2p_heater_in_t blind = hot;
+    blind.tip_valid = false;
+    o2p_heater_out_t out;
+
+    o2p_heater_ctl_step(&st, &cfg, &hot, 0u, &out);          /* one high sample */
+    for (unsigned i = 1; i < O2P_HEATER_RUNAWAY_WINDOW_S; i++) {
+        o2p_heater_ctl_step(&st, &cfg, &blind, i, &out);     /* nothing observed */
+    }
+    o2p_heater_ctl_step(&st, &cfg, &hot, O2P_HEATER_RUNAWAY_WINDOW_S, &out);
+    TEST_ASSERT_FALSE_MESSAGE(st.runaway_latched,
+        "an unobserved gap must not count as sustained high-dT evidence");
+}
+
+static void test_runaway_evidence_survives_a_wrap_of_the_clock(void)
+{
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;
+    o2p_heater_in_t hot = hin_healthy();
+    hot.t_tip_c100 = 5000;
+    hot.t_chamber_c100 = (int16_t)(hot.t_tip_c100 - (int16_t)cfg.dt_max_k100 -
+                                   O2P_HEATER_RUNAWAY_MARGIN_K100 - 50);
+    o2p_heater_out_t out;
+    uint32_t t = 0xFFFFFFF0u;
+    for (unsigned i = 0; i <= O2P_HEATER_RUNAWAY_WINDOW_S + 4u; i++) {
+        o2p_heater_ctl_step(&st, &cfg, &hot, t, &out);
+        t++;                       /* wraps through zero mid-window */
+    }
+    TEST_ASSERT_TRUE(st.runaway_latched);
+}
+
 static void test_runaway_survives_intermittent_sensor_dropouts(void)
 {
     /* The false NEGATIVE the fifth round's fix opened: restarting the window
@@ -1831,7 +1919,9 @@ int main(void)
     RUN_TEST(test_every_storable_calibration_temperature_keeps_config_valid);
     RUN_TEST(test_commit_after_a_separate_cal_trigger_still_waits);
     RUN_TEST(test_tempco_bound_rejects_gross_corruption_only);
+    RUN_TEST(test_the_known_collapsed_gain_corner_stays_refused);
     RUN_TEST(test_extrapolation_above_60c_still_converts);
+    RUN_TEST(test_extreme_corner_yields_no_value_rather_than_a_wrong_one);
     RUN_TEST(test_gain_backstop_still_catches_an_out_of_contract_coefficient);
     RUN_TEST(test_tmp117_rejects_readings_outside_the_part_range);
     RUN_TEST(test_fresh_air_ceiling_clears_the_stacked_legal_corner);
@@ -1869,6 +1959,8 @@ int main(void)
     RUN_TEST(test_integrator_cannot_wind_up_while_clamped);
     RUN_TEST(test_loop_reaches_setpoint_in_steady_state);
     RUN_TEST(test_runaway_does_not_false_positive_on_cold_start);
+    RUN_TEST(test_runaway_does_not_latch_on_two_isolated_samples);
+    RUN_TEST(test_runaway_evidence_survives_a_wrap_of_the_clock);
     RUN_TEST(test_runaway_survives_intermittent_sensor_dropouts);
     RUN_TEST(test_runaway_needs_sustained_high_dt_not_one_sample);
     RUN_TEST(test_runaway_latches_on_uncommanded_heat_and_stays_latched);

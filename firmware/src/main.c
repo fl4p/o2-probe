@@ -169,6 +169,10 @@ static struct {
     bool     tip_ok;
     bool     chamber_ok;
     bool     rh_ok;
+    /* Whether THIS cycle's reference measurement was usable, which is what the
+     * rail readings are scaled by. Separate from ADC_RANGE because that bit is
+     * shared with the oxygen conversion - see the heater interlock below. */
+    bool     vref_ok;
     uint16_t heater_block;
 } g_cyc;
 
@@ -179,6 +183,7 @@ static void cycle_begin(void)
     /* Until the reference is actually measured this cycle, assume the trim
      * target rather than carrying last cycle's number forward. */
     g_cyc.vref_mv = O2P_HW_VREF_TARGET_MV;
+    g_cyc.vref_ok = false;
     g_cyc.t_tip = O2P_I16_INVALID;
     g_cyc.t_chamber = O2P_I16_INVALID;
     g_sub = 0u;
@@ -352,6 +357,7 @@ static void finish_vref(o2p_snapshot_t *s)
         g_cyc.faults |= O2P_F_ADC_RANGE;
     } else {
         g_cyc.vref_mv = (uint32_t)measured;
+        g_cyc.vref_ok = true;
     }
 }
 
@@ -603,18 +609,24 @@ static void cycle_publish(o2p_snapshot_t *s)
              * therefore never raises VIN_LOW, so an UNMEASURED input rail read
              * as "no fault" and authorised the load. An interlock whose input
              * is missing must fail closed, not open (fifth review). */
-            /* ADC_RANGE belongs here for the same reason I2C_FAIL_ADS does,
-             * and round 5 fixed only the one it was shown. When VREF reads
-             * outside the trim network's band, finish_vref() raises ADC_RANGE
-             * and KEEPS the 2500 mV default - and finish_vin() then scales VIN
-             * with that default. An actual 2.0 V reference makes an actual
-             * 8 V input measure as ~10 V and sail past the 9 V interlock. The
-             * rule is the class, not the instance: an interlock input derived
-             * from a measurement known to be invalid must fail closed. */
+            /* An interlock input derived from a measurement known to be
+             * invalid must fail closed: when VREF is outside the trim band,
+             * finish_vref() keeps the 2500 mV default and finish_vin() scales
+             * VIN with it, so an actual 2.0 V reference makes an actual 8 V
+             * input measure ~10 V and sail past the 9 V interlock.
+             *
+             * Tested through vref_ok rather than ADC_RANGE. Round 6 used the
+             * fault bit, and the seventh review showed that conflates two
+             * unrelated provenances: ADC_RANGE is ALSO raised by an oxygen
+             * conversion that saturates, so a polarity error, a stale zero or
+             * a genuine overload - none of which say anything about the
+             * supply - would disable heating as a "supply" fault. The bit
+             * stays shared for O2 validity; the interlock uses the specific
+             * predicate it actually means. */
             .supply_ok        = (g_cyc.faults &
                                  (O2P_F_VA_LOW | O2P_F_VIN_LOW |
-                                  O2P_F_I2C_FAIL_ADS |
-                                  O2P_F_ADC_RANGE)) == 0u,
+                                  O2P_F_I2C_FAIL_ADS)) == 0u &&
+                                g_cyc.vref_ok,
         };
         o2p_heater_out_t hout = {0u, 0u};
         o2p_heater_ctl_step(&g_heat, &hcfg, &hin, g_uptime_s, &hout);

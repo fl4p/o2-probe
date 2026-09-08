@@ -642,3 +642,81 @@ the above-60 °C contract.
 - **Host coverage** is worse than §11 recorded: besides `main.c`, `modbus_rtu.c` and
   `config_flash.c`, the native filter also excludes `sht4x.c`, `mcu_adc.c` and `tmp117.c`.
   Extracting their decision logic into headers narrows the gap but does not close it.
+
+## 14. Seventh adversarial review — and the decision it forces
+
+Its verdict on §13, quoted because it is correct: *"This is not a clean round. The
+tempco/gain reversal is capitulation dressed as honesty."*
+
+Round 6 talked me into removing the only enforced plausibility layer without adding the
+calibration-quality mechanism the same prose said must own accuracy. That is the
+guard-review checklist's **fix-vs-mute** failure — removing the warning without changing
+the underlying quantity — and I committed it while quoting the checklist elsewhere in the
+same document.
+
+Concretely, widening to 10000 ppm/K with a 0.05 gain floor **reintroduced a failure round
+4 had already found**: α = −10000 ppm/K, Tcal −40 °C, read at 55 °C gives a binary32 gain
+of 0.0500000194, which passes `> 0.05f` and returns ≈5 %O₂ with `O2P_OK` **from a negative
+current**. Verified here directly before acting.
+
+### Rounds 6 and 7 disagree, and the disagreement is adjudicated rather than alternated
+
+- **Round 6 was right** that 5000 ppm/K cannot be justified as "2.5× the published curve",
+  and that refusing a real characterisation would block calibration outright.
+- **Round 7 was right** that datasheet *silence* on the LMP91000 TIA gain tempco means
+  **unknown, not arbitrarily large**, and licenses nothing.
+
+The ceiling is back at **5000 ppm/K, explicitly provisional**: it is a corruption and
+gross-implausibility screen, not an accuracy certificate, and if a real characterisation
+lands above it the correct response is to *raise it against that measurement and record
+the evidence* — not to treat the refusal as a hardware problem. Refusing is visible and
+recoverable; accepting a wrong coefficient is silent and produces a wrong decision in a
+pile. The runtime window returns to **0.5–2.0, justified by physics** rather than by a
+computed box: the published curve moves output ~20 % across its whole range, so a
+correction that halves or doubles sensitivity is not credible whatever the register says.
+An extreme coefficient at an extreme calibration temperature now yields `UNEVALUABLE` —
+no value, never a wrong one — and that distinction is pinned by its own test, alongside
+one proving every *realistic* calibration converts through the 85 °C extrapolation.
+
+I also dropped a false claim of my own: the bound is **not** a byte-swap screen. Tempco is
+a single 16-bit register, so a swapped 1000 (`0x03E8` → `0xE803`) lands at −6141 and passes
+any bound this wide.
+
+### Also fixed
+
+| # | Finding | Disposition |
+|---|---|---|
+| 3 | The runaway detector **still counted invalid wall time as evidence**: round 6 held the start timestamp across invalid samples, so the elapsed test credited the unobserved gap and **two isolated high samples 60 s apart latched** | **Confirmed and fixed.** The state is now an *accumulator of observed valid high-ΔT seconds*, with each observation's contribution capped. The common bug in all three previous shapes was asking "how long ago did this start" instead of "how much have I actually seen". Four sequences tested, including clock wrap. |
+| 4 | `ADC_RANGE` **conflates rail validity with O₂ range** — it is raised both by a bad VREF and by a saturating oxygen conversion, so my round-6 interlock disabled the heater for a polarity error or stale zero, as a "supply" fault | **Confirmed and fixed** with a cycle-local `vref_ok` predicate. The bit stays shared for O₂ validity; the interlock now tests what it actually means. Round 6 fixed the instance, not the class — again. |
+| 5 | The SHT4x and TMP117 comments **confuse input ratings with guaranteed output bounds**, and TMP117's ±0.3 °C means a true 150.0 °C endpoint could read 150.3 °C and be refused | **Confirmed; comments corrected** to call these operational plausibility screens rather than bus-error proofs. The assumption that the probe's own ~85 °C limits leave ample margin is now recorded rather than relied on silently. |
+| — | A duplicated `#include "heater_ctl.h"` in `regmap.c`, present since before this cycle and caught by no reviewer | Removed. |
+
+### The decision this forces, and it is Fab's
+
+**The firmware has no calibration-quality gate, and that is now the load-bearing gap.**
+`CAL_DEFAULT` clears the moment `cal_air_na > 0`; nothing records whether a *temperature*
+characterisation ever happened. So a probe calibrated in air alone, with `tempco = 0`
+against a true +2000 ppm/K cell, reports a true 5 %O₂ as **5.34 %** and a true 2 % as
+**2.14 %** — with a completely clean fault word. That is the project's own §3 result
+(0.3–0.5 points at 55 °C for air-only) arriving as an unmarked number.
+
+No range check can fix this, which is the one thing every round since the third has
+agreed on. What would:
+
+1. **Record calibration provenance and completeness**, not just constants — which points
+   were taken, over what temperature span, with what residuals.
+2. **Do not present a compensated value as fully valid until temperature characterisation
+   exists.** All sixteen fault bits are allocated, so this means either broadening
+   `CAL_DEFAULT` to "calibration model incomplete" or publishing quality in a **new status
+   register**.
+3. **A defensible acceptance target**, from the review and worth keeping: to hold 0.1
+   percentage points at a true 5 %O₂, the coefficient error must be within roughly
+   **±550 ppm/K over a 40 K span**, or **±245 ppm/K over 100 K**. That is what a
+   commissioning campaign must demonstrate — and it is two orders tighter than any
+   register bound, which is exactly why the bound was never the answer.
+
+Option 2 changes what the instrument publishes and would mark every existing probe's
+compensated channel as incomplete. **That is a contract decision, not a review fix**, and
+it is the same open question as `CAL_ZERO_DEFAULT` from §8 — now with a second, larger
+instance behind it. It sits with the calibration/commit transaction (§12) as the two
+things a reviewer cannot decide for you.

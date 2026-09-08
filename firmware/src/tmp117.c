@@ -163,8 +163,13 @@ o2p_tmp_status_t o2p_tmp117_read_c100(int16_t *out_c100)
      * correction, where at a legal +0.2 %/K it turns a true 5 %O2 into roughly
      * 10 %. Found by the fourth review, 2026-09-08.
      *
-     * TI rates the TMP117 -55..+150 C (SNOSD82D). A reading outside that is not
-     * a cold day, it is a bus error, and it is reported as one. */
+     * TI rates the TMP117 -55..+150 C (SNOSD82D). A reading outside that is an
+     * OPERATIONAL PLAUSIBILITY failure, reported through the I/O status because
+     * that is the channel available - not proof of a bus error. Note the part's
+     * +/-0.3 C accuracy means a true 150.0 C endpoint could read 150.3 C and be
+     * refused; the buried probe's own limits sit near 85 C, so the margin is
+     * ample here and the assumption is recorded rather than relied on
+     * silently (seventh review, 2026-09-08). */
     if (c100 < O2P_TMP117_MIN_C100 || c100 > O2P_TMP117_MAX_C100) {
         return O2P_TMP_IO;
     }

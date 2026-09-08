@@ -26,10 +26,12 @@
  * basis and would have rejected legitimate readings from a wet probe: the very
  * condition the humidity channel exists to observe. Found by the sixth review.
  *
- * So rejection is reserved for values a working part cannot produce, and the
- * ordinary overshoot is clamped afterwards as the datasheet directs. The CRC
- * is what catches transmission corruption; this catches a part answering with
- * nonsense. These numbers are an engineering choice, NOT a rated limit. */
+ * So rejection is reserved for readings far enough outside the rating to be
+ * implausible, and the ordinary overshoot is clamped afterwards as the
+ * datasheet directs. The CRC catches transmission corruption; this is an
+ * OPERATIONAL PLAUSIBILITY SCREEN, not proof of a bus error and not a rated
+ * limit - Sensirion nowhere states that >110 %RH means a broken part, and the
+ * endpoints below are an engineering choice (seventh review). */
 #define O2P_SHT_RH_MIN_X100 (-500)
 #define O2P_SHT_RH_MAX_X100  11000
 

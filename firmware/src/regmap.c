@@ -1,7 +1,6 @@
 #include "regmap.h"
 #include "faults.h"
 #include "heater_ctl.h"
-#include "heater_ctl.h"
 #include "o2.h"
 
 #include <stddef.h>
@@ -124,9 +123,13 @@ bool o2p_config_valid(const o2p_config_t *cfg)
     /* The temperature correction's two constants. Unbounded until 2026-09-08,
      * when a review built a legal config that returned 4.503 %vol for a true
      * 5.000 % with a clean fault word. Both bounds and the worked cases are in
-     * o2.h; the short version is that the tempco ceiling is 5x the DS-0637
-     * curve's slope and Tcal is held to the cell's rated range, which is what
-     * stops a far-negative Tcal collapsing the gain term toward zero. */
+     * o2.h. The short version, corrected 2026-09-08: the tempco ceiling is a
+     * PROVISIONAL corruption and gross-implausibility screen, not an accuracy
+     * certificate - a plausible-but-wrong coefficient passes it and still
+     * moves a reading past the decision tolerance. What refuses a collapsed
+     * correction is the physics-justified gain window in o2.c, and what would
+     * bound accuracy is calibration-quality data the firmware does not yet
+     * record (budget doc section 14). */
     if (!o2p_tempco_plausible(cfg->tempco_ppm_per_k)) {
         return false;
     }

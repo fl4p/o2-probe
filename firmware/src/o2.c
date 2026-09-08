@@ -98,34 +98,28 @@ o2p_status_t o2p_fraction_from_current(const o2p_cal_t *cal,
      * plausible fraction. */
     float dt = ((float)temp_c100 - (float)cal->cal_temp_c100) * 0.01f;
     float gain = 1.0f + cal->tempco_per_k * dt;
-    /* ARITHMETIC guard only. This is the third attempt at this check and the
-     * first that claims only what it can deliver.
+    /* A PLAUSIBILITY window on the correction, not merely an arithmetic one.
      *
-     * It does NOT make a bad coefficient safe. Round 4 tried a near-zero floor
-     * and a binary32 corner walked through it; round 5 tried 0.5..2.0 and was
-     * walked through from the inside at gain 1.9999 (true 5 %O2 reading
-     * 2.53 %). Both failed for the same reason: if alpha is right, a large
-     * gain is CORRECT, and if alpha is wrong, nothing here can tell. Accuracy
-     * lives in the calibration data, not in this comparison.
+     * Four attempts landed here. A near-zero floor (0.05) was walked through by
+     * a binary32 corner twice - once in round 4, and again when round 6 widened
+     * back to it, which reintroduced a failure that was already known. A window
+     * sized to a computed "legal box" (0.45..1.55) refused legal inputs at 70 C
+     * and silently cancelled the TEMP_OVER extrapolation contract.
      *
-     * Round 5 then sized the window to "admit exactly the legal box and
-     * nothing else", and the sixth review found that wrong in both halves.
-     * Wrong on "nothing else": at dT = 0 ANY coefficient gives gain 1, so this
-     * can never be an independent backstop against an out-of-contract caller.
-     * Wrong on "exactly the box": the window was computed over the RATED
-     * -40..+60 C range, but this firmware deliberately keeps reading above
-     * 60 C and flags TEMP_OVER as a still-valid extrapolation (faults.h) -
-     * so at 70 C a perfectly legal configuration hit the window edge and got
-     * UNEVALUABLE. The guard was silently revoking the extrapolation contract
-     * the probe exists to honour in a thermophilic pile.
+     * The honest shape is a window justified by the PHYSICS rather than by the
+     * config bounds: the published DS-0637 curve moves the output about 20 %
+     * across its whole -40..+60 C range, so a correction that halves or doubles
+     * the cell's sensitivity is not a credible temperature correction whatever
+     * the register says. Combining an extreme coefficient with an extreme span
+     * therefore yields UNEVALUABLE - NO value, never a wrong one, which is the
+     * tri-state contract working rather than a contract being broken.
      *
-     * What remains is the only thing a gain check can honestly do: keep the
-     * arithmetic well-defined. K must stay positive and finite so the divide
-     * cannot blow up or change sign, and NaN must not pass. The bounds are
-     * therefore loose and asymmetric-safe by construction, chosen to be
-     * unreachable by any coefficient the validator accepts across the whole
-     * temperature range the probe actually reports on. */
-    if (!(gain > 0.05f) || !(gain < 5.0f)) {
+     * Any REALISTIC calibration converts across the entire operating range
+     * including the above-60 C extrapolation: at the cell curve's 3200 ppm/K
+     * +3 sigma edge and a sane calibration temperature, an 85 C reading gives a
+     * gain near 1.2. That case is regression-tested; so is the 70 C
+     * extrapolation. */
+    if (!(gain > 0.5f) || !(gain < 2.0f)) {
         return O2P_UNEVALUABLE;
     }
 

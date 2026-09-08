@@ -234,23 +234,48 @@ _Static_assert(O2P_NET_AIR_MIN_NA <= O2P_NET_AIR_MAX_NA,
  *     calibration outright, with no service override.
  *
  * THE LESSON, stated so the next person does not re-derive it: no bound here
- * limits the damage a WRONG coefficient does. At 5000 ppm/K over 100 K a true
- * 5 %O2 already reads 3.36 %, far outside the 0.1-point tolerance this probe
- * exists to serve. A coefficient that is wrong but inside any bound is
- * indistinguishable, at conversion time, from one that is right. Accuracy is a
- * property of the CALIBRATION DATA, not of a range check.
+ * makes a WRONG coefficient accurate. At any legal value a wrong alpha is
+ * indistinguishable, at conversion time, from a right one. Accuracy is a
+ * property of the CALIBRATION DATA.
  *
- * So this bound has exactly one job: reject GROSS CORRUPTION - a byte-swapped
- * word, a fat-fingered decimal place, a half-written 32-bit value. It is set
- * at 1 %/K, roughly 3x the steepest cell-only envelope on the Issue 2 plot,
- * which leaves room for an AFE contribution nobody has measured yet. It is NOT
- * an accuracy bound and must not be described as one.
+ * BUT - and the seventh review was right to call the previous revision of this
+ * comment capitulation dressed as honesty - that argument justifies dropping
+ * the ACCURACY claim, not dropping the bound. Widening to 10000 ppm/K with a
+ * near-zero gain floor reintroduced the exact clean-fault failure round 4 had
+ * already found: alpha -10000 ppm/K, Tcal -40 C, read at 55 C gives a binary32
+ * gain of 0.0500000194, which passes a `> 0.05f` test and returns ~5 %O2 with
+ * O2P_OK from a NEGATIVE current. Removing a guard because it cannot do
+ * everything is how a guard gets switched off rather than satisfied.
+ *
+ * So the two reviews are adjudicated rather than alternated between:
+ *
+ *   - Round 6 was right that this cannot be justified as "2.5x the published
+ *     curve", and right that refusing a real characterisation would be a
+ *     serious failure - it would block calibration outright.
+ *   - Round 7 was right that datasheet SILENCE on the LMP91000 TIA gain
+ *     tempco means UNKNOWN, not arbitrarily large, and that silence licenses
+ *     nothing.
+ *
+ * The bound is therefore PROVISIONAL and says so: 5000 ppm/K, from the cell
+ * curve's ~2000 ppm/K plus a generous unmeasured-AFE allowance. It is a
+ * corruption and gross-implausibility screen, NOT an accuracy certificate. If
+ * a real characterisation lands above it, the correct response is to RAISE it
+ * against that measurement and record the evidence - not to treat the refusal
+ * as a hardware problem. Refusing is visible and recoverable; accepting a
+ * wrong coefficient is silent and produces a wrong operational decision.
+ *
+ * What the bound does NOT do, so nobody claims it later: it does not stop a
+ * plausible-but-wrong coefficient. A stored 3000 against a true 2000 over a
+ * 40 K span still moves a true 5 %O2 by more than the 0.1-point decision
+ * tolerance, with a clean fault word. Only calibration-quality data closes
+ * that, and this firmware does not yet record any - see
+ * O2-CORRECTION-MODEL-BUDGET.md section 14, which is an open decision for Fab.
  *
  * Tcal spans the cell's PUBLISHED operating range, -40 to +60 C. (It said
  * -20 C and called that the cell's rating, which was wrong; DS-0637 rates
  * -40 C, and the narrow bound would have refused a legitimate cold-chamber
  * calibration.) */
-#define O2P_TEMPCO_ABS_MAX_PPM_K 10000
+#define O2P_TEMPCO_ABS_MAX_PPM_K 5000
 #define O2P_CAL_TEMP_MIN_C100    (-4000)  /* -40 C, DS-0637 operating range */
 #define O2P_CAL_TEMP_MAX_C100      6000   /* +60 C */
 

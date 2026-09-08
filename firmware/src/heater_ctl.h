@@ -85,6 +85,9 @@ enum {
  * design ("U10 measures PCB copper, but the 5 g ABS cell couples via three
  * pins and gas"). Only a difference larger than the loop is ever allowed to
  * command is evidence of uncommanded heat. */
+/* The most one observation may credit. Two high samples separated by a long
+ * unevaluable gap must not add that whole gap as though it had been watched. */
+#define O2P_HEATER_RUNAWAY_MAX_GAP_S 5u
 #define O2P_HEATER_RUNAWAY_WINDOW_S 60u
 #define O2P_HEATER_RUNAWAY_MARGIN_K100 200
 
@@ -126,6 +129,9 @@ typedef struct {
     float    integ;            /* integrator, carried in duty units */
     bool     runaway_latched;
     bool     zero_duty_timing;
+    /* Observed valid high-dT seconds, NOT elapsed wall time. An invalid cycle
+     * contributes nothing; see update_runaway(). */
+    uint16_t runaway_evidence_s;
     uint32_t zero_duty_since_s;
     bool     dt_clamped;       /* hysteresis latches */
     bool     tip_clamped;

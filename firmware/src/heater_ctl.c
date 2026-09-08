@@ -131,41 +131,57 @@ static void update_runaway(o2p_heater_state_t *st,
         st->zero_duty_timing = false;
         return;
     }
-    /* What this must measure is a HIGH dT that PERSISTS while we are commanding
-     * no heat. Two earlier shapes both got that wrong, in opposite directions:
+    /* ACCUMULATE OBSERVED EVIDENCE, do not measure wall time.
      *
-     *   - Originally the window timed zero duty only and tested dT once at the
-     *     end, so 59 s of normal dT followed by ONE high sample latched.
-     *   - Round 5 then restarted the window on any invalid sample, which fixed
-     *     a false positive and opened a false NEGATIVE: one invalid reading
-     *     every 59 s kept a genuinely runaway heater from ever latching. On a
-     *     1 W element against a membrane, that is the worse failure.
+     * Three shapes failed here before this one, each in a different direction:
      *
-     * So the timer now runs on the CONDITION, not on the duty alone: it starts
-     * when dT is first seen high at zero duty, is cleared as soon as dT is seen
-     * normal, and an unevaluable cycle HOLDS the accumulated evidence rather
-     * than either advancing or discarding it. A sensor outage can delay the
-     * latch but cannot prevent it, and a single high sample cannot cause it.
-     * Sixth review, 2026-09-08. */
+     *   - Timing zero duty and testing dT once at the end: 59 s of normal dT
+     *     plus one high sample latched.
+     *   - Restarting the window on any invalid sample: one bad reading per
+     *     59 s kept a genuinely runaway 1 W heater from EVER latching.
+     *   - Holding the start timestamp across invalid samples (round 6): the
+     *     elapsed-time test still counted the invalid gap as evidence, so two
+     *     isolated high samples 60 s apart latched with nothing in between.
+     *
+     * The bug common to all three is asking "how long ago did this start"
+     * instead of "how much high-dT have I actually SEEN". So the state is now
+     * an accumulator of observed valid high-dT seconds: a valid high sample
+     * adds the time since the previous OBSERVATION, an invalid sample adds
+     * nothing and does not reset, and a valid normal sample clears it. An
+     * outage can delay the latch but cannot fabricate it or prevent it
+     * indefinitely. Seventh review, 2026-09-08. */
     if (!in->tip_valid || !in->chamber_valid) {
-        return;   /* hold: neither evidence for nor against */
+        return;   /* observe nothing: neither evidence for nor against */
     }
     int32_t dt = (int32_t)in->t_tip_c100 - (int32_t)in->t_chamber_c100;
-    bool dt_high = dt > (int32_t)cfg->dt_max_k100 + O2P_HEATER_RUNAWAY_MARGIN_K100;
-    if (!dt_high) {
+    if (dt <= (int32_t)cfg->dt_max_k100 + O2P_HEATER_RUNAWAY_MARGIN_K100) {
         st->zero_duty_timing = false;
+        st->runaway_evidence_s = 0u;
         return;
     }
     if (!st->zero_duty_timing) {
+        /* First observation: start accumulating from here, contributing no
+         * time of its own - one sample is not a duration. */
         st->zero_duty_timing = true;
         st->zero_duty_since_s = now_s;
+        st->runaway_evidence_s = 0u;
         return;
     }
-    /* Unsigned subtraction, so a wrap of now_s is harmless. */
-    if ((uint32_t)(now_s - st->zero_duty_since_s) < O2P_HEATER_RUNAWAY_WINDOW_S) {
-        return;
+    /* Unsigned subtraction, so a wrap of now_s is harmless. Only the interval
+     * between two CONSECUTIVE OBSERVATIONS is credited, and it is capped so a
+     * long invalid gap between two high samples cannot be counted as though it
+     * had been observed. */
+    uint32_t since = (uint32_t)(now_s - st->zero_duty_since_s);
+    if (since > O2P_HEATER_RUNAWAY_MAX_GAP_S) {
+        since = O2P_HEATER_RUNAWAY_MAX_GAP_S;
     }
-    st->runaway_latched = true;
+    st->zero_duty_since_s = now_s;
+    if (st->runaway_evidence_s < O2P_HEATER_RUNAWAY_WINDOW_S) {
+        st->runaway_evidence_s = (uint16_t)(st->runaway_evidence_s + since);
+    }
+    if (st->runaway_evidence_s >= O2P_HEATER_RUNAWAY_WINDOW_S) {
+        st->runaway_latched = true;
+    }
 }
 
 void o2p_heater_ctl_step(o2p_heater_state_t *st,
