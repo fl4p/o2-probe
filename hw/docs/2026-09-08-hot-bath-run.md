@@ -35,9 +35,14 @@ DS-0637 Issue 1 (07-Apr-2025), now filed at `datasheets/`:
   for over two hours, 18 K past rated. Every performance parameter in that datasheet
   is void up there. This is exactly what the `TEMP_OVER` fault bit reports, and what
   `PLAN.md:211-228` means by "above 60 °C it is extrapolation by explicit decision".
-- **Operating Humidity 15 % to 90 % RH continuous.** The chamber sat at **1.3 % RH
-  for an hour**. A capillary cell has a liquid electrolyte; running it that dry can
-  change it permanently.
+- **Operating Humidity 15 % to 90 % RH continuous — but also `0–99 % RH (short
+  term)`.** The chamber sat at 1.3 % RH for an hour. That is below the *continuous*
+  floor and inside the *short-term* range, and DS-0637 does not define "short term",
+  so **one hour cannot be adjudicated from the datasheet**. An earlier version of
+  this note called it out-of-spec outright and inferred permanent electrolyte loss;
+  both went further than the source. Corrected 2026-09-08 after a peer session's
+  review. What remains true is that nothing in the firmware or the bench mode warns
+  when the chamber leaves the continuous band.
 
 The humidity excursion is **not** a design defect. The shipped RH loop targets 85 %
 (`regmap.c:22`), comfortably in spec. It was the manual fixed-temperature hold, which
@@ -87,13 +92,26 @@ where β is the cell's coupling to the tip and γ the AFE's — and the board is
 isothermal**: T_TIP 78.0, T_CHAMBER 77.7, T_DIE 49.0, a 29 K spread. Nothing measured
 the AFE's temperature, so γ was unknowable. `T_AFE` (`0x002C`) now measures it.
 
-What survives: the earlier **isothermal** bath ramp measured `a_cell + tc_RTIA`
-cleanly at 730–780 ppm/K, and this run gives 797. They agree within their own
-uncertainty, which says no large term is hiding in the difference. The operational
-conclusion is split-independent — the apparent coefficient is ~800 ppm/K while
-config flash carries **2840**, and `O2P_TEMPCO_DEFAULT` is deliberately `0.0f`
-because "an invented coefficient would be worse than none". The 2840 has no datasheet
-basis; DS-0637 has no tempco curve at all.
+**There is no independent isothermal measurement, and an earlier version of this
+note claimed there was.** The "730–780 ppm/K bath ramp" it cited as corroboration is
+*this same run*, analysed with a different endpoint — 101.04 → 104.83 µA at 12:02
+rather than the equilibrated 105.24 at 12:38. Same cell, same hours, same
+unmeasured β and γ. Two analyses of one dataset agreeing is not two experiments
+agreeing, and presenting it as a cross-check was circular. That figure lives only in
+an agent memory note; it is not in `~/dev/kb` and there is no primary record of a
+separate ramp. Found by the `probe-char` session, 2026-09-08.
+
+So β and γ remain **entirely unconstrained** by anything measured to date.
+
+The operational conclusion survives anyway, and does not need them. The firmware
+compensates using the *gas* temperature, and what this run measures is the published
+signal's actual dependence on that same variable: **~800 ppm/K**. Config flash
+applies **2840**. Whatever physically splits the 800 between cell and TIA resistor,
+the correction is ~3.5× larger than the dependence it is correcting — which is a
+self-contained statement about one measured variable, not a claim about the cell.
+`O2P_TEMPCO_DEFAULT` is deliberately `0.0f` because "an invented coefficient would
+be worse than none", and DS-0637 has no tempco curve at all, so the 2840 has no
+datasheet basis either.
 
 ## Corrections to earlier readings of this data
 
@@ -131,9 +149,10 @@ chosen so the failures above are visible without anyone deriving anything.
 2. **Stay inside 60 °C and 15 % RH** for anything meant to characterise the cell, or
    state up front that the result is extrapolation.
 3. **Check `cell_bias_mv` against the command before trusting a run.** Now automatic.
-4. **Prefer the isothermal method.** Immersing the whole probe makes β and γ
-   irrelevant by construction, which is why the bath ramp is the better measurement
-   and this run cannot improve on it.
+4. **Actually do an isothermal run.** Immersing the whole probe makes β and γ
+   irrelevant by construction. No such measurement exists yet — the figure that was
+   believed to be one is this run under another name — so the cell's tempco is at
+   present unmeasured, not merely imprecise.
 
 ## Provenance
 
