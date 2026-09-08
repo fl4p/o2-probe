@@ -49,23 +49,54 @@ The humidity excursion is **not** a design defect. The shipped RH loop targets 8
 bypasses that loop, that drove RH to 1.3 %. Nothing warned us — a bench mode that can
 take the cell outside its datasheet envelope should say so.
 
-## Reason 2 — the cell was not at its commanded bias
+## Reason 2 — WITHDRAWN: the bias was never measured
 
-`REFCN` commands 24 % of VREF with the sign negative — **−598 mV**, against DS-0637's
-`−600 ± 10 mV`. `lmp_readback` = `0x0CCD` proves the part accepted it, and the bench
-measured 597 mV on 2026-09-04.
+**This section claimed the cell was not at its commanded bias. That claim is
+withdrawn — it rested on a dead ADC channel, not on a measurement.**
 
-Telemetry for this entire run reads **`cell_bias_mv` = +341 mV**. Wrong magnitude
-*and* wrong sign, with `re_buf` at 1298 mV where internal-zero-plus-bias puts it near
-2268.
+What it said, and why it looked solid: `REFCN` commands 24 % of VREF with the sign
+negative — **−598 mV**, against DS-0637's `−600 ± 10 mV`. `lmp_readback` = `0x0CCD`
+proves the part accepted it, and the bench measured 597 mV on 2026-09-04. Against
+that, telemetry read `cell_bias_mv` = **+341 mV** — wrong magnitude *and* wrong
+sign, with `re_buf` at 1298 mV where internal-zero-plus-bias puts it near 2268. A
+correct configuration with a wrong bias points at the loop, which closes through the
+cell, so a badly-led cell was the obvious reading.
 
-The configuration is provably correct, so this is not firmware. A1 drives the counter
-electrode until RE reaches the commanded bias and that loop closes **through the
-cell**, so an absent, high-impedance or badly-led cell leaves the bias wrong while
-every register still reads back as written. The cell was hanging on flying copper
-leads for this run. A1 on this same part died once already, on 2026-09-04.
+**What actually falsified it (2026-09-08, farming-b5's swing test).** With the cell
+removed, the bridge cleared, and the cell refitted, the WE node was driven to three
+genuinely different voltages — **2485 → 1680 → 771 mV**, confirmed at the pads with
+a DMM. Across all three, `we_buf_mv` reported **1639** and `re_buf_mv` reported
+**1296**, unchanged. `cell_bias_mv` is computed as the difference of those two
+(`main.c`, `finish_electrode()`), so it reported a constant 343 mV throughout. A pair
+of numbers that does not move while the node moves by 1.7 V is not measuring the
+node. The +341 mV in this run is the same constant, four days and a firmware
+revision earlier.
 
-Anything derived from cell current here is suspect at the root.
+**It is not a firmware fault, and specifically not a stale value.** `main.c:284-288`
+rebuilds the staging snapshot from `INVALID` at the start of every cycle — the
+comment there names this exact hazard — and `o2p_snapshot_reset()` sets all three
+fields to `0xFFFF`. Every refusal path in `finish_electrode()` is a bare `return`, so
+a refused reading publishes the sentinel, not a plausible number. `SAMPLE_SEQ`
+advances, so cycles complete. The firmware is faithfully converting and being handed
+a constant code: the fault is in the **ADS1119 AIN2/AIN3 input path**.
+
+**What this invalidates beyond this section.** The bias-versus-commanded fault added
+on 2026-09-08 in response to Reason 2 is fed by this same dead input, so it is a
+guard fed by a constant and **can never fire on the condition it was built for** —
+it needs a source-of-truth fix before it means anything. Any other conclusion in this
+repository resting on `cell_bias_mv`, `we_buf_mv` or `re_buf_mv` inherits the same
+defect and should be re-derived.
+
+**What survives.** Nothing here rules the bias *correct* either — a dead channel is
+silence, not a clean bill of health. The commanded bias is still `0x0CCD` and still
+provably accepted by the part; the cell's actual potential during this run is simply
+**unknown and now unknowable**, because the only instrument that watched it was not
+working. `ads1119-inputs-not-dead` records that a "dead ADS1119 input" conclusion was
+wrong once on this project and a part was swapped for nothing, so the AIN2/AIN3
+verdict wants an independent SWD read of the raw codes before anyone replaces U8.
+
+Anything derived from cell current here remains suspect at the root — for Reason 1
+and Reason 3, which stand on their own evidence.
 
 ## Reason 3 — the AFE's own drift is inseparable from the cell's
 
@@ -131,24 +162,31 @@ datasheet basis either.
 |---|---|
 | `T_AFE` `0x002C` | measures γ — the AFE temperature nothing measured |
 | `CE_MV` `0x002D` | names *which* hardware fault: register image can read back perfect while the loop is open |
-| bias-vs-commanded fault | the probe measured its own broken bias for hours and said nothing |
+| bias-vs-commanded fault | ~~the probe measured its own broken bias for hours and said nothing~~ **INEFFECTIVE — see Reason 2. It compares `cell_bias_mv`, which is fed by a dead ADC channel, so it is a guard fed by a constant and cannot fire on the condition it was built for.** |
 
 `CE_MV` is bench-only by design: the uplink is at 96 bytes with 4 bytes of DR3
 headroom, and this is a question a laptop on the bus answers in the same session it
 asks it. The **fault** reaches the radio.
 
 Grafana: all four board temperatures now share one axis with DS-0637's +60 °C limit
-drawn, and the cell-bias panel carries the commanded −24 %·VREF line. Both were
+drawn, and the cell-bias panel carries the commanded −24 %·VREF line — though that
+panel is presently plotting a constant, for the reason given in Reason 2. Both were
 chosen so the failures above are visible without anyone deriving anything.
 
 ## Do differently next time
 
 1. **Bond the cell thermally, or measure its temperature.** Suspended on leads it has
-   its own 10 min constant and an unmeasured steady-state offset. This is also what
-   broke the bias, so it is one fix for two problems.
+   its own 10 min constant and an unmeasured steady-state offset. (The claim that this
+   also "broke the bias" is withdrawn with Reason 2 — the bias was never measured. This
+   is one fix for one problem.)
 2. **Stay inside 60 °C and 15 % RH** for anything meant to characterise the cell, or
    state up front that the result is extrapolation.
-3. **Check `cell_bias_mv` against the command before trusting a run.** Now automatic.
+3. **Check `cell_bias_mv` against the command before trusting a run.** Automatic since
+   2026-09-08, but *currently meaningless*: the channel it reads is dead, so the check
+   passes and fails on a constant. Fix the input before trusting the guard — and note
+   the general lesson, which outlives this board: **a guard is only as good as the
+   channel feeding it, and this one was added, tested and believed without anyone
+   confirming its input was live.**
 4. **Actually do an isothermal run.** Immersing the whole probe makes β and γ
    irrelevant by construction. No such measurement exists yet — the figure that was
    believed to be one is this run under another name — so the cell's tempco is at
