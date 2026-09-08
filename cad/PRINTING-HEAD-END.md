@@ -623,7 +623,123 @@ texture (plausible — PTFE cold-flows, which is listed as a risk elsewhere in t
 file); or face 0.1 mm off. **Measure this before the squeeze number** — it is
 ahead of everything else in the leak test.
 
-## The ring: 17.0 × 2.5, chosen from what is in the drawer
+## The ring: 17.0 × 2.0, ordered — and why the 2.5 below is superseded
+
+**Superseded 2026-09-08. The section that follows is kept because its argument is
+still correct; only its conclusion is dead.** Fab, 2026-09-08: the 17 × 2.5 in
+the drawer *"is bad quality and not EPDM"*. That is not a tolerance judgement and
+it cannot be traded against one. The entire ammonia case — compound `127019011`,
+its compression-set table, and the Kömmling ageing data at 25 % compression — is
+for **peroxide-cured EPDM 70**. A ring of unknown rubber is out on material, no
+matter how well its cord band stacks up.
+
+So the bed moved to a **17.0 × 2.0**, and everything below about the fat cord
+being *"half the fix"* remains true and is now the price being paid: cord
+tolerance is an ABSOLUTE band, so it costs more squeeze points the thinner the
+cord, which is exactly why the 2.0 no longer closes on the catalogue band and the
+2.5 did. **The 2.0 is not an improvement. It is the cheapest ring with the right
+cure.**
+
+### What was ordered, 2026-09-08 (eBay)
+
+| item | what it is | for |
+|---|---|---|
+| `157712596230` | O-Ring 17,0 × 2,0 mm **EPDM-Peroxidvernetzt FDA Konform** 70 Shore, 1 Posten = 20 St., €2.50 | **the bed ring.** Cure DECLARED; compound, lot and test report NOT |
+| `168191533567` | O-Ring 17,5 × 2,5 mm EPDM 70 ±5 Shore A schwarz, 1 Posten = 20 St., €2.50 | trial stock for the OLD 2.5 bed — see the caveats below |
+
+Neither carries a compound number, so **neither is a release part**. They are
+bench rings. The documented equivalents at o-ring-stocks, all material
+`127019011`, are `ORS116734` (17 × 2.5, €0.13), `ORS116732` (17 × 1.5, €0.22)
+and — for the cable end, the last uncatalogued seal in the probe —
+`ORS116765` (22 × 2, €0.17, listed *on order* rather than in stock).
+
+**The 17,5 × 2,5 still fits the 2.5 bed, with two caveats.** Rendered against the
+unchanged 1.92 groove it gives 22.98 % nominal on the **catalogue** band, gap
+1.92 +0.080/−0.071, worst-corner fill 89.1 %. But:
+
+- its cure is **not declared**. The seller labels their peroxide line explicitly
+  in the title (`EPDM-Peroxidvernetzt FDA Konform`); this item does not carry
+  that, and its description is a generic EPDM explainer that merely *mentions*
+  the peroxide/sulphur difference and says so itself: *"Diese Information ist
+  allgemeine Information."* Treat it as their standard grade;
+- **install stretch is 0.571 %**, against 3.53 % for a 17.0, because the groove
+  ID is pinned at Ø17.6 by the window and does not follow the ring. What that
+  risks is the ring not staying seated during assembly — the same failure already
+  carried as a live waiver on the cable end's 22 × 2 — not the seal itself;
+- fill 89.1 % is inside the 90 % cap but no longer comfortable.
+
+Useful for practising the assembly and for the seating/handling question. Not for
+a probe that goes in a pile.
+
+### Sorting is back on, and it is a debt against the bench
+
+`face_sorting = "sorted"` — which **reverses Fab's 2026-09-06 call**, *"i dont
+think it makes sense measuring these"*. The argument against measuring did not
+get weaker; the ring changed underneath it. On a 2.0 cord the catalogue ±0.09
+band closes at **no depth on the 0.12 grid**: swept targets 0.30/0.28/0.26/0.24
+all overrun the 30 % ceiling and 0.22 drops under the 15 % floor. There is no
+third option, so "sorted" is not a preference here — it is the only setting under
+which this bed exists.
+
+The warning next to that flag still binds and is now a debt, not a formality:
+declaring "sorted" while nobody micrometers a ring does not tighten anything, it
+only stops the model from saying so. **The 20 rings in lot `157712596230` must be
+micrometered to ±0.01 on the cord and the out-of-band ones set aside.** The
+20-piece lot is what makes that realistic where a handful of documented rings
+would not. If they are not measured, put `face_sorting` back to `"catalogue"` and
+buy `ORS116734` instead — the 2.5 is the ring that works *without* measuring, and
+that is the whole reason it was chosen in the first place.
+
+### The depth is chosen off this printer's measured error, not off a midpoint
+
+`face_squeeze_target = 0.26`. On a 2.0 cord the 0.12 grid offers two depths:
+
+| drawn | nominal | gap tolerance | binding end |
+|---|---|---|---|
+| **1.44** (12 layers) | 26.7 % | **+0.181 / −0.019** | ceiling — compression set, the benign failure |
+| 1.56 (13 layers) | 20.6 % | +0.061 / −0.139 | **floor — leakage, the failure that matters** |
+
+Both printed retainers gauge **1.95 against modelled 1.80/1.88**: this machine
+cuts the bed deep by 0.07–0.15 mm, and a deeper groove is a bigger assembled gap,
+i.e. it errs toward the FLOOR. 1.44 puts 0.181 mm of room on that side; 1.56 puts
+0.061 and the measured print error alone overruns it. **The target that looks
+less centred is the one that survives the error this machine actually makes.**
+
+0.15 mm of print error against 0.181 mm of room is not margin to be casual with:
+**measure the assembled gap.** The bed has not set squeeze by geometry since the
+seat was deleted, so that measurement was already owed.
+
+### Consequences elsewhere
+
+- **The membrane blank shrinks: Ø25.96 → Ø24.688.** A hand-cut square must be at
+  least 24.688 across the flats.
+- Groove is now **Ø17.6/Ø22.688 × 1.44 = exactly 12 layers of 0.12**, worst-corner
+  fill 84.7 %.
+- Retainer sliced 2026-09-08: 11 m 29 s, 2.89 cm³, on the unchanged
+  `process_asa_seal.json`. **No 0.06 mm profile and no nozzle change** — the
+  machine's `min_layer_height` is 0.08 for the 0.4 nozzle, so the 0.06 route
+  explored earlier was never available on this printer.
+- **The 17 × 1 in the drawer is dead for this bed**, at any printable layer
+  height, sorted or not: at 0.12 one layer is 12 of the 15 available squeeze
+  points, and at 0.08 it is still 8. It was sized for the machined PP pocket that
+  `d1c955a` deleted, where a fat cord had nowhere to extrude but across the gas
+  window. That constraint no longer exists.
+
+### Two labels that had gone stale, fixed in the same change
+
+- **`gasket_id` vs `ORS116731`.** The cone bed's ring ID is derived
+  (`window_d + 1.0`); the part number was chosen when `window_d` was 16.0, giving
+  exactly 17.0. `window_d` then went to 15.2, the drawn ring followed it to
+  Ø16.2, and the echo went on naming ORS116731 and its compound test report. The
+  ring is now declared as data (`mem_oring_id`) and the derivation is **asserted**
+  against it, so it fails at the drift instead of reporting it. It fails today, on
+  purpose — that is the calibration.
+- **The Makefile's provenance line** spelled `O-ring 17 x 2.5` as a literal and
+  would have gone on claiming 2.5 forever. It now reads the ring out of the model.
+
+Both are the same defect: a name kept while the value moved.
+
+## The ring: 17.0 × 2.5, chosen from what is in the drawer — SUPERSEDED, see above
 
 Three sizes were on hand — 17 × 2.5, 20 × 2, 14 × 2.5.
 

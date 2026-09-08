@@ -1340,7 +1340,24 @@ assert(mem_clamped || mem_ring_inner_d >= window_d,
 // for exactly that reason -- see face_floor. Declaring "sorted" while nobody
 // micrometers a ring is the one thing that must not happen: it does not tighten
 // the rings, it only stops the model from saying so.
-face_sorting = "catalogue";      // "catalogue" | "sorted" (micrometered on receipt)
+// SORTING IS BACK ON, 2026-09-08, and it REVERSES Fab's 2026-09-06 call above.
+// Not because the argument against measuring got weaker -- it did not -- but
+// because the ring changed underneath it. The 2.5 that made "catalogue" workable
+// is not EPDM (see face_ring_cord), and the peroxide ring ordered in its place is
+// a 2.0. On a 2.0 cord the catalogue +/-0.09 band closes at NO depth on the 0.12
+// grid: swept 0.30/0.28/0.26/0.24 all overrun the 30% ceiling and 0.22 drops
+// under the 15% floor. There is no third option, so "sorted" is not a preference
+// here, it is the only setting under which this bed exists at all.
+//
+// THE WARNING ABOVE STILL BINDS AND IS NOW A DEBT, NOT A FORMALITY: declaring
+// "sorted" while nobody micrometers a ring does not tighten anything, it only
+// stops the model from saying so. This flag is therefore a claim about the
+// BENCH -- that the 20 rings in eBay lot 157712596230 get micrometered to
+// +/-0.01 on the cord and the out-of-band ones set aside. The 20-piece lot is
+// what makes that realistic where a handful of documented rings would not.
+// If those rings are NOT measured, this line is a lie and the bed is unproven:
+// put it back to "catalogue" and go to the ORS116734 2.5 instead.
+face_sorting = "sorted";         // "catalogue" | "sorted" (micrometered on receipt)
 face_cord_tol_eff = (face_sorting == "sorted") ? 0.01 : face_cord_tol;
 // 0.15, and this REVERSES the 2026-09-05 decision above it. The argument for
 // 0.20 was sound and is still on the record: Parker ORD 5700 Design Chart 4-3,
@@ -1601,8 +1618,22 @@ echo(str("CARRIER: ", carrier_material, carrier_is_pp
                "membrane is compression-only, and a styrenic under sustained ",
                "gasket load in NH3 is an environmental-stress-cracking risk")));
 if (!mem_clamped) {
+    // The MPN used to be spelled into this string beside a DERIVED diameter, so
+    // the cone bed claimed a sourced ring and its compound test report while
+    // drawing Ø16.2. Assert the two agree, and say which ring is drawn either
+    // way -- see mem_oring_id in membrane_cartridge_common.scad.
+    assert(mem_ring_is_sourced(window_d),
+           str("the cone bed draws a Ø", gasket_id(window_d), " x ", mem_oring_cs,
+               " ring, but claims ", mem_oring_mpn, ", which is Ø", mem_oring_id,
+               " x 1.0. gasket_id() = window_d + 1.0 follows window_d (now ",
+               window_d, ", was 16.0 when this MPN was chosen), and the part ",
+               "number did not follow it. A ", mem_oring_id, " ring fitted to ",
+               "this groove is ", mem_oring_id - gasket_id(window_d),
+               " mm oversize on ID. Either restore a window this ring fits, or ",
+               "source one at Ø", gasket_id(window_d), " and change the MPN -- ",
+               "do not print a bed that names a ring it does not draw"));
     echo(str("MEMBRANE SEAL: O-ring ", gasket_id(window_d), " x ", mem_oring_cs,
-             " -- o-ring-stocks.eu ORS116731, EPDM 70 Shore A peroxide, material ",
+             " -- o-ring-stocks.eu ", mem_oring_mpn, ", EPDM 70 Shore A peroxide, material ",
              "127019011 (the SAME compound as the carrier ring ORS116787, so one ",
              "test report covers both). Groove Ø", groove_od(window_d), " x ",
              gasket_gap, " deep, bounded inward NOT by a wall but by the flare cone ",

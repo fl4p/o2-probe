@@ -1,257 +1,315 @@
 {
- "bed": {
-  "note": "membrane sealing stack: head, carrier, membrane, and BOTH O-rings",
-  "parts": [
-   {
-    "spec": "o2_probe_head_end.scad:head=head",
-    "color": "#a0522d",
-    "note": "printed ASA head; the carrier's well and the six bosses"
-   },
-   {
-    "spec": "o2_probe_head_end.scad:bed-carrier=carrier",
-    "color": "#d6c36a",
-    "note": "ASA, no weld. Wet face is a FLAT land -- one tapered aperture, 15.2 (window_d) at the face opening to the 18 spigot bore"
-   },
-   {
-    "spec": "o2_probe_head_end.scad:bed-membrane=membrane",
-    "color": "#f2f2f2",
-    "note": "PMV15T disc, 0.18 mm, clamped -- drawn at its cut diameter"
-   },
-   {
-    "spec": "o2_probe_head_end.scad:bed-ring=O-ring (membrane bed)",
-    "color": "#c62828",
-    "note": "17 x 2.5 EPDM, ON HAND and uncatalogued. Drawn at its COMPRESSED section, which is how it sits in service"
-   },
-   {
-    "spec": "o2_probe_head_end.scad:bed-radial-ring=O-ring (carrier->head)",
-    "color": "#e08b3a",
-    "note": "on-hand 22 x 2 EPDM, radial on the spigot. THE seal that keeps compost out of the cavity -- squeeze comes from the FIT, no screw is in its load path"
-   },
-   {
-    "spec": "o2_probe_head_end.scad:bed-retainer=retainer",
-    "color": "#8fa9c9",
-    "note": "carries the bed groove on its UNDERSIDE and prints groove-up"
-   }
-  ]
- },
- "head-end": {
-  "parts": [
-   {
-    "spec": "o2_probe_head_end.scad:head=head",
-    "color": "#a0522d"
-   },
-   {
-    "spec": "o2_probe_head_end.scad:bed-carrier=carrier",
-    "color": "#d6c36a"
-   },
-   {
-    "spec": "o2_probe_head_end.scad:bed-membrane=membrane",
-    "color": "#f2f2f2",
-    "note": "PMV15T disc, 0.18 mm, clamped -- drawn at its cut diameter"
-   },
-   {
-    "spec": "o2_probe_head_end.scad:bed-ring=O-ring (membrane bed)",
-    "color": "#c62828",
-    "note": "17 x 2.5 EPDM, ON HAND and uncatalogued. Drawn at its COMPRESSED section, which is how it sits in service"
-   },
-   {
-    "spec": "o2_probe_head_end.scad:bed-retainer=retainer",
-    "color": "#8fa9c9"
-   },
-   {
-    "spec": "o2_probe_head_end.scad:cavity=connected gas volume",
-    "color": "#4f9d69",
-    "note": "the void the 5.0 cm3 budget is measured on, as a solid"
-   },
-   {
-    "spec": "o2_probe_head_end.scad:bed-radial-ring=O-ring (carrier->head)",
-    "color": "#e08b3a",
-    "note": "on-hand 22 x 2 EPDM, radial on the spigot. THE seal that keeps compost out of the cavity -- squeeze comes from the FIT, no screw is in its load path"
-   },
-   {
-    "spec": "o2_probe_head_end.scad:cap-asm=cap (debris / plowing)",
-    "color": "#6d8b74"
-   },
-   {
-    "spec": "exports/o2-probe-board-tip-30mm.stl",
-    "name": "PCB tip (30 mm)",
-    "color": "#1b5e20",
-    "note": "30 mm from the PCB tip, in head coordinates; KiCad omits 8 component models",
-    "rebuild": [
-     "python3",
-     "tools/board_tip.py",
-     "exports/o2-probe-board-bin.stl",
-     "exports/o2-probe-board-tip-30mm.stl"
+  "bed": {
+    "note": "membrane sealing stack: head, carrier, membrane, and BOTH O-rings",
+    "parts": [
+      {
+        "spec": "o2_probe_head_end.scad:head=head",
+        "color": "#a0522d",
+        "note": "printed ASA head; the carrier's well and the six bosses"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-carrier=carrier",
+        "color": "#d6c36a",
+        "note": "ASA, no weld. Wet face is a FLAT land -- one tapered aperture, 15.2 (window_d) at the face opening to the 18 spigot bore"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-membrane=membrane",
+        "color": "#f2f2f2",
+        "note": "PMV15T disc, 0.18 mm, clamped -- drawn at its cut diameter"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-ring=O-ring (membrane bed)",
+        "color": "#c62828",
+        "note": "17 x 2.5 EPDM, ON HAND and uncatalogued. Drawn at its COMPRESSED section, which is how it sits in service"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-radial-ring=O-ring (carrier->head)",
+        "color": "#e08b3a",
+        "note": "on-hand 22 x 2 EPDM, radial on the spigot. THE seal that keeps compost out of the cavity -- squeeze comes from the FIT, no screw is in its load path"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-retainer=retainer",
+        "color": "#8fa9c9",
+        "note": "carries the bed groove on its UNDERSIDE and prints groove-up"
+      }
+    ]
+  },
+  "head-end": {
+    "parts": [
+      {
+        "spec": "o2_probe_head_end.scad:head=head",
+        "color": "#a0522d"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-carrier=carrier",
+        "color": "#d6c36a"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-membrane=membrane",
+        "color": "#f2f2f2",
+        "note": "PMV15T disc, 0.18 mm, clamped -- drawn at its cut diameter"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-ring=O-ring (membrane bed)",
+        "color": "#c62828",
+        "note": "17 x 2.5 EPDM, ON HAND and uncatalogued. Drawn at its COMPRESSED section, which is how it sits in service"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-retainer=retainer",
+        "color": "#8fa9c9"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:cavity=connected gas volume",
+        "color": "#4f9d69",
+        "note": "the void the 5.0 cm3 budget is measured on, as a solid"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-radial-ring=O-ring (carrier->head)",
+        "color": "#e08b3a",
+        "note": "on-hand 22 x 2 EPDM, radial on the spigot. THE seal that keeps compost out of the cavity -- squeeze comes from the FIT, no screw is in its load path"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:cap-asm=cap (debris / plowing)",
+        "color": "#6d8b74"
+      },
+      {
+        "spec": "exports/o2-probe-board-tip-30mm.stl",
+        "name": "PCB tip (30 mm)",
+        "color": "#1b5e20",
+        "note": "30 mm from the PCB tip, in head coordinates; KiCad omits 8 component models",
+        "rebuild": [
+          "python3",
+          "tools/board_tip.py",
+          "exports/o2-probe-board-bin.stl",
+          "exports/o2-probe-board-tip-30mm.stl"
+        ],
+        "deps": [
+          "o2_probe_head_end.scad",
+          "exports/o2-probe-board-bin.stl"
+        ]
+      }
+    ]
+  },
+  "print": {
+    "note": "what goes on the plate: carrier and retainer, print-oriented",
+    "parts": [
+      {
+        "spec": "o2_probe_head_end.scad:carrier-print=carrier (wet face down)",
+        "color": "#d6c36a"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:retainer-print=retainer (groove up)",
+        "color": "#8fa9c9"
+      }
+    ]
+  },
+  "onhand": {
+    "note": "SUBSTITUTION: the carrier->head ring is the on-hand 20 x 2, not the sourced 24 x 1.5",
+    "parts": [
+      {
+        "spec": "o2_probe_head_end.scad:head=head",
+        "color": "#a0522d",
+        "note": "printed ASA head; the carrier's well and the six bosses"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-carrier=carrier",
+        "color": "#d6c36a",
+        "note": "ASA, no weld. Wet face is a FLAT land -- one tapered aperture, 15.2 (window_d) at the face opening to the 18 spigot bore"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-membrane=membrane",
+        "color": "#f2f2f2",
+        "note": "PMV15T disc, 0.18 mm, clamped -- drawn at its cut diameter"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-ring=O-ring (membrane bed)",
+        "color": "#c62828",
+        "note": "17 x 2.5 EPDM, ON HAND and uncatalogued. Drawn at its COMPRESSED section, which is how it sits in service"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-radial-ring=O-ring 20x2 (ON HAND)",
+        "color": "#e08b3a",
+        "note": "20 x 2, in the drawer, UNCATALOGUED. Spigot shrinks 26.8 -> 23.0 because the ring sizes it; wall under the groove root drops 3.42 -> 0.99 mm. Head stays 40"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-retainer=retainer",
+        "color": "#8fa9c9",
+        "note": "carries the bed groove on its UNDERSIDE and prints groove-up"
+      }
     ],
-    "deps": [
-     "o2_probe_head_end.scad",
-     "exports/o2-probe-board-bin.stl"
-    ]
-   }
-  ]
- },
- "print": {
-  "note": "what goes on the plate: carrier and retainer, print-oriented",
-  "parts": [
-   {
-    "spec": "o2_probe_head_end.scad:carrier-print=carrier (wet face down)",
-    "color": "#d6c36a"
-   },
-   {
-    "spec": "o2_probe_head_end.scad:retainer-print=retainer (groove up)",
-    "color": "#8fa9c9"
-   }
-  ]
- },
- "onhand": {
-  "note": "SUBSTITUTION: the carrier->head ring is the on-hand 20 x 2, not the sourced 24 x 1.5",
-  "parts": [
-   {
-    "spec": "o2_probe_head_end.scad:head=head",
-    "color": "#a0522d",
-    "note": "printed ASA head; the carrier's well and the six bosses"
-   },
-   {
-    "spec": "o2_probe_head_end.scad:bed-carrier=carrier",
-    "color": "#d6c36a",
-    "note": "ASA, no weld. Wet face is a FLAT land -- one tapered aperture, 15.2 (window_d) at the face opening to the 18 spigot bore"
-   },
-   {
-    "spec": "o2_probe_head_end.scad:bed-membrane=membrane",
-    "color": "#f2f2f2",
-    "note": "PMV15T disc, 0.18 mm, clamped -- drawn at its cut diameter"
-   },
-   {
-    "spec": "o2_probe_head_end.scad:bed-ring=O-ring (membrane bed)",
-    "color": "#c62828",
-    "note": "17 x 2.5 EPDM, ON HAND and uncatalogued. Drawn at its COMPRESSED section, which is how it sits in service"
-   },
-   {
-    "spec": "o2_probe_head_end.scad:bed-radial-ring=O-ring 20x2 (ON HAND)",
-    "color": "#e08b3a",
-    "note": "20 x 2, in the drawer, UNCATALOGUED. Spigot shrinks 26.8 -> 23.0 because the ring sizes it; wall under the groove root drops 3.42 -> 0.99 mm. Head stays 40"
-   },
-   {
-    "spec": "o2_probe_head_end.scad:bed-retainer=retainer",
-    "color": "#8fa9c9",
-    "note": "carries the bed groove on its UNDERSIDE and prints groove-up"
-   }
-  ],
-  "flags": [
-   "-D",
-   "radial_ring=\"onhand-20x2\""
-  ]
- },
- "body": {
-  "note": "the body tube and its CABLE-END cap -- not the plowing cap, which is head-end:cap",
-  "parts": [
-   {
-    "spec": "o2_probe_body_tube.scad:tube=tube",
-    "color": "#7f8c8d",
-    "note": "dia 32 x 124 ASA tube; the two bayonet lugs stand at z=5 from the cable end"
-   },
-   {
-    "spec": "o2_probe_body_tube.scad:cap=cap (cable end)",
-    "color": "#c0873a",
-    "note": "M8 gland, the RADIAL cable seal in its groove, and the two bayonet pockets. Goes OVER the tube: cap_engage is the tube's depth INSIDE the cap"
-   },
-   {
-    "spec": "o2_probe_body_tube.scad:dam=dam",
-    "color": "#5b8c5a",
-    "note": "potting dam, two halves"
-   }
-  ]
- },
- "body-print": {
-  "note": "what actually goes on a plate, in print orientation -- one part per plate, always",
-  "parts": [
-   {
-    "spec": "o2_probe_body_tube.scad:cap-print=cap (gland face DOWN)",
-    "color": "#c0873a",
-    "note": "as modelled the closed gland end sits on top, so slicing cap() as-is starts a 3 mm roof in mid-air across the full dia-27.7 seat. THIS is the one that goes on the plate"
-   },
-   {
-    "spec": "o2_probe_head_end.scad:monobody=monobody",
-    "color": "#a0522d",
-    "note": "head and tube as one closed solid, 146.6 mm tall, h/d 4.58. The 2026-09-05 run came off the plate at layer 928 of 1221",
     "flags": [
-     "-D",
-     "joint=\"monolithic\""
+      "-D",
+      "radial_ring=\"onhand-20x2\""
     ]
-   }
-  ]
- },
- "cable-end": {
-  "note": "the CABLE end: tube, bayonet cap and BOTH its O-rings. The radial 22 x 2 on the cap's spigot seals against the tube's \u00d825.5 COLLAR; the gland ring in the outer face seals the gland body to the cap.",
-  "parts": [
-   {
-    "spec": "o2_probe_body_tube.scad:end-tube=tube",
-    "color": "#a0522d",
-    "note": "printed ASA; the cable end now carries a COLLAR -- material added INWARD to \u00d825.5 H7, reamed, 12 mm long, standing 0.85 mm proud of the \u00d827.2 bore with a 45 deg lead above it. It is NOT a counterbore: the old \u00d827.3 had to be larger than the tube bore, which is exactly what forced a 24 ID ring"
-   },
-   {
-    "spec": "o2_probe_body_tube.scad:end-cap=cap (cable end)",
-    "color": "#ff8c00",
-    "note": "bayonet, 2 lugs, M3 lock screw. Spigot reaches into the reamed bore"
-   },
-   {
-    "spec": "o2_probe_body_tube.scad:end-seal-ring=O-ring (radial, cable seal)",
-    "color": "#c62828",
-    "note": "22 x 2 EPDM 70 -- the ring ON HAND. Drawn at its INSTALLED section: 2.15% stretch onto the \u00d822.473 groove root, 23.5% squeeze against the \u00d825.5 collar. Catalogue cord is enough (11.2 of 15 tolerance points); the 24 x 1.5 it replaces needed micrometer-sorted rings"
-   },
-   {
-    "spec": "o2_probe_body_tube.scad:end-gland-ring=O-ring (gland face seal)",
-    "color": "#e08b3a",
-    "note": "in the cap's OUTER face notch, squeezed by the gland flange -- a different seal from the radial one"
-   }
-  ]
- },
- "probe": {
-  "note": "THE WHOLE PROBE, as it assembles. Monobody (head and tube are one printed part) with the membrane stack at the wet end and the bayonet cap at the cable end. Both cable-end O-rings and the membrane bed's two are drawn at their INSTALLED sections, so what you see is how they sit in service, not free.",
-  "parts": [
-   {
-    "spec": "o2_probe_head_end.scad:monobody=monobody (head + tube, ONE part)",
-    "color": "#a0522d",
-    "note": "4 h 07 m, 33.5 cm3 of ASA. The head is unchanged by the collar work -- it reprints only because it is the same part as the tube"
-   },
-   {
-    "spec": "o2_probe_head_end.scad:bed-carrier=carrier",
-    "color": "#d6c36a",
-    "note": "ASA, no weld; the membrane's clamping ring"
-   },
-   {
-    "spec": "o2_probe_head_end.scad:bed-membrane=membrane",
-    "color": "#f2f2f2",
-    "note": "PMV15T disc, 0.18 mm, drawn at its cut diameter"
-   },
-   {
-    "spec": "o2_probe_head_end.scad:bed-ring=O-ring (membrane bed)",
-    "color": "#c62828",
-    "note": "17 x 2.5 EPDM, on hand"
-   },
-   {
-    "spec": "o2_probe_head_end.scad:bed-radial-ring=O-ring (carrier -> head)",
-    "color": "#e53935",
-    "note": "the carrier's radial seal -- the joint the cable seal is modelled on"
-   },
-   {
-    "spec": "o2_probe_head_end.scad:bed-retainer=retainer",
-    "color": "#8d6e63"
-   },
-   {
-    "spec": "o2_probe_body_tube.scad:mono-cap=cap (cable end)",
-    "color": "#ff8c00",
-    "note": "bayonet, twists 57 deg to a positive stop; M3 lock screw is the retention"
-   },
-   {
-    "spec": "o2_probe_body_tube.scad:mono-seal-ring=O-ring 22 x 2 (cable seal, ON HAND)",
-    "color": "#c62828",
-    "note": "2.15% stretch, 23.5% squeeze against the \u00d825.5 collar"
-   },
-   {
-    "spec": "o2_probe_body_tube.scad:mono-gland-ring=O-ring (gland face seal)",
-    "color": "#e08b3a"
-   }
-  ]
- }
+  },
+  "body": {
+    "note": "the body tube and its CABLE-END cap -- not the plowing cap, which is head-end:cap",
+    "parts": [
+      {
+        "spec": "o2_probe_body_tube.scad:tube=tube",
+        "color": "#7f8c8d",
+        "note": "dia 32 x 124 ASA tube; the two bayonet lugs stand at z=5 from the cable end"
+      },
+      {
+        "spec": "o2_probe_body_tube.scad:cap=cap (cable end)",
+        "color": "#c0873a",
+        "note": "M8 gland, the RADIAL cable seal in its groove, and the two bayonet pockets. Goes OVER the tube: cap_engage is the tube's depth INSIDE the cap"
+      },
+      {
+        "spec": "o2_probe_body_tube.scad:dam=dam",
+        "color": "#5b8c5a",
+        "note": "potting dam, two halves"
+      }
+    ]
+  },
+  "body-print": {
+    "note": "what actually goes on a plate, in print orientation -- one part per plate, always",
+    "parts": [
+      {
+        "spec": "o2_probe_body_tube.scad:cap-print=cap (gland face DOWN)",
+        "color": "#c0873a",
+        "note": "as modelled the closed gland end sits on top, so slicing cap() as-is starts a 3 mm roof in mid-air across the full dia-27.7 seat. THIS is the one that goes on the plate"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:monobody=monobody",
+        "color": "#a0522d",
+        "note": "head and tube as one closed solid, 146.6 mm tall, h/d 4.58. The 2026-09-05 run came off the plate at layer 928 of 1221",
+        "flags": [
+          "-D",
+          "joint=\"monolithic\""
+        ]
+      }
+    ]
+  },
+  "cable-end": {
+    "note": "the CABLE end: tube, bayonet cap and BOTH its O-rings. The radial 22 x 2 on the cap's spigot seals against the tube's Ø25.5 COLLAR; the gland ring in the outer face seals the gland body to the cap.",
+    "parts": [
+      {
+        "spec": "o2_probe_body_tube.scad:end-tube=tube",
+        "color": "#a0522d",
+        "note": "printed ASA; the cable end now carries a COLLAR -- material added INWARD to Ø25.5 H7, reamed, 12 mm long, standing 0.85 mm proud of the Ø27.2 bore with a 45 deg lead above it. It is NOT a counterbore: the old Ø27.3 had to be larger than the tube bore, which is exactly what forced a 24 ID ring"
+      },
+      {
+        "spec": "o2_probe_body_tube.scad:end-cap=cap (cable end)",
+        "color": "#ff8c00",
+        "note": "bayonet, 2 lugs, M3 lock screw. Spigot reaches into the reamed bore"
+      },
+      {
+        "spec": "o2_probe_body_tube.scad:end-seal-ring=O-ring (radial, cable seal)",
+        "color": "#c62828",
+        "note": "22 x 2 EPDM 70 -- the ring ON HAND. Drawn at its INSTALLED section: 2.15% stretch onto the Ø22.473 groove root, 23.5% squeeze against the Ø25.5 collar. Catalogue cord is enough (11.2 of 15 tolerance points); the 24 x 1.5 it replaces needed micrometer-sorted rings"
+      },
+      {
+        "spec": "o2_probe_body_tube.scad:end-gland-ring=O-ring (gland face seal)",
+        "color": "#e08b3a",
+        "note": "in the cap's OUTER face notch, squeezed by the gland flange -- a different seal from the radial one"
+      }
+    ]
+  },
+  "probe": {
+    "note": "THE WHOLE PROBE, as it assembles. Monobody (head and tube are one printed part) with the membrane stack at the wet end and the bayonet cap at the cable end. Both cable-end O-rings and the membrane bed's two are drawn at their INSTALLED sections, so what you see is how they sit in service, not free.",
+    "parts": [
+      {
+        "spec": "o2_probe_head_end.scad:monobody=monobody (head + tube, ONE part)",
+        "color": "#a0522d",
+        "note": "4 h 07 m, 33.5 cm3 of ASA. The head is unchanged by the collar work -- it reprints only because it is the same part as the tube"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-carrier=carrier",
+        "color": "#d6c36a",
+        "note": "ASA, no weld; the membrane's clamping ring"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-membrane=membrane",
+        "color": "#f2f2f2",
+        "note": "PMV15T disc, 0.18 mm, drawn at its cut diameter"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-ring=O-ring (membrane bed)",
+        "color": "#c62828",
+        "note": "17 x 2.5 EPDM, on hand"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-radial-ring=O-ring (carrier -> head)",
+        "color": "#e53935",
+        "note": "the carrier's radial seal -- the joint the cable seal is modelled on"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-retainer=retainer",
+        "color": "#8d6e63"
+      },
+      {
+        "spec": "o2_probe_body_tube.scad:mono-cap=cap (cable end)",
+        "color": "#ff8c00",
+        "note": "bayonet, twists 57 deg to a positive stop; M3 lock screw is the retention"
+      },
+      {
+        "spec": "o2_probe_body_tube.scad:mono-seal-ring=O-ring 22 x 2 (cable seal, ON HAND)",
+        "color": "#c62828",
+        "note": "2.15% stretch, 23.5% squeeze against the Ø25.5 collar"
+      },
+      {
+        "spec": "o2_probe_body_tube.scad:mono-gland-ring=O-ring (gland face seal)",
+        "color": "#e08b3a"
+      }
+    ],
+    "flags": [
+      "-D",
+      "joint=\"monolithic\""
+    ]
+  },
+  "probe-new-rings": {
+    "note": "THE WHOLE PROBE on the SOURCED radial ring (ORS116787, 24 x 1.5) instead of the on-hand 22 x 2 -- head OD 38 -> 40, cap 43 -> 45, bolt circle 30.36 -> 31.2, carrier spigot 25.8 -> 26.8. THE OTHER TWO SEALS ARE UNCHANGED AND THAT IS NOT AN OVERSIGHT: the membrane bed keeps 17 x 2.5, because a 17 x 1 asserts out of the 15-30% window even micrometer-sorted (the 0.18 membrane and the 0.12 layer grid eat a thin cord's whole budget); the cable end keeps 22 x 2, because a 24 x 1.5 there needs the Ø27.3 COUNTERBORE that 56407da replaced with the collar, and the model refuses it -- 'mate_bore 27.3 is not a plausible cable-end bore'.",
+    "parts": [
+      {
+        "spec": "o2_probe_head_end.scad:monobody=monobody (head + tube, ONE part)",
+        "color": "#a0522d",
+        "note": "4 h 07 m, 33.5 cm3 of ASA. The head is unchanged by the collar work -- it reprints only because it is the same part as the tube"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-carrier=carrier",
+        "color": "#d6c36a",
+        "note": "ASA, no weld; the membrane's clamping ring"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-membrane=membrane",
+        "color": "#f2f2f2",
+        "note": "PMV15T disc, 0.18 mm, drawn at its cut diameter"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-ring=O-ring (membrane bed)",
+        "color": "#c62828",
+        "note": "17 x 2.5 EPDM, on hand -- the 17 x 1 that arrived does not fit this bed"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-radial-ring=O-ring 24 x 1.5 (ORS116787, SOURCED)",
+        "color": "#e53935",
+        "note": "the sourced ring, on a 24.8404 x 2.1 groove: 3.50% install stretch, 22.98% squeeze, 19.03-26.88% worst case. Needs micrometer-SORTED cords -- on the catalogue band this joint does not close"
+      },
+      {
+        "spec": "o2_probe_head_end.scad:bed-retainer=retainer",
+        "color": "#8d6e63"
+      },
+      {
+        "spec": "o2_probe_body_tube.scad:mono-cap=cap (cable end)",
+        "color": "#ff8c00",
+        "note": "bayonet, twists 57 deg to a positive stop; M3 lock screw is the retention"
+      },
+      {
+        "spec": "o2_probe_body_tube.scad:mono-seal-ring=O-ring 22 x 2 (cable seal, ON HAND)",
+        "color": "#c62828",
+        "note": "22 x 2, ON HAND and uncatalogued -- NOT one of the new rings. 2.15% stretch, 23.5% squeeze against the Ø25.7 collar"
+      },
+      {
+        "spec": "o2_probe_body_tube.scad:mono-gland-ring=O-ring (gland face seal)",
+        "color": "#e08b3a"
+      }
+    ],
+    "flags": [
+      "-D",
+      "joint=\"monolithic\"",
+      "-D",
+      "radial_ring=\"ors116787\""
+    ]
+  }
 }

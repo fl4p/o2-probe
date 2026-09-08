@@ -1031,6 +1031,16 @@ all in stock at €0.15–0.27 — and the small sizes carry **material number
 | item | part | ID × cord | stock | price |
 |---|---|---|---:|---:|
 | **membrane perimeter seal (new)** | **ORS116731** | **17.0 × 1.0** | 1268 | €0.22 |
+
+> **SUPERSEDED 2026-09-08 — this row describes the CONE bed, which is no longer
+> built.** `d1c955a` moved the bed into the printed retainer, where a 1.0 cord
+> cannot hold 15–30 % squeeze at any printable layer height: on the 0.12 grid one
+> layer is 12 of the 15 available squeeze points, and 0.08 is this printer's
+> minimum for a 0.4 nozzle. The bed ring is now **17.0 × 2.0**, ordered as eBay
+> `157712596230` (EPDM-Peroxidvernetzt FDA, cure declared, compound not); the
+> documented equivalents are `ORS116734` (17 × 2.5) and `ORS116732` (17 × 1.5),
+> both material `127019011`. Reasoning and the sorting debt that comes with the
+> 2.0: `cad/PRINTING-HEAD-END.md`, *The ring: 17.0 × 2.0, ordered*.
 | — cord 1.5, *does not fit* (see below) | ORS116732 | 17.0 × 1.5 | 5487 | €0.20 |
 | carrier radial seal (unchanged) | ORS116787 | 24.0 × 1.5 | — | — |
 

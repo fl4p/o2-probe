@@ -230,10 +230,16 @@ head-end-asa: | $(OUT)
 	@# radial ring is a 1 mm difference in spigot diameter and nothing in an STL
 	@# says which ring it expects. print.sh can assert on this file if it wants a
 	@# gate; at minimum a human reading exports/ can see it.
+	@# The bed ring is READ OUT OF THE MODEL, never spelled here. It used to be
+	@# the literal "O-ring 17 x 2.5", and on 2026-09-08 the cord went to 2.0 while
+	@# that line went on claiming 2.5 -- a provenance file stating the wrong ring
+	@# is worse than none, and it is the same defect as the cone bed naming a part
+	@# number it had stopped drawing (see mem_oring_id).
 	@{ echo "asa-carrier-print.stl, asa-retainer-print.stl"; \
 	   echo "built    $$(date '+%Y-%m-%d %H:%M')"; \
 	   echo "radial   $(RING)"; \
-	   echo "bed      clamped, O-ring 17 x 2.5 in the RETAINER underside"; \
+	   $(OPENSCAD) $(ASA) -D 'part="retainer"' -o /dev/null --export-format asciistl \
+	     $(HEAD_END) 2>&1 | sed -n 's/^ECHO: "MEMBRANE BED (\(clamped[^:]*\)): O-ring \([0-9.]* x [0-9.]*\).*/  bed      \1, O-ring \2 in the RETAINER underside/p'; \
 	   echo "carrier  ASA, printed, shrinkage-compensated groove root"; \
 	   echo "rings    micrometer them: oring_sorting=sorted is assumed"; \
 	   $(OPENSCAD) $(ASA) -D 'part="carrier"' -o /dev/null --export-format asciistl \

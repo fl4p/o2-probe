@@ -115,6 +115,31 @@ assert(straight_web <= 0.25,
 // BESIDE the gas path instead of in front of it; it still seals on the land,
 // which runs out to window_d + 2*land.
 function gasket_id(window_d) = window_d + 1.0;
+
+// THE SOURCED RING, as data rather than as prose inside an echo.
+//
+// ORS116731 is a BOUGHT part with a fixed ID. gasket_id() above is a DERIVED
+// diameter that follows window_d. They are two different numbers, nothing tied
+// them together, and they drifted: the part number was chosen when window_d was
+// 16.0, where gasket_id() gives exactly 17.0 and the two agreed. window_d then
+// went to 15.2, the drawn ring followed it to Ø16.2 -- and the echo went on
+// naming ORS116731 and its compound test report. A part number printed beside a
+// diameter nobody sells is worse than no part number at all: it reads as
+// sourced.
+//
+// So the ring is declared here, the derivation is checked against it, and the
+// check FAILS at the drift rather than reporting it. It fails today, on purpose
+// -- that is the calibration, not a regression. Either window_d goes back to a
+// value this ring fits, or the cone bed gets a ring that matches what it draws.
+mem_oring_mpn    = "ORS116731";
+mem_oring_id     = 17.0;    // o-ring-stocks.eu, DIN 3771, EPDM 70 Shore A
+                            // peroxide, material 127019011 -- the SAME compound
+                            // as ORS116787. MEMBRANE.md G14, product page
+                            // inspected 2026-08-26.
+mem_oring_id_tol = 0.21;    // DIN ISO 3601 d1 row, d1 <= 18. The ring's own
+                            // band -- NOT a licence to be 0.8 mm out.
+function mem_ring_is_sourced(window_d) =
+    abs(gasket_id(window_d) - mem_oring_id) <= mem_oring_id_tol;
 // The flare cone's diameter where the membrane's dry face sits, from the hull's
 // own geometry: apex at cart_t (plus its overshoot), base inner_d at the shelf.
 // Cone diameter at height z. The apex sits at cart_t + 2*eps because that is
@@ -430,7 +455,23 @@ module echo_consumables(seat_w, seat_h) {
 // sight.
 
 face_ring_id   = 17.0;      // ON HAND, uncatalogued: measure before trusting
-face_ring_cord = 2.5;
+// 2.0, not 2.5, and the reason is MATERIAL rather than geometry -- Fab,
+// 2026-09-08: the 17 x 2.5 in the drawer "is bad quality and not EPDM". The
+// whole ammonia case (compound 127019011, its compression-set table, and the
+// Kommling ageing data) is for PEROXIDE-CURED EPDM 70, so a ring of unknown
+// rubber is disqualified whatever its tolerance stack does.
+//
+// Ordered instead: eBay 157712596230, "O-Ring 17,0 x 2,0 mm EPDM-Peroxidvernetzt
+// FDA Konform 70 Shore", 20 pieces. Cure DECLARED, compound and lot NOT -- so it
+// carries the right class of rubber and none of the paperwork. It is a bench
+// ring, not a release ring; ORS116734 (17 x 2.5, peroxide, material 127019011,
+// EUR 0.13) is the documented part and is what a released probe should hold.
+//
+// THE FAT CORD ARGUMENT IS UNCHANGED AND STILL FAVOURS 2.5. Cord tolerance is an
+// ABSOLUTE band, so it costs more squeeze points the thinner the cord gets --
+// which is why 2.0 no longer closes on the catalogue band and 2.5 does. That is
+// not a reason to prefer 2.0; it is the price of the material being right.
+face_ring_cord = 2.0;
 // DIN ISO 3601-1 / DIN 3771 tolerance rows, same table as mem_cord_tol above,
 // one band up: 1.8 < d2 <= 2.65.
 face_cord_tol  = 0.09;
@@ -561,7 +602,22 @@ face_disc_ledge = 1.0;      // membrane rim outboard of the groove
 // inside. Anything from 0.21 to 0.24 quantizes to the same 1.92, so this is not
 // a knife-edge choice. 1.92 is also within 0.03 of the 1.95 both printed
 // retainers actually gauge.
-face_squeeze_target = 0.22;
+// 0.26, not 0.22, and this is chosen off the PRINTER's measured error, not off a
+// handbook midpoint. On a 2.0 cord the 0.12 grid offers two depths:
+//
+//   1.44 (12 layers)  26.7% nominal, gap tolerance +0.181/-0.019, binding end
+//                     the CEILING -- compression set, the benign failure
+//   1.56 (13 layers)  20.6% nominal, gap tolerance +0.061/-0.139, binding end
+//                     the FLOOR -- leakage, the failure that matters
+//
+// Both printed retainers gauge 1.95 against modelled 1.80/1.88 (PRINTING-HEAD-
+// END.md): this printer cuts the bed DEEP by 0.07-0.15 mm, and a deeper groove
+// is a bigger assembled gap, i.e. it errs toward the FLOOR. 1.44 puts 0.181 mm
+// of room on that side; 1.56 puts 0.061 and the measured print error alone
+// overruns it. So the target that looks less centred is the one that survives
+// the error this machine actually makes. MEASURE THE ASSEMBLED GAP ANYWAY --
+// 0.15 of print error against 0.181 of room is not margin to be casual with.
+face_squeeze_target = 0.26;
 
 // --- derived ---------------------------------------------------------------
 
