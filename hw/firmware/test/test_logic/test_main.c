@@ -3317,6 +3317,163 @@ static void test_v5_migration_keeps_everything_and_adds_no_zero(void)
     TEST_ASSERT_TRUE(o2p_config_valid(&out));
 }
 
+/* ---- runaway needs SUSTAINED evidence, 2026-09-08 ---- */
+
+static void test_runaway_does_not_latch_on_one_hot_sample(void)
+{
+    /* The detector used to wait 60 s of zero duty and then latch on the FIRST
+     * high-dT sample it saw. That is an arming DELAY, not a sustain
+     * requirement: one noisy tip reading disabled the heater permanently.
+     * Sit cold for well past the window, then present a single hot sample. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;
+    o2p_heater_out_t out;
+    o2p_heater_in_t cold = hin_healthy();
+
+    uint32_t t = 0u;
+    for (; t < 300u; t++) {
+        o2p_heater_ctl_step(&st, &cfg, &cold, t, &out);
+    }
+    TEST_ASSERT_FALSE(st.runaway_latched);
+
+    o2p_heater_in_t hot = cold;
+    hot.t_tip_c100 = (int16_t)(hot.t_die_c100 + O2P_HEATER_RUNAWAY_DIE_K100 + 500);
+    o2p_heater_ctl_step(&st, &cfg, &hot, t++, &out);
+    TEST_ASSERT_FALSE_MESSAGE(st.runaway_latched,
+        "one hot sample must not latch a permanent runaway");
+
+    /* Back to normal - the evidence must be discarded, not banked. */
+    for (unsigned i = 0; i < 10u; i++) {
+        o2p_heater_ctl_step(&st, &cfg, &cold, t++, &out);
+    }
+    TEST_ASSERT_EQUAL_UINT16(0u, st.runaway_evidence_s);
+    TEST_ASSERT_FALSE(st.runaway_latched);
+}
+
+static void test_runaway_latches_on_sustained_uncommanded_heat(void)
+{
+    /* The true positive must still fire, or the sustain requirement has
+     * simply disabled the detector. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;
+    o2p_heater_out_t out;
+    o2p_heater_in_t hot = hin_healthy();
+    hot.t_tip_c100 = (int16_t)(hot.t_die_c100 + O2P_HEATER_RUNAWAY_DIE_K100 + 500);
+
+    for (uint32_t t = 0u; t <= O2P_HEATER_RUNAWAY_WINDOW_S + 2u; t++) {
+        o2p_heater_ctl_step(&st, &cfg, &hot, t, &out);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(st.runaway_latched,
+        "sustained uncommanded heat must still latch");
+}
+
+static void test_runaway_discards_evidence_across_a_blind_gap(void)
+{
+    /* A detector cannot tell sparse sampling of a real event from isolated
+     * glimpses across an interval it was not watching. Beyond the cadence
+     * contract the evidence describes a different situation, so it goes. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;
+    o2p_heater_out_t out;
+    o2p_heater_in_t hot = hin_healthy();
+    hot.t_tip_c100 = (int16_t)(hot.t_die_c100 + O2P_HEATER_RUNAWAY_DIE_K100 + 500);
+
+    uint32_t t = 0u;
+    /* Half a window of real evidence... */
+    for (unsigned i = 0; i < (O2P_HEATER_RUNAWAY_WINDOW_S / 2u); i++) {
+        o2p_heater_ctl_step(&st, &cfg, &hot, t++, &out);
+    }
+    TEST_ASSERT_FALSE(st.runaway_latched);
+    /* ...then a jump far beyond the cadence contract. The next sample is a
+     * glimpse, not a continuation. */
+    t += 10u * O2P_HEATER_RUNAWAY_MAX_GAP_S;
+    o2p_heater_ctl_step(&st, &cfg, &hot, t++, &out);
+    TEST_ASSERT_EQUAL_UINT16(0u, st.runaway_evidence_s);
+    TEST_ASSERT_FALSE_MESSAGE(st.runaway_latched,
+        "evidence from before a blind gap must not be extended across it");
+}
+
+/* ---- tempco bound and the nominal air point, 2026-09-08 ---- */
+
+static void test_tempco_register_refuses_an_absurd_coefficient(void)
+{
+    /* The register was written straight into the config with no check, so an
+     * i16 allowed +/-32767 ppm/K - a gain of 4.3 or of -2.3 across a 100 K
+     * excursion, on every later reading. */
+    o2p_regmap_t r;
+    o2p_regmap_init(&r);
+    o2p_mb_handlers_t h = {.read = o2p_regmap_read, .write = o2p_regmap_write,
+                           .ctx = &r};
+    uint8_t req[32], rsp[O2P_MB_MAX_ADU];
+
+    uint16_t bad = (uint16_t)(int16_t)20000;
+    uint8_t w[] = {0x03, 0x10, 0x00, 0x3A, 0x00, 0x01, 0x02,
+                   (uint8_t)(bad >> 8), (uint8_t)(bad & 0xFF)};
+    size_t n = framed(req, w, sizeof(w));
+    TEST_ASSERT_TRUE(o2p_mb_dispatch(req, n, 3, &h, rsp) > 0);
+    TEST_ASSERT_EQUAL_HEX8(0x90, rsp[1]);
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE, rsp[2]);
+    TEST_ASSERT_EQUAL_INT16(0, r.cfg.tempco_ppm_per_k);
+
+    /* A legal one still lands. */
+    uint16_t ok = (uint16_t)(int16_t)2000;
+    uint8_t w2[] = {0x03, 0x10, 0x00, 0x3A, 0x00, 0x01, 0x02,
+                    (uint8_t)(ok >> 8), (uint8_t)(ok & 0xFF)};
+    n = framed(req, w2, sizeof(w2));
+    TEST_ASSERT_TRUE(o2p_mb_dispatch(req, n, 3, &h, rsp) > 0);
+    TEST_ASSERT_EQUAL_HEX8(0x10, rsp[1]);
+    TEST_ASSERT_EQUAL_INT16(2000, r.cfg.tempco_ppm_per_k);
+}
+
+static void test_a_corrupt_flash_tempco_is_refused_too(void)
+{
+    /* A flash image must not install what a Modbus master would be refused. */
+    o2p_config_t cfg;
+    o2p_config_defaults(&cfg);
+    cfg.tempco_ppm_per_k = (int16_t)-20000;
+    TEST_ASSERT_FALSE(o2p_config_valid(&cfg));
+}
+
+static void test_the_gain_guard_refuses_only_sign_and_nonfinite(void)
+{
+    /* A sign-inverted gain must never reach the division; a legal-but-extreme
+     * one must not be silently rejected, because that would revoke the
+     * TEMP_OVER extrapolation contract. alpha = -5000 ppm/K at the bound, read
+     * 200 K above the calibration point, gives gain = 0 - refused. */
+    float c = 0.0f;
+    o2p_cal_t inverted = zero_test_cal(100000, 0);
+    inverted.cal_temp_c100 = 0;
+    inverted.tempco_per_k = -5000e-6f;
+    TEST_ASSERT_EQUAL_INT(O2P_UNEVALUABLE,
+        o2p_fraction_from_current(&inverted, 50000, 25000, &c));
+
+    /* Well inside, the same coefficient converts normally. */
+    o2p_cal_t fine = zero_test_cal(100000, 0);
+    fine.cal_temp_c100 = 2000;
+    fine.tempco_per_k = -5000e-6f;
+    TEST_ASSERT_EQUAL_INT(O2P_OK,
+        o2p_fraction_from_current(&fine, 50000, 4000, &c));
+}
+
+static void test_the_uncalibrated_nominal_matches_the_tia_headroom(void)
+{
+    /* The nominal is the fallback every uncalibrated probe converts against,
+     * so it has to be the same cell the rest of the tree is sized for. The
+     * TIA headroom figure used throughout is 152 uA at 30 %vol; scaled to the
+     * 20.9 % air point that is ~106 uA, which a 70 uA nominal contradicts. */
+    TEST_ASSERT_EQUAL_INT32(100000, O2P_CAL_AIR_NOMINAL_NA);
+    int32_t from_headroom_na = (int32_t)(152000.0 * 20.9 / 30.0);
+    TEST_ASSERT_INT32_WITHIN(12000, from_headroom_na, O2P_CAL_AIR_NOMINAL_NA);
+    /* And it must sit inside the window the air-point validator accepts. */
+    TEST_ASSERT_TRUE(o2p_cal_air_plausible(O2P_CAL_AIR_NOMINAL_NA));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -3433,5 +3590,12 @@ int main(void)
     RUN_TEST(test_config_refuses_an_implausible_stored_zero);
     RUN_TEST(test_cal_state_reports_an_unfinished_commissioning);
     RUN_TEST(test_v5_migration_keeps_everything_and_adds_no_zero);
+    RUN_TEST(test_runaway_does_not_latch_on_one_hot_sample);
+    RUN_TEST(test_runaway_latches_on_sustained_uncommanded_heat);
+    RUN_TEST(test_runaway_discards_evidence_across_a_blind_gap);
+    RUN_TEST(test_tempco_register_refuses_an_absurd_coefficient);
+    RUN_TEST(test_a_corrupt_flash_tempco_is_refused_too);
+    RUN_TEST(test_the_gain_guard_refuses_only_sign_and_nonfinite);
+    RUN_TEST(test_the_uncalibrated_nominal_matches_the_tia_headroom);
     return UNITY_END();
 }

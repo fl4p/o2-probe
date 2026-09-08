@@ -209,7 +209,23 @@ static o2p_status_t fraction_from_current_at_p(const o2p_cal_t *cal,
      * plausible fraction. */
     float dt = ((float)temp_c100 - (float)cal->cal_temp_c100) * 0.01f;
     float gain = 1.0f + cal->tempco_per_k * dt;
-    if (!(gain > 0.05f) || !(gain < 20.0f)) {
+    /* SIGN AND FINITENESS ONLY. The magnitude of this gain is owned by the
+     * bound on the stored coefficient (O2P_TEMPCO_ABS_MAX_PPM_K, enforced in
+     * o2p_config_valid), not here - and deliberately so.
+     *
+     * A magnitude window here cannot be made correct. Wide enough to admit
+     * every legal configuration - the cell may be calibrated at -40 C and read
+     * at +150 C, which at the bound is a legal gain near 0.05 - it admits
+     * exactly the 20x distortion it was supposed to catch; narrow enough to
+     * catch that, it silently rejects legal configurations and revokes the
+     * TEMP_OVER extrapolation contract. The previous 0.05..20 window was the
+     * first of those, with the added defect that 0.05f in binary32 is
+     * 0.05000000074, so a gain just above the bound compared greater and
+     * returned a wildly amplified current as a plausible reading.
+     *
+     * What IS decidable here is that the signal must not be divided by zero or
+     * have its sign inverted. */
+    if (!isfinite(gain) || !(gain > 0.0f)) {
         return O2P_UNEVALUABLE;
     }
     s /= gain;

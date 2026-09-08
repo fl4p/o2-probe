@@ -232,7 +232,12 @@ typedef struct {
 #define O2P_CAL_FRAC_MIN 0.15f
 #define O2P_CAL_FRAC_MAX 0.25f
 
-/* A plausible air-point window. DS-0637 gives 0.07 +/- 0.03 mA, so 40-100 uA
+/* A plausible air-point window. DS-0637 Issue 2 gives 0.1 mA nominal, so the
+ * population sits near 100 uA (this comment said "0.07 +/- 0.03 mA, so
+ * 40-100 uA" against Issue 1 and disagreed with the constants below as well
+ * as with the rest of the tree; corrected 2026-09-08). Original note kept for
+ * the reasoning: the window is deliberately wider than the population because
+ * a cell ages downward and the TIA has headroom to 152 uA at 30 % O2
  * is the datasheet population; this is deliberately wider because the cell
  * ages downward and the TIA has headroom to 152 uA at 30 % O2. Anything
  * outside it is a wiring, bias or gas fault rather than a calibration.
@@ -270,15 +275,33 @@ static inline bool o2p_cal_zero_plausible(int32_t zero_na)
     return zero_na >= O2P_ZERO_CAL_MIN_NA && zero_na <= O2P_ZERO_CAL_MAX_NA;
 }
 
-/* Datasheet nominal for an uncalibrated cell: 0.07 mA in air (DS-0637). The
- * tolerance on that is +/-0.03 mA, i.e. +/-43 %, which is why using it sets
- * CAL_DEFAULT rather than passing silently. */
-#define O2P_CAL_AIR_NOMINAL_NA 70000
+/* Datasheet nominal for an uncalibrated cell, DS-0637 Issue 2: 0.1 mA in air.
+ * Using it at all sets CAL_DEFAULT, because the population spread is wide.
+ *
+ * This was 70000, from Issue 1's 0.07 mA, while the rest of THIS tree had
+ * already moved to the Issue 2 cell: lmp91000.h and o2.h both size the TIA
+ * headroom from "~152 uA at 30 % O2", which is 106 uA at 20.9 % and cannot be
+ * derived from a 70 uA cell, and O2-HUMIDITY-CORRECTION.md:1193 records the
+ * bench cell at "~100 uA". A stale nominal here is a 43 % scale error on every
+ * uncalibrated probe, in the one path that exists to carry a probe that has
+ * not been calibrated yet. Corrected 2026-09-08. */
+#define O2P_CAL_AIR_NOMINAL_NA 100000
 
 /* Default tempco until a bench characterisation replaces it. SGX publishes no
  * figure for this part; 0 means "no compensation applied", which is honest -
  * an invented coefficient would be worse than none, because it would look
  * like a correction had been made. */
+/* Bound on the stored temperature coefficient. A CORRUPTION AND TYPO SCREEN,
+ * nothing more: SGX publishes no curve for this cell, so no runtime check can
+ * tell a wrong-but-legal alpha from a right one - that is a property of the
+ * bench characterisation the number came from, not of the number. What this
+ * does stop is a garbled Modbus write or a flash bit-flip installing a
+ * coefficient that distorts every later reading. i16 allows +/-32767 ppm/K,
+ * which at a 100 K excursion is a gain of 4.3 or of -2.3; 5000 ppm/K is
+ * already an order of magnitude past any amperometric cell's published
+ * tempco. */
+#define O2P_TEMPCO_ABS_MAX_PPM_K 5000
+
 #define O2P_TEMPCO_DEFAULT 0.0f
 
 /* Dilution efficacy, see o2p_cal_t::dil_alpha. 1.0 is the full gas-law

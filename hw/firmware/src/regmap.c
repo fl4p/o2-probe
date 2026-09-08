@@ -134,6 +134,12 @@ bool o2p_config_valid(const o2p_config_t *cfg)
     if (!o2p_cal_zero_plausible(cfg->cal_zero_na)) {
         return false;
     }
+    /* Also checked here and not only on the Modbus write, so a corrupt flash
+     * image cannot install a coefficient a master would have been refused. */
+    if (cfg->tempco_ppm_per_k > O2P_TEMPCO_ABS_MAX_PPM_K ||
+        cfg->tempco_ppm_per_k < -O2P_TEMPCO_ABS_MAX_PPM_K) {
+        return false;
+    }
     if (cfg->cal_air_na != 0 && !o2p_cal_air_plausible(cfg->cal_air_na)) {
         return false;
     }
@@ -459,7 +465,14 @@ static uint8_t apply_config_word(o2p_config_t *c, uint16_t a, uint16_t v,
         c->cal_air_na = (int32_t)(((uint32_t)c->cal_air_na & 0xFFFF0000u) | v);
         break;
     case O2P_REG_CAL_TEMP_C100:   c->cal_temp_c100 = (int16_t)v; break;
-    case O2P_REG_TEMPCO_PPM_K:    c->tempco_ppm_per_k = (int16_t)v; break;
+    case O2P_REG_TEMPCO_PPM_K: {
+        int16_t t = (int16_t)v;
+        if (t > O2P_TEMPCO_ABS_MAX_PPM_K || t < -O2P_TEMPCO_ABS_MAX_PPM_K) {
+            return O2P_MB_EX_ILLEGAL_VALUE;
+        }
+        c->tempco_ppm_per_k = t;
+        break;
+    }
     case O2P_REG_SHT_PULSE_H:     c->sht_pulse_interval_h = v; break;
     case O2P_REG_ASSUMED_P_HPA:   c->assumed_p_hpa = v; break;
     case O2P_REG_CAL_AIR_FRAC:    c->cal_air_frac_x1000 = v; break;
