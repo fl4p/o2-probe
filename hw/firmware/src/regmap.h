@@ -581,6 +581,14 @@ typedef struct {
      * it only after the response has physically left the wire - changing baud
      * or address mid-reply would strand the master with a half-read frame. */
     volatile bool serial_reconfig_pending;
+    /* True from the moment a serial change is accepted until it has been
+     * proven or reverted (serial_probation.h). Read by the commit gate: what
+     * is written to flash must never be a configuration the master has not
+     * demonstrated it can still reach. */
+    volatile bool serial_probation;
+    /* A commit that arrived while the settings it would capture were still
+     * unproven. Promoted when they are; failed when they are not. */
+    volatile bool commit_after_serial;
     volatile bool commit_pending;
     volatile bool cal_requested;
     /* Set when ONE FC16 asked for both a calibration and a commit, or when a
@@ -624,6 +632,18 @@ void o2p_regmap_init(o2p_regmap_t *rm);
  * that is still PENDING. */
 void o2p_regmap_set_cal_result(o2p_regmap_t *rm, uint8_t status);
 void o2p_regmap_set_commit_result(o2p_regmap_t *rm, uint8_t status);
+
+/* Ask for the live config to be written to flash.
+ *
+ * THE ONLY WAY commit_pending IS EVER RAISED. A commit taken while a serial
+ * change is still on probation would persist settings that have not been shown
+ * to work: the probation timer would then put the RAM config back and leave
+ * flash holding the unreachable ones, so the probe would come up on them at
+ * its very next reset - turning a self-healing mistake into a permanent one.
+ * That is the exact failure the probation exists to prevent, arriving through
+ * the back door. So the request waits instead, and main.c promotes or fails it
+ * with the probation's outcome. */
+void o2p_regmap_request_commit(o2p_regmap_t *rm);
 
 /* Sampler side: get the buffer to fill, then publish it. */
 o2p_snapshot_t *o2p_regmap_staging(o2p_regmap_t *rm);

@@ -15,7 +15,7 @@ PlatformIO + STM32Cube (HAL headers, direct CMSIS register code).
 edit it by hand.
 
 ```sh
-pio test -e native      # portable logic, 77 cases
+pio test -e native      # portable logic, 218 cases
 pio run  -e o2probe     # cross build: the application, linked at 0x08004000
 pio run  -e loader      # cross build: the RS-485 bootloader, at 0x08000000
 pio run  -e loader  -t upload    # flash the bootloader FIRST, once
@@ -24,8 +24,10 @@ pio run  -e bridge              # a spare board as the RS-485 adapter
 python3 tools/gen_hw_contract.py            # regenerate after a schematic change
 python3 tools/gen_hw_contract.py --check    # what the build runs
 python3 tools/check_flash_map.py            # linker scripts vs src/flash_map.h
-python3 tools/check_update_tool.py          # field tool vs src/update.h
+python3 tools/check_update_tool.py          # field tool vs update.h + regmap.h
 python3 tools/test_swd_link.py              # the bridge's SWD transport, host-side
+python3 tools/test_resume.py                # the updater's resume decision, host-side
+python3 tools/test_baud.py                  # the updater's baud fallback, host-side
 python3 tools/o2p_update.py --port /dev/tty.usbserial-X --status
 python3 tools/o2p_update.py --swd --status  # ... or through a bridge over SWD
 python3 tools/o2p_capture.py --once         # one live snapshot over SWD, to stdout
@@ -284,6 +286,51 @@ A refused frame never ends the transfer — only a flash error or a failed
 verification does.
 
 `tools/o2p_update.py` performs all of it over a serial port.
+
+### Raising the baud for a transfer
+
+The cable is 9600 8E1 because the SMT100s on it are, and 9600 is what makes a
+30 KiB image take about four minutes. `BAUD_CODE` `0x0031` is a writable
+register, so `tools/o2p_update.py` moves the probe to **38400** for the
+duration of a push and puts it back afterwards — the same image in about a
+minute. `--no-speedup` turns it off.
+
+Three properties make that defensible, and all three are load-bearing:
+
+1. **It is never committed.** The new rate lives in the RAM config only. Every
+   way the tool can lose control — a crash, a killed terminal, a pulled lead —
+   is ended by the probe's next reset, which reloads the flash config and puts
+   it back on the bus rate. `--boot` resets, so the bootloader and the newly
+   installed application both come up at the stored rate no matter what the
+   tool did.
+2. **The switch is deferred at both ends.** The probe applies a serial change
+   only once its reply is off the wire (`src/main.c`, the deferred-work block,
+   via `serial_reconfig_pending`), so the acknowledgement is the last frame at
+   the old rate. The tool waits, retimes, and only then speaks.
+3. **It is confirmed by content, not by silence.** The tool reads `BAUD_CODE`
+   back five times at the new rate and requires the value it asked for. One
+   lucky frame is not evidence for a four-minute transfer, and a link that
+   merely *seems* alive would spend the time twice.
+
+It declines outright, and says which of these it hit, when a bench bridge is in
+the path (`O2P_BRIDGE_BUS_BAUD` is compiled in, so the bridge cannot follow the
+probe anywhere), over `--swd` for the same reason, when the probe will not
+report a baud code this tool has a rate for, and when it is already at the
+fastest code. Declining costs four minutes; guessing costs a probe.
+
+**The case the tool cannot recover from on its own** is a cable that carries
+9600 and not 38400. The probe accepts the write, and then neither the
+retraction nor anything else reaches it, because it cannot hear the rate it is
+being spoken to at. No amount of retrying at this end helps; the tool detects
+it, puts its own line back on 9600 and says so. That is why the probe closes it
+from the other side — see *Reachability is on probation*. Against a probe older
+than 2026-09-08 the remedy is still a reset, which is safe precisely because
+the write was never committed.
+
+`tools/test_baud.py` exercises the fallback on the host, against a fake line
+that drops frames whose rate does not match the probe's and applies a baud
+change only after the reply — including the unrecoverable case above, which it
+asserts ends the way described rather than the way one would prefer.
 
 ### The bootloader
 
@@ -568,6 +615,54 @@ The SWD mailbox adds three guards of its own, on the same terms:
 
 9600 8E1, matching the Truebner SMT100s already on this cable
 (`tech/RS485-LS-SMT100.md:277`). Default slave address **3** — 1 and 2 are the two SMT100s.
+
+### Reachability is on probation
+
+`SLAVE_ADDR`, `BAUD_CODE` and `PARITY_CODE` are not like the rest of the config
+block. Every other register is wrong-answer-shaped when it is set wrong: a bad
+RH setpoint makes a bad heater, and you can see it and fix it. These three are
+different in kind — set one to something the master cannot follow and **the
+master cannot follow**, so there is no channel left to notice the mistake
+through, let alone undo it. On a potted probe at the end of a lead with no way
+to cut its supply, that is a dig.
+
+So a change to any of the three is applied **on probation** (`src/serial_probation.h`):
+
+- The new settings go live immediately — that is what was asked for.
+- If no valid frame arrives at them within **10 s**, the transport is put back.
+- Proof is exactly one well-formed frame addressed to the probe's **own unicast
+  address**. Not a broadcast, which every device on the cable hears and which
+  therefore proves nothing about this one; not the 253 alias, which is answered
+  at any address and so would "confirm" a `SLAVE_ADDR` change nobody can reach.
+- It reverts to the settings **in flash**, not to the ones the config held a
+  moment earlier. A master that raises the baud for a transfer and then puts it
+  back performs *two* changes, and under a previous-value rule the second one's
+  fallback would be the first one's new value — reverting *away* from the
+  master. The stored settings are also where a reset lands, so the timer and
+  the reset agree on one recovery state instead of racing between two.
+- Only the three fields revert. Anything else the same frame set was accepted
+  on its own terms; one mistyped baud code must not silently discard a batch of
+  deliberate settings.
+
+A timer rather than "provisional until `COMMIT`", because the commit would have
+to arrive over the very link whose viability is in question — a master that
+*cannot* reach the probe could never retract either. The timer is the only
+mechanism here that does not depend on the link working.
+
+**`COMMIT` is gated on it.** A commit taken while a serial change is unproven
+would put the unreachable settings in flash; the timer would then restore the
+RAM config and leave the probe answering at the old rate while flash held the
+new — so its very next reset would strand it permanently. `BAUD_CODE` and
+`COMMIT` in one frame therefore returns `CMD_RESULT` = `PENDING`, and becomes
+`OK` when the new settings are proven or `FAILED` when they are not. Whoever
+reads that result is by construction talking to the probe at the settings that
+work, so the `FAILED` is reachable. The two-frame procedure needs nothing
+special: the `COMMIT` frame arrives at the new settings and *is* the proof.
+
+There is no register and no fault bit for a revert — the fault word has no
+spare bits and adding a diagnostic register would move the block the ChirpStack
+decoder parses. It is observable as `CONFIG_CRC` `0x003F` changing, and as the
+probe answering at the old settings.
 
 Address **253** is answered as a discovery alias, the same convention the
 SMT100 uses — but **reads only**. The SMT100 procedure re-addresses through 253
@@ -1575,6 +1670,11 @@ Done, in `~/dev/ha/farming/tech`:
   bus, not a third soil probe.
 - ~~Copy this register map into `../DESIGN.md`~~ — done, under "Modbus register
   map".
+- ~~`BAUD_CODE` has no revert-on-silence~~ — built, `src/serial_probation.h`.
+  A `SLAVE_ADDR`/`BAUD_CODE`/`PARITY_CODE` change now applies on probation and
+  reverts to the STORED settings after ten seconds without a valid frame at the
+  new ones. It also makes a mistyped slave address recoverable, which it was
+  not.
 
 Still open:
 

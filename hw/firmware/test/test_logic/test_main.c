@@ -19,6 +19,7 @@
 #include "psychro.h"
 #include "regmap.h"
 #include "sampler_logic.h"
+#include "serial_probation.h"
 #include "config_select.h"
 #include "modbus_rtu.h"
 #include "tmp117.h"
@@ -278,6 +279,154 @@ static void test_commit_and_cal_need_their_magic(void)
     const uint8_t good[] = {0x03, 0x06, 0x00, 0x3E, 0x5A, 0xC1};
     n = framed(req, good, sizeof(good));
     o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_TRUE(rm.commit_pending);
+}
+
+/* ------------------------------------------- serial settings on probation */
+
+/* Write BAUD_CODE = 38400 with a single FC06. */
+static void write_baud_38400(void)
+{
+    uint8_t req[16], rsp[O2P_MB_MAX_ADU];
+    const uint8_t body[] = {0x03, 0x06, 0x00, 0x31, 0x00, 0x02};
+    size_t n = framed(req, body, sizeof(body));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+}
+
+static void test_a_serial_change_arms_probation_and_keeps_the_old_settings(void)
+{
+    write_baud_38400();
+    TEST_ASSERT_EQUAL_UINT8(O2P_BAUD_38400, rm.cfg.baud_code);
+    TEST_ASSERT_TRUE(rm.serial_reconfig_pending);
+    /* Raised by the WRITE, not by the transport switch a main loop later, so
+     * that a COMMIT in the very same frame is already gated by it. */
+    TEST_ASSERT_TRUE(rm.serial_probation);
+    /* Where it goes back TO is not this file's business: main.c arms the
+     * timer with the triplet that is in FLASH, not with the one the config
+     * held a moment ago. See o2p_sp_arm's caller and the comment on
+     * g_stored_addr - a previous-value rule sends a failed restore back to
+     * the rate the master had just left. */
+}
+
+static void test_probation_confirms_on_one_frame_and_decides_once(void)
+{
+    o2p_serial_probation_t p = {0};
+    o2p_sp_arm(&p, 1000u, 7u, 3u, O2P_BAUD_9600, O2P_PARITY_EVEN);
+    TEST_ASSERT_EQUAL_INT(O2P_SP_WAIT, o2p_sp_service(&p, 1100u, 7u));
+    /* One frame at the new settings is the whole proof. */
+    TEST_ASSERT_EQUAL_INT(O2P_SP_CONFIRMED, o2p_sp_service(&p, 1200u, 8u));
+    /* And it is reported once: a caller may act on the edge without tracking
+     * it, and a second CONFIRMED would re-run a commit that already ran. */
+    TEST_ASSERT_EQUAL_INT(O2P_SP_WAIT, o2p_sp_service(&p, 1300u, 9u));
+}
+
+static void test_probation_reverts_when_no_frame_arrives(void)
+{
+    o2p_serial_probation_t p = {0};
+    o2p_sp_arm(&p, 1000u, 7u, 3u, O2P_BAUD_9600, O2P_PARITY_EVEN);
+    /* One millisecond short is still waiting: the boundary is the whole
+     * mechanism, and a guard that fires early would revert a link that was
+     * about to answer. */
+    TEST_ASSERT_EQUAL_INT(O2P_SP_WAIT,
+                          o2p_sp_service(&p, 1000u + O2P_SERIAL_PROBATION_MS - 1u, 7u));
+    TEST_ASSERT_EQUAL_INT(O2P_SP_REVERT,
+                          o2p_sp_service(&p, 1000u + O2P_SERIAL_PROBATION_MS, 7u));
+    TEST_ASSERT_EQUAL_UINT8(O2P_BAUD_9600, p.prev_baud_code);
+    TEST_ASSERT_EQUAL_INT(O2P_SP_WAIT, o2p_sp_service(&p, 99999u, 7u));
+}
+
+static void test_probation_survives_a_millisecond_wrap(void)
+{
+    /* Armed 100 ms before the counter wraps. A signed or naive comparison
+     * makes the deadline unreachable here and the probe never comes back. */
+    o2p_serial_probation_t p = {0};
+    uint32_t t0 = 0xFFFFFF9Bu;                     /* 100 ms left */
+    o2p_sp_arm(&p, t0, 7u, 3u, O2P_BAUD_9600, O2P_PARITY_EVEN);
+    TEST_ASSERT_EQUAL_INT(O2P_SP_WAIT, o2p_sp_service(&p, 50u, 7u));
+    TEST_ASSERT_EQUAL_INT(O2P_SP_REVERT,
+                          o2p_sp_service(&p, (uint32_t)(t0 + O2P_SERIAL_PROBATION_MS), 7u));
+}
+
+static void test_probation_survives_a_frame_counter_wrap(void)
+{
+    /* The counter is compared for INEQUALITY. Armed at 0xFFFFFFFF, the next
+     * frame takes it to 0 - which is "less than" the mark, and a magnitude
+     * comparison would read the arrival as silence and revert a link that is
+     * demonstrably working. */
+    o2p_serial_probation_t p = {0};
+    o2p_sp_arm(&p, 1000u, 0xFFFFFFFFu, 3u, O2P_BAUD_9600, O2P_PARITY_EVEN);
+    TEST_ASSERT_EQUAL_INT(O2P_SP_CONFIRMED, o2p_sp_service(&p, 1100u, 0u));
+}
+
+static void test_a_second_change_keeps_the_first_fallback(void)
+{
+    /* Belt to main.c's braces. main.c always arms with the FLASH triplet, so
+     * two arms in a row supply the same values anyway - but the rule is kept
+     * here so that a future caller passing something else cannot make the
+     * second of two bad writes the fallback for the first. An unproven
+     * setting is not a fallback, it is a second guess. */
+    o2p_serial_probation_t p = {0};
+    o2p_sp_arm(&p, 1000u, 7u, 3u, O2P_BAUD_9600, O2P_PARITY_EVEN);
+    o2p_sp_arm(&p, 3000u, 7u, 9u, O2P_BAUD_38400, O2P_PARITY_NONE);
+    TEST_ASSERT_EQUAL_UINT8(3u, p.prev_slave_addr);
+    TEST_ASSERT_EQUAL_UINT8(O2P_BAUD_9600, p.prev_baud_code);
+    TEST_ASSERT_EQUAL_UINT8(O2P_PARITY_EVEN, p.prev_parity_code);
+    /* The deadline and the mark DO move: what is being judged is the newest
+     * setting, and the second write restarts its clock. */
+    TEST_ASSERT_EQUAL_INT(O2P_SP_WAIT,
+                          o2p_sp_service(&p, 1000u + O2P_SERIAL_PROBATION_MS, 7u));
+    TEST_ASSERT_EQUAL_INT(O2P_SP_REVERT,
+                          o2p_sp_service(&p, 3000u + O2P_SERIAL_PROBATION_MS, 7u));
+}
+
+static void test_a_commit_riding_a_serial_change_waits_for_it(void)
+{
+    /* BAUD_CODE = 38400 and COMMIT in ONE FC16. Committing straight away
+     * would put the new baud in flash; the probation would then restore the
+     * RAM config and leave the probe answering at 9600 while flash said
+     * 38400 - so its very next reset would strand it at settings nobody could
+     * reach. A self-healing mistake made permanent through the back door. */
+    /* Built from the config the probe is actually holding, so the frame
+     * differs from a no-op in exactly two registers and cannot fail
+     * validation for an unrelated reason. 0x31 and 0x3E are not adjacent, so
+     * "both in one frame" necessarily means the whole span between them. */
+    uint16_t vals[14];
+    TEST_ASSERT_EQUAL_UINT8(0, o2p_regmap_read(&rm, 0x0031, 14, vals));
+    vals[0] = O2P_BAUD_38400;                       /* 0x31 BAUD_CODE */
+    vals[13] = O2P_COMMIT_MAGIC;                    /* 0x3E COMMIT */
+    TEST_ASSERT_EQUAL_UINT8(0, o2p_regmap_write(&rm, 0x0031, 14, vals));
+    TEST_ASSERT_EQUAL_UINT8(O2P_BAUD_38400, rm.cfg.baud_code);
+    TEST_ASSERT_TRUE(rm.serial_probation);
+    TEST_ASSERT_TRUE(rm.commit_after_serial);
+    TEST_ASSERT_FALSE(rm.commit_pending);
+    TEST_ASSERT_EQUAL_UINT8(O2P_CMD_PENDING, O2P_CMD_RESULT_COMMIT(rm.cmd_result));
+}
+
+static void test_a_commit_with_no_serial_change_is_not_delayed(void)
+{
+    /* The gate must not become a tax on every commit. Nothing about a
+     * calibration or an RH setpoint needs the link re-proven. */
+    uint8_t req[16], rsp[O2P_MB_MAX_ADU];
+    const uint8_t body[] = {0x03, 0x06, 0x00, 0x3E, 0x5A, 0xC1};
+    size_t n = framed(req, body, sizeof(body));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_FALSE(rm.serial_probation);
+    TEST_ASSERT_FALSE(rm.commit_after_serial);
+    TEST_ASSERT_TRUE(rm.commit_pending);
+}
+
+static void test_the_commit_gate_is_the_only_way_in(void)
+{
+    /* request_commit() is what main.c's calibration path calls too, so the
+     * gate cannot be walked around by asking from somewhere else. */
+    rm.serial_probation = true;
+    o2p_regmap_request_commit(&rm);
+    TEST_ASSERT_FALSE(rm.commit_pending);
+    TEST_ASSERT_TRUE(rm.commit_after_serial);
+
+    rm.serial_probation = false;
+    rm.commit_after_serial = false;
+    o2p_regmap_request_commit(&rm);
     TEST_ASSERT_TRUE(rm.commit_pending);
 }
 
@@ -4840,5 +4989,14 @@ int main(void)
     RUN_TEST(test_the_newer_config_record_wins);
     RUN_TEST(test_the_config_choice_survives_a_sequence_wrap);
     RUN_TEST(test_a_store_never_overwrites_the_live_record);
+    RUN_TEST(test_a_serial_change_arms_probation_and_keeps_the_old_settings);
+    RUN_TEST(test_probation_confirms_on_one_frame_and_decides_once);
+    RUN_TEST(test_probation_reverts_when_no_frame_arrives);
+    RUN_TEST(test_probation_survives_a_millisecond_wrap);
+    RUN_TEST(test_probation_survives_a_frame_counter_wrap);
+    RUN_TEST(test_a_second_change_keeps_the_first_fallback);
+    RUN_TEST(test_a_commit_riding_a_serial_change_waits_for_it);
+    RUN_TEST(test_a_commit_with_no_serial_change_is_not_delayed);
+    RUN_TEST(test_the_commit_gate_is_the_only_way_in);
     return UNITY_END();
 }

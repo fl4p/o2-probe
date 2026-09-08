@@ -40,6 +40,7 @@
 #include "psychro.h"
 #include "regmap.h"
 #include "sampler_logic.h"
+#include "serial_probation.h"
 #include "sht4x.h"
 #include "tmp117.h"
 #include "update.h"
@@ -91,6 +92,78 @@ static o2p_heater_state_t g_heat;
 static o2p_regmap_t g_rm;
 static o2p_cal_t g_cal;
 static o2p_update_t g_upd;
+
+/* Reachability probation for SLAVE_ADDR/BAUD_CODE/PARITY_CODE. Zeroed at
+ * startup like every other BSS global, which is `armed = false` - a probe that
+ * boots from its stored config has nothing to prove. */
+static o2p_serial_probation_t g_serial_probation;
+
+/* The reachability triplet as it stands IN FLASH, refreshed at boot and after
+ * every successful commit.
+ *
+ * This, and not "whatever the config held a moment ago", is what a probation
+ * falls back to. The difference is not academic. A master that raises the baud
+ * for a transfer and then puts it back performs TWO serial changes, and under
+ * a previous-value rule the second one's fallback is the FIRST one's new
+ * value - so a lost frame during the restore would revert the probe to the
+ * fast rate the master had just finished leaving, i.e. away from the master
+ * rather than towards it. The stored settings have no such direction: they
+ * are where a reset lands too, so the timer and the reset agree on one
+ * recovery state instead of racing between two. */
+static uint8_t g_stored_addr, g_stored_baud, g_stored_parity;
+
+static void remember_stored_serial(void)
+{
+    g_stored_addr = g_rm.cfg.slave_addr;
+    g_stored_baud = g_rm.cfg.baud_code;
+    g_stored_parity = g_rm.cfg.parity_code;
+}
+
+/* Decide a probation that is running, and act on the decision.
+ *
+ * Called from the deferred-work block and not from the top of the loop,
+ * because a REVERT reconfigures the USART and that may only happen with the
+ * transmitter idle - the same constraint the change itself was subject to.
+ * Being late costs nothing here: the deadline is ten seconds and the block
+ * runs many times a second.
+ */
+static void serial_probation_service(void)
+{
+    o2p_sp_outcome_t out = o2p_sp_service(&g_serial_probation, o2p_millis(),
+                                          o2p_modbus_frames_ok());
+    if (out == O2P_SP_WAIT) {
+        return;
+    }
+
+    g_rm.serial_probation = false;
+
+    if (out == O2P_SP_REVERT) {
+        /* Only the three reachability fields go back. Anything else the same
+         * frame set is a measurement or a control parameter, and it was
+         * accepted on its own terms - the master's inability to reach the new
+         * ADDRESS says nothing about whether it meant the new RH setpoint.
+         * Reverting those too would make one mistyped baud code silently
+         * discard a batch of deliberate settings. */
+        g_rm.cfg.slave_addr = g_serial_probation.prev_slave_addr;
+        g_rm.cfg.baud_code = g_serial_probation.prev_baud_code;
+        g_rm.cfg.parity_code = g_serial_probation.prev_parity_code;
+        o2p_modbus_reconfigure(&g_rm.cfg);
+    }
+
+    if (g_rm.commit_after_serial) {
+        g_rm.commit_after_serial = false;
+        if (out == O2P_SP_CONFIRMED) {
+            g_rm.commit_pending = true;
+        } else {
+            /* The master asked for settings it then could not reach to be
+             * made permanent. Refusing is the whole point; saying so is what
+             * keeps it from looking like a flash failure. Whoever reads
+             * CMD_RESULT next is by construction talking to the probe at the
+             * OLD settings, so the FAILED is reachable. */
+            o2p_regmap_set_commit_result(&g_rm, O2P_CMD_FAILED);
+        }
+    }
+}
 
 static uint32_t g_settle_deadline_s;
 static uint32_t g_uptime_s;
@@ -700,7 +773,10 @@ static void finish_o2(o2p_snapshot_t *s)
          * the live config to be persisted, and that is what it gets. */
         if (g_rm.commit_after_cal) {
             g_rm.commit_after_cal = false;
-            g_rm.commit_pending = true;
+            /* Through the gate, not straight to commit_pending: a frame that
+             * asked for a calibration, a serial change and a commit at once
+             * has TWO things to wait for, and this is only one of them. */
+            o2p_regmap_request_commit(&g_rm);
         }
         /* A refused calibration leaves the old constants in place. An air
          * point taken with the SHT45 down is refused here, not stored with an
@@ -993,6 +1069,7 @@ int main(void)
 
     }
     (void)o2p_config_load(&g_rm.cfg);   /* defaults on absence or corruption */
+    remember_stored_serial();
     load_cal_from_config();
 
     /* The updater, before the bus is served: a master that polls the update
@@ -1054,17 +1131,36 @@ int main(void)
         if (!o2p_modbus_tx_busy()) {
             if (g_rm.serial_reconfig_pending) {
                 g_rm.serial_reconfig_pending = false;
+                /* Armed BEFORE the switch. The frame mark has to be taken
+                 * while the old settings are still live, or a frame that
+                 * arrived in the gap would be counted as proof of settings it
+                 * was never sent at. */
+                o2p_sp_arm(&g_serial_probation, o2p_millis(),
+                           o2p_modbus_frames_ok(), g_stored_addr,
+                           g_stored_baud, g_stored_parity);
                 o2p_modbus_reconfigure(&g_rm.cfg);
             }
+            /* Before the commit, so a confirmation reached on this pass can
+             * release a commit that was waiting for it without costing
+             * another lap. */
+            serial_probation_service();
             if (g_rm.commit_pending) {
                 g_rm.commit_pending = false;
                 /* The return value used to be discarded, so a failed erase or
                  * program - a worn page, a brownout mid-write - left the
                  * master believing the configuration was persisted while the
                  * probe still ran from RAM. */
+                bool stored = o2p_config_store(&g_rm.cfg);
                 o2p_regmap_set_commit_result(
-                    &g_rm, o2p_config_store(&g_rm.cfg) ? O2P_CMD_OK
-                                                       : O2P_CMD_FAILED);
+                    &g_rm, stored ? O2P_CMD_OK : O2P_CMD_FAILED);
+                if (stored) {
+                    /* Flash and the fallback move together, or the next
+                     * probation would restore settings that are no longer the
+                     * ones a reset would produce. A FAILED store deliberately
+                     * leaves the old fallback in place: nothing reached
+                     * flash, so nothing about a reset changed either. */
+                    remember_stored_serial();
+                }
                 load_cal_from_config();
             }
 

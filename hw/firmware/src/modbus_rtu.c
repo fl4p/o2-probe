@@ -31,6 +31,14 @@ static volatile uint16_t s_tx_pos;
 static volatile bool s_tx_active;
 static volatile uint32_t s_tx_start_ms;
 
+/* Valid frames served at THIS probe's own unicast address, since boot. The
+ * serial-probation timer in main.c watches it for movement: a frame that
+ * reached us after a SLAVE_ADDR/BAUD_CODE/PARITY_CODE change is the proof that
+ * the master can still follow. Broadcasts and the 253 discovery alias are
+ * excluded on purpose - see serial_probation.h. Free to wrap; the comparison
+ * there is an inequality. */
+static volatile uint32_t s_frames_ok;
+
 static volatile uint16_t s_crc_errors;
 static volatile uint16_t s_frame_errors;
 /* When the completed frame was framed, for the response deadline below. */
@@ -208,6 +216,7 @@ bool o2p_modbus_tx_busy(void)
     return s_tx_active;
 }
 
+uint32_t o2p_modbus_frames_ok(void) { return s_frames_ok; }
 uint16_t o2p_modbus_crc_errors(void) { return s_crc_errors; }
 uint16_t o2p_modbus_frame_errors(void) { return s_frame_errors; }
 bool o2p_modbus_bus_jam_suspected(void) { return s_jam_suspected; }
@@ -381,6 +390,13 @@ bool o2p_modbus_poll(o2p_regmap_t *rm)
             }
         }
     } else {
+        /* Counted BEFORE dispatch, and regardless of what the handler makes
+         * of it. The question this answers is "did a frame of ours arrive
+         * intact at these settings", which an exception 02 for an undefined
+         * register settles just as well as a successful read. */
+        if (s_rx[0] == s_own_addr) {
+            s_frames_ok++;
+        }
         o2p_mb_handlers_t h = {o2p_regmap_read, o2p_regmap_write, rm};
         uint8_t rsp[O2P_MB_MAX_ADU];
         size_t n = o2p_mb_dispatch(s_rx, len, s_own_addr, &h, rsp);

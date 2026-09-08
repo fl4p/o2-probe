@@ -174,6 +174,79 @@ def bridge_problems(tool):
     return out
 
 
+def config_problems(tool):
+    """The tool's baud-negotiation constants against src/regmap.h.
+
+    The updater raises the probe's baud for the duration of a transfer, which
+    means it writes a CONFIG register - the one block outside src/update.h it
+    touches at all. A drifted address there is worse than a drifted update
+    register: 0x0031 is BAUD_CODE, and the registers either side of it are the
+    slave address and the parity, so an off-by-one would silently re-address
+    the probe or take it to 8N1 instead of speeding it up. Either one leaves a
+    potted probe unreachable at the settings the tool then falls back to.
+    """
+    src = open(os.path.join(FW, "src", "regmap.h"), encoding="utf-8").read()
+    out = []
+
+    for tool_name, hdr_name in (("R_SLAVE_ADDR", "O2P_REG_SLAVE_ADDR"),
+                                ("R_BAUD_CODE", "O2P_REG_BAUD_CODE"),
+                                ("R_PARITY_CODE", "O2P_REG_PARITY_CODE")):
+        h = re.search(r"%s\s*=\s*(0x[0-9A-Fa-f]+)u" % hdr_name, src)
+        t = re.search(r"^%s = (0x[0-9A-Fa-f]+)$" % tool_name, tool, re.M)
+        if not h:
+            out.append("src/regmap.h no longer defines %s" % hdr_name)
+        elif not t:
+            out.append("tools/o2p_update.py no longer defines %s" % tool_name)
+        elif int(h.group(1), 0) != int(t.group(1), 0):
+            out.append("tools/o2p_update.py %s = 0x%04X, src/regmap.h %s = "
+                       "0x%04X" % (tool_name, int(t.group(1), 0), hdr_name,
+                                   int(h.group(1), 0)))
+
+    # code -> rate, both sides. The tool picks max(BAUD_CODES) as "the
+    # fastest", so a code the header has and the tool does not is not cosmetic
+    # - it is a speed-up the tool silently declines to take. A code the TOOL
+    # has and the header does not is the dangerous direction: it would ask a
+    # probe for a rate that firmware rejects, and fall back on every push.
+    hdr_rates = {int(m.group(2)): int(m.group(1))
+                 for m in re.finditer(r"O2P_BAUD_(\d+)\s*=\s*(\d+)u", src)}
+    m = re.search(r"^BAUD_CODES = \{(.*?)\}$", tool, re.M | re.S)
+    if not m:
+        out.append("tools/o2p_update.py no longer defines BAUD_CODES in a "
+                   "form this check can read")
+    elif not hdr_rates:
+        out.append("src/regmap.h no longer declares the O2P_BAUD_* rates in a "
+                   "form this check can read")
+    else:
+        tool_rates = {int(k): int(v) for k, v in
+                      re.findall(r"(\d+)\s*:\s*(\d+)", m.group(1))}
+        if tool_rates != hdr_rates:
+            out.append("tools/o2p_update.py BAUD_CODES = %r, src/regmap.h "
+                       "declares %r" % (tool_rates, hdr_rates))
+
+    # The enum is the SPELLING; O2P_BAUD_MAX_CODE is what o2p_config_valid()
+    # actually enforces, and they are two separate lines that can drift apart.
+    # A MAX_CODE tightened below a code the tool still offers does not break
+    # the comparison above at all - both sides keep listing 38400 - it just
+    # makes every push get exception 03 and silently fall back to 9600 for
+    # ever. Checked against the tool's table AND against the enum, because a
+    # MAX_CODE above the enum is a firmware that accepts a code it has no rate
+    # for.
+    mx = re.search(r"O2P_BAUD_MAX_CODE\s*=\s*(\d+)u", src)
+    if not mx:
+        out.append("src/regmap.h no longer defines O2P_BAUD_MAX_CODE in a "
+                   "form this check can read")
+    elif hdr_rates:
+        limit = int(mx.group(1))
+        if limit != max(hdr_rates):
+            out.append("src/regmap.h O2P_BAUD_MAX_CODE = %d but the O2P_BAUD_* "
+                       "enum goes up to %d" % (limit, max(hdr_rates)))
+        if m and tool_rates and max(tool_rates) > limit:
+            out.append("tools/o2p_update.py offers baud code %d, which "
+                       "o2p_config_valid() refuses: O2P_BAUD_MAX_CODE = %d"
+                       % (max(tool_rates), limit))
+    return out
+
+
 def main():
     hdr = open(os.path.join(FW, "src", "update.h"), encoding="utf-8").read()
     tool = open(os.path.join(HERE, "o2p_update.py"), encoding="utf-8").read()
@@ -205,6 +278,7 @@ def main():
                                 % (what, n, got[n], i))
 
     problems += bridge_problems(tool)
+    problems += config_problems(tool)
 
     if problems:
         print("!! the field update tool disagrees with the firmware:")
@@ -212,7 +286,8 @@ def main():
             print("   -", p)
         return 1
     print("field update tool agrees with src/update.h (%d registers, "
-          "%d commands, %d states, %d errors) and with src/bridge_main.c"
+          "%d commands, %d states, %d errors), with src/bridge_main.c, and "
+          "with src/regmap.h's config registers and baud codes"
           % (len(REGS), len(CMDS), len(STATES), len(ERRORS)))
     return 0
 

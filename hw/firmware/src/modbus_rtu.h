@@ -39,6 +39,12 @@ bool o2p_modbus_poll(o2p_regmap_t *rm);
 /* True while a response is still being shifted out. */
 bool o2p_modbus_tx_busy(void);
 
+/* Valid frames received at this probe's own unicast address since boot.
+ * Broadcasts and the 253 discovery alias do NOT count: neither proves that
+ * this probe, at its current address, is reachable. Wraps freely - compare it
+ * for inequality, never for magnitude. */
+uint32_t o2p_modbus_frames_ok(void);
+
 uint16_t o2p_modbus_crc_errors(void);
 uint16_t o2p_modbus_frame_errors(void);
 

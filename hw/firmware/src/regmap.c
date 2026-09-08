@@ -250,6 +250,15 @@ void o2p_regmap_set_commit_result(o2p_regmap_t *rm, uint8_t status)
                                 status);
 }
 
+void o2p_regmap_request_commit(o2p_regmap_t *rm)
+{
+    if (rm->serial_probation) {
+        rm->commit_after_serial = true;
+    } else {
+        rm->commit_pending = true;
+    }
+}
+
 void o2p_regmap_init(o2p_regmap_t *rm)
 {
     memset(rm, 0, sizeof(*rm));
@@ -761,6 +770,10 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
 
     rm->cfg = trial;
     if (serial_changed) {
+        /* Raised HERE rather than when the transport switches, so a COMMIT in
+         * this same frame is gated by it. The write and the commit are decided
+         * in one pass; the switch happens a main loop later. */
+        rm->serial_probation = true;
         /* Applied by the transport once the reply has physically left the
          * wire. Changing address or baud here would abandon the master
          * mid-frame and make the probe unreachable at both settings. */
@@ -785,7 +798,7 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
         if (rm->cal_requested) {
             rm->commit_after_cal = true;
         } else {
-            rm->commit_pending = true;
+            o2p_regmap_request_commit(rm);
         }
         o2p_regmap_set_commit_result(rm, O2P_CMD_PENDING);
     }
