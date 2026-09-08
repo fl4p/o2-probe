@@ -610,7 +610,7 @@ fault, not like anoxia.
 convention as an open release gate, and the bench air-versus-nitrogen pair is
 what settles it. Firmware that took an absolute value would hide the answer.
 
-### Diagnostic block — `0x0010`, 24 registers, read-only
+### Diagnostic block — `0x0010`, 26 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
 0.01 K), `PRESSURE_HPA` (0 — BMP390 is DNP), `UPTIME_HI/LO`, `FW_VERSION`,
@@ -656,6 +656,19 @@ then two that exist because supervision here is *sampled*, not continuous:
   and that is the leading suspect for the 0.51 % step in `O2_RAW` across the
   2026-09-07 install. Telemetry that exists to explain a number must not be
   able to move it.
+
+- `BUILD_ID_HI` `0x0028`, `BUILD_ID_LO` `0x0029` — which binary is running.
+  Bit 31 the working tree was dirty at build time, bits 30..28 reserved, bits
+  27..0 the 7-hex-digit commit prefix. `FW_VERSION` cannot do this job: it is a
+  hand-edited constant that read v0.1 on every probe ever built, through
+  every install, which is why the 0.51 % step in `O2_RAW` across the 2026-09-07
+  install could not be attributed to an image. `tools/pio_build_id.py` stamps it
+  from `git rev-parse --short=7 HEAD` and **fails the build** if git cannot
+  answer, rather than defaulting to zero: an unidentifiable image on a potted
+  probe is exactly what this register exists to prevent. Zero means *no stamp*,
+  which after this commit is only the host test build, and is never reported as
+  a commit. `FW_VERSION` is now bumped only when the wire contract changes, and
+  is `0x0002` for this 26-register block.
 
 ### Config block — `0x0030`, 22 registers, read/write, flash-backed
 

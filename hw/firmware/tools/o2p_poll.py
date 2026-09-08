@@ -50,7 +50,7 @@ U16_INVALID = 0xFFFF
 I16_INVALID = 0x8000
 
 PRIMARY_BASE, PRIMARY_COUNT = 0x0000, 8
-DIAG_BASE, DIAG_COUNT = 0x0010, 21
+DIAG_BASE, DIAG_COUNT = 0x0010, 26
 
 # Bit -> name. Checked against src/faults.h at startup.
 FAULT_BITS = [
@@ -190,6 +190,13 @@ def decode_primary(r):
     }
 
 
+def build_id_str(v):
+    """0 is "built without the stamp", not commit 0000000."""
+    if v == 0:
+        return "unstamped"
+    return "%07x%s" % (v & 0x0FFFFFFF, "-dirty" if v & 0x80000000 else "")
+
+
 def decode_diag(r):
     ever = fault_names(r[0x13])
     return {
@@ -214,6 +221,11 @@ def decode_diag(r):
         "faults_ever": r[0x13],
         "faults_ever_named": "|".join(ever),
         "ads_fail_count": r[0x14],
+        "we_buf_mv": u16(r[0x15]), "re_buf_mv": u16(r[0x16]),
+        "cell_bias_mv": i16(r[0x17]) if i16(r[0x17]) != -32768 else None,
+        # Bit 31 is the dirty flag, bits 27..0 the commit prefix. Rendered as
+        # the SHA a human can paste into `git show`, never as a bare number.
+        "build_id": build_id_str((r[0x18] << 16) | r[0x19]),
     }
 
 

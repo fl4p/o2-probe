@@ -292,6 +292,10 @@ static uint16_t read_diag(const o2p_snapshot_t *s, uint16_t a)
     case O2P_REG_WE_BUF_MV:    return s->we_buf_mv;
     case O2P_REG_RE_BUF_MV:    return s->re_buf_mv;
     case O2P_REG_CELL_BIAS_MV: return (uint16_t)s->cell_bias_mv;
+    /* Compile-time constants, like FW_VERSION and HW_REV: they describe the
+     * image, not the cycle, so they are not carried through the snapshot. */
+    case O2P_REG_BUILD_ID_HI:  return (uint16_t)((O2P_BUILD_ID >> 16) & 0xFFFFu);
+    case O2P_REG_BUILD_ID_LO:  return (uint16_t)(O2P_BUILD_ID & 0xFFFFu);
     case O2P_REG_SAMPLE_SEQ:    return s->sample_seq;
     /* Named explicitly rather than left to the default. This arm used to
      * return sample_seq for anything unmatched, so every register added to

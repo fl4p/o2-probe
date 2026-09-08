@@ -63,7 +63,7 @@ enum {
  * barometer, so P comes from ASSUMED_P_HPA (0x0042).
  * Argument and evidence: O2-HUMIDITY-CORRECTION.md. */
 
-/* ---- Diagnostic block: 0x0010, 19 registers, read-only ---- */
+/* ---- Diagnostic block: 0x0010, 26 registers, read-only ---- */
 enum {
     O2P_REG_VREF_MON_MV  = 0x0010u,
     O2P_REG_VA_MON_MV    = 0x0011u,
@@ -131,9 +131,28 @@ enum {
     O2P_REG_WE_BUF_MV       = 0x0025u, /* u16 mV at the pin, 0xFFFF invalid */
     O2P_REG_RE_BUF_MV       = 0x0026u, /* u16 mV at the pin, 0xFFFF invalid */
     O2P_REG_CELL_BIAS_MV    = 0x0027u, /* i16 mV, WE - RE, 0x8000 invalid */
+    /* Which binary is this?
+     *
+     * FW_VERSION (0x0018) is a hand-edited constant and it read 0x0001 on
+     * every probe ever built, through every install. So on 2026-09-07, when
+     * O2_RAW stepped 0.51 %vol across a firmware install, telemetry could not
+     * name the image on either side of the step - and the step's cause is
+     * still undetermined partly because of that. A version number someone has
+     * to remember to bump is not provenance.
+     *
+     * BUILD_ID is: bit 31 the working tree was dirty at build time, bits
+     * 30..28 reserved, bits 27..0 the 7-hex-digit prefix of the commit the
+     * image was built from. Stamped by tools/pio_build_id.py, which FAILS the
+     * build rather than emitting a zero - an unidentifiable image is what this
+     * register exists to prevent, and a probe is potted.
+     *
+     * Zero means "built without the stamp", which after this commit is only
+     * the host test build. It is NOT reported as a commit. */
+    O2P_REG_BUILD_ID_HI     = 0x0028u, /* u16, bits 31..16 */
+    O2P_REG_BUILD_ID_LO     = 0x0029u, /* u16, bits 15..0  */
 };
 #define O2P_REG_DIAG_BASE  0x0010u
-#define O2P_REG_DIAG_COUNT 24u
+#define O2P_REG_DIAG_COUNT 26u
 
 /* ---- Config block: 0x0030, 21 registers, read/write, flash-backed ---- */
 enum {
@@ -241,7 +260,18 @@ enum {
 #define O2P_COMMIT_MAGIC 0x5AC1u
 #define O2P_CAL_MAGIC    0xCA11u
 
-#define O2P_FW_VERSION 0x0001u  /* v0.1 */
+/* Bumped whenever the WIRE contract changes, which is the only thing a master
+ * can act on: 0x0002 is the diagnostic block growing from 24 registers to 26.
+ * For "which build is this", read BUILD_ID (0x0028/0x0029) - this number is
+ * hand-maintained and says nothing about the binary. */
+#define O2P_FW_VERSION 0x0002u  /* v0.2 - diag block is 26 registers */
+
+/* Overridden by tools/pio_build_id.py on every target build. The default is
+ * reached only by the host test build, and means "no stamp", never a commit. */
+#ifndef O2P_BUILD_ID
+#define O2P_BUILD_ID 0x00000000UL
+#endif
+#define O2P_BUILD_ID_UNSTAMPED 0x00000000UL
 #define O2P_HW_REV     0x000Au  /* Rev A */
 
 /* Baud/parity codes. Defaults match the bus the probe joins: the Truebner

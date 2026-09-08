@@ -243,7 +243,7 @@ an air-point calibration is never bridged, because a permanent constant gets a
 humidity measured in its own cycle or none at all. Full argument, bench evidence
 and test vectors: `O2-HUMIDITY-CORRECTION.md`.
 
-### Diagnostic block, `0x0010`, 24 registers, read-only
+### Diagnostic block, `0x0010`, 26 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
 0.01 K), `PRESSURE_HPA` (0 - the BMP390 option is deleted), `UPTIME_HI/LO`, `FW_VERSION`,
@@ -277,6 +277,17 @@ working point walks off target while every other register stays plausible — an
 it is the only channel that distinguishes a cell that changed from a measurement
 that changed. Sampled after the oxygen channel so that adding it cannot alter
 which channel precedes AIN0.
+
+`BUILD_ID_HI` (`0x0028`) and `BUILD_ID_LO` (`0x0029`) answer *which binary is
+this*. `FW_VERSION` cannot: it is a hand-edited constant, and it read v0.1 on every
+probe ever built, through every install, so when `O2_RAW` stepped 0.51
+%vol across the 2026-09-07 install nothing on the wire named the image on either
+side of the step. `BUILD_ID` is bit 31 the working tree was dirty at build time,
+bits 30..28 reserved, bits 27..0 the 7-hex-digit prefix of the commit the image
+was built from. `tools/pio_build_id.py` stamps it and **fails the build** if git
+cannot answer — an unidentifiable image is the condition the register exists to
+prevent, and the probe is potted. Zero means *built without the stamp* (only the
+host test build after 2026-09-08) and is never reported as a commit.
 
 
 ### Config block, `0x0030`, 22 registers, read/write, flash-backed
