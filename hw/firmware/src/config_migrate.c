@@ -93,6 +93,35 @@ typedef struct {
 } o2p_config_v4_t;
 _Static_assert(sizeof(o2p_config_v4_t) == 32u, "v4 config layout is 32 bytes");
 
+/* ---- layout version 5 ---------------------------------------------------
+ *
+ * v4 plus dil_alpha_x1000. 36 bytes. This is what the field is running as of
+ * 2026-09-08, so its migration must preserve everything - a v5 record differs
+ * from v6 only by the ABSENCE of a zero point, and absent is exactly what the
+ * default already says. Nothing is discarded here. */
+typedef struct {
+    int32_t  cal_air_na;              /* 0 */
+    uint16_t rh_setpoint_x100;        /* 4 */
+    uint16_t dt_max_k_x100;           /* 6 */
+    uint16_t heater_max_duty_x100;    /* 8 */
+    uint16_t heater_pwm_hz;           /* 10 */
+    int16_t  cal_temp_c100;           /* 12 */
+    int16_t  tempco_ppm_per_k;        /* 14 */
+    uint16_t sht_pulse_interval_h;    /* 16 */
+    uint16_t heater_kp_x100;          /* 18 */
+    uint16_t heater_ki_x100;          /* 20 */
+    uint16_t assumed_p_hpa;           /* 22 */
+    uint16_t cal_air_frac_x1000;      /* 24 */
+    uint16_t cal_p_hpa;               /* 26 */
+    uint8_t  slave_addr;              /* 28 */
+    uint8_t  baud_code;               /* 29 */
+    uint8_t  parity_code;             /* 30 */
+    uint8_t  reserved[1];             /* 31 */
+    uint16_t dil_alpha_x1000;         /* 32 */
+    uint8_t  reserved2[2];            /* 34 */
+} o2p_config_v5_t;
+_Static_assert(sizeof(o2p_config_v5_t) == 36u, "v5 config layout is 36 bytes");
+
 /* The record wrapper is the same shape in every version - magic, layout
  * version, sequence, configuration, CRC, reserved tail to 64 bytes - so only
  * the configuration's size moves, and with it the CRC's offset. */
@@ -241,6 +270,37 @@ bool o2p_config_migrate(const void *record, size_t len,
         migrated.parity_code = v4.parity_code;
         /* dil_alpha_x1000 keeps the default o2p_config_defaults() installed,
          * 1000, which is the arithmetic v4 performed. */
+        break;
+    }
+    case 5u: {
+        /* Everything survives. v6 appends the zero point and its taken flag,
+         * and a v5 probe has never taken one - so the honest value is the
+         * default, which o2p_config_defaults() has already installed and
+         * CAL_STATE reports as NO_ZERO. Carrying the air point across is
+         * correct here in a way it was not for v2/v3: its MEANING is
+         * unchanged, because subtracting a zero of 0 is what v5 did. */
+        if (!record_crc_ok(rec, sizeof(o2p_config_v5_t))) {
+            return false;
+        }
+        o2p_config_v5_t v5;
+        memcpy(&v5, cfg, sizeof(v5));
+        migrated.cal_air_na = v5.cal_air_na;
+        migrated.rh_setpoint_x100 = v5.rh_setpoint_x100;
+        migrated.dt_max_k_x100 = v5.dt_max_k_x100;
+        migrated.heater_max_duty_x100 = v5.heater_max_duty_x100;
+        migrated.heater_pwm_hz = v5.heater_pwm_hz;
+        migrated.cal_temp_c100 = v5.cal_temp_c100;
+        migrated.tempco_ppm_per_k = v5.tempco_ppm_per_k;
+        migrated.sht_pulse_interval_h = v5.sht_pulse_interval_h;
+        migrated.heater_kp_x100 = v5.heater_kp_x100;
+        migrated.heater_ki_x100 = v5.heater_ki_x100;
+        migrated.assumed_p_hpa = v5.assumed_p_hpa;
+        migrated.cal_air_frac_x1000 = v5.cal_air_frac_x1000;
+        migrated.cal_p_hpa = v5.cal_p_hpa;
+        migrated.dil_alpha_x1000 = v5.dil_alpha_x1000;
+        migrated.slave_addr = v5.slave_addr;
+        migrated.baud_code = v5.baud_code;
+        migrated.parity_code = v5.parity_code;
         break;
     }
     case 3u: {

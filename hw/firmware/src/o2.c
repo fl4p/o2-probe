@@ -190,8 +190,18 @@ static o2p_status_t fraction_from_current_at_p(const o2p_cal_t *cal,
     if (cal->cal_air_na <= 0) {
         return O2P_UNEVALUABLE;
     }
+    /* The NET air current is what K is built from, so it - not the raw air
+     * point - is what has to be positive. A zero point at or above the air
+     * point is not a small error, it is a sign inversion, and it must not
+     * reach the logarithm. */
+    int32_t net_air_na = cal->cal_air_na - cal->zero_na;
+    if (net_air_na <= 0) {
+        return O2P_UNEVALUABLE;
+    }
 
-    float s = (float)cell_na;
+    /* I = I0 + K*ln(1/(1-C*p/p_ref)): the dark current is an offset, removed
+     * before anything else touches the signal. */
+    float s = (float)(cell_na - cal->zero_na);
 
     /* Temperature correction, referenced to the calibration temperature.
      * Guard the denominator: a tempco register written badly enough to drive
@@ -239,8 +249,8 @@ static o2p_status_t fraction_from_current_at_p(const o2p_cal_t *cal,
     if (!isfinite(ln_air) || !(ln_air > 0.0f)) {
         return O2P_UNEVALUABLE;
     }
-    float k = (float)cal->cal_air_na / ln_air;
-    /* k is positive by construction (cal_air_na > 0 and ln_air > 0), so no
+    float k = (float)net_air_na / ln_air;
+    /* k is positive by construction (net_air_na > 0 and ln_air > 0), so no
      * divide guard is needed beyond the checks above. */
 
     float ratio = s / k;

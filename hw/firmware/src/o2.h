@@ -211,6 +211,18 @@ typedef struct {
      * Rev A. It is the structure that lets a populated BMP390 actually fix
      * the weather term. */
     float   cal_p_hpa;
+    /* Cell dark current in nanoamps, SIGNED. Subtracted from every measured
+     * current AND from the air point before K is derived, because the law is
+     * I = I0 + K*ln(...): I0 is an OFFSET, and folding it into K instead - as
+     * this firmware did until 2026-09-08 - turns it into a slope error across
+     * the whole range. At DS-0637's rated 0.4 %vol zero that is roughly 2 %
+     * relative at the 20.9 % air point but about 8 % at 5 %vol, which is
+     * where compost control acts.
+     *
+     * Zero is both "no zero point taken" and a legitimate measured zero; the
+     * two are arithmetically identical here and separated for the operator by
+     * cal_zero_taken / CAL_STATE, not by this field. */
+    int32_t zero_na;
 } o2p_cal_t;
 
 /* The air point's fraction is stored as %vol x 1000 in a u16 config register,
@@ -235,6 +247,27 @@ typedef struct {
 static inline bool o2p_cal_air_plausible(int32_t cell_na)
 {
     return cell_na >= O2P_AIR_CAL_MIN_NA && cell_na <= O2P_AIR_CAL_MAX_NA;
+}
+
+/* Zero-point acceptance window, nanoamps. A CORRUPTION AND TYPO SCREEN, not an
+ * accuracy claim - no runtime check can tell a wrong-but-legal zero from a
+ * right one, because that is a property of the nitrogen the point was taken
+ * in, not of the number.
+ *
+ * DS-0637 rates the zero signal "< 0.4 %vol O2 (20 C)". At the top of the
+ * population (130 uA in 20.9 %vol, i.e. 6.22 uA per %vol) 0.4 %vol is 2489 nA,
+ * so a correct zero is a few thousand nanoamps at most. The window is opened
+ * to +/-6000 to leave room for a cell that has aged past its rating and still
+ * deserves to be measured rather than silently refused; NEGATIVE values are
+ * accepted because the TIA and ADC offsets are real and signed, and forcing a
+ * negative offset to zero would bias every low-O2 reading upward - the exact
+ * region compost control acts in. */
+#define O2P_ZERO_CAL_MIN_NA (-6000)
+#define O2P_ZERO_CAL_MAX_NA   6000
+
+static inline bool o2p_cal_zero_plausible(int32_t zero_na)
+{
+    return zero_na >= O2P_ZERO_CAL_MIN_NA && zero_na <= O2P_ZERO_CAL_MAX_NA;
 }
 
 /* Datasheet nominal for an uncalibrated cell: 0.07 mA in air (DS-0637). The

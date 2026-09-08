@@ -243,13 +243,21 @@ an air-point calibration is never bridged, because a permanent constant gets a
 humidity measured in its own cycle or none at all. Full argument, bench evidence
 and test vectors: `O2-HUMIDITY-CORRECTION.md`.
 
-### Diagnostic block, `0x0010`, 27 registers, read-only
+### Diagnostic block, `0x0010`, 28 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
 0.01 K), `PRESSURE_HPA` (0 - the BMP390 option is deleted), `UPTIME_HI/LO`, `FW_VERSION`,
 `HW_REV`, `RESET_CAUSE`, `LMP_READBACK` (TIACN<<8 | REFCN as actually read),
 `MB_CRC_ERRS`, `MB_FRAME_ERRS`, `I2C_ERRS`, `EXP_DATA` (`0xFFFF` - J2 is deleted),
 `SETTLE_RESTARTS` (`0x0020`), `SAMPLE_SEQ` (`0x0021`).
+
+`CAL_STATE` (`0x002B`) reports calibration completeness: bit 0 the air point is
+the datasheet nominal, bit 1 no zero point taken. A register and not two fault
+bits, because the 16-bit fault word is full and because these are commissioning
+state rather than faults.
+
+`CAL_ZERO_NA_HI/LO` (`0x0046`/`0x0047`) hold the cell dark current, i32 signed
+nanoamps, subtracted from every current and from the air point before K.
 
 `CMD_RESULT` (`0x002A`) reports the outcome of the last calibration trigger in
 its high byte and the last flash store in its low byte: 0 none, 1 pending,
@@ -297,7 +305,7 @@ prevent, and the probe is potted. Zero means *built without the stamp* (only the
 host test build after 2026-09-08) and is never reported as a commit.
 
 
-### Config block, `0x0030`, 22 registers, read/write, flash-backed
+### Config block, `0x0030`, 24 registers, read/write, flash-backed
 
 `SLAVE_ADDR`, `BAUD_CODE`, `PARITY_CODE`, `RH_SETPOINT`, `DT_MAX_K`,
 `HEATER_MAX_DUTY`, `HEATER_PWM_HZ`, `CAL_AIR_NA_HI/LO`, `CAL_TEMP_C100`,

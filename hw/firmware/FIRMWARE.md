@@ -610,7 +610,7 @@ fault, not like anoxia.
 convention as an open release gate, and the bench air-versus-nitrogen pair is
 what settles it. Firmware that took an absolute value would hide the answer.
 
-### Diagnostic block — `0x0010`, 27 registers, read-only
+### Diagnostic block — `0x0010`, 28 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
 0.01 K), `PRESSURE_HPA` (0 — BMP390 is DNP), `UPTIME_HI/LO`, `FW_VERSION`,
@@ -673,6 +673,12 @@ then two that exist because supervision here is *sampled*, not continuous:
   It sits at `0x002A` rather than beside the other status registers because
   `0x0022`..`0x0029` are a published contract the ChirpStack decoder already
   parses — a status word inside that range would decode as a die temperature.
+- `CAL_STATE` `0x002B` — calibration completeness, a bitfield: bit 0 the air
+  point is the datasheet nominal rather than a measurement, bit 1 no zero
+  point has ever been taken. A register rather than two fault bits because the
+  16-bit fault word is full, and because these are commissioning state, not
+  faults: a probe with no zero point is unfinished, not broken, and it still
+  measures.
 - `BUILD_ID_HI` `0x0028`, `BUILD_ID_LO` `0x0029` — which binary is running.
   Bit 31 the working tree was dirty at build time, bits 30..28 reserved, bits
   27..0 the 7-hex-digit commit prefix. `FW_VERSION` cannot do this job: it is a
@@ -686,7 +692,16 @@ then two that exist because supervision here is *sampled*, not continuous:
   a commit. `FW_VERSION` is now bumped only when the wire contract changes, and
   is `0x0002` for this 26-register block.
 
-### Config block — `0x0030`, 22 registers, read/write, flash-backed
+### Config block — `0x0030`, 24 registers, read/write, flash-backed
+
+- `CAL_ZERO_NA_HI` `0x0046`, `CAL_ZERO_NA_LO` `0x0047` — cell dark current,
+  i32 nanoamps, **signed**. Subtracted from every measured current *and* from
+  the air point before `K` is derived, because the cell law is
+  `I = I0 + K·ln(…)`: `I0` is an offset, and folding it into `K` turns it into
+  a slope error. DS-0637 rates the zero at `< 0.4 %vol O₂`, which is roughly
+  2 % relative at the air point but about 8 % at 5 %vol — where compost
+  control acts. `0` is both a legitimate measured zero and the never-measured
+  default; `CAL_STATE` bit 1 is what separates them.
 
 `SLAVE_ADDR`, `BAUD_CODE`, `PARITY_CODE`, `RH_SETPOINT`, `DT_MAX_K`,
 `HEATER_MAX_DUTY`, `HEATER_PWM_HZ`, `CAL_AIR_NA_HI/LO`, `CAL_TEMP_C100`,

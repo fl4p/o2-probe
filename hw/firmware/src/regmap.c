@@ -30,6 +30,8 @@ void o2p_config_defaults(o2p_config_t *cfg)
      * fresh board reports low-confidence data rather than nothing, and says
      * so. */
     cfg->cal_air_na = 0;
+    cfg->cal_zero_na = 0;
+    cfg->cal_zero_taken = 0u;   /* never measured; reported in CAL_STATE */
     cfg->cal_temp_c100 = 2500;
     cfg->tempco_ppm_per_k = 0;            /* SGX publishes no curve for this part */
     cfg->sht_pulse_interval_h = 8u;       /* PLAN.md:312, every 6-12 h */
@@ -124,6 +126,14 @@ bool o2p_config_valid(const o2p_config_t *cfg)
      * range, with a clean fault word. Enforcing the bounds here also forces
      * HI and LO to be written together in one FC16, because a half-written
      * value cannot pass. */
+    /* Unlike the air point, 0 is a MEANINGFUL zero value (a cell with no
+     * measurable dark current), so it cannot double as "unset" for the
+     * plausibility test - but it is still the default, and the fault bit is
+     * what distinguishes "measured zero" from "never measured". Screen the
+     * stored number either way. */
+    if (!o2p_cal_zero_plausible(cfg->cal_zero_na)) {
+        return false;
+    }
     if (cfg->cal_air_na != 0 && !o2p_cal_air_plausible(cfg->cal_air_na)) {
         return false;
     }
@@ -286,6 +296,11 @@ static uint16_t read_diag(const o2p_regmap_t *rm, const o2p_snapshot_t *s,
      * be snapshotted, or an outcome would only become visible at the next
      * publish. */
     case O2P_REG_CMD_RESULT:    return rm->cmd_result;
+    case O2P_REG_CAL_STATE:
+        return (uint16_t)((rm->cfg.cal_air_na == 0
+                               ? O2P_CAL_STATE_AIR_DEFAULT : 0u) |
+                          (rm->cfg.cal_zero_taken == 0u
+                               ? O2P_CAL_STATE_NO_ZERO : 0u));
     case O2P_REG_VREF_MON_MV:   return s->vref_mv;
     case O2P_REG_VA_MON_MV:     return s->va_mv;
     case O2P_REG_VIN_MON_MV:    return s->vin_mv;
@@ -337,6 +352,8 @@ static uint16_t read_config(const o2p_regmap_t *rm, uint16_t a)
     case O2P_REG_HEATER_PWM_HZ:   return c->heater_pwm_hz;
     case O2P_REG_HEATER_KP:       return c->heater_kp_x100;
     case O2P_REG_HEATER_KI:       return c->heater_ki_x100;
+    case O2P_REG_CAL_ZERO_NA_HI:  return (uint16_t)((uint32_t)c->cal_zero_na >> 16);
+    case O2P_REG_CAL_ZERO_NA_LO:  return (uint16_t)((uint32_t)c->cal_zero_na & 0xFFFFu);
     case O2P_REG_CAL_AIR_NA_HI:   return (uint16_t)((uint32_t)c->cal_air_na >> 16);
     case O2P_REG_CAL_AIR_NA_LO:   return (uint16_t)((uint32_t)c->cal_air_na & 0xFFFFu);
     case O2P_REG_CAL_TEMP_C100:   return (uint16_t)c->cal_temp_c100;
@@ -427,6 +444,13 @@ static uint8_t apply_config_word(o2p_config_t *c, uint16_t a, uint16_t v,
     case O2P_REG_HEATER_PWM_HZ:   c->heater_pwm_hz = v; break;
     case O2P_REG_HEATER_KP:       c->heater_kp_x100 = v; break;
     case O2P_REG_HEATER_KI:       c->heater_ki_x100 = v; break;
+    case O2P_REG_CAL_ZERO_NA_HI:
+        c->cal_zero_na = (int32_t)(((uint32_t)v << 16) |
+                                   ((uint32_t)c->cal_zero_na & 0xFFFFu));
+        break;
+    case O2P_REG_CAL_ZERO_NA_LO:
+        c->cal_zero_na = (int32_t)(((uint32_t)c->cal_zero_na & 0xFFFF0000u) | v);
+        break;
     case O2P_REG_CAL_AIR_NA_HI:
         c->cal_air_na = (int32_t)(((uint32_t)v << 16) |
                                   ((uint32_t)c->cal_air_na & 0xFFFFu));

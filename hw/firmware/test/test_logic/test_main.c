@@ -177,15 +177,17 @@ static void test_config_struct_has_no_implicit_padding(void)
     /* The struct is written to flash byte-for-byte and hashed with a CRC.
      * Padding the compiler may leave uninitialised would make that CRC
      * non-deterministic and produce spurious "corrupt config" at boot. */
-    TEST_ASSERT_EQUAL_UINT(sizeof(int32_t) + 13 * sizeof(uint16_t) + 6,
+    TEST_ASSERT_EQUAL_UINT(2 * sizeof(int32_t) + 13 * sizeof(uint16_t) + 6,
                            sizeof(o2p_config_t));
-    /* It DID grow with dil_alpha_x1000, from 32 to 36, because the reserved
-     * byte cal_p_hpa took was the last one this struct had. The growth is
+    /* It DID grow with dil_alpha_x1000, from 32 to 36, and again to 40 when
+     * cal_zero_na and cal_zero_taken were APPENDED - appended rather than
+     * placed beside cal_air_na so that every v5 offset stays put and the
+     * migration is a zero-fill instead of a re-layout. The growth is
      * paid for out of the RECORD's reserved tail, not out of the record: the
      * frame is still 64 bytes and the CRC still sits immediately after the
      * configuration, which is the invariant that actually matters. The
      * assertion below is what enforces it. */
-    TEST_ASSERT_EQUAL_UINT(36u, sizeof(o2p_config_t));
+    TEST_ASSERT_EQUAL_UINT(40u, sizeof(o2p_config_t));
     /* config_flash.h is not reachable from a native test (it pulls in the
      * flash map), so the record arithmetic is restated here rather than
      * measured: 12 bytes of header + the configuration + a 2-byte CRC must
@@ -563,15 +565,16 @@ static void test_gain_registers_read_back_what_was_written(void)
 static void test_config_block_read_covers_the_gains(void)
 {
     /* The block grew from 16 to 18 registers with the gains, to 20 with
-     * ASSUMED_P_HPA and CAL_AIR_FRAC, to 21 with CAL_P_HPA and to 22 with
-     * DIL_ALPHA. A read of all 22 must succeed; 23 must not, or the boundary
-     * rule has quietly stopped being enforced. */
+     * ASSUMED_P_HPA and CAL_AIR_FRAC, to 21 with CAL_P_HPA, to 22 with
+     * DIL_ALPHA and to 24 with the CAL_ZERO_NA pair. A read of all 24 must
+     * succeed; 25 must not, or the boundary rule has quietly stopped being
+     * enforced. */
     uint8_t req[16], rsp[O2P_MB_MAX_ADU];
-    const uint8_t all[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x16};
+    const uint8_t all[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x18};
     size_t n = framed(req, all, sizeof(all));
-    TEST_ASSERT_EQUAL_UINT(3 + 44 + 2, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
+    TEST_ASSERT_EQUAL_UINT(3 + 48 + 2, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
 
-    const uint8_t over[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x17};
+    const uint8_t over[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x19};
     n = framed(req, over, sizeof(over));
     o2p_mb_dispatch(req, n, 3, &handlers, rsp);
     TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS, rsp[2]);
@@ -3111,6 +3114,209 @@ static void test_tmp117_rejects_a_reading_outside_the_rating(void)
     TEST_ASSERT_TRUE(O2P_TMP117_MIN_C100 > -25600);
 }
 
+/* ---- cell zero point, 2026-09-08 ---- */
+
+typedef struct {
+    int32_t  cal_air_na;
+    uint16_t rh_setpoint_x100;
+    uint16_t dt_max_k_x100;
+    uint16_t heater_max_duty_x100;
+    uint16_t heater_pwm_hz;
+    int16_t  cal_temp_c100;
+    int16_t  tempco_ppm_per_k;
+    uint16_t sht_pulse_interval_h;
+    uint16_t heater_kp_x100;
+    uint16_t heater_ki_x100;
+    uint16_t assumed_p_hpa;
+    uint16_t cal_air_frac_x1000;
+    uint16_t cal_p_hpa;
+    uint8_t  slave_addr;
+    uint8_t  baud_code;
+    uint8_t  parity_code;
+    uint8_t  reserved[1];
+    uint16_t dil_alpha_x1000;
+    uint8_t  reserved2[2];
+} test_cfg_v5_t;
+
+static void build_v5_record(uint8_t rec[TEST_REC_BYTES],
+                            const test_cfg_v5_t *cfg, uint32_t seq)
+{
+    memset(rec, 0, TEST_REC_BYTES);
+    uint32_t magic = TEST_CFG_MAGIC, ver = 5u;
+    memcpy(rec + 0, &magic, 4);
+    memcpy(rec + 4, &ver, 4);
+    memcpy(rec + 8, &seq, 4);
+    memcpy(rec + 12, cfg, sizeof(*cfg));
+    uint16_t crc = o2p_mb_crc16(rec, 12u + sizeof(*cfg));
+    memcpy(rec + 12u + sizeof(*cfg), &crc, 2);
+}
+
+static o2p_cal_t zero_test_cal(int32_t air_na, int32_t zero_na)
+{
+    o2p_cal_t c;
+    memset(&c, 0, sizeof(c));
+    c.cal_air_na = air_na;
+    c.cal_temp_c100 = 2000;
+    c.tempco_per_k = 0.0f;
+    c.air_frac = 0.2095f;
+    c.cal_p_hpa = 0.0f;
+    c.dil_alpha = 1.0f;
+    c.zero_na = zero_na;
+    return c;
+}
+
+static void test_zero_point_is_an_offset_not_a_slope(void)
+{
+    /* THE REASON THE FIELD EXISTS. The law is I = I0 + K*ln(1/(1-C)), so a
+     * dark current is an OFFSET. Folding it into K instead - which is what
+     * storing a raw air point and never subtracting did - spreads it across
+     * the range as a gain error, smallest at the air point and largest where
+     * compost control actually acts.
+     *
+     * Build a cell with a real 2000 nA zero, calibrated in air. Ask what a
+     * current corresponding to a true 5 %vol reads, with and without the
+     * subtraction. */
+    const int32_t zero = 2000;
+    const int32_t air_raw = 100000;          /* including the zero */
+    o2p_cal_t good = zero_test_cal(air_raw, zero);
+
+    /* The current this cell genuinely produces at 5 %vol: I0 + K*ln(...) with
+     * K built from the NET air current. */
+    float k = (float)(air_raw - zero) / logf(1.0f / (1.0f - 0.2095f));
+    float i_5pct = (float)zero + k * logf(1.0f / (1.0f - 0.05f));
+
+    float c_good = 0.0f;
+    TEST_ASSERT_EQUAL_INT(O2P_OK,
+        o2p_fraction_from_current(&good, (int32_t)(i_5pct + 0.5f), 2000, &c_good));
+    TEST_ASSERT_FLOAT_WITHIN(0.0005f, 0.05f, c_good);
+
+    /* Now the old behaviour: same cell, same current, zero not subtracted. */
+    o2p_cal_t blind = zero_test_cal(air_raw, 0);
+    float c_blind = 0.0f;
+    TEST_ASSERT_EQUAL_INT(O2P_OK,
+        o2p_fraction_from_current(&blind, (int32_t)(i_5pct + 0.5f), 2000, &c_blind));
+
+    /* It reads HIGH, and by much more than the 2 % relative the same offset
+     * costs at the air point - which is the whole argument for subtracting it
+     * rather than absorbing it. */
+    TEST_ASSERT_TRUE_MESSAGE(c_blind > c_good,
+        "an unsubtracted dark current must bias the reading upward");
+    float rel = (c_blind - c_good) / c_good;
+    TEST_ASSERT_TRUE_MESSAGE(rel > 0.02f,
+        "at 5 %vol the error must exceed the air-point error, not match it");
+}
+
+static void test_a_zero_at_or_above_the_air_point_is_unevaluable(void)
+{
+    /* Not a small error - a sign inversion, and it must never reach the
+     * logarithm. */
+    float c = 1.0f;
+    o2p_cal_t bad = zero_test_cal(100000, 100000);
+    TEST_ASSERT_EQUAL_INT(O2P_UNEVALUABLE,
+        o2p_fraction_from_current(&bad, 50000, 2000, &c));
+    o2p_cal_t worse = zero_test_cal(100000, 150000);
+    TEST_ASSERT_EQUAL_INT(O2P_UNEVALUABLE,
+        o2p_fraction_from_current(&worse, 50000, 2000, &c));
+}
+
+static void test_a_negative_zero_is_accepted(void)
+{
+    /* The TIA and ADC offsets are real and signed. Clamping a negative zero
+     * to 0 would bias every low-O2 reading upward - the region that matters. */
+    TEST_ASSERT_TRUE(o2p_cal_zero_plausible(-1500));
+    TEST_ASSERT_TRUE(o2p_cal_zero_plausible(0));
+    TEST_ASSERT_TRUE(o2p_cal_zero_plausible(2489));   /* DS-0637 0.4 %vol top */
+    TEST_ASSERT_FALSE(o2p_cal_zero_plausible(60000)); /* a whole air point */
+}
+
+static void test_config_refuses_an_implausible_stored_zero(void)
+{
+    /* A corrupt flash image must not install a zero a Modbus master would
+     * have been refused. */
+    o2p_config_t cfg;
+    o2p_config_defaults(&cfg);
+    TEST_ASSERT_TRUE(o2p_config_valid(&cfg));
+    cfg.cal_zero_na = 500000;
+    TEST_ASSERT_FALSE(o2p_config_valid(&cfg));
+    cfg.cal_zero_na = -500000;
+    TEST_ASSERT_FALSE(o2p_config_valid(&cfg));
+}
+
+static void test_cal_state_reports_an_unfinished_commissioning(void)
+{
+    o2p_regmap_t r;
+    o2p_regmap_init(&r);
+    uint8_t req[32], rsp[O2P_MB_MAX_ADU];
+    o2p_mb_handlers_t h = {.read = o2p_regmap_read, .write = o2p_regmap_write,
+                           .ctx = &r};
+    const uint8_t rd[] = {0x03, 0x03, 0x00, 0x2B, 0x00, 0x01};
+    size_t n = framed(req, rd, sizeof(rd));
+    TEST_ASSERT_TRUE(o2p_mb_dispatch(req, n, 3, &h, rsp) > 0);
+    uint16_t st = (uint16_t)((rsp[3] << 8) | rsp[4]);
+    /* A fresh probe: no air point and no zero point. */
+    TEST_ASSERT_TRUE((st & O2P_CAL_STATE_AIR_DEFAULT) != 0u);
+    TEST_ASSERT_TRUE((st & O2P_CAL_STATE_NO_ZERO) != 0u);
+
+    /* A measured zero of exactly 0 nA must clear NO_ZERO - the flag, not the
+     * value, is what says commissioning happened. */
+    r.cfg.cal_zero_na = 0;
+    r.cfg.cal_zero_taken = 1u;
+    n = framed(req, rd, sizeof(rd));
+    TEST_ASSERT_TRUE(o2p_mb_dispatch(req, n, 3, &h, rsp) > 0);
+    st = (uint16_t)((rsp[3] << 8) | rsp[4]);
+    TEST_ASSERT_TRUE((st & O2P_CAL_STATE_NO_ZERO) == 0u);
+}
+
+static void test_v5_migration_keeps_everything_and_adds_no_zero(void)
+{
+    /* v5 is what the field is running. It differs from v6 only by the ABSENCE
+     * of a zero point, so nothing may be discarded - unlike v2/v3, whose air
+     * point changed meaning. */
+    test_cfg_v5_t v5;
+    memset(&v5, 0, sizeof(v5));
+    v5.cal_air_na = 101500;
+    v5.rh_setpoint_x100 = 7500u;
+    v5.dt_max_k_x100 = 250u;
+    v5.heater_max_duty_x100 = 3000u;
+    v5.heater_pwm_hz = 1500u;
+    v5.cal_temp_c100 = 2140;
+    v5.tempco_ppm_per_k = 2000;
+    v5.sht_pulse_interval_h = 12u;
+    v5.heater_kp_x100 = 450u;
+    v5.heater_ki_x100 = 60u;
+    v5.assumed_p_hpa = 963u;
+    v5.cal_air_frac_x1000 = 20685u;
+    v5.cal_p_hpa = 963u;
+    v5.slave_addr = 17u;
+    v5.baud_code = O2P_BAUD_38400;
+    v5.parity_code = O2P_PARITY_NONE;
+    v5.dil_alpha_x1000 = 900u;
+
+    uint8_t rec[TEST_REC_BYTES];
+    build_v5_record(rec, &v5, 91u);
+
+    o2p_config_t out;
+    uint32_t seq = 0u;
+    memset(&out, 0xAA, sizeof(out));
+    TEST_ASSERT_TRUE(o2p_config_migrate(rec, sizeof(rec), &out, &seq));
+    TEST_ASSERT_EQUAL_UINT32(91u, seq);
+
+    /* The calibration survives intact - forcing a recalibration on every
+     * deployed probe for an appended field would be the bug. */
+    TEST_ASSERT_EQUAL_INT32(101500, out.cal_air_na);
+    TEST_ASSERT_EQUAL_UINT16(20685u, out.cal_air_frac_x1000);
+    TEST_ASSERT_EQUAL_UINT16(963u, out.cal_p_hpa);
+    TEST_ASSERT_EQUAL_INT16(2140, out.cal_temp_c100);
+    TEST_ASSERT_EQUAL_UINT16(900u, out.dil_alpha_x1000);
+    /* Reachability, the reason the migration exists at all. */
+    TEST_ASSERT_EQUAL_UINT8(17u, out.slave_addr);
+    TEST_ASSERT_EQUAL_UINT8(O2P_BAUD_38400, out.baud_code);
+    /* And the new field says, honestly, that no zero point was ever taken. */
+    TEST_ASSERT_EQUAL_INT32(0, out.cal_zero_na);
+    TEST_ASSERT_EQUAL_UINT8(0u, out.cal_zero_taken);
+    TEST_ASSERT_TRUE(o2p_config_valid(&out));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -3221,5 +3427,11 @@ int main(void)
     RUN_TEST(test_a_commit_outcome_never_clobbers_the_cal_outcome);
     RUN_TEST(test_cmd_result_sits_outside_the_published_decoder_block);
     RUN_TEST(test_tmp117_rejects_a_reading_outside_the_rating);
+    RUN_TEST(test_zero_point_is_an_offset_not_a_slope);
+    RUN_TEST(test_a_zero_at_or_above_the_air_point_is_unevaluable);
+    RUN_TEST(test_a_negative_zero_is_accepted);
+    RUN_TEST(test_config_refuses_an_implausible_stored_zero);
+    RUN_TEST(test_cal_state_reports_an_unfinished_commissioning);
+    RUN_TEST(test_v5_migration_keeps_everything_and_adds_no_zero);
     return UNITY_END();
 }

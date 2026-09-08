@@ -98,7 +98,11 @@
  * firmware publishes the same numbers it did on the last one. It stops
  * publishing them the moment someone writes DIL_ALPHA, which is deliberate
  * and is that register's business (regmap.h). */
-#define CONFIG_LAYOUT_VERSION 5u
+/* Version 6 appends cal_zero_na and cal_zero_taken, growing the configuration
+ * from 36 to 40 bytes. Appended rather than placed beside cal_air_na so every
+ * v5 offset stays where it is: the migration then carries a v5 record intact
+ * and the only field it cannot fill is the one a v5 probe never had. */
+#define CONFIG_LAYOUT_VERSION 6u
 
 /* Fixed 64-byte record, so the layout does not move when a config field is
  * added and the flash image stays recognisable across firmware versions. */

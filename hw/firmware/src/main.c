@@ -111,6 +111,7 @@ static void restart_settling(void)
 static void load_cal_from_config(void)
 {
     g_cal.cal_air_na = g_rm.cfg.cal_air_na;
+    g_cal.zero_na = g_rm.cfg.cal_zero_na;
     g_cal.cal_temp_c100 = g_rm.cfg.cal_temp_c100;
     g_cal.tempco_per_k = (float)g_rm.cfg.tempco_ppm_per_k * 1e-6f;
     /* %vol x 1000 -> fraction. Zero stays zero, i.e. "the humidity at the air

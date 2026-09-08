@@ -162,9 +162,21 @@ enum {
      * contract that the ChirpStack decoder already parses - putting a status
      * word inside that range would decode as a die temperature. */
     O2P_REG_CMD_RESULT      = 0x002Au,
+    /* Calibration completeness, as a bitfield:
+     *   bit 0  air point is the datasheet nominal, not a measurement
+     *   bit 1  no zero point has been taken
+     *
+     * A register rather than two fault bits because the 16-bit fault word is
+     * FULL - bits 13 and 14 went to ADS_DRDY_STUCK and ADS_CONFIG_LOST - and
+     * because these are commissioning state, not faults: a probe with no zero
+     * point is not broken, it is unfinished, and it still measures. Folding
+     * the missing zero into CAL_DEFAULT would have invalidated O2_COMP
+     * outright and made a probe useless until someone carried nitrogen to the
+     * pile, for an error bounded at 0.4 %vol. */
+    O2P_REG_CAL_STATE       = 0x002Bu,
 };
 #define O2P_REG_DIAG_BASE  0x0010u
-#define O2P_REG_DIAG_COUNT 27u
+#define O2P_REG_DIAG_COUNT 28u
 
 /* Per-command status byte. Not a bitfield: these are exclusive states of one
  * command, and a bitfield invites "OK and FAILED" to coexist. */
@@ -174,6 +186,9 @@ enum {
     O2P_CMD_OK      = 2u,
     O2P_CMD_FAILED  = 3u,
 };
+#define O2P_CAL_STATE_AIR_DEFAULT   0x0001u
+#define O2P_CAL_STATE_NO_ZERO       0x0002u
+
 #define O2P_CMD_RESULT_CAL(v)    ((uint8_t)((v) >> 8))
 #define O2P_CMD_RESULT_COMMIT(v) ((uint8_t)((v) & 0xFFu))
 
@@ -271,9 +286,24 @@ enum {
      * genuinely gone; that falls back to zero, i.e. "unknown".
      * Range 0..2000, see O2P_DIL_ALPHA_MAX. */
     O2P_REG_DIL_ALPHA       = 0x0045u, /* u16 alpha x 1000 */
+    /* Cell zero current, i32 nanoamps, SIGNED. 0 = no zero point taken.
+     *
+     * DS-0637 rates the zero signal "< 0.4 %vol O2 (20 C)" - 1706 nA at Issue
+     * 2's nominal 100 uA cell, 2218 nA at the top of the population. Either
+     * way it is 8-100x every electronic offset in the chain. Folded into the
+     * air point it becomes a SLOPE error across the whole low-O2 range;
+     * subtracted here it is the offset it actually is. Compost control acts
+     * near 5 %vol, where a slope error is worst.
+     *
+     * Appended at the end of the block rather than beside CAL_AIR_NA where it
+     * belongs logically: the map is a published contract - AT+COMMAND frames
+     * on the Dragino name literal addresses - so nothing already in it may be
+     * renumbered to make room. */
+    O2P_REG_CAL_ZERO_NA_HI  = 0x0046u,
+    O2P_REG_CAL_ZERO_NA_LO  = 0x0047u,
 };
 #define O2P_REG_CONFIG_BASE  0x0030u
-#define O2P_REG_CONFIG_COUNT 22u
+#define O2P_REG_CONFIG_COUNT 24u
 
 /* Deliberate magics rather than "write 1". A flash cycle and a recalibration
  * are both destructive and both are one stray bit away in a noisy RS-485
@@ -328,13 +358,24 @@ typedef struct {
     uint8_t  parity_code;             /* 30 */
     uint8_t  reserved[1];             /* 31 */
     uint16_t dil_alpha_x1000;         /* 32 */
-    uint8_t  reserved2[2];            /* 34 */
+    /* 1 once a zero point has been TAKEN. Needed because 0 nA is a legitimate
+     * measured zero as well as the never-measured default, and the two have
+     * identical arithmetic (subtract nothing) but opposite meanings to an
+     * operator deciding whether commissioning is finished. */
+    uint8_t  cal_zero_taken;          /* 34 */
+    uint8_t  reserved2[1];            /* 35 */
+    /* APPENDED, deliberately. Placing it beside cal_air_na would move every
+     * field after it and make the migration a re-layout instead of a
+     * zero-fill; here every v5 offset is untouched and the only thing a v5
+     * record lacks is this field, whose correct value for a probe that never
+     * took a zero point is exactly the 0 it gets. */
+    int32_t  cal_zero_na;             /* 36 */
 } o2p_config_t;
 /* The record wrapper in config_flash.h is a fixed 64 bytes and pads to it, so
  * growing this struct spends the record's reserved tail rather than moving
  * the CRC into a new place. Pinned so a field added without checking the
  * arithmetic fails to compile instead of shifting every offset by two. */
-_Static_assert(sizeof(o2p_config_t) == 36u, "config layout is 36 bytes");
+_Static_assert(sizeof(o2p_config_t) == 40u, "config layout is 40 bytes");
 
 /* Live measurement snapshot, published atomically by the sampler. */
 typedef struct {
