@@ -1123,7 +1123,12 @@ static void test_random_garbage_never_provokes_a_reply(void)
 
 static o2p_heater_cfg_t hcfg_default(void)
 {
-    o2p_heater_cfg_t c;
+    /* Zero-initialised, then filled field by field. The zero matters: this
+     * helper is the baseline every interlock test breaks exactly one thing
+     * from, so a member added to the struct later must arrive as a defined
+     * OFF rather than as stack garbage. It did not, once - test_override
+     * landed uninitialised and eleven unrelated heater tests failed. */
+    o2p_heater_cfg_t c = {0};
     c.setpoint_x100 = 8500u;     /* 85 %RH, PLAN.md:294-296 */
     c.dt_max_k100 = 400u;        /* 4 K, the designed envelope */
     c.max_duty_x100 = 10000u;
@@ -1136,7 +1141,7 @@ static o2p_heater_cfg_t hcfg_default(void)
  * one thing and attribute the result to it. */
 static o2p_heater_in_t hin_healthy(void)
 {
-    o2p_heater_in_t in;
+    o2p_heater_in_t in = {0};   /* see hcfg_default() on why the zero matters */
     in.drive_possible = true;
     in.safety_armed = true;
     in.pin_integrity_ok = true;
@@ -3017,6 +3022,274 @@ static uint8_t write_cal_commit(o2p_regmap_t *r, bool cal, bool commit)
     return rsp[1];
 }
 
+
+/* ------------------------------------------- the heater bench override */
+
+static void arm_override(o2p_heater_cfg_t *cfg, uint16_t duty_x100)
+{
+    cfg->test_override = true;
+    cfg->test_duty_x100 = duty_x100;
+}
+
+static void test_override_drives_open_loop_with_no_humidity(void)
+{
+    /* The reason the mode exists. The RH loop refuses to drive without a
+     * controlled quantity, which is correct for a dew-point regulator and
+     * useless for characterising the plant that regulator was written for. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    in.rh_valid = false;
+    in.chamber_valid = false;
+    arm_override(&cfg, 4000u);
+
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.block,
+        "override must clear NO_RH and NO_CHAMBER");
+    TEST_ASSERT_EQUAL_UINT16(4000u, out.duty_x100);
+}
+
+static void test_override_ignores_the_dt_clamp(void)
+{
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    /* 40 K above chamber: ten times the configured envelope. */
+    in.t_chamber_c100 = (int16_t)(in.t_tip_c100 - 4000);
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_TRUE((out.block & O2P_HB_DT_LIMIT) != 0u);
+
+    arm_override(&cfg, 2500u);
+    o2p_heater_ctl_step(&st, &cfg, &in, 1u, &out);
+    TEST_ASSERT_EQUAL_UINT16(0u, out.block);
+    TEST_ASSERT_EQUAL_UINT16(2500u, out.duty_x100);
+}
+
+static void test_disarming_does_not_inherit_a_stale_dt_clamp(void)
+{
+    /* The clamp latches with hysteresis. If the override merely SKIPPED the
+     * test instead of dropping the latch, the PI loop would come back still
+     * clamped for a dT it had not looked at since. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    in.t_chamber_c100 = (int16_t)(in.t_tip_c100 - 4000);
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_TRUE(st.dt_clamped);
+
+    arm_override(&cfg, 1000u);
+    o2p_heater_ctl_step(&st, &cfg, &in, 1u, &out);
+    TEST_ASSERT_FALSE(st.dt_clamped);
+
+    /* Back to the loop, with a dT that is now inside the envelope. */
+    cfg.test_override = false;
+    in.t_chamber_c100 = in.t_tip_c100;
+    o2p_heater_ctl_step(&st, &cfg, &in, 2u, &out);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.block & O2P_HB_DT_LIMIT,
+        "a dropped clamp must not reappear on the first unclamped cycle");
+}
+
+static void test_override_is_clamped_by_max_duty(void)
+{
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    cfg.max_duty_x100 = 1500u;
+    arm_override(&cfg, 10000u);
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_EQUAL_UINT16(1500u, out.duty_x100);
+}
+
+static void test_override_does_not_bypass_the_hardware_interlocks(void)
+{
+    /* The list that makes this mode acceptable at all. Each is broken alone,
+     * from an otherwise healthy input, with the override armed at full duty:
+     * every one must still force zero. */
+    struct { const char *name; int which; uint16_t bit; } cases[] = {
+        { "safety",        0, O2P_HB_SAFETY        },
+        { "no tip",        1, O2P_HB_NO_TIP        },
+        { "tip limit",     2, O2P_HB_TIP_LIMIT     },
+        { "supply",        3, O2P_HB_SUPPLY        },
+        { "pin integrity", 4, O2P_HB_PIN_INTEGRITY },
+        { "not compiled",  5, O2P_HB_NOT_COMPILED  },
+        { "config off",    6, O2P_HB_CONFIG_OFF    },
+    };
+    for (unsigned i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        o2p_heater_state_t st;
+        o2p_heater_ctl_reset(&st);
+        o2p_heater_cfg_t cfg = hcfg_default();
+        o2p_heater_in_t in = hin_healthy();
+        o2p_heater_out_t out;
+        arm_override(&cfg, 10000u);
+
+        switch (cases[i].which) {
+        case 0: in.safety_armed = false; break;
+        case 1: in.tip_valid = false; break;
+        case 2: in.t_tip_c100 = O2P_HEATER_TIP_LIMIT_C100; break;
+        case 3: in.supply_ok = false; break;
+        case 4: in.pin_integrity_ok = false; break;
+        case 5: in.drive_possible = false; break;
+        case 6: cfg.max_duty_x100 = 0u; break;
+        default: break;
+        }
+        o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.duty_x100, cases[i].name);
+        TEST_ASSERT_TRUE_MESSAGE((out.block & cases[i].bit) != 0u,
+                                 cases[i].name);
+    }
+}
+
+static void test_override_cannot_clear_a_latched_runaway(void)
+{
+    /* Suspending ACCUMULATION is the concession; clearing the LATCH would
+     * make a magic word over Modbus the way to re-arm 1 W against a membrane
+     * after the firmware concluded the FET was stuck on. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    st.runaway_latched = true;
+    arm_override(&cfg, 5000u);
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_EQUAL_UINT16(0u, out.duty_x100);
+    TEST_ASSERT_TRUE((out.block & O2P_HB_RUNAWAY) != 0u);
+    TEST_ASSERT_TRUE(st.runaway_latched);
+}
+
+static void test_override_does_not_latch_runaway_on_external_heat(void)
+{
+    /* The 80 C bath: tip tens of kelvin above the die at zero commanded duty
+     * is exactly the die-referenced runaway signature, and latching there
+     * would disable the heater for the rest of the run. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    arm_override(&cfg, 0u);                 /* armed, commanding nothing */
+    in.die_valid = true;
+    in.t_tip_c100 = 8000 - 100;             /* just under the tip clamp */
+    in.t_die_c100 = 2800;                   /* 52 K below: bath, not a FET */
+
+    for (uint32_t t = 0u; t <= O2P_HEATER_RUNAWAY_WINDOW_S + 5u; t++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+    }
+    TEST_ASSERT_FALSE_MESSAGE(st.runaway_latched,
+        "external heat under an armed override must not latch runaway");
+
+    /* And the detector comes straight back when the override is dropped. */
+    cfg.test_override = false;
+    cfg.test_duty_x100 = 0u;
+    in.rh_x100 = 8500u;                     /* at setpoint: duty stays idle */
+    for (uint32_t t = 100u; t <= 100u + O2P_HEATER_RUNAWAY_WINDOW_S + 5u; t++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(st.runaway_latched,
+        "dropping the override must restore runaway detection");
+}
+
+static void test_heater_test_registers_are_volatile_and_magic_gated(void)
+{
+    o2p_regmap_t r;
+    o2p_regmap_init(&r);
+    uint16_t v[2];
+
+    /* Cleared by init: the mode must never come up armed after a reset. */
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&r, O2P_REG_HTEST_BASE, 2u, v));
+    TEST_ASSERT_EQUAL_UINT16(0u, v[0]);
+    TEST_ASSERT_EQUAL_UINT16(0u, v[1]);
+
+    /* A plain 1 does not arm. */
+    uint16_t w = 1u;
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&r, O2P_REG_HEATER_TEST_ARM, 1u, &w));
+    TEST_ASSERT_FALSE(r.heater_test_armed);
+
+    /* The magic does, and ARM reads back as a flag, not as the token. */
+    w = O2P_HEATER_TEST_MAGIC;
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&r, O2P_REG_HEATER_TEST_ARM, 1u, &w));
+    TEST_ASSERT_TRUE(r.heater_test_armed);
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&r, O2P_REG_HEATER_TEST_ARM, 1u, v));
+    TEST_ASSERT_EQUAL_UINT16(1u, v[0]);
+
+    /* Anything else disarms - switching off must never be refused. */
+    w = 0x1234u;
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&r, O2P_REG_HEATER_TEST_ARM, 1u, &w));
+    TEST_ASSERT_FALSE(r.heater_test_armed);
+}
+
+static void test_a_rejected_heater_test_frame_changes_nothing(void)
+{
+    o2p_regmap_t r;
+    o2p_regmap_init(&r);
+
+    /* Arm and set a duty, so there is prior state to preserve. */
+    uint16_t ok[2] = { O2P_HEATER_TEST_MAGIC, 3000u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&r, O2P_REG_HTEST_BASE, 2u, ok));
+    TEST_ASSERT_TRUE(r.heater_test_armed);
+    TEST_ASSERT_EQUAL_UINT16(3000u, r.heater_test_duty_x100);
+
+    /* One frame that disarms AND names an impossible duty. All-or-nothing:
+     * the operator asked for one state and must not be left in another. */
+    uint16_t bad[2] = { 0u, 10001u };
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&r, O2P_REG_HTEST_BASE, 2u, bad));
+    TEST_ASSERT_TRUE(r.heater_test_armed);
+    TEST_ASSERT_EQUAL_UINT16(3000u, r.heater_test_duty_x100);
+}
+
+static void test_the_heater_test_block_is_not_part_of_the_config(void)
+{
+    /* It has no flash-backed home on purpose. Two consequences a reader
+     * should be able to see asserted: it does not move the config CRC, and a
+     * read cannot span from the config block into it. */
+    o2p_regmap_t r;
+    o2p_regmap_init(&r);
+    uint16_t crc_before = o2p_config_crc(&r.cfg);
+
+    uint16_t w[2] = { O2P_HEATER_TEST_MAGIC, 7500u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&r, O2P_REG_HTEST_BASE, 2u, w));
+    TEST_ASSERT_EQUAL_UINT16(crc_before, o2p_config_crc(&r.cfg));
+
+    uint16_t out[32];
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS,
+        o2p_regmap_read(&r, O2P_REG_CONFIG_BASE, O2P_REG_CONFIG_COUNT + 2u, out));
+}
+
+static void test_the_heater_test_block_does_not_shadow_the_updater(void)
+{
+    /* Written because it happened. The block was first placed at 0x0050,
+     * which is O2P_REG_UPDATE_BASE - and because the dispatcher tries the
+     * fixed blocks before routing to the updater, UPD_STATUS would have read
+     * back as an arm flag and OTA would have stopped working on a probe with
+     * no wired bridge. An address is only free if it is free in update.h too. */
+    TEST_ASSERT_TRUE_MESSAGE(
+        O2P_REG_HTEST_BASE + O2P_REG_HTEST_COUNT <= O2P_REG_UPDATE_BASE ||
+        O2P_REG_HTEST_BASE >= O2P_REG_UPDATE_BASE + O2P_REG_UPDATE_COUNT,
+        "heater test block overlaps the update block");
+    TEST_ASSERT_TRUE_MESSAGE(
+        O2P_REG_HTEST_BASE + O2P_REG_HTEST_COUNT <= O2P_REG_UPDDATA_BASE ||
+        O2P_REG_HTEST_BASE >= O2P_REG_UPDDATA_BASE + O2P_REG_UPDDATA_COUNT,
+        "heater test block overlaps the update data window");
+    TEST_ASSERT_TRUE_MESSAGE(
+        O2P_REG_HTEST_BASE >= O2P_REG_CONFIG_BASE + O2P_REG_CONFIG_COUNT,
+        "heater test block overlaps the config block");
+}
+
 static void test_cmd_result_reads_none_before_any_command(void)
 {
     /* An untouched result register that read OK would be worse than none: a
@@ -3753,9 +4026,12 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    TEST_ASSERT_EQUAL_HEX16(0x0003u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x0004u, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_UINT16(28u, O2P_REG_DIAG_COUNT);
     TEST_ASSERT_EQUAL_UINT16(24u, O2P_REG_CONFIG_COUNT);
+    /* 0x0004: the heater test block appeared at an address that previously
+     * answered exception 02, and the heater became drivable at all. */
+    TEST_ASSERT_EQUAL_UINT16(2u, O2P_REG_HTEST_COUNT);
 }
 
 int main(void)
@@ -3861,6 +4137,17 @@ int main(void)
     RUN_TEST(test_runaway_die_path_does_not_false_positive_at_rest);
     RUN_TEST(test_runaway_references_are_independent);
     RUN_TEST(test_runaway_without_any_reference_is_unevaluable_not_ok);
+    RUN_TEST(test_override_drives_open_loop_with_no_humidity);
+    RUN_TEST(test_override_ignores_the_dt_clamp);
+    RUN_TEST(test_disarming_does_not_inherit_a_stale_dt_clamp);
+    RUN_TEST(test_override_is_clamped_by_max_duty);
+    RUN_TEST(test_override_does_not_bypass_the_hardware_interlocks);
+    RUN_TEST(test_override_cannot_clear_a_latched_runaway);
+    RUN_TEST(test_override_does_not_latch_runaway_on_external_heat);
+    RUN_TEST(test_heater_test_registers_are_volatile_and_magic_gated);
+    RUN_TEST(test_a_rejected_heater_test_frame_changes_nothing);
+    RUN_TEST(test_the_heater_test_block_is_not_part_of_the_config);
+    RUN_TEST(test_the_heater_test_block_does_not_shadow_the_updater);
     RUN_TEST(test_cmd_result_reads_none_before_any_command);
     RUN_TEST(test_calibrate_and_save_defers_the_commit);
     RUN_TEST(test_a_later_commit_frame_also_waits_for_a_pending_cal);

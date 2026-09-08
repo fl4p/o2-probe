@@ -158,6 +158,24 @@ typedef struct {
     uint16_t max_duty_x100;    /* output clamp, 0.01 %; zero disables */
     uint16_t kp_x100;
     uint16_t ki_x100;          /* per second */
+    /* BENCH OVERRIDE (register 0x0060). Drives `test_duty_x100` open-loop and
+     * suppresses exactly three interlocks: NO_RH, NO_CHAMBER and DT_LIMIT.
+     *
+     * Those three and no others because they are the interlocks that protect
+     * the CONTROLLED QUANTITY, not the hardware. The loop regulates chamber
+     * RH, so without humidity it has no error signal and without a chamber
+     * temperature it cannot honour the 0-4 K envelope - both are refusals to
+     * control, and an open-loop duty is not controlling anything. dT is that
+     * envelope itself, and the envelope exists to hold the cell near ambient
+     * for a dew-point loop; a deliberate thermal characterisation is the one
+     * case where exceeding it is the experiment.
+     *
+     * Every interlock that answers to the hardware stays live: SAFETY,
+     * NO_TIP, TIP_LIMIT, SUPPLY, RUNAWAY, PIN_INTEGRITY, NOT_COMPILED, and
+     * max_duty_x100 which still clamps the commanded value and still means
+     * "off" at zero. */
+    bool     test_override;
+    uint16_t test_duty_x100;   /* 0.01 %, clamped to max_duty_x100 */
 } o2p_heater_cfg_t;
 
 typedef struct {

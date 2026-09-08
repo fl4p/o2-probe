@@ -415,6 +415,38 @@ destructive and one stray bit in a frame that happened to pass CRC is otherwise
 enough: `CAL_TRIGGER` (`0x003D`) takes an air-point calibration on `0xCA11`, and
 `COMMIT` (`0x003E`) erases and rewrites the config flash page on `0x5AC1`.
 
+### Heater test block, `0x0060`, 2 registers, read/write, **volatile**
+
+The bench override. It drives the membrane ring open-loop at a chosen duty,
+at any humidity and without the `DT_MAX_K` clamp, so the thermal plant can be
+characterised — the RH loop's gains describe a plant nobody has measured, and
+the loop refuses to run without the humidity signal that characterisation does
+not need.
+
+| Reg | Name | Meaning |
+|---|---|---|
+| `0x0060` | `HEATER_TEST_ARM` | write `0x8EA7` to arm, anything else disarms; reads back `1`/`0` |
+| `0x0061` | `HEATER_TEST_DUTY` | open-loop duty, 0.01 %, clamped to the configured maximum |
+
+**Not in the config block and not in flash.** Arming is lost on reset and on
+brownout, it is not covered by `CONFIG_CRC`, and `COMMIT` cannot persist it. A
+test mode that survives a power cycle is one that gets left armed in a potted
+probe two metres down a pile.
+
+It suppresses exactly three interlocks — `NO_RH`, `NO_CHAMBER` and `DT_LIMIT` —
+which are the ones protecting the *controlled quantity*. Every interlock
+answering to the hardware stays live: the TMP117 therm-mode cutoff (`SAFETY`),
+a missing tip temperature (`NO_TIP`), the absolute tip clamp at 80.00 °C
+(`TIP_LIMIT`, release 75.00 °C), the rail fault, the runaway latch, the PA7
+pin-integrity assertion, and `HEATER_MAX_DUTY`, which still caps the commanded
+duty and still means *off* at zero. With `TIP_LIMIT` left in place an armed
+override is a bang-bang thermostat between 75 °C and 80 °C, which is the
+mechanism for "drive the tip to 80 °C" rather than an obstacle to it.
+
+Runaway *accumulation* is suspended while armed, because external heat — a
+water bath — produces the die-referenced runaway signature at zero commanded
+duty and would latch mid-run. The latch itself is never cleared by this mode.
+
 ### Update block, `0x0050`, 16 registers
 
 The RS-485 firmware updater's control registers, implemented in

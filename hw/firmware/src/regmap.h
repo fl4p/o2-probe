@@ -305,7 +305,7 @@ enum {
 #define O2P_REG_CONFIG_BASE  0x0030u
 #define O2P_REG_CONFIG_COUNT 24u
 
-/* ---- Heater test block: 0x0050, 2 registers, read/write, VOLATILE ----
+/* ---- Heater test block: 0x0060, 2 registers, read/write, VOLATILE ----
  *
  * The bench override. It exists so the ring can be driven open-loop at a
  * chosen duty, at any humidity, without the dT clamp - which is the only way
@@ -329,17 +329,23 @@ enum {
  *
  * With TIP_LIMIT and its 5 K release left in place, an armed override is a
  * bang-bang thermostat between 75.00 and 80.00 C. That is not a limitation
- * worked around - for "drive the tip to 80 C" it is the whole mechanism. */
+ * worked around - for "drive the tip to 80 C" it is the whole mechanism.
+ *
+ * AT 0x0060, NOT at 0x0048 where the config block ends. 0x0050 is
+ * O2P_REG_UPDATE_BASE (update.h) and 0x0080 is the update data window, so the
+ * free ground between them is 0x0060-0x007F. Placing this block immediately
+ * after the config block would also have put it one register-count bump away
+ * from being read as configuration. */
 enum {
     /* Write O2P_HEATER_TEST_MAGIC to arm, 0 to disarm. Reads back 1 or 0
      * rather than the magic: what a reader wants to know is whether the
      * override is live, and echoing a token invites a read-modify-write to
      * re-arm it by accident. */
-    O2P_REG_HEATER_TEST_ARM  = 0x0050u,
+    O2P_REG_HEATER_TEST_ARM  = 0x0060u,
     /* Open-loop duty while armed, 0.01 %. Clamped to HEATER_MAX_DUTY. */
-    O2P_REG_HEATER_TEST_DUTY = 0x0051u,
+    O2P_REG_HEATER_TEST_DUTY = 0x0061u,
 };
-#define O2P_REG_HTEST_BASE  0x0050u
+#define O2P_REG_HTEST_BASE  0x0060u
 #define O2P_REG_HTEST_COUNT 2u
 
 /* Same reasoning as O2P_COMMIT_MAGIC: energising 1 W into the membrane must
@@ -363,9 +369,14 @@ enum {
  * its own stated rule and gave a master no way to tell a 28-register probe
  * from a 26-register one before reading it. Found by review 2026-09-08.
  *
+ * 0x0004 adds the volatile heater test block at 0x0060 and turns the heater
+ * on in the shipped build (O2P_HEATER_ENABLE=1). Both are wire-visible: the
+ * new block answers where 0x0060 previously raised exception 02, and
+ * HEATER_DUTY can now be nonzero, which on every earlier version it could not.
+ *
  * For "which build is this", read BUILD_ID (0x0028/0x0029) - this number is
  * hand-maintained and says nothing about the binary. */
-#define O2P_FW_VERSION 0x0003u  /* v0.3 - diag 28 registers, config 24 */
+#define O2P_FW_VERSION 0x0004u  /* v0.4 - heater live, test block at 0x0060 */
 
 /* Overridden by tools/pio_build_id.py on every target build. The default is
  * reached only by the host test build, and means "no stamp", never a commit. */

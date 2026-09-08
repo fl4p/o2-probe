@@ -42,7 +42,7 @@ static uint16_t interlocks(o2p_heater_state_t *st,
          * is precisely what DESIGN.md:47-51 refuses to credit. */
         block |= O2P_HB_SAFETY;
     }
-    if (!in->rh_valid) {
+    if (!in->rh_valid && !cfg->test_override) {
         /* No humidity means no controlled quantity. Note this also covers the
          * SHT45 de-creep window: main.c marks the chamber invalid while the
          * element is deliberately warm, and a loop that trusted that reading
@@ -52,7 +52,7 @@ static uint16_t interlocks(o2p_heater_state_t *st,
     if (!in->tip_valid) {
         block |= O2P_HB_NO_TIP;
     }
-    if (!in->chamber_valid) {
+    if (!in->chamber_valid && !cfg->test_override) {
         /* Without chamber temperature there is no dT to clamp against, so the
          * 0-4 K design envelope cannot be enforced. Refuse rather than heat
          * open-loop on temperature. */
@@ -90,7 +90,12 @@ static uint16_t interlocks(o2p_heater_state_t *st,
      * absolute tip clamp above, and the TMP117's 85 C hardware cutoff. It is
      * kept, not deleted, because it is correct the moment a revision puts a
      * sensor somewhere thermally different. */
-    if (in->tip_valid && in->chamber_valid) {
+    if (cfg->test_override) {
+        /* Drop the latch rather than merely skipping the test. A clamp left
+         * set would still be set when the override is disarmed, and the loop
+         * would then refuse to drive for a dT it never re-evaluated. */
+        st->dt_clamped = false;
+    } else if (in->tip_valid && in->chamber_valid) {
         int32_t dt = (int32_t)in->t_tip_c100 - (int32_t)in->t_chamber_c100;
         int32_t on = (int32_t)cfg->dt_max_k100;
         int32_t off = on - O2P_HEATER_DT_HYST_K100;
@@ -134,6 +139,29 @@ static void update_runaway(o2p_heater_state_t *st,
                            uint16_t duty_x100)
 {
     if (!in->drive_possible) {
+        return;
+    }
+    /* The bench override suspends ACCUMULATION - never the latch, which
+     * interlocks() still honours and which no register write can clear.
+     *
+     * The detector's premise is that heat the firmware did not command is
+     * evidence of a stuck FET. In a deliberate thermal test that premise is
+     * false by construction: the probe is in a hot bath or beside a heat gun,
+     * so the tip runs tens of kelvin above the die across the thermal barrier
+     * at zero duty, which is exactly the die-referenced signature. It would
+     * latch inside the 60 s window and disable the heater for the rest of the
+     * run - and being latched-until-reset, on a potted probe, that ends the
+     * experiment rather than reporting on it.
+     *
+     * What is given up is small and bounded: the detector already returns
+     * early whenever duty exceeds the idle threshold, so it was never
+     * watching while the ring was actually being driven. What remains is the
+     * TMP117's 85 C therm-mode cutoff, the absolute tip clamp, and an
+     * operator standing at the bench - which is the whole reason this mode
+     * requires a magic word and cannot survive a reset. */
+    if (cfg->test_override) {
+        st->zero_duty_timing = false;
+        st->runaway_evidence_s = 0u;
         return;
     }
     /* Commanded heat is not runaway - but "commanded" has to mean a duty that
@@ -222,6 +250,25 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
         out->duty_x100 = 0u;
         out->block = block;
         update_runaway(st, cfg, in, now_s, 0u);
+        return;
+    }
+
+    if (cfg->test_override) {
+        /* Open loop. The integrator is zeroed rather than carried, so that
+         * disarming the override hands the PI loop the same bumpless
+         * proportional-only restart that clearing an interlock does. */
+        st->integ = 0.0f;
+        uint16_t d = cfg->test_duty_x100;
+        if (d > cfg->max_duty_x100) {
+            d = cfg->max_duty_x100;
+        }
+        out->duty_x100 = d;
+        out->block = 0u;
+        update_runaway(st, cfg, in, now_s, d);
+        if (st->runaway_latched) {
+            out->duty_x100 = 0u;
+            out->block = O2P_HB_RUNAWAY;
+        }
         return;
     }
 

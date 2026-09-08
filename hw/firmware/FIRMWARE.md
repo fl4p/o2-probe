@@ -775,6 +775,41 @@ Both are destructive — one overwrites the calibration, the other spends one of
 roughly 10 000 flash cycles and stalls the CPU for tens of milliseconds. A
 16-bit token makes an accident on a noisy line implausible.
 
+### Heater test block — `0x0060`, 2 registers, read/write, volatile
+
+Open-loop bench override for the membrane ring. Exists because the RH loop
+refuses to drive without a humidity signal and clamps to `DT_MAX_K`, and
+characterising the thermal plant needs neither.
+
+| Reg | Name | Access | Meaning |
+|---|---|---|---|
+| `0x0060` | `HEATER_TEST_ARM` | rw | write `0x8EA7` to arm; any other value disarms; reads `1`/`0` |
+| `0x0061` | `HEATER_TEST_DUTY` | rw | open-loop duty, 0.01 %, clamped to the configured maximum |
+
+Volatile: not in flash, not covered by `CONFIG_CRC`, not reachable by
+`COMMIT`, cleared by reset and brownout.
+
+Suppresses `NO_RH`, `NO_CHAMBER` and `DT_LIMIT` only. Still enforced: the
+TMP117 therm-mode cutoff, a valid tip reading, the 80.00 °C absolute tip clamp
+(release 75.00 °C), rail faults, the runaway latch, the PA7 pin-integrity
+assertion, and the configured duty maximum — zero there still means off.
+Runaway accumulation pauses while armed so that an external heat source cannot
+latch it mid-run; the latch is never cleared by this mode.
+
+**Procedure — drive the tip to 80 °C.**
+
+1. Write a nonzero duty maximum to `0x0035` (this defaults to zero, and zero
+   disables the heater outright). Do **not** `COMMIT` unless the probe should
+   keep it.
+2. Write `0x0061` = desired duty in 0.01 %, e.g. `10000` for 100 %.
+3. Write `0x0060` = `0x8EA7`.
+4. Watch `T_TIP` (`0x0002`) and `HEATER_DUTY` (`0x0005`). Duty drops to zero at
+   80.00 °C and resumes at 75.00 °C; that oscillation is the clamp working.
+5. Disarm by writing anything else to `0x0060`, or by power-cycling.
+
+If `HEATER_DUTY` stays zero, read `HEATER_BLOCK` in the diagnostic block for
+the reason — it reports every interlock at once rather than the first.
+
 ### Update block — `0x0050`, 16 registers
 
 The firmware updater's control registers. Answered by the application and, with

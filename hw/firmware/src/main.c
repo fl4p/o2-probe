@@ -747,6 +747,11 @@ static void cycle_publish(o2p_snapshot_t *s)
              * done half-way. */
             .kp_x100       = g_rm.cfg.heater_kp_x100,
             .ki_x100       = g_rm.cfg.heater_ki_x100,
+            /* Bench override, registers 0x0060/0x0061. Read straight from the
+             * register map rather than copied into the config: it is
+             * volatile on purpose and must not acquire a flash-backed twin. */
+            .test_override   = g_rm.heater_test_armed,
+            .test_duty_x100  = g_rm.heater_test_duty_x100,
         };
         const o2p_heater_in_t hin = {
             .drive_possible   = o2p_heater_compiled_in(),
