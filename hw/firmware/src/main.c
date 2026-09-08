@@ -662,11 +662,21 @@ static void finish_electrode(o2p_snapshot_t *s, bool working)
      *  - g_acc_clipped: the converter saturated.
      *  - a negative code: SBAS925A 8.3.2 - in single-ended mode only the
      *    positive range is used, so below AGND is outside the valid domain.
-     *  - ADC_RANGE: includes a VREF outside the trim network's band, and these
-     *    channels are scaled BY that reference. finish_vref() keeps the nominal
-     *    scale when it raises this, so the volts would be assumed, not measured.
+     *  - an unmeasured VREF: these channels are scaled BY that reference, and
+     *    finish_vref() keeps the nominal scale when it refuses one, so the
+     *    volts would be assumed rather than measured.
+     *
+     * That last test READ THE SHARED FAULT WORD until 2026-09-08, and the
+     * fault word is cumulative within a cycle. PH_O2 runs before PH_WE, and
+     * finish_o2() raises ADC_RANGE from two conditions that say nothing about
+     * these channels: a pinned O2 conversion, and an out-of-range COMPUTED
+     * oxygen fraction. So the moment the AFE collapsed, the bias diagnostic
+     * that exists to explain a collapsed AFE went silent with it - measured
+     * 2026-09-08, bit 11 set from 17:40 on and WE/RE/CELL_BIAS_MV sentinel
+     * for every cycle after. A guard must not be disarmed by the failure it
+     * is there to name. vref_measured asks the question actually meant here.
      */
-    if (g_acc_clipped || (g_cyc.faults & O2P_F_ADC_RANGE) != 0u) {
+    if (g_acc_clipped || !g_cyc.vref_measured) {
         return;
     }
     int32_t code = g_acc / (int32_t)O2P_N_CELL;
