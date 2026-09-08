@@ -190,6 +190,12 @@ static void carry_common(o2p_config_t *out,
     out->rh_setpoint_x100 = rh_setpoint_x100;
     out->dt_max_k_x100 = dt_max_k_x100;
     out->heater_max_duty_x100 = heater_max_duty_x100;
+    /* NEVER carried. An older record was written by firmware in which the
+     * heater was compiled out, or in which consent did not exist, so it
+     * cannot express consent and inventing one would be this function
+     * granting an authorisation nobody gave. Every upgrade lands with
+     * autonomous heating off, whatever max_duty came across. */
+    out->heater_rh_consent = 0u;
     out->heater_pwm_hz = heater_pwm_hz;
     out->heater_kp_x100 = heater_kp_x100;
     out->heater_ki_x100 = heater_ki_x100;

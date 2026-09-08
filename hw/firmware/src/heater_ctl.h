@@ -59,6 +59,11 @@ enum {
     O2P_HB_SUPPLY        = 1u << 9,  /* rail fault - do not add 86 mA of load */
     O2P_HB_PIN_INTEGRITY = 1u << 10, /* TIM1 CH1N / PA7 assertion failed */
     O2P_HB_STALE         = 1u << 11, /* no decision recently; see heater.c */
+    /* No consent to AUTONOMOUS heating: the RH loop wanted to drive and
+     * HEATER_RH_CONSENT (0x0048) does not hold the magic. Never raised while
+     * the bench override is armed - that path carries its own authorisation
+     * and an operator. */
+    O2P_HB_NO_CONSENT    = 1u << 12,
 };
 
 /* Firmware's own absolute tip limit, independent of the TMP117's alert.
@@ -202,6 +207,15 @@ typedef struct {
      * "off" at zero. */
     bool     test_override;
     uint16_t test_duty_x100;   /* 0.01 %, clamped to max_duty_x100 */
+    /* HEATER_RH_CONSENT holds its magic. Gates the RH loop ONLY.
+     *
+     * The heater used to be compiled out, so O2P_HB_NOT_COMPILED refused
+     * every path whatever the stored configuration said. Once the ring is
+     * compiled in, a nonzero heater_max_duty_x100 in flash is on its own
+     * enough to start an unvalidated loop on a buried probe with nobody
+     * present, and migrations carry that maximum forward by design. This is
+     * the consent that replaces the compile flag's guarantee. */
+    bool     rh_consent;
     /* TIP TEMPERATURE SETPOINT MODE. When test_tip_sp_valid is set, the
      * override closes a PI loop on tip temperature instead of commanding
      * test_duty_x100 open loop.

@@ -305,7 +305,7 @@ prevent, and the probe is potted. Zero means *built without the stamp* (only the
 host test build after 2026-09-08) and is never reported as a commit.
 
 
-### Config block, `0x0030`, 24 registers, read/write, flash-backed
+### Config block, `0x0030`, 25 registers, read/write, flash-backed
 
 `SLAVE_ADDR`, `BAUD_CODE`, `PARITY_CODE`, `RH_SETPOINT`, `DT_MAX_K`,
 `HEATER_MAX_DUTY`, `HEATER_PWM_HZ`, `CAL_AIR_NA_HI/LO`, `CAL_TEMP_C100`,
@@ -316,6 +316,22 @@ host test build after 2026-09-08) and is never reported as a commit.
 pressure fields: `ASSUMED_P_HPA` at `0x0042`, `CAL_AIR_FRAC` at `0x0043` and
 `CAL_P_HPA` at `0x0044`.
 The cell's dilution efficacy `DIL_ALPHA` sits at `0x0045`.
+`HEATER_RH_CONSENT` sits at `0x0048`.
+
+`HEATER_RH_CONSENT` (`0x0048`) is consent to **autonomous** heating: only the
+magic `0x9C07` lets the RH loop drive the ring, and anything else — zero
+included — raises `NO_CONSENT` and holds duty at zero. It does not gate the
+bench override, which carries its own magic, is volatile, and is used with an
+operator present.
+
+It is a separate field from the duty maximum on purpose. While the heater was
+compiled out, `NOT_COMPILED` refused every path whatever the stored config
+said; compiling the ring in removed that guarantee and left a nonzero stored
+duty maximum sufficient, by itself, to start an unvalidated control loop on a
+buried probe with nobody present — and migrations carry that maximum forward
+by design. The maximum answers *how hard*, a tuning question; consent answers
+*at all*. One field cannot be both. `config_migrate.c` never carries consent,
+so every upgrade lands with autonomous heating off.
 
 `DIL_ALPHA` (`0x0045`, alpha x 1000, default 1000) is how much of the
 water-vapour dilution the cell's current actually shows. The gas law says the

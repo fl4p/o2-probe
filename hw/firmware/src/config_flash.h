@@ -102,7 +102,17 @@
  * from 36 to 40 bytes. Appended rather than placed beside cal_air_na so every
  * v5 offset stays where it is: the migration then carries a v5 record intact
  * and the only field it cannot fill is the one a v5 probe never had. */
-#define CONFIG_LAYOUT_VERSION 6u
+/* Version 7 appends heater_rh_consent (register 0x0048), consent to
+ * AUTONOMOUS heating. Appended for the same reason version 6 was: every v6
+ * offset stays put, so the migration is a zero-fill rather than a re-layout.
+ *
+ * And zero is the RIGHT value for a migrated record, not merely a convenient
+ * one. A v6 record was written by firmware in which the heater was compiled
+ * out or in which consent did not exist, so it cannot express consent, and
+ * inventing one would be the migration granting an authorisation nobody
+ * gave. Every upgrade therefore lands with autonomous heating off, whatever
+ * heater_max_duty_x100 it carried across. */
+#define CONFIG_LAYOUT_VERSION 7u
 
 /* Fixed 64-byte record, so the layout does not move when a config field is
  * added and the flash image stays recognisable across firmware versions. */

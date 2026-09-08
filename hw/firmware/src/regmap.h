@@ -301,9 +301,15 @@ enum {
      * renumbered to make room. */
     O2P_REG_CAL_ZERO_NA_HI  = 0x0046u,
     O2P_REG_CAL_ZERO_NA_LO  = 0x0047u,
+    /* Consent to AUTONOMOUS heating - the RH loop only. Write
+     * O2P_HEATER_RH_CONSENT_MAGIC to permit it; any other value, zero
+     * included, refuses. See o2p_config_t.heater_rh_consent for why this is
+     * a separate field from HEATER_MAX_DUTY rather than a second meaning
+     * loaded onto it. Never carried across a config migration. */
+    O2P_REG_HEATER_RH_CONSENT = 0x0048u,
 };
 #define O2P_REG_CONFIG_BASE  0x0030u
-#define O2P_REG_CONFIG_COUNT 24u
+#define O2P_REG_CONFIG_COUNT 25u
 
 /* ---- Heater test block: 0x0060, 5 registers, read/write, VOLATILE ----
  *
@@ -385,6 +391,12 @@ enum {
  * not be one flipped bit away in a frame that happened to pass CRC. */
 #define O2P_HEATER_TEST_MAGIC 0x8EA7u
 
+/* Consent to autonomous (RH-loop) heating, register 0x0048. A distinct token
+ * from O2P_HEATER_TEST_MAGIC on purpose: the two authorise different things -
+ * attended bench driving versus unattended field driving - and a single magic
+ * would let a habit formed at the bench grant the other by muscle memory. */
+#define O2P_HEATER_RH_CONSENT_MAGIC 0x9C07u
+
 /* Deliberate magics rather than "write 1". A flash cycle and a recalibration
  * are both destructive and both are one stray bit away in a noisy RS-485
  * frame that happened to pass CRC; requiring a 16-bit token makes an accident
@@ -419,9 +431,15 @@ enum {
  * both were already in every frame, and both stayed populated across exactly
  * the window the current went missing.
  *
+ * 0x0007 grows the config block from 24 registers to 25 with
+ * HEATER_RH_CONSENT at 0x0048, and makes autonomous heating refuse without
+ * it. Wire-visible twice over: a new register answers where exception 02 used
+ * to, and a probe whose stored HEATER_MAX_DUTY was nonzero now declines to
+ * heat until consent is written.
+ *
  * For "which build is this", read BUILD_ID (0x0028/0x0029) - this number is
  * hand-maintained and says nothing about the binary. */
-#define O2P_FW_VERSION 0x0006u  /* v0.6 - O2_RAW survives the settle window */
+#define O2P_FW_VERSION 0x0007u  /* v0.7 - autonomous heating needs consent */
 
 /* Overridden by tools/pio_build_id.py on every target build. The default is
  * reached only by the host test build, and means "no stamp", never a commit. */
@@ -474,6 +492,27 @@ typedef struct {
      * record lacks is this field, whose correct value for a probe that never
      * took a zero point is exactly the 0 it gets. */
     int32_t  cal_zero_na;             /* 36 */
+    /* CONSENT TO AUTONOMOUS HEATING, register 0x0048. Layout version 7.
+     *
+     * Only O2P_HEATER_RH_CONSENT_MAGIC permits the RH loop to drive the ring;
+     * anything else, zero included, raises O2P_HB_NO_CONSENT and the duty is
+     * zero. It does NOT gate the bench override, which has its own magic, is
+     * volatile, and is used with an operator present.
+     *
+     * WHY THIS IS NOT heater_max_duty_x100. Until 2026-09-08 the heater was
+     * compiled out, so O2P_HB_NOT_COMPILED blocked every path regardless of
+     * configuration and a stored duty maximum could not energise anything.
+     * Turning the ring on removed that guarantee and left a nonzero stored
+     * maximum sufficient, by itself, to start an unvalidated control loop on
+     * a buried probe with nobody present - and every migration deliberately
+     * carries that maximum forward. The duty maximum answers "how hard", which
+     * is a tuning question; this answers "at all", which is a consent
+     * question, and one field cannot be both. Found by review 2026-09-08.
+     *
+     * config_migrate.c NEVER carries it: an upgrade always lands with
+     * autonomous heating off, whatever the old record said. */
+    uint16_t heater_rh_consent;       /* 40 */
+    uint8_t  reserved3[2];            /* 42 */
 } o2p_config_t;
 /* The record wrapper in config_flash.h is a fixed 64 bytes and pads to it, so
  * growing this struct spends the record's RESERVED TAIL rather than the frame.
@@ -486,7 +525,11 @@ typedef struct {
  * would have made the version-specific length look like dead code to anyone
  * tidying up. Corrected after review, 2026-09-08. Pinned so a field added without checking the
  * arithmetic fails to compile instead of shifting every offset by two. */
-_Static_assert(sizeof(o2p_config_t) == 40u, "config layout is 40 bytes");
+_Static_assert(sizeof(o2p_config_t) == 44u, "config layout is 44 bytes");
+/* v7 grew it 40 -> 44 (heater_rh_consent plus its padding), so the CRC moves
+ * again, 52 -> 56, and the fixed 64-byte record's reserved tail shrinks from
+ * 10 bytes to 6. Both still fit, and the version-specific size arithmetic in
+ * config_migrate.c means a v6 record is still checked at the v6 offset. */
 
 /* Live measurement snapshot, published atomically by the sampler. */
 typedef struct {

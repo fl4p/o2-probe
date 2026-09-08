@@ -37,6 +37,12 @@ static uint16_t interlocks(o2p_heater_state_t *st,
     if (cfg->max_duty_x100 == 0u) {
         block |= O2P_HB_CONFIG_OFF;
     }
+    /* Autonomous heating needs explicit consent; attended bench driving does
+     * not, because arming the override IS the authorisation and it cannot
+     * survive a reset. */
+    if (!cfg->test_override && !cfg->rh_consent) {
+        block |= O2P_HB_NO_CONSENT;
+    }
     if (!in->safety_armed) {
         /* The TMP117's therm-mode alert is the hardware cutoff. Driving 1 W
          * into the membrane while the only autonomous limit is unprogrammed

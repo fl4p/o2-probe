@@ -61,6 +61,9 @@ void o2p_config_defaults(o2p_config_t *cfg)
      * heater is never a single edit. See heater.h for the bench prerequisites.
      */
     cfg->heater_max_duty_x100 = 0u;
+    /* No consent by default. A probe that has never been told to heat by
+     * itself must not, and this is the field that says so. */
+    cfg->heater_rh_consent = 0u;
 }
 
 bool o2p_config_valid(const o2p_config_t *cfg)
@@ -87,6 +90,13 @@ bool o2p_config_valid(const o2p_config_t *cfg)
         return false;
     }
     if (cfg->dt_max_k_x100 > 400u) {   /* the path is designed for 0-4 K */
+        return false;
+    }
+    /* Only two legal values. Refusing anything else means a corrupt flash
+     * image cannot land on the magic by accident and cannot be stored with a
+     * value that LOOKS like consent to a later reader. */
+    if (cfg->heater_rh_consent != 0u &&
+        cfg->heater_rh_consent != O2P_HEATER_RH_CONSENT_MAGIC) {
         return false;
     }
     if (cfg->heater_max_duty_x100 > 10000u) {
@@ -381,6 +391,7 @@ static uint16_t read_config(const o2p_regmap_t *rm, uint16_t a)
     case O2P_REG_RH_SETPOINT:     return c->rh_setpoint_x100;
     case O2P_REG_DT_MAX_K:        return c->dt_max_k_x100;
     case O2P_REG_HEATER_MAX_DUTY: return c->heater_max_duty_x100;
+    case O2P_REG_HEATER_RH_CONSENT: return c->heater_rh_consent;
     case O2P_REG_HEATER_PWM_HZ:   return c->heater_pwm_hz;
     case O2P_REG_HEATER_KP:       return c->heater_kp_x100;
     case O2P_REG_HEATER_KI:       return c->heater_ki_x100;
@@ -479,6 +490,14 @@ static uint8_t apply_config_word(o2p_config_t *c, uint16_t a, uint16_t v,
     case O2P_REG_RH_SETPOINT:     c->rh_setpoint_x100 = v; break;
     case O2P_REG_DT_MAX_K:        c->dt_max_k_x100 = v; break;
     case O2P_REG_HEATER_MAX_DUTY: c->heater_max_duty_x100 = v; break;
+    case O2P_REG_HEATER_RH_CONSENT:
+        /* Validated here rather than only in o2p_config_valid(), so the
+         * exception names the register the master actually got wrong. */
+        if (v != 0u && v != O2P_HEATER_RH_CONSENT_MAGIC) {
+            return O2P_MB_EX_ILLEGAL_VALUE;
+        }
+        c->heater_rh_consent = v;
+        break;
     case O2P_REG_HEATER_PWM_HZ:   c->heater_pwm_hz = v; break;
     case O2P_REG_HEATER_KP:       c->heater_kp_x100 = v; break;
     case O2P_REG_HEATER_KI:       c->heater_ki_x100 = v; break;

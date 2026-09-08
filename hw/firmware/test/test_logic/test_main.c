@@ -180,7 +180,7 @@ static void test_config_struct_has_no_implicit_padding(void)
     /* The struct is written to flash byte-for-byte and hashed with a CRC.
      * Padding the compiler may leave uninitialised would make that CRC
      * non-deterministic and produce spurious "corrupt config" at boot. */
-    TEST_ASSERT_EQUAL_UINT(2 * sizeof(int32_t) + 13 * sizeof(uint16_t) + 6,
+    TEST_ASSERT_EQUAL_UINT(2 * sizeof(int32_t) + 14 * sizeof(uint16_t) + 8,
                            sizeof(o2p_config_t));
     /* It DID grow with dil_alpha_x1000, from 32 to 36, and again to 40 when
      * cal_zero_na and cal_zero_taken were APPENDED - appended rather than
@@ -190,7 +190,7 @@ static void test_config_struct_has_no_implicit_padding(void)
      * frame is still 64 bytes and the CRC still sits immediately after the
      * configuration, which is the invariant that actually matters. The
      * assertion below is what enforces it. */
-    TEST_ASSERT_EQUAL_UINT(40u, sizeof(o2p_config_t));
+    TEST_ASSERT_EQUAL_UINT(44u, sizeof(o2p_config_t));
     /* config_flash.h is not reachable from a native test (it pulls in the
      * flash map), so the record arithmetic is restated here rather than
      * measured: 12 bytes of header + the configuration + a 2-byte CRC must
@@ -569,15 +569,15 @@ static void test_config_block_read_covers_the_gains(void)
 {
     /* The block grew from 16 to 18 registers with the gains, to 20 with
      * ASSUMED_P_HPA and CAL_AIR_FRAC, to 21 with CAL_P_HPA, to 22 with
-     * DIL_ALPHA and to 24 with the CAL_ZERO_NA pair. A read of all 24 must
-     * succeed; 25 must not, or the boundary rule has quietly stopped being
-     * enforced. */
+     * DIL_ALPHA, to 24 with the CAL_ZERO_NA pair and to 25 with
+     * HEATER_RH_CONSENT. A read of all 25 must succeed; 26 must not, or the
+     * boundary rule has quietly stopped being enforced. */
     uint8_t req[16], rsp[O2P_MB_MAX_ADU];
-    const uint8_t all[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x18};
+    const uint8_t all[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x19};
     size_t n = framed(req, all, sizeof(all));
-    TEST_ASSERT_EQUAL_UINT(3 + 48 + 2, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
+    TEST_ASSERT_EQUAL_UINT(3 + 50 + 2, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
 
-    const uint8_t over[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x19};
+    const uint8_t over[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x1A};
     n = framed(req, over, sizeof(over));
     o2p_mb_dispatch(req, n, 3, &handlers, rsp);
     TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS, rsp[2]);
@@ -1166,6 +1166,11 @@ static o2p_heater_cfg_t hcfg_default(void)
     c.max_duty_x100 = 10000u;
     c.kp_x100 = O2P_HEATER_KP_X100_DEFAULT;
     c.ki_x100 = O2P_HEATER_KI_X100_DEFAULT;
+    /* A probe that has been told it may heat by itself. The interlock tests
+     * below break exactly one thing from this baseline, and consent is a
+     * precondition of the RH loop rather than one of the things under test -
+     * its own coverage is test_autonomous_heating_needs_consent(). */
+    c.rh_consent = true;
     return c;
 }
 
@@ -3556,6 +3561,76 @@ static void test_a_rejected_setpoint_frame_changes_no_register(void)
     TEST_ASSERT_EQUAL_UINT16(20u, r.heater_test_ki_x100);
 }
 
+static void test_autonomous_heating_needs_consent(void)
+{
+    /* The guarantee that O2P_HEATER_ENABLE=0 used to provide for free. With
+     * the ring compiled in, a nonzero stored duty maximum was on its own
+     * enough to start the RH loop on a buried probe with nobody present. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    /* Everything healthy, a generous duty maximum, humidity well above
+     * setpoint - the loop wants to heat - but no consent. */
+    cfg.rh_consent = false;
+    cfg.max_duty_x100 = 10000u;
+    in.rh_x100 = 9900u;
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.duty_x100,
+        "a stored duty maximum must not by itself start autonomous heating");
+    TEST_ASSERT_TRUE((out.block & O2P_HB_NO_CONSENT) != 0u);
+
+    /* With consent, the same inputs drive. */
+    cfg.rh_consent = true;
+    o2p_heater_ctl_step(&st, &cfg, &in, 1u, &out);
+    TEST_ASSERT_EQUAL_UINT16(0u, out.block);
+    TEST_ASSERT_TRUE(out.duty_x100 > 0u);
+}
+
+static void test_the_bench_override_does_not_need_consent(void)
+{
+    /* Consent gates UNATTENDED heating. Arming the override is itself the
+     * authorisation, it needs its own magic, and it cannot survive a reset -
+     * so requiring both would be ceremony, not safety. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    cfg.rh_consent = false;
+    cfg.test_override = true;
+    cfg.test_duty_x100 = 2500u;
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.block & O2P_HB_NO_CONSENT,
+        "NO_CONSENT must never be raised against the attended override");
+    TEST_ASSERT_EQUAL_UINT16(2500u, out.duty_x100);
+}
+
+static void test_consent_is_never_carried_across_a_migration(void)
+{
+    /* The failure this whole field exists to prevent: an upgrade landing on a
+     * probe whose old record said "heat hard", and heating. An older record
+     * was written by firmware that could not express consent, so there is no
+     * honest value to carry - only zero. */
+    o2p_config_t c;
+    o2p_config_defaults(&c);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, c.heater_rh_consent,
+        "a probe that was never told to heat by itself must not");
+
+    /* And only the two legal values may ever be stored, so a corrupt image
+     * cannot land on something that reads as consent. */
+    c.heater_rh_consent = O2P_HEATER_RH_CONSENT_MAGIC;
+    TEST_ASSERT_TRUE(o2p_config_valid(&c));
+    c.heater_rh_consent = 1u;
+    TEST_ASSERT_FALSE(o2p_config_valid(&c));
+    c.heater_rh_consent = (uint16_t)(O2P_HEATER_RH_CONSENT_MAGIC ^ 0x0001u);
+    TEST_ASSERT_FALSE_MESSAGE(o2p_config_valid(&c),
+        "one flipped bit in the magic must not read as consent");
+}
+
 static void test_the_tip_thresholds_form_a_ladder(void)
 {
     /* Host copy of the assert in main.c. main.c is not host-buildable, and
@@ -4312,12 +4387,13 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    TEST_ASSERT_EQUAL_HEX16(0x0006u, O2P_FW_VERSION);
-    /* 0x0006: the raw channel stopped going silent for 900 s after a reset. */
+    TEST_ASSERT_EQUAL_HEX16(0x0007u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_UINT16(25u, O2P_REG_CONFIG_COUNT);
+    /* 0x0007: config block grew with HEATER_RH_CONSENT.
+     * 0x0006: the raw channel stopped going silent for 900 s after a reset. */
     TEST_ASSERT_TRUE((O2P_FAULTS_INVALIDATE_O2 & O2P_F_SETTLING) == 0u);
     TEST_ASSERT_TRUE((O2P_FAULTS_INVALIDATE_O2_COMP & O2P_F_SETTLING) != 0u);
     TEST_ASSERT_EQUAL_UINT16(28u, O2P_REG_DIAG_COUNT);
-    TEST_ASSERT_EQUAL_UINT16(24u, O2P_REG_CONFIG_COUNT);
     /* 0x0004: the heater test block appeared at an address that previously
      * answered exception 02, and the heater became drivable at all. */
     TEST_ASSERT_EQUAL_UINT16(5u, O2P_REG_HTEST_COUNT);
@@ -4570,6 +4646,9 @@ int main(void)
     RUN_TEST(test_the_heater_test_block_is_not_part_of_the_config);
     RUN_TEST(test_the_heater_test_block_does_not_shadow_the_updater);
     RUN_TEST(test_the_tip_thresholds_form_a_ladder);
+    RUN_TEST(test_autonomous_heating_needs_consent);
+    RUN_TEST(test_the_bench_override_does_not_need_consent);
+    RUN_TEST(test_consent_is_never_carried_across_a_migration);
     RUN_TEST(test_tip_setpoint_converges_and_holds);
     RUN_TEST(test_tip_setpoint_asks_for_more_duty_when_colder);
     RUN_TEST(test_the_integrator_does_not_leak_between_loops);

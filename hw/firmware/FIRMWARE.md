@@ -702,7 +702,7 @@ then two that exist because supervision here is *sampled*, not continuous:
   a commit. `FW_VERSION` is now bumped only when the wire contract changes, and
   is `0x0002` for this 26-register block.
 
-### Config block — `0x0030`, 24 registers, read/write, flash-backed
+### Config block — `0x0030`, 25 registers, read/write, flash-backed
 
 - `CAL_ZERO_NA_HI` `0x0046`, `CAL_ZERO_NA_LO` `0x0047` — cell dark current,
   i32 nanoamps, **signed**. Subtracted from every measured current *and* from
