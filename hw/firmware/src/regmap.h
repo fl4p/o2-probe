@@ -342,11 +342,42 @@ enum {
      * override is live, and echoing a token invites a read-modify-write to
      * re-arm it by accident. */
     O2P_REG_HEATER_TEST_ARM  = 0x0060u,
-    /* Open-loop duty while armed, 0.01 %. Clamped to HEATER_MAX_DUTY. */
+    /* Duty while armed with no temperature target, 0.01 %. Clamped to the
+     * configured duty maximum. */
     O2P_REG_HEATER_TEST_DUTY = 0x0061u,
+    /* TIP TEMPERATURE SETPOINT, i16 0.01 C, O2P_I16_INVALID = none.
+     *
+     * Writing a real temperature here turns the override from open-loop duty
+     * into a closed loop on tip temperature, which is the difference between
+     * a plateau and a sawtooth. Without it the ring runs at TEST_DUTY until
+     * the absolute clamp cuts it at 80.00 C and releases at 75.00 C: a mean
+     * near 77.5 C with +/-2.5 K of ripple, produced by bouncing a PROTECTION
+     * device off its limits. A clamp that fires every cycle in normal use has
+     * stopped being a clamp.
+     *
+     * Bounded at O2P_HEATER_TEST_SP_MAX_C100, a kelvin below the clamp, so
+     * the clamp stays the backstop it was written to be: if TIP_LIMIT fires
+     * while a setpoint is in force, the loop has failed and that is worth
+     * knowing, which it is not when the clamp IS the control mechanism. */
+    O2P_REG_HEATER_TEST_TIP_SP = 0x0062u,
+    /* Gains for the TIP loop only, 0.01 units. Volatile like the rest of the
+     * block, and deliberately NOT the flash-backed HEATER_KP/HEATER_KI at
+     * 0x0040/0x0041: those tune the humidity loop, whose error is in %RH and
+     * whose gains would be meaningless here - and overwriting a probe's RH
+     * tuning as a side effect of a bench test is not a trade anyone offered.
+     *
+     * Registers rather than constants because the plant is unmeasured, and
+     * the entire reason this block exists is that reflashing a potted probe
+     * to change a number is not a tuning loop. */
+    O2P_REG_HEATER_TEST_KP   = 0x0063u,
+    O2P_REG_HEATER_TEST_KI   = 0x0064u,
 };
 #define O2P_REG_HTEST_BASE  0x0060u
-#define O2P_REG_HTEST_COUNT 2u
+#define O2P_REG_HTEST_COUNT 5u
+
+/* A setpoint must sit strictly below the absolute clamp, by enough that the
+ * loop's own overshoot does not routinely reach it. One kelvin. */
+#define O2P_HEATER_TEST_SP_MAX_C100 7900
 
 /* Same reasoning as O2P_COMMIT_MAGIC: energising 1 W into the membrane must
  * not be one flipped bit away in a frame that happened to pass CRC. */
@@ -374,9 +405,13 @@ enum {
  * new block answers where 0x0060 previously raised exception 02, and
  * HEATER_DUTY can now be nonzero, which on every earlier version it could not.
  *
+ * 0x0005 grows that block from 2 registers to 5, adding the tip-temperature
+ * setpoint and its two gains. Wire-visible for the same reason: 0x0062-0x0064
+ * answered exception 02 under 0x0004.
+ *
  * For "which build is this", read BUILD_ID (0x0028/0x0029) - this number is
  * hand-maintained and says nothing about the binary. */
-#define O2P_FW_VERSION 0x0004u  /* v0.4 - heater live, test block at 0x0060 */
+#define O2P_FW_VERSION 0x0005u  /* v0.5 - heater test block grows to 5 */
 
 /* Overridden by tools/pio_build_id.py on every target build. The default is
  * reached only by the host test build, and means "no stamp", never a commit. */
@@ -507,6 +542,11 @@ typedef struct {
      * o2p_config_t, and they have none on purpose - see the block comment. */
     volatile bool heater_test_armed;
     volatile uint16_t heater_test_duty_x100;
+    /* O2P_I16_INVALID means "no temperature target": the override then runs
+     * open loop on heater_test_duty_x100. */
+    volatile int16_t heater_test_tip_sp_c100;
+    volatile uint16_t heater_test_kp_x100;
+    volatile uint16_t heater_test_ki_x100;
     /* Packed CMD_RESULT, see O2P_REG_CMD_RESULT. One 16-bit word so a Modbus
      * reader never sees a half-updated pair. */
     volatile uint16_t cmd_result;

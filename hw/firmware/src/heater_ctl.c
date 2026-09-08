@@ -14,6 +14,7 @@ void o2p_heater_ctl_reset(o2p_heater_state_t *st)
     st->zero_duty_since_s = 0u;
     st->dt_clamped = false;
     st->tip_clamped = false;
+    st->last_mode = O2P_HEATER_MODE_RH;
 }
 
 /* Collect every reason the loop may not drive this cycle.
@@ -229,55 +230,24 @@ static void update_runaway(o2p_heater_state_t *st,
     }
 }
 
-void o2p_heater_ctl_step(o2p_heater_state_t *st,
-                         const o2p_heater_cfg_t *cfg,
-                         const o2p_heater_in_t *in,
-                         uint32_t now_s,
-                         o2p_heater_out_t *out)
+/* The PI core, shared by the humidity loop and the tip-temperature loop.
+ *
+ * Factored out rather than copied because the anti-windup is the part that is
+ * easy to get subtly wrong, and two copies drift. `e` is in whatever units the
+ * caller's controlled quantity uses, positive meaning "ask for more duty";
+ * only that sign convention is shared, and each caller owns its own gains.
+ *
+ * `mode` zeroes the integrator whenever the controlled quantity changes: an
+ * integral wound up in 0.01 %RH has no meaning in 0.01 K, and carrying it
+ * across would slam the output on the first cycle after a mode switch. */
+static uint16_t pi_step(o2p_heater_state_t *st, uint8_t mode,
+                        float e, float kp, float ki, float max_duty)
 {
-    if (st == NULL || cfg == NULL || in == NULL || out == NULL) {
-        return;
-    }
-
-    uint16_t block = interlocks(st, cfg, in);
-    if (block != 0u) {
-        /* Zero the integrator rather than freezing it. Freezing would make the
-         * loop slam to whatever it had wound up to the moment an interlock
-         * cleared - the opposite of what you want after a fault. Restarting
-         * from proportional-only is bumpless and slow, which is correct for a
-         * plant nobody has measured. */
+    if (st->last_mode != mode) {
         st->integ = 0.0f;
-        out->duty_x100 = 0u;
-        out->block = block;
-        update_runaway(st, cfg, in, now_s, 0u);
-        return;
+        st->last_mode = mode;
     }
 
-    if (cfg->test_override) {
-        /* Open loop. The integrator is zeroed rather than carried, so that
-         * disarming the override hands the PI loop the same bumpless
-         * proportional-only restart that clearing an interlock does. */
-        st->integ = 0.0f;
-        uint16_t d = cfg->test_duty_x100;
-        if (d > cfg->max_duty_x100) {
-            d = cfg->max_duty_x100;
-        }
-        out->duty_x100 = d;
-        out->block = 0u;
-        update_runaway(st, cfg, in, now_s, d);
-        if (st->runaway_latched) {
-            out->duty_x100 = 0u;
-            out->block = O2P_HB_RUNAWAY;
-        }
-        return;
-    }
-
-    const float max_duty = (float)cfg->max_duty_x100;
-    const float kp = (float)cfg->kp_x100 * 0.01f;
-    const float ki = (float)cfg->ki_x100 * 0.01f;
-
-    /* Positive error means too humid, which means not enough heat. */
-    const float e = (float)in->rh_x100 - (float)cfg->setpoint_x100;
     const float p = kp * e;
 
     /* Conditional integration. Integrate only when the output is off its
@@ -305,8 +275,70 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
     } else if (u > max_duty) {
         u = max_duty;
     }
+    return (uint16_t)(u + 0.5f);
+}
 
-    out->duty_x100 = (uint16_t)(u + 0.5f);
+void o2p_heater_ctl_step(o2p_heater_state_t *st,
+                         const o2p_heater_cfg_t *cfg,
+                         const o2p_heater_in_t *in,
+                         uint32_t now_s,
+                         o2p_heater_out_t *out)
+{
+    if (st == NULL || cfg == NULL || in == NULL || out == NULL) {
+        return;
+    }
+
+    uint16_t block = interlocks(st, cfg, in);
+    if (block != 0u) {
+        /* Zero the integrator rather than freezing it. Freezing would make the
+         * loop slam to whatever it had wound up to the moment an interlock
+         * cleared - the opposite of what you want after a fault. Restarting
+         * from proportional-only is bumpless and slow, which is correct for a
+         * plant nobody has measured. */
+        st->integ = 0.0f;
+        out->duty_x100 = 0u;
+        out->block = block;
+        update_runaway(st, cfg, in, now_s, 0u);
+        return;
+    }
+
+    const float max_duty = (float)cfg->max_duty_x100;
+    uint16_t duty;
+
+    if (cfg->test_override && cfg->test_tip_sp_valid) {
+        /* Tip-temperature loop. Positive error means too cold, which means
+         * more duty - the same sign convention the humidity loop uses.
+         *
+         * in->tip_valid is guaranteed here: an invalid tip is O2P_HB_NO_TIP,
+         * which the override does not suppress and which returned above. */
+        const float e = (float)((int32_t)cfg->test_tip_sp_c100 -
+                                (int32_t)in->t_tip_c100);
+        duty = pi_step(st, O2P_HEATER_MODE_TIP, e,
+                       (float)cfg->test_kp_x100 * 0.01f,
+                       (float)cfg->test_ki_x100 * 0.01f,
+                       max_duty);
+    } else if (cfg->test_override) {
+        /* Open loop. The integrator is zeroed through the mode switch, so
+         * disarming hands the next loop the same bumpless proportional-only
+         * restart that clearing an interlock does. */
+        if (st->last_mode != O2P_HEATER_MODE_OPEN) {
+            st->integ = 0.0f;
+            st->last_mode = O2P_HEATER_MODE_OPEN;
+        }
+        duty = cfg->test_duty_x100;
+        if (duty > cfg->max_duty_x100) {
+            duty = cfg->max_duty_x100;
+        }
+    } else {
+        /* Positive error means too humid, which means not enough heat. */
+        const float e = (float)in->rh_x100 - (float)cfg->setpoint_x100;
+        duty = pi_step(st, O2P_HEATER_MODE_RH, e,
+                       (float)cfg->kp_x100 * 0.01f,
+                       (float)cfg->ki_x100 * 0.01f,
+                       max_duty);
+    }
+
+    out->duty_x100 = duty;
     out->block = 0u;
 
     update_runaway(st, cfg, in, now_s, out->duty_x100);

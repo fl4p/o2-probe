@@ -729,6 +729,11 @@ static void cycle_publish(o2p_snapshot_t *s)
              * volatile on purpose and must not acquire a flash-backed twin. */
             .test_override   = g_rm.heater_test_armed,
             .test_duty_x100  = g_rm.heater_test_duty_x100,
+            .test_tip_sp_valid =
+                (g_rm.heater_test_tip_sp_c100 != O2P_I16_INVALID),
+            .test_tip_sp_c100 = g_rm.heater_test_tip_sp_c100,
+            .test_kp_x100    = g_rm.heater_test_kp_x100,
+            .test_ki_x100    = g_rm.heater_test_ki_x100,
         };
         const o2p_heater_in_t hin = {
             .drive_possible   = o2p_heater_compiled_in(),

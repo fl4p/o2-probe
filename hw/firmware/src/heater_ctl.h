@@ -152,6 +152,19 @@ enum {
 #define O2P_HEATER_KP_X100_DEFAULT 200u
 #define O2P_HEATER_KI_X100_DEFAULT 10u
 
+/* Tip-loop defaults. Error is in 0.01 K, output in 0.01 % duty, so kp = 50
+ * means a 2 K shortfall asks for full duty and ki = 0.5 means a 1 K standing
+ * error integrates about 0.5 % of duty per second.
+ *
+ * Chosen to saturate early and integrate slowly, which suits a plant that is
+ * ~1 W into a thermal mass with a time constant of seconds to tens of
+ * seconds: overshoot costs little because the absolute clamp is a kelvin
+ * above any legal setpoint, while a sluggish approach costs only bench time.
+ * PROVISIONAL, like every other number about this plant - and unlike the RH
+ * gains these are volatile registers, so they can be moved without a reflash. */
+#define O2P_HEATER_TEST_KP_X100_DEFAULT 5000u
+#define O2P_HEATER_TEST_KI_X100_DEFAULT 50u
+
 typedef struct {
     uint16_t setpoint_x100;    /* target chamber RH, 0.01 %RH */
     uint16_t dt_max_k100;      /* tip-above-chamber clamp, 0.01 K */
@@ -176,6 +189,25 @@ typedef struct {
      * "off" at zero. */
     bool     test_override;
     uint16_t test_duty_x100;   /* 0.01 %, clamped to max_duty_x100 */
+    /* TIP TEMPERATURE SETPOINT MODE. When test_tip_sp_valid is set, the
+     * override closes a PI loop on tip temperature instead of commanding
+     * test_duty_x100 open loop.
+     *
+     * This exists because the alternative is not temperature control at all.
+     * Nothing in this firmware regulates a temperature: the only loop is on
+     * chamber RH, and the 80.00/75.00 C pair is the absolute CLAMP with its
+     * anti-chatter hysteresis. Driving open loop against that clamp yields a
+     * mean near 77.5 C with +/-2.5 K of sawtooth, and reaches it by bouncing
+     * a protection device off its limits once per thermal time constant.
+     *
+     * With a setpoint bounded below the clamp, the clamp goes back to being
+     * a backstop: it firing at all means the loop failed. */
+    bool     test_tip_sp_valid;
+    int16_t  test_tip_sp_c100;
+    /* Gains for the TIP loop only. The RH loop's kp/ki above are in %RH and
+     * do not transfer - error here is in 0.01 K. */
+    uint16_t test_kp_x100;
+    uint16_t test_ki_x100;
 } o2p_heater_cfg_t;
 
 typedef struct {
@@ -210,7 +242,17 @@ typedef struct {
     uint16_t runaway_evidence_s;
     bool     dt_clamped;       /* hysteresis latches */
     bool     tip_clamped;
+    /* Which loop produced the current integrator, so that switching between
+     * them cannot inherit a wound-up integral whose units and plant are both
+     * different. See O2P_HEATER_MODE_*. */
+    uint8_t  last_mode;
 } o2p_heater_state_t;
+
+enum {
+    O2P_HEATER_MODE_RH   = 0u,  /* the shipped humidity loop */
+    O2P_HEATER_MODE_OPEN = 1u,  /* override, open-loop duty */
+    O2P_HEATER_MODE_TIP  = 2u,  /* override, tip-temperature loop */
+};
 
 typedef struct {
     uint16_t duty_x100;

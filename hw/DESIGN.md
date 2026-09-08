@@ -415,7 +415,7 @@ destructive and one stray bit in a frame that happened to pass CRC is otherwise
 enough: `CAL_TRIGGER` (`0x003D`) takes an air-point calibration on `0xCA11`, and
 `COMMIT` (`0x003E`) erases and rewrites the config flash page on `0x5AC1`.
 
-### Heater test block, `0x0060`, 2 registers, read/write, **volatile**
+### Heater test block, `0x0060`, 5 registers, read/write, **volatile**
 
 The bench override. It drives the membrane ring open-loop at a chosen duty,
 at any humidity and without the `DT_MAX_K` clamp, so the thermal plant can be
@@ -426,7 +426,29 @@ not need.
 | Reg | Name | Meaning |
 |---|---|---|
 | `0x0060` | `HEATER_TEST_ARM` | write `0x8EA7` to arm, anything else disarms; reads back `1`/`0` |
-| `0x0061` | `HEATER_TEST_DUTY` | open-loop duty, 0.01 %, clamped to the configured maximum |
+| `0x0061` | `HEATER_TEST_DUTY` | duty when no target is set, 0.01 %, clamped to the configured maximum |
+| `0x0062` | `HEATER_TEST_TIP_SP` | tip setpoint, i16 0.01 °C; `0x8000` = none, so the override runs open loop |
+| `0x0063` | `HEATER_TEST_KP` | tip-loop proportional gain, 0.01 units |
+| `0x0064` | `HEATER_TEST_KI` | tip-loop integral gain, 0.01 units per second |
+
+**Two modes.** With no setpoint the override commands a fixed duty. With one,
+it closes a PI loop on tip temperature — which is the only temperature control
+anywhere in this firmware; the shipped loop regulates chamber humidity and
+never a temperature.
+
+That distinction matters more than it looks. Driving open loop toward 80 °C
+does not hold 80 °C: full duty runs until the absolute clamp cuts at 80.00 and
+releases at 75.00, giving a mean near 77.5 °C with ±2.5 K of sawtooth, produced
+by bouncing a *protection* device off its limits once per thermal time
+constant. A clamp that fires every cycle in normal use has stopped being a
+clamp. A setpoint is bounded a kelvin below it, so the clamp firing at all
+means the loop failed.
+
+The tip loop carries its own gains rather than reusing `HEATER_KP`/`HEATER_KI`
+at `0x0040`/`0x0041`: those are in %RH and do not transfer to an error in
+kelvin, and overwriting a probe's humidity tuning as a side effect of a bench
+test is not a trade worth making. Switching modes zeroes the integrator, since
+an integral wound up in 0.01 %RH means nothing in 0.01 K.
 
 **Not in the config block and not in flash.** Arming is lost on reset and on
 brownout, it is not covered by `CONFIG_CRC`, and `COMMIT` cannot persist it. A

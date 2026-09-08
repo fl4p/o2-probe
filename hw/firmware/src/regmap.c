@@ -258,6 +258,14 @@ void o2p_regmap_init(o2p_regmap_t *rm)
         s->reset_cause = 0u;
     }
     rm->live = 0u;
+    /* memset above leaves these at zero, and zero is wrong for both: a zero
+     * setpoint is a real temperature (0.00 C) rather than "none", and zero
+     * gains would make an armed temperature loop sit at 0 % duty looking
+     * like a fault. Neither can energise anything - heater_test_armed is
+     * false - but a mode must not come up meaning something it does not. */
+    rm->heater_test_tip_sp_c100 = O2P_I16_INVALID;
+    rm->heater_test_kp_x100 = O2P_HEATER_TEST_KP_X100_DEFAULT;
+    rm->heater_test_ki_x100 = O2P_HEATER_TEST_KI_X100_DEFAULT;
 }
 
 o2p_snapshot_t *o2p_regmap_staging(o2p_regmap_t *rm)
@@ -350,6 +358,19 @@ static uint16_t read_diag(const o2p_regmap_t *rm, const o2p_snapshot_t *s,
     }
 }
 
+static uint16_t read_htest(const o2p_regmap_t *rm, uint16_t a)
+{
+    switch (a) {
+    case O2P_REG_HEATER_TEST_ARM:    return rm->heater_test_armed ? 1u : 0u;
+    case O2P_REG_HEATER_TEST_DUTY:   return rm->heater_test_duty_x100;
+    case O2P_REG_HEATER_TEST_TIP_SP: return (uint16_t)rm->heater_test_tip_sp_c100;
+    case O2P_REG_HEATER_TEST_KP:     return rm->heater_test_kp_x100;
+    case O2P_REG_HEATER_TEST_KI:     return rm->heater_test_ki_x100;
+    default: break;
+    }
+    return 0u;
+}
+
 static uint16_t read_config(const o2p_regmap_t *rm, uint16_t a)
 {
     const o2p_config_t *c = &rm->cfg;
@@ -415,9 +436,7 @@ uint8_t o2p_regmap_read(void *ctx, uint16_t addr, uint16_t count, uint16_t *out)
     }
     if (in_block(addr, count, O2P_REG_HTEST_BASE, O2P_REG_HTEST_COUNT)) {
         for (uint16_t i = 0; i < count; i++) {
-            out[i] = ((uint16_t)(addr + i) == O2P_REG_HEATER_TEST_ARM)
-                         ? (rm->heater_test_armed ? 1u : 0u)
-                         : rm->heater_test_duty_x100;
+            out[i] = read_htest(rm, (uint16_t)(addr + i));
         }
         return 0u;
     }
@@ -591,25 +610,57 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
     if (in_block(addr, count, O2P_REG_HTEST_BASE, O2P_REG_HTEST_COUNT)) {
         bool arm = rm->heater_test_armed;
         uint16_t duty = rm->heater_test_duty_x100;
+        int16_t sp = rm->heater_test_tip_sp_c100;
+        uint16_t kp = rm->heater_test_kp_x100;
+        uint16_t ki = rm->heater_test_ki_x100;
         for (uint16_t i = 0; i < count; i++) {
             uint16_t a = (uint16_t)(addr + i);
             uint16_t v = in[i];
-            if (a == O2P_REG_HEATER_TEST_ARM) {
+            switch (a) {
+            case O2P_REG_HEATER_TEST_ARM:
                 /* Only the magic arms. Anything else disarms rather than
                  * erroring: a master trying to switch the heater OFF must
                  * always succeed, whatever it writes. */
                 arm = (v == O2P_HEATER_TEST_MAGIC);
-            } else {
+                break;
+            case O2P_REG_HEATER_TEST_DUTY:
                 if (v > 10000u) {
                     return O2P_MB_EX_ILLEGAL_VALUE;
                 }
                 duty = v;
+                break;
+            case O2P_REG_HEATER_TEST_TIP_SP:
+                /* The sentinel, or a temperature at least a kelvin below the
+                 * absolute clamp. Negatives other than the sentinel are
+                 * refused rather than quietly meaning "never heat": a master
+                 * that wrote one has made a units or sign error, and letting
+                 * it through would present a broken setpoint as a working
+                 * loop that simply never asks for duty. */
+                if (v != (uint16_t)O2P_I16_INVALID &&
+                    (int16_t)v > O2P_HEATER_TEST_SP_MAX_C100) {
+                    return O2P_MB_EX_ILLEGAL_VALUE;
+                }
+                if (v != (uint16_t)O2P_I16_INVALID && (int16_t)v < 0) {
+                    return O2P_MB_EX_ILLEGAL_VALUE;
+                }
+                sp = (int16_t)v;
+                break;
+            case O2P_REG_HEATER_TEST_KP:
+                kp = v;
+                break;
+            default:
+                ki = v;
+                break;
             }
         }
-        /* Duty first, then arm. The opposite order leaves a window of one
-         * control cycle in which the override is live carrying the PREVIOUS
-         * duty, and on a 1 Hz loop that window is long enough to drive it. */
+        /* Everything except the arm flag first, then the arm flag. The
+         * opposite order leaves a window of one control cycle in which the
+         * override is live carrying the PREVIOUS setpoint, duty and gains,
+         * and on a 1 Hz loop that window is long enough to drive the ring. */
         rm->heater_test_duty_x100 = duty;
+        rm->heater_test_tip_sp_c100 = sp;
+        rm->heater_test_kp_x100 = kp;
+        rm->heater_test_ki_x100 = ki;
         rm->heater_test_armed = arm;
         return 0u;
     }

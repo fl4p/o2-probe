@@ -3292,6 +3292,234 @@ static void test_the_heater_test_block_does_not_shadow_the_updater(void)
         "heater test block overlaps the config block");
 }
 
+/* ------------------------------- the tip-temperature setpoint mode */
+
+/* A crude first-order thermal plant, only good enough to show the loop
+ * converges: the tip approaches (ambient + gain * duty) with time constant
+ * TAU. Numbers are a plausible ~1 W ring, not a measured plant. */
+typedef struct { float t_c100; } fake_tip_t;
+static void plant_step(fake_tip_t *pl, uint16_t duty_x100)
+{
+    const float ambient = 2500.0f;      /* 25.00 C */
+    const float k = 0.60f;              /* 100 % duty -> +60.00 K steady */
+    const float tau = 20.0f;            /* seconds */
+    const float target = ambient + k * (float)duty_x100;
+    pl->t_c100 += (target - pl->t_c100) / tau;
+}
+
+static void test_tip_setpoint_converges_and_holds(void)
+{
+    /* The whole reason this mode exists: a PLATEAU, not a sawtooth bouncing
+     * off the absolute clamp. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    cfg.test_override = true;
+    cfg.test_tip_sp_valid = true;
+    cfg.test_tip_sp_c100 = 7800;        /* 78.00 C, a kelvin under the clamp */
+    cfg.test_kp_x100 = O2P_HEATER_TEST_KP_X100_DEFAULT;
+    cfg.test_ki_x100 = O2P_HEATER_TEST_KI_X100_DEFAULT;
+
+    fake_tip_t pl = { 2500.0f };
+    for (uint32_t t = 0; t < 3000u; t++) {
+        in.t_tip_c100 = (int16_t)pl.t_c100;
+        in.t_chamber_c100 = 2500;
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+        plant_step(&pl, out.duty_x100);
+    }
+    TEST_ASSERT_INT16_WITHIN_MESSAGE(50, 7800, (int16_t)pl.t_c100,
+        "the tip loop must settle within 0.5 K of its setpoint");
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.block & O2P_HB_TIP_LIMIT,
+        "a setpoint below the clamp must never reach the clamp");
+    TEST_ASSERT_FALSE_MESSAGE(st.tip_clamped,
+        "the absolute clamp must stay a backstop, not the control mechanism");
+}
+
+static void test_tip_setpoint_asks_for_more_duty_when_colder(void)
+{
+    o2p_heater_state_t st;
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+    cfg.test_override = true;
+    cfg.test_tip_sp_valid = true;
+    cfg.test_tip_sp_c100 = 7000;
+    cfg.test_kp_x100 = O2P_HEATER_TEST_KP_X100_DEFAULT;
+    cfg.test_ki_x100 = 0u;              /* proportional only, so it is a pure
+                                         * function of the current error */
+
+    uint16_t prev = 0xFFFFu;
+    for (int16_t tip = 6900; tip >= 6000; tip = (int16_t)(tip - 100)) {
+        o2p_heater_ctl_reset(&st);
+        in.t_tip_c100 = tip;
+        in.t_chamber_c100 = 2500;
+        o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+        TEST_ASSERT_TRUE_MESSAGE(out.duty_x100 >= prev || prev == 0xFFFFu,
+                                 "duty must not fall as the tip gets colder");
+        prev = out.duty_x100;
+    }
+    /* And above the setpoint it asks for nothing at all. */
+    o2p_heater_ctl_reset(&st);
+    in.t_tip_c100 = 7100;
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_EQUAL_UINT16(0u, out.duty_x100);
+}
+
+static void test_the_integrator_does_not_leak_between_loops(void)
+{
+    /* An integral wound up in 0.01 %RH means nothing in 0.01 K. Carrying it
+     * across a mode switch would slam the output on the first cycle. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    /* Wind the RH loop up hard. */
+    in.rh_x100 = 10000u;
+    for (uint32_t t = 0; t < 60u; t++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(st.integ > 0.0f, "the RH loop should have wound up");
+
+    /* Switch to the tip loop with the tip ALREADY above setpoint: a correct
+     * loop asks for zero, a leaked integrator asks for duty. */
+    cfg.test_override = true;
+    cfg.test_tip_sp_valid = true;
+    cfg.test_tip_sp_c100 = 4000;
+    cfg.test_kp_x100 = O2P_HEATER_TEST_KP_X100_DEFAULT;
+    cfg.test_ki_x100 = O2P_HEATER_TEST_KI_X100_DEFAULT;
+    in.t_tip_c100 = 5000;               /* 10 K hotter than asked */
+    o2p_heater_ctl_step(&st, &cfg, &in, 100u, &out);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.duty_x100,
+        "a tip already above setpoint must command zero on the first cycle");
+    TEST_ASSERT_EQUAL_UINT8(O2P_HEATER_MODE_TIP, st.last_mode);
+
+    /* And back again, with the chamber already dry. */
+    cfg.test_override = false;
+    cfg.test_tip_sp_valid = false;
+    in.rh_x100 = 1000u;
+    o2p_heater_ctl_step(&st, &cfg, &in, 101u, &out);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.duty_x100,
+        "a dry chamber must command zero on the first cycle back");
+}
+
+static void test_tip_mode_still_obeys_every_hardware_interlock(void)
+{
+    /* The setpoint loop is not a second way in. Same list as the open-loop
+     * override, with a setpoint far above the tip so the loop wants full duty. */
+    struct { const char *name; int which; uint16_t bit; } cases[] = {
+        { "safety",        0, O2P_HB_SAFETY        },
+        { "no tip",        1, O2P_HB_NO_TIP        },
+        { "tip limit",     2, O2P_HB_TIP_LIMIT     },
+        { "supply",        3, O2P_HB_SUPPLY        },
+        { "pin integrity", 4, O2P_HB_PIN_INTEGRITY },
+        { "not compiled",  5, O2P_HB_NOT_COMPILED  },
+        { "config off",    6, O2P_HB_CONFIG_OFF    },
+    };
+    for (unsigned i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        o2p_heater_state_t st;
+        o2p_heater_ctl_reset(&st);
+        o2p_heater_cfg_t cfg = hcfg_default();
+        o2p_heater_in_t in = hin_healthy();
+        o2p_heater_out_t out;
+        cfg.test_override = true;
+        cfg.test_tip_sp_valid = true;
+        cfg.test_tip_sp_c100 = O2P_HEATER_TEST_SP_MAX_C100;
+        cfg.test_kp_x100 = O2P_HEATER_TEST_KP_X100_DEFAULT;
+        cfg.test_ki_x100 = O2P_HEATER_TEST_KI_X100_DEFAULT;
+        in.t_tip_c100 = 2500;
+
+        switch (cases[i].which) {
+        case 0: in.safety_armed = false; break;
+        case 1: in.tip_valid = false; break;
+        case 2: in.t_tip_c100 = O2P_HEATER_TIP_LIMIT_C100; break;
+        case 3: in.supply_ok = false; break;
+        case 4: in.pin_integrity_ok = false; break;
+        case 5: in.drive_possible = false; break;
+        case 6: cfg.max_duty_x100 = 0u; break;
+        default: break;
+        }
+        o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.duty_x100, cases[i].name);
+        TEST_ASSERT_TRUE_MESSAGE((out.block & cases[i].bit) != 0u,
+                                 cases[i].name);
+    }
+}
+
+static void test_the_setpoint_must_stay_below_the_clamp(void)
+{
+    /* A setpoint at or above the absolute clamp would put the loop and the
+     * protection device in a fight, which is the arrangement this mode was
+     * added to get rid of. */
+    o2p_regmap_t r;
+    o2p_regmap_init(&r);
+    TEST_ASSERT_TRUE(O2P_HEATER_TEST_SP_MAX_C100 < O2P_HEATER_TIP_LIMIT_C100);
+
+    uint16_t v = (uint16_t)(O2P_HEATER_TEST_SP_MAX_C100 + 1);
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+        o2p_regmap_write(&r, O2P_REG_HEATER_TEST_TIP_SP, 1u, &v));
+
+    v = (uint16_t)O2P_HEATER_TIP_LIMIT_C100;
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+        o2p_regmap_write(&r, O2P_REG_HEATER_TEST_TIP_SP, 1u, &v));
+
+    /* A negative that is not the sentinel is a sign or units error, and must
+     * not pass as a loop that simply never asks for heat. */
+    v = (uint16_t)(int16_t)-100;
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+        o2p_regmap_write(&r, O2P_REG_HEATER_TEST_TIP_SP, 1u, &v));
+
+    /* The legal top of the range, and the sentinel, both take. */
+    v = (uint16_t)O2P_HEATER_TEST_SP_MAX_C100;
+    TEST_ASSERT_EQUAL_HEX8(0u,
+        o2p_regmap_write(&r, O2P_REG_HEATER_TEST_TIP_SP, 1u, &v));
+    TEST_ASSERT_EQUAL_INT16(O2P_HEATER_TEST_SP_MAX_C100, r.heater_test_tip_sp_c100);
+
+    v = (uint16_t)O2P_I16_INVALID;
+    TEST_ASSERT_EQUAL_HEX8(0u,
+        o2p_regmap_write(&r, O2P_REG_HEATER_TEST_TIP_SP, 1u, &v));
+    TEST_ASSERT_EQUAL_INT16(O2P_I16_INVALID, r.heater_test_tip_sp_c100);
+}
+
+static void test_the_test_block_comes_up_meaning_open_loop(void)
+{
+    /* memset would leave the setpoint at 0, which is a real temperature, and
+     * the gains at 0, which looks like a broken loop rather than no loop. */
+    o2p_regmap_t r;
+    o2p_regmap_init(&r);
+    TEST_ASSERT_EQUAL_INT16_MESSAGE(O2P_I16_INVALID, r.heater_test_tip_sp_c100,
+        "a fresh map must mean 'no temperature target', not 0.00 C");
+    TEST_ASSERT_EQUAL_UINT16(O2P_HEATER_TEST_KP_X100_DEFAULT, r.heater_test_kp_x100);
+    TEST_ASSERT_EQUAL_UINT16(O2P_HEATER_TEST_KI_X100_DEFAULT, r.heater_test_ki_x100);
+    TEST_ASSERT_FALSE(r.heater_test_armed);
+
+    uint16_t v[5];
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&r, O2P_REG_HTEST_BASE, 5u, v));
+    TEST_ASSERT_EQUAL_UINT16((uint16_t)O2P_I16_INVALID, v[2]);
+}
+
+static void test_a_rejected_setpoint_frame_changes_no_register(void)
+{
+    o2p_regmap_t r;
+    o2p_regmap_init(&r);
+    uint16_t ok[5] = { O2P_HEATER_TEST_MAGIC, 2000u, 7000u, 400u, 20u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&r, O2P_REG_HTEST_BASE, 5u, ok));
+
+    /* Disarm plus an illegal setpoint in one frame: all-or-nothing. */
+    uint16_t bad[5] = { 0u, 3000u, 9000u, 111u, 22u };
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+        o2p_regmap_write(&r, O2P_REG_HTEST_BASE, 5u, bad));
+    TEST_ASSERT_TRUE(r.heater_test_armed);
+    TEST_ASSERT_EQUAL_UINT16(2000u, r.heater_test_duty_x100);
+    TEST_ASSERT_EQUAL_INT16(7000, r.heater_test_tip_sp_c100);
+    TEST_ASSERT_EQUAL_UINT16(400u, r.heater_test_kp_x100);
+    TEST_ASSERT_EQUAL_UINT16(20u, r.heater_test_ki_x100);
+}
+
 static void test_cmd_result_reads_none_before_any_command(void)
 {
     /* An untouched result register that read OK would be worse than none: a
@@ -4028,12 +4256,12 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    TEST_ASSERT_EQUAL_HEX16(0x0004u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x0005u, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_UINT16(28u, O2P_REG_DIAG_COUNT);
     TEST_ASSERT_EQUAL_UINT16(24u, O2P_REG_CONFIG_COUNT);
     /* 0x0004: the heater test block appeared at an address that previously
      * answered exception 02, and the heater became drivable at all. */
-    TEST_ASSERT_EQUAL_UINT16(2u, O2P_REG_HTEST_COUNT);
+    TEST_ASSERT_EQUAL_UINT16(5u, O2P_REG_HTEST_COUNT);
 }
 
 /* ---- main.c and config_flash.c decisions, 2026-09-08 ----
@@ -4282,6 +4510,13 @@ int main(void)
     RUN_TEST(test_a_rejected_heater_test_frame_changes_nothing);
     RUN_TEST(test_the_heater_test_block_is_not_part_of_the_config);
     RUN_TEST(test_the_heater_test_block_does_not_shadow_the_updater);
+    RUN_TEST(test_tip_setpoint_converges_and_holds);
+    RUN_TEST(test_tip_setpoint_asks_for_more_duty_when_colder);
+    RUN_TEST(test_the_integrator_does_not_leak_between_loops);
+    RUN_TEST(test_tip_mode_still_obeys_every_hardware_interlock);
+    RUN_TEST(test_the_setpoint_must_stay_below_the_clamp);
+    RUN_TEST(test_the_test_block_comes_up_meaning_open_loop);
+    RUN_TEST(test_a_rejected_setpoint_frame_changes_no_register);
     RUN_TEST(test_cmd_result_reads_none_before_any_command);
     RUN_TEST(test_calibrate_and_save_defers_the_commit);
     RUN_TEST(test_a_later_commit_frame_also_waits_for_a_pending_cal);

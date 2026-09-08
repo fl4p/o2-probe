@@ -775,7 +775,7 @@ Both are destructive — one overwrites the calibration, the other spends one of
 roughly 10 000 flash cycles and stalls the CPU for tens of milliseconds. A
 16-bit token makes an accident on a noisy line implausible.
 
-### Heater test block — `0x0060`, 2 registers, read/write, volatile
+### Heater test block — `0x0060`, 5 registers, read/write, volatile
 
 Open-loop bench override for the membrane ring. Exists because the RH loop
 refuses to drive without a humidity signal and clamps to `DT_MAX_K`, and
@@ -784,7 +784,10 @@ characterising the thermal plant needs neither.
 | Reg | Name | Access | Meaning |
 |---|---|---|---|
 | `0x0060` | `HEATER_TEST_ARM` | rw | write `0x8EA7` to arm; any other value disarms; reads `1`/`0` |
-| `0x0061` | `HEATER_TEST_DUTY` | rw | open-loop duty, 0.01 %, clamped to the configured maximum |
+| `0x0061` | `HEATER_TEST_DUTY` | rw | duty when no target is set, 0.01 %, clamped to the configured maximum |
+| `0x0062` | `HEATER_TEST_TIP_SP` | rw | tip setpoint, i16 0.01 °C; `0x8000` = none → open loop. Max 79.00 °C |
+| `0x0063` | `HEATER_TEST_KP` | rw | tip-loop proportional gain, 0.01 units (default 50.00) |
+| `0x0064` | `HEATER_TEST_KI` | rw | tip-loop integral gain, 0.01 units/s (default 0.50) |
 
 Volatile: not in flash, not covered by `CONFIG_CRC`, not reachable by
 `COMMIT`, cleared by reset and brownout.
@@ -796,16 +799,28 @@ assertion, and the configured duty maximum — zero there still means off.
 Runaway accumulation pauses while armed so that an external heat source cannot
 latch it mid-run; the latch is never cleared by this mode.
 
-**Procedure — drive the tip to 80 °C.**
+**Procedure — hold the tip at a temperature (preferred).**
 
-1. Write a nonzero duty maximum to `0x0035` (this defaults to zero, and zero
+1. Write a nonzero duty maximum to `0x0035` (defaults to zero, and zero
    disables the heater outright). Do **not** `COMMIT` unless the probe should
    keep it.
-2. Write `0x0061` = desired duty in 0.01 %, e.g. `10000` for 100 %.
+2. Write `0x0062` = setpoint in 0.01 °C, e.g. `7800` for 78.00 °C. The maximum
+   accepted is 79.00 °C, a kelvin below the absolute clamp.
 3. Write `0x0060` = `0x8EA7`.
-4. Watch `T_TIP` (`0x0002`) and `HEATER_DUTY` (`0x0005`). Duty drops to zero at
-   80.00 °C and resumes at 75.00 °C; that oscillation is the clamp working.
+4. Watch `T_TIP` (`0x0002`) and `HEATER_DUTY` (`0x0005`). Duty should ride high,
+   then taper as the tip approaches the setpoint and settle at whatever holds
+   it. `T_TIP` reaching 80.00 °C means the loop failed — the clamp is a
+   backstop here, not the mechanism.
 5. Disarm by writing anything else to `0x0060`, or by power-cycling.
+
+Retune with `0x0063`/`0x0064` while armed; the gains are provisional because
+the plant has never been measured. Slow approach → raise `0x0063`. Standing
+offset below setpoint → raise `0x0064`. Overshoot or hunting → lower both.
+
+**Procedure — fixed duty, no temperature target.** As above, but write `0x0062`
+= `0x8000` (or leave it, that is the reset value) and set `0x0061` to the duty.
+The tip then runs to the 80.00 °C clamp and oscillates down to 75.00 °C. Use
+this to measure what the ring can do, not to hold a temperature.
 
 If `HEATER_DUTY` stays zero, read `HEATER_BLOCK` in the diagnostic block for
 the reason — it reports every interlock at once rather than the first.
