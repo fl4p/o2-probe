@@ -59,6 +59,21 @@
 /* The absolute tip limit programmed into the TMP117's therm-mode alert. Above
  * the ~75 C the pile reaches, so it is a fault limit and not a thermostat. */
 #define O2P_TIP_LIMIT_C100 8500
+/* The three tip thresholds are defined in three different files and only this
+ * one sees all of them, so the ordering that makes them a LADDER is asserted
+ * here: a commandable setpoint below the firmware clamp below the hardware
+ * cutoff. Collapse any two and the mechanism they were supposed to back up
+ * stops existing - which is how the setpoint ceiling came to sit a kelvin
+ * under the clamp and made the stated 80 C experiment uncommandable. */
+_Static_assert(O2P_HEATER_TEST_SP_MAX_C100 < O2P_HEATER_TIP_LIMIT_C100,
+               "a commandable setpoint at or above the firmware clamp makes "
+               "the clamp the control mechanism instead of the backstop");
+_Static_assert(O2P_HEATER_TIP_LIMIT_C100 < O2P_TIP_LIMIT_C100,
+               "firmware must back off before the TMP117's therm-mode cutoff; "
+               "two mechanisms at one threshold are one mechanism");
+_Static_assert(O2P_HEATER_TIP_RELEASE_C100 < O2P_HEATER_TIP_LIMIT_C100,
+               "the clamp needs hysteresis or it chatters at 1 Hz against a "
+               "plant whose time constant is seconds");
 #define O2P_TIP_HYST_K100  500
 
 #define O2P_VIN_LOW_MV 9000u
@@ -153,6 +168,10 @@ static struct {
     int16_t  t_chamber;
     uint16_t rh;
     bool     tip_ok;
+    /* tip_ok says the read SUCCEEDED; this says the part has actually
+     * converted since we last looked. Only the heater consumes it - see
+     * phase_temps(). */
+    bool     tip_fresh;
     bool     chamber_ok;
     bool     rh_ok;
     uint16_t heater_block;
@@ -274,9 +293,30 @@ static void phase_afe(o2p_snapshot_t *s)
     }
 }
 
+/* Consecutive cycles in which the TMP117 reported no new conversion.
+ *
+ * Tolerates a couple of misses before declaring the tip stale: the part runs a
+ * 500 ms conversion cycle against this sampler's 1 Hz, so a healthy part is
+ * ready every time, but a single missed poll must not drop the heater. Three
+ * cycles is ~3 s, comfortably inside the 5 s O2P_HEATER_STALE_MS watchdog that
+ * backs it up. Static rather than in g_cyc, which is memset every cycle. */
+static uint8_t s_tip_notready_cycles;
+#define O2P_TIP_STALE_CYCLES 3u
+
 static void phase_temps(o2p_snapshot_t *s)
 {
     int16_t t = 0;
+
+    /* BEFORE the temperature read, because reading TEMP also clears
+     * Data_Ready and would make every cycle look fresh. */
+    bool ready = false;
+    if (o2p_tmp117_data_ready(&ready) == O2P_TMP_OK && ready) {
+        s_tip_notready_cycles = 0u;
+    } else if (s_tip_notready_cycles < 0xFFu) {
+        s_tip_notready_cycles++;
+    }
+    g_cyc.tip_fresh = (s_tip_notready_cycles < O2P_TIP_STALE_CYCLES);
+
     if (o2p_tmp117_read_c100(&t) == O2P_TMP_OK) {
         s->t_tip = t;
         g_cyc.t_tip = t;
@@ -741,7 +781,14 @@ static void cycle_publish(o2p_snapshot_t *s)
             .pin_integrity_ok = o2p_heater_pin_integrity_ok(),
             .rh_valid         = g_cyc.rh_ok,
             .rh_x100          = g_cyc.rh,
-            .tip_valid        = g_cyc.tip_ok,
+            /* Freshness is part of validity FOR THE HEATER, and only for it.
+             * A frozen conversion engine reads as a healthy constant
+             * temperature: the tip PI would hold duty against a fixed error
+             * and the 80 C clamp would be watching the same frozen number, so
+             * neither backs off. T_TIP itself still publishes normally - the
+             * measurement channel is not this interlock's business, and
+             * blanking it here would hide the evidence. */
+            .tip_valid        = g_cyc.tip_ok && g_cyc.tip_fresh,
             .t_tip_c100       = g_cyc.t_tip,
             .chamber_valid    = g_cyc.chamber_ok,
             .t_chamber_c100   = g_cyc.t_chamber,

@@ -3556,6 +3556,26 @@ static void test_a_rejected_setpoint_frame_changes_no_register(void)
     TEST_ASSERT_EQUAL_UINT16(20u, r.heater_test_ki_x100);
 }
 
+static void test_the_tip_thresholds_form_a_ladder(void)
+{
+    /* Host copy of the assert in main.c. main.c is not host-buildable, and
+     * this ordering is the whole protection argument: setpoint < firmware
+     * clamp < hardware cutoff. The 85.00 C figure is the TMP117 therm-mode
+     * threshold main.c programs (O2P_TIP_LIMIT_C100). */
+    TEST_ASSERT_TRUE_MESSAGE(
+        O2P_HEATER_TEST_SP_MAX_C100 < O2P_HEATER_TIP_LIMIT_C100,
+        "the clamp must sit above every commandable setpoint");
+    TEST_ASSERT_TRUE_MESSAGE(O2P_HEATER_TIP_LIMIT_C100 < 8500,
+        "firmware must back off before the hardware cutoff");
+    TEST_ASSERT_TRUE(O2P_HEATER_TIP_RELEASE_C100 < O2P_HEATER_TIP_LIMIT_C100);
+
+    /* The experiment this was raised for: 80.00 C must be commandable, so a
+     * tip run and an external 80 C bath compare the same temperature. */
+    TEST_ASSERT_TRUE_MESSAGE(O2P_HEATER_TEST_SP_MAX_C100 >= 8000,
+        "80.00 C must be a legal setpoint or the internal and external legs "
+        "of the harsh-environment test are at different temperatures");
+}
+
 static void test_cmd_result_reads_none_before_any_command(void)
 {
     /* An untouched result register that read OK would be worse than none: a
@@ -4549,6 +4569,7 @@ int main(void)
     RUN_TEST(test_a_rejected_heater_test_frame_changes_nothing);
     RUN_TEST(test_the_heater_test_block_is_not_part_of_the_config);
     RUN_TEST(test_the_heater_test_block_does_not_shadow_the_updater);
+    RUN_TEST(test_the_tip_thresholds_form_a_ladder);
     RUN_TEST(test_tip_setpoint_converges_and_holds);
     RUN_TEST(test_tip_setpoint_asks_for_more_duty_when_colder);
     RUN_TEST(test_the_integrator_does_not_leak_between_loops);

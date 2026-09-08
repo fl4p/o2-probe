@@ -355,7 +355,7 @@ enum {
      * device off its limits. A clamp that fires every cycle in normal use has
      * stopped being a clamp.
      *
-     * Bounded at O2P_HEATER_TEST_SP_MAX_C100, a kelvin below the clamp, so
+     * Bounded at O2P_HEATER_TEST_SP_MAX_C100, two kelvin below the clamp, so
      * the clamp stays the backstop it was written to be: if TIP_LIMIT fires
      * while a setpoint is in force, the loop has failed and that is worth
      * knowing, which it is not when the clamp IS the control mechanism. */
@@ -376,8 +376,10 @@ enum {
 #define O2P_REG_HTEST_COUNT 5u
 
 /* A setpoint must sit strictly below the absolute clamp, by enough that the
- * loop's own overshoot does not routinely reach it. One kelvin. */
-#define O2P_HEATER_TEST_SP_MAX_C100 7900
+ * loop's own overshoot does not routinely reach it. Two kelvin, against a
+ * clamp raised to 82.00 C on 2026-09-08 so that 80.00 C is commandable at
+ * all - see O2P_HEATER_TIP_LIMIT_C100. */
+#define O2P_HEATER_TEST_SP_MAX_C100 8000
 
 /* Same reasoning as O2P_COMMIT_MAGIC: energising 1 W into the membrane must
  * not be one flipped bit away in a frame that happened to pass CRC. */

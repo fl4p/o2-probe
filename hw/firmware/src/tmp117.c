@@ -159,6 +159,19 @@ o2p_tmp_status_t o2p_tmp117_read_c100(int16_t *out_c100)
     return O2P_TMP_OK;
 }
 
+o2p_tmp_status_t o2p_tmp117_data_ready(bool *out_ready)
+{
+    uint16_t cfg = 0u;
+    if (out_ready == NULL) {
+        return O2P_TMP_IO;
+    }
+    if (!rd16(O2P_TMP_REG_CONFIG, &cfg)) {
+        return O2P_TMP_IO;
+    }
+    *out_ready = (cfg & (1u << 13)) != 0u;   /* Data_Ready */
+    return O2P_TMP_OK;
+}
+
 o2p_tmp_status_t o2p_tmp117_alert_active(bool *out_active)
 {
     uint16_t cfg = 0u;

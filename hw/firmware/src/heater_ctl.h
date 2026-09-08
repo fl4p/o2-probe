@@ -70,8 +70,21 @@ enum {
  *
  * Hysteresis stops the clamp chattering at 1 Hz against a thermal plant whose
  * time constant is seconds. */
-#define O2P_HEATER_TIP_LIMIT_C100  8000
-#define O2P_HEATER_TIP_RELEASE_C100 7500
+/* 82.00 C, raised from 80.00 on 2026-09-08.
+ *
+ * The clamp has to sit ABOVE the highest setpoint anyone is meant to command,
+ * or it becomes the control mechanism instead of the backstop. The stated
+ * experiment is to hold the tip at 80.00 C and compare against an external
+ * 80.00 C bath, and with the clamp at 80.00 the loop could only be given
+ * 79.00 - so the internal run topped out a kelvin below the external one and
+ * the independent variable was not matched. Found by review 2026-09-08.
+ *
+ * Still separated from the TMP117's 85 C therm-mode threshold by 3 K, so
+ * firmware continues to back off first and the hardware cutoff remains the
+ * backstop for the case where firmware is the thing that failed. Two
+ * mechanisms at the same threshold would be one mechanism. */
+#define O2P_HEATER_TIP_LIMIT_C100  8200
+#define O2P_HEATER_TIP_RELEASE_C100 7700
 
 /* The dT clamp releases half a kelvin below DT_MAX_K, same reasoning. */
 #define O2P_HEATER_DT_HYST_K100 50

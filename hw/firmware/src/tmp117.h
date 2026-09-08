@@ -73,6 +73,25 @@ o2p_tmp_status_t o2p_tmp117_init(int16_t limit_c100, uint16_t hyst_k100);
 /* Temperature in 0.01 C. */
 o2p_tmp_status_t o2p_tmp117_read_c100(int16_t *out_c100);
 
+/* Has the part completed a NEW conversion since this was last called?
+ *
+ * CONFIG bit 13 is Data_Ready (SNOSD82D 7.6.2), and it is cleared by reading
+ * CONFIG or the temperature register - so this answers "since my last look",
+ * which is the only question a freshness check can usefully ask.
+ *
+ * WHY THIS EXISTS. o2p_tmp117_read_c100() returns OK for any in-range value,
+ * so a part whose conversion engine has stopped while its I2C interface still
+ * answers reads as a perfectly healthy, perfectly constant temperature. That
+ * is harmless for a logged channel and dangerous for a heater: the tip PI sees
+ * a fixed error and holds duty, and the 80 C firmware clamp is looking at the
+ * same frozen number, so neither backs off. If the conversion engine is what
+ * failed, the TMP117's own therm-mode alert is a COMMON-MODE loss rather than
+ * an independent rescue - it is driven by the same conversions.
+ *
+ * O2P_HB_NO_TIP was always specified as "no FRESH TMP117 reading"
+ * (heater_ctl.h); until this existed, nothing measured the freshness. */
+o2p_tmp_status_t o2p_tmp117_data_ready(bool *out_ready);
+
 /* True only if o2p_tmp117_init() last completed successfully AND the most
  * recent o2p_tmp117_verify_safety() agreed. The v1 heater loop MUST refuse to
  * energise while this is false: the whole hardware-cutoff argument rests on
