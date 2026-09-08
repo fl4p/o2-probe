@@ -71,8 +71,23 @@
  * flags, but the two sides are independent: this is store-and-forward, not a
  * level shifter, so the laptop may run faster than the cable. It must not run
  * SLOWER - see the note on overrun at the bottom of loop(). */
+/* The HOST lead is not the farm bus and does not have to run at its baud. The
+ * bus is 9600 because the Dragino masters it there; this link is private -
+ * two solder lands to whatever is driving them, with nothing else listening -
+ * and at 9600 a 249-byte ADU spends 285 ms on it, which is half the cost of
+ * relaying one firmware block.
+ *
+ * Raising it is safe on its own terms: the frame delimiter is the USART's
+ * hardware receiver timeout, counted in BIT times (bridge_uart.c:54), so 3.5
+ * character times stays 3.5 character times at any baud; and the two USARTs
+ * are configured independently, so the bus half is untouched. It is also
+ * recoverable: whatever drives this lead can always reach the bridge, because
+ * this baud is the one it chose.
+ *
+ * BOTH ENDS MUST AGREE. The node sets -DO2P_UART_BAUD in its platformio.ini;
+ * changing one without the other makes the link garbage, not slow. */
 #ifndef O2P_BRIDGE_HOST_BAUD
-#define O2P_BRIDGE_HOST_BAUD O2P_BRIDGE_BUS_BAUD
+#define O2P_BRIDGE_HOST_BAUD 115200u
 #endif
 #ifndef O2P_BRIDGE_HOST_PARITY
 #define O2P_BRIDGE_HOST_PARITY O2P_BRIDGE_BUS_PARITY
