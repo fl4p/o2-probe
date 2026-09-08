@@ -69,4 +69,69 @@ bool o2p_modbus_bus_jam_suspected(void);
 bool o2p_modbus_rx_standby(bool on);
 bool o2p_modbus_rx_standby_active(void);
 
+/* ---- receive frame assembly, as a pure state machine ------------------
+ *
+ * Extracted into the header so the HOST TESTS can exercise the decision the
+ * ISR actually makes. modbus_rtu.c reaches USART registers and cannot compile
+ * on the host, which is why this logic - two of whose bugs would have made the
+ * probe unreachable or made it answer a half-heard request - had no coverage
+ * at all.
+ *
+ * The rule it encodes: a line error POISONS the frame being assembled until
+ * the receiver timeout that ends it. Merely truncating (setting the length to
+ * zero and carrying on, which is what this did) is not enough - the bytes
+ * that follow the error then start a FRESH frame, and if what remains on the
+ * wire happens to form a valid ADU with a valid CRC, the probe executes a
+ * request it never heard the beginning of. A parity error is the signal that
+ * we did not hear the master correctly; answering anyway is worse than
+ * silence. */
+typedef struct {
+    uint16_t len;
+    bool     ready;      /* a complete frame is waiting for the main loop */
+    bool     poisoned;   /* a line error was seen inside the current frame */
+} o2p_mb_rx_t;
+
+static inline void o2p_mb_rx_reset(o2p_mb_rx_t *rx)
+{
+    rx->len = 0u;
+    rx->ready = false;
+    rx->poisoned = false;
+}
+
+/* ORE / FE / NE / PE. */
+static inline void o2p_mb_rx_line_error(o2p_mb_rx_t *rx)
+{
+    rx->len = 0u;
+    rx->poisoned = true;
+}
+
+static inline void o2p_mb_rx_byte(o2p_mb_rx_t *rx, uint8_t b,
+                                  uint8_t *buf, uint16_t cap)
+{
+    /* Never overwrite a frame the main loop has not consumed, and never run
+     * off the end of the buffer. An over-long frame saturates and stays
+     * flagged as too long, which fails the CRC check and is dropped. */
+    if (!rx->ready && rx->len < cap) {
+        buf[rx->len++] = b;
+    } else if (rx->len >= cap) {
+        rx->len = cap;
+    }
+}
+
+/* The receiver timeout that ends a frame. Returns true when a complete,
+ * unpoisoned frame has just become available. */
+static inline bool o2p_mb_rx_gap(o2p_mb_rx_t *rx)
+{
+    bool completed = false;
+    if (!rx->ready && rx->len > 0u && !rx->poisoned) {
+        rx->ready = true;
+        completed = true;
+    } else if (!rx->ready) {
+        rx->len = 0u;
+    }
+    /* The poison lasts exactly one frame: the gap is what ends it. */
+    rx->poisoned = false;
+    return completed;
+}
+
 #endif /* O2P_MODBUS_RTU_H */

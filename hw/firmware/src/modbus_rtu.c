@@ -206,7 +206,9 @@ void USART1_IRQHandler(void)
      * correctly, and answering a half-heard request is worse than silence. */
     if ((isr & (USART_ISR_ORE | USART_ISR_FE | USART_ISR_NE | USART_ISR_PE)) != 0u) {
         USART1->ICR = USART_ICR_ORECF | USART_ICR_FECF | USART_ICR_NECF | USART_ICR_PECF;
+        /* POISON, do not merely truncate - see o2p_mb_rx_line_error(). */
         s_rx_len = 0u;
+        s_rx_poisoned = true;
         if (s_frame_errors != 0xFFFFu) {
             s_frame_errors++;
         }
@@ -228,7 +230,7 @@ void USART1_IRQHandler(void)
 
     if ((isr & USART_ISR_RTOF) != 0u) {
         USART1->ICR = USART_ICR_RTOCF;
-        if (!s_frame_ready && s_rx_len > 0u) {
+        if (!s_frame_ready && s_rx_len > 0u && !s_rx_poisoned) {
             /* Stamp the frame HERE, in the interrupt that completed it. The
              * deadline below is "how long has this request been waiting for
              * the main loop", and a timestamp that is never taken reads as
@@ -237,9 +239,11 @@ void USART1_IRQHandler(void)
              * answers nothing, forever. */
             s_frame_ms = o2p_millis();
             s_frame_ready = true;
-        } else {
+        } else if (!s_frame_ready) {
             s_rx_len = 0u;
         }
+        /* The poison lasts exactly one frame; the gap is what ends it. */
+        s_rx_poisoned = false;
     }
 
     if ((isr & USART_ISR_TC) != 0u) {

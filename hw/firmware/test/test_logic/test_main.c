@@ -18,6 +18,7 @@
 #include "o2.h"
 #include "psychro.h"
 #include "regmap.h"
+#include "modbus_rtu.h"
 #include "tmp117.h"
 
 static o2p_regmap_t rm;
@@ -3474,6 +3475,105 @@ static void test_the_uncalibrated_nominal_matches_the_tia_headroom(void)
     TEST_ASSERT_TRUE(o2p_cal_air_plausible(O2P_CAL_AIR_NOMINAL_NA));
 }
 
+/* ---- modbus receive frame assembly, 2026-09-08 ----
+ *
+ * modbus_rtu.c had NO host coverage, and it is where the two worst bugs in
+ * this subsystem live: a response deadline that is never stamped (the probe
+ * answers nothing, ever) and a line error that truncates instead of poisoning
+ * (the probe answers a request it never heard the start of). */
+
+static void test_a_clean_frame_completes_at_the_gap(void)
+{
+    uint8_t buf[O2P_MB_MAX_ADU];
+    o2p_mb_rx_t rx;
+    o2p_mb_rx_reset(&rx);
+    const uint8_t adu[] = {0x03, 0x03, 0x00, 0x00, 0x00, 0x08};
+    for (unsigned i = 0; i < sizeof(adu); i++) {
+        o2p_mb_rx_byte(&rx, adu[i], buf, (uint16_t)sizeof(buf));
+    }
+    TEST_ASSERT_FALSE(rx.ready);
+    TEST_ASSERT_TRUE(o2p_mb_rx_gap(&rx));
+    TEST_ASSERT_TRUE(rx.ready);
+    TEST_ASSERT_EQUAL_UINT16(sizeof(adu), rx.len);
+    TEST_ASSERT_EQUAL_MEMORY(adu, buf, sizeof(adu));
+}
+
+static void test_a_line_error_poisons_the_whole_frame(void)
+{
+    /* THE BUG THIS EXISTS FOR. A parity error used to set the length to zero
+     * and carry on, so the bytes AFTER the error started a fresh frame. If
+     * what remained on the wire formed a valid ADU, the probe executed a
+     * request whose beginning it never heard - and on a 9600 8E1 bus shared
+     * with two SMT100s, the tail of someone else's frame is exactly what
+     * follows. */
+    uint8_t buf[O2P_MB_MAX_ADU];
+    o2p_mb_rx_t rx;
+    o2p_mb_rx_reset(&rx);
+
+    o2p_mb_rx_byte(&rx, 0x03, buf, (uint16_t)sizeof(buf));
+    o2p_mb_rx_line_error(&rx);          /* parity error mid-frame */
+    /* A complete, perfectly valid request now arrives on the tail. */
+    const uint8_t rest[] = {0x03, 0x03, 0x00, 0x00, 0x00, 0x08};
+    for (unsigned i = 0; i < sizeof(rest); i++) {
+        o2p_mb_rx_byte(&rx, rest[i], buf, (uint16_t)sizeof(buf));
+    }
+    TEST_ASSERT_FALSE_MESSAGE(o2p_mb_rx_gap(&rx),
+        "a frame containing a line error must not be executed");
+    TEST_ASSERT_FALSE(rx.ready);
+}
+
+static void test_the_poison_lasts_exactly_one_frame(void)
+{
+    /* Poisoning that outlived its frame would make one parity error deafen
+     * the probe permanently - the opposite failure, and just as fatal. */
+    uint8_t buf[O2P_MB_MAX_ADU];
+    o2p_mb_rx_t rx;
+    o2p_mb_rx_reset(&rx);
+
+    o2p_mb_rx_byte(&rx, 0x03, buf, (uint16_t)sizeof(buf));
+    o2p_mb_rx_line_error(&rx);
+    TEST_ASSERT_FALSE(o2p_mb_rx_gap(&rx));
+    TEST_ASSERT_FALSE(rx.poisoned);
+
+    const uint8_t adu[] = {0x03, 0x03, 0x00, 0x00, 0x00, 0x08};
+    for (unsigned i = 0; i < sizeof(adu); i++) {
+        o2p_mb_rx_byte(&rx, adu[i], buf, (uint16_t)sizeof(buf));
+    }
+    TEST_ASSERT_TRUE_MESSAGE(o2p_mb_rx_gap(&rx),
+        "the frame after a poisoned one must be answered normally");
+}
+
+static void test_an_overlong_frame_saturates_rather_than_overruns(void)
+{
+    uint8_t buf[O2P_MB_MAX_ADU];
+    o2p_mb_rx_t rx;
+    o2p_mb_rx_reset(&rx);
+    for (unsigned i = 0; i < O2P_MB_MAX_ADU * 2u; i++) {
+        o2p_mb_rx_byte(&rx, (uint8_t)i, buf, (uint16_t)sizeof(buf));
+    }
+    TEST_ASSERT_EQUAL_UINT16(O2P_MB_MAX_ADU, rx.len);
+    /* Too long is still "a frame", and it is the CRC that rejects it. */
+    TEST_ASSERT_TRUE(o2p_mb_rx_gap(&rx));
+}
+
+static void test_a_ready_frame_is_never_overwritten(void)
+{
+    /* The main loop has not consumed it yet; new traffic must not scribble
+     * over the request being answered. */
+    uint8_t buf[O2P_MB_MAX_ADU];
+    o2p_mb_rx_t rx;
+    o2p_mb_rx_reset(&rx);
+    const uint8_t adu[] = {0x03, 0x03, 0x00, 0x00, 0x00, 0x08};
+    for (unsigned i = 0; i < sizeof(adu); i++) {
+        o2p_mb_rx_byte(&rx, adu[i], buf, (uint16_t)sizeof(buf));
+    }
+    TEST_ASSERT_TRUE(o2p_mb_rx_gap(&rx));
+
+    o2p_mb_rx_byte(&rx, 0xFF, buf, (uint16_t)sizeof(buf));
+    TEST_ASSERT_EQUAL_UINT16(sizeof(adu), rx.len);
+    TEST_ASSERT_EQUAL_MEMORY(adu, buf, sizeof(adu));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -3597,5 +3697,10 @@ int main(void)
     RUN_TEST(test_a_corrupt_flash_tempco_is_refused_too);
     RUN_TEST(test_the_gain_guard_refuses_only_sign_and_nonfinite);
     RUN_TEST(test_the_uncalibrated_nominal_matches_the_tia_headroom);
+    RUN_TEST(test_a_clean_frame_completes_at_the_gap);
+    RUN_TEST(test_a_line_error_poisons_the_whole_frame);
+    RUN_TEST(test_the_poison_lasts_exactly_one_frame);
+    RUN_TEST(test_an_overlong_frame_saturates_rather_than_overruns);
+    RUN_TEST(test_a_ready_frame_is_never_overwritten);
     return UNITY_END();
 }
