@@ -39,6 +39,7 @@
 #include "o2.h"
 #include "psychro.h"
 #include "regmap.h"
+#include "sampler_logic.h"
 #include "sht4x.h"
 #include "tmp117.h"
 #include "update.h"
@@ -101,11 +102,9 @@ static void restart_settling(void)
     /* Only count a restart that actually extends the deadline, so a fault
      * that persists for minutes does not inflate the counter into
      * meaninglessness. */
-    uint32_t deadline = g_uptime_s + O2P_SETTLE_SECONDS;
-    if (g_settle_deadline_s <= g_uptime_s && g_settle_restarts != 0xFFFFu) {
-        g_settle_restarts++;
-    }
-    g_settle_deadline_s = deadline;
+    g_settle_deadline_s = o2p_settle_restart(g_uptime_s, g_settle_deadline_s,
+                                            O2P_SETTLE_SECONDS,
+                                            &g_settle_restarts);
 }
 
 static void load_cal_from_config(void)
@@ -125,31 +124,6 @@ static void load_cal_from_config(void)
      * number or is past O2P_DIL_ALPHA_MAX, and o2p_config_valid() has already
      * bounded what can reach this. */
     g_cal.dil_alpha = (float)g_rm.cfg.dil_alpha_x1000 * 1e-3f;
-}
-
-/* Convert an AIN0 code to cell current in nanoamps.
- *
- *   V(AIN0) = internal_zero -/+ I * R_TIA          (LMP91000, R_TIA = 7 kOhm)
- *
- * so the cell current is the DEPARTURE from the internal zero, 67 % of VREF.
- * Both the zero and the ADC reference come from VREF_TRIM, so this is
- * ratiometric and first-order immune to VREF drift.
- *
- * The sign is deliberately preserved: SCHEMATIC-REVIEW.md M4 leaves the SGX
- * sign convention open, and the air-versus-nitrogen bench pair is what settles
- * it. Taking an absolute value here would hide the answer.
- */
-#define O2P_LMP_TIA_OHM 7000
-#define O2P_LMP_INT_Z_NUM 67
-#define O2P_LMP_INT_Z_DEN 100
-
-static int32_t code_to_cell_na(int32_t code, uint32_t vref_mv)
-{
-    int32_t uv = o2p_ads1119_code_to_uv(code, vref_mv);
-    int32_t zero_uv = (int32_t)(((int64_t)vref_mv * 1000 * O2P_LMP_INT_Z_NUM) /
-                                O2P_LMP_INT_Z_DEN);
-    int32_t delta_uv = zero_uv - uv;
-    return (int32_t)(((int64_t)delta_uv * 1000) / O2P_LMP_TIA_OHM);
 }
 
 /* ------------------------------------------------------------- the sampler */
@@ -366,9 +340,15 @@ static void phase_temps(o2p_snapshot_t *s)
         g_cyc.faults |= O2P_F_I2C_FAIL_SHT;
     }
 
-    /* The temperature that matters for the cell's rating is the gas it sees. */
-    int16_t t_gas = g_cyc.chamber_ok ? g_cyc.t_chamber : g_cyc.t_tip;
-    if ((g_cyc.chamber_ok || g_cyc.tip_ok) && t_gas > O2P_TEMP_OVER_C100) {
+    /* The temperature that matters for the cell's rating is the gas it sees.
+     * Shared with finish_o2() through o2p_gas_temperature() so the two cannot
+     * disagree about which sensor speaks for the gas: this site used to read
+     * g_cyc.t_tip whenever the chamber had failed, WITHOUT checking that the
+     * tip had read either, and was correct only because the guard below
+     * happened to exclude the both-failed case. */
+    int16_t t_gas = o2p_gas_temperature(g_cyc.chamber_ok, g_cyc.t_chamber,
+                                        g_cyc.tip_ok, g_cyc.t_tip);
+    if (t_gas != O2P_I16_INVALID && t_gas > O2P_TEMP_OVER_C100) {
         g_cyc.faults |= O2P_F_TEMP_OVER;   /* extrapolated, still valid */
     }
 
@@ -583,16 +563,13 @@ static void finish_o2(o2p_snapshot_t *s)
     int32_t uv = o2p_ads1119_code_to_uv(code, g_cyc.vref_mv);
     s->afe_vout_mv = (uv < 0) ? 0u : (uint16_t)(uv / 1000);
 
-    int32_t cell_na = code_to_cell_na(code, g_cyc.vref_mv);
+    int32_t cell_na = o2p_cell_na_from_code(code, g_cyc.vref_mv);
 
     /* uA * 100, i.e. 10 nA per count. */
-    int32_t raw_x100 = cell_na / 10;
-    s->o2_raw = (raw_x100 > 32767 || raw_x100 < -32767)
-                    ? O2P_I16_INVALID : (int16_t)raw_x100;
+    s->o2_raw = o2p_encode_raw_ua_x100(cell_na);
 
-    int16_t t_gas = g_cyc.chamber_ok ? g_cyc.t_chamber
-                                     : (g_cyc.tip_ok ? g_cyc.t_tip
-                                                     : O2P_I16_INVALID);
+    int16_t t_gas = o2p_gas_temperature(g_cyc.chamber_ok, g_cyc.t_chamber,
+                                        g_cyc.tip_ok, g_cyc.t_tip);
 
     o2p_cal_t cal = g_cal;
     if (cal.cal_air_na <= 0) {

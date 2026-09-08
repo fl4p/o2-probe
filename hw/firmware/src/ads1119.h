@@ -108,6 +108,21 @@ o2p_ads_status_t o2p_ads1119_average(uint8_t mux, uint8_t dr, bool ext_ref,
                                      unsigned n, int32_t *out_code);
 
 /* Millivolts at the ADC pin, given the reference actually used. */
-int32_t o2p_ads1119_code_to_uv(int32_t code, uint32_t vref_mv);
+/* Microvolts at the input for a signed conversion code.
+ *
+ * Inline, and in the header, so the host tests exercise the SHIPPED
+ * conversion. It was in ads1119.c, which reaches the I2C peripheral and
+ * cannot compile on the host - so the arithmetic every oxygen reading passes
+ * through was untestable for the sake of a function with no hardware in it.
+ *
+ * FSR = +/-VREF at gain 1, and full scale is 2^15 codes (SBAS925A 8.4.5:
+ * 1 LSB = 2*VREF/2^16 = +FS/2^15). With VREF = 2500 mV that is 76.29 uV per
+ * code. Done in int64 so the intermediate cannot overflow: 32767 * 2500000
+ * exceeds int32. */
+static inline int32_t o2p_ads1119_code_to_uv(int32_t code, uint32_t vref_mv)
+{
+    int64_t uv = ((int64_t)code * (int64_t)vref_mv * 1000) / 32768;
+    return (int32_t)uv;
+}
 
 #endif /* O2P_ADS1119_H */

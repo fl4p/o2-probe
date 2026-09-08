@@ -1,6 +1,7 @@
 #include "config_flash.h"
 
 #include "config_migrate.h"
+#include "config_select.h"
 #include "flash_hal.h"
 #include "mcu.h"
 #include "modbus_pdu.h"
@@ -100,20 +101,15 @@ bool o2p_config_load(o2p_config_t *cfg)
     bool ok_a = read_record(CONFIG_PAGE_A, &a);
     bool ok_b = read_record(CONFIG_PAGE_B, &b);
 
-    if (!ok_a && !ok_b) {
+    /* The choice itself is in config_select.h so the host tests exercise the
+     * shipped decision rather than a restatement of it. */
+    o2p_cfg_pick_t pick = o2p_config_pick(ok_a, a.sequence, ok_b, b.sequence);
+    if (pick == O2P_CFG_PICK_NONE) {
         s_sequence = 0u;
         s_live_page = CONFIG_PAGE_B;   /* next write goes to A */
         return false;
     }
-    /* Pick the higher sequence. Comparing as a signed difference makes the
-     * choice correct across a 32-bit wrap, which needs 4 billion commits to
-     * reach but costs nothing to handle. */
-    const config_record_t *win;
-    if (ok_a && ok_b) {
-        win = ((int32_t)(a.sequence - b.sequence) > 0) ? &a : &b;
-    } else {
-        win = ok_a ? &a : &b;
-    }
+    const config_record_t *win = (pick == O2P_CFG_PICK_A) ? &a : &b;
     s_sequence = win->sequence;
     s_live_page = (win == &a) ? CONFIG_PAGE_A : CONFIG_PAGE_B;
     *cfg = win->cfg;
@@ -127,8 +123,8 @@ bool o2p_config_store(const o2p_config_t *cfg)
     }
     /* Always write the page that is NOT live, so the live record survives
      * intact until this one is complete. */
-    const uint8_t target = (s_live_page == CONFIG_PAGE_A) ? CONFIG_PAGE_B
-                                                          : CONFIG_PAGE_A;
+    const uint8_t target = o2p_config_other_page(s_live_page, CONFIG_PAGE_A,
+                                                 CONFIG_PAGE_B);
 
     config_record_t r;
     memset(&r, 0, sizeof(r));

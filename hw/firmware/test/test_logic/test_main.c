@@ -18,6 +18,8 @@
 #include "o2.h"
 #include "psychro.h"
 #include "regmap.h"
+#include "sampler_logic.h"
+#include "config_select.h"
 #include "modbus_rtu.h"
 #include "tmp117.h"
 
@@ -4034,6 +4036,138 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     TEST_ASSERT_EQUAL_UINT16(2u, O2P_REG_HTEST_COUNT);
 }
 
+/* ---- main.c and config_flash.c decisions, 2026-09-08 ----
+ *
+ * Neither file compiles on the host, and neither had any coverage. Two of the
+ * three fatal bugs in this firmware's review cycle lived in files with that
+ * property, so the decisions are lifted into headers and driven here. */
+
+static void test_cell_current_is_the_departure_from_the_internal_zero(void)
+{
+    /* The internal zero is 67 % of VREF; a code that lands exactly there is
+     * zero cell current, whatever VREF is. */
+    const uint32_t vref = 2500u;
+    int32_t zero_uv = (int32_t)(((int64_t)vref * 1000 * 67) / 100);
+    int32_t zero_code = (int32_t)(((int64_t)zero_uv * 32768) / ((int64_t)vref * 1000));
+    TEST_ASSERT_INT32_WITHIN(60, 0, o2p_cell_na_from_code(zero_code, vref));
+
+    /* One TIA volt-drop below the zero is +I. 7 kOhm and 100 uA is 700 mV. */
+    int32_t uv_100ua = zero_uv - 700000;
+    int32_t code_100ua = (int32_t)(((int64_t)uv_100ua * 32768) / ((int64_t)vref * 1000));
+    TEST_ASSERT_INT32_WITHIN(200, 100000, o2p_cell_na_from_code(code_100ua, vref));
+}
+
+static void test_cell_current_keeps_its_sign(void)
+{
+    /* SCHEMATIC-REVIEW.md M4 leaves the SGX sign convention open and the
+     * air-versus-nitrogen bench pair is what settles it. An absolute value
+     * here would hide the answer. */
+    const uint32_t vref = 2500u;
+    int32_t zero_uv = (int32_t)(((int64_t)vref * 1000 * 67) / 100);
+    int32_t above = (int32_t)((((int64_t)zero_uv + 700000) * 32768) /
+                              ((int64_t)vref * 1000));
+    TEST_ASSERT_TRUE_MESSAGE(o2p_cell_na_from_code(above, vref) < 0,
+        "a code above the internal zero must yield a negative current");
+}
+
+static void test_cell_current_is_ratiometric_in_vref(void)
+{
+    /* Both the LMP91000's zero and the ADC's reference come from VREF_TRIM,
+     * so the same fraction of full scale must mean the same current at a
+     * different VREF - that is the whole point of the ratiometric wiring. */
+    for (unsigned i = 0; i < 2u; i++) {
+        uint32_t vref = (i == 0u) ? 2500u : 2048u;
+        int32_t zero_uv = (int32_t)(((int64_t)vref * 1000 * 67) / 100);
+        int32_t uv = zero_uv - 700000;
+        int32_t code = (int32_t)(((int64_t)uv * 32768) / ((int64_t)vref * 1000));
+        TEST_ASSERT_INT32_WITHIN(400, 100000, o2p_cell_na_from_code(code, vref));
+    }
+}
+
+static void test_the_chamber_speaks_for_the_gas_not_the_heated_tip(void)
+{
+    /* The tip is heated on purpose and reads the ring. Preferring it would
+     * bias the tempco correction by whatever the heater is doing. */
+    TEST_ASSERT_EQUAL_INT16(2100, o2p_gas_temperature(true, 2100, true, 4500));
+    TEST_ASSERT_EQUAL_INT16(4500, o2p_gas_temperature(false, 2100, true, 4500));
+    /* Both down is UNEVALUABLE, never a stale or zero temperature. This is
+     * what the old inline form got only accidentally right: it read t_tip
+     * whenever the chamber had failed, without checking the tip had read. */
+    TEST_ASSERT_EQUAL_HEX16((uint16_t)O2P_I16_INVALID,
+        (uint16_t)o2p_gas_temperature(false, 2100, false, 4500));
+}
+
+static void test_raw_current_saturates_to_its_sentinel(void)
+{
+    TEST_ASSERT_EQUAL_INT16(10000, o2p_encode_raw_ua_x100(100000));
+    TEST_ASSERT_EQUAL_INT16(-10000, o2p_encode_raw_ua_x100(-100000));
+    /* Past the register's range it must be the sentinel, not a wrapped
+     * number that reads as a plausible small current. */
+    TEST_ASSERT_EQUAL_HEX16((uint16_t)O2P_I16_INVALID,
+        (uint16_t)o2p_encode_raw_ua_x100(400000));
+    TEST_ASSERT_EQUAL_HEX16((uint16_t)O2P_I16_INVALID,
+        (uint16_t)o2p_encode_raw_ua_x100(-400000));
+}
+
+static void test_settle_restarts_count_only_real_restarts(void)
+{
+    /* The counter's job is to make a bias interruption the once-a-second
+     * supervision MISSED visible from a buried probe. One that also climbs
+     * during a fault you can already see is no longer that evidence. */
+    uint16_t n = 0u;
+    uint32_t deadline = o2p_settle_restart(100u, 0u, 900u, &n);
+    TEST_ASSERT_EQUAL_UINT32(1000u, deadline);
+    TEST_ASSERT_EQUAL_UINT16(1u, n);
+
+    /* Still inside the window: the deadline extends, the counter does not. */
+    deadline = o2p_settle_restart(200u, deadline, 900u, &n);
+    TEST_ASSERT_EQUAL_UINT32(1100u, deadline);
+    TEST_ASSERT_EQUAL_UINT16(1u, n);
+
+    /* And it saturates rather than wrapping to zero, which would read as a
+     * probe that had never restarted. */
+    n = 0xFFFFu;
+    (void)o2p_settle_restart(5000u, 0u, 900u, &n);
+    TEST_ASSERT_EQUAL_UINT16(0xFFFFu, n);
+}
+
+static void test_the_newer_config_record_wins(void)
+{
+    TEST_ASSERT_EQUAL_INT(O2P_CFG_PICK_A, o2p_config_pick(true, 9u, true, 4u));
+    TEST_ASSERT_EQUAL_INT(O2P_CFG_PICK_B, o2p_config_pick(true, 4u, true, 9u));
+    /* A single readable record is the answer whichever page it is on. */
+    TEST_ASSERT_EQUAL_INT(O2P_CFG_PICK_A, o2p_config_pick(true, 1u, false, 99u));
+    TEST_ASSERT_EQUAL_INT(O2P_CFG_PICK_B, o2p_config_pick(false, 99u, true, 1u));
+    TEST_ASSERT_EQUAL_INT(O2P_CFG_PICK_NONE, o2p_config_pick(false, 0u, false, 0u));
+}
+
+static void test_the_config_choice_survives_a_sequence_wrap(void)
+{
+    /* Sequence is a free-running u32. An unsigned compare would pick the OLDER
+     * record for the one commit that crosses 0xFFFFFFFF - restoring a stale
+     * calibration, and a stale bus address with it. */
+    TEST_ASSERT_EQUAL_INT_MESSAGE(O2P_CFG_PICK_B,
+        o2p_config_pick(true, 0xFFFFFFFFu, true, 0x00000000u),
+        "the record written AFTER the wrap must win");
+    TEST_ASSERT_EQUAL_INT(O2P_CFG_PICK_A,
+        o2p_config_pick(true, 0x00000001u, true, 0xFFFFFFFEu));
+}
+
+static void test_a_store_never_overwrites_the_live_record(void)
+{
+    /* A power loss part-way through a write must leave the previous
+     * configuration intact and still the higher sequence. */
+    TEST_ASSERT_EQUAL_UINT8(1u, o2p_config_other_page(0u, 0u, 1u));
+    TEST_ASSERT_EQUAL_UINT8(0u, o2p_config_other_page(1u, 0u, 1u));
+    /* Alternating from either start visits both pages and never repeats. */
+    uint8_t live = 0u;
+    for (unsigned i = 0; i < 4u; i++) {
+        uint8_t next = o2p_config_other_page(live, 0u, 1u);
+        TEST_ASSERT_NOT_EQUAL(live, next);
+        live = next;
+    }
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -4180,5 +4314,14 @@ int main(void)
     RUN_TEST(test_runaway_sees_heat_under_a_low_commanded_duty);
     RUN_TEST(test_the_isr_and_the_tested_state_machine_are_one);
     RUN_TEST(test_the_wire_version_tracks_the_wire_contract);
+    RUN_TEST(test_cell_current_is_the_departure_from_the_internal_zero);
+    RUN_TEST(test_cell_current_keeps_its_sign);
+    RUN_TEST(test_cell_current_is_ratiometric_in_vref);
+    RUN_TEST(test_the_chamber_speaks_for_the_gas_not_the_heated_tip);
+    RUN_TEST(test_raw_current_saturates_to_its_sentinel);
+    RUN_TEST(test_settle_restarts_count_only_real_restarts);
+    RUN_TEST(test_the_newer_config_record_wins);
+    RUN_TEST(test_the_config_choice_survives_a_sequence_wrap);
+    RUN_TEST(test_a_store_never_overwrites_the_live_record);
     return UNITY_END();
 }

@@ -382,13 +382,3 @@ o2p_ads_status_t o2p_ads1119_average(uint8_t mux, uint8_t dr, bool ext_ref,
     *out_code = acc / (int32_t)n;
     return O2P_ADS_OK;
 }
-
-int32_t o2p_ads1119_code_to_uv(int32_t code, uint32_t vref_mv)
-{
-    /* FSR = +/-VREF at gain 1, and full scale is 2^15 codes (SBAS925A 8.4.5:
-     * 1 LSB = 2*VREF/2^16 = +FS/2^15). With VREF = 2500 mV that is 76.29 uV
-     * per code. Done in int64 so the intermediate cannot overflow: 32767 *
-     * 2500000 exceeds int32. */
-    int64_t uv = ((int64_t)code * (int64_t)vref_mv * 1000) / 32768;
-    return (int32_t)uv;
-}
