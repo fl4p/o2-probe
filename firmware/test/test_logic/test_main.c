@@ -651,10 +651,15 @@ static void test_calibration_temperature_is_bounded(void)
     cfg.cal_temp_c100 = 9000;
     TEST_ASSERT_FALSE(o2p_config_valid(&cfg));
 
-    /* The second review's attack (Tcal -36 C, tempco -10000 ppm/K) is legal
-     * again by design, because BOTH values are individually legitimate. What
-     * catches the collapsed gain it produces is the runtime guard, which
-     * returns UNEVALUABLE and NO value - not a plausible wrong number. */
+    /* Tcal -36 C is legitimate on its own - it is inside the cell's rating -
+     * so the config layer accepts it. Paired with an out-of-contract
+     * coefficient the correction collapses, and the runtime guard returns
+     * UNEVALUABLE and NO value rather than a plausible wrong number.
+     *
+     * (This comment used to call the -10000 ppm/K half "legal by design". It
+     * is not: the tempco ceiling refuses it, as
+     * test_the_known_collapsed_gain_corner_stays_refused asserts. The prose
+     * went stale across the round 6/7 reversal; corrected 2026-09-08.) */
     o2p_cal_t cal = {.cal_air_na = 100000, .cal_zero_na = 0,
                      .cal_temp_c100 = -3600, .tempco_per_k = -0.010f};
     float c = -1.0f;
@@ -1692,6 +1697,57 @@ static void test_runaway_does_not_false_positive_on_cold_start(void)
     TEST_ASSERT_TRUE((out.block & O2P_HB_RUNAWAY) == 0u);
 }
 
+static void test_runaway_latches_at_an_irregular_but_credible_cadence(void)
+{
+    /* The ninth review's counterexample: valid high observations at 0, 6, 12 …
+     * accumulated NOTHING against the original 5 s bound, masking a genuine
+     * runaway forever. The bound encodes the caller's cadence and must be
+     * generous enough for jitter and transient sensor loss. */
+    /* ABSOLUTE periods, deliberately not derived from
+     * O2P_HEATER_RUNAWAY_MAX_GAP_S: a loop bounded by the constant adapts to
+     * whatever the constant becomes and cannot catch it being tightened back
+     * under the sampler's real jitter. 6 s is the ninth review's exact
+     * counterexample. */
+    const unsigned periods[] = {1u, 2u, 5u, 6u, 8u};
+    for (unsigned pi = 0; pi < (sizeof(periods) / sizeof(periods[0])); pi++) {
+        unsigned period = periods[pi];
+        o2p_heater_state_t st;
+        o2p_heater_ctl_reset(&st);
+        o2p_heater_cfg_t cfg = hcfg_default();
+        cfg.max_duty_x100 = 0u;
+        o2p_heater_in_t hot = hin_healthy();
+        hot.t_tip_c100 = 5000;
+        hot.t_chamber_c100 = (int16_t)(hot.t_tip_c100 - (int16_t)cfg.dt_max_k100 -
+                                       O2P_HEATER_RUNAWAY_MARGIN_K100 - 50);
+        o2p_heater_out_t out;
+        for (uint32_t t = 0; t <= (O2P_HEATER_RUNAWAY_WINDOW_S * 2u); t += period) {
+            o2p_heater_ctl_step(&st, &cfg, &hot, t, &out);
+        }
+        TEST_ASSERT_TRUE_MESSAGE(st.runaway_latched,
+            "a caller inside the cadence contract must still latch a runaway");
+    }
+}
+
+static void test_runaway_ignores_evidence_beyond_the_cadence_contract(void)
+{
+    /* And the other edge: observations further apart than the contract allows
+     * are isolated glimpses, not evidence about the interval between them. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;
+    o2p_heater_in_t hot = hin_healthy();
+    hot.t_tip_c100 = 5000;
+    hot.t_chamber_c100 = (int16_t)(hot.t_tip_c100 - (int16_t)cfg.dt_max_k100 -
+                                   O2P_HEATER_RUNAWAY_MARGIN_K100 - 50);
+    o2p_heater_out_t out;
+    for (uint32_t t = 0; t <= (O2P_HEATER_RUNAWAY_WINDOW_S * 40u);
+         t += (O2P_HEATER_RUNAWAY_MAX_GAP_S + 1u)) {
+        o2p_heater_ctl_step(&st, &cfg, &hot, t, &out);
+    }
+    TEST_ASSERT_FALSE(st.runaway_latched);
+}
+
 static void test_runaway_repeated_isolated_highs_never_accumulate(void)
 {
     /* The class the previous test missed: capping each contribution at 5 s
@@ -2013,6 +2069,8 @@ int main(void)
     RUN_TEST(test_integrator_cannot_wind_up_while_clamped);
     RUN_TEST(test_loop_reaches_setpoint_in_steady_state);
     RUN_TEST(test_runaway_does_not_false_positive_on_cold_start);
+    RUN_TEST(test_runaway_latches_at_an_irregular_but_credible_cadence);
+    RUN_TEST(test_runaway_ignores_evidence_beyond_the_cadence_contract);
     RUN_TEST(test_runaway_repeated_isolated_highs_never_accumulate);
     RUN_TEST(test_runaway_alternating_valid_invalid_still_latches);
     RUN_TEST(test_runaway_does_not_latch_on_two_isolated_samples);

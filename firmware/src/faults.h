@@ -14,9 +14,13 @@
  *    would throw away the data the instrument was built for. This overrides
  *    compostlab research/COMPOST-O2.md section 6.
  *
- *  - CAL_DEFAULT does NOT invalidate either, but it must reach the decoder: an
- *    uncalibrated cell is 0.1 +/- 0.03 mA in air (DS-0637 Issue 2), so the
- *    reading can be 30 % out. It is real data of known-poor accuracy, not garbage.
+ *  - CAL_DEFAULT invalidates the COMPENSATED channel but not the RAW one: an
+ *    uncalibrated cell is 0.1 +/- 0.03 mA in air (DS-0637 Issue 2), so a
+ *    substituted nominal can be 30 % out, which is an unknown scale factor
+ *    wearing the units of a measurement. The raw current is still real data.
+ *    (This said "does NOT invalidate either", which contradicted
+ *    O2P_FAULTS_INVALIDATE_O2_COMP below, where the bit has always appeared.
+ *    The mask was right and the prose was wrong; corrected 2026-09-08.)
  *
  *  - CAL_ZERO_DEFAULT is the same shape as TEMP_OVER, not as CAL_DEFAULT, and
  *    the difference is quantitative. A missing AIR point leaves the scale

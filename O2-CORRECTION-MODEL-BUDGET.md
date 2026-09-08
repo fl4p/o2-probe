@@ -723,8 +723,9 @@ agreed on. What would:
    revision of this section quoted ±550/±245 as universal limits. They are not; verified
    and corrected 2026-09-08.) **The gate must compute its limit from the fitted
    coefficient and the operating span**, not store one universal pair. Either way it is
-   two orders tighter than any register bound, which is why the bound was never the
-   answer.
+   **9× to 37× tighter** than the ±5000 register bound (5000/565 through 5000/137), which
+   is why the bound was never the answer. (An earlier revision said "two orders tighter";
+   that overstated it, though not the conclusion.)
 
 4. **Acceptance rules the §14 sketch did not include**, and each is needed before the
    compensated channel is certifiable to 0.1 points: a valid **zero** point (today
@@ -766,6 +767,16 @@ valid/invalid case still accumulates, correctly — seeing high ΔT at both ends
 two-second interval is genuine evidence about that interval — and both directions are now
 tested, including the 20-burst sequence that defeats clipping.
 
+**Crediting that interval is an explicit sampling assumption, not continuous
+observation** — §15 first called it "genuine evidence", which overstated it. Within the
+cadence bound the condition is *taken* to have persisted between two observations of it.
+That is why the bound is a statement about the caller's rate rather than a tuning knob,
+and the ninth review showed what happens when it is wrong in the other direction: at a 6 s
+cadence against the original 5 s bound, valid high samples at 0, 6, 12 … **never
+accumulated at all**, masking a genuine runaway forever. The bound is now 10 s, tied
+explicitly to the sampler's nominal 1 Hz cycle, with both failure modes recorded at the
+constant.
+
 Four rewrites, four different accounting errors, on ~20 lines. Worth recording as a
 pattern: every one of them came from *choosing a proxy for the thing being measured* —
 elapsed wall time, then time-since-start, then capped-gap — instead of accumulating the
@@ -793,3 +804,52 @@ One honest note on coverage, from the review: of the tests added last round, one
 passed against the parent implementation, and **no host test covers the `vref_ok`
 integration at all** because `main.c` is excluded from the native build. That remains the
 structural gap behind every "verified" claim in these sections.
+
+## 16. Ninth adversarial review — the runaway detector's fifth shape
+
+It broke the fifth shape too, from the direction the fourth had over-corrected into.
+
+**The sampling cadence was an unstated assumption, and it was wrong.** Valid high-ΔT
+observations at 0, 6, 12 … seconds accumulated **nothing** against the 5 s gap bound, so a
+caller only slightly slower or more jittery than 1 Hz would have masked a genuine runaway
+forever. Requirement (c) — never preventable from latching — failed.
+
+That is the same defect as the one before it wearing the opposite sign, and the reason is
+now written at the constant: **the detector cannot derive the caller's rate, and without it
+"sparse sampling of a real runaway" and "isolated glimpses across blindness" are the same
+data.** `O2P_HEATER_RUNAWAY_MAX_GAP_S` is therefore documented as a statement about how
+often we look — 10 s, ten missed cycles against the sampler's nominal 1 Hz — with both
+failure modes recorded beside it, and an instruction that it must change if the cadence
+does. It is not a tuning knob.
+
+I also stopped calling the credited interval "genuine evidence". It is an explicit
+**sampling assumption**: within the cadence bound the condition is *taken* to have persisted
+between two observations of it.
+
+### And a test that could not have caught it
+
+The cadence test I first wrote looped `period` up to `O2P_HEATER_RUNAWAY_MAX_GAP_S`, so it
+adapted to whatever the constant became and passed happily with the bound tightened back to
+5 s. That is exactly the "asserts the constant, not the behaviour" weakness the sixth
+review identified — repeated by me, two rounds later, in the fix for the finding it
+produced. The periods are now absolute (1, 2, 5, 6, 8 s), and the known-bad calibration
+fails as it should.
+
+### Corrections
+
+| # | Finding | Disposition |
+|---|---|---|
+| 3 | "Two orders tighter than any register bound" overstates it — the ratios are 5000/565 ≈ 8.8× to 5000/137 ≈ 36.5× | **Corrected to 9×–37×.** The conclusion is unaffected. |
+| 4 | §15's cleanup claim was **overstated again**: a test still called −10000 ppm/K "legal by design" (stale across the round 6/7 reversal, and contradicted by another current test), `sht4x.h` said the rejection was *not* proof of failure and then that out-of-range *means the part is failing*, and `faults.h` said `CAL_DEFAULT` "does NOT invalidate either" while the bit has always been in `O2P_FAULTS_INVALIDATE_O2_COMP` | **All three confirmed and fixed.** The `faults.h` one mattered most: the mask was right and the prose contradicted it, in the file that defines what the fault word means. |
+| 5 | `o2p_ads1119_code_to_uv()` documented as returning **millivolts** though it returns microvolts and every caller assumes so; and `0x30420F13` decodes to `SCLDEL=4, SDADEL=2`, not `SCLDEL=0, SDADEL=4` — the comment mis-assigned the reserved `[27:24]` nibble | **Both fixed.** Neither changes behaviour; both are the kind of comment a future reader would have trusted. |
+
+### Standing
+
+Nine rounds. The detector alone has now been rewritten five times; every failure came from
+substituting a proxy for the thing being measured, and the fifth shape's proxy — a fixed
+gap bound — is at least now *named as an assumption about the caller* rather than presented
+as a property of the data.
+
+The two open items are unchanged and both are Fab's: the **calibration-quality gate**
+(§14, sharpened by §15) and the **calibration/commit transaction** (§12). No reviewer can
+decide either; both change what the instrument publishes.

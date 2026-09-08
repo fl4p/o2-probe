@@ -156,10 +156,15 @@ static void update_runaway(o2p_heater_state_t *st,
      * A gap longer than the cap therefore DISCARDS the accumulated evidence
      * rather than clipping its contribution. After a real outage we no longer
      * know the condition persisted, so the honest state is "start again", not
-     * "keep what we had plus a bit". Consecutive observations a second or two
-     * apart still accumulate normally - including the alternating
-     * valid/invalid case, where seeing high dT at both ends of a two-second
-     * interval is genuine evidence about that interval. */
+     * "keep what we had plus a bit".
+     *
+     * Crediting the interval between two valid high observations is an
+     * explicit SAMPLING ASSUMPTION, not a claim that the interval was watched
+     * continuously: within the cadence bound the condition is taken to have
+     * persisted between two observations of it. That assumption is what the
+     * bound in heater_ctl.h exists to keep honest, and it is the reason the
+     * bound is a statement about the caller's rate rather than a tuning
+     * knob - see the failure modes recorded there. */
     if (!in->tip_valid || !in->chamber_valid) {
         return;   /* observe nothing: neither evidence for nor against */
     }

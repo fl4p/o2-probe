@@ -85,9 +85,27 @@ enum {
  * design ("U10 measures PCB copper, but the 5 g ABS cell couples via three
  * pins and gas"). Only a difference larger than the loop is ever allowed to
  * command is evidence of uncommanded heat. */
-/* The most one observation may credit. Two high samples separated by a long
- * unevaluable gap must not add that whole gap as though it had been watched. */
-#define O2P_HEATER_RUNAWAY_MAX_GAP_S 5u
+/* The longest gap between two consecutive OBSERVATIONS that may still be
+ * credited as evidence about the interval between them.
+ *
+ * This constant encodes the caller's CADENCE CONTRACT, and that has to be said
+ * out loud because the detector cannot derive it. Given only a stream of
+ * observations, "sparse sampling of a real runaway" and "isolated glimpses
+ * across long blindness" are the same data; only the expected rate separates
+ * them. o2p_heater_ctl_step() is called once per sampler cycle, nominally
+ * 1 Hz (main.c), so ten seconds is ten missed cycles - generous for jitter and
+ * transient sensor loss, while a 100 s blind gap still discards the evidence.
+ *
+ * THE FAILURE MODE IF THIS IS WRONG, both directions:
+ *   - Too small: a caller slower than this NEVER accumulates and a genuine
+ *     runaway is masked forever. The fifth review found exactly that with a
+ *     6 s cadence against a 5 s bound.
+ *   - Too large: unobserved time gets credited as though it had been watched,
+ *     and isolated glimpses latch a heater that was never runaway.
+ *
+ * So if the sampler cadence ever changes, THIS CONSTANT MUST CHANGE WITH IT.
+ * It is not a tuning knob; it is a statement about how often we look. */
+#define O2P_HEATER_RUNAWAY_MAX_GAP_S 10u
 #define O2P_HEATER_RUNAWAY_WINDOW_S 60u
 #define O2P_HEATER_RUNAWAY_MARGIN_K100 200
 

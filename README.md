@@ -22,7 +22,7 @@ firmware's scale factors are **generated** from the schematic (see
 | | |
 |---|---|
 | Schematic / PCB | released for a bare-board first article; ERC and DRC clean |
-| Firmware v0 | builds, 89 host tests pass — **has never run on hardware** |
+| Firmware v0 | builds, 91 host tests pass — **has never run on hardware** |
 | Firmware v1 heater loop | implemented and **shipped disabled**, pending the TMP117 alert fault test |
 | Cell fit, enclosure fit, potting | unqualified; physical sample gates open |
 | RS-485 bootloader | **does not exist** |

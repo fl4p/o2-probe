@@ -69,7 +69,8 @@ o2p_ads_status_t o2p_ads1119_convert(uint8_t mux, uint8_t dr, bool ext_ref,
 o2p_ads_status_t o2p_ads1119_average(uint8_t mux, uint8_t dr, bool ext_ref,
                                      unsigned n, int32_t *out_code);
 
-/* Millivolts at the ADC pin, given the reference actually used. */
+/* MICROvolts at the ADC pin, given the reference actually used - as the name
+ * says and every caller assumes. The comment said millivolts. */
 int32_t o2p_ads1119_code_to_uv(int32_t code, uint32_t vref_mv);
 
 #endif /* O2P_ADS1119_H */

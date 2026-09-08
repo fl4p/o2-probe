@@ -4,8 +4,12 @@
 #include "mcu.h"
 
 /* I2CCLK = PCLK = 16 MHz, 100 kHz standard mode, analog filter enabled.
- * Value from the RM0444 I2C_TIMINGR examples for a 16 MHz peripheral clock -
- * PRESC=3, SCLDEL=0, SDADEL=4, SCLH=0x0F, SCLL=0x13. */
+ * Value from the RM0444 I2C_TIMINGR examples for a 16 MHz peripheral clock.
+ * Decoding 0x30420F13 against the register layout - PRESC[31:28],
+ * SCLDEL[23:20], SDADEL[19:16], SCLH[15:8], SCLL[7:0] - gives PRESC=3,
+ * SCLDEL=4, SDADEL=2, SCLH=0x0F, SCLL=0x13. (This comment previously read
+ * SCLDEL=0, SDADEL=4, which mis-assigned the reserved [27:24] nibble;
+ * corrected 2026-09-08. The register value itself is unchanged.) */
 #define O2P_I2C_TIMINGR 0x30420F13u
 
 /* A single byte at 100 kHz is 90 us, and the longest transfer here is a

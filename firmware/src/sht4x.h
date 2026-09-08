@@ -91,12 +91,13 @@ o2p_sht_status_t o2p_sht4x_reset(void);
 o2p_sht_status_t o2p_sht4x_serial(uint32_t *out_serial);
 
 /* One high-precision measurement. Temperature in 0.01 C, RH in 0.01 %.
- * RH is clamped to 0..100 % as the datasheet directs, but a raw value far
- * outside the rating is reported as O2P_SHT_RANGE rather than clamped - an
- * operational plausibility screen, not a datasheet limit and not proof the
- * part has failed (see the bounds above) - rather than clamped
- * silently - out-of-range means the part is failing, and the dew-point
- * calculation must not be fed a clamped fiction. */
+ *
+ * RH is clamped to 0..100 % as the datasheet directs. A value far outside the
+ * RATING is reported as O2P_SHT_RANGE rather than clamped silently, so the
+ * dew-point calculation is never fed a clamped fiction. That rejection is an
+ * operational plausibility screen (see the bounds above), NOT a datasheet
+ * limit and not proof the part has failed - the previous wording said both at
+ * once; corrected 2026-09-08. */
 o2p_sht_status_t o2p_sht4x_measure(int16_t *out_t_c100, uint16_t *out_rh_x100);
 
 /* Fire the on-chip heater. PLAN.md:312 uses this every 6-12 h for two
