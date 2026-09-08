@@ -6,8 +6,12 @@
  * accidentally interrupt the bias.
  *
  * THE SAMPLER IS INCREMENTAL, one conversion per main-loop pass, and that is
- * not a stylistic choice. A full cycle is twelve ADS1119 conversions; at the
- * 20 SPS setting the oxygen channel alone wants eight of them at 50 ms each.
+ * not a stylistic choice. A full cycle is 2 VREF + 8 O2 + 4 WE + 4 RE included
+ * conversions, plus one discarded after each of the four channel/reference
+ * changes: 22 in all. At the 20 SPS setting the oxygen channel alone wants
+ * eight of them at 50 ms each, and the whole cycle is about 600 ms of
+ * converter time (9 x 50.01 ms at 20 SPS, 13 x 11.29 ms at 90 SPS, per
+ * SBAS925A section 8.3.6).
  * Run as one blocking routine that is ~500 ms during which nothing answers the
  * bus - half the master's likely timeout, spent ignoring it. Interleaved, the
  * worst case a Modbus reply can wait behind is a single conversion.
@@ -177,6 +181,20 @@ static struct {
     bool     chamber_ok;
     bool     rh_ok;
     uint16_t heater_block;
+    /* The fault word AS IT STOOD when the oxygen conversion finished.
+     *
+     * PH_WE and PH_RE run AFTER PH_O2 and share the cycle-wide fault word, and
+     * every ADS failure bit is in O2P_FAULTS_INVALIDATE_O2. Without this, a
+     * converter hiccup while reading the diagnostic electrodes would replace an
+     * oxygen result that had already been measured cleanly with a sentinel -
+     * a diagnostic channel muting the measurement it exists to explain, which
+     * is precisely what putting those phases last was supposed to prevent.
+     *
+     * The failure is still reported: it lands in FAULTS like any other, and the
+     * electrode channels themselves go to their sentinels. What it no longer
+     * does is reach backwards. */
+    uint16_t faults_at_o2;
+    bool     o2_measured;
 } g_cyc;
 
 static void cycle_begin(void)
@@ -484,14 +502,29 @@ static void finish_electrode(o2p_snapshot_t *s, bool working)
     if ((g_cyc.faults & O2P_FAULTS_ADS_NO_CONVERSION) != 0u) {
         return;
     }
+    /* Every way this reading can be electrically meaningless, refused rather
+     * than clamped. Clamping a negative code to 0 mV was the bug: 0 is not the
+     * invalid sentinel, so a failed WE read became a real-looking 0 mV and the
+     * bias computed from it became a real-looking number from no measurement.
+     *
+     *  - g_acc_clipped: the converter saturated.
+     *  - a negative code: SBAS925A 8.3.2 - in single-ended mode only the
+     *    positive range is used, so below AGND is outside the valid domain.
+     *  - ADC_RANGE: includes a VREF outside the trim network's band, and these
+     *    channels are scaled BY that reference. finish_vref() keeps the nominal
+     *    scale when it raises this, so the volts would be assumed, not measured.
+     */
+    if (g_acc_clipped || (g_cyc.faults & O2P_F_ADC_RANGE) != 0u) {
+        return;
+    }
     int32_t code = g_acc / (int32_t)O2P_N_CELL;
+    if (code < 0) {
+        return;
+    }
     int32_t uv = o2p_ads1119_code_to_uv(code, g_cyc.vref_mv);
     int32_t mv = uv / 1000;
-    if (mv < 0) {
-        mv = 0;
-    }
-    if (mv > 65534) {
-        mv = 65534;
+    if (mv < 0 || mv > 65534) {
+        return;
     }
     if (working) {
         s->we_buf_mv = (uint16_t)mv;
@@ -621,10 +654,11 @@ static void cycle_publish(o2p_snapshot_t *s)
     /* The single point where the validity rule is applied. Whatever the
      * conversions produced, anything the fault word calls untrustworthy
      * leaves as a sentinel. Raw and compensated have different masks. */
-    if (!o2p_o2_valid(g_cyc.faults)) {
+    uint16_t o2_faults = g_cyc.o2_measured ? g_cyc.faults_at_o2 : g_cyc.faults;
+    if (!o2p_o2_valid(o2_faults)) {
         s->o2_raw = O2P_I16_INVALID;
     }
-    if (!o2p_o2_comp_valid(g_cyc.faults)) {
+    if (!o2p_o2_comp_valid(o2_faults)) {
         s->o2_comp = O2P_U16_INVALID;
     }
 
@@ -743,6 +777,10 @@ static bool sampler_step(void)
     case PH_O2:
         if (accumulate(O2P_ADS_MUX_AIN0_AGND, O2P_ADS_DR_20SPS, true, O2P_N_O2)) {
             finish_o2(s);
+            /* Freeze the verdict on oxygen here, before the electrode phases
+             * can add converter faults to the same word. */
+            g_cyc.faults_at_o2 = g_cyc.faults;
+            g_cyc.o2_measured = true;
             g_phase = PH_WE; g_sub = 0; g_acc = 0; g_acc_clipped = false;
         }
         break;
@@ -835,6 +873,22 @@ int main(void)
     o2p_heater_ctl_reset(&g_heat);
 
     o2p_regmap_init(&g_rm);
+
+    /* Seed the reset cause into BOTH snapshots before the bus is enabled.
+
+     * Modbus answers about 1.6 s before the first cycle publishes, and a
+
+     * diagnostic poll in that window would otherwise read 0 - a real RCC
+
+     * value meaning "no flags", which is the exact confident zero this
+
+     * channel was fixed to stop reporting. */
+
+    for (unsigned i = 0; i < 2u; i++) {
+
+        g_rm.buf[i].reset_cause = o2p_reset_cause();
+
+    }
     (void)o2p_config_load(&g_rm.cfg);   /* defaults on absence or corruption */
     load_cal_from_config();
 

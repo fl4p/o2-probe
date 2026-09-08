@@ -219,6 +219,9 @@ void o2p_regmap_init(o2p_regmap_t *rm)
          * takes, and forever if it never completes. */
         o2p_snapshot_reset(s);
         s->faults = O2P_F_SETTLING | O2P_F_HEATER_DISABLED;
+        /* Left at 0 here and seeded by the caller before the bus comes up.
+         * regmap.c is built for the host test suite too, so it cannot reach
+         * the MCU headers o2p_reset_cause() lives behind. See main.c. */
         s->reset_cause = 0u;
     }
     rm->live = 0u;

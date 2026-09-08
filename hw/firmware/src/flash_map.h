@@ -151,10 +151,25 @@ typedef struct {
 
 extern o2p_bootinfo_t g_o2p_bootinfo;
 
+/* Bits that can actually be set in (RCC_CSR >> 24) on STM32G0. The flags live
+ * at CSR bits 25..31 (stm32g071xx.h: OBLRSTF 25, PINRSTF 26, PWRRSTF 27,
+ * SFTRSTF 28, IWDGRSTF 29, WWDGRSTF 30, LPWRRSTF 31), so after the shift they
+ * are bits 1..7 and bit 0 is never set. Nothing else is a reset flag, so
+ * nothing else is a cause - and restricting the domain is what stops a cold boot from adopting
+ * random SRAM. A v0 bootloader parks nothing, so on a cold boot these bytes
+ * hold whatever the RAM powered up with; the complement pair alone leaves a
+ * 1-in-2^32 chance of a garbage word validating, and SRAM power-up patterns
+ * are not independent random bits. Out-of-domain values are refused, which
+ * turns that residue into UNKNOWN instead of a plausible cause. */
+#define O2P_RESET_CAUSE_MASK 0xFEu
+
 static inline int o2p_bootinfo_get(uint32_t *out)
 {
     uint32_t c = g_o2p_bootinfo.cause;
     if (c == 0u || g_o2p_bootinfo.inverse != ~c) {
+        return 0;
+    }
+    if ((c & ~(uint32_t)O2P_RESET_CAUSE_MASK) != 0u) {
         return 0;
     }
     if (out != NULL) {

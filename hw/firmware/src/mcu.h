@@ -24,10 +24,22 @@
  */
 #define O2P_SYSCLK_HZ 16000000u
 
-/* RESET_CAUSE when the flags could not be recovered: an application running
- * under a bootloader that clears RCC_CSR without parking it. Not a bitfield -
- * no RCC_CSR flag lives above bit 7 of the shifted value - so it cannot be
- * mistaken for a real combination. */
+/* RESET_CAUSE is (RCC_CSR >> 24) & 0xFF, and it is a BITFIELD, not an
+ * enumeration - two causes can be set at once. On STM32G0 the flags sit at
+ * CSR bits 25..31, so after the shift:
+ *
+ *   bit 0  -            (never set)
+ *   bit 1  0x02  OBL    option-byte loader
+ *   bit 2  0x04  PIN    NRST pin
+ *   bit 3  0x08  PWR    BOR / power-on
+ *   bit 4  0x10  SFT    software
+ *   bit 5  0x20  IWDG   independent watchdog
+ *   bit 6  0x40  WWDG   window watchdog
+ *   bit 7  0x80  LPWR   low-power
+ *
+ * 0xFFFF is the sentinel for "could not be recovered": an application under a
+ * bootloader that clears RCC_CSR without parking it. No real combination can
+ * reach it, since the real domain is one byte. */
 #define O2P_RESET_CAUSE_UNKNOWN 0xFFFFu
 
 void o2p_clock_init(void);
