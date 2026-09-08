@@ -576,3 +576,69 @@ The review also corrected §11's scoping of the command-result register: a calib
 be refused **eight** ways, not four — settling, invalid temperature, implausible current,
 implausible zero, plus LMP I/O, AFE mismatch, `VA_LOW` and `ADC_RANGE` through
 `o2p_o2_valid()` — and every one of them returns Modbus success.
+
+## 13. Sixth adversarial review, 2026-09-08
+
+Run against `561b5d0`, told to test round 5's central claim hardest and that a clean round
+would be a valuable outcome. It was not clean, and its best finding was that **round 5's
+"fix" to the tempco bound was itself unjustified**.
+
+### The tempco bound was never a safety bound, and three rounds pretended otherwise
+
+Round 5 tightened `O2P_TEMPCO_ABS_MAX_PPM_K` 10000 → 5000 and called it "2.5× the
+published curve". The review dismantled that:
+
+- The firmware stores a **lumped cell-plus-AFE** coefficient. DS-0637's ±3σ envelope alone
+  implies 2000–3200 ppm/K for the *cell*, and **LMP91000 publishes no temperature
+  coefficient for its TIA gain at all** — so the legitimate lumped value cannot be bounded
+  from datasheets in either direction.
+- Therefore 5000 risked **refusing a correctly characterised probe**, with no service
+  override. That is worse than the failure it was meant to prevent: it blocks calibration
+  outright, and this instrument has no calibration data yet.
+- And it never limited damage anyway. At 5000 ppm/K over 100 K a true 5 %O₂ already reads
+  **3.36 %** — an order of magnitude past the 0.1-point tolerance the probe exists for.
+
+So the bound is back at 10000 ppm/K with an **honest and much narrower claim**: it rejects
+gross corruption — a byte-swapped word, a misplaced decimal — and nothing else. It is not
+an accuracy bound and the header now says so explicitly, along with the reasoning, so the
+next round does not re-tighten it for the fourth time.
+
+**The general lesson, now stated in the code:** accuracy is a property of the calibration
+data. Three consecutive rounds tried to buy it with a range check, in three different
+places, and each attempt either let the damaging case through, refused a legitimate one,
+or both.
+
+### The runtime guard was silently revoking a contract
+
+Round 5 sized the runtime window to "admit exactly the legal box and nothing else". Both
+halves were wrong. "Nothing else" is impossible — at ΔT = 0 *any* coefficient gives gain 1.
+And "exactly the box" was computed over the **rated** −40…+60 °C range, while this firmware
+deliberately keeps reading above 60 °C and flags `TEMP_OVER` as a still-valid
+extrapolation. At 70 °C a legal configuration hit the window edge and returned
+`UNEVALUABLE` — **the guard was cancelling the thermophilic-pile extrapolation the probe
+exists to provide.** The check is now documented and sized as what it can honestly be: an
+arithmetic guard that keeps K positive and finite and rejects NaN. A regression test pins
+the above-60 °C contract.
+
+### Also fixed
+
+| # | Finding | Disposition |
+|---|---|---|
+| 4 | The round-5 TMP117 `THIGH`/`TLOW` readback was **unreachable**: `init()` set `s_safety_armed` after checking `CONFIG` alone, and the periodic verify ran only `if (!armed)` — so it never ran, and a part that lost its thresholds was never caught *because* nothing re-checked it | **Confirmed and fixed.** `init()` now certifies through the same routine, and the periodic check runs unconditionally. A verification that only runs when you already know the answer is not a verification. |
+| 5 | The supply interlock **still failed open** on a different missing input: `finish_vref()` raises `ADC_RANGE` but keeps the 2500 mV default, and `finish_vin()` scales VIN with it — an actual 2.0 V reference makes an actual 8 V input measure ~10 V and pass the 9 V interlock. Round 5 fixed the instance it was shown, not the class | **Confirmed and fixed.** |
+| 7 | The new SHT4x RH window **rejected datasheet-allowed output**: Sensirion permits values outside 0–100 %RH and directs clamping, and documents a temporary +3 %RH offset after long exposure above 80 %RH — exactly this application. A −3…103 % rejection would have refused readings from a wet probe, the condition the channel exists to observe | **Confirmed and fixed**, and the numbers are now labelled an engineering choice rather than a rated limit. |
+| 8 | The round-5 runaway fix **opened a false negative**: restarting the window on any invalid sample let one bad reading per 59 s keep a genuinely runaway 1 W heater from *ever* latching. It also still timed zero duty rather than sustained high ΔT, so one high sample after a quiet minute latched | **Confirmed and fixed** by timing the *condition*: the window starts when ΔT is first high at zero duty, clears when ΔT is seen normal, and an unevaluable cycle **holds** rather than advancing or discarding. Both failure directions are now tested. |
+| 9 | Three round-5 tests **passed with their implementation reverted** — they asserted header constants, not the code using them | **Confirmed and fixed properly.** The pure decision logic moved into the headers (`o2p_sht4x_decode`, `o2p_vdda_from_vrefint`), so the host tests exercise the shipped path; `sht4x.c`/`mcu_adc.c` still cannot compile on the host because they reach CMSIS. Verified by reverting the *logic* rather than the constants: three tests now fail. |
+
+### Still open
+
+- **The calibration/commit transaction** (§12) is unchanged and remains the largest design
+  gap: no snapshot, no generation, no durability across reboot, no completion result.
+- **A corrupted-but-plausible VREFINT sample** is now pinned by a test rather than fixed.
+  The window catches an impossible 4350 mV, but raw 1436 against a 1650 calibration reads
+  3447 mV — enough to lift a real 3.000 V rail past the 3.130 V `VA_LOW` threshold.
+  Closing it needs the **independent ADS1119 AIN2 measurement of 3V3A, which is wired and
+  never sampled**. That is a sampler change, not a bound.
+- **Host coverage** is worse than §11 recorded: besides `main.c`, `modbus_rtu.c` and
+  `config_flash.c`, the native filter also excludes `sht4x.c`, `mcu_adc.c` and `tmp117.c`.
+  Extracting their decision logic into headers narrows the gap but does not close it.

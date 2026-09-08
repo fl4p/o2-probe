@@ -79,40 +79,11 @@ o2p_sht_status_t o2p_sht4x_measure(int16_t *out_t_c100, uint16_t *out_rh_x100)
     uint16_t t_raw = (uint16_t)(((uint16_t)rx[0] << 8) | rx[1]);
     uint16_t rh_raw = (uint16_t)(((uint16_t)rx[3] << 8) | rx[4]);
 
-    /* T = -45 + 175 * raw / 65535, in 0.01 C. */
-    int32_t t_c100 = -4500 + (int32_t)(((int64_t)t_raw * 17500) / 65535);
-    /* RH = -6 + 125 * raw / 65535, in 0.01 %. */
-    int32_t rh_x100 = -600 + (int32_t)(((int64_t)rh_raw * 12500) / 65535);
-
-    /* Bound against the PART's rated range, not against the transfer
-     * function's own image. The conversion maps every uint16 word into exactly
-     * -45.00..130.00 C, so testing against -4500..13000 could never fail - the
-     * same tautological-guard defect found in tmp117.c, and the fifth review
-     * found it repeated here (2026-09-08). Sensirion rates the SHT4x
-     * -40..+125 C (datasheet V7.3), so a coherent frame carrying a stuck or
-     * corrupted word outside that is now reportable rather than accepted. The
-     * CRC above catches transmission corruption; this catches a part that is
-     * answering with values it should never produce. */
-    if (t_c100 < O2P_SHT_T_MIN_C100 || t_c100 > O2P_SHT_T_MAX_C100) {
-        return O2P_SHT_RANGE;
-    }
-    /* The transfer function slightly overshoots 0-100 % by design; the
-     * datasheet says to clamp. Anything beyond a couple of percent outside is
-     * not overshoot, it is a broken part.
-     *
-     * That was the stated intent and the code did not implement it: the bounds
-     * were -600..11900, which is EXACTLY the image of the conversion over all
-     * 65536 words, so the check could never fire. The intent is now written as
-     * an actual overshoot allowance (fifth review, 2026-09-08). */
-    if (rh_x100 < O2P_SHT_RH_MIN_X100 || rh_x100 > O2P_SHT_RH_MAX_X100) {
-        return O2P_SHT_RANGE;
-    }
-    if (rh_x100 < 0) { rh_x100 = 0; }
-    if (rh_x100 > 10000) { rh_x100 = 10000; }
-
-    *out_t_c100 = (int16_t)t_c100;
-    *out_rh_x100 = (uint16_t)rh_x100;
-    return O2P_SHT_OK;
+    /* Conversion, range verdict and the datasheet-directed clamp all live in
+     * o2p_sht4x_decode() in the header, so the host tests exercise the same
+     * decision this driver makes rather than merely re-asserting its
+     * constants. This file keeps what needs the bus: the command and the CRC. */
+    return o2p_sht4x_decode(t_raw, rh_raw, out_t_c100, out_rh_x100);
 }
 
 o2p_sht_status_t o2p_sht4x_heater_pulse(uint8_t cmd)

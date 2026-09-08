@@ -98,32 +98,34 @@ o2p_status_t o2p_fraction_from_current(const o2p_cal_t *cal,
      * plausible fraction. */
     float dt = ((float)temp_c100 - (float)cal->cal_temp_c100) * 0.01f;
     float gain = 1.0f + cal->tempco_per_k * dt;
-    /* This guard is a BACKSTOP, and it is important to be honest about what it
-     * cannot do. Two reviews in a row treated it as the thing that makes a bad
-     * tempco safe, and it is not:
+    /* ARITHMETIC guard only. This is the third attempt at this check and the
+     * first that claims only what it can deliver.
      *
-     *   - `gain > 0.05f` was walked through by a binary32 corner (round 4).
-     *   - `0.5 < gain < 2.0` was then walked through from the inside (round 5):
-     *     alpha +9999 ppm/K over a 100 K span gives gain 1.9999, and a true
-     *     5 %O2 reports as 2.53 % with O2P_OK. Narrowing an interval does not
-     *     close a class when the damaging values are INSIDE it.
+     * It does NOT make a bad coefficient safe. Round 4 tried a near-zero floor
+     * and a binary32 corner walked through it; round 5 tried 0.5..2.0 and was
+     * walked through from the inside at gain 1.9999 (true 5 %O2 reading
+     * 2.53 %). Both failed for the same reason: if alpha is right, a large
+     * gain is CORRECT, and if alpha is wrong, nothing here can tell. Accuracy
+     * lives in the calibration data, not in this comparison.
      *
-     * The mechanism was wrong. A gain of 1.9999 is not detectably bad here: if
-     * alpha really is +9999 ppm/K the correction is CORRECT, and if it is not,
-     * nothing at conversion time can tell. What actually bounds the error is
-     * the coefficient bound in o2.h - now 5000 ppm/K, 2.5x the published curve
-     * instead of 5x - and, ultimately, a real characterisation. See
-     * O2-CORRECTION-MODEL-BUDGET.md section 12.
+     * Round 5 then sized the window to "admit exactly the legal box and
+     * nothing else", and the sixth review found that wrong in both halves.
+     * Wrong on "nothing else": at dT = 0 ANY coefficient gives gain 1, so this
+     * can never be an independent backstop against an out-of-contract caller.
+     * Wrong on "exactly the box": the window was computed over the RATED
+     * -40..+60 C range, but this firmware deliberately keeps reading above
+     * 60 C and flags TEMP_OVER as a still-valid extrapolation (faults.h) -
+     * so at 70 C a perfectly legal configuration hit the window edge and got
+     * UNEVALUABLE. The guard was silently revoking the extrapolation contract
+     * the probe exists to honour in a thermophilic pile.
      *
-     * So the window below is set to admit the WHOLE legal box and nothing
-     * else: |alpha| <= 5000 ppm/K over the widest legal span (-40..+60 C, so
-     * |dT| <= 100 K) gives gain in [0.5, 1.5], and the guard sits just outside
-     * that. It catches a corrupted float, a NaN and an out-of-contract caller.
-     * It does NOT certify the coefficient. Deliberately no longer rejects
-     * anything the configuration validator accepts - the previous bound made a
-     * legal config produce UNEVALUABLE forever, which is a guard refusing the
-     * inputs its own contract permits. */
-    if (!(gain > 0.45f) || !(gain < 1.55f)) {
+     * What remains is the only thing a gain check can honestly do: keep the
+     * arithmetic well-defined. K must stay positive and finite so the divide
+     * cannot blow up or change sign, and NaN must not pass. The bounds are
+     * therefore loose and asymmetric-safe by construction, chosen to be
+     * unreachable by any coefficient the validator accepts across the whole
+     * temperature range the probe actually reports on. */
+    if (!(gain > 0.05f) || !(gain < 5.0f)) {
         return O2P_UNEVALUABLE;
     }
 

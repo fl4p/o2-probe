@@ -8,7 +8,6 @@
 /* Names are O2P_-prefixed because the ST HAL/LL headers already define
  * VREFINT_CAL_ADDR and ADC_CHANNEL_VREFINT with different types. */
 #define O2P_VREFINT_CAL_ADDR 0x1FFF75AAu
-#define O2P_VREFINT_CAL_VDDA_MV 3000u
 #define O2P_ADC_CH_VREFINT 13u
 
 static bool convert(uint32_t channel, uint16_t *out)
@@ -84,33 +83,14 @@ bool o2p_mcu_adc_read_vdda_mv(uint16_t *out_mv)
         return false;
     }
     uint16_t cal = *(volatile uint16_t *)O2P_VREFINT_CAL_ADDR;
-    /* A blank or unprogrammed calibration word would produce a nonsense VDDA
-     * that every later conversion inherits. Refuse instead. */
-    if (cal < 1000u || cal > 2000u) {
-        return false;
-    }
     uint16_t raw = 0u;
-    if (!convert(O2P_ADC_CH_VREFINT, &raw) || raw == 0u) {
+    if (!convert(O2P_ADC_CH_VREFINT, &raw)) {
         return false;
     }
-    uint32_t vdda = ((uint32_t)O2P_VREFINT_CAL_VDDA_MV * cal) / raw;
-    /* Bound the RESULT, not just its inputs. A corrupted VREFINT sample passes
-     * the raw != 0 test and produces an arbitrarily large VDDA - a sample of
-     * 1138 against a 1650 calibration word yields 4350 mV, which this part
-     * cannot run at - and every rail derived from it inherits the error. The
-     * supervision downstream only ever checks for LOW voltage, so an
-     * impossibly high VDDA raised no fault at all and could additionally
-     * overflow the uint16 cast. An unevaluable rail must be reported as a
-     * failed read, not as a number (fifth review, 2026-09-08).
-     *
-     * The STM32G071 is rated 1.7-3.6 V; the window below is deliberately wider
-     * than the board's 3.3 V nominal so a genuinely marginal but real rail is
-     * still measured and can trip the VA_LOW threshold that exists for it. */
-    if (vdda < O2P_VDDA_PLAUSIBLE_MIN_MV || vdda > O2P_VDDA_PLAUSIBLE_MAX_MV) {
-        return false;
-    }
-    *out_mv = (uint16_t)vdda;
-    return true;
+    /* Calibration-word check, the divide and the result bound all live in
+     * o2p_vdda_from_vrefint() in the header, so the host tests exercise the
+     * decision rather than re-stating its constants. */
+    return o2p_vdda_from_vrefint(cal, raw, out_mv);
 }
 
 bool o2p_mcu_adc_read_va_mv(uint16_t *out_mv)

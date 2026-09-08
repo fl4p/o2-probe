@@ -214,41 +214,43 @@ _Static_assert(O2P_NET_AIR_MIN_NA <= O2P_NET_AIR_MAX_NA,
 
 /* Plausibility bounds on the two temperature-correction constants.
  *
- * Added 2026-09-08: the review found both unbounded, and built a legal config
- * out of it. cal_air 95000, zero -5000, Tcal 20 C, tempco +20000 ppm/K, gas at
- * 60 C returns 4.503 %vol for a true 5.000 % with O2P_OK set - a 0.5 point
- * error, five times the discrimination this probe exists to provide, wearing a
- * clean fault word. A second config (Tcal -36 C, tempco -10000 ppm/K) drove the
- * gain term to 0.04 and made a NEGATIVE current evaluate to exactly 5 %.
+ * READ THIS BEFORE CHANGING EITHER NUMBER. Three reviews in a row tried to
+ * make a bound here carry safety it cannot carry, and each attempt was wrong
+ * in a different direction:
  *
- * The ceiling is 0.5 %/K, 2.5x the ~+0.2 %/K slope of the DS-0637 Issue 2
- * curve, so a bench characterisation has room and a fat-fingered or
- * byte-swapped write does not.
+ *   - 10000 ppm/K with a near-zero gain floor: a legal config returned
+ *     4.503 %vol for a true 5.000 % (round 2), and later 5.001 % from a
+ *     NEGATIVE current through a binary32 corner (round 4).
+ *   - A tightened runtime gain window 0.5..2.0: walked through FROM THE
+ *     INSIDE at gain 1.9999, true 5 % reading 2.53 % (round 5).
+ *   - 5000 ppm/K, justified as "2.5x the published curve": the sixth review
+ *     showed that is not a bound at all. The firmware stores a LUMPED
+ *     cell-plus-AFE coefficient (O2-CORRECTION-MODEL-BUDGET.md S3), the
+ *     DS-0637 +/-3 sigma envelope alone already implies 2000-3200 ppm/K, and
+ *     LMP91000 publishes NO temperature coefficient for its TIA gain - so the
+ *     legitimate lumped value cannot be bounded from datasheets at all. A
+ *     5000 ceiling therefore risks REFUSING a correctly characterised probe,
+ *     which is worse than the failure it was meant to prevent: it blocks
+ *     calibration outright, with no service override.
  *
- * This was 1 %/K until the fifth review showed why that was too loose: at
- * 10000 ppm/K over the widest legal span the correction multiplies the reading
- * by 2, and a true 5 %O2 reports as 2.53 % with a clean fault word. No runtime
- * guard can catch that - if the coefficient is real the correction is right,
- * and if it is wrong nothing at conversion time can tell. THIS BOUND is what
- * limits the damage, so it is the number that has to be defensible, and 2.5x a
- * published curve is defensible where 5x was not. See o2.c's gain backstop,
- * which is now sized to admit exactly the box this bound defines.
+ * THE LESSON, stated so the next person does not re-derive it: no bound here
+ * limits the damage a WRONG coefficient does. At 5000 ppm/K over 100 K a true
+ * 5 %O2 already reads 3.36 %, far outside the 0.1-point tolerance this probe
+ * exists to serve. A coefficient that is wrong but inside any bound is
+ * indistinguishable, at conversion time, from one that is right. Accuracy is a
+ * property of the CALIBRATION DATA, not of a range check.
  *
- * Tcal spans the cell's PUBLISHED operating range, -40 to +60 C. This said
- * -20 C and called that "the cell's rated range", which was simply wrong -
- * DS-0637 rates -40 C - and would have refused a legitimate cold-chamber
- * calibration (third review, 2026-09-08). Note that the Tcal bound is NOT
- * what prevents a collapsed gain term: at the widened floor, -10000 ppm/K
- * over a -40..+60 C span would still reach gain 0. What bounds that is this
- * coefficient ceiling, not the runtime guard: at 5000 ppm/K the worst legal
- * gain is 0.5. The runtime check in o2p_fraction_from_current() is a backstop
- * against corrupted floats, not a certificate that the coefficient is right.
+ * So this bound has exactly one job: reject GROSS CORRUPTION - a byte-swapped
+ * word, a fat-fingered decimal place, a half-written 32-bit value. It is set
+ * at 1 %/K, roughly 3x the steepest cell-only envelope on the Issue 2 plot,
+ * which leaves room for an AFE contribution nobody has measured yet. It is NOT
+ * an accuracy bound and must not be described as one.
  *
- * This is a PLAUSIBILITY bound, not a correctness guarantee: a legal +3000
- * ppm/K over a 40 K span still moves a true 5.000 % to 4.880 %. What bounds
- * the residual is a real characterisation, not this check. See
- * O2-CORRECTION-MODEL-BUDGET.md section 5. */
-#define O2P_TEMPCO_ABS_MAX_PPM_K 5000
+ * Tcal spans the cell's PUBLISHED operating range, -40 to +60 C. (It said
+ * -20 C and called that the cell's rating, which was wrong; DS-0637 rates
+ * -40 C, and the narrow bound would have refused a legitimate cold-chamber
+ * calibration.) */
+#define O2P_TEMPCO_ABS_MAX_PPM_K 10000
 #define O2P_CAL_TEMP_MIN_C100    (-4000)  /* -40 C, DS-0637 operating range */
 #define O2P_CAL_TEMP_MAX_C100      6000   /* +60 C */
 

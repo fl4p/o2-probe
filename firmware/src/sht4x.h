@@ -16,13 +16,27 @@
  * 16-bit word satisfies by construction - see o2p_sht4x_measure(). */
 #define O2P_SHT_T_MIN_C100 (-4000)
 #define O2P_SHT_T_MAX_C100  12500
-/* RH is rated 0-100 %. The transfer function overshoots slightly by design and
- * the datasheet says to clamp, so a few percent outside is tolerated and then
- * clamped; far outside is a broken part, not overshoot. */
-#define O2P_SHT_RH_MIN_X100 (-300)
-#define O2P_SHT_RH_MAX_X100  10300
+/* RH rejection bounds - deliberately WIDE, and not a datasheet limit.
+ *
+ * Sensirion's transfer function is allowed to return values outside 0-100 %RH
+ * and the datasheet says to CLAMP them, not to treat them as faults. It also
+ * documents a temporary offset of about +3 %RH after prolonged operation above
+ * 80 %RH - which is exactly this application, a saturated compost pore gas.
+ * A -3..103 % rejection window (briefly used here) therefore had no datasheet
+ * basis and would have rejected legitimate readings from a wet probe: the very
+ * condition the humidity channel exists to observe. Found by the sixth review.
+ *
+ * So rejection is reserved for values a working part cannot produce, and the
+ * ordinary overshoot is clamped afterwards as the datasheet directs. The CRC
+ * is what catches transmission corruption; this catches a part answering with
+ * nonsense. These numbers are an engineering choice, NOT a rated limit. */
+#define O2P_SHT_RH_MIN_X100 (-500)
+#define O2P_SHT_RH_MAX_X100  11000
+
+
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 enum {
@@ -37,6 +51,39 @@ enum {
 };
 
 typedef enum { O2P_SHT_OK = 0, O2P_SHT_IO, O2P_SHT_CRC, O2P_SHT_RANGE } o2p_sht_status_t;
+
+/* The pure part of a measurement: raw words in, engineering units and a
+ * verdict out. It lives in the header so the HOST TESTS can exercise the
+ * decision this driver actually makes - sht4x.c pulls in CMSIS through i2c1
+ * and cannot compile on the host, so a test that only checked the constants
+ * above proved nothing about the code using them (sixth review). CRC checking
+ * stays in the .c, where the bus is. */
+static inline o2p_sht_status_t o2p_sht4x_decode(uint16_t t_raw, uint16_t rh_raw,
+                                                int16_t *out_t_c100,
+                                                uint16_t *out_rh_x100)
+{
+    if (out_t_c100 == NULL || out_rh_x100 == NULL) {
+        return O2P_SHT_IO;
+    }
+    /* T = -45 + 175 * raw / 65535, in 0.01 C. */
+    int32_t t_c100 = -4500 + (int32_t)(((int64_t)t_raw * 17500) / 65535);
+    /* RH = -6 + 125 * raw / 65535, in 0.01 %. */
+    int32_t rh_x100 = -600 + (int32_t)(((int64_t)rh_raw * 12500) / 65535);
+
+    if (t_c100 < O2P_SHT_T_MIN_C100 || t_c100 > O2P_SHT_T_MAX_C100) {
+        return O2P_SHT_RANGE;
+    }
+    if (rh_x100 < O2P_SHT_RH_MIN_X100 || rh_x100 > O2P_SHT_RH_MAX_X100) {
+        return O2P_SHT_RANGE;
+    }
+    /* Sensirion directs that the overshoot be clamped, not rejected. */
+    if (rh_x100 < 0) { rh_x100 = 0; }
+    if (rh_x100 > 10000) { rh_x100 = 10000; }
+
+    *out_t_c100 = (int16_t)t_c100;
+    *out_rh_x100 = (uint16_t)rh_x100;
+    return O2P_SHT_OK;
+}
 
 o2p_sht_status_t o2p_sht4x_reset(void);
 o2p_sht_status_t o2p_sht4x_serial(uint32_t *out_serial);

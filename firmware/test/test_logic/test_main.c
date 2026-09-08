@@ -806,20 +806,44 @@ static void test_commit_after_a_separate_cal_trigger_still_waits(void)
     TEST_ASSERT_FALSE(rm.commit_pending);
 }
 
-static void test_the_round4_attack_config_is_no_longer_storable(void)
+static void test_tempco_bound_rejects_gross_corruption_only(void)
 {
-    /* Round 4's counterexample (alpha -10000 ppm/K over a 100 K span, gain
-     * 0.05, returning 5.001 %O2 with O2P_OK) is now foreclosed at the
-     * CONFIGURATION layer rather than by a runtime interval. Narrowing the
-     * runtime window was the wrong mechanism - round 5 walked through
-     * 0.5..2.0 from the inside - because a large gain is only wrong if the
-     * coefficient is wrong, which conversion time cannot know. */
-    TEST_ASSERT_FALSE(o2p_tempco_plausible(-10000));
-    TEST_ASSERT_FALSE(o2p_tempco_plausible(10000));
+    /* The bound's ONLY job is catching a byte-swapped word or a misplaced
+     * decimal - not certifying accuracy. Three rounds tried to make it carry
+     * safety it cannot carry: at any legal value a wrong coefficient is
+     * indistinguishable at conversion time from a right one, and even 5000
+     * ppm/K over 100 K already moves a true 5 %O2 to 3.36 %. Accuracy is a
+     * property of the calibration data. */
+    TEST_ASSERT_TRUE(o2p_tempco_plausible(2000));    /* the published curve */
+    TEST_ASSERT_TRUE(o2p_tempco_plausible(3200));    /* its +3 sigma envelope */
+    TEST_ASSERT_TRUE(o2p_tempco_plausible(-3200));
+    /* A lumped cell+AFE coefficient is NOT bounded by any datasheet - LMP91000
+     * publishes no TIA gain tempco - so a characterisation somewhat above the
+     * cell-only envelope must not be refused. Refusing it would block
+     * calibration outright, which is worse than the failure it prevents. */
+    TEST_ASSERT_TRUE(o2p_tempco_plausible(8000));
+
+    /* Gross corruption is still refused. */
+    TEST_ASSERT_FALSE(o2p_tempco_plausible(32000));
+    TEST_ASSERT_FALSE(o2p_tempco_plausible(-32000));
     o2p_config_t cfg;
     o2p_config_defaults(&cfg);
-    cfg.tempco_ppm_per_k = -10000;
+    cfg.tempco_ppm_per_k = 32000;
     TEST_ASSERT_FALSE(o2p_config_valid(&cfg));
+}
+
+static void test_extrapolation_above_60c_still_converts(void)
+{
+    /* faults.h promises TEMP_OVER is a still-valid extrapolation, and the
+     * round-5 window (0.45..1.55) silently revoked that: a legal config read
+     * at 70 C hit the edge and returned UNEVALUABLE. A guard must not cancel
+     * a contract the probe exists to honour in a thermophilic pile. */
+    o2p_cal_t cal = {.cal_air_na = 100000, .cal_zero_na = 0,
+                     .cal_temp_c100 = -4000, .tempco_per_k = 0.005f};
+    float c = 0.0f;
+    TEST_ASSERT_EQUAL(O2P_OK, o2p_fraction_from_current(&cal, 50000, 7000, &c));
+    cal.tempco_per_k = -0.005f;
+    TEST_ASSERT_EQUAL(O2P_OK, o2p_fraction_from_current(&cal, 50000, 7000, &c));
 }
 
 static void test_gain_backstop_still_catches_an_out_of_contract_coefficient(void)
@@ -877,64 +901,118 @@ static void test_fresh_air_ceiling_clears_the_stacked_legal_corner(void)
 
 /* ---- fifth review, 2026-09-08 ---- */
 
-static void test_no_legal_config_is_refused_by_the_gain_backstop(void)
+static void test_legal_configs_either_convert_or_yield_no_value(void)
 {
-    /* A guard must not reject the inputs its own contract permits. The
-     * previous bound (0.5..2.0) made alpha = +10000 ppm/K over the widest
-     * legal span produce UNEVALUABLE forever from a perfectly valid config.
-     * Sweep the whole legal box and assert every corner evaluates. */
+    /* The contract across the whole legal box, including the above-60 C
+     * extrapolation the fault word promises: every configuration the
+     * validator accepts must either convert, or return UNEVALUABLE with the
+     * output UNTOUCHED. What must never happen is a number that is wrong.
+     *
+     * Some legal configurations ARE arithmetically degenerate - at the
+     * corruption-only ceiling a correction can drive the gain through zero -
+     * and refusing those is correct: no value beats a wrong one. */
     o2p_config_t cfg;
     o2p_config_defaults(&cfg);
     for (int32_t ppm = -O2P_TEMPCO_ABS_MAX_PPM_K;
-         ppm <= O2P_TEMPCO_ABS_MAX_PPM_K; ppm += 250) {
+         ppm <= O2P_TEMPCO_ABS_MAX_PPM_K; ppm += 500) {
         for (int32_t tcal = O2P_CAL_TEMP_MIN_C100;
              tcal <= O2P_CAL_TEMP_MAX_C100; tcal += 1000) {
-            for (int32_t tmeas = -4000; tmeas <= 6000; tmeas += 1000) {
+            for (int32_t tmeas = -4000; tmeas <= 8000; tmeas += 1000) {
                 cfg.tempco_ppm_per_k = (int16_t)ppm;
                 cfg.cal_temp_c100 = (int16_t)tcal;
                 TEST_ASSERT_TRUE(o2p_config_valid(&cfg));
                 o2p_cal_t cal = {.cal_air_na = 100000, .cal_zero_na = 0,
                                  .cal_temp_c100 = (int16_t)tcal,
                                  .tempco_per_k = (float)ppm * 1e-6f};
-                float c = 0.0f;
+                const float sentinel = -7.0f;
+                float c = sentinel;
                 o2p_status_t st = o2p_fraction_from_current(
                     &cal, 50000, (int16_t)tmeas, &c);
-                TEST_ASSERT_TRUE_MESSAGE(st != O2P_UNEVALUABLE,
-                    "a configuration the validator accepts must still convert");
+                if (st == O2P_UNEVALUABLE) {
+                    TEST_ASSERT_EQUAL_FLOAT(sentinel, c);
+                } else {
+                    TEST_ASSERT_TRUE(c >= 0.0f && c <= 1.0f);
+                }
             }
         }
     }
 }
 
-static void test_tempco_ceiling_bounds_the_worst_legal_correction(void)
+static void test_a_realistic_coefficient_converts_across_the_whole_range(void)
 {
-    /* The coefficient bound, not the runtime guard, is what limits the damage
-     * a wrong-but-legal alpha can do. At the ceiling over the widest legal
-     * span the correction must stay within a factor of two. */
-    float worst = 1.0f + (float)O2P_TEMPCO_ABS_MAX_PPM_K * 1e-6f * 100.0f;
-    float least = 1.0f - (float)O2P_TEMPCO_ABS_MAX_PPM_K * 1e-6f * 100.0f;
-    TEST_ASSERT_TRUE(worst <= 1.5f);
-    TEST_ASSERT_TRUE(least >= 0.5f);
+    /* The case that must never be refused: a real characterised cell at the
+     * published slope, read anywhere from a cold bench to a thermophilic
+     * pile. */
+    for (int32_t ppm = -3200; ppm <= 3200; ppm += 400) {
+        o2p_cal_t cal = {.cal_air_na = 100000, .cal_zero_na = 0,
+                         .cal_temp_c100 = 2000,
+                         .tempco_per_k = (float)ppm * 1e-6f};
+        for (int32_t tmeas = -4000; tmeas <= 8000; tmeas += 500) {
+            float c = 0.0f;
+            TEST_ASSERT_EQUAL(O2P_OK,
+                o2p_fraction_from_current(&cal, 50000, (int16_t)tmeas, &c));
+        }
+    }
 }
 
-static void test_sht4x_range_checks_are_not_tautological(void)
+static void test_sht4x_decode_rejects_only_what_a_working_part_cannot_produce(void)
 {
-    /* The transfer functions map every 16-bit word into -45..130 C and
-     * -6..119 %RH. Bounds equal to those images can never fire. */
-    TEST_ASSERT_TRUE(O2P_SHT_T_MIN_C100 > -4500);
-    TEST_ASSERT_TRUE(O2P_SHT_T_MAX_C100 < 13000);
-    TEST_ASSERT_TRUE(O2P_SHT_RH_MIN_X100 > -600);
-    TEST_ASSERT_TRUE(O2P_SHT_RH_MAX_X100 < 11900);
+    /* Calls the SHIPPED decision (o2p_sht4x_decode), not its constants: the
+     * sixth review pointed out that a test asserting only the macros passes
+     * even with the driver's check reverted. */
+    int16_t t = 0; uint16_t rh = 0;
+
+    /* A normal reading decodes. raw 0x6666 ~ 25 C; 0x8000 ~ 56 %RH. */
+    TEST_ASSERT_EQUAL(O2P_SHT_OK, o2p_sht4x_decode(0x6666, 0x8000, &t, &rh));
+    TEST_ASSERT_INT16_WITHIN(200, 2500, t);
+
+    /* A SATURATED pile is the normal case here, and Sensirion documents a
+     * temporary +3 %RH offset after long exposure above 80 %RH. An
+     * above-100 % reading must therefore be CLAMPED, never rejected - a
+     * -3..103 % window would have refused exactly the condition the humidity
+     * channel exists to observe. */
+    TEST_ASSERT_EQUAL(O2P_SHT_OK, o2p_sht4x_decode(0x6666, 0xE353, &t, &rh));
+    TEST_ASSERT_EQUAL_UINT16(10000, rh);       /* clamped, not refused */
+
+    /* The extreme raw words are outside the part's rating and are refused. */
+    TEST_ASSERT_EQUAL(O2P_SHT_RANGE, o2p_sht4x_decode(0x0000, 0x8000, &t, &rh));
+    TEST_ASSERT_EQUAL(O2P_SHT_RANGE, o2p_sht4x_decode(0xFFFF, 0x8000, &t, &rh));
 }
 
-static void test_vdda_bounds_reject_an_impossible_rail(void)
+static void test_sht4x_decode_leaves_outputs_untouched_when_it_refuses(void)
 {
-    /* A corrupted VREFINT sample yields an arbitrarily large VDDA, and the
-     * supervision downstream only ever tests for LOW voltage. */
-    uint32_t bogus = (3000u * 1650u) / 1138u;      /* ~4350 mV */
-    TEST_ASSERT_TRUE(bogus > O2P_VDDA_PLAUSIBLE_MAX_MV);
-    TEST_ASSERT_TRUE(3300u >= O2P_VDDA_PLAUSIBLE_MIN_MV &&
-                     3300u <= O2P_VDDA_PLAUSIBLE_MAX_MV);
+    int16_t t = -12345; uint16_t rh = 54321;
+    TEST_ASSERT_EQUAL(O2P_SHT_RANGE, o2p_sht4x_decode(0x0000, 0x8000, &t, &rh));
+    TEST_ASSERT_EQUAL_INT16(-12345, t);
+    TEST_ASSERT_EQUAL_UINT16(54321, rh);
+}
+
+static void test_vdda_computation_rejects_an_impossible_rail(void)
+{
+    /* Calls the shipped computation, not the macros around it. */
+    uint16_t mv = 0u;
+    TEST_ASSERT_TRUE(o2p_vdda_from_vrefint(1650u, 1500u, &mv));
+    TEST_ASSERT_UINT16_WITHIN(50, 3300, mv);
+
+    /* The corrupted sample from the fifth review: 4350 mV on a part that
+     * cannot run there. */
+    TEST_ASSERT_FALSE(o2p_vdda_from_vrefint(1650u, 1138u, &mv));
+    /* A blank calibration word, and a zero divisor. */
+    TEST_ASSERT_FALSE(o2p_vdda_from_vrefint(0xFFFFu, 1500u, &mv));
+    TEST_ASSERT_FALSE(o2p_vdda_from_vrefint(1650u, 0u, &mv));
+}
+
+static void test_vdda_corrupted_but_plausible_is_a_known_gap(void)
+{
+    /* Documented, not fixed: a single uncorroborated VREFINT sample can be
+     * corrupted into a value INSIDE the window. raw 1436 reads 3447 mV, which
+     * lifts a real 3.000 V rail past the 3.130 V VA_LOW threshold. Closing it
+     * needs the independent ADS1119 AIN2 measurement, which is wired and never
+     * sampled. This test pins the gap so it cannot be forgotten or silently
+     * "fixed" by a bound that does not actually close it. */
+    uint16_t mv = 0u;
+    TEST_ASSERT_TRUE(o2p_vdda_from_vrefint(1650u, 1436u, &mv));
+    TEST_ASSERT_UINT16_WITHIN(5, 3447, mv);
 }
 
 static void test_zero_point_is_covered_by_the_config_crc(void)
@@ -1571,6 +1649,61 @@ static void test_runaway_does_not_false_positive_on_cold_start(void)
     TEST_ASSERT_TRUE((out.block & O2P_HB_RUNAWAY) == 0u);
 }
 
+static void test_runaway_survives_intermittent_sensor_dropouts(void)
+{
+    /* The false NEGATIVE the fifth round's fix opened: restarting the window
+     * on any invalid sample let ONE bad reading per 59 s keep a genuinely
+     * runaway 1 W heater from ever latching. An outage may delay the latch; it
+     * must not prevent it. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;
+    o2p_heater_in_t hot = hin_healthy();
+    hot.t_tip_c100 = 5000;
+    hot.t_chamber_c100 = (int16_t)(hot.t_tip_c100 - (int16_t)cfg.dt_max_k100 -
+                                   O2P_HEATER_RUNAWAY_MARGIN_K100 - 50);
+    o2p_heater_out_t out;
+
+    for (unsigned i = 0; i <= (O2P_HEATER_RUNAWAY_WINDOW_S * 3u); i++) {
+        o2p_heater_in_t in = hot;
+        if ((i % 30u) == 0u) {          /* a dropout every 30 s */
+            in.tip_valid = false;
+        }
+        o2p_heater_ctl_step(&st, &cfg, &in, i, &out);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(st.runaway_latched,
+        "an intermittent sensor must not be able to mask a runaway heater");
+}
+
+static void test_runaway_needs_sustained_high_dt_not_one_sample(void)
+{
+    /* The false POSITIVE in the other direction: the window used to time zero
+     * duty and test dT only once at the end, so a normal minute followed by a
+     * single high sample latched. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;
+    o2p_heater_in_t cool = hin_healthy();
+    cool.t_tip_c100 = 3000;
+    cool.t_chamber_c100 = 3000;          /* dT nil: nothing wrong */
+    o2p_heater_out_t out;
+
+    for (unsigned i = 0; i <= O2P_HEATER_RUNAWAY_WINDOW_S + 2u; i++) {
+        o2p_heater_ctl_step(&st, &cfg, &cool, i, &out);
+    }
+    TEST_ASSERT_FALSE(st.runaway_latched);
+
+    /* One high sample after a quiet window must not be enough. */
+    o2p_heater_in_t hot = cool;
+    hot.t_chamber_c100 = (int16_t)(hot.t_tip_c100 - (int16_t)cfg.dt_max_k100 -
+                                   O2P_HEATER_RUNAWAY_MARGIN_K100 - 50);
+    o2p_heater_ctl_step(&st, &cfg, &hot, O2P_HEATER_RUNAWAY_WINDOW_S + 3u, &out);
+    TEST_ASSERT_FALSE_MESSAGE(st.runaway_latched,
+        "a single high-dT sample must not latch runaway");
+}
+
 static void test_runaway_latches_on_uncommanded_heat_and_stays_latched(void)
 {
     o2p_heater_state_t st;
@@ -1697,14 +1830,17 @@ int main(void)
     RUN_TEST(test_calibration_cannot_store_an_invalid_temperature);
     RUN_TEST(test_every_storable_calibration_temperature_keeps_config_valid);
     RUN_TEST(test_commit_after_a_separate_cal_trigger_still_waits);
-    RUN_TEST(test_the_round4_attack_config_is_no_longer_storable);
+    RUN_TEST(test_tempco_bound_rejects_gross_corruption_only);
+    RUN_TEST(test_extrapolation_above_60c_still_converts);
     RUN_TEST(test_gain_backstop_still_catches_an_out_of_contract_coefficient);
     RUN_TEST(test_tmp117_rejects_readings_outside_the_part_range);
     RUN_TEST(test_fresh_air_ceiling_clears_the_stacked_legal_corner);
-    RUN_TEST(test_no_legal_config_is_refused_by_the_gain_backstop);
-    RUN_TEST(test_tempco_ceiling_bounds_the_worst_legal_correction);
-    RUN_TEST(test_sht4x_range_checks_are_not_tautological);
-    RUN_TEST(test_vdda_bounds_reject_an_impossible_rail);
+    RUN_TEST(test_legal_configs_either_convert_or_yield_no_value);
+    RUN_TEST(test_a_realistic_coefficient_converts_across_the_whole_range);
+    RUN_TEST(test_sht4x_decode_rejects_only_what_a_working_part_cannot_produce);
+    RUN_TEST(test_sht4x_decode_leaves_outputs_untouched_when_it_refuses);
+    RUN_TEST(test_vdda_computation_rejects_an_impossible_rail);
+    RUN_TEST(test_vdda_corrupted_but_plausible_is_a_known_gap);
     RUN_TEST(test_zero_point_is_covered_by_the_config_crc);
     RUN_TEST(test_config_block_read_covers_the_zero_registers);
     RUN_TEST(test_monotonic_across_the_whole_range_with_a_zero);
@@ -1733,6 +1869,8 @@ int main(void)
     RUN_TEST(test_integrator_cannot_wind_up_while_clamped);
     RUN_TEST(test_loop_reaches_setpoint_in_steady_state);
     RUN_TEST(test_runaway_does_not_false_positive_on_cold_start);
+    RUN_TEST(test_runaway_survives_intermittent_sensor_dropouts);
+    RUN_TEST(test_runaway_needs_sustained_high_dt_not_one_sample);
     RUN_TEST(test_runaway_latches_on_uncommanded_heat_and_stays_latched);
     RUN_TEST(test_runaway_needs_the_full_window);
     RUN_TEST(test_runaway_is_not_evaluated_when_we_cannot_drive);

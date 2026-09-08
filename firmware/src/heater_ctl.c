@@ -131,17 +131,28 @@ static void update_runaway(o2p_heater_state_t *st,
         st->zero_duty_timing = false;
         return;
     }
-    /* The window must be 60 s of ACTUAL EVIDENCE, so a cycle we cannot
-     * evaluate restarts it rather than silently counting toward it.
+    /* What this must measure is a HIGH dT that PERSISTS while we are commanding
+     * no heat. Two earlier shapes both got that wrong, in opposite directions:
      *
-     * This test used to sit after the window check and simply return, which
-     * meant 60 s of invalid tip/chamber readings followed by ONE high-dT
-     * sample latched runaway immediately - contradicting the "sustained"
-     * requirement in heater_ctl.h. It fails safe, but it permanently disables
-     * heating after a transient sensor outage, and a heater that latched off
-     * for a reason that never actually happened is a fault report nobody can
-     * diagnose. Found by the fifth review, 2026-09-08. */
+     *   - Originally the window timed zero duty only and tested dT once at the
+     *     end, so 59 s of normal dT followed by ONE high sample latched.
+     *   - Round 5 then restarted the window on any invalid sample, which fixed
+     *     a false positive and opened a false NEGATIVE: one invalid reading
+     *     every 59 s kept a genuinely runaway heater from ever latching. On a
+     *     1 W element against a membrane, that is the worse failure.
+     *
+     * So the timer now runs on the CONDITION, not on the duty alone: it starts
+     * when dT is first seen high at zero duty, is cleared as soon as dT is seen
+     * normal, and an unevaluable cycle HOLDS the accumulated evidence rather
+     * than either advancing or discarding it. A sensor outage can delay the
+     * latch but cannot prevent it, and a single high sample cannot cause it.
+     * Sixth review, 2026-09-08. */
     if (!in->tip_valid || !in->chamber_valid) {
+        return;   /* hold: neither evidence for nor against */
+    }
+    int32_t dt = (int32_t)in->t_tip_c100 - (int32_t)in->t_chamber_c100;
+    bool dt_high = dt > (int32_t)cfg->dt_max_k100 + O2P_HEATER_RUNAWAY_MARGIN_K100;
+    if (!dt_high) {
         st->zero_duty_timing = false;
         return;
     }
@@ -154,10 +165,7 @@ static void update_runaway(o2p_heater_state_t *st,
     if ((uint32_t)(now_s - st->zero_duty_since_s) < O2P_HEATER_RUNAWAY_WINDOW_S) {
         return;
     }
-    int32_t dt = (int32_t)in->t_tip_c100 - (int32_t)in->t_chamber_c100;
-    if (dt > (int32_t)cfg->dt_max_k100 + O2P_HEATER_RUNAWAY_MARGIN_K100) {
-        st->runaway_latched = true;
-    }
+    st->runaway_latched = true;
 }
 
 void o2p_heater_ctl_step(o2p_heater_state_t *st,

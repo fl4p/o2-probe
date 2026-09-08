@@ -132,16 +132,13 @@ o2p_tmp_status_t o2p_tmp117_init(int16_t limit_c100, uint16_t hyst_k100)
         return O2P_TMP_IO;
     }
 
-    uint16_t back = 0u;
-    if (!rd16(O2P_TMP_REG_CONFIG, &back)) {
-        return O2P_TMP_IO;
-    }
-    if ((uint16_t)(back & TMP_CFG_WRITABLE_MASK) !=
-        (uint16_t)(TMP_CFG_INTENDED & TMP_CFG_WRITABLE_MASK)) {
-        return O2P_TMP_CONFIG;
-    }
-    s_safety_armed = true;
-    return O2P_TMP_OK;
+    /* Verify through the SAME routine the periodic check uses, so init can
+     * never certify on weaker evidence than a re-check would demand. It used
+     * to read CONFIG here and set s_safety_armed directly, which meant the
+     * THIGH/TLOW readback was skipped on every successful boot - and since the
+     * periodic check only ran while disarmed, it never ran at all. Found by
+     * the sixth review, 2026-09-08. */
+    return o2p_tmp117_verify_safety();
 }
 
 o2p_tmp_status_t o2p_tmp117_read_c100(int16_t *out_c100)
