@@ -110,13 +110,18 @@ pile produces; a mistyped `AT+COMMAND` must look like a fault, not like anoxia.
 (`SCHEMATIC-REVIEW.md` M4) and the bench air-versus-nitrogen pair settles it.
 Firmware that took an absolute value would hide the answer.
 
-### Diagnostic block, `0x0010`, 18 registers, read-only
+### Diagnostic block, `0x0010`, 19 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
 0.01 K), `PRESSURE_HPA` (0 - BMP390 is DNP), `UPTIME_HI/LO`, `FW_VERSION`,
 `HW_REV`, `RESET_CAUSE`, `LMP_READBACK` (TIACN<<8 | REFCN as actually read),
 `MB_CRC_ERRS`, `MB_FRAME_ERRS`, `I2C_ERRS`, `EXP_DATA` (`0xFFFF` - J2 is DNP),
 `SETTLE_RESTARTS` (`0x0020`), `SAMPLE_SEQ` (`0x0021`).
+`CMD_RESULT` (`0x0022`) carries the calibration outcome in its high byte and
+the flash-store outcome in its low byte: 0 none / 1 pending / 2 OK / 3
+failed. An acknowledged write means
+the request was accepted, never that the calibration was taken or that it
+reached flash; `CMD_RESULT` is what separates those.
 
 ### Config block, `0x0030`, 20 registers, read/write, flash-backed
 

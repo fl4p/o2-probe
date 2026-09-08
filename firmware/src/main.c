@@ -422,6 +422,10 @@ static void finish_o2(o2p_snapshot_t *s)
                 g_rm.cal_requested = false;
                 g_rm.cal_renewed = false;
                 g_cal_wait_cycles = 0u;
+                /* Abandoned after the bounded wait: the converter never
+                 * recovered. FAILED, not silence - the master was told the
+                 * request was accepted. */
+                o2p_regmap_set_cal_result(&g_rm, O2P_CMD_FAILED);
                 if (g_rm.commit_after_cal) {
                     g_rm.commit_after_cal = false;
                     g_rm.commit_pending = true;
@@ -498,8 +502,15 @@ static void finish_o2(o2p_snapshot_t *s)
             o2p_calibrate_air(&taken, cell_na, t_gas)) {
             g_rm.cfg.cal_air_na = taken.cal_air_na;
             g_rm.cfg.cal_temp_c100 = taken.cal_temp_c100;
+            o2p_regmap_set_cal_result(&g_rm, O2P_CMD_OK);
+        } else {
+            /* A refused calibration leaves the old constants in place - and
+             * now says so. Every one of these refusals (still settling, no
+             * measured gas temperature, invalid raw O2, current outside the
+             * fresh-air window) was previously indistinguishable from success
+             * on the bus. */
+            o2p_regmap_set_cal_result(&g_rm, O2P_CMD_FAILED);
         }
-        /* A refused calibration leaves the old constants in place. */
 
         /* A commit asked for in the SAME frame waits until here, so that what
          * reaches flash is the calibration the master was acknowledged for.
@@ -801,7 +812,13 @@ int main(void)
             }
             if (g_rm.commit_pending) {
                 g_rm.commit_pending = false;
-                (void)o2p_config_store(&g_rm.cfg);
+                /* The return value used to be discarded, so a failed erase or
+                 * program - a worn page, a brownout mid-write - left the
+                 * master believing the configuration was persisted while the
+                 * probe still ran from RAM. */
+                o2p_regmap_set_commit_result(
+                    &g_rm, o2p_config_store(&g_rm.cfg) ? O2P_CMD_OK
+                                                       : O2P_CMD_FAILED);
             }
             /* De-creep maintenance, on the configured interval as well as on
              * demand. PLAN.md:312 asks for every 6-12 h; the interval is a

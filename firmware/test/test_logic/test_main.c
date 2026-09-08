@@ -2012,6 +2012,120 @@ static void test_setpoint_default_respects_the_cell_humidity_rating(void)
     TEST_ASSERT_EQUAL_UINT16(400u, cfg.dt_max_k_x100);
 }
 
+/* ---- CMD_RESULT, 2026-09-08 ---- */
+
+static uint16_t read_cmd_result(o2p_regmap_t *r)
+{
+    uint8_t req[32], rsp[O2P_MB_MAX_ADU];
+    o2p_mb_handlers_t h = {.read = o2p_regmap_read, .write = o2p_regmap_write,
+                           .ctx = r};
+    const uint8_t rd[] = {0x03, 0x03, 0x00, 0x22, 0x00, 0x01};
+    size_t n = framed(req, rd, sizeof(rd));
+    size_t rn = o2p_mb_dispatch(req, n, 3, &h, rsp);
+    TEST_ASSERT_TRUE_MESSAGE(rn > 0, "CMD_RESULT must be readable over Modbus");
+    TEST_ASSERT_EQUAL_HEX8(0x03, rsp[1]);   /* not an exception */
+    return (uint16_t)((rsp[3] << 8) | rsp[4]);
+}
+
+static void test_cmd_result_reads_none_before_any_command(void)
+{
+    /* An untouched result register that read OK would be worse than none at
+     * all: a commissioning script polling it would pass before it ever wrote
+     * a trigger. */
+    o2p_regmap_t fresh;
+    o2p_regmap_init(&fresh);
+    uint16_t v = read_cmd_result(&fresh);
+    TEST_ASSERT_EQUAL_UINT8(O2P_CMD_NONE, O2P_CMD_RESULT_CAL(v));
+    TEST_ASSERT_EQUAL_UINT8(O2P_CMD_NONE, O2P_CMD_RESULT_COMMIT(v));
+}
+
+static void test_cmd_result_goes_pending_on_a_calibrate_and_save(void)
+{
+    o2p_regmap_t r;
+    o2p_regmap_init(&r);
+    o2p_mb_handlers_t h = {.read = o2p_regmap_read, .write = o2p_regmap_write,
+                           .ctx = &r};
+    uint8_t req[64], rsp[O2P_MB_MAX_ADU];
+    uint8_t w[] = {0x03, 0x10, 0x00, 0x3D, 0x00, 0x02, 0x04,
+                   (uint8_t)(O2P_CAL_MAGIC >> 8), (uint8_t)(O2P_CAL_MAGIC & 0xFF),
+                   (uint8_t)(O2P_COMMIT_MAGIC >> 8), (uint8_t)(O2P_COMMIT_MAGIC & 0xFF)};
+    size_t n = framed(req, w, sizeof(w));
+    o2p_mb_dispatch(req, n, 3, &h, rsp);
+
+    uint16_t v = read_cmd_result(&r);
+    TEST_ASSERT_EQUAL_UINT8(O2P_CMD_PENDING, O2P_CMD_RESULT_CAL(v));
+    TEST_ASSERT_EQUAL_UINT8(O2P_CMD_PENDING, O2P_CMD_RESULT_COMMIT(v));
+
+    /* The acknowledged write is NOT the outcome: both halves must still be
+     * PENDING, which is precisely what the master could not see before. */
+    TEST_ASSERT_NOT_EQUAL(O2P_CMD_OK, O2P_CMD_RESULT_CAL(v));
+}
+
+static void test_a_refused_calibration_is_reported_as_failed(void)
+{
+    o2p_regmap_t r;
+    o2p_regmap_init(&r);
+    o2p_regmap_set_cal_result(&r, O2P_CMD_PENDING);
+    /* NOTE the limit of this test: it drives the setter, not finish_o2()'s
+     * refusal path, because main.c reaches CMSIS and does not build on the
+     * host. So this proves PENDING -> FAILED is reachable and readable; that
+     * main.c actually calls it on each of the four refusals (still settling,
+     * no measured gas temperature, invalid raw O2, current outside the
+     * fresh-air window) is verified by reading main.c, not by this test.
+     * main.c remains the largest untested surface in the tree. */
+    o2p_regmap_set_cal_result(&r, O2P_CMD_FAILED);
+    TEST_ASSERT_EQUAL_UINT8(O2P_CMD_FAILED,
+                            O2P_CMD_RESULT_CAL(read_cmd_result(&r)));
+}
+
+static void test_a_commit_outcome_never_clobbers_the_cal_outcome(void)
+{
+    /* The two halves live in one 16-bit word, so a packed write is exactly
+     * how a commit result would silently overwrite a calibration that is
+     * still outstanding - and a master polling for "not PENDING" would then
+     * stop one command early. */
+    o2p_regmap_t r;
+    o2p_regmap_init(&r);
+    o2p_regmap_set_cal_result(&r, O2P_CMD_PENDING);
+    o2p_regmap_set_commit_result(&r, O2P_CMD_FAILED);
+
+    uint16_t v = read_cmd_result(&r);
+    TEST_ASSERT_EQUAL_UINT8(O2P_CMD_PENDING, O2P_CMD_RESULT_CAL(v));
+    TEST_ASSERT_EQUAL_UINT8(O2P_CMD_FAILED, O2P_CMD_RESULT_COMMIT(v));
+
+    o2p_regmap_set_cal_result(&r, O2P_CMD_OK);
+    v = read_cmd_result(&r);
+    TEST_ASSERT_EQUAL_UINT8(O2P_CMD_OK, O2P_CMD_RESULT_CAL(v));
+    TEST_ASSERT_EQUAL_UINT8(O2P_CMD_FAILED, O2P_CMD_RESULT_COMMIT(v));
+}
+
+static void test_cmd_result_is_inside_the_diag_block(void)
+{
+    /* A register the Dragino cannot reach in the block read is not a
+     * protocol. One FC03 must cover the whole diagnostic block including
+     * CMD_RESULT, and the register after it must still be refused. */
+    o2p_regmap_t r;
+    o2p_regmap_init(&r);
+    o2p_mb_handlers_t h = {.read = o2p_regmap_read, .write = o2p_regmap_write,
+                           .ctx = &r};
+    uint8_t req[32], rsp[O2P_MB_MAX_ADU];
+
+    const uint8_t whole[] = {0x03, 0x03, 0x00, 0x10, 0x00, O2P_REG_DIAG_COUNT};
+    size_t n = framed(req, whole, sizeof(whole));
+    size_t rn = o2p_mb_dispatch(req, n, 3, &h, rsp);
+    TEST_ASSERT_TRUE(rn > 0);
+    TEST_ASSERT_EQUAL_HEX8(0x03, rsp[1]);
+    TEST_ASSERT_EQUAL_UINT8(O2P_REG_DIAG_COUNT * 2u, rsp[2]);
+
+    const uint8_t past[] = {0x03, 0x03, 0x00, 0x23, 0x00, 0x01};
+    n = framed(req, past, sizeof(past));
+    rn = o2p_mb_dispatch(req, n, 3, &h, rsp);
+    TEST_ASSERT_TRUE(rn > 0);
+    TEST_ASSERT_EQUAL_HEX8(0x83, rsp[1]);
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS, rsp[2]);
+}
+
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -2107,5 +2221,10 @@ int main(void)
     RUN_TEST(test_runaway_needs_the_full_window);
     RUN_TEST(test_runaway_is_not_evaluated_when_we_cannot_drive);
     RUN_TEST(test_setpoint_default_respects_the_cell_humidity_rating);
+    RUN_TEST(test_cmd_result_reads_none_before_any_command);
+    RUN_TEST(test_cmd_result_goes_pending_on_a_calibrate_and_save);
+    RUN_TEST(test_a_refused_calibration_is_reported_as_failed);
+    RUN_TEST(test_a_commit_outcome_never_clobbers_the_cal_outcome);
+    RUN_TEST(test_cmd_result_is_inside_the_diag_block);
     return UNITY_END();
 }

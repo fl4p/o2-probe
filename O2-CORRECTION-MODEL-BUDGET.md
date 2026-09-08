@@ -902,7 +902,8 @@ realistic commissioning, and each needs a decision that changes the published co
    the flash store happens later still and its result is discarded. Trigger, commit, both
    acknowledged, power-cycle before the next `finish_o2()` — the calibration is gone, and a
    flash failure is externally identical. **Needs**: a command-result register, a
-   generation/epoch, and a reported store outcome.
+   generation/epoch, and a reported store outcome. **The command-result register and the
+   store outcome are now built — see §18. The generation/epoch is deliberately deferred.**
 2. **A one-temperature N₂+air calibration publishes with a completely clean fault word**,
    and at a true +2000 ppm/K cell used 35 K from its calibration point that is a true
    5.00 % reading as 5.34 % — across the turn/no-turn threshold. **Needs**: recorded
@@ -923,3 +924,39 @@ them again: **a reviewer cannot decide a contract, and these three are contract 
 The largest structural risk is also unchanged and not a review finding — `main.c`,
 `modbus_rtu.c` and `config_flash.c` have no host coverage, which is where two of the three
 fatal bugs found in this whole cycle lived.
+
+## 18. `CMD_RESULT`, and what deliberately stays undone
+
+Item 1 above is closed, and the framing that left it open was wrong. Calling it "a contract
+change only the operator can decide" made a single diagnostic register sound like a
+negotiation: nothing in the published map is renumbered, nothing already deployed changes
+meaning, and the diagnostic block had room. The escalation cost more than the fix.
+
+`CMD_RESULT` (`0x0022`) reports the outcome of the last calibration trigger in its high byte
+and the last flash store in its low byte — 0 none, 1 pending, 2 OK, 3 failed. It closes
+three failures that were previously indistinguishable from success on the bus:
+
+- a calibration refused by `finish_o2()` (still settling, no measured gas temperature,
+  invalid raw O₂, current outside the fresh-air window),
+- a calibration abandoned after the bounded converter wait,
+- a flash store that failed — `o2p_config_store()`'s return value was discarded outright,
+  so a worn page or a brownout mid-write left the master believing the config was persisted
+  while the probe still ran from RAM.
+
+The commissioning protocol is now: write the trigger, poll `CMD_RESULT` until neither byte
+reads 1, require 2 in both. Each byte latches until its own command is issued again, so a
+commit outcome can never overwrite a calibration that is still outstanding — that packing
+mistake is what the fourth new test constructs and observes fail.
+
+**Not built, on purpose.** The generation/epoch counter of item 1, item 2's calibration
+quality gate and item 3's config epoch are all deferred: this probe is going into a pile,
+and the register that was actually missing is the one that says whether the last command
+worked. The remaining two are real and stay open — §14 and §15 hold the numbers — but they
+want evidence from a deployment rather than more design against an imagined one. The
+acceptance limits in §15 cannot be validated on a bench that has never seen the cell drift.
+
+**Test-coverage caveat, stated rather than papered over.** The new tests drive the register
+and the setters end-to-end over Modbus, and three of the five fail when the decision logic
+is reverted. That `main.c` calls the setter on each refusal path is verified by reading
+`main.c` — it reaches CMSIS and does not build on the host. `main.c` remains the largest
+untested surface in the tree.

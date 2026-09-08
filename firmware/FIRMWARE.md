@@ -234,7 +234,7 @@ fault, not like anoxia.
 convention as an open release gate, and the bench air-versus-nitrogen pair is
 what settles it. Firmware that took an absolute value would hide the answer.
 
-### Diagnostic block — `0x0010`, 18 registers, read-only
+### Diagnostic block — `0x0010`, 19 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
 0.01 K), `PRESSURE_HPA` (0 — BMP390 is DNP), `UPTIME_HI/LO`, `FW_VERSION`,
@@ -251,6 +251,23 @@ then two that exist because supervision here is *sampled*, not continuous:
 - `SAMPLE_SEQ` `0x0021` — increments on every published cycle. Frozen across
   two polls means the sampler has stalled, even though every other register
   still holds a plausible value.
+- `CMD_RESULT` `0x0022` — command outcomes, one byte each: the high byte for
+  the last calibration trigger, the low byte for the last commit.
+  `0` none, `1` pending, `2` OK, `3` failed.
+
+  A successful Modbus write only means the *request* was accepted. A
+  calibration is still refused if the cell is settling or the gas temperature
+  is missing, and a flash store can fail; all three used to look identical to
+  the master, and a power cycle before the next conversion took the
+  calibration with it. Commissioning is therefore:
+
+  1. write `CAL_TRIGGER` = `0xCA11` (and `COMMIT` = `0x5AC1` in the same frame
+     if the point should be persisted),
+  2. poll `CMD_RESULT` until neither byte reads `1`,
+  3. require `2` in both bytes before treating the probe as calibrated.
+
+  Each byte latches until that command is issued again. `COMMIT` alone updates
+  only the low byte.
 
 ### Config block — `0x0030`, 20 registers, read/write, flash-backed
 

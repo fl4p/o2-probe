@@ -203,6 +203,21 @@ void o2p_regmap_init(o2p_regmap_t *rm)
         s->reset_cause = 0u;
     }
     rm->live = 0u;
+    /* NONE/NONE: nothing has been asked for yet. Not OK - an untouched
+     * register reading "succeeded" is exactly the lie this exists to stop. */
+    rm->cmd_result = (uint16_t)((O2P_CMD_NONE << 8) | O2P_CMD_NONE);
+}
+
+void o2p_regmap_set_cal_result(o2p_regmap_t *rm, uint8_t status)
+{
+    rm->cmd_result = (uint16_t)(((uint16_t)status << 8) |
+                                O2P_CMD_RESULT_COMMIT(rm->cmd_result));
+}
+
+void o2p_regmap_set_commit_result(o2p_regmap_t *rm, uint8_t status)
+{
+    rm->cmd_result = (uint16_t)(((uint16_t)O2P_CMD_RESULT_CAL(rm->cmd_result) << 8) |
+                                status);
 }
 
 o2p_snapshot_t *o2p_regmap_staging(o2p_regmap_t *rm)
@@ -244,9 +259,14 @@ static uint16_t read_primary(const o2p_snapshot_t *s, uint16_t a)
     }
 }
 
-static uint16_t read_diag(const o2p_snapshot_t *s, uint16_t a)
+static uint16_t read_diag(const o2p_regmap_t *rm, const o2p_snapshot_t *s,
+                         uint16_t a)
 {
     switch (a) {
+    /* Command state, not sample state: it belongs to the regmap and must NOT
+     * be snapshotted, or the outcome of a command would only become visible
+     * at the next publish. */
+    case O2P_REG_CMD_RESULT:    return rm->cmd_result;
     case O2P_REG_VREF_MON_MV:   return s->vref_mv;
     case O2P_REG_VA_MON_MV:     return s->va_mv;
     case O2P_REG_VIN_MON_MV:    return s->vin_mv;
@@ -317,7 +337,7 @@ uint8_t o2p_regmap_read(void *ctx, uint16_t addr, uint16_t count, uint16_t *out)
     }
     if (in_block(addr, count, O2P_REG_DIAG_BASE, O2P_REG_DIAG_COUNT)) {
         for (uint16_t i = 0; i < count; i++) {
-            out[i] = read_diag(s, (uint16_t)(addr + i));
+            out[i] = read_diag(rm, s, (uint16_t)(addr + i));
         }
         return 0u;
     }
@@ -474,8 +494,10 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
          * time, silently (fifth review, 2026-09-08). */
         rm->cal_renewed = true;
         rm->cal_requested = true;
+        o2p_regmap_set_cal_result(rm, O2P_CMD_PENDING);
         if (want_commit) {
             rm->commit_after_cal = true;
+            o2p_regmap_set_commit_result(rm, O2P_CMD_PENDING);
         }
     } else if (want_commit) {
         /* A COMMIT that arrives while a calibration is still outstanding waits
@@ -494,6 +516,7 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
         } else {
             rm->commit_pending = true;
         }
+        o2p_regmap_set_commit_result(rm, O2P_CMD_PENDING);
     }
     if (want_pulse) {
         rm->sht_pulse_requested = true;

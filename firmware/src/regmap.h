@@ -68,9 +68,37 @@ enum {
      * across two polls knows the sampler has stalled even though every other
      * register still holds a plausible value. */
     O2P_REG_SAMPLE_SEQ      = 0x0021u,
+    /* Outcome of the last CAL_TRIGGER and the last COMMIT, one byte each:
+     * high byte the calibration, low byte the flash store.
+     *
+     * A Modbus write is acknowledged when the REQUEST is accepted, which says
+     * nothing about whether the calibration was taken or whether it reached
+     * flash. Both can fail afterwards and silently: a calibration is refused
+     * if the cell is still settling or the gas temperature is missing, and
+     * o2p_config_store()'s return value was discarded outright. The master saw
+     * success in every case, and a power cycle before the next finish_o2()
+     * took the calibration with it. This register is what makes those three
+     * outcomes distinguishable from the bus.
+     *
+     * Each half latches until the corresponding command is issued again, so
+     * "trigger, poll until not PENDING, read the byte" is the whole protocol.
+     * Not a queue and not a history - one outcome per command, which is what
+     * a commissioning script needs and no more. */
+    O2P_REG_CMD_RESULT      = 0x0022u,
 };
 #define O2P_REG_DIAG_BASE  0x0010u
-#define O2P_REG_DIAG_COUNT 18u
+#define O2P_REG_DIAG_COUNT 19u
+
+/* Per-command status byte. Deliberately NOT a bitfield: these are exclusive
+ * states of one command, and a bitfield invites "OK and FAILED" to coexist. */
+enum {
+    O2P_CMD_NONE    = 0u,  /* not requested since boot */
+    O2P_CMD_PENDING = 1u,  /* accepted, outcome not yet known */
+    O2P_CMD_OK      = 2u,
+    O2P_CMD_FAILED  = 3u,  /* refused, abandoned, or the flash write failed */
+};
+#define O2P_CMD_RESULT_CAL(v)    ((uint8_t)((v) >> 8))
+#define O2P_CMD_RESULT_COMMIT(v) ((uint8_t)((v) & 0xFFu))
 
 /* ---- Config block: 0x0030, 20 registers, read/write, flash-backed ---- */
 enum {
@@ -243,9 +271,18 @@ typedef struct {
      * rather than letting a renewed request inherit an exhausted one. */
     volatile bool cal_renewed;
     volatile bool sht_pulse_requested;
+    /* Packed CMD_RESULT, see O2P_REG_CMD_RESULT. One 16-bit word so a reader
+     * on the Modbus side never sees a half-updated pair. */
+    volatile uint16_t cmd_result;
 } o2p_regmap_t;
 
 void o2p_regmap_init(o2p_regmap_t *rm);
+
+/* Record the outcome of the command the sampler just finished. Separate
+ * setters rather than one packed write, so a commit result can never clobber
+ * a calibration result that is still PENDING. */
+void o2p_regmap_set_cal_result(o2p_regmap_t *rm, uint8_t status);
+void o2p_regmap_set_commit_result(o2p_regmap_t *rm, uint8_t status);
 
 /* Sampler side: get the buffer to fill, then publish it. */
 o2p_snapshot_t *o2p_regmap_staging(o2p_regmap_t *rm);
