@@ -30,7 +30,21 @@ enum {
     O2P_F_I2C_FAIL_ADS        = 1u << 2,
     O2P_F_I2C_FAIL_TMP        = 1u << 3,
     O2P_F_I2C_FAIL_SHT        = 1u << 4,
-    O2P_F_AFE_CONFIG_MISMATCH = 1u << 5,  /* LMP91000 readback != intended */
+    /* The AFE is not delivering the configuration it acknowledged.
+     *
+     * WIDENED 2026-09-08. It began as "LMP91000 readback != intended" and now
+     * also carries a CELL BIAS that departs from what REFCN commands by more
+     * than O2P_CELL_BIAS_TOLERANCE_MV - a failure in which the register image
+     * reads back PERFECTLY while the analog loop is open, because that loop
+     * closes through the cell. The 16-bit word has no free bit, and this is
+     * the nearest true meaning.
+     *
+     * The cost of the overload is real and is recorded here rather than
+     * glossed: once an event is historical, FAULTS_EVER cannot say which of
+     * the two it was. Live, LMP_READBACK (0x001B) separates them - a mismatch
+     * with a correct 0x0CCD image is the analog one - and CE_MV (0x002D) names
+     * the cause, but CE_MV is not on the radio. */
+    O2P_F_AFE_CONFIG_MISMATCH = 1u << 5,
     O2P_F_VA_LOW              = 1u << 6,  /* 3V3A brownout seen by the MCU ADC */
     O2P_F_VIN_LOW             = 1u << 7,
     O2P_F_HEATER_RUNAWAY      = 1u << 8,

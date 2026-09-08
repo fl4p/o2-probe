@@ -102,6 +102,36 @@ enum {
  * no check. A quarter of the commanded value. */
 #define O2P_CELL_BIAS_TOLERANCE_MV 150
 
+/* V(WE) - V(RE) in mV that REFCN_INTENDED actually commands, at this VREF.
+ *
+ * DERIVED from the constant, not restated. The bias guard and its test both
+ * need this number, and two hand-copied "24 %, negative" would agree today and
+ * go stale together the day the step changes - the guard checklist's
+ * source-of-truth failure, in the one place it costs a probe its oxygen
+ * channel. Review 2026-09-08.
+ *
+ * SNAS506I 7.6.4: BIAS[3:0] is a percentage of the reference in a table whose
+ * first two steps are 0 % and 1 % and which then advances 2 % per code, so
+ * code n>=1 is 2*(n-1) %... except that the table's own values are
+ * 0,1,2,4,6,8,10,12,14,16,18,20,22,24, i.e. code 1 is 1 % and code n>=2 is
+ * 2*(n-1) %. BIAS_SIGN (bit 4) 0 = negative, (VWE-VRE)<0. */
+static inline int32_t o2p_lmp_bias_percent(uint8_t refcn)
+{
+    uint8_t code = (uint8_t)(refcn & 0x0Fu);
+    if (code == 0u) { return 0; }
+    if (code == 1u) { return 1; }
+    return (int32_t)(2u * (code - 1u));
+}
+
+static inline int32_t o2p_lmp_commanded_bias_mv(int32_t vref_mv)
+{
+    int32_t pct = o2p_lmp_bias_percent(O2P_LMP_REFCN_INTENDED);
+    int32_t mag = (vref_mv * pct) / 100;
+    /* BIAS_SIGN 0 = negative = (VWE - VRE) < 0, and cell_bias_mv is measured
+     * as WE - RE, so the two conventions line up with no extra inversion. */
+    return ((O2P_LMP_REFCN_INTENDED & 0x10u) != 0u) ? mag : -mag;
+}
+
 typedef enum {
     O2P_LMP_OK = 0,
     O2P_LMP_IO,
@@ -129,7 +159,25 @@ o2p_lmp_status_t o2p_lmp91000_verify(uint16_t *out_readback);
  *
  * _enter() also spends O2P_LMP_TEMP_SETTLE_MS, so the caller does not have
  * to know the part's power-on time. */
-o2p_lmp_status_t o2p_lmp91000_temp_enter(void);
+o2p_lmp_status_t o2p_lmp91000_temp_enter(uint8_t *out_modecn);
+
+/* Does this MODECN readback describe a mode in which the cell STOPPED being
+ * driven? That is the only question that decides whether a failed mode switch
+ * owes the caller a settling restart, and it is answerable only from the
+ * readback value - which set_mode() used to discard.
+ *
+ * In the header, and inline, so the host tests can drive it: lmp91000.c does
+ * not build on the host, and a decision that only exists there is a decision
+ * nothing checks. SNAS506I 7.6.5 OP_MODE: 011 three-lead amperometric and 111
+ * temperature-with-TIA-on both keep the potentiostat running; 000 deep sleep,
+ * 010 standby and 110 temperature-with-TIA-off do not. Anything else is not a
+ * mode this driver knows, and an unrecognised readback is not evidence the
+ * cell is fine, so it counts as disturbed. */
+static inline bool o2p_lmp_mode_unbiases_the_cell(uint8_t modecn)
+{
+    uint8_t op = (uint8_t)(modecn & 0x07u);
+    return !(op == 0x03u || op == 0x07u);
+}
 o2p_lmp_status_t o2p_lmp91000_temp_exit(void);
 
 /* Table 1 (SNAS506I 7.3.1.5) is a 126-row lookup from -40 to +85 C. This is a

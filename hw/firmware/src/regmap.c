@@ -64,6 +64,11 @@ void o2p_config_defaults(o2p_config_t *cfg)
     /* No consent by default. A probe that has never been told to heat by
      * itself must not, and this is the field that says so. */
     cfg->heater_rh_consent = 0u;
+    /* Persistent tip loop OFF by default, and the sentinel is what says so.
+     * Note this is the one appended field whose correct default is NOT the
+     * zero a memset would leave: 0 is a legal setpoint meaning "hold 0.00 C". */
+    cfg->tip_setpoint_c100 = O2P_I16_INVALID;
+    cfg->heater_tip_consent = 0u;
 }
 
 bool o2p_config_valid(const o2p_config_t *cfg)
@@ -97,6 +102,20 @@ bool o2p_config_valid(const o2p_config_t *cfg)
      * value that LOOKS like consent to a later reader. */
     if (cfg->heater_rh_consent != 0u &&
         cfg->heater_rh_consent != O2P_HEATER_RH_CONSENT_MAGIC) {
+        return false;
+    }
+    /* Same argument for the temperature loop's consent. */
+    if (cfg->heater_tip_consent != 0u &&
+        cfg->heater_tip_consent != O2P_HEATER_TIP_CONSENT_MAGIC) {
+        return false;
+    }
+    /* A stored setpoint must be inside the same envelope a written one is, or
+     * a corrupt or downgraded record could hand the loop a target it would
+     * have refused over the wire. The sentinel is the only legal value outside
+     * 0..O2P_HEATER_TEST_SP_MAX_C100. */
+    if (cfg->tip_setpoint_c100 != O2P_I16_INVALID &&
+        (cfg->tip_setpoint_c100 < 0 ||
+         cfg->tip_setpoint_c100 > O2P_HEATER_TEST_SP_MAX_C100)) {
         return false;
     }
     if (cfg->heater_max_duty_x100 > 10000u) {
@@ -405,6 +424,8 @@ static uint16_t read_config(const o2p_regmap_t *rm, uint16_t a)
     case O2P_REG_DT_MAX_K:        return c->dt_max_k_x100;
     case O2P_REG_HEATER_MAX_DUTY: return c->heater_max_duty_x100;
     case O2P_REG_HEATER_RH_CONSENT: return c->heater_rh_consent;
+    case O2P_REG_TIP_SETPOINT:      return (uint16_t)c->tip_setpoint_c100;
+    case O2P_REG_HEATER_TIP_CONSENT: return c->heater_tip_consent;
     case O2P_REG_HEATER_PWM_HZ:   return c->heater_pwm_hz;
     case O2P_REG_HEATER_KP:       return c->heater_kp_x100;
     case O2P_REG_HEATER_KI:       return c->heater_ki_x100;
@@ -529,6 +550,24 @@ static uint8_t apply_config_word(o2p_config_t *c, uint16_t a, uint16_t v,
             return O2P_MB_EX_ILLEGAL_VALUE;
         }
         c->heater_rh_consent = v;
+        break;
+    case O2P_REG_HEATER_TIP_CONSENT:
+        if (v != 0u && v != O2P_HEATER_TIP_CONSENT_MAGIC) {
+            return O2P_MB_EX_ILLEGAL_VALUE;
+        }
+        c->heater_tip_consent = v;
+        break;
+    case O2P_REG_TIP_SETPOINT:
+        /* Identical bounds to the volatile 0x0062, deliberately: an operator
+         * who learned the envelope at the bench must not find a different one
+         * in flash. The sentinel, or 0..O2P_HEATER_TEST_SP_MAX_C100. A
+         * negative that is not the sentinel is a units or sign error and is
+         * refused rather than quietly meaning "never heat". */
+        if (v != (uint16_t)O2P_I16_INVALID &&
+            ((int16_t)v > O2P_HEATER_TEST_SP_MAX_C100 || (int16_t)v < 0)) {
+            return O2P_MB_EX_ILLEGAL_VALUE;
+        }
+        c->tip_setpoint_c100 = (int16_t)v;
         break;
     case O2P_REG_HEATER_PWM_HZ:   c->heater_pwm_hz = v; break;
     case O2P_REG_HEATER_KP:       c->heater_kp_x100 = v; break;

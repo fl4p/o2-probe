@@ -234,11 +234,16 @@ static struct {
      * does is reach backwards. */
     uint16_t faults_at_o2;
     bool     o2_measured;
-    /* The reference was measured this cycle AND landed in the trim band.
+    /* The reference was actually CONVERTED this cycle and was not wild.
      * cycle_begin() seeds vref_mv with the trim TARGET so a channel that runs
      * before PH_VREF still has a number, which means "vref_mv is populated" is
      * not the same question as "vref_mv is a measurement". Every channel
-     * scaled BY the reference has to ask the second one. */
+     * scaled BY the reference has to ask the second one.
+     *
+     * It does NOT mean "inside the trim band": finish_vref() accepts 100 mV
+     * beyond each end before raising ADC_RANGE, so this can be true at 2380 or
+     * 2620 mV. That slack is deliberate there and is not this flag's promise
+     * to make. Corrected after review 2026-09-08 said the comment claimed it. */
     bool     vref_measured;
 } g_cyc;
 
@@ -328,22 +333,34 @@ static void phase_rails(o2p_snapshot_t *s)
         s->t_die = die_c100;
     }
 
-    /* The counter-electrode drive, and the compliance window SNAS506I 6.5
-     * characterises A1 over. Outside it the amplifier is not specified, so
-     * this is a fault and not a reading - and the failure it catches is the
-     * one that killed U7 on 2026-09-04 unseen: the register image reads back
-     * perfectly while the control loop is open, because a loop that cannot
-     * find its reference electrode rails the drive instead.
+    /* The counter-electrode drive: PUBLISHED, and deliberately NOT judged.
      *
-     * A failed CONVERSION is not compliance evidence either way, so it leaves
-     * the sentinel and raises nothing here - the ADC's own faults cover it. */
+     * It is the diagnostic that separates "the AFE is misconfigured" from "the
+     * AFE is configured and the cell is not there", which is the failure that
+     * killed U7 on 2026-09-04 unseen. But turning it into a fault here would
+     * have been a guard built on numbers nobody has measured, and the cost of
+     * a false positive is the oxygen channel:
+     *
+     *  - SNAS506I characterises A1 over 300 mV <= VCE <= VS-300 mV, and the
+     *    91k/91k divider is 1 % on each leg, so a true 300 mV reconstructs
+     *    anywhere in roughly 297-303 mV. The low corner faults a compliant
+     *    point.
+     *  - The ceiling is derived from a worst-case-low 3V3A. A HEALTHY rail
+     *    allows VCE above it, so a healthy loop can sit outside the window.
+     *  - gen_sch.py:783 records that this cell's real CE operating point has
+     *    never been measured, so there is no evidence a good probe stays
+     *    inside any narrower window either.
+     *
+     * The bias check is what detects the failure; it compares against a value
+     * the datasheet actually specifies. Once someone measures the healthy CE
+     * range on a working cell, a window here can be added with evidence behind
+     * it. Review 2026-09-08, and Fab's call not to let this blank oxygen.
+     *
+     * A failed conversion leaves the invalid sentinel, which is the honest
+     * answer and needs no fault of its own now that nothing is judged. */
     uint16_t ce_mv = 0u;
     if (o2p_mcu_adc_read_ce_mv(&ce_mv)) {
         s->ce_mv = ce_mv;
-        if (ce_mv < O2P_HW_CE_COMPLIANCE_MIN_MV ||
-            ce_mv > O2P_HW_CE_COMPLIANCE_MAX_MV) {
-            g_cyc.faults |= O2P_F_AFE_CONFIG_MISMATCH;
-        }
     }
 }
 
@@ -597,6 +614,28 @@ static o2p_gas_t cycle_gas(const o2p_snapshot_t *s)
     return g;
 }
 
+/* Was the cell at its commanded bias when we last managed to look?
+ *
+ * Tri-state, and UNKNOWN refuses. The bias is measured in PH_WE/PH_RE, which
+ * run AFTER finish_o2() has already decided whether to accept an air point -
+ * so within one cycle the calibration cannot see its own cycle's verdict. It
+ * uses the previous cycle's, which is sound because the bias is a physical
+ * standing condition, not a per-sample quantity: a cell that was 939 mV off
+ * target a second ago is not at target now.
+ *
+ * This exists because an air point is PERMANENT. o2.h is explicit that a bad
+ * one carries a bias "for the life of the probe", and on 2026-09-08 the probe
+ * ran for hours at +341 mV against a commanded -598 mV with a clean fault
+ * word - a calibration taken in that window would have been stored, and the
+ * later discovery of the bias fault could not have taken it back. Found by
+ * review 2026-09-08. */
+typedef enum {
+    BIAS_UNKNOWN = 0,
+    BIAS_GOOD,
+    BIAS_BAD,
+} bias_verdict_t;
+static bias_verdict_t s_bias_verdict;
+
 /* WE_BUF and RE_BUF, the buffered cell electrodes on AIN2/AIN3.
  *
  * Buffered straight to the pin - no divider - so the code converts to
@@ -646,6 +685,7 @@ static void finish_electrode(o2p_snapshot_t *s, bool working)
         /* Both halves present, and neither is the invalid sentinel, or the
          * bias stays invalid. A difference computed from one real reading and
          * one 0xFFFF is a number, which is the problem. */
+        s_bias_verdict = BIAS_UNKNOWN;
         if (s->we_buf_mv != O2P_U16_INVALID) {
             int32_t bias = (int32_t)s->we_buf_mv - mv;
             if (bias > 32767) { bias = 32767; }
@@ -660,12 +700,18 @@ static void finish_electrode(o2p_snapshot_t *s, bool working)
              * cell reading +341 mV against a commanded -598 mV without one
              * fault bit.
              *
-             * REFCN asks for 24 % of VREF, sign negative, so V(WE) - V(RE) is
-             * -0.24 * vref. The window is deliberately far wider than
+             * The target is DERIVED FROM O2P_LMP_REFCN_INTENDED rather than
+             * written here as 24 % and a minus sign. Two hardcoded copies of a
+             * value whose only source of truth is that constant would agree
+             * today and go stale together the day the bias step changes -
+             * exactly the source-of-truth failure the guard checklist names.
+             * Review 2026-09-08. The window is deliberately far wider than
              * DS-0637's own +/-10 mV: this is not a trim check and must not
              * fire on a healthy probe. The buffers are unity followers with
              * their own offsets, VREF has a +/-20 mV trim band, and the
-             * datasheet's TcVOS_RW reaches +/-1750 uV at this bias. 150 mV
+             * datasheet's VOS_RW reaches +/-1750 uV MAX at this bias (that is
+             * VOS_RW, the offset; TcVOS_RW is its +/-8 uV/K DRIFT - the first
+             * version of this comment used the wrong name). 150 mV
              * clears all of that by an order of magnitude while still being a
              * quarter of the commanded value - it catches an open loop, a
              * reversed sign, and a bias that is simply not there.
@@ -674,15 +720,28 @@ static void finish_electrode(o2p_snapshot_t *s, bool working)
              * fault word has none left, and because the meaning fits: the AFE
              * is not delivering the configuration it acknowledged. CE_MV and
              * LMP_READBACK are what separate the analog cause from the digital
-             * one. It restarts settling, which is correct and not merely
-             * conservative - an unbiased cell IS unsettled, and oxygen taken
-             * from it must not publish as a confident number. */
+             * one.
+             *
+             * WHAT THIS DOES, precisely, because the first version of this
+             * comment claimed something it did not do. The bit is in
+             * INVALIDATE_O2 and absent from POST_O2, so raising it here - after
+             * the oxygen verdict was frozen - still withholds both O2_RAW and
+             * O2_COMP for this cycle. It does NOT restart settling and does NOT
+             * rewrite the LMP91000: phase_afe() drives those from its own
+             * readback, and a bad bias is not evidence the register image is
+             * wrong. Withholding the reading is the safety-critical part and it
+             * is what this delivers; a settling restart would add a way to wedge
+             * a healthy probe forever without adding protection. Fab's call,
+             * 2026-09-08, after review found the original claim false. */
             if (g_cyc.vref_measured) {
-                int32_t want = -((int32_t)g_cyc.vref_mv * 24) / 100;
+                int32_t want = o2p_lmp_commanded_bias_mv((int32_t)g_cyc.vref_mv);
                 int32_t err = bias - want;
                 if (err < 0) { err = -err; }
                 if (err > O2P_CELL_BIAS_TOLERANCE_MV) {
                     g_cyc.faults |= O2P_F_AFE_CONFIG_MISMATCH;
+                    s_bias_verdict = BIAS_BAD;
+                } else {
+                    s_bias_verdict = BIAS_GOOD;
                 }
             }
         }
@@ -836,7 +895,13 @@ static void finish_o2(o2p_snapshot_t *s)
          * reference for life while looking perfectly calibrated. Temperature
          * faults are deliberately absent from the raw-O2 validity mask, so
          * o2p_o2_valid() does not catch this. */
+        /* And the cell has to have BEEN AT ITS COMMANDED BIAS. See
+         * s_bias_verdict: an air point is permanent, the bias check does not
+         * run until two phases after this decision, and UNKNOWN - no reading
+         * yet, or a cycle in which the electrodes could not be converted -
+         * refuses rather than assuming the best. */
         if (settled && t_gas != O2P_I16_INVALID &&
+            s_bias_verdict == BIAS_GOOD &&
             o2p_o2_valid(g_cyc.faults) &&
             o2p_calibrate_air(&g_cal, cell_na, t_gas, &fresh)) {
             g_rm.cfg.cal_air_na = g_cal.cal_air_na;
@@ -940,6 +1005,13 @@ static void cycle_publish(o2p_snapshot_t *s)
             .test_tip_sp_c100 = g_rm.heater_test_tip_sp_c100,
             .test_kp_x100    = g_rm.heater_test_kp_x100,
             .test_ki_x100    = g_rm.heater_test_ki_x100,
+            /* Persistent tip loop, registers 0x0049..0x004C. Read from the
+             * CONFIG this time, not the volatile map: surviving a reset is the
+             * entire point of the mode. */
+            .tip_consent     = (g_rm.cfg.heater_tip_consent ==
+                                O2P_HEATER_TIP_CONSENT_MAGIC),
+            .tip_sp_valid    = (g_rm.cfg.tip_setpoint_c100 != O2P_I16_INVALID),
+            .tip_sp_c100     = g_rm.cfg.tip_setpoint_c100,
         };
         const o2p_heater_in_t hin = {
             .drive_possible   = o2p_heater_compiled_in(),
@@ -1078,7 +1150,8 @@ static bool sampler_step(void)
      * none of this costs the DS-0637 settling penalty. */
     case PH_TAFE:
         if (g_sub == 0u) {
-            o2p_lmp_status_t tst = o2p_lmp91000_temp_enter();
+            uint8_t back = 0u;
+            o2p_lmp_status_t tst = o2p_lmp91000_temp_enter(&back);
             if (tst != O2P_LMP_OK) {
                 /* T_AFE stays at its invalid sentinel either way - an
                  * unreadable temperature is not a temperature - but the two
@@ -1100,7 +1173,18 @@ static bool sampler_step(void)
                     g_cyc.faults |= O2P_F_I2C_FAIL_LMP;
                 } else {
                     g_cyc.faults |= O2P_F_AFE_CONFIG_MISMATCH;
-                    restart_settling();
+                    /* Only if the mode we actually read STOPPED driving the
+                     * cell. The common safe case is that the write was ignored
+                     * and MODECN is still 011 - the potentiostat never paused,
+                     * nothing is settling, and restarting it would hold a
+                     * healthy probe out of the compensated channel for fifteen
+                     * minutes every time an intermittent I2C glitch landed
+                     * here. The first version restarted unconditionally because
+                     * set_mode() discarded the readback that answers this.
+                     * Review 2026-09-08. */
+                    if (o2p_lmp_mode_unbiases_the_cell(back)) {
+                        restart_settling();
+                    }
                 }
                 g_phase = PH_PUBLISH;
                 break;

@@ -95,7 +95,7 @@ o2p_lmp_status_t o2p_lmp91000_verify(uint16_t *out_readback)
 /* Both of these verify the mode they just asked for. The part is on the same
  * I2C bus as everything else and MODECN is not lock-protected, so "the write
  * returned OK" is not evidence the mode changed. */
-static o2p_lmp_status_t set_mode(uint8_t want)
+static o2p_lmp_status_t set_mode(uint8_t want, uint8_t *out_back)
 {
     uint8_t back = 0u;
     if (!wr(O2P_LMP_REG_MODECN, want)) {
@@ -103,6 +103,15 @@ static o2p_lmp_status_t set_mode(uint8_t want)
     }
     if (!rd(O2P_LMP_REG_MODECN, &back)) {
         return O2P_LMP_IO;
+    }
+    /* Hand the READBACK out, not just the verdict. Which wrong mode it is
+     * decides whether the cell was disturbed at all: 011 means the write was
+     * ignored and the potentiostat never stopped, 110 means the TIA is off and
+     * the cell is genuinely unbiased. Collapsing both into MISMATCH forced the
+     * caller to treat the harmless case as the dangerous one. Found by review
+     * 2026-09-08. */
+    if (out_back != NULL) {
+        *out_back = (uint8_t)(back & 0x87u);
     }
     /* Bits 6:3 are reserved; compare FET_SHORT and OP_MODE only, exactly as
      * o2p_lmp91000_verify() does. */
@@ -112,14 +121,18 @@ static o2p_lmp_status_t set_mode(uint8_t want)
     return O2P_LMP_OK;
 }
 
-o2p_lmp_status_t o2p_lmp91000_temp_enter(void)
+o2p_lmp_status_t o2p_lmp91000_temp_enter(uint8_t *out_modecn)
 {
-    o2p_lmp_status_t st = set_mode(O2P_LMP_MODECN_TEMP);
+    uint8_t back = 0u;
+    o2p_lmp_status_t st = set_mode(O2P_LMP_MODECN_TEMP, &back);
+    if (out_modecn != NULL) {
+        *out_modecn = back;
+    }
     if (st != O2P_LMP_OK) {
         /* Leave nothing ambiguous behind: if the part half-took the write,
          * VOUT may or may not be the sensor. Ask for the measuring mode back
          * and let the caller's exit path deal with the outcome. */
-        (void)set_mode(O2P_LMP_MODECN_INTENDED);
+        (void)set_mode(O2P_LMP_MODECN_INTENDED, NULL);
         return st;
     }
     o2p_delay_ms(O2P_LMP_TEMP_SETTLE_MS);
@@ -128,5 +141,5 @@ o2p_lmp_status_t o2p_lmp91000_temp_enter(void)
 
 o2p_lmp_status_t o2p_lmp91000_temp_exit(void)
 {
-    return set_mode(O2P_LMP_MODECN_INTENDED);
+    return set_mode(O2P_LMP_MODECN_INTENDED, NULL);
 }

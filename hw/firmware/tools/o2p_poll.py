@@ -50,7 +50,7 @@ U16_INVALID = 0xFFFF
 I16_INVALID = 0x8000
 
 PRIMARY_BASE, PRIMARY_COUNT = 0x0000, 8
-DIAG_BASE, DIAG_COUNT = 0x0010, 26
+DIAG_BASE, DIAG_COUNT = 0x0010, 30
 
 # Bit -> name. Checked against src/faults.h at startup.
 FAULT_BITS = [
@@ -230,6 +230,26 @@ def decode_diag(r):
         # Bit 31 is the dirty flag, bits 27..0 the commit prefix. Rendered as
         # the SHA a human can paste into `git show`, never as a bare number.
         "build_id": build_id_str((r[0x18] << 16) | r[0x19]),
+        # 0x1A/0x1B are CMD_RESULT and CAL_STATE, decoded elsewhere.
+        # T_AFE (0x002C): the LMP91000's OWN die temperature, and the only
+        # channel that reports it. t_die is the MCU at the other end of the
+        # board - on 2026-09-08 the heater held the tip at 78.00 C while the
+        # MCU die sat at 49 C, and the AFE is at neither. It matters because
+        # cell_ua is (0.67*VREF - VOUT)/R_TIA with R_TIA hardcoded at 7000 ohm
+        # and SNAS506I publishing no tempco for it: R_TIA is the one
+        # uncharacterised term in the oxygen measurement and it drifts with
+        # THIS temperature, not the tip's.
+        "t_afe_c": (i16(r[0x1C]) / 100.0) if i16(r[0x1C]) != -32768 else None,
+        # CE_MV (0x002D): the potentiostat's CONTROL EFFORT, and the reason
+        # this tool is the intended consumer - it is deliberately not on the
+        # radio. A1 drives the counter electrode until RE reaches the commanded
+        # bias, and the loop closes THROUGH THE CELL, so an absent or
+        # high-impedance cell leaves CE against a rail while TIACN/REFCN/MODECN
+        # still read back exactly as written. cell_bias_mv shows the symptom;
+        # this shows the cause. Published, never judged: the 91k/91k divider is
+        # 1 % a leg and this cell's healthy CE point has never been measured,
+        # so a compliance window here would be a guard built on nothing.
+        "ce_mv": u16(r[0x1D]),
     }
 
 

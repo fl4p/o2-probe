@@ -184,7 +184,7 @@ static void test_config_struct_has_no_implicit_padding(void)
     /* The struct is written to flash byte-for-byte and hashed with a CRC.
      * Padding the compiler may leave uninitialised would make that CRC
      * non-deterministic and produce spurious "corrupt config" at boot. */
-    TEST_ASSERT_EQUAL_UINT(2 * sizeof(int32_t) + 14 * sizeof(uint16_t) + 8,
+    TEST_ASSERT_EQUAL_UINT(2 * sizeof(int32_t) + 16 * sizeof(uint16_t) + 8,
                            sizeof(o2p_config_t));
     /* It DID grow with dil_alpha_x1000, from 32 to 36, and again to 40 when
      * cal_zero_na and cal_zero_taken were APPENDED - appended rather than
@@ -193,8 +193,14 @@ static void test_config_struct_has_no_implicit_padding(void)
      * paid for out of the RECORD's reserved tail, not out of the record: the
      * frame is still 64 bytes and the CRC still sits immediately after the
      * configuration, which is the invariant that actually matters. The
-     * assertion below is what enforces it. */
-    TEST_ASSERT_EQUAL_UINT(44u, sizeof(o2p_config_t));
+     * assertion below is what enforces it.
+     *
+     * 44 -> 48 with the persistent tip setpoint and its consent (v8). Those two
+     * fields are 4 bytes; the other 2 are reserved4, which makes explicit the
+     * tail padding the 4-byte alignment was already inserting. Only 6 bytes of
+     * the record's reserved tail were left before this change, which is why the
+     * tip loop has no flash-backed gain pair - see regmap.h. */
+    TEST_ASSERT_EQUAL_UINT(48u, sizeof(o2p_config_t));
     /* config_flash.h is not reachable from a native test (it pulls in the
      * flash map), so the record arithmetic is restated here rather than
      * measured: 12 bytes of header + the configuration + a 2-byte CRC must
@@ -813,14 +819,15 @@ static void test_config_block_read_covers_the_gains(void)
     /* The block grew from 16 to 18 registers with the gains, to 20 with
      * ASSUMED_P_HPA and CAL_AIR_FRAC, to 21 with CAL_P_HPA, to 22 with
      * DIL_ALPHA, to 24 with the CAL_ZERO_NA pair and to 25 with
-     * HEATER_RH_CONSENT. A read of all 25 must succeed; 26 must not, or the
-     * boundary rule has quietly stopped being enforced. */
+     * HEATER_RH_CONSENT, and to 27 with TIP_SETPOINT and HEATER_TIP_CONSENT.
+     * A read of all 27 must succeed; 28 must not, or the boundary rule has
+     * quietly stopped being enforced. */
     uint8_t req[16], rsp[O2P_MB_MAX_ADU];
-    const uint8_t all[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x19};
+    const uint8_t all[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x1B};
     size_t n = framed(req, all, sizeof(all));
-    TEST_ASSERT_EQUAL_UINT(3 + 50 + 2, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
+    TEST_ASSERT_EQUAL_UINT(3 + 54 + 2, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
 
-    const uint8_t over[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x1A};
+    const uint8_t over[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x1C};
     n = framed(req, over, sizeof(over));
     o2p_mb_dispatch(req, n, 3, &handlers, rsp);
     TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS, rsp[2]);
@@ -2322,6 +2329,54 @@ static void build_v4_record(uint8_t rec[TEST_REC_BYTES],
     memcpy(rec + 12u + sizeof(*cfg), &crc, 2);
 }
 
+/* A v7 configuration body, byte-for-byte as the field wrote it. Declared here
+ * rather than reused from config_migrate.c so that a change there which
+ * accidentally alters the historical layout fails this test instead of
+ * silently agreeing with itself. */
+typedef struct {
+    int32_t  cal_air_na;              /* 0 */
+    uint16_t rh_setpoint_x100;        /* 4 */
+    uint16_t dt_max_k_x100;           /* 6 */
+    uint16_t heater_max_duty_x100;    /* 8 */
+    uint16_t heater_pwm_hz;           /* 10 */
+    int16_t  cal_temp_c100;           /* 12 */
+    int16_t  tempco_ppm_per_k;        /* 14 */
+    uint16_t sht_pulse_interval_h;    /* 16 */
+    uint16_t heater_kp_x100;          /* 18 */
+    uint16_t heater_ki_x100;          /* 20 */
+    uint16_t assumed_p_hpa;           /* 22 */
+    uint16_t cal_air_frac_x1000;      /* 24 */
+    uint16_t cal_p_hpa;               /* 26 */
+    uint8_t  slave_addr;              /* 28 */
+    uint8_t  baud_code;               /* 29 */
+    uint8_t  parity_code;             /* 30 */
+    uint8_t  reserved[1];             /* 31 */
+    uint16_t dil_alpha_x1000;         /* 32 */
+    uint8_t  cal_zero_taken;          /* 34 */
+    uint8_t  reserved2[1];            /* 35 */
+    int32_t  cal_zero_na;             /* 36 */
+    uint16_t heater_rh_consent;       /* 40 */
+    /* v8 puts tip_setpoint_c100 HERE. A v7 record leaves it zero, and zero is
+     * a legal setpoint - which is the whole point of the test below. */
+    uint8_t  reserved3[2];            /* 42 */
+} test_cfg_v7_t;
+_Static_assert(sizeof(test_cfg_v7_t) == 44u, "v7 config layout is 44 bytes");
+
+/* Same wrapper as build_v4_record, with the version and body size passed in so
+ * one helper serves every appended layout. */
+static void build_vn_record(uint8_t rec[TEST_REC_BYTES], const void *cfg,
+                            size_t cfg_bytes, uint32_t ver, uint32_t seq)
+{
+    memset(rec, 0, TEST_REC_BYTES);
+    uint32_t magic = TEST_CFG_MAGIC;
+    memcpy(rec + 0, &magic, 4);
+    memcpy(rec + 4, &ver, 4);
+    memcpy(rec + 8, &seq, 4);
+    memcpy(rec + 12, cfg, cfg_bytes);
+    uint16_t crc = o2p_mb_crc16(rec, 12u + cfg_bytes);
+    memcpy(rec + 12u + cfg_bytes, &crc, 2);
+}
+
 static void test_v4_migration_keeps_the_air_point(void)
 {
     /* THE ONE MIGRATION THAT DOES NOT DISCARD THE CALIBRATION.
@@ -3315,6 +3370,262 @@ static void arm_override(o2p_heater_cfg_t *cfg, uint16_t duty_x100)
 {
     cfg->test_override = true;
     cfg->test_duty_x100 = duty_x100;
+}
+
+/* ------------------------- the PERSISTENT tip-temperature loop (0x0049/4A) */
+
+/* Baseline for the persistent mode: a stored setpoint below the tip, with
+ * consent given. Breaks exactly one thing per test, like hcfg_default(). */
+static o2p_heater_cfg_t hcfg_tip_auto(void)
+{
+    o2p_heater_cfg_t c = hcfg_default();
+    c.tip_sp_valid = true;
+    c.tip_sp_c100 = 7800;              /* 78.00 C, inside the 80.00 bound */
+    c.tip_consent = true;
+    c.test_kp_x100 = O2P_HEATER_TEST_KP_X100_DEFAULT;
+    c.test_ki_x100 = O2P_HEATER_TEST_KI_X100_DEFAULT;
+    return c;
+}
+
+static void test_persistent_tip_setpoint_needs_its_own_consent(void)
+{
+    /* THE ONE THAT MATTERS. rh_consent is TRUE here, so the probe is
+     * authorised to heat autonomously - just not to chase a TEMPERATURE.
+     *
+     * The wrong behaviour is not "it heats": it is falling through to the RH
+     * loop, which would drive the ring perfectly happily while the operator
+     * watches a setpoint they believe is in force. An unevaluable
+     * authorisation must refuse, not silently do something else. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_tip_auto();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    cfg.tip_consent = false;
+    TEST_ASSERT_TRUE(cfg.rh_consent);   /* the RH loop WOULD be allowed */
+
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_TRUE_MESSAGE((out.block & O2P_HB_NO_CONSENT) != 0u,
+        "a stored setpoint without tip consent must raise NO_CONSENT");
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.duty_x100,
+        "it must not fall through to the RH loop and drive anyway");
+}
+
+static void test_persistent_tip_setpoint_drives_towards_its_target(void)
+{
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_tip_auto();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    /* Tip AND chamber together. On Rev A they are one thermal node - measured
+     * 2026-09-04, |tip - chamber| stayed within 0.17 K at every duty - so a
+     * fixture that moves only the tip invents a dT the hardware cannot produce
+     * and trips the clamp this mode deliberately keeps live. */
+    in.t_tip_c100 = 7000;               /* 8 K short of the 78.00 setpoint */
+    in.t_chamber_c100 = 6990;
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_EQUAL_UINT16(0u, out.block);
+    TEST_ASSERT_TRUE_MESSAGE(out.duty_x100 > 0u,
+        "a tip below setpoint must ask for duty");
+
+    /* Above the setpoint the same loop must ask for nothing. Monotonicity:
+     * as the input crosses the target the verdict must not stay ON. */
+    o2p_heater_ctl_reset(&st);
+    in.t_tip_c100 = 7900;
+    in.t_chamber_c100 = 7890;
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.duty_x100,
+        "a tip above setpoint must not ask for heat");
+}
+
+static void test_persistent_tip_loop_does_not_need_humidity(void)
+{
+    /* The single interlock this mode suppresses. A temperature loop has no
+     * use for RH, and refusing to hold a commanded temperature because the
+     * SHT45 is in its de-creep window would be a refusal with no reason. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_tip_auto();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    in.rh_valid = false;
+    in.t_tip_c100 = 7000;
+    in.t_chamber_c100 = 6990;
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.block,
+        "the tip loop must clear NO_RH");
+    TEST_ASSERT_TRUE(out.duty_x100 > 0u);
+}
+
+static void test_persistent_tip_loop_still_honours_the_dt_clamp(void)
+{
+    /* WHERE IT DIFFERS FROM THE BENCH OVERRIDE, and the difference is the
+     * point. The override suppresses DT_LIMIT because exceeding the envelope
+     * IS the experiment and an operator owns that. Nobody owns this one. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_tip_auto();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    in.t_chamber_c100 = (int16_t)(in.t_tip_c100 - 4000);   /* 40 K, 10x the envelope */
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_TRUE_MESSAGE((out.block & O2P_HB_DT_LIMIT) != 0u,
+        "the persistent loop must NOT inherit the override's dT suppression");
+    TEST_ASSERT_EQUAL_UINT16(0u, out.duty_x100);
+}
+
+static void test_persistent_tip_loop_still_needs_a_chamber_reading(void)
+{
+    /* Follows from the above: without a chamber temperature the dT envelope
+     * cannot be enforced, and this mode keeps that envelope. Suppressing
+     * NO_CHAMBER while keeping DT_LIMIT would be a clamp that cannot fire. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_tip_auto();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    in.chamber_valid = false;
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_TRUE((out.block & O2P_HB_NO_CHAMBER) != 0u);
+    TEST_ASSERT_EQUAL_UINT16(0u, out.duty_x100);
+}
+
+static void test_the_bench_override_outranks_a_stored_setpoint(void)
+{
+    /* Precedence. An armed override means an operator is at the bench NOW,
+     * and their intent outranks anything a previous session left in flash. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_tip_auto();
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    in.t_tip_c100 = 7000;              /* the stored loop would want duty */
+    in.t_chamber_c100 = 6990;
+    arm_override(&cfg, 1234u);         /* open loop, no test setpoint */
+
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_EQUAL_UINT16(0u, out.block);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(1234u, out.duty_x100,
+        "the override's open-loop duty must win over the stored setpoint");
+}
+
+static void test_a_v7_record_does_not_arm_a_temperature_loop(void)
+{
+    /* THE MIGRATION HAZARD THIS FIELD CREATED.
+     *
+     * v8 places tip_setpoint_c100 over v7's reserved3[2], where a v7 record
+     * holds ZEROS - and zero is a legal setpoint meaning "hold 0.00 C", not
+     * "off". A prefix copy would hand every upgraded probe an armed
+     * temperature loop. The sentinel must survive instead.
+     *
+     * The same record also proves the case exists at all: before this change
+     * config_migrate.c had no case 6 or 7, so a v7 record fell to
+     * `default: return false` and the caller loaded FULL DEFAULTS - resetting
+     * slave_addr, baud_code and parity_code, which is the "potted probe
+     * disappears from its master" outcome read_record() exists to prevent. */
+    test_cfg_v7_t v7;
+    memset(&v7, 0, sizeof(v7));
+    v7.cal_air_na = 123456;
+    v7.rh_setpoint_x100 = 8500u;
+    v7.dt_max_k_x100 = 400u;
+    v7.heater_max_duty_x100 = 5000u;
+    v7.heater_pwm_hz = 1000u;
+    v7.cal_temp_c100 = 2500;
+    v7.tempco_ppm_per_k = 800;
+    v7.sht_pulse_interval_h = 24u;
+    v7.heater_kp_x100 = 200u;
+    v7.heater_ki_x100 = 10u;
+    v7.assumed_p_hpa = 1013u;
+    v7.cal_air_frac_x1000 = 20900u;
+    v7.cal_p_hpa = 1013u;
+    v7.dil_alpha_x1000 = 1000u;
+    v7.slave_addr = 42u;                       /* moved off the default */
+    v7.baud_code = O2P_BAUD_38400;
+    v7.parity_code = O2P_PARITY_NONE;
+    /* Consent that WAS given under v7, to prove it is not carried. */
+    v7.heater_rh_consent = O2P_HEATER_RH_CONSENT_MAGIC;
+
+    uint8_t rec[TEST_REC_BYTES];
+    build_vn_record(rec, &v7, sizeof(v7), 7u, 99u);
+
+    o2p_config_t out;
+    uint32_t seq = 0u;
+    memset(&out, 0xAA, sizeof(out));
+    TEST_ASSERT_TRUE_MESSAGE(o2p_config_migrate(rec, sizeof(rec), &out, &seq),
+        "a v7 record must migrate, not fall through to full defaults");
+    TEST_ASSERT_EQUAL_UINT32(99u, seq);
+
+    /* Reachability: the whole reason the migration exists. */
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(42u, out.slave_addr,
+        "a migrated probe must keep answering at its own address");
+    TEST_ASSERT_EQUAL_UINT8(O2P_BAUD_38400, out.baud_code);
+    TEST_ASSERT_EQUAL_UINT8(O2P_PARITY_NONE, out.parity_code);
+
+    /* The new field lands OFF, not on 0.00 C. */
+    TEST_ASSERT_EQUAL_HEX16_MESSAGE((uint16_t)O2P_I16_INVALID,
+        (uint16_t)out.tip_setpoint_c100,
+        "a v7 record's zeros must not become a 0.00 C setpoint");
+    TEST_ASSERT_EQUAL_UINT16(0u, out.heater_tip_consent);
+    /* Neither consent is ever carried. */
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.heater_rh_consent,
+        "consent must never survive a migration");
+    /* The calibration survives: nothing about its meaning changed in v8. */
+    TEST_ASSERT_EQUAL_INT32(123456, out.cal_air_na);
+}
+
+static void test_tip_setpoint_and_consent_are_bounded_on_the_wire(void)
+{
+    uint8_t req[16], rsp[O2P_MB_MAX_ADU];
+
+    /* Above the 80.00 C bound. */
+    const uint8_t hot[] = {0x03, 0x06, 0x00, 0x49, 0x1F, 0x90};   /* 81.44 C */
+    size_t n = framed(req, hot, sizeof(hot));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE, rsp[2]);
+
+    /* Negative, and not the sentinel: a units or sign error, refused rather
+     * than quietly meaning "never heat". */
+    const uint8_t neg[] = {0x03, 0x06, 0x00, 0x49, 0xFF, 0x9C};   /* -1.00 C */
+    n = framed(req, neg, sizeof(neg));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE, rsp[2]);
+
+    /* The sentinel itself is how the mode is turned off, so it must pass. */
+    const uint8_t off[] = {0x03, 0x06, 0x00, 0x49, 0x80, 0x00};
+    n = framed(req, off, sizeof(off));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_HEX8(0x06, rsp[1]);
+    TEST_ASSERT_EQUAL_HEX16((uint16_t)O2P_I16_INVALID,
+                            (uint16_t)rm.cfg.tip_setpoint_c100);
+
+    /* 80.00 C exactly - the stated experiment - must be commandable. */
+    const uint8_t ok[] = {0x03, 0x06, 0x00, 0x49, 0x1F, 0x40};
+    n = framed(req, ok, sizeof(ok));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_HEX8(0x06, rsp[1]);
+    TEST_ASSERT_EQUAL_INT16(8000, rm.cfg.tip_setpoint_c100);
+
+    /* Consent takes its magic and nothing else - not even the RH one. */
+    const uint8_t wrong[] = {0x03, 0x06, 0x00, 0x4A, 0x9C, 0x07};
+    n = framed(req, wrong, sizeof(wrong));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_HEX8_MESSAGE(O2P_MB_EX_ILLEGAL_VALUE, rsp[2],
+        "the RH consent magic must not authorise the temperature loop");
+    TEST_ASSERT_EQUAL_UINT16(0u, rm.cfg.heater_tip_consent);
+
+    const uint8_t right[] = {0x03, 0x06, 0x00, 0x4A, 0x71, 0xC0};
+    n = framed(req, right, sizeof(right));
+    o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_HEX8(0x06, rsp[1]);
+    TEST_ASSERT_EQUAL_HEX16(O2P_HEATER_TIP_CONSENT_MAGIC,
+                            rm.cfg.heater_tip_consent);
 }
 
 static void test_override_drives_open_loop_with_no_humidity(void)
@@ -4812,6 +5123,20 @@ static void test_afe_die_temperature_follows_the_datasheet_table(void)
      * costing the DS-0637 settling penalty. It must be 111. */
     TEST_ASSERT_EQUAL_HEX8(0x07u, O2P_LMP_MODECN_TEMP);
 
+    /* Which readback values mean the cell STOPPED being driven. This decides
+     * whether a failed mode switch owes a settling restart, and getting it
+     * wrong in the safe direction holds a healthy probe out of the compensated
+     * channel for 15 minutes at a time. 011 and 111 keep the potentiostat
+     * running; everything else, including anything unrecognised, does not. */
+    TEST_ASSERT_FALSE(o2p_lmp_mode_unbiases_the_cell(0x03u));
+    TEST_ASSERT_FALSE(o2p_lmp_mode_unbiases_the_cell(0x07u));
+    TEST_ASSERT_TRUE(o2p_lmp_mode_unbiases_the_cell(0x06u));   /* TIA off */
+    TEST_ASSERT_TRUE(o2p_lmp_mode_unbiases_the_cell(0x00u));   /* deep sleep */
+    TEST_ASSERT_TRUE(o2p_lmp_mode_unbiases_the_cell(0x02u));   /* standby */
+    TEST_ASSERT_TRUE(o2p_lmp_mode_unbiases_the_cell(0x05u));   /* undefined */
+    /* FET_SHORT set alongside a running mode must not flip the verdict. */
+    TEST_ASSERT_FALSE(o2p_lmp_mode_unbiases_the_cell(0x83u));
+
     /* The hazard the mode readback exists for: the oxygen channel's own swing
      * decodes as a perfectly plausible temperature, so no value check can
      * stand in for verifying MODECN. Pin it, so nobody later "hardens" this
@@ -4822,15 +5147,40 @@ static void test_afe_die_temperature_follows_the_datasheet_table(void)
     TEST_ASSERT_TRUE(c100 > 7000 && c100 < 8000);
 }
 
-/* The bias check must fire on the failure it was written for and stay silent
- * on a healthy probe. Both directions, because a guard that never passes is as
- * useless as one that never fails. Numbers are DS-0637 (-600 +/- 10 mV) and
- * SNAS506I REFCN (24 % of VREF, sign negative). */
+/* The bias PREDICATE, and the derivation of what it compares against.
+ *
+ * WHAT THIS DOES NOT DO, stated plainly because the first version of this
+ * comment implied otherwise and a review called it: it does not exercise the
+ * production guard. main.c does not compile on the host, so nothing here
+ * drives finish_electrode(), inspects g_cyc.faults, advances the sampler, or
+ * observes an air point being refused. Deleting the check in main.c leaves
+ * this test green. Guard-checklist item 7 is UNMET for that path and the only
+ * honest fix is a host-buildable sampler, not a better assertion here.
+ *
+ * What it does cover is the part that used to be two hand-copied literals: the
+ * commanded target is now DERIVED from O2P_LMP_REFCN_INTENDED, and the
+ * derivation is checked against SNAS506I 7.6.4's own BIAS table. */
 static void test_the_cell_bias_window_catches_an_open_potentiostat(void)
 {
+    /* SNAS506I 7.6.4, BIAS[3:0], transcribed. Every code, so a change to the
+     * decoder cannot pass by matching only the one step we happen to use. */
+    static const int32_t bias_table[16] = {
+        0, 1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 24, 24
+    };
+    for (uint8_t code = 0u; code < 14u; code++) {
+        TEST_ASSERT_EQUAL_INT32(bias_table[code], o2p_lmp_bias_percent(code));
+    }
+    /* The configured constant really is 24 %, negative sign. */
+    TEST_ASSERT_EQUAL_INT32(24, o2p_lmp_bias_percent(O2P_LMP_REFCN_INTENDED));
+    TEST_ASSERT_EQUAL_HEX8(0x00u, (uint8_t)(O2P_LMP_REFCN_INTENDED & 0x10u));
+
     const int32_t vref = 2492;
-    const int32_t want = -(vref * 24) / 100;          /* -598 mV commanded */
+    const int32_t want = o2p_lmp_commanded_bias_mv(vref);
     TEST_ASSERT_INT32_WITHIN(2, -598, want);
+    /* Negative, because BIAS_SIGN 0 is (VWE-VRE)<0 and the telemetry is
+     * WE - RE. A sign slip here is the one error that would make the guard
+     * fire on every healthy probe instead of no broken one. */
+    TEST_ASSERT_TRUE(want < 0);
 
     /* Healthy: the bench measured 597 mV against 598.56 commanded on
      * 2026-09-04, and DS-0637 allows +/-10 mV. Must NOT fire. */
@@ -4855,8 +5205,10 @@ static void test_the_cell_bias_window_catches_an_open_potentiostat(void)
     }
 
     /* Wide enough to clear every legitimate error term by an order of
-     * magnitude: TcVOS_RW is +/-1750 uV MAX at 24 % bias (SNAS506I 6.5), and
-     * the VREF trim band is +/-20 mV, which moves the target by 4.8 mV. */
+     * magnitude: VOS_RW is +/-1750 uV MAX at 24 % bias, and its DRIFT
+     * TcVOS_RW is +/-8 uV/K (SNAS506I 6.5 - two different parameters, and an
+     * earlier version of this comment used the wrong name for the first). The
+     * VREF trim band is +/-20 mV, which moves the target by 4.8 mV. */
     TEST_ASSERT_TRUE(O2P_CELL_BIAS_TOLERANCE_MV > 10 * 2);
     TEST_ASSERT_TRUE(O2P_CELL_BIAS_TOLERANCE_MV < (-want) / 2);
 }
@@ -4866,9 +5218,11 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    TEST_ASSERT_EQUAL_HEX16(0x0009u, O2P_FW_VERSION);
-    TEST_ASSERT_EQUAL_UINT16(25u, O2P_REG_CONFIG_COUNT);
-    /* 0x0009: diag block grew with CE_MV, the counter-electrode drive.
+    TEST_ASSERT_EQUAL_HEX16(0x000Au, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_UINT16(27u, O2P_REG_CONFIG_COUNT);
+    /* 0x000A: config block grew with TIP_SETPOINT and HEATER_TIP_CONSENT,
+     *         the persistent tip-temperature loop.
+     * 0x0009: diag block grew with CE_MV, the counter-electrode drive.
      * 0x0008: diag block grew with T_AFE, the LMP91000 die temperature.
      * 0x0007: config block grew with HEATER_RH_CONSENT.
      * 0x0006: the raw channel stopped going silent for 900 s after a reset. */
@@ -5115,6 +5469,14 @@ int main(void)
     RUN_TEST(test_runaway_die_path_does_not_false_positive_at_rest);
     RUN_TEST(test_runaway_references_are_independent);
     RUN_TEST(test_runaway_without_any_reference_is_unevaluable_not_ok);
+    RUN_TEST(test_persistent_tip_setpoint_needs_its_own_consent);
+    RUN_TEST(test_persistent_tip_setpoint_drives_towards_its_target);
+    RUN_TEST(test_persistent_tip_loop_does_not_need_humidity);
+    RUN_TEST(test_persistent_tip_loop_still_honours_the_dt_clamp);
+    RUN_TEST(test_persistent_tip_loop_still_needs_a_chamber_reading);
+    RUN_TEST(test_the_bench_override_outranks_a_stored_setpoint);
+    RUN_TEST(test_a_v7_record_does_not_arm_a_temperature_loop);
+    RUN_TEST(test_tip_setpoint_and_consent_are_bounded_on_the_wire);
     RUN_TEST(test_override_drives_open_loop_with_no_humidity);
     RUN_TEST(test_override_ignores_the_dt_clamp);
     RUN_TEST(test_disarming_does_not_inherit_a_stale_dt_clamp);

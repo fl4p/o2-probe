@@ -351,9 +351,50 @@ enum {
      * a separate field from HEATER_MAX_DUTY rather than a second meaning
      * loaded onto it. Never carried across a config migration. */
     O2P_REG_HEATER_RH_CONSENT = 0x0048u,
+
+    /* ---- PERSISTENT TIP-TEMPERATURE SETPOINT, 0x0049..0x004C ----
+     *
+     * The autonomous temperature loop. Until now this firmware regulated
+     * exactly one quantity - chamber RH - and the only way to hold a
+     * TEMPERATURE was the volatile bench override at 0x0060, which needs an
+     * operator to arm it and which every reset clears. That is correct for a
+     * characterisation run and useless for anything that has to survive a
+     * power cycle: a reflash at 14:21 on 2026-09-08 silently ended a bath
+     * comparison mid-experiment, because the arm lives in RAM by design.
+     *
+     * These four registers are the flash-backed twin the override deliberately
+     * does NOT have. They are a separate control MODE, not a second way to
+     * spell the override, and they carry their own consent.
+     *
+     * Target tip temperature, i16 0.01 C. O2P_I16_INVALID means no target and
+     * the mode is off - the same sentinel and the same bound as 0x0062, so an
+     * operator who learned one learns both. */
+    O2P_REG_TIP_SETPOINT      = 0x0049u,
+    /* Consent to AUTONOMOUS TEMPERATURE heating. A third magic, and the
+     * argument for it is the one already made for splitting TEST from RH: the
+     * three authorise different things. RH consent permits a loop whose whole
+     * purpose is to sit a few kelvin above ambient inside a 0-4 K envelope;
+     * this permits holding an absolute temperature that may be tens of kelvin
+     * above it, unattended, until someone writes the sentinel back. Reusing
+     * O2P_HEATER_RH_CONSENT_MAGIC would let consent given for the mild loop
+     * silently authorise the aggressive one. Never carried across a
+     * migration. */
+    O2P_REG_HEATER_TIP_CONSENT = 0x004Au,
+    /* NO PERSISTENT GAIN PAIR, and the reason is a hard limit rather than a
+     * judgement. The flash record is fixed at CONFIG_RECORD_SIZE = 64 bytes,
+     * of which 14 are header and CRC, so o2p_config_t may not exceed 50 bytes
+     * and only six were free. Setpoint and consent take four of them; a
+     * flash-backed kp/ki pair would need four more.
+     *
+     * So BOTH tip loops share the volatile gains at 0x0063/0x0064, and a
+     * reset restores the conservative defaults. That is the right thing to
+     * lose: gains are tuning, and a probe coming back from a power cycle
+     * resuming on saturate-early/integrate-slowly defaults is safer than one
+     * resuming on somebody's aggressive bench tuning. What must survive a
+     * reset is the TARGET and the AUTHORISATION to pursue it, and those do. */
 };
 #define O2P_REG_CONFIG_BASE  0x0030u
-#define O2P_REG_CONFIG_COUNT 25u
+#define O2P_REG_CONFIG_COUNT 27u
 
 /* ---- Heater test block: 0x0060, 5 registers, read/write, VOLATILE ----
  *
@@ -441,6 +482,12 @@ enum {
  * would let a habit formed at the bench grant the other by muscle memory. */
 #define O2P_HEATER_RH_CONSENT_MAGIC 0x9C07u
 
+/* Consent to autonomous TEMPERATURE heating, register 0x004A. Distinct from
+ * both magics above for the reason given at O2P_REG_HEATER_TIP_CONSENT: this
+ * one authorises holding an absolute tip temperature with nobody present,
+ * which is a strictly larger permission than either of the others. */
+#define O2P_HEATER_TIP_CONSENT_MAGIC 0x71C0u
+
 /* Deliberate magics rather than "write 1". A flash cycle and a recalibration
  * are both destructive and both are one stray bit away in a noisy RS-485
  * frame that happened to pass CRC; requiring a 16-bit token makes an accident
@@ -483,7 +530,7 @@ enum {
  *
  * For "which build is this", read BUILD_ID (0x0028/0x0029) - this number is
  * hand-maintained and says nothing about the binary. */
-#define O2P_FW_VERSION 0x0009u  /* v0.9 - diag block grew with CE_MV */
+#define O2P_FW_VERSION 0x000Au  /* v0.10 - config block grew with the persistent tip setpoint */
 
 /* Overridden by tools/pio_build_id.py on every target build. The default is
  * reached only by the host test build, and means "no stamp", never a commit. */
@@ -556,7 +603,36 @@ typedef struct {
      * config_migrate.c NEVER carries it: an upgrade always lands with
      * autonomous heating off, whatever the old record said. */
     uint16_t heater_rh_consent;       /* 40 */
-    uint8_t  reserved3[2];            /* 42 */
+    /* PERSISTENT TIP-TEMPERATURE SETPOINT MODE, registers 0x0049..0x004A.
+     * Layout version 8. Appended for the same reason versions 6 and 7 were:
+     * every v7 offset above is untouched, so the migration is a zero-fill
+     * rather than a re-layout.
+     *
+     * The correct value of tip_setpoint_c100 for a probe that has never been
+     * given a target is exactly the sentinel, and the correct value of
+     * heater_tip_consent for a probe upgraded from a record that could not
+     * express consent is exactly zero - so both defaults fall out of the
+     * zero-fill, EXCEPT that 0 is a legal temperature and would mean "hold
+     * 0.00 C" rather than "off". config_migrate.c therefore writes the
+     * sentinel explicitly; see the note there.
+     *
+     * NOTE THIS TAKES OVER v7's reserved3[2] AT OFFSET 42 rather than being
+     * appended past it, because six bytes were all that remained. A v7 record
+     * therefore has ZEROS where this field now lives, and zero is a legal
+     * setpoint meaning "hold 0.00 C" - not "off". The migration must write the
+     * sentinel over it explicitly; a plain prefix copy would silently arm a
+     * temperature loop on every upgraded probe. */
+    int16_t  tip_setpoint_c100;       /* 42 */
+    /* Only O2P_HEATER_TIP_CONSENT_MAGIC permits the autonomous tip loop to
+     * drive the ring. NEVER carried across a migration, exactly like
+     * heater_rh_consent: an upgrade always lands with autonomous temperature
+     * heating off, whatever the old record said. */
+    uint16_t heater_tip_consent;      /* 44 */
+    /* Explicit, not implicit. The struct aligns to 4 for cal_air_na/cal_zero_na,
+     * so without this the compiler pads to 48 anyway and the next field appended
+     * here would silently land on tail padding a previous version had left
+     * uninitialised. Naming it keeps every byte of the record accounted for. */
+    uint8_t  reserved4[2];            /* 46 */
 } o2p_config_t;
 /* The record wrapper in config_flash.h is a fixed 64 bytes and pads to it, so
  * growing this struct spends the record's RESERVED TAIL rather than the frame.
@@ -569,7 +645,14 @@ typedef struct {
  * would have made the version-specific length look like dead code to anyone
  * tidying up. Corrected after review, 2026-09-08. Pinned so a field added without checking the
  * arithmetic fails to compile instead of shifting every offset by two. */
-_Static_assert(sizeof(o2p_config_t) == 44u, "config layout is 44 bytes");
+_Static_assert(sizeof(o2p_config_t) == 48u, "config layout is 48 bytes");
+/* The record is 64 bytes: 12 of header, the configuration, then a 2-byte
+ * CRC. Exceeding this silently shrinks config_flash.h's reserved tail to
+ * zero and then past it, so assert the headroom here where the struct is
+ * edited rather than discovering it as a confusing error in another file. */
+_Static_assert(sizeof(o2p_config_t) <= 50u,
+               "config must leave room for the 12-byte header and 2-byte CRC "
+               "inside CONFIG_RECORD_SIZE = 64");
 /* v7 grew it 40 -> 44 (heater_rh_consent plus its padding), so the CRC moves
  * again, 52 -> 56, and the fixed 64-byte record's reserved tail shrinks from
  * 10 bytes to 6. Both still fit, and the version-specific size arithmetic in
