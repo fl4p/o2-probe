@@ -1330,9 +1330,10 @@ Three things that are easy to get wrong:
    by the bias telemetry, so the old cross-check against AIN2 no longer exists.
    Each source impedance (5 kΩ and 8.9 kΩ) needs the longest sampling time;
    C33 and C32 are the reservoirs that make that work.
-5. Air point after ≥15 minutes settled: expect 0.07 ± 0.03 mA, i.e. ~490 mV
-   across the 7 kΩ TIA. Write `0xCA11` to `CAL_TRIGGER`, then `0x5AC1` to
-   `COMMIT`.
+5. Air point after ≥15 minutes settled: expect 0.1 ± 0.03 mA, i.e. ~700 mV
+   across the 7 kΩ TIA. That is DS-0637 **Issue 2**; Issue 1's 0.07 mA is
+   superseded, and a cell measured against it looks 43 % hot. Write `0xCA11`
+   to `CAL_TRIGGER`, then `0x5AC1` to `COMMIT`.
 6. Nitrogen zero: < 0.4 %vol per DS-0637.
 7. **Resolve the cell sign convention** from the air/N₂ pair — this closes
    `SCHEMATIC-REVIEW.md` M4.
