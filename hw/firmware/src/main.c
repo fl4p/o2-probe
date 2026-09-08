@@ -196,6 +196,7 @@ typedef enum {
     PH_O2,         /* ADS1119 AIN0, O2P_N_O2 conversions */
     PH_WE,         /* ADS1119 AIN2, WE_BUF */
     PH_RE,         /* ADS1119 AIN3, RE_BUF */
+    PH_TAFE,       /* LMP91000 die temperature, on AIN0 in OP_MODE 111 */
     PH_PUBLISH,
 } phase_t;
 
@@ -629,6 +630,36 @@ static void finish_electrode(o2p_snapshot_t *s, bool working)
     }
 }
 
+/* LMP91000 die temperature from the AIN0 accumulation taken while OP_MODE was
+ * 111. Everything about this is the same as an electrode read except what the
+ * pin is carrying, so the same three refusals apply: a clipped converter, a
+ * VREF outside the trim band (these volts are scaled BY it), and a negative
+ * code, which single-ended mode cannot legitimately produce.
+ *
+ * There is no plausibility check on the resulting temperature, deliberately.
+ * The oxygen channel's own swing decodes to a believable 72-77 C, so any
+ * window wide enough to accept real readings also accepts a failed mode
+ * switch. The mode readback in o2p_lmp91000_temp_enter() is the check; adding
+ * a second one here that cannot discriminate would only look like defence. */
+static void finish_t_afe(o2p_snapshot_t *s)
+{
+    if (g_acc_clipped || (g_cyc.faults & O2P_F_ADC_RANGE) != 0u) {
+        return;
+    }
+    int32_t code = g_acc / (int32_t)O2P_N_CELL;
+    if (code < 0) {
+        return;
+    }
+    int32_t mv = o2p_ads1119_code_to_uv(code, g_cyc.vref_mv) / 1000;
+    if (mv < 0 || mv > 65534) {
+        return;
+    }
+    int16_t c100 = 0;
+    if (o2p_lmp_temp_c100_from_mv((uint16_t)mv, &c100)) {
+        s->t_afe = c100;
+    }
+}
+
 static void finish_o2(o2p_snapshot_t *s)
 {
     if ((g_cyc.faults & O2P_FAULTS_ADS_NO_CONVERSION) != 0u) {
@@ -945,6 +976,43 @@ static bool sampler_step(void)
     case PH_RE:
         if (accumulate(O2P_ADS_MUX_AIN3_AGND, O2P_ADS_DR_90SPS, true, O2P_N_CELL)) {
             finish_electrode(s, false);
+            g_phase = PH_TAFE; g_sub = 0; g_acc = 0; g_acc_clipped = false;
+        }
+        break;
+
+    /* LAST, and after PH_O2 has frozen its verdict into faults_at_o2.
+     *
+     * For the length of this phase VOUT carries the die temperature instead of
+     * the TIA output, so AIN0 is not oxygen. Putting it here means no oxygen
+     * conversion can overlap the window: this cycle's reading was taken and
+     * closed several phases ago, and the next cycle begins with phase_afe(),
+     * whose MODECN readback is exactly what catches a mode this failed to
+     * restore. So the recovery path already exists and is not duplicated here.
+     *
+     * OP_MODE 111 leaves the TIA powered, so the cell is never unbiased and
+     * none of this costs the DS-0637 settling penalty. */
+    case PH_TAFE:
+        if (g_sub == 0u) {
+            o2p_lmp_status_t tst = o2p_lmp91000_temp_enter();
+            if (tst != O2P_LMP_OK) {
+                /* Diagnostic channel: it may fail without taking oxygen with
+                 * it. T_AFE simply stays at its invalid sentinel - an
+                 * unreadable temperature is not a temperature. */
+                if (tst == O2P_LMP_IO) {
+                    g_cyc.faults |= O2P_F_I2C_FAIL_LMP;
+                }
+                g_phase = PH_PUBLISH;
+                break;
+            }
+        }
+        if (accumulate(O2P_ADS_MUX_AIN0_AGND, O2P_ADS_DR_90SPS, true, O2P_N_CELL)) {
+            finish_t_afe(s);
+            if (o2p_lmp91000_temp_exit() != O2P_LMP_OK) {
+                /* VOUT may still be the sensor. Say so now rather than let the
+                 * next cycle be the first sign; phase_afe() does the actual
+                 * reconfiguration and settling decision. */
+                g_cyc.faults |= O2P_F_AFE_CONFIG_MISMATCH;
+            }
             g_phase = PH_PUBLISH;
         }
         break;

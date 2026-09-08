@@ -14,6 +14,7 @@
 #include "die_temp.h"
 #include "faults.h"
 #include "heater_ctl.h"
+#include "lmp91000.h"
 #include "modbus_pdu.h"
 #include "o2.h"
 #include "psychro.h"
@@ -4760,18 +4761,78 @@ static void test_the_isr_and_the_tested_state_machine_are_one(void)
         "reconfiguration discards the next valid frame");
 }
 
+/* ---- LMP91000 die temperature, SNAS506I Table 1 --------------------------
+ *
+ * The anchors below are ROWS OF TABLE 1, transcribed, not values produced by
+ * the implementation and then blessed. That is the whole point: the fit is
+ * only worth anything if it is pinned to the datasheet rather than to itself.
+ * Endpoints and the operating band; the full 126-row sweep was run offline
+ * and its worst cases are the two tolerances asserted here. */
+static void test_afe_die_temperature_follows_the_datasheet_table(void)
+{
+    int16_t c100 = 0;
+
+    /* 0..85 C, the band this register is for: within 0.41 C of the table. */
+    const struct { uint16_t mv; int16_t c; } hot[] = {
+        { 1560,  0 }, { 1359, 25 }, { 1154, 50 }, { 920, 78 }, { 861, 85 },
+    };
+    for (unsigned i = 0; i < sizeof hot / sizeof hot[0]; i++) {
+        TEST_ASSERT_TRUE(o2p_lmp_temp_c100_from_mv(hot[i].mv, &c100));
+        TEST_ASSERT_INT16_WITHIN(41, (int16_t)(hot[i].c * 100), c100);
+    }
+
+    /* The cold end is EXTRAPOLATION and the header says so. Assert the real
+     * error, so that a later "improvement" to the coefficients cannot quietly
+     * make the cold end worse than documented. */
+    TEST_ASSERT_TRUE(o2p_lmp_temp_c100_from_mv(1875u, &c100));
+    TEST_ASSERT_INT16_WITHIN(212, -4000, c100);
+
+    /* Outside the specified VOUT window nothing is written, and the caller's
+     * variable keeps whatever it held - an unevaluable input is not a
+     * temperature and must not be reported as one. */
+    c100 = 0x5A5A;
+    TEST_ASSERT_FALSE(o2p_lmp_temp_c100_from_mv(1876u, &c100));
+    TEST_ASSERT_EQUAL_HEX16(0x5A5A, (uint16_t)c100);
+    TEST_ASSERT_FALSE(o2p_lmp_temp_c100_from_mv(860u, &c100));
+    TEST_ASSERT_EQUAL_HEX16(0x5A5A, (uint16_t)c100);
+    TEST_ASSERT_FALSE(o2p_lmp_temp_c100_from_mv(1359u, NULL));
+
+    /* Monotonic: more millivolts is colder, with no fold-back anywhere in the
+     * window. A sign slip in the integer form would still pass the anchors. */
+    int16_t prev = 32767;
+    for (uint16_t mv = 861u; mv <= 1875u; mv++) {
+        TEST_ASSERT_TRUE(o2p_lmp_temp_c100_from_mv(mv, &c100));
+        TEST_ASSERT_TRUE(c100 < prev);
+        prev = c100;
+    }
+
+    /* 110 would read the same sensor with the TIA off, unbiasing the cell and
+     * costing the DS-0637 settling penalty. It must be 111. */
+    TEST_ASSERT_EQUAL_HEX8(0x07u, O2P_LMP_MODECN_TEMP);
+
+    /* The hazard the mode readback exists for: the oxygen channel's own swing
+     * decodes as a perfectly plausible temperature, so no value check can
+     * stand in for verifying MODECN. Pin it, so nobody later "hardens" this
+     * with a range test and believes it did something. */
+    TEST_ASSERT_TRUE(o2p_lmp_temp_c100_from_mv(934u, &c100));
+    TEST_ASSERT_TRUE(c100 > 7000 && c100 < 8000);
+    TEST_ASSERT_TRUE(o2p_lmp_temp_c100_from_mv(965u, &c100));
+    TEST_ASSERT_TRUE(c100 > 7000 && c100 < 8000);
+}
+
 static void test_the_wire_version_tracks_the_wire_contract(void)
 {
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    TEST_ASSERT_EQUAL_HEX16(0x0007u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x0008u, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_UINT16(25u, O2P_REG_CONFIG_COUNT);
-    /* 0x0007: config block grew with HEATER_RH_CONSENT.
+    /* 0x0008: diag block grew with T_AFE, the LMP91000 die temperature.
+     * 0x0007: config block grew with HEATER_RH_CONSENT.
      * 0x0006: the raw channel stopped going silent for 900 s after a reset. */
     TEST_ASSERT_TRUE((O2P_FAULTS_INVALIDATE_O2 & O2P_F_SETTLING) == 0u);
     TEST_ASSERT_TRUE((O2P_FAULTS_INVALIDATE_O2_COMP & O2P_F_SETTLING) != 0u);
-    TEST_ASSERT_EQUAL_UINT16(28u, O2P_REG_DIAG_COUNT);
+    TEST_ASSERT_EQUAL_UINT16(29u, O2P_REG_DIAG_COUNT);
     /* 0x0004: the heater test block appeared at an address that previously
      * answered exception 02, and the heater became drivable at all. */
     TEST_ASSERT_EQUAL_UINT16(5u, O2P_REG_HTEST_COUNT);
@@ -5070,6 +5131,7 @@ int main(void)
     RUN_TEST(test_a_v5_record_with_an_absurd_cal_temp_drops_the_air_point);
     RUN_TEST(test_runaway_sees_heat_under_a_low_commanded_duty);
     RUN_TEST(test_the_isr_and_the_tested_state_machine_are_one);
+    RUN_TEST(test_afe_die_temperature_follows_the_datasheet_table);
     RUN_TEST(test_the_wire_version_tracks_the_wire_contract);
     RUN_TEST(test_cell_current_is_the_departure_from_the_internal_zero);
     RUN_TEST(test_cell_current_keeps_its_sign);

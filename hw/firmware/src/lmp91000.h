@@ -26,6 +26,7 @@
 #define O2P_LMP91000_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 enum {
@@ -64,6 +65,35 @@ enum {
  * would trigger the 15-minute settling penalty every time. */
 #define O2P_LMP_MODECN_INTENDED ((uint8_t)0x03u)
 
+/* OP_MODE 111 - temperature measurement with the TIA STILL ON.
+ *
+ * 110 offers the same reading with the TIA off and must never be used here:
+ * dropping the TIA unbiases the cell, and DS-0637 Note 1 then costs up to
+ * FIFTEEN MINUTES of settling. 111 leaves the potentiostat running and merely
+ * re-routes what VOUT carries (SNAS506I 7.6.5): the temperature appears on
+ * VOUT while the TIA output moves to pin C2.
+ *
+ * On this board C2 is only the external filter connector - it goes to no
+ * converter - so for as long as this mode is set THERE IS NO OXYGEN READING.
+ * The window must be short and no cell conversion may be attributed to it. */
+#define O2P_LMP_MODECN_TEMP     ((uint8_t)0x07u)
+
+/* SNAS506I 6.5: the sensor needs 1.9 ms after the mode is entered. */
+#define O2P_LMP_TEMP_SETTLE_MS  3u
+
+/* VOUT window the sensor is specified over, from the Table 1 endpoints:
+ * 1875 mV at -40 C down to 861 mV at +85 C. Outside it the reading is not a
+ * temperature.
+ *
+ * THIS IS NOT A SUBSTITUTE FOR THE MODE READBACK, and must never be used as
+ * one. The oxygen channel swings roughly 930-970 mV on this cell, which sits
+ * INSIDE this window and decodes as a perfectly plausible 72-77 C. So a mode
+ * switch that silently failed would be caught by nothing here. Only the
+ * MODECN readback separates the two, which is why both entering and leaving
+ * the mode verify it and why a failure invalidates rather than estimates. */
+#define O2P_LMP_TEMP_MV_MAX     1875u   /* -40 C */
+#define O2P_LMP_TEMP_MV_MIN      861u   /* +85 C */
+
 typedef enum {
     O2P_LMP_OK = 0,
     O2P_LMP_IO,
@@ -79,6 +109,57 @@ o2p_lmp_status_t o2p_lmp91000_configure(void);
  * for the diagnostic register, so a mismatch can be diagnosed remotely from
  * a buried probe rather than guessed at. */
 o2p_lmp_status_t o2p_lmp91000_verify(uint16_t *out_readback);
+
+/* Route VOUT to the die temperature sensor, and back.
+ *
+ * Both READ MODECN BACK and report MISMATCH if the part did not take the
+ * change - see O2P_LMP_TEMP_MV_MAX for why a value check cannot stand in for
+ * this. A caller that gets anything but O2P_LMP_OK from _enter() must not
+ * convert AIN0 as a temperature; one that gets anything but O2P_LMP_OK from
+ * _exit() is left with VOUT possibly still on the sensor, so it must
+ * invalidate the oxygen channel rather than publish the next conversion.
+ *
+ * _enter() also spends O2P_LMP_TEMP_SETTLE_MS, so the caller does not have
+ * to know the part's power-on time. */
+o2p_lmp_status_t o2p_lmp91000_temp_enter(void);
+o2p_lmp_status_t o2p_lmp91000_temp_exit(void);
+
+/* Table 1 (SNAS506I 7.3.1.5) is a 126-row lookup from -40 to +85 C. This is a
+ * least-squares fit over its 0..85 C rows, the range this probe measures in:
+ *
+ *     V(mV) = 1563.42 - 8.2236 * T(C)
+ *
+ * whose slope is exactly the -8.2 mV/C the datasheet quotes as Sensitivity,
+ * and which reproduces every row in that span to within 0.41 C.
+ *
+ * The fit is deliberately taken over 0..85 rather than the full table. This
+ * register exists to measure the AFE while the ring heater is running, so
+ * DIFFERENTIAL accuracy across 20..85 C is what it is for, and a fit over the
+ * whole -40..85 span would trade that away to serve temperatures this probe
+ * does not operate the heater at. The cost is at the cold end: extrapolating
+ * below 0 C reaches 2.12 C of error at -40 - checked against every one of
+ * Table 1's 126 rows, not asserted. That is still inside the sensor's own +/-3
+ * C Temperature Error, so one line covers the specified window, but a caller
+ * wanting absolute accuracy in the cold should not read this as 0.41 C.
+ *
+ * Returns false - and writes nothing - outside the specified VOUT window. */
+static inline bool o2p_lmp_temp_c100_from_mv(uint16_t mv, int16_t *out_c100)
+{
+    if (out_c100 == NULL) {
+        return false;
+    }
+    if (mv > O2P_LMP_TEMP_MV_MAX || mv < O2P_LMP_TEMP_MV_MIN) {
+        return false;
+    }
+    /* c100 = (1563.42 - mv) * 100 / 8.2236, in integer arithmetic. */
+    int64_t num = (int64_t)(156342 - (int32_t)mv * 100) * 10000;
+    int32_t c100 = (int32_t)(num / 82236);
+    if (c100 < -32767 || c100 > 32767) {
+        return false;
+    }
+    *out_c100 = (int16_t)c100;
+    return true;
+}
 
 void o2p_lmp91000_gpio_init(void);
 

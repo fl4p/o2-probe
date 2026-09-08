@@ -731,7 +731,7 @@ fault, not like anoxia.
 convention as an open release gate, and the bench air-versus-nitrogen pair is
 what settles it. Firmware that took an absolute value would hide the answer.
 
-### Diagnostic block — `0x0010`, 28 registers, read-only
+### Diagnostic block — `0x0010`, 29 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
 0.01 K), `PRESSURE_HPA` (0 — BMP390 is DNP), `UPTIME_HI/LO`, `FW_VERSION`,
@@ -794,6 +794,32 @@ then two that exist because supervision here is *sampled*, not continuous:
   It sits at `0x002A` rather than beside the other status registers because
   `0x0022`..`0x0029` are a published contract the ChirpStack decoder already
   parses — a status word inside that range would decode as a die temperature.
+- `T_AFE` `0x002C` — LMP91000 die temperature, i16 0.01 °C, `0x8000` invalid.
+  The AFE's own silicon, and the only register that reports it. `T_DIE`
+  (`0x0022`) is the MCU, at the other end of the board: on 2026-09-08, with
+  the ring heater holding `T_TIP` at 78.00 °C, the MCU die sat at 49 °C — a
+  29 K gradient across one PCB — so neither `T_TIP` nor `T_DIE` is the AFE's
+  temperature.
+
+  It matters because the published cell current is
+  `(0.67·VREF − VOUT)/R_TIA` with `R_TIA` a hardcoded 7000 Ω, and SNAS506I
+  specifies that resistor's **accuracy** (5 %) while publishing no temperature
+  coefficient for it and no gain-versus-temperature curve — checked against
+  Rev I, whose 35 figures contain neither. Every other term in the chain is
+  bounded and small: the ADS1119 contributes at most 2 ppm/K of gain drift
+  (SBAS925A), `TcVOS_RW` is 6–7 µV/K at this bias, and VREF cancels because
+  the internal zero and the ADC reference are the same rail. `R_TIA` is the
+  single uncharacterised term, and it drifts with *this* temperature. A
+  tempco fitted against `T_TIP` therefore contains the AFE's drift scaled by
+  whatever fraction of the tip's excursion the AFE actually saw; this
+  register is what measures that fraction.
+
+  Sampled in its own phase after the electrodes, with the part in `OP_MODE`
+  111 — temperature on VOUT, TIA still powered, so the cell is never unbiased
+  and the DS-0637 settling penalty is never incurred. Both the entry and the
+  exit verify the `MODECN` readback, because the oxygen channel's own swing
+  (930–970 mV) decodes as a plausible 72–77 °C: no value check can tell a
+  failed mode switch from a real reading, only the readback can.
 - `CAL_STATE` `0x002B` — calibration completeness, a bitfield: bit 0 the air
   point is the datasheet nominal rather than a measurement, bit 1 no zero
   point has ever been taken. A register rather than two fault bits because the

@@ -243,7 +243,7 @@ an air-point calibration is never bridged, because a permanent constant gets a
 humidity measured in its own cycle or none at all. Full argument, bench evidence
 and test vectors: `O2-HUMIDITY-CORRECTION.md`.
 
-### Diagnostic block, `0x0010`, 28 registers, read-only
+### Diagnostic block, `0x0010`, 29 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
 0.01 K), `PRESSURE_HPA` (0 - the BMP390 option is deleted), `UPTIME_HI/LO`, `FW_VERSION`,
@@ -265,6 +265,18 @@ its high byte and the last flash store in its low byte: 0 none, 1 pending,
 never that the calibration was taken or that it reached flash; this register is
 what separates those. Each byte latches until its own command is issued again.
 
+
+`T_AFE` (`0x002C`) is the LMP91000's own die temperature, i16 0.01 C, `0x8000`
+invalid - the only register that reports the AFE's silicon. It is not `T_DIE`
+and not `T_TIP`: on 2026-09-08, with the ring heater holding `T_TIP` at
+78.00 C, the MCU die sat at 49 C, a 29 K gradient across one board. The
+published cell current is `(0.67*VREF - VOUT)/R_TIA` with `R_TIA` hardcoded at
+7000 ohm, and SNAS506I gives that resistor an accuracy but no tempco and no
+gain-versus-temperature curve, so it is the one uncharacterised term in the
+chain - and it drifts with this temperature, not with the tip's. Sampled in
+`OP_MODE` 111, which keeps the TIA powered so the cell is never unbiased;
+entry and exit both verify the `MODECN` readback, because the oxygen swing
+decodes as a plausible 72-77 C and no value check could tell them apart.
 
 `T_DIE` (`0x0022`) is the MCU die temperature, i16 0.01 C, `0x8000` invalid.
 Not ambient and not part of the oxygen path - it is the silicon, self-heating

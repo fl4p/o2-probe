@@ -63,7 +63,7 @@ enum {
  * barometer, so P comes from ASSUMED_P_HPA (0x0042).
  * Argument and evidence: O2-HUMIDITY-CORRECTION.md. */
 
-/* ---- Diagnostic block: 0x0010, 26 registers, read-only ---- */
+/* ---- Diagnostic block: 0x0010, O2P_REG_DIAG_COUNT registers, read-only ---- */
 enum {
     O2P_REG_VREF_MON_MV  = 0x0010u,
     O2P_REG_VA_MON_MV    = 0x0011u,
@@ -174,9 +174,33 @@ enum {
      * outright and made a probe useless until someone carried nitrogen to the
      * pile, for an error bounded at 0.4 %vol. */
     O2P_REG_CAL_STATE       = 0x002Bu,
+    /* LMP91000 die temperature, i16 0.01 C, 0x8000 invalid.
+     *
+     * This is the AFE's OWN silicon, and it is the only thing on the board
+     * that reports it. T_DIE (0x0022) is the MCU, at the other end of the
+     * PCB: on 2026-09-08, with the ring heater holding T_TIP at 78.00 C, the
+     * MCU die sat at 49 C - a 29 K gradient across one board. So neither
+     * T_TIP nor T_DIE is the AFE's temperature, and until this register
+     * existed nothing measured it.
+     *
+     * Why it is worth a register. The published cell current is
+     * (0.67*VREF - VOUT)/R_TIA with R_TIA a hardcoded 7000 (sampler_logic.h),
+     * and SNAS506I specifies that resistor's ACCURACY (5 %) but publishes no
+     * temperature coefficient for it and no gain-versus-temperature curve -
+     * checked against Rev I, whose 35 figures contain neither. Everything
+     * else in the chain is bounded and small: the ADS1119 contributes 2
+     * ppm/K of gain drift MAX (SBAS925A), TcVOS_RW is 6-7 uV/K at this bias,
+     * and VREF cancels because the internal zero and the ADC reference are
+     * the same rail. R_TIA is the one uncharacterised term, and it drifts
+     * with THIS temperature, not with T_TIP.
+     *
+     * So a tempco fitted against T_TIP silently contains the AFE's drift
+     * scaled by however much of the tip's excursion the AFE actually saw.
+     * That fraction is what this register measures. */
+    O2P_REG_T_AFE           = 0x002Cu,
 };
 #define O2P_REG_DIAG_BASE  0x0010u
-#define O2P_REG_DIAG_COUNT 28u
+#define O2P_REG_DIAG_COUNT 29u
 
 /* Per-command status byte. Not a bitfield: these are exclusive states of one
  * command, and a bitfield invites "OK and FAILED" to coexist. */
@@ -439,7 +463,7 @@ enum {
  *
  * For "which build is this", read BUILD_ID (0x0028/0x0029) - this number is
  * hand-maintained and says nothing about the binary. */
-#define O2P_FW_VERSION 0x0007u  /* v0.7 - autonomous heating needs consent */
+#define O2P_FW_VERSION 0x0008u  /* v0.8 - diag block grew with T_AFE */
 
 /* Overridden by tools/pio_build_id.py on every target build. The default is
  * reached only by the host test build, and means "no stamp", never a commit. */
@@ -558,6 +582,7 @@ typedef struct {
     uint16_t settle_restarts;
     uint16_t sample_seq;
     int16_t  t_die;
+    int16_t  t_afe;
     uint16_t faults_ever;
     uint16_t ads_fail_count;
     uint16_t we_buf_mv;
