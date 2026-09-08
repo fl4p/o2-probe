@@ -18,6 +18,7 @@
 #include "o2.h"
 #include "psychro.h"
 #include "regmap.h"
+#include "tmp117.h"
 
 static o2p_regmap_t rm;
 static o2p_mb_handlers_t handlers;
@@ -2981,6 +2982,135 @@ static void test_an_unrecoverable_alpha_refuses_rather_than_inventing(void)
     TEST_ASSERT_UINT16_WITHIN(2u, 20840u, rm.cfg.cal_air_frac_x1000);
 }
 
+/* ---- CMD_RESULT and the calibrate/commit ordering, 2026-09-08 ---- */
+
+static uint16_t read_cmd_result(o2p_regmap_t *r)
+{
+    uint8_t req[32], rsp[O2P_MB_MAX_ADU];
+    o2p_mb_handlers_t h = {.read = o2p_regmap_read, .write = o2p_regmap_write,
+                           .ctx = r};
+    const uint8_t rd[] = {0x03, 0x03, 0x00, 0x2A, 0x00, 0x01};
+    size_t n = framed(req, rd, sizeof(rd));
+    size_t rn = o2p_mb_dispatch(req, n, 3, &h, rsp);
+    TEST_ASSERT_TRUE_MESSAGE(rn > 0, "CMD_RESULT must be readable over Modbus");
+    TEST_ASSERT_EQUAL_HEX8(0x03, rsp[1]);
+    return (uint16_t)((rsp[3] << 8) | rsp[4]);
+}
+
+static uint8_t write_cal_commit(o2p_regmap_t *r, bool cal, bool commit)
+{
+    uint8_t req[64], rsp[O2P_MB_MAX_ADU];
+    o2p_mb_handlers_t h = {.read = o2p_regmap_read, .write = o2p_regmap_write,
+                           .ctx = r};
+    uint16_t cv = cal ? O2P_CAL_MAGIC : 0u;
+    uint16_t mv = commit ? O2P_COMMIT_MAGIC : 0u;
+    uint8_t w[] = {0x03, 0x10, 0x00, O2P_REG_CAL_TRIGGER & 0xFF, 0x00, 0x02, 0x04,
+                   (uint8_t)(cv >> 8), (uint8_t)(cv & 0xFF),
+                   (uint8_t)(mv >> 8), (uint8_t)(mv & 0xFF)};
+    size_t n = framed(req, w, sizeof(w));
+    size_t rn = o2p_mb_dispatch(req, n, 3, &h, rsp);
+    TEST_ASSERT_TRUE(rn > 0);
+    return rsp[1];
+}
+
+static void test_cmd_result_reads_none_before_any_command(void)
+{
+    /* An untouched result register that read OK would be worse than none: a
+     * commissioning script polling it would pass before it ever wrote a
+     * trigger. */
+    o2p_regmap_t r;
+    o2p_regmap_init(&r);
+    uint16_t v = read_cmd_result(&r);
+    TEST_ASSERT_EQUAL_UINT8(O2P_CMD_NONE, O2P_CMD_RESULT_CAL(v));
+    TEST_ASSERT_EQUAL_UINT8(O2P_CMD_NONE, O2P_CMD_RESULT_COMMIT(v));
+}
+
+static void test_calibrate_and_save_defers_the_commit(void)
+{
+    /* The whole point: nothing reaches flash before the air point is taken.
+     * Previously both flags were raised together and the main loop serviced
+     * commit_pending as soon as the reply was off the wire, storing the
+     * PRE-calibration image while the master had a success for both. */
+    o2p_regmap_t r;
+    o2p_regmap_init(&r);
+    TEST_ASSERT_EQUAL_HEX8(0x10, write_cal_commit(&r, true, true));
+
+    TEST_ASSERT_TRUE(r.cal_requested);
+    TEST_ASSERT_TRUE(r.commit_after_cal);
+    TEST_ASSERT_FALSE_MESSAGE(r.commit_pending,
+        "a co-requested commit must not be armed before the calibration");
+
+    uint16_t v = read_cmd_result(&r);
+    TEST_ASSERT_EQUAL_UINT8(O2P_CMD_PENDING, O2P_CMD_RESULT_CAL(v));
+    TEST_ASSERT_EQUAL_UINT8(O2P_CMD_PENDING, O2P_CMD_RESULT_COMMIT(v));
+}
+
+static void test_a_later_commit_frame_also_waits_for_a_pending_cal(void)
+{
+    /* The DOCUMENTED procedure is two frames - write CAL_TRIGGER, then
+     * COMMIT - so fixing only the one-frame case would have left the
+     * documented path storing the pre-calibration image. */
+    o2p_regmap_t r;
+    o2p_regmap_init(&r);
+    write_cal_commit(&r, true, false);
+    TEST_ASSERT_TRUE(r.cal_requested);
+
+    write_cal_commit(&r, false, true);
+    TEST_ASSERT_TRUE(r.commit_after_cal);
+    TEST_ASSERT_FALSE(r.commit_pending);
+}
+
+static void test_a_commit_on_its_own_is_not_deferred(void)
+{
+    o2p_regmap_t r;
+    o2p_regmap_init(&r);
+    write_cal_commit(&r, false, true);
+    TEST_ASSERT_TRUE(r.commit_pending);
+    TEST_ASSERT_FALSE(r.commit_after_cal);
+}
+
+static void test_a_commit_outcome_never_clobbers_the_cal_outcome(void)
+{
+    /* Both halves share one 16-bit word, so a packed write is exactly how a
+     * commit result would overwrite a calibration still outstanding - and a
+     * master polling for "not PENDING" would stop one command early. */
+    o2p_regmap_t r;
+    o2p_regmap_init(&r);
+    o2p_regmap_set_cal_result(&r, O2P_CMD_PENDING);
+    o2p_regmap_set_commit_result(&r, O2P_CMD_FAILED);
+
+    uint16_t v = read_cmd_result(&r);
+    TEST_ASSERT_EQUAL_UINT8(O2P_CMD_PENDING, O2P_CMD_RESULT_CAL(v));
+    TEST_ASSERT_EQUAL_UINT8(O2P_CMD_FAILED, O2P_CMD_RESULT_COMMIT(v));
+
+    o2p_regmap_set_cal_result(&r, O2P_CMD_OK);
+    v = read_cmd_result(&r);
+    TEST_ASSERT_EQUAL_UINT8(O2P_CMD_OK, O2P_CMD_RESULT_CAL(v));
+    TEST_ASSERT_EQUAL_UINT8(O2P_CMD_FAILED, O2P_CMD_RESULT_COMMIT(v));
+}
+
+static void test_cmd_result_sits_outside_the_published_decoder_block(void)
+{
+    /* 0x0022..0x0029 are parsed by the ChirpStack decoder as T_DIE,
+     * FAULTS_EVER, ADS_FAIL_COUNT, the cell buffers and BUILD_ID. A status
+     * word inside that range would decode as a die temperature - a plausible
+     * number from the wrong register. */
+    TEST_ASSERT_TRUE(O2P_REG_CMD_RESULT > O2P_REG_BUILD_ID_LO);
+    TEST_ASSERT_EQUAL_HEX16(0x002A, O2P_REG_CMD_RESULT);
+    /* And it must be inside the block a single FC03 can reach. */
+    TEST_ASSERT_TRUE(O2P_REG_CMD_RESULT <
+                     O2P_REG_DIAG_BASE + O2P_REG_DIAG_COUNT);
+}
+
+static void test_tmp117_rejects_a_reading_outside_the_rating(void)
+{
+    /* The old bound was (c100 > 32767 || c100 < -32768) on a value whose
+     * image is -25600..25599 - tautologically false, so every word the
+     * register could hold was accepted as a temperature. */
+    TEST_ASSERT_TRUE(O2P_TMP117_MAX_C100 < 25599);
+    TEST_ASSERT_TRUE(O2P_TMP117_MIN_C100 > -25600);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -3084,5 +3214,12 @@ int main(void)
     RUN_TEST(test_runaway_die_path_does_not_false_positive_at_rest);
     RUN_TEST(test_runaway_references_are_independent);
     RUN_TEST(test_runaway_without_any_reference_is_unevaluable_not_ok);
+    RUN_TEST(test_cmd_result_reads_none_before_any_command);
+    RUN_TEST(test_calibrate_and_save_defers_the_commit);
+    RUN_TEST(test_a_later_commit_frame_also_waits_for_a_pending_cal);
+    RUN_TEST(test_a_commit_on_its_own_is_not_deferred);
+    RUN_TEST(test_a_commit_outcome_never_clobbers_the_cal_outcome);
+    RUN_TEST(test_cmd_result_sits_outside_the_published_decoder_block);
+    RUN_TEST(test_tmp117_rejects_a_reading_outside_the_rating);
     return UNITY_END();
 }

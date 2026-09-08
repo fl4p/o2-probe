@@ -150,9 +150,32 @@ enum {
      * the host test build. It is NOT reported as a commit. */
     O2P_REG_BUILD_ID_HI     = 0x0028u, /* u16, bits 31..16 */
     O2P_REG_BUILD_ID_LO     = 0x0029u, /* u16, bits 15..0  */
+    /* Outcome of the last CAL_TRIGGER (high byte) and the last COMMIT (low
+     * byte). A Modbus write is acknowledged when the REQUEST is accepted,
+     * which says nothing about whether the calibration was taken or whether
+     * it reached flash: a point is refused if the cell is still settling or
+     * the gas temperature is missing, and o2p_config_store()'s return value
+     * was discarded outright. All three looked like success from the bus, and
+     * a power cycle before the next cycle took the calibration with it.
+     *
+     * Placed at 0x002A, past BUILD_ID, because 0x0022..0x0029 are a PUBLISHED
+     * contract that the ChirpStack decoder already parses - putting a status
+     * word inside that range would decode as a die temperature. */
+    O2P_REG_CMD_RESULT      = 0x002Au,
 };
 #define O2P_REG_DIAG_BASE  0x0010u
-#define O2P_REG_DIAG_COUNT 26u
+#define O2P_REG_DIAG_COUNT 27u
+
+/* Per-command status byte. Not a bitfield: these are exclusive states of one
+ * command, and a bitfield invites "OK and FAILED" to coexist. */
+enum {
+    O2P_CMD_NONE    = 0u,
+    O2P_CMD_PENDING = 1u,
+    O2P_CMD_OK      = 2u,
+    O2P_CMD_FAILED  = 3u,
+};
+#define O2P_CMD_RESULT_CAL(v)    ((uint8_t)((v) >> 8))
+#define O2P_CMD_RESULT_COMMIT(v) ((uint8_t)((v) & 0xFFu))
 
 /* ---- Config block: 0x0030, 21 registers, read/write, flash-backed ---- */
 enum {
@@ -365,7 +388,16 @@ typedef struct {
     volatile bool serial_reconfig_pending;
     volatile bool commit_pending;
     volatile bool cal_requested;
+    /* Set when ONE FC16 asked for both a calibration and a commit, or when a
+     * COMMIT arrives while a calibration is still outstanding. The commit then
+     * waits for the point to be taken instead of racing it - otherwise flash
+     * stores the PRE-calibration image, the point lands in RAM only, and the
+     * master has a successful write acknowledging both. */
+    volatile bool commit_after_cal;
     volatile bool sht_pulse_requested;
+    /* Packed CMD_RESULT, see O2P_REG_CMD_RESULT. One 16-bit word so a Modbus
+     * reader never sees a half-updated pair. */
+    volatile uint16_t cmd_result;
 
     /* The firmware updater, or NULL. It is reached through the register map
      * because that is where a Modbus master reaches everything - but it is
@@ -377,6 +409,12 @@ typedef struct {
 } o2p_regmap_t;
 
 void o2p_regmap_init(o2p_regmap_t *rm);
+
+/* Record the outcome of a finished command. Separate setters rather than one
+ * packed write, so a commit result can never clobber a calibration result
+ * that is still PENDING. */
+void o2p_regmap_set_cal_result(o2p_regmap_t *rm, uint8_t status);
+void o2p_regmap_set_commit_result(o2p_regmap_t *rm, uint8_t status);
 
 /* Sampler side: get the buffer to fill, then publish it. */
 o2p_snapshot_t *o2p_regmap_staging(o2p_regmap_t *rm);

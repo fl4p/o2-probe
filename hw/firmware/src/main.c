@@ -642,10 +642,25 @@ static void finish_o2(o2p_snapshot_t *s)
          * humidity measured in this cycle or none at all. Bridging a 30 s gap
          * is right for a sample that will be superseded in a second and wrong
          * for a constant that every later reading divides by. */
-        if (o2p_o2_valid(g_cyc.faults) &&
-            o2p_calibrate_air(&g_cal, cell_na,
-                              (t_gas != O2P_I16_INVALID) ? t_gas : 2500,
-                              &fresh)) {
+        /* SETTLING is not in g_cyc.faults yet, so o2p_o2_valid() alone would
+         * accept an air point taken during the documented 15-minute post-bias
+         * settle - storing a transient current as the probe's permanent air
+         * constant, and invalidating the very sample it came from seconds
+         * later. Test the deadline directly. */
+        bool settled = (g_uptime_s >= g_settle_deadline_s);
+        /* And a calibration needs a MEASURED temperature, not a fallback one.
+         * The conversion may substitute cal_temp_c100 for a missing gas
+         * temperature - that only means "assume we are at the calibration
+         * temperature", which is recoverable. Storing a fabricated 25.00 C AS
+         * the calibration temperature is not: it becomes the permanent
+         * reference every later tempco correction is measured against, so a
+         * probe calibrated with both temperature sensors down carries a false
+         * reference for life while looking perfectly calibrated. Temperature
+         * faults are deliberately absent from the raw-O2 validity mask, so
+         * o2p_o2_valid() does not catch this. */
+        if (settled && t_gas != O2P_I16_INVALID &&
+            o2p_o2_valid(g_cyc.faults) &&
+            o2p_calibrate_air(&g_cal, cell_na, t_gas, &fresh)) {
             g_rm.cfg.cal_air_na = g_cal.cal_air_na;
             g_rm.cfg.cal_temp_c100 = g_cal.cal_temp_c100;
             /* Stored WITH the air point, never separately: a cal_air_na
@@ -655,6 +670,19 @@ static void finish_o2(o2p_snapshot_t *s)
             g_rm.cfg.cal_air_frac_x1000 =
                 (uint16_t)(g_cal.air_frac * 100000.0f + 0.5f);
             g_rm.cfg.cal_p_hpa = (uint16_t)(g_cal.cal_p_hpa + 0.5f);
+            o2p_regmap_set_cal_result(&g_rm, O2P_CMD_OK);
+        } else {
+            /* Every refusal below was previously indistinguishable from
+             * success on the bus. */
+            o2p_regmap_set_cal_result(&g_rm, O2P_CMD_FAILED);
+        }
+        /* A commit asked for alongside the calibration waits until here, so
+         * what reaches flash is the calibration the master was acknowledged
+         * for. Raised even when the point was refused: the operator asked for
+         * the live config to be persisted, and that is what it gets. */
+        if (g_rm.commit_after_cal) {
+            g_rm.commit_after_cal = false;
+            g_rm.commit_pending = true;
         }
         /* A refused calibration leaves the old constants in place. An air
          * point taken with the SHT45 down is refused here, not stored with an
@@ -992,7 +1020,13 @@ int main(void)
             }
             if (g_rm.commit_pending) {
                 g_rm.commit_pending = false;
-                (void)o2p_config_store(&g_rm.cfg);
+                /* The return value used to be discarded, so a failed erase or
+                 * program - a worn page, a brownout mid-write - left the
+                 * master believing the configuration was persisted while the
+                 * probe still ran from RAM. */
+                o2p_regmap_set_commit_result(
+                    &g_rm, o2p_config_store(&g_rm.cfg) ? O2P_CMD_OK
+                                                       : O2P_CMD_FAILED);
                 load_cal_from_config();
             }
 

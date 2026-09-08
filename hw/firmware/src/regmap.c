@@ -207,6 +207,18 @@ void o2p_snapshot_reset(o2p_snapshot_t *s)
     s->pressure_hpa = 0u;
 }
 
+void o2p_regmap_set_cal_result(o2p_regmap_t *rm, uint8_t status)
+{
+    rm->cmd_result = (uint16_t)(((uint16_t)status << 8) |
+                                O2P_CMD_RESULT_COMMIT(rm->cmd_result));
+}
+
+void o2p_regmap_set_commit_result(o2p_regmap_t *rm, uint8_t status)
+{
+    rm->cmd_result = (uint16_t)(((uint16_t)O2P_CMD_RESULT_CAL(rm->cmd_result) << 8) |
+                                status);
+}
+
 void o2p_regmap_init(o2p_regmap_t *rm)
 {
     memset(rm, 0, sizeof(*rm));
@@ -266,9 +278,14 @@ static uint16_t read_primary(const o2p_snapshot_t *s, uint16_t a)
     }
 }
 
-static uint16_t read_diag(const o2p_snapshot_t *s, uint16_t a)
+static uint16_t read_diag(const o2p_regmap_t *rm, const o2p_snapshot_t *s,
+                         uint16_t a)
 {
     switch (a) {
+    /* Command state, not sample state: it belongs to the regmap and must NOT
+     * be snapshotted, or an outcome would only become visible at the next
+     * publish. */
+    case O2P_REG_CMD_RESULT:    return rm->cmd_result;
     case O2P_REG_VREF_MON_MV:   return s->vref_mv;
     case O2P_REG_VA_MON_MV:     return s->va_mv;
     case O2P_REG_VIN_MON_MV:    return s->vin_mv;
@@ -358,7 +375,7 @@ uint8_t o2p_regmap_read(void *ctx, uint16_t addr, uint16_t count, uint16_t *out)
     }
     if (in_block(addr, count, O2P_REG_DIAG_BASE, O2P_REG_DIAG_COUNT)) {
         for (uint16_t i = 0; i < count; i++) {
-            out[i] = read_diag(s, (uint16_t)(addr + i));
+            out[i] = read_diag(rm, s, (uint16_t)(addr + i));
         }
         return 0u;
     }
@@ -575,11 +592,28 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
          * mid-frame and make the probe unreachable at both settings. */
         rm->serial_reconfig_pending = true;
     }
-    if (want_commit) {
-        rm->commit_pending = true;
-    }
+    /* "Calibrate and save" in ONE frame must mean exactly that, in that
+     * order. Both flags were raised at once, and the main loop services
+     * commit_pending as soon as the reply is off the wire - typically well
+     * before the next conversion reaches the air routine. Flash then stored
+     * the PRE-calibration image and the point landed in RAM only. The same
+     * hole existed for the DOCUMENTED two-frame procedure (write CAL_TRIGGER,
+     * then COMMIT), because a COMMIT-only frame did not notice the pending
+     * calibration. */
     if (want_cal) {
         rm->cal_requested = true;
+        o2p_regmap_set_cal_result(rm, O2P_CMD_PENDING);
+        if (want_commit) {
+            rm->commit_after_cal = true;
+            o2p_regmap_set_commit_result(rm, O2P_CMD_PENDING);
+        }
+    } else if (want_commit) {
+        if (rm->cal_requested) {
+            rm->commit_after_cal = true;
+        } else {
+            rm->commit_pending = true;
+        }
+        o2p_regmap_set_commit_result(rm, O2P_CMD_PENDING);
     }
     if (want_pulse) {
         rm->sht_pulse_requested = true;

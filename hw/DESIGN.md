@@ -243,13 +243,20 @@ an air-point calibration is never bridged, because a permanent constant gets a
 humidity measured in its own cycle or none at all. Full argument, bench evidence
 and test vectors: `O2-HUMIDITY-CORRECTION.md`.
 
-### Diagnostic block, `0x0010`, 26 registers, read-only
+### Diagnostic block, `0x0010`, 27 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
 0.01 K), `PRESSURE_HPA` (0 - the BMP390 option is deleted), `UPTIME_HI/LO`, `FW_VERSION`,
 `HW_REV`, `RESET_CAUSE`, `LMP_READBACK` (TIACN<<8 | REFCN as actually read),
 `MB_CRC_ERRS`, `MB_FRAME_ERRS`, `I2C_ERRS`, `EXP_DATA` (`0xFFFF` - J2 is deleted),
 `SETTLE_RESTARTS` (`0x0020`), `SAMPLE_SEQ` (`0x0021`).
+
+`CMD_RESULT` (`0x002A`) reports the outcome of the last calibration trigger in
+its high byte and the last flash store in its low byte: 0 none, 1 pending,
+2 OK, 3 failed. An acknowledged Modbus write means the REQUEST was accepted,
+never that the calibration was taken or that it reached flash; this register is
+what separates those. Each byte latches until its own command is issued again.
+
 
 `T_DIE` (`0x0022`) is the MCU die temperature, i16 0.01 C, `0x8000` invalid.
 Not ambient and not part of the oxygen path - it is the silicon, self-heating

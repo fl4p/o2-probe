@@ -610,7 +610,7 @@ fault, not like anoxia.
 convention as an open release gate, and the bench air-versus-nitrogen pair is
 what settles it. Firmware that took an absolute value would hide the answer.
 
-### Diagnostic block — `0x0010`, 26 registers, read-only
+### Diagnostic block — `0x0010`, 27 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
 0.01 K), `PRESSURE_HPA` (0 — BMP390 is DNP), `UPTIME_HI/LO`, `FW_VERSION`,
@@ -657,6 +657,22 @@ then two that exist because supervision here is *sampled*, not continuous:
   2026-09-07 install. Telemetry that exists to explain a number must not be
   able to move it.
 
+- `CMD_RESULT` `0x002A` — command outcomes, one byte each: the high byte for
+  the last calibration trigger, the low byte for the last commit.
+  `0` none, `1` pending, `2` OK, `3` failed.
+
+  A successful Modbus write only means the *request* was accepted. A
+  calibration is still refused if the cell is settling or the gas temperature
+  is missing, and a flash store can fail; all three used to look identical to
+  the master, and a power cycle before the next conversion took the
+  calibration with it. Commissioning is therefore: write `CAL_TRIGGER`
+  (and `COMMIT` in the same frame to persist), poll `CMD_RESULT` until neither
+  byte reads `1`, and require `2` in both before treating the probe as
+  calibrated. Each byte latches until that command is issued again.
+
+  It sits at `0x002A` rather than beside the other status registers because
+  `0x0022`..`0x0029` are a published contract the ChirpStack decoder already
+  parses — a status word inside that range would decode as a die temperature.
 - `BUILD_ID_HI` `0x0028`, `BUILD_ID_LO` `0x0029` — which binary is running.
   Bit 31 the working tree was dirty at build time, bits 30..28 reserved, bits
   27..0 the 7-hex-digit commit prefix. `FW_VERSION` cannot do this job: it is a
