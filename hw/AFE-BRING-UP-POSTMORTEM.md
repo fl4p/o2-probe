@@ -167,6 +167,62 @@ Worth a proper evaluation, because once the board is potted this is the *only*
 way to distinguish a dead cell from a dead AFE. It needs a real part with a
 real leakage number over temperature before it goes on a schematic.
 
+### 3.6 Split the THVD1410's /RE off DE — IMPLEMENTED in `gen_sch.py`, 2026-09-07
+
+Not an AFE ask, and not argued by this postmortem's failure. It is recorded
+here because §3 is where this project keeps its Rev B PCB asks, and because
+this one is **already in the generator** rather than still being asked for —
+whoever freezes the respin needs to know it is in the netlist, not on a wish
+list. It does not touch, contradict or reorder any of 3.1–3.5, all of which
+remain open on their own terms.
+
+`U5` pin 2 is `/RE` (receiver enable, **active low**, 2 MΩ internal pull-up)
+and pin 3 is `DE` (driver enable, **active high**, 2 MΩ internal pull-down).
+Rev A tied both to the single net `RS485_DE` on PC6, so the four-state part had
+two reachable states and the useful one — `/RE` high, `DE` low, 0.1 µA typ —
+was not among them. The receiver therefore burned **700 µA typ / 960 µA max**
+forever, 24 % of the board's idle draw (`POWER-BUDGET.md`).
+
+What changed in `gen_sch.py`:
+
+- `U5.2` moves to a new net `RS485_RE`;
+- `MCU_NETS` gains **pin 31 = PC7**, the package neighbour of PC6. Pin identity
+  taken from DS12232 Rev 1 Table 12 "Pin assignment and description", LQFP48
+  column — *not* from prose, per `PIN-IDENTITY-POSTMORTEM.md`. PC7's
+  "Additional functions" cell is empty, so it carries no ADC channel and cannot
+  collide with `mcu_adc.c`;
+- **`R45`, 47 k to GND on `RS485_RE`** — the part of this change that is
+  load-bearing for safety rather than for power. `/RE` floats *high* (deaf) on
+  its internal pull-up, and every MCU GPIO is high-impedance out of reset;
+  without R45 a probe that reset into the RS-485 bootloader would come up
+  unable to hear the bus, and a potted one would be unrecoverable. R45 makes
+  receiver-enabled the passive default exactly as **R7 makes driver-disabled
+  the passive default. R7 is untouched**, so `main.c`'s bus-jam argument — the
+  reset, plus R7's pull-down, is a release path that does not depend on this
+  CPU running code — still reads true word for word.
+
+**The saving is 630 µA, not 700 µA, and that is a property of R45.** Commanding
+standby means driving `/RE` high against 47 k, which is 3.3 V / 47 k = 70 µA.
+Standby is therefore ~70 µA, not the datasheet's 0.1 µA — a 10× cut on the
+transceiver, not 7000×. At the duty-cycled floor of ~29 µA in `POWER-BUDGET.md`
+R45 would be the largest single load on the board. 220 k (327 mV against a
+0.8 V V_IL, 15 µA) or 470 k (628 mV, 7 µA) buy that back at the cost of noise
+margin on an enable line TI's own guidance wants driven from 1–10 k.
+**That is a decision for Fab, and it is open**; 47 k is what is in the
+generator today because it is the house value and matches R7.
+
+Firmware: `board_pins.h` binds `O2P_RS485_RE_*` and asserts the net/pin pairing;
+`modbus_rtu.c` drives `/RE` exactly where the old shared net went high, so
+**runtime behaviour is unchanged**, and adds `o2p_modbus_rx_standby()` which
+**nothing calls** — the state is now reachable, wiring it into the sampler is a
+protocol decision (see `POWER-BUDGET.md` on unsolicited transmission).
+`loader_uart.c` and `bridge_uart.c` drive it too, for echo suppression only,
+and both return it low on every exit path.
+
+**Not done, and it is the gate on this being real hardware: the PCB.** `U5.2`
+is still shorted to `U5.3` in copper and PC7 is unrouted. This is a schematic +
+firmware change only.
+
 ## 4. Resolve before freezing a respin
 
 Two measurements from tonight remain unexplained, and both sit on the ADC path:

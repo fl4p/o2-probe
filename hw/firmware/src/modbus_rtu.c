@@ -71,15 +71,58 @@ static void de_release(void)
     O2P_RS485_DE_PORT->BSRR = (1u << (O2P_RS485_DE_PIN + 16u));
 }
 
+/* /RE is ACTIVE LOW: low listens, high deafens the receiver. Rev A had it
+ * shorted to DE, so these two functions were one function; Rev B splits them
+ * onto PC6/PC7 and the DEFAULT BEHAVIOUR HERE IS UNCHANGED - re_disable() is
+ * called exactly where the old shared net went high (transmit) and
+ * re_restore() exactly where it went low again. */
+static void re_enable(void)
+{
+    O2P_RS485_RE_PORT->BSRR = (1u << (O2P_RS485_RE_PIN + 16u));
+}
+
+static void re_disable(void)
+{
+    O2P_RS485_RE_PORT->BSRR = (1u << O2P_RS485_RE_PIN);
+}
+
+/* Set when the caller has explicitly asked for transceiver standby. Nothing in
+ * this file sets it; main.c does not call it yet. It exists so that the return
+ * from a transmission goes back to the state the SYSTEM asked for rather than
+ * unconditionally re-enabling the receiver - otherwise a standby probe would
+ * silently come back to 700 uA the first time it answered a broadcast. */
+static volatile bool s_rx_standby;
+
+/* The one place that decides /RE outside a transmission. */
+static void re_restore(void)
+{
+    if (s_rx_standby) {
+        re_disable();
+    } else {
+        re_enable();
+    }
+}
+
 static void gpio_init(void)
 {
     /* DE first, and low, before anything can transmit. R7 (47k) already holds
-     * the transceiver in receive through MCU reset; this keeps it there. */
+     * the transceiver's DRIVER off through MCU reset; this keeps it there. */
     de_release();
     O2P_RS485_DE_PORT->OTYPER &= ~(1u << O2P_RS485_DE_PIN);
     O2P_RS485_DE_PORT->OSPEEDR |= (3u << (O2P_RS485_DE_PIN * 2u));
     O2P_RS485_DE_PORT->MODER = (O2P_RS485_DE_PORT->MODER & ~(3u << (O2P_RS485_DE_PIN * 2u))) |
                    (1u << (O2P_RS485_DE_PIN * 2u));
+
+    /* /RE next, and low, so the receiver is on before the USART is. R45 (47k)
+     * already holds it there through reset - that is what keeps a probe with
+     * no running application reachable over the bus - so this only takes over
+     * the same level actively. Written BEFORE MODER for the same reason DE is:
+     * the pin must never glitch high on its way to becoming an output. */
+    re_restore();
+    O2P_RS485_RE_PORT->OTYPER &= ~(1u << O2P_RS485_RE_PIN);
+    O2P_RS485_RE_PORT->OSPEEDR |= (3u << (O2P_RS485_RE_PIN * 2u));
+    O2P_RS485_RE_PORT->MODER = (O2P_RS485_RE_PORT->MODER & ~(3u << (O2P_RS485_RE_PIN * 2u))) |
+                   (1u << (O2P_RS485_RE_PIN * 2u));
 
     const uint32_t tx = O2P_RS485_TX_PIN, rx = O2P_RS485_RX_PIN;
     for (unsigned i = 0; i < 2u; i++) {
@@ -137,6 +180,7 @@ void o2p_modbus_reconfigure(const o2p_config_t *cfg)
 {
     NVIC_DisableIRQ(USART1_IRQn);
     de_release();
+    re_restore();
     s_tx_active = false;
     s_rx_len = 0u;
     s_frame_ready = false;
@@ -162,7 +206,9 @@ void USART1_IRQHandler(void)
      * correctly, and answering a half-heard request is worse than silence. */
     if ((isr & (USART_ISR_ORE | USART_ISR_FE | USART_ISR_NE | USART_ISR_PE)) != 0u) {
         USART1->ICR = USART_ICR_ORECF | USART_ICR_FECF | USART_ICR_NECF | USART_ICR_PECF;
+        /* POISON, do not merely truncate - see o2p_mb_rx_line_error(). */
         s_rx_len = 0u;
+        s_rx_poisoned = true;
         if (s_frame_errors != 0xFFFFu) {
             s_frame_errors++;
         }
@@ -184,7 +230,7 @@ void USART1_IRQHandler(void)
 
     if ((isr & USART_ISR_RTOF) != 0u) {
         USART1->ICR = USART_ICR_RTOCF;
-        if (!s_frame_ready && s_rx_len > 0u) {
+        if (!s_frame_ready && s_rx_len > 0u && !s_rx_poisoned) {
             /* Stamp the frame HERE, in the interrupt that completed it. The
              * deadline below is "how long has this request been waiting for
              * the main loop", and a timestamp that is never taken reads as
@@ -193,9 +239,11 @@ void USART1_IRQHandler(void)
              * answers nothing, forever. */
             s_frame_ms = o2p_millis();
             s_frame_ready = true;
-        } else {
+        } else if (!s_frame_ready) {
             s_rx_len = 0u;
         }
+        /* The poison lasts exactly one frame; the gap is what ends it. */
+        s_rx_poisoned = false;
     }
 
     if ((isr & USART_ISR_TC) != 0u) {
@@ -208,6 +256,7 @@ void USART1_IRQHandler(void)
                  * the transceiver can be released without truncating it.
                  * Releasing on TXE instead would cut the final character. */
                 de_release();
+                re_restore();
                 s_tx_active = false;
                 /* Discard anything the transceiver echoed back into RX while
                  * we were driving the bus. */
@@ -227,7 +276,11 @@ static void transmit(const uint8_t *buf, uint16_t len)
     s_tx_len = len;
     s_tx_pos = 0u;
 
+    /* Order matters only in that both must be set before the first bit. This
+     * pair reproduces Rev A's single-net behaviour exactly: the old shared net
+     * going high asserted DE and de-asserted /RE in the same instant. */
     de_assert();
+    re_disable();
     /* The THVD1410 needs its enable to settle before the first bit; one
      * character time is far more than its ~70 ns propagation delay and costs
      * nothing at a 5-minute poll interval. */
@@ -255,6 +308,7 @@ bool o2p_modbus_poll(o2p_regmap_t *rm)
         uint32_t worst_ms = 50u + (bits * 1000u) / (s_baud ? s_baud : 9600u);
         if (o2p_elapsed(s_tx_start_ms, worst_ms)) {
             de_release();
+            re_restore();
             s_tx_active = false;
             if (s_frame_errors != 0xFFFFu) {
                 s_frame_errors++;
@@ -272,6 +326,7 @@ bool o2p_modbus_poll(o2p_regmap_t *rm)
      * IDR, not ODR: ODR only reports what we asked for. IDR is the pin. */
     if ((O2P_RS485_DE_PORT->IDR & (1u << O2P_RS485_DE_PIN)) != 0u) {
         de_release();                       /* idempotent; try again */
+        re_restore();
         if ((O2P_RS485_DE_PORT->IDR & (1u << O2P_RS485_DE_PIN)) != 0u) {
             /* Still driven after a fresh release: this CPU can no longer free
              * the bus, so stop pretending it can. main() withholds the
@@ -324,4 +379,54 @@ bool o2p_modbus_poll(o2p_regmap_t *rm)
     s_rx_len = 0u;
     s_frame_ready = false;
     return true;
+}
+
+/* ---- Transceiver standby -------------------------------------------------
+ *
+ * THVD1410 ICC, SLLSEY3E Electrical Characteristics:
+ *   /RE=0, DE=0                driver off, receiver on   700 uA typ / 960 max
+ *   /RE=VCC, DE=0, D open      BOTH DISABLED             0.1 uA typ / 1 uA max
+ *
+ * NOTHING CALLS THIS YET, deliberately. Wiring standby into the sampler's
+ * control flow is a protocol decision, not a driver decision: a deaf probe
+ * cannot be polled by the Modbus master and cannot be reached by the RS-485
+ * field updater, and POWER-BUDGET.md sets out why an unsolicited-transmit
+ * scheme collides with a 60 s master poll at a fixed phase. This function only
+ * makes the state REACHABLE, which Rev A hardware was not.
+ *
+ * What it costs and what it saves, so the caller is not misled:
+ *  - The saving is the receiver's 700 uA.
+ *  - The floor is NOT 0.1 uA on this board. Commanding standby drives /RE high
+ *    against R45's 47k pull-down, which is 3.3 V / 47k = 70 uA. Net saving is
+ *    therefore about 630 uA, a 10x cut on the transceiver, not 7000x. R45 is
+ *    not optional - it is the reason a bootloader-only probe is still
+ *    reachable - so this is a property of the board, not of this code.
+ *  - "D open" in the datasheet row means the driver input idle. USART1 holds
+ *    TX high when it is not shifting, matching the D pin's internal pull-up,
+ *    so no extra current flows there.
+ *
+ * Entering standby does NOT touch USART1. The receiver stops delivering edges,
+ * so no frame arrives; RXNE/RTOF simply never fire. Leaving standby is a
+ * single pin write and the part's enable time is tens of nanoseconds, far
+ * inside one 1.146 ms character at 9600 baud - but a frame already in flight
+ * when standby is left is lost, so the caller must expect to miss one poll.
+ *
+ * Refused while a transmission is in flight: /RE is held high for the duration
+ * of a transmit and re_restore() decides its level when TC lands, so flipping
+ * the flag mid-frame would take effect at an unpredictable moment. Returns
+ * true if the requested state is now in force.
+ */
+bool o2p_modbus_rx_standby(bool on)
+{
+    if (s_tx_active) {
+        return false;
+    }
+    s_rx_standby = on;
+    re_restore();
+    return true;
+}
+
+bool o2p_modbus_rx_standby_active(void)
+{
+    return s_rx_standby;
 }

@@ -1,5 +1,7 @@
 #include "mcu.h"
 
+#include "flash_map.h"
+
 static volatile uint32_t s_millis;
 static uint16_t s_reset_cause;
 static bool s_power_cycled;
@@ -28,9 +30,29 @@ void o2p_clock_init(void)
      * again. RCC_CSR flags are sticky across resets, so leaving them set
      * makes the next power-on look like whatever happened last time. */
     uint32_t csr = RCC->CSR;
-    s_reset_cause = (uint16_t)(csr >> 24);
-    s_power_cycled = (csr & (RCC_CSR_PWRRSTF | RCC_CSR_PINRSTF)) != 0u;
+    uint32_t flags = (csr >> 24) & 0xFFu;
     RCC->CSR |= RCC_CSR_RMVF;
+
+    /* Both images run this, the bootloader first. Whoever sees the flags parks
+     * them; whoever finds them already cleared adopts what was parked. See the
+     * boot-info comment in flash_map.h for why RESET_CAUSE was always 0 and
+     * why an old bootloader now yields UNKNOWN rather than a confident zero. */
+    if (flags != 0u) {
+        o2p_bootinfo_set(flags);
+    } else {
+        uint32_t parked = 0u;
+        if (o2p_bootinfo_get(&parked)) {
+            flags = parked;
+            /* Consumed. A bootloader that never parks must not let this boot's
+             * value be read again as the next boot's cause. */
+            o2p_bootinfo_clear();
+        } else {
+            flags = O2P_RESET_CAUSE_UNKNOWN;
+        }
+    }
+    s_reset_cause = (uint16_t)flags;
+    s_power_cycled = (flags != O2P_RESET_CAUSE_UNKNOWN) &&
+                     ((flags << 24) & (RCC_CSR_PWRRSTF | RCC_CSR_PINRSTF)) != 0u;
 
     /* HSI16 on and selected, HSIDIV = /1 -> SYSCLK = 16 MHz.
      * This is the reset state on STM32G0, but stating it explicitly means a

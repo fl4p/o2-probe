@@ -4,6 +4,7 @@
 #include "heater_ctl.h"
 #include "o2.h"
 
+#include <math.h>
 #include <stddef.h>
 #include <string.h>
 
@@ -29,9 +30,32 @@ void o2p_config_defaults(o2p_config_t *cfg)
      * fresh board reports low-confidence data rather than nothing, and says
      * so. */
     cfg->cal_air_na = 0;
+    cfg->cal_zero_na = 0;
+    cfg->cal_zero_taken = 0u;   /* never measured; reported in CAL_STATE */
     cfg->cal_temp_c100 = 2500;
     cfg->tempco_ppm_per_k = 0;            /* SGX publishes no curve for this part */
     cfg->sht_pulse_interval_h = 8u;       /* PLAN.md:312, every 6-12 h */
+    /* Total pressure for the water-vapour correction. Rev A has no barometer,
+     * so this is the only P the firmware has; 930 hPa is the 715 m
+     * Steingrubenhof site. A probe deployed elsewhere must have it written. */
+    cfg->assumed_p_hpa = O2P_P_HPA_DEFAULT;
+    /* No air point, so no air fraction. Zero means "unknown", which keeps
+     * O2_COMP invalid until a calibration supplies both together - it must
+     * NOT default to dry air, because assuming dry air at the air point is
+     * precisely the 1-2 % bias this field exists to remove. */
+    cfg->cal_air_frac_x1000 = 0u;
+    /* Nor a calibration pressure. Zero means "unknown", which the conversion
+     * reads as P_cal == P_meas - no pressure normalisation - rather than as
+     * some assumed atmosphere. It is written together with the air point. */
+    cfg->cal_p_hpa = 0u;
+    /* Full gas-law dilution, i.e. the behaviour of every firmware before
+     * 2026-09-07. NOT the 0.402 the sweep measured: that is one cell's
+     * coefficient, and a default is a claim about all of them. It is also not
+     * the safe value - at pile conditions full correction is worse than none
+     * below alpha = 0.545 - which is why DIL_ALPHA is a per-probe bench
+     * write and why O2-HUMIDITY-CORRECTION.md 15.4 is about a DECISION and
+     * not about a default. */
+    cfg->dil_alpha_x1000 = (uint16_t)(O2P_DIL_ALPHA_DEFAULT * 1000.0f);
     /* Heater loop. max_duty of zero means the loop is OFF by configuration as
      * well as by the compile guard: two independent switches, so enabling the
      * heater is never a single edit. See heater.h for the bench prerequisites.
@@ -102,10 +126,57 @@ bool o2p_config_valid(const o2p_config_t *cfg)
      * range, with a clean fault word. Enforcing the bounds here also forces
      * HI and LO to be written together in one FC16, because a half-written
      * value cannot pass. */
+    /* Unlike the air point, 0 is a MEANINGFUL zero value (a cell with no
+     * measurable dark current), so it cannot double as "unset" for the
+     * plausibility test - but it is still the default, and the fault bit is
+     * what distinguishes "measured zero" from "never measured". Screen the
+     * stored number either way. */
+    if (!o2p_cal_zero_plausible(cfg->cal_zero_na)) {
+        return false;
+    }
+    /* Also checked here and not only on the Modbus write, so a corrupt flash
+     * image cannot install a coefficient a master would have been refused. */
+    if (cfg->tempco_ppm_per_k > O2P_TEMPCO_ABS_MAX_PPM_K ||
+        cfg->tempco_ppm_per_k < -O2P_TEMPCO_ABS_MAX_PPM_K) {
+        return false;
+    }
     if (cfg->cal_air_na != 0 && !o2p_cal_air_plausible(cfg->cal_air_na)) {
         return false;
     }
     if (cfg->sht_pulse_interval_h == 0u || cfg->sht_pulse_interval_h > 168u) {
+        return false;
+    }
+    /* The assumed total pressure scales oxygen directly, so it is bounded
+     * rather than merely non-zero: zero would divide, and 5 hPa or 3000 hPa
+     * would rescale every reading without ever looking like a fault. There is
+     * no "unset" value - the default is always installed. */
+    if (cfg->assumed_p_hpa < O2P_P_HPA_MIN || cfg->assumed_p_hpa > O2P_P_HPA_MAX) {
+        return false;
+    }
+    /* Zero means "air point of unknown humidity", which is legal and keeps
+     * O2_COMP invalid. Any other value must be a fraction air can actually
+     * have; %vol x 1000, so 20946 is dry air. */
+    if (cfg->cal_air_frac_x1000 != 0u &&
+        (cfg->cal_air_frac_x1000 < (uint16_t)(O2P_CAL_FRAC_MIN * 100000.0f) ||
+         cfg->cal_air_frac_x1000 > (uint16_t)(O2P_CAL_FRAC_MAX * 100000.0f))) {
+        return false;
+    }
+    /* The calibration pressure. Zero is legal and means "unknown" - the
+     * conversion then applies no pressure normalisation at all. Any other
+     * value has to be a pressure, and the same window as ASSUMED_P_HPA:
+     * P_cal/P_meas scales oxygen directly, so a 5 hPa or 3000 hPa cal
+     * pressure would rescale every reading without ever looking like a
+     * fault. */
+    if (cfg->cal_p_hpa != 0u &&
+        (cfg->cal_p_hpa < O2P_P_HPA_MIN || cfg->cal_p_hpa > O2P_P_HPA_MAX)) {
+        return false;
+    }
+    /* Dilution efficacy. Zero IS legal and means "apply no vapour correction
+     * at all" - a real choice, and the one that beats full correction on this
+     * cell. There is no "unset": the default is always installed, so unlike
+     * the calibration fields a zero here is an instruction rather than an
+     * absence. The ceiling is the same one o2.c enforces. */
+    if (cfg->dil_alpha_x1000 > (uint16_t)(O2P_DIL_ALPHA_MAX * 1000.0f)) {
         return false;
     }
     return true;
@@ -132,6 +203,9 @@ void o2p_snapshot_reset(o2p_snapshot_t *s)
     s->dew_margin_x100 = O2P_I16_INVALID;
     s->t_die = O2P_I16_INVALID;
     s->exp_data = O2P_U16_INVALID;
+    s->we_buf_mv = O2P_U16_INVALID;
+    s->re_buf_mv = O2P_U16_INVALID;
+    s->cell_bias_mv = O2P_I16_INVALID;
     /* 0xFFFF, not 0. Zero is a perfectly possible real reading for every one
      * of these - 0 mV on a collapsed rail, an all-zero LMP91000 register image
      * after a reset - so publishing zero for "not measured" is exactly the
@@ -149,6 +223,18 @@ void o2p_snapshot_reset(o2p_snapshot_t *s)
     s->pressure_hpa = 0u;
 }
 
+void o2p_regmap_set_cal_result(o2p_regmap_t *rm, uint8_t status)
+{
+    rm->cmd_result = (uint16_t)(((uint16_t)status << 8) |
+                                O2P_CMD_RESULT_COMMIT(rm->cmd_result));
+}
+
+void o2p_regmap_set_commit_result(o2p_regmap_t *rm, uint8_t status)
+{
+    rm->cmd_result = (uint16_t)(((uint16_t)O2P_CMD_RESULT_CAL(rm->cmd_result) << 8) |
+                                status);
+}
+
 void o2p_regmap_init(o2p_regmap_t *rm)
 {
     memset(rm, 0, sizeof(*rm));
@@ -161,6 +247,9 @@ void o2p_regmap_init(o2p_regmap_t *rm)
          * takes, and forever if it never completes. */
         o2p_snapshot_reset(s);
         s->faults = O2P_F_SETTLING | O2P_F_HEATER_DISABLED;
+        /* Left at 0 here and seeded by the caller before the bus comes up.
+         * regmap.c is built for the host test suite too, so it cannot reach
+         * the MCU headers o2p_reset_cause() lives behind. See main.c. */
         s->reset_cause = 0u;
     }
     rm->live = 0u;
@@ -205,9 +294,19 @@ static uint16_t read_primary(const o2p_snapshot_t *s, uint16_t a)
     }
 }
 
-static uint16_t read_diag(const o2p_snapshot_t *s, uint16_t a)
+static uint16_t read_diag(const o2p_regmap_t *rm, const o2p_snapshot_t *s,
+                         uint16_t a)
 {
     switch (a) {
+    /* Command state, not sample state: it belongs to the regmap and must NOT
+     * be snapshotted, or an outcome would only become visible at the next
+     * publish. */
+    case O2P_REG_CMD_RESULT:    return rm->cmd_result;
+    case O2P_REG_CAL_STATE:
+        return (uint16_t)((rm->cfg.cal_air_na == 0
+                               ? O2P_CAL_STATE_AIR_DEFAULT : 0u) |
+                          (rm->cfg.cal_zero_taken == 0u
+                               ? O2P_CAL_STATE_NO_ZERO : 0u));
     case O2P_REG_VREF_MON_MV:   return s->vref_mv;
     case O2P_REG_VA_MON_MV:     return s->va_mv;
     case O2P_REG_VIN_MON_MV:    return s->vin_mv;
@@ -228,6 +327,13 @@ static uint16_t read_diag(const o2p_snapshot_t *s, uint16_t a)
     case O2P_REG_T_DIE:         return (uint16_t)s->t_die;
     case O2P_REG_FAULTS_EVER:   return s->faults_ever;
     case O2P_REG_ADS_FAIL_COUNT: return s->ads_fail_count;
+    case O2P_REG_WE_BUF_MV:    return s->we_buf_mv;
+    case O2P_REG_RE_BUF_MV:    return s->re_buf_mv;
+    case O2P_REG_CELL_BIAS_MV: return (uint16_t)s->cell_bias_mv;
+    /* Compile-time constants, like FW_VERSION and HW_REV: they describe the
+     * image, not the cycle, so they are not carried through the snapshot. */
+    case O2P_REG_BUILD_ID_HI:  return (uint16_t)((O2P_BUILD_ID >> 16) & 0xFFFFu);
+    case O2P_REG_BUILD_ID_LO:  return (uint16_t)(O2P_BUILD_ID & 0xFFFFu);
     case O2P_REG_SAMPLE_SEQ:    return s->sample_seq;
     /* Named explicitly rather than left to the default. This arm used to
      * return sample_seq for anything unmatched, so every register added to
@@ -252,11 +358,17 @@ static uint16_t read_config(const o2p_regmap_t *rm, uint16_t a)
     case O2P_REG_HEATER_PWM_HZ:   return c->heater_pwm_hz;
     case O2P_REG_HEATER_KP:       return c->heater_kp_x100;
     case O2P_REG_HEATER_KI:       return c->heater_ki_x100;
+    case O2P_REG_CAL_ZERO_NA_HI:  return (uint16_t)((uint32_t)c->cal_zero_na >> 16);
+    case O2P_REG_CAL_ZERO_NA_LO:  return (uint16_t)((uint32_t)c->cal_zero_na & 0xFFFFu);
     case O2P_REG_CAL_AIR_NA_HI:   return (uint16_t)((uint32_t)c->cal_air_na >> 16);
     case O2P_REG_CAL_AIR_NA_LO:   return (uint16_t)((uint32_t)c->cal_air_na & 0xFFFFu);
     case O2P_REG_CAL_TEMP_C100:   return (uint16_t)c->cal_temp_c100;
     case O2P_REG_TEMPCO_PPM_K:    return (uint16_t)c->tempco_ppm_per_k;
     case O2P_REG_SHT_PULSE_H:     return c->sht_pulse_interval_h;
+    case O2P_REG_ASSUMED_P_HPA:   return c->assumed_p_hpa;
+    case O2P_REG_CAL_AIR_FRAC:    return c->cal_air_frac_x1000;
+    case O2P_REG_CAL_P_HPA:       return c->cal_p_hpa;
+    case O2P_REG_DIL_ALPHA:       return c->dil_alpha_x1000;
     /* The trigger registers read back as zero: they are edges, not state.
      * Reading a 1 would suggest a calibration is pending when it is not. */
     case O2P_REG_SHT_PULSE_TRIG:  return 0u;
@@ -286,7 +398,7 @@ uint8_t o2p_regmap_read(void *ctx, uint16_t addr, uint16_t count, uint16_t *out)
     }
     if (in_block(addr, count, O2P_REG_DIAG_BASE, O2P_REG_DIAG_COUNT)) {
         for (uint16_t i = 0; i < count; i++) {
-            out[i] = read_diag(s, (uint16_t)(addr + i));
+            out[i] = read_diag(rm, s, (uint16_t)(addr + i));
         }
         return 0u;
     }
@@ -338,6 +450,13 @@ static uint8_t apply_config_word(o2p_config_t *c, uint16_t a, uint16_t v,
     case O2P_REG_HEATER_PWM_HZ:   c->heater_pwm_hz = v; break;
     case O2P_REG_HEATER_KP:       c->heater_kp_x100 = v; break;
     case O2P_REG_HEATER_KI:       c->heater_ki_x100 = v; break;
+    case O2P_REG_CAL_ZERO_NA_HI:
+        c->cal_zero_na = (int32_t)(((uint32_t)v << 16) |
+                                   ((uint32_t)c->cal_zero_na & 0xFFFFu));
+        break;
+    case O2P_REG_CAL_ZERO_NA_LO:
+        c->cal_zero_na = (int32_t)(((uint32_t)c->cal_zero_na & 0xFFFF0000u) | v);
+        break;
     case O2P_REG_CAL_AIR_NA_HI:
         c->cal_air_na = (int32_t)(((uint32_t)v << 16) |
                                   ((uint32_t)c->cal_air_na & 0xFFFFu));
@@ -346,12 +465,81 @@ static uint8_t apply_config_word(o2p_config_t *c, uint16_t a, uint16_t v,
         c->cal_air_na = (int32_t)(((uint32_t)c->cal_air_na & 0xFFFF0000u) | v);
         break;
     case O2P_REG_CAL_TEMP_C100:   c->cal_temp_c100 = (int16_t)v; break;
-    case O2P_REG_TEMPCO_PPM_K:    c->tempco_ppm_per_k = (int16_t)v; break;
+    case O2P_REG_TEMPCO_PPM_K: {
+        int16_t t = (int16_t)v;
+        if (t > O2P_TEMPCO_ABS_MAX_PPM_K || t < -O2P_TEMPCO_ABS_MAX_PPM_K) {
+            return O2P_MB_EX_ILLEGAL_VALUE;
+        }
+        c->tempco_ppm_per_k = t;
+        break;
+    }
     case O2P_REG_SHT_PULSE_H:     c->sht_pulse_interval_h = v; break;
+    case O2P_REG_ASSUMED_P_HPA:   c->assumed_p_hpa = v; break;
+    case O2P_REG_CAL_AIR_FRAC:    c->cal_air_frac_x1000 = v; break;
+    case O2P_REG_CAL_P_HPA:       c->cal_p_hpa = v; break;
+    case O2P_REG_DIL_ALPHA:
+        /* The VALUE ONLY. Restating CAL_AIR_FRAC is a TRANSACTION-level
+         * decision, not a per-word one - see reference_air_frac() and its
+         * caller below. Doing it here was wrong in a way a whole-block FC16
+         * makes routine: words are applied in ascending order, so 0x0043
+         * lands before 0x0045, and a master writing the pair it actually
+         * wants had its own correct fraction transformed a second time. */
+        c->dil_alpha_x1000 = v;
+        break;
     default:
         return O2P_MB_EX_ILLEGAL_ADDRESS;
     }
     return 0u;
+}
+
+/* Restate a stored air fraction under a new alpha.
+ *
+ * CAL_AIR_FRAC is C_air * f_eff(alpha_old) and K is fixed against it, so a
+ * new alpha would rescale every later reading by the ratio if it were left
+ * alone. f_eff = 1 - alpha*(1-f) inverts exactly, so nothing has to be
+ * re-measured:
+ *
+ *     alpha_old * (1 - f) = 1 - air_frac_old / C_AIR
+ *     air_frac_new        = C_AIR * (1 - (alpha_new/alpha_old) * that)
+ *
+ * WHEN IT REFUSES, which is the half adversarial review found missing. The
+ * stored fraction is %vol x 1000 in a u16, so (1-f) is recovered from a
+ * QUANTISED number and the recovery is then divided by alpha_old. One LSB of
+ * CAL_AIR_FRAC therefore becomes 1e-5/alpha_old of air fraction, and as
+ * alpha_old shrinks that grows without bound: by alpha_old = 0.001 the stored
+ * value rounds to 20946 for EVERY humidity, so (1-f) is not imprecise, it is
+ * gone. Treating only exact zero as loss - which is what this did - turned an
+ * unrecoverable fraction into a plausible wrong one, measured at ~0.12 pp.
+ * The quantity to bound is the ALPHA RATIO: C_AIR cancels out of the error
+ * term, so one LSB in becomes alpha_new/alpha_old LSB out.
+ *
+ * So the floor is on the RECOVERED ERROR rather than on alpha itself, and
+ * refusing means zero: "unknown", which holds O2_COMP on its sentinel until a
+ * fresh air point. Never a number nobody can justify. */
+static void reference_air_frac(o2p_config_t *c, uint16_t alpha_old)
+{
+    uint16_t frac = c->cal_air_frac_x1000;
+    if (frac == 0u) {
+        return;                     /* never calibrated; nothing to restate */
+    }
+    if (alpha_old == 0u ||
+        ((float)c->dil_alpha_x1000 / (float)alpha_old)
+            > O2P_AIR_FRAC_MAX_AMPLIFY) {
+        c->cal_air_frac_x1000 = 0u;
+        return;
+    }
+    float f_old = (float)frac * 1e-5f;
+    float dil = (1.0f - f_old / O2P_C_AIR) *
+                ((float)c->dil_alpha_x1000 / (float)alpha_old);
+    float f_new = O2P_C_AIR * (1.0f - dil);
+    float x100000 = f_new * 100000.0f + 0.5f;
+    if (isfinite(x100000) &&
+        x100000 >= O2P_CAL_FRAC_MIN * 100000.0f &&
+        x100000 <= O2P_CAL_FRAC_MAX * 100000.0f) {
+        c->cal_air_frac_x1000 = (uint16_t)x100000;
+    } else {
+        c->cal_air_frac_x1000 = 0u;
+    }
 }
 
 uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_t *in)
@@ -379,6 +567,11 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
     o2p_config_t trial = rm->cfg;
     bool serial_changed = false;
     bool want_commit = false, want_cal = false, want_pulse = false;
+    /* Transaction scope for the alpha restatement. A master that writes
+     * CAL_AIR_FRAC in the SAME frame has supplied the value it wants, and it
+     * must not then be transformed as though it belonged to the old alpha. */
+    uint16_t alpha_before = trial.dil_alpha_x1000;
+    bool frac_written = false;
 
     for (uint16_t i = 0; i < count; i++) {
         uint16_t a = (uint16_t)(addr + i);
@@ -407,6 +600,9 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
             want_pulse = (v == 1u);
             break;
         default: {
+            if (a == O2P_REG_CAL_AIR_FRAC) {
+                frac_written = true;
+            }
             uint8_t ex = apply_config_word(&trial, a, v, &serial_changed);
             if (ex != 0u) {
                 return ex;
@@ -414,6 +610,12 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
             break;
         }
         }
+    }
+
+    /* AFTER the whole frame, so word order inside it cannot matter, and only
+     * when the master did not state the fraction itself. */
+    if (trial.dil_alpha_x1000 != alpha_before && !frac_written) {
+        reference_air_frac(&trial, alpha_before);
     }
 
     if (!o2p_config_valid(&trial)) {
@@ -427,11 +629,28 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
          * mid-frame and make the probe unreachable at both settings. */
         rm->serial_reconfig_pending = true;
     }
-    if (want_commit) {
-        rm->commit_pending = true;
-    }
+    /* "Calibrate and save" in ONE frame must mean exactly that, in that
+     * order. Both flags were raised at once, and the main loop services
+     * commit_pending as soon as the reply is off the wire - typically well
+     * before the next conversion reaches the air routine. Flash then stored
+     * the PRE-calibration image and the point landed in RAM only. The same
+     * hole existed for the DOCUMENTED two-frame procedure (write CAL_TRIGGER,
+     * then COMMIT), because a COMMIT-only frame did not notice the pending
+     * calibration. */
     if (want_cal) {
         rm->cal_requested = true;
+        o2p_regmap_set_cal_result(rm, O2P_CMD_PENDING);
+        if (want_commit) {
+            rm->commit_after_cal = true;
+            o2p_regmap_set_commit_result(rm, O2P_CMD_PENDING);
+        }
+    } else if (want_commit) {
+        if (rm->cal_requested) {
+            rm->commit_after_cal = true;
+        } else {
+            rm->commit_pending = true;
+        }
+        o2p_regmap_set_commit_result(rm, O2P_CMD_PENDING);
     }
     if (want_pulse) {
         rm->sht_pulse_requested = true;

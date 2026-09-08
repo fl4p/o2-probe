@@ -589,7 +589,16 @@ place("TP5",TESTPOINT,289.56,43.18,value="GUARD",footprint="TestPoint:TestPoint_
 
 # --------------------------------------------------------------------------- RS-485 and MCU
 place("U5",RS485,35.56,91.44,value="THVD1410DR",footprint="Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",mpn="THVD1410DR")
-for p,n in {1:"RS485_RX",2:"RS485_DE",3:"RS485_DE",4:"RS485_TX",5:"GND",6:"RS485_A",7:"RS485_B",8:"3V3D"}.items(): net("U5",p,n)
+# REV B, 2026-09-07: pin 2 (RE) is SPLIT off RS485_DE onto its own net and its
+# own GPIO (PC7, MCU pin 31).  Rev A tied both enables to RS485_DE, and because
+# RE is ACTIVE LOW with a 2 MOhm internal pull-UP while DE is ACTIVE HIGH with a
+# 2 MOhm internal pull-DOWN (SLLSEY3E "Pin Functions"), one net could only reach
+# two of the four states:
+#   RS485_DE low  -> RE=0, DE=0 -> receiver on, driver off  -> 700 uA typ
+#   RS485_DE high -> RE=1, DE=1 -> receiver off, driver ON   -> 2 mA AND driving
+# The 0.1 uA standby (RE=VCC, DE=0 V, D open) was physically uncommandable.
+# See POWER-BUDGET.md "The transceiver: the part says yes, Rev A says no".
+for p,n in {1:"RS485_RX",2:"RS485_RE",3:"RS485_DE",4:"RS485_TX",5:"GND",6:"RS485_A",7:"RS485_B",8:"3V3D"}.items(): net("U5",p,n)
 add_passive("R2",15.24,82.55,"10R","Resistor_SMD:R_0603_1608Metric","RS485_A","RS485_A_CABLE")
 add_passive("R3",15.24,93.98,"10R","Resistor_SMD:R_0603_1608Metric","RS485_B","RS485_B_CABLE")
 place("D2",SM712,25.40,105.41,value="SM712-02HTG",footprint="Package_TO_SOT_SMD:SOT-23",mpn="SM712-02HTG",
@@ -606,6 +615,37 @@ add_passive("R4",55.88,82.55,"120R DNP","Resistor_SMD:R_0603_1608Metric","RS485_
 # a farm cable can need, and it is the one DNP on this board that is a decision
 # left open rather than an idea left behind.
 add_passive("R7",73.66,105.41,"47k","Resistor_SMD:R_0603_1608Metric","RS485_DE","GND")
+add_passive("R45",73.66,115.57,"47k","Resistor_SMD:R_0603_1608Metric","RS485_RE","GND",
+            note="REV B.  The failsafe that makes the RE split SAFE, and it is the whole "
+                 "reason the split is not dangerous.  RE is active low with a 2 MOhm "
+                 "internal pull-UP, so an undriven RE pin is a DISABLED receiver -- and "
+                 "every MCU GPIO is high-impedance out of reset.  Without this resistor a "
+                 "probe that reset into the RS-485 bootloader (loader_main.c / "
+                 "loader_uart.c) would come up DEAF, destroying the field-reflash path "
+                 "SCHEMATIC-REVIEW.md M2 exists to provide.  A potted probe would be "
+                 "unrecoverable.  R45 makes receiver-enabled the passive default exactly "
+                 "as R7 makes driver-disabled the passive default.\n"
+                 "ARITHMETIC.  Size against the GUARANTEED spec, not the 2 MOhm typical: "
+                 "SLLSEY3E gives IIN = +/-6.2 uA max for D, DE and RE over "
+                 "3 V <= VCC <= 5.5 V, with VIL max 0.8 V.  So the largest pull-down that "
+                 "still guarantees a low is R <= 0.8 V / 6.2 uA = 129k.\n"
+                 "  47k: worst case 6.2 uA * 47k = 291 mV, a 2.75x margin to VIL.  (The "
+                 "2 MOhm typical would give 76 mV, but a typical is not a guarantee and "
+                 "this pin must never come up deaf.)\n"
+                 "COST, stated plainly because it bounds the win this split was made for: "
+                 "commanding standby means DRIVING RE high, which pushes 3.3 V / 47k = "
+                 "70.2 uA through R45.  Standby is therefore ~70 uA, not the part's "
+                 "0.1 uA.  Against the 700 uA receiver that is still a 10x cut (630 uA "
+                 "saved), but it is NOT the 7000x the datasheet row promises, and at the "
+                 "duty-cycled floor of ~29 uA in POWER-BUDGET.md this resistor would be "
+                 "the single largest load on the board.\n"
+                 "WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor "
+                 "can better ~26 uA, so 220k/470k do not trade margin for microamps -- "
+                 "they are simply OUT OF SPEC (220k worst case = 1.36 V, 470k = 2.9 V, "
+                 "both above VIL).  A resistor structurally cannot reach the 0.1 uA this "
+                 "split was made for; only omitting R45 and having the loader drive RE "
+                 "low early can, and that trades a sub-ms deaf window after reset.  Fab "
+                 "chose 47k, 2026-09-07: robust, passive, no init-order dependency.")
 add_passive("C11",73.66,82.55,"100n","Capacitor_SMD:C_0402_1005Metric","3V3D","GND")
 
 place("U6",MCU,111.76,99.06,value="STM32G071CBT7",footprint="Package_QFP:LQFP-48_7x7mm_P0.5mm",mpn="STM32G071CBT7")
@@ -618,7 +658,17 @@ place("U6",MCU,111.76,99.06,value="STM32G071CBT7",footprint="Package_QFP:LQFP-48
 # ADS1119 channel.
 # Pin 21 (EXP_INT) falls to nc() with the expansion connector.  Pins 13/14
 # (PA2/PA3, USART2) DO NOT: they keep their nets and land on J105/J106 below.
-MCU_NETS = {4:"3V3D",5:"3V3D",6:"3V3D",7:"GND",10:"NRST",13:"UART2_TX",14:"UART2_RX",15:"CE_MON",17:"VIN_MON",18:"VA_MON",19:"AFE_MENB",20:"ADC_DRDY",28:"HEATER_PWM",29:"RS485_TX",30:"RS485_DE",32:"RS485_RX",35:"SWDIO",36:"SWCLK_BOOT0",42:"SWO",45:"I2C_SCL",46:"I2C_SDA"}
+# Pin 31 is PC7 (REV B, RS485_RE).  Pin identity verified against DS12232 Rev 1
+# Figure "LQFP48 pinout" (30 = PC6, 31 = PC7) and Table 12 "Pin assignment and
+# description", whose LQFP48/UFQFPN48 column gives PC6 = 30 and PC7 = 31 -- and
+# whose "Additional functions" cell for PC7 is empty, so it carries NO ADC
+# channel and cannot collide with mcu_adc.c.  PC7 is a plain FT I/O whose only
+# alternate functions are UCPD2_FRSTX, TIM3_CH2 and TIM2_CH4, none of them used.
+# It is the neighbour of PC6 in the package, which is what the two RS-485
+# enables want to be.  PIN-IDENTITY-POSTMORTEM.md is about what happens when a
+# pin identity is taken from prose instead of from the pin table; this one came
+# from the table.
+MCU_NETS = {4:"3V3D",5:"3V3D",6:"3V3D",7:"GND",10:"NRST",13:"UART2_TX",14:"UART2_RX",15:"CE_MON",17:"VIN_MON",18:"VA_MON",19:"AFE_MENB",20:"ADC_DRDY",28:"HEATER_PWM",29:"RS485_TX",30:"RS485_DE",31:"RS485_RE",32:"RS485_RX",35:"SWDIO",36:"SWCLK_BOOT0",42:"SWO",45:"I2C_SCL",46:"I2C_SDA"}
 for p in range(1,49):
     if p in MCU_NETS: net("U6",p,MCU_NETS[p])
     else: nc("U6",p)
@@ -1147,6 +1197,27 @@ def verify() -> None:
     assert {p: ASSIGNED[("D2", p)] for p in ("1", "2", "3")} == {
         "1": "RS485_A_CABLE", "2": "RS485_B_CABLE", "3": "GND",
     }  # Littelfuse SM712-02HTG SOT-23
+    # THVD1410 SOIC-8, SLLSEY3E "Pin Functions": 1 R, 2 /RE, 3 DE, 4 D, 5 GND,
+    # 6 A, 7 B, 8 VCC.  Pins 2 and 3 are the REV B split and the assertion that
+    # matters: they are opposite-polarity enables and Rev A tied them together,
+    # which made the 0.1 uA standby state uncommandable.  If they are ever the
+    # same net again the split has been undone -- fail here, not on a bench.
+    assert {p: ASSIGNED[("U5", p)] for p in map(str, range(1, 9))} == {
+        "1": "RS485_RX", "2": "RS485_RE", "3": "RS485_DE", "4": "RS485_TX",
+        "5": "GND", "6": "RS485_A", "7": "RS485_B", "8": "3V3D",
+    }
+    assert ASSIGNED[("U5", "2")] != ASSIGNED[("U5", "3")], \
+        "/RE and DE share a net again: THVD1410 standby is uncommandable"
+    # Both enables must keep a PASSIVE default, because both GPIOs are
+    # high-impedance out of reset.  R7 -> DE low = driver off (main.c's bus-jam
+    # release path, which must not depend on this CPU running code).  R45 -> /RE
+    # low = receiver ON, so a probe that resets into the bootloader can still
+    # hear the bus.  Neither resistor may be deleted or repurposed.
+    assert ASSIGNED[("R7", "1")] == "RS485_DE" and ASSIGNED[("R7", "2")] == "GND"
+    assert ASSIGNED[("R45", "1")] == "RS485_RE" and ASSIGNED[("R45", "2")] == "GND"
+    assert INST["R7"]["value"] == INST["R45"]["value"] == "47k"
+    # The split is worthless if RE did not actually reach its own MCU pin.
+    assert ASSIGNED[("U6", "30")] == "RS485_DE" and ASSIGNED[("U6", "31")] == "RS485_RE"
     # U4 is two electrometer followers. Each half must be wired as a follower
     # (output strapped to its own inverting input) and sit on the CELL node
     # itself, not on a divider: an input swap here silently turns the guard into

@@ -36,8 +36,10 @@ enum {
      * rails. They read 3V3A/2 and +12V_SW*10/92 in an older revision, and this
      * comment still said so on 2026-09-05 while main.c sampled AIN3 and called
      * the result vin_mv. Both rails now live on the MCU's own ADC (mcu_adc.h).
-     * NOTHING READS AIN2/AIN3 TODAY: the differential cell-bias telemetry
-     * DESIGN.md describes for them is specified but not implemented. */
+     * Both are read now, in PH_WE and PH_RE, and published as WE_BUF_MV,
+     * RE_BUF_MV and CELL_BIAS_MV - the differential cell-bias telemetry
+     * DESIGN.md specifies. They are sampled AFTER the oxygen channel so that
+     * adding them cannot change which channel precedes AIN0. */
     O2P_ADS_MUX_AIN2_AGND = 5u,  /* 101 - WE_BUF */
     O2P_ADS_MUX_AIN3_AGND = 6u,  /* 110 - RE_BUF */
 };

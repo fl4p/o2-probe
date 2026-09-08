@@ -9,6 +9,7 @@ void o2p_heater_ctl_reset(o2p_heater_state_t *st)
     }
     st->integ = 0.0f;
     st->runaway_latched = false;
+    st->runaway_evidence_s = 0u;
     st->zero_duty_timing = false;
     st->zero_duty_since_s = 0u;
     st->dt_clamped = false;
@@ -135,41 +136,63 @@ static void update_runaway(o2p_heater_state_t *st,
     if (!in->drive_possible) {
         return;
     }
+    /* Commanded heat is not runaway. */
     if (duty_x100 != 0u) {
         st->zero_duty_timing = false;
+        st->runaway_evidence_s = 0u;
         return;
     }
-    if (!st->zero_duty_timing) {
-        st->zero_duty_timing = true;
-        st->zero_duty_since_s = now_s;
-        return;
-    }
-    /* Unsigned subtraction, so a wrap of now_s is harmless. */
-    if ((uint32_t)(now_s - st->zero_duty_since_s) < O2P_HEATER_RUNAWAY_WINDOW_S) {
-        return;
-    }
-    /* Unevaluable is not evidence either way - but "unevaluable" now means no
-     * tip, or NEITHER reference. One reference failing must not disable the
-     * other, which is the whole reason there are two. */
+    /* Unevaluable is not evidence either way - but it is also not a reason to
+     * hold the clock, because holding it would credit the unobserved interval
+     * once observation resumes. Leave the accumulator alone and let the gap
+     * test below discard it if the blindness lasted. */
     if (!in->tip_valid || (!in->chamber_valid && !in->die_valid)) {
         return;
     }
-    /* Two independent tests, OR'd, because the original one cannot fire on
-     * this board. Chamber-referenced first, unchanged, for a revision whose
-     * sensors are actually separated. */
-    if (in->tip_valid && in->chamber_valid) {
+
+    /* Two independent tests, OR'd, because the chamber-referenced one cannot
+     * fire on a board whose sensors sit on the same copper. Chamber first,
+     * for a revision whose sensors are actually separated. */
+    bool hot = false;
+    if (in->chamber_valid) {
         int32_t dt = (int32_t)in->t_tip_c100 - (int32_t)in->t_chamber_c100;
         if (dt > (int32_t)cfg->dt_max_k100 + O2P_HEATER_RUNAWAY_MARGIN_K100) {
-            st->runaway_latched = true;
+            hot = true;
         }
     }
     /* Die-referenced: the one that can actually see a stuck-on FET, because
      * the die is across the thermal barrier and does not follow the tip. */
-    if (in->tip_valid && in->die_valid) {
+    if (in->die_valid) {
         int32_t dd = (int32_t)in->t_tip_c100 - (int32_t)in->t_die_c100;
         if (dd > O2P_HEATER_RUNAWAY_DIE_K100) {
-            st->runaway_latched = true;
+            hot = true;
         }
+    }
+
+    if (!st->zero_duty_timing) {
+        st->zero_duty_timing = true;
+        st->zero_duty_since_s = now_s;
+        st->runaway_evidence_s = 0u;
+        return;
+    }
+    /* Unsigned subtraction, so a wrap of now_s is harmless. */
+    uint32_t since = (uint32_t)(now_s - st->zero_duty_since_s);
+    st->zero_duty_since_s = now_s;
+    if (since > O2P_HEATER_RUNAWAY_MAX_GAP_S) {
+        /* We were not watching. What we hold describes a different
+         * situation, so it is discarded rather than extended. */
+        st->runaway_evidence_s = 0u;
+        return;
+    }
+    if (!hot) {
+        st->runaway_evidence_s = 0u;
+        return;
+    }
+    if (st->runaway_evidence_s < O2P_HEATER_RUNAWAY_WINDOW_S) {
+        st->runaway_evidence_s = (uint16_t)(st->runaway_evidence_s + since);
+    }
+    if (st->runaway_evidence_s >= O2P_HEATER_RUNAWAY_WINDOW_S) {
+        st->runaway_latched = true;
     }
 }
 

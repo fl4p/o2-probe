@@ -27,7 +27,12 @@
 
 /* ---- Primary block: 0x0000, 8 registers ---- */
 enum {
+    /* DRY BASIS: oxygen as a fraction of the WATER-FREE gas, %vol * 100,
+     * 0xFFFF invalid. See the note below - the basis is the whole point. */
     O2P_REG_O2_COMP      = 0x0000u, /* u16  %vol * 100        0xFFFF invalid */
+    /* Uncorrected cell current. Neither humidity- nor pressure-corrected and
+     * deliberately so: it is the raw evidence, and the only channel that
+     * still means something when the SHT45 is gone. */
     O2P_REG_O2_RAW       = 0x0001u, /* i16  cell uA * 100     0x8000 invalid */
     O2P_REG_T_TIP        = 0x0002u, /* i16  0.01 C (TMP117)   0x8000 invalid */
     O2P_REG_T_CHAMBER    = 0x0003u, /* i16  0.01 C (SHT45)    0x8000 invalid */
@@ -39,7 +44,26 @@ enum {
 #define O2P_REG_PRIMARY_BASE  0x0000u
 #define O2P_REG_PRIMARY_COUNT 8u
 
-/* ---- Diagnostic block: 0x0010, 19 registers, read-only ---- */
+/* O2_COMP IS DRY BASIS - oxygen as a fraction of the water-free gas.
+ *
+ * A number whose basis is undocumented is worse than either choice, so:
+ * water vapour is a gas and it displaces everything else pro rata, which
+ * makes wet-basis oxygen fall as the pile gets hotter and wetter even when
+ * aeration has not changed at all. In a 60 C pile at 100 %RH, fully aerated
+ * air is 16.815 %vol wet against 20.946 dry - a 19.7 % error in the direction
+ * that looks like anoxia, and the exact condition this probe exists for.
+ * Dry basis is what the compost literature, a Draeger tube and a lab
+ * instrument all report, and the only basis on which a trend line means
+ * respiration rather than weather.
+ *
+ * The correction needs RH, chamber temperature and total pressure. When it
+ * cannot be evaluated - SHT45 gone or masked, gas beyond the Magnus fit,
+ * water vapour past half the total pressure - O2_COMP publishes 0xFFFF. It
+ * NEVER publishes the wet-basis number under the dry-basis name. Rev A has no
+ * barometer, so P comes from ASSUMED_P_HPA (0x0042).
+ * Argument and evidence: O2-HUMIDITY-CORRECTION.md. */
+
+/* ---- Diagnostic block: 0x0010, 26 registers, read-only ---- */
 enum {
     O2P_REG_VREF_MON_MV  = 0x0010u,
     O2P_REG_VA_MON_MV    = 0x0011u,
@@ -91,11 +115,84 @@ enum {
      * rate is what separates a one-off from a failing part, and the latch
      * self-clears, so without this the count is lost. */
     O2P_REG_ADS_FAIL_COUNT  = 0x0024u,
+    /* The buffered cell electrodes, and the bias between them.
+     *
+     * AIN2/AIN3 carry WE_BUF and RE_BUF. DESIGN.md specified differential
+     * cell-bias telemetry on them and nothing ever implemented it; AIN3 was
+     * meanwhile being sampled and published as vin_mv, which e31d5ac removed.
+     * So the probe has never reported the one quantity that separates "the
+     * cell changed" from "the measurement changed" - the question a 0.51 %
+     * step in O2_RAW on 2026-09-07 could not be answered from telemetry.
+     *
+     * CELL_BIAS is WE - RE, the potentiostat's actual working point. It is
+     * what goes wrong silently: if the counter electrode runs out of headroom
+     * the bias walks off its target while every other register stays
+     * plausible. 0x8000 invalid, as everywhere else. */
+    O2P_REG_WE_BUF_MV       = 0x0025u, /* u16 mV at the pin, 0xFFFF invalid */
+    O2P_REG_RE_BUF_MV       = 0x0026u, /* u16 mV at the pin, 0xFFFF invalid */
+    O2P_REG_CELL_BIAS_MV    = 0x0027u, /* i16 mV, WE - RE, 0x8000 invalid */
+    /* Which binary is this?
+     *
+     * FW_VERSION (0x0018) is a hand-edited constant and it read 0x0001 on
+     * every probe ever built, through every install. So on 2026-09-07, when
+     * O2_RAW stepped 0.51 %vol across a firmware install, telemetry could not
+     * name the image on either side of the step - and the step's cause is
+     * still undetermined partly because of that. A version number someone has
+     * to remember to bump is not provenance.
+     *
+     * BUILD_ID is: bit 31 the working tree was dirty at build time, bits
+     * 30..28 reserved, bits 27..0 the 7-hex-digit prefix of the commit the
+     * image was built from. Stamped by tools/pio_build_id.py, which FAILS the
+     * build rather than emitting a zero - an unidentifiable image is what this
+     * register exists to prevent, and a probe is potted.
+     *
+     * Zero means "built without the stamp", which after this commit is only
+     * the host test build. It is NOT reported as a commit. */
+    O2P_REG_BUILD_ID_HI     = 0x0028u, /* u16, bits 31..16 */
+    O2P_REG_BUILD_ID_LO     = 0x0029u, /* u16, bits 15..0  */
+    /* Outcome of the last CAL_TRIGGER (high byte) and the last COMMIT (low
+     * byte). A Modbus write is acknowledged when the REQUEST is accepted,
+     * which says nothing about whether the calibration was taken or whether
+     * it reached flash: a point is refused if the cell is still settling or
+     * the gas temperature is missing, and o2p_config_store()'s return value
+     * was discarded outright. All three looked like success from the bus, and
+     * a power cycle before the next cycle took the calibration with it.
+     *
+     * Placed at 0x002A, past BUILD_ID, because 0x0022..0x0029 are a PUBLISHED
+     * contract that the ChirpStack decoder already parses - putting a status
+     * word inside that range would decode as a die temperature. */
+    O2P_REG_CMD_RESULT      = 0x002Au,
+    /* Calibration completeness, as a bitfield:
+     *   bit 0  air point is the datasheet nominal, not a measurement
+     *   bit 1  no zero point has been taken
+     *
+     * A register rather than two fault bits because the 16-bit fault word is
+     * FULL - bits 13 and 14 went to ADS_DRDY_STUCK and ADS_CONFIG_LOST - and
+     * because these are commissioning state, not faults: a probe with no zero
+     * point is not broken, it is unfinished, and it still measures. Folding
+     * the missing zero into CAL_DEFAULT would have invalidated O2_COMP
+     * outright and made a probe useless until someone carried nitrogen to the
+     * pile, for an error bounded at 0.4 %vol. */
+    O2P_REG_CAL_STATE       = 0x002Bu,
 };
 #define O2P_REG_DIAG_BASE  0x0010u
-#define O2P_REG_DIAG_COUNT 21u
+#define O2P_REG_DIAG_COUNT 28u
 
-/* ---- Config block: 0x0030, 18 registers, read/write, flash-backed ---- */
+/* Per-command status byte. Not a bitfield: these are exclusive states of one
+ * command, and a bitfield invites "OK and FAILED" to coexist. */
+enum {
+    O2P_CMD_NONE    = 0u,
+    O2P_CMD_PENDING = 1u,
+    O2P_CMD_OK      = 2u,
+    O2P_CMD_FAILED  = 3u,
+};
+#define O2P_CAL_STATE_AIR_DEFAULT   0x0001u
+#define O2P_CAL_STATE_NO_ZERO       0x0002u
+
+#define O2P_CMD_RESULT_CAL(v)    ((uint8_t)((v) >> 8))
+#define O2P_CMD_RESULT_COMMIT(v) ((uint8_t)((v) & 0xFFu))
+
+/* ---- Config block: 0x0030, 21 registers, read/write, flash-backed ---- */
 enum {
     O2P_REG_SLAVE_ADDR      = 0x0030u,
     O2P_REG_BAUD_CODE       = 0x0031u,
@@ -125,9 +222,88 @@ enum {
      * loop and not tuning it. */
     O2P_REG_HEATER_KP       = 0x0040u, /* proportional gain x100 */
     O2P_REG_HEATER_KI       = 0x0041u, /* integral gain x100, per second */
+    /* Assumed total pressure in hPa, used whenever PRESSURE_HPA reads 0 -
+     * which on Rev A is always, the BMP390 being DNP. Without it the
+     * water-vapour correction has no P and O2_COMP cannot be computed at all.
+     * Defaults to 930 hPa, the 715 m Steingrubenhof site; a probe deployed
+     * anywhere else should have this written. NOT because "sea level is 8 %
+     * away" - that was this comment's claim until 2026-09-06 and it confuses
+     * a difference in absolute pressure with an error in the published
+     * number. P appears twice, in K and in the dilution factor, and the two
+     * uses largely cancel: calibrating AND deploying at sea level on this
+     * default costs about +2 % relative, not +8 %. The +/-3.5 % of WEATHER
+     * does not cancel, because it moves P after K is fixed, and is worth
+     * about -4.2 %/+4.1 % at 60 C/100 %RH - see CAL_P_HPA below.
+     * Range O2P_P_HPA_MIN..MAX. */
+    O2P_REG_ASSUMED_P_HPA   = 0x0042u, /* u16 hPa */
+    /* The oxygen fraction actually present when the air point was taken,
+     * %vol x 1000 (20946 = dry air). NOT a duplicate of O2P_C_AIR: the air
+     * point is taken in moist room air, so the current in CAL_AIR_NA belongs
+     * to the wet fraction, and attributing it to dry air mis-scales K by
+     * 1-2 % for the life of the probe. Written by the CAL_TRIGGER routine
+     * from the SHT45 and ASSUMED_P_HPA; a hand-written CAL_AIR_NA should be
+     * accompanied by this. Zero means "unknown" and O2_COMP stays invalid. */
+    O2P_REG_CAL_AIR_FRAC    = 0x0043u, /* u16 %vol x 1000 */
+    /* The TOTAL PRESSURE in force when the air point was taken, hPa, 0 =
+     * unknown. Not a duplicate of ASSUMED_P_HPA: that one is the pressure NOW
+     * and this one is the pressure THEN, and the cell's gain is proportional
+     * to total pressure because it answers to pO2 = C * P. K is fixed at the
+     * air point, so a measurement taken at a different P needs its current
+     * normalised by P_cal/P_meas before the inverse - without which even a
+     * populated barometer would correct the vapour dilution and leave the
+     * cell's own pressure-dependent gain uncorrected.
+     *
+     * Written by the CAL_TRIGGER routine from whatever P was in force then.
+     * Zero means "unknown", and the conversion then assumes P_cal == P_meas,
+     * i.e. no correction - which is exactly the pre-2026-09-06 behaviour and
+     * is what a Rev A board with no barometer gets anyway, since P_meas is
+     * then ASSUMED_P_HPA and equals P_cal by construction.
+     * Range 0, or O2P_P_HPA_MIN..MAX. */
+    O2P_REG_CAL_P_HPA       = 0x0044u, /* u16 hPa, 0 = unknown */
+    /* DILUTION EFFICACY, x1000. 1000 = the full gas-law correction.
+     *
+     * How much of the water-vapour dilution this cell's current actually
+     * shows. The gas law says the correction is P/(P-p_w); the 2026-09-07
+     * sweep says the cell moves only alpha of it, alpha = 0.402 +/- 0.046
+     * (O2-HUMIDITY-CORRECTION.md 15.3, in the concentration domain this
+     * register is applied in - the log-current regression's 0.453 divided by
+     * the cell law's local gain 1.1273), so the factor applied is
+     * f_eff = 1 - alpha*(1 - (P-p_w)/P). At 1000 this register changes
+     * nothing and the firmware behaves as it did before.
+     *
+     * A PER-CELL BENCH COEFFICIENT, not a field trim. It takes two disjoint
+     * legs to identify - an isothermal humidity ramp for alpha and an
+     * isobaric temperature ramp for TEMPCO_PPM_K - and it is not derivable
+     * from anything the probe can see in a pile.
+     *
+     * WRITING IT RESTATES CAL_AIR_FRAC (0x0043) under the new alpha. The
+     * stored air fraction is C_air * f_eff(alpha_old) and K is fixed against
+     * it, so leaving it alone would rescale every later reading by the ratio.
+     * Nothing has to be re-measured to fix that - f_eff inverts exactly - so
+     * no recalibration is required and the register is safe to write in any
+     * order, including inside a whole-block FC16. The one case that cannot be
+     * inverted is alpha_old = 0, where the humidity at the air point is
+     * genuinely gone; that falls back to zero, i.e. "unknown".
+     * Range 0..2000, see O2P_DIL_ALPHA_MAX. */
+    O2P_REG_DIL_ALPHA       = 0x0045u, /* u16 alpha x 1000 */
+    /* Cell zero current, i32 nanoamps, SIGNED. 0 = no zero point taken.
+     *
+     * DS-0637 rates the zero signal "< 0.4 %vol O2 (20 C)" - 1706 nA at Issue
+     * 2's nominal 100 uA cell, 2218 nA at the top of the population. Either
+     * way it is 8-100x every electronic offset in the chain. Folded into the
+     * air point it becomes a SLOPE error across the whole low-O2 range;
+     * subtracted here it is the offset it actually is. Compost control acts
+     * near 5 %vol, where a slope error is worst.
+     *
+     * Appended at the end of the block rather than beside CAL_AIR_NA where it
+     * belongs logically: the map is a published contract - AT+COMMAND frames
+     * on the Dragino name literal addresses - so nothing already in it may be
+     * renumbered to make room. */
+    O2P_REG_CAL_ZERO_NA_HI  = 0x0046u,
+    O2P_REG_CAL_ZERO_NA_LO  = 0x0047u,
 };
 #define O2P_REG_CONFIG_BASE  0x0030u
-#define O2P_REG_CONFIG_COUNT 18u
+#define O2P_REG_CONFIG_COUNT 24u
 
 /* Deliberate magics rather than "write 1". A flash cycle and a recalibration
  * are both destructive and both are one stray bit away in a noisy RS-485
@@ -137,7 +313,18 @@ enum {
 #define O2P_COMMIT_MAGIC 0x5AC1u
 #define O2P_CAL_MAGIC    0xCA11u
 
-#define O2P_FW_VERSION 0x0001u  /* v0.1 */
+/* Bumped whenever the WIRE contract changes, which is the only thing a master
+ * can act on: 0x0002 is the diagnostic block growing from 24 registers to 26.
+ * For "which build is this", read BUILD_ID (0x0028/0x0029) - this number is
+ * hand-maintained and says nothing about the binary. */
+#define O2P_FW_VERSION 0x0002u  /* v0.2 - diag block is 26 registers */
+
+/* Overridden by tools/pio_build_id.py on every target build. The default is
+ * reached only by the host test build, and means "no stamp", never a commit. */
+#ifndef O2P_BUILD_ID
+#define O2P_BUILD_ID 0x00000000UL
+#endif
+#define O2P_BUILD_ID_UNSTAMPED 0x00000000UL
 #define O2P_HW_REV     0x000Au  /* Rev A */
 
 /* Baud/parity codes. Defaults match the bus the probe joins: the Truebner
@@ -163,11 +350,32 @@ typedef struct {
     uint16_t sht_pulse_interval_h;    /* 16 */
     uint16_t heater_kp_x100;          /* 18 */
     uint16_t heater_ki_x100;          /* 20 */
-    uint8_t  slave_addr;              /* 22 */
-    uint8_t  baud_code;               /* 23 */
-    uint8_t  parity_code;             /* 24 */
-    uint8_t  reserved[3];             /* 25..27 */
+    uint16_t assumed_p_hpa;           /* 22 */
+    uint16_t cal_air_frac_x1000;      /* 24 */
+    uint16_t cal_p_hpa;               /* 26 */
+    uint8_t  slave_addr;              /* 28 */
+    uint8_t  baud_code;               /* 29 */
+    uint8_t  parity_code;             /* 30 */
+    uint8_t  reserved[1];             /* 31 */
+    uint16_t dil_alpha_x1000;         /* 32 */
+    /* 1 once a zero point has been TAKEN. Needed because 0 nA is a legitimate
+     * measured zero as well as the never-measured default, and the two have
+     * identical arithmetic (subtract nothing) but opposite meanings to an
+     * operator deciding whether commissioning is finished. */
+    uint8_t  cal_zero_taken;          /* 34 */
+    uint8_t  reserved2[1];            /* 35 */
+    /* APPENDED, deliberately. Placing it beside cal_air_na would move every
+     * field after it and make the migration a re-layout instead of a
+     * zero-fill; here every v5 offset is untouched and the only thing a v5
+     * record lacks is this field, whose correct value for a probe that never
+     * took a zero point is exactly the 0 it gets. */
+    int32_t  cal_zero_na;             /* 36 */
 } o2p_config_t;
+/* The record wrapper in config_flash.h is a fixed 64 bytes and pads to it, so
+ * growing this struct spends the record's reserved tail rather than moving
+ * the CRC into a new place. Pinned so a field added without checking the
+ * arithmetic fails to compile instead of shifting every offset by two. */
+_Static_assert(sizeof(o2p_config_t) == 40u, "config layout is 40 bytes");
 
 /* Live measurement snapshot, published atomically by the sampler. */
 typedef struct {
@@ -198,6 +406,9 @@ typedef struct {
     int16_t  t_die;
     uint16_t faults_ever;
     uint16_t ads_fail_count;
+    uint16_t we_buf_mv;
+    uint16_t re_buf_mv;
+    int16_t  cell_bias_mv;
 } o2p_snapshot_t;
 
 /* Reset every channel to its invalid sentinel. The sampler calls this at the
@@ -218,7 +429,16 @@ typedef struct {
     volatile bool serial_reconfig_pending;
     volatile bool commit_pending;
     volatile bool cal_requested;
+    /* Set when ONE FC16 asked for both a calibration and a commit, or when a
+     * COMMIT arrives while a calibration is still outstanding. The commit then
+     * waits for the point to be taken instead of racing it - otherwise flash
+     * stores the PRE-calibration image, the point lands in RAM only, and the
+     * master has a successful write acknowledging both. */
+    volatile bool commit_after_cal;
     volatile bool sht_pulse_requested;
+    /* Packed CMD_RESULT, see O2P_REG_CMD_RESULT. One 16-bit word so a Modbus
+     * reader never sees a half-updated pair. */
+    volatile uint16_t cmd_result;
 
     /* The firmware updater, or NULL. It is reached through the register map
      * because that is where a Modbus master reaches everything - but it is
@@ -230,6 +450,12 @@ typedef struct {
 } o2p_regmap_t;
 
 void o2p_regmap_init(o2p_regmap_t *rm);
+
+/* Record the outcome of a finished command. Separate setters rather than one
+ * packed write, so a commit result can never clobber a calibration result
+ * that is still PENDING. */
+void o2p_regmap_set_cal_result(o2p_regmap_t *rm, uint8_t status);
+void o2p_regmap_set_commit_result(o2p_regmap_t *rm, uint8_t status);
 
 /* Sampler side: get the buffer to fill, then publish it. */
 o2p_snapshot_t *o2p_regmap_staging(o2p_regmap_t *rm);

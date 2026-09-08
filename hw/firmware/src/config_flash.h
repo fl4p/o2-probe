@@ -52,7 +52,57 @@
  * and the defaults put HEATER_MAX_DUTY at 0, i.e. heater off. The fail-safe
  * direction of a layout change is therefore "no heat", which is the only
  * direction it is allowed to fail in. */
-#define CONFIG_LAYOUT_VERSION 2u
+/* 3: added assumed_p_hpa / cal_air_frac_x1000 (registers 0x0042/0x0043) for
+ * the water-vapour correction. Never reached a board.
+ *
+ * 4: added cal_p_hpa (register 0x0044), the total pressure in force when the
+ * air point was taken. The cell answers to pO2 = C * P, so K carries the
+ * pressure it was calibrated at; without recording it, a measurement at a
+ * different pressure is mis-scaled by the ratio, and correcting only the
+ * vapour dilution - which is what version 3 did - leaves that error in place.
+ *
+ * WHAT A VERSION BUMP DISCARDS, and it is no longer the whole record.
+ *
+ * Until 2026-09-06 a record of any other version was thrown away and the
+ * probe came up on complete defaults. The argument for that was about the
+ * calibration and it is still correct: a version-2 cal_air_na was taken under
+ * the old assumption that the air point sat in DRY air, at a humidity nobody
+ * recorded, so no honest cal_air_frac_x1000 can be derived for it - any value
+ * this firmware invented would be a guess wearing a calibration's units.
+ *
+ * But that argument reaches two fields, and defaulting the whole structure
+ * also reset slave_addr, baud_code and parity_code. A probe an operator had
+ * moved off the default transport therefore STOPPED ANSWERING ITS MASTER on
+ * update, unrecoverably, on hardware that is potted and buried. So an older
+ * record is now MIGRATED (config_migrate.c): transport, heater tuning, pulse
+ * interval, tempco and cal_temp carry forward; cal_air_na, cal_air_frac_x1000
+ * and cal_p_hpa are set to zero and nothing else is.
+ *
+ * RECALIBRATION IS STILL REQUIRED after this update - zeroed calibration means
+ * CAL_DEFAULT, which means O2_COMP publishes the sentinel until someone takes
+ * a fresh air point. What is no longer required is a trip to the pile. A
+ * migration that fails validation falls back to full defaults, which still put
+ * HEATER_MAX_DUTY at 0, so the fail-safe direction of a layout change remains
+ * "no heat".
+ *
+ * 5: added dil_alpha_x1000 (register 0x0045), how much of the water-vapour
+ * dilution the cell actually shows. 36 bytes; the two grown bytes come out of
+ * the record's reserved tail, so the record is still 64 and the CRC still
+ * sits immediately after the configuration.
+ *
+ * v4 -> v5 IS THE ONE MIGRATION THAT KEEPS THE AIR POINT. Every earlier bump
+ * discarded it because its MEANING changed - a pre-v3 air point did not know
+ * its own humidity, a pre-v4 one did not know its own pressure. Nothing about
+ * a v4 air point changed here: the new field defaults to 1000, alpha = 1.0
+ * reproduces the v4 arithmetic exactly, and a probe that comes up on this
+ * firmware publishes the same numbers it did on the last one. It stops
+ * publishing them the moment someone writes DIL_ALPHA, which is deliberate
+ * and is that register's business (regmap.h). */
+/* Version 6 appends cal_zero_na and cal_zero_taken, growing the configuration
+ * from 36 to 40 bytes. Appended rather than placed beside cal_air_na so every
+ * v5 offset stays where it is: the migration then carries a v5 record intact
+ * and the only field it cannot fill is the one a v5 probe never had. */
+#define CONFIG_LAYOUT_VERSION 6u
 
 /* Fixed 64-byte record, so the layout does not move when a config field is
  * added and the flash image stays recognisable across firmware versions. */

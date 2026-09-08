@@ -152,8 +152,8 @@ o2p_tmp_status_t o2p_tmp117_read_c100(int16_t *out_c100)
     }
     /* count * 7812.5 uC -> 0.01 C is count * 100 / 128. */
     int32_t c100 = ((int32_t)(int16_t)raw * 100) / 128;
-    if (c100 > 32767 || c100 < -32768) {
-        return O2P_TMP_IO;
+    if (c100 < O2P_TMP117_MIN_C100 || c100 > O2P_TMP117_MAX_C100) {
+        return O2P_TMP_RANGE;
     }
     *out_c100 = (int16_t)c100;
     return O2P_TMP_OK;

@@ -42,10 +42,25 @@ enum {
 };
 #define O2P_TMP_DEVICE_ID 0x0117u
 
+/* The part's RATED operating range (SNOSD82D 7.3, -55 to +150 C), in 0.01 C.
+ *
+ * These replace a bound that could never fire: the conversion is
+ * (int16_t)raw * 100 / 128, whose image is -25600..25599, so a check for
+ * `c100 > 32767 || c100 < -32768` was tautologically false and every value
+ * the register could hold was accepted as a temperature - a disconnected or
+ * babbling part read as weather. Found 2026-09-08. */
+#define O2P_TMP117_MIN_C100 (-5500)
+#define O2P_TMP117_MAX_C100  15000
+
 /* 1 LSB = 7.8125 m degC (SNOSD82D 7.6.2). */
 #define O2P_TMP_LSB_UC 7813   /* micro-degrees, rounded from 7812.5 */
 
-typedef enum { O2P_TMP_OK = 0, O2P_TMP_IO, O2P_TMP_ID, O2P_TMP_CONFIG } o2p_tmp_status_t;
+/* O2P_TMP_RANGE is separate from O2P_TMP_IO on purpose: the bus worked and
+ * the part answered, the ANSWER is outside the rating. Callers test
+ * `== O2P_TMP_OK`, so both are a failed read either way, but the two mean
+ * different things to anyone reading a log. */
+typedef enum { O2P_TMP_OK = 0, O2P_TMP_IO, O2P_TMP_ID, O2P_TMP_CONFIG,
+               O2P_TMP_RANGE } o2p_tmp_status_t;
 
 /* Identify the part, then program continuous conversion with 8-sample
  * averaging and the therm-mode alert described above.

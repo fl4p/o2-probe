@@ -206,11 +206,12 @@ o2p_ads_status_t o2p_ads1119_convert(uint8_t mux, uint8_t dr, bool ext_ref,
          * INTENDED, so by construction it agrees with itself no matter what
          * the device did with the byte.
          *
-         * This runs on channel/reference changes only - three per one-second
-         * cycle - not per conversion. A device that stops storing config
-         * mid-cycle is therefore caught within one cycle rather than at the
-         * next conversion. That is a deliberate trade against ~50 us of bus
-         * time on every one of the 15 conversions in a cycle. */
+         * This runs on channel/reference changes only - four per one-second
+         * cycle, since WE and RE were added - not per conversion. A device
+         * that stops storing config mid-cycle is therefore caught within one
+         * cycle rather than at the next conversion. That is a deliberate trade
+         * against ~50 us of bus time on every one of the 22 conversions in a
+         * cycle. */
         uint8_t back = 0u;
         o2p_ads_status_t vst = write_cfg(cfg);
         if (vst == O2P_ADS_OK) {

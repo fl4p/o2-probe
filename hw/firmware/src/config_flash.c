@@ -1,5 +1,6 @@
 #include "config_flash.h"
 
+#include "config_migrate.h"
 #include "flash_hal.h"
 #include "mcu.h"
 #include "modbus_pdu.h"
@@ -31,11 +32,48 @@ _Static_assert(FLASH_PAGE_SIZE == O2P_FLASH_PAGE_BYTES,
 static uint32_t s_sequence;      /* sequence of the record currently live */
 static uint8_t s_live_page = CONFIG_PAGE_B;   /* so the first write lands on A */
 
+/* config_migrate.c deliberately does not include this header - it is about
+ * the layouts this one has superseded - so its private copies of the magic and
+ * the record size are pinned here instead of drifting. */
+_Static_assert(CONFIG_RECORD_SIZE == 64u,
+               "config_migrate.c assumes a 64-byte record");
+
 static bool read_record(uint8_t page, config_record_t *out)
 {
     const config_record_t *r = (const config_record_t *)O2P_PAGE_ADDR(page);
-    if (r->magic != CONFIG_MAGIC || r->layout_version != CONFIG_LAYOUT_VERSION) {
+    if (r->magic != CONFIG_MAGIC) {
         return false;
+    }
+    if (r->layout_version != CONFIG_LAYOUT_VERSION) {
+        /* An OLDER layout is migrated, not discarded.
+         *
+         * Discarding it defaults the whole structure, including slave_addr,
+         * baud_code and parity_code - so a probe an operator had moved off the
+         * default transport stops answering its master the moment it takes a
+         * firmware update, with no way back in over the bus. On a potted probe
+         * in a pile that is unrecoverable. What genuinely cannot be carried
+         * across a version bump is the AIR POINT, and config_migrate.c zeroes
+         * exactly that and nothing else; see its header for the field-by-field
+         * argument. A migration that fails, for any reason, still falls back
+         * to full defaults exactly as before. */
+        uint8_t raw[CONFIG_RECORD_SIZE];
+        memcpy(raw, r, sizeof(raw));
+        o2p_config_t cfg;
+        uint32_t seq = 0u;
+        if (!o2p_config_migrate(raw, sizeof(raw), &cfg, &seq)) {
+            return false;
+        }
+        memset(out, 0, sizeof(*out));
+        out->magic = CONFIG_MAGIC;
+        out->layout_version = CONFIG_LAYOUT_VERSION;
+        out->sequence = seq;
+        out->cfg = cfg;
+        /* The record on the page is still the old one and is NOT rewritten
+         * here: a flash write is an operator action (see the header), and this
+         * migration is idempotent, so every boot re-derives the same result
+         * until someone commits. The sequence is carried so the next commit
+         * still wins the higher-sequence comparison. */
+        return true;
     }
     config_record_t local;
     memcpy(&local, r, sizeof(local));

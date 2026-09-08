@@ -35,6 +35,7 @@
 #ifndef O2P_FLASH_MAP_H
 #define O2P_FLASH_MAP_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #define O2P_FLASH_ORIGIN     0x08000000u
@@ -119,6 +120,74 @@ static inline void o2p_bootreq_clear(void)
      * STAY test, which an all-zero word does. */
     g_o2p_bootreq.request = 0u;
     g_o2p_bootreq.inverse = 0u;
+}
+
+/* --- reset cause handed across the loader/application boundary ---------
+ *
+ * RCC_CSR's reset flags are sticky and o2p_clock_init() clears them with RMVF
+ * so the NEXT reset cannot be read as whatever happened last time. The
+ * bootloader runs that same init first (loader_main.c calls o2p_clock_init),
+ * so by the time the application calls it the flags are already gone and
+ * RESET_CAUSE published 0 - "no flags set" - for every reset the probe has
+ * ever had. Zero is indistinguishable from a brownout there, which is exactly
+ * the question a buried probe gets asked.
+ *
+ * So whoever latches a NON-EMPTY set of flags parks them here, and whoever
+ * finds the register empty adopts them and clears the slot. With both images
+ * updated the application sees what the loader latched. With an OLD loader -
+ * and the loader is flashed over SWD before potting, so most probes will never
+ * get a new one - nothing is ever parked, the slot stays cleared from the
+ * previous boot's adoption, and RESET_CAUSE reads the UNKNOWN sentinel instead
+ * of a confident zero. Honest beats plausible.
+ *
+ * The complement pair is the same trick as the boot request: this lives in a
+ * NOLOAD section, so on a cold boot it holds whatever the SRAM powered up
+ * with, and an all-zero word must not validate.
+ */
+typedef struct {
+    volatile uint32_t cause;
+    volatile uint32_t inverse;
+} o2p_bootinfo_t;
+
+extern o2p_bootinfo_t g_o2p_bootinfo;
+
+/* Bits that can actually be set in (RCC_CSR >> 24) on STM32G0. The flags live
+ * at CSR bits 25..31 (stm32g071xx.h: OBLRSTF 25, PINRSTF 26, PWRRSTF 27,
+ * SFTRSTF 28, IWDGRSTF 29, WWDGRSTF 30, LPWRRSTF 31), so after the shift they
+ * are bits 1..7 and bit 0 is never set. Nothing else is a reset flag, so
+ * nothing else is a cause - and restricting the domain is what stops a cold boot from adopting
+ * random SRAM. A v0 bootloader parks nothing, so on a cold boot these bytes
+ * hold whatever the RAM powered up with; the complement pair alone leaves a
+ * 1-in-2^32 chance of a garbage word validating, and SRAM power-up patterns
+ * are not independent random bits. Out-of-domain values are refused, which
+ * turns that residue into UNKNOWN instead of a plausible cause. */
+#define O2P_RESET_CAUSE_MASK 0xFEu
+
+static inline int o2p_bootinfo_get(uint32_t *out)
+{
+    uint32_t c = g_o2p_bootinfo.cause;
+    if (c == 0u || g_o2p_bootinfo.inverse != ~c) {
+        return 0;
+    }
+    if ((c & ~(uint32_t)O2P_RESET_CAUSE_MASK) != 0u) {
+        return 0;
+    }
+    if (out != NULL) {
+        *out = c;
+    }
+    return 1;
+}
+
+static inline void o2p_bootinfo_set(uint32_t cause)
+{
+    g_o2p_bootinfo.cause = cause;
+    g_o2p_bootinfo.inverse = ~cause;
+}
+
+static inline void o2p_bootinfo_clear(void)
+{
+    g_o2p_bootinfo.cause = 0u;
+    g_o2p_bootinfo.inverse = 0u;
 }
 
 /* --- the boot descriptor -------------------------------------------------

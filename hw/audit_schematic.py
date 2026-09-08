@@ -109,7 +109,15 @@ required = {
     "GUARD_REPLICA": {"R40.2", "TP5.1"},
     "SWDIO": {"U6.35", "J3.2"},
     "SWCLK_BOOT0": {"U6.36", "J3.4", "R9.1"},
-    "RS485_DE": {"U5.2", "U5.3", "R7.1", "U6.30"},
+    # REV B: the two THVD1410 enables are on SEPARATE nets and separate GPIOs.
+    # /RE (U5.2) is active low with a 2 MOhm internal pull-up, DE (U5.3) is
+    # active high with a 2 MOhm internal pull-down; tying them together, as Rev
+    # A did, made the part's 0.1 uA standby state uncommandable. Each keeps its
+    # own 47k pull-down so BOTH defaults are passive: R7 -> driver off (the
+    # bus-jam release path main.c leans on), R45 -> receiver ON (what keeps a
+    # probe in the bootloader reachable).
+    "RS485_DE": {"U5.3", "R7.1", "U6.30"},
+    "RS485_RE": {"U5.2", "R45.1", "U6.31"},
     "VA_MON": {"R24.2", "R25.1", "C33.1", "U6.18"},
     "VIN_MON": {"R26.2", "R27.1", "C32.1", "U6.17"},
     "BUCK_BST": {"U1.6", "C2.1"},
@@ -136,6 +144,7 @@ expected_mcu_pin_nets = {
     "U6.17": "VIN_MON",
     "U6.18": "VA_MON",
     "U6.30": "RS485_DE",
+    "U6.31": "RS485_RE",   # PC7, DS12232 Rev 1 Table 12 LQFP48 column
     "U6.15": "CE_MON",
     "U6.11": "unconnected-(U6-PA0-Pad11)",
     "U6.12": "unconnected-(U6-PA1-Pad12)",

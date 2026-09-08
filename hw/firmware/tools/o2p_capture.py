@@ -101,7 +101,12 @@ FALLBACK_ADDR = 0x200000F0        # 2026-09-04 build; only used if no ELF
 # being checked.
 SNAPSHOT_LEN = 56
 LIVE_OFF = 2 * SNAPSHOT_LEN
-REGMAP_LEN = 0x98
+# 0x98 -> 0xa0 on 2026-09-07 with dil_alpha_x1000: o2p_config_t went 32 -> 36
+# bytes and g_rm rounded up with it. Taken from the ARM ELF, as the note above
+# insists - `arm-none-eabi-nm -S firmware.elf | grep g_rm` says 000000a0 - and
+# NOT from the +4 the source diff suggests, which would have been 0x9c and
+# wrong. SNAPSHOT_LEN is untouched: o2p_snapshot_t did not change.
+REGMAP_LEN = 0xa0
 
 U16_INVALID = 0xFFFF
 I16_INVALID = -0x8000

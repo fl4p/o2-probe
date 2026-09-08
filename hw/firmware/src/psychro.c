@@ -3,6 +3,27 @@
 #include <math.h>
 #include <stddef.h>
 
+bool o2p_p_sat_hpa(float t_c, float *out_hpa)
+{
+    if (out_hpa == NULL) {
+        return false;
+    }
+    if (!isfinite(t_c)) {
+        return false;
+    }
+    /* Same singularity guard as o2p_dewpoint_c, for the same reason. */
+    if (!(t_c > -(O2P_MAGNUS_B - 1.0f))) {
+        return false;
+    }
+    float es = O2P_MAGNUS_ES0_HPA * expf((O2P_MAGNUS_A * t_c) /
+                                         (O2P_MAGNUS_B + t_c));
+    if (!isfinite(es) || !(es > 0.0f)) {
+        return false;
+    }
+    *out_hpa = es;
+    return true;
+}
+
 bool o2p_dewpoint_c(float t_c, float rh_pct, float *out_td_c)
 {
     if (out_td_c == NULL) {

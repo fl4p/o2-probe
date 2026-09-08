@@ -81,8 +81,62 @@ enum {
     | O2P_F_ADS_CONFIG_LOST     \
     | O2P_F_ADC_RANGE )
 
+/* The ONLY faults a phase running after the oxygen conversion may raise.
+ *
+ * main.c freezes the oxygen verdict at the end of PH_O2 so that the electrode
+ * diagnostics sampled afterwards cannot mute the measurement they exist to
+ * explain. That freeze has to exclude something, and the safe way round is to
+ * name what may be EXCLUDED rather than what must be included: a fault absent
+ * from this list keeps invalidating oxygen no matter when it is raised.
+ *
+ * Naming the included set instead is what broke on 2026-09-08. The verdict was
+ * a plain snapshot, O2P_F_SETTLING was raised after it in cycle_publish(), and
+ * a probe eleven minutes into a fifteen-minute settle published 20.91 %vol
+ * with raw_ok = 1 and settle_s = 769 in the same frame - the cell's bias
+ * history is the strongest reason there is to distrust a reading, and the
+ * freeze silently discarded it. Every fault added to INVALIDATE_O2 from now on
+ * fails CLOSED against that mistake unless it is deliberately listed here. */
+#define O2P_FAULTS_POST_O2 ( \
+      O2P_F_I2C_FAIL_ADS        \
+    | O2P_F_ADS_DRDY_STUCK      \
+    | O2P_F_ADS_CONFIG_LOST     \
+    | O2P_F_ADC_RANGE )
+
 /* Everything above, plus the reasons the CONVERSION cannot be trusted even
- * when the current reading is fine. */
+ * when the current reading is fine.
+ *
+ * I2C_FAIL_SHT IS DELIBERATELY NOT HERE, and it was, for one day.
+ *
+ * O2_COMP publishes DRY BASIS and so it does depend on the SHT45's humidity
+ * and chamber temperature - without them the water-vapour term cannot be
+ * computed, and at the operating point that term is up to 20 %
+ * (O2-HUMIDITY-CORRECTION.md 2). The bit was added here on 2026-09-06 to say
+ * so. It was the wrong instrument, because the same bit is raised for the
+ * SHT45's own SCHEDULED de-creep pulse: the chamber channels are masked for
+ * 30 s after every pulse, so the primary oxygen channel went to its sentinel
+ * three times a day, labelled as a bus failure, for maintenance the firmware
+ * itself had ordered. With 15-30 minute uplinks that is a whole O2 sample
+ * lost per pulse.
+ *
+ * THE REAL CRITERION IS DATA AGE, and it lives where the arithmetic is:
+ * o2.h's O2P_RH_MAX_AGE_S bridges a gap of up to 45 s from the last measured
+ * chamber reading and refuses past it. That covers the 30 s recovery window
+ * with margin and nothing else, so a genuinely dead SHT45 still reaches the
+ * sentinel - it just does so because the data went stale rather than because
+ * a bit was set. The bit is still RAISED wherever it was; it is simply not
+ * the thing O2_COMP's validity is decided by. The raw cell current is
+ * untouched either way: it does not need the SHT45 and keeps its own mask.
+ *
+ * NOTE for anyone adding a bit for this: there is no room. All sixteen are
+ * allocated (13 and 14 were already reclaimed from the deleted J2 expansion),
+ * and the word is a published wire contract with the ChirpStack decoder, so
+ * renumbering is not available either. Where the correction is unevaluable
+ * for a reason no existing bit describes - gas beyond O2P_VAPOUR_T_MAX_C,
+ * water vapour past half the total pressure, or a chamber reading older than
+ * O2P_RH_MAX_AGE_S - the channel publishes its
+ * SENTINEL, which the register map already defines as "no oxygen number this
+ * cycle" and the decoder already rejects. Both of those conditions are above
+ * 60 C, so TEMP_OVER accompanies them in practice. */
 #define O2P_FAULTS_INVALIDATE_O2_COMP ( \
       O2P_FAULTS_INVALIDATE_O2 \
     | O2P_F_CAL_DEFAULT )

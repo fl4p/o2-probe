@@ -91,6 +91,16 @@ enum {
  * pins and gas"). Only a difference larger than the loop is ever allowed to
  * command is evidence of uncommanded heat. */
 #define O2P_HEATER_RUNAWAY_WINDOW_S 60u
+/* The longest gap between two calls that may still be treated as continuous
+ * observation. This is the CALLER'S CADENCE CONTRACT, not a tuning knob:
+ * o2p_heater_ctl_step() runs once per 1 s cycle, so anything beyond a few
+ * seconds means the detector was not watching and the evidence it holds
+ * describes a different situation. Both failure modes are real - too small and
+ * evidence never accumulates at the true cadence, too large and a sparse
+ * glimpse across a blind interval is credited as a sustained event - and
+ * neither can be fixed inside the detector, because it cannot tell sparse
+ * sampling of a real event from isolated glimpses without knowing the rate. */
+#define O2P_HEATER_RUNAWAY_MAX_GAP_S 5u
 #define O2P_HEATER_RUNAWAY_MARGIN_K100 200
 
 /* Runaway threshold on tip-minus-DIE.
@@ -161,6 +171,11 @@ typedef struct {
     bool     runaway_latched;
     bool     zero_duty_timing;
     uint32_t zero_duty_since_s;
+    /* Seconds of OBSERVED, valid, uncommanded-heat evidence. Not elapsed time
+     * and not a timestamp difference: only intervals the detector actually
+     * looked at are counted, so a gap in sampling cannot be credited as if
+     * the condition had held through it. */
+    uint16_t runaway_evidence_s;
     bool     dt_clamped;       /* hysteresis latches */
     bool     tip_clamped;
 } o2p_heater_state_t;

@@ -35,7 +35,7 @@ OUT = FW / "src" / "hw_contract.h"
 # ones board_pins.h is required to bind.
 REQUIRED_NETS = {
     "VA_MON", "VIN_MON", "CE_MON", "AFE_MENB", "ADC_DRDY", "HEATER_PWM",
-    "RS485_TX", "RS485_RX", "RS485_DE", "I2C_SCL", "I2C_SDA",
+    "RS485_TX", "RS485_RX", "RS485_DE", "RS485_RE", "I2C_SCL", "I2C_SDA",
 }
 
 

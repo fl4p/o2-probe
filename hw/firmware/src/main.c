@@ -6,8 +6,12 @@
  * accidentally interrupt the bias.
  *
  * THE SAMPLER IS INCREMENTAL, one conversion per main-loop pass, and that is
- * not a stylistic choice. A full cycle is twelve ADS1119 conversions; at the
- * 20 SPS setting the oxygen channel alone wants eight of them at 50 ms each.
+ * not a stylistic choice. A full cycle is 2 VREF + 8 O2 + 4 WE + 4 RE included
+ * conversions, plus one discarded after each of the four channel/reference
+ * changes: 22 in all. At the 20 SPS setting the oxygen channel alone wants
+ * eight of them at 50 ms each, and the whole cycle is about 600 ms of
+ * converter time (9 x 50.01 ms at 20 SPS, 13 x 11.29 ms at 90 SPS, per
+ * SBAS925A section 8.3.6).
  * Run as one blocking routine that is ~500 ms during which nothing answers the
  * bus - half the master's likely timeout, spent ignoring it. Interleaved, the
  * worst case a Modbus reply can wait behind is a single conversion.
@@ -66,6 +70,7 @@ static o2p_heater_state_t g_heat;
  * lowest noise, because 0.1 %vol is about 30 codes. */
 #define O2P_N_VREF 2u
 #define O2P_N_O2   8u
+#define O2P_N_CELL 4u
 
 static o2p_regmap_t g_rm;
 static o2p_cal_t g_cal;
@@ -84,6 +89,11 @@ static uint16_t g_ads_fail_count;         /* cycles with no ADS conversion */
  * Initialised so the first cycle is not masked. */
 static uint32_t g_sht_pulse_ms;
 static uint32_t g_next_sht_pulse_s;
+/* The last chamber reading that was actually measured, so the 30 s mask after
+ * a scheduled SHT45 de-creep pulse is BRIDGED rather than published as an
+ * oxygen sentinel three times a day. Bounded by O2P_RH_MAX_AGE_S; see o2.h
+ * for the derivation and for why a dead sensor still reaches the sentinel. */
+static o2p_gas_cache_t g_gas_cache;
 #define O2P_SHT_RECOVERY_MS 30000u
 
 static void restart_settling(void)
@@ -101,8 +111,20 @@ static void restart_settling(void)
 static void load_cal_from_config(void)
 {
     g_cal.cal_air_na = g_rm.cfg.cal_air_na;
+    g_cal.zero_na = g_rm.cfg.cal_zero_na;
     g_cal.cal_temp_c100 = g_rm.cfg.cal_temp_c100;
     g_cal.tempco_per_k = (float)g_rm.cfg.tempco_ppm_per_k * 1e-6f;
+    /* %vol x 1000 -> fraction. Zero stays zero, i.e. "the humidity at the air
+     * point is unknown", and o2.c refuses to convert on it. */
+    g_cal.air_frac = (float)g_rm.cfg.cal_air_frac_x1000 * 1e-5f;
+    /* Zero stays zero, i.e. "the pressure at the air point is unknown", which
+     * o2.c reads as P_cal == P_meas and applies no pressure normalisation. */
+    g_cal.cal_p_hpa = (float)g_rm.cfg.cal_p_hpa;
+    /* x1000 -> fraction. Zero is a real setting here, not "unknown": it means
+     * apply no vapour correction. o2.c refuses only a value that is not a
+     * number or is past O2P_DIL_ALPHA_MAX, and o2p_config_valid() has already
+     * bounded what can reach this. */
+    g_cal.dil_alpha = (float)g_rm.cfg.dil_alpha_x1000 * 1e-3f;
 }
 
 /* Convert an AIN0 code to cell current in nanoamps.
@@ -139,6 +161,8 @@ typedef enum {
     PH_TEMPS,      /* TMP117 + SHT45 */
     PH_VREF,       /* ADS1119 AIN1 against the INTERNAL reference */
     PH_O2,         /* ADS1119 AIN0, O2P_N_O2 conversions */
+    PH_WE,         /* ADS1119 AIN2, WE_BUF */
+    PH_RE,         /* ADS1119 AIN3, RE_BUF */
     PH_PUBLISH,
 } phase_t;
 
@@ -158,6 +182,20 @@ static struct {
     bool     chamber_ok;
     bool     rh_ok;
     uint16_t heater_block;
+    /* The fault word AS IT STOOD when the oxygen conversion finished.
+     *
+     * PH_WE and PH_RE run AFTER PH_O2 and share the cycle-wide fault word, and
+     * every ADS failure bit is in O2P_FAULTS_INVALIDATE_O2. Without this, a
+     * converter hiccup while reading the diagnostic electrodes would replace an
+     * oxygen result that had already been measured cleanly with a sentinel -
+     * a diagnostic channel muting the measurement it exists to explain, which
+     * is precisely what putting those phases last was supposed to prevent.
+     *
+     * The failure is still reported: it lands in FAULTS like any other, and the
+     * electrode channels themselves go to their sentinels. What it no longer
+     * does is reach backwards. */
+    uint16_t faults_at_o2;
+    bool     o2_measured;
 } g_cyc;
 
 static void cycle_begin(void)
@@ -172,6 +210,28 @@ static void cycle_begin(void)
     g_sub = 0u;
     g_acc = 0;
     g_acc_clipped = false;
+
+    /* SETTLING is raised HERE, at the top of the cycle, and not where
+     * settle_s is computed in cycle_publish().
+     *
+     * It is not an acquisition result. It is a statement about the cell's
+     * bias history that is already true before a single conversion is taken,
+     * and it is the strongest reason there is to distrust the number this
+     * cycle is about to produce. Raising it in cycle_publish() put it AFTER
+     * the point where the oxygen verdict is frozen at the end of PH_O2, so
+     * the verdict could not see it: measured 2026-09-08, a probe eleven
+     * minutes into a fifteen-minute settle published 20.91 %vol with
+     * raw_ok = 1 and settle_s = 769 in the same frame.
+     *
+     * The freeze exists so that a diagnostic phase running after PH_O2 cannot
+     * mute the oxygen it exists to explain. That argument covers faults the
+     * ACQUISITION raises downstream of the measurement. It never covered a
+     * state flag that outranks the measurement entirely, and reading the
+     * freeze as if it did turned "the cell is not ready" into "the cell is
+     * fine". */
+    if (g_uptime_s < g_settle_deadline_s) {
+        g_cyc.faults |= O2P_F_SETTLING;
+    }
 
     /* Build this cycle's snapshot from INVALID, never from the previous one.
      * Copying the old snapshot forward is how a dead sensor keeps publishing
@@ -413,6 +473,98 @@ static void finish_vref(o2p_snapshot_t *s)
 }
 
 
+/* The gas the cell is in this cycle, for the water-vapour correction.
+ *
+ * `valid` is false whenever the SHT45 did not deliver BOTH a humidity and a
+ * chamber temperature this cycle. Substituting the TIP temperature would be
+ * worse than refusing: the tip is heated, so its saturation pressure is not
+ * the gas's, and a plausible wrong correction is the failure mode this
+ * firmware is written against.
+ *
+ * What IS substituted is the chamber's own last measured reading, for at most
+ * O2P_RH_MAX_AGE_S. That is not a fallback to a plausible number - it is the
+ * same sensor's real measurement, bounded by an age that covers the 30 s
+ * post-pulse mask and nothing longer. Past the cap the gas stays invalid and
+ * O2_COMP publishes its sentinel, so a dead SHT45 is still reported as one;
+ * what no longer happens is a scheduled de-creep pulse blanking the primary
+ * oxygen channel and labelling it a bus failure.
+ *
+ * P comes from the barometer when there is one. There is not: the BMP390 is
+ * DNP on Rev A and PRESSURE_HPA publishes 0, so this is the ASSUMED_P_HPA
+ * register in practice. The test is written against the snapshot anyway so
+ * that populating the part on a later revision needs no change here. */
+static o2p_gas_t cycle_gas(const o2p_snapshot_t *s)
+{
+    o2p_gas_t g;
+    g.valid = g_cyc.chamber_ok && g_cyc.rh_ok;
+    g.rh_pct = (float)g_cyc.rh * 0.01f;
+    g.t_c = (float)g_cyc.t_chamber * 0.01f;
+    g.p_hpa = (s->pressure_hpa != 0u) ? (float)s->pressure_hpa
+                                      : (float)g_rm.cfg.assumed_p_hpa;
+    /* Only a measured gas enters the cache; the bridging happens at the use
+     * site, so the caller can still tell a fresh reading from a bridged one. */
+    o2p_gas_cache_update(&g_gas_cache, &g, g_uptime_s);
+    return g;
+}
+
+/* WE_BUF and RE_BUF, the buffered cell electrodes on AIN2/AIN3.
+ *
+ * Buffered straight to the pin - no divider - so the code converts to
+ * millivolts and stops. Referenced to the external VREF, the same reference
+ * the oxygen channel uses, because the point of the pair is the DIFFERENCE and
+ * a difference across two references measures the references.
+ *
+ * SAMPLED AFTER PH_O2 ON PURPOSE. Putting them before it would change which
+ * channel the mux leaves when it converts AIN0, and a channel change in front
+ * of the oxygen conversion is the leading suspect for the 0.51 % step in
+ * O2_RAW across the 2026-09-07 install. Ordering them behind O2 makes this
+ * telemetry unable to move the number it exists to explain.
+ */
+static void finish_electrode(o2p_snapshot_t *s, bool working)
+{
+    if ((g_cyc.faults & O2P_FAULTS_ADS_NO_CONVERSION) != 0u) {
+        return;
+    }
+    /* Every way this reading can be electrically meaningless, refused rather
+     * than clamped. Clamping a negative code to 0 mV was the bug: 0 is not the
+     * invalid sentinel, so a failed WE read became a real-looking 0 mV and the
+     * bias computed from it became a real-looking number from no measurement.
+     *
+     *  - g_acc_clipped: the converter saturated.
+     *  - a negative code: SBAS925A 8.3.2 - in single-ended mode only the
+     *    positive range is used, so below AGND is outside the valid domain.
+     *  - ADC_RANGE: includes a VREF outside the trim network's band, and these
+     *    channels are scaled BY that reference. finish_vref() keeps the nominal
+     *    scale when it raises this, so the volts would be assumed, not measured.
+     */
+    if (g_acc_clipped || (g_cyc.faults & O2P_F_ADC_RANGE) != 0u) {
+        return;
+    }
+    int32_t code = g_acc / (int32_t)O2P_N_CELL;
+    if (code < 0) {
+        return;
+    }
+    int32_t uv = o2p_ads1119_code_to_uv(code, g_cyc.vref_mv);
+    int32_t mv = uv / 1000;
+    if (mv < 0 || mv > 65534) {
+        return;
+    }
+    if (working) {
+        s->we_buf_mv = (uint16_t)mv;
+    } else {
+        s->re_buf_mv = (uint16_t)mv;
+        /* Both halves present, and neither is the invalid sentinel, or the
+         * bias stays invalid. A difference computed from one real reading and
+         * one 0xFFFF is a number, which is the problem. */
+        if (s->we_buf_mv != O2P_U16_INVALID) {
+            int32_t bias = (int32_t)s->we_buf_mv - mv;
+            if (bias > 32767) { bias = 32767; }
+            if (bias < -32767) { bias = -32767; }
+            s->cell_bias_mv = (int16_t)bias;
+        }
+    }
+}
+
 static void finish_o2(o2p_snapshot_t *s)
 {
     if ((g_cyc.faults & O2P_FAULTS_ADS_NO_CONVERSION) != 0u) {
@@ -451,6 +603,14 @@ static void finish_o2(o2p_snapshot_t *s)
         g_cyc.faults |= O2P_F_CAL_DEFAULT;
     }
 
+    /* Two gases, and the difference is deliberate. `fresh` is what the SHT45
+     * delivered THIS cycle and nothing else; `gas` is that, or the same
+     * sensor's last measurement if it is younger than O2P_RH_MAX_AGE_S. The
+     * published conversion may bridge; an air-point calibration may not. */
+    const o2p_gas_t fresh = cycle_gas(s);
+    o2p_gas_t gas = fresh;
+    (void)o2p_gas_cache_apply(&g_gas_cache, &gas, g_uptime_s);
+
     /* A non-zero temperature coefficient with no temperature is not a
      * compensated reading. Rather than silently applying a zero correction
      * and presenting the result as compensated, refuse it. */
@@ -458,10 +618,15 @@ static void finish_o2(o2p_snapshot_t *s)
         g_cyc.faults |= O2P_F_I2C_FAIL_TMP;
         s->o2_comp = O2P_U16_INVALID;
     } else {
+        /* DRY BASIS. The dilution term is up to 20 % at the operating point,
+         * and it is unevaluable without RH, chamber temperature and P - in
+         * which case this returns UNEVALUABLE and o2p_encode_percent emits
+         * the sentinel. It does not fall back to the wet-basis number: that
+         * would publish the uncorrected reading under the corrected name. */
         float c = 0.0f;
-        o2p_status_t st = o2p_fraction_from_current(
+        o2p_status_t st = o2p_dry_fraction_from_current(
             &cal, cell_na,
-            (t_gas != O2P_I16_INVALID) ? t_gas : cal.cal_temp_c100, &c);
+            (t_gas != O2P_I16_INVALID) ? t_gas : cal.cal_temp_c100, &gas, &c);
         if (st == O2P_RANGE) {
             g_cyc.faults |= O2P_F_ADC_RANGE;
         }
@@ -474,18 +639,68 @@ static void finish_o2(o2p_snapshot_t *s)
         /* Judge the raw channel, not the compensated one: a probe that has
          * never been calibrated always fails the compensated test, which
          * would make calibration impossible. */
-        if (o2p_o2_valid(g_cyc.faults) &&
-            o2p_calibrate_air(&g_cal, cell_na,
-                              (t_gas != O2P_I16_INVALID) ? t_gas : 2500)) {
+        /* `fresh`, NOT `gas`: a calibration is permanent, so it gets a
+         * humidity measured in this cycle or none at all. Bridging a 30 s gap
+         * is right for a sample that will be superseded in a second and wrong
+         * for a constant that every later reading divides by. */
+        /* SETTLING is not in g_cyc.faults yet, so o2p_o2_valid() alone would
+         * accept an air point taken during the documented 15-minute post-bias
+         * settle - storing a transient current as the probe's permanent air
+         * constant, and invalidating the very sample it came from seconds
+         * later. Test the deadline directly. */
+        bool settled = (g_uptime_s >= g_settle_deadline_s);
+        /* And a calibration needs a MEASURED temperature, not a fallback one.
+         * The conversion may substitute cal_temp_c100 for a missing gas
+         * temperature - that only means "assume we are at the calibration
+         * temperature", which is recoverable. Storing a fabricated 25.00 C AS
+         * the calibration temperature is not: it becomes the permanent
+         * reference every later tempco correction is measured against, so a
+         * probe calibrated with both temperature sensors down carries a false
+         * reference for life while looking perfectly calibrated. Temperature
+         * faults are deliberately absent from the raw-O2 validity mask, so
+         * o2p_o2_valid() does not catch this. */
+        if (settled && t_gas != O2P_I16_INVALID &&
+            o2p_o2_valid(g_cyc.faults) &&
+            o2p_calibrate_air(&g_cal, cell_na, t_gas, &fresh)) {
             g_rm.cfg.cal_air_na = g_cal.cal_air_na;
             g_rm.cfg.cal_temp_c100 = g_cal.cal_temp_c100;
+            /* Stored WITH the air point, never separately: a cal_air_na
+             * without the fraction it was taken at is the 1-2 % bias again,
+             * and one without the pressure it was taken at leaves the cell's
+             * pressure-dependent gain permanently uncorrected. */
+            g_rm.cfg.cal_air_frac_x1000 =
+                (uint16_t)(g_cal.air_frac * 100000.0f + 0.5f);
+            g_rm.cfg.cal_p_hpa = (uint16_t)(g_cal.cal_p_hpa + 0.5f);
+            o2p_regmap_set_cal_result(&g_rm, O2P_CMD_OK);
+        } else {
+            /* Every refusal below was previously indistinguishable from
+             * success on the bus. */
+            o2p_regmap_set_cal_result(&g_rm, O2P_CMD_FAILED);
         }
-        /* A refused calibration leaves the old constants in place. */
+        /* A commit asked for alongside the calibration waits until here, so
+         * what reaches flash is the calibration the master was acknowledged
+         * for. Raised even when the point was refused: the operator asked for
+         * the live config to be persisted, and that is what it gets. */
+        if (g_rm.commit_after_cal) {
+            g_rm.commit_after_cal = false;
+            g_rm.commit_pending = true;
+        }
+        /* A refused calibration leaves the old constants in place. An air
+         * point taken with the SHT45 down is refused here, not stored with an
+         * assumed humidity: O2-HUMIDITY-CORRECTION.md 3b measures that
+         * assumption as a permanent +1.4 to +2.2 % error in K. */
     }
 }
 
 static void cycle_publish(o2p_snapshot_t *s)
 {
+    /* The FLAG was raised in cycle_begin(), before PH_O2 froze the oxygen
+     * verdict; only the countdown is computed here. Re-raising it is kept so
+     * a settle window that OPENS mid-cycle - o2p_settle_restart() is callable
+     * from the supervision - is still reported in this frame's fault word.
+     * That is deliberately a weaker guarantee than the verdict gets: a window
+     * that opened after the conversion cannot invalidate it retroactively,
+     * and the next cycle sees it from the top. */
     if (g_uptime_s < g_settle_deadline_s) {
         g_cyc.faults |= O2P_F_SETTLING;
         uint32_t left = g_settle_deadline_s - g_uptime_s;
@@ -497,10 +712,19 @@ static void cycle_publish(o2p_snapshot_t *s)
     /* The single point where the validity rule is applied. Whatever the
      * conversions produced, anything the fault word calls untrustworthy
      * leaves as a sentinel. Raw and compensated have different masks. */
-    if (!o2p_o2_valid(g_cyc.faults)) {
+    /* The freeze is SUBTRACTIVE: start from the fault word as it stands now
+     * and drop only the faults the electrode phases are allowed to have
+     * raised since PH_O2 (O2P_FAULTS_POST_O2). A snapshot would instead have
+     * dropped everything raised later, including state flags that outrank the
+     * measurement - which is exactly how SETTLING got lost. */
+    uint16_t o2_faults = g_cyc.o2_measured
+        ? (uint16_t)(g_cyc.faults_at_o2 |
+                     (g_cyc.faults & (uint16_t)~O2P_FAULTS_POST_O2))
+        : g_cyc.faults;
+    if (!o2p_o2_valid(o2_faults)) {
         s->o2_raw = O2P_I16_INVALID;
     }
-    if (!o2p_o2_comp_valid(g_cyc.faults)) {
+    if (!o2p_o2_comp_valid(o2_faults)) {
         s->o2_comp = O2P_U16_INVALID;
     }
 
@@ -619,6 +843,24 @@ static bool sampler_step(void)
     case PH_O2:
         if (accumulate(O2P_ADS_MUX_AIN0_AGND, O2P_ADS_DR_20SPS, true, O2P_N_O2)) {
             finish_o2(s);
+            /* Freeze the verdict on oxygen here, before the electrode phases
+             * can add converter faults to the same word. */
+            g_cyc.faults_at_o2 = g_cyc.faults;
+            g_cyc.o2_measured = true;
+            g_phase = PH_WE; g_sub = 0; g_acc = 0; g_acc_clipped = false;
+        }
+        break;
+
+    case PH_WE:
+        if (accumulate(O2P_ADS_MUX_AIN2_AGND, O2P_ADS_DR_90SPS, true, O2P_N_CELL)) {
+            finish_electrode(s, true);
+            g_phase = PH_RE; g_sub = 0; g_acc = 0; g_acc_clipped = false;
+        }
+        break;
+
+    case PH_RE:
+        if (accumulate(O2P_ADS_MUX_AIN3_AGND, O2P_ADS_DR_90SPS, true, O2P_N_CELL)) {
+            finish_electrode(s, false);
             g_phase = PH_PUBLISH;
         }
         break;
@@ -697,6 +939,22 @@ int main(void)
     o2p_heater_ctl_reset(&g_heat);
 
     o2p_regmap_init(&g_rm);
+
+    /* Seed the reset cause into BOTH snapshots before the bus is enabled.
+
+     * Modbus answers about 1.6 s before the first cycle publishes, and a
+
+     * diagnostic poll in that window would otherwise read 0 - a real RCC
+
+     * value meaning "no flags", which is the exact confident zero this
+
+     * channel was fixed to stop reporting. */
+
+    for (unsigned i = 0; i < 2u; i++) {
+
+        g_rm.buf[i].reset_cause = o2p_reset_cause();
+
+    }
     (void)o2p_config_load(&g_rm.cfg);   /* defaults on absence or corruption */
     load_cal_from_config();
 
@@ -763,7 +1021,13 @@ int main(void)
             }
             if (g_rm.commit_pending) {
                 g_rm.commit_pending = false;
-                (void)o2p_config_store(&g_rm.cfg);
+                /* The return value used to be discarded, so a failed erase or
+                 * program - a worn page, a brownout mid-write - left the
+                 * master believing the configuration was persisted while the
+                 * probe still ran from RAM. */
+                o2p_regmap_set_commit_result(
+                    &g_rm, o2p_config_store(&g_rm.cfg) ? O2P_CMD_OK
+                                                       : O2P_CMD_FAILED);
                 load_cal_from_config();
             }
 

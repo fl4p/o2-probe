@@ -2,7 +2,7 @@
 <export version="E">
   <design>
     <source>/Users/fab/dev/ee/hw/o2-probe/o2-probe.kicad_sch</source>
-    <date>2026-09-05T17:36:26</date>
+    <date>2026-09-07T14:53:12</date>
     <tool>Eeschema 10.0.5</tool>
     <sheet number="1" name="/" tstamps="/">
       <title_block>
@@ -2058,6 +2058,36 @@
         </unit>
       </units>
     </comp>
+    <comp ref="R45">
+      <value>47k</value>
+      <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
+      <fields>
+        <field name="Design Note">REV B.  The failsafe that makes the RE split SAFE, and it is the whole reason the split is not dangerous.  RE is active low with a 2 MOhm internal pull-UP, so an undriven RE pin is a DISABLED receiver -- and every MCU GPIO is high-impedance out of reset.  Without this resistor a probe that reset into the RS-485 bootloader (loader_main.c / loader_uart.c) would come up DEAF, destroying the field-reflash path SCHEMATIC-REVIEW.md M2 exists to provide.  A potted probe would be unrecoverable.  R45 makes receiver-enabled the passive default exactly as R7 makes driver-disabled the passive default.
+ARITHMETIC.  Size against the GUARANTEED spec, not the 2 MOhm typical: SLLSEY3E gives IIN = +/-6.2 uA max for D, DE and RE over 3 V &lt;= VCC &lt;= 5.5 V, with VIL max 0.8 V.  So the largest pull-down that still guarantees a low is R &lt;= 0.8 V / 6.2 uA = 129k.
+  47k: worst case 6.2 uA * 47k = 291 mV, a 2.75x margin to VIL.  (The 2 MOhm typical would give 76 mV, but a typical is not a guarantee and this pin must never come up deaf.)
+COST, stated plainly because it bounds the win this split was made for: commanding standby means DRIVING RE high, which pushes 3.3 V / 47k = 70.2 uA through R45.  Standby is therefore ~70 uA, not the part's 0.1 uA.  Against the 700 uA receiver that is still a 10x cut (630 uA saved), but it is NOT the 7000x the datasheet row promises, and at the duty-cycled floor of ~29 uA in POWER-BUDGET.md this resistor would be the single largest load on the board.
+WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better ~26 uA, so 220k/470k do not trade margin for microamps -- they are simply OUT OF SPEC (220k worst case = 1.36 V, 470k = 2.9 V, both above VIL).  A resistor structurally cannot reach the 0.1 uA this split was made for; only omitting R45 and having the loader drive RE low early can, and that trades a sub-ms deaf window after reset.  Fab chose 47k, 2026-09-07: robust, passive, no init-order dependency.</field>
+        <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <libsource lib="Device" part="R" description="Resistor"/>
+      <property name="Design Note" value="REV B.  The failsafe that makes the RE split SAFE, and it is the whole reason the split is not dangerous.  RE is active low with a 2 MOhm internal pull-UP, so an undriven RE pin is a DISABLED receiver -- and every MCU GPIO is high-impedance out of reset.  Without this resistor a probe that reset into the RS-485 bootloader (loader_main.c / loader_uart.c) would come up DEAF, destroying the field-reflash path SCHEMATIC-REVIEW.md M2 exists to provide.  A potted probe would be unrecoverable.  R45 makes receiver-enabled the passive default exactly as R7 makes driver-disabled the passive default.&#xA;ARITHMETIC.  Size against the GUARANTEED spec, not the 2 MOhm typical: SLLSEY3E gives IIN = +/-6.2 uA max for D, DE and RE over 3 V &lt;= VCC &lt;= 5.5 V, with VIL max 0.8 V.  So the largest pull-down that still guarantees a low is R &lt;= 0.8 V / 6.2 uA = 129k.&#xA;  47k: worst case 6.2 uA * 47k = 291 mV, a 2.75x margin to VIL.  (The 2 MOhm typical would give 76 mV, but a typical is not a guarantee and this pin must never come up deaf.)&#xA;COST, stated plainly because it bounds the win this split was made for: commanding standby means DRIVING RE high, which pushes 3.3 V / 47k = 70.2 uA through R45.  Standby is therefore ~70 uA, not the part's 0.1 uA.  Against the 700 uA receiver that is still a 10x cut (630 uA saved), but it is NOT the 7000x the datasheet row promises, and at the duty-cycled floor of ~29 uA in POWER-BUDGET.md this resistor would be the single largest load on the board.&#xA;WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better ~26 uA, so 220k/470k do not trade margin for microamps -- they are simply OUT OF SPEC (220k worst case = 1.36 V, 470k = 2.9 V, both above VIL).  A resistor structurally cannot reach the 0.1 uA this split was made for; only omitting R45 and having the loader drive RE low early can, and that trades a sub-ms deaf window after reset.  Fab chose 47k, 2026-09-07: robust, passive, no init-order dependency."/>
+      <property name="Sheetname" value="o2-probe"/>
+      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
+      <property name="ki_keywords" value="R res resistor"/>
+      <property name="ki_fp_filters" value="R_*"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>a8fc4ee8-824f-5d3c-a73c-8cf19087e0ba</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
+            <pin num="2"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
     <comp ref="RH1">
       <value>280R 1W</value>
       <footprint>Resistor_SMD:R_2512_6332Metric</footprint>
@@ -3353,6 +3383,7 @@
       <node ref="R35" pin="2" pintype="passive"/>
       <node ref="R39" pin="2" pintype="passive"/>
       <node ref="R44" pin="2" pintype="passive"/>
+      <node ref="R45" pin="2" pintype="passive"/>
       <node ref="R7" pin="2" pintype="passive"/>
       <node ref="R9" pin="2" pintype="passive"/>
       <node ref="TP2" pin="1" pinfunction="1_1" pintype="passive"/>
@@ -3453,73 +3484,77 @@
     </net>
     <net code="39" name="/RS485_DE" class="Default">
       <node ref="R7" pin="1" pintype="passive"/>
-      <node ref="U5" pin="2" pinfunction="~RE_2" pintype="input"/>
       <node ref="U5" pin="3" pinfunction="DE_3" pintype="input"/>
       <node ref="U6" pin="30" pinfunction="PC6_30" pintype="bidirectional"/>
     </net>
-    <net code="40" name="/RS485_RX" class="Default">
+    <net code="40" name="/RS485_RE" class="Default">
+      <node ref="R45" pin="1" pintype="passive"/>
+      <node ref="U5" pin="2" pinfunction="~RE_2" pintype="input"/>
+      <node ref="U6" pin="31" pinfunction="PC7_31" pintype="bidirectional"/>
+    </net>
+    <net code="41" name="/RS485_RX" class="Default">
       <node ref="U5" pin="1" pinfunction="R_1" pintype="output"/>
       <node ref="U6" pin="32" pinfunction="PA10_32" pintype="input"/>
     </net>
-    <net code="41" name="/RS485_TX" class="Default">
+    <net code="42" name="/RS485_TX" class="Default">
       <node ref="U5" pin="4" pinfunction="D_4" pintype="input"/>
       <node ref="U6" pin="29" pinfunction="PA9_29" pintype="output"/>
     </net>
-    <net code="42" name="/SWCLK_BOOT0" class="Default">
+    <net code="43" name="/SWCLK_BOOT0" class="Default">
       <node ref="J3" pin="4" pinfunction="Pin_4_4" pintype="passive"/>
       <node ref="R9" pin="1" pintype="passive"/>
       <node ref="U6" pin="36" pinfunction="PA14-BOOT0_36" pintype="bidirectional"/>
     </net>
-    <net code="43" name="/SWDIO" class="Default">
+    <net code="44" name="/SWDIO" class="Default">
       <node ref="J3" pin="2" pinfunction="Pin_2_2" pintype="passive"/>
       <node ref="U6" pin="35" pinfunction="PA13_35" pintype="bidirectional"/>
     </net>
-    <net code="44" name="/SWO" class="Default">
+    <net code="45" name="/SWO" class="Default">
       <node ref="J3" pin="6" pinfunction="Pin_6_6" pintype="passive"/>
       <node ref="U6" pin="42" pinfunction="PB3_42" pintype="bidirectional"/>
     </net>
-    <net code="45" name="/TMP_CELL_EP" class="Default">
+    <net code="46" name="/TMP_CELL_EP" class="Default">
       <node ref="TP6" pin="1" pinfunction="1_1" pintype="passive"/>
       <node ref="U10" pin="7" pinfunction="EP_7" pintype="passive"/>
     </net>
-    <net code="46" name="/UART2_RX" class="Default">
+    <net code="47" name="/UART2_RX" class="Default">
       <node ref="J106" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
       <node ref="U6" pin="14" pinfunction="PA3_14" pintype="input"/>
     </net>
-    <net code="47" name="/UART2_TX" class="Default">
+    <net code="48" name="/UART2_TX" class="Default">
       <node ref="J105" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
       <node ref="U6" pin="13" pinfunction="PA2_13" pintype="output"/>
     </net>
-    <net code="48" name="/VA_MON" class="Default">
+    <net code="49" name="/VA_MON" class="Default">
       <node ref="C33" pin="1" pintype="passive"/>
       <node ref="R24" pin="2" pintype="passive"/>
       <node ref="R25" pin="1" pintype="passive"/>
       <node ref="U6" pin="18" pinfunction="PA7_18" pintype="bidirectional"/>
     </net>
-    <net code="49" name="/VIN_GATE" class="Default">
+    <net code="50" name="/VIN_GATE" class="Default">
       <node ref="DZ1" pin="2" pinfunction="A_2" pintype="passive"/>
       <node ref="Q1" pin="1" pinfunction="G_1" pintype="input"/>
       <node ref="R1" pin="1" pintype="passive"/>
     </net>
-    <net code="50" name="/VIN_MON" class="Default">
+    <net code="51" name="/VIN_MON" class="Default">
       <node ref="C32" pin="1" pintype="passive"/>
       <node ref="R26" pin="2" pintype="passive"/>
       <node ref="R27" pin="1" pintype="passive"/>
       <node ref="U6" pin="17" pinfunction="PA6_17" pintype="bidirectional"/>
     </net>
-    <net code="51" name="/VREF_MON_RAW" class="Default">
+    <net code="52" name="/VREF_MON_RAW" class="Default">
       <node ref="R34" pin="2" pintype="passive"/>
       <node ref="R35" pin="1" pintype="passive"/>
       <node ref="R36" pin="1" pintype="passive"/>
     </net>
-    <net code="52" name="/VREF_SHUNT" class="Default">
+    <net code="53" name="/VREF_SHUNT" class="Default">
       <node ref="C9" pin="1" pintype="passive"/>
       <node ref="R31" pin="1" pintype="passive"/>
       <node ref="R41" pin="2" pintype="passive"/>
       <node ref="U15" pin="1" pinfunction="REF_1" pintype="passive"/>
       <node ref="U15" pin="2" pinfunction="K_2" pintype="passive"/>
     </net>
-    <net code="53" name="/VREF_TRIM" class="Default">
+    <net code="54" name="/VREF_TRIM" class="Default">
       <node ref="C10" pin="1" pintype="passive"/>
       <node ref="R31" pin="2" pintype="passive"/>
       <node ref="R34" pin="1" pintype="passive"/>
@@ -3527,73 +3562,70 @@
       <node ref="U7" pin="11" pinfunction="VREF_11" pintype="input"/>
       <node ref="U8" pin="7" pinfunction="REFP_7" pintype="input"/>
     </net>
-    <net code="54" name="/WE_BUF" class="Default">
+    <net code="55" name="/WE_BUF" class="Default">
       <node ref="R37" pin="1" pintype="passive"/>
       <node ref="U4" pin="1" pinfunction="OUT_A_1" pintype="output"/>
       <node ref="U4" pin="2" pinfunction="IN-_A_2" pintype="input"/>
     </net>
-    <net code="55" name="unconnected-(D7-IO2-Pad3)" class="Default">
+    <net code="56" name="unconnected-(D7-IO2-Pad3)" class="Default">
       <node ref="D7" pin="3" pinfunction="IO2_3" pintype="passive+no_connect"/>
     </net>
-    <net code="56" name="unconnected-(U2-NC-Pad4)" class="Default">
+    <net code="57" name="unconnected-(U2-NC-Pad4)" class="Default">
       <node ref="U2" pin="4" pinfunction="NC_4" pintype="no_connect"/>
     </net>
-    <net code="57" name="unconnected-(U3-NC-Pad4)" class="Default">
+    <net code="58" name="unconnected-(U3-NC-Pad4)" class="Default">
       <node ref="U3" pin="4" pinfunction="NC_4" pintype="no_connect"/>
     </net>
-    <net code="58" name="unconnected-(U6-PA0-Pad11)" class="Default">
+    <net code="59" name="unconnected-(U6-PA0-Pad11)" class="Default">
       <node ref="U6" pin="11" pinfunction="PA0_11" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="59" name="unconnected-(U6-PA1-Pad12)" class="Default">
+    <net code="60" name="unconnected-(U6-PA1-Pad12)" class="Default">
       <node ref="U6" pin="12" pinfunction="PA1_12" pintype="output+no_connect"/>
     </net>
-    <net code="60" name="unconnected-(U6-PA5-Pad16)" class="Default">
+    <net code="61" name="unconnected-(U6-PA5-Pad16)" class="Default">
       <node ref="U6" pin="16" pinfunction="PA5_16" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="61" name="unconnected-(U6-PA11-Pad33)" class="Default">
+    <net code="62" name="unconnected-(U6-PA11-Pad33)" class="Default">
       <node ref="U6" pin="33" pinfunction="PA11_33" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="62" name="unconnected-(U6-PA12-Pad34)" class="Default">
+    <net code="63" name="unconnected-(U6-PA12-Pad34)" class="Default">
       <node ref="U6" pin="34" pinfunction="PA12_34" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="63" name="unconnected-(U6-PA15-Pad37)" class="Default">
+    <net code="64" name="unconnected-(U6-PA15-Pad37)" class="Default">
       <node ref="U6" pin="37" pinfunction="PA15_37" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="64" name="unconnected-(U6-PB2-Pad21)" class="Default">
+    <net code="65" name="unconnected-(U6-PB2-Pad21)" class="Default">
       <node ref="U6" pin="21" pinfunction="PB2_21" pintype="input+no_connect"/>
     </net>
-    <net code="65" name="unconnected-(U6-PB4-Pad43)" class="Default">
+    <net code="66" name="unconnected-(U6-PB4-Pad43)" class="Default">
       <node ref="U6" pin="43" pinfunction="PB4_43" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="66" name="unconnected-(U6-PB5-Pad44)" class="Default">
+    <net code="67" name="unconnected-(U6-PB5-Pad44)" class="Default">
       <node ref="U6" pin="44" pinfunction="PB5_44" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="67" name="unconnected-(U6-PB8-Pad47)" class="Default">
+    <net code="68" name="unconnected-(U6-PB8-Pad47)" class="Default">
       <node ref="U6" pin="47" pinfunction="PB8_47" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="68" name="unconnected-(U6-PB9-Pad48)" class="Default">
+    <net code="69" name="unconnected-(U6-PB9-Pad48)" class="Default">
       <node ref="U6" pin="48" pinfunction="PB9_48" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="69" name="unconnected-(U6-PB10-Pad22)" class="Default">
+    <net code="70" name="unconnected-(U6-PB10-Pad22)" class="Default">
       <node ref="U6" pin="22" pinfunction="PB10_22" pintype="input+no_connect"/>
     </net>
-    <net code="70" name="unconnected-(U6-PB11-Pad23)" class="Default">
+    <net code="71" name="unconnected-(U6-PB11-Pad23)" class="Default">
       <node ref="U6" pin="23" pinfunction="PB11_23" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="71" name="unconnected-(U6-PB12-Pad24)" class="Default">
+    <net code="72" name="unconnected-(U6-PB12-Pad24)" class="Default">
       <node ref="U6" pin="24" pinfunction="PB12_24" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="72" name="unconnected-(U6-PB13-Pad25)" class="Default">
+    <net code="73" name="unconnected-(U6-PB13-Pad25)" class="Default">
       <node ref="U6" pin="25" pinfunction="PB13_25" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="73" name="unconnected-(U6-PB14-Pad26)" class="Default">
+    <net code="74" name="unconnected-(U6-PB14-Pad26)" class="Default">
       <node ref="U6" pin="26" pinfunction="PB14_26" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="74" name="unconnected-(U6-PB15-Pad27)" class="Default">
+    <net code="75" name="unconnected-(U6-PB15-Pad27)" class="Default">
       <node ref="U6" pin="27" pinfunction="PB15_27" pintype="bidirectional+no_connect"/>
-    </net>
-    <net code="75" name="unconnected-(U6-PC7-Pad31)" class="Default">
-      <node ref="U6" pin="31" pinfunction="PC7_31" pintype="bidirectional+no_connect"/>
     </net>
     <net code="76" name="unconnected-(U6-PC13-Pad1)" class="Default">
       <node ref="U6" pin="1" pinfunction="PC13_1" pintype="bidirectional+no_connect"/>

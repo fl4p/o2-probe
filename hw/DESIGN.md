@@ -88,10 +88,19 @@ KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
 - The processor is STM32G071CBT7. USART1 on PA9/PA10 drives the THVD1410 farm
   RS-485 port. USART2 on PA2/PA3 lands on J105/J106 and is the bench-bridge
   tap, not a connector — see the J2 entry below.
-- PC6 drives `RS485_DE`, placing the direction-control GPIO beside the USART1
-  TX/RX pins, and PA7/ADC_IN7 measures `VA_MON`. These pin choices are
-  generator-owned because they make the compact right-side MCU placement
-  routable without changing the electrical functions.
+- PC6 drives `RS485_DE` and **PC7 drives `RS485_RE`**, placing both
+  direction-control GPIOs beside the USART1 TX/RX pins, and PA7/ADC_IN7
+  measures `VA_MON`. These pin choices are generator-owned because they make
+  the compact right-side MCU placement routable without changing the electrical
+  functions.
+- The THVD1410's two enables are on **separate** nets and separate GPIOs, and
+  each has its own 47 k pull-down: R7 on `RS485_DE` (driver off by default —
+  the bus-jam release path `main.c` relies on) and **R45 on `RS485_RE`**
+  (receiver *on* by default, since `/RE` is active low and floats high on a
+  2 MΩ internal pull-up, and a probe in the bootloader must still hear the
+  bus). Rev A shorted the two together, which made the transceiver's 0.1 µA
+  standby state uncommandable; see `POWER-BUDGET.md` for what the split buys
+  and what R45 costs. **The PCB has not been reworked for this yet.**
 - One TMP117 measures the warm tip near the membrane carrier. Its open-drain
   ALERT is wired directly to the MOSFET gate so a correctly configured active
   alarm can pull the heater off while MCU PWM drives through R28; R29 provides
@@ -192,7 +201,7 @@ pile produces; a mistyped `AT+COMMAND` must look like a fault, not like anoxia.
 
 | Reg | Name | Encoding | Invalid |
 |---|---|---|---|
-| 0 | `O2_COMP` | u16, %vol x 100 | `0xFFFF` |
+| 0 | `O2_COMP` | u16, %vol x 100, **dry basis** | `0xFFFF` |
 | 1 | `O2_RAW` | i16, cell uA x 100 | `0x8000` |
 | 2 | `T_TIP` | i16, 0.01 C (TMP117) | `0x8000` |
 | 3 | `T_CHAMBER` | i16, 0.01 C (SHT45) | `0x8000` |
@@ -205,13 +214,57 @@ pile produces; a mistyped `AT+COMMAND` must look like a fault, not like anoxia.
 (`SCHEMATIC-REVIEW.md` M4) and the bench air-versus-nitrogen pair settles it.
 Firmware that took an absolute value would hide the answer.
 
-### Diagnostic block, `0x0010`, 21 registers, read-only
+**`O2_COMP` is dry basis** - oxygen as a fraction of the water-free gas - and
+`O2_RAW` is the uncorrected cell current. Water vapour is a gas and it displaces
+everything else pro rata, so a wet-basis number falls as the pile gets hotter and
+wetter even when aeration has not changed: in a 60 C pile at 100 %RH, fully
+aerated air is 16.815 %vol wet against 20.946 dry, a 19.7 % error in the
+direction that reads as anoxia. Dry basis is what the compost literature, a
+Draeger tube and a lab instrument all report, and the only basis on which a trend
+means respiration rather than weather. The correction is
+`C_dry = C_wet * P / (P - p_w)` with `p_w = RH/100 * p_sat(T_chamber)`, and the
+air point is corrected the same way when it is taken, because a current measured
+in moist air attributed to dry 20.946 % mis-scales K by 1-2 % permanently. When
+RH, chamber temperature or `P` is unavailable the correction cannot be evaluated
+and `O2_COMP` publishes `0xFFFF`; it never falls back to the wet-basis number
+under the corrected name.
+
+The criterion for "unavailable" is the **age of the chamber reading**, not the
+`I2C_FAIL_SHT` bit. That bit was briefly used for it, on 2026-09-06, and it is
+the wrong instrument: the same bit is raised for the SHT45's own scheduled
+de-creep pulse, whose 30 s recovery mask then blanked the primary oxygen channel
+three times a day and labelled firmware-ordered maintenance a bus failure. The
+sampler instead keeps the last measured `(RH, T_chamber)` pair and bridges a gap
+of up to `O2P_RH_MAX_AGE_S` = 45 s with it - 30 s of mask plus the 1.1 s blocking
+pulse plus a second of 1 Hz sample quantisation is 32.1 s worst case, so 45 s is
+that with 40 % margin and nothing more. Past the cap the value is unevaluable and
+`O2_COMP` takes its sentinel, so a genuinely dead SHT45 still reports as one; and
+an air-point calibration is never bridged, because a permanent constant gets a
+humidity measured in its own cycle or none at all. Full argument, bench evidence
+and test vectors: `O2-HUMIDITY-CORRECTION.md`.
+
+### Diagnostic block, `0x0010`, 28 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
 0.01 K), `PRESSURE_HPA` (0 - the BMP390 option is deleted), `UPTIME_HI/LO`, `FW_VERSION`,
 `HW_REV`, `RESET_CAUSE`, `LMP_READBACK` (TIACN<<8 | REFCN as actually read),
 `MB_CRC_ERRS`, `MB_FRAME_ERRS`, `I2C_ERRS`, `EXP_DATA` (`0xFFFF` - J2 is deleted),
 `SETTLE_RESTARTS` (`0x0020`), `SAMPLE_SEQ` (`0x0021`).
+
+`CAL_STATE` (`0x002B`) reports calibration completeness: bit 0 the air point is
+the datasheet nominal, bit 1 no zero point taken. A register and not two fault
+bits, because the 16-bit fault word is full and because these are commissioning
+state rather than faults.
+
+`CAL_ZERO_NA_HI/LO` (`0x0046`/`0x0047`) hold the cell dark current, i32 signed
+nanoamps, subtracted from every current and from the air point before K.
+
+`CMD_RESULT` (`0x002A`) reports the outcome of the last calibration trigger in
+its high byte and the last flash store in its low byte: 0 none, 1 pending,
+2 OK, 3 failed. An acknowledged Modbus write means the REQUEST was accepted,
+never that the calibration was taken or that it reached flash; this register is
+what separates those. Each byte latches until its own command is issued again.
+
 
 `T_DIE` (`0x0022`) is the MCU die temperature, i16 0.01 C, `0x8000` invalid.
 Not ambient and not part of the oxygen path - it is the silicon, self-heating
@@ -230,23 +283,128 @@ latch self-clears, so the rate would be lost without a counter. A probe that
 glitches once and one that glitches hourly read identically between events
 otherwise.
 
-### Config block, `0x0030`, 18 registers, read/write, flash-backed
+`WE_BUF_MV` (`0x0025`), `RE_BUF_MV` (`0x0026`) and `CELL_BIAS_MV` (`0x0027`) are
+the buffered cell electrodes on ADS1119 AIN2/AIN3 and the bias between them
+(`WE - RE`, i16, `0x8000` invalid). Specified here from the start and not
+implemented until 2026-09-08: AIN3 was meanwhile sampled and published as
+`vin_mv` until `e31d5ac` removed it. Cell bias is what fails silently — the
+working point walks off target while every other register stays plausible — and
+it is the only channel that distinguishes a cell that changed from a measurement
+that changed. Sampled after the oxygen channel so that adding it cannot alter
+which channel precedes AIN0.
+
+`BUILD_ID_HI` (`0x0028`) and `BUILD_ID_LO` (`0x0029`) answer *which binary is
+this*. `FW_VERSION` cannot: it is a hand-edited constant, and it read v0.1 on every
+probe ever built, through every install, so when `O2_RAW` stepped 0.51
+%vol across the 2026-09-07 install nothing on the wire named the image on either
+side of the step. `BUILD_ID` is bit 31 the working tree was dirty at build time,
+bits 30..28 reserved, bits 27..0 the 7-hex-digit prefix of the commit the image
+was built from. `tools/pio_build_id.py` stamps it and **fails the build** if git
+cannot answer — an unidentifiable image is the condition the register exists to
+prevent, and the probe is potted. Zero means *built without the stamp* (only the
+host test build after 2026-09-08) and is never reported as a commit.
+
+
+### Config block, `0x0030`, 24 registers, read/write, flash-backed
 
 `SLAVE_ADDR`, `BAUD_CODE`, `PARITY_CODE`, `RH_SETPOINT`, `DT_MAX_K`,
 `HEATER_MAX_DUTY`, `HEATER_PWM_HZ`, `CAL_AIR_NA_HI/LO`, `CAL_TEMP_C100`,
 `TEMPCO_PPM_K`, `SHT_PULSE_H`, `SHT_PULSE_TRIG`, `CAL_TRIGGER`, `COMMIT`,
 `CONFIG_CRC` (read-only), then the two PI gains:
 `HEATER_KP` at `0x0040` and
-`HEATER_KI` at `0x0041`, both in 0.01 units.
+`HEATER_KI` at `0x0041`, both in 0.01 units, and the three water-vapour and
+pressure fields: `ASSUMED_P_HPA` at `0x0042`, `CAL_AIR_FRAC` at `0x0043` and
+`CAL_P_HPA` at `0x0044`.
+The cell's dilution efficacy `DIL_ALPHA` sits at `0x0045`.
+
+`DIL_ALPHA` (`0x0045`, alpha x 1000, default 1000) is how much of the
+water-vapour dilution the cell's current actually shows. The gas law says the
+correction is `P/(P-p_w)`; the 2026-09-07 sweep says this cell moves only
+`alpha = 0.453 +/- 0.052` of it, so the factor applied is
+`f_eff = 1 - alpha*(1 - (P-p_w)/P)` — on both sides, the air point's fraction
+and the measurement, because it describes the cell rather than the gas. The
+default of 1000 is the plain gas law and reproduces every earlier firmware
+exactly; it is deliberately not 453, because that is one cell's measured
+coefficient and a default is a claim about all of them. Writing this register
+restates `CAL_AIR_FRAC` under the new alpha — the stored fraction was computed
+with the old one and `K` is fixed against it — which inverts exactly, so no
+recalibration is required and the write is order-independent. See
+`O2-HUMIDITY-CORRECTION.md` §15.
 
 The two heater gains are registers rather than compile-time constants because
 the plant they tune can only be characterised in a real pile:
 `THERMAL-BARRIER.md` bounds the PCB conduction path, not ring-to-gas. The
 alternative was reflashing to change a number, which post-pot means the RS-485
 updater and a full image transfer. Adding them moved the config block from
-16 to 18 registers and took the flash record's layout version to 2, so a
-version-1 record falls back to defaults - and the defaults hold
-`HEATER_MAX_DUTY` at 0, so a layout change fails towards no heat.
+16 to 18 registers and took the flash record's layout version to 2. A version-1
+record still falls back to defaults - version 1 predates any deployed probe and
+has no decoder - and the defaults hold `HEATER_MAX_DUTY` at 0, so a layout
+change fails towards no heat.
+
+`ASSUMED_P_HPA` (`0x0042`) is the total pressure the water-vapour correction
+uses, in hPa, bounded 500-1100 and defaulting to 930 - the 715 m Steingrubenhof
+site. It exists because the BMP390 option is deleted and `PRESSURE_HPA` reads 0,
+so without it the correction has no `P` at all.
+
+**What a wrong `ASSUMED_P_HPA` actually costs, corrected 2026-09-06.** This
+section used to say "sea level is 8 % away", which is the difference in
+absolute pressure and not the error in the published number. `P` appears
+twice - once in the air point's own oxygen fraction and once in the
+measurement's dilution factor - and the two uses partially cancel. Leaving the
+930 default in place while calibrating *and* deploying at sea level gives about
+**+2.10 % relative** at a 25 C / 50 %RH air point read out at 60 C / 100 %RH,
+not +8 %. The residual depends on both conditions, so it is a range rather than
+a constant, and it is still worth getting right - but 2 % is the number to
+quote.
+
+What does *not* cancel is the weather. `P` moving +/-3.5 % after the air point
+was taken produces about **-4.17 % / +4.14 % relative** on the published value
+at that same 60 C / 100 %RH operating point - four times the size of the
+in-situ altitude residual above, and the largest uncorrected term left in the
+oxygen channel. **It is not correctable without a barometer**, and Rev A has
+none. With one, `CAL_P_HPA` below is what corrects it.
+
+`CAL_AIR_FRAC` (`0x0043`) is the oxygen fraction actually present when the air
+point was taken, %vol x 1000, and it is written by the `CAL_TRIGGER` routine
+together with `CAL_AIR_NA`. The air point is taken in moist room air, so the
+recorded current belongs to the wet fraction (0.2070 at the 23.4 C / 42.3 %RH
+point this bench used, not 0.20946); attributing it to dry air makes K 1.4 %
+high for the life of the probe, and a probe calibrated in a damp shed and one
+calibrated in a dry lab then genuinely disagree. Zero means "unknown" and
+`O2_COMP` stays invalid. `CAL_AIR_NA` still holds exactly what the ADC read, so
+it remains comparable with `O2_RAW` in air.
+
+`CAL_P_HPA` (`0x0044`) is the total pressure in force when the air point was
+taken, in hPa, `0` meaning unknown. It is not a duplicate of `ASSUMED_P_HPA`:
+that one is the pressure *now* and this one is the pressure *then*. The cell
+answers to `pO2 = C * P`, so its current at a given fraction is proportional to
+total pressure, and `K` is fixed once at the air point and therefore carries
+that pressure inside it. A measurement made at a different `P` has its current
+normalised by `P_cal / P_meas` before the inverse; without that step, correcting
+the vapour dilution against a real barometer reading would still leave about
+-3.2 % / +3.2 % of the weather term on the answer - the correction would be
+half-applied. With no barometer fitted, `P_meas` is `ASSUMED_P_HPA` and `P_cal`
+was the same register, the ratio is exactly `1`, and this changes no published
+number on Rev A. It is the structure that makes populating the BMP390 an actual
+fix rather than a partial one. A stored `0` is read as `P_cal == P_meas`, i.e.
+no normalisation - never as an assumed atmosphere.
+
+Adding these three took the config block to 21 registers and the flash record's
+layout version to **4** (version 3 existed for one commit and never reached a
+board). **An older record is now migrated rather than discarded**, and the
+difference is not cosmetic: discarding it defaulted the whole structure,
+including `SLAVE_ADDR`, `BAUD_CODE` and `PARITY_CODE`, so a probe an operator
+had moved off the default transport stopped answering its master the moment it
+took a firmware update - unrecoverably, on hardware that is potted and buried.
+The migration carries transport, heater tuning, pulse interval, tempco and
+`CAL_TEMP_C100` forward, and zeroes `CAL_AIR_NA`, `CAL_AIR_FRAC` and
+`CAL_P_HPA` and nothing else, because the air point is the only thing whose
+meaning changed: a version-2 `CAL_AIR_NA` was taken against an assumed dry
+atmosphere at a humidity nobody recorded. A migration that fails validation
+still falls back to full defaults. **Recalibration is therefore still required
+after this update:** `CAL_DEFAULT` is raised and `O2_COMP` publishes the
+sentinel until a fresh air point is taken. What is no longer required is a trip
+to the pile.
 
 A multi-register write is validated against a copy and committed all-or-nothing,
 so a frame setting a legal address and an illegal baud rate changes neither.
