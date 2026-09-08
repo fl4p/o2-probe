@@ -135,6 +135,12 @@ enum {
 #define O2P_COMMIT_MAGIC 0x5AC1u
 #define O2P_CAL_MAGIC    0xCA11u
 
+/* The nominal post-bias settling period, mirrored here so the register map can
+ * report an honest countdown before the sampler has produced one. main.c owns
+ * the authoritative deadline (O2P_SETTLE_SECONDS); this is the boot-time
+ * placeholder, and the static assert in main.c keeps the two in step. */
+#define O2P_SETTLE_SECONDS_NOMINAL 900u
+
 #define O2P_FW_VERSION 0x0001u  /* v0.1 */
 #define O2P_HW_REV     0x000Au  /* Rev A */
 
@@ -190,6 +196,8 @@ typedef struct {
     uint16_t rh_chamber;
     uint16_t heater_duty;
     uint16_t faults;
+    /* Seconds of cell settling remaining; 0 means settled, so it must never
+     * read 0 while the SETTLING fault is set. See o2p_regmap_init(). */
     uint16_t settle_s;
 
     uint16_t vref_mv;

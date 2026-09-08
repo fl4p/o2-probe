@@ -850,6 +850,76 @@ substituting a proxy for the thing being measured, and the fifth shape's proxy �
 gap bound — is at least now *named as an assumption about the caller* rather than presented
 as a property of the data.
 
-The two open items are unchanged and both are Fab's: the **calibration-quality gate**
-(§14, sharpened by §15) and the **calibration/commit transaction** (§12). No reviewer can
-decide either; both change what the instrument publishes.
+The open items are Fab's: the **calibration-quality gate** (§14, sharpened by §15), the
+**calibration/commit transaction** (§12), and — a third, which §16 first wrongly omitted —
+the **sample/config atomicity window** (§9, §12), where a poll landing between the
+conversion and the publish can pair an old-calibration reading with a new `CONFIG_CRC`.
+No reviewer can decide any of them; all three change what the instrument publishes.
+
+## 17. Tenth review, and where this stops
+
+The tenth reviewer was asked for an explicit convergence verdict and told that a clean one
+would end the loop. It returned:
+
+> **NOT CONVERGED: the calibration/commit protocol can acknowledge and then lose a
+> calibration on power cycle, while the absent calibration-quality gate can publish
+> decision-wrong O₂ with a clean fault word. The runaway loop itself has converged.**
+
+That splits the work cleanly, and it is why the review loop stops here.
+
+### The runaway detector is done
+
+Five rewrites and five accounting errors, and the sixth shape survives a full adversarial
+pass: a first observation contributes zero, valid high-to-high intervals within the cadence
+contract add their exact delta, a valid normal observation clears everything, a longer gap
+discards it, commanded duty clears timing, and wraparound and accumulator bounds are sound.
+**No sixth accounting error was found inside the chosen contract.** Its residual limits —
+it can false-latch if two high observations bracket unobserved normal behaviour inside
+10 s, and can miss a runaway if jointly valid observations stay more than 10 s apart — are
+inherent to observing a process at a finite rate, and are now stated at the constant rather
+than hidden.
+
+### Fixed in this round
+
+- **`SETTLE_S` reported "settled" before the first publish.** `memset` left it at 0, and 0
+  explicitly *means* settled, so a master polling in the boot second read the contradictory
+  pair `SETTLING=1, SETTLE_S=0`. A commissioning script trusting the dedicated countdown —
+  which is what it is for — would trigger a calibration that firmware silently refuses
+  against its own deadline while Modbus reports success. Now initialised to the full
+  period, with a `_Static_assert` tying the register map's placeholder to `main.c`'s
+  authoritative deadline so the two cannot drift.
+- **§16 claimed only two items remained.** There are three: the sample/config atomicity
+  window is a distinct open item, not a sub-case. Corrected.
+
+### The three that stop being "open" and start being release-blocking
+
+The reviewer's judgement, which I agree with after nine rounds of trying to fix around
+them: these are not preferences awaiting a tidy moment. Each produces a wrong outcome in a
+realistic commissioning, and each needs a decision that changes the published contract.
+
+1. **A successful Modbus reply does not mean the calibration was taken or persisted.**
+   `CAL_TRIGGER` returns success on setting a RAM flag; the point is taken cycles later;
+   the flash store happens later still and its result is discarded. Trigger, commit, both
+   acknowledged, power-cycle before the next `finish_o2()` — the calibration is gone, and a
+   flash failure is externally identical. **Needs**: a command-result register, a
+   generation/epoch, and a reported store outcome.
+2. **A one-temperature N₂+air calibration publishes with a completely clean fault word**,
+   and at a true +2000 ppm/K cell used 35 K from its calibration point that is a true
+   5.00 % reading as 5.34 % — across the turn/no-turn threshold. **Needs**: recorded
+   calibration provenance and a rule that withholds full validity until characterisation
+   exists (§14, with the acceptance limits computed per probe, §15).
+3. **A poll landing between the conversion and the publish** pairs an old-calibration
+   sample with a new `CONFIG_CRC`. **Needs**: a config epoch latched into the snapshot.
+
+All three cost register-map space, and the diagnostic block is exactly where the ChirpStack
+decoder has already drifted ahead of the firmware (§9, §11) — so they should be designed
+together with that reconciliation, not one at a time.
+
+### Why the loop ends here
+
+Ten rounds; every round through the ninth changed code. The tenth changed one register
+initialisation and otherwise re-derived the same three items. A eleventh would re-derive
+them again: **a reviewer cannot decide a contract, and these three are contract changes.**
+The largest structural risk is also unchanged and not a review finding — `main.c`,
+`modbus_rtu.c` and `config_flash.c` have no host coverage, which is where two of the three
+fatal bugs found in this whole cycle lived.

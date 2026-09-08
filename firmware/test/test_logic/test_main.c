@@ -1337,6 +1337,31 @@ static void test_validity_matrix(void)
     TEST_ASSERT_FALSE(o2p_o2_valid(O2P_F_TEMP_OVER | O2P_F_ADC_RANGE));
 }
 
+static void test_settle_countdown_agrees_with_the_settling_bit_at_boot(void)
+{
+    /* 0 explicitly MEANS settled, so it must never be published alongside the
+     * SETTLING fault. Before this fix a master polling in the boot second read
+     * SETTLING=1 with SETTLE_S=0 and could trigger a calibration the firmware
+     * silently refused while Modbus reported success. */
+    o2p_regmap_t fresh;
+    o2p_regmap_init(&fresh);
+
+    uint8_t req[32], rsp[O2P_MB_MAX_ADU];
+    o2p_mb_handlers_t h = {.read = o2p_regmap_read, .write = o2p_regmap_write,
+                           .ctx = &fresh};
+    /* FC03 of the primary block: FAULTS (0x0006) and SETTLE_S (0x0007). */
+    const uint8_t rd[] = {0x03, 0x03, 0x00, 0x06, 0x00, 0x02};
+    size_t n = framed(req, rd, sizeof(rd));
+    size_t rn = o2p_mb_dispatch(req, n, 3, &h, rsp);
+    TEST_ASSERT_TRUE(rn > 0);
+
+    uint16_t faults   = (uint16_t)((rsp[3] << 8) | rsp[4]);
+    uint16_t settle_s = (uint16_t)((rsp[5] << 8) | rsp[6]);
+    TEST_ASSERT_TRUE((faults & O2P_F_SETTLING) != 0u);
+    TEST_ASSERT_TRUE_MESSAGE(settle_s > 0u,
+        "SETTLE_S must not read 'settled' while the SETTLING fault is set");
+}
+
 static void test_snapshot_is_invalid_before_the_first_sample(void)
 {
     /* A freshly initialised probe that never completes a conversion must not
@@ -2055,6 +2080,7 @@ int main(void)
     RUN_TEST(test_gain_registers_read_back_what_was_written);
     RUN_TEST(test_config_block_read_covers_the_gains);
     RUN_TEST(test_validity_matrix);
+    RUN_TEST(test_settle_countdown_agrees_with_the_settling_bit_at_boot);
     RUN_TEST(test_snapshot_is_invalid_before_the_first_sample);
     RUN_TEST(test_dewpoint_reference_points);
     RUN_TEST(test_dewpoint_refuses_impossible_humidity);

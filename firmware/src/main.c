@@ -39,6 +39,10 @@
  * with oxygen gas which is consumed when the bias is reapplied", giving a
  * settling time "as long as 15 minutes". */
 #define O2P_SETTLE_SECONDS 900u
+_Static_assert(O2P_SETTLE_SECONDS == O2P_SETTLE_SECONDS_NOMINAL,
+               "regmap.h's boot-time SETTLE_S placeholder must match the real "
+               "settling period, or the first poll reports a countdown that "
+               "does not match the deadline the sampler enforces");
 
 /* Above this the SGX cell is outside its rating and the reading is an
  * extrapolation - flagged, NOT discarded (PLAN.md:211-228). */

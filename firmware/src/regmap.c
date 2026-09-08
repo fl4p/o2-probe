@@ -191,6 +191,15 @@ void o2p_regmap_init(o2p_regmap_t *rm)
          * takes, and forever if it never completes. */
         o2p_snapshot_reset(s);
         s->faults = O2P_F_SETTLING | O2P_F_HEATER_DISABLED;
+        /* SETTLE_S must agree with the SETTLING bit from the very first poll.
+         * memset left it at 0, and 0 explicitly MEANS settled - so a master
+         * polling during the boot second read the contradictory pair
+         * SETTLING=1, SETTLE_S=0. A commissioning script that trusts the
+         * dedicated countdown, which is what it is for, would then trigger a
+         * calibration that firmware silently refuses against its own deadline
+         * while Modbus reports success. Publish the full period until a real
+         * cycle replaces it. Found by the tenth review, 2026-09-08. */
+        s->settle_s = O2P_SETTLE_SECONDS_NOMINAL;
         s->reset_cause = 0u;
     }
     rm->live = 0u;
