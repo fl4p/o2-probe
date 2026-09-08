@@ -583,6 +583,16 @@ BRIDGE_PROBES = 3
 # consequential write this tool makes.
 RESTORE_ATTEMPTS = 3
 
+# How many times a bridge read-back is asked for before the rate is called
+# unknown. Reads are idempotent, so this is free; see BridgeRetimer.set_baud.
+READBACK_ATTEMPTS = 3
+
+# Everything a re-timing can fail with. ModbusException belongs in here and was
+# missing: Bus.write raises it for a refusal, it does NOT derive from IOError,
+# and an uncaught one from a bridge write escapes as a traceback out of a
+# restore path whose entire job is not to raise.
+LINE_ERRORS = (ModbusException, IOError, OSError)
+
 
 def fastest_code():
     """The code with the highest RATE, which is not the highest code.
@@ -643,20 +653,42 @@ class BridgeRetimer(object):
         self.baud = baud
 
     def set_baud(self, baud):
-        """Move the cable. Raises if the bridge did not take it.
+        """Move the cable. Raises if it cannot be established that it moved.
 
         Deliberately loud where SerialLink.set_baud cannot fail: this one is a
         frame over the wire and can be lost or refused, and a caller that
         believed a silent failure would go on to talk into a cable running at
         a rate it is not using. The read-back is what turns FC16's echo - which
         confirms the address and count but never the value - into a fact.
+
+        THE READ-BACK IS RETRIED, and the write is not. Re-reading a register
+        changes nothing, so a lost read-back costs another frame and no risk;
+        re-sending the write would be a second state change while the first is
+        still unaccounted for. Nearly every failure here is one lost frame, and
+        this is what stops that becoming a wrong answer.
+
+        Raising does NOT mean nothing happened. The write may have landed and
+        only its confirmation been lost, so self.baud is left at the last rate
+        actually READ - never at the one that was asked for - and callers must
+        treat the cable's rate as unknown rather than as unchanged. That is why
+        resync() still probes a candidate whose set_baud raised.
         """
         self.bus.write(BRIDGE_REG_BUS_BAUD, [baud // 100])
-        got = self.bus.read(BRIDGE_REG_BUS_BAUD, 1)[0] * 100
-        if got != baud:
+        last = None
+        for _ in range(READBACK_ATTEMPTS):
+            try:
+                got = self.bus.read(BRIDGE_REG_BUS_BAUD, 1)[0] * 100
+            except (ModbusException, IOError, OSError) as e:
+                last = e
+                continue
+            if got == baud:
+                self.baud = baud
+                return
+            self.baud = got
             raise IOError("the bridge reports %d baud after being asked for "
                           "%d" % (got, baud))
-        self.baud = baud
+        raise IOError("the bridge did not confirm %d baud (%s); the cable may "
+                      "or may not have moved" % (baud, last))
 
 
 def bridge_status(link, probe_addr):
@@ -680,6 +712,22 @@ def bridge_status(link, probe_addr):
         if r[0] != BRIDGE_IDENT:
             return False, None, None
         return True, r[1], r[BRIDGE_REG_BUS_BAUD] * 100
+    # SILENCE IS TREATED AS ABSENCE, and it is worth being explicit that this
+    # is the one place here that does that.
+    #
+    # The guard rule says unevaluable input must not read as a pass, and
+    # BRIDGE_PROBES timeouts in a row is not proof that nothing is there. It is
+    # kept because the alternative is worse: returning "unknown" would refuse
+    # the speed-up on every DIRECT RS-485 dongle, which is the ordinary bench
+    # setup and the case where retiming the link is exactly right.
+    #
+    # What bounds the mistake is the probe's own timer. If a v1 bridge IS there
+    # and all its replies are lost, this end retimes the host lead, the probe
+    # takes the write and switches, the cable does not follow, and the probe is
+    # unreachable -- for ten seconds, after which serial_probation.h puts it
+    # back. The cost is a failed speed-up and a hiccup, not a stranded probe.
+    # BRIDGE_PROBES is what makes it unlikely; the timer is what makes it
+    # survivable. Do not remove the second and keep believing the first.
     return False, None, None
 
 
@@ -796,13 +844,15 @@ def resync(line, bus, candidates, settle):
     for baud in candidates:
         try:
             line.set_baud(baud)
-        except (IOError, OSError):
-            # Only a bridge's set_baud can fail, and a bridge that will not
-            # move cannot be moved for any candidate either -- but say nothing
-            # and try the rest anyway: the alternative is inferring the state
-            # of the whole cable from one frame, which is the mistake this
-            # function exists to avoid.
-            continue
+        except LINE_ERRORS:
+            # NOT `continue`. A raise here means the change was not CONFIRMED,
+            # which is not the same as not made: the write may have landed and
+            # only its read-back been lost. Skipping the probe would then walk
+            # past the rate the cable is actually on and finish with a
+            # confident "found nowhere" - the wrong answer, arrived at by
+            # assuming a failure had no effect. Asking the probe costs one
+            # frame and settles it either way.
+            pass
         time.sleep(settle)
         code = probe_baud_code(bus)
         if code is not None and BAUD_CODES[code] == baud:
@@ -858,13 +908,21 @@ def sweep_identity(line, bus, addr, rates, settle):
     started_addr, started_baud = bus.addr, line.baud
     bus.addr = addr
     for baud in rates:
-        line.set_baud(baud)
+        try:
+            line.set_baud(baud)
+        except LINE_ERRORS:
+            # Through a bridge this is a frame. Unconfirmed is not unchanged,
+            # so the identity is still asked for at this candidate.
+            pass
         if settle:
             time.sleep(settle)
         if looks_like_o2p(bus):
             return True
     bus.addr = started_addr
-    line.set_baud(started_baud)
+    try:
+        line.set_baud(started_baud)
+    except LINE_ERRORS:
+        pass                      # reported by whoever asked for the sweep
     return False
 
 
@@ -942,7 +1000,10 @@ def find_probe(line, bus, settle=0.2):
     others = [b for b in rate_candidates() if b != started]
     at = resync(line, bus, others, settle)
     if at is None:
-        line.set_baud(started)            # leave it where the operator put it
+        try:
+            line.set_baud(started)        # leave it where the operator put it
+        except LINE_ERRORS as e:
+            print("   could not put this end back to %d (%s)" % (started, e))
         # Same question again for a bootloader: resync() asks the config
         # block, so it cannot see one at any rate.
         if sweep_identity(line, bus, bus.addr, others, settle):
@@ -1114,10 +1175,17 @@ def _restore_baud(line, bus, home_code, settle):
                     continue              # confirmed on the next lap
                 try:
                     bus.write(R_BAUD_CODE, [home_code])
-                except (ModbusException, IOError, OSError):
+                except LINE_ERRORS:
                     pass                  # asked again next lap, or verified
                 time.sleep(settle)
-                line.set_baud(home)
+                try:
+                    line.set_baud(home)
+                except LINE_ERRORS:
+                    # One lap's worth of failure, not the end of the restore.
+                    # Unguarded this jumped straight to the outer handler and
+                    # threw away every remaining attempt -- on the one path
+                    # whose whole purpose is to keep trying.
+                    pass
                 time.sleep(settle)
 
             at = resync(line, bus, rate_candidates(home, line.baud), settle)
@@ -1129,6 +1197,11 @@ def _restore_baud(line, bus, home_code, settle):
                       "%d. NOTHING WAS COMMITTED - a reset returns it to its "
                       "stored rate, and firmware from 2026-09-08 does that by "
                       "itself after ten seconds of silence." % (at, home))
+                if isinstance(line, BridgeRetimer) and line.baud != at:
+                    print("   the cable is at %d and the probe at %d. The "
+                          "bridge has no revert of its own; it is reachable "
+                          "over the host lead, and the next run's rate sweep "
+                          "moves it." % (line.baud, at))
                 return at
             # Found nowhere. Leave THIS end on the rate the operator asked
             # for, so every message from here on is about the settings they
@@ -1136,11 +1209,24 @@ def _restore_baud(line, bus, home_code, settle):
             # branch above deliberately does the opposite: there the probe was
             # found, and the line is left where it is so `--boot` can reach
             # it.)
-            line.set_baud(home)
+            try:
+                line.set_baud(home)
+            except LINE_ERRORS as e:
+                # Through a bridge this is a frame and can fail. Say so rather
+                # than losing the diagnosis below to the outer handler.
+                print("!! baud: this end could not be put back to %d either "
+                      "(%s)" % (home, e))
             print("!! baud: the probe answers at no rate this firmware "
                   "supports. NOTHING WAS COMMITTED - reset or power-cycle it "
                   "and it returns to its stored rate; firmware from "
-                  "2026-09-08 does it by itself after ten seconds.")
+                  "2026-09-08 does it by itself after ten seconds of silence.")
+            if isinstance(line, BridgeRetimer):
+                print("   the BRIDGE has no such timer and keeps whatever "
+                      "rate it was last set to (now %d). If the probe reverts "
+                      "underneath it the two are mismatched until something "
+                      "moves the cable back - which is what the rate sweep at "
+                      "the start of the next run does, through the bridge."
+                      % line.baud)
             return None
         except BaseException as e:                           # noqa: BLE001
             print("!! baud: the restore itself failed (%r). NOTHING WAS "
@@ -1417,16 +1503,25 @@ def run(args, link):
 
     bus = Bus(link, args.addr)
 
-    # Before anything is diagnosed as a dead probe or a bad lead: an earlier
-    # run of THIS tool may have left it at a rate nobody asked for.
-    if not args.bridge:
-        find_probe(line, bus)
-
     # WHICH OBJECT IS THE CABLE, resolved once and used everywhere below.
     # Through a bench bridge it is NOT `link`: `link` is then the host lead,
     # and retiming that to follow the probe would cut the only connection that
     # still works. Everything from here on that moves a rate moves this.
     line, why_not = retimable_line(link, bus.addr)
+
+    # Before anything is diagnosed as a dead probe or a bad lead: an earlier
+    # run of THIS tool may have left it at a rate nobody asked for.
+    #
+    # THIS MUST FOLLOW retimable_line(), not precede it. It was written above
+    # that call and referenced `line` before assignment, so EVERY path through
+    # run() raised UnboundLocalError - both --port and --swd, on the first
+    # statement that does any work. Reproduced against the pre-fix order with a
+    # stub link, 2026-09-08; found by a review, not by a test, because nothing
+    # here calls run() at all: the tool suites drive the module's functions
+    # directly and the BLE push imports the Bus helpers. test_run_smoke.py now
+    # closes that, and it is the whole of what it checks.
+    if not args.bridge:
+        find_probe(line, bus)
 
     # --status/--abort/--stay do their one thing and return before any
     # restore exists, so a probe found off the provisioned rate is REPORTED
@@ -1472,7 +1567,12 @@ def run(args, link):
     # and print "already at the fastest this firmware offers" while doing it.
     # --baud is the operator's statement of what the cable runs at, and it is
     # the only thing here that a previous failure cannot have corrupted.
-    home_code = code_for_baud(args.baud) if hasattr(link, "set_baud") else None
+    # `line`, not `link`. Gating on the LINK's own set_baud refused the whole
+    # speed-up over --swd -- where the transport deliberately has none and the
+    # cable is the bridge's bus port, which is precisely the case the bridge
+    # re-rate exists for. retimable_line() has already decided whether anything
+    # here can follow the probe; this only asks where it must be left.
+    home_code = code_for_baud(args.baud) if line is not None else None
 
     # Negotiated after the status read, which is deliberately done at the rate
     # the operator asked for: if anything about the link is wrong, it should

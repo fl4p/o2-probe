@@ -142,6 +142,17 @@ def bridge_problems(tool):
     tbl = re.search(r"^BAUD_CODES = \{(.*)\}$", tool, re.M)
     codes = set(int(v) for v in re.findall(r":\s*(\d+)", tbl.group(1))) \
         if tbl else set()
+    # UNEVALUABLE INPUT IS NOT A PASS. Written as `if accepts and codes and
+    # accepts != codes` this failed open: a renamed macro or a reformatted
+    # Python table empties one side, the comparison is skipped, and the check
+    # reports agreement it never established. Both sides are regex-scraped from
+    # source, so "I could not read it" is a likely outcome and has to be loud.
+    if not accepts:
+        out.append("src/bridge_reply.h no longer declares its accepted bus "
+                   "rates in a form this check can read (O2P_BRIDGE_BAUD_n)")
+    if not codes:
+        out.append("tools/o2p_update.py no longer declares BAUD_CODES in a "
+                   "form this check can read")
     if accepts and codes and accepts != codes:
         out.append("src/bridge_reply.h accepts bus rates %s, the tool's "
                    "BAUD_CODES has %s - one of them can name a rate the other "

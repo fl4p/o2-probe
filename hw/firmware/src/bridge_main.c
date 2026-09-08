@@ -169,10 +169,26 @@ static o2p_buart_t g_host;
  * push is ~141 blocks of 240 bytes and the RS-485 hop is 0.302 s of each at
  * 9600, so this is where a push's time actually goes.
  *
- * The bridge deliberately has NO auto-revert of its own, and does not need
- * one: it is reachable over the host lead whatever the cable is doing, so a
- * bridge left at a rate nothing answers at is one FC06 away from correct. The
- * probe is the end that can strand itself, and that is the end with the timer.
+ * The bridge deliberately has NO auto-revert of its own, and the honest
+ * version of why is narrower than "it does not need one".
+ *
+ * WHAT IS TRUE: the bridge cannot strand ITSELF. It is reachable over the host
+ * lead whatever the cable is doing, so a bridge left at a rate nothing on the
+ * cable answers at is one FC16 write away from correct (FC16, not FC06 -- this
+ * file accepts only the former, see bridge_reply.c).
+ *
+ * WHAT IS NOT TRUE: that the PAIR always recovers by itself. The probe's timer
+ * reverts the probe and nothing reverts the bridge, so a master that dies in
+ * the ten seconds between the two writes leaves the probe back at 9600 and the
+ * bridge at 38400, with nothing able to cross. That state is recoverable and
+ * not silent -- the next run re-rates the bridge and sweeps the cable's rates
+ * to find the probe -- but it is recovered by a TOOL, not by a timer, and any
+ * claim that a crash is automatically safe is wrong about this half.
+ *
+ * Giving the bridge its own timer would not fix it either: the two timers
+ * would have to agree on a deadline across a link that is by definition not
+ * working, and a bridge that reverted underneath a probe that had just been
+ * confirmed at the new rate would break a transfer that was going fine.
  */
 static uint32_t g_bus_baud = O2P_BRIDGE_BUS_BAUD;
 
@@ -193,11 +209,19 @@ static void snapshot(uint16_t *r)
  * been sent, because the reply has to leave at the rate the master is still
  * listening at -- and only on the host lead, which this never touches.
  *
- * The bus port is idle here by construction: the bridge is half duplex and
- * single threaded, this frame was answered locally so nothing was put on the
- * cable for it, and any bus frame in flight is a reply to a request that
- * finished long ago. o2p_buart_set_baud discards a partial receive for the
- * remaining case, a frame that began arriving from another master mid-swap. */
+ * The bus port is idle here GIVEN ONE MASTER, which is what this cable has and
+ * what the whole Modbus RTU scheme assumes. The bridge is half duplex and
+ * single threaded; this frame was answered locally so nothing was put on the
+ * cable for it; and a previous bus send has already waited for TC and released
+ * DE before returning (bridge_uart.c), so nothing of ours is still shifting.
+ *
+ * The residual case is a frame arriving from somewhere else at this instant --
+ * a late slave reply, or a SECOND master, which this bus is not supposed to
+ * have. o2p_buart_set_baud discards the partial receive rather than splicing
+ * bytes from two line rates into one frame. What it cannot do is un-truncate
+ * somebody else's frame: a second master transmitting through a re-rate loses
+ * that frame and must retry it. That is a real limit of this design, and it is
+ * bounded by the single-master assumption rather than by anything here. */
 static void apply(const o2p_bridge_action_t *act)
 {
     if (!act->set_bus_baud || act->bus_baud == g_bus_baud) {

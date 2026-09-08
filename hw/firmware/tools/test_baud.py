@@ -128,7 +128,7 @@ class FakeLine:
 
     def __init__(self, probe, baud=SLOW, bridge=False, bridge_lost=0,
                  bridge_garbage=False, bridge_short=False, bridge_version=1,
-                 bridge_deaf=False):
+                 bridge_deaf=False, bridge_readback_lost=0):
         self.probe = probe
         # `baud` is THIS END of the lead. With a bridge in the path that is the
         # host lead, which must never move; the cable is `bus_baud`, and only
@@ -137,6 +137,9 @@ class FakeLine:
         self.bridge = bridge
         self.bridge_version = bridge_version
         self.bridge_deaf = bridge_deaf    # accepts the write, does not act
+        # First N read-backs of the bus-rate register are lost. The write still
+        # ACTS -- this is the case where a failure does not mean no change.
+        self.bridge_readback_lost = bridge_readback_lost
         self.bus_baud = baud
         self.bridge_retimes = []
         self.bridge_lost = bridge_lost        # first N bridge replies dropped
@@ -192,6 +195,10 @@ class FakeLine:
         first, count = 0, len(regs)
         if len(pdu) >= 5 and pdu[0] == 3:
             first, count = struct.unpack(">HH", pdu[1:5])
+            if (first == u.BRIDGE_REG_BUS_BAUD and count == 1
+                    and self.bridge_readback_lost > 0):
+                self.bridge_readback_lost -= 1
+                return b""
         if first + count > len(regs):
             rsp = bytes([addr, 0x83, 2])
             return rsp + struct.pack("<H", u.crc16(rsp))
@@ -385,6 +392,40 @@ def main():
           "cable at %d" % line.bus_baud)
     check("deaf bridge: nothing was raised at the caller", restore is None)
 
+    # A LOST READ-BACK IS NOT A FAILED WRITE. The bridge acts, and only the
+    # confirmation is lost. Re-reading is idempotent, so set_baud asks again
+    # rather than reporting a failure that would send the restore hunting for a
+    # probe at a rate the cable is no longer on.
+    p = FakeProbe()
+    line = FakeLine(p, bridge=True, bridge_version=2,
+                    bridge_readback_lost=u.READBACK_ATTEMPTS - 1)
+    case("v2 bridge whose read-back is lost", p, line, SLOW, FAST_CODE, True)
+    check("lost read-back: the cable still moved", line.bus_baud == FAST,
+          "cable at %d" % line.bus_baud)
+    check("lost read-back: the retimer knows where it is", line.bridge_retimes
+          == [FAST], "%r" % (line.bridge_retimes,))
+
+    # And when the read-back never comes back, set_baud raises -- but the write
+    # may still have acted, so resync must PROBE the candidate rather than skip
+    # it. Skipping is how an unconfirmed success becomes "found nowhere".
+    p = FakeProbe()
+    line = FakeLine(p, bridge=True, bridge_version=2,
+                    bridge_readback_lost=99)
+    restore = case("v2 bridge whose read-back never returns", p, line, SLOW,
+                   FAST_CODE, True)
+    check("read-back never returns: the cable did move anyway",
+          line.bus_baud == FAST, "cable at %d" % line.bus_baud)
+    # And the transfer goes ahead at the fast rate. Nothing here trusted the
+    # unconfirmed write: confirm_baud() asked the PROBE, which is the only end
+    # whose answer settles what rate the cable is actually running at. An
+    # earlier draft of this case expected the speed-up to be abandoned, which
+    # is what skipping the probe would have produced.
+    restore()
+    check("read-back never returns: the restore still finds the probe",
+          p.baud_code == SLOW_CODE, "probe at %d" % p.baud_code)
+    check("read-back never returns: and puts the cable back",
+          line.bus_baud == SLOW, "cable at %d" % line.bus_baud)
+
     # A bridge running at a rate this firmware has no code for. There would be
     # nowhere defined to put the cable back, so it is not touched.
     p = FakeProbe()
@@ -433,6 +474,13 @@ def main():
     # though this transport has no rate of its own. This is the one case whose
     # answer the change reverses, and it used to be refused before the bridge
     # was ever asked.
+    #
+    # NOTE WHAT THIS DOES NOT REACH. It calls the negotiation helper directly
+    # with a home code already in hand, so it says nothing about whether run()
+    # gets that far -- and run() did NOT, because it derived home_code from
+    # `hasattr(link, "set_baud")`, which SwdLink has none of. Found by review,
+    # 2026-09-08. run() now derives it from `line`; test_run_smoke.py covers
+    # that run() is reachable at all, and this stays a helper-level case.
     p = FakeProbe()
     line = SwdLikeLine(p, bridge=True, bridge_version=2)
     case("swd through a v2 bridge", p, line, SLOW, FAST_CODE, True)
