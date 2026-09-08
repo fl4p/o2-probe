@@ -635,6 +635,36 @@ typedef enum {
     BIAS_BAD,
 } bias_verdict_t;
 static bias_verdict_t s_bias_verdict;
+/* The sample_seq the verdict was ESTABLISHED in, and the reason the verdict
+ * alone is not enough.
+ *
+ * Review 2026-09-08 broke the claim at the calibration gate, which said an
+ * "UNKNOWN - no reading yet, or a cycle in which the electrodes could not be
+ * converted - refuses rather than assuming the best". Only the first half was
+ * true. UNKNOWN is assigned inside finish_electrode()'s RE branch, AFTER four
+ * early returns - no conversion, this phase clipped, a negative code, an
+ * unmeasured reference - so a cycle that could not convert the electrodes left
+ * the PREVIOUS cycle's verdict standing, with no bound on its age. A BIAS_GOOD
+ * from a healthy cycle could therefore authorise a PERMANENT air calibration
+ * an arbitrary number of failed cycles later, which is exactly the "stale
+ * value wearing the units of a measurement" this file is written against.
+ *
+ * The verdict is legitimately one cycle old at the gate - finish_o2() runs two
+ * phases BEFORE the electrodes - so age is the discriminator, not freshness.
+ * Stamped only where a complete WE+RE pair produced it. */
+static uint16_t s_bias_verdict_seq;
+
+/* BIAS_GOOD, and no older than the one cycle the phase order costs.
+ *
+ * Unsigned 16-bit subtraction, so g_sample_seq wrapping is not a special case:
+ * the difference is correct across the wrap and only the difference is used. */
+static bool bias_verified_recently(void)
+{
+    if (s_bias_verdict != BIAS_GOOD) {
+        return false;
+    }
+    return (uint16_t)(g_sample_seq - s_bias_verdict_seq) <= 1u;
+}
 
 /* WE_BUF and RE_BUF, the buffered cell electrodes on AIN2/AIN3.
  *
@@ -753,6 +783,10 @@ static void finish_electrode(o2p_snapshot_t *s, bool working)
                 } else {
                     s_bias_verdict = BIAS_GOOD;
                 }
+                /* Stamped HERE and nowhere else: this is the only point at
+                 * which a complete WE+RE pair, against a measured reference,
+                 * has actually produced a verdict. */
+                s_bias_verdict_seq = g_sample_seq;
             }
         }
     }
@@ -905,13 +939,15 @@ static void finish_o2(o2p_snapshot_t *s)
          * reference for life while looking perfectly calibrated. Temperature
          * faults are deliberately absent from the raw-O2 validity mask, so
          * o2p_o2_valid() does not catch this. */
-        /* And the cell has to have BEEN AT ITS COMMANDED BIAS. See
-         * s_bias_verdict: an air point is permanent, the bias check does not
-         * run until two phases after this decision, and UNKNOWN - no reading
-         * yet, or a cycle in which the electrodes could not be converted -
-         * refuses rather than assuming the best. */
+        /* And the cell has to have BEEN AT ITS COMMANDED BIAS *RECENTLY*. See
+         * s_bias_verdict_seq: an air point is permanent, the bias check does
+         * not run until two phases after this decision, so the verdict is
+         * always one cycle old here - but only one. A cycle in which the
+         * electrodes could not be converted leaves no verdict at all, and
+         * bias_verified_recently() refuses that rather than reading the last
+         * healthy cycle's answer, however long ago it was. */
         if (settled && t_gas != O2P_I16_INVALID &&
-            s_bias_verdict == BIAS_GOOD &&
+            bias_verified_recently() &&
             o2p_o2_valid(g_cyc.faults) &&
             o2p_calibrate_air(&g_cal, cell_na, t_gas, &fresh)) {
             g_rm.cfg.cal_air_na = g_cal.cal_air_na;
