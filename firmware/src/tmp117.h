@@ -46,8 +46,11 @@ enum {
 #define O2P_TMP_LSB_UC 7813   /* micro-degrees, rounded from 7812.5 */
 
 /* The part's rated operating range (SNOSD82D), in 0.01 C. A conversion outside
- * this is a bus error, not weather - see o2p_tmp117_read(), where the check
- * that was supposed to enforce this was tautological until 2026-09-08. */
+ * this is an OPERATIONAL PLAUSIBILITY failure, not weather and not proof of a
+ * bus error - see o2p_tmp117_read(), where the check that was supposed to
+ * enforce it was tautological until 2026-09-08. Note the part's +/-0.3 C
+ * accuracy means a true 150.0 C endpoint could read 150.3 C and be refused;
+ * the probe's own limits sit near 85 C, so the margin is ample here. */
 #define O2P_TMP117_MIN_C100 (-5500)
 #define O2P_TMP117_MAX_C100  15000
 

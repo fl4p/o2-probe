@@ -92,7 +92,9 @@ o2p_sht_status_t o2p_sht4x_serial(uint32_t *out_serial);
 
 /* One high-precision measurement. Temperature in 0.01 C, RH in 0.01 %.
  * RH is clamped to 0..100 % as the datasheet directs, but a raw value far
- * outside that range is reported as O2P_SHT_RANGE rather than clamped
+ * outside the rating is reported as O2P_SHT_RANGE rather than clamped - an
+ * operational plausibility screen, not a datasheet limit and not proof the
+ * part has failed (see the bounds above) - rather than clamped
  * silently - out-of-range means the part is failing, and the dew-point
  * calculation must not be fed a clamped fiction. */
 o2p_sht_status_t o2p_sht4x_measure(int16_t *out_t_c100, uint16_t *out_rh_x100);

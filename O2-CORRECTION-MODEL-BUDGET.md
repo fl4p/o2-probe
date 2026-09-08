@@ -679,8 +679,10 @@ no value, never a wrong one — and that distinction is pinned by its own test, 
 one proving every *realistic* calibration converts through the 85 °C extrapolation.
 
 I also dropped a false claim of my own: the bound is **not** a byte-swap screen. Tempco is
-a single 16-bit register, so a swapped 1000 (`0x03E8` → `0xE803`) lands at −6141 and passes
-any bound this wide.
+a single 16-bit register, and 1024 ppm/K (`0x0400`) swaps to 4 (`0x0004`) — both pass,
+silently turning a real coefficient into no correction at all. (The example first used
+here, 1000 → −6141, is actually *rejected* by the restored ±5000 bound; the conclusion
+survives, the example did not. Corrected 2026-09-08.)
 
 ### Also fixed
 
@@ -695,9 +697,12 @@ any bound this wide.
 
 **The firmware has no calibration-quality gate, and that is now the load-bearing gap.**
 `CAL_DEFAULT` clears the moment `cal_air_na > 0`; nothing records whether a *temperature*
-characterisation ever happened. So a probe calibrated in air alone, with `tempco = 0`
-against a true +2000 ppm/K cell, reports a true 5 %O₂ as **5.34 %** and a true 2 % as
-**2.14 %** — with a completely clean fault word. That is the project's own §3 result
+characterisation ever happened. So a probe calibrated with N₂ + air at one
+temperature, with `tempco = 0` against a true +2000 ppm/K cell, reports a true 5 %O₂ as
+**5.34 %** and a true 2 % as **2.14 %** — with a completely clean fault word. (An earlier
+revision said "air alone"; that case additionally raises `CAL_ZERO_DEFAULT`, so the fault
+word is not clean even though the value is still published. The one-temperature N₂+air
+case is the one that shows the gap with nothing set at all.) That is the project's own §3 result
 (0.3–0.5 points at 55 °C for air-only) arriving as an unmarked number.
 
 No range check can fix this, which is the one thing every round since the third has
@@ -709,14 +714,82 @@ agreed on. What would:
    exists.** All sixteen fault bits are allocated, so this means either broadening
    `CAL_DEFAULT` to "calibration model incomplete" or publishing quality in a **new status
    register**.
-3. **A defensible acceptance target**, from the review and worth keeping: to hold 0.1
-   percentage points at a true 5 %O₂, the coefficient error must be within roughly
-   **±550 ppm/K over a 40 K span**, or **±245 ppm/K over 100 K**. That is what a
-   commissioning campaign must demonstrate — and it is two orders tighter than any
-   register bound, which is exactly why the bound was never the answer.
+3. **An acceptance target computed per probe, not a stored constant.** To hold 0.1
+   percentage points at a true 5 %O₂ the coefficient error must be within roughly
+   **+565/−543 ppm/K over a 40 K span** and **+251/−241 ppm/K over 100 K** — *for a cell
+   near +2000 ppm/K*. The limit depends materially on the fitted coefficient itself: at
+   −3200 ppm/K it tightens to about **±439 ppm/K over 40 K** and **±137 ppm/K over 100 K**,
+   and applying the +2000 figures there would admit 0.13–0.18 points of error. (An earlier
+   revision of this section quoted ±550/±245 as universal limits. They are not; verified
+   and corrected 2026-09-08.) **The gate must compute its limit from the fitted
+   coefficient and the operating span**, not store one universal pair. Either way it is
+   two orders tighter than any register bound, which is why the bound was never the
+   answer.
+
+4. **Acceptance rules the §14 sketch did not include**, and each is needed before the
+   compensated channel is certifiable to 0.1 points: a valid **zero** point (today
+   `CAL_ZERO_DEFAULT` is non-invalidating), an explicit **residual / model-closure**
+   criterion, and a check that the probe is **operating inside the characterised span**
+   (today `TEMP_OVER` extrapolates past it and stays valid). Recording points, span and
+   residuals is the foundation, not the gate.
 
 Option 2 changes what the instrument publishes and would mark every existing probe's
 compensated channel as incomplete. **That is a contract decision, not a review fix**, and
 it is the same open question as `CAL_ZERO_DEFAULT` from §8 — now with a second, larger
 instance behind it. It sits with the calibration/commit transaction (§12) as the two
 things a reviewer cannot decide for you.
+
+## 15. Eighth adversarial review — the adjudication holds, the accounting did not
+
+The verdict I asked for, and it settles the oscillation between §13 and §14:
+
+> **"The 5000 ppm/K and 0.5–2.0 adjudication itself lands reasonably."**
+
+Independently checked and confirmed: DS-0637's plot runs ~84 % at −40 °C to 105–106 % at
++60 °C, so ±5000 ppm/K and a factor-of-two runtime window sit generously outside observed
+cell behaviour without pretending to certify accuracy. And across the whole realistic space
+— Tcal 0…40 °C × coefficient ±3200 ppm/K × measurement −10…85 °C — **gain stays within
+0.728…1.272, so nothing realistic is refused.** The explicit `UNEVALUABLE` corner is a
+coherent tri-state policy rather than a revoked contract. That question is closed.
+
+### The runaway detector was wrong a fourth time, in a fourth way
+
+Capping each observation's contribution at 5 s **still credited the cap across a blind
+gap**: thirteen instantaneous high observations 100 s apart accumulated 60 s of "evidence"
+and latched with the condition never actually watched. My own test stopped after the
+second isolated sample, when the false evidence was only 5 s, so it missed the class it was
+written for — the same mistake in the test as in the code.
+
+A gap longer than the cap now **discards** the accumulated evidence rather than clipping
+its contribution: after a real outage the honest state is "start again". The alternating
+valid/invalid case still accumulates, correctly — seeing high ΔT at both ends of a
+two-second interval is genuine evidence about that interval — and both directions are now
+tested, including the 20-burst sequence that defeats clipping.
+
+Four rewrites, four different accounting errors, on ~20 lines. Worth recording as a
+pattern: every one of them came from *choosing a proxy for the thing being measured* —
+elapsed wall time, then time-since-start, then capped-gap — instead of accumulating the
+observation itself.
+
+### Arithmetic and documentation errors in §14 itself
+
+| # | Finding | Disposition |
+|---|---|---|
+| 3 | **±550/±245 ppm/K are not general acceptance limits.** They are local to a true +2000 ppm/K cell. At −3200 ppm/K the limits tighten to ±439 over 40 K and ±137 over 100 K, and applying the +2000 figures there admits 0.13–0.18 points of error | **Confirmed and corrected**, recomputed here independently. The gate must compute its limit **from the fitted coefficient and span**, not store a universal pair. |
+| 2 | The §14 gate sketch is **not yet a sufficient specification**: "temperature characterisation exists" does not require a valid zero point, a residual/model-closure criterion, or that the probe is operating *inside* the characterised span | **Accepted; §14 amended** with those three acceptance rules. Recording points, span and residuals is the foundation, not the gate. |
+| 4 | The byte-swap example was wrong: swapped 1000 → −6141 **is** rejected by the restored ±5000 bound | **Corrected.** The conclusion survives with a real example: 1024 (`0x0400`) swaps to 4 (`0x0004`) and both pass, silently turning a real coefficient into no correction at all. |
+| 5 | "Air-only has a completely clean fault word" is false — it also raises `CAL_ZERO_DEFAULT` | **Corrected.** The case that genuinely shows the gap with *nothing* set is a one-temperature N₂+air calibration. |
+| 6 | The comment cleanup **missed the public headers**: `tmp117.h` and `sht4x.h` still called an out-of-range result a bus error, and stale test prose still said "five times the curve" and called −10000 ppm/K legal | **Confirmed and fixed.** §14's "comments corrected" row was overstated, exactly as §§10–13 were. |
+
+### Standing
+
+`vref_ok` survives full scrutiny — cleared in `cycle_begin()`, set only on the valid branch,
+cannot be stale, and removing `ADC_RANGE` from the interlock loses no real protection.
+`runaway_evidence_s` cannot overflow. The remaining open items are unchanged and both are
+Fab's: the **calibration-quality gate** (§14, now with a sharper specification) and the
+**calibration/commit transaction** (§12).
+
+One honest note on coverage, from the review: of the tests added last round, one would have
+passed against the parent implementation, and **no host test covers the `vref_ok`
+integration at all** because `main.c` is excluded from the native build. That remains the
+structural gap behind every "verified" claim in these sections.

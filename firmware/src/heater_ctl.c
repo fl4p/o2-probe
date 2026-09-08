@@ -145,11 +145,21 @@ static void update_runaway(o2p_heater_state_t *st,
      *
      * The bug common to all three is asking "how long ago did this start"
      * instead of "how much high-dT have I actually SEEN". So the state is now
-     * an accumulator of observed valid high-dT seconds: a valid high sample
-     * adds the time since the previous OBSERVATION, an invalid sample adds
-     * nothing and does not reset, and a valid normal sample clears it. An
-     * outage can delay the latch but cannot fabricate it or prevent it
-     * indefinitely. Seventh review, 2026-09-08. */
+     * an accumulator of observed valid high-dT seconds.
+     *
+     * The fourth shape, and the third to get the accounting wrong. Capping an
+     * observation's contribution was not enough: a 100 s blind gap between two
+     * isolated high samples still CREDITED the cap, so thirteen instantaneous
+     * observations 100 s apart accumulated 60 s of "evidence" and latched
+     * without the condition ever being watched (eighth review, 2026-09-08).
+     *
+     * A gap longer than the cap therefore DISCARDS the accumulated evidence
+     * rather than clipping its contribution. After a real outage we no longer
+     * know the condition persisted, so the honest state is "start again", not
+     * "keep what we had plus a bit". Consecutive observations a second or two
+     * apart still accumulate normally - including the alternating
+     * valid/invalid case, where seeing high dT at both ends of a two-second
+     * interval is genuine evidence about that interval. */
     if (!in->tip_valid || !in->chamber_valid) {
         return;   /* observe nothing: neither evidence for nor against */
     }
@@ -167,15 +177,14 @@ static void update_runaway(o2p_heater_state_t *st,
         st->runaway_evidence_s = 0u;
         return;
     }
-    /* Unsigned subtraction, so a wrap of now_s is harmless. Only the interval
-     * between two CONSECUTIVE OBSERVATIONS is credited, and it is capped so a
-     * long invalid gap between two high samples cannot be counted as though it
-     * had been observed. */
+    /* Unsigned subtraction, so a wrap of now_s is harmless. */
     uint32_t since = (uint32_t)(now_s - st->zero_duty_since_s);
-    if (since > O2P_HEATER_RUNAWAY_MAX_GAP_S) {
-        since = O2P_HEATER_RUNAWAY_MAX_GAP_S;
-    }
     st->zero_duty_since_s = now_s;
+    if (since > O2P_HEATER_RUNAWAY_MAX_GAP_S) {
+        /* Too long unobserved to say anything about the interval. */
+        st->runaway_evidence_s = 0u;
+        return;
+    }
     if (st->runaway_evidence_s < O2P_HEATER_RUNAWAY_WINDOW_S) {
         st->runaway_evidence_s = (uint16_t)(st->runaway_evidence_s + since);
     }

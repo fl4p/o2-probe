@@ -623,8 +623,8 @@ static void test_absurd_tempco_is_refused(void)
      * set. The config that made it possible must not be storable. */
     TEST_ASSERT_FALSE(o2p_tempco_plausible(20000));
     TEST_ASSERT_FALSE(o2p_tempco_plausible(-20000));
-    /* Five times the DS-0637 curve's slope is still room for a bench
-     * characterisation, so the bound must not refuse a real one. */
+    /* The ceiling is provisional and generous over the DS-0637 curve, so a
+     * bench characterisation has room; it is not an accuracy certificate. */
     TEST_ASSERT_TRUE(o2p_tempco_plausible(2000));
     TEST_ASSERT_TRUE(o2p_tempco_plausible(-2000));
     TEST_ASSERT_TRUE(o2p_tempco_plausible(0));
@@ -811,10 +811,11 @@ static void test_tempco_bound_rejects_gross_corruption_only(void)
     /* The bound screens gross implausibility. It does NOT certify accuracy: a
      * plausible-but-wrong coefficient passes and still moves a reading past
      * the decision tolerance, which is why the accuracy claim belongs to
-     * calibration data. Note the bound is also NOT a byte-swap screen - tempco
-     * is a single 16-bit register, so a swapped 1000 (0x03E8 -> 0xE803) lands
-     * at -6141 and would pass any bound this wide. That claim was in an
-     * earlier revision and was simply wrong. */
+     * calibration data. Nor is it a byte-swap screen: tempco is a single
+     * 16-bit register, and 1024 ppm/K (0x0400) swaps to 4 (0x0004) - both
+     * pass, silently turning a real coefficient into no correction at all.
+     * (An earlier revision used 1000 -> -6141 as the example, which the
+     * restored +/-5000 bound actually rejects; corrected 2026-09-08.) */
     TEST_ASSERT_TRUE(o2p_tempco_plausible(2000));    /* the published curve */
     TEST_ASSERT_TRUE(o2p_tempco_plausible(3200));    /* its +3 sigma envelope */
     TEST_ASSERT_TRUE(o2p_tempco_plausible(-3200));
@@ -1691,6 +1692,59 @@ static void test_runaway_does_not_false_positive_on_cold_start(void)
     TEST_ASSERT_TRUE((out.block & O2P_HB_RUNAWAY) == 0u);
 }
 
+static void test_runaway_repeated_isolated_highs_never_accumulate(void)
+{
+    /* The class the previous test missed: capping each contribution at 5 s
+     * still CREDITED 5 s for a 100 s blind gap, so thirteen instantaneous
+     * observations 100 s apart reached 60 s of "evidence" and latched without
+     * the condition ever being watched. A gap longer than the cap must discard
+     * the evidence, not clip its contribution. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;
+    o2p_heater_in_t hot = hin_healthy();
+    hot.t_tip_c100 = 5000;
+    hot.t_chamber_c100 = (int16_t)(hot.t_tip_c100 - (int16_t)cfg.dt_max_k100 -
+                                   O2P_HEATER_RUNAWAY_MARGIN_K100 - 50);
+    o2p_heater_in_t blind = hot;
+    blind.tip_valid = false;
+    o2p_heater_out_t out;
+
+    for (unsigned burst = 0; burst < 20u; burst++) {
+        uint32_t t0 = burst * 100u;
+        o2p_heater_ctl_step(&st, &cfg, &hot, t0, &out);
+        for (unsigned i = 1; i < 100u; i++) {
+            o2p_heater_ctl_step(&st, &cfg, &blind, t0 + i, &out);
+        }
+    }
+    TEST_ASSERT_FALSE_MESSAGE(st.runaway_latched,
+        "isolated observations across blind gaps must not accumulate");
+}
+
+static void test_runaway_alternating_valid_invalid_still_latches(void)
+{
+    /* The other side of the same rule: a two-second interval with a valid high
+     * observation at BOTH ends is genuine evidence about that interval, so an
+     * every-other-second sensor must not be able to mask a runaway heater. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;
+    o2p_heater_in_t hot = hin_healthy();
+    hot.t_tip_c100 = 5000;
+    hot.t_chamber_c100 = (int16_t)(hot.t_tip_c100 - (int16_t)cfg.dt_max_k100 -
+                                   O2P_HEATER_RUNAWAY_MARGIN_K100 - 50);
+    o2p_heater_in_t blind = hot;
+    blind.chamber_valid = false;
+    o2p_heater_out_t out;
+
+    for (unsigned i = 0; i <= (O2P_HEATER_RUNAWAY_WINDOW_S * 2u) + 4u; i++) {
+        o2p_heater_ctl_step(&st, &cfg, (i % 2u) ? &blind : &hot, i, &out);
+    }
+    TEST_ASSERT_TRUE(st.runaway_latched);
+}
+
 static void test_runaway_does_not_latch_on_two_isolated_samples(void)
 {
     /* The defect round 6's fix still had: holding the start timestamp across
@@ -1959,6 +2013,8 @@ int main(void)
     RUN_TEST(test_integrator_cannot_wind_up_while_clamped);
     RUN_TEST(test_loop_reaches_setpoint_in_steady_state);
     RUN_TEST(test_runaway_does_not_false_positive_on_cold_start);
+    RUN_TEST(test_runaway_repeated_isolated_highs_never_accumulate);
+    RUN_TEST(test_runaway_alternating_valid_invalid_still_latches);
     RUN_TEST(test_runaway_does_not_latch_on_two_isolated_samples);
     RUN_TEST(test_runaway_evidence_survives_a_wrap_of_the_clock);
     RUN_TEST(test_runaway_survives_intermittent_sensor_dropouts);
