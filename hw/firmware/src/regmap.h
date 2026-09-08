@@ -305,7 +305,7 @@ enum {
 #define O2P_REG_CONFIG_BASE  0x0030u
 #define O2P_REG_CONFIG_COUNT 24u
 
-/* ---- Heater test block: 0x0060, 2 registers, read/write, VOLATILE ----
+/* ---- Heater test block: 0x0060, 5 registers, read/write, VOLATILE ----
  *
  * The bench override. It exists so the ring can be driven open-loop at a
  * chosen duty, at any humidity, without the dT clamp - which is the only way

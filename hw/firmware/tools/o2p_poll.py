@@ -62,7 +62,11 @@ FAULT_BITS = [
 
 # The two masks the firmware itself tests. Never test a single bit: splitting
 # DRDY out of I2C_FAIL_ADS once broke every site that did (faults.h).
-INVALIDATE_O2 = ["SETTLING", "I2C_FAIL_LMP", "I2C_FAIL_ADS",
+# SETTLING is deliberately NOT here: it says the cell has not reached
+# equilibrium, which invalidates the %vol derived from the current, not the
+# current itself. Moved out of the raw mask in a2b39eb; the startup check
+# below compares both lists against faults.h and will fail if they drift again.
+INVALIDATE_O2 = ["I2C_FAIL_LMP", "I2C_FAIL_ADS",
                  "AFE_CONFIG_MISMATCH", "VA_LOW", "ADS_DRDY_STUCK",
                  "ADS_CONFIG_LOST", "ADC_RANGE"]
 # O2_COMP is DRY BASIS, so it also needs the calibration constant. It needs the

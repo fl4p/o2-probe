@@ -47,22 +47,32 @@ while the sampler is completing cycles **and** the RS-485 driver is not stuck
 enabled; nothing else in the firmware feeds it, because a safety interlock with
 a second, unconditional key is not one.
 
-v1 adds the **membrane-heater control loop** — but ships it **switched off**.
+v1 adds the **membrane-heater control loop**. It shipped **switched off**; as
+of 2026-09-08 the compile flag is `1` and the ring is reachable, with the
+flash-backed duty maximum the remaining switch.
 
 `DESIGN.md:47-51` and `FAB-READINESS.md:61` both state the TMP117 ALERT path
 "is not credited as an autonomous overtemperature cutoff until firmware
 configures and fault-tests the TMP117". Firmware now *configures* it, and
 `o2p_tmp117_safety_armed()` latches whether that took. It has **not been
-fault-tested**, because nothing in this firmware has ever executed on silicon.
-Until that bench test is run and recorded, nothing may put 1 W into the
-membrane carrier.
+fault-tested** — the injected-fault test (lower `THIGH` below ambient, command
+duty, watch `HEATER_LOW` go high) has never been run, so the 85 °C cutoff is
+*configured and read back*, not proven.
 
-So the heater is off at **two independent switches**, and enabling it is never
+That test was previously stated as a precondition for putting 1 W into the
+membrane carrier. It no longer is: as of 2026-09-08 the flag is `1` and the
+override exists specifically to drive the ring for the 80 °C
+harsh-environment characterisation, with degradation expected. The live limits
+are therefore the firmware tip clamp at 80.00 °C, which fails if firmware
+fails, and an unproven hardware cutoff behind it. Treat the ring as attended
+equipment until the injected-fault test is recorded.
+
+The heater was off at **two independent switches**, and enabling it is never
 a single edit:
 
 | Switch | Where | Default |
 |---|---|---|
-| `O2P_HEATER_ENABLE` | compile flag in `platformio.ini` | `0` — TIM1's clock stays gated off, PA8 is a plain output held low |
+| `O2P_HEATER_ENABLE` | compile flag in `platformio.ini` | **`1` since 2026-09-08.** Was `0`, which gated TIM1's clock off and held PA8 as a plain output |
 | `HEATER_MAX_DUTY` `0x0035` | flash-backed configuration | `0` — the loop refuses with `CONFIG_OFF` |
 
 The full enable procedure and its bench prerequisites are at the top of
@@ -1253,8 +1263,8 @@ zero for that cycle.
 
 | Interlock | Fires when |
 |---|---|
-| `NOT_COMPILED` | built with `O2P_HEATER_ENABLE=0` — this build |
-| `CONFIG_OFF` | `HEATER_MAX_DUTY` is zero — this build |
+| `NOT_COMPILED` | built with `O2P_HEATER_ENABLE=0` — **not** this build, which compiles the heater in |
+| `CONFIG_OFF` | `HEATER_MAX_DUTY` is zero — true on a fresh config, and the switch that still stands between this build and any current |
 | `SAFETY` | `o2p_tmp117_safety_armed()` false: the therm-mode alert is not programmed |
 | `NO_RH` | no fresh SHT45 humidity — **including during the de-creep pulse mask** |
 | `NO_TIP` | no fresh TMP117 reading |
@@ -1344,9 +1354,14 @@ Every prerequisite is bench work on a real board. None has been done.
 4. **Tune the gains** against the real thermal path.
 5. **Controlled dew-point crossings**, per `FAB-READINESS.md`'s open gates.
 
-Then: set `-DO2P_HEATER_ENABLE=1`, and write a non-zero `HEATER_MAX_DUTY`.
-`pio run -e o2probe_heater_enabled` exists purely to prove that path still
-compiles; it is never flashed.
+As of 2026-09-08 step 1 is still outstanding and the flag is nevertheless set
+to 1, deliberately, for the 80 °C harsh-environment characterisation — see
+`src/heater.h`. What still stands between the build and any current is a
+non-zero `HEATER_MAX_DUTY`, which no fresh configuration has.
+
+`pio run -e o2probe_heater_disabled` exists purely to prove the compiled-out
+path still compiles; it is never flashed. It was called
+`o2probe_heater_enabled` until the shipped polarity flipped.
 
 ### Guard review, in writing
 
