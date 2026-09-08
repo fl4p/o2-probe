@@ -960,3 +960,35 @@ and the setters end-to-end over Modbus, and three of the five fail when the deci
 is reverted. That `main.c` calls the setter on each refusal path is verified by reading
 `main.c` — it reaches CMSIS and does not build on the host. `main.c` remains the largest
 untested surface in the tree.
+
+### The address collision `CMD_RESULT` walked into
+
+`CMD_RESULT` went to `0x0022`, and `0x0022` is where the ChirpStack decoder has expected
+`T_DIE` since 2026-09-07. The decoder (farming: `tech/chirpstack/codec/_o2_regs.js`)
+publishes a complete layout for `0x0022..0x0029` — `T_DIE`, `FAULTS_EVER`,
+`ADS_FAIL_COUNT`, `WE_BUF`/`RE_BUF`/`CELL_BIAS`, `BUILD_ID` — that this firmware has never
+implemented and, as far as the tree records, never planned: nothing in `regmap.h`,
+`FIRMWARE.md`, `DESIGN.md` or `PLAN.md` has ever mentioned any of those names.
+
+There was no decision to skip them. The decoder was written against a register map that did
+not exist, in a different repository, and nothing checks one against the other:
+`check_regmap_docs.py` validates `FIRMWARE.md` and `DESIGN.md` against `regmap.h` and does
+not know the decoder exists.
+
+Nothing is broken today, and nothing ever worked either. The decoder dispatches diagnostic
+records by byte count and accepts only 42, 48 or 52 bytes (21, 24 or 26 registers); this
+firmware served 18 and now serves 19, so every diagnostic record has been rejected as
+"wrong register block" since the day the block was added. `diag_ok` has never been set. The
+three registers were never lost — the whole block was.
+
+The collision is recorded at the register rather than resolved, because resolving it means
+implementing eight registers (a die-temperature channel, a fault latch, an ADS failure
+counter, three ADS1119 cell-bias channels and a build stamp) and that is not work to start
+on the way to a pile. When it happens: `regmap.h` is the source of truth by the decoder's
+own statement, so adopt `0x0022..0x0029` as the decoder already describes it and move
+`CMD_RESULT` to `0x002A`. Do not renumber the decoder around `CMD_RESULT`.
+
+The reason to write this down rather than leave it: a `CMD_RESULT` of `0x0202`
+(calibration OK, commit OK) decodes as a die temperature of 5.14 °C, inside the decoder's
+own plausibility window. A plausible number from the wrong register is the exact failure
+`_o2_regs.js` says in its header that it exists to prevent.

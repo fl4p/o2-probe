@@ -83,7 +83,26 @@ enum {
      * Each half latches until the corresponding command is issued again, so
      * "trigger, poll until not PENDING, read the byte" is the whole protocol.
      * Not a queue and not a history - one outcome per command, which is what
-     * a commissioning script needs and no more. */
+     * a commissioning script needs and no more.
+     *
+     * ADDRESS COLLISION, recorded 2026-09-08 and deliberately NOT resolved
+     * here. The ChirpStack decoder (farming: tech/chirpstack/codec/_o2_regs.js)
+     * already publishes a layout for 0x0022..0x0029 that this firmware has
+     * never implemented - T_DIE at 0x0022, FAULTS_EVER 0x0023, ADS_FAIL_COUNT
+     * 0x0024, WE_BUF/RE_BUF/CELL_BIAS 0x0025..0x0027, BUILD_ID 0x0028/0x0029 -
+     * and 0x0022 is exactly where CMD_RESULT now sits.
+     *
+     * Nothing breaks today: the decoder accepts diagnostic blocks of 42, 48 or
+     * 52 bytes (21, 24 or 26 registers) and this firmware serves 19, so the
+     * whole block is rejected as "wrong register block" and has never decoded
+     * at all. But a CMD_RESULT of 0x0202 (calibration OK, commit OK) would
+     * decode as a die temperature of 5.14 C, inside the decoder's own
+     * plausibility window - a plausible number from the wrong register, which
+     * is the exact failure that file says it exists to prevent.
+     *
+     * regmap.h is the source of truth, by the decoder's own statement. When
+     * the two are reconciled, adopt the decoder's 0x0022..0x0029 layout and
+     * move CMD_RESULT to 0x002A - do not renumber the decoder around it. */
     O2P_REG_CMD_RESULT      = 0x0022u,
 };
 #define O2P_REG_DIAG_BASE  0x0010u
