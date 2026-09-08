@@ -36,6 +36,16 @@ bool o2p_mcu_adc_read_vin_mv(uint16_t *out_mv);
 /* VDDA/VREF+ in millivolts, derived from VREFINT. Exposed for bring-up. */
 bool o2p_mcu_adc_read_vdda_mv(uint16_t *out_mv);
 
+/* CELL_CE_DRV, the LMP91000's counter-electrode drive, undivided by R43/R44.
+ *
+ * This is the potentiostat's control effort. A1 moves CE until the reference
+ * electrode sits at the commanded bias, so CE resting against a rail means the
+ * loop is OPEN - a disconnected or high-impedance cell, or a dead A1 - while
+ * the register image still reads back perfectly. It is the measurement that
+ * separates "the AFE is misconfigured" from "the AFE is configured and the
+ * cell is not there". */
+bool o2p_mcu_adc_read_ce_mv(uint16_t *out_mv);
+
 /* MCU die temperature in 0.01 C, from the two factory calibration points.
  *
  * This is NOT an ambient measurement and nothing in the oxygen path may

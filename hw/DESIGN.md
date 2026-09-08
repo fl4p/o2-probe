@@ -243,7 +243,7 @@ an air-point calibration is never bridged, because a permanent constant gets a
 humidity measured in its own cycle or none at all. Full argument, bench evidence
 and test vectors: `O2-HUMIDITY-CORRECTION.md`.
 
-### Diagnostic block, `0x0010`, 29 registers, read-only
+### Diagnostic block, `0x0010`, 30 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
 0.01 K), `PRESSURE_HPA` (0 - the BMP390 option is deleted), `UPTIME_HI/LO`, `FW_VERSION`,
@@ -265,6 +265,17 @@ its high byte and the last flash store in its low byte: 0 none, 1 pending,
 never that the calibration was taken or that it reached flash; this register is
 what separates those. Each byte latches until its own command is issued again.
 
+
+`CE_MV` (`0x002D`) is CELL_CE_DRV in mV, u16, `0xFFFF` invalid - the
+potentiostat's control effort, and the register that names which hardware fault
+you have. A1 drives the counter electrode until the reference electrode sits at
+the commanded bias, and the loop closes THROUGH THE CELL, so an absent,
+high-impedance or badly-led cell - or a dead A1, as on 2026-09-04 - leaves A1
+without feedback and CE against a rail while the register image still reads back
+as written. `LMP_READBACK` cannot see that; `CELL_BIAS_MV` shows the symptom,
+this shows the cause. Outside the compliance window SNAS506I 6.5 characterises
+A1 over, it raises `AFE_CONFIG_MISMATCH`. Not polled by the node: the frame has
+4 bytes of DR3 headroom and this is a bench question.
 
 `T_AFE` (`0x002C`) is the LMP91000's own die temperature, i16 0.01 C, `0x8000`
 invalid - the only register that reports the AFE's silicon. It is not `T_DIE`

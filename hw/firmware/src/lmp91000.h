@@ -94,6 +94,14 @@ enum {
 #define O2P_LMP_TEMP_MV_MAX     1875u   /* -40 C */
 #define O2P_LMP_TEMP_MV_MIN      861u   /* +85 C */
 
+/* How far V(WE)-V(RE) may sit from the commanded -24 % of VREF before the
+ * potentiostat is not doing its job. See the argument at the call site in
+ * main.c: wide on purpose, because every term it has to clear - follower
+ * offsets, the VREF trim band, TcVOS_RW at +/-1750 uV - is an order of
+ * magnitude smaller, and a check that fires on a healthy probe is worse than
+ * no check. A quarter of the commanded value. */
+#define O2P_CELL_BIAS_TOLERANCE_MV 150
+
 typedef enum {
     O2P_LMP_OK = 0,
     O2P_LMP_IO,

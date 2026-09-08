@@ -153,6 +153,15 @@
 #define O2P_VIN_MON_PIN       6u
 #define O2P_VIN_MON_ADC_CH    6u
 
+/* CELL_CE_DRV through R43/R44, hw_contract.h. The counter electrode is what
+ * A1 drives to hold the cell at its bias, so this pin is the only witness to
+ * whether the potentiostat's control loop is closing at all. Wired since Rev A
+ * and read by nothing until 2026-09-08 - which is why, when A1 died on
+ * 2026-09-04, no converter on the board could see it. */
+#define O2P_CE_MON_PORT       GPIOA
+#define O2P_CE_MON_PIN        4u
+#define O2P_CE_MON_ADC_CH     4u
+
 /* --- The contract ---------------------------------------------------------
  * Each assertion pairs "which net the schematic put on this package pin" with
  * "which package pin this port bit is". Both halves must move together.

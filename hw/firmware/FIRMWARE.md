@@ -731,7 +731,7 @@ fault, not like anoxia.
 convention as an open release gate, and the bench air-versus-nitrogen pair is
 what settles it. Firmware that took an absolute value would hide the answer.
 
-### Diagnostic block — `0x0010`, 29 registers, read-only
+### Diagnostic block — `0x0010`, 30 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
 0.01 K), `PRESSURE_HPA` (0 — BMP390 is DNP), `UPTIME_HI/LO`, `FW_VERSION`,
@@ -807,7 +807,7 @@ then two that exist because supervision here is *sampled*, not continuous:
   coefficient for it and no gain-versus-temperature curve — checked against
   Rev I, whose 35 figures contain neither. Every other term in the chain is
   bounded and small: the ADS1119 contributes at most 2 ppm/K of gain drift
-  (SBAS925A), `TcVOS_RW` is 6–7 µV/K at this bias, and VREF cancels because
+  (SBAS925A), `TcVOS_RW` is 8 µV/K at the configured 24 % bias, and VREF cancels because
   the internal zero and the ADC reference are the same rail. `R_TIA` is the
   single uncharacterised term, and it drifts with *this* temperature. A
   tempco fitted against `T_TIP` therefore contains the AFE's drift scaled by
@@ -820,6 +820,27 @@ then two that exist because supervision here is *sampled*, not continuous:
   exit verify the `MODECN` readback, because the oxygen channel's own swing
   (930–970 mV) decodes as a plausible 72–77 °C: no value check can tell a
   failed mode switch from a real reading, only the readback can.
+- `CE_MV` `0x002D` — `CELL_CE_DRV` in mV, u16, `0xFFFF` invalid. The
+  potentiostat's **control effort**, and the register that names which hardware
+  fault you have.
+
+  A1 drives the counter electrode until the reference electrode sits at the
+  commanded bias, and that loop closes *through the cell*. If the cell is
+  absent, high-impedance or on bad leads — or if A1 is dead, as it was on
+  2026-09-04 — A1 has no feedback and CE rests against a rail while
+  `TIACN`/`REFCN`/`MODECN` still read back exactly as written. `LMP_READBACK`
+  cannot see that. `CELL_BIAS_MV` shows the symptom; this shows the cause.
+
+  SNAS506I 6.5 characterises A1's drive only over 300 mV ≤ V(CE) ≤ VS−300 mV,
+  so outside `O2P_HW_CE_COMPLIANCE_MIN/MAX_MV` the amplifier is not specified
+  and the reading raises `AFE_CONFIG_MISMATCH` rather than being published as a
+  measurement.
+
+  Not in the node's poll window, deliberately, for the reason `CMD_RESULT` and
+  `CAL_STATE` are not: at 96 bytes that frame has 4 bytes of DR3 headroom left,
+  and this is a bench question answered by a laptop on the bus in the same
+  session that asks it. The fault reaches the radio; the millivolts do not need
+  to.
 - `CAL_STATE` `0x002B` — calibration completeness, a bitfield: bit 0 the air
   point is the datasheet nominal rather than a measurement, bit 1 no zero
   point has ever been taken. A register rather than two fault bits because the

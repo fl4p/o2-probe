@@ -218,6 +218,7 @@ void o2p_snapshot_reset(o2p_snapshot_t *s)
     s->dew_margin_x100 = O2P_I16_INVALID;
     s->t_die = O2P_I16_INVALID;
     s->t_afe = O2P_I16_INVALID;
+    s->ce_mv = O2P_U16_INVALID;
     s->exp_data = O2P_U16_INVALID;
     s->we_buf_mv = O2P_U16_INVALID;
     s->re_buf_mv = O2P_U16_INVALID;
@@ -359,6 +360,7 @@ static uint16_t read_diag(const o2p_regmap_t *rm, const o2p_snapshot_t *s,
     case O2P_REG_SETTLE_RESTARTS: return s->settle_restarts;
     case O2P_REG_T_DIE:         return (uint16_t)s->t_die;
     case O2P_REG_T_AFE:         return (uint16_t)s->t_afe;
+    case O2P_REG_CE_MV:         return s->ce_mv;
     case O2P_REG_FAULTS_EVER:   return s->faults_ever;
     case O2P_REG_ADS_FAIL_COUNT: return s->ads_fail_count;
     case O2P_REG_WE_BUF_MV:    return s->we_buf_mv;

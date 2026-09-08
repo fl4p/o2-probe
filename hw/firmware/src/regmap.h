@@ -189,7 +189,7 @@ enum {
      * temperature coefficient for it and no gain-versus-temperature curve -
      * checked against Rev I, whose 35 figures contain neither. Everything
      * else in the chain is bounded and small: the ADS1119 contributes 2
-     * ppm/K of gain drift MAX (SBAS925A), TcVOS_RW is 6-7 uV/K at this bias,
+     * ppm/K of gain drift MAX (SBAS925A), TcVOS_RW is 8 uV/K at the configured 24 % bias,
      * and VREF cancels because the internal zero and the ADC reference are
      * the same rail. R_TIA is the one uncharacterised term, and it drifts
      * with THIS temperature, not with T_TIP.
@@ -198,9 +198,29 @@ enum {
      * scaled by however much of the tip's excursion the AFE actually saw.
      * That fraction is what this register measures. */
     O2P_REG_T_AFE           = 0x002Cu,
+    /* CELL_CE_DRV in mV, u16, 0xFFFF invalid. The potentiostat's CONTROL
+     * EFFORT, and the register that names which hardware fault you have.
+     *
+     * A1 drives the counter electrode until the reference electrode sits at
+     * the commanded bias. The loop closes THROUGH THE CELL, so if the cell is
+     * absent, high-impedance or on bad leads - or if A1 is dead, as it was on
+     * 2026-09-04 - A1 has no feedback and CE rests against a rail while
+     * TIACN/REFCN/MODECN still read back exactly as written. LMP_READBACK
+     * cannot see it; CELL_BIAS_MV shows the symptom; this shows the cause.
+     *
+     * SNAS506I 6.5 characterises A1's drive only over 300 mV <= VCE <=
+     * VS-300 mV, so outside O2P_HW_CE_COMPLIANCE_MIN/MAX_MV the amplifier is
+     * not specified and the reading is a fault, not a measurement.
+     *
+     * NOT in the node's poll window, deliberately, and for the reason
+     * CMD_RESULT and CAL_STATE are not: at 96 bytes that frame has 4 bytes of
+     * DR3 headroom left, and this is a bench question answered by a laptop on
+     * the bus in the same session that asks it. The FAULT reaches the radio;
+     * the millivolts do not need to. */
+    O2P_REG_CE_MV           = 0x002Du,
 };
 #define O2P_REG_DIAG_BASE  0x0010u
-#define O2P_REG_DIAG_COUNT 29u
+#define O2P_REG_DIAG_COUNT 30u
 
 /* Per-command status byte. Not a bitfield: these are exclusive states of one
  * command, and a bitfield invites "OK and FAILED" to coexist. */
@@ -463,7 +483,7 @@ enum {
  *
  * For "which build is this", read BUILD_ID (0x0028/0x0029) - this number is
  * hand-maintained and says nothing about the binary. */
-#define O2P_FW_VERSION 0x0008u  /* v0.8 - diag block grew with T_AFE */
+#define O2P_FW_VERSION 0x0009u  /* v0.9 - diag block grew with CE_MV */
 
 /* Overridden by tools/pio_build_id.py on every target build. The default is
  * reached only by the host test build, and means "no stamp", never a commit. */
@@ -583,6 +603,7 @@ typedef struct {
     uint16_t sample_seq;
     int16_t  t_die;
     int16_t  t_afe;
+    uint16_t ce_mv;
     uint16_t faults_ever;
     uint16_t ads_fail_count;
     uint16_t we_buf_mv;

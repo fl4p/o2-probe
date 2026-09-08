@@ -9,6 +9,8 @@
 #include <math.h>
 #include <string.h>
 
+#include <stdlib.h>
+
 #include "ads1119.h"
 #include "config_migrate.h"
 #include "die_temp.h"
@@ -4820,19 +4822,59 @@ static void test_afe_die_temperature_follows_the_datasheet_table(void)
     TEST_ASSERT_TRUE(c100 > 7000 && c100 < 8000);
 }
 
+/* The bias check must fire on the failure it was written for and stay silent
+ * on a healthy probe. Both directions, because a guard that never passes is as
+ * useless as one that never fails. Numbers are DS-0637 (-600 +/- 10 mV) and
+ * SNAS506I REFCN (24 % of VREF, sign negative). */
+static void test_the_cell_bias_window_catches_an_open_potentiostat(void)
+{
+    const int32_t vref = 2492;
+    const int32_t want = -(vref * 24) / 100;          /* -598 mV commanded */
+    TEST_ASSERT_INT32_WITHIN(2, -598, want);
+
+    /* Healthy: the bench measured 597 mV against 598.56 commanded on
+     * 2026-09-04, and DS-0637 allows +/-10 mV. Must NOT fire. */
+    TEST_ASSERT_TRUE(labs((long)(-597 - want)) <= O2P_CELL_BIAS_TOLERANCE_MV);
+    TEST_ASSERT_TRUE(labs((long)(-608 - want)) <= O2P_CELL_BIAS_TOLERANCE_MV);
+
+    /* KNOWN-BAD, and the reason this exists: the probe read +341 mV on
+     * 2026-09-08 - wrong magnitude AND wrong sign - for hours, with a clean
+     * fault word. Construct it and observe the guard fail. */
+    TEST_ASSERT_TRUE(labs((long)(341 - want)) > O2P_CELL_BIAS_TOLERANCE_MV);
+
+    /* An unbiased cell is the canonical open loop. */
+    TEST_ASSERT_TRUE(labs((long)(0 - want)) > O2P_CELL_BIAS_TOLERANCE_MV);
+
+    /* Monotone in the failure direction: once out, it stays out. No fold-back
+     * at the far tail, where a signed-arithmetic slip would show. */
+    for (int32_t b = 341; b <= 3000; b += 7) {
+        TEST_ASSERT_TRUE(labs((long)(b - want)) > O2P_CELL_BIAS_TOLERANCE_MV);
+    }
+    for (int32_t b = -3000; b <= -800; b += 7) {
+        TEST_ASSERT_TRUE(labs((long)(b - want)) > O2P_CELL_BIAS_TOLERANCE_MV);
+    }
+
+    /* Wide enough to clear every legitimate error term by an order of
+     * magnitude: TcVOS_RW is +/-1750 uV MAX at 24 % bias (SNAS506I 6.5), and
+     * the VREF trim band is +/-20 mV, which moves the target by 4.8 mV. */
+    TEST_ASSERT_TRUE(O2P_CELL_BIAS_TOLERANCE_MV > 10 * 2);
+    TEST_ASSERT_TRUE(O2P_CELL_BIAS_TOLERANCE_MV < (-want) / 2);
+}
+
 static void test_the_wire_version_tracks_the_wire_contract(void)
 {
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    TEST_ASSERT_EQUAL_HEX16(0x0008u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x0009u, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_UINT16(25u, O2P_REG_CONFIG_COUNT);
-    /* 0x0008: diag block grew with T_AFE, the LMP91000 die temperature.
+    /* 0x0009: diag block grew with CE_MV, the counter-electrode drive.
+     * 0x0008: diag block grew with T_AFE, the LMP91000 die temperature.
      * 0x0007: config block grew with HEATER_RH_CONSENT.
      * 0x0006: the raw channel stopped going silent for 900 s after a reset. */
     TEST_ASSERT_TRUE((O2P_FAULTS_INVALIDATE_O2 & O2P_F_SETTLING) == 0u);
     TEST_ASSERT_TRUE((O2P_FAULTS_INVALIDATE_O2_COMP & O2P_F_SETTLING) != 0u);
-    TEST_ASSERT_EQUAL_UINT16(29u, O2P_REG_DIAG_COUNT);
+    TEST_ASSERT_EQUAL_UINT16(30u, O2P_REG_DIAG_COUNT);
     /* 0x0004: the heater test block appeared at an address that previously
      * answered exception 02, and the heater became drivable at all. */
     TEST_ASSERT_EQUAL_UINT16(5u, O2P_REG_HTEST_COUNT);
@@ -5132,6 +5174,7 @@ int main(void)
     RUN_TEST(test_runaway_sees_heat_under_a_low_commanded_duty);
     RUN_TEST(test_the_isr_and_the_tested_state_machine_are_one);
     RUN_TEST(test_afe_die_temperature_follows_the_datasheet_table);
+    RUN_TEST(test_the_cell_bias_window_catches_an_open_potentiostat);
     RUN_TEST(test_the_wire_version_tracks_the_wire_contract);
     RUN_TEST(test_cell_current_is_the_departure_from_the_internal_zero);
     RUN_TEST(test_cell_current_keeps_its_sign);

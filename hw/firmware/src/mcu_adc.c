@@ -58,6 +58,10 @@ void o2p_mcu_adc_init(void)
     O2P_VA_MON_PORT->MODER |= (3u << (O2P_VA_MON_PIN * 2u));
     O2P_VIN_MON_PORT->PUPDR &= ~(3u << (O2P_VIN_MON_PIN * 2u));
     O2P_VIN_MON_PORT->MODER |= (3u << (O2P_VIN_MON_PIN * 2u));
+    /* PA4, CE_MON. Same omission as PA6's would be: a channel whose pin is not
+     * in analog mode converts, and converts plausibly. */
+    O2P_CE_MON_PORT->PUPDR &= ~(3u << (O2P_CE_MON_PIN * 2u));
+    O2P_CE_MON_PORT->MODER |= (3u << (O2P_CE_MON_PIN * 2u));
 
     ADC1->CR = 0u;
     ADC1->CR = ADC_CR_ADVREGEN;
@@ -186,4 +190,10 @@ bool o2p_mcu_adc_read_va_mv(uint16_t *out_mv)
 {
     return read_divided_rail(O2P_VA_MON_ADC_CH,
                              O2P_HW_DIV_VA_NUM, O2P_HW_DIV_VA_DEN, out_mv);
+}
+
+bool o2p_mcu_adc_read_ce_mv(uint16_t *out_mv)
+{
+    return read_divided_rail(O2P_CE_MON_ADC_CH,
+                             O2P_HW_DIV_CE_NUM, O2P_HW_DIV_CE_DEN, out_mv);
 }

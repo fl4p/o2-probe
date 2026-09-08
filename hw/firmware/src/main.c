@@ -234,6 +234,12 @@ static struct {
      * does is reach backwards. */
     uint16_t faults_at_o2;
     bool     o2_measured;
+    /* The reference was measured this cycle AND landed in the trim band.
+     * cycle_begin() seeds vref_mv with the trim TARGET so a channel that runs
+     * before PH_VREF still has a number, which means "vref_mv is populated" is
+     * not the same question as "vref_mv is a measurement". Every channel
+     * scaled BY the reference has to ask the second one. */
+    bool     vref_measured;
 } g_cyc;
 
 static void cycle_begin(void)
@@ -320,6 +326,24 @@ static void phase_rails(o2p_snapshot_t *s)
     int16_t die_c100 = 0;
     if (o2p_mcu_adc_read_die_c100(&die_c100)) {
         s->t_die = die_c100;
+    }
+
+    /* The counter-electrode drive, and the compliance window SNAS506I 6.5
+     * characterises A1 over. Outside it the amplifier is not specified, so
+     * this is a fault and not a reading - and the failure it catches is the
+     * one that killed U7 on 2026-09-04 unseen: the register image reads back
+     * perfectly while the control loop is open, because a loop that cannot
+     * find its reference electrode rails the drive instead.
+     *
+     * A failed CONVERSION is not compliance evidence either way, so it leaves
+     * the sentinel and raises nothing here - the ADC's own faults cover it. */
+    uint16_t ce_mv = 0u;
+    if (o2p_mcu_adc_read_ce_mv(&ce_mv)) {
+        s->ce_mv = ce_mv;
+        if (ce_mv < O2P_HW_CE_COMPLIANCE_MIN_MV ||
+            ce_mv > O2P_HW_CE_COMPLIANCE_MAX_MV) {
+            g_cyc.faults |= O2P_F_AFE_CONFIG_MISMATCH;
+        }
     }
 }
 
@@ -534,6 +558,7 @@ static void finish_vref(o2p_snapshot_t *s)
         g_cyc.faults |= O2P_F_ADC_RANGE;
     } else {
         g_cyc.vref_mv = (uint32_t)measured;
+        g_cyc.vref_measured = true;
     }
 }
 
@@ -626,6 +651,40 @@ static void finish_electrode(o2p_snapshot_t *s, bool working)
             if (bias > 32767) { bias = 32767; }
             if (bias < -32767) { bias = -32767; }
             s->cell_bias_mv = (int16_t)bias;
+
+            /* And COMPARE it with what was commanded, which hw_contract.h has
+             * specified since 2026-09-04 as the point of this pair - "an
+             * EXISTENCE check: is the cell biased at all" - and which nothing
+             * implemented until 2026-09-08. Measuring a quantity and never
+             * testing it is how the probe published hours of oxygen from a
+             * cell reading +341 mV against a commanded -598 mV without one
+             * fault bit.
+             *
+             * REFCN asks for 24 % of VREF, sign negative, so V(WE) - V(RE) is
+             * -0.24 * vref. The window is deliberately far wider than
+             * DS-0637's own +/-10 mV: this is not a trim check and must not
+             * fire on a healthy probe. The buffers are unity followers with
+             * their own offsets, VREF has a +/-20 mV trim band, and the
+             * datasheet's TcVOS_RW reaches +/-1750 uV at this bias. 150 mV
+             * clears all of that by an order of magnitude while still being a
+             * quarter of the commanded value - it catches an open loop, a
+             * reversed sign, and a bias that is simply not there.
+             *
+             * AFE_CONFIG_MISMATCH rather than a bit of its own because the
+             * fault word has none left, and because the meaning fits: the AFE
+             * is not delivering the configuration it acknowledged. CE_MV and
+             * LMP_READBACK are what separate the analog cause from the digital
+             * one. It restarts settling, which is correct and not merely
+             * conservative - an unbiased cell IS unsettled, and oxygen taken
+             * from it must not publish as a confident number. */
+            if (g_cyc.vref_measured) {
+                int32_t want = -((int32_t)g_cyc.vref_mv * 24) / 100;
+                int32_t err = bias - want;
+                if (err < 0) { err = -err; }
+                if (err > O2P_CELL_BIAS_TOLERANCE_MV) {
+                    g_cyc.faults |= O2P_F_AFE_CONFIG_MISMATCH;
+                }
+            }
         }
     }
 }
@@ -643,14 +702,40 @@ static void finish_electrode(o2p_snapshot_t *s, bool working)
  * a second one here that cannot discriminate would only look like defence. */
 static void finish_t_afe(o2p_snapshot_t *s)
 {
-    if (g_acc_clipped || (g_cyc.faults & O2P_F_ADC_RANGE) != 0u) {
+    /* The reference has to have been MEASURED, not assumed. cycle_begin()
+     * seeds g_cyc.vref_mv with the 2500 mV trim target, and finish_vref()
+     * returns early on a failed conversion WITHOUT replacing it and without
+     * raising ADC_RANGE - so a transient ADS failure in PH_VREF followed by a
+     * healthy temperature conversion would publish a number scaled by a
+     * reference nobody read. Small in magnitude here, roughly 0.3 C, and
+     * exactly the kind of unevaluable input that must not read as OK.
+     *
+     * This replaces a cycle-wide ADC_RANGE test, which was wrong in both
+     * directions: it missed the assumed-reference case entirely, and it threw
+     * away a perfectly good temperature whenever the OXYGEN channel clipped -
+     * losing the diagnostic precisely when things were going wrong. What
+     * matters to this channel is its own conversions plus the reference.
+     * Found by review 2026-09-08. */
+    if (!g_cyc.vref_measured) {
+        return;
+    }
+    if (g_acc_clipped || (g_cyc.faults & O2P_FAULTS_ADS_NO_CONVERSION) != 0u) {
         return;
     }
     int32_t code = g_acc / (int32_t)O2P_N_CELL;
     if (code < 0) {
         return;
     }
-    int32_t mv = o2p_ads1119_code_to_uv(code, g_cyc.vref_mv) / 1000;
+    /* ROUNDED, not truncated. The other channels floor microvolts and can
+     * afford to; this one is bounded by a window taken from Table 1's
+     * endpoints, and flooring puts the +85 C endpoint OUTSIDE it: at the
+     * measured VREF of 2494 mV, a true 861 mV reconstructs as 860977 uV,
+     * floors to 860, and is refused - the datasheet's own hot endpoint,
+     * rejected as implausible. Rounding also halves the quantisation error,
+     * which flooring pushed from the advertised 0.41/2.12 C to 0.53/2.21 C
+     * end to end. Found by review 2026-09-08. */
+    int32_t uv = o2p_ads1119_code_to_uv(code, g_cyc.vref_mv);
+    int32_t mv = (uv + 500) / 1000;
     if (mv < 0 || mv > 65534) {
         return;
     }
@@ -995,11 +1080,27 @@ static bool sampler_step(void)
         if (g_sub == 0u) {
             o2p_lmp_status_t tst = o2p_lmp91000_temp_enter();
             if (tst != O2P_LMP_OK) {
-                /* Diagnostic channel: it may fail without taking oxygen with
-                 * it. T_AFE simply stays at its invalid sentinel - an
-                 * unreadable temperature is not a temperature. */
+                /* T_AFE stays at its invalid sentinel either way - an
+                 * unreadable temperature is not a temperature - but the two
+                 * failures are NOT the same event and must not be reported as
+                 * one.
+                 *
+                 * IO is a bus problem and takes no position on the cell.
+                 *
+                 * MISMATCH means the part read back a mode we did not ask for,
+                 * and the one that matters is 110: temperature with the TIA
+                 * OFF, which unbiases the cell and starts the DS-0637 fifteen
+                 * minutes. temp_enter() restores 011 before returning, so by
+                 * the next cycle phase_afe() sees a clean register image and
+                 * the interruption is erased from the record - the probe would
+                 * then publish oxygen from a cell that was actually settling.
+                 * Raising it here is the only place that event is visible.
+                 * Found by review 2026-09-08. */
                 if (tst == O2P_LMP_IO) {
                     g_cyc.faults |= O2P_F_I2C_FAIL_LMP;
+                } else {
+                    g_cyc.faults |= O2P_F_AFE_CONFIG_MISMATCH;
+                    restart_settling();
                 }
                 g_phase = PH_PUBLISH;
                 break;
