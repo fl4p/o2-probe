@@ -2515,6 +2515,47 @@ static void test_a_pulse_gap_is_bridged_and_a_dead_sensor_is_not(void)
                             O2P_FAULTS_INVALIDATE_O2_COMP & O2P_F_I2C_FAIL_SHT);
 }
 
+/* main.c freezes the oxygen verdict at the end of PH_O2 so the electrode
+ * diagnostics sampled afterwards cannot mute the measurement they exist to
+ * explain. main.c is not host-buildable, so what is tested here is the RULE it
+ * applies, written the same way round, against the case that broke it.
+ *
+ * Measured on live hardware 2026-09-08: probe eleven minutes into a fifteen-
+ * minute settle, publishing 20.91 %vol with raw_ok = 1 and settle_s = 769 in
+ * one frame. The verdict was a plain snapshot taken before cycle_publish()
+ * raised O2P_F_SETTLING, so the flag simply was not in it. */
+static void test_the_o2_verdict_freeze_cannot_drop_a_state_fault(void)
+{
+    /* The regression, reproduced. A snapshot rule loses any fault raised after
+     * the freeze - and answers "valid" for a cell that is explicitly settling. */
+    uint16_t at_o2 = 0u;                        /* clean at the conversion */
+    uint16_t now   = O2P_F_SETTLING;            /* raised later in the cycle */
+    TEST_ASSERT_TRUE(o2p_o2_valid((uint16_t)at_o2));
+
+    /* The rule main.c now applies: subtractive, so only the faults the
+     * electrode phases are ALLOWED to have raised are dropped. */
+    uint16_t verdict =
+        (uint16_t)(at_o2 | (now & (uint16_t)~O2P_FAULTS_POST_O2));
+    TEST_ASSERT_FALSE(o2p_o2_valid(verdict));
+    TEST_ASSERT_FALSE(o2p_o2_comp_valid(verdict));
+
+    /* And it still does the job it was introduced for: an ADS failure in
+     * PH_WE/PH_RE, after a good oxygen conversion, does NOT reach backwards. */
+    uint16_t late_ads = O2P_F_ADS_DRDY_STUCK | O2P_F_I2C_FAIL_ADS;
+    TEST_ASSERT_FALSE(o2p_o2_valid(late_ads));   /* it would, unfrozen */
+    verdict = (uint16_t)(0u | (late_ads & (uint16_t)~O2P_FAULTS_POST_O2));
+    TEST_ASSERT_TRUE(o2p_o2_valid(verdict));
+
+    /* The invariant that makes the above safe as the fault set grows: every
+     * fault that invalidates oxygen and is NOT an acquisition result survives
+     * the freeze. Adding one to INVALIDATE_O2 without listing it in POST_O2
+     * is then automatically fail-closed - the opposite of what happened here.
+     * SETTLING is the one that matters and is named explicitly. */
+    TEST_ASSERT_EQUAL_HEX16(0u, O2P_FAULTS_POST_O2 & O2P_F_SETTLING);
+    TEST_ASSERT_EQUAL_HEX16(
+        0u, (uint16_t)(O2P_FAULTS_POST_O2 & (uint16_t)~O2P_FAULTS_INVALIDATE_O2));
+}
+
 static void test_a_fresh_reading_is_never_overridden_by_the_cache(void)
 {
     o2p_gas_cache_t cache;
@@ -3009,6 +3050,7 @@ int main(void)
     RUN_TEST(test_pressure_normalisation_has_the_right_sign_and_size);
     RUN_TEST(test_cal_pressure_register_is_bounded);
     RUN_TEST(test_a_pulse_gap_is_bridged_and_a_dead_sensor_is_not);
+    RUN_TEST(test_the_o2_verdict_freeze_cannot_drop_a_state_fault);
     RUN_TEST(test_a_fresh_reading_is_never_overridden_by_the_cache);
     RUN_TEST(test_p_sat_has_exactly_one_implementation);
     RUN_TEST(test_dewpoint_reference_points);

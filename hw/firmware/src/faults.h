@@ -81,6 +81,27 @@ enum {
     | O2P_F_ADS_CONFIG_LOST     \
     | O2P_F_ADC_RANGE )
 
+/* The ONLY faults a phase running after the oxygen conversion may raise.
+ *
+ * main.c freezes the oxygen verdict at the end of PH_O2 so that the electrode
+ * diagnostics sampled afterwards cannot mute the measurement they exist to
+ * explain. That freeze has to exclude something, and the safe way round is to
+ * name what may be EXCLUDED rather than what must be included: a fault absent
+ * from this list keeps invalidating oxygen no matter when it is raised.
+ *
+ * Naming the included set instead is what broke on 2026-09-08. The verdict was
+ * a plain snapshot, O2P_F_SETTLING was raised after it in cycle_publish(), and
+ * a probe eleven minutes into a fifteen-minute settle published 20.91 %vol
+ * with raw_ok = 1 and settle_s = 769 in the same frame - the cell's bias
+ * history is the strongest reason there is to distrust a reading, and the
+ * freeze silently discarded it. Every fault added to INVALIDATE_O2 from now on
+ * fails CLOSED against that mistake unless it is deliberately listed here. */
+#define O2P_FAULTS_POST_O2 ( \
+      O2P_F_I2C_FAIL_ADS        \
+    | O2P_F_ADS_DRDY_STUCK      \
+    | O2P_F_ADS_CONFIG_LOST     \
+    | O2P_F_ADC_RANGE )
+
 /* Everything above, plus the reasons the CONVERSION cannot be trusted even
  * when the current reading is fine.
  *

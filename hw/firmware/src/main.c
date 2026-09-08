@@ -210,6 +210,28 @@ static void cycle_begin(void)
     g_acc = 0;
     g_acc_clipped = false;
 
+    /* SETTLING is raised HERE, at the top of the cycle, and not where
+     * settle_s is computed in cycle_publish().
+     *
+     * It is not an acquisition result. It is a statement about the cell's
+     * bias history that is already true before a single conversion is taken,
+     * and it is the strongest reason there is to distrust the number this
+     * cycle is about to produce. Raising it in cycle_publish() put it AFTER
+     * the point where the oxygen verdict is frozen at the end of PH_O2, so
+     * the verdict could not see it: measured 2026-09-08, a probe eleven
+     * minutes into a fifteen-minute settle published 20.91 %vol with
+     * raw_ok = 1 and settle_s = 769 in the same frame.
+     *
+     * The freeze exists so that a diagnostic phase running after PH_O2 cannot
+     * mute the oxygen it exists to explain. That argument covers faults the
+     * ACQUISITION raises downstream of the measurement. It never covered a
+     * state flag that outranks the measurement entirely, and reading the
+     * freeze as if it did turned "the cell is not ready" into "the cell is
+     * fine". */
+    if (g_uptime_s < g_settle_deadline_s) {
+        g_cyc.faults |= O2P_F_SETTLING;
+    }
+
     /* Build this cycle's snapshot from INVALID, never from the previous one.
      * Copying the old snapshot forward is how a dead sensor keeps publishing
      * last cycle's plausible value under this cycle's fault word. */
@@ -643,6 +665,13 @@ static void finish_o2(o2p_snapshot_t *s)
 
 static void cycle_publish(o2p_snapshot_t *s)
 {
+    /* The FLAG was raised in cycle_begin(), before PH_O2 froze the oxygen
+     * verdict; only the countdown is computed here. Re-raising it is kept so
+     * a settle window that OPENS mid-cycle - o2p_settle_restart() is callable
+     * from the supervision - is still reported in this frame's fault word.
+     * That is deliberately a weaker guarantee than the verdict gets: a window
+     * that opened after the conversion cannot invalidate it retroactively,
+     * and the next cycle sees it from the top. */
     if (g_uptime_s < g_settle_deadline_s) {
         g_cyc.faults |= O2P_F_SETTLING;
         uint32_t left = g_settle_deadline_s - g_uptime_s;
@@ -654,7 +683,15 @@ static void cycle_publish(o2p_snapshot_t *s)
     /* The single point where the validity rule is applied. Whatever the
      * conversions produced, anything the fault word calls untrustworthy
      * leaves as a sentinel. Raw and compensated have different masks. */
-    uint16_t o2_faults = g_cyc.o2_measured ? g_cyc.faults_at_o2 : g_cyc.faults;
+    /* The freeze is SUBTRACTIVE: start from the fault word as it stands now
+     * and drop only the faults the electrode phases are allowed to have
+     * raised since PH_O2 (O2P_FAULTS_POST_O2). A snapshot would instead have
+     * dropped everything raised later, including state flags that outrank the
+     * measurement - which is exactly how SETTLING got lost. */
+    uint16_t o2_faults = g_cyc.o2_measured
+        ? (uint16_t)(g_cyc.faults_at_o2 |
+                     (g_cyc.faults & (uint16_t)~O2P_FAULTS_POST_O2))
+        : g_cyc.faults;
     if (!o2p_o2_valid(o2_faults)) {
         s->o2_raw = O2P_I16_INVALID;
     }
