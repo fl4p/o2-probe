@@ -31,6 +31,7 @@
 #include "faults.h"
 #include "heater.h"
 #include "heater_ctl.h"
+#include "hw_as_built.h"
 #include "i2c1.h"
 #include "lmp91000.h"
 #include "mcu.h"
@@ -730,7 +731,25 @@ static void finish_electrode(o2p_snapshot_t *s, bool working)
             int32_t bias = (int32_t)s->we_buf_mv - mv;
             if (bias > 32767) { bias = 32767; }
             if (bias < -32767) { bias = -32767; }
-            s->cell_bias_mv = (int16_t)bias;
+            /* Only if those two channels reach the electrodes on THIS board.
+             * They do not on the Rev A first article - hw_as_built.h explains
+             * what AIN2/AIN3 actually carry there, and why this is a build
+             * flag rather than a comment. A difference of two rails
+             * published in a register called CELL_BIAS_MV is precisely the
+             * "number that looks like a measurement" this file keeps writing
+             * postmortems about, so it stays the invalid sentinel and the
+             * verdict stays BIAS_UNKNOWN.
+             *
+             * BIAS_UNKNOWN is not benign: bias_verified_recently() refuses it,
+             * so calibration is still gated exactly as it was. What changes is
+             * only that a board with no bias telemetry no longer reports a
+             * bias FAULT it cannot possibly have evidence for. Measured
+             * 2026-09-09: a healthy probe - loop in regulation, 99.9 uA in air
+             * against DS-0637's 40-100 uA - withheld every oxygen reading on
+             * this bit alone. */
+            if (O2P_HW_BIAS_ADC_REACHES_ELECTRODES) {
+                s->cell_bias_mv = (int16_t)bias;
+            }
 
             /* And COMPARE it with what was commanded, which hw_contract.h has
              * specified since 2026-09-04 as the point of this pair - "an
@@ -773,7 +792,7 @@ static void finish_electrode(o2p_snapshot_t *s, bool working)
              * is what this delivers; a settling restart would add a way to wedge
              * a healthy probe forever without adding protection. Fab's call,
              * 2026-09-08, after review found the original claim false. */
-            if (g_cyc.vref_measured) {
+            if (g_cyc.vref_measured && O2P_HW_BIAS_ADC_REACHES_ELECTRODES) {
                 int32_t want = o2p_lmp_commanded_bias_mv((int32_t)g_cyc.vref_mv);
                 int32_t err = bias - want;
                 if (err < 0) { err = -err; }
