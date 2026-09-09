@@ -185,9 +185,12 @@ static size_t write_reg(uint16_t reg, uint16_t value)
 
 static void test_the_bus_rate_can_be_moved_to_each_supported_value(void)
 {
-    const uint32_t bauds[3] = {O2P_BRIDGE_BAUD_1, O2P_BRIDGE_BAUD_2,
-                               O2P_BRIDGE_BAUD_3};
-    for (unsigned i = 0; i < 3u; i++) {
+    /* Sized from the array rather than a literal 3: this loop silently stopped
+     * covering the newest rate when O2P_BRIDGE_BAUD_4 was added, so the one
+     * test that proves a rate is reachable did not test it. */
+    const uint32_t bauds[] = {O2P_BRIDGE_BAUD_1, O2P_BRIDGE_BAUD_2,
+                              O2P_BRIDGE_BAUD_3, O2P_BRIDGE_BAUD_4};
+    for (unsigned i = 0; i < sizeof(bauds) / sizeof(bauds[0]); i++) {
         const size_t len = write_reg(6u, (uint16_t)(bauds[i] / 100u));
         /* FC16 answers with the address and count it applied, so the master
          * can confirm what landed rather than infer it from the absence of an
