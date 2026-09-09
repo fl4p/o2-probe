@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <export version="E">
   <design>
-    <source>/private/tmp/o2-revb-fab/ee/hw/o2-probe/fab/.rev-b-build-mbcd2bd7/source/o2-probe.kicad_sch</source>
-    <date>2026-09-09T16:39:14</date>
+    <source>/private/tmp/o2-revb-bom/ee/hw/o2-probe/o2-probe.kicad_sch</source>
+    <date>2026-09-09T17:09:57</date>
     <tool>Eeschema 10.0.5</tool>
     <sheet number="1" name="/" tstamps="/">
       <title_block>
@@ -28,12 +28,14 @@
       <value>10u 25V X7R</value>
       <footprint>Capacitor_SMD:C_1206_3216Metric</footprint>
       <fields>
+        <field name="MPN">C1206C106K3RACTU</field>
         <field name="Design Note">Bulk bypass on the unregulated 7-15 V input. X7R is explicit because C7 now shares this exact value string: C7 carried 'X7R' before the consolidation and a review caught that inheriting a bare '10u 25V' would have DROPPED the dielectric from the input bypass of the analog LDO. Package and voltage rating do not imply a dielectric, and Y5V would meet both</field>
         <field name="Footprint">Capacitor_SMD:C_1206_3216Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
+      <property name="MPN" value="C1206C106K3RACTU"/>
       <property name="Design Note" value="Bulk bypass on the unregulated 7-15 V input. X7R is explicit because C7 now shares this exact value string: C7 carried 'X7R' before the consolidation and a review caught that inheriting a bare '10u 25V' would have DROPPED the dielectric from the input bypass of the analog LDO. Package and voltage rating do not imply a dielectric, and Y5V would meet both"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
@@ -176,12 +178,14 @@
       <value>10u 25V X7R</value>
       <footprint>Capacitor_SMD:C_1206_3216Metric</footprint>
       <fields>
+        <field name="MPN">C1206C106K3RACTU</field>
         <field name="Design Note">Place directly at U3 IN/GND; include DC-bias derating in effective capacitance. Now the SAME PART as C1 (10u 25V X7R 1206). Was 10u 10V X7R 0805 -- the dielectric is carried explicitly on BOTH so the consolidation cannot silently drop it. Was also the only 0805 capacitor on the board, so C_0805_2012Metric leaves with it. Raising 10V to 25V on a 5V rail is a strict improvement in DC-bias derating, not the voltage-rating collapse the 100n audit below forbids -- that rule guards against buying a HIGH-rated position to a LOW-rated line</field>
         <field name="Footprint">Capacitor_SMD:C_1206_3216Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
+      <property name="MPN" value="C1206C106K3RACTU"/>
       <property name="Design Note" value="Place directly at U3 IN/GND; include DC-bias derating in effective capacitance. Now the SAME PART as C1 (10u 25V X7R 1206). Was 10u 10V X7R 0805 -- the dielectric is carried explicitly on BOTH so the consolidation cannot silently drop it. Was also the only 0805 capacitor on the board, so C_0805_2012Metric leaves with it. Raising 10V to 25V on a 5V rail is a strict improvement in DC-bias derating, not the voltage-rating collapse the 100n audit below forbids -- that rule guards against buying a HIGH-rated position to a LOW-rated line"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
@@ -226,12 +230,14 @@
       <value>1n</value>
       <footprint>Capacitor_SMD:C_0603_1608Metric</footprint>
       <fields>
+        <field name="MPN">C0603C102J5GACTU</field>
         <field name="Design Note">Cathode HF decoupling, deliberately SMALL. AZ431-A Figure 15 (stability boundary vs load capacitance, VKA=VREF curve) shows two stable regions with an unstable band between them; at our ~2.5 mA cathode current (1.67 mA before R41 went 1.5k -&gt; 1k on 2026-09-05; re-read the figure if it moves again, the boundary is current-dependent) the lower stable region runs to roughly 10 nF. 1 n sits well inside it. The bulk capacitance is C10, held OFF the cathode by R31 on purpose -- DO NOT move a microfarad-scale cap onto this node, and do not raise this value, without re-reading that figure. Chart reading, not a specified number: confirm on the bench before release</field>
         <field name="Footprint">Capacitor_SMD:C_0603_1608Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
+      <property name="MPN" value="C0603C102J5GACTU"/>
       <property name="Design Note" value="Cathode HF decoupling, deliberately SMALL. AZ431-A Figure 15 (stability boundary vs load capacitance, VKA=VREF curve) shows two stable regions with an unstable band between them; at our ~2.5 mA cathode current (1.67 mA before R41 went 1.5k -&gt; 1k on 2026-09-05; re-read the figure if it moves again, the boundary is current-dependent) the lower stable region runs to roughly 10 nF. 1 n sits well inside it. The bulk capacitance is C10, held OFF the cathode by R31 on purpose -- DO NOT move a microfarad-scale cap onto this node, and do not raise this value, without re-reading that figure. Chart reading, not a specified number: confirm on the bench before release"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>

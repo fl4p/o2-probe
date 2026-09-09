@@ -1,11 +1,12 @@
 {
   "date": "2026-09-09",
-  "task": "Rev B build/export and assembly review",
-  "baseline_commit": "75162fa",
+  "task": "Rev B BOM reconciliation and export verification",
+  "baseline_commit": "563578d",
   "kicad_version": "10.0.5",
   "native_tests": {
     "passed": 253,
-    "failed": 0
+    "failed": 0,
+    "provenance": "Inherited from prior Rev B export validation; firmware unchanged by this BOM task, native suite not rerun."
   },
   "export_calibration_tests": 14,
   "drc": {
@@ -16,14 +17,14 @@
     "unconnected": 0
   },
   "package": {
-    "directory": "o2-probe-rev-b-b05e2895d3025c4a",
-    "sha256": "b05e2895d3025c4a262352ff96d5094791d4276ad91719cd719b6f2a79b3fa42",
-    "validated_board_sha256": "d4bcf1eb93e463f24d971e4349fea0dd4f33f7df2c00582b1ee8a7f52bc5c9b1",
-    "normalized_board_sha256": "f215701cf23f8f647fe3c067eea29a91e5a3679dcdad6a98568e671e38ae529e",
+    "directory": "o2-probe-rev-b-0c6dbe69dcaf3f52",
+    "sha256": "0c6dbe69dcaf3f5280f3242a7ac3e3e73092f73f02d07cf567965dcc54cdb510",
+    "validated_board_sha256": "c956f872e61511d667c127ba0a4be06a75b034e8fad8d217c27ea6732223f14b",
+    "normalized_board_sha256": "0cdb19d50f4ea81b5d10c1dcaa4a89e9b59679d81a1b9720fd3e031088a888f3",
     "reports_apply_to": "rebuilt board; normalized geometry agrees with accepted candidate",
     "order_ready": false,
     "bom": {
-      "error_count": 17,
+      "error_count": 8,
       "result": "FAIL"
     }
   },
@@ -34,20 +35,20 @@
     "finish_revb_layout.py": "b73022edd1b6445f531fc4a6403ed8ba955e56a22d71933e5aab6a611c41748c",
     "firmware/tools/pcb_netlist.py": "8180acb7a3a641fcf65f3c891b3743f6b82629fb56cbf0514d41c6ae39fc4974",
     "gen_pcb.py": "f36dc7d18b72deca54c788ba05981ee2099605e5cebaa6fc72f1874f2e997f6c",
-    "gen_sch.py": "266ea43fc7d98db2558a661d92280738c10f7c710686daa785cb6b8f8fd6ce1f",
+    "gen_sch.py": "7a9c51a174939df05475153747828a1b529a175ad5553492d615270017353303",
     "inspect_revb_board.py": "554176f52f47dbae0aedb6793a678e9192fb3df2b86928fa1f712b73b28c3ca3",
     "lib/o2-probe.kicad_sym": "9876e1dfe38260a704a1ec57aefeb09ed1a50d1dea05dba7706f66fc8e344f29",
     "make_fab.py": "a82be10cf2751d47a800dbe75aacfd64a99c3eed13e5eb6ad456240059182aef",
     "make_fab_revb.py": "34200d29b73452c184e604e8bcec764bef5eb3e12a55e61befcc3c5ba5fd745e",
-    "o2-probe.kicad_sch": "3a5af7c8e482578d8d5d4bd00874cff51864ff02593f13ba251843bfda3463d1",
+    "o2-probe.kicad_sch": "cf4a8326e94bf05a8ee85b1f1fa766b544efc7005e8e83d0f8d6be933d8ff712",
     "revb_fab_checks.py": "1ef1195cf6418cb817002d40f919dfb73b2fb0e21906c38aafae7716a994e6ac",
-    "routing/revb-interfaces/README.md": "dc0c9741c9148a122ba4aad039d04dee659d0a487d48419041ddddfc9f9effd2",
-    "routing/revb-interfaces/critical-check.txt": "3fbbde11631bd82fe85f438e6888850b84743c519dbbf694b5d4125030a1cfd3",
-    "routing/revb-interfaces/drc-refill.json": "33819141b9378cc4cc6206ed2c4f3c959657c645f7d95d729b5d947ccbb1c2a8",
-    "routing/revb-interfaces/drc-saved-fill.json": "5eb9c6a96815489971b129902ccf94565b0b1e0440239c2efdf744cc9a910926",
-    "routing/revb-interfaces/erc.json": "5be96a77b6aa6eea37dbb594056ca792c6d2641defe3378db2c573279fbcc48a",
+    "routing/revb-interfaces/README.md": "df52a7758dad91b7cc33e802133c4d509372f1132758da0566e49ce647a8db42",
+    "routing/revb-interfaces/critical-check.txt": "5a8b4852fb7abfd9d48c4a4d3df3067a43172a94fc0c6a262ffbc32d277ddd69",
+    "routing/revb-interfaces/drc-refill.json": "3c9d7337cdff25c01ae4c8fcdad932f8664568a012a84b78d2c95b6e29bb7081",
+    "routing/revb-interfaces/drc-saved-fill.json": "84e8841026b70c1aa6df76646ce12f4bce6b27f9feb4c6e9a6d16709f806809c",
+    "routing/revb-interfaces/erc.json": "3aa3756bcde6580b0079b509b024060c4a953eafab0300dc7f45a08b55109a5a",
     "routing/revb-interfaces/fp-lib-table": "c789fb3e56b0028db9561efec87314d2a49f14afe6e80a1262ad139dc3c7d346",
-    "routing/revb-interfaces/interface-check.txt": "141a13eefd220ee55e433076e0c388b1c750543a0e8ad873db3ab358f060bd7a",
+    "routing/revb-interfaces/interface-check.txt": "4d24c01bc9381d5ab948b98e9d70efc44f0b9c00f38480611ad8bd998048a37c",
     "routing/revb-interfaces/lib/o2-probe.kicad_sym": "9876e1dfe38260a704a1ec57aefeb09ed1a50d1dea05dba7706f66fc8e344f29",
     "routing/revb-interfaces/lib/o2-probe.pretty/BMP390_LGA10_DRAFT.kicad_mod": "8498892e1884ecec6b63eee0888cd93339f66c4222c4e8414c9a3372a8a83fa0",
     "routing/revb-interfaces/lib/o2-probe.pretty/Heater_Ring_Solder_Lands.kicad_mod": "d64f21b2ecbf3ac071dc5cb2db7867cd124d34a6265655672971bd576e211f9e",
@@ -62,12 +63,22 @@
     "routing/revb-interfaces/lib/tmp117-probe.pretty/WirePad_1x04_P1.40mm.kicad_mod": "56f1146c3c92e945c06b2fe264b739e41452f2bda61cb128ed2191e2e0884add",
     "routing/revb-interfaces/lib/tmp117-probe.pretty/WirePad_1x04_P1.80mm.kicad_mod": "bb41d714c3ea27d9e2dd8452e6f065d386f2bce70a43107b5c1c29f84bbe8587",
     "routing/revb-interfaces/o2-probe.kicad_dru": "b1fe200efe5fc9d531438535ce0c1230b8972c03a14bfb571651b9448d46717a",
-    "routing/revb-interfaces/o2-probe.kicad_pcb": "3cff469246070866ebaa9378d335e8e83a2ba268a242028e2238a9bf0c5a561d",
+    "routing/revb-interfaces/o2-probe.kicad_pcb": "5d9a9c6494feb09f6400e51d1d91a478e9b74190de16a5d0963bfff5afe21781",
     "routing/revb-interfaces/o2-probe.kicad_pro": "e700a1602dc434a0e7d2aedc0dd21e118d8251adc94c2df266343612ae374b2c",
-    "routing/revb-interfaces/o2-probe.kicad_sch": "3a5af7c8e482578d8d5d4bd00874cff51864ff02593f13ba251843bfda3463d1",
+    "routing/revb-interfaces/o2-probe.kicad_sch": "cf4a8326e94bf05a8ee85b1f1fa766b544efc7005e8e83d0f8d6be933d8ff712",
     "routing/revb-interfaces/sym-lib-table": "39fb1c168a1bd5640e5a5b58ee1782d411e58a00884cfb59b686270ebc623763",
-    "sourcing.json": "b893fb9a14a9f68efa38fc5e96146a246bd764d2cea6d2ce7a8ba5c9ab1118a1",
+    "sourcing.json": "ae6041cb100680ac8f7660889c6e2c3b4ff826d5241ca7acc48b5e2dbc979768",
     "test_revb_fab_checks.py": "5c17e49d20ab434d0ebe8a47d5c01848ed60d20abb98391f36d7779cf4b4e938",
-    "verify_revb_interfaces.py": "76e65082c26b078b303b1e1d64049cac027024929aba81feca005be85a7acd15"
+    "verify_revb_interfaces.py": "76e65082c26b078b303b1e1d64049cac027024929aba81feca005be85a7acd15",
+    "purchase-orders.json": "9ed2e78da93cbf830e130d10e866c4a0dbd5a21e4ae514300d1e4c1921232db4",
+    "procurement/revb-inventory-2026-09-09.json": "2cdb2bdd9a42df53a87e9ce43f233ce3cfb35c4e862acc7a31edbd3894eff7ba",
+    "procurement/revb-shortages-2026-09-09.csv": "7ce3db113ef6effd5fb17e4c9fd04a320c3001c1241e1ec4aa382f74e2f7f835",
+    "docs/REVB-BOM-RECONCILIATION.md": "3c4945090f1bd9effc77036cdebbaa63ecd36195b001f6c9cad449a0225a9301"
+  },
+  "review": {
+    "reviewer": "independent reviewer agent",
+    "result": "No unresolved findings after adding three required cell receptacles as an unresolved assembly qualification.",
+    "export_calibration_tests_passed": 14,
+    "export_calibration_runtime_seconds": 0.32
   }
 }

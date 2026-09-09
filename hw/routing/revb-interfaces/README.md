@@ -14,6 +14,8 @@ and physical qualification remain open.
 See [build/export instructions](../../docs/REVB-FAB.md),
 [assembly dispositions](../../docs/REVB-ASSEMBLY.md), and the
 [validation and review record](../../docs/2026-09-09-revb-fab-validation.md).
+The [current BOM reconciliation](../../docs/REVB-BOM-RECONCILIATION.md) records
+exact capacitor choices, refreshed order coverage, current stock and remaining gates.
 
 Read the [implementation, source evidence and qualification record](../../docs/2026-09-09-revb-protection.md).
 The previous [BOM39 candidate](../2layer-bom39/PROVENANCE.md) is unchanged.

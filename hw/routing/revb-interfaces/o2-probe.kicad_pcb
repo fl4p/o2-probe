@@ -5318,6 +5318,18 @@
 			)
 		)
 		(property ki_fp_filters "C_*")
+		(property "MPN" "C1206C106K3RACTU"
+			(at 0 0 0)
+			(layer "F.SilkS")
+			(hide yes)
+			(uuid "f3e39f16-c77d-4bec-9a52-1800f479a28d")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/20cb4434-1eec-5895-aa19-fd9b56bc9a23")
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
@@ -6238,6 +6250,18 @@
 			)
 		)
 		(property ki_fp_filters "C_*")
+		(property "MPN" "C1206C106K3RACTU"
+			(at 0 0 0)
+			(layer "F.SilkS")
+			(hide yes)
+			(uuid "f532640e-9299-4f09-952f-84b63647e7e3")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/506d2021-27ae-5b91-a6b8-d0f69803b4ff")
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
@@ -20940,6 +20964,18 @@
 			)
 		)
 		(property ki_fp_filters "C_*")
+		(property "MPN" "C0603C102J5GACTU"
+			(at 0 0 0)
+			(layer "B.SilkS")
+			(hide yes)
+			(uuid "cb4e7bc4-8cef-4513-be3b-4bcb69bf2cc9")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
 		(path "/1ef7001d-da10-572a-a20f-b324bbcd62b0")
 		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)

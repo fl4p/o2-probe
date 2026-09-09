@@ -19,7 +19,6 @@
   },
   "entries": {
     "Capacitor_SMD:C_0402_1005Metric|100n": {"class": "generic-stock", "rationale": "Local IC decoupling; 16 V X7R or better from stock."},
-    "Capacitor_SMD:C_0603_1608Metric|100n": {"class": "generic-stock", "rationale": "Local IC decoupling; 16 V X7R or better from stock."},
     "Capacitor_SMD:C_0603_1608Metric|10n": {"class": "generic-stock", "rationale": "Signal-path filter; value tolerance non-critical at this node."},
     "Capacitor_SMD:C_0603_1608Metric|1u": {"class": "generic-stock", "rationale": "Rail bypass on regulated 3V3D/5V nodes."},
     "Capacitor_SMD:C_0603_1608Metric|4.7u": {"class": "generic-stock", "rationale": "Rail bypass on regulated nodes."},
@@ -35,7 +34,8 @@
     "Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief|*": {"class": "not-purchased", "rationale": "Solder-wire pigtail land; the J1 cable is a separate assembly item."},
     "o2-probe:SolderWire_RaisedRelief_1x01|*": {"class": "not-purchased", "rationale": "J103/J104 solder-wire lands; unchanged plated/relief holes with wire-envelope graphics on the assembly layer. The cable is a separate assembly item."},
     "o2-probe:SolderWireNoRelief_J105|*": {"class": "not-purchased", "rationale": "Accepted J105 bare solder-wire land; there is no connector body to purchase."},
-    "o2-probe:SolderWireNoRelief_J106|*": {"class": "not-purchased", "rationale": "Accepted J106 bare solder-wire land; there is no connector body to purchase."},
-    "o2-probe:Heater_Ring_Solder_Lands|HEATED MEMBRANE RING": {"class": "custom", "rationale": "Dry-side metal membrane-carrier ring; frozen by the FAB-READINESS.md ring drawing/alloy/plating gate, not by a distributor MPN."}
+    "Connector:Tag-Connect_TC2030-IDC-NL_2x03_P1.27mm_Vertical|*": {"class": "not-purchased", "rationale": "J3 is bare programming pads and alignment holes; no connector body is placed. The reusable TC2030 cable/holding fixture is a separate programming tool."},
+    "o2-probe:Ring_Fork_Tip_DRAFT|*": {"class": "not-purchased", "rationale": "J5 is bare main-board solder lands. The separate ring PCB and its measured fork interface remain unfrozen FAB-READINESS.md gates; this declaration supplies neither that assembly nor approval to fabricate it."},
+    "o2-probe:SolderWireNoRelief_J106|*": {"class": "not-purchased", "rationale": "Accepted J106 bare solder-wire land; there is no connector body to purchase."}
   }
 }

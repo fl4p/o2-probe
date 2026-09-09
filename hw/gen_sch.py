@@ -469,6 +469,7 @@ place("#FLG05", PWRFLAG, 81.28, 50.8, value="PWR_FLAG", footprint="", in_bom=Fal
 place("U1", BUCK, 106.68, 33.02, value="AP63205WU-7", footprint="Package_TO_SOT_SMD:TSOT-23-6", mpn="AP63205WU-7")
 for p,n in {1:"+5V",2:"+12V_SW",3:"+12V_SW",4:"GND",5:"BUCK_SW",6:"BUCK_BST"}.items(): net("U1",p,n)
 add_passive("C1", 88.9, 43.18, "10u 25V X7R", "Capacitor_SMD:C_1206_3216Metric", "+12V_SW", "GND",
+            mpn="C1206C106K3RACTU",
             note="Bulk bypass on the unregulated 7-15 V input. X7R is explicit because C7 now "
                  "shares this exact value string: C7 carried 'X7R' before the consolidation and "
                  "a review caught that inheriting a bare '10u 25V' would have DROPPED the "
@@ -505,6 +506,7 @@ add_passive("R32",190.5,20.32,"10R","Resistor_SMD:R_0603_1608Metric","+5V","+5V_
                  "survives the change while R_0805_2012Metric leaves the board and 10R merges "
                  "into the one 0603 line with R2/R3")
 add_passive("C7",190.5,58.42,"10u 25V X7R","Capacitor_SMD:C_1206_3216Metric","+5V_ANALOG","GND",
+            mpn="C1206C106K3RACTU",
             note="Place directly at U3 IN/GND; include DC-bias derating in effective "
                  "capacitance. Now the SAME PART as C1 (10u 25V X7R 1206). Was 10u 10V X7R "
                  "0805 -- the dielectric is carried explicitly on BOTH so the consolidation "
@@ -562,6 +564,7 @@ add_passive("R41",215.9,86.36,"1k","Resistor_SMD:R_0603_1608Metric","+5V_ANALOG"
                  "(2.50 against 1.67 nominal), which is 8.3 mV more drop across R32=10R; the "
                  "AP63205's 4.95 V minimum leaves U3 ample headroom for 3.3 V out")
 add_passive("C9",233.68,86.36,"1n","Capacitor_SMD:C_0603_1608Metric","VREF_SHUNT","GND",
+            mpn="C0603C102J5GACTU",
             note="Cathode HF decoupling, deliberately SMALL. AZ431-A Figure 15 (stability "
                  "boundary vs load capacitance, VKA=VREF curve) shows two stable regions with "
                  "an unstable band between them; at our ~2.5 mA cathode current (1.67 mA "
