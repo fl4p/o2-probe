@@ -93,8 +93,8 @@ All of the following must be updated simultaneously in Phase 1:
 7. `FIRMWARE.md:807` & `../DESIGN.md`: Update declaration to "`0x0010`, 32 registers, read-only" so `tools/check_regmap_docs.py:76-84` passes.
 
 ### 4.3 LoRaWAN Network Polling Boundary (Resolving B-3)
-- The farm node (`tech/node-prototype/src/poll.h:106,205`) polls 29 registers (up to `O2P_REG_CE_MV` at `0x002D`), consuming 63 bytes of its 64-byte Modbus buffer.
-- `0x002E` and `0x002F` are **direct-bus / bench diagnostics only**. The farm node's poll count remains 29, keeping radio uplinks untouched and avoiding buffer overflow.
+- The farm node (`tech/node-prototype/src/poll.h:106,205`) polls 29 registers (0x0010..0x002C, up to `O2P_REG_T_AFE`), consuming 63 bytes of its 64-byte Modbus buffer.
+- `0x002E` and `0x002F` (as well as `CE_MV` at `0x002D`) are **direct-bus / bench diagnostics only**. The farm node's poll count remains 29, keeping radio uplinks untouched and avoiding buffer overflow.
 
 ---
 
