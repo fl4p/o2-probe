@@ -69,7 +69,7 @@ static size_t write_regs(uint8_t addr, const uint8_t *req, size_t n,
     const uint16_t val = (uint16_t)((req[7] << 8) | req[8]);
     const uint32_t baud = (uint32_t)val * 100u;
     if (baud != O2P_BRIDGE_BAUD_1 && baud != O2P_BRIDGE_BAUD_2 &&
-        baud != O2P_BRIDGE_BAUD_3) {
+        baud != O2P_BRIDGE_BAUD_3 && baud != O2P_BRIDGE_BAUD_4) {
         return exception(rsp, addr, fc, O2P_MB_EX_ILLEGAL_VALUE);
     }
 

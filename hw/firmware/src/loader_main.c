@@ -109,6 +109,13 @@ static void apply_serial(uint8_t addr, uint8_t baud_code, uint8_t parity_code,
     switch (baud_code) {
     case O2P_BAUD_19200: *baud = 19200u; break;
     case O2P_BAUD_38400: *baud = 38400u; break;
+    /* THE LOADER MUST KNOW EVERY RATE THE APP CAN BE SET TO, and this case is
+     * why: the default below is 9600, so a loader that does not recognise the
+     * stored code comes up at 9600 while the master is talking 115200 - and
+     * the loader is the update path, so the one tool that could fix it is the
+     * one that cannot reach it. Adding a rate to regmap.h without adding it
+     * here strands a re-rated probe at its next reset into service mode. */
+    case O2P_BAUD_115200: *baud = 115200u; break;
     default:             *baud = 9600u;  break;
     }
     if (parity_code <= O2P_PARITY_EVEN) {

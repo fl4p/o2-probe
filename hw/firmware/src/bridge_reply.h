@@ -37,6 +37,7 @@ typedef struct {
 #define O2P_BRIDGE_BAUD_1 9600u
 #define O2P_BRIDGE_BAUD_2 19200u
 #define O2P_BRIDGE_BAUD_3 38400u
+#define O2P_BRIDGE_BAUD_4 115200u
 
 /* Build the bridge's own answer to `req`, which the caller has already found
  * to be addressed to `addr`.

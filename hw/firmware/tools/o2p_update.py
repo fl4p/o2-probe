@@ -83,7 +83,7 @@ R_PARITY_CODE = 0x0032
 # tool asks for max(), so a firmware that gains a faster code speeds this tool
 # up as soon as the two are re-synced - and check_update_tool.py fails the
 # build if they are not.
-BAUD_CODES = {0: 9600, 1: 19200, 2: 38400}
+BAUD_CODES = {0: 9600, 1: 19200, 2: 38400, 3: 115200}
 
 CMD_BEGIN = 0xB001
 CMD_COMMIT = 0xB002

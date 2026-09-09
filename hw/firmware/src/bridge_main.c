@@ -121,7 +121,8 @@ _Static_assert(O2P_BRIDGE_BUS_BAUD * O2P_BUART_TX_TIMEOUT_MS >= 2816000u &&
  * macro would pass a build whose first re-rate truncates every long frame. */
 _Static_assert(O2P_BRIDGE_BAUD_1 * O2P_BUART_TX_TIMEOUT_MS >= 2816000u &&
                O2P_BRIDGE_BAUD_2 * O2P_BUART_TX_TIMEOUT_MS >= 2816000u &&
-               O2P_BRIDGE_BAUD_3 * O2P_BUART_TX_TIMEOUT_MS >= 2816000u,
+               O2P_BRIDGE_BAUD_3 * O2P_BUART_TX_TIMEOUT_MS >= 2816000u &&
+               O2P_BRIDGE_BAUD_4 * O2P_BUART_TX_TIMEOUT_MS >= 2816000u,
                "a selectable bus rate is below the transmit-timeout floor");
 
 /* There is deliberately NO assertion that the host link is at least as fast as

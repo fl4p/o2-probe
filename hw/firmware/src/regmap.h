@@ -665,7 +665,22 @@ enum {
  * SMT100s on this cable are 9600 8E1 and the node is configured
  * AT+BAUDR=9600 / AT+PARITY=2 (tech/RS485-LS-SMT100.md:277-283). A probe that
  * came up 8N1 would be silent in a way indistinguishable from bad wiring. */
-enum { O2P_BAUD_9600 = 0u, O2P_BAUD_19200 = 1u, O2P_BAUD_38400 = 2u, O2P_BAUD_MAX_CODE = 2u };
+/* 115200 added 2026-09-09. The transceiver is the part that decides whether a
+ * rate is physically available, and it is not close: U5 is a THVD1410 (BOM
+ * line 51), rated 500 kbps signalling in its datasheet - "Low EMI 500 kbps and
+ * 50 Mbps Data Rates", the 500 kbps half of the family, THVD1450 being the
+ * 50 Mbps part. 115.2 kbps sits 4.3x inside that, and the slew-rate limiting
+ * that caps it at 500 kbps is the same feature that keeps reflections tame on
+ * a long cable.
+ *
+ * NOT VERIFIED ON THE DEPLOYED CABLE. The datasheet bounds the transceiver,
+ * not this installation: no measurement of THIS cable's length, termination or
+ * error rate at 115200 has been taken. The probation timer in
+ * serial_probation.h is what makes trying it safe - a rate the cable cannot
+ * carry means no frame arrives at the new rate and the probe puts itself back
+ * within O2P_SERIAL_PROBATION_MS. */
+enum { O2P_BAUD_9600 = 0u, O2P_BAUD_19200 = 1u, O2P_BAUD_38400 = 2u,
+       O2P_BAUD_115200 = 3u, O2P_BAUD_MAX_CODE = 3u };
 enum { O2P_PARITY_NONE = 0u, O2P_PARITY_ODD = 1u, O2P_PARITY_EVEN = 2u };
 
 /* Field order is chosen so the struct has NO implicit padding: it is written
