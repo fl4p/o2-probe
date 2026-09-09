@@ -43,7 +43,7 @@ All debug and diagnostic blocks are placed strictly in the free ground between t
 
 ---
 
-## 3. Component A: Memory Peek Mailbox (`0x0065..0x006E`)
+## 3. Component A: Memory Peek Mailbox (`0x0065..0x006F`)
 
 ### 3.1 Design Principles & Cortex-M0+ Safety Constraints
 1. **No Configurable BusFault:** On Cortex-M0+, any unaligned load (`addr & 3 != 0`) or read of an unmapped address or unclocked peripheral escalates immediately to a fatal `HardFault`.
