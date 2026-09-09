@@ -156,15 +156,26 @@ static inline bool o2p_sht_masked(uint32_t now_ms, uint32_t pulse_ms)
  * absence of the bit is the only thing in this firmware that tells those two
  * apart; see faults.h.
  *
+ * `pulse_failed` IS THE EXCEPTION, AND IT WAS MISSED ON THE FIRST PASS. The
+ * mask is entered by main.c whether the heater command succeeded or not - a
+ * pulse that did not complete leaves the element in an unknown thermal state,
+ * so masking is right either way. But the transaction failing IS an observed
+ * I2C failure, and while the mask reported I2C_FAIL_SHT unconditionally it was
+ * reported by accident. Dropping the unconditional fault turned an already-seen
+ * bus failure into 350 s of silence indistinguishable from healthy
+ * maintenance - unevaluable input reading as OK, which is the first line of
+ * this repo's guard checklist. Found by review of 2ac1712.
+ *
  * `measure_ok` is meaningless while masked, because no measurement is
  * attempted then. It is ignored rather than asserted on: the caller's control
  * flow already cannot produce that combination, and a gate that traps on an
  * impossible input is one that fails on the day the control flow changes for
  * an unrelated reason. */
-static inline uint16_t o2p_sht_phase_faults(bool masked, bool measure_ok)
+static inline uint16_t o2p_sht_phase_faults(bool masked, bool pulse_failed,
+                                            bool measure_ok)
 {
     if (masked) {
-        return 0u;
+        return pulse_failed ? O2P_F_I2C_FAIL_SHT : 0u;
     }
     return measure_ok ? 0u : O2P_F_I2C_FAIL_SHT;
 }

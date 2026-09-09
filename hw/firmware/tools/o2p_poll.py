@@ -72,9 +72,10 @@ INVALIDATE_O2 = ["I2C_FAIL_LMP", "I2C_FAIL_ADS",
 # O2_COMP is DRY BASIS, so it also needs the calibration constant. It needs the
 # SHT45 too, but I2C_FAIL_SHT is deliberately NOT here: the bit used to be
 # raised for the SHT45's own scheduled de-creep pulse as well, and the firmware
-# bridges that gap - now up to 400 s, since the mask was measured at 350 s - from
-# the last measured chamber reading (O2P_RH_MAX_AGE_S in o2.h) rather than
-# blanking the channel. Since 2026-09-09 the mask raises no fault either, so a
+# bridges a short gap from the last measured chamber reading (45 s,
+# O2P_RH_MAX_AGE_S in o2.h) rather than blanking the channel. The 350 s de-creep
+# mask is LONGER than that bound on purpose, so O2_COMP does take its sentinel
+# for most of each mask; O2_RAW is unaffected. Since 2026-09-09 the mask raises no fault either, so a
 # chamber reading missing WITHOUT this bit is a scheduled de-creep window and
 # with it is a sensor that did not answer. When the data really is too old the
 # firmware publishes the SENTINEL, which this tool already decodes to None.

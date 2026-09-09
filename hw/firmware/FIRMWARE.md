@@ -1015,15 +1015,24 @@ persistent loop would therefore stop for the whole mask, on a schedule, several
 times a day — a loop that refuses intermittently for a reason invisible from
 outside, which is worse than one that refuses consistently. `main.c` bridges the
 **chamber temperature only** from the same cache the oxygen path uses, bounded by
-the same `O2P_RH_MAX_AGE_S` (400 s, derived in `o2.h` against a 352.1 s worst
-case). Past that bound the reading stays invalid and `NO_CHAMBER` fires again, so
-a genuinely dead SHT45 still blocks the heater.
+its own bound, `O2P_HEATER_CHAMBER_MAX_AGE_S` (45 s). Past that bound the reading
+stays invalid and `NO_CHAMBER` fires again, so a genuinely dead SHT45 still
+blocks the heater.
 
-**Those numbers were 45 s and 32.1 s until 2026-09-09, and the mask was 30 s.**
-The recovery was then measured — 325 s to come back within 0.10 %RH,
-`SHT-DECREEP-MASK-IS-TOO-SHORT.md` — so the mask is now 350 s and the cache
-bound moved with it under a `_Static_assert` that will not let the two be edited
-apart. The operational consequence is the honest one to state: **the RH loop now
+**That is a separate constant as of 2026-09-09, and briefly it was not.** The
+mask went from a guessed 30 s to a measured 350 s
+(`SHT-DECREEP-MASK-IS-TOO-SHORT.md`), and the oxygen cache bound was raised
+45 → 400 s to cover it — which silently extended this thermal interlock's
+reference to ~3.6 τ of the chamber's ~110 s time constant. A clamp compares a
+fresh measurement against its reference, so staleness there does not add noise,
+it *moves the trip point*: a cached 60 °C against an actual 55 °C turns a real
++4 K excursion into a computed −1 K and the clamp does not fire. Both bounds are
+back to 45 s, under separate names so an oxygen data-age policy can never again
+move a heater interlock. The cost is that the tip loop now stands down for the
+remainder of each mask alongside the RH loop; that is the accepted side of the
+trade, and on Rev A this block is measured inert anyway.
+
+The operational consequence is the honest one to state: **the RH loop now
 stands down for 350 s after every scheduled pulse, not 25 s** — about 1.2 % of
 the time at the default 8 h interval. It is visible on the bus as `NO_RH` in
 `HEATER_BLOCK` (0x002E), the tip loop keeps running throughout on the bridged

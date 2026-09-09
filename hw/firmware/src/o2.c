@@ -389,8 +389,8 @@ void o2p_gas_cache_update(o2p_gas_cache_t *c, const o2p_gas_t *fresh,
     c->valid = true;
 }
 
-bool o2p_gas_cache_apply(const o2p_gas_cache_t *c, o2p_gas_t *gas,
-                         uint32_t now_s)
+bool o2p_gas_cache_apply_bounded(const o2p_gas_cache_t *c, o2p_gas_t *gas,
+                                 uint32_t now_s, uint32_t max_age_s)
 {
     if (gas == NULL) {
         return false;
@@ -406,11 +406,17 @@ bool o2p_gas_cache_apply(const o2p_gas_cache_t *c, o2p_gas_t *gas,
      * now_s BEFORE taken_s wraps to a huge age and fails the cap, which is
      * the safe direction. */
     uint32_t age = now_s - c->taken_s;
-    if (age > O2P_RH_MAX_AGE_S) {
+    if (age > max_age_s) {
         return false;         /* unevaluable: the caller publishes the sentinel */
     }
     gas->rh_pct = c->rh_pct;
     gas->t_c = c->t_c;
     gas->valid = true;
     return true;
+}
+
+bool o2p_gas_cache_apply(const o2p_gas_cache_t *c, o2p_gas_t *gas,
+                         uint32_t now_s)
+{
+    return o2p_gas_cache_apply_bounded(c, gas, now_s, O2P_RH_MAX_AGE_S);
 }

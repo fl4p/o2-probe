@@ -239,12 +239,16 @@ the wrong instrument: the same bit was then raised for the SHT45's own scheduled
 de-creep pulse, whose recovery mask blanked the primary oxygen channel
 three times a day and labelled firmware-ordered maintenance a bus failure. The
 sampler instead keeps the last measured `(RH, T_chamber)` pair and bridges a gap
-of up to `O2P_RH_MAX_AGE_S` = 400 s with it - 350 s of mask plus the 1.1 s
-blocking pulse plus a second of 1 Hz sample quantisation is 352.1 s worst case,
-and 400 s covers that. The mask was 30 s, and the bound 45 s, until the recovery
-was measured on 2026-09-07 (`SHT-DECREEP-MASK-IS-TOO-SHORT.md`): it takes 325 s
-to come back within 0.10 %RH, so the old mask published the very artefact it
-existed to suppress. A `_Static_assert` in `o2.h` now keeps the two in step.
+of up to `O2P_RH_MAX_AGE_S` = 45 s with it - 30 s of mask plus the 1.1 s blocking
+pulse plus a second of 1 Hz sample quantisation is 32.1 s worst case, so 45 s is
+that with 40 % margin. **The mask is now 350 s and the bound deliberately does
+not cover it**: the recovery was measured on 2026-09-07
+(`SHT-DECREEP-MASK-IS-TOO-SHORT.md`) and the mask lengthened, but a staleness
+budget is set by how fast the bridged quantity goes wrong, not by the length of
+the gap being papered over. The cache carries chamber *temperature* as well as
+humidity, and through `p_sat(T)` a 5 K stale temperature is a 6.3 % error at
+60 °C and 10.8 % at 70 °C - so `O2_COMP` takes its sentinel for the remainder of
+each mask instead. `O2_RAW` needs no SHT45 and publishes throughout.
 Since 2026-09-09 the mask also raises **no fault at all**, so a masked chamber
 and a dead one are told apart by the presence of `I2C_FAIL_SHT` rather than
 being identical. Past the cap the value is unevaluable and

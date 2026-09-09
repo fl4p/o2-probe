@@ -147,6 +147,14 @@ static uint16_t g_ads_fail_count;         /* cycles with no ADS conversion */
  * Initialised so the first cycle is not masked. */
 static uint32_t g_sht_pulse_ms;
 static uint32_t g_next_sht_pulse_s;
+/* Did the LAST heater-pulse transaction fail on the bus?
+ *
+ * Assigned at every pulse attempt, so it is self-clearing: a successful pulse
+ * replaces a failed one's flag and nothing has to remember to reset it. It
+ * exists because the mask no longer raises a fault by itself, and a pulse that
+ * NACKed is a real I2C failure that would otherwise spend its whole 350 s
+ * window looking exactly like scheduled maintenance. */
+static bool g_sht_pulse_failed;
 /* The last chamber reading that was actually measured, so the mask after a
  * scheduled SHT45 de-creep pulse is BRIDGED rather than published as an
  * oxygen sentinel three times a day. Bounded by O2P_RH_MAX_AGE_S; see o2.h
@@ -475,7 +483,7 @@ static void phase_temps(o2p_snapshot_t *s)
      * RH LOW, and a loop that regulated on it would read the chamber as drier
      * than it is and under-heat, which is the direction that condenses. */
     if (o2p_sht_masked(o2p_millis(), g_sht_pulse_ms)) {
-        g_cyc.faults |= o2p_sht_phase_faults(true, false);
+        g_cyc.faults |= o2p_sht_phase_faults(true, g_sht_pulse_failed, false);
         return;
     }
 
@@ -494,7 +502,7 @@ static void phase_temps(o2p_snapshot_t *s)
      * above - which adds nothing, and is written as a call rather than as no
      * call at all so that the host test exercises THIS site's rule and not a
      * second copy of it. */
-    g_cyc.faults |= o2p_sht_phase_faults(false, measure_ok);
+    g_cyc.faults |= o2p_sht_phase_faults(false, g_sht_pulse_failed, measure_ok);
 
     /* The temperature that matters for the cell's rating is the gas it sees.
      * Shared with finish_o2() through o2p_gas_temperature() so the two cannot
@@ -1276,7 +1284,9 @@ static void cycle_publish(o2p_snapshot_t *s)
             bridged.t_c    = 0.0f;
             bridged.p_hpa  = 0.0f;
             bridged.valid  = false;
-            if (o2p_gas_cache_apply(&g_gas_cache, &bridged, g_uptime_s)) {
+            if (o2p_gas_cache_apply_bounded(&g_gas_cache, &bridged,
+                                            g_uptime_s,
+                                            O2P_HEATER_CHAMBER_MAX_AGE_S)) {
                 const float c100 = bridged.t_c * 100.0f;
                 heater_t_chamber =
                     (int16_t)(c100 + (c100 >= 0.0f ? 0.5f : -0.5f));
@@ -1854,10 +1864,19 @@ int main(void)
                  * a second, and a cycle that lands in the middle of it must
                  * not publish the heated reading either. */
                 g_sht_pulse_ms = o2p_millis();
-                if (o2p_sht4x_heater_pulse(O2P_SHT_CMD_HEAT_200MW_1S) != O2P_SHT_OK) {
+                bool pulse_ok = (o2p_sht4x_heater_pulse(
+                                     O2P_SHT_CMD_HEAT_200MW_1S) == O2P_SHT_OK);
+                g_sht_pulse_failed = !pulse_ok;
+                if (!pulse_ok) {
                     /* A pulse that did not complete leaves the element in an
-                     * unknown thermal state; keep the mask and let the next
-                     * cycle report the SHT as failed. */
+                     * unknown thermal state; keep the mask, and re-stamp it so
+                     * the window runs from where the attempt stopped.
+                     *
+                     * "let the next cycle report the SHT as failed" is what
+                     * this comment used to say, and it was true only while the
+                     * mask raised I2C_FAIL_SHT unconditionally - the next cycle
+                     * is INSIDE the mask and never reaches a measurement. The
+                     * flag above is what reports it now. */
                     g_sht_pulse_ms = o2p_millis();
                 }
             }

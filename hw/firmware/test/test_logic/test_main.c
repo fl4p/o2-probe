@@ -3151,6 +3151,87 @@ static void test_this_board_cannot_be_commanded_transceiver_deaf(void)
     TEST_ASSERT_TRUE(O2P_HW_NET_RS485_DE_PIN != O2P_HW_NET_RS485_RE_PIN);
 }
 
+static void test_a_stale_chamber_temperature_is_the_dominant_bridge_error(void)
+{
+    /* WHY O2P_RH_MAX_AGE_S IS 45 s AND NOT 400 s, computed rather than argued.
+     *
+     * The first version of this change raised the bound to 400 s so the cache
+     * would outlast the 350 s de-creep mask, justified by a comment saying the
+     * dry-basis correction is only mildly sensitive to RH. The RH half of that
+     * was right and the conclusion was not: the cache carries the chamber
+     * TEMPERATURE too, and temperature enters through p_sat(T), which is
+     * exponential. At the 60-80 C this instrument exists to observe, a stale
+     * temperature dominates by an order of magnitude.
+     *
+     * This runs the shipped conversion at a fixed cell current, changing only
+     * the gas, so the numbers are the firmware's own and not a restatement. */
+    o2p_cal_t cal = { .dil_alpha = 1.0f };
+    o2p_gas_t air = gas_at(20.0f, 50.0f, 1013.25f);
+    TEST_ASSERT_TRUE(o2p_calibrate_air(&cal, 100000, 2000, &air));
+    cal.tempco_per_k = 0.0f;    /* isolate the dilution term */
+
+    /* Helper shape: same current, same reported temperature, gas differs.
+     *
+     * 60 uA rather than the 100 uA air point, deliberately. The dilution term
+     * DIVIDES by the dry fraction, so at 75 C and saturation a full-scale air
+     * current is pushed past O2P_C_MAX (0.30, the cell's rated overload) and
+     * the conversion refuses - a real guard firing on a fabricated input, not
+     * a bug. Measuring the sensitivity needs a current that leaves headroom
+     * for the correction being measured. */
+    #define DRY_AT(t_c, rh_pct, out) do {                                   \
+        o2p_gas_t g_ = gas_at((t_c), (rh_pct), 1013.25f);                   \
+        TEST_ASSERT_EQUAL(O2P_OK,                                           \
+            o2p_dry_fraction_from_current(&cal, 60000, 2000, &g_, &(out))); \
+    } while (0)
+
+    /* The de-creep artefact itself - 1.6 %RH low - is genuinely mild, which is
+     * what the original comment got right. */
+    float rh_true = 0.0f, rh_err = 0.0f;
+    DRY_AT(60.0f, 100.0f, rh_true);
+    DRY_AT(60.0f, 98.4f, rh_err);
+    float rh_rel = (rh_err - rh_true) / rh_true;
+    /* BOTH errors here make O2_COMP read LOW: a smaller p_w leaves a larger
+     * dry fraction in the denominator. Signed, then bounded by magnitude. */
+    TEST_ASSERT_TRUE(rh_rel < 0.0f);
+    TEST_ASSERT_TRUE(-rh_rel < 0.01f);                   /* ~0.4 % at 60 C */
+
+    /* A 5 K stale TEMPERATURE, humidity saturated throughout, is an order of
+     * magnitude worse at the same point - and this is the error a long bridge
+     * actually incurs, because the membrane heater stands down for the whole
+     * mask, so the chamber is drifting while the cached value is in use. */
+    float t_true = 0.0f, t_stale = 0.0f;
+    DRY_AT(65.0f, 100.0f, t_true);
+    DRY_AT(60.0f, 100.0f, t_stale);
+    float t_rel = (t_stale - t_true) / t_true;
+    TEST_ASSERT_TRUE(t_rel < 0.0f);                      /* reads LOW */
+    TEST_ASSERT_TRUE(-t_rel > 0.05f);                    /* ~6.8 %, > 5 % */
+
+    /* MONOTONIC IN THE DIRECTION THAT MATTERS: the further into the pile's
+     * thermophilic range, the worse a stale temperature gets. A bound argued
+     * from bench temperatures cannot be carried to the deployment.
+     *
+     * 70->75 C rather than 75->80: O2P_VAPOUR_T_MAX_C is 80.0 and the model
+     * refuses AT the limit, so 80 C is not a point this firmware will convert.
+     * The trend is what is being pinned, and it is already established well
+     * inside the supported domain. */
+    float hot_true = 0.0f, hot_stale = 0.0f;
+    DRY_AT(75.0f, 100.0f, hot_true);
+    DRY_AT(70.0f, 100.0f, hot_stale);
+    float hot_rel = -((hot_stale - hot_true) / hot_true);
+    TEST_ASSERT_TRUE(hot_rel > -t_rel);                  /* worse than at 60 C */
+    TEST_ASSERT_TRUE(hot_rel > 0.10f);                   /* ~10.7 % at 70->75 C */
+
+    /* And at bench temperature the same 5 K is nearly harmless, which is why
+     * this error could be missed entirely on a bench and why the bound may not
+     * be justified from one. */
+    float b_true = 0.0f, b_stale = 0.0f;
+    DRY_AT(27.0f, 100.0f, b_true);
+    DRY_AT(22.0f, 100.0f, b_stale);
+    float b_rel = -((b_stale - b_true) / b_true);
+    TEST_ASSERT_TRUE(b_rel < 0.02f);
+    #undef DRY_AT
+}
+
 static void test_a_scheduled_mask_is_not_a_fault(void)
 {
     /* THE BUG, measured 2026-09-06 and -09-07 and recorded in
@@ -3163,15 +3244,28 @@ static void test_a_scheduled_mask_is_not_a_fault(void)
      * restatement of them, which is the only way this test can fail when the
      * shipping rule changes. */
 
-    /* A mask reports nothing. It is not a failure and must not read as one. */
-    TEST_ASSERT_EQUAL_HEX16(0u, o2p_sht_phase_faults(true, false));
-    TEST_ASSERT_EQUAL_HEX16(0u, o2p_sht_phase_faults(true, true));
+    /* A mask AFTER A CLEAN PULSE reports nothing. It is not a failure and must
+     * not read as one. */
+    TEST_ASSERT_EQUAL_HEX16(0u, o2p_sht_phase_faults(true, false, false));
+    TEST_ASSERT_EQUAL_HEX16(0u, o2p_sht_phase_faults(true, false, true));
+
+    /* A mask entered because the PULSE ITSELF failed on the bus reports the
+     * failure for the whole window. This is the case the first version of the
+     * change silently lost: main.c masks whether the heater command succeeded
+     * or not, so without this an observed I2C failure spends 350 s looking
+     * exactly like healthy maintenance, and the next cycle that would have
+     * "reported the SHT as failed" is itself inside the mask and never
+     * reaches a measurement. */
+    TEST_ASSERT_EQUAL_HEX16(O2P_F_I2C_FAIL_SHT,
+                            o2p_sht_phase_faults(true, true, false));
+    TEST_ASSERT_EQUAL_HEX16(O2P_F_I2C_FAIL_SHT,
+                            o2p_sht_phase_faults(true, true, true));
 
     /* A sensor that did not answer still does, from the first failed
      * measurement - the property the change had to preserve. */
     TEST_ASSERT_EQUAL_HEX16(O2P_F_I2C_FAIL_SHT,
-                            o2p_sht_phase_faults(false, false));
-    TEST_ASSERT_EQUAL_HEX16(0u, o2p_sht_phase_faults(false, true));
+                            o2p_sht_phase_faults(false, false, false));
+    TEST_ASSERT_EQUAL_HEX16(0u, o2p_sht_phase_faults(false, false, true));
 
     /* The window itself. Masked from the pulse until the constant expires,
      * clear on the tick after - and MONOTONIC in the direction that matters:
@@ -3200,12 +3294,13 @@ static void test_a_scheduled_mask_is_not_a_fault(void)
     TEST_ASSERT_FALSE(o2p_sht_masked(boot_ms,
                                      boot_ms - O2P_SHT_RECOVERY_MS));
 
-    /* And the relation that makes the mask survivable at all: the chamber
-     * cache must outlast it. Stated here as well as in o2.h because this is
-     * the test that would otherwise pass while O2_COMP went to its sentinel
-     * for six minutes three times a day. */
-    TEST_ASSERT_TRUE((uint32_t)O2P_RH_MAX_AGE_S * 1000u >
-                     O2P_SHT_RECOVERY_MS);
+    /* THE CACHE DELIBERATELY DOES NOT OUTLAST THE MASK, and an earlier version
+     * of this test asserted that it must. That assertion encoded the circular
+     * reasoning it was supposed to guard: sizing a staleness budget to the gap
+     * you want to paper over justifies any number. O2_COMP takes its sentinel
+     * for the remainder of each mask instead, and O2_RAW - which needs no
+     * SHT45 - keeps publishing throughout. See O2P_RH_MAX_AGE_S in o2.h. */
+    TEST_ASSERT_TRUE((uint32_t)O2P_RH_MAX_AGE_S * 1000u < O2P_SHT_RECOVERY_MS);
 }
 
 static void test_a_pulse_gap_is_bridged_and_a_dead_sensor_is_not(void)
@@ -3259,18 +3354,17 @@ static void test_a_pulse_gap_is_bridged_and_a_dead_sensor_is_not(void)
         TEST_ASSERT_NOT_EQUAL(O2P_U16_INVALID, o2p_encode_percent(O2P_OK, c));
     }
 
-    /* The cap covers the recovery window it was derived against, with margin,
-     * and is not merely equal to it.
+    /* The cap covers the 32.1 s worst case it was derived against - the pulse
+     * plus a sample cycle plus the 30 s window that derivation assumed - with
+     * margin, and is not merely equal to it.
      *
-     * Written against O2P_SHT_RECOVERY_MS rather than against a literal,
-     * because the literal is what went stale: this line read `> 32u` while the
-     * mask it was derived from moved from 30 s to 350 s, and a hardcoded 32
-     * would have kept passing with the cache no longer covering anything. The
-     * +2 s is the 1.1 s blocking pulse and the 1 s sample cycle, rounded up.
-     * o2.h carries the same relation as a _Static_assert; this is the runtime
-     * half, and it is deliberately the same arithmetic in the other direction:
-     * if someone deletes the assertion, this still fails. */
-    TEST_ASSERT_TRUE(O2P_RH_MAX_AGE_S * 1000u > O2P_SHT_RECOVERY_MS + 2000u);
+     * It is NOT written against O2P_SHT_RECOVERY_MS, and that is the point.
+     * Tying it to the mask is what produced a 400 s bridge publishing a
+     * dry-basis number up to 17 % wrong at pile temperature; the bound belongs
+     * to how fast chamber temperature and humidity go wrong, which the mask
+     * does not affect. If a slew measurement ever moves it, this literal moves
+     * with that measurement and not with the mask. */
+    TEST_ASSERT_TRUE(O2P_RH_MAX_AGE_S > 32u);
 
     /* ONE SECOND PAST THE CAP the value is unevaluable, and the channel takes
      * its sentinel exactly as it did before. Monotonic: it must stay refused
@@ -6393,6 +6487,7 @@ int main(void)
     RUN_TEST(test_pressure_normalisation_has_the_right_sign_and_size);
     RUN_TEST(test_cal_pressure_register_is_bounded);
     RUN_TEST(test_this_board_cannot_be_commanded_transceiver_deaf);
+    RUN_TEST(test_a_stale_chamber_temperature_is_the_dominant_bridge_error);
     RUN_TEST(test_a_scheduled_mask_is_not_a_fault);
     RUN_TEST(test_a_pulse_gap_is_bridged_and_a_dead_sensor_is_not);
     RUN_TEST(test_the_o2_verdict_freeze_cannot_drop_a_state_fault);

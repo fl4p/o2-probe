@@ -501,64 +501,106 @@ uint16_t o2p_encode_percent(o2p_status_t st, float c);
  * not happen.
  *
  * 350 s is the 0.10 %RH criterion plus the next whole sample. It is NOT
- * enough for 0.05 %RH, which the run could not bound - if a later measurement
- * bounds it, this and O2P_RH_MAX_AGE_S move together, which is what the
- * assertion below is for. n = 2, one article, one chamber, ~22 C, 40-50 %RH;
- * a sensor with more adsorbed water to drive off may take longer. */
+ * enough for 0.05 %RH, which the run could not bound. n = 2, one article, one
+ * chamber, ~22 C and 40-50 %RH - and the SHT4x datasheet (v7.3 s4.9) gives no
+ * recovery-time guarantee at all, only a warning about heater-induced offsets
+ * and a restriction to ambient below 65 C. So this bounds the artefact ON THE
+ * BENCH and is not established for a saturated 60-80 C pile, where a sensor
+ * with more adsorbed water to drive off may well take longer.
+ *
+ * O2P_RH_MAX_AGE_S IS NOT DERIVED FROM THIS. It was, briefly, and that was the
+ * error; see its own comment. */
 #define O2P_SHT_RECOVERY_MS 350000u
 
 /* Maximum age of a cached chamber reading, in seconds.
  *
- * Derived from the recovery window it has to cover, not chosen round:
+ * DERIVED FROM HOW FAST THE BRIDGED QUANTITY GOES WRONG, NOT FROM THE MASK.
+ * That distinction is the whole content of this constant and it was got
+ * backwards once, on 2026-09-09, in the same commit that lengthened the mask:
+ * the bound was raised 45 -> 400 s "so the cache covers the mask", with a
+ * _Static_assert binding the two. Sizing a staleness budget to the length of
+ * the gap you want to paper over is circular - it can justify any number, and
+ * it justified one that publishes a materially wrong reading. Reverted here,
+ * and the assertion is deliberately NOT reinstated in either direction.
  *
- *  350.0 s  O2P_SHT_RECOVERY_MS, the post-pulse mask
+ *   30.0 s  the mask this was originally derived against
  *  + 1.1 s  the pulse command itself, which BLOCKS for 1100 ms
- *           (o2p_sht4x_heater_pulse, sht4x.c) and is inside the mask because
- *           main.c timestamps the mask BEFORE issuing it
- *  + 1.0 s  the 1 Hz sample cycle: the last good reading may be a full cycle
- *           older than the pulse, and the first post-recovery cycle may land
- *           a full cycle after the window closes
- *  = 352.1 s worst case from last good reading to first fresh one
+ *           (o2p_sht4x_heater_pulse, sht4x.c)
+ *  + 1.0 s  the 1 Hz sample cycle
+ *  = 32.1 s, and 45 s is that with 40 % margin
  *
- * 400 s covers that with 47.9 s of slack. The MARGIN IS RELATIVELY SMALLER
- * THAN THE 45 s VERSION'S 40 % ON PURPOSE, and the reason is that the two
- * numbers are no longer the same kind of quantity: at 30 s every term in the
- * sum was jitter, so the margin had to absorb jitter. Here 350 of the 352.1 s
- * is a constant this firmware chooses, and only 2.1 s is uncertain - 47.9 s
- * is 23x that. Every second beyond it is a second a genuinely dead SHT45
- * keeps being bridged, so slack is not free.
+ * WHY 400 s WAS WRONG, computed from THIS FILE'S OWN FORMULA rather than
+ * argued. The cache carries the chamber TEMPERATURE as well as its humidity,
+ * and temperature is by far the more sensitive of the two, because it enters
+ * through p_sat(T) which is exponential. Relative error in the PUBLISHED
+ * O2_COMP, computed through o2p_dry_fraction_from_current() itself; both
+ * errors make it read LOW, because a smaller p_w leaves a larger dry fraction
+ * in the denominator:
  *
- * WHAT THIS CHANGE COSTS, stated rather than buried. A bridged sample may now
- * be up to 400 s old instead of 45 s, against a chamber whose time constant
- * is ~110 s - so the bridge is no longer short compared with the physics, it
- * is about 3.6 tau. It is still the better of the two available errors: the
- * alternative is a published RH known to be up to 1.63 %RH low with a
- * measured decay, and the dry-basis correction's sensitivity to RH is mild
- * (the vapour term is p_w/p, so at the operating point a 1.6 %RH error moves
- * O2_COMP by a few tenths of a percent relative, against a calibration
- * uncertainty of up to 43 % - O2-HUMIDITY-CORRECTION.md). Bridging a slow
- * quantity beats publishing a fast artefact. In a pile RH sits pinned near
- * saturation and moves on tens of minutes, which is the assumption doing the
- * work here and the one to attack if this turns out wrong.
+ *   from 1.6 %RH of error (the de-creep artefact itself):
+ *      22 C  -0.04 %      60 C  -0.39 %      70 C  -0.71 %     75 C  -0.99 %
+ *   from 5 K of stale TEMPERATURE, humidity saturated throughout:
+ *      22 C  -0.93 %      55 C  -4.93 %      60 C  -6.34 %     70 C -10.77 %
  *
- * A dead SHT45 now takes up to 400 s to reach the O2_COMP sentinel instead of
- * 45 s. That is acceptable only because it is not the only signal: the sampler
- * raises I2C_FAIL_SHT from the FIRST failed measurement and it rides in the
- * same frame, so a dead sensor is announced immediately and merely keeps
- * publishing a bridged %vol for one more uplink. A scheduled mask raises no
- * fault at all - see phase_sht() in main.c - so the two are distinguishable,
- * which they were not before. */
-#define O2P_RH_MAX_AGE_S 400u
+ * (75 C is where the table stops because the pile's excursion ceiling is 75 C
+ * and O2P_VAPOUR_T_MAX_C refuses at 80 C, so a hotter row would not be a
+ * number this firmware ever publishes.)
+ *
+ * The earlier justification here quoted only the first row and called the
+ * sensitivity "mild". At the temperatures this instrument exists to observe -
+ * the thermophilic phase - it is not mild, and the second row is the one a
+ * long bridge actually incurs. test_a_stale_chamber_temperature_is_the_
+ * dominant_bridge_error pins these against the shipped conversion, so the
+ * table cannot rot into prose.
+ *
+ * The mechanism makes it worse rather than better: the RH loop stands down for
+ * the whole mask (main.c), so the membrane heater stops, so the chamber is
+ * DRIFTING during exactly the window the cached value is used to cover. The
+ * bridge is least accurate precisely when it is needed.
+ *
+ * WHAT THIS COSTS, and why it is the right side. O2_COMP now takes its
+ * sentinel for the remainder of each mask - about 305 s, three times a day,
+ * roughly 1.2 % of samples. That is the outcome the cache was added to avoid,
+ * and it is accepted here because the alternative is worse and this file
+ * already says so about a different constant: a number that may be 5-17 % out
+ * "is not lower-confidence data, it is an unknown scale factor wearing the
+ * units of a measurement" (faults.h on CAL_DEFAULT). Refusing costs a
+ * compensated sample; publishing costs the ability to believe any of them.
+ *
+ * O2_RAW IS UNAFFECTED THROUGHOUT. The raw cell current does not need the
+ * SHT45 and keeps its own mask, so the probe's physical measurement of the
+ * cell keeps flowing across every de-creep window; it is only the dry-basis
+ * conversion that pauses. That is what makes the refusal affordable.
+ *
+ * If a future measurement bounds how fast chamber temperature can move during
+ * a mask, this may be raised on that evidence - a slew bound, not a mask
+ * length. */
+#define O2P_RH_MAX_AGE_S 45u
 
-/* The cache must always outlast the mask, or every scheduled pulse blanks
- * O2_COMP again - the exact regression the cache was added to fix. Binding
- * them here is why O2P_SHT_RECOVERY_MS lives in this header rather than at its
- * use site in main.c: the two numbers are one derivation and must not be
- * editable apart. 2100 ms is the 1.1 s pulse plus the 1.0 s sample cycle. */
-_Static_assert((uint32_t)O2P_RH_MAX_AGE_S * 1000u >=
-                   O2P_SHT_RECOVERY_MS + 2100u,
-               "O2P_RH_MAX_AGE_S no longer covers the de-creep mask plus the "
-               "pulse and one sample cycle - redo the derivation above");
+/* The same idea for the HEATER's dT clamp, and a separate constant on purpose.
+ *
+ * main.c bridges the chamber TEMPERATURE from the same cache so the persistent
+ * tip loop does not stop for the whole mask. That reference feeds a CLAMP
+ * (heater_ctl.c), and a clamp compares a fresh measurement against it: a stale
+ * reference does not merely add noise, it moves the trip point. Cached 60 C
+ * against an actual 55 C turns a real +4 K excursion into a computed -1 K and
+ * the clamp does not fire.
+ *
+ * It was silently coupled to O2P_RH_MAX_AGE_S until 2026-09-09, so raising the
+ * oxygen bound to 400 s extended a thermal interlock's reference to 3.6 tau of
+ * the chamber's ~110 s time constant without anyone deciding to. Even with the
+ * oxygen bound restored, the two must not share a name: they answer different
+ * questions and the next edit to one must not silently move the other.
+ *
+ * Same value, different derivation: 45 s is ~0.4 tau, short enough that the
+ * reference cannot have moved far. Past it the loop refuses on NO_CHAMBER,
+ * which is visible in HEATER_BLOCK (0x002E) - so for the remainder of a mask
+ * the tip loop stands down alongside the RH loop. That reopens, for ~305 s
+ * three times a day, the "loop that refuses intermittently" objection from the
+ * 2026-09-08 review, and it is accepted: a clamp evaluated against a reference
+ * that may be several K wrong is not protection, and on Rev A this block is
+ * measured inert anyway (heater_ctl.c). */
+#define O2P_HEATER_CHAMBER_MAX_AGE_S 45u
 
 /* The most recent chamber reading that was actually measured. */
 typedef struct {
@@ -581,6 +623,17 @@ void o2p_gas_cache_update(o2p_gas_cache_t *c, const o2p_gas_t *fresh,
  * O2P_RH_MAX_AGE_S old; past that the gas stays invalid and the caller
  * publishes the sentinel. The pressure field is NOT cached - it comes from
  * the barometer or a config register and is available every cycle. */
+/* The same, with the caller naming its own staleness budget.
+ *
+ * The oxygen path and the heater's dT clamp bridge the SAME cache for
+ * DIFFERENT reasons and must be allowed to disagree about how old is too old -
+ * see O2P_HEATER_CHAMBER_MAX_AGE_S. They shared one bound until 2026-09-09,
+ * which is how a change to an oxygen data-age policy silently moved a thermal
+ * interlock's trip point. o2p_gas_cache_apply() below is this with
+ * O2P_RH_MAX_AGE_S, kept so the oxygen path cannot pass the wrong one. */
+bool o2p_gas_cache_apply_bounded(const o2p_gas_cache_t *c, o2p_gas_t *gas,
+                                 uint32_t now_s, uint32_t max_age_s);
+
 bool o2p_gas_cache_apply(const o2p_gas_cache_t *c, o2p_gas_t *gas,
                          uint32_t now_s);
 

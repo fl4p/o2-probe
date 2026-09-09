@@ -102,13 +102,32 @@ Both events are in `bench-logs/modbus-poll-2026-09-06.csv` and
 
 ## Acted on, 2026-09-09
 
-The mask is now **350 s** and the chamber cache that has to outlast it is
-**400 s**; both live in `firmware/src/o2.h` under one derivation and a
-`_Static_assert` that fails the build if the cache stops covering the mask.
-`O2P_SHT_RECOVERY_MS` used to be defined in `main.c` while the bound derived
-from it lived in `o2.h`, with nothing enforcing the relation across the file
-boundary — that is why the recommendation above could sit here unimplemented
-without anything complaining.
+The mask is now **350 s**. `O2P_SHT_RECOVERY_MS` used to be defined in `main.c`
+while the cache bound derived from it lived in `o2.h`, with nothing enforcing
+the relation across the file boundary — that is why the recommendation above
+could sit here unimplemented without anything complaining. Both constants now
+live in `o2.h`.
+
+**Corrected the same day, after review.** The first version of this change also
+raised the chamber cache from 45 s to 400 s "so the cache covers the mask", with
+a `_Static_assert` binding the two. That was circular — sizing a staleness
+budget to the length of the gap you want to paper over justifies any number —
+and the number it justified publishes a materially wrong reading. The cache
+carries chamber **temperature** as well as humidity, and temperature enters the
+dry-basis correction through `p_sat(T)`, which is exponential: a 5 K stale
+temperature is **−6.3 % at 60 °C and −10.8 % at 70 °C**, against **−0.4 %** for
+the 1.6 %RH artefact this mask exists to suppress. The mechanism makes it worse,
+not better — the RH loop stands down for the whole mask, so the membrane heater
+is off and the chamber is *drifting* during exactly the window the cached value
+covers.
+
+So the bound is back at **45 s**, `O2_COMP` takes its sentinel for the remaining
+~305 s of each mask, and the assertion is not reinstated in either direction.
+`O2_RAW` needs no SHT45 and publishes throughout, which is what makes that
+affordable: the probe's physical measurement of the cell never pauses, only the
+dry-basis conversion does. The heater's dT clamp got its own bound
+(`O2P_HEATER_CHAMBER_MAX_AGE_S`, also 45 s) so an oxygen data-age policy cannot
+move a thermal interlock's trip point again.
 
 The second recommendation — a distinct signal for "chamber masked, de-creep in
 progress" — was met **by subtraction**. There is no room for a positive one:
@@ -127,6 +146,13 @@ two halves of the rule; `phase_sht()` calls both, and
 restatement of them. The guard was calibrated against the known-bad behaviour:
 made to raise the bit while masked, the test fails with
 `Expected 0x0000 Was 0x0010`.
+
+One case the first version got wrong and this one handles: `main.c` enters the
+mask whether the heater command succeeded **or not**, so with the unconditional
+fault removed, a pulse that failed on the bus spent its whole 350 s window
+looking like healthy maintenance — an already-observed I2C failure laundered
+into silence. `o2p_sht_phase_faults()` now takes the pulse outcome and keeps
+raising `I2C_FAIL_SHT` across a mask entered by a failed pulse.
 
 Consequence 1 of "Why this matters" is therefore fixed. **Consequence 2 is
 not** — it is accepted and documented instead. The condensation heater's RH

@@ -86,12 +86,19 @@ swapped**: the fitted R7 is the `/RE` pull-down and the added resistor is the
 DRIVER off through MCU reset" against a reworked board will find it false as
 written — it is the *added* resistor doing that. Mark the board.
 
-If you would rather keep the designators meaning what the Rev B schematic says,
-make **two** cuts instead: also cut the `U5.2` → R7 stub at (103.15, 94.5) →
-(102.9, 94.75), leaving R7 on `DE` where the drawing puts it, and fit the new
-47 k from the isolated `U5.2` to GND as R45. It costs one more cut, in a
-tighter place hard against the pad, for a labelling property. The single-cut
-version above is the lower-risk one and is what this document recommends.
+**An earlier draft of this document offered a two-cut alternative that would
+have left the board with no DE pull-down at all, and it is recorded here rather
+than deleted because the reasoning error is the interesting part.** The idea was
+to also cut the `U5.2` → R7 stub at (103.15, 94.5) → (102.9, 94.75), "leaving R7
+on `DE` where the drawing puts it". It does not: trace the copper and R7 reaches
+the transceiver *through* the junction at (103.15, 94.5), which is on the
+`U5.2` side. Both cuts therefore isolate R7 from **both** enables — it ends up
+hanging off dead copper, `/RE` loses the pull-down it had just been given, and
+`DE` still has none. Restoring the designators would need a third wire from R7
+back to `U5.3`, which is strictly worse than living with the swapped labels.
+
+The single-cut procedure above is the only one recommended. Caught by an
+independent review of 2ac1712, 2026-09-09.
 
 ## Acceptance test
 
