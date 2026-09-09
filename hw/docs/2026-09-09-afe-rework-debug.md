@@ -14,6 +14,60 @@ the right one. All of them shared a single mechanism, described under
 Sibling record: `2026-09-08-evening-board-failures.md` (the preceding evening, ending
 with a dead MCU). That MCU was replaced before this session.
 
+## Corrections, appended 2026-09-09 after review
+
+This record was reviewed the same day it was written and several of its claims
+did not survive. They are corrected here rather than edited away, because the
+wrong versions were acted on and the reasoning that produced them is the point.
+
+1. **`t_afe` does not prove the AFE has its reference.** The body says a valid
+   die temperature means pin 11 has its voltage. **SNAS506I §7.3.1.5 specifies
+   the temperature output as ground-referred**; OP_MODE 111 only routes it to
+   VOUT. The timeline below is its own counterexample: `t_afe` went valid at
+   12:57, five minutes before the open pin 11 was found. The real test is
+   WE ≈ 0.67 × VREF.
+
+2. **The trimmer is not between the monitor and the AFE.** The body attributes
+   the healthy `vref` reading to `ADC_VREF_MON` sitting upstream of a trimmer.
+   On the fabricated board U7.11, U8.7 and the monitor divider R34 are all on
+   `/VREF_TRIM` — one net — and RV1 is upstream on `/VREF_TOP`→`/VREF_WIPER`.
+   The correct explanation is better: **the open was at the package pin**, so
+   the net stayed at 2.5 V and the monitor read it correctly while the die was
+   attached to nothing. No converter on this board can see that.
+
+3. **The air-current band is wrong.** The body quotes DS-0637 **Issue 1**
+   (0.07 ± 0.03 mA = 40–100 µA). **Issue 2, 28-May-2026, specifies 0.1 ± 0.03 mA
+   = 70–130 µA**, and both PDFs are in `compostlab-literature/datasheets/`. So
+   the settled **99.9 µA is mid-band nominal**, not "at the top of spec" — a
+   materially different conclusion about the cell's health, from a datasheet
+   this repo already had.
+
+4. **"152 µA full scale" in the timeline is wrong**; 152 µA is the design point
+   at 30 % O₂ (`lmp91000.h:41-43`). The arithmetic bound is ~239 µA, and even
+   that is nominal — it assumes VOUT reaches exactly 0 V and R_TIA is exactly
+   7 kΩ, neither of which SNAS506 guarantees.
+
+5. **The bias polarity prose is inverted.** `BIAS_SIGN 0` means
+   (V_WE − V_RE) < 0, i.e. **RE sits above WE**. The measured R − W of +600 mV
+   was correct and agreed with the tables; the sentences saying "RE below WE"
+   did not.
+
+6. **"Neither AFE and neither cell was ever shown to be faulty" is too strong**
+   for the section it appears in, and it blurs a real result. The AFE replaced
+   on **2026-09-04 did fail** — separated decisively by the 0 %-bias dummy-load
+   test, with a replacement that passed the same test (`AFE-BRING-UP-POSTMORTEM.md`
+   §1). The claim is only about the chips handled on 2026-09-09, and even there
+   "reproduced the symptom after replacement" does not prove the earlier part
+   healthy when the rework itself can introduce a new fault — which, on this
+   board, it demonstrably did.
+
+7. **The process conclusion is a hypothesis, not a finding.** Three defects on
+   one package edge is a pattern worth acting on, but nothing here measures the
+   reflow profile or the paste volume, and no other cause was excluded.
+
+The general procedure in `CELL-AFE-DEBUG.md` has been corrected accordingly;
+prefer it over this file for any number you intend to act on.
+
 ## Timeline
 
 | time | state |
