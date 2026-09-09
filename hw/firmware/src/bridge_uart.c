@@ -2,6 +2,7 @@
 
 #include "board_pins.h"
 #include "regmap.h"   /* O2P_PARITY_* */
+#include "modbus_pdu.h"
 
 #include <string.h>
 
@@ -48,10 +49,12 @@ static void usart_config(USART_TypeDef *u, uint32_t baud, uint8_t parity_code)
 {
     u->CR1 = 0u;
     u->BRR = (O2P_SYSCLK_HZ + baud / 2u) / baud;
-    /* 3.5 character times: 11 bits per character with parity, 10 without. The
-     * same arithmetic as modbus_rtu.c and loader_uart.c - a bridge that framed
-     * differently from the probe behind it would cut long frames in half. */
-    u->RTOR = ((parity_code == O2P_PARITY_NONE ? 10u : 11u) * 7u + 1u) / 2u;
+    /* The RTU inter-frame silence, from the one shared rule in modbus_pdu.h - a
+     * bridge that framed differently from the probe behind it would cut long
+     * frames in half. Note this is per-USART and correct that way: the host
+     * lead and the bus can run at different rates, and each gets the timeout
+     * its OWN baud requires. */
+    u->RTOR = o2p_mb_rtor_bit_times(baud, parity_code == O2P_PARITY_NONE);
     u->CR2 = USART_CR2_RTOEN;
     u->CR3 = 0u;
 

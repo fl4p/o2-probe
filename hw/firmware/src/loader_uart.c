@@ -95,11 +95,11 @@ void o2p_luart_init(uint32_t baud, uint8_t parity_code)
 
     USART1->CR1 = 0u;
     USART1->BRR = (O2P_SYSCLK_HZ + baud / 2u) / baud;
-    /* 3.5 character times, the RTU inter-frame silence: 11 bits per character
-     * with parity, 10 without. Same arithmetic as modbus_rtu.c, and it has to
-     * stay the same - a loader that framed differently from the application
-     * would be reachable at one baud rate and not the other. */
-    USART1->RTOR = ((parity_code == O2P_PARITY_NONE ? 10u : 11u) * 7u + 1u) / 2u;
+    /* The RTU inter-frame silence. ONE shared rule (modbus_pdu.h) rather than a
+     * copy, and it has to stay shared - a loader that framed differently from
+     * the application would be reachable at one baud rate and not the other,
+     * which is precisely the strand this file's baud decode exists to avoid. */
+    USART1->RTOR = o2p_mb_rtor_bit_times(baud, parity_code == O2P_PARITY_NONE);
     USART1->CR2 = USART_CR2_RTOEN;
     USART1->CR3 = 0u;
 

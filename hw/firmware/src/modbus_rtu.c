@@ -2,6 +2,7 @@
 
 #include "board_pins.h"
 #include "mcu.h"
+#include "modbus_pdu.h"
 
 #include <string.h>
 
@@ -67,14 +68,14 @@ static uint32_t baud_from_code(uint8_t code)
     }
 }
 
-/* Bits per character on the wire, including start and stop. With parity that
- * is 1 + 8 + 1 + 1 = 11; without it, 10. RTU's inter-frame silence is 3.5
- * characters, so the receiver timeout is ceil(3.5 * bits). At 8E1 that is
- * ceil(38.5) = 39 bit times, which at 9600 baud is 4.06 ms. */
-static uint32_t rtor_bit_times(uint8_t parity_code)
+/* The RTU inter-frame silence, in bit times. Delegates to the one rule in
+ * modbus_pdu.h so this UART, the loader's and the bridge's cannot drift - they
+ * all used to carry their own copy of ceil(3.5 * bits), and all three were
+ * wrong above 19200 baud in the same way. Takes the baud now, because above
+ * 19200 the answer depends on it. */
+static uint32_t rtor_bit_times(uint32_t baud, uint8_t parity_code)
 {
-    uint32_t bits = (parity_code == O2P_PARITY_NONE) ? 10u : 11u;
-    return (bits * 7u + 1u) / 2u;   /* ceil(3.5 * bits) */
+    return o2p_mb_rtor_bit_times(baud, parity_code == O2P_PARITY_NONE);
 }
 
 /* o2p_millis() is a plain read of a volatile counter, safe from the ISR. */
@@ -165,7 +166,8 @@ static void usart_configure(const o2p_config_t *cfg)
     USART1->BRR = brr;
 
     /* RTOR holds the receiver timeout in bit times; RTOEN in CR2 enables it. */
-    USART1->RTOR = rtor_bit_times(cfg->parity_code);
+    USART1->RTOR = rtor_bit_times(baud_from_code(cfg->baud_code),
+                                  cfg->parity_code);
     USART1->CR2 = USART_CR2_RTOEN;
     USART1->CR3 = 0u;
 

@@ -96,4 +96,44 @@ size_t o2p_mb_dispatch(const uint8_t *req, size_t req_len,
                        const o2p_mb_handlers_t *h,
                        uint8_t *rsp);
 
+
+/* Receiver timeout for one RTU frame boundary, in BIT TIMES (what the STM32
+ * USART's RTOR register wants), for `baud` and `parity_code`.
+ *
+ * TWO RULES, AND THE SPEC SWITCHES BETWEEN THEM AT 19200. Modbus over Serial
+ * Line v1.02 section 2.5.1.1: up to 19200 baud the inter-frame delay is 3.5
+ * character times; ABOVE 19200 that formula is abandoned and a FIXED 1.750 ms
+ * is mandated instead. The reason is the whole point of this function - a
+ * character time shrinks with the baud rate, so 3.5 of them eventually falls
+ * below the gap an ordinary master leaves between bytes, and a receiver using
+ * the character rule starts declaring a frame boundary in the middle of one.
+ *
+ * WHAT THAT COST HERE. Every one of the three UARTs in this firmware computed
+ * ceil(3.5 * bits) and ignored the baud entirely, so the absolute silence
+ * collapsed as the bus sped up: 4010 us at 9600, 1003 us at 38400 - already
+ * under the 1750 us floor - and 334 us at 115200, which a901947 had just made
+ * selectable. The failure is silent and misleading: the receiver sees two
+ * fragments, both fail CRC, both are dropped, and the master simply gets no
+ * reply. That reads as "this cable cannot do 115200" and sends you to the
+ * transceiver or the wiring, when it is this constant.
+ *
+ * Taking the larger of the two rules implements the switchover exactly,
+ * because the fixed floor only overtakes 3.5 characters above 19200:
+ *
+ *     9600   max(39, 17)  = 39    unchanged
+ *    19200   max(39, 34)  = 39    unchanged
+ *    38400   max(39, 68)  = 68
+ *   115200   max(39, 202) = 202
+ *
+ * So this is a no-op at every rate this firmware has ever shipped on, and only
+ * bites where the spec says it must. */
+static inline uint32_t o2p_mb_rtor_bit_times(uint32_t baud, uint8_t parity_none)
+{
+    const uint32_t bits     = parity_none ? 10u : 11u;
+    const uint32_t chars35  = (bits * 7u + 1u) / 2u;      /* ceil(3.5 * bits) */
+    /* ceil(0.001750 * baud), in integer arithmetic: (baud * 175 + 99999)/100000 */
+    const uint32_t floor35  = (baud * 175u + 99999u) / 100000u;
+    return chars35 > floor35 ? chars35 : floor35;
+}
+
 #endif /* O2P_MODBUS_PDU_H */

@@ -382,6 +382,43 @@ static void test_the_reply_window_is_clamped_at_both_ends(void)
                              o2p_mailbox_reply_window(0xFFFFFFFFu));
 }
 
+
+static void test_the_frame_timeout_follows_the_spec_above_19200(void)
+{
+    /* Modbus over Serial Line v1.02, 2.5.1.1: 3.5 character times up to 19200
+     * baud, and a FIXED 1.750 ms above it. Every UART in this firmware used to
+     * compute ceil(3.5 * bits) and ignore the baud, so the absolute silence
+     * collapsed as the bus sped up. */
+
+    /* Unchanged where the character rule still governs - this is what makes the
+     * fix safe to ship on the rates already deployed. */
+    TEST_ASSERT_EQUAL_UINT32(39u, o2p_mb_rtor_bit_times(9600u,  0u));
+    TEST_ASSERT_EQUAL_UINT32(39u, o2p_mb_rtor_bit_times(19200u, 0u));
+
+    /* KNOWN-BAD CALIBRATION. These are the two rates the old code got wrong.
+     * 39 bit times is 1003 us at 38400 and 334 us at 115200, both under the
+     * 1750 us floor; if either of these ever reads 39 again the bug is back. */
+    TEST_ASSERT_EQUAL_UINT32(68u,  o2p_mb_rtor_bit_times(38400u,  0u));
+    TEST_ASSERT_EQUAL_UINT32(202u, o2p_mb_rtor_bit_times(115200u, 0u));
+
+    /* The floor is an ABSOLUTE time, so check it in microseconds rather than
+     * trusting the bit-time arithmetic that produced it. */
+    for (unsigned i = 0; i < 4u; i++) {
+        const uint32_t bauds[4] = {9600u, 19200u, 38400u, 115200u};
+        const uint32_t bits = o2p_mb_rtor_bit_times(bauds[i], 0u);
+        const uint32_t us   = (uint32_t)((uint64_t)bits * 1000000u / bauds[i]);
+        /* Either at least 3.5 characters, or at least the spec's fixed timer.
+         * Above 19200 only the second can be satisfied. */
+        TEST_ASSERT_TRUE(us >= 1750u || bauds[i] <= 19200u);
+        TEST_ASSERT_TRUE(bits >= 39u);          /* never SHORTER than before */
+    }
+
+    /* 8N1 is 10 bits, so the character rule gives ceil(35) = 35 - and the floor
+     * still governs above 19200 regardless of parity. */
+    TEST_ASSERT_EQUAL_UINT32(35u,  o2p_mb_rtor_bit_times(9600u,   1u));
+    TEST_ASSERT_EQUAL_UINT32(202u, o2p_mb_rtor_bit_times(115200u, 1u));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -403,5 +440,6 @@ int main(void)
     RUN_TEST(test_reads_off_the_end_are_refused_and_stay_refused);
     RUN_TEST(test_only_a_possible_adu_is_transmitted);
     RUN_TEST(test_the_reply_window_is_clamped_at_both_ends);
+    RUN_TEST(test_the_frame_timeout_follows_the_spec_above_19200);
     return UNITY_END();
 }
