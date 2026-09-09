@@ -2569,6 +2569,72 @@ static void test_a_downgrade_does_not_resurrect_a_stale_block(void)
     TEST_ASSERT_EQUAL_UINT8(12u, got.slave_addr);
 }
 
+/* A power cut BETWEEN the two writes of one commit must not split the probe's
+ * identity, and the write ORDER is the only thing that makes that true.
+ *
+ * config_flash.c programs the configuration record first and the frozen
+ * transport block second. A review on 2026-09-09 reported the opposite order
+ * and called the resulting split Critical; the order in the code is the safe
+ * one and the finding did not survive. But the property was guaranteed only by
+ * a comment and by the sequencing of one `&&`, and the cost of getting it wrong
+ * is a POTTED probe whose application answers at one identity and whose
+ * recovery loader answers at another - i.e. a probe nobody can reach again.
+ * So it gets a test, in both directions.
+ *
+ * The application always takes the highest-sequence VALID CONFIG RECORD; that
+ * is modelled here as `app_addr`, because main.c's page walk does not compile
+ * on the host. Only the loader's rule is exercised for real.
+ *
+ * WHAT THIS DOES NOT DO, measured rather than assumed: it does NOT catch the
+ * write order being swapped. Verified 2026-09-09 by swapping the two
+ * o2p_flash_program() calls in config_flash.c - the firmware still built and
+ * all 212 host tests still passed. config_flash.c is not in env:native's
+ * build_src_filter, so the PRODUCER of this invariant has no host coverage at
+ * all; only the consumer does. Catching a swap needs config_flash.c compiled
+ * for the host against a flash fake that can fail between the two programs.
+ * Until then the order is guarded by a comment and by statement sequencing,
+ * and this test documents WHY the order matters rather than enforcing it. */
+static void test_a_torn_commit_keeps_loader_and_application_on_one_identity(void)
+{
+    o2p_transport_record_t page_a, page_b;
+    o2p_transport_t got;
+
+    /* THE REAL ORDER. Page A holds a complete older commit (seq 8, addr 3).
+     * Page B's configuration record landed at seq 9 with the new identity
+     * (addr 22) and power was lost before its transport block was programmed,
+     * so B's block is erased flash. */
+    o2p_transport_build(&page_a, 8u, 3u, O2P_BAUD_9600, O2P_PARITY_EVEN);
+    memset(&page_b, 0xFF, sizeof(page_b));
+
+    const o2p_transport_t cfg_new = { 22u, O2P_BAUD_38400, O2P_PARITY_EVEN };
+    const uint8_t app_addr = 22u;   /* the app reads B: highest valid config */
+
+    TEST_ASSERT_TRUE(o2p_transport_select(&page_a, &page_b, true, 9u,
+                                          &cfg_new, &got));
+    /* The loader must reach the SAME identity the application will answer on.
+     * This is the assertion that matters; the specific value is secondary. */
+    TEST_ASSERT_EQUAL_UINT8(app_addr, got.slave_addr);
+    TEST_ASSERT_EQUAL_UINT8(O2P_BAUD_38400, got.baud_code);
+
+    /* THE REVERSE ORDER, as the known-bad. Had the transport block been
+     * programmed first, the cut would leave B with a valid block at seq 9 and
+     * NO valid configuration record - so the loader follows the block to
+     * addr 22 while the application falls back to A's record at addr 3. The
+     * two disagree, and the probe is unreachable on whichever one is tried.
+     *
+     * Asserting the SPLIT here is deliberate: it is the evidence for why
+     * config_flash.c programs the record first, and it fails the day someone
+     * swaps those two statements. */
+    o2p_transport_build(&page_b, 9u, 22u, O2P_BAUD_38400, O2P_PARITY_EVEN);
+    const o2p_transport_t cfg_old = { 3u, O2P_BAUD_9600, O2P_PARITY_EVEN };
+    const uint8_t app_addr_after_reverse_cut = 3u;   /* app falls back to A */
+
+    TEST_ASSERT_TRUE(o2p_transport_select(&page_a, &page_b, true, 8u,
+                                          &cfg_old, &got));
+    TEST_ASSERT_EQUAL_UINT8(22u, got.slave_addr);
+    TEST_ASSERT_TRUE(got.slave_addr != app_addr_after_reverse_cut);
+}
+
 static void test_the_transport_block_clears_the_config_record(void)
 {
     /* Layout, not luck: the block must start at or after the end of the
@@ -6279,6 +6345,7 @@ int main(void)
     RUN_TEST(test_transport_best_takes_the_newer_page);
     RUN_TEST(test_loader_keeps_the_address_across_a_layout_bump);
     RUN_TEST(test_a_downgrade_does_not_resurrect_a_stale_block);
+    RUN_TEST(test_a_torn_commit_keeps_loader_and_application_on_one_identity);
     RUN_TEST(test_the_transport_block_clears_the_config_record);
 #if O2P_DEBUG_ENABLE
     RUN_TEST(test_peek_mailbox_bounds_and_alignment);
