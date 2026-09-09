@@ -78,9 +78,6 @@ _Static_assert(O2P_HEATER_TIP_RELEASE_C100 < O2P_HEATER_TIP_LIMIT_C100,
                "plant whose time constant is seconds");
 #define O2P_TIP_HYST_K100  500
 
-#define O2P_VIN_LOW_MV 9000u
-#define O2P_VA_LOW_MV  3130u
-
 static o2p_heater_state_t g_heat;
 
 /* Oversampling per channel. The monitors run at 90 SPS (11 ms) because they
@@ -712,14 +709,21 @@ static void finish_electrode(o2p_snapshot_t *s, bool working)
 #if O2P_HW_BIAS_ADC_REACHES_ELECTRODES
         s->we_buf_mv = (uint16_t)mv;
 #elif O2P_HW_VA_MON_ON_ADS
-        s->va_mv = (uint16_t)mv;
+        uint32_t va = ((uint32_t)mv * O2P_HW_DIV_VA_ADS_DEN) / O2P_HW_DIV_VA_ADS_NUM;
+        if (va > 0xFFFFu) { va = 0xFFFFu; }
+        s->va_mv = (uint16_t)va;
+        if (s->va_mv < O2P_VA_LOW_MV) {
+            g_cyc.faults |= O2P_F_VA_LOW;
+        }
 #endif
     } else {
 #if O2P_HW_BIAS_ADC_REACHES_ELECTRODES
         s->re_buf_mv = (uint16_t)mv;
 #elif O2P_HW_VIN_MON_ON_ADS
-        s->vin_mv = (uint16_t)mv;
-        if ((uint16_t)mv < O2P_VIN_LOW_MV) {
+        uint32_t vin = ((uint32_t)mv * O2P_HW_DIV_VIN_ADS_DEN) / O2P_HW_DIV_VIN_ADS_NUM;
+        if (vin > 0xFFFFu) { vin = 0xFFFFu; }
+        s->vin_mv = (uint16_t)vin;
+        if (s->vin_mv < O2P_VIN_LOW_MV) {
             g_cyc.faults |= O2P_F_VIN_LOW;
         }
 #endif

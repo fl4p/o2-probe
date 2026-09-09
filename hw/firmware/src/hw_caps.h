@@ -67,5 +67,11 @@ this file exists to prevent."
 #ifndef O2P_HW_VA_MON_ON_ADS
 #error "generated caps header is missing O2P_HW_VA_MON_ON_ADS"
 #endif
+#ifndef O2P_HW_DIV_VA_ADS_NUM
+#error "generated caps header is missing O2P_HW_DIV_VA_ADS_NUM"
+#endif
+#ifndef O2P_HW_DIV_VIN_ADS_NUM
+#error "generated caps header is missing O2P_HW_DIV_VIN_ADS_NUM"
+#endif
 
 #endif /* O2P_HW_CAPS_H */

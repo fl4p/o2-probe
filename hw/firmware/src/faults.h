@@ -71,6 +71,10 @@ enum {
     O2P_F_HEATER_DISABLED     = 1u << 15, /* always set in v0 */
 };
 
+/* Rail undervoltage thresholds for O2P_F_VA_LOW and O2P_F_VIN_LOW */
+#define O2P_VIN_LOW_MV 9000u
+#define O2P_VA_LOW_MV  3130u
+
 /* Two masks, because the raw cell current and the compensated volume fraction
  * fail for different reasons.
  *

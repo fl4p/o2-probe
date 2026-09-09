@@ -226,6 +226,18 @@ def emit(d: dict) -> str:
     a(f"#define O2P_HW_VIN_MON_ON_ADS {1 if d['vin_on_ads'] else 0}")
     a(f"#define O2P_HW_VA_MON_ON_ADS {1 if d['va_on_ads'] else 0}")
     a("")
+    a("/* ---- ADS1119 rail divider scaling (Rev A: R24/R25 10k/10k, R26/R27 130k/20k) ---- */")
+    if rev == "A":
+        a("#define O2P_HW_DIV_VA_ADS_NUM   10000u")
+        a("#define O2P_HW_DIV_VA_ADS_DEN   20000u")
+        a("#define O2P_HW_DIV_VIN_ADS_NUM  20000u")
+        a("#define O2P_HW_DIV_VIN_ADS_DEN 150000u")
+    else:
+        a("#define O2P_HW_DIV_VA_ADS_NUM   1u")
+        a("#define O2P_HW_DIV_VA_ADS_DEN   1u")
+        a("#define O2P_HW_DIV_VIN_ADS_NUM  1u")
+        a("#define O2P_HW_DIV_VIN_ADS_DEN  1u")
+    a("")
     a(f"#endif /* {guard} */")
     return "\n".join(L) + "\n"
 

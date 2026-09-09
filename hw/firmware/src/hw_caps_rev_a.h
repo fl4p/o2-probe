@@ -46,4 +46,10 @@
 #define O2P_HW_VIN_MON_ON_ADS 1
 #define O2P_HW_VA_MON_ON_ADS 1
 
+/* ---- ADS1119 rail divider scaling (Rev A: R24/R25 10k/10k, R26/R27 130k/20k) ---- */
+#define O2P_HW_DIV_VA_ADS_NUM   10000u
+#define O2P_HW_DIV_VA_ADS_DEN   20000u
+#define O2P_HW_DIV_VIN_ADS_NUM  20000u
+#define O2P_HW_DIV_VIN_ADS_DEN 150000u
+
 #endif /* O2P_HW_CAPS_REV_A_H */

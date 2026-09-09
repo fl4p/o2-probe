@@ -5500,6 +5500,26 @@ static void test_the_bias_guard_is_gated_on_as_built_wiring(void)
     TEST_ASSERT_EQUAL_STRING("/ADC_VIN_MON", O2P_HW_ADC_AIN3_NET);
 }
 
+static void test_the_rev_a_divider_scaling(void)
+{
+    /* On Rev A, VA_MON is R24/R25 10k/10k = 2.0; VIN_MON is R26/R27 130k/20k = 7.5.
+     * Raw tap voltages must be scaled to avoid permanently triggering VA_LOW and VIN_LOW. */
+    TEST_ASSERT_EQUAL_UINT32(10000u, O2P_HW_DIV_VA_ADS_NUM);
+    TEST_ASSERT_EQUAL_UINT32(20000u, O2P_HW_DIV_VA_ADS_DEN);
+    TEST_ASSERT_EQUAL_UINT32(20000u, O2P_HW_DIV_VIN_ADS_NUM);
+    TEST_ASSERT_EQUAL_UINT32(150000u, O2P_HW_DIV_VIN_ADS_DEN);
+
+    uint32_t va_raw = 1650u;
+    uint32_t va_scaled = (va_raw * O2P_HW_DIV_VA_ADS_DEN) / O2P_HW_DIV_VA_ADS_NUM;
+    TEST_ASSERT_EQUAL_UINT32(3300u, va_scaled);
+    TEST_ASSERT_TRUE(va_scaled >= O2P_VA_LOW_MV);
+
+    uint32_t vin_raw = 1600u;
+    uint32_t vin_scaled = (vin_raw * O2P_HW_DIV_VIN_ADS_DEN) / O2P_HW_DIV_VIN_ADS_NUM;
+    TEST_ASSERT_EQUAL_UINT32(12000u, vin_scaled);
+    TEST_ASSERT_TRUE(vin_scaled >= O2P_VIN_LOW_MV);
+}
+
 static void test_the_wire_version_tracks_the_wire_contract(void)
 {
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
@@ -5979,6 +5999,7 @@ int main(void)
     RUN_TEST(test_afe_die_temperature_follows_the_datasheet_table);
     RUN_TEST(test_the_cell_bias_window_catches_an_open_potentiostat);
     RUN_TEST(test_the_bias_guard_is_gated_on_as_built_wiring);
+    RUN_TEST(test_the_rev_a_divider_scaling);
     RUN_TEST(test_the_wire_version_tracks_the_wire_contract);
     RUN_TEST(test_cell_current_is_the_departure_from_the_internal_zero);
     RUN_TEST(test_cell_current_keeps_its_sign);
