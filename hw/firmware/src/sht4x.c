@@ -6,7 +6,7 @@
 
 #define SHT_ADDR O2P_HW_I2C_ADDR_SHT45
 
-static uint8_t crc8(const uint8_t *d, unsigned n)
+uint8_t o2p_sht4x_crc8(const uint8_t *d, unsigned n)
 {
     uint8_t crc = 0xFFu;
     for (unsigned i = 0; i < n; i++) {
@@ -17,6 +17,8 @@ static uint8_t crc8(const uint8_t *d, unsigned n)
     }
     return crc;
 }
+
+#define crc8 o2p_sht4x_crc8
 
 static o2p_sht_status_t command_then_read(uint8_t cmd, uint32_t wait_ms,
                                           uint8_t *rx, unsigned n)

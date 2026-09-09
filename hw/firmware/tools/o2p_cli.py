@@ -166,19 +166,69 @@ def get_probe_build_id(bus):
     regs = bus.read(REGISTERS["BUILD_ID_HI"], 2)
     b_id = (regs[0] << 16) | regs[1]
     dirty = bool(b_id & 0x80000000)
+    debug = bool(b_id & 0x40000000)
     sha = "%07x" % (b_id & 0x0FFFFFFF)
-    return b_id, sha, dirty
+    return b_id, sha, dirty, debug
+
+
+def get_elf_build_id(elf_path):
+    for nm_cmd in ["arm-none-eabi-nm", "nm"]:
+        try:
+            out = subprocess.check_output([nm_cmd, elf_path], stderr=subprocess.DEVNULL).decode()
+            addr = None
+            for line in out.splitlines():
+                parts = line.strip().split()
+                if len(parts) >= 3 and parts[2] == "g_o2p_build_id":
+                    addr = int(parts[0], 16)
+                    break
+            if addr is None:
+                continue
+            for objdump_cmd in ["arm-none-eabi-objdump", "objdump"]:
+                try:
+                    d_out = subprocess.check_output(
+                        [objdump_cmd, "-s", "-j", ".data", elf_path],
+                        stderr=subprocess.DEVNULL).decode()
+                    data_bytes = bytearray()
+                    base_addr = None
+                    for line in d_out.splitlines():
+                        parts = line.strip().split()
+                        if len(parts) >= 2 and len(parts[0]) == 8 and all(c in "0123456789abcdefABCDEF" for c in parts[0]):
+                            cur_addr = int(parts[0], 16)
+                            if base_addr is None:
+                                base_addr = cur_addr
+                            for hex_chunk in parts[1:]:
+                                if len(hex_chunk) == 8 and all(c in "0123456789abcdefABCDEF" for c in hex_chunk):
+                                    data_bytes.extend(bytes.fromhex(hex_chunk))
+                    if base_addr is not None:
+                        offset = addr - base_addr
+                        if 0 <= offset <= len(data_bytes) - 4:
+                            return struct.unpack("<I", data_bytes[offset:offset+4])[0]
+                except Exception:
+                    pass
+        except Exception:
+            pass
+    return None
 
 
 def check_build_id(bus, elf_path, force=False):
     if not os.path.exists(elf_path):
         if force:
-            return
+            return None, None, False, False
         raise RuntimeError("ELF file not found: %s" % elf_path)
-    b_id, sha, dirty = get_probe_build_id(bus)
+    b_id, sha, dirty, debug = get_probe_build_id(bus)
+    elf_b_id = get_elf_build_id(elf_path)
+    if elf_b_id is not None:
+        probe_commit = b_id & 0x0FFFFFFF
+        elf_commit = elf_b_id & 0x0FFFFFFF
+        if probe_commit != elf_commit:
+            msg = "Build ID MISMATCH: probe is %07x, ELF is %07x" % (probe_commit, elf_commit)
+            if force:
+                print("!! WARNING: %s (ignoring due to --force-build-id)" % msg)
+            else:
+                raise RuntimeError("%s. Refusing symbol lookup!" % msg)
     if dirty:
         print("!! WARNING: Probe running DIRTY build (%s*); symbols may drift!" % sha)
-    return b_id, sha, dirty
+    return b_id, sha, dirty, debug
 
 
 # ---------------------------------------------------------------- Commands
@@ -338,6 +388,14 @@ def cmd_crash(bus, args):
     print("    Build ID : %s%s" % (b_sha, "*" if dirty else ""))
 
     if reason != 0 and pc != 0 and os.path.exists(args.elf):
+        elf_b_id = get_elf_build_id(args.elf)
+        if elf_b_id is not None and (elf_b_id & 0x0FFFFFFF) != (b_id & 0x0FFFFFFF):
+            msg = "Crash record BUILD_ID (%s) does not match ELF (%07x)" % (b_sha, elf_b_id & 0x0FFFFFFF)
+            if args.force_build_id:
+                print("!! WARNING: %s (decoding anyway due to --force-build-id)" % msg)
+            else:
+                print("!! ERROR: %s. Use --force-build-id to decode anyway." % msg)
+                return
         try:
             out = subprocess.check_output(
                 ["arm-none-eabi-addr2line", "-e", args.elf, "-f", "-C", "0x%08x" % pc],

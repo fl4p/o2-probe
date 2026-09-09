@@ -38,4 +38,12 @@
  */
 #define O2P_HW_VREF_NET_SHARED_WITH_AFE 1
 
+/* ---- MCU ADC pin connectivity ---- */
+#define O2P_HW_MCU_PA4_NET "/CE_MON"
+#define O2P_HW_MCU_PA6_NET "/VIN_MON"
+#define O2P_HW_CE_MON_CONNECTED 1
+#define O2P_HW_VIN_MON_ON_MCU 1
+#define O2P_HW_VIN_MON_ON_ADS 0
+#define O2P_HW_VA_MON_ON_ADS 0
+
 #endif /* O2P_HW_CAPS_REV_B_H */

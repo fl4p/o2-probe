@@ -27,6 +27,7 @@ enum {
 
 typedef enum { O2P_SHT_OK = 0, O2P_SHT_IO, O2P_SHT_CRC, O2P_SHT_RANGE } o2p_sht_status_t;
 
+uint8_t o2p_sht4x_crc8(const uint8_t *d, unsigned n);
 o2p_sht_status_t o2p_sht4x_reset(void);
 o2p_sht_status_t o2p_sht4x_serial(uint32_t *out_serial);
 

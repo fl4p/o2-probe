@@ -1,7 +1,9 @@
 #include "regmap.h"
 #include "faults.h"
 #include "heater_ctl.h"
-#include "heater_ctl.h"
+#ifndef O2P_HOST_TEST
+#include "mcu.h"
+#endif
 #include "o2.h"
 
 #include <math.h>
@@ -282,6 +284,14 @@ void o2p_regmap_request_commit(o2p_regmap_t *rm)
     }
 }
 
+#if O2P_DEBUG_ENABLE
+#define O2P_EFFECTIVE_BUILD_ID ((uint32_t)O2P_BUILD_ID | O2P_BUILD_ID_FLAG_DEBUG)
+#else
+#define O2P_EFFECTIVE_BUILD_ID ((uint32_t)O2P_BUILD_ID & ~O2P_BUILD_ID_FLAG_DEBUG)
+#endif
+
+uint32_t g_o2p_build_id = O2P_EFFECTIVE_BUILD_ID;
+
 void o2p_regmap_init(o2p_regmap_t *rm)
 {
     memset(rm, 0, sizeof(*rm));
@@ -322,6 +332,7 @@ void o2p_regmap_init(o2p_regmap_t *rm)
 
     /* Crash retention initialization */
     rm->crash_reason = O2P_CRASH_NONE;
+    rm->crash_build_id = g_o2p_build_id;
 #endif
 }
 
@@ -341,6 +352,14 @@ void o2p_regmap_load_crash_context(o2p_regmap_t *rm)
         rm->crash_reason = (uint16_t)(r3 & 0xFFu);
         rm->crash_detail = r3 >> 8;
         rm->crash_build_id = o2p_crash_read_reg(4);
+    } else if (o2p_reset_cause() & (1u << 5)) {
+        /* IWDGRSTF set: independent watchdog timeout reset.
+         * Report IWDG reason and the last sampler breadcrumb from BKP3R. */
+        rm->crash_reason = O2P_CRASH_IWDG;
+        rm->crash_pc = 0u;
+        rm->crash_lr = 0u;
+        rm->crash_detail = o2p_crash_read_reg(3);
+        rm->crash_build_id = (uint32_t)O2P_BUILD_ID;
     } else {
         rm->crash_reason = O2P_CRASH_NONE;
     }
@@ -429,8 +448,8 @@ static uint16_t read_diag(const o2p_regmap_t *rm, const o2p_snapshot_t *s,
     case O2P_REG_CELL_BIAS_MV: return (uint16_t)s->cell_bias_mv;
     /* Compile-time constants, like FW_VERSION and HW_REV: they describe the
      * image, not the cycle, so they are not carried through the snapshot. */
-    case O2P_REG_BUILD_ID_HI:  return (uint16_t)((O2P_BUILD_ID >> 16) & 0xFFFFu);
-    case O2P_REG_BUILD_ID_LO:  return (uint16_t)(O2P_BUILD_ID & 0xFFFFu);
+    case O2P_REG_BUILD_ID_HI:  return (uint16_t)((g_o2p_build_id >> 16) & 0xFFFFu);
+    case O2P_REG_BUILD_ID_LO:  return (uint16_t)(g_o2p_build_id & 0xFFFFu);
     case O2P_REG_SAMPLE_SEQ:    return s->sample_seq;
     case O2P_REG_HEATER_BLOCK:  return s->heater_block;
     case O2P_REG_SAMPLER_TIMING_MS: return s->sampler_timing_ms;
@@ -904,6 +923,17 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
             return 0u;
         }
 
+        uint32_t burst_end = target + 12u;
+        bool burst_ok = (in_sram && burst_end <= 0x20008FFCu) ||
+                        (in_flash && burst_end <= 0x0801FFFCu) ||
+                        (in_sys && burst_end <= 0x1FFF7598u) ||
+                        (target == 0x1FFF75E0u && target == burst_end);
+        if (!burst_ok) {
+            rm->peek_status = O2P_PEEK_ERR_RANGE;
+            for (int w = 0; w < 4; w++) rm->peek_words[w] = 0xFFFFFFFFu;
+            return 0u;
+        }
+
         for (int w = 0; w < 4; w++) {
             uint32_t a = target + (uint32_t)w * 4u;
             bool ok = (in_sram && a <= 0x20008FFCu) ||
@@ -925,6 +955,10 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
 
     /* Sensor diagnostic mailbox */
     if (in_block(addr, count, O2P_REG_DMBOX_BASE, O2P_REG_DMBOX_COUNT)) {
+        if (rm->diag_pending) {
+            rm->diag_status = O2P_DMBOX_STATUS_ERR_BUSY;
+            return O2P_MB_EX_ILLEGAL_VALUE;
+        }
         if (addr != O2P_REG_DMBOX_BASE || count < 1u || count > 2u) {
             return O2P_MB_EX_ILLEGAL_VALUE;
         }
@@ -938,18 +972,23 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
             rm->diag_status = O2P_DMBOX_STATUS_ERR_OPCODE;
             return O2P_MB_EX_ILLEGAL_VALUE;
         }
-        rm->diag_cmd = cmd;
-        if (count == 2u) {
-            rm->diag_param = in[1];
+        bool needs_param = (op == O2P_OP_READ_LMP_REG ||
+                            op == O2P_OP_TRIM_LMP_TIACN ||
+                            op == O2P_OP_READ_TMP_REG);
+        if (needs_param && count != 2u) {
+            rm->diag_status = O2P_DMBOX_STATUS_ERR_OPCODE;
+            return O2P_MB_EX_ILLEGAL_VALUE;
         }
+        rm->diag_cmd = cmd;
+        rm->diag_param = (count == 2u) ? in[1] : 0u;
         rm->diag_status = O2P_DMBOX_STATUS_PENDING;
         rm->diag_pending = true;
         return 0u;
     }
 
-    /* Crash retention mailbox: writing 0 clears record */
+    /* Crash retention mailbox: writing 0 strictly to CRASH_BUILD_ID_LO clears record */
     if (in_block(addr, count, O2P_REG_CRASH_BASE, O2P_REG_CRASH_COUNT)) {
-        if (in[0] == 0u) {
+        if (addr == O2P_REG_CRASH_BUILD_ID_LO && count == 1u && in[0] == 0u) {
 #ifndef O2P_HOST_TEST
             o2p_crash_clear();
 #endif

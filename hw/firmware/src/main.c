@@ -308,12 +308,7 @@ static void phase_rails(o2p_snapshot_t *s)
         g_cyc.faults |= O2P_F_VA_LOW;
     }
 
-    /* The INPUT rail, on this same ADC since 2026-09-05. It used to be read
-     * from ADS1119 AIN3 and scaled by the VIN divider - but AIN3 is RE_BUF,
-     * the buffered reference electrode, so vin_mv was never the input rail and
-     * O2P_F_VIN_LOW could not fire. supply_ok gates the heater on that fault,
-     * so the undervoltage interlock was dead. Both rails are read the same way
-     * here now, which is the arrangement that makes the two hard to desync. */
+#if O2P_HW_VIN_MON_ON_MCU
     uint16_t vin_mv = 0u;
     if (o2p_mcu_adc_read_vin_mv(&vin_mv)) {
         s->vin_mv = vin_mv;
@@ -326,6 +321,7 @@ static void phase_rails(o2p_snapshot_t *s)
          * read as a healthy one. Unevaluable is not OK. */
         g_cyc.faults |= O2P_F_VIN_LOW;
     }
+#endif
 
     /* Die temperature, from the same ADC and therefore free of I2C1. It
      * raises no fault of its own: it is a +/-5 C reading of the silicon, not
@@ -337,35 +333,15 @@ static void phase_rails(o2p_snapshot_t *s)
         s->t_die = die_c100;
     }
 
+#if O2P_HW_CE_MON_CONNECTED
     /* The counter-electrode drive: PUBLISHED, and deliberately NOT judged.
-     *
-     * It is the diagnostic that separates "the AFE is misconfigured" from "the
-     * AFE is configured and the cell is not there", which is the failure that
-     * killed U7 on 2026-09-04 unseen. But turning it into a fault here would
-     * have been a guard built on numbers nobody has measured, and the cost of
-     * a false positive is the oxygen channel:
-     *
-     *  - SNAS506I characterises A1 over 300 mV <= VCE <= VS-300 mV, and the
-     *    91k/91k divider is 1 % on each leg, so a true 300 mV reconstructs
-     *    anywhere in roughly 297-303 mV. The low corner faults a compliant
-     *    point.
-     *  - The ceiling is derived from a worst-case-low 3V3A. A HEALTHY rail
-     *    allows VCE above it, so a healthy loop can sit outside the window.
-     *  - gen_sch.py:783 records that this cell's real CE operating point has
-     *    never been measured, so there is no evidence a good probe stays
-     *    inside any narrower window either.
-     *
-     * The bias check is what detects the failure; it compares against a value
-     * the datasheet actually specifies. Once someone measures the healthy CE
-     * range on a working cell, a window here can be added with evidence behind
-     * it. Review 2026-09-08, and Fab's call not to let this blank oxygen.
-     *
-     * A failed conversion leaves the invalid sentinel, which is the honest
-     * answer and needs no fault of its own now that nothing is judged. */
+     * Only read on boards where CE_MON connects to an MCU pin (Rev B).
+     * On Rev A, PA4 is unconnected, so s->ce_mv stays the invalid sentinel. */
     uint16_t ce_mv = 0u;
     if (o2p_mcu_adc_read_ce_mv(&ce_mv)) {
         s->ce_mv = ce_mv;
     }
+#endif
 }
 
 #if O2P_DEBUG_ENABLE
@@ -733,9 +709,20 @@ static void finish_electrode(o2p_snapshot_t *s, bool working)
         return;
     }
     if (working) {
+#if O2P_HW_BIAS_ADC_REACHES_ELECTRODES
         s->we_buf_mv = (uint16_t)mv;
+#elif O2P_HW_VA_MON_ON_ADS
+        s->va_mv = (uint16_t)mv;
+#endif
     } else {
+#if O2P_HW_BIAS_ADC_REACHES_ELECTRODES
         s->re_buf_mv = (uint16_t)mv;
+#elif O2P_HW_VIN_MON_ON_ADS
+        s->vin_mv = (uint16_t)mv;
+        if ((uint16_t)mv < O2P_VIN_LOW_MV) {
+            g_cyc.faults |= O2P_F_VIN_LOW;
+        }
+#endif
         /* Both halves present, and neither is the invalid sentinel, or the
          * bias stays invalid. A difference computed from one real reading and
          * one 0xFFFF is a number, which is the problem. */
@@ -1492,9 +1479,16 @@ static void execute_diag_command(o2p_regmap_t *rm)
         uint8_t buf[6] = {0};
         o2p_i2c_status_t st = o2p_i2c1_write_read(O2P_HW_I2C_ADDR_SHT45, &cmd, 1u, buf, 6u);
         if (st == O2P_I2C_OK) {
-            rm->diag_rdata0 = ((uint16_t)buf[0] << 8) | buf[1];
-            rm->diag_rdata1 = ((uint16_t)buf[3] << 8) | buf[4];
-            rm->diag_status = O2P_DMBOX_STATUS_OK;
+            bool crc0_ok = (o2p_sht4x_crc8(&buf[0], 2u) == buf[2]);
+            bool crc1_ok = (o2p_sht4x_crc8(&buf[3], 2u) == buf[5]);
+            rm->diag_crc_status = (crc0_ok ? 1u : 0u) | (crc1_ok ? 2u : 0u);
+            if (crc0_ok && crc1_ok) {
+                rm->diag_rdata0 = ((uint16_t)buf[0] << 8) | buf[1];
+                rm->diag_rdata1 = ((uint16_t)buf[3] << 8) | buf[4];
+                rm->diag_status = O2P_DMBOX_STATUS_OK;
+            } else {
+                rm->diag_status = O2P_DMBOX_STATUS_ERR_NACK;
+            }
         } else if (st == O2P_I2C_TIMEOUT) {
             rm->diag_status = O2P_DMBOX_STATUS_ERR_TIMEOUT;
         } else {
@@ -1513,9 +1507,16 @@ static void execute_diag_command(o2p_regmap_t *rm)
         uint8_t buf[6] = {0};
         st = o2p_i2c1_read(O2P_HW_I2C_ADDR_SHT45, buf, 6u);
         if (st == O2P_I2C_OK) {
-            rm->diag_rdata0 = ((uint16_t)buf[0] << 8) | buf[1];
-            rm->diag_rdata1 = ((uint16_t)buf[3] << 8) | buf[4];
-            rm->diag_status = O2P_DMBOX_STATUS_OK;
+            bool crc0_ok = (o2p_sht4x_crc8(&buf[0], 2u) == buf[2]);
+            bool crc1_ok = (o2p_sht4x_crc8(&buf[3], 2u) == buf[5]);
+            rm->diag_crc_status = (crc0_ok ? 1u : 0u) | (crc1_ok ? 2u : 0u);
+            if (crc0_ok && crc1_ok) {
+                rm->diag_rdata0 = ((uint16_t)buf[0] << 8) | buf[1];
+                rm->diag_rdata1 = ((uint16_t)buf[3] << 8) | buf[4];
+                rm->diag_status = O2P_DMBOX_STATUS_OK;
+            } else {
+                rm->diag_status = O2P_DMBOX_STATUS_ERR_NACK;
+            }
         } else if (st == O2P_I2C_TIMEOUT) {
             rm->diag_status = O2P_DMBOX_STATUS_ERR_TIMEOUT;
         } else {
@@ -1687,6 +1688,7 @@ int main(void)
              * another lap. */
             serial_probation_service();
 #if O2P_DEBUG_ENABLE
+            o2p_crash_set_breadcrumb(((uint32_t)g_phase & 0xFFu) | ((uint32_t)g_sample_seq << 8));
             if (g_phase == PH_IDLE && g_rm.diag_pending) {
                 g_rm.diag_pending = false;
                 execute_diag_command(&g_rm);

@@ -141,12 +141,13 @@ bool o2p_config_store(const o2p_config_t *cfg)
     r.crc = o2p_config_record_crc(&r);
 
     /* The same three transport bytes, a second time, in the frozen block the
-     * bootloader reads (transport_record.h). Programmed BEFORE the
-     * configuration record deliberately: the config record is what makes a
-     * page live, so a power loss between the two writes leaves this page
-     * without one and the previous page still current - whereas the reverse
-     * order could publish a live configuration whose transport block was
-     * never written. */
+     * bootloader reads (transport_record.h). Programmed AFTER the
+     * configuration record deliberately: if power fails between the two writes,
+     * the new page contains a valid configuration record but an unwritten transport
+     * record, and the loader falls back to reading transport from the valid
+     * configuration record (cfg_tr). The reverse order would leave an orphaned
+     * higher-sequence transport block with no valid configuration, causing the
+     * loader to select the new page while the application selects the old. */
     o2p_transport_record_t tr;
     o2p_transport_build(&tr, r.sequence, cfg->slave_addr, cfg->baud_code,
                         cfg->parity_code);
@@ -161,9 +162,9 @@ bool o2p_config_store(const o2p_config_t *cfg)
      * driver would satisfy the watchdog during exactly the jam that withheld
      * it. A safety interlock with a second, unconditional key is not one. */
     bool ok = o2p_flash_erase_page(target) &&
+              o2p_flash_program(O2P_PAGE_ADDR(target), &r, sizeof(r)) &&
               o2p_flash_program(O2P_PAGE_ADDR(target) + O2P_TRANSPORT_OFFSET,
-                                &tr, sizeof(tr)) &&
-              o2p_flash_program(O2P_PAGE_ADDR(target), &r, sizeof(r));
+                                &tr, sizeof(tr));
 
     /* Verify through the load path, so a store that produced something the
      * loader would reject is reported now rather than discovered at the next

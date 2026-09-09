@@ -636,6 +636,8 @@ enum {
 #define O2P_BUILD_ID 0x00000000UL
 #endif
 #define O2P_BUILD_ID_UNSTAMPED 0x00000000UL
+#define O2P_BUILD_ID_FLAG_DIRTY (1u << 31)
+#define O2P_BUILD_ID_FLAG_DEBUG (1u << 30)
 #define O2P_HW_REV     0x000Au  /* Rev A */
 
 /* Baud/parity codes. Defaults match the bus the probe joins: the Truebner

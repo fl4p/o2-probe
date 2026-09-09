@@ -5784,7 +5784,11 @@ static void test_crash_mailbox_read_and_clear(void)
     TEST_ASSERT_EQUAL_HEX16(0x5678u, out[8]);
 
     uint16_t zero = 0u;
-    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm, O2P_REG_CRASH_BASE, 1u, &zero));
+    /* Writing to other registers in the crash block is rejected */
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm, O2P_REG_CRASH_BASE, 1u, &zero));
+    /* Writing 0 to CRASH_BUILD_ID_LO clears the record */
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm, O2P_REG_CRASH_BUILD_ID_LO, 1u, &zero));
     TEST_ASSERT_EQUAL_UINT16(O2P_CRASH_NONE, rm.crash_reason);
     TEST_ASSERT_EQUAL_HEX32(0u, rm.crash_pc);
 }

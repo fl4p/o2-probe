@@ -144,6 +144,20 @@ def derive(pads: dict, rev: str) -> dict:
     except SystemExit:
         ads_ref = "(absent)"
 
+    try:
+        pa4_net = pcb_netlist.net_of(pads, "U6", 15)
+    except SystemExit:
+        pa4_net = "(absent)"
+    try:
+        pa6_net = pcb_netlist.net_of(pads, "U6", 17)
+    except SystemExit:
+        pa6_net = "(absent)"
+
+    ce_connected = pa4_net in {"/CE_MON", "/ADC_CE_MON"}
+    vin_on_mcu = pa6_net in {"/VIN_MON", "/ADC_VIN_MON"}
+    vin_on_ads = ain.get(3) in {"/ADC_VIN_MON", "/VIN_MON"}
+    va_on_ads = ain.get(2) in {"/ADC_VA_MON", "/VA_MON"}
+
     return {
         "rev": rev,
         "ain": ain,
@@ -151,6 +165,12 @@ def derive(pads: dict, rev: str) -> dict:
         "afe_ref_net": afe_ref,
         "ads_ref_net": ads_ref,
         "ref_shared": afe_ref == ads_ref and afe_ref != "(absent)",
+        "pa4_net": pa4_net,
+        "pa6_net": pa6_net,
+        "ce_connected": ce_connected,
+        "vin_on_mcu": vin_on_mcu,
+        "vin_on_ads": vin_on_ads,
+        "va_on_ads": va_on_ads,
     }
 
 
@@ -197,6 +217,14 @@ def emit(d: dict) -> str:
     a(" * every derived current was fiction. Do not build a guard on this.")
     a(" */")
     a(f"#define O2P_HW_VREF_NET_SHARED_WITH_AFE {1 if d['ref_shared'] else 0}")
+    a("")
+    a("/* ---- MCU ADC pin connectivity ---- */")
+    a(f'#define O2P_HW_MCU_PA4_NET "{d["pa4_net"]}"')
+    a(f'#define O2P_HW_MCU_PA6_NET "{d["pa6_net"]}"')
+    a(f"#define O2P_HW_CE_MON_CONNECTED {1 if d['ce_connected'] else 0}")
+    a(f"#define O2P_HW_VIN_MON_ON_MCU {1 if d['vin_on_mcu'] else 0}")
+    a(f"#define O2P_HW_VIN_MON_ON_ADS {1 if d['vin_on_ads'] else 0}")
+    a(f"#define O2P_HW_VA_MON_ON_ADS {1 if d['va_on_ads'] else 0}")
     a("")
     a(f"#endif /* {guard} */")
     return "\n".join(L) + "\n"
