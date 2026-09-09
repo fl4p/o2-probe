@@ -367,17 +367,21 @@ static void phase_rails(o2p_snapshot_t *s)
     }
 }
 
+#if O2P_DEBUG_ENABLE
 static uint32_t g_afe_override_s;
+#endif
 
 static void phase_afe(o2p_snapshot_t *s)
 {
     uint16_t back = 0u;
     o2p_lmp_status_t lst = o2p_lmp91000_verify(&back);
     s->lmp_readback = back;
+#if O2P_DEBUG_ENABLE
     if (g_uptime_s < g_afe_override_s) {
         g_cyc.faults |= O2P_F_AFE_CONFIG_MISMATCH;
         return;
     }
+#endif
     if (lst == O2P_LMP_IO) {
         g_cyc.faults |= O2P_F_I2C_FAIL_LMP;
         restart_settling();
@@ -1370,6 +1374,7 @@ static bool sampler_step(void)
     return false;
 }
 
+#if O2P_DEBUG_ENABLE
 static void execute_diag_command(o2p_regmap_t *rm)
 {
     uint8_t op = (uint8_t)(rm->diag_cmd & 0xFFu);
@@ -1503,6 +1508,7 @@ static void execute_diag_command(o2p_regmap_t *rm)
         break;
     }
 }
+#endif
 
 /* ---------------------------------------------------------------- bring-up */
 
@@ -1660,10 +1666,12 @@ int main(void)
              * release a commit that was waiting for it without costing
              * another lap. */
             serial_probation_service();
+#if O2P_DEBUG_ENABLE
             if (g_phase == PH_IDLE && g_rm.diag_pending) {
                 g_rm.diag_pending = false;
                 execute_diag_command(&g_rm);
             }
+#endif
             if (g_rm.commit_pending) {
                 g_rm.commit_pending = false;
                 /* The return value used to be discarded, so a failed erase or

@@ -471,6 +471,11 @@ enum {
 #define O2P_REG_HTEST_BASE  0x0060u
 #define O2P_REG_HTEST_COUNT 5u
 
+#ifndef O2P_DEBUG_ENABLE
+#define O2P_DEBUG_ENABLE 1
+#endif
+
+#if O2P_DEBUG_ENABLE
 /* ---- Memory peek block: 0x0065, 11 registers, read/write, VOLATILE ---- */
 enum {
     O2P_REG_PEEK_ADDR_HI       = 0x0065u,
@@ -554,6 +559,7 @@ enum {
     O2P_CRASH_ASSERT    = 2u,
     O2P_CRASH_IWDG      = 3u,
 };
+#endif /* O2P_DEBUG_ENABLE */
 
 /* A setpoint must sit strictly below the absolute clamp, by enough that the
  * loop's own overshoot does not routinely reach it. Two kelvin, against a
@@ -847,6 +853,7 @@ typedef struct {
      * exactly as any other undefined address does. */
     o2p_update_t *upd;
 
+#if O2P_DEBUG_ENABLE
     /* Memory peek mailbox */
     uint16_t peek_addr_hi;
     uint16_t peek_addr_lo;
@@ -869,9 +876,14 @@ typedef struct {
     uint32_t crash_lr;
     uint32_t crash_detail;
     uint32_t crash_build_id;
+#endif /* O2P_DEBUG_ENABLE */
 } o2p_regmap_t;
 
+#if O2P_DEBUG_ENABLE
 void o2p_regmap_load_crash_context(o2p_regmap_t *rm);
+#else
+static inline void o2p_regmap_load_crash_context(o2p_regmap_t *rm) { (void)rm; }
+#endif
 
 void o2p_regmap_init(o2p_regmap_t *rm);
 

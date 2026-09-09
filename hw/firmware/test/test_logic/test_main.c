@@ -5654,6 +5654,7 @@ static void test_a_store_never_overwrites_the_live_record(void)
     }
 }
 
+#if O2P_DEBUG_ENABLE
 static void test_peek_mailbox_bounds_and_alignment(void)
 {
     o2p_regmap_t rm;
@@ -5735,6 +5736,20 @@ static void test_crash_mailbox_read_and_clear(void)
     TEST_ASSERT_EQUAL_UINT16(O2P_CRASH_NONE, rm.crash_reason);
     TEST_ASSERT_EQUAL_HEX32(0u, rm.crash_pc);
 }
+#else
+static void test_debug_mailboxes_disabled(void)
+{
+    o2p_regmap_t rm;
+    o2p_regmap_init(&rm);
+    uint16_t out[2];
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS,
+                           o2p_regmap_read(&rm, 0x0065u, 2u, out));
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS,
+                           o2p_regmap_read(&rm, 0x0070u, 2u, out));
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS,
+                           o2p_regmap_read(&rm, 0x0077u, 2u, out));
+}
+#endif
 
 int main(void)
 {
@@ -5938,8 +5953,12 @@ int main(void)
     RUN_TEST(test_loader_keeps_the_address_across_a_layout_bump);
     RUN_TEST(test_a_downgrade_does_not_resurrect_a_stale_block);
     RUN_TEST(test_the_transport_block_clears_the_config_record);
+#if O2P_DEBUG_ENABLE
     RUN_TEST(test_peek_mailbox_bounds_and_alignment);
     RUN_TEST(test_dmbox_validation_and_opcodes);
     RUN_TEST(test_crash_mailbox_read_and_clear);
+#else
+    RUN_TEST(test_debug_mailboxes_disabled);
+#endif
     return UNITY_END();
 }

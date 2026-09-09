@@ -70,9 +70,11 @@ void o2p_clock_init(void)
      * wait states'), which is the reset value; assert it rather than assume. */
     FLASH->ACR &= ~FLASH_ACR_LATENCY;   /* latency field 0 = zero wait states */
 
+#if O2P_DEBUG_ENABLE
     /* Enable power interface clock, backup domain access and RTC/TAMP clock */
     RCC->APBENR1 |= RCC_APBENR1_PWREN | RCC_APBENR1_RTCAPBEN;
     PWR->CR1 |= PWR_CR1_DBP;
+#endif
 
     /* Every GPIO bank this board uses, enabled once. Drivers then reference
      * ports only through the board_pins.h bindings, so moving a net between
@@ -138,6 +140,7 @@ void o2p_wdt_feed(void)
 }
 
 #ifndef O2P_HOST_TEST
+#if O2P_DEBUG_ENABLE
 void o2p_hardfault_c_handler(uint32_t *stack_frame, uint32_t exc_return)
 {
     (void)exc_return;
@@ -222,4 +225,25 @@ void o2p_crash_set_breadcrumb(uint32_t val)
         TAMP->BKP3R = val;
     }
 }
-#endif
+#else /* !O2P_DEBUG_ENABLE */
+void HardFault_Handler(void)
+{
+    NVIC_SystemReset();
+    while (1) {}
+}
+
+void assert_failed(uint8_t *file, uint32_t line)
+{
+    (void)file; (void)line;
+    NVIC_SystemReset();
+    while (1) {}
+}
+
+void __assert_func(const char *file, int line, const char *func, const char *expr)
+{
+    (void)file; (void)line; (void)func; (void)expr;
+    NVIC_SystemReset();
+    while (1) {}
+}
+#endif /* O2P_DEBUG_ENABLE */
+#endif /* !O2P_HOST_TEST */

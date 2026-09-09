@@ -309,6 +309,7 @@ void o2p_regmap_init(o2p_regmap_t *rm)
     rm->heater_test_kp_x100 = O2P_HEATER_TEST_KP_X100_DEFAULT;
     rm->heater_test_ki_x100 = O2P_HEATER_TEST_KI_X100_DEFAULT;
 
+#if O2P_DEBUG_ENABLE
     /* Peek mailbox initialization */
     rm->peek_status = O2P_PEEK_NONE;
     for (int w = 0; w < 4; w++) {
@@ -321,8 +322,10 @@ void o2p_regmap_init(o2p_regmap_t *rm)
 
     /* Crash retention initialization */
     rm->crash_reason = O2P_CRASH_NONE;
+#endif
 }
 
+#if O2P_DEBUG_ENABLE
 #ifndef O2P_HOST_TEST
 uint32_t o2p_crash_read_reg(uint8_t index);
 void o2p_crash_clear(void);
@@ -345,6 +348,7 @@ void o2p_regmap_load_crash_context(o2p_regmap_t *rm)
     (void)rm;
 #endif
 }
+#endif
 
 o2p_snapshot_t *o2p_regmap_staging(o2p_regmap_t *rm)
 {
@@ -453,6 +457,7 @@ static uint16_t read_htest(const o2p_regmap_t *rm, uint16_t a)
     return 0u;
 }
 
+#if O2P_DEBUG_ENABLE
 static uint16_t read_peek(const o2p_regmap_t *rm, uint16_t a)
 {
     switch (a) {
@@ -503,6 +508,7 @@ static uint16_t read_crash(const o2p_regmap_t *rm, uint16_t a)
     }
     return O2P_U16_INVALID;
 }
+#endif
 
 static uint16_t read_config(const o2p_regmap_t *rm, uint16_t a)
 {
@@ -576,6 +582,7 @@ uint8_t o2p_regmap_read(void *ctx, uint16_t addr, uint16_t count, uint16_t *out)
         }
         return 0u;
     }
+#if O2P_DEBUG_ENABLE
     if (in_block(addr, count, O2P_REG_PEEK_BASE, O2P_REG_PEEK_COUNT)) {
         for (uint16_t i = 0; i < count; i++) {
             out[i] = read_peek(rm, (uint16_t)(addr + i));
@@ -594,6 +601,7 @@ uint8_t o2p_regmap_read(void *ctx, uint16_t addr, uint16_t count, uint16_t *out)
         }
         return 0u;
     }
+#endif
     /* The updater's two blocks. Routed rather than implemented here: the same
      * engine answers these registers in the bootloader, where none of the
      * rest of this file exists. */
@@ -870,6 +878,7 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
         return 0u;
     }
 
+#if O2P_DEBUG_ENABLE
     /* Memory peek mailbox: atomic 2-register FC16 write required */
     if (in_block(addr, count, O2P_REG_PEEK_BASE, O2P_REG_PEEK_COUNT)) {
         if (addr != O2P_REG_PEEK_BASE || count != 2u) {
@@ -953,6 +962,7 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
         }
         return O2P_MB_EX_ILLEGAL_VALUE;
     }
+#endif
 
     /* Only the config block and the updater are writable. The primary and
      * diagnostic blocks are measurements; a master that tries to write one is
