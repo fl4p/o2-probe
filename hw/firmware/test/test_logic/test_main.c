@@ -5509,15 +5509,16 @@ static void test_the_rev_a_divider_scaling(void)
     TEST_ASSERT_EQUAL_UINT32(20000u, O2P_HW_DIV_VIN_ADS_NUM);
     TEST_ASSERT_EQUAL_UINT32(150000u, O2P_HW_DIV_VIN_ADS_DEN);
 
-    uint32_t va_raw = 1650u;
-    uint32_t va_scaled = (va_raw * O2P_HW_DIV_VA_ADS_DEN) / O2P_HW_DIV_VA_ADS_NUM;
-    TEST_ASSERT_EQUAL_UINT32(3300u, va_scaled);
+    uint16_t va_scaled = o2p_scale_va_ads(1650u);
+    TEST_ASSERT_EQUAL_UINT16(3300u, va_scaled);
     TEST_ASSERT_TRUE(va_scaled >= O2P_VA_LOW_MV);
 
-    uint32_t vin_raw = 1600u;
-    uint32_t vin_scaled = (vin_raw * O2P_HW_DIV_VIN_ADS_DEN) / O2P_HW_DIV_VIN_ADS_NUM;
-    TEST_ASSERT_EQUAL_UINT32(12000u, vin_scaled);
+    uint16_t vin_scaled = o2p_scale_vin_ads(1600u);
+    TEST_ASSERT_EQUAL_UINT16(12000u, vin_scaled);
     TEST_ASSERT_TRUE(vin_scaled >= O2P_VIN_LOW_MV);
+
+    /* Clamping to uint16 maximum */
+    TEST_ASSERT_EQUAL_UINT16(0xFFFFu, o2p_scale_vin_ads(10000u));
 }
 
 static void test_the_wire_version_tracks_the_wire_contract(void)

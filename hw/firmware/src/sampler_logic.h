@@ -15,6 +15,7 @@
 #include <stdint.h>
 
 #include "ads1119.h"
+#include "hw_caps.h"
 #include "regmap.h"
 
 /* LMP91000 transimpedance and internal zero. The zero is 67 % of VREF for the
@@ -91,6 +92,25 @@ static inline uint32_t o2p_settle_restart(uint32_t now_s, uint32_t deadline_s,
         (*restarts)++;
     }
     return now_s + settle_s;
+}
+
+/* Undo the Rev A ADS voltage dividers (VA: R24/R25, VIN: R26/R27). */
+static inline uint16_t o2p_scale_va_ads(uint16_t raw_mv)
+{
+    uint32_t va = ((uint32_t)raw_mv * O2P_HW_DIV_VA_ADS_DEN) / O2P_HW_DIV_VA_ADS_NUM;
+    if (va > 0xFFFFu) {
+        va = 0xFFFFu;
+    }
+    return (uint16_t)va;
+}
+
+static inline uint16_t o2p_scale_vin_ads(uint16_t raw_mv)
+{
+    uint32_t vin = ((uint32_t)raw_mv * O2P_HW_DIV_VIN_ADS_DEN) / O2P_HW_DIV_VIN_ADS_NUM;
+    if (vin > 0xFFFFu) {
+        vin = 0xFFFFu;
+    }
+    return (uint16_t)vin;
 }
 
 #endif /* O2P_SAMPLER_LOGIC_H */

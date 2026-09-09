@@ -709,9 +709,7 @@ static void finish_electrode(o2p_snapshot_t *s, bool working)
 #if O2P_HW_BIAS_ADC_REACHES_ELECTRODES
         s->we_buf_mv = (uint16_t)mv;
 #elif O2P_HW_VA_MON_ON_ADS
-        uint32_t va = ((uint32_t)mv * O2P_HW_DIV_VA_ADS_DEN) / O2P_HW_DIV_VA_ADS_NUM;
-        if (va > 0xFFFFu) { va = 0xFFFFu; }
-        s->va_mv = (uint16_t)va;
+        s->va_mv = o2p_scale_va_ads((uint16_t)mv);
         if (s->va_mv < O2P_VA_LOW_MV) {
             g_cyc.faults |= O2P_F_VA_LOW;
         }
@@ -720,9 +718,7 @@ static void finish_electrode(o2p_snapshot_t *s, bool working)
 #if O2P_HW_BIAS_ADC_REACHES_ELECTRODES
         s->re_buf_mv = (uint16_t)mv;
 #elif O2P_HW_VIN_MON_ON_ADS
-        uint32_t vin = ((uint32_t)mv * O2P_HW_DIV_VIN_ADS_DEN) / O2P_HW_DIV_VIN_ADS_NUM;
-        if (vin > 0xFFFFu) { vin = 0xFFFFu; }
-        s->vin_mv = (uint16_t)vin;
+        s->vin_mv = o2p_scale_vin_ads((uint16_t)mv);
         if (s->vin_mv < O2P_VIN_LOW_MV) {
             g_cyc.faults |= O2P_F_VIN_LOW;
         }
