@@ -15,7 +15,7 @@
 #include "config_migrate.h"
 #include "die_temp.h"
 #include "faults.h"
-#include "hw_as_built.h"
+#include "hw_caps.h"
 #include "heater_ctl.h"
 #include "lmp91000.h"
 #include "modbus_pdu.h"
@@ -5226,11 +5226,20 @@ static void test_the_cell_bias_window_catches_an_open_potentiostat(void)
  * the default, and whether the fix is a mute button. */
 static void test_the_bias_guard_is_gated_on_as_built_wiring(void)
 {
-    /* DEFAULT IS REFUSE-TO-JUDGE. Every probe built to date has AIN2/AIN3 on
-     * the VA and VIN rails (16b5a606), so judging is the unsafe default and
-     * has to be opted into per board. A future edit flipping this to 1 without
-     * checking an as-built netlist is the regression this asserts against. */
+    /* The host tests are built for the bench board (O2P_BOARD_REV_A), whose
+     * AIN2/AIN3 are the VA and VIN rail monitors - so the capability is 0 and
+     * the guard must refuse to judge. This value is DERIVED by
+     * tools/gen_hw_caps.py from the fabricated netlist at 16b5a606, not
+     * written by hand, and tools/test_pcb_netlist.py checks the derivation
+     * against pads confirmed with a meter. Asserting it here catches a
+     * regeneration that silently changed the answer. */
     TEST_ASSERT_EQUAL_INT(0, O2P_HW_BIAS_ADC_REACHES_ELECTRODES);
+
+    /* And the revision really was selected: hw_caps.h #errors without it, but
+     * a test that never included the header would still pass, so say it. */
+#ifndef O2P_BOARD_REV_A
+    TEST_FAIL_MESSAGE("host tests must be built for a named board revision");
+#endif
 
     /* FIX, NOT MUTE (guard-checklist item 8). The gate must change only
      * WHETHER the window is consulted, never HOW it decides. On a board where
@@ -5250,6 +5259,10 @@ static void test_the_bias_guard_is_gated_on_as_built_wiring(void)
 #ifndef O2P_HW_BIAS_ADC_REACHES_ELECTRODES
     TEST_FAIL_MESSAGE("O2P_HW_BIAS_ADC_REACHES_ELECTRODES must be defined");
 #endif
+    /* The channel names travel with the capability, so a diagnosis never has
+     * to guess which board's map it is reading. */
+    TEST_ASSERT_EQUAL_STRING("/ADC_VA_MON",  O2P_HW_ADC_AIN2_NET);
+    TEST_ASSERT_EQUAL_STRING("/ADC_VIN_MON", O2P_HW_ADC_AIN3_NET);
 }
 
 static void test_the_wire_version_tracks_the_wire_contract(void)

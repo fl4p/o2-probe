@@ -31,7 +31,7 @@
 #include "faults.h"
 #include "heater.h"
 #include "heater_ctl.h"
-#include "hw_as_built.h"
+#include "hw_caps.h"
 #include "i2c1.h"
 #include "lmp91000.h"
 #include "mcu.h"
@@ -732,7 +732,8 @@ static void finish_electrode(o2p_snapshot_t *s, bool working)
             if (bias > 32767) { bias = 32767; }
             if (bias < -32767) { bias = -32767; }
             /* Only if those two channels reach the electrodes on THIS board.
-             * They do not on the Rev A first article - hw_as_built.h explains
+             * They do not on the Rev A first article - hw_caps.h and the generated per-revision
+             * header explain
              * what AIN2/AIN3 actually carry there, and why this is a build
              * flag rather than a comment. A difference of two rails
              * published in a register called CELL_BIAS_MV is precisely the
