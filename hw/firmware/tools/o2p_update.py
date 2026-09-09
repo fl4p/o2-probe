@@ -160,10 +160,21 @@ class SerialLink:
         self.ser = serial.Serial(port, baud, parity=parity, stopbits=1,
                                  bytesize=8, timeout=timeout)
         self.baud = baud
-        # 3.5 character times of silence between frames, per RTU. The probe
-        # frames on the same rule in hardware (USART RTOR), so a master that
-        # runs frames together is the one that breaks it.
-        self.gap = 3.5 * 11 / baud
+        # Silence between frames. TWO RULES, and Modbus over Serial Line v1.02
+        # 2.5.1.1 switches between them at 19200: 3.5 character times up to
+        # there, and a FIXED 1.750 ms above it, because a character time keeps
+        # shrinking with the baud rate while a master's scheduling jitter does
+        # not. This master runs on a general-purpose OS and cannot promise
+        # sub-millisecond gaps at all.
+        #
+        # The firmware frames on the same combined rule in hardware (USART
+        # RTOR, o2p_mb_rtor_bit_times in modbus_pdu.h). It used to be 3.5
+        # characters on both sides regardless of baud, which is 1003 us at
+        # 38400 and 334 us at 115200 - short enough that a gap between our own
+        # bytes reads as a frame boundary at the probe, splitting one request
+        # into two fragments that both fail CRC and are both discarded. The
+        # master then sees no reply and blames the cable.
+        self.gap = max(3.5 * 11 / baud, 0.001750)
 
     def exchange(self, adu, expect_len):
         time.sleep(self.gap)
