@@ -6,6 +6,12 @@ Two contracts, both checked here rather than trusted to a human:
 truth for this board. Checking it here is what makes FAB-READINESS.md's
 "firmware must use this final pin map" mandate mechanical.
 
+`src/hw_caps_rev_*.h` are the PER-REVISION capability headers, and they are a
+different kind of claim: `hw_contract.h` describes the board being designed,
+while a fabricated article's wiring is frozen and lives in the copper. Deriving
+one from the other is how a Rev B channel map came to run on a Rev A board on
+2026-09-09 and withheld every oxygen reading from a healthy probe.
+
 `src/regmap.h` is the wire contract with a Dragino node and a ChirpStack codec
 that cannot see this header, and its prose copies drifted three times in one
 day. A stale copy is how someone points AT+COMMAND at addresses that moved.
@@ -35,6 +41,23 @@ rc = subprocess.call([sys.executable, "tools/gen_hw_contract.py", "--check"],
                      cwd=PROJECT_DIR)
 if rc != 0:
     print("*** Hardware contract check failed - refusing to build.")
+    env.Exit(1)  # noqa: F821
+
+rc = subprocess.call([sys.executable, "tools/test_pcb_netlist.py"],
+                     cwd=PROJECT_DIR)
+if rc != 0:
+    print("*** The as-built netlist reader failed its host test - refusing to "
+          "build. Its failure mode is an EMPTY result that reads as a valid "
+          "'nothing is connected', so every capability below it would be "
+          "invented. See tools/test_pcb_netlist.py.")
+    env.Exit(1)  # noqa: F821
+
+rc = subprocess.call([sys.executable, "tools/gen_hw_caps.py", "--check"],
+                     cwd=PROJECT_DIR)
+if rc != 0:
+    print("*** Per-revision hardware capabilities are stale - refusing to "
+          "build. Each revision's caps come from ITS OWN netlist; run "
+          "tools/gen_hw_caps.py and re-check every guard that reads one.")
     env.Exit(1)  # noqa: F821
 
 rc = subprocess.call([sys.executable, "tools/check_regmap_docs.py"],

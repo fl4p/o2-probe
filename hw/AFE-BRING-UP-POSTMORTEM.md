@@ -223,6 +223,112 @@ and both return it low on every exit path.
 is still shorted to `U5.3` in copper and PC7 is unrouted. This is a schematic +
 firmware change only.
 
+### 3.7 Detect a reference lost AT THE PIN — new 2026-09-09, CORRECTED same day
+
+**The failure.** With U7 pin 11 open, the LMP91000's internal zero is 0.67 × 0,
+the TIA holds its virtual ground at 0 V, and VOUT parks at ground. Every digital
+check still passes — I²C, the register image and the on-die temperature sensor
+do not depend on pin 11 — so the part looks alive and the output looks railed.
+Firmware then computes
+
+```
+I = (0.67 x ADC_VREF_MON - VOUT) / 7 kOhm
+```
+
+and returns **~238 uA**, which is above the DS-0637 Issue 2 air band of
+70-130 uA and essentially exactly the point where the arithmetic runs out
+(1672 mV / 7 kOhm = 239 uA). It reads as a dramatic, specific overcurrent. It is
+an artefact of a missing denominator. That number was quoted as a measured
+current at least four times across 2026-09-08 and 2026-09-09, and an AFE was
+replaced on the strength of it; the replacement reproduced the identical figure,
+because the fault survived the swap. Both chips were healthy.
+
+**WHAT THIS ASK ORIGINALLY SAID, AND WHY IT WAS WRONG.** The first version of
+this section asked for a monitor on pin 11, on the theory that `ADC_VREF_MON`
+watched the reference *network* while pin 11 sat behind the trimmer. Checked
+against the fabricated netlist, that is false:
+
+```
+U7 pad 11 -> /VREF_TRIM      U8 pad 7 (ADS reference) -> /VREF_TRIM
+R34 pad 1 -> /VREF_TRIM      (the monitor divider taps the same net)
+RV1       -> /VREF_TOP, /VREF_WIPER   (the trimmer, upstream of U4)
+```
+
+**The monitor already reads the right node.** The trimmer is not between them.
+So no re-tap, no extra divider and no extra ADC channel detects this fault,
+because the fault is an open joint at the *package pin*: the net stays at 2.5 V
+and the monitor reads it happily while the die is attached to nothing.
+
+**The ask, restated.** There is nothing to add to the reference network. The
+detector is the electrode itself:
+
+> **WE must read 0.67 x VREF.** When it does not, the AFE has lost its
+> reference, whatever the reference network says.
+
+On Rev A that needs a DMM on U7.12. On Rev B it is free, because 3.3 already
+puts WE on a real ADC channel — so **3.3 is also the fix for this**, and it
+should be weighted accordingly. The firmware check is one comparison and it
+turns today's afternoon-long hunt into a fault bit.
+
+Recorded in `CELL-AFE-DEBUG.md` 2, and in the generated `hw_caps_rev_*.h`, which
+carry `O2P_HW_VREF_NET_SHARED_WITH_AFE` purely so the next person to propose
+"monitor the reference harder" reads why it does not work.
+
+### 3.8 Fix the cell connector pin order — new, 2026-09-09
+
+The Rev A connector is **C-R-W**; the cell is **W-R-C**. The bench article
+compensates with flying copper wires, and that harness is where an R-W short was
+found on 2026-09-09 — a short that pinned VOUT at 22 mV across *two* AFEs and
+*two* cells, and was the reason both swaps appeared to prove the cell and the
+chip guilty.
+
+Correct the order on the board and the crossing wires disappear. This is a
+footprint/net change with no BOM or area cost, and it removes a failure mode that
+has already consumed a chip, a cell, and most of two bench sessions.
+
+See `PIN-IDENTITY-POSTMORTEM.md:445-450` for the lead-crossing history.
+
+### 3.9 The ADS1119 channel budget — RETRACTED 2026-09-09
+
+The first version of this section claimed that once WE, RE, CE and `VREF_TRIM`
+were all asked for, four ADS1119 inputs could not cover them, and set a priority
+order for dropping one. **That conflict does not exist.** Checked against both
+netlists:
+
+| input | Rev A (fabricated) | Rev B (gen_sch.py) |
+|---|---|---|
+| AIN0 | `/ADC_AFE_VOUT` | `/ADC_AFE_VOUT` |
+| AIN1 | `/ADC_VREF_MON` | `/ADC_VREF_MON` |
+| AIN2 | `/ADC_VA_MON` | `/ADC_WE_BUF` |
+| AIN3 | `/ADC_VIN_MON` | `/ADC_RE_BUF` |
+
+Rev B already allocates all four correctly. The two rail monitors it displaces
+are not lost — VA and VIN move to the MCU ADC, and **CE is already on the MCU**
+at PA4 through R43/R44 (`hw_contract.h`, `O2P_HW_DIV_CE_NUM`; net `CE_MON` on
+package pin 15). `VREF_TRIM` needs no channel of its own, for the reason 3.7
+now gives. So nothing has to be dropped and no priority order is needed.
+
+The error came from writing the budget from memory of what the asks *wanted*
+rather than from the netlists that would satisfy them — the same class of
+mistake as the one this whole document is about. Kept rather than deleted
+because a retracted ask is a result: the next person to worry about the channel
+count can stop here.
+
+### 3.10 Rev A telemetry field names are actively misleading — firmware, not PCB
+
+Recorded here because it is the same root cause. On the fabricated Rev A board
+(commit `16b5a606`) AIN2/AIN3 are `ADC_VA_MON` and `ADC_VIN_MON`, so:
+
+- `we_buf` is the VA rail, `re_buf` is the VIN rail
+- `cell_bias_mv`, derived from both, **has never measured the cell**
+- the bias guard therefore raises `AFE_CONFIG_MISMATCH` (`faults` bit 5) on a
+  quantity unrelated to the electrodes
+- `ce_mv` reported 1806 mV while CE measured 3280 mV at the pin, and the
+  R43/R44 91k/91k divider reconciles with neither — scaling unverified
+
+**Firmware follow-up: the bias guard must report `unverified`, not a verdict,**
+on a board where the source nodes are not the electrodes. Open as of 2026-09-09.
+
 ## 4. Resolve before freezing a respin
 
 Two measurements from tonight remain unexplained, and both sit on the ADC path:

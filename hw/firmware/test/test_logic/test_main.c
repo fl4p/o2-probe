@@ -15,6 +15,7 @@
 #include "config_migrate.h"
 #include "die_temp.h"
 #include "faults.h"
+#include "hw_caps.h"
 #include "heater_ctl.h"
 #include "lmp91000.h"
 #include "modbus_pdu.h"
@@ -5448,6 +5449,57 @@ static void test_the_cell_bias_window_catches_an_open_potentiostat(void)
     TEST_ASSERT_TRUE(O2P_CELL_BIAS_TOLERANCE_MV < (-want) / 2);
 }
 
+/* The as-built gate on that predicate, added 2026-09-09.
+ *
+ * SAME HONESTY LIMIT as the test above, restated because it is easy to read
+ * this one as stronger than it is: main.c does not compile on the host, so
+ * nothing here drives finish_electrode(). This does NOT prove that the gate
+ * suppresses the fault bit on the real sampler. Guard-checklist item 7 stays
+ * UNMET for that path until there is a host-buildable sampler.
+ *
+ * What it does pin down is the two things that would silently undo the fix:
+ * the default, and whether the fix is a mute button. */
+static void test_the_bias_guard_is_gated_on_as_built_wiring(void)
+{
+    /* The host tests are built for the bench board (O2P_BOARD_REV_A), whose
+     * AIN2/AIN3 are the VA and VIN rail monitors - so the capability is 0 and
+     * the guard must refuse to judge. This value is DERIVED by
+     * tools/gen_hw_caps.py from the fabricated netlist at 16b5a606, not
+     * written by hand, and tools/test_pcb_netlist.py checks the derivation
+     * against pads confirmed with a meter. Asserting it here catches a
+     * regeneration that silently changed the answer. */
+    TEST_ASSERT_EQUAL_INT(0, O2P_HW_BIAS_ADC_REACHES_ELECTRODES);
+
+    /* And the revision really was selected: hw_caps.h #errors without it, but
+     * a test that never included the header would still pass, so say it. */
+#ifndef O2P_BOARD_REV_A
+    TEST_FAIL_MESSAGE("host tests must be built for a named board revision");
+#endif
+
+    /* FIX, NOT MUTE (guard-checklist item 8). The gate must change only
+     * WHETHER the window is consulted, never HOW it decides. On a board where
+     * the channels do reach the electrodes, the known-bad case that motivated
+     * the guard - +341 mV measured against -598 mV commanded, wrong magnitude
+     * and wrong sign, published for hours on 2026-09-08 - must still be
+     * outside the window. If a later edit "fixes" the false fault by widening
+     * the tolerance instead, this fails. */
+    const int32_t want = o2p_lmp_commanded_bias_mv(2492);
+    TEST_ASSERT_TRUE(labs((long)(341 - want)) > O2P_CELL_BIAS_TOLERANCE_MV);
+    TEST_ASSERT_TRUE(labs((long)(0 - want)) > O2P_CELL_BIAS_TOLERANCE_MV);
+    TEST_ASSERT_TRUE(labs((long)(-597 - want)) <= O2P_CELL_BIAS_TOLERANCE_MV);
+
+    /* And the gate is a compile-time constant that can be overridden per
+     * environment, not a runtime flag some later code can set from telemetry.
+     * The board it describes cannot change while the firmware is running. */
+#ifndef O2P_HW_BIAS_ADC_REACHES_ELECTRODES
+    TEST_FAIL_MESSAGE("O2P_HW_BIAS_ADC_REACHES_ELECTRODES must be defined");
+#endif
+    /* The channel names travel with the capability, so a diagnosis never has
+     * to guess which board's map it is reading. */
+    TEST_ASSERT_EQUAL_STRING("/ADC_VA_MON",  O2P_HW_ADC_AIN2_NET);
+    TEST_ASSERT_EQUAL_STRING("/ADC_VIN_MON", O2P_HW_ADC_AIN3_NET);
+}
+
 static void test_the_wire_version_tracks_the_wire_contract(void)
 {
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
@@ -5922,6 +5974,7 @@ int main(void)
     RUN_TEST(test_the_isr_and_the_tested_state_machine_are_one);
     RUN_TEST(test_afe_die_temperature_follows_the_datasheet_table);
     RUN_TEST(test_the_cell_bias_window_catches_an_open_potentiostat);
+    RUN_TEST(test_the_bias_guard_is_gated_on_as_built_wiring);
     RUN_TEST(test_the_wire_version_tracks_the_wire_contract);
     RUN_TEST(test_cell_current_is_the_departure_from_the_internal_zero);
     RUN_TEST(test_cell_current_keeps_its_sign);
