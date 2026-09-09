@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <export version="E">
   <design>
-    <source>/Users/fab/dev/ee/hw/o2-probe/o2-probe.kicad_sch</source>
-    <date>2026-09-07T14:53:12</date>
+    <source>/private/tmp/o2-revb-finish/ee/hw/o2-probe/o2-probe.kicad_sch</source>
+    <date>2026-09-09T15:08:05</date>
     <tool>Eeschema 10.0.5</tool>
     <sheet number="1" name="/" tstamps="/">
       <title_block>
@@ -848,18 +848,18 @@
       </units>
     </comp>
     <comp ref="D7">
-      <value>TPD2E2U06</value>
+      <value>TPD2E2U06-Q1</value>
       <footprint>Package_TO_SOT_SMD:SOT-23</footprint>
       <fields>
-        <field name="MPN">TPD2E2U06QDBZR</field>
-        <field name="Design Note">Cell-electrode ESD clamp, CE channel only. The second channel is deliberately unused: WE needs a verified leakage figure before it may be clamped, and RE needs a picoamp-class part. Do not casually wire either to the spare pin</field>
+        <field name="MPN">TPD2E2U06QDBZRQ1</field>
+        <field name="Design Note">CE-only ESD shunt, SLLSEJ9E Table 5-1: 1 IO1, 2 IO2 (unused), 3 GND. Route CE through pad 1 before R42; keep pad 3's ground return short. Component ESD rating does not establish probe survival; see protection record</field>
         <field name="Footprint">Package_TO_SOT_SMD:SOT-23</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="o2-probe" part="TVS_ARRAY_2CH" description=""/>
-      <property name="MPN" value="TPD2E2U06QDBZR"/>
-      <property name="Design Note" value="Cell-electrode ESD clamp, CE channel only. The second channel is deliberately unused: WE needs a verified leakage figure before it may be clamped, and RE needs a picoamp-class part. Do not casually wire either to the spare pin"/>
+      <property name="MPN" value="TPD2E2U06QDBZRQ1"/>
+      <property name="Design Note" value="CE-only ESD shunt, SLLSEJ9E Table 5-1: 1 IO1, 2 IO2 (unused), 3 GND. Route CE through pad 1 before R42; keep pad 3's ground return short. Component ESD rating does not establish probe survival; see protection record"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <sheetpath names="/" tstamps="/"/>
@@ -1975,18 +1975,18 @@
       </units>
     </comp>
     <comp ref="R42">
-      <value>100R</value>
+      <value>1k 1%</value>
       <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
       <fields>
-        <field name="MPN">RC0603FR-07100RL</field>
-        <field name="Design Note">CE fault-current limit, inside the control loop so it costs no DC accuracy. Do NOT raise toward 1k without re-checking the CE compliance budget: the drop is spent from SNAS506 6.5's 300 mV..VS-300 mV window</field>
+        <field name="MPN">RC0603FR-071KL</field>
+        <field name="Design Note">CE series resistor; limits an internal-rail CE short to &lt;3.45 mA incl. monitor load at 3V3A &lt;=3.366 V, -40..85 C. Costs &lt;=132.2 mV at 130 uA; hot-cell headroom and stability require bench qualification. Not an ESD rating. See docs/2026-09-09-revb-protection.md</field>
         <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="MPN" value="RC0603FR-07100RL"/>
-      <property name="Design Note" value="CE fault-current limit, inside the control loop so it costs no DC accuracy. Do NOT raise toward 1k without re-checking the CE compliance budget: the drop is spent from SNAS506 6.5's 300 mV..VS-300 mV window"/>
+      <property name="MPN" value="RC0603FR-071KL"/>
+      <property name="Design Note" value="CE series resistor; limits an internal-rail CE short to &lt;3.45 mA incl. monitor load at 3V3A &lt;=3.366 V, -40..85 C. Costs &lt;=132.2 mV at 130 uA; hot-cell headroom and stability require bench qualification. Not an ESD rating. See docs/2026-09-09-revb-protection.md"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="R res resistor"/>
@@ -2035,14 +2035,14 @@
       <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
       <fields>
         <field name="MPN">RC0603FR-0791KL</field>
-        <field name="Design Note">CE monitor divider bottom leg. 200k total keeps the load on A1's output at ~16 uA of its 750 uA drive spec; a 10k pair would take 144 uA. The value is set by the ADC's 50 kohm max source impedance AT TOLERANCE, not by the load</field>
+        <field name="Design Note">CE monitor divider bottom leg. 182k total keeps the load on A1's output at ~16 uA of its 750 uA drive spec; a 10k pair would take 144 uA. The value is set by the ADC's 50 kohm max source impedance AT TOLERANCE, not by the load</field>
         <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="R" description="Resistor"/>
       <property name="MPN" value="RC0603FR-0791KL"/>
-      <property name="Design Note" value="CE monitor divider bottom leg. 200k total keeps the load on A1's output at ~16 uA of its 750 uA drive spec; a 10k pair would take 144 uA. The value is set by the ADC's 50 kohm max source impedance AT TOLERANCE, not by the load"/>
+      <property name="Design Note" value="CE monitor divider bottom leg. 182k total keeps the load on A1's output at ~16 uA of its 750 uA drive spec; a 10k pair would take 144 uA. The value is set by the ADC's 50 kohm max source impedance AT TOLERANCE, not by the load"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="R res resistor"/>
@@ -3161,8 +3161,8 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
       </fields>
       <pins>
         <pin num="1" name="IO1" type="passive"/>
-        <pin num="2" name="GND" type="passive"/>
-        <pin num="3" name="IO2" type="passive"/>
+        <pin num="2" name="IO2" type="passive"/>
+        <pin num="3" name="GND" type="passive"/>
       </pins>
     </libpart>
   </libparts>
@@ -3371,7 +3371,7 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
       <node ref="C9" pin="2" pintype="passive"/>
       <node ref="D1" pin="2" pinfunction="A_2" pintype="passive"/>
       <node ref="D2" pin="3" pinfunction="GND_3" pintype="passive"/>
-      <node ref="D7" pin="2" pinfunction="GND_2" pintype="passive"/>
+      <node ref="D7" pin="3" pinfunction="GND_3" pintype="passive"/>
       <node ref="J102" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
       <node ref="J3" pin="5" pinfunction="Pin_5_5" pintype="passive"/>
       <node ref="Q2" pin="2" pinfunction="S_2" pintype="passive"/>
@@ -3567,8 +3567,8 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
       <node ref="U4" pin="1" pinfunction="OUT_A_1" pintype="output"/>
       <node ref="U4" pin="2" pinfunction="IN-_A_2" pintype="input"/>
     </net>
-    <net code="56" name="unconnected-(D7-IO2-Pad3)" class="Default">
-      <node ref="D7" pin="3" pinfunction="IO2_3" pintype="passive+no_connect"/>
+    <net code="56" name="unconnected-(D7-IO2-Pad2)" class="Default">
+      <node ref="D7" pin="2" pinfunction="IO2_2" pintype="passive+no_connect"/>
     </net>
     <net code="57" name="unconnected-(U2-NC-Pad4)" class="Default">
       <node ref="U2" pin="4" pinfunction="NC_4" pintype="no_connect"/>

@@ -79,7 +79,7 @@ void o2p_mcu_adc_init(void)
 
     /* Longest sampling time -- 160.5 cycles, and it is now LOAD-BEARING, not
      * merely free. The VA_MON divider went 10k/10k to 47k/47k in the
-     * 2026-09-05 BOM pass (BOM-REDUCTION.md 1), taking the source impedance
+     * 2026-09-05 BOM pass (docs/archive/2026-09-09-pcb-plans/BOM-REDUCTION.md 1), taking the source impedance
      * from 5k to 23.5k to get 130 uA back off the analog rail that feeds
      * U4/U7/U8. VIN_MON is 91k/10k = 9.0k. ST DS12232 Table 59 (Maximum ADC
      * RAIN) allows 50k at 12 bits and 160.5 cycles, so 23.5k has 2.1x margin --

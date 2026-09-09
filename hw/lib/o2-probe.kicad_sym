@@ -2484,8 +2484,8 @@
 		(symbol "TVS_ARRAY_2CH_0_1" (rectangle (start -5.08 5.08) (end 5.08 -5.08) (stroke (width 0.254) (type default)) (fill (type background))))
 		(symbol "TVS_ARRAY_2CH_1_1"
 			(pin passive line (at -7.62 1.27 0) (length 2.54) (name "IO1" (effects (font (size 1.0 1.0)))) (number "1" (effects (font (size 1.0 1.0)))))
-			(pin passive line (at 7.62 0 180) (length 2.54) (name "GND" (effects (font (size 1.0 1.0)))) (number "2" (effects (font (size 1.0 1.0)))))
-			(pin passive line (at -7.62 -1.27 0) (length 2.54) (name "IO2" (effects (font (size 1.0 1.0)))) (number "3" (effects (font (size 1.0 1.0)))))
+			(pin passive line (at 7.62 0 180) (length 2.54) (name "IO2" (effects (font (size 1.0 1.0)))) (number "2" (effects (font (size 1.0 1.0)))))
+			(pin passive line (at -7.62 -1.27 0) (length 2.54) (name "GND" (effects (font (size 1.0 1.0)))) (number "3" (effects (font (size 1.0 1.0)))))
 		)
 		(embedded_fonts no)
 	)

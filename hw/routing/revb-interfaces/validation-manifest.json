@@ -1,0 +1,35 @@
+{
+  "date": "2026-09-09",
+  "baseline_commit": "28b8a75",
+  "input_board_sha256": "e5518b691b8e102b25d7eba50df3a84a05001f40fe1d0e0a043a1fe01b1ee3da",
+  "kicad_version": "10.0.5",
+  "native_tests": {
+    "passed": 242,
+    "failed": 0
+  },
+  "sha256": {
+    "gen_sch.py": "91b63d7a1499ef41f5a058963bddaf7f1d5df17d0b896080ad0f69e4f447a4c0",
+    "gen_pcb.py": "43f9a1e31f34be71befe39fce5b99629bfba85125f6ae7d5288eaa7826097099",
+    "adopt_revb_interfaces.py": "85b52276b1dafbba97061f3519d575bb65b0768995a7b0b6a306542da1667ee4",
+    "verify_revb_interfaces.py": "76e65082c26b078b303b1e1d64049cac027024929aba81feca005be85a7acd15",
+    "firmware/tools/pcb_netlist.py": "8180acb7a3a641fcf65f3c891b3743f6b82629fb56cbf0514d41c6ae39fc4974",
+    "firmware/src/hw_contract.h": "9436d6fb4790b98690fac95db8a565ed35125ec6e7ce0c9734b75af73e79b029",
+    "o2-probe.kicad_sch": "2a10ede61c8968eb10472ab8f6372cec2db2c15d8682bf0a16d3e6eabcdaedf6",
+    "lib/o2-probe.kicad_sym": "333efa4a2ca8e4b76be8b55114a5bece860501481655ed0b21258a571646d1de",
+    "routing/revb-interfaces/o2-probe.kicad_pcb": "9d037714560d4173d23990a4e25a2a2c727f1f1d038da10c18a32f5696f808d7",
+    "routing/revb-interfaces/o2-probe.kicad_pro": "e700a1602dc434a0e7d2aedc0dd21e118d8251adc94c2df266343612ae374b2c",
+    "routing/revb-interfaces/o2-probe.kicad_dru": "b1fe200efe5fc9d531438535ce0c1230b8972c03a14bfb571651b9448d46717a",
+    "routing/revb-interfaces/o2-probe.kicad_sch": "2a10ede61c8968eb10472ab8f6372cec2db2c15d8682bf0a16d3e6eabcdaedf6",
+    "routing/revb-interfaces/lib/o2-probe.kicad_sym": "333efa4a2ca8e4b76be8b55114a5bece860501481655ed0b21258a571646d1de",
+    "routing/revb-interfaces/drc-refill.json": "2c378a874db0b4bb01f1014ed3cb2a618ba5bde0769ffd1ca0c105d8ae1984b4",
+    "routing/revb-interfaces/drc-saved-fill.json": "aca73a91d0d2d709b0dc895cf6e3e8effdc32dd0697c5ff811201b8cee29f7b7",
+    "routing/revb-interfaces/erc.json": "37fdafa59b42dd12b0185198f1a1c0365430d0cbb44f30d98a365b1c561a19c0"
+  },
+  "integration": {
+    "base_commit": "7c3b7a1",
+    "clean_baseline_native_passed": 251,
+    "staged_changes_native_passed": 251,
+    "failed": 0,
+    "uncommitted_main_crash_mailbox_failure": "excluded; separate in-progress regmap.c/test mismatch"
+  }
+}

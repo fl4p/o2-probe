@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the Rev-A O2 probe schematic and its project symbol library.
+"""Generate the Rev-B O2 probe schematic and its project symbol library.
 
 The generator is the source of truth.  The emitted schematic is deliberately
 flat and label-connected: each functional block can be reviewed independently,
@@ -277,7 +277,7 @@ if '"TL431DBZ_' in SYMS[AZ431]["source_block"]:
 _remap_pin_numbers(AZ431, {"REF": "1", "K": "2", "A": "3"})
 
 
-TVS3 = symbol("TVS_ARRAY_2CH", [("1", "IO1", "passive"), ("2", "GND", "passive"), ("3", "IO2", "passive")], "D")
+TVS3 = symbol("TVS_ARRAY_2CH", [("1", "IO1", "passive"), ("2", "IO2", "passive"), ("3", "GND", "passive")], "D")
 SM712 = symbol("SM712", [("1", "LINE_A", "passive"), ("2", "LINE_B", "passive"), ("3", "GND", "passive")], "D",
                description="Littelfuse SM712-02HTG asymmetric RS-485 TVS, SOT-23")
 
@@ -693,7 +693,7 @@ for p,n in enumerate(("3V3D","SWDIO","NRST","SWCLK_BOOT0","GND","SWO"),1): net("
 # held 329.2 mm2 of courtyard, 20.6% of every courtyard on a 20 x 107 board, and
 # J2 alone was 224.8 mm2 of it -- 17.2 x 13.0 mm plus two 2.41 mm NPTH mounting
 # holes, sitting at local y 60.5..73.5, the run-up to the local-70..80 AFE band
-# the two-layer work is fighting (TWO-LAYER-REFLOORPLAN.md).  On two layers an
+# the two-layer work is fighting (docs/archive/2026-09-09-pcb-plans/TWO-LAYER-REFLOORPLAN.md).  On two layers an
 # NPTH is a hole through both.
 #
 # 877ac52 measured that deleting the six EXP_ SIGNALS buys one open link, and
@@ -702,7 +702,7 @@ for p,n in enumerate(("3V3D","SWDIO","NRST","SWCLK_BOOT0","GND","SWO"),1): net("
 # the courtyard are geometry it cannot.  The routing gain from THIS deletion is
 # not yet measured; the area and the 16 fewer placements are.
 #
-# R15/R16 ARE NOT IN THAT LIST, and BOM-REDUCTION.md 3 was wrong to put them
+# R15/R16 ARE NOT IN THAT LIST, and docs/archive/2026-09-09-pcb-plans/BOM-REDUCTION.md 3 was wrong to put them
 # there.  They are not dead options: board_pins.h:56 and bridge_main.c:16 both
 # say that on an assembled board PA2/PA3 "reach the MCU-side pad of R15 and R16
 # and stop there", and that those 0603 pads -- not the LQFP's 0.5 mm pitch --
@@ -719,7 +719,7 @@ for p,n in enumerate(("3V3D","SWDIO","NRST","SWCLK_BOOT0","GND","SWO"),1): net("
 # WHAT IS STILL LOST: the 2x04 pad field for a future daughterboard, and the
 # 0.20 A separately-fused EXP_3V3 that fed it.  J2 was DNP on every board ever
 # built, so no built board ever had either.  Fab approved the deletion on
-# 2026-09-05 against BOM-REDUCTION.md 3.
+# 2026-09-05 against docs/archive/2026-09-09-pcb-plans/BOM-REDUCTION.md 3.
 place("J105",CONN1,251.46,116.84,value="BRIDGE TX (PA2)",footprint="Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief",
       note="Bench-bridge TTL tap, MCU side. Laptop TTL RX <- here. 3.3 V logic ONLY: "
            "PA2/PA3 are not 5 V tolerant on this device (bridge_main.c:23)")
@@ -749,44 +749,26 @@ for ref,y,n in (("TP1",149.86,"CELL_WE"),("TP3",170.18,"CELL_CE")):
 # which of four parts was guilty, and once potted that method does not exist.
 # CELL_CE therefore stops being a bare wire from pin 14 to the cell.
 #
-# R42 caps the current A1 can deliver into a fault. It sits INSIDE the control
-# loop -- RE is sensed separately, so A1 servos out the drop and DC accuracy is
-# untouched. 100R, not the 1k that the postmortem's 100R-1k range also allows:
-# the drop is added to what pin 14 must produce. SNAS506 6.5's
-# 300 mV <= VCE <= VS-300 mV is the condition under which A1's OPEN-LOOP GAIN is
-# characterised, not a hard output-compliance limit -- outside it the amplifier
-# is unspecified rather than guaranteed broken -- but "unspecified" is not a
-# region to design a buried, unrepairable probe into, so treat 3000 mV at 3.3 V
-# as the working ceiling and spend as little of it as possible. At the measured 99.09 uA cell current 1k costs 99 mV
-# and 100R costs 9.9 mV; during the polarisation transient the same bench
-# measured (>607 uA before the TIA saturated) 1k costs over 600 mV and 100R
-# costs 61 mV.
+# R42 limits a CE-to-ground short while the AFE rail is within 3.366 V.
+# With 1% tolerance and +/-100 ppm/K over -40..85 C, Rmin = 983.565 ohm:
+# 3.366/Rmin = 3.422 mA, below SNAS506I 6.1's 10 mA CE absolute maximum.
+# This is a STATIC INTERNAL-RAIL fault bound, not an IEC ESD or 12 V fault rating.
+# R43/R44 load the device pin in parallel; their worst-case 18.7 uA still leaves
+# total CE current below 3.45 mA under that fault. See the calculation record.
 #
-# The sentence that used to sit here claimed "100R limits to 33 mA at full rail,
-# still well under A1's 10 mA charging spec". That is backwards and was caught in
-# review: 3.3 V / 100 ohm is 33 mA, which is ABOVE 10 mA, not below. So 100R does
-# NOT impose a ceiling under the device's own charging capability -- 1k would give
-# 3.3 mA and 330R about 10 mA. The real position: neither value has been derived
-# from a defined maximum fault current, source impedance, pulse energy and
-# loop-stability limit, because none of those is characterised for this cell.
-# 100R is the LOW-REGRET choice under that uncertainty, not the optimum -- it
-# costs at most 13 mV at DS-0637's 130 uA maximum, so it cannot meaningfully
-# erode a compliance margin we have not yet measured, whereas 1k costs up to
-# 130 mV and could. Characterise the real-cell CE operating point -- which
-# R43/R44 now make possible -- and then derive the value properly.
-#
-# NOTE the earlier arithmetic that justified this was WRONG and is not repeated
-# here: the "125 mV of margin" figure comes from CE at 2875 mV, measured with a
-# 1M/1M DUMMY drawing 0.6 uA, while 99.09 uA is the REAL cell. Those are
-# different operating points and the drop at one cannot be subtracted from the
-# margin at the other. What survives is the transient case, which needs no
-# baseline at all. The real cell's CE operating point has never been measured --
-# R43/R44 exist partly to measure it.
-add_passive("R42",25.4,187.96,"100R","Resistor_SMD:R_0603_1608Metric","CELL_CE_DRV","CELL_CE",
-            mpn="RC0603FR-07100RL",
-            note="CE fault-current limit, inside the control loop so it costs no DC accuracy. "
-                 "Do NOT raise toward 1k without re-checking the CE compliance budget: the drop "
-                 "is spent from SNAS506 6.5's 300 mV..VS-300 mV window")
+# The old 100R did not meet this bound (over 34 mA). The cost is explicit:
+# at 130 uA the new resistor drops at most 132.2 mV. A1 can compensate only
+# while it retains output headroom. SNAS506I 6.5's 0.3..VS-0.3 V window is an
+# open-loop-gain characterisation condition, not a hard compliance limit.
+# Test startup and cell bias at the hot/full-scale operating corners before
+# deployment. Do not combine the dummy's CE voltage with a real-cell current.
+# No cell stability or impulse-energy qualification is claimed from this bound.
+add_passive("R42",25.4,187.96,"1k 1%","Resistor_SMD:R_0603_1608Metric","CELL_CE_DRV","CELL_CE",
+            mpn="RC0603FR-071KL",
+            note="CE series resistor; limits an internal-rail CE short to <3.45 mA incl. "
+                 "monitor load at 3V3A <=3.366 V, -40..85 C. Costs <=132.2 mV at 130 uA; "
+                 "hot-cell headroom and stability require bench qualification. Not an ESD rating. "
+                 "See docs/2026-09-09-revb-protection.md")
 
 # R43/R44 watch pin 14 itself, not the electrode, because the compliance window
 # is a limit on the DEVICE PIN. This is the node that distinguishes the failure
@@ -826,7 +808,7 @@ add_passive("R43",101.6,187.96,"91k 1%","Resistor_SMD:R_0603_1608Metric","CELL_C
                  "FIRMWARE: CE_MV = 2 x ADC. High value on purpose -- see R44")
 add_passive("R44",101.6,198.12,"91k 1%","Resistor_SMD:R_0603_1608Metric","CE_MON","GND",
             mpn="RC0603FR-0791KL",
-            note="CE monitor divider bottom leg. 200k total keeps the load on A1's output at "
+            note="CE monitor divider bottom leg. 182k total keeps the load on A1's output at "
                  "~16 uA of its 750 uA drive spec; a 10k pair would take 144 uA. The value is set "
                  "by the ADC's 50 kohm max source impedance AT TOLERANCE, not by the load")
 add_passive("C34",121.92,198.12,"100n","Capacitor_SMD:C_0402_1005Metric","CE_MON","GND",
@@ -834,39 +816,19 @@ add_passive("C34",121.92,198.12,"100n","Capacitor_SMD:C_0402_1005Metric","CE_MON
                  "small S&H capacitor; this supplies that charge locally so the long sampling "
                  "time the bare divider would need is not the only thing holding the reading up")
 
-# ESD, partially. CELL_CE and CELL_WE and CELL_RE are handled by a person, in a
-# field, with the board potted -- POTTING.md requires the cell to be swappable --
-# and they run straight into a 3.3 V front end with no protection of any kind.
-# What killed A1 is unknown and will stay unknown; ESD is the cheapest candidate
-# to defend against.
-#
-# Only CE is defended HERE, and the reason is a leakage budget, not laziness:
-#   CE  driven output. Leakage is irrelevant. Protect it now.
-#   WE  carries the cell current INTO the TIA, so clamp leakage adds directly to
-#       the measurand. It sits at 1.678 V, so a reverse-biased clamp does leak.
-#       The bound is ~70 nA for 0.1% of the 70 uA minimum signal -- plausible for
-#       this part but NOT verified against SBAS/TPD data, so it is not fitted on
-#       a guess. Sourcing gate, not a design gate.
-#   RE  budgeted in picoamps against the LMP91000's own +/-900 pA IRE. A general
-#       -purpose TVS leaks orders of magnitude more, hot. Needs a part with a
-#       stated leakage figure over -40..80 C entered into that budget.
-# TPD2E2U06 is reused rather than newly chosen: it is already qualified and
-# stocked in this design (D4/D5/D6), and D6 already demonstrates the one-channel
-# -unused pattern.
-#
-# OPEN QUALIFICATION, recorded rather than assumed away: clamping CE to board
-# ground while RE and WE float is a partial protection NETWORK, and a partial
-# network is not automatically better than none. A common-mode strike arriving at
-# RE can in principle be converted into differential current through the cell
-# toward the one clamp that exists. Whether that is worse than leaving all three
-# open is unverified -- it needs the sensor's transient model, the protection
-# return geometry, clamp curves, and pin-to-pin plus common-mode ESD testing.
-# Do not describe this as "the cell electrodes are protected".
-place("D7",TVS3,45.72,187.96,value="TPD2E2U06",footprint="Package_TO_SOT_SMD:SOT-23",mpn="TPD2E2U06QDBZR",
-      note="Cell-electrode ESD clamp, CE channel only. The second channel is deliberately "
-           "unused: WE needs a verified leakage figure before it may be clamped, and RE needs "
-           "a picoamp-class part. Do not casually wire either to the spare pin")
-net("D7",1,"CELL_CE"); net("D7",2,"GND"); nc("D7",3)
+# CE-only ESD shunt on the exposed side of R42. SLLSEJ9E Table 5-1:
+# TPD2E2U06-Q1 DBZ is 1=IO1, 2=IO2, 3=GND. The former symbol swapped
+# IO2/GND and left the actual ground floating. The full order code ends RQ1.
+# IO2 stays NC; WE/RE leakage and common-mode cell stress are outside this
+# CE-only implementation. The diode's component-level IEC rating is not a
+# qualification of the assembled probe. Its 9.7 V clamp at 1 A is TYPICAL,
+# above LMP91000's 6 V pin-to-pin absolute maximum; R42 is not a voltage clamp.
+# Whole-system ESD testing remains required; do not claim protected electrodes.
+place("D7",TVS3,45.72,187.96,value="TPD2E2U06-Q1",footprint="Package_TO_SOT_SMD:SOT-23",mpn="TPD2E2U06QDBZRQ1",
+      note="CE-only ESD shunt, SLLSEJ9E Table 5-1: 1 IO1, 2 IO2 (unused), 3 GND. "
+           "Route CE through pad 1 before R42; keep pad 3's ground return short. "
+           "Component ESD rating does not establish probe survival; see protection record")
+net("D7",1,"CELL_CE"); nc("D7",2); net("D7",3,"GND")
 
 # CELL_RE STILL GETS NO TEST POINT, and this is a reversal of a reversal worth
 # recording. The bench asked for one on 2026-09-04, having spent an evening
@@ -952,7 +914,7 @@ add_passive("R27",165.1,177.8,"10k","Resistor_SMD:R_0603_1608Metric","VIN_MON","
 add_passive("R33",190.5,147.32,"1k","Resistor_SMD:R_0603_1608Metric","AFE_VOUT","ADC_AFE_VOUT",
             note="ADC anti-alias/input-kickback filter; place with C28 at U8 AIN0")
 add_passive("C28",208.28,147.32,"100n","Capacitor_SMD:C_0402_1005Metric","ADC_AFE_VOUT","GND")
-# R39 is KEPT, against BOM-REDUCTION.md 3, which listed it for deletion.  The
+# R39 is KEPT, against docs/archive/2026-09-09-pcb-plans/BOM-REDUCTION.md 3, which listed it for deletion.  The
 # reason it was listed was proximity to the BMP390 block, not analysis, and its
 # bench headroom gate is NOT closed: ads1119.c still reasons about where the
 # oxygen channel sits relative to full scale, and AFE-BRING-UP-POSTMORTEM.md 175
@@ -1279,7 +1241,7 @@ def verify() -> None:
     assert INST["C7"]["footprint"] == INST["C1"]["footprint"]
     # The expansion connector and the BMP390 option are DELETED, not re-drawn
     # smaller: a Micro-Fit or an unverified DRAFT land creeping back is the exact
-    # regression this deletion exists to prevent (BOM-REDUCTION.md 3).
+    # regression this deletion exists to prevent (docs/archive/2026-09-09-pcb-plans/BOM-REDUCTION.md 3).
     # Micro-Fit is forbidden GLOBALLY. J5 is exempt from the DRAFT half only --
     # the ring fork tip is legitimately a draft land (RING-PCB.md 5.1 forbids
     # freezing the finger width before the printed bore is measured), but that
@@ -1322,6 +1284,14 @@ def verify() -> None:
     # electrode, which is the direction audit_schematic.py structurally cannot see.
     cell_re_pins = {(r, pn) for (r, pn), n in ASSIGNED.items() if n == "CELL_RE"}
     assert cell_re_pins == {("U7", "13"), ("U11", "2"), ("U4", "5")}, cell_re_pins
+    # Exact package identity and ground pin, independently checked against
+    # SLLSEJ9E Table 5-1. Grounding IO2 instead leaves the real ground floating.
+    assert INST["D7"]["mpn"] == "TPD2E2U06QDBZRQ1"
+    assert ASSIGNED[("D7", "1")] == "CELL_CE"
+    assert ASSIGNED[("D7", "3")] == "GND"
+    assert ASSIGNED[("D7", "2")] == "(NC)"
+    assert INST["R42"]["value"] == "1k 1%"
+    assert INST["R42"]["mpn"] == "RC0603FR-071KL"
     # CE now reaches the cell through R42, so nothing but R42/R43/D7 may sit on
     # the driven pin, and the electrode side must carry the cell and its pad.
     assert {(r, pn) for (r, pn), n in ASSIGNED.items() if n == "CELL_CE_DRV"} == {

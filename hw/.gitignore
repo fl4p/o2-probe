@@ -29,3 +29,6 @@ krt*.json
 pcb-drc-*.rpt
 pcb-drc-final.json
 !pcb-drc.rpt
+
+# Retain vendor datasheets locally; commit source pointers and hashes.
+literature/ce-protection/*.pdf

@@ -67,7 +67,7 @@
 #define O2P_HW_DIV_CE_NUM    91000
 #define O2P_HW_DIV_CE_DEN    182000
 /* CE fault-current limit, in the loop; scales nothing, bounds the budget. */
-#define O2P_HW_CE_SERIES_OHM 100
+#define O2P_HW_CE_SERIES_OHM 1000
 /* SNAS506 6.5 characterises A1's drive only over 300 mV <= VCE <= VS-300 mV.
  * Outside this the amplifier is simply not specified, so treat it as a
  * fault, not as a reading.  VS is 3V3A, whose WORST-CASE LOW corner is

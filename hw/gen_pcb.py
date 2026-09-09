@@ -99,14 +99,14 @@ PLACEMENT = {
  "C1":(2.0,31.0,90,"F"), "U1":(4.5,27.5,0,"F"), "C2":(4.5,31.0,90,"F"), "L1":(10.5,27.5,0,"F"), "C3":(15.2,25.0,90,"F"), "C4":(17.5,30.0,90,"F"),
  "C5":(1.8,36.0,90,"F"), "U2":(4.5,36.0,0,"F"), "C6":(7.5,36.0,90,"F"),
  "R32":(10.0,34.5,90,"F"), "U3":(13.0,36.0,0,"F"), "C7":(16.2,34.5,90,"F"), "C27":(18.0,34.5,90,"F"), "C8":(18.0,37.5,90,"F"),
- "U5":(3.8,42.0,90,"F"), "R4":(7.4,39.0,0,"B"), "R7":(2.25,44.5,0,"B"), "C11":(6.8,46.0,0,"B"),
+ "U5":(3.8,42.0,90,"F"), "R4":(7.4,39.0,0,"B"), "R45":(7.5,42.7,0,"B"), "R7":(2.25,44.5,0,"B"), "C11":(6.8,46.0,0,"B"),
  # Right-side MCU lane beside U5. Rotation 180 faces RS-485 toward U5 and
  # leaves the centre-left lane for SWD and low-speed fanout.
  "U6":(14.5,44.5,180,"F"), "C12":(9.0,46.0,0,"B"), "C13":(11.8,46.0,0,"B"), "C14":(14.6,46.0,0,"B"), "C26":(17.4,46.0,0,"B"),
  "R8":(8.0,52.5,0,"B"), "C15":(10.8,52.5,180,"B"), "R9":(13.6,52.5,0,"B"), "R10":(16.0,54.5,0,"B"), "R11":(18.0,54.5,90,"B"),
  "R18":(9.0,54.5,0,"B"), "R19":(12.0,54.5,0,"B"),
  "J3":(4.5,56.5,0,"F"),
- # J2/F2/R12-R16/D4-D6 deleted 2026-09-05 (BOM-REDUCTION.md 3). J105/J106 are
+ # J2/F2/R12-R16/D4-D6 deleted 2026-09-05 (docs/archive/2026-09-09-pcb-plans/BOM-REDUCTION.md 3). J105/J106 are
  # the bench-bridge TTL lands that replace R15/R16, kept in the same band so the
  # USART2 runs do not lengthen.
  # R41 moved 1.00 mm left (12.4 -> 11.4) rather than moving J105/J106.
@@ -164,15 +164,11 @@ PLACEMENT = {
  # CE compliance telemetry.  R43/R44 divide U7's DRIVE pin -- see gen_sch.py --
  # and C34 is the sampling reservoir, so it belongs at the divider tap, not at
  # the MCU.  D7 clamps the CE ELECTRODE, i.e. the exposed side of R42.
- # D7 sits ON the B.Cu HEATER_LOW spreader, which looks wrong in a layer plot and
- # is not: measured by filling the zone with and without it, the clamp costs
- # 4.58 mm2 of 339.90, or 1.35 %, against a spreader HEATED-SPREADER.md 2 already
- # gives 2.2x margin.  The alternative is worse: the front side here is entirely
- # inside U11's courtyard, and the only free back-side position cable-side of the
- # pour gap is x=2.5, which would hang the clamp off a 7 mm STUB -- poor practice
- # for ESD, where series inductance to the clamp is the thing that matters.
- # In-line and near the cell beats intact-but-stubbed.
- "R43":(10.0,76.75,0,"B"), "R44":(6.75,76.75,0,"B"), "C34":(12.5,76.75,0,"B"), "D7":(10.0,88.0,0,"B"),
+ # Rev B moves D7 to x=3.8, with a corrected DBZ pinout and a direct ground
+ # stitch. The former x=10 displacement measurement does not apply here.
+ # Requalify the filled spreader/thermal result for the revised candidate;
+ # see docs/2026-09-09-revb-protection.md for the CE-only ESD boundary.
+ "R43":(10.0,76.75,0,"B"), "R44":(6.75,76.75,0,"B"), "C34":(12.5,76.75,0,"B"), "D7":(3.8,88.0,0,"B"),
  # Rail-monitor filters, at the MCU pins they feed rather than at the dividers.
  "C32":(14.5,44.5,0,"B"), "C33":(14.5,47.5,0,"B"),
  "U11":(10.0,93.5,0,"F"),

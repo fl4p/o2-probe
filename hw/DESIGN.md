@@ -1,13 +1,17 @@
-# O2 probe Rev A design record
+# O2 probe design record
 
 ## Status and source of truth
 
 `gen_sch.py` is the source of truth for the schematic. Do not hand-edit the
 generated `o2-probe.kicad_sch`; change the generator and regenerate it.
 
-The schematic and PCB are released for a bare-board first article. This is not
-an automated-PCBA or production-qualified release; SGX cell fit, enclosure fit,
-manual assembly review, and bench qualification remain acceptance gates.
+The root PCB records the fabricated Rev A article. The current schematic is
+Rev B: RV1 is absent; U15 supplies the fixed reference. The latest routed
+Rev B candidate is [routing/revb-interfaces](routing/revb-interfaces/README.md),
+with the independent PC7 receiver-enable route, R45, 1k CE resistor and corrected
+D7 pinout. It is not a fabrication release. See the
+[completion and qualification record](docs/2026-09-09-revb-protection.md) and
+[archived plan index](docs/archive/2026-09-09-pcb-plans/README.md).
 
 Regenerate and verify with:
 
@@ -20,7 +24,7 @@ python3 audit_schematic.py
   -o o2-probe-schematic.pdf o2-probe.kicad_sch
 ```
 
-Current generated result: 100 components, 306 assigned package pins, 85 nets,
+Current generated result: 101 components, 308 assigned package pins, 85 nets,
 KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
 
 ## Electrical architecture
@@ -145,7 +149,7 @@ KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
   at 85 °C for a 0.75 A part), so one holding the heater's 83 mA would nuisance-
   trip. Size it once the ring's resistance is fixed, or protect at the ring.
 - **J2 is DELETED**, with F2, R12-R16 and D4/D5/D6 — fourteen never-fitted
-  parts, 2026-09-05, `BOM-REDUCTION.md` §3. It was the sealed-side expansion
+  parts, 2026-09-05, `docs/archive/2026-09-09-pcb-plans/BOM-REDUCTION.md` §3. It was the sealed-side expansion
   connector for a future external CO2 head (switched 12 V, fused 3.3 V, I2C,
   interrupt, spare UART) and was never the programming connector. It was also
   224.8 mm² of courtyard — 14 % of every courtyard on the board — plus two
@@ -745,7 +749,7 @@ outstanding and are not from the layout: the footprint Value fields for DZ1,
 Q1, R20, R21, R26 and R27 lag symbol values changed by a separate, in-progress
 schematic edit. They must be back to zero before release.
 **AND THE BOARD IS NOW BEHIND THE SCHEMATIC BY MORE THAN THAT.** The 2026-09-05
-BOM pass (`BOM-REDUCTION.md`) is schematic-side ONLY: `gen_pcb.py` was
+BOM pass (`docs/archive/2026-09-09-pcb-plans/BOM-REDUCTION.md`) is schematic-side ONLY: `gen_pcb.py` was
 deliberately NOT run, because the working tree holds another session's
 in-progress two-layer layout work in `o2-probe.kicad_pcb`. The board still
 carries J2, U14, C23/C24, R5/R6, R12-R16 and D4/D5/D6, still has R32/C7 in
