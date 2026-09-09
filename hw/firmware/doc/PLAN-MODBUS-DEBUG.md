@@ -19,6 +19,11 @@ Past bring-up incidents demonstrated the high friction of debugging over the wir
 4. **Crash Blindness:** When the probe resets unexpectedly or the Independent Watchdog (IWDG) triggers, `RESET_CAUSE` (`0x001A`) only reports "IWDG" or "SOFT". The program counter (`PC`), link register (`LR`), and crash site are lost.
 5. **Tooling Gaps:** Tooling is rigid and specialized (`o2p_poll.py` for fixed tables, `o2p_thermal.py` for thermal steps, `o2p_update.py` for flashing). There is no interactive CLI to inspect, write, or stream arbitrary registers with symbolic names and unit conversions.
 
+### 1.1 Scope Boundary: Digital vs Analog Fault Domains
+This architecture addresses **digital, configuration, bus, and crash observability**. It does **not** and cannot replace analog board-level observability:
+- As demonstrated during bench bring-up (`CELL-AFE-DEBUG.md` and `AFE-BRING-UP-POSTMORTEM.md:3.7`), analog interconnect defects (such as an open joint on U7 pin 11 `VREF_TRIM`, bridged electrodes, or crossed flying harness leads) leave digital I²C readback reporting healthy `0x0CCD` while a missing reference causes a railed VOUT to be miscalculated as a phantom ~238 µA overcurrent.
+- Diagnosing analog interconnect faults requires physical probing (`CELL-AFE-DEBUG.md`) and PCB routing revisions (Rev B asks 3.7 and 3.9: monitoring `VREF_TRIM` and dedicated buffered electrode channels). The Modbus debug architecture provides the software tools to isolate digital and configuration causes before picking up the soldering iron.
+
 ---
 
 ## 2. System Architecture & Register Layout
