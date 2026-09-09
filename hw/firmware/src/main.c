@@ -1029,7 +1029,28 @@ static void finish_o2(o2p_snapshot_t *s)
          * carries its own provenance instead of looking like a verified one. */
         const bool bias_measurable = (O2P_HW_BIAS_ADC_REACHES_ELECTRODES != 0);
         const bool bias_measured = bias_verified_recently();
-        const bool bias_evidence = bias_measurable ? bias_measured : true;
+
+        /* CORRECTION, 2026-09-09, from review of the commit that introduced
+         * this gate. That commit refused to bound the current, arguing from
+         * DS-0637 Note 1 that an unbiased cell saturates with oxygen and so
+         * current magnitude proves nothing about bias. THAT MISREAD THE NOTE:
+         * it describes the settling transient AFTER bias is reapplied - the
+         * stored oxygen "is consumed when the bias is reapplied" - and says
+         * nothing about what an unbiased cell outputs. The note does not
+         * license discarding the check, and discarding it left a real hole:
+         * a partially faulty electrode path reading 60 uA in air passes
+         * o2p_calibrate_air()'s 20-200 uA window, is stored permanently, and
+         * decodes a later true 10 %vol as roughly 16 %.
+         *
+         * So when the bias cannot be measured, the stored point must at least
+         * lie inside the cell's own datasheet population. This does NOT
+         * establish the bias - nothing on this board can - it bounds the
+         * damage of accepting a point without one. */
+        const bool air_current_plausible_unverified =
+            (cell_na >= O2P_AIR_CAL_UNVERIFIED_MIN_NA &&
+             cell_na <= O2P_AIR_CAL_UNVERIFIED_MAX_NA);
+        const bool bias_evidence =
+            bias_measurable ? bias_measured : air_current_plausible_unverified;
 
         if (settled && t_gas != O2P_I16_INVALID &&
             bias_evidence &&

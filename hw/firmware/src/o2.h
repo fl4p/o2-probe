@@ -249,6 +249,33 @@ typedef struct {
 #define O2P_AIR_CAL_MIN_NA  20000
 #define O2P_AIR_CAL_MAX_NA 200000
 
+/* A TIGHTER window, used only when the cell's bias could not be MEASURED.
+ *
+ * Added 2026-09-09 after review. The wide window above exists so an aged cell
+ * still calibrates - a cell drifts downward over life and refusing it would
+ * strand a working probe. That is the right trade when something else has
+ * already proved the cell is at its commanded bias.
+ *
+ * When nothing has, it is the wrong trade. The failure it lets through:
+ * a partially faulty RE or electrode path, REFCN still reading back 0xCD,
+ * rails healthy, air current 60 uA. That passes 20-200 uA, is stored
+ * PERMANENTLY, and a later true 10 %vol then decodes near 16 % - inside the
+ * publishable range, with no fault bit anywhere.
+ *
+ * So: less evidence, tighter bound. DS-0637 Issue 2 gives 0.1 +/- 0.03 mA in
+ * air, and a point outside the datasheet's own population is not something to
+ * store silently on no other evidence.
+ *
+ * THIS IS NOT A BIAS CHECK and must not be described as one. It bounds the
+ * damage; it does not establish the bias. An earlier version of the
+ * calibration gate argued from DS-0637 Note 1 that current magnitude says
+ * nothing about bias at all - that MISREAD the note, which describes the
+ * post-bias settling transient ("saturated with oxygen gas which is consumed
+ * when the bias is reapplied"), not the output of an unbiased cell. The note
+ * does not license discarding this check. */
+#define O2P_AIR_CAL_UNVERIFIED_MIN_NA  70000
+#define O2P_AIR_CAL_UNVERIFIED_MAX_NA 130000
+
 static inline bool o2p_cal_air_plausible(int32_t cell_na)
 {
     return cell_na >= O2P_AIR_CAL_MIN_NA && cell_na <= O2P_AIR_CAL_MAX_NA;

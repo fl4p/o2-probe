@@ -746,12 +746,22 @@ static uint8_t apply_config_word(o2p_config_t *c, uint16_t a, uint16_t v,
         c->cal_zero_na = (int32_t)(((uint32_t)c->cal_zero_na & 0xFFFF0000u) | v);
         c->cal_zero_taken = 1u;
         break;
+    /* Both halves clear cal_bias_verified, for the same reason cal_zero_taken
+     * is SET on the zero path above: a constant and its provenance must move
+     * together. A hand-written air point was not verified by this firmware
+     * against anything - whatever the previous point's provenance was, it does
+     * not describe this one. Without this, a Modbus write inherits the old
+     * bit and CAL_STATE reports a bias-verified calibration that nothing
+     * verified, which is worse than having no bit at all. Found by review,
+     * 2026-09-09. */
     case O2P_REG_CAL_AIR_NA_HI:
         c->cal_air_na = (int32_t)(((uint32_t)v << 16) |
                                   ((uint32_t)c->cal_air_na & 0xFFFFu));
+        c->cal_bias_verified = 0u;
         break;
     case O2P_REG_CAL_AIR_NA_LO:
         c->cal_air_na = (int32_t)(((uint32_t)c->cal_air_na & 0xFFFF0000u) | v);
+        c->cal_bias_verified = 0u;
         break;
     case O2P_REG_CAL_TEMP_C100: {
         int16_t t = (int16_t)v;

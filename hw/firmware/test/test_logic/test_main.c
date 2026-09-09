@@ -5566,6 +5566,65 @@ static void test_cal_state_reports_an_unverified_bias(void)
     TEST_ASSERT_TRUE(v[0] & O2P_CAL_STATE_BIAS_UNVERIFIED);
 }
 
+/* A hand-written air point must not inherit the previous point's provenance.
+ *
+ * Review finding, 2026-09-09: CAL_AIR_NA_HI/LO replaced the constant and left
+ * cal_bias_verified alone, so a Modbus write could land a calibration that
+ * CAL_STATE then reported as bias-verified because an EARLIER point had been.
+ * A bit that can lie is worse than no bit. */
+static void test_a_written_air_point_resets_its_provenance(void)
+{
+    o2p_regmap_t rm;
+    uint16_t v[1];
+    o2p_regmap_init(&rm);
+
+    /* Start from a point that WAS verified. */
+    rm.cfg.cal_air_na = 99000;
+    rm.cfg.cal_bias_verified = 1u;
+    TEST_ASSERT_EQUAL_UINT8(0u, o2p_regmap_read(&rm, O2P_REG_CAL_STATE, 1u, v));
+    TEST_ASSERT_FALSE(v[0] & O2P_CAL_STATE_BIAS_UNVERIFIED);
+
+    /* Overwrite it over the wire. Either half must clear the bit. */
+    TEST_ASSERT_EQUAL_UINT8(0u, o2p_regmap_write(&rm, O2P_REG_CAL_AIR_NA_LO, 1u,
+                                                 (uint16_t[]){ 40000u & 0xFFFFu }));
+    TEST_ASSERT_EQUAL_UINT8(0u, o2p_regmap_read(&rm, O2P_REG_CAL_STATE, 1u, v));
+    TEST_ASSERT_TRUE(v[0] & O2P_CAL_STATE_BIAS_UNVERIFIED);
+
+    rm.cfg.cal_bias_verified = 1u;
+    TEST_ASSERT_EQUAL_UINT8(0u, o2p_regmap_write(&rm, O2P_REG_CAL_AIR_NA_HI, 1u,
+                                                 (uint16_t[]){ 1u }));
+    TEST_ASSERT_EQUAL_UINT8(0u, o2p_regmap_read(&rm, O2P_REG_CAL_STATE, 1u, v));
+    TEST_ASSERT_TRUE(v[0] & O2P_CAL_STATE_BIAS_UNVERIFIED);
+}
+
+/* The window that applies when the bias could NOT be measured.
+ *
+ * WHAT THIS DOES NOT TEST, stated because the neighbouring bias tests make the
+ * same admission: main.c does not compile on the host, so nothing here drives
+ * the calibration gate. This pins the CONSTANTS and the relationship between
+ * them, which is what a later edit would get wrong. */
+static void test_the_unverified_air_window_is_the_datasheet_population(void)
+{
+    /* DS-0637 Issue 2: 0.1 +/- 0.03 mA in air. */
+    TEST_ASSERT_EQUAL_INT32( 70000, O2P_AIR_CAL_UNVERIFIED_MIN_NA);
+    TEST_ASSERT_EQUAL_INT32(130000, O2P_AIR_CAL_UNVERIFIED_MAX_NA);
+
+    /* STRICTLY TIGHTER than the window used when the bias IS measured. If a
+     * later edit widens it to match, the safeguard is gone and this fails. */
+    TEST_ASSERT_TRUE(O2P_AIR_CAL_UNVERIFIED_MIN_NA > O2P_AIR_CAL_MIN_NA);
+    TEST_ASSERT_TRUE(O2P_AIR_CAL_UNVERIFIED_MAX_NA < O2P_AIR_CAL_MAX_NA);
+
+    /* THE KNOWN-BAD from the review: a partially faulty electrode path reading
+     * 60 uA in air passes the wide window and must NOT pass this one. */
+    TEST_ASSERT_TRUE(60000 >= O2P_AIR_CAL_MIN_NA);              /* wide: accepts */
+    TEST_ASSERT_TRUE(60000 <  O2P_AIR_CAL_UNVERIFIED_MIN_NA);   /* tight: refuses */
+
+    /* And the point actually taken on the bench, 99160 nA, must still pass -
+     * a safeguard that refuses the healthy case is not a safeguard. */
+    TEST_ASSERT_TRUE(99160 >= O2P_AIR_CAL_UNVERIFIED_MIN_NA &&
+                     99160 <= O2P_AIR_CAL_UNVERIFIED_MAX_NA);
+}
+
 static void test_the_wire_version_tracks_the_wire_contract(void)
 {
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
@@ -6187,6 +6246,8 @@ int main(void)
     RUN_TEST(test_the_cell_bias_window_catches_an_open_potentiostat);
     RUN_TEST(test_the_bias_guard_is_gated_on_as_built_wiring);
     RUN_TEST(test_cal_state_reports_an_unverified_bias);
+    RUN_TEST(test_a_written_air_point_resets_its_provenance);
+    RUN_TEST(test_the_unverified_air_window_is_the_datasheet_population);
     RUN_TEST(test_the_rev_a_divider_scaling);
     RUN_TEST(test_the_wire_version_tracks_the_wire_contract);
     RUN_TEST(test_cell_current_is_the_departure_from_the_internal_zero);
