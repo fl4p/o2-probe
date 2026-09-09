@@ -904,9 +904,24 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
     }
 
 #if O2P_DEBUG_ENABLE
-    /* Memory peek mailbox: atomic 2-register FC16 write required */
+    /* Memory peek mailbox: atomic FC16 trigger write required.
+     *
+     * Two accepted forms, both starting exactly at O2P_REG_PEEK_BASE:
+     *   2 registers - address hi/lo, burst length defaults to 4 words;
+     *   3 registers - address hi/lo plus the requested word count, 1..4.
+     *
+     * The third register is how the 1..4-word burst the register-map document
+     * advertises actually reaches the firmware. Without it every request was a
+     * fixed 4-word burst, and the length could only be validated after the
+     * fact by the client, which is not validation. A count outside 1..4 is a
+     * malformed trigger and is refused like any other, leaving the previous
+     * result and status untouched rather than half-overwritten. */
     if (in_block(addr, count, O2P_REG_PEEK_BASE, O2P_REG_PEEK_COUNT)) {
-        if (addr != O2P_REG_PEEK_BASE || count != 2u) {
+        if (addr != O2P_REG_PEEK_BASE || (count != 2u && count != 3u)) {
+            return O2P_MB_EX_ILLEGAL_VALUE;
+        }
+        uint16_t words = (count == 3u) ? in[2] : 4u;
+        if (words < 1u || words > 4u) {
             return O2P_MB_EX_ILLEGAL_VALUE;
         }
         rm->peek_addr_hi = in[0];
@@ -919,22 +934,31 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
             return 0u;
         }
 
-        bool in_sram = (target >= 0x20000000u && target <= 0x20008FFCu);
-        bool in_flash = (target >= 0x08000000u && target <= 0x0801FFFCu);
-        bool in_sys = ((target >= 0x1FFF7590u && target <= 0x1FFF7598u) || target == 0x1FFF75E0u);
-
-        if (!in_sram && !in_flash && !in_sys) {
+        /* Each permitted region is contiguous and is identified by the address
+         * of its LAST aligned word, so the burst check below is one comparison
+         * and cannot silently admit a run that leaves the region it started
+         * in. The flash-size register is a region of exactly one word; the UID
+         * is three. Both were unreachable while the check assumed every burst
+         * was four words long. */
+        uint32_t region_last;
+        if (target >= 0x20000000u && target <= 0x20008FFCu) {
+            region_last = 0x20008FFCu;
+        } else if (target >= 0x08000000u && target <= 0x0801FFFCu) {
+            region_last = 0x0801FFFCu;
+        } else if (target >= 0x1FFF7590u && target <= 0x1FFF7598u) {
+            region_last = 0x1FFF7598u;
+        } else if (target == 0x1FFF75E0u) {
+            region_last = 0x1FFF75E0u;
+        } else {
             rm->peek_status = O2P_PEEK_ERR_RANGE;
             for (int w = 0; w < 4; w++) rm->peek_words[w] = 0xFFFFFFFFu;
             return 0u;
         }
 
-        uint32_t burst_end = target + 12u;
-        bool burst_ok = (in_sram && burst_end <= 0x20008FFCu) ||
-                        (in_flash && burst_end <= 0x0801FFFCu) ||
-                        (in_sys && burst_end <= 0x1FFF7598u) ||
-                        (target == 0x1FFF75E0u && target == burst_end);
-        if (!burst_ok) {
+        /* target is at most 0x0801FFFC and words at most 4, so the last
+         * address cannot wrap. */
+        uint32_t last = target + ((uint32_t)words - 1u) * 4u;
+        if (last > region_last) {
             rm->peek_status = O2P_PEEK_ERR_RANGE;
             for (int w = 0; w < 4; w++) rm->peek_words[w] = 0xFFFFFFFFu;
             return 0u;
@@ -942,10 +966,10 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
 
         for (int w = 0; w < 4; w++) {
             uint32_t a = target + (uint32_t)w * 4u;
-            bool ok = (in_sram && a <= 0x20008FFCu) ||
-                      (in_flash && a <= 0x0801FFFCu) ||
-                      (in_sys && ((a >= 0x1FFF7590u && a <= 0x1FFF7598u) || a == 0x1FFF75E0u));
-            if (ok) {
+            /* The region check above already proves every requested word is
+             * mapped; this repeats it per dereference because the cost of
+             * being wrong here is a HardFault on a potted board. */
+            if ((uint32_t)w < (uint32_t)words && a <= region_last) {
 #ifndef O2P_HOST_TEST
                 rm->peek_words[w] = *(const volatile uint32_t *)a;
 #else

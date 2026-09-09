@@ -483,11 +483,18 @@ enum {
 #endif
 
 #if O2P_DEBUG_ENABLE
-/* ---- Memory peek block: 0x0065, 11 registers, read/write, VOLATILE ---- */
+/* ---- Memory peek block: 0x0065, 11 registers, read/write, VOLATILE ----
+ *
+ * The trigger is an FC16 write starting exactly at O2P_REG_PEEK_ADDR_HI, of
+ * either 2 registers (address hi/lo; 4 words are read) or 3 registers (address
+ * hi/lo plus a word count of 1..4). O2P_REG_PEEK_STATUS is therefore write-
+ * as-count / read-as-status: the third register of a trigger write carries the
+ * requested burst length, and the firmware overwrites it with the outcome.
+ * Words beyond the requested count read back as 0xFFFFFFFF. */
 enum {
     O2P_REG_PEEK_ADDR_HI       = 0x0065u,
     O2P_REG_PEEK_ADDR_LO       = 0x0066u,
-    O2P_REG_PEEK_STATUS        = 0x0067u,
+    O2P_REG_PEEK_STATUS        = 0x0067u,   /* W: burst words 1..4; R: status */
     O2P_REG_PEEK_W0_HI         = 0x0068u,
     O2P_REG_PEEK_W0_LO         = 0x0069u,
     O2P_REG_PEEK_W1_HI         = 0x006Au,
@@ -633,9 +640,16 @@ enum {
  * 0x000B adds HEATER_BLOCK (0x002E) and SAMPLER_TIMING_MS (0x002F) to the
  * diagnostic block, expanding it from 30 to 32 registers.
  *
+ * 0x000C makes the peek trigger accept a third register carrying the burst
+ * length (1..4 words). No register moves, but the wire behaviour changes in
+ * both directions: a 3-register write to 0x0065 used to be exception 03 and is
+ * now the documented form, and addresses that answered ERR_RANGE because four
+ * words would not fit - the whole of the UID and the flash-size register - now
+ * answer OK for a burst that does fit.
+ *
  * For "which build is this", read BUILD_ID (0x0028/0x0029) - this number is
  * hand-maintained and says nothing about the binary. */
-#define O2P_FW_VERSION 0x000Bu  /* v0.11 - diagnostic block grew with HEATER_BLOCK and SAMPLER_TIMING_MS */
+#define O2P_FW_VERSION 0x000Cu  /* v0.12 - peek trigger accepts an explicit 1..4 word burst count */
 
 /* Overridden by tools/pio_build_id.py on every target build. The default is
  * reached only by the host test build, and means "no stamp", never a commit. */

@@ -35,7 +35,7 @@ All debug and diagnostic blocks are placed strictly in the free ground between t
    0x0030..0x004A : Configuration Block (flash-backed)
    0x0050..0x005F : Firmware Update Control Block
    0x0060..0x0064 : Volatile Heater Test Block
-   0x0065..0x006F : Memory Peek Mailbox (Burst window up to 4 words, 11 registers)
+   0x0065..0x006F : Memory Peek Mailbox (Burst window of 1-4 requested words, 11 registers)
    0x0070..0x0076 : Typed Sensor Diagnostic Mailbox (7 registers)
    0x0077..0x007F : Crash Context & Retention Mailbox (backed by TAMP->BKP0R..4R, 9 registers)
    0x0080..       : Firmware Update Data Window
@@ -52,7 +52,7 @@ All debug and diagnostic blocks are placed strictly in the free ground between t
    - **SRAM:** `0x20000000 .. 0x20008FFC` (36 KiB; `0x20008FFC` is the exact last 4-byte aligned word).
    - **Flash:** `0x08000000 .. 0x0801FFFC` (128 KiB; `0x0801FFFC` is the exact last 4-byte aligned word).
    - **Device Constants:** STM32G071 96-bit Unique Device ID (`0x1FFF7590`, `0x1FFF7594`, `0x1FFF7598`) and Flash Size Register (`0x1FFF75E0`). Unmapped option-byte holes are completely excluded.
-4. **Burst Throughput (Resolving A-4):** Rather than 1 word per 2 Modbus round-trips (~25s to dump `g_rm`), the mailbox accepts a count of 1 to 4 words (up to 16 bytes), returning them into 8 contiguous read registers (`0x0068..0x006F`).
+4. **Burst Throughput (Resolving A-4):** Rather than 1 word per 2 Modbus round-trips (~25s to dump `g_rm`), the mailbox accepts a count of 1 to 4 words (up to 16 bytes), returning them into 8 contiguous read registers (`0x0068..0x006F`). The count is a **third register of the trigger write**, so the firmware validates it; a client that merely limits how many already-fetched words it prints has validated nothing. A burst must lie wholly inside the region it starts in, which is why the count is load-bearing rather than cosmetic: the UID is three words and the flash-size register is one, so neither is reachable by a fixed four-word burst.
 
 ### 3.2 Register Layout (`0x0065..0x006F`)
 
@@ -60,7 +60,7 @@ All debug and diagnostic blocks are placed strictly in the free ground between t
 |---|---|---|---|
 | `0x0065` | `O2P_REG_PEEK_ADDR_HI` | R/W | Target physical address [31:16] |
 | `0x0066` | `O2P_REG_PEEK_ADDR_LO` | R/W | Target physical address [15:0]; FC16 writes trigger execution |
-| `0x0067` | `O2P_REG_PEEK_STATUS` | RO | `0`=NONE, `1`=OK, `2`=ERR_RANGE, `3`=ERR_ALIGN |
+| `0x0067` | `O2P_REG_PEEK_STATUS` | R/W | **R:** `0`=NONE, `1`=OK, `2`=ERR_RANGE, `3`=ERR_ALIGN. **W:** as the third register of a trigger write, the requested burst length, 1..4 |
 | `0x0068` | `O2P_REG_PEEK_W0_HI` | RO | Word 0 [31:16]; `0xFFFF` if unexecuted |
 | `0x0069` | `O2P_REG_PEEK_W0_LO` | RO | Word 0 [15:0]; `0xFFFF` if unexecuted |
 | `0x006A` | `O2P_REG_PEEK_W1_HI` | RO | Word 1 [31:16] |
@@ -71,7 +71,7 @@ All debug and diagnostic blocks are placed strictly in the free ground between t
 | `0x006F` | `O2P_REG_PEEK_W3_LO` | RO | Word 3 [15:0] |
 
 ### 3.3 Atomic Trigger & Dispatch Semantics
-- **Atomic FC16 Requirement (Resolving A-1):** The write callback receives `(addr, count, in)`. Single-register writes to `0x0066` are rejected: if `addr == O2P_REG_PEEK_ADDR_HI && count == 2`, the write is accepted and executed; any other write length or offset touching `0x0065..0x0066` returns Modbus Exception `0x03` (`ILLEGAL_DATA_VALUE`).
+- **Atomic FC16 Requirement (Resolving A-1):** The write callback receives `(addr, count, in)`. Single-register writes to `0x0066` are rejected: the write is accepted and executed only if `addr == O2P_REG_PEEK_ADDR_HI` and `count` is 2 (address only, burst defaults to 4 words) or 3 (address plus a burst length of 1..4). Any other write length or offset touching the block, and any burst length outside 1..4, returns Modbus Exception `0x03` (`ILLEGAL_DATA_VALUE`). A refused trigger leaves the previous address, words and status untouched, so a malformed request cannot half-overwrite a result the operator is still reading.
 - **Initialization (Resolving A-2):** In `o2p_regmap_init()`, all `PEEK_W*_HI/LO` registers are explicitly initialized to `0xFFFF` and `PEEK_STATUS` to `0` (`NONE`), avoiding deceptive zero-readbacks.
 
 ---

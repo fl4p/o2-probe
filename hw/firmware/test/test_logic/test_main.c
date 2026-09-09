@@ -5571,7 +5571,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    TEST_ASSERT_EQUAL_HEX16(0x000Bu, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x000Cu, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_UINT16(27u, O2P_REG_CONFIG_COUNT);
     /* 0x000B: diag block grew with HEATER_BLOCK and SAMPLER_TIMING_MS.
      * 0x000A: config block grew with TIP_SETPOINT and HEATER_TIP_CONSENT,
@@ -5807,6 +5807,104 @@ static void test_peek_mailbox_bounds_and_alignment(void)
     TEST_ASSERT_EQUAL_HEX16(0x2000u, out[0]);
     TEST_ASSERT_EQUAL_HEX16(0x0100u, out[1]);
     TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_OK, out[2]);
+}
+
+/* The peek burst length is the master's to choose, and the firmware is what
+ * has to validate it.
+ *
+ * While every request was a fixed four-word burst, the whole-burst range check
+ * rejected every target whose region has fewer than four words left - which is
+ * every address the register-map document lists under "Device Constants". The
+ * 96-bit UID is three words and the flash-size register is one, so BOTH were
+ * unreachable: the mailbox answered ERR_RANGE to the exact reads it was
+ * documented to serve. A one-word peek at the last word of SRAM or Flash was
+ * refused for the same reason. */
+static void test_peek_burst_length_is_requested_not_assumed(void)
+{
+    o2p_regmap_t rm;
+    o2p_regmap_init(&rm);
+
+    /* The 96-bit UID: three words, and only reachable as a three-word burst. */
+    uint16_t uid3[3] = { 0x1FFFu, 0x7590u, 3u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm, O2P_REG_PEEK_BASE, 3u, uid3));
+    TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_OK, rm.peek_status);
+    /* The word past the request is padding, not a fourth UID word. */
+    TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFu, rm.peek_words[3]);
+
+    uint16_t uid4[3] = { 0x1FFFu, 0x7590u, 4u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm, O2P_REG_PEEK_BASE, 3u, uid4));
+    TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_ERR_RANGE, rm.peek_status);
+
+    /* The flash-size register is a region of exactly one word. */
+    uint16_t fsz[3] = { 0x1FFFu, 0x75E0u, 1u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm, O2P_REG_PEEK_BASE, 3u, fsz));
+    TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_OK, rm.peek_status);
+
+    uint16_t fsz2[3] = { 0x1FFFu, 0x75E0u, 2u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm, O2P_REG_PEEK_BASE, 3u, fsz2));
+    TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_ERR_RANGE, rm.peek_status);
+
+    /* The last aligned word of SRAM: readable alone, not as the head of a
+     * burst that would run off the end. */
+    uint16_t sram_last1[3] = { 0x2000u, 0x8FFCu, 1u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm, O2P_REG_PEEK_BASE, 3u, sram_last1));
+    TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_OK, rm.peek_status);
+
+    uint16_t sram_last2[3] = { 0x2000u, 0x8FFCu, 2u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm, O2P_REG_PEEK_BASE, 3u, sram_last2));
+    TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_ERR_RANGE, rm.peek_status);
+
+    /* A burst may not cross out of the region it started in. */
+    uint16_t flash_last[3] = { 0x0801u, 0xFFFCu, 2u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm, O2P_REG_PEEK_BASE, 3u, flash_last));
+    TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_ERR_RANGE, rm.peek_status);
+}
+
+/* A malformed trigger must not disturb the previous result. */
+static void test_peek_rejects_a_count_outside_one_to_four(void)
+{
+    o2p_regmap_t rm;
+    o2p_regmap_init(&rm);
+
+    uint16_t good[3] = { 0x2000u, 0x0100u, 2u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm, O2P_REG_PEEK_BASE, 3u, good));
+    TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_OK, rm.peek_status);
+    TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFu, rm.peek_words[2]);
+
+    uint16_t zero[3] = { 0x2000u, 0x0200u, 0u };
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm, O2P_REG_PEEK_BASE, 3u, zero));
+    uint16_t five[3] = { 0x2000u, 0x0200u, 5u };
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm, O2P_REG_PEEK_BASE, 3u, five));
+
+    /* Refused, so the address and status still describe the accepted peek. */
+    TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_OK, rm.peek_status);
+    TEST_ASSERT_EQUAL_HEX16(0x0100u, rm.peek_addr_lo);
+
+    /* Four registers is not a trigger at all. */
+    uint16_t four[4] = { 0x2000u, 0x0200u, 1u, 0u };
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm, O2P_REG_PEEK_BASE, 4u, four));
+}
+
+/* The two-register trigger predates the count and still means four words. */
+static void test_peek_two_register_trigger_still_means_four_words(void)
+{
+    o2p_regmap_t rm;
+    o2p_regmap_init(&rm);
+
+    uint16_t sram[2] = { 0x2000u, 0x0100u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm, O2P_REG_PEEK_BASE, 2u, sram));
+    TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_OK, rm.peek_status);
+    for (int w = 0; w < 4; w++) {
+        TEST_ASSERT_NOT_EQUAL_HEX32(0xFFFFFFFFu, rm.peek_words[w]);
+    }
+
+    /* And it is still refused where four words do not fit. */
+    uint16_t uid[2] = { 0x1FFFu, 0x7590u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm, O2P_REG_PEEK_BASE, 2u, uid));
+    TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_ERR_RANGE, rm.peek_status);
 }
 
 static void test_dmbox_validation_and_opcodes(void)
@@ -6080,6 +6178,9 @@ int main(void)
     RUN_TEST(test_the_transport_block_clears_the_config_record);
 #if O2P_DEBUG_ENABLE
     RUN_TEST(test_peek_mailbox_bounds_and_alignment);
+    RUN_TEST(test_peek_burst_length_is_requested_not_assumed);
+    RUN_TEST(test_peek_rejects_a_count_outside_one_to_four);
+    RUN_TEST(test_peek_two_register_trigger_still_means_four_words);
     RUN_TEST(test_dmbox_validation_and_opcodes);
     RUN_TEST(test_crash_mailbox_read_and_clear);
 #else

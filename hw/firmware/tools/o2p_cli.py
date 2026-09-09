@@ -293,10 +293,14 @@ def cmd_peek(bus, args):
         addr = symbols[target_str]
         name = "%s (0x%08X)" % (target_str, addr)
 
-    # Atomic 2-register FC16 write to 0x0065..0x0066
+    # Atomic 3-register FC16 write to 0x0065..0x0067: address hi/lo plus the
+    # burst length. The count is sent so the FIRMWARE validates it against the
+    # region bounds; clamping it here and reading a fixed 4-word burst is what
+    # made a 1-word peek at the last word of a region look like a range error.
+    words = args.count
     hi = (addr >> 16) & 0xFFFF
     lo = addr & 0xFFFF
-    bus.write(REGISTERS["PEEK_ADDR_HI"], [hi, lo])
+    bus.write(REGISTERS["PEEK_ADDR_HI"], [hi, lo, words])
 
     # Read back 11 registers: ADDR_HI, ADDR_LO, STATUS, W0_HI/LO, W1_HI/LO, W2_HI/LO, W3_HI/LO
     regs = bus.read(REGISTERS["PEEK_ADDR_HI"], 11)
@@ -306,8 +310,7 @@ def cmd_peek(bus, args):
     print("  Peek %s:" % name)
     print("    Status: %s" % status_str)
     if status == 1:
-        count = min(max(args.count, 1), 4)
-        for w in range(count):
+        for w in range(words):
             w_hi = regs[3 + w * 2]
             w_lo = regs[4 + w * 2]
             w_val = (w_hi << 16) | w_lo
