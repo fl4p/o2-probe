@@ -84,6 +84,11 @@ CSV_COLUMNS = [
     "o2_comp_pct", "o2_raw_ua", "t_tip_c", "t_chamber_c", "rh_pct",
     "heater_duty_pct", "faults", "faults_named", "o2_trusted",
     "vref_mv", "va_mv", "vin_mv", "afe_mv", "dew_margin_k", "t_die_c",
+    # t_afe_c was decoded from 0x002C since e2fd562 but never written: it
+    # was missing from this list, and DictWriter(extrasaction="ignore")
+    # dropped it without a word. Found 2026-09-09 when the first AFE tempco
+    # run was about to be logged through this tool.
+    "t_afe_c",
     "uptime_s", "fw", "hw", "reset_cause", "lmp_readback",
     "mb_crc_errs", "mb_frame_errs", "i2c_errs", "settle_restarts",
     "faults_ever", "faults_ever_named", "ads_fail_count", "exp_data",
@@ -299,6 +304,7 @@ def show(row):
                       for k in ("vref_mv", "va_mv", "vin_mv", "afe_mv")))
         print("  dew margin    %s" % fmt(row["dew_margin_k"], " K"))
         print("  die temp      %s" % fmt(row["t_die_c"], " C"))
+        print("  AFE temp      %s" % fmt(row.get("t_afe_c"), " C"))
         print("  uptime        %d s   seq %d   fw %s hw %s"
               % (row["uptime_s"], row["sample_seq"], row["fw"], row["hw"]))
         print("  errors        crc %d  frame %d  i2c %d  ads_fail %d  "

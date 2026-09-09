@@ -86,7 +86,7 @@ REG_HEATER_PWM_HZ = 0x0036
 RH_SETPOINT_MIN_X100 = 5000
 RH_SETPOINT_MAX_X100 = 9000
 
-# main.c O2P_VIN_LOW_MV. Below this, O2P_F_VIN_LOW clears supply_ok and the
+# faults.h O2P_VIN_LOW_MV. Below this, O2P_F_VIN_LOW clears supply_ok and the
 # O2P_HB_SUPPLY interlock pins duty at zero - the heater will not run at all.
 VIN_LOW_MV = 9000
 
@@ -104,7 +104,7 @@ FAULT_BITS = [
 
 CSV_COLUMNS = [
     "utc", "t_s", "cycle", "phase", "cmd_duty_pct", "status", "detail",
-    "heater_duty_pct", "t_tip_c", "t_chamber_c", "t_die_c", "rh_pct",
+    "heater_duty_pct", "t_tip_c", "t_chamber_c", "t_die_c", "t_afe_c", "rh_pct",
     "vin_mv", "va_mv", "faults", "faults_named",
     "o2_comp_pct", "o2_raw_ua", "uptime_s", "sample_seq",
 ]
@@ -175,12 +175,16 @@ def check_against_source():
             bad.append("%s is %d in regmap.h, this tool assumes %d"
                        % (name, got, want))
 
-    got = define(main_c, "O2P_VIN_LOW_MV")
+    # O2P_VIN_LOW_MV lived in main.c and moved to faults.h; main.c only uses
+    # it now. Look where it is defined, and say which file disagreed.
+    got, where = define(faults_h, "O2P_VIN_LOW_MV"), "faults.h"
     if got is None:
-        bad.append("O2P_VIN_LOW_MV not found in main.c")
+        got, where = define(main_c, "O2P_VIN_LOW_MV"), "main.c"
+    if got is None:
+        bad.append("O2P_VIN_LOW_MV not found in faults.h or main.c")
     elif got != VIN_LOW_MV:
-        bad.append("O2P_VIN_LOW_MV is %d in main.c, this tool assumes %d"
-                   % (got, VIN_LOW_MV))
+        bad.append("O2P_VIN_LOW_MV is %d in %s, this tool assumes %d"
+                   % (got, where, VIN_LOW_MV))
 
     got = define(contract, "O2P_HW_HEATER_OHM")
     if got is None:
@@ -305,7 +309,7 @@ def preflight(bus, want_duty_pct, retries, ohm=HEATER_OHM,
         blocking.append(
             "FAULTS carries %s, so supply_ok is false and the O2P_HB_SUPPLY "
             "interlock pins duty at 0. VIN reads %s mV against the %d mV "
-            "O2P_VIN_LOW_MV threshold (main.c). Raise the input rail, or "
+            "O2P_VIN_LOW_MV threshold (faults.h). Raise the input rail, or "
             "measure it with a meter first - P = duty*VIN^2/R, so a wrong VIN "
             "scales theta by its square."
             % ("|".join(n for n in named if n in ("VIN_LOW", "VA_LOW")),
@@ -1244,7 +1248,8 @@ def load_csv(path):
     with open(path) as fh:
         for r in csv.DictReader(fh):
             for k in ("t_s", "cmd_duty_pct", "heater_duty_pct", "t_tip_c",
-                      "t_chamber_c", "t_die_c", "rh_pct", "vin_mv", "va_mv"):
+                      "t_chamber_c", "t_die_c", "t_afe_c", "rh_pct", "vin_mv",
+                      "va_mv"):
                 v = r.get(k, "")
                 try:
                     r[k] = float(v) if v not in ("", None) else None

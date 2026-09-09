@@ -29,9 +29,11 @@ python3 tools/test_swd_link.py              # the bridge's SWD transport, host-s
 python3 tools/test_resume.py                # the updater's resume decision, host-side
 python3 tools/test_baud.py                  # the updater's baud fallback, host-side
 python3 tools/test_fallback_identity.py     # finding a probe whose loader fell back
+python3 tools/test_tempco.py                # the AFE-tempco fit recovers a planted slope and refuses a flat run
 python3 tools/o2p_update.py --port /dev/tty.usbserial-X --status
 python3 tools/o2p_update.py --swd --status  # ... or through a bridge over SWD
 python3 tools/o2p_capture.py --once         # one live snapshot over SWD, to stdout
+python3 tools/o2p_tempco.py --csv run.csv --mode dummy   # AFE tempco from a heater run; docs/2026-09-09-afe-tempco-plan.md
 python3 tools/o2p_capture.py bench-logs/x.csv --count 1441 --interval 30   # 12 h
 ```
 
