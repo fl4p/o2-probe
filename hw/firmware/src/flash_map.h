@@ -57,6 +57,26 @@
 
 #define O2P_PAGE_ADDR(pg)  (O2P_FLASH_ORIGIN + (uint32_t)(pg) * O2P_FLASH_PAGE_BYTES)
 
+/* Turn a flash ADDRESS into a pointer you may dereference.
+ *
+ * Identity on the target - flash is memory-mapped, so the address IS the
+ * pointer. On the host it indexes a plain array standing in for the part, so
+ * that the code which READS and WRITES configuration can be exercised off-chip.
+ *
+ * Added 2026-09-09. Before it, config_flash.c dereferenced O2P_PAGE_ADDR()
+ * directly, which cannot work on a host, so the file was absent from
+ * env:native's build and the ordering rule its correctness depends on had NO
+ * coverage: swapping its two o2p_flash_program() calls still built and still
+ * passed every test. The consumer of that rule was tested; the producer was
+ * not. */
+#ifdef O2P_HOST_TEST
+extern uint8_t o2p_host_flash[O2P_FLASH_PAGE_BYTES * O2P_FLASH_PAGES];
+#define O2P_FLASH_PTR(a) \
+    ((void *)(o2p_host_flash + ((uint32_t)(a) - O2P_FLASH_ORIGIN)))
+#else
+#define O2P_FLASH_PTR(a) ((void *)(uintptr_t)(a))
+#endif
+
 #define O2P_BOOT_BASE   O2P_PAGE_ADDR(O2P_BOOT_PAGE)
 #define O2P_BOOT_BYTES  (O2P_BOOT_PAGES * O2P_FLASH_PAGE_BYTES)
 #define O2P_APP_BASE    O2P_PAGE_ADDR(O2P_APP_PAGE)

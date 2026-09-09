@@ -3,7 +3,11 @@
 #include "config_migrate.h"
 #include "config_select.h"
 #include "flash_hal.h"
+/* Nothing here touches a peripheral; the include only pulled in stm32g0xx.h
+ * and with it the inability to compile this file for the host. */
+#ifndef O2P_HOST_TEST
 #include "mcu.h"
+#endif
 #include "modbus_pdu.h"
 
 #include <stddef.h>
@@ -12,9 +16,14 @@
 /* STM32G071CB: 128 KiB of flash in 2 KiB pages, so 64 pages numbered 0..63.
  * FLASH_PAGE_SIZE comes from the ST HAL headers (0x800). Assert rather than
  * redefine, so a family change is caught instead of papered over. */
+/* Guarded because FLASH_PAGE_SIZE is an ST-header symbol and this file now
+ * also compiles for the host. The assertion still runs on every TARGET build,
+ * which is where a family change would actually arrive. */
+#ifndef O2P_HOST_TEST
 _Static_assert(FLASH_PAGE_SIZE == 2048u, "unexpected flash page size");
 _Static_assert(FLASH_PAGE_SIZE == O2P_FLASH_PAGE_BYTES,
                "flash_map.h and the ST headers disagree about the page size");
+#endif
 
 /* TWO pages, used alternately.
  *
@@ -41,7 +50,8 @@ _Static_assert(CONFIG_RECORD_SIZE == 64u,
 
 static bool read_record(uint8_t page, config_record_t *out)
 {
-    const config_record_t *r = (const config_record_t *)O2P_PAGE_ADDR(page);
+    const config_record_t *r =
+        (const config_record_t *)O2P_FLASH_PTR(O2P_PAGE_ADDR(page));
     if (r->magic != CONFIG_MAGIC) {
         return false;
     }
@@ -182,7 +192,7 @@ bool o2p_config_store(const o2p_config_t *cfg)
      * now leaves the previous page live and the probe reachable. */
     if (ok) {
         o2p_transport_record_t tback;
-        memcpy(&tback, (const void *)(O2P_PAGE_ADDR(target) +
+        memcpy(&tback, (const void *)O2P_FLASH_PTR(O2P_PAGE_ADDR(target) +
                                       O2P_TRANSPORT_OFFSET), sizeof(tback));
         ok = o2p_transport_record_ok(&tback) &&
              tback.sequence == r.sequence &&

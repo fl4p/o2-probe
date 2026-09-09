@@ -12,6 +12,7 @@
 #include <stdlib.h>
 
 #include "ads1119.h"
+#include "config_flash.h"
 #include "config_migrate.h"
 #include "die_temp.h"
 #include "faults.h"
@@ -2594,6 +2595,76 @@ static void test_a_downgrade_does_not_resurrect_a_stale_block(void)
  * for the host against a flash fake that can fail between the two programs.
  * Until then the order is guarded by a comment and by statement sequencing,
  * and this test documents WHY the order matters rather than enforcing it. */
+/* The host flash fake lives in src/flash_hal_host.c so that every native test
+ * links one copy of it; test_update pulls in config_flash.o too. */
+void o2p_host_flash_reset(int fail_after);
+int  o2p_host_flash_programs(void);
+extern uint8_t o2p_host_flash[];
+
+/* THE PRODUCER TEST. config_flash.c must program the CONFIGURATION RECORD
+ * first and the transport block second; the reverse order strands a potted
+ * probe whose application and recovery loader then answer at different Modbus
+ * identities. Until 2026-09-09 that order was guarded by a comment and by the
+ * sequencing of one `&&`: swapping the two calls built cleanly and passed
+ * every test. This is the test that fails when they are swapped. */
+static void test_the_commit_programs_the_config_record_before_the_block(void)
+{
+    o2p_config_t cfg;
+    o2p_config_defaults(&cfg);
+    cfg.slave_addr = 22u;
+    cfg.baud_code = O2P_BAUD_38400;
+
+    /* Cut power after the FIRST program of the pair. Whatever reached flash is
+     * what a loader and an application would find at the next boot. */
+    o2p_host_flash_reset(1);
+    (void)o2p_config_store(&cfg);      /* must report failure; checked below */
+
+    /* Find the page that was being written: the one that is not all-erased. */
+    int written = -1;
+    for (uint8_t pg = CONFIG_PAGE_A; ; pg = CONFIG_PAGE_B) {
+        const uint8_t *p = o2p_host_flash + (size_t)pg * O2P_FLASH_PAGE_BYTES;
+        /* The WHOLE page, deliberately: if the block were programmed first
+         * the record area would still read erased, and a scan limited to the
+         * record would report "nothing was written" instead of the ordering
+         * failure this test exists to name. */
+        bool erased = true;
+        for (size_t i = 0; i < O2P_FLASH_PAGE_BYTES; i++) {
+            if (p[i] != 0xFFu) { erased = false; break; }
+        }
+        if (!erased) { written = (int)pg; }
+        if (pg == CONFIG_PAGE_B) break;
+    }
+    TEST_ASSERT_MESSAGE(written >= 0, "the cut left nothing at all in flash");
+
+    const uint8_t *page = o2p_host_flash +
+                          (size_t)written * O2P_FLASH_PAGE_BYTES;
+
+    /* THE ASSERTION. After exactly one successful program, the CONFIGURATION
+     * RECORD must be the thing that landed and the transport block must still
+     * be erased. Swap the two o2p_flash_program() calls in config_flash.c and
+     * this inverts: the block is present and the record is not, which is the
+     * orphaned-block state that splits the two identities. */
+    config_record_t rec;
+    memcpy(&rec, page, sizeof(rec));
+    TEST_ASSERT_EQUAL_HEX32_MESSAGE(CONFIG_MAGIC, rec.magic,
+        "the configuration record must be programmed FIRST - a transport "
+        "block written before it is orphaned by a power cut and strands the "
+        "probe across two Modbus identities");
+
+    const uint8_t *blk = page + O2P_TRANSPORT_OFFSET;
+    bool block_erased = true;
+    for (size_t i = 0; i < sizeof(o2p_transport_record_t); i++) {
+        if (blk[i] != 0xFFu) { block_erased = false; break; }
+    }
+    TEST_ASSERT_TRUE_MESSAGE(block_erased,
+        "the transport block must be programmed SECOND");
+
+    /* And a complete commit still works, so the ordering check above is not
+     * passing because the store is simply broken. */
+    o2p_host_flash_reset(-1);
+    TEST_ASSERT_TRUE(o2p_config_store(&cfg));
+}
+
 static void test_a_torn_commit_keeps_loader_and_application_on_one_identity(void)
 {
     o2p_transport_record_t page_a, page_b;
@@ -6346,6 +6417,7 @@ int main(void)
     RUN_TEST(test_loader_keeps_the_address_across_a_layout_bump);
     RUN_TEST(test_a_downgrade_does_not_resurrect_a_stale_block);
     RUN_TEST(test_a_torn_commit_keeps_loader_and_application_on_one_identity);
+    RUN_TEST(test_the_commit_programs_the_config_record_before_the_block);
     RUN_TEST(test_the_transport_block_clears_the_config_record);
 #if O2P_DEBUG_ENABLE
     RUN_TEST(test_peek_mailbox_bounds_and_alignment);
