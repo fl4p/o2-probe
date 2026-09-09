@@ -35,10 +35,9 @@ All debug and diagnostic blocks are placed strictly in the free ground between t
    0x0030..0x004A : Configuration Block (flash-backed)
    0x0050..0x005F : Firmware Update Control Block
    0x0060..0x0064 : Volatile Heater Test Block
-   0x0065..0x006E : Memory Peek Mailbox (Burst window up to 4 words)
-   0x006F..0x0075 : Typed Sensor Diagnostic Mailbox
-   0x0076..0x007E : Crash Context & Retention Mailbox (backed by TAMP->BKP0R..4R)
-   0x007F         : Reserved
+   0x0065..0x006F : Memory Peek Mailbox (Burst window up to 4 words, 11 registers)
+   0x0070..0x0076 : Typed Sensor Diagnostic Mailbox (7 registers)
+   0x0077..0x007F : Crash Context & Retention Mailbox (backed by TAMP->BKP0R..4R, 9 registers)
    0x0080..       : Firmware Update Data Window
 ```
 
@@ -53,22 +52,23 @@ All debug and diagnostic blocks are placed strictly in the free ground between t
    - **SRAM:** `0x20000000 .. 0x20008FFC` (36 KiB; `0x20008FFC` is the exact last 4-byte aligned word).
    - **Flash:** `0x08000000 .. 0x0801FFFC` (128 KiB; `0x0801FFFC` is the exact last 4-byte aligned word).
    - **Device Constants:** STM32G071 96-bit Unique Device ID (`0x1FFF7590`, `0x1FFF7594`, `0x1FFF7598`) and Flash Size Register (`0x1FFF75E0`). Unmapped option-byte holes are completely excluded.
-4. **Burst Throughput (Resolving A-4):** Rather than 1 word per 2 Modbus round-trips (~25s to dump `g_rm`), the mailbox accepts a count of 1 to 4 words (up to 16 bytes), returning them into 8 contiguous read registers (`0x0067..0x006E`).
+4. **Burst Throughput (Resolving A-4):** Rather than 1 word per 2 Modbus round-trips (~25s to dump `g_rm`), the mailbox accepts a count of 1 to 4 words (up to 16 bytes), returning them into 8 contiguous read registers (`0x0068..0x006F`).
 
-### 3.2 Register Layout (`0x0065..0x006E`)
+### 3.2 Register Layout (`0x0065..0x006F`)
 
 | Reg Address | Name | Type | Description |
 |---|---|---|---|
 | `0x0065` | `O2P_REG_PEEK_ADDR_HI` | R/W | Target physical address [31:16] |
-| `0x0066` | `O2P_REG_PEEK_ADDR_LO_BURST` | R/W | High byte: word count (1..4). Low byte: address [15:0]. |
-| `0x0067` | `O2P_REG_PEEK_STATUS` | RO | `0`=NONE, `1`=OK, `2`=ERR_RANGE, `3`=ERR_ALIGN, `4`=ERR_COUNT |
+| `0x0066` | `O2P_REG_PEEK_ADDR_LO` | R/W | Target physical address [15:0]; FC16 writes trigger execution |
+| `0x0067` | `O2P_REG_PEEK_STATUS` | RO | `0`=NONE, `1`=OK, `2`=ERR_RANGE, `3`=ERR_ALIGN |
 | `0x0068` | `O2P_REG_PEEK_W0_HI` | RO | Word 0 [31:16]; `0xFFFF` if unexecuted |
 | `0x0069` | `O2P_REG_PEEK_W0_LO` | RO | Word 0 [15:0]; `0xFFFF` if unexecuted |
 | `0x006A` | `O2P_REG_PEEK_W1_HI` | RO | Word 1 [31:16] |
 | `0x006B` | `O2P_REG_PEEK_W1_LO` | RO | Word 1 [15:0] |
 | `0x006C` | `O2P_REG_PEEK_W2_HI` | RO | Word 2 [31:16] |
 | `0x006D` | `O2P_REG_PEEK_W2_LO` | RO | Word 2 [15:0] |
-| `0x006E` | `O2P_REG_PEEK_W3_HI/LO` | RO | Word 3 [31:0] (packed as hi/lo across registers) |
+| `0x006E` | `O2P_REG_PEEK_W3_HI` | RO | Word 3 [31:16] |
+| `0x006F` | `O2P_REG_PEEK_W3_LO` | RO | Word 3 [15:0] |
 
 ### 3.3 Atomic Trigger & Dispatch Semantics
 - **Atomic FC16 Requirement (Resolving A-1):** The write callback receives `(addr, count, in)`. Single-register writes to `0x0066` are rejected: if `addr == O2P_REG_PEEK_ADDR_HI && count == 2`, the write is accepted and executed; any other write length or offset touching `0x0065..0x0066` returns Modbus Exception `0x03` (`ILLEGAL_DATA_VALUE`).
@@ -103,7 +103,7 @@ All of the following must be updated simultaneously in Phase 1:
 
 ---
 
-## 5. Component C: Typed Sensor Diagnostic Mailbox (`0x006F..0x0075`)
+## 5. Component C: Typed Sensor Diagnostic Mailbox (`0x0070..0x0076`)
 
 ### 5.1 Architecture & Safety Guards
 Generic raw register writes are rejected. A typed, non-blocking diagnostic interface operates during the idle window of the main cooperative loop between 1 Hz sampler cycles:
@@ -111,17 +111,17 @@ Generic raw register writes are rejected. A typed, non-blocking diagnostic inter
 - **Timing Budget & Watchdog Safety (Resolving C-6):** `i2c1.c:15` enforces a hard `O2P_I2C_TIMEOUT_MS = 25 ms` per transaction. The total execution time of any diagnostic command is bounded <30 ms, safely below the 2.7 s minimum IWDG margin.
 - **Status Reporting (Resolving C-7):** Accurately distinguish `NACK` (part present, command refused) from `TIMEOUT` (bus lines dead/stuck).
 
-### 5.2 Register Layout (`0x006F..0x0075`)
+### 5.2 Register Layout (`0x0070..0x0076`)
 
 | Reg Address | Name | Type | Description |
 |---|---|---|---|
-| `0x006F` | `O2P_REG_DIAG_CMD` | R/W | Magic + Opcode: `0x5A00 | OPCODE` |
-| `0x0070` | `O2P_REG_DIAG_PARAM` | R/W | Parameter (register address, channel, or trimmed value) |
-| `0x0071` | `O2P_REG_DIAG_STATUS` | RO | `0`=NONE, `1`=PENDING, `2`=OK, `3`=ERR_OPCODE, `4`=ERR_NACK, `5`=ERR_TIMEOUT, `6`=ERR_BUSY |
-| `0x0072` | `O2P_REG_DIAG_RDATA0` | RO | Result data byte 0/1 [31:16] |
-| `0x0073` | `O2P_REG_DIAG_RDATA1` | RO | Result data byte 2/3 [15:0] |
-| `0x0074` | `O2P_REG_DIAG_RDATA2` | RO | Result data byte 4/5 (for 6-byte SHT45 readouts) |
-| `0x0075` | `O2P_REG_DIAG_CRC_STATUS` | RO | CRC validity mask for multi-byte sensors |
+| `0x0070` | `O2P_REG_DIAG_CMD` | R/W | Magic + Opcode: `0x5A00 | OPCODE` |
+| `0x0071` | `O2P_REG_DIAG_PARAM` | R/W | Parameter (register address, channel, or trimmed value) |
+| `0x0072` | `O2P_REG_DIAG_STATUS` | RO | `0`=NONE, `1`=PENDING, `2`=OK, `3`=ERR_OPCODE, `4`=ERR_NACK, `5`=ERR_TIMEOUT, `6`=ERR_BUSY |
+| `0x0073` | `O2P_REG_DIAG_RDATA0` | RO | Result data byte 0/1 [31:16] |
+| `0x0074` | `O2P_REG_DIAG_RDATA1` | RO | Result data byte 2/3 [15:0] |
+| `0x0075` | `O2P_REG_DIAG_RDATA2` | RO | Result data byte 4/5 (for 6-byte SHT45 readouts) |
+| `0x0076` | `O2P_REG_DIAG_CRC_STATUS` | RO | CRC validity mask for multi-byte sensors |
 
 ### 5.3 Supported Opcodes (Resolving C-2, C-3, C-4)
 - `0x01`: `OP_READ_LMP_REG` — Read LMP91000 register (param = `0x00` STATUS, `0x01` LOCK, `0x10` TIACN, `0x11` REFCN, `0x12` MODECN).
@@ -134,7 +134,7 @@ Generic raw register writes are rejected. A typed, non-blocking diagnostic inter
 
 ---
 
-## 6. Component D: Crash Context & Retention Mailbox (`0x0076..0x007E`)
+## 6. Component D: Crash Context & Retention Mailbox (`0x0077..0x007F`)
 
 ### 6.1 Hardware Realities on STM32G071
 1. **IWDG Reset:** No early warning interrupt exists. On expiration, IWDG asserts a hard system reset.
@@ -159,21 +159,21 @@ STM32G071 has exactly 5 32-bit backup registers. Packed allocation:
   3. Write `0xC8A54001` to `TAMP->BKP0R` **last**.
   4. Trigger `NVIC_SystemReset()`.
 - **Reflash Provenance Protection:** When `o2p_cli crash` runs, it compares `BKP4R` (the crashed build's ID) against the ELF file, preventing cross-build symbol misdecoding after a firmware update.
-- **Record Clearing:** Writing `0` to `O2P_REG_CRASH_CLEAR` (`0x007E`) clears `TAMP->BKP0R`, acknowledging the crash record.
+- **Record Clearing:** Writing `0` to `O2P_REG_CRASH_CLEAR` (`0x007F`) clears `TAMP->BKP0R`, acknowledging the crash record.
 
-### 6.4 Register Layout (`0x0076..0x007E`)
+### 6.4 Register Layout (`0x0077..0x007F`)
 
 | Reg Address | Name | Type | Description |
 |---|---|---|---|
-| `0x0076` | `O2P_REG_CRASH_REASON` | RO | `0`=None, `1`=HardFault, `2`=Assert, `3`=IWDG |
-| `0x0077` | `O2P_REG_CRASH_PC_HI` | RO | Program Counter [31:16] |
-| `0x0078` | `O2P_REG_CRASH_PC_LO` | RO | Program Counter [15:0] |
-| `0x0079` | `O2P_REG_CRASH_LR_HI` | RO | Link Register [31:16] |
-| `0x007A` | `O2P_REG_CRASH_LR_LO` | RO | Link Register [15:0] |
-| `0x007B` | `O2P_REG_CRASH_DETAIL_HI` | RO | Assert line or IWDG breadcrumb [31:16] |
-| `0x007C` | `O2P_REG_CRASH_DETAIL_LO` | RO | Assert line or IWDG breadcrumb [15:0] |
-| `0x007D` | `O2P_REG_CRASH_BUILD_ID_HI` | RO | Crashed image BUILD_ID [31:16] |
-| `0x007E` | `O2P_REG_CRASH_BUILD_ID_LO` | RO | Crashed image BUILD_ID [15:0] (Writing 0 clears record) |
+| `0x0077` | `O2P_REG_CRASH_REASON` | RO | `0`=None, `1`=HardFault, `2`=Assert, `3`=IWDG |
+| `0x0078` | `O2P_REG_CRASH_PC_HI` | RO | Program Counter [31:16] |
+| `0x0079` | `O2P_REG_CRASH_PC_LO` | RO | Program Counter [15:0] |
+| `0x007A` | `O2P_REG_CRASH_LR_HI` | RO | Link Register [31:16] |
+| `0x007B` | `O2P_REG_CRASH_LR_LO` | RO | Link Register [15:0] |
+| `0x007C` | `O2P_REG_CRASH_DETAIL_HI` | RO | Assert line or IWDG breadcrumb [31:16] |
+| `0x007D` | `O2P_REG_CRASH_DETAIL_LO` | RO | Assert line or IWDG breadcrumb [15:0] |
+| `0x007E` | `O2P_REG_CRASH_BUILD_ID_HI` | RO | Crashed image BUILD_ID [31:16] |
+| `0x007F` | `O2P_REG_CRASH_BUILD_ID_LO` | RO | Crashed image BUILD_ID [15:0] (Writing 0 clears record) |
 
 ---
 
@@ -222,15 +222,35 @@ Because the Dragino node polls the bus periodically, `o2p_cli.py` enforces:
 2. **Phase 2: Crash Context Retention (`TAMP_BKPxR`)**
    - Pre-initialize `PWR_CR1.DBP` and `RTCAPBEN` in `src/mcu.c`.
    - Implement assembly/C `HardFault_Handler` with stack bounds checking, atomic magic invalidation, and 5-register packing.
-   - Expose `0x0076..0x007E` crash registers in `src/regmap.c`.
+   - Expose `0x0077..0x007F` crash registers in `src/regmap.c`.
    - Add `o2p_cli crash` decode command with `addr2line` and `BUILD_ID` verification.
 
 3. **Phase 3: Burst Memory Peek Mailbox**
-   - Implement `0x0065..0x006E` mailbox in `src/regmap.c` enforcing SRAM/Flash bounds and 4-byte alignment.
+   - Implement `0x0065..0x006F` mailbox in `src/regmap.c` enforcing SRAM/Flash bounds and 4-byte alignment.
    - Implement atomic 2-register FC16 trigger check.
    - Add `o2p_cli peek <symbol>` with dynamic ELF parsing via `pyelftools`.
 
 4. **Phase 4: Typed Sensor Diagnostic Mailbox**
-   - Implement `0x006F..0x0075` mailbox and deferred execution in `src/main.c`.
+   - Implement `0x0070..0x0076` mailbox and deferred execution in `src/main.c`.
    - Implement opcodes `OP_READ_LMP_REG`, `OP_TRIM_LMP_TIACN`, `OP_READ_ADS_STATUS`, `OP_READ_TMP_REG`, `OP_READ_SHT_*`.
    - Add `o2p_cli diag` subcommands.
+
+---
+
+## 9. Bench vs Field Deployment Policy (`O2P_DEBUG_ENABLE`)
+
+Because memory peek is an unauthenticated read primitive on a shared multi-drop RS-485 bus, and once potted in polyurethane the firmware on J3 cannot be updated over SWD, the deployment policy is explicitly structured:
+
+1. **Bench Bring-Up & Active Testing (`env:o2probe`):**
+   - Default environment in `platformio.ini`.
+   - Compiles with `-DO2P_DEBUG_ENABLE=1`.
+   - All volatile debug mailboxes (`0x0065..0x007F`: peek, sensor diagnostics, crash context) are live.
+   - Used for bench characterization, thermal step tests, sensor validation, and prototype field deployments where live wire debugging is required.
+
+2. **Production Field Deployment (`env:o2probe_nodebug`):**
+   - Explicit target in `platformio.ini`.
+   - Compiles with `-DO2P_DEBUG_ENABLE=0`.
+   - All debug mailboxes are compiled out; any read/write to `0x0065..0x007F` returns Modbus Exception `0x02` (`ILLEGAL_DATA_ADDRESS`).
+   - HardFault handler falls back to a minimal `NVIC_SystemReset()`.
+   - Saves 1,492 bytes of Flash and 64 bytes of RAM.
+   - Mandatory target before potting production probes destined for unmonitored permanent burial.
