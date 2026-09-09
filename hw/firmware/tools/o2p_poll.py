@@ -70,14 +70,24 @@ INVALIDATE_O2 = ["I2C_FAIL_LMP", "I2C_FAIL_ADS",
                  "AFE_CONFIG_MISMATCH", "VA_LOW", "ADS_DRDY_STUCK",
                  "ADS_CONFIG_LOST", "ADC_RANGE"]
 # O2_COMP is DRY BASIS, so it also needs the calibration constant. It needs the
-# SHT45 too, but I2C_FAIL_SHT is deliberately NOT here: the same bit is raised
-# for the SHT45's own scheduled de-creep pulse, and the firmware bridges that
-# 30 s gap from the last measured chamber reading (O2P_RH_MAX_AGE_S in o2.h)
-# rather than blanking the channel. When the data really is too old the
+# SHT45 too, but I2C_FAIL_SHT is deliberately NOT here: the bit used to be
+# raised for the SHT45's own scheduled de-creep pulse as well, and the firmware
+# bridges that gap - now up to 400 s, since the mask was measured at 350 s - from
+# the last measured chamber reading (O2P_RH_MAX_AGE_S in o2.h) rather than
+# blanking the channel. Since 2026-09-09 the mask raises no fault either, so a
+# chamber reading missing WITHOUT this bit is a scheduled de-creep window and
+# with it is a sensor that did not answer. When the data really is too old the
 # firmware publishes the SENTINEL, which this tool already decodes to None.
 # Kept in step with O2P_FAULTS_INVALIDATE_O2_COMP in faults.h, and now checked
 # against it - see check_against_source().
-INVALIDATE_O2_COMP = INVALIDATE_O2 + ["CAL_DEFAULT"]
+# SETTLING is here and NOT in INVALIDATE_O2, which looks like an oversight and
+# is the point: faults.h moved it off the raw channel on 2026-09-08 because the
+# cell current during warmup is the only record of the cell recovering, while
+# no %vol derived from an unsettled cell can be trusted. This tool kept the old
+# pairing and check_against_source() therefore refused to start it at all -
+# found 2026-09-09 while verifying an unrelated change, which is the check
+# doing its job a day late because nothing runs it but the tool itself.
+INVALIDATE_O2_COMP = INVALIDATE_O2 + ["SETTLING", "CAL_DEFAULT"]
 
 CSV_COLUMNS = [
     "utc", "status", "detail", "sample_seq", "settle_s",

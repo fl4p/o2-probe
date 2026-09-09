@@ -364,6 +364,19 @@ more GPIO" — is now cut in `gen_sch.py`. **No PCB work has been done**, so on
 copper `U5.2` is still shorted to `U5.3`; this is a change to the source of
 truth and to firmware, not to a fabricable board.
 
+> **Still true on 2026-09-09.** The bench article is unreworked. Since that
+> date the firmware *knows* it: `gen_hw_caps.py` derives
+> `O2P_HW_RS485_RE_ON_ITS_OWN_PIN` from each revision's own netlist — 0 for the
+> fabricated Rev A, 1 for the Rev B schematic — and
+> `o2p_modbus_rx_standby(true)` **refuses** where it is 0 rather than writing a
+> pin that goes nowhere and reporting a 630 µA saving the copper cannot make.
+> The procedure and its acceptance test are in
+> [`docs/REWORK-RS485-RE-SPLIT.md`](docs/REWORK-RS485-RE-SPLIT.md), including
+> the trap this section does not mention: **R7 sits on the `U5.2` side of the
+> short**, so a bare cut leaves `/RE` with the pull-down and `DE` with none —
+> and `DE` is the one whose passive default keeps a reset probe off the shared
+> cable.
+
 - `U5` pin 2 (`/RE`) moves from `RS485_DE` to a new net **`RS485_RE`**.
 - `MCU_NETS` gains **pin 31 = PC7**. Verified against DS12232 Rev 1 Table 12
   ("Pin assignment and description"), LQFP48/UFQFPN48 column: PC6 = 30,

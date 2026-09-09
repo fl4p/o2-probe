@@ -165,21 +165,30 @@ enum {
  * and chamber temperature - without them the water-vapour term cannot be
  * computed, and at the operating point that term is up to 20 %
  * (O2-HUMIDITY-CORRECTION.md 2). The bit was added here on 2026-09-06 to say
- * so. It was the wrong instrument, because the same bit is raised for the
- * SHT45's own SCHEDULED de-creep pulse: the chamber channels are masked for
- * 30 s after every pulse, so the primary oxygen channel went to its sentinel
+ * so. It was the wrong instrument, because the same bit was then raised for
+ * the SHT45's own SCHEDULED de-creep pulse: the chamber channels are masked
+ * after every pulse, so the primary oxygen channel went to its sentinel
  * three times a day, labelled as a bus failure, for maintenance the firmware
  * itself had ordered. With 15-30 minute uplinks that is a whole O2 sample
  * lost per pulse.
  *
  * THE REAL CRITERION IS DATA AGE, and it lives where the arithmetic is:
- * o2.h's O2P_RH_MAX_AGE_S bridges a gap of up to 45 s from the last measured
- * chamber reading and refuses past it. That covers the 30 s recovery window
- * with margin and nothing else, so a genuinely dead SHT45 still reaches the
- * sentinel - it just does so because the data went stale rather than because
- * a bit was set. The bit is still RAISED wherever it was; it is simply not
- * the thing O2_COMP's validity is decided by. The raw cell current is
+ * o2.h's O2P_RH_MAX_AGE_S bridges a gap of up to 400 s from the last measured
+ * chamber reading and refuses past it. That covers the 350 s recovery window
+ * plus the pulse and one sample cycle, and nothing else, so a genuinely dead
+ * SHT45 still reaches the sentinel - it just does so because the data went
+ * stale rather than because a bit was set. The raw cell current is
  * untouched either way: it does not need the SHT45 and keeps its own mask.
+ *
+ * SINCE 2026-09-09 THE BIT IS NO LONGER RAISED BY THE MASK AT ALL. Taking it
+ * off O2_COMP's validity criterion fixed the consequence and left the false
+ * statement in place: the word still said a working sensor had failed, three
+ * times a day, while I2C_ERRS stayed at 0. phase_sht() now returns silently
+ * for a scheduled mask and raises this bit only for a measurement that
+ * actually failed, so the bit means what its name says and its ABSENCE, with
+ * the chamber channels at their sentinels, is what identifies a mask. That is
+ * the only place in this firmware where a masked and a broken sensor are
+ * distinguishable, so do not put the bit back to be helpful.
  *
  * NOTE for anyone adding a bit for this: there is no room. All sixteen are
  * allocated (13 and 14 were already reclaimed from the deleted J2 expansion),

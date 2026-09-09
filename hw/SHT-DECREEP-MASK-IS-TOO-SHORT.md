@@ -99,3 +99,49 @@ Both events are in `bench-logs/modbus-poll-2026-09-06.csv` and
   show a transient, so "no dip on VIN" is not evidence about the pulse current.
   `va_mv` resolves 2 mV and shows no dip, which bounds the rail impedance
   rather than excluding the draw.
+
+## Acted on, 2026-09-09
+
+The mask is now **350 s** and the chamber cache that has to outlast it is
+**400 s**; both live in `firmware/src/o2.h` under one derivation and a
+`_Static_assert` that fails the build if the cache stops covering the mask.
+`O2P_SHT_RECOVERY_MS` used to be defined in `main.c` while the bound derived
+from it lived in `o2.h`, with nothing enforcing the relation across the file
+boundary — that is why the recommendation above could sit here unimplemented
+without anything complaining.
+
+The second recommendation — a distinct signal for "chamber masked, de-creep in
+progress" — was met **by subtraction**. There is no room for a positive one:
+all sixteen fault bits are allocated and the diagnostic block is full at
+0x0010–0x002F. So the mask now raises *nothing*, and the discrimination is:
+
+| | chamber registers | fault word |
+|---|---|---|
+| scheduled mask | sentinels | **no `I2C_FAIL_SHT`** |
+| dead/absent SHT45 | sentinels | `I2C_FAIL_SHT`, from the first failed read |
+
+Which is strictly more information than before, when the two were identical.
+`o2p_sht_masked()` and `o2p_sht_phase_faults()` in `sampler_logic.h` are the
+two halves of the rule; `phase_sht()` calls both, and
+`test_a_scheduled_mask_is_not_a_fault` exercises those functions rather than a
+restatement of them. The guard was calibrated against the known-bad behaviour:
+made to raise the bit while masked, the test fails with
+`Expected 0x0000 Was 0x0010`.
+
+Consequence 1 of "Why this matters" is therefore fixed. **Consequence 2 is
+not** — it is accepted and documented instead. The condensation heater's RH
+loop still stands down for the whole mask, which is now 350 s rather than 25 s,
+about 1.2 % of the time at the default 8 h interval. It is not silent: the
+reason appears as `NO_RH` in `HEATER_BLOCK` (0x002E), and the persistent tip
+loop keeps running on the bridged chamber temperature. Refusing is also the
+correct answer at this length rather than merely the cautious one — the pulse
+drives measured RH *low*, so a loop regulating on it would read the chamber as
+drier than it is and under-heat, which is the direction that condenses.
+
+**Still open from this run.** The 0.05 %RH criterion was never reached inside
+the observation window, so 350 s is bounded by 0.10 %RH and not by the sensor
+returning to true. The caveats above still hold in full: n = 2, one article,
+one chamber, ~22 °C, 40–50 %RH. A sensor with more adsorbed water to drive off
+may take longer, and a hotter, wetter pile is exactly that case. And the
+DEW_SUSPECT classifier this run was supposed to feed (`PLAN.md:312`) still does
+not exist.

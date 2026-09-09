@@ -17,6 +17,7 @@
 #include "die_temp.h"
 #include "faults.h"
 #include "hw_caps.h"
+#include "hw_contract.h"
 #include "heater_ctl.h"
 #include "lmp91000.h"
 #include "modbus_pdu.h"
@@ -1275,12 +1276,17 @@ static void test_pressure_and_air_fraction_registers_are_bounded(void)
 
 static void test_o2_comp_validity_is_data_age_not_the_sht_fault_bit(void)
 {
-    /* I2C_FAIL_SHT is raised for the SHT45's own SCHEDULED de-creep pulse as
-     * well as for a dead sensor, so using it as O2_COMP's validity criterion
-     * blanked the primary oxygen channel for 30 s three times a day and
+    /* I2C_FAIL_SHT used to be raised for the SHT45's own SCHEDULED de-creep
+     * pulse as well as for a dead sensor, so using it as O2_COMP's validity
+     * criterion blanked the primary oxygen channel three times a day and
      * labelled scheduled maintenance a bus failure. The criterion is the AGE
      * of the chamber reading instead - see the cache tests below - and this
-     * pins the mask so the bit cannot quietly come back. */
+     * pins the mask so the bit cannot quietly come back.
+     *
+     * Since 2026-09-09 the mask does not raise the bit either; that half is
+     * pinned by test_a_scheduled_mask_is_not_a_fault below. Both halves are
+     * needed: this one keeps a REAL SHT45 failure from blanking O2_COMP, that
+     * one keeps a scheduled mask from being reported as a failure at all. */
     TEST_ASSERT_TRUE(o2p_o2_comp_valid(O2P_F_I2C_FAIL_SHT));
     TEST_ASSERT_TRUE(o2p_o2_valid(O2P_F_I2C_FAIL_SHT));
     TEST_ASSERT_TRUE(o2p_o2_comp_valid(0u));
@@ -3097,12 +3103,110 @@ static void test_cal_pressure_register_is_bounded(void)
 /* ------------------------------------------- chamber cache and its age cap
  *
  * The SHT45's own de-creep heater fires every 8 h by default and the chamber
- * channels are masked for 30 s afterwards. With dry-basis O2_COMP depending on
+ * channels are masked for O2P_SHT_RECOVERY_MS afterwards - 350 s since the
+ * recovery was actually measured on 2026-09-07, having been a 30 s guess
+ * before that. With dry-basis O2_COMP depending on
  * RH, that used to blank the primary oxygen channel three times a day and
  * label the gap I2C_FAIL_SHT - scheduled maintenance reported as a bus
  * failure. The bridge is bounded by O2P_RH_MAX_AGE_S, and the bound is what
  * keeps a dead sensor from being bridged forever.
  */
+
+static void test_this_board_cannot_be_commanded_transceiver_deaf(void)
+{
+    /* The native suite is built with -DO2P_BOARD_REV_A (platformio.ini), so
+     * these are the capabilities of the FABRICATED board on the bench, not of
+     * the schematic. That is the whole point of the split in gen_hw_caps.py:
+     * the drawing moved to a /RE on its own pin on 2026-09-07, and the copper
+     * did not.
+     *
+     * So this test asserts 0. It is not describing a defect to be fixed in
+     * software - it pins the fact that the firmware KNOWS the difference, which
+     * is what stops o2p_modbus_rx_standby(true) from reporting a 700 uA saving
+     * that the board cannot make. When the Rev A rework lands
+     * (docs/REWORK-RS485-RE-SPLIT.md), gen_hw_caps.py is re-pinned to the
+     * reworked netlist and this test is the one that has to be edited - which
+     * is the intended friction, not an oversight. */
+    TEST_ASSERT_EQUAL_INT(0, O2P_HW_RS485_RE_ON_ITS_OWN_PIN);
+
+    /* No R45 either, and on THIS revision that is correct rather than a
+     * fitting error: with /RE shorted to DE there is nothing for it to pull
+     * down, and R7 on the shared net already holds both low through reset. */
+    TEST_ASSERT_EQUAL_INT(0, O2P_HW_RS485_RE_PASSIVE_PULLDOWN);
+
+    /* The dependency that makes the pull-down predicate meaningful rather than
+     * decorative: a board may not claim the passive default without the split
+     * it is the passive default OF. Checked as an implication over both
+     * revisions' actual values rather than on a fixture, because a hand-built
+     * pair would be testing the rule I meant to write and not the one
+     * gen_hw_caps.py emits. */
+    TEST_ASSERT_TRUE(!O2P_HW_RS485_RE_PASSIVE_PULLDOWN ||
+                     O2P_HW_RS485_RE_ON_ITS_OWN_PIN);
+
+    /* And the pins the firmware drives are still two different pins. board_pins.h
+     * already static-asserts this; restated here because the assert protects
+     * against the SCHEMATIC tying them back together, while the capability above
+     * protects against the BOARD never having split them. Those are different
+     * failures and only one of them has ever happened. */
+    TEST_ASSERT_TRUE(O2P_HW_NET_RS485_DE_PIN != O2P_HW_NET_RS485_RE_PIN);
+}
+
+static void test_a_scheduled_mask_is_not_a_fault(void)
+{
+    /* THE BUG, measured 2026-09-06 and -09-07 and recorded in
+     * SHT-DECREEP-MASK-IS-TOO-SHORT.md: the de-creep mask raised I2C_FAIL_SHT,
+     * so a maintenance action this firmware itself ordered was, at the Modbus
+     * interface, indistinguishable from a dead humidity sensor - with I2C_ERRS
+     * at 0 throughout, so the counter could not separate them either.
+     *
+     * These are the functions phase_sht() actually calls (main.c), not a
+     * restatement of them, which is the only way this test can fail when the
+     * shipping rule changes. */
+
+    /* A mask reports nothing. It is not a failure and must not read as one. */
+    TEST_ASSERT_EQUAL_HEX16(0u, o2p_sht_phase_faults(true, false));
+    TEST_ASSERT_EQUAL_HEX16(0u, o2p_sht_phase_faults(true, true));
+
+    /* A sensor that did not answer still does, from the first failed
+     * measurement - the property the change had to preserve. */
+    TEST_ASSERT_EQUAL_HEX16(O2P_F_I2C_FAIL_SHT,
+                            o2p_sht_phase_faults(false, false));
+    TEST_ASSERT_EQUAL_HEX16(0u, o2p_sht_phase_faults(false, true));
+
+    /* The window itself. Masked from the pulse until the constant expires,
+     * clear on the tick after - and MONOTONIC in the direction that matters:
+     * once the window has closed it must not reopen as the gap grows, or a
+     * long-silent sensor would look like a permanent maintenance window. */
+    const uint32_t t0 = 1234567u;
+    TEST_ASSERT_TRUE(o2p_sht_masked(t0, t0));
+    TEST_ASSERT_TRUE(o2p_sht_masked(t0 + O2P_SHT_RECOVERY_MS - 1u, t0));
+    TEST_ASSERT_FALSE(o2p_sht_masked(t0 + O2P_SHT_RECOVERY_MS, t0));
+    for (uint32_t dt = O2P_SHT_RECOVERY_MS; dt < O2P_SHT_RECOVERY_MS + 100000u;
+         dt += 997u) {
+        TEST_ASSERT_FALSE(o2p_sht_masked(t0 + dt, t0));
+    }
+
+    /* Across the 49-day o2p_millis() wrap, which is the case a naive
+     * `now > pulse + span` gets wrong by masking for another 49 days. */
+    const uint32_t near_wrap = 0xFFFFFF00u;
+    TEST_ASSERT_TRUE(o2p_sht_masked(near_wrap + 1000u, near_wrap));
+    TEST_ASSERT_FALSE(o2p_sht_masked(near_wrap + O2P_SHT_RECOVERY_MS,
+                                     near_wrap));
+
+    /* main.c seeds g_sht_pulse_ms = millis() - O2P_SHT_RECOVERY_MS at boot so
+     * the first cycle reads the sensor. A probe that reset would otherwise
+     * publish no humidity for the first 350 s of every boot. */
+    const uint32_t boot_ms = 42u;
+    TEST_ASSERT_FALSE(o2p_sht_masked(boot_ms,
+                                     boot_ms - O2P_SHT_RECOVERY_MS));
+
+    /* And the relation that makes the mask survivable at all: the chamber
+     * cache must outlast it. Stated here as well as in o2.h because this is
+     * the test that would otherwise pass while O2_COMP went to its sentinel
+     * for six minutes three times a day. */
+    TEST_ASSERT_TRUE((uint32_t)O2P_RH_MAX_AGE_S * 1000u >
+                     O2P_SHT_RECOVERY_MS);
+}
 
 static void test_a_pulse_gap_is_bridged_and_a_dead_sensor_is_not(void)
 {
@@ -3130,9 +3234,10 @@ static void test_a_pulse_gap_is_bridged_and_a_dead_sensor_is_not(void)
 
     /* THE PULSE. The chamber channels are masked for the whole recovery
      * window; every cycle inside it carries no RH and no chamber temperature.
-     * 31 s is the worst case the derivation in o2.h covers - 30 s of mask plus
-     * the sample quantisation - and it must still publish, from the same
-     * sensor's own last measurement rather than from a substitute. */
+     * 352.1 s is the worst case the derivation in o2.h covers - 350 s of mask
+     * plus the 1.1 s pulse plus the sample quantisation - and it must still
+     * publish, from the same sensor's own last measurement rather than from a
+     * substitute. */
     for (uint32_t dt = 1u; dt <= O2P_RH_MAX_AGE_S; dt++) {
         o2p_gas_t masked = gas_at(45.0f, 88.0f, 930.0f);
         masked.rh_pct = 0.0f;      /* what a masked cycle actually carries */
@@ -3155,8 +3260,17 @@ static void test_a_pulse_gap_is_bridged_and_a_dead_sensor_is_not(void)
     }
 
     /* The cap covers the recovery window it was derived against, with margin,
-     * and is not merely equal to it. */
-    TEST_ASSERT_TRUE(O2P_RH_MAX_AGE_S > 32u);
+     * and is not merely equal to it.
+     *
+     * Written against O2P_SHT_RECOVERY_MS rather than against a literal,
+     * because the literal is what went stale: this line read `> 32u` while the
+     * mask it was derived from moved from 30 s to 350 s, and a hardcoded 32
+     * would have kept passing with the cache no longer covering anything. The
+     * +2 s is the 1.1 s blocking pulse and the 1 s sample cycle, rounded up.
+     * o2.h carries the same relation as a _Static_assert; this is the runtime
+     * half, and it is deliberately the same arithmetic in the other direction:
+     * if someone deletes the assertion, this still fails. */
+    TEST_ASSERT_TRUE(O2P_RH_MAX_AGE_S * 1000u > O2P_SHT_RECOVERY_MS + 2000u);
 
     /* ONE SECOND PAST THE CAP the value is unevaluable, and the channel takes
      * its sentinel exactly as it did before. Monotonic: it must stay refused
@@ -6278,6 +6392,8 @@ int main(void)
     RUN_TEST(test_unknown_calibration_pressure_is_no_correction_not_a_divide);
     RUN_TEST(test_pressure_normalisation_has_the_right_sign_and_size);
     RUN_TEST(test_cal_pressure_register_is_bounded);
+    RUN_TEST(test_this_board_cannot_be_commanded_transceiver_deaf);
+    RUN_TEST(test_a_scheduled_mask_is_not_a_fault);
     RUN_TEST(test_a_pulse_gap_is_bridged_and_a_dead_sensor_is_not);
     RUN_TEST(test_the_o2_verdict_freeze_cannot_drop_a_state_fault);
     RUN_TEST(test_a_fresh_reading_is_never_overridden_by_the_cache);

@@ -15,7 +15,9 @@
 #include <stdint.h>
 
 #include "ads1119.h"
+#include "faults.h"
 #include "hw_caps.h"
+#include "o2.h"
 #include "regmap.h"
 
 /* LMP91000 transimpedance and internal zero. The zero is 67 % of VREF for the
@@ -116,6 +118,55 @@ static inline uint16_t o2p_scale_vin_ads(uint16_t raw_mv)
         vin = 0xFFFEu;
     }
     return (uint16_t)vin;
+}
+
+/* --- the SHT45 de-creep gate ---------------------------------------------
+ *
+ * Two decisions, lifted here for the reason at the top of this file: they
+ * lived inside phase_sht(), main.c does not compile on the host, and the
+ * question they answer - "is a silent chamber a maintenance window or a dead
+ * sensor" - is the one every consumer of the fault word depends on.
+ *
+ * They are a PAIR on purpose. Whether to read, and what to report, are the two
+ * halves of one rule, and the bug they replace was exactly the two halves
+ * disagreeing: the mask suppressed the reading AND raised I2C_FAIL_SHT, so a
+ * working sensor was reported as failed three times a day while I2C_ERRS sat
+ * at 0. Keeping them adjacent, and calling both from the one site, is what
+ * stops the next edit from restoring one without the other.
+ */
+
+/* Is this cycle inside the recovery window of a de-creep pulse?
+ *
+ * Written as a subtraction so the 49-day o2p_millis() wrap is harmless, the
+ * same way o2p_elapsed() is. main.c seeds the pulse timestamp at boot as
+ * (now - O2P_SHT_RECOVERY_MS) so the first cycle is NOT masked; that relies on
+ * the same wrap-safe subtraction, and is why this is `<` and not `<=`. */
+static inline bool o2p_sht_masked(uint32_t now_ms, uint32_t pulse_ms)
+{
+    return (uint32_t)(now_ms - pulse_ms) < O2P_SHT_RECOVERY_MS;
+}
+
+/* What the SHT45 phase contributes to the cycle's fault word.
+ *
+ * A SCHEDULED MASK CONTRIBUTES NOTHING, and that is the whole content of this
+ * function. The chamber channels still publish their sentinels - the snapshot
+ * is reset to INVALID every cycle and a masked cycle writes nothing into it -
+ * so a consumer sees "no chamber reading, no fault" for a mask and "no chamber
+ * reading, I2C_FAIL_SHT" for a sensor that genuinely did not answer. The
+ * absence of the bit is the only thing in this firmware that tells those two
+ * apart; see faults.h.
+ *
+ * `measure_ok` is meaningless while masked, because no measurement is
+ * attempted then. It is ignored rather than asserted on: the caller's control
+ * flow already cannot produce that combination, and a gate that traps on an
+ * impossible input is one that fails on the day the control flow changes for
+ * an unrelated reason. */
+static inline uint16_t o2p_sht_phase_faults(bool masked, bool measure_ok)
+{
+    if (masked) {
+        return 0u;
+    }
+    return measure_ok ? 0u : O2P_F_I2C_FAIL_SHT;
 }
 
 #endif /* O2P_SAMPLER_LOGIC_H */

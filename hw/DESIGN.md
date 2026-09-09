@@ -235,13 +235,19 @@ under the corrected name.
 
 The criterion for "unavailable" is the **age of the chamber reading**, not the
 `I2C_FAIL_SHT` bit. That bit was briefly used for it, on 2026-09-06, and it is
-the wrong instrument: the same bit is raised for the SHT45's own scheduled
-de-creep pulse, whose 30 s recovery mask then blanked the primary oxygen channel
+the wrong instrument: the same bit was then raised for the SHT45's own scheduled
+de-creep pulse, whose recovery mask blanked the primary oxygen channel
 three times a day and labelled firmware-ordered maintenance a bus failure. The
 sampler instead keeps the last measured `(RH, T_chamber)` pair and bridges a gap
-of up to `O2P_RH_MAX_AGE_S` = 45 s with it - 30 s of mask plus the 1.1 s blocking
-pulse plus a second of 1 Hz sample quantisation is 32.1 s worst case, so 45 s is
-that with 40 % margin and nothing more. Past the cap the value is unevaluable and
+of up to `O2P_RH_MAX_AGE_S` = 400 s with it - 350 s of mask plus the 1.1 s
+blocking pulse plus a second of 1 Hz sample quantisation is 352.1 s worst case,
+and 400 s covers that. The mask was 30 s, and the bound 45 s, until the recovery
+was measured on 2026-09-07 (`SHT-DECREEP-MASK-IS-TOO-SHORT.md`): it takes 325 s
+to come back within 0.10 %RH, so the old mask published the very artefact it
+existed to suppress. A `_Static_assert` in `o2.h` now keeps the two in step.
+Since 2026-09-09 the mask also raises **no fault at all**, so a masked chamber
+and a dead one are told apart by the presence of `I2C_FAIL_SHT` rather than
+being identical. Past the cap the value is unevaluable and
 `O2_COMP` takes its sentinel, so a genuinely dead SHT45 still reports as one; and
 an air-point calibration is never bridged, because a permanent constant gets a
 humidity measured in its own cycle or none at all. Full argument, bench evidence

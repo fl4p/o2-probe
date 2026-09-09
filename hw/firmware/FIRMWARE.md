@@ -1015,9 +1015,22 @@ persistent loop would therefore stop for the whole mask, on a schedule, several
 times a day — a loop that refuses intermittently for a reason invisible from
 outside, which is worse than one that refuses consistently. `main.c` bridges the
 **chamber temperature only** from the same cache the oxygen path uses, bounded by
-the same `O2P_RH_MAX_AGE_S` (45 s, derived in `o2.h` against a 32.1 s worst
+the same `O2P_RH_MAX_AGE_S` (400 s, derived in `o2.h` against a 352.1 s worst
 case). Past that bound the reading stays invalid and `NO_CHAMBER` fires again, so
 a genuinely dead SHT45 still blocks the heater.
+
+**Those numbers were 45 s and 32.1 s until 2026-09-09, and the mask was 30 s.**
+The recovery was then measured — 325 s to come back within 0.10 %RH,
+`SHT-DECREEP-MASK-IS-TOO-SHORT.md` — so the mask is now 350 s and the cache
+bound moved with it under a `_Static_assert` that will not let the two be edited
+apart. The operational consequence is the honest one to state: **the RH loop now
+stands down for 350 s after every scheduled pulse, not 25 s** — about 1.2 % of
+the time at the default 8 h interval. It is visible on the bus as `NO_RH` in
+`HEATER_BLOCK` (0x002E), the tip loop keeps running throughout on the bridged
+chamber temperature, and refusing remains the right answer rather than merely
+the cautious one: the pulse drives measured RH *low*, so a loop regulating on it
+would read the chamber as drier than it is and under-heat — the direction that
+condenses.
 
 The humidity is deliberately **not** bridged. Chamber temperature moves on
 minutes and is an *input to a clamp*; relative humidity is the RH loop's
@@ -1879,11 +1892,26 @@ close it:
   than a frame injected into someone else's exchange.
 - **The SHT45 de-creep pulse is scheduled and its readings are masked.** The
   pulse runs on the configured interval (default 8 h) as well as on demand, and
-  the chamber channels read invalid for 30 s afterwards. That window is a
-  conservative guess, not a measurement: **it is unverified on this part in
-  this chamber**, and the bench run that establishes it is the same one that
-  would turn the slow-recovery signature into the `DEW_SUSPECT` classifier
-  `PLAN.md:312` asks for.
+  the chamber channels read invalid for **350 s** afterwards. That window was a
+  conservative 30 s guess until it was **measured on 2026-09-07** against the
+  chamber's own drying curve: recovery to within 0.10 %RH takes 325 s, and at
+  t+40 s — ten seconds after the old mask expired — the published RH was
+  1.63 %RH low. The old value published, three times a day, exactly the
+  artefact the mask exists to prevent. Derivation and both bench logs:
+  `SHT-DECREEP-MASK-IS-TOO-SHORT.md`; constants and the assertion tying them
+  together: `o2.h`. Still open from that run: 0.05 %RH was **not** reached
+  inside the observation window, and the slow-recovery signature has not been
+  turned into the `DEW_SUSPECT` classifier `PLAN.md:312` asks for.
+- **A masked cycle raises no fault.** It used to raise `I2C_FAIL_SHT`, which
+  made a maintenance action this firmware ordered indistinguishable from a dead
+  humidity sensor — while `I2C_ERRS` stayed at 0, so the counter and the bit
+  disagreed and neither settled it. A consumer now reads a mask as *chamber
+  sentinels with no fault* and a failure as *chamber sentinels with
+  `I2C_FAIL_SHT`*. The absence of the bit is the discriminator, and there is no
+  room in the 16-bit fault word or in the 0x0010–0x002F diagnostic block for a
+  positive one. `o2p_sht_masked()` / `o2p_sht_phase_faults()` in
+  `sampler_logic.h` are the two halves of the rule, called from `phase_sht()`
+  and covered on the host.
 - **The TMP117's safety configuration is latched and re-verified.** A part
   whose therm-mode alert failed to program still answers temperature reads
   perfectly, so nothing else would notice the hardware heater cutoff was not

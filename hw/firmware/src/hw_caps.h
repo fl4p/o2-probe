@@ -58,6 +58,12 @@ this file exists to prevent."
 #ifndef O2P_HW_CE_MON_CONNECTED
 #error "generated caps header is missing O2P_HW_CE_MON_CONNECTED"
 #endif
+#ifndef O2P_HW_RS485_RE_ON_ITS_OWN_PIN
+#error "generated caps header is missing O2P_HW_RS485_RE_ON_ITS_OWN_PIN"
+#endif
+#ifndef O2P_HW_RS485_RE_PASSIVE_PULLDOWN
+#error "generated caps header is missing O2P_HW_RS485_RE_PASSIVE_PULLDOWN"
+#endif
 #ifndef O2P_HW_VIN_MON_ON_MCU
 #error "generated caps header is missing O2P_HW_VIN_MON_ON_MCU"
 #endif

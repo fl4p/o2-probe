@@ -461,10 +461,10 @@ uint16_t o2p_encode_percent(o2p_status_t st, float c);
  *
  * THE PROBLEM THIS SOLVES. The SHT45's own de-creep heater fires on a
  * schedule - every 8 h by default - and the chamber channels are masked for
- * O2P_SHT_RECOVERY_MS (30 s) afterwards, because a post-pulse reading is of a
+ * O2P_SHT_RECOVERY_MS afterwards, because a post-pulse reading is of a
  * deliberately heated element. Until 2026-09-06 that mask also carried
  * I2C_FAIL_SHT, and with dry-basis O2_COMP depending on RH, every scheduled
- * pulse blanked the primary oxygen channel for 30 s - three times a day - and
+ * pulse blanked the primary oxygen channel - three times a day - and
  * labelled scheduled maintenance as a sensor failure. With 15-30 minute
  * uplinks and a commensurate pulse schedule, a coincident sample loses a
  * whole O2 uplink.
@@ -472,33 +472,93 @@ uint16_t o2p_encode_percent(o2p_status_t st, float c);
  * THE FIX IS TO MAKE VALIDITY A MATTER OF DATA AGE, NOT OF A FAULT BIT.
  * Chamber RH and gas temperature are slowly varying - the chamber is a sealed
  * volume against a thermal mass with a ~110 s time constant (theta = 117 K/W,
- * C = 0.94 J/K, measured 2026-09-06) - so a 30 s gap is a gap to be bridged,
+ * C = 0.94 J/K, measured 2026-09-06) - so the gap is a gap to be bridged,
  * not a failure to be reported. Past the cap the value is unevaluable and
  * O2_COMP takes its sentinel exactly as before: a dead SHT45 still reaches
  * the sentinel, it just takes O2P_RH_MAX_AGE_S to get there, and the fault
  * bit is raised throughout either way.
  */
 
+/* How long the chamber channels stay masked after a de-creep pulse.
+ *
+ * MEASURED, 2026-09-07, twice, and it was WRONG BY AN ORDER OF MAGNITUDE
+ * until then. This constant was 30 s and carried a comment admitting it was a
+ * guess. Two unattended scheduled pulses eight hours apart were fitted against
+ * the chamber's own drying curve (SHT-DECREEP-MASK-IS-TOO-SHORT.md, from
+ * bench-logs/modbus-poll-2026-09-06.csv and -09-07.csv, pre-pulse residual
+ * sd 0.054 %RH, n = 333):
+ *
+ *   back to within 0.50 %RH   115 s
+ *                  0.20 %RH   228 s
+ *                  0.10 %RH   325 s
+ *                  0.05 %RH   not reached inside the observation window
+ *
+ * At t+40 s - ten seconds after the old mask expired - the published RH was
+ * 1.63 %RH LOW, and it stayed more than 0.2 %RH low to t+228 s. So the old
+ * value published exactly the artefact sht4x.h says the mask exists to
+ * prevent: a 1.6 %RH downward step decaying over about six minutes, three
+ * times a day, labelled humidity. On a pile that is a drying event that did
+ * not happen.
+ *
+ * 350 s is the 0.10 %RH criterion plus the next whole sample. It is NOT
+ * enough for 0.05 %RH, which the run could not bound - if a later measurement
+ * bounds it, this and O2P_RH_MAX_AGE_S move together, which is what the
+ * assertion below is for. n = 2, one article, one chamber, ~22 C, 40-50 %RH;
+ * a sensor with more adsorbed water to drive off may take longer. */
+#define O2P_SHT_RECOVERY_MS 350000u
+
 /* Maximum age of a cached chamber reading, in seconds.
  *
  * Derived from the recovery window it has to cover, not chosen round:
  *
- *   30.0 s  O2P_SHT_RECOVERY_MS, the post-pulse mask (main.c)
+ *  350.0 s  O2P_SHT_RECOVERY_MS, the post-pulse mask
  *  + 1.1 s  the pulse command itself, which BLOCKS for 1100 ms
  *           (o2p_sht4x_heater_pulse, sht4x.c) and is inside the mask because
  *           main.c timestamps the mask BEFORE issuing it
  *  + 1.0 s  the 1 Hz sample cycle: the last good reading may be a full cycle
  *           older than the pulse, and the first post-recovery cycle may land
  *           a full cycle after the window closes
- *  = 32.1 s worst case from last good reading to first fresh one
+ *  = 352.1 s worst case from last good reading to first fresh one
  *
- * 45 s leaves 40 % margin on that and nothing more. It is nowhere near the
- * several minutes on which chamber RH actually moves, so a bridged sample is
- * not a stale one; and it is short enough that a genuinely dead SHT45 reaches
- * the sentinel inside one sample of any realistic uplink schedule. Raising it
- * to cover a longer pulse would need the same arithmetic redone, which is why
- * it is here with the derivation rather than as a number at the use site. */
-#define O2P_RH_MAX_AGE_S 45u
+ * 400 s covers that with 47.9 s of slack. The MARGIN IS RELATIVELY SMALLER
+ * THAN THE 45 s VERSION'S 40 % ON PURPOSE, and the reason is that the two
+ * numbers are no longer the same kind of quantity: at 30 s every term in the
+ * sum was jitter, so the margin had to absorb jitter. Here 350 of the 352.1 s
+ * is a constant this firmware chooses, and only 2.1 s is uncertain - 47.9 s
+ * is 23x that. Every second beyond it is a second a genuinely dead SHT45
+ * keeps being bridged, so slack is not free.
+ *
+ * WHAT THIS CHANGE COSTS, stated rather than buried. A bridged sample may now
+ * be up to 400 s old instead of 45 s, against a chamber whose time constant
+ * is ~110 s - so the bridge is no longer short compared with the physics, it
+ * is about 3.6 tau. It is still the better of the two available errors: the
+ * alternative is a published RH known to be up to 1.63 %RH low with a
+ * measured decay, and the dry-basis correction's sensitivity to RH is mild
+ * (the vapour term is p_w/p, so at the operating point a 1.6 %RH error moves
+ * O2_COMP by a few tenths of a percent relative, against a calibration
+ * uncertainty of up to 43 % - O2-HUMIDITY-CORRECTION.md). Bridging a slow
+ * quantity beats publishing a fast artefact. In a pile RH sits pinned near
+ * saturation and moves on tens of minutes, which is the assumption doing the
+ * work here and the one to attack if this turns out wrong.
+ *
+ * A dead SHT45 now takes up to 400 s to reach the O2_COMP sentinel instead of
+ * 45 s. That is acceptable only because it is not the only signal: the sampler
+ * raises I2C_FAIL_SHT from the FIRST failed measurement and it rides in the
+ * same frame, so a dead sensor is announced immediately and merely keeps
+ * publishing a bridged %vol for one more uplink. A scheduled mask raises no
+ * fault at all - see phase_sht() in main.c - so the two are distinguishable,
+ * which they were not before. */
+#define O2P_RH_MAX_AGE_S 400u
+
+/* The cache must always outlast the mask, or every scheduled pulse blanks
+ * O2_COMP again - the exact regression the cache was added to fix. Binding
+ * them here is why O2P_SHT_RECOVERY_MS lives in this header rather than at its
+ * use site in main.c: the two numbers are one derivation and must not be
+ * editable apart. 2100 ms is the 1.1 s pulse plus the 1.0 s sample cycle. */
+_Static_assert((uint32_t)O2P_RH_MAX_AGE_S * 1000u >=
+                   O2P_SHT_RECOVERY_MS + 2100u,
+               "O2P_RH_MAX_AGE_S no longer covers the de-creep mask plus the "
+               "pulse and one sample cycle - redo the derivation above");
 
 /* The most recent chamber reading that was actually measured. */
 typedef struct {

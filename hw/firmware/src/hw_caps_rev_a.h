@@ -49,6 +49,40 @@
  */
 #define O2P_HW_VREF_NET_SHARED_WITH_AFE 1
 
+/* ---- RS-485 receiver enable: can this board be commanded deaf? ----
+ *
+ * THVD1410 /RE is U5 pin 2 and is ACTIVE LOW. The part's 0.1 uA
+ * standby needs /RE HIGH with DE LOW, which is unreachable when the
+ * two share a net - Rev A does, and its receiver therefore burns
+ * 700 uA forever, 24 % of the board's idle draw (POWER-BUDGET.md).
+ *
+ * 1 requires BOTH that /RE has a net of its own AND that the net
+ * reaches the MCU pin the firmware drives. A rework that lifts the
+ * pin but never lands the wire is not a capability.
+ *
+ * This revision: U5.2 = /RS485_DE, U5.3 = /RS485_DE,
+ *                MCU pin 31 (PC7) = unconnected-(U6-PC7-Pad31).
+ *
+ * When 0, o2p_modbus_rx_standby(true) must REFUSE rather than write a
+ * pin that goes nowhere and report a standby that did not happen.
+ */
+#define O2P_HW_RS485_RE_ON_ITS_OWN_PIN 0
+
+/* Is LISTENING the passive default - R45, 47k from /RE to GND?
+ *
+ * /RE floats HIGH on the transceiver's ~2 MOhm internal pull-up and
+ * every MCU GPIO is high-impedance out of reset, so without this a
+ * probe sitting in its RS-485 bootloader, or with no working
+ * application at all, is DEAF - and a potted one is unrecoverable.
+ * That is the field-reflash path of SCHEMATIC-REVIEW.md M2.
+ *
+ * 0 on a board whose /RE is not split is not a missing part: there is
+ * nothing for it to pull down, and R7 on the shared net already does
+ * this job. 0 on a board that IS split is a fitting error, and the
+ * probe must not be potted until it is fixed.
+ */
+#define O2P_HW_RS485_RE_PASSIVE_PULLDOWN 0
+
 /* ---- MCU ADC pin connectivity ---- */
 #define O2P_HW_MCU_PA4_NET "unconnected-(U6-PA4-Pad15)"
 #define O2P_HW_MCU_PA6_NET "unconnected-(U6-PA6-Pad17)"

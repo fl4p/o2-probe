@@ -173,6 +173,39 @@ def derive(pads: dict, rev: str) -> dict:
     pa4_net = _required(pads, "U6", 15, "the CE-on-MCU capability")
     pa6_net = _required(pads, "U6", 17, "the VIN-on-MCU capability")
 
+    # --- can this board be commanded transceiver-deaf? ---
+    #
+    # Rev A tied the THVD1410's /RE (U5.2) to DE (U5.3) on one net, so the
+    # part's low-power state - /RE high, DE low - is not reachable no matter
+    # what the firmware writes, and the receiver burns 700 uA forever.
+    # POWER-BUDGET.md 2026-09-07 split /RE onto PC7 in gen_sch.py, which moved
+    # the DRAWING; the fabricated board on the bench is still shorted.
+    #
+    # BOTH HALVES ARE REQUIRED. A split at the transceiver that never reaches
+    # the MCU is not a split: the pin the firmware drives has to BE the net the
+    # transceiver listens to. Checking only "U5.2 != U5.3" would call a
+    # half-finished rework capable.
+    re_net = _required(pads, "U5", 2, "O2P_HW_RS485_RE_ON_ITS_OWN_PIN")
+    de_net = _required(pads, "U5", 3, "O2P_HW_RS485_RE_ON_ITS_OWN_PIN")
+    mcu_re = _required(pads, "U6", 31, "O2P_HW_RS485_RE_ON_ITS_OWN_PIN")
+    re_split = (re_net != de_net) and (mcu_re == re_net)
+
+    # R45, the 47k that makes LISTENING the passive default.
+    #
+    # PRESENCE, not a net, is the question here - so this is the one predicate
+    # that reads a missing part as an answer rather than as a failure, and
+    # _required() is deliberately not used. The distinction that makes it safe:
+    # _required() refuses to guess the NET ON A PAD THAT EXISTS, because an
+    # unreadable netlist there would manufacture a verdict. "Is R45 fitted" has
+    # absence as its true negative, and the negative is the UNSAFE-hardware
+    # direction (/RE floats high on the part's 2 MOhm pull-up, i.e. deaf), so a
+    # missing part cannot read as a capability. Both pads are still checked
+    # against the nets they must land on, so an R45 wired somewhere else does
+    # not count.
+    re_pulldown = (pads.get(("R45", "1")) == re_net and
+                   pads.get(("R45", "2")) == "/GND" and
+                   re_split)
+
     ce_connected = pa4_net in {"/CE_MON", "/ADC_CE_MON"}
     vin_on_mcu = pa6_net in {"/VIN_MON", "/ADC_VIN_MON"}
     vin_on_ads = ain.get(3) in {"/ADC_VIN_MON", "/VIN_MON"}
@@ -187,6 +220,11 @@ def derive(pads: dict, rev: str) -> dict:
         "ref_shared": afe_ref == ads_ref,
         "pa4_net": pa4_net,
         "pa6_net": pa6_net,
+        "re_net": re_net,
+        "de_net": de_net,
+        "mcu_re_net": mcu_re,
+        "re_split": re_split,
+        "re_pulldown": re_pulldown,
         "ce_connected": ce_connected,
         "vin_on_mcu": vin_on_mcu,
         "vin_on_ads": vin_on_ads,
@@ -248,6 +286,40 @@ def emit(d: dict) -> str:
     a(" * every derived current was fiction. Do not build a guard on this.")
     a(" */")
     a(f"#define O2P_HW_VREF_NET_SHARED_WITH_AFE {1 if d['ref_shared'] else 0}")
+    a("")
+    a("/* ---- RS-485 receiver enable: can this board be commanded deaf? ----")
+    a(" *")
+    a(" * THVD1410 /RE is U5 pin 2 and is ACTIVE LOW. The part\'s 0.1 uA")
+    a(" * standby needs /RE HIGH with DE LOW, which is unreachable when the")
+    a(" * two share a net - Rev A does, and its receiver therefore burns")
+    a(" * 700 uA forever, 24 % of the board\'s idle draw (POWER-BUDGET.md).")
+    a(" *")
+    a(" * 1 requires BOTH that /RE has a net of its own AND that the net")
+    a(" * reaches the MCU pin the firmware drives. A rework that lifts the")
+    a(" * pin but never lands the wire is not a capability.")
+    a(" *")
+    a(f" * This revision: U5.2 = {d['re_net']}, U5.3 = {d['de_net']},")
+    a(f" *                MCU pin 31 (PC7) = {d['mcu_re_net']}.")
+    a(" *")
+    a(" * When 0, o2p_modbus_rx_standby(true) must REFUSE rather than write a")
+    a(" * pin that goes nowhere and report a standby that did not happen.")
+    a(" */")
+    a(f"#define O2P_HW_RS485_RE_ON_ITS_OWN_PIN {1 if d['re_split'] else 0}")
+    a("")
+    a("/* Is LISTENING the passive default - R45, 47k from /RE to GND?")
+    a(" *")
+    a(" * /RE floats HIGH on the transceiver\'s ~2 MOhm internal pull-up and")
+    a(" * every MCU GPIO is high-impedance out of reset, so without this a")
+    a(" * probe sitting in its RS-485 bootloader, or with no working")
+    a(" * application at all, is DEAF - and a potted one is unrecoverable.")
+    a(" * That is the field-reflash path of SCHEMATIC-REVIEW.md M2.")
+    a(" *")
+    a(" * 0 on a board whose /RE is not split is not a missing part: there is")
+    a(" * nothing for it to pull down, and R7 on the shared net already does")
+    a(" * this job. 0 on a board that IS split is a fitting error, and the")
+    a(" * probe must not be potted until it is fixed.")
+    a(" */")
+    a(f"#define O2P_HW_RS485_RE_PASSIVE_PULLDOWN {1 if d['re_pulldown'] else 0}")
     a("")
     a("/* ---- MCU ADC pin connectivity ---- */")
     a(f'#define O2P_HW_MCU_PA4_NET "{d["pa4_net"]}"')

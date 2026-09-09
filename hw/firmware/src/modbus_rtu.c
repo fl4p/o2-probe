@@ -1,6 +1,7 @@
 #include "modbus_rtu.h"
 
 #include "board_pins.h"
+#include "hw_caps.h"
 #include "mcu.h"
 #include "modbus_pdu.h"
 
@@ -113,7 +114,11 @@ static void re_disable(void)
  * this file sets it; main.c does not call it yet. It exists so that the return
  * from a transmission goes back to the state the SYSTEM asked for rather than
  * unconditionally re-enabling the receiver - otherwise a standby probe would
- * silently come back to 700 uA the first time it answered a broadcast. */
+ * silently come back to 700 uA the first time it answered a broadcast.
+ *
+ * It also cannot be set at all on a board whose /RE is not on its own pin; see
+ * o2p_modbus_rx_standby() below, which refuses rather than recording a state
+ * the copper cannot hold. */
 static volatile bool s_rx_standby;
 
 /* The one place that decides /RE outside a transmission. */
@@ -136,11 +141,19 @@ static void gpio_init(void)
     O2P_RS485_DE_PORT->MODER = (O2P_RS485_DE_PORT->MODER & ~(3u << (O2P_RS485_DE_PIN * 2u))) |
                    (1u << (O2P_RS485_DE_PIN * 2u));
 
-    /* /RE next, and low, so the receiver is on before the USART is. R45 (47k)
-     * already holds it there through reset - that is what keeps a probe with
-     * no running application reachable over the bus - so this only takes over
-     * the same level actively. Written BEFORE MODER for the same reason DE is:
-     * the pin must never glitch high on its way to becoming an output. */
+    /* /RE next, and low, so the receiver is on before the USART is. Written
+     * BEFORE MODER for the same reason DE is: the pin must never glitch high
+     * on its way to becoming an output.
+     *
+     * WHAT HOLDS IT LOW BEFORE THIS RUNS DEPENDS ON THE BOARD, and the two
+     * cases are not equivalent. Where O2P_HW_RS485_RE_PASSIVE_PULLDOWN is 1,
+     * R45 (47k) holds it through reset and this only takes over the same level
+     * actively - that is what keeps a probe with no working application
+     * reachable over the bus. Where /RE is not split at all (Rev A), R7 on the
+     * shared DE net does the same job and this write lands on a pin that goes
+     * nowhere. Where a board is split WITHOUT R45, nothing holds it: /RE floats
+     * high on the transceiver's ~2 MOhm pull-up and the probe is deaf from
+     * reset until this line runs. Do not pot that board. */
     re_restore();
     O2P_RS485_RE_PORT->OTYPER &= ~(1u << O2P_RS485_RE_PIN);
     O2P_RS485_RE_PORT->OSPEEDR |= (3u << (O2P_RS485_RE_PIN * 2u));
@@ -454,6 +467,27 @@ bool o2p_modbus_rx_standby(bool on)
     if (s_tx_active) {
         return false;
     }
+#if !O2P_HW_RS485_RE_ON_ITS_OWN_PIN
+    /* THIS BOARD CANNOT GO DEAF, so it must not say it did.
+     *
+     * On a revision whose /RE is shorted to DE at the transceiver - Rev A, the
+     * fabricated first article - PC7 is a pin that goes nowhere and the actual
+     * /RE follows DE. Writing it would leave the receiver on, drawing its
+     * 700 uA, while s_rx_standby said standby and o2p_modbus_rx_standby_active()
+     * agreed. A caller sizing a power budget, or deciding it may now stop
+     * servicing the bus, would be reading a state the copper cannot hold.
+     *
+     * Refusing is not a limitation to be worked around in the caller: it is
+     * the capability header reporting what the netlist says, and the fix is
+     * the Rev A rework in docs/REWORK-RS485-RE-SPLIT.md or a Rev B board.
+     *
+     * LEAVING standby is still accepted, and must be: it is what the receiver
+     * is already doing, so it cannot fail, and a caller unwinding a state
+     * machine must not get a failure for asking for the state it is in. */
+    if (on) {
+        return false;
+    }
+#endif
     s_rx_standby = on;
     re_restore();
     return true;

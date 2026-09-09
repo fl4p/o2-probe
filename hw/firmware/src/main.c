@@ -147,12 +147,16 @@ static uint16_t g_ads_fail_count;         /* cycles with no ADS conversion */
  * Initialised so the first cycle is not masked. */
 static uint32_t g_sht_pulse_ms;
 static uint32_t g_next_sht_pulse_s;
-/* The last chamber reading that was actually measured, so the 30 s mask after
- * a scheduled SHT45 de-creep pulse is BRIDGED rather than published as an
+/* The last chamber reading that was actually measured, so the mask after a
+ * scheduled SHT45 de-creep pulse is BRIDGED rather than published as an
  * oxygen sentinel three times a day. Bounded by O2P_RH_MAX_AGE_S; see o2.h
- * for the derivation and for why a dead sensor still reaches the sentinel. */
+ * for the derivation and for why a dead sensor still reaches the sentinel.
+ *
+ * O2P_SHT_RECOVERY_MS used to be defined HERE, 30 s, and o2.h derived the
+ * cache bound from it across a file boundary with nothing enforcing the
+ * relation. Both now live in o2.h under one derivation and one static
+ * assertion; the measurement that moved it to 350 s is quoted there. */
 static o2p_gas_cache_t g_gas_cache;
-#define O2P_SHT_RECOVERY_MS 30000u
 
 static void restart_settling(void)
 {
@@ -430,28 +434,67 @@ static void phase_temps(o2p_snapshot_t *s)
      * recovery window closes. Publishing a post-pulse reading would look
      * exactly like the pile drying out.
      *
-     * The window is a conservative guess: Sensirion documents the heater
-     * commands but this firmware has not measured the recovery time on this
-     * part in this chamber. Treat it as unverified until a bench run replaces
-     * it - which is also the measurement that turns the slow-recovery
-     * signature into the DEW_SUSPECT classifier PLAN.md:312 asks for. */
-    if (!o2p_elapsed(g_sht_pulse_ms, O2P_SHT_RECOVERY_MS)) {
-        g_cyc.faults |= O2P_F_I2C_FAIL_SHT;
+     * The window was a conservative guess and it was WRONG: measured on the
+     * bench 2026-09-07, recovery to 0.10 %RH takes 325 s, not 30 s. o2.h now
+     * carries the constant, the measurement and the derivation of the cache
+     * bound that has to cover it (SHT-DECREEP-MASK-IS-TOO-SHORT.md).
+     *
+     * NO FAULT IS RAISED HERE ANY MORE, and that is the point of this hunk.
+     * The mask used to set I2C_FAIL_SHT, which made a maintenance action the
+     * firmware itself ordered indistinguishable at the Modbus interface from
+     * a failed humidity sensor - with I2C_ERRS sitting at 0 throughout, so the
+     * counter and the fault bit disagreed and a consumer could not tell them
+     * apart from that either. The fault word is not short of ways to say
+     * "broken"; it had no way to say "not broken, come back shortly".
+     *
+     * What a consumer sees instead, and why it is sufficient:
+     *
+     *   masked   T_CHAMBER/RH_CHAMBER at their sentinels, no fault bit. The
+     *            snapshot was reset to INVALID by cycle_begin() and this early
+     *            return writes nothing, so the sentinels are published by
+     *            omission, not by a substitution anyone has to trust.
+     *   broken   the same sentinels WITH I2C_FAIL_SHT, raised below from the
+     *            first measurement that actually fails.
+     *
+     * So the absence of the bit is the discriminator, which is the "distinct
+     * status" SHT-DECREEP-MASK-IS-TOO-SHORT.md asked for - reached by removing
+     * a false statement rather than by spending a register the diagnostic
+     * block does not have (0x0010..0x002F are all assigned, regmap.h).
+     *
+     * The dry-basis oxygen channel does not go with it: o2p_gas_cache_apply()
+     * bridges the gap from this sensor's own last real reading, bounded by
+     * O2P_RH_MAX_AGE_S, which the static assertion in o2.h ties to this mask.
+     *
+     * THE HEATER DOES STAND DOWN FOR THE WHOLE WINDOW, and it now lasts
+     * 350 s rather than 25 s - about 1.2 % of the time, on a schedule, three
+     * times a day. Only the RH loop: the persistent tip loop keeps its
+     * chamber temperature from the same cache (see the dT clamp below), and
+     * O2P_REG_HEATER_BLOCK names NO_RH as the reason on the bus, so it is
+     * visible rather than silent. Refusing is also the RIGHT answer at this
+     * length, not merely the conservative one - the pulse drives the measured
+     * RH LOW, and a loop that regulated on it would read the chamber as drier
+     * than it is and under-heat, which is the direction that condenses. */
+    if (o2p_sht_masked(o2p_millis(), g_sht_pulse_ms)) {
+        g_cyc.faults |= o2p_sht_phase_faults(true, false);
         return;
     }
 
     int16_t tc = 0;
     uint16_t rh = 0;
-    if (o2p_sht4x_measure(&tc, &rh) == O2P_SHT_OK) {
+    bool measure_ok = (o2p_sht4x_measure(&tc, &rh) == O2P_SHT_OK);
+    if (measure_ok) {
         s->t_chamber = tc;
         s->rh_chamber = rh;
         g_cyc.t_chamber = tc;
         g_cyc.rh = rh;
         g_cyc.chamber_ok = true;
         g_cyc.rh_ok = true;
-    } else {
-        g_cyc.faults |= O2P_F_I2C_FAIL_SHT;
     }
+    /* Both outcomes go through the same gate, including the masked return
+     * above - which adds nothing, and is written as a call rather than as no
+     * call at all so that the host test exercises THIS site's rule and not a
+     * second copy of it. */
+    g_cyc.faults |= o2p_sht_phase_faults(false, measure_ok);
 
     /* The temperature that matters for the cell's rating is the gas it sees.
      * Shared with finish_o2() through o2p_gas_temperature() so the two cannot
