@@ -33,6 +33,9 @@
     "Resistor_SMD:R_0603_1608Metric|10R": {"class": "generic-stock", "rationale": "RS-485 series element (R2/R3) and the +5V_ANALOG prefilter (R32); 1% from stock. R32 was an 0805 option pad for a ferrite bead; 0603 beads are as available, so the option survived the package."},
     "TestPoint:TestPoint_Pad_D1.0mm|*": {"class": "not-purchased", "rationale": "Bare copper probe pad; nothing is placed."},
     "Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief|*": {"class": "not-purchased", "rationale": "Solder-wire pigtail land; the J1 cable is a separate assembly item."},
+    "o2-probe:SolderWire_RaisedRelief_1x01|*": {"class": "not-purchased", "rationale": "J103/J104 solder-wire lands; unchanged plated/relief holes with wire-envelope graphics on the assembly layer. The cable is a separate assembly item."},
+    "o2-probe:SolderWireNoRelief_J105|*": {"class": "not-purchased", "rationale": "Accepted J105 bare solder-wire land; there is no connector body to purchase."},
+    "o2-probe:SolderWireNoRelief_J106|*": {"class": "not-purchased", "rationale": "Accepted J106 bare solder-wire land; there is no connector body to purchase."},
     "o2-probe:Heater_Ring_Solder_Lands|HEATED MEMBRANE RING": {"class": "custom", "rationale": "Dry-side metal membrane-carrier ring; frozen by the FAB-READINESS.md ring drawing/alloy/plating gate, not by a distributor MPN."}
   }
 }

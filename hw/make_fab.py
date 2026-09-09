@@ -547,4 +547,12 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Build a revision-specific O2 probe fabrication package")
+    parser.add_argument("--revision", choices=("rev-a", "rev-b"), default="rev-b",
+                        help="default: rev-b engineering review; rev-a retains the historical exporter")
+    args = parser.parse_args()
+    if args.revision == "rev-b":
+        from make_fab_revb import main as build_revb
+        raise SystemExit(build_revb())
     raise SystemExit(main())

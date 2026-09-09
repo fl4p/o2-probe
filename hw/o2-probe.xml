@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <export version="E">
   <design>
-    <source>/private/tmp/o2-revb-finish/ee/hw/o2-probe/o2-probe.kicad_sch</source>
-    <date>2026-09-09T15:08:05</date>
+    <source>/private/tmp/o2-revb-fab/ee/hw/o2-probe/fab/.rev-b-build-mbcd2bd7/source/o2-probe.kicad_sch</source>
+    <date>2026-09-09T16:39:14</date>
     <tool>Eeschema 10.0.5</tool>
     <sheet number="1" name="/" tstamps="/">
       <title_block>
-        <title>O2 Probe Rev A — SGX-OX Mini / LMP91000 / STM32G071 / RS-485</title>
+        <title>O2 Probe Rev B — SGX-OX Mini / LMP91000 / STM32G071 / RS-485</title>
         <company/>
         <rev/>
         <date/>
@@ -939,12 +939,12 @@
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
-      <libsource lib="Device" part="Polyfuse" description="Resettable fuse, polymeric positive temperature coefficient"/>
+      <libsource lib="Device" part="R" description="Resistor"/>
       <property name="Design Note" value="FITTED 0R LINK, deliberately not a DNP placeholder -- it sits in SERIES in the only supply path to the ring, so leaving it unpopulated would open the heater feed and the heater would never run at all. It reserves the position for a protective device against a fault path that is NEW: with RH1/RH2 sitting in the main-board branch and NOT in the fork feed, nothing limits the fork itself, so a short between the fork fingers -- which run at 0.20 mm clearance to a metal cell can, RING-PCB.md section 1 -- puts +12V_SW across Q2 unlimited, and possibly 12 V onto the cell. DO NOT FIT AS DRAWN: a PPTC is likely the wrong device here, because F1's own note records IH derating to 0.36 A at 85 C, and a part that holds the heater's 83 mA at pile temperature would nuisance-trip. The land exists so the option is not designed out; size it once the ring's resistance is fixed. A PPTC is likely the wrong device: F1's own note records IH derating to 0.36 A at 85 C for a 0.75 A part, so one holding the heater's 83 mA would nuisance-trip at pile temperature"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="ki_keywords" value="resettable fuse PTC PPTC polyfuse polyswitch"/>
-      <property name="ki_fp_filters" value="*polyfuse* *PTC*"/>
+      <property name="ki_keywords" value="R res resistor"/>
+      <property name="ki_fp_filters" value="R_*"/>
       <sheetpath names="/" tstamps="/"/>
       <tstamps>49d54c4e-6b16-5343-a9b3-0a2e1bf605c1</tstamps>
       <units>
@@ -1060,19 +1060,19 @@
     </comp>
     <comp ref="J103">
       <value>J1.3 GREEN A</value>
-      <footprint>Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief</footprint>
+      <footprint>o2-probe:SolderWire_RaisedRelief_1x01</footprint>
       <fields>
         <field name="Design Note">One of four independent farm-bus cable solder pads</field>
-        <field name="Footprint">Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief</field>
+        <field name="Footprint">o2-probe:SolderWire_RaisedRelief_1x01</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
-      <libsource lib="Connector_Generic" part="Conn_01x01" description="Generic connector, single row, 01x01, script generated (kicad-library-utils/schlib/autogen/connector/)"/>
+      <libsource lib="o2-probe" part="WIRE_LAND" description="Generic connector, single row, 01x01, script generated (kicad-library-utils/schlib/autogen/connector/)"/>
       <property name="Design Note" value="One of four independent farm-bus cable solder pads"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="connector"/>
-      <property name="ki_fp_filters" value="Connector*:*_1x??_*"/>
+      <property name="ki_fp_filters" value="o2-probe:SolderWireNoRelief_J105 o2-probe:SolderWireNoRelief_J106 o2-probe:SolderWire_RaisedRelief_1x01"/>
       <sheetpath names="/" tstamps="/"/>
       <tstamps>bb7d2da7-8dad-537a-a4c3-476780fd5c58</tstamps>
       <units>
@@ -1085,19 +1085,19 @@
     </comp>
     <comp ref="J104">
       <value>J1.4 YELLOW B</value>
-      <footprint>Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief</footprint>
+      <footprint>o2-probe:SolderWire_RaisedRelief_1x01</footprint>
       <fields>
         <field name="Design Note">One of four independent farm-bus cable solder pads</field>
-        <field name="Footprint">Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief</field>
+        <field name="Footprint">o2-probe:SolderWire_RaisedRelief_1x01</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
-      <libsource lib="Connector_Generic" part="Conn_01x01" description="Generic connector, single row, 01x01, script generated (kicad-library-utils/schlib/autogen/connector/)"/>
+      <libsource lib="o2-probe" part="WIRE_LAND" description="Generic connector, single row, 01x01, script generated (kicad-library-utils/schlib/autogen/connector/)"/>
       <property name="Design Note" value="One of four independent farm-bus cable solder pads"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="connector"/>
-      <property name="ki_fp_filters" value="Connector*:*_1x??_*"/>
+      <property name="ki_fp_filters" value="o2-probe:SolderWireNoRelief_J105 o2-probe:SolderWireNoRelief_J106 o2-probe:SolderWire_RaisedRelief_1x01"/>
       <sheetpath names="/" tstamps="/"/>
       <tstamps>205ab876-94eb-5cc9-acab-d8d79253c4e8</tstamps>
       <units>
@@ -1110,19 +1110,19 @@
     </comp>
     <comp ref="J105">
       <value>BRIDGE TX (PA2)</value>
-      <footprint>Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief</footprint>
+      <footprint>o2-probe:SolderWireNoRelief_J105</footprint>
       <fields>
         <field name="Design Note">Bench-bridge TTL tap, MCU side. Laptop TTL RX &lt;- here. 3.3 V logic ONLY: PA2/PA3 are not 5 V tolerant on this device (bridge_main.c:23)</field>
-        <field name="Footprint">Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief</field>
+        <field name="Footprint">o2-probe:SolderWireNoRelief_J105</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
-      <libsource lib="Connector_Generic" part="Conn_01x01" description="Generic connector, single row, 01x01, script generated (kicad-library-utils/schlib/autogen/connector/)"/>
+      <libsource lib="o2-probe" part="WIRE_LAND" description="Generic connector, single row, 01x01, script generated (kicad-library-utils/schlib/autogen/connector/)"/>
       <property name="Design Note" value="Bench-bridge TTL tap, MCU side. Laptop TTL RX &lt;- here. 3.3 V logic ONLY: PA2/PA3 are not 5 V tolerant on this device (bridge_main.c:23)"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="connector"/>
-      <property name="ki_fp_filters" value="Connector*:*_1x??_*"/>
+      <property name="ki_fp_filters" value="o2-probe:SolderWireNoRelief_J105 o2-probe:SolderWireNoRelief_J106 o2-probe:SolderWire_RaisedRelief_1x01"/>
       <sheetpath names="/" tstamps="/"/>
       <tstamps>1764d32f-90af-51d2-ad75-83a85aeaa754</tstamps>
       <units>
@@ -1135,19 +1135,19 @@
     </comp>
     <comp ref="J106">
       <value>BRIDGE RX (PA3)</value>
-      <footprint>Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief</footprint>
+      <footprint>o2-probe:SolderWireNoRelief_J106</footprint>
       <fields>
         <field name="Design Note">Bench-bridge TTL tap, MCU side. Laptop TTL TX -&gt; here. See J105</field>
-        <field name="Footprint">Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief</field>
+        <field name="Footprint">o2-probe:SolderWireNoRelief_J106</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
-      <libsource lib="Connector_Generic" part="Conn_01x01" description="Generic connector, single row, 01x01, script generated (kicad-library-utils/schlib/autogen/connector/)"/>
+      <libsource lib="o2-probe" part="WIRE_LAND" description="Generic connector, single row, 01x01, script generated (kicad-library-utils/schlib/autogen/connector/)"/>
       <property name="Design Note" value="Bench-bridge TTL tap, MCU side. Laptop TTL TX -&gt; here. See J105"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="connector"/>
-      <property name="ki_fp_filters" value="Connector*:*_1x??_*"/>
+      <property name="ki_fp_filters" value="o2-probe:SolderWireNoRelief_J105 o2-probe:SolderWireNoRelief_J106 o2-probe:SolderWire_RaisedRelief_1x01"/>
       <sheetpath names="/" tstamps="/"/>
       <tstamps>1bcbaf5f-5711-5898-ab15-2dc343bee72e</tstamps>
       <units>
@@ -3163,6 +3163,24 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
         <pin num="1" name="IO1" type="passive"/>
         <pin num="2" name="IO2" type="passive"/>
         <pin num="3" name="GND" type="passive"/>
+      </pins>
+    </libpart>
+    <libpart lib="o2-probe" part="WIRE_LAND">
+      <description>Generic connector, single row, 01x01, script generated (kicad-library-utils/schlib/autogen/connector/)</description>
+      <footprints>
+        <fp>o2-probe:SolderWireNoRelief_J105</fp>
+        <fp>o2-probe:SolderWireNoRelief_J106</fp>
+        <fp>o2-probe:SolderWire_RaisedRelief_1x01</fp>
+      </footprints>
+      <fields>
+        <field name="Reference">J</field>
+        <field name="Value">Conn_01x01</field>
+        <field name="Footprint"/>
+        <field name="Datasheet"/>
+        <field name="Description">Generic connector, single row, 01x01, script generated (kicad-library-utils/schlib/autogen/connector/)</field>
+      </fields>
+      <pins>
+        <pin num="1" name="Pin_1" type="passive"/>
       </pins>
     </libpart>
   </libparts>

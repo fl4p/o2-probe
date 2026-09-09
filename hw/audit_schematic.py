@@ -46,7 +46,7 @@ for comp in components:
     elif ref.startswith("C"):
         expected = ("Device", "C")
     elif ref.startswith("F"):
-        expected = ("Device", "Polyfuse")
+        expected = ("Device", "R" if ref == "F3" else "Polyfuse")
     elif ref.startswith("L"):
         expected = ("Device", "L")
     elif ref == "Q1":
@@ -57,6 +57,8 @@ for comp in components:
         expected = ("Connector", "TestPoint")
     elif ref == "J5":
         expected = ("o2-probe", "RING_PCB_FORK_TIP")
+    elif ref in ("J103", "J104", "J105", "J106"):
+        expected = ("o2-probe", "WIRE_LAND")
     elif ref in ("J101", "J102", "J103", "J104"):
         expected = ("Connector_Generic", "Conn_01x01")
     if expected is not None and actual != expected:

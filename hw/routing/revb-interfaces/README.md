@@ -4,10 +4,16 @@ The current two-layer Rev B candidate completes the RS-485 `/RE` split and
 CE resistor/clamp layout. It has **101 components**, including R45, with no
 RV1. The root PCB remains the Rev A article; this directory is the candidate.
 
-**Not a fabrication release.** Both saved-fill and CLI-refilled DRC have
-zero copper errors and zero unconnected items, while 41 inherited non-copper
-warnings and five inherited footprint-parity findings remain visible. Bench
-compliance, leakage, ESD and thermal qualification are still required.
+**Reproducible engineering-review export.** `python3 make_fab.py` now builds
+this two-layer Rev B design by default. Saved-fill and CLI-refilled DRC have
+zero copper errors, opens, parity findings and silkscreen warnings. The remaining
+15 courtyard warnings have individual manual-assembly dispositions; they are
+visible, not disabled. The package is not order-ready: draft J5, procurement
+and physical qualification remain open.
+
+See [build/export instructions](../../docs/REVB-FAB.md),
+[assembly dispositions](../../docs/REVB-ASSEMBLY.md), and the
+[validation and review record](../../docs/2026-09-09-revb-fab-validation.md).
 
 Read the [implementation, source evidence and qualification record](../../docs/2026-09-09-revb-protection.md).
 The previous [BOM39 candidate](../2layer-bom39/PROVENANCE.md) is unchanged.
@@ -29,24 +35,20 @@ The previous [BOM39 candidate](../2layer-bom39/PROVENANCE.md) is unchanged.
 From the project root (KiCad 10.0.5):
 
 ```sh
-python3 gen_sch.py
-/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/Current/bin/python3 \
-  adopt_revb_interfaces.py routing/revb-interfaces/o2-probe.kicad_pcb
-python3 verify_revb_interfaces.py
-/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/Current/bin/python3 \
-  routing/2layer-bom39/verify_critical.py \
-  routing/revb-interfaces/o2-probe.kicad_pcb --essential-only --expect-locked
-/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli pcb drc \
-  --severity-all --schematic-parity --refill-zones --format json \
-  -o /tmp/o2-revb-drc.json routing/revb-interfaces/o2-probe.kicad_pcb
+python3 make_fab.py --revision rev-b
 ```
 
-The schematic and project library beside this board are copies of the root
-outputs; refresh both when regenerating. The migration starts from the pinned
-BOM39 route, authors the local changes, preserves the project constraints and
-requires successful zone fill plus zero opens before saving. KiCad assigns
-fresh IDs to added items: compare geometry/connectivity when reproducing.
-`gen_pcb.py` supplies placement only and does not reproduce this routed copper.
+The exporter copies all source dependencies into staging, generates the schematic,
+replays `adopt_revb_interfaces.py` and `finish_revb_layout.py`, compares the rebuilt
+board with this accepted candidate, then runs all checks before packaging it.
+The historical BOM39 route and root Rev A PCB remain unchanged. `gen_pcb.py`
+supplies placement only; it does not reproduce the routed copper.
+
+The finishing step moves R17 above U4 and connects it to the existing MENB trunk,
+removing the obsolete resistor-only branch. It moves conflicting wire/cell
+outlines and process notes onto the assembly drawing. F3 now has the resistor
+symbol corresponding to its fitted 0-ohm link; the accepted wire lands are
+explicit in the schematic and project library.
 
 ## Evidence
 
@@ -55,7 +57,5 @@ fresh IDs to added items: compare geometry/connectivity when reproducing.
 - [63-item critical-route check](critical-check.txt)
 - [Artifact and tool-source hashes](validation-manifest.json)
 
-The candidate retains the previously accepted J105/J106 no-relief footprints.
-The five parity findings concern those substitutions/filters and F3's filter;
-there is no remaining pin/net or value mismatch. The non-copper warnings and
-open product qualification gates are not waived by these checks.
+The original interface implementation record is historical evidence. Current
+build/export status is in the links above and this directory's refreshed reports.

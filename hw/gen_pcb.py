@@ -134,7 +134,7 @@ PLACEMENT = {
  # R40 taps the RE follower for the guard; R42 is the CE fault limit and wants
  # to be at U7's pin 14, not out at the cell.
  "R40":(3.0,77.0,0,"B"), "R42":(9.25,78.5,0,"B"), "C16":(12.4,74.5,0,"B"), "C17":(15.6,74.5,0,"B"), "C18":(18.0,80.2,90,"B"), "C19":(18.5,80.2,90,"F"),
- "R24":(6.0,80.2,0,"B"), "R25":(9.2,80.2,0,"B"), "R26":(12.4,80.2,0,"B"), "R27":(14.0,82.2,180,"B"), "R17":(5.0,77.0,90,"F"),
+ "R24":(6.0,80.2,0,"B"), "R25":(9.2,80.2,0,"B"), "R26":(12.4,80.2,0,"B"), "R27":(14.0,82.2,180,"B"), "R17":(5.8,71.8,90,"F"),
  # The AFE-output filter cannot sit below U7's left dogbones.  Put it in the
  # back-side expansion bay; the extra millimetres of trace are preferable to
  # an unroutable supply/ADC escape at the converter itself.
