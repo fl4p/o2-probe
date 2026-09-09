@@ -247,9 +247,12 @@ static struct {
     bool     vref_measured;
 } g_cyc;
 
+static uint32_t s_cycle_start_ms;
+
 static void cycle_begin(void)
 {
     memset(&g_cyc, 0, sizeof(g_cyc));
+    s_cycle_start_ms = o2p_millis();
     g_cyc.faults = 0u;
     /* Until the reference is actually measured this cycle, assume the trim
      * target rather than carrying last cycle's number forward. */
@@ -364,11 +367,17 @@ static void phase_rails(o2p_snapshot_t *s)
     }
 }
 
+static uint32_t g_afe_override_s;
+
 static void phase_afe(o2p_snapshot_t *s)
 {
     uint16_t back = 0u;
     o2p_lmp_status_t lst = o2p_lmp91000_verify(&back);
     s->lmp_readback = back;
+    if (g_uptime_s < g_afe_override_s) {
+        g_cyc.faults |= O2P_F_AFE_CONFIG_MISMATCH;
+        return;
+    }
     if (lst == O2P_LMP_IO) {
         g_cyc.faults |= O2P_F_I2C_FAIL_LMP;
         restart_settling();
@@ -1111,7 +1120,7 @@ static void cycle_publish(o2p_snapshot_t *s)
             .test_tip_sp_c100 = g_rm.heater_test_tip_sp_c100,
             .test_kp_x100    = g_rm.heater_test_kp_x100,
             .test_ki_x100    = g_rm.heater_test_ki_x100,
-            /* Persistent tip loop, registers 0x0049..0x004C. Read from the
+            /* Persistent tip loop, registers 0x0049 and 0x004A. Read from the
              * CONFIG this time, not the volatile map: surviving a reset is the
              * entire point of the mode. */
             .tip_consent     = (g_rm.cfg.heater_tip_consent ==
@@ -1119,6 +1128,46 @@ static void cycle_publish(o2p_snapshot_t *s)
             .tip_sp_valid    = (g_rm.cfg.tip_setpoint_c100 != O2P_I16_INVALID),
             .tip_sp_c100     = g_rm.cfg.tip_setpoint_c100,
         };
+        /* CHAMBER TEMPERATURE FOR THE dT CLAMP, bridged across the scheduled
+         * SHT45 de-creep mask.
+         *
+         * cycle_begin() invalidates chamber AND humidity, and phase_sht()
+         * restores neither for O2P_SHT_RECOVERY_MS after a pulse. The
+         * persistent tip loop suppresses NO_RH but deliberately keeps
+         * NO_CHAMBER live, so without this it stops for the whole mask on a
+         * schedule - a loop that refuses intermittently for a reason nobody
+         * can see from outside, which is worse than one that refuses
+         * consistently. Found by review 2026-09-08.
+         *
+         * Uses the SAME cache and the SAME bound as the oxygen path
+         * (O2P_RH_MAX_AGE_S = 45 s, derived in o2.h against a 32.1 s worst
+         * case), so the age policy stays in one place rather than acquiring a
+         * second copy that can drift. Past the bound the gas stays invalid and
+         * NO_CHAMBER fires again: a genuinely dead SHT45 still blocks the
+         * heater, which is the property that had to survive.
+         *
+         * ONLY THE TEMPERATURE IS BRIDGED, not the humidity. Chamber
+         * temperature moves on minutes and is an INPUT to a clamp; relative
+         * humidity is the RH loop's CONTROLLED QUANTITY and is the very thing
+         * the pulse perturbs. Substituting a cached value for a clamp's
+         * reference is not the same act as substituting one for the quantity
+         * you are regulating, and the RH loop keeps refusing as before. */
+        bool    heater_chamber_ok = g_cyc.chamber_ok;
+        int16_t heater_t_chamber  = g_cyc.t_chamber;
+        if (!heater_chamber_ok) {
+            o2p_gas_t bridged;
+            bridged.rh_pct = 0.0f;
+            bridged.t_c    = 0.0f;
+            bridged.p_hpa  = 0.0f;
+            bridged.valid  = false;
+            if (o2p_gas_cache_apply(&g_gas_cache, &bridged, g_uptime_s)) {
+                const float c100 = bridged.t_c * 100.0f;
+                heater_t_chamber =
+                    (int16_t)(c100 + (c100 >= 0.0f ? 0.5f : -0.5f));
+                heater_chamber_ok = true;
+            }
+        }
+
         const o2p_heater_in_t hin = {
             .drive_possible   = o2p_heater_compiled_in(),
             .safety_armed     = o2p_tmp117_safety_armed(),
@@ -1134,8 +1183,8 @@ static void cycle_publish(o2p_snapshot_t *s)
              * blanking it here would hide the evidence. */
             .tip_valid        = g_cyc.tip_ok && g_cyc.tip_fresh,
             .t_tip_c100       = g_cyc.t_tip,
-            .chamber_valid    = g_cyc.chamber_ok,
-            .t_chamber_c100   = g_cyc.t_chamber,
+            .chamber_valid    = heater_chamber_ok,
+            .t_chamber_c100   = heater_t_chamber,
             /* The die is a diagnostic channel everywhere else; here it is the
              * only reference that can witness a stuck-on FET. */
             .die_valid        = (s->t_die != O2P_I16_INVALID),
@@ -1161,6 +1210,8 @@ static void cycle_publish(o2p_snapshot_t *s)
         }
     }
     s->heater_duty = o2p_heater_duty_x100();
+    s->heater_block = g_cyc.heater_block;
+    s->sampler_timing_ms = (uint16_t)(o2p_millis() - s_cycle_start_ms);
     s->pressure_hpa = 0u;             /* BMP390 is DNP on Rev A */
     s->exp_data = O2P_U16_INVALID;    /* J2 expansion is DNP on Rev A */
     s->uptime_s = g_uptime_s;
@@ -1319,6 +1370,140 @@ static bool sampler_step(void)
     return false;
 }
 
+static void execute_diag_command(o2p_regmap_t *rm)
+{
+    uint8_t op = (uint8_t)(rm->diag_cmd & 0xFFu);
+    uint16_t p = rm->diag_param;
+    rm->diag_rdata0 = 0u;
+    rm->diag_rdata1 = 0u;
+    rm->diag_rdata2 = 0u;
+    rm->diag_crc_status = 0u;
+
+    switch (op) {
+    case O2P_OP_READ_LMP_REG: {
+        uint8_t reg = (uint8_t)p;
+        if (reg != 0x00 && reg != 0x01 && reg != 0x10 && reg != 0x11 && reg != 0x12) {
+            rm->diag_status = O2P_DMBOX_STATUS_ERR_OPCODE;
+            return;
+        }
+        uint8_t val = 0;
+        o2p_i2c_status_t st = o2p_i2c1_write_read(O2P_HW_I2C_ADDR_LMP91000, &reg, 1u, &val, 1u);
+        if (st == O2P_I2C_OK) {
+            rm->diag_rdata0 = (uint16_t)val;
+            rm->diag_status = O2P_DMBOX_STATUS_OK;
+        } else if (st == O2P_I2C_TIMEOUT) {
+            rm->diag_status = O2P_DMBOX_STATUS_ERR_TIMEOUT;
+        } else {
+            rm->diag_status = O2P_DMBOX_STATUS_ERR_NACK;
+        }
+        break;
+    }
+    case O2P_OP_TRIM_LMP_TIACN: {
+        uint8_t val = (uint8_t)p;
+        if ((val & 0xE0u) != 0u) {
+            rm->diag_status = O2P_DMBOX_STATUS_ERR_OPCODE;
+            return;
+        }
+        g_afe_override_s = g_uptime_s + 60u;
+        uint8_t payload[2] = { 0x10u, val };
+        o2p_i2c_status_t st = o2p_i2c1_write(O2P_HW_I2C_ADDR_LMP91000, payload, 2u);
+        if (st == O2P_I2C_OK) {
+            rm->diag_status = O2P_DMBOX_STATUS_OK;
+        } else if (st == O2P_I2C_TIMEOUT) {
+            rm->diag_status = O2P_DMBOX_STATUS_ERR_TIMEOUT;
+        } else {
+            rm->diag_status = O2P_DMBOX_STATUS_ERR_NACK;
+        }
+        break;
+    }
+    case O2P_OP_READ_ADS_STATUS: {
+        uint8_t cmd = 0x24u;
+        uint8_t val = 0;
+        o2p_i2c_status_t st = o2p_i2c1_write_read(O2P_HW_I2C_ADDR_ADS1119, &cmd, 1u, &val, 1u);
+        if (st == O2P_I2C_OK) {
+            rm->diag_rdata0 = (uint16_t)val;
+            rm->diag_status = O2P_DMBOX_STATUS_OK;
+        } else if (st == O2P_I2C_TIMEOUT) {
+            rm->diag_status = O2P_DMBOX_STATUS_ERR_TIMEOUT;
+        } else {
+            rm->diag_status = O2P_DMBOX_STATUS_ERR_NACK;
+        }
+        break;
+    }
+    case O2P_OP_READ_ADS_CONFIG: {
+        uint8_t cmd = 0x20u;
+        uint8_t val = 0;
+        o2p_i2c_status_t st = o2p_i2c1_write_read(O2P_HW_I2C_ADDR_ADS1119, &cmd, 1u, &val, 1u);
+        if (st == O2P_I2C_OK) {
+            rm->diag_rdata0 = (uint16_t)val;
+            rm->diag_status = O2P_DMBOX_STATUS_OK;
+        } else if (st == O2P_I2C_TIMEOUT) {
+            rm->diag_status = O2P_DMBOX_STATUS_ERR_TIMEOUT;
+        } else {
+            rm->diag_status = O2P_DMBOX_STATUS_ERR_NACK;
+        }
+        break;
+    }
+    case O2P_OP_READ_TMP_REG: {
+        uint8_t reg = (uint8_t)p;
+        if (reg > 0x08u && reg != 0x0Fu) {
+            rm->diag_status = O2P_DMBOX_STATUS_ERR_OPCODE;
+            return;
+        }
+        uint8_t buf[2] = {0};
+        o2p_i2c_status_t st = o2p_i2c1_write_read(O2P_HW_I2C_ADDR_TMP117, &reg, 1u, buf, 2u);
+        if (st == O2P_I2C_OK) {
+            rm->diag_rdata0 = ((uint16_t)buf[0] << 8) | buf[1];
+            rm->diag_status = O2P_DMBOX_STATUS_OK;
+        } else if (st == O2P_I2C_TIMEOUT) {
+            rm->diag_status = O2P_DMBOX_STATUS_ERR_TIMEOUT;
+        } else {
+            rm->diag_status = O2P_DMBOX_STATUS_ERR_NACK;
+        }
+        break;
+    }
+    case O2P_OP_READ_SHT_SERIAL: {
+        uint8_t cmd = 0x89u;
+        uint8_t buf[6] = {0};
+        o2p_i2c_status_t st = o2p_i2c1_write_read(O2P_HW_I2C_ADDR_SHT45, &cmd, 1u, buf, 6u);
+        if (st == O2P_I2C_OK) {
+            rm->diag_rdata0 = ((uint16_t)buf[0] << 8) | buf[1];
+            rm->diag_rdata1 = ((uint16_t)buf[3] << 8) | buf[4];
+            rm->diag_status = O2P_DMBOX_STATUS_OK;
+        } else if (st == O2P_I2C_TIMEOUT) {
+            rm->diag_status = O2P_DMBOX_STATUS_ERR_TIMEOUT;
+        } else {
+            rm->diag_status = O2P_DMBOX_STATUS_ERR_NACK;
+        }
+        break;
+    }
+    case O2P_OP_READ_SHT_SAMPLE: {
+        uint8_t cmd = 0xFDu;
+        o2p_i2c_status_t st = o2p_i2c1_write(O2P_HW_I2C_ADDR_SHT45, &cmd, 1u);
+        if (st != O2P_I2C_OK) {
+            rm->diag_status = (st == O2P_I2C_TIMEOUT) ? O2P_DMBOX_STATUS_ERR_TIMEOUT : O2P_DMBOX_STATUS_ERR_NACK;
+            return;
+        }
+        o2p_delay_ms(10u);
+        uint8_t buf[6] = {0};
+        st = o2p_i2c1_read(O2P_HW_I2C_ADDR_SHT45, buf, 6u);
+        if (st == O2P_I2C_OK) {
+            rm->diag_rdata0 = ((uint16_t)buf[0] << 8) | buf[1];
+            rm->diag_rdata1 = ((uint16_t)buf[3] << 8) | buf[4];
+            rm->diag_status = O2P_DMBOX_STATUS_OK;
+        } else if (st == O2P_I2C_TIMEOUT) {
+            rm->diag_status = O2P_DMBOX_STATUS_ERR_TIMEOUT;
+        } else {
+            rm->diag_status = O2P_DMBOX_STATUS_ERR_NACK;
+        }
+        break;
+    }
+    default:
+        rm->diag_status = O2P_DMBOX_STATUS_ERR_OPCODE;
+        break;
+    }
+}
+
 /* ---------------------------------------------------------------- bring-up */
 
 static void bring_up_devices(void)
@@ -1418,6 +1603,7 @@ int main(void)
         }
     }
     g_rm.upd = &g_upd;
+    o2p_regmap_load_crash_context(&g_rm);
 
     bring_up_devices();
     o2p_modbus_init(&g_rm.cfg);
@@ -1474,6 +1660,10 @@ int main(void)
              * release a commit that was waiting for it without costing
              * another lap. */
             serial_probation_service();
+            if (g_phase == PH_IDLE && g_rm.diag_pending) {
+                g_rm.diag_pending = false;
+                execute_diag_command(&g_rm);
+            }
             if (g_rm.commit_pending) {
                 g_rm.commit_pending = false;
                 /* The return value used to be discarded, so a failed erase or

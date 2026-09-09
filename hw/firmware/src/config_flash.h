@@ -30,6 +30,7 @@
 #include "flash_map.h"
 #include "modbus_pdu.h"
 #include "regmap.h"
+#include "transport_record.h"
 
 /* --- the stored record ---------------------------------------------------
  *
@@ -103,13 +104,6 @@
  * v5 offset stays where it is: the migration then carries a v5 record intact
  * and the only field it cannot fill is the one a v5 probe never had. */
 /* Version 7 appends heater_rh_consent (register 0x0048), consent to
- * Version 8 appends the persistent tip-temperature setpoint, its consent and
- * its gains (registers 0x0049..0x004C). Same append-only shape as 6 and 7, so
- * a v7 record migrates by zero-fill - with one exception the migration has to
- * handle explicitly, because 0 is a legal setpoint and the "off" value is the
- * sentinel rather than zero. Autonomous temperature heating never survives a
- * migration, exactly like RH consent.
- *
  * AUTONOMOUS heating. Appended for the same reason version 6 was: every v6
  * offset stays put, so the migration is a zero-fill rather than a re-layout.
  *
@@ -118,11 +112,27 @@
  * out or in which consent did not exist, so it cannot express consent, and
  * inventing one would be the migration granting an authorisation nobody
  * gave. Every upgrade therefore lands with autonomous heating off, whatever
- * heater_max_duty_x100 it carried across. */
+ * heater_max_duty_x100 it carried across.
+ *
+ * 8: appends the persistent tip-temperature setpoint and its consent
+ * (registers 0x0049 and 0x004A). NOT its gains: only six bytes of the record
+ * were free and the setpoint plus consent took four, so both tip loops share
+ * the volatile gains at 0x0063/0x0064. Same append-only shape as 6 and 7, so
+ * a v7 record migrates by zero-fill - with one exception the migration has to
+ * handle explicitly, because 0 is a legal setpoint and the "off" value is the
+ * sentinel rather than zero. Autonomous temperature heating never survives a
+ * migration, exactly like RH consent. */
 #define CONFIG_LAYOUT_VERSION 8u
 
 /* Fixed 64-byte record, so the layout does not move when a config field is
- * added and the flash image stays recognisable across firmware versions. */
+ * added and the flash image stays recognisable across firmware versions.
+ *
+ * Fixed in SIZE, not in shape: the CRC sits immediately after the
+ * configuration struct, so growing that struct MOVES the checksum. That is
+ * why a bootloader compiled against an older layout cannot verify this record
+ * at all, and why the transport bytes it actually needs are written a second
+ * time into the frozen block at O2P_TRANSPORT_OFFSET. See
+ * transport_record.h. */
 #define CONFIG_RECORD_SIZE 64u
 typedef struct {
     uint32_t magic;
@@ -140,6 +150,14 @@ _Static_assert(sizeof(config_record_t) % 8u == 0u,
                "programming");
 _Static_assert(sizeof(config_record_t) <= O2P_FLASH_PAGE_BYTES,
                "record too large");
+/* The frozen transport block shares the page and must not collide with the
+ * configuration record in front of it - in either direction, so growing
+ * CONFIG_RECORD_SIZE is caught here rather than by a loader in a pile. */
+_Static_assert(O2P_TRANSPORT_OFFSET >= sizeof(config_record_t),
+               "the transport block overlaps the configuration record");
+_Static_assert(O2P_TRANSPORT_OFFSET + O2P_TRANSPORT_BYTES <=
+                   O2P_FLASH_PAGE_BYTES,
+               "the transport block does not fit in the config page");
 
 /* CRC-16/MODBUS over everything up to but excluding the crc field. The
  * reserved tail is deliberately NOT covered: it exists to be repurposed by a

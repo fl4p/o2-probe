@@ -34,6 +34,7 @@
 #include "mcu.h"
 #include "modbus_pdu.h"
 #include "regmap.h"
+#include "transport_record.h"
 #include "update.h"
 #include "update_target.h"
 
@@ -64,56 +65,115 @@ static uint8_t g_addr = 3u;
 /* ------------------------------------------------------- serial settings */
 
 /* The loader needs the address, baud and parity the probe is actually
- * configured for, and it reads them from the SAME record the application
- * writes - not from a copy of its own that could drift.
+ * configured for, and everything about how it gets them is shaped by one
+ * constraint: THIS IMAGE IS NEVER REWRITTEN IN THE FIELD, so it will be
+ * reading records written by applications that did not exist when it was
+ * compiled.
  *
- * It deliberately does not run o2p_config_valid() over the record. That
- * function rejects, among other things, a heater setpoint outside 50-90 %RH;
- * a probe misconfigured that way is still a probe that answers at address 7,
- * and refusing to read its address because its heater limits are silly would
- * make the recovery loader unreachable for a reason that has nothing to do
- * with reaching it. Only the three fields used here are range-checked.
+ * PRIMARY SOURCE: the frozen 16-byte transport block (transport_record.h),
+ * written beside every configuration record in the same erase. Its layout
+ * never changes, its CRC never moves, and it carries nothing but the three
+ * bytes needed here - so a loader from 2026 can verify one written by a
+ * firmware from any later year. This is the path that is meant to run.
+ *
+ * FALLBACK: the configuration record itself, and only when its layout version
+ * is exactly the one this build was compiled with. That restriction is not
+ * caution, it is arithmetic - the record's CRC sits immediately after a
+ * struct that grows, so a loader that does not know the size cannot find the
+ * checksum, and fields read out of bytes you cannot verify are not evidence.
+ * The fallback exists for records written BEFORE the transport block did, by
+ * a matching application; it is the old behaviour, kept and demoted.
+ *
+ * The fallback outranks the transport block when, and only when, it is
+ * demonstrably NEWER - a higher sequence. That case is a downgrade: an
+ * application without the transport block committed a configuration after one
+ * with it did, leaving a valid but stale block on the other page. Preferring
+ * the block by default and the record by sequence covers both directions.
+ *
+ * Neither source is run through o2p_config_valid(). That function rejects,
+ * among other things, a heater setpoint outside 50-90 %RH; a probe
+ * misconfigured that way is still a probe that answers at address 7, and
+ * refusing to read its address because its heater limits are silly would make
+ * the recovery loader unreachable for a reason that has nothing to do with
+ * reaching it. Only the three fields used here are range-checked - and they
+ * are range-checked on EVERY path, including the transport block, because the
+ * block's CRC proves the bytes are the ones that were written, not that a
+ * baud code this build has never heard of means anything to it.
  */
+static void apply_serial(uint8_t addr, uint8_t baud_code, uint8_t parity_code,
+                         uint32_t *baud, uint8_t *parity)
+{
+    if (addr >= O2P_MB_ADDR_MIN && addr <= O2P_MB_ADDR_MAX) {
+        g_addr = addr;
+    }
+    switch (baud_code) {
+    case O2P_BAUD_19200: *baud = 19200u; break;
+    case O2P_BAUD_38400: *baud = 38400u; break;
+    default:             *baud = 9600u;  break;
+    }
+    if (parity_code <= O2P_PARITY_EVEN) {
+        *parity = parity_code;
+    }
+}
+
+/* The newest configuration record this build can actually verify, if any. */
+static bool best_readable_config(config_record_t *out)
+{
+    bool found = false;
+    for (unsigned i = 0; i < 2u; i++) {
+        const uint8_t page = (i == 0u) ? CONFIG_PAGE_A : CONFIG_PAGE_B;
+        config_record_t r;
+        memcpy(&r, (const void *)O2P_PAGE_ADDR(page), sizeof(r));
+        if (r.magic != CONFIG_MAGIC ||
+            r.layout_version != CONFIG_LAYOUT_VERSION) {
+            continue;
+        }
+        const uint16_t want = r.crc;
+        r.crc = 0u;
+        if (o2p_config_record_crc(&r) != want) {
+            continue;
+        }
+        if (!found || (int32_t)(r.sequence - out->sequence) > 0) {
+            *out = r;
+            found = true;
+        }
+    }
+    return found;
+}
+
 static void read_serial(uint32_t *baud, uint8_t *parity)
 {
     *baud = 9600u;
     *parity = O2P_PARITY_EVEN;
     g_addr = 3u;
 
-    const config_record_t *best = NULL;
-    config_record_t rec[2];
+    o2p_transport_record_t tr[2];
     for (unsigned i = 0; i < 2u; i++) {
         const uint8_t page = (i == 0u) ? CONFIG_PAGE_A : CONFIG_PAGE_B;
-        memcpy(&rec[i], (const void *)O2P_PAGE_ADDR(page), sizeof(rec[i]));
-        if (rec[i].magic != CONFIG_MAGIC ||
-            rec[i].layout_version != CONFIG_LAYOUT_VERSION) {
-            continue;
-        }
-        config_record_t t = rec[i];
-        const uint16_t want = t.crc;
-        t.crc = 0u;
-        if (o2p_config_record_crc(&t) != want) {
-            continue;
-        }
-        if (best == NULL || (int32_t)(rec[i].sequence - best->sequence) > 0) {
-            best = &rec[i];
-        }
+        memcpy(&tr[i], (const void *)(O2P_PAGE_ADDR(page) +
+                                      O2P_TRANSPORT_OFFSET), sizeof(tr[i]));
     }
-    if (best == NULL) {
-        return;
+    config_record_t cfg;
+    memset(&cfg, 0, sizeof(cfg));
+    const bool have_cfg = best_readable_config(&cfg);
+    o2p_transport_t from_cfg = { 0u, 0u, 0u };
+    if (have_cfg) {
+        from_cfg.slave_addr = cfg.cfg.slave_addr;
+        from_cfg.baud_code = cfg.cfg.baud_code;
+        from_cfg.parity_code = cfg.cfg.parity_code;
     }
-    if (best->cfg.slave_addr >= O2P_MB_ADDR_MIN &&
-        best->cfg.slave_addr <= O2P_MB_ADDR_MAX) {
-        g_addr = best->cfg.slave_addr;
+
+    o2p_transport_t chosen;
+    if (o2p_transport_select(&tr[0], &tr[1], have_cfg, cfg.sequence, &from_cfg,
+                             &chosen)) {
+        apply_serial(chosen.slave_addr, chosen.baud_code, chosen.parity_code,
+                     baud, parity);
     }
-    switch (best->cfg.baud_code) {
-    case O2P_BAUD_19200: *baud = 19200u; break;
-    case O2P_BAUD_38400: *baud = 38400u; break;
-    default:             *baud = 9600u;  break;
-    }
-    if (best->cfg.parity_code <= O2P_PARITY_EVEN) {
-        *parity = best->cfg.parity_code;
-    }
+    /* Neither readable: the defaults set at the top stand, and they are the
+     * identity a recovery host must try when the configured one is silent.
+     * FIRMWARE.md documents that two-identity knock procedure - it is the
+     * whole recovery path for a probe whose loader predates the transport
+     * block. */
 }
 
 /* ------------------------------------------------------------ image tests */

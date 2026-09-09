@@ -218,9 +218,14 @@ enum {
      * the bus in the same session that asks it. The FAULT reaches the radio;
      * the millivolts do not need to. */
     O2P_REG_CE_MV           = 0x002Du,
+    /* Interlock bitmask from heater_ctl.h (O2P_HB_*), u16. Explains why
+     * HEATER_DUTY is zero when the loop declines to control. 0xFFFF invalid. */
+    O2P_REG_HEATER_BLOCK    = 0x002Eu,
+    /* Duration in milliseconds of the last measurement cycle, u16. 0xFFFF invalid. */
+    O2P_REG_SAMPLER_TIMING_MS = 0x002Fu,
 };
 #define O2P_REG_DIAG_BASE  0x0010u
-#define O2P_REG_DIAG_COUNT 30u
+#define O2P_REG_DIAG_COUNT 32u
 
 /* Per-command status byte. Not a bitfield: these are exclusive states of one
  * command, and a bitfield invites "OK and FAILED" to coexist. */
@@ -236,7 +241,7 @@ enum {
 #define O2P_CMD_RESULT_CAL(v)    ((uint8_t)((v) >> 8))
 #define O2P_CMD_RESULT_COMMIT(v) ((uint8_t)((v) & 0xFFu))
 
-/* ---- Config block: 0x0030, 21 registers, read/write, flash-backed ---- */
+/* ---- Config block: 0x0030, 27 registers, read/write, flash-backed ---- */
 enum {
     O2P_REG_SLAVE_ADDR      = 0x0030u,
     O2P_REG_BAUD_CODE       = 0x0031u,
@@ -352,7 +357,7 @@ enum {
      * loaded onto it. Never carried across a config migration. */
     O2P_REG_HEATER_RH_CONSENT = 0x0048u,
 
-    /* ---- PERSISTENT TIP-TEMPERATURE SETPOINT, 0x0049..0x004C ----
+    /* ---- PERSISTENT TIP-TEMPERATURE SETPOINT, 0x0049 and 0x004A ----
      *
      * The autonomous temperature loop. Until now this firmware regulated
      * exactly one quantity - chamber RH - and the only way to hold a
@@ -466,6 +471,90 @@ enum {
 #define O2P_REG_HTEST_BASE  0x0060u
 #define O2P_REG_HTEST_COUNT 5u
 
+/* ---- Memory peek block: 0x0065, 11 registers, read/write, VOLATILE ---- */
+enum {
+    O2P_REG_PEEK_ADDR_HI       = 0x0065u,
+    O2P_REG_PEEK_ADDR_LO       = 0x0066u,
+    O2P_REG_PEEK_STATUS        = 0x0067u,
+    O2P_REG_PEEK_W0_HI         = 0x0068u,
+    O2P_REG_PEEK_W0_LO         = 0x0069u,
+    O2P_REG_PEEK_W1_HI         = 0x006Au,
+    O2P_REG_PEEK_W1_LO         = 0x006Bu,
+    O2P_REG_PEEK_W2_HI         = 0x006Cu,
+    O2P_REG_PEEK_W2_LO         = 0x006Du,
+    O2P_REG_PEEK_W3_HI         = 0x006Eu,
+    O2P_REG_PEEK_W3_LO         = 0x006Fu,
+};
+#define O2P_REG_PEEK_BASE  0x0065u
+#define O2P_REG_PEEK_COUNT 11u
+
+enum {
+    O2P_PEEK_NONE      = 0u,
+    O2P_PEEK_OK        = 1u,
+    O2P_PEEK_ERR_RANGE = 2u,
+    O2P_PEEK_ERR_ALIGN = 3u,
+};
+
+/* ---- Sensor diagnostic mailbox: 0x0070, 7 registers, read/write, VOLATILE ---- */
+enum {
+    O2P_REG_DIAG_CMD         = 0x0070u,
+    O2P_REG_DIAG_PARAM       = 0x0071u,
+    O2P_REG_DIAG_STATUS      = 0x0072u,
+    O2P_REG_DIAG_RDATA0      = 0x0073u,
+    O2P_REG_DIAG_RDATA1      = 0x0074u,
+    O2P_REG_DIAG_RDATA2      = 0x0075u,
+    O2P_REG_DIAG_CRC_STATUS  = 0x0076u,
+};
+#define O2P_REG_DMBOX_BASE  0x0070u
+#define O2P_REG_DMBOX_COUNT 7u
+
+#define O2P_DIAG_MAGIC_MASK 0xFF00u
+#define O2P_DIAG_MAGIC      0x5A00u
+
+enum {
+    O2P_DMBOX_STATUS_NONE        = 0u,
+    O2P_DMBOX_STATUS_PENDING     = 1u,
+    O2P_DMBOX_STATUS_OK          = 2u,
+    O2P_DMBOX_STATUS_ERR_OPCODE  = 3u,
+    O2P_DMBOX_STATUS_ERR_NACK    = 4u,
+    O2P_DMBOX_STATUS_ERR_TIMEOUT = 5u,
+    O2P_DMBOX_STATUS_ERR_BUSY    = 6u,
+};
+
+enum {
+    O2P_OP_READ_LMP_REG    = 0x01u,
+    O2P_OP_TRIM_LMP_TIACN  = 0x02u,
+    O2P_OP_READ_ADS_STATUS = 0x03u,
+    O2P_OP_READ_ADS_CONFIG = 0x04u,
+    O2P_OP_READ_TMP_REG    = 0x05u,
+    O2P_OP_READ_SHT_SERIAL = 0x06u,
+    O2P_OP_READ_SHT_SAMPLE = 0x07u,
+};
+
+/* ---- Crash context retention: 0x0077, 9 registers, read/write, RETENTION ---- */
+enum {
+    O2P_REG_CRASH_REASON      = 0x0077u,
+    O2P_REG_CRASH_PC_HI       = 0x0078u,
+    O2P_REG_CRASH_PC_LO       = 0x0079u,
+    O2P_REG_CRASH_LR_HI       = 0x007Au,
+    O2P_REG_CRASH_LR_LO       = 0x007Bu,
+    O2P_REG_CRASH_DETAIL_HI   = 0x007Cu,
+    O2P_REG_CRASH_DETAIL_LO   = 0x007Du,
+    O2P_REG_CRASH_BUILD_ID_HI = 0x007Eu,
+    O2P_REG_CRASH_BUILD_ID_LO = 0x007Fu,
+};
+#define O2P_REG_CRASH_BASE  0x0077u
+#define O2P_REG_CRASH_COUNT 9u
+
+#define O2P_CRASH_MAGIC 0xC8A54001u
+
+enum {
+    O2P_CRASH_NONE      = 0u,
+    O2P_CRASH_HARDFAULT = 1u,
+    O2P_CRASH_ASSERT    = 2u,
+    O2P_CRASH_IWDG      = 3u,
+};
+
 /* A setpoint must sit strictly below the absolute clamp, by enough that the
  * loop's own overshoot does not routinely reach it. Two kelvin, against a
  * clamp raised to 82.00 C on 2026-09-08 so that 80.00 C is commandable at
@@ -528,9 +617,12 @@ enum {
  * to, and a probe whose stored HEATER_MAX_DUTY was nonzero now declines to
  * heat until consent is written.
  *
+ * 0x000B adds HEATER_BLOCK (0x002E) and SAMPLER_TIMING_MS (0x002F) to the
+ * diagnostic block, expanding it from 30 to 32 registers.
+ *
  * For "which build is this", read BUILD_ID (0x0028/0x0029) - this number is
  * hand-maintained and says nothing about the binary. */
-#define O2P_FW_VERSION 0x000Au  /* v0.10 - config block grew with the persistent tip setpoint */
+#define O2P_FW_VERSION 0x000Bu  /* v0.11 - diagnostic block grew with HEATER_BLOCK and SAMPLER_TIMING_MS */
 
 /* Overridden by tools/pio_build_id.py on every target build. The default is
  * reached only by the host test build, and means "no stamp", never a commit. */
@@ -692,6 +784,8 @@ typedef struct {
     uint16_t we_buf_mv;
     uint16_t re_buf_mv;
     int16_t  cell_bias_mv;
+    uint16_t heater_block;
+    uint16_t sampler_timing_ms;
 } o2p_snapshot_t;
 
 /* Reset every channel to its invalid sentinel. The sampler calls this at the
@@ -752,7 +846,32 @@ typedef struct {
      * and no sampler. When this is NULL the update blocks answer exception 02
      * exactly as any other undefined address does. */
     o2p_update_t *upd;
+
+    /* Memory peek mailbox */
+    uint16_t peek_addr_hi;
+    uint16_t peek_addr_lo;
+    uint16_t peek_status;
+    uint32_t peek_words[4];
+
+    /* Sensor diagnostic mailbox */
+    uint16_t diag_cmd;
+    uint16_t diag_param;
+    uint16_t diag_status;
+    uint16_t diag_rdata0;
+    uint16_t diag_rdata1;
+    uint16_t diag_rdata2;
+    uint16_t diag_crc_status;
+    volatile bool diag_pending;
+
+    /* Crash retention */
+    uint16_t crash_reason;
+    uint32_t crash_pc;
+    uint32_t crash_lr;
+    uint32_t crash_detail;
+    uint32_t crash_build_id;
 } o2p_regmap_t;
+
+void o2p_regmap_load_crash_context(o2p_regmap_t *rm);
 
 void o2p_regmap_init(o2p_regmap_t *rm);
 

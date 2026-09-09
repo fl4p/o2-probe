@@ -74,4 +74,8 @@ uint16_t o2p_reset_cause(void);
  * was doing to the board. */
 bool o2p_reset_was_power_cycle(void);
 
+uint32_t o2p_crash_read_reg(uint8_t index);
+void o2p_crash_clear(void);
+void o2p_crash_set_breadcrumb(uint32_t val);
+
 #endif /* O2P_MCU_H */

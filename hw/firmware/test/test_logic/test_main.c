@@ -24,6 +24,7 @@
 #include "sampler_logic.h"
 #include "serial_probation.h"
 #include "config_select.h"
+#include "transport_record.h"
 #include "modbus_rtu.h"
 #include "tmp117.h"
 
@@ -2377,6 +2378,208 @@ static void build_vn_record(uint8_t rec[TEST_REC_BYTES], const void *cfg,
     memcpy(rec + 12u + cfg_bytes, &crc, 2);
 }
 
+/* ======================= the frozen transport block =======================
+ *
+ * The regression: the bootloader is never rewritten in the field, so it reads
+ * configuration records written by applications newer than itself. It used to
+ * demand an exact CONFIG_LAYOUT_VERSION match and, failing it, fell back to
+ * address 3 / 9600 / even - stranding any probe an operator had moved off the
+ * default transport, at exactly the moment its application was broken enough
+ * to need the loader. transport_record.h is the fix; these tests are about
+ * the property that matters, which is that a loader can read a block written
+ * by firmware it has never heard of.
+ */
+
+/* A configuration record from a layout version this build does not know -
+ * the situation an old loader is in, written from the future's point of
+ * view. `cfg_bytes` is deliberately not 48: the whole difficulty is that the
+ * CRC moves with the struct. */
+static void build_future_page(uint8_t page[128], uint32_t layout_version,
+                              size_t cfg_bytes, uint32_t seq)
+{
+    memset(page, 0xFF, 128);            /* erased flash */
+    memset(page, 0, 64);
+    uint32_t magic = TEST_CFG_MAGIC;
+    memcpy(page + 0, &magic, 4);
+    memcpy(page + 4, &layout_version, 4);
+    memcpy(page + 8, &seq, 4);
+    uint16_t crc = o2p_mb_crc16(page, 12u + cfg_bytes);
+    memcpy(page + 12u + cfg_bytes, &crc, 2);
+}
+
+static void test_transport_record_round_trips(void)
+{
+    o2p_transport_record_t r;
+    o2p_transport_build(&r, 42u, 17u, O2P_BAUD_38400, O2P_PARITY_ODD);
+    TEST_ASSERT_TRUE(o2p_transport_record_ok(&r));
+    TEST_ASSERT_EQUAL_UINT32(O2P_TRANSPORT_MAGIC, r.magic);
+    TEST_ASSERT_EQUAL_UINT32(42u, r.sequence);
+    TEST_ASSERT_EQUAL_UINT8(O2P_TRANSPORT_VERSION, r.version);
+    TEST_ASSERT_EQUAL_UINT8(17u, r.slave_addr);
+    TEST_ASSERT_EQUAL_UINT8(O2P_BAUD_38400, r.baud_code);
+    TEST_ASSERT_EQUAL_UINT8(O2P_PARITY_ODD, r.parity_code);
+    /* 16 bytes exactly, and the CRC at byte 12. If either moves, every loader
+     * already in a pile is reading the wrong bytes. */
+    TEST_ASSERT_EQUAL_UINT32(16u, (uint32_t)sizeof(r));
+    TEST_ASSERT_EQUAL_UINT32(12u, (uint32_t)offsetof(o2p_transport_record_t, crc));
+}
+
+static void test_transport_record_rejects_what_it_should(void)
+{
+    o2p_transport_record_t base;
+    o2p_transport_build(&base, 7u, 9u, O2P_BAUD_19200, O2P_PARITY_NONE);
+
+    /* Erased flash is not a record. This is the ordinary case on the page an
+     * older firmware wrote, and it must read as "nothing here", never as
+     * address 0xFF. */
+    o2p_transport_record_t erased;
+    memset(&erased, 0xFF, sizeof(erased));
+    TEST_ASSERT_FALSE(o2p_transport_record_ok(&erased));
+
+    o2p_transport_record_t zeroed;
+    memset(&zeroed, 0, sizeof(zeroed));
+    TEST_ASSERT_FALSE(o2p_transport_record_ok(&zeroed));
+
+    o2p_transport_record_t bad = base;
+    bad.magic ^= 1u;
+    TEST_ASSERT_FALSE(o2p_transport_record_ok(&bad));
+
+    /* An unknown version is refused rather than read hopefully. The frozen
+     * rule (a future need gets a SECOND block, never a version bump) is what
+     * keeps this from becoming the original bug again. */
+    bad = base;
+    bad.version = 2u;
+    TEST_ASSERT_FALSE(o2p_transport_record_ok(&bad));
+
+    /* Every single-bit flip in the covered bytes must be caught. */
+    for (unsigned byte = 0; byte < offsetof(o2p_transport_record_t, crc);
+         byte++) {
+        for (unsigned bit = 0; bit < 8u; bit++) {
+            o2p_transport_record_t f = base;
+            ((uint8_t *)&f)[byte] ^= (uint8_t)(1u << bit);
+            if (f.magic != O2P_TRANSPORT_MAGIC ||
+                f.version != (uint8_t)O2P_TRANSPORT_VERSION) {
+                continue;   /* rejected earlier, for a different reason */
+            }
+            TEST_ASSERT_FALSE(o2p_transport_record_ok(&f));
+        }
+    }
+
+    /* The reserved tail is NOT covered, deliberately and for the same reason
+     * the configuration record's tail is not: it exists to be repurposed, and
+     * hashing it would make a later firmware's use of it look like corruption
+     * to this one. */
+    o2p_transport_record_t spare = base;
+    spare.reserved[0] = 0xA5u;
+    TEST_ASSERT_TRUE(o2p_transport_record_ok(&spare));
+}
+
+static void test_transport_best_takes_the_newer_page(void)
+{
+    o2p_transport_record_t a, b, got;
+    o2p_transport_build(&a, 10u, 5u, O2P_BAUD_9600, O2P_PARITY_EVEN);
+    o2p_transport_build(&b, 11u, 6u, O2P_BAUD_9600, O2P_PARITY_EVEN);
+
+    TEST_ASSERT_TRUE(o2p_transport_best(&a, &b, &got));
+    TEST_ASSERT_EQUAL_UINT8(6u, got.slave_addr);
+    TEST_ASSERT_TRUE(o2p_transport_best(&b, &a, &got));
+    TEST_ASSERT_EQUAL_UINT8(6u, got.slave_addr);
+
+    /* One page valid, the other erased - the state right after the first
+     * commit by a firmware that writes the block. */
+    o2p_transport_record_t erased;
+    memset(&erased, 0xFF, sizeof(erased));
+    TEST_ASSERT_TRUE(o2p_transport_best(&a, &erased, &got));
+    TEST_ASSERT_EQUAL_UINT8(5u, got.slave_addr);
+    TEST_ASSERT_TRUE(o2p_transport_best(&erased, &a, &got));
+    TEST_ASSERT_EQUAL_UINT8(5u, got.slave_addr);
+
+    /* Neither: the caller must default, not read `got`. */
+    TEST_ASSERT_FALSE(o2p_transport_best(&erased, &erased, &got));
+
+    /* Sequence wrap. The comparison is signed on the difference, so a counter
+     * that has rolled over still picks the newer record. */
+    o2p_transport_build(&a, 0xFFFFFFFFu, 5u, O2P_BAUD_9600, O2P_PARITY_EVEN);
+    o2p_transport_build(&b, 0u, 6u, O2P_BAUD_9600, O2P_PARITY_EVEN);
+    TEST_ASSERT_TRUE(o2p_transport_best(&a, &b, &got));
+    TEST_ASSERT_EQUAL_UINT8(6u, got.slave_addr);
+}
+
+static void test_loader_keeps_the_address_across_a_layout_bump(void)
+{
+    /* THE REGRESSION, built as bytes.
+     *
+     * A probe commissioned at address 22, 38400 8N1, then updated to a
+     * firmware whose configuration layout is version 9 and whose struct is
+     * four bytes longer. The loader in flash knows version 8 and cannot find
+     * version 9's CRC, so it verifies nothing - which is the correct refusal,
+     * and used to be the end of the story. */
+    uint8_t page_a[128], page_b[128];
+    build_future_page(page_a, 9u, 52u, 41u);
+    memset(page_b, 0xFF, sizeof(page_b));
+
+    o2p_transport_record_t tr;
+    o2p_transport_build(&tr, 41u, 22u, O2P_BAUD_38400, O2P_PARITY_NONE);
+    memcpy(page_a + O2P_TRANSPORT_OFFSET, &tr, sizeof(tr));
+
+    o2p_transport_record_t a, b;
+    memcpy(&a, page_a + O2P_TRANSPORT_OFFSET, sizeof(a));
+    memcpy(&b, page_b + O2P_TRANSPORT_OFFSET, sizeof(b));
+
+    /* cfg_ok = false is the loader's honest state here: it read the record,
+     * saw a version it does not know, and declined to interpret it. */
+    o2p_transport_t got;
+    TEST_ASSERT_TRUE(o2p_transport_select(&a, &b, false, 0u, NULL, &got));
+    TEST_ASSERT_EQUAL_UINT8(22u, got.slave_addr);
+    TEST_ASSERT_EQUAL_UINT8(O2P_BAUD_38400, got.baud_code);
+    TEST_ASSERT_EQUAL_UINT8(O2P_PARITY_NONE, got.parity_code);
+
+    /* And the known-bad calibration this replaces: with no block on either
+     * page, the same situation yields nothing and the caller falls back to
+     * the default identity. That is the bug, reproduced, and it is what the
+     * two-identity knock procedure in FIRMWARE.md exists to survive on
+     * loaders already potted. */
+    memset(&a, 0xFF, sizeof(a));
+    TEST_ASSERT_FALSE(o2p_transport_select(&a, &b, false, 0u, NULL, &got));
+}
+
+static void test_a_downgrade_does_not_resurrect_a_stale_block(void)
+{
+    /* Page B was written by this firmware (block, sequence 8). Page A was
+     * then written by an OLDER application that does not write the block, at
+     * sequence 9, after the operator moved the probe to address 31. The
+     * block on B is valid, verifiable and wrong. */
+    o2p_transport_record_t a, b;
+    memset(&a, 0xFF, sizeof(a));
+    o2p_transport_build(&b, 8u, 12u, O2P_BAUD_9600, O2P_PARITY_EVEN);
+
+    const o2p_transport_t from_cfg = { 31u, O2P_BAUD_19200, O2P_PARITY_ODD };
+    o2p_transport_t got;
+    TEST_ASSERT_TRUE(o2p_transport_select(&a, &b, true, 9u, &from_cfg, &got));
+    TEST_ASSERT_EQUAL_UINT8(31u, got.slave_addr);
+    TEST_ASSERT_EQUAL_UINT8(O2P_BAUD_19200, got.baud_code);
+
+    /* The other direction, and the tie. A readable record only wins when it
+     * is strictly newer: at equal sequence the two describe the same commit,
+     * and the block is the source that does not depend on a layout match. */
+    TEST_ASSERT_TRUE(o2p_transport_select(&a, &b, true, 7u, &from_cfg, &got));
+    TEST_ASSERT_EQUAL_UINT8(12u, got.slave_addr);
+    TEST_ASSERT_TRUE(o2p_transport_select(&a, &b, true, 8u, &from_cfg, &got));
+    TEST_ASSERT_EQUAL_UINT8(12u, got.slave_addr);
+}
+
+static void test_the_transport_block_clears_the_config_record(void)
+{
+    /* Layout, not luck: the block must start at or after the end of the
+     * configuration record and finish inside the page. Growing the config
+     * record past 64 bytes without moving the block would have the
+     * application overwrite the one thing the loader can still read. */
+    TEST_ASSERT_TRUE(O2P_TRANSPORT_OFFSET >= 12u + sizeof(o2p_config_t) + 2u);
+    TEST_ASSERT_TRUE(O2P_TRANSPORT_OFFSET + O2P_TRANSPORT_BYTES <= 2048u);
+    TEST_ASSERT_EQUAL_UINT32(0u, O2P_TRANSPORT_OFFSET % 8u);
+    TEST_ASSERT_EQUAL_UINT32(0u, O2P_TRANSPORT_BYTES % 8u);
+}
+
 static void test_v4_migration_keeps_the_air_point(void)
 {
     /* THE ONE MIGRATION THAT DOES NOT DISCARD THE CALIBRATION.
@@ -3420,10 +3623,18 @@ static void test_persistent_tip_setpoint_drives_towards_its_target(void)
     o2p_heater_in_t in = hin_healthy();
     o2p_heater_out_t out;
 
-    /* Tip AND chamber together. On Rev A they are one thermal node - measured
-     * 2026-09-04, |tip - chamber| stayed within 0.17 K at every duty - so a
+    /* Tip AND chamber together. On Rev A they are one thermal node, so a
      * fixture that moves only the tip invents a dT the hardware cannot produce
-     * and trips the clamp this mode deliberately keeps live. */
+     * and trips the clamp this mode deliberately keeps live.
+     *
+     * THE EVIDENCE, stated accurately because it was first cited wrongly: the
+     * 2026-09-04 CSV holds 0 % and 4 % duty only and peaks at 0.17 K; the wider
+     * sweep in FAB-READINESS.md:261 reaches -0.37/-0.38/-0.14 K at 50/93/100 %,
+     * and PILE-THERMAL-TEST.md:215 measured +0.220 K. So the honest figure is
+     * UNDER 0.4 K across the measured duty range, not 0.17 K at every duty.
+     * Still better than 10x margin to the 4 K clamp, so the conclusion holds -
+     * but no run in the repo is fast enough to prove a ramp transient cannot
+     * cross it. Corrected after review 2026-09-08. */
     in.t_tip_c100 = 7000;               /* 8 K short of the 78.00 setpoint */
     in.t_chamber_c100 = 6990;
     o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
@@ -3443,15 +3654,28 @@ static void test_persistent_tip_setpoint_drives_towards_its_target(void)
 
 static void test_persistent_tip_loop_does_not_need_humidity(void)
 {
-    /* The single interlock this mode suppresses. A temperature loop has no
-     * use for RH, and refusing to hold a commanded temperature because the
-     * SHT45 is in its de-creep window would be a refusal with no reason. */
+    /* The single interlock this mode suppresses. A temperature loop has no use
+     * for RH, and refusing to hold a commanded temperature because the SHT45 is
+     * in its de-creep window would be a refusal with no reason behind it.
+     *
+     * THE FIRST VERSION OF THIS TEST WAS DISHONEST, and a review caught it: it
+     * set rh_valid = false while leaving the chamber valid, which is a state
+     * production never reaches during the event the comment invoked. cycle_begin()
+     * invalidates BOTH, so during a real de-creep pulse the controller would have
+     * seen chamber_valid = false and refused on NO_CHAMBER while this test
+     * happily passed.
+     *
+     * What makes the production state match this fixture is the cache bridge in
+     * main.c, which restores the CHAMBER (and only the chamber) from the same
+     * <= 45 s cache the oxygen path uses. So the pair below is the real pair:
+     * bridged chamber -> drives; expired cache -> refuses. */
     o2p_heater_state_t st;
     o2p_heater_ctl_reset(&st);
     o2p_heater_cfg_t cfg = hcfg_tip_auto();
     o2p_heater_in_t in = hin_healthy();
     o2p_heater_out_t out;
 
+    /* During the pulse, with the bridge supplying a chamber reading. */
     in.rh_valid = false;
     in.t_tip_c100 = 7000;
     in.t_chamber_c100 = 6990;
@@ -3459,6 +3683,17 @@ static void test_persistent_tip_loop_does_not_need_humidity(void)
     TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.block,
         "the tip loop must clear NO_RH");
     TEST_ASSERT_TRUE(out.duty_x100 > 0u);
+
+    /* Past the bridge's age bound, or with a genuinely dead SHT45: the chamber
+     * goes with the humidity and the loop must refuse. This is the half the
+     * original test omitted, and it is the one that proves the bridge is a
+     * BOUNDED substitution rather than a suppression. */
+    o2p_heater_ctl_reset(&st);
+    in.chamber_valid = false;
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_TRUE_MESSAGE((out.block & O2P_HB_NO_CHAMBER) != 0u,
+        "an expired bridge must refuse, not keep driving on a stale reference");
+    TEST_ASSERT_EQUAL_UINT16(0u, out.duty_x100);
 }
 
 static void test_persistent_tip_loop_still_honours_the_dt_clamp(void)
@@ -5218,9 +5453,10 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    TEST_ASSERT_EQUAL_HEX16(0x000Au, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x000Bu, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_UINT16(27u, O2P_REG_CONFIG_COUNT);
-    /* 0x000A: config block grew with TIP_SETPOINT and HEATER_TIP_CONSENT,
+    /* 0x000B: diag block grew with HEATER_BLOCK and SAMPLER_TIMING_MS.
+     * 0x000A: config block grew with TIP_SETPOINT and HEATER_TIP_CONSENT,
      *         the persistent tip-temperature loop.
      * 0x0009: diag block grew with CE_MV, the counter-electrode drive.
      * 0x0008: diag block grew with T_AFE, the LMP91000 die temperature.
@@ -5228,7 +5464,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      * 0x0006: the raw channel stopped going silent for 900 s after a reset. */
     TEST_ASSERT_TRUE((O2P_FAULTS_INVALIDATE_O2 & O2P_F_SETTLING) == 0u);
     TEST_ASSERT_TRUE((O2P_FAULTS_INVALIDATE_O2_COMP & O2P_F_SETTLING) != 0u);
-    TEST_ASSERT_EQUAL_UINT16(30u, O2P_REG_DIAG_COUNT);
+    TEST_ASSERT_EQUAL_UINT16(32u, O2P_REG_DIAG_COUNT);
     /* 0x0004: the heater test block appeared at an address that previously
      * answered exception 02, and the heater became drivable at all. */
     TEST_ASSERT_EQUAL_UINT16(5u, O2P_REG_HTEST_COUNT);
@@ -5416,6 +5652,88 @@ static void test_a_store_never_overwrites_the_live_record(void)
         TEST_ASSERT_NOT_EQUAL(live, next);
         live = next;
     }
+}
+
+static void test_peek_mailbox_bounds_and_alignment(void)
+{
+    o2p_regmap_t rm;
+    o2p_regmap_init(&rm);
+
+    TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_NONE, rm.peek_status);
+    for (int w = 0; w < 4; w++) {
+        TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFu, rm.peek_words[w]);
+    }
+
+    uint16_t single = 0x2000u;
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm, O2P_REG_PEEK_ADDR_HI, 1u, &single));
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm, O2P_REG_PEEK_ADDR_LO, 1u, &single));
+
+    uint16_t misaligned[2] = { 0x2000u, 0x0001u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm, O2P_REG_PEEK_BASE, 2u, misaligned));
+    TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_ERR_ALIGN, rm.peek_status);
+    TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFu, rm.peek_words[0]);
+
+    uint16_t out_of_bounds[2] = { 0x4000u, 0x0000u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm, O2P_REG_PEEK_BASE, 2u, out_of_bounds));
+    TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_ERR_RANGE, rm.peek_status);
+
+    uint16_t sram[2] = { 0x2000u, 0x0100u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm, O2P_REG_PEEK_BASE, 2u, sram));
+    TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_OK, rm.peek_status);
+
+    uint16_t out[11];
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&rm, O2P_REG_PEEK_BASE, 11u, out));
+    TEST_ASSERT_EQUAL_HEX16(0x2000u, out[0]);
+    TEST_ASSERT_EQUAL_HEX16(0x0100u, out[1]);
+    TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_OK, out[2]);
+}
+
+static void test_dmbox_validation_and_opcodes(void)
+{
+    o2p_regmap_t rm;
+    o2p_regmap_init(&rm);
+
+    TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_NONE, rm.diag_status);
+    TEST_ASSERT_FALSE(rm.diag_pending);
+
+    uint16_t bad_magic[2] = { 0x1201u, 0x0000u };
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm, O2P_REG_DMBOX_BASE, 2u, bad_magic));
+    TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_ERR_OPCODE, rm.diag_status);
+
+    uint16_t cmd[2] = { (uint16_t)(0x5A00u | O2P_OP_READ_LMP_REG), 0x0010u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm, O2P_REG_DMBOX_BASE, 2u, cmd));
+    TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_PENDING, rm.diag_status);
+    TEST_ASSERT_TRUE(rm.diag_pending);
+}
+
+static void test_crash_mailbox_read_and_clear(void)
+{
+    o2p_regmap_t rm;
+    o2p_regmap_init(&rm);
+
+    rm.crash_reason = O2P_CRASH_HARDFAULT;
+    rm.crash_pc = 0x08004123u;
+    rm.crash_lr = 0x08004456u;
+    rm.crash_detail = 0u;
+    rm.crash_build_id = 0x12345678u;
+
+    uint16_t out[9];
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&rm, O2P_REG_CRASH_BASE, 9u, out));
+    TEST_ASSERT_EQUAL_UINT16(O2P_CRASH_HARDFAULT, out[0]);
+    TEST_ASSERT_EQUAL_HEX16(0x0800u, out[1]);
+    TEST_ASSERT_EQUAL_HEX16(0x4123u, out[2]);
+    TEST_ASSERT_EQUAL_HEX16(0x0800u, out[3]);
+    TEST_ASSERT_EQUAL_HEX16(0x4456u, out[4]);
+    TEST_ASSERT_EQUAL_HEX16(0x1234u, out[7]);
+    TEST_ASSERT_EQUAL_HEX16(0x5678u, out[8]);
+
+    uint16_t zero = 0u;
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm, O2P_REG_CRASH_BASE, 1u, &zero));
+    TEST_ASSERT_EQUAL_UINT16(O2P_CRASH_NONE, rm.crash_reason);
+    TEST_ASSERT_EQUAL_HEX32(0u, rm.crash_pc);
 }
 
 int main(void)
@@ -5614,5 +5932,14 @@ int main(void)
     RUN_TEST(test_apply_revert_restores_only_the_three_fields);
     RUN_TEST(test_a_revert_fails_a_commit_in_either_queue);
     RUN_TEST(test_apply_is_a_no_op_while_the_probation_is_undecided);
+    RUN_TEST(test_transport_record_round_trips);
+    RUN_TEST(test_transport_record_rejects_what_it_should);
+    RUN_TEST(test_transport_best_takes_the_newer_page);
+    RUN_TEST(test_loader_keeps_the_address_across_a_layout_bump);
+    RUN_TEST(test_a_downgrade_does_not_resurrect_a_stale_block);
+    RUN_TEST(test_the_transport_block_clears_the_config_record);
+    RUN_TEST(test_peek_mailbox_bounds_and_alignment);
+    RUN_TEST(test_dmbox_validation_and_opcodes);
+    RUN_TEST(test_crash_mailbox_read_and_clear);
     return UNITY_END();
 }

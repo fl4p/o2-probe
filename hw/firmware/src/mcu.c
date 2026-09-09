@@ -1,6 +1,7 @@
 #include "mcu.h"
 
 #include "flash_map.h"
+#include "regmap.h"
 
 static volatile uint32_t s_millis;
 static uint16_t s_reset_cause;
@@ -69,6 +70,10 @@ void o2p_clock_init(void)
      * wait states'), which is the reset value; assert it rather than assume. */
     FLASH->ACR &= ~FLASH_ACR_LATENCY;   /* latency field 0 = zero wait states */
 
+    /* Enable power interface clock, backup domain access and RTC/TAMP clock */
+    RCC->APBENR1 |= RCC_APBENR1_PWREN | RCC_APBENR1_RTCAPBEN;
+    PWR->CR1 |= PWR_CR1_DBP;
+
     /* Every GPIO bank this board uses, enabled once. Drivers then reference
      * ports only through the board_pins.h bindings, so moving a net between
      * banks cannot leave a driver configuring the old one. */
@@ -131,3 +136,90 @@ void o2p_wdt_feed(void)
 {
     IWDG->KR = 0xAAAAu;
 }
+
+#ifndef O2P_HOST_TEST
+void o2p_hardfault_c_handler(uint32_t *stack_frame, uint32_t exc_return)
+{
+    (void)exc_return;
+    uint32_t sp = (uint32_t)stack_frame;
+    uint32_t pc = 0u;
+    uint32_t lr = 0u;
+
+    if ((sp & 3u) == 0u && sp >= 0x20000000u && sp <= (0x20009000u - 32u)) {
+        pc = stack_frame[6];
+        lr = stack_frame[5];
+    }
+
+    /* Atomic sequence: invalidate first, write payload, then commit magic */
+    TAMP->BKP0R = 0u;
+    TAMP->BKP1R = pc;
+    TAMP->BKP2R = lr;
+    TAMP->BKP3R = (uint32_t)O2P_CRASH_HARDFAULT;
+    TAMP->BKP4R = (uint32_t)O2P_BUILD_ID;
+    TAMP->BKP0R = O2P_CRASH_MAGIC;
+
+    NVIC_SystemReset();
+    while (1) {}
+}
+
+void __attribute__((naked)) HardFault_Handler(void)
+{
+    __asm volatile(
+        "mov r0, lr\n"
+        "movs r1, #4\n"
+        "tst r0, r1\n"
+        "beq 1f\n"
+        "mrs r0, psp\n"
+        "b 2f\n"
+        "1:\n"
+        "mrs r0, msp\n"
+        "2:\n"
+        "mov r1, lr\n"
+        "b o2p_hardfault_c_handler\n"
+    );
+}
+
+void assert_failed(uint8_t *file, uint32_t line)
+{
+    (void)file;
+    TAMP->BKP0R = 0u;
+    TAMP->BKP1R = 0u;
+    TAMP->BKP2R = 0u;
+    TAMP->BKP3R = ((uint32_t)O2P_CRASH_ASSERT & 0xFFu) | ((uint32_t)line << 8);
+    TAMP->BKP4R = (uint32_t)O2P_BUILD_ID;
+    TAMP->BKP0R = O2P_CRASH_MAGIC;
+
+    NVIC_SystemReset();
+    while (1) {}
+}
+
+void __assert_func(const char *file, int line, const char *func, const char *expr)
+{
+    (void)file; (void)func; (void)expr;
+    assert_failed((uint8_t *)file, (uint32_t)line);
+}
+
+uint32_t o2p_crash_read_reg(uint8_t index)
+{
+    switch (index) {
+    case 0: return TAMP->BKP0R;
+    case 1: return TAMP->BKP1R;
+    case 2: return TAMP->BKP2R;
+    case 3: return TAMP->BKP3R;
+    case 4: return TAMP->BKP4R;
+    default: return 0u;
+    }
+}
+
+void o2p_crash_clear(void)
+{
+    TAMP->BKP0R = 0u;
+}
+
+void o2p_crash_set_breadcrumb(uint32_t val)
+{
+    if (TAMP->BKP0R != O2P_CRASH_MAGIC) {
+        TAMP->BKP3R = val;
+    }
+}
+#endif

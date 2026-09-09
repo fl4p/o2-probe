@@ -50,7 +50,7 @@ U16_INVALID = 0xFFFF
 I16_INVALID = 0x8000
 
 PRIMARY_BASE, PRIMARY_COUNT = 0x0000, 8
-DIAG_BASE, DIAG_COUNT = 0x0010, 30
+DIAG_BASE, DIAG_COUNT = 0x0010, 32
 
 # Bit -> name. Checked against src/faults.h at startup.
 FAULT_BITS = [
@@ -250,6 +250,8 @@ def decode_diag(r):
         # 1 % a leg and this cell's healthy CE point has never been measured,
         # so a compliance window here would be a guard built on nothing.
         "ce_mv": u16(r[0x1D]),
+        "heater_block": "0x%04X" % r[0x1E] if r[0x1E] != U16_INVALID else None,
+        "sampler_timing_ms": r[0x1F] if r[0x1F] != U16_INVALID else None,
     }
 
 

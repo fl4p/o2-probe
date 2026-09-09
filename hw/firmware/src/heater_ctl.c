@@ -391,7 +391,8 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
         }
     } else if (cfg->tip_sp_valid) {
         /* PERSISTENT tip-temperature loop. Same control law and same sign
-         * convention as the override's, with flash-backed gains and its own
+         * convention as the override's, sharing the override's volatile gains
+         * (the record had no room for a flash-backed pair) and carrying its own
          * mode tag so the integrator restarts when authority changes hands.
          *
          * cfg->tip_consent is guaranteed true here: an unconsented setpoint

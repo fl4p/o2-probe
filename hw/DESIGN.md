@@ -243,13 +243,14 @@ an air-point calibration is never bridged, because a permanent constant gets a
 humidity measured in its own cycle or none at all. Full argument, bench evidence
 and test vectors: `O2-HUMIDITY-CORRECTION.md`.
 
-### Diagnostic block, `0x0010`, 30 registers, read-only
+### Diagnostic block, `0x0010`, 32 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
 0.01 K), `PRESSURE_HPA` (0 - the BMP390 option is deleted), `UPTIME_HI/LO`, `FW_VERSION`,
 `HW_REV`, `RESET_CAUSE`, `LMP_READBACK` (TIACN<<8 | REFCN as actually read),
 `MB_CRC_ERRS`, `MB_FRAME_ERRS`, `I2C_ERRS`, `EXP_DATA` (`0xFFFF` - J2 is deleted),
-`SETTLE_RESTARTS` (`0x0020`), `SAMPLE_SEQ` (`0x0021`).
+`SETTLE_RESTARTS` (`0x0020`), `SAMPLE_SEQ` (`0x0021`), `HEATER_BLOCK` (`0x002E`),
+`SAMPLER_TIMING_MS` (`0x002F`).
 
 `CAL_STATE` (`0x002B`) reports calibration completeness: bit 0 the air point is
 the datasheet nominal, bit 1 no zero point taken. A register and not two fault

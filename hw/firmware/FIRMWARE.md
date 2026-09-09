@@ -28,6 +28,7 @@ python3 tools/check_update_tool.py          # field tool vs update.h + regmap.h
 python3 tools/test_swd_link.py              # the bridge's SWD transport, host-side
 python3 tools/test_resume.py                # the updater's resume decision, host-side
 python3 tools/test_baud.py                  # the updater's baud fallback, host-side
+python3 tools/test_fallback_identity.py     # finding a probe whose loader fell back
 python3 tools/o2p_update.py --port /dev/tty.usbserial-X --status
 python3 tools/o2p_update.py --swd --status  # ... or through a bridge over SWD
 python3 tools/o2p_capture.py --once         # one live snapshot over SWD, to stdout
@@ -357,6 +358,78 @@ remaining door. In service mode the loader answers the same update registers,
 with bit 15 of `UPD_STATUS` set so a master can tell it is not talking to a
 probe that is measuring; after ten minutes of silence it starts the
 application anyway rather than leave a buried probe unbiased.
+
+### How the loader knows where the probe is on the bus
+
+The knock window is only a door if the master knocks at the right address and
+the right baud, so the loader has to read the probe's transport settings out
+of flash. That is harder than it looks, and it was **wrong until 2026-09-08**.
+
+The loader read them from the application's configuration record and accepted
+only an exact `CONFIG_LAYOUT_VERSION` match. But it is the one image never
+rewritten in the field, so it is frozen at whatever layout was current the day
+it was flashed, while the application's record marches on — version 7 landed
+on 2026-09-08, version 8 hours later. The moment the application's layout
+moved past the loader's, the loader could no longer read the record and fell
+back to **address 3 / 9600 / even parity**, silently, on precisely the probe
+whose application was already broken enough to need the loader. A probe an
+operator had moved off the default transport was then unreachable through its
+only remaining door.
+
+The exact-match rule was not the bug — it is arithmetic. The record's CRC sits
+immediately *after* the configuration struct, so growing that struct **moves
+the checksum**, and a loader that does not know the new size cannot find the
+bytes that would tell it whether the record is trustworthy. Reading an address
+out of a record you cannot verify is worse than defaulting.
+
+So the three transport bytes are written a **second time**, into their own
+16-byte record at a fixed offset in the same config page, with its own magic,
+its own version and its own CRC at a fixed position (`src/transport_record.h`,
+programmed by `o2p_config_store()` in the same erase as the configuration).
+The loader reads that and never needs to know what the configuration looks
+like. **That layout is frozen, not merely stable**: a future firmware that
+needs to hand the loader something else adds a *second* block at a different
+fixed offset — there are ~2 KiB spare in the page — and leaves this one
+untouched. Growing it, reordering it or moving its CRC would recreate exactly
+the bug it exists to fix, in images that cannot be told.
+
+The configuration record remains a fallback for records written before the
+block existed, and outranks the block only when it is demonstrably newer (a
+higher sequence) — which covers a downgrade leaving a valid but stale block on
+the other page. Neither path runs `o2p_config_valid()`: a probe with silly
+heater limits is still a probe that answers at address 7, and the recovery
+loader may not be made unreachable for a reason that has nothing to do with
+reaching it. The three codes are range-checked on every path regardless, since
+a CRC proves the bytes are the ones written, not that this build knows what
+baud code 4 means.
+
+**Recovery on a probe potted before this change.** Its loader has no idea the
+block exists and will still fall back to the default identity. That is not a
+loss of access, but it does mean a recovery host must try **two identities**,
+in this order:
+
+1. the configured one, from the probe's commissioning record;
+2. **address 3, 9600 8E1** — the loader's fallback.
+
+The knock is harmless at both: a wrong address is answered with silence.
+`tools/o2p_update.py` sweeps both — `find_at_fallback_identity()`, reached when
+the configured address is silent at every rate — and says loudly which identity
+answered, because an operator whose probe has fallen back needs to be told
+rather than quietly rescued. It refuses to conclude anything from a well-formed
+reply alone: address 3 on a farm cable may be somebody else's instrument, so
+the update block's own fields must be in range before the device is treated as
+a probe (`looks_like_o2p()`). The sweep asks the **update block**, not the
+config registers: the loader refuses everything outside its update window, so a
+probe sitting in its bootloader is silent on `BAUD_CODE` at exactly the right
+rate — which meant `find_probe()` used to walk away from a bootloader it was
+already talking to, at the correct address. It now asks the update block before
+concluding anything about the rate. `tools/test_fallback_identity.py` covers
+both directions on the host: the fallen-back probe is found, and a stranger at
+address 3 with a different register map is not adopted.
+
+Once a probe has been updated to firmware that
+writes the block *and* has had its loader reflashed over SWD — which only
+happens before potting — identity 2 stops being necessary for it.
 
 ### Guard review, in writing
 
@@ -731,12 +804,17 @@ fault, not like anoxia.
 convention as an open release gate, and the bench air-versus-nitrogen pair is
 what settles it. Firmware that took an absolute value would hide the answer.
 
-### Diagnostic block — `0x0010`, 30 registers, read-only
+### Diagnostic block — `0x0010`, 32 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
 0.01 K), `PRESSURE_HPA` (0 — BMP390 is DNP), `UPTIME_HI/LO`, `FW_VERSION`,
 `HW_REV`, `RESET_CAUSE`, `LMP_READBACK` (TIACN<<8 | REFCN as actually read),
 `MB_CRC_ERRS`, `MB_FRAME_ERRS`, `I2C_ERRS`, `EXP_DATA` (`0xFFFF` — J2 is DNP),
+`SETTLE_RESTARTS` (`0x0020`), `SAMPLE_SEQ` (`0x0021`), `T_DIE` (`0x0022`),
+`FAULTS_EVER` (`0x0023`), `ADS_FAIL_COUNT` (`0x0024`), `WE_BUF_MV` (`0x0025`),
+`RE_BUF_MV` (`0x0026`), `CELL_BIAS_MV` (`0x0027`), `BUILD_ID_HI/LO` (`0x0028`/`0x0029`),
+`CMD_RESULT` (`0x002A`), `CAL_STATE` (`0x002B`), `T_AFE` (`0x002C`), `CE_MV` (`0x002D`),
+`HEATER_BLOCK` (`0x002E`), `SAMPLER_TIMING_MS` (`0x002F`).
 then two that exist because supervision here is *sampled*, not continuous:
 
 - `SETTLE_RESTARTS` `0x0020` — how many times the 15-minute settling timer has
@@ -858,7 +936,7 @@ then two that exist because supervision here is *sampled*, not continuous:
   probe is exactly what this register exists to prevent. Zero means *no stamp*,
   which after this commit is only the host test build, and is never reported as
   a commit. `FW_VERSION` is now bumped only when the wire contract changes, and
-  is `0x0002` for this 26-register block.
+  is `0x000A` for this 27-register block.
 
 ### Config block — `0x0030`, 27 registers, read/write, flash-backed
 
@@ -896,7 +974,18 @@ rather than quietly meaning "never heat".
 `HEATER_TIP_CONSENT` takes the magic `0x71C0` — a **third** token, distinct
 from both `0x8EA7` (bench arm) and `0x9C07` (RH consent). The three authorise
 different things, and this one is the largest permission of the three: holding
-an absolute temperature, unattended, until someone writes the sentinel back.
+an absolute temperature, unattended.
+
+**Consent is enduring, and the sentinel does not revoke it.** Writing `0x8000`
+to `TIP_SETPOINT` stops the loop, but `HEATER_TIP_CONSENT` keeps its magic
+across that write and across a reset — so a later setpoint write alone restarts
+an unattended loop. **To revoke, write `0` to `0x004A`.** The two registers are
+independent on purpose: consent answers "may this probe ever hold a temperature
+by itself", which is an operator's standing decision, while the setpoint answers
+"which temperature, now". Coupling them would mean every routine setpoint change
+silently re-asked a question that had already been answered. Found by review
+2026-09-08, where the earlier wording here promised revocation the code does not
+perform.
 Reusing the RH magic would let consent given for a loop that sits a few kelvin
 above ambient silently authorise one that sits tens of kelvin above it. A
 stored setpoint whose consent is missing **refuses** — it raises `NO_CONSENT`
@@ -916,6 +1005,24 @@ present, so the envelope keeps its meaning. On Rev A this costs nothing (the dT
 clamp is structurally inert — tip and chamber are one thermal node), but on a
 revision with a thermally separated sensor it is the difference between a loop
 that holds 80 °C in a pile and one that refuses to. Refusing is correct.
+
+Keeping `NO_CHAMBER` live has a consequence that had to be handled separately.
+`cycle_begin()` invalidates the chamber **and** the humidity, and the scheduled
+SHT45 de-creep pulse then masks both for `O2P_SHT_RECOVERY_MS`. Without help the
+persistent loop would therefore stop for the whole mask, on a schedule, several
+times a day — a loop that refuses intermittently for a reason invisible from
+outside, which is worse than one that refuses consistently. `main.c` bridges the
+**chamber temperature only** from the same cache the oxygen path uses, bounded by
+the same `O2P_RH_MAX_AGE_S` (45 s, derived in `o2.h` against a 32.1 s worst
+case). Past that bound the reading stays invalid and `NO_CHAMBER` fires again, so
+a genuinely dead SHT45 still blocks the heater.
+
+The humidity is deliberately **not** bridged. Chamber temperature moves on
+minutes and is an *input to a clamp*; relative humidity is the RH loop's
+*controlled quantity* and is the very thing the pulse perturbs. Substituting a
+cached value for a clamp's reference is not the same act as substituting one for
+the quantity you are regulating, so the RH loop keeps refusing exactly as before.
+Found by review 2026-09-08.
 
 Neither consent is **ever** carried across a config migration, and the setpoint
 always lands on the sentinel: an upgrade leaves both autonomous loops off,
@@ -1668,6 +1775,18 @@ close it:
   delay potting** — the alternative to a weakly authenticated updater is no
   updater — but it should be decided before probes are buried somewhere a
   stranger can reach the cable.
+- **A loader potted before 2026-09-08 cannot read the transport block.** The
+  fix above is forward-looking by construction: it makes every *future* layout
+  change survivable, and can do nothing for an image already under epoxy. Such
+  a loader still falls back to address 3 / 9600 8E1 whenever the application's
+  configuration layout has moved past its own, so the recovery host must knock
+  at both identities — see "How the loader knows where the probe is on the
+  bus" — which `o2p_update.py` now does automatically. That sweep is the whole
+  mitigation available: a device-side scheme cannot be installed on a probe
+  that is already buried, which is to say it is not a closing move at all. No
+  probe is potted as of this writing, so every board on the bench can simply
+  have its loader reflashed over SWD and be done with it.
+
 - **Update commands are executed when broadcast.** A broadcast (address 0)
   FC16 to the command register reaches every probe at once: one frame can put
   the whole cable into `ERASING`, or reboot all of it. The dispatcher does not

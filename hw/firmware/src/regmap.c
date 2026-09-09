@@ -242,6 +242,8 @@ void o2p_snapshot_reset(o2p_snapshot_t *s)
     s->we_buf_mv = O2P_U16_INVALID;
     s->re_buf_mv = O2P_U16_INVALID;
     s->cell_bias_mv = O2P_I16_INVALID;
+    s->heater_block = O2P_U16_INVALID;
+    s->sampler_timing_ms = O2P_U16_INVALID;
     /* 0xFFFF, not 0. Zero is a perfectly possible real reading for every one
      * of these - 0 mV on a collapsed rail, an all-zero LMP91000 register image
      * after a reset - so publishing zero for "not measured" is exactly the
@@ -306,6 +308,42 @@ void o2p_regmap_init(o2p_regmap_t *rm)
     rm->heater_test_tip_sp_c100 = O2P_I16_INVALID;
     rm->heater_test_kp_x100 = O2P_HEATER_TEST_KP_X100_DEFAULT;
     rm->heater_test_ki_x100 = O2P_HEATER_TEST_KI_X100_DEFAULT;
+
+    /* Peek mailbox initialization */
+    rm->peek_status = O2P_PEEK_NONE;
+    for (int w = 0; w < 4; w++) {
+        rm->peek_words[w] = 0xFFFFFFFFu;
+    }
+
+    /* Sensor diagnostic mailbox initialization */
+    rm->diag_status = O2P_DMBOX_STATUS_NONE;
+    rm->diag_pending = false;
+
+    /* Crash retention initialization */
+    rm->crash_reason = O2P_CRASH_NONE;
+}
+
+#ifndef O2P_HOST_TEST
+uint32_t o2p_crash_read_reg(uint8_t index);
+void o2p_crash_clear(void);
+#endif
+
+void o2p_regmap_load_crash_context(o2p_regmap_t *rm)
+{
+#ifndef O2P_HOST_TEST
+    if (o2p_crash_read_reg(0) == O2P_CRASH_MAGIC) {
+        rm->crash_pc = o2p_crash_read_reg(1);
+        rm->crash_lr = o2p_crash_read_reg(2);
+        uint32_t r3 = o2p_crash_read_reg(3);
+        rm->crash_reason = (uint16_t)(r3 & 0xFFu);
+        rm->crash_detail = r3 >> 8;
+        rm->crash_build_id = o2p_crash_read_reg(4);
+    } else {
+        rm->crash_reason = O2P_CRASH_NONE;
+    }
+#else
+    (void)rm;
+#endif
 }
 
 o2p_snapshot_t *o2p_regmap_staging(o2p_regmap_t *rm)
@@ -390,6 +428,8 @@ static uint16_t read_diag(const o2p_regmap_t *rm, const o2p_snapshot_t *s,
     case O2P_REG_BUILD_ID_HI:  return (uint16_t)((O2P_BUILD_ID >> 16) & 0xFFFFu);
     case O2P_REG_BUILD_ID_LO:  return (uint16_t)(O2P_BUILD_ID & 0xFFFFu);
     case O2P_REG_SAMPLE_SEQ:    return s->sample_seq;
+    case O2P_REG_HEATER_BLOCK:  return s->heater_block;
+    case O2P_REG_SAMPLER_TIMING_MS: return s->sampler_timing_ms;
     /* Named explicitly rather than left to the default. This arm used to
      * return sample_seq for anything unmatched, so every register added to
      * the block afterwards answered with a plausible, monotonically climbing
@@ -411,6 +451,57 @@ static uint16_t read_htest(const o2p_regmap_t *rm, uint16_t a)
     default: break;
     }
     return 0u;
+}
+
+static uint16_t read_peek(const o2p_regmap_t *rm, uint16_t a)
+{
+    switch (a) {
+    case O2P_REG_PEEK_ADDR_HI: return rm->peek_addr_hi;
+    case O2P_REG_PEEK_ADDR_LO: return rm->peek_addr_lo;
+    case O2P_REG_PEEK_STATUS:  return rm->peek_status;
+    case O2P_REG_PEEK_W0_HI:   return (uint16_t)(rm->peek_words[0] >> 16);
+    case O2P_REG_PEEK_W0_LO:   return (uint16_t)(rm->peek_words[0] & 0xFFFFu);
+    case O2P_REG_PEEK_W1_HI:   return (uint16_t)(rm->peek_words[1] >> 16);
+    case O2P_REG_PEEK_W1_LO:   return (uint16_t)(rm->peek_words[1] & 0xFFFFu);
+    case O2P_REG_PEEK_W2_HI:   return (uint16_t)(rm->peek_words[2] >> 16);
+    case O2P_REG_PEEK_W2_LO:   return (uint16_t)(rm->peek_words[2] & 0xFFFFu);
+    case O2P_REG_PEEK_W3_HI:   return (uint16_t)(rm->peek_words[3] >> 16);
+    case O2P_REG_PEEK_W3_LO:   return (uint16_t)(rm->peek_words[3] & 0xFFFFu);
+    default: break;
+    }
+    return O2P_U16_INVALID;
+}
+
+static uint16_t read_dmbox(const o2p_regmap_t *rm, uint16_t a)
+{
+    switch (a) {
+    case O2P_REG_DIAG_CMD:        return rm->diag_cmd;
+    case O2P_REG_DIAG_PARAM:      return rm->diag_param;
+    case O2P_REG_DIAG_STATUS:     return rm->diag_status;
+    case O2P_REG_DIAG_RDATA0:     return rm->diag_rdata0;
+    case O2P_REG_DIAG_RDATA1:     return rm->diag_rdata1;
+    case O2P_REG_DIAG_RDATA2:     return rm->diag_rdata2;
+    case O2P_REG_DIAG_CRC_STATUS: return rm->diag_crc_status;
+    default: break;
+    }
+    return O2P_U16_INVALID;
+}
+
+static uint16_t read_crash(const o2p_regmap_t *rm, uint16_t a)
+{
+    switch (a) {
+    case O2P_REG_CRASH_REASON:      return rm->crash_reason;
+    case O2P_REG_CRASH_PC_HI:       return (uint16_t)(rm->crash_pc >> 16);
+    case O2P_REG_CRASH_PC_LO:       return (uint16_t)(rm->crash_pc & 0xFFFFu);
+    case O2P_REG_CRASH_LR_HI:       return (uint16_t)(rm->crash_lr >> 16);
+    case O2P_REG_CRASH_LR_LO:       return (uint16_t)(rm->crash_lr & 0xFFFFu);
+    case O2P_REG_CRASH_DETAIL_HI:   return (uint16_t)(rm->crash_detail >> 16);
+    case O2P_REG_CRASH_DETAIL_LO:   return (uint16_t)(rm->crash_detail & 0xFFFFu);
+    case O2P_REG_CRASH_BUILD_ID_HI: return (uint16_t)(rm->crash_build_id >> 16);
+    case O2P_REG_CRASH_BUILD_ID_LO: return (uint16_t)(rm->crash_build_id & 0xFFFFu);
+    default: break;
+    }
+    return O2P_U16_INVALID;
 }
 
 static uint16_t read_config(const o2p_regmap_t *rm, uint16_t a)
@@ -482,6 +573,24 @@ uint8_t o2p_regmap_read(void *ctx, uint16_t addr, uint16_t count, uint16_t *out)
     if (in_block(addr, count, O2P_REG_HTEST_BASE, O2P_REG_HTEST_COUNT)) {
         for (uint16_t i = 0; i < count; i++) {
             out[i] = read_htest(rm, (uint16_t)(addr + i));
+        }
+        return 0u;
+    }
+    if (in_block(addr, count, O2P_REG_PEEK_BASE, O2P_REG_PEEK_COUNT)) {
+        for (uint16_t i = 0; i < count; i++) {
+            out[i] = read_peek(rm, (uint16_t)(addr + i));
+        }
+        return 0u;
+    }
+    if (in_block(addr, count, O2P_REG_DMBOX_BASE, O2P_REG_DMBOX_COUNT)) {
+        for (uint16_t i = 0; i < count; i++) {
+            out[i] = read_dmbox(rm, (uint16_t)(addr + i));
+        }
+        return 0u;
+    }
+    if (in_block(addr, count, O2P_REG_CRASH_BASE, O2P_REG_CRASH_COUNT)) {
+        for (uint16_t i = 0; i < count; i++) {
+            out[i] = read_crash(rm, (uint16_t)(addr + i));
         }
         return 0u;
     }
@@ -759,6 +868,90 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
         }
         rm->heater_test_armed = arm;
         return 0u;
+    }
+
+    /* Memory peek mailbox: atomic 2-register FC16 write required */
+    if (in_block(addr, count, O2P_REG_PEEK_BASE, O2P_REG_PEEK_COUNT)) {
+        if (addr != O2P_REG_PEEK_BASE || count != 2u) {
+            return O2P_MB_EX_ILLEGAL_VALUE;
+        }
+        rm->peek_addr_hi = in[0];
+        rm->peek_addr_lo = in[1];
+        uint32_t target = ((uint32_t)in[0] << 16) | (uint32_t)in[1];
+
+        if ((target & 3u) != 0u) {
+            rm->peek_status = O2P_PEEK_ERR_ALIGN;
+            for (int w = 0; w < 4; w++) rm->peek_words[w] = 0xFFFFFFFFu;
+            return 0u;
+        }
+
+        bool in_sram = (target >= 0x20000000u && target <= 0x20008FFCu);
+        bool in_flash = (target >= 0x08000000u && target <= 0x0801FFFCu);
+        bool in_sys = ((target >= 0x1FFF7590u && target <= 0x1FFF7598u) || target == 0x1FFF75E0u);
+
+        if (!in_sram && !in_flash && !in_sys) {
+            rm->peek_status = O2P_PEEK_ERR_RANGE;
+            for (int w = 0; w < 4; w++) rm->peek_words[w] = 0xFFFFFFFFu;
+            return 0u;
+        }
+
+        for (int w = 0; w < 4; w++) {
+            uint32_t a = target + (uint32_t)w * 4u;
+            bool ok = (in_sram && a <= 0x20008FFCu) ||
+                      (in_flash && a <= 0x0801FFFCu) ||
+                      (in_sys && ((a >= 0x1FFF7590u && a <= 0x1FFF7598u) || a == 0x1FFF75E0u));
+            if (ok) {
+#ifndef O2P_HOST_TEST
+                rm->peek_words[w] = *(const volatile uint32_t *)a;
+#else
+                rm->peek_words[w] = 0x12345678u + (uint32_t)w;
+#endif
+            } else {
+                rm->peek_words[w] = 0xFFFFFFFFu;
+            }
+        }
+        rm->peek_status = O2P_PEEK_OK;
+        return 0u;
+    }
+
+    /* Sensor diagnostic mailbox */
+    if (in_block(addr, count, O2P_REG_DMBOX_BASE, O2P_REG_DMBOX_COUNT)) {
+        if (addr != O2P_REG_DMBOX_BASE || count < 1u || count > 2u) {
+            return O2P_MB_EX_ILLEGAL_VALUE;
+        }
+        uint16_t cmd = in[0];
+        if ((cmd & O2P_DIAG_MAGIC_MASK) != O2P_DIAG_MAGIC) {
+            rm->diag_status = O2P_DMBOX_STATUS_ERR_OPCODE;
+            return O2P_MB_EX_ILLEGAL_VALUE;
+        }
+        uint8_t op = (uint8_t)(cmd & 0xFFu);
+        if (op < O2P_OP_READ_LMP_REG || op > O2P_OP_READ_SHT_SAMPLE) {
+            rm->diag_status = O2P_DMBOX_STATUS_ERR_OPCODE;
+            return O2P_MB_EX_ILLEGAL_VALUE;
+        }
+        rm->diag_cmd = cmd;
+        if (count == 2u) {
+            rm->diag_param = in[1];
+        }
+        rm->diag_status = O2P_DMBOX_STATUS_PENDING;
+        rm->diag_pending = true;
+        return 0u;
+    }
+
+    /* Crash retention mailbox: writing 0 clears record */
+    if (in_block(addr, count, O2P_REG_CRASH_BASE, O2P_REG_CRASH_COUNT)) {
+        if (in[0] == 0u) {
+#ifndef O2P_HOST_TEST
+            o2p_crash_clear();
+#endif
+            rm->crash_reason = O2P_CRASH_NONE;
+            rm->crash_pc = 0u;
+            rm->crash_lr = 0u;
+            rm->crash_detail = 0u;
+            rm->crash_build_id = 0u;
+            return 0u;
+        }
+        return O2P_MB_EX_ILLEGAL_VALUE;
     }
 
     /* Only the config block and the updater are writable. The primary and

@@ -239,7 +239,7 @@ typedef struct {
      * do not transfer - error here is in 0.01 K. */
     uint16_t test_kp_x100;
     uint16_t test_ki_x100;
-    /* PERSISTENT TIP SETPOINT MODE (registers 0x0049..0x004C), the flash-backed
+    /* PERSISTENT TIP SETPOINT MODE (registers 0x0049 and 0x004A), the flash-backed
      * counterpart of the volatile block above.
      *
      * Precedence is override > persistent tip > RH, and it is not arbitrary:

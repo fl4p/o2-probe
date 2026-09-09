@@ -52,11 +52,16 @@ static bool read_record(uint8_t page, config_record_t *out)
          * baud_code and parity_code - so a probe an operator had moved off the
          * default transport stops answering its master the moment it takes a
          * firmware update, with no way back in over the bus. On a potted probe
-         * in a pile that is unrecoverable. What genuinely cannot be carried
-         * across a version bump is the AIR POINT, and config_migrate.c zeroes
-         * exactly that and nothing else; see its header for the field-by-field
-         * argument. A migration that fails, for any reason, still falls back
-         * to full defaults exactly as before. */
+         * in a pile that is unrecoverable.
+         *
+         * What each migration keeps is per source version and is argued field
+         * by field in config_migrate.c. The AIR POINT is zeroed only where its
+         * MEANING changed under it - a pre-v3 record did not know the humidity
+         * it was taken at, a pre-v4 one did not know the pressure - and is
+         * carried intact from v4 onwards, v5/v6/v7 included. Consent to
+         * autonomous heating is the one field NO migration ever carries. A
+         * migration that fails, for any reason, still falls back to full
+         * defaults exactly as before. */
         uint8_t raw[CONFIG_RECORD_SIZE];
         memcpy(raw, r, sizeof(raw));
         o2p_config_t cfg;
@@ -135,6 +140,17 @@ bool o2p_config_store(const o2p_config_t *cfg)
     r.crc = 0u;
     r.crc = o2p_config_record_crc(&r);
 
+    /* The same three transport bytes, a second time, in the frozen block the
+     * bootloader reads (transport_record.h). Programmed BEFORE the
+     * configuration record deliberately: the config record is what makes a
+     * page live, so a power loss between the two writes leaves this page
+     * without one and the previous page still current - whereas the reverse
+     * order could publish a live configuration whose transport block was
+     * never written. */
+    o2p_transport_record_t tr;
+    o2p_transport_build(&tr, r.sequence, cfg->slave_addr, cfg->baud_code,
+                        cfg->parity_code);
+
     /* Deliberately NO watchdog feed anywhere on this path, here or inside
      * flash_hal.c.
      *
@@ -145,6 +161,8 @@ bool o2p_config_store(const o2p_config_t *cfg)
      * driver would satisfy the watchdog during exactly the jam that withheld
      * it. A safety interlock with a second, unconditional key is not one. */
     bool ok = o2p_flash_erase_page(target) &&
+              o2p_flash_program(O2P_PAGE_ADDR(target) + O2P_TRANSPORT_OFFSET,
+                                &tr, sizeof(tr)) &&
               o2p_flash_program(O2P_PAGE_ADDR(target), &r, sizeof(r));
 
     /* Verify through the load path, so a store that produced something the
@@ -155,6 +173,21 @@ bool o2p_config_store(const o2p_config_t *cfg)
         ok = read_record(target, &back) &&
              memcmp(&back.cfg, cfg, sizeof(back.cfg)) == 0 &&
              back.sequence == r.sequence;
+    }
+    /* And verify the transport block the same way, against the bytes in
+     * flash rather than against the struct we just built. A store whose
+     * configuration landed but whose transport block did not is exactly the
+     * state that strands the loader, so it is a FAILED store: reporting it
+     * now leaves the previous page live and the probe reachable. */
+    if (ok) {
+        o2p_transport_record_t tback;
+        memcpy(&tback, (const void *)(O2P_PAGE_ADDR(target) +
+                                      O2P_TRANSPORT_OFFSET), sizeof(tback));
+        ok = o2p_transport_record_ok(&tback) &&
+             tback.sequence == r.sequence &&
+             tback.slave_addr == cfg->slave_addr &&
+             tback.baud_code == cfg->baud_code &&
+             tback.parity_code == cfg->parity_code;
     }
     if (ok) {
         s_sequence = r.sequence;
