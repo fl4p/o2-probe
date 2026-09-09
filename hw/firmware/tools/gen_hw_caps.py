@@ -117,14 +117,46 @@ def load_rev_b_pads():
             for k, v in mod.ASSIGNED.items()}
 
 
+def _required(pads: dict, ref: str, pin, why: str) -> str:
+    """The net on a pad a CAPABILITY depends on, or a hard failure.
+
+    NO try/except AND NO DEFAULT, and that is the whole point of this function.
+
+    The first version of derive() wrapped pcb_netlist.net_of() in
+    `except SystemExit: "(absent)"`. net_of() raises precisely so that a pad it
+    cannot find stops the run - "Refusing to guess" - and catching it turned an
+    UNREADABLE NETLIST into a capability of 0: a verdict manufactured from no
+    evidence, dressed as a safe default.
+
+    It happened to point the safe way for bias_ok. That is luck, not design.
+    The next capability whose safe value is 1 would silently emit 0 and disable
+    a guard, or emit 1 and enable one, with nothing anywhere saying the netlist
+    could not be read. It is also exactly the failure this repo's guard
+    checklist names first - "missing/bad data, too few samples, failed probes
+    and exceptions must not mean OK" - committed inside the tool written to
+    enforce it.
+
+    So: a pad that feeds an emitted macro must resolve, or NOTHING is emitted.
+    A missing part on a future revision is a real signal that wants a human
+    decision about what that revision can and cannot assert, not a zero.
+    """
+    key = (ref, str(pin))
+    if key not in pads:
+        raise SystemExit(
+            f"{ref} pad {pin} is not in this revision's netlist, and "
+            f"{why} depends on it.\n"
+            f"Refusing to emit a capability header: a capability derived from "
+            f"a netlist that could not be read is invented, not derived.\n"
+            f"If this revision genuinely lacks the part, decide explicitly what "
+            f"it can assert and encode that - do not let it default.")
+    return pads[key]
+
+
 def derive(pads: dict, rev: str) -> dict:
     """The capability predicates. Mechanical, from pads alone."""
     ain = {}
     for pad, n in ADS_AIN_PADS.items():
-        try:
-            ain[n] = pcb_netlist.net_of(pads, "U8", pad)
-        except SystemExit:
-            ain[n] = "(absent)"
+        ain[n] = _required(pads, "U8", pad, f"O2P_HW_ADC_AIN{n}_NET")
 
     bias_ok = (ain[2] in ELECTRODE_WE_NETS) and (ain[3] in ELECTRODE_RE_NETS)
 
@@ -135,23 +167,11 @@ def derive(pads: dict, rev: str) -> dict:
     # attached to it. That is exactly what happened on 2026-09-09 - `vref` read
     # 2490 mV while the chip's internal zero was 0 - and it is why "monitor the
     # reference harder" is not the fix. Emitted for diagnosis, not for trust.
-    try:
-        afe_ref = pcb_netlist.net_of(pads, "U7", 11)
-    except SystemExit:
-        afe_ref = "(absent)"
-    try:
-        ads_ref = pcb_netlist.net_of(pads, "U8", 7)
-    except SystemExit:
-        ads_ref = "(absent)"
+    afe_ref = _required(pads, "U7", 11, "O2P_HW_VREF_NET_SHARED_WITH_AFE")
+    ads_ref = _required(pads, "U8", 7, "O2P_HW_VREF_NET_SHARED_WITH_AFE")
 
-    try:
-        pa4_net = pcb_netlist.net_of(pads, "U6", 15)
-    except SystemExit:
-        pa4_net = "(absent)"
-    try:
-        pa6_net = pcb_netlist.net_of(pads, "U6", 17)
-    except SystemExit:
-        pa6_net = "(absent)"
+    pa4_net = _required(pads, "U6", 15, "the CE-on-MCU capability")
+    pa6_net = _required(pads, "U6", 17, "the VIN-on-MCU capability")
 
     ce_connected = pa4_net in {"/CE_MON", "/ADC_CE_MON"}
     vin_on_mcu = pa6_net in {"/VIN_MON", "/ADC_VIN_MON"}
@@ -164,7 +184,7 @@ def derive(pads: dict, rev: str) -> dict:
         "bias_ok": bias_ok,
         "afe_ref_net": afe_ref,
         "ads_ref_net": ads_ref,
-        "ref_shared": afe_ref == ads_ref and afe_ref != "(absent)",
+        "ref_shared": afe_ref == ads_ref,
         "pa4_net": pa4_net,
         "pa6_net": pa6_net,
         "ce_connected": ce_connected,
@@ -194,7 +214,18 @@ def emit(d: dict) -> str:
     a("")
     a("/* ---- Is the cell bias measurable on this board? ----")
     a(" *")
-    a(" * 1 only when AIN2/AIN3 genuinely carry the WE/RE electrode buffers.")
+    a(" * 1 only when AIN2/AIN3 are NAMED as the WE/RE electrode buffers.")
+    a(" *")
+    a(" * WHAT THIS DOES NOT PROVE, because a reviewer asked and the honest")
+    a(" * answer is 'less than it looks': this matches NET NAMES. It does not")
+    a(" * trace the net to U7.12/U7.13, and it cannot - ADC_WE_BUF is the")
+    a(" * OUTPUT of a follower whose input is CELL_WE, so the two are different")
+    a(" * nets by design and net identity can never connect them. A revision")
+    a(" * that names a net /ADC_WE_BUF while wiring it elsewhere would read as")
+    a(" * capable. That is a smaller risk than the one this replaced - a")
+    a(" * hand-maintained flag nobody re-checked - but it is not zero, and a")
+    a(" * bench check of WE against 0.67 x VREF is still the thing that")
+    a(" * actually confirms it on a new board.")
     a(" * When 0, cell_bias_mv is not a measurement of the cell and the bias")
     a(" * existence check must not produce a verdict from it - the guard's")
     a(" * third state, BIAS_UNKNOWN, is what it gets. Calibration stays gated")

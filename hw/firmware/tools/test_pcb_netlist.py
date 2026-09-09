@@ -87,6 +87,27 @@ def main() -> int:
     check("Rev B bias capability",
           gen_hw_caps.derive(gen_hw_caps.load_rev_b_pads(), "B")["bias_ok"], True)
 
+    # UNEVALUABLE INPUT MUST NOT PRODUCE A VERDICT (guard checklist item 1).
+    #
+    # derive() used to wrap net_of() in `except SystemExit: "(absent)"`, which
+    # turned an unreadable netlist into bias_ok = False - a capability computed
+    # from no evidence. It pointed the safe way by luck; the next capability
+    # whose safe value is 1 would have been silently wrong. Remove a pad a
+    # macro depends on and the generator must REFUSE, not default.
+    import copy
+    for ref, pad, label in (("U8", "5", "AIN2 / bias capability"),
+                            ("U8", "4", "AIN3 / bias capability"),
+                            ("U7", "11", "AFE reference net")):
+        broken = copy.deepcopy(pads)
+        del broken[(ref, pad)]
+        try:
+            gen_hw_caps.derive(broken, "A")
+            FAILED.append(f"derive() invented a capability with {ref}.{pad} "
+                          f"missing ({label})")
+            print(f"FAIL derive() should refuse when {ref}.{pad} is missing")
+        except SystemExit:
+            print(f"ok   derive() refuses when {ref}.{pad} is missing ({label})")
+
     if FAILED:
         print(f"\n{len(FAILED)} failure(s):")
         for f in FAILED:

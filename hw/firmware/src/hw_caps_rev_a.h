@@ -14,7 +14,18 @@
 
 /* ---- Is the cell bias measurable on this board? ----
  *
- * 1 only when AIN2/AIN3 genuinely carry the WE/RE electrode buffers.
+ * 1 only when AIN2/AIN3 are NAMED as the WE/RE electrode buffers.
+ *
+ * WHAT THIS DOES NOT PROVE, because a reviewer asked and the honest
+ * answer is 'less than it looks': this matches NET NAMES. It does not
+ * trace the net to U7.12/U7.13, and it cannot - ADC_WE_BUF is the
+ * OUTPUT of a follower whose input is CELL_WE, so the two are different
+ * nets by design and net identity can never connect them. A revision
+ * that names a net /ADC_WE_BUF while wiring it elsewhere would read as
+ * capable. That is a smaller risk than the one this replaced - a
+ * hand-maintained flag nobody re-checked - but it is not zero, and a
+ * bench check of WE against 0.67 x VREF is still the thing that
+ * actually confirms it on a new board.
  * When 0, cell_bias_mv is not a measurement of the cell and the bias
  * existence check must not produce a verdict from it - the guard's
  * third state, BIAS_UNKNOWN, is what it gets. Calibration stays gated
