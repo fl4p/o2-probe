@@ -5307,6 +5307,58 @@ static void test_raw_current_saturates_to_its_sentinel(void)
         (uint16_t)o2p_encode_raw_ua_x100(-400000));
 }
 
+/* WHY finish_o2() REFUSES A CLIPPED CONVERSION - the measurement that made
+ * the case, from the bench of 2026-09-08 and the review of 2026-09-09.
+ *
+ * The encoder above cannot save us here, and this test exists to pin that
+ * down rather than leave it as an argument in a comment. A saturated
+ * converter does not produce an out-of-range current that the sentinel catches
+ * - it produces a MODEST one, because the cell current is the DEPARTURE from
+ * the internal zero at 67 % of VREF, and the distance from there to either
+ * rail is about a third of full scale. Across 7 kOhm that is roughly 120 uA,
+ * which is the middle of the SGX-OX-ROHS-Mini's 70-130 uA air band.
+ *
+ * So the number a railed AFE publishes is not merely wrong, it is wrong in
+ * the one shape a reader cannot dismiss at a glance: a believable air current
+ * with a flipped sign. Nothing downstream of the register can distinguish it,
+ * which is why the refusal has to happen where the code is, in finish_o2(),
+ * and not in the fault mask - see faults.h. */
+static void test_a_railed_conversion_encodes_as_a_believable_air_current(void)
+{
+    const uint32_t vref_mv = 2496u;   /* as measured on the bench that evening */
+
+    int32_t na = o2p_cell_na_from_code(32767, vref_mv);
+    int16_t raw = o2p_encode_raw_ua_x100(na);
+
+    /* Not the sentinel. It encodes cleanly, which is the whole problem. */
+    TEST_ASSERT_NOT_EQUAL_HEX16((uint16_t)O2P_I16_INVALID, (uint16_t)raw);
+
+    /* And its magnitude lands inside the datasheet's air band for the cell,
+     * to within a microamp of the -117.5 uA the review reported. */
+    int32_t ua_x100 = (raw < 0) ? -(int32_t)raw : (int32_t)raw;
+    TEST_ASSERT_TRUE(ua_x100 > 7000 && ua_x100 < 13000);
+    TEST_ASSERT_INT32_WITHIN(100, 11750, ua_x100);
+
+    /* THE TWO RAILS ARE NOT SYMMETRIC, and only one of them is dangerous.
+     * The internal zero sits at 67 % of VREF, so the positive rail is a third
+     * of full scale away and the negative rail is two thirds - about 595 uA,
+     * which overflows the register and does emit the sentinel. Half the
+     * failure mode is caught for free by arithmetic. That is not a guard,
+     * it is a coincidence of where INT_Z happens to sit, and it is exactly
+     * the half that did NOT occur on the bench: the AFE railed HIGH. */
+    na = o2p_cell_na_from_code(-32768, vref_mv);
+    TEST_ASSERT_EQUAL_HEX16((uint16_t)O2P_I16_INVALID,
+        (uint16_t)o2p_encode_raw_ua_x100(na));
+
+    /* Both codes ARE recognised as clipped. The detector was never the weak
+     * link; acting on it was. */
+    TEST_ASSERT_TRUE(o2p_ads1119_code_clipped(32767));
+    TEST_ASSERT_TRUE(o2p_ads1119_code_clipped(-32768));
+    /* A real air reading near the internal zero is not clipped, so the guard
+     * costs nothing in normal operation. */
+    TEST_ASSERT_FALSE(o2p_ads1119_code_clipped(21955));
+}
+
 static void test_settle_restarts_count_only_real_restarts(void)
 {
     /* The counter's job is to make a bias interruption the once-a-second
@@ -5543,6 +5595,7 @@ int main(void)
     RUN_TEST(test_cell_current_is_ratiometric_in_vref);
     RUN_TEST(test_the_chamber_speaks_for_the_gas_not_the_heated_tip);
     RUN_TEST(test_raw_current_saturates_to_its_sentinel);
+    RUN_TEST(test_a_railed_conversion_encodes_as_a_believable_air_current);
     RUN_TEST(test_settle_restarts_count_only_real_restarts);
     RUN_TEST(test_the_newer_config_record_wins);
     RUN_TEST(test_the_config_choice_survives_a_sequence_wrap);

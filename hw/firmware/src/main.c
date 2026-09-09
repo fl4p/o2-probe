@@ -853,23 +853,51 @@ static void finish_o2(o2p_snapshot_t *s)
     if ((g_cyc.faults & O2P_FAULTS_ADS_NO_CONVERSION) != 0u) {
         return;
     }
-    /* A pinned converter is not a measurement. Raise ADC_RANGE - which
-     * already means "converter saturated or out of window" and already
-     * invalidates O2 - so the reading is withheld rather than published as a
-     * confident number that happens to be the rail. The raw code is still
-     * recorded below for the bench; what changes is that nothing downstream
-     * treats it as valid. */
+    /* A pinned converter is not a measurement. */
     if (g_acc_clipped) {
         g_cyc.faults |= O2P_F_ADC_RANGE;
     }
     int32_t code = g_acc / (int32_t)O2P_N_O2;
     int32_t uv = o2p_ads1119_code_to_uv(code, g_cyc.vref_mv);
+
+    /* AFE_VOUT_MV IS THE UNCONDITIONAL CHANNEL, and deliberately so. It is
+     * the converter's own output in millivolts, published whatever happened,
+     * because a rail IS the diagnostic: 24 mV named the pin 10-11 bridge and
+     * 2495 mV named the collapsed A1 on 2026-09-08. Its scale is nominal
+     * rather than measured when VREF_MON reads its sentinel; that is a 0.3 %
+     * question on a number being read for its order of magnitude. */
     s->afe_vout_mv = (uv < 0) ? 0u : (uint16_t)(uv / 1000);
 
     int32_t cell_na = o2p_cell_na_from_code(code, g_cyc.vref_mv);
 
-    /* uA * 100, i.e. 10 nA per count. */
-    s->o2_raw = o2p_encode_raw_ua_x100(cell_na);
+    /* O2_RAW, ON THE OTHER HAND, IS A CURRENT, and a current derived from a
+     * rail is a fabrication - 2026-09-09, from the Codex review of the
+     * always-publish change.
+     *
+     * Fab's instruction on 2026-09-08 was "raw is raw and it's ok if it's not
+     * ok", and it stands: the FAULT WORD no longer withholds this value.
+     * Nothing in O2P_FAULTS_INVALIDATE_O2 blanks it, so a dead I2C bus, a
+     * mismatched AFE config or a low VA all still publish their microamps and
+     * let the consumer judge. What is refused here is narrower and is not a
+     * judgement about trust: these two conditions mean the arithmetic below
+     * has no input. A saturated converter has lost the code, so 32767 is
+     * where the ADC stopped counting and not where the cell was; an unmeasured
+     * VREF means the volts-per-count came from the trim TARGET, and this
+     * channel then divides an assumed reference by a bias derived from the
+     * same assumption. Measured 2026-09-08 with a railed AFE: VOUT 2495
+     * against VREF 2496 encodes as -117.5 uA, which is inside the SGX cell's
+     * 70-130 uA air band with a sign flip - the one shape a reader cannot
+     * dismiss at a glance.
+     *
+     * This is the same guard finish_we_re() and finish_t_afe() already apply,
+     * for the same reason, and it tests g_acc_clipped and vref_measured
+     * DIRECTLY rather than reading the cumulative fault word - see the long
+     * note in finish_we_re(). The bench loses nothing: AFE_VOUT_MV (0x0013)
+     * above carries the rail, and ADC_RANGE in the fault word says why. */
+    if (!g_acc_clipped && g_cyc.vref_measured) {
+        /* uA * 100, i.e. 10 nA per count. */
+        s->o2_raw = o2p_encode_raw_ua_x100(cell_na);
+    }
 
     int16_t t_gas = o2p_gas_temperature(g_cyc.chamber_ok, g_cyc.t_chamber,
                                         g_cyc.tip_ok, g_cyc.t_tip);
@@ -1012,9 +1040,41 @@ static void cycle_publish(o2p_snapshot_t *s)
         ? (uint16_t)(g_cyc.faults_at_o2 |
                      (g_cyc.faults & (uint16_t)~O2P_FAULTS_POST_O2))
         : g_cyc.faults;
-    if (!o2p_o2_valid(o2_faults)) {
-        s->o2_raw = O2P_I16_INVALID;
-    }
+    /* O2_RAW IS NO LONGER BLANKED BY THE FAULT WORD - 2026-09-08.
+     *
+     * Fab, 2026-09-08: "raw is raw and it's ok if it's not ok."
+     *
+     * The FAULTS word is register 6 of this same primary block, so it is in
+     * every frame that carries the number, and the ChirpStack decoder names
+     * every set bit in its warnings. Anyone deciding whether to trust the
+     * current reads that. There is deliberately no second validity flag: the
+     * decoder's raw_ok was removed with this change, because a flag derived
+     * from a duplicated copy of the mask above is a thing that can drift away
+     * from the firmware, and the fault word cannot.
+     *
+     * What blanking cost is debugging. O2_COMP is already withheld on all of
+     * these faults, so the untrustworthy %vol never reaches anyone; blanking
+     * the raw current on top of that removed the only remaining evidence of
+     * what the cell was doing, at exactly the moments a human was trying to
+     * find out. Measured twice on 2026-09-08: SETTLING deleted the 900 s
+     * recovery transient after every reset (fixed then, same argument), and
+     * that evening a saturated AFE with a cell fitted left the question "is
+     * this cell drawing current, and how much" with no channel to answer on
+     * for the whole investigation.
+     *
+     * There is no sentinel-collision risk and no invented number here. The
+     * snapshot is rebuilt from O2P_I16_INVALID at the start of every cycle by
+     * o2p_snapshot_reset(), and finish_o2() writes o2_raw only from a
+     * conversion that actually completed. So a cycle that produced no
+     * conversion still publishes the sentinel - it is simply never
+     * overwritten - while a cycle that DID convert, with a converter that did
+     * not saturate and a reference that was really read, publishes what it
+     * converted no matter which fault bits are set alongside it. Those last
+     * two conditions were added on 2026-09-09; finish_o2() has the argument,
+     * and AFE_VOUT_MV is what carries the bench diagnostic when they fail.
+     *
+     * O2_COMP keeps its sentinel. It is a quotient by a calibration constant
+     * that may not exist, so there is no underlying measurement to preserve. */
     if (!o2p_o2_comp_valid(o2_faults)) {
         s->o2_comp = O2P_U16_INVALID;
     }

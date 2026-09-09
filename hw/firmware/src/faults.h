@@ -104,7 +104,24 @@ enum {
  * It is STATED on the compensated mask below rather than merely removed here,
  * because that mask is defined in terms of this one. Deleting the bit without
  * restating it would silently strip the warmup gate from the oxygen verdict
- * too - which is the regression 3c8d884 already shipped once. */
+ * too - which is the regression 3c8d884 already shipped once.
+ *
+ * WHAT THIS MASK NO LONGER DOES, as of 2026-09-08: it does not blank the
+ * VALUE in O2_RAW. Every bit below still means "do not trust this number",
+ * and O2_COMP is still withheld on all of them - but the raw microamps now
+ * stay on the wire regardless, because a physical measurement of the cell is
+ * wanted most at exactly the moments these bits are set. The fault word is in
+ * the same frame and says whether to trust it; there is no separate validity
+ * flag, and the decoder no longer publishes one. cycle_publish() no longer
+ * substitutes the sentinel; see main.c.
+ *
+ * ONE THING IS STILL WITHHELD, and it is not this mask doing it - 2026-09-09.
+ * finish_o2() leaves O2_RAW at its sentinel when the converter saturated or
+ * VREF was never measured. That is not a trust judgement being smuggled back
+ * in through another door: those two conditions mean the microamps have no
+ * input to be computed FROM, so there is no measurement to publish. Everything
+ * else on this list still publishes. AFE_VOUT_MV carries the raw converter
+ * output in those cases and is never withheld. */
 #define O2P_FAULTS_INVALIDATE_O2 ( \
       O2P_F_I2C_FAIL_LMP        \
     | O2P_F_I2C_FAIL_ADS        \
