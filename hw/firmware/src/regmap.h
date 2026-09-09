@@ -237,6 +237,13 @@ enum {
 };
 #define O2P_CAL_STATE_AIR_DEFAULT   0x0001u
 #define O2P_CAL_STATE_NO_ZERO       0x0002u
+/* An air point EXISTS but was taken without the cell bias being measured -
+ * accepted on substitute evidence (see main.c's calibration gate). Published
+ * so the constant is self-describing: a %vol derived from it is a real
+ * measurement, but nothing proved the cell was at its commanded bias when the
+ * point was taken. Not set when there is no air point at all; AIR_DEFAULT
+ * already says that, and two bits for one condition read as two problems. */
+#define O2P_CAL_STATE_BIAS_UNVERIFIED 0x0004u
 
 #define O2P_CMD_RESULT_CAL(v)    ((uint8_t)((v) >> 8))
 #define O2P_CMD_RESULT_COMMIT(v) ((uint8_t)((v) & 0xFFu))
@@ -732,7 +739,23 @@ typedef struct {
      * so without this the compiler pads to 48 anyway and the next field appended
      * here would silently land on tail padding a previous version had left
      * uninitialised. Naming it keeps every byte of the record accounted for. */
-    uint8_t  reserved4[2];            /* 46 */
+    /* Was this probe's air point taken with the cell bias actually MEASURED?
+     *
+     * 0 = no. Takes over one byte of v8's reserved4[2] at offset 46, and the
+     * polarity is chosen so that NO MIGRATION IS NEEDED and no layout version
+     * bump either: an older record has zero here, zero reads as "not
+     * verified", and that is the TRUE answer for every calibration this
+     * firmware has ever stored. On the fabricated Rev A board AIN2/AIN3 are
+     * rail monitors (hw_caps_rev_a.h), so any bias verdict that authorised a
+     * past air point was computed from two power rails and never saw the cell.
+     *
+     * Compare tip_setpoint_c100 at offset 42, which took over v7's reserved3
+     * with the OPPOSITE polarity - zero was a legal setpoint meaning "hold
+     * 0.00 C", so that one needed an explicit migration to avoid arming a
+     * heater. Getting this the safe way round is deliberate, not luck: an
+     * upgraded probe must not claim evidence it does not have. */
+    uint8_t  cal_bias_verified;       /* 46 */
+    uint8_t  reserved5[1];            /* 47 */
 } o2p_config_t;
 /* The record wrapper in config_flash.h is a fixed 64 bytes and pads to it, so
  * growing this struct spends the record's RESERVED TAIL rather than the frame.

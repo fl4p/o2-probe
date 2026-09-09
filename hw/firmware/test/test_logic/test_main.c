@@ -5521,6 +5521,51 @@ static void test_the_rev_a_divider_scaling(void)
     TEST_ASSERT_EQUAL_UINT16(0xFFFEu, o2p_scale_vin_ads(10000u));
 }
 
+/* CAL_STATE must say how the air point was obtained, not just that one exists.
+ *
+ * Added 2026-09-09 with the calibration gate change. On a board whose AIN2/AIN3
+ * are rail monitors the cell bias cannot be measured, so an air point is
+ * accepted on weaker evidence (the AFE's own register image, via
+ * O2P_FAULTS_INVALIDATE_O2) and must SAY SO. A constant that cannot report its
+ * own provenance is the failure this tree keeps writing postmortems about. */
+static void test_cal_state_reports_an_unverified_bias(void)
+{
+    o2p_regmap_t rm;
+    uint16_t v[1];
+    o2p_regmap_init(&rm);
+
+    /* No air point at all: AIR_DEFAULT, and NOT bias-unverified. Two bits for
+     * one condition would read as two problems. */
+    rm.cfg.cal_air_na = 0;
+    rm.cfg.cal_bias_verified = 0u;
+    TEST_ASSERT_EQUAL_UINT8(0u, o2p_regmap_read(&rm, O2P_REG_CAL_STATE, 1u, v));
+    TEST_ASSERT_TRUE(v[0] & O2P_CAL_STATE_AIR_DEFAULT);
+    TEST_ASSERT_FALSE(v[0] & O2P_CAL_STATE_BIAS_UNVERIFIED);
+
+    /* An air point taken WITHOUT a measured bias. */
+    rm.cfg.cal_air_na = 99000;
+    rm.cfg.cal_bias_verified = 0u;
+    TEST_ASSERT_EQUAL_UINT8(0u, o2p_regmap_read(&rm, O2P_REG_CAL_STATE, 1u, v));
+    TEST_ASSERT_FALSE(v[0] & O2P_CAL_STATE_AIR_DEFAULT);
+    TEST_ASSERT_TRUE(v[0] & O2P_CAL_STATE_BIAS_UNVERIFIED);
+
+    /* And one taken with it. */
+    rm.cfg.cal_bias_verified = 1u;
+    TEST_ASSERT_EQUAL_UINT8(0u, o2p_regmap_read(&rm, O2P_REG_CAL_STATE, 1u, v));
+    TEST_ASSERT_FALSE(v[0] & O2P_CAL_STATE_BIAS_UNVERIFIED);
+
+    /* THE MIGRATION PROPERTY, which is why the polarity is "verified" and not
+     * "unverified": a v8 record has ZERO in this byte, and zero must read as
+     * the conservative answer. If someone flips the sense later, every probe
+     * upgraded from v8 silently claims evidence it never had. */
+    o2p_config_t old_record;
+    memset(&old_record, 0, sizeof(old_record));
+    old_record.cal_air_na = 99000;
+    rm.cfg = old_record;
+    TEST_ASSERT_EQUAL_UINT8(0u, o2p_regmap_read(&rm, O2P_REG_CAL_STATE, 1u, v));
+    TEST_ASSERT_TRUE(v[0] & O2P_CAL_STATE_BIAS_UNVERIFIED);
+}
+
 static void test_the_wire_version_tracks_the_wire_contract(void)
 {
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
@@ -6000,6 +6045,7 @@ int main(void)
     RUN_TEST(test_afe_die_temperature_follows_the_datasheet_table);
     RUN_TEST(test_the_cell_bias_window_catches_an_open_potentiostat);
     RUN_TEST(test_the_bias_guard_is_gated_on_as_built_wiring);
+    RUN_TEST(test_cal_state_reports_an_unverified_bias);
     RUN_TEST(test_the_rev_a_divider_scaling);
     RUN_TEST(test_the_wire_version_tracks_the_wire_contract);
     RUN_TEST(test_cell_current_is_the_departure_from_the_internal_zero);

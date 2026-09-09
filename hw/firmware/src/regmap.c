@@ -420,7 +420,13 @@ static uint16_t read_diag(const o2p_regmap_t *rm, const o2p_snapshot_t *s,
         return (uint16_t)((rm->cfg.cal_air_na == 0
                                ? O2P_CAL_STATE_AIR_DEFAULT : 0u) |
                           (rm->cfg.cal_zero_taken == 0u
-                               ? O2P_CAL_STATE_NO_ZERO : 0u));
+                               ? O2P_CAL_STATE_NO_ZERO : 0u) |
+                          /* Only meaningful once an air point exists: with no
+                           * point there is nothing whose provenance to
+                           * qualify, and AIR_DEFAULT already reports that. */
+                          ((rm->cfg.cal_air_na != 0 &&
+                            rm->cfg.cal_bias_verified == 0u)
+                               ? O2P_CAL_STATE_BIAS_UNVERIFIED : 0u));
     case O2P_REG_VREF_MON_MV:   return s->vref_mv;
     case O2P_REG_VA_MON_MV:     return s->va_mv;
     case O2P_REG_VIN_MON_MV:    return s->vin_mv;

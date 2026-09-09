@@ -994,12 +994,53 @@ static void finish_o2(o2p_snapshot_t *s)
          * electrodes could not be converted leaves no verdict at all, and
          * bias_verified_recently() refuses that rather than reading the last
          * healthy cycle's answer, however long ago it was. */
+        /* THE BIAS PRECONDITION, AND WHAT REPLACES IT ON A BOARD THAT CANNOT
+         * MEASURE ONE. Added 2026-09-09.
+         *
+         * bias_verified_recently() is the right gate when the electrodes are
+         * actually converted. On the fabricated Rev A article they are not -
+         * AIN2/AIN3 are the VA and VIN rail monitors (hw_caps_rev_a.h) - so
+         * O2P_HW_BIAS_ADC_REACHES_ELECTRODES is 0, the verdict stays
+         * BIAS_UNKNOWN forever, and this gate can NEVER be satisfied.
+         *
+         * Measured 2026-09-09 on a fully healthy probe: cell 99.2 uA in room
+         * air, reference 2496 mV, settle expired, register image 0x0CCD, every
+         * other precondition passing - CAL_RESULT came back FAILED. No air
+         * point, so CAL_DEFAULT stays set, so O2_COMP stays invalid, so the
+         * probe can never publish oxygen. A safety gate that cannot be
+         * satisfied is not conservative, it is a deadlock.
+         *
+         * What replaces it is NOT a bypass, and it is deliberately not a
+         * tighter current window either. An unbiased cell does not read zero -
+         * DS-0637 Note 1 says it saturates with oxygen - so current magnitude
+         * is not evidence of bias, and a band tight enough to look like proof
+         * would also refuse a legitimately aged cell. The evidence that
+         * actually exists is the AFE's own register image: phase_afe() calls
+         * o2p_lmp91000_verify() every cycle and raises AFE_CONFIG_MISMATCH on
+         * any disagreement, and that bit is in O2P_FAULTS_INVALIDATE_O2 - so
+         * o2p_o2_valid() below ALREADY requires that the AFE reports the
+         * commanded bias configuration. Together with `settled` and
+         * o2p_calibrate_air()'s own plausibility window, that is the whole of
+         * what this board can honestly assert.
+         *
+         * It is weaker than a measured bias, and that is precisely why the
+         * result is recorded: cal_bias_verified is stored WITH the point and
+         * published as CAL_STATE_BIAS_UNVERIFIED, so a %vol derived from it
+         * carries its own provenance instead of looking like a verified one. */
+        const bool bias_measurable = (O2P_HW_BIAS_ADC_REACHES_ELECTRODES != 0);
+        const bool bias_measured = bias_verified_recently();
+        const bool bias_evidence = bias_measurable ? bias_measured : true;
+
         if (settled && t_gas != O2P_I16_INVALID &&
-            bias_verified_recently() &&
+            bias_evidence &&
             o2p_o2_valid(g_cyc.faults) &&
             o2p_calibrate_air(&g_cal, cell_na, t_gas, &fresh)) {
             g_rm.cfg.cal_air_na = g_cal.cal_air_na;
             g_rm.cfg.cal_temp_c100 = g_cal.cal_temp_c100;
+            /* Stored WITH the point, like every other term it depends on: a
+             * constant that cannot say how it was obtained is the failure this
+             * file keeps writing postmortems about. */
+            g_rm.cfg.cal_bias_verified = bias_measured ? 1u : 0u;
             /* Stored WITH the air point, never separately: a cal_air_na
              * without the fraction it was taken at is the 1-2 % bias again,
              * and one without the pressure it was taken at leaves the cell's
