@@ -5517,8 +5517,8 @@ static void test_the_rev_a_divider_scaling(void)
     TEST_ASSERT_EQUAL_UINT16(12000u, vin_scaled);
     TEST_ASSERT_TRUE(vin_scaled >= O2P_VIN_LOW_MV);
 
-    /* Clamping to uint16 maximum */
-    TEST_ASSERT_EQUAL_UINT16(0xFFFFu, o2p_scale_vin_ads(10000u));
+    /* Clamping to 0xFFFE so a railed measurement never emits 0xFFFF (O2P_U16_INVALID) */
+    TEST_ASSERT_EQUAL_UINT16(0xFFFEu, o2p_scale_vin_ads(10000u));
 }
 
 static void test_the_wire_version_tracks_the_wire_contract(void)

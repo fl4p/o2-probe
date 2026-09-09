@@ -94,12 +94,17 @@ static inline uint32_t o2p_settle_restart(uint32_t now_s, uint32_t deadline_s,
     return now_s + settle_s;
 }
 
-/* Undo the Rev A ADS voltage dividers (VA: R24/R25, VIN: R26/R27). */
+/* Undo the Rev A ADS voltage dividers (VA: R24/R25, VIN: R26/R27).
+ *
+ * Lifted here so the formula and constants are shared with the host test suite
+ * (test_main.c). The call site in main.c remains review-only because main.c
+ * cannot link on the host (CMSIS). Clamps to 0xFFFE so a railed measurement
+ * never emits the 0xFFFF invalid sentinel (O2P_U16_INVALID). */
 static inline uint16_t o2p_scale_va_ads(uint16_t raw_mv)
 {
     uint32_t va = ((uint32_t)raw_mv * O2P_HW_DIV_VA_ADS_DEN) / O2P_HW_DIV_VA_ADS_NUM;
-    if (va > 0xFFFFu) {
-        va = 0xFFFFu;
+    if (va > 0xFFFEu) {
+        va = 0xFFFEu;
     }
     return (uint16_t)va;
 }
@@ -107,8 +112,8 @@ static inline uint16_t o2p_scale_va_ads(uint16_t raw_mv)
 static inline uint16_t o2p_scale_vin_ads(uint16_t raw_mv)
 {
     uint32_t vin = ((uint32_t)raw_mv * O2P_HW_DIV_VIN_ADS_DEN) / O2P_HW_DIV_VIN_ADS_NUM;
-    if (vin > 0xFFFFu) {
-        vin = 0xFFFFu;
+    if (vin > 0xFFFEu) {
+        vin = 0xFFFEu;
     }
     return (uint16_t)vin;
 }
