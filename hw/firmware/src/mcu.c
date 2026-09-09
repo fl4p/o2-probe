@@ -153,6 +153,23 @@ void o2p_hardfault_c_handler(uint32_t *stack_frame, uint32_t exc_return)
         lr = stack_frame[5];
     }
 
+    /* Backup-domain access, established HERE rather than assumed.
+     *
+     * o2p_clock_init() enables PWR, the RTC/TAMP APB clock and DBP, and every
+     * image calls it first - so this held for any fault at ordinary runtime,
+     * which is why it survived review as an assumption that happens to hold.
+     * It does not hold for a fault DURING startup or in the earlier part of
+     * o2p_clock_init() itself, and there the failure is worse than losing the
+     * record: with the writes ignored, the BKP0R invalidate below is ignored
+     * too, so a magic left by an EARLIER crash survives and is decoded on the
+     * next boot as though it described this one. Both resets are software
+     * resets, so nothing downstream can tell them apart. Re-enabling costs a
+     * few register writes on a path that ends in a reset. */
+    RCC->APBENR1 |= RCC_APBENR1_PWREN | RCC_APBENR1_RTCAPBEN;
+    (void)RCC->APBENR1;   /* ensure the clock is running before PWR is touched */
+    PWR->CR1 |= PWR_CR1_DBP;
+    (void)PWR->CR1;
+
     /* Atomic sequence: invalidate first, write payload, then commit magic */
     TAMP->BKP0R = 0u;
     TAMP->BKP1R = pc;

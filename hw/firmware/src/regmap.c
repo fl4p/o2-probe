@@ -394,6 +394,22 @@ static bool in_block(uint16_t addr, uint16_t count, uint16_t base, uint16_t n)
     return addr >= base && (uint32_t)addr + count <= (uint32_t)base + n;
 }
 
+/* Containment is what dispatches a write; OVERLAP is what refuses one.
+ *
+ * The two are not the same test, and the difference was wire-visible: a write
+ * that straddles a mailbox boundary is contained in nothing, so it fell past
+ * every branch to the config-block check and was refused as ILLEGAL_ADDRESS.
+ * The addresses are perfectly legal - the LENGTH is what makes the frame
+ * malformed, which is ILLEGAL_VALUE, and is what these blocks promise for any
+ * write that touches them without matching their exact shape. Nothing was
+ * ever written by such a frame; only the exception code was wrong, and a
+ * master that distinguishes "no such register" from "bad request" was told
+ * the first when it should have heard the second. */
+static bool overlaps_block(uint16_t addr, uint16_t count, uint16_t base, uint16_t n)
+{
+    return (uint32_t)addr < (uint32_t)base + n && (uint32_t)addr + count > base;
+}
+
 static uint16_t read_primary(const o2p_snapshot_t *s, uint16_t a)
 {
     switch (a) {
@@ -1032,6 +1048,23 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
         return O2P_MB_EX_ILLEGAL_VALUE;
     }
 #endif
+
+    /* Reaching here having touched a mailbox means the frame overlapped one
+     * without being contained in it - every contained case returned above. */
+    if (overlaps_block(addr, count, O2P_REG_HTEST_BASE, O2P_REG_HTEST_COUNT)
+#if O2P_DEBUG_ENABLE
+        || overlaps_block(addr, count, O2P_REG_PEEK_BASE, O2P_REG_PEEK_COUNT)
+        || overlaps_block(addr, count, O2P_REG_DMBOX_BASE, O2P_REG_DMBOX_COUNT)
+        || overlaps_block(addr, count, O2P_REG_CRASH_BASE, O2P_REG_CRASH_COUNT)
+#endif
+        ) {
+        return O2P_MB_EX_ILLEGAL_VALUE;
+    }
+    if (rm->upd != NULL &&
+        (overlaps_block(addr, count, O2P_REG_UPDATE_BASE, O2P_REG_UPDATE_COUNT) ||
+         overlaps_block(addr, count, O2P_REG_UPDDATA_BASE, O2P_REG_UPDDATA_COUNT))) {
+        return O2P_MB_EX_ILLEGAL_VALUE;
+    }
 
     /* Only the config block and the updater are writable. The primary and
      * diagnostic blocks are measurements; a master that tries to write one is

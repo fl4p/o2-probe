@@ -5860,6 +5860,49 @@ static void test_peek_burst_length_is_requested_not_assumed(void)
     TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_ERR_RANGE, rm.peek_status);
 }
 
+/* A write that straddles a mailbox boundary is a bad LENGTH, not a bad
+ * ADDRESS. It was refused either way - nothing is ever written by such a frame
+ * - but it answered ILLEGAL_ADDRESS, which tells a master the register does
+ * not exist when in fact its request was malformed. */
+static void test_a_write_straddling_a_mailbox_is_an_illegal_value(void)
+{
+    o2p_regmap_t rm;
+    o2p_regmap_init(&rm);
+
+    /* Runs off the end of the heater-test block into the peek trigger. */
+    uint16_t straddle_htest[2] = { 0u, 0x2000u };
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm, O2P_REG_HEATER_TEST_KI, 2u,
+                                            straddle_htest));
+
+    /* Starts one register below the peek block and reaches its first word. */
+    uint16_t straddle_peek[2] = { 0u, 0x2000u };
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm, (uint16_t)(O2P_REG_PEEK_BASE - 1u),
+                                            2u, straddle_peek));
+    /* ... and did not execute a peek on the way past. */
+    TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_NONE, rm.peek_status);
+
+    /* Off the end of the peek block into the diagnostic mailbox. */
+    uint16_t straddle_dmbox[2] = { 0u, 0u };
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm, O2P_REG_PEEK_W3_LO, 2u,
+                                            straddle_dmbox));
+    TEST_ASSERT_FALSE(rm.diag_pending);
+
+    /* Off the end of the diagnostic mailbox into the crash block. */
+    uint16_t straddle_crash[2] = { 0u, 0u };
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm, O2P_REG_DIAG_CRC_STATUS, 2u,
+                                            straddle_crash));
+
+    /* An address genuinely outside every block is still ILLEGAL_ADDRESS: the
+     * new rule must not swallow the case it was never about. */
+    uint16_t nowhere[1] = { 0u };
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS,
+                           o2p_regmap_write(&rm, 0x0200u, 1u, nowhere));
+}
+
 /* A malformed trigger must not disturb the previous result. */
 static void test_peek_rejects_a_count_outside_one_to_four(void)
 {
@@ -6180,6 +6223,7 @@ int main(void)
     RUN_TEST(test_peek_mailbox_bounds_and_alignment);
     RUN_TEST(test_peek_burst_length_is_requested_not_assumed);
     RUN_TEST(test_peek_rejects_a_count_outside_one_to_four);
+    RUN_TEST(test_a_write_straddling_a_mailbox_is_an_illegal_value);
     RUN_TEST(test_peek_two_register_trigger_still_means_four_words);
     RUN_TEST(test_dmbox_validation_and_opcodes);
     RUN_TEST(test_crash_mailbox_read_and_clear);

@@ -217,7 +217,19 @@ def check_build_id(bus, elf_path, force=False):
         raise RuntimeError("ELF file not found: %s" % elf_path)
     b_id, sha, dirty, debug = get_probe_build_id(bus)
     elf_b_id = get_elf_build_id(elf_path)
-    if elf_b_id is not None:
+    if elf_b_id is None:
+        # A check that could not run is not a check that passed. Silently
+        # skipping here resolved symbols against an ELF nothing had matched to
+        # the probe -- the exact failure --force-build-id exists to make
+        # deliberate.
+        msg = ("could not read g_o2p_build_id from %s "
+               "(arm-none-eabi-nm / objdump missing, or symbol absent)" % elf_path)
+        if force:
+            print("!! WARNING: %s (proceeding UNVERIFIED due to --force-build-id)" % msg)
+        else:
+            raise RuntimeError("%s. Refusing symbol lookup; "
+                               "pass --force-build-id to override." % msg)
+    else:
         probe_commit = b_id & 0x0FFFFFFF
         elf_commit = elf_b_id & 0x0FFFFFFF
         if probe_commit != elf_commit:
@@ -392,8 +404,14 @@ def cmd_crash(bus, args):
 
     if reason != 0 and pc != 0 and os.path.exists(args.elf):
         elf_b_id = get_elf_build_id(args.elf)
-        if elf_b_id is not None and (elf_b_id & 0x0FFFFFFF) != (b_id & 0x0FFFFFFF):
+        if elf_b_id is None:
+            msg = ("could not read g_o2p_build_id from %s, so the ELF is "
+                   "unverified against the crash record" % args.elf)
+        elif (elf_b_id & 0x0FFFFFFF) != (b_id & 0x0FFFFFFF):
             msg = "Crash record BUILD_ID (%s) does not match ELF (%07x)" % (b_sha, elf_b_id & 0x0FFFFFFF)
+        else:
+            msg = None
+        if msg is not None:
             if args.force_build_id:
                 print("!! WARNING: %s (decoding anyway due to --force-build-id)" % msg)
             else:
