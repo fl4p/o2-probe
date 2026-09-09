@@ -59,8 +59,7 @@ def check(board):
     if len(refs) != len(set(refs)):
         raise ValueError('Duplicate footprint references')
     for ref, block in entries:
-        # The only repeated pads permitted by this design are the plated
-        # faces of J5's two fork lands; both copies must have the same net.
+        # Rev B has no duplicated electrical pads after retiring J5.
         seen = {}
         for pad_body in blocks_of(block, 'pad'):
             match = re.match(r'\(pad\s+"([^"]*)"', pad_body)
@@ -72,8 +71,7 @@ def check(board):
             names = pcb_netlist._NET.findall(pad_body)
             if len(names) != 1:
                 raise ValueError(f'{ref}.{pin}: missing or ambiguous pad net')
-            if pin in seen and not (ref == 'J5' and pin in ('1', '2')
-                                    and names[0] == seen[pin]):
+            if pin in seen:
                 raise ValueError(f'{ref}.{pin}: duplicate electrical pad')
             seen[pin] = names[0]
     blocks = dict(entries)

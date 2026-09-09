@@ -107,20 +107,24 @@ def edge_gap(one, other) -> float:
     return centre - mm(one.GetWidth()) / 2.0 - mm(other.GetWidth()) / 2.0
 
 
-def expected() -> tuple[list, list]:
+def expected(rev_b: bool = False) -> tuple[list, list]:
     tracks = []
-    for netname, layer, width, points in CRITICAL_TRACKS:
+    selected_tracks, selected_vias = CRITICAL_TRACKS, CRITICAL_VIAS
+    if rev_b:
+        from retire_revb_ring import retained_critical
+        selected_tracks, selected_vias = retained_critical()
+    for netname, layer, width, points in selected_tracks:
         for start, end in zip(points, points[1:]):
             tracks.append((netname, layer, round(width, 4),
                            frozenset((absolute(*start), absolute(*end)))))
     vias = [(netname, absolute(x, y), round(size, 4), round(drill, 4))
-            for netname, x, y, size, drill in CRITICAL_VIAS]
+            for netname, x, y, size, drill in selected_vias]
     return tracks, vias
 
 
-def check(board_path: Path, expect_locked: bool) -> list[str]:
+def check(board_path: Path, expect_locked: bool, rev_b: bool = False) -> list[str]:
     board = pcbnew.LoadBoard(str(board_path))
-    want_tracks, want_vias = expected()
+    want_tracks, want_vias = expected(rev_b)
     problems = []
 
     have_tracks = []
@@ -287,10 +291,12 @@ def main() -> int:
                                                str(HERE / "o2-probe.kicad_pcb")))
     parser.add_argument("--expect-locked", action="store_true",
                         help="also require the surviving copper to still be locked")
+    parser.add_argument("--rev-b", action="store_true",
+                        help="use the reviewed two-layer routes with the optional ring removed")
     args = parser.parse_args()
 
-    problems = check(Path(args.board), args.expect_locked)
-    want_tracks, want_vias = expected()
+    problems = check(Path(args.board), args.expect_locked, args.rev_b)
+    want_tracks, want_vias = expected(args.rev_b)
     total = len(want_tracks) + len(want_vias)
     if problems:
         print(f"FAIL: {len(problems)} of {total} authored critical item(s) "

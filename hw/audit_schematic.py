@@ -46,7 +46,7 @@ for comp in components:
     elif ref.startswith("C"):
         expected = ("Device", "C")
     elif ref.startswith("F"):
-        expected = ("Device", "R" if ref == "F3" else "Polyfuse")
+        expected = ("Device", "Polyfuse")
     elif ref.startswith("L"):
         expected = ("Device", "L")
     elif ref == "Q1":
@@ -55,8 +55,6 @@ for comp in components:
         expected = ("Transistor_FET", "Q_NMOS_GSD")
     elif ref.startswith("TP"):
         expected = ("Connector", "TestPoint")
-    elif ref == "J5":
-        expected = ("o2-probe", "RING_PCB_FORK_TIP")
     elif ref in ("J103", "J104", "J105", "J106"):
         expected = ("o2-probe", "WIRE_LAND")
     elif ref in ("J101", "J102", "J103", "J104"):
@@ -124,12 +122,9 @@ required = {
     "VIN_MON": {"R26.2", "R27.1", "C32.1", "U6.17"},
     "BUCK_BST": {"U1.6", "C2.1"},
     "BUCK_SW": {"U1.5", "C2.2", "L1.1"},
-    # The heat source stays on this board (Fab, 2026-09-04): RH1/RH2 bridge
-    # +12V_SW to HEATER_LOW, Q2 pulls it down, and J5 carries the same pair
-    # forward so a ring PCB parallels the elements rather than replacing them.
-    "+12V_SW": {"RH1.1", "RH2.1", "F3.1"},
-    "HEATER_LOW": {"Q2.3", "J5.2", "RH1.2", "RH2.2"},
-    "+12V_HTR": {"F3.2", "J5.1"},
+    # Main-board heaters remain; the optional Rev C ring branch is absent.
+    "+12V_SW": {"RH1.1", "RH2.1"},
+    "HEATER_LOW": {"Q2.3", "RH1.2", "RH2.2"},
     # AZ431 two-terminal shunt: REF (pin 1) strapped to the cathode (pin 2).
     # If the pin-number remap in gen_sch.py ever fails to apply, the exported
     # netlist lands the TI numbering here and this check fires.

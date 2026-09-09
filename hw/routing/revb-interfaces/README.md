@@ -1,19 +1,19 @@
 # Rev B receiver-enable and CE interfaces
 
 The current two-layer Rev B candidate completes the RS-485 `/RE` split and
-CE resistor/clamp layout. It has **101 components**, including R45, with no
+CE resistor/clamp layout. It has **99 components**, including R45, with no
 RV1. The root PCB remains the Rev A article; this directory is the candidate.
 
 **Reproducible engineering-review export.** `python3 make_fab.py` now builds
 this two-layer Rev B design by default. Saved-fill and CLI-refilled DRC have
 zero copper errors, opens, parity findings and silkscreen warnings. The remaining
 15 courtyard warnings have individual manual-assembly dispositions; they are
-visible, not disabled. The package is not order-ready: draft J5, procurement
-and physical qualification remain open.
+visible, not disabled. The package is not order-ready: procurement
+and physical qualification remain open; J5/F3 are deferred to optional Rev C.
 
 See [build/export instructions](../../docs/REVB-FAB.md),
 [assembly dispositions](../../docs/REVB-ASSEMBLY.md), and the
-[validation and review record](../../docs/2026-09-09-revb-fab-validation.md).
+[current removal validation and review record](../../docs/2026-09-09-revb-ring-removal.md).
 The [current BOM reconciliation](../../docs/REVB-BOM-RECONCILIATION.md) records
 exact capacitor choices, refreshed order coverage, current stock and remaining gates.
 
@@ -48,16 +48,18 @@ supplies placement only; it does not reproduce the routed copper.
 
 The finishing step moves R17 above U4 and connects it to the existing MENB trunk,
 removing the obsolete resistor-only branch. It moves conflicting wire/cell
-outlines and process notes onto the assembly drawing. F3 now has the resistor
-symbol corresponding to its fitted 0-ohm link; the accepted wire lands are
-explicit in the schematic and project library.
+outlines and process notes onto the assembly drawing. The optional ring branch
+J5/F3 and its supply/return spurs are removed; the accepted wire lands are explicit in the schematic and project library.
 
 ## Evidence
 
 - [Saved-fill DRC](drc-saved-fill.json), [CLI-refilled DRC](drc-refill.json)
 - [Schematic ERC](erc.json), [physical pin/value check](interface-check.txt)
-- [63-item critical-route check](critical-check.txt)
+- [51-item critical-route check](critical-check.txt)
 - [Artifact and tool-source hashes](validation-manifest.json)
 
 The original interface implementation record is historical evidence. Current
 build/export status is in the links above and this directory's refreshed reports.
+
+The deferred design is discoverable in [PCB plans](../../plans/README.md) and
+[the Rev C heated-ring recovery plan](../../plans/REVC-HEATED-RING.md).

@@ -57,5 +57,11 @@ boundary and keep the cell gas path and aperture unobstructed. Connector and
 WE/GUARD/CE/GND/VREF/TMP_CELL legends remain printed at their existing positions.
 
 Inspect all nominal clearances, joints and test-point access on the first article.
-The draft J5 ring interface, SGX cell fit/pin identity/gas path, and thermal,
+SGX cell fit/pin identity/gas path and thermal,
 leakage/compliance and ESD qualification remain open; this review does not close them.
+
+## Deferred ring
+
+Rev B has no J5 or F3 and requires no ring solder operation. RH1/RH2 remain
+the main-board heaters. See [Rev B scope](REVB-SCOPE.md) for the optional Rev C
+recovery plan.

@@ -7,7 +7,7 @@ topology is a design decision rather than a connectivity problem, so it is
 authored here, emitted before the router runs, and marked locked so the router
 routes *around* it instead of through it.
 
-Four things qualify on this board.
+Five things qualify on this board.
 
 1.  **The In2 ground plane.**  The Rev-A board had one; the regenerated Rev-B
     placement had no ground plane at all, which is why the pre-route board
@@ -27,19 +27,9 @@ Four things qualify on this board.
     makes CELL_RE possible -- it dives to B.Cu and crosses underneath, which is
     the only way CELL_RE reaches U4 without a via.
 
-4.  **The heater current path and the fork tip.**  RH1/RH2 -> Q2 -> J5 carries
-    ~80 mA at 12 V and is the load the bench run in FAB-READINESS.md exercised.
-    The B.Cu spreader zone would in fact weld all of these pads together on its
-    own, but a zone fill is not a conductor a reviewer can point at, and any
-    later net routed across the island can fragment it.  The explicit 0.80 mm
-    B.Cu path pins the current where the thermal model assumes it is.
-
-    The fork tip is the part the exploratory scout could not solve at all:
-    `/+12V_HTR` was the one open net out of 61, because J5's two fingers are
-    F.Cu *and* B.Cu lands at the board tip with no via joining the two, and
-    the direct B.Cu run from F3 to the far finger is blocked by TP6.  The feed
-    crosses on In1 instead and drops onto both fingers through one through via
-    each -- which is also what `audit_pcb.RING_FORK_LAYER_JOIN` requires.
+4.  **The main-board heater current path.** RH1/RH2 feed Q2 through the
+    explicit 0.80 mm B.Cu path. The ring-only J5/F3 branch is deferred to
+    optional Rev C; see plans/REVC-HEATED-RING.md for the preserved design.
 
 5.  **The driven guard.**  Two F.Cu rails flanking CELL_RE, tied under it on
     B.Cu and fed once from R40.  Rev A poured this and needed a whole migration
@@ -253,39 +243,10 @@ CRITICAL_TRACKS = (
     ("/HEATER_LOW", B, 0.80, ((6.00, 99.46), (6.00, 98.96), (14.00, 98.96),
                               (14.00, 99.46))),
     ("/HEATER_LOW", B, 0.80, ((10.00, 98.96), (10.00, 102.19))),
-    # Q2 pad 3 out to the far fork finger.  y=102.60 clears R29 (bottom edge
-    # 101.725) and stays south of F3 (top edge 103.78).
-    ("/HEATER_LOW", B, 0.80, ((10.00, 102.19), (10.00, 102.60),
-                              (17.80, 102.60))),
-    # Necked to 0.60 for the last leg: at 0.80 the trace edge would sit exactly
-    # 0.20 mm off the right side slot, i.e. on the rule rather than inside it.
-    ("/HEATER_LOW", B, 0.60, ((17.80, 102.60), (17.80, 105.50))),
-    ("/HEATER_LOW", F, 0.60, ((17.80, 104.60), (17.80, 105.50))),
 
-    # -- +12V_HTR: F3 down to In1, west under the tip, up onto both faces of
-    # the near fork finger.  B.Cu at y=103.40 is not available -- TP6 occupies
-    # x=7.8..8.8 there -- and In1 is empty across the whole island.
-    # y=103.75 rather than 103.60: at 103.60 the In1 drop via cleared C21's
-    # 3V3D land by 0.1216 mm against a 0.15 mm rule.
-    ("/+12V_HTR", B, 0.60, ((12.25, 104.18), (12.25, 103.75))),
-    # The crossing runs at y=104.40, not straight west at 103.75: at 103.75 the
-    # 0.60 mm feed sat directly under U10's south pad row (y=103.275..103.725)
-    # and walled off its escape -- the router then left /I2C_SDA open at U10
-    # pad 6.  0.375 mm of clearance below that row is enough for both.
-    #
-    # It was on In1 while this board had four layers.  On two it goes on F.Cu,
-    # NOT B.Cu: a 10 mm gash at y=104.40 through the B.Cu heater spreader would
-    # cut a 2 mm strip off the tip end of the very pour that is supposed to be
-    # isothermal, to save one via.
-    ("/+12V_HTR", F, 0.60, ((12.25, 103.75), (11.60, 104.40),
-                            (2.20, 104.40))),
-    ("/+12V_HTR", B, 0.60, ((2.20, 104.40), (2.20, 105.50))),
-    ("/+12V_HTR", F, 0.60, ((2.20, 104.40), (2.20, 105.50))),
 )
 
-# (net, x, y, size_mm, drill_mm).  Both of these are the fork-tip layer joins:
-# each finger is an F.Cu land and a B.Cu land at the same coordinate, and
-# nothing in the footprint connects them.
+# (net, x, y, size_mm, drill_mm). Main-board analog/guard layer joins.
 CRITICAL_VIAS = (
     # Guard rails to their B.Cu ties.  0.25/0.15, not 0.45/0.25: a 0.45 mm
     # barrel at x=12.15 would leave 0.125 mm to the right thermal slot against
@@ -305,9 +266,6 @@ CRITICAL_VIAS = (
     ("/CELL_WE", 10.00, 84.50, 0.45, 0.25),
     ("/CELL_WE", 3.33, 80.60, 0.45, 0.25),
     ("/CELL_WE", 0.80, 71.00, 0.45, 0.25),
-    ("/HEATER_LOW", 17.80, 104.60, 0.45, 0.25),
-    ("/+12V_HTR", 2.20, 104.40, 0.45, 0.25),
-    ("/+12V_HTR", 12.25, 103.75, 0.45, 0.25),
 )
 
 

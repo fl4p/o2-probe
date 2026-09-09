@@ -133,6 +133,8 @@ def migrate(source,output):
     track((100.5,133.0),(101.4,132.1),'/GND',.15,pcbnew.F_Cu)
     via((101.4,132.1),'/GND',.3,.15)
     fps['R42'].SetValue('1k 1%');fps['R42'].SetField('MPN','RC0603FR-071KL')
+    from retire_revb_ring import retire
+    detached.extend(retire(b))
     # Align current symbol fields/paths; retain explicitly accepted local wire
     # footprints and every existing placement/copper decision except above.
     for f in b.GetFootprints():

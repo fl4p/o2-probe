@@ -1,18 +1,20 @@
 # Rev B BOM reconciliation — 9 September 2026
 
-The schematic now names exact parts for C1/C7 and C9. J3 and J5 are declared
-bare lands, and the two stale sourcing declarations are removed. The refreshed
-purchase-order snapshot reduces the BOM audit from 17 errors to **8**: F3 has
-no approved fitted part, and seven exact-MPN groups have no historical order.
-This does not make the board ready to order or assemble.
+Updated after the user deferred J5 and its F3 supply branch to optional Rev C.
+Both are now removed from the Rev B schematic and routed candidate. The current
+BOM audit has **7 errors**: seven exact-MPN groups have no historical order.
+There are **no unsourced fitted components**. The prior eight-error reconciliation
+is recoverable at commit `157731fd0ec6a0c716677417f854c5dd70e11169`; its inventory
+snapshot remains retained alongside the revised one. This does not make the board
+ready to order or assemble.
 
-The inventory calculation assumes **one board**, without assembly spares. It
-covers 85 fitted positions, including the unresolved F3 placeholder; it excludes
-six `exclude_from_bom` test pads, eight bare connector/wire lands, and two DNP
-positions. Three additional cell receptacles are required separately (see below).
-Across 36 grouped requirements, recorded stock covers 16 groups;
-eight have a recorded stock shortage, seven exact-MPN groups have no catalog
-match, four generic specifications are not mapped to stock, and F3 is unresolved.
+The inventory calculation still assumes **one board**, without spares, and reuses
+the original timestamped stock observations. It now covers 84 fitted positions;
+it excludes six test pads, seven bare connector/wire lands and two DNP positions.
+Three additional cell receptacles remain required separately. Across 35 grouped
+requirements, recorded stock covers 16 groups; eight have recorded shortages,
+seven exact-MPN groups have no catalog match and four generic specifications are
+not mapped to stock. No stock quantities were refreshed or silently changed.
 
 ## Selections and sourcing corrections
 
@@ -28,11 +30,10 @@ match, four generic specifications are not mapped to stock, and F3 is unresolved
   [distributor](https://www.digikey.com/en/products/detail/kemet/C0603C102J5GACTU/608471).
 - **J3** needs no fitted connector body. The reusable TC2030 cable/holding
   fixture is separate programming equipment.
-- **J5** is a bare main-board land pattern. The external ring PCB, measured fork
-  interface, assembly procedure and heater protection are still open gates.
-- The unused `100n / 0603` and former metal-ring sourcing entries are removed.
-  **F3 remains unsourced:** its design note explicitly says “DO NOT FIT AS DRAWN.”
-  Assigning a generic zero-ohm resistor would conceal an unresolved design decision.
+- **J5/F3** are removed, including their ring-only copper. Recovery references
+  and the superseded mechanical assumptions are in
+  [the optional Rev C plan](../plans/REVC-HEATED-RING.md).
+- The unused `100n / 0603`, former metal-ring and J5 sourcing entries are removed.
 
 These capacitor selections preserve the existing values and footprints. Nominal
 manufacturer capacitance is specified at 1 kHz/1 Vrms for C1/C7 and 1 MHz/1 Vrms
@@ -50,7 +51,7 @@ supplier substitution label was accepted without manufacturer verification.
 ## Current stock and shortages
 
 Read-only InvenTree catalog capture: **2026-09-09**, exact timestamps and relevant
-raw observations in [the inventory snapshot](../procurement/revb-inventory-2026-09-09.json).
+raw observations in [the inventory snapshot](../procurement/revb-inventory-2026-09-09-no-ring.json).
 The complete query returned 590 parts, 577 manufacturer parts and 602 supplier
 parts. The order query returned 264 lines across 16 orders, all marked Complete.
 There are **no currently open purchase orders** in that snapshot.
@@ -71,7 +72,6 @@ changed in InvenTree.
 
 | Refs | Exact MPN or generic requirement | Need | Unallocated | Shortage | Status |
 |---|---|---:|---:|---:|---|
-| F3 | 0R FITTED / R_0603_1608Metric | 1 | unknown | unknown | unresolved F3 design |
 | F1 | 0ZCJ0075AF2E | 1 | 20 | 0 | recorded stock covers demand |
 | R2, R3, R32 | 10R / R_0603_1608Metric | 3 | unknown | unknown | generic specification not mapped to stock |
 | R10, R11 | 4.7k / R_0603_1608Metric | 2 | unknown | unknown | generic specification not mapped to stock |
@@ -108,10 +108,10 @@ changed in InvenTree.
 | D7 | TPD2E2U06QDBZRQ1 | 1 | unknown | unknown | no catalog match |
 | U2, U3 | TPS7A2033PDBVR | 2 | unknown | unknown | no catalog match |
 
-[Shortage/unresolved CSV](../procurement/revb-shortages-2026-09-09.csv) contains
-the 20 PCB groups still requiring action plus the cell-receptacle assembly row. It is a reconciliation worksheet,
-not a basket to submit: F3 is a design hold, and unknown stock is not a measured
-shortage. Quantities exclude spares and external assemblies.
+[Shortage/unresolved CSV](../procurement/revb-shortages-2026-09-09-no-ring.csv) contains
+the 19 PCB groups still requiring action plus the cell-receptacle assembly row. It is a reconciliation worksheet,
+not a basket to submit: socket fit still needs qualification, and unknown stock
+is not a measured shortage. Quantities exclude spares and external assemblies.
 
 F1, DZ1, L1 and R34/R35 were missing only from the old order snapshot: their
 exact parts are now recorded in stock. Conversely ADS1119, AP63205, the heater
@@ -138,8 +138,7 @@ assembly requirement, not an optional consumable.
 
 The seven unordered exact groups are C1/C7, C9, U15, R26/R43/R44, U6, D7 and
 U2/U3. Resolve these and the current-stock worksheet before assembling a board.
-F3 requires an actual heater/protection decision. J5 requires measured interface
-geometry and the external ring design. L1's existing land-pattern/manual-assembly
+L1's existing land-pattern/manual-assembly
 qualification remains open even though its exact MPN is in stock. The existing
 [release gates](REVB-FAB.md#open-release-gates) and
 [assembly dispositions](REVB-ASSEMBLY.md) still apply.
@@ -183,18 +182,6 @@ bounded to the captured inventory, not claims that parts are unavailable globall
 
 ## Validation and review
 
-The Rev B engineering package rebuilt successfully with KiCad 10.0.5: zero ERC,
-copper, connectivity, schematic-parity or silkscreen findings; the same 15 reviewed
-manual-assembly courtyard warnings remain. All 303 physical pins/101 component
-fields and 63 locked critical-route items pass. BOM remains FAIL with 8 errors.
-
-Latest package: `o2-probe-rev-b-0c6dbe69dcaf3f52`, ZIP SHA-256
-`0c6dbe69dcaf3f5280f3242a7ac3e3e73092f73f02d07cf567965dcc54cdb510`. It remains explicitly `order_ready: false`.
-The accepted PCB diff adds only three MPN properties; normalized comparison
-confirms the reviewed geometry is unchanged.
-
-Independent review identified the omitted cell receptacles; the separate
-three-piece requirement and its unresolved exact-suffix qualification are now
-included in the report, snapshot and CSV. Re-review found no unresolved findings. All 14 existing export calibration tests
-passed in 0.320 seconds. Firmware tests were not rerun because this change only
-adds sourcing metadata; the earlier native-test record is labeled inherited.
+The updated CAD/export verification and independent review are recorded in
+[the J5/F3 removal record](2026-09-09-revb-ring-removal.md). The older export and
+inventory snapshots are historical evidence for the pre-removal design.

@@ -2271,23 +2271,6 @@
 		)
 		(embedded_fonts no)
 	)
-	(symbol "RING_PCB_FORK_TIP"
-		(pin_names (offset 0.508))
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(property "Reference" "J" (at -5.08 10.16 0) (effects (font (size 1.27 1.27))))
-		(property "Value" "RING_PCB_FORK_TIP" (at 5.08 7.62 0) (effects (font (size 1.27 1.27)) (justify right)))
-		(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
-		(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
-		(property "Description" "Solder lands at the two fork-finger tips for the perpendicular heater ring PCB" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
-		(symbol "RING_PCB_FORK_TIP_0_1" (rectangle (start -5.08 5.08) (end 5.08 -5.08) (stroke (width 0.254) (type default)) (fill (type background))))
-		(symbol "RING_PCB_FORK_TIP_1_1"
-			(pin passive line (at -7.62 0 0) (length 2.54) (name "HTR_HI" (effects (font (size 1.0 1.0)))) (number "1" (effects (font (size 1.0 1.0)))))
-			(pin passive line (at 7.62 0 180) (length 2.54) (name "HTR_LO" (effects (font (size 1.0 1.0)))) (number "2" (effects (font (size 1.0 1.0)))))
-		)
-		(embedded_fonts no)
-	)
 	(symbol "SGX_OX_MINI"
 		(pin_names (offset 0.508))
 		(exclude_from_sim no)

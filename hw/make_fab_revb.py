@@ -23,8 +23,9 @@ RULE_HASHES = {
 }
 SCRIPTS = ['gen_sch.py', 'adopt_revb_interfaces.py', 'finish_revb_layout.py',
            'verify_revb_interfaces.py', 'inspect_revb_board.py', 'audit_schematic.py',
-           'audit_bom.py', 'make_fab.py', 'make_fab_revb.py', 'revb_fab_checks.py']
-DOCS = ['REVB-FAB.md', 'REVB-ASSEMBLY.md']
+           'audit_bom.py', 'make_fab.py', 'make_fab_revb.py', 'revb_fab_checks.py',
+           'retire_revb_ring.py', 'verify_critical.py', 'critical_routes.py', 'thermal_design.py']
+DOCS = ['REVB-FAB.md', 'REVB-ASSEMBLY.md', 'REVB-SCOPE.md']
 
 
 def main():
@@ -65,6 +66,24 @@ def main():
     copy(HERE/rel, src/rel)
     for name in DOCS:
         copy(HERE/'docs'/name, out/name)
+    # Preserve the deferred design in both repository and review ZIP. Resolve
+    # package navigation against the ZIP layout rather than the source tree.
+    for name in ['README.md', 'REVC-HEATED-RING.md']:
+        copy(HERE/'plans'/name, out/'plans'/name)
+    scope = out/'REVB-SCOPE.md'
+    scope.write_text(scope.read_text().replace('](../plans/', '](plans/'))
+    plan = out/'plans/REVC-HEATED-RING.md'
+    text = plan.read_text().replace(
+        '[BOM39 route](../routing/2layer-bom39/PROVENANCE.md)',
+        'BOM39 route (`routing/2layer-bom39/PROVENANCE.md` in the source repository)')
+    text = text.replace('](../lib/', '](../source/lib/').replace(
+        '[retire_revb_ring.py](../retire_revb_ring.py)',
+        '`retire_revb_ring.py` in the source repository')
+    plan.write_text(text)
+    index = out/'plans/README.md'
+    index.write_text(index.read_text().replace(
+        '[Archived earlier PCB plans](../docs/archive/2026-09-09-pcb-plans/README.md)',
+        'Earlier PCB plans: `docs/archive/2026-09-09-pcb-plans/README.md` in the source repository'))
     accepted = work/'accepted.kicad_pcb'
     copy(CANDIDATE/'o2-probe.kicad_pcb', accepted)
     commands = []
@@ -89,8 +108,7 @@ def main():
     normalized = normalized_board(board)
     if normalized != normalized_board(accepted):
         raise ValueError(f'Rebuilt board differs from accepted candidate; inspect {board}')
-    result = run(KIPY, 'routing/2layer-bom39/verify_critical.py', board,
-                 '--essential-only', '--expect-locked')
+    result = run(KIPY, 'verify_critical.py', board, '--rev-b', '--expect-locked')
     (out/'critical-check.txt').write_text(result.stdout)
     result = run(sys.executable, 'verify_revb_interfaces.py', board)
     (out/'interface-check.txt').write_text(result.stdout)
@@ -139,8 +157,9 @@ def main():
     shutil.copytree(src/'lib', source_out/'lib')
     manifest = {
         'revision': 'B', 'purpose': 'engineering review', 'order_ready': False,
-        'qualification_scope': 'CAD/export validation only; draft J5 interface, heater/F3, '
-                               'procurement and physical qualification gates remain open',
+        'qualification_scope': 'CAD/export validation only; main-board heater/input protection, '
+                               'procurement and physical qualification gates remain open; '
+                               'J5 and the external ring are optional Rev C work',
         'generated_utc': datetime.now(timezone.utc).isoformat(timespec='seconds'),
         'kicad_cli': version, 'inputs_sha256': inputs,
         'board_sha256': sha256(board),

@@ -35,7 +35,6 @@
     "o2-probe:SolderWire_RaisedRelief_1x01|*": {"class": "not-purchased", "rationale": "J103/J104 solder-wire lands; unchanged plated/relief holes with wire-envelope graphics on the assembly layer. The cable is a separate assembly item."},
     "o2-probe:SolderWireNoRelief_J105|*": {"class": "not-purchased", "rationale": "Accepted J105 bare solder-wire land; there is no connector body to purchase."},
     "Connector:Tag-Connect_TC2030-IDC-NL_2x03_P1.27mm_Vertical|*": {"class": "not-purchased", "rationale": "J3 is bare programming pads and alignment holes; no connector body is placed. The reusable TC2030 cable/holding fixture is a separate programming tool."},
-    "o2-probe:Ring_Fork_Tip_DRAFT|*": {"class": "not-purchased", "rationale": "J5 is bare main-board solder lands. The separate ring PCB and its measured fork interface remain unfrozen FAB-READINESS.md gates; this declaration supplies neither that assembly nor approval to fabricate it."},
     "o2-probe:SolderWireNoRelief_J106|*": {"class": "not-purchased", "rationale": "Accepted J106 bare solder-wire land; there is no connector body to purchase."}
   }
 }

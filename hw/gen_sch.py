@@ -68,10 +68,6 @@ def symbol(name: str, pins: list[tuple[str, str, str]], ref_prefix="U", descript
 CONN4 = symbol("CONN_01x04", [(str(i), f"Pin_{i}", "passive") for i in range(1, 5)], "J", pitch=5.08)
 CONN6 = symbol("CONN_02x03", [(str(i), f"Pin_{i}", "passive") for i in range(1, 7)], "J", pitch=5.08)
 CONN8 = symbol("CONN_02x04", [(str(i), f"Pin_{i}", "passive") for i in range(1, 9)], "J", pitch=5.08)
-RING_FORK = symbol(
-    "RING_PCB_FORK_TIP", [("1", "HTR_HI", "passive"), ("2", "HTR_LO", "passive")], "J",
-    description="Solder lands at the two fork-finger tips for the perpendicular heater ring PCB",
-)
 
 # Connector pins are drawn on one side in physical pin order.  Besides reading
 # like the cable pinout, this prevents long adjacent right-side labels from
@@ -412,7 +408,7 @@ def add_passive(ref: str, x: float, y: float, value: str, fp: str, a: str, b: st
     elif ref.startswith("R"):
         lib_id = RES2
     elif ref.startswith("F"):
-        lib_id = RES2 if ref == "F3" else POLYFUSE2
+        lib_id = POLYFUSE2
     elif ref.startswith("DZ"):
         lib_id = ZENER2
     elif ref.startswith("D"):
@@ -998,50 +994,12 @@ net("Q2",1,"HEATER_GATE"); net("Q2",2,"GND"); net("Q2",3,"HEATER_LOW")
 add_passive("R28",307.34,147.32,"10k","Resistor_SMD:R_0603_1608Metric","HEATER_PWM","HEATER_GATE",
             note="Limits TMP117 ALERT-vs-PWM contention to <0.33 mA nominal")
 add_passive("R29",307.34,160.02,"100k","Resistor_SMD:R_0603_1608Metric","HEATER_GATE","GND")
-# RH1/RH2 (2x 280R 2512, ~1 W at 12 V) STAY ON THIS BOARD.  Fab, 2026-09-04:
-# "the heater stays where it is".  An earlier pass this session deleted them and
-# moved the heat source to the ring PCB on the strength of HEATED-SPREADER.md
-# section 0 (18.6 mm from the tip lands to the cartridge heater shelf) and
-# RING-PCB.md section 1 (fork conduction only 4.3 mW/K).  That reasoning is about
-# where heat must ARRIVE; it is not a licence to delete the only heat source the
-# board has.  The delete would have cost a validated subsystem: the bench run in
-# FAB-READINESS.md "Heater bench results, 2026-09-04" exercised the PWM, the
-# TMP117 interlock with the core halted, the rail monitor, and detect-and-recover
-# against RH1/RH2 as the load, and none of it could be re-run on a board whose
-# heater lives on an unbuilt ring behind an unmeasured neck bore.  The ring, when
-# it exists, parallels these through J5; it does not replace them.
+# RH1/RH2 stay on the main board (Fab, 2026-09-04). J5 and its F3 ring
+# branch are deferred to optional Rev C (2026-09-09); see plans/REVC-HEATED-RING.md.
 add_passive("RH1",368.3,149.86,"280R 1W","Resistor_SMD:R_2512_6332Metric","+12V_SW","HEATER_LOW",mpn="CRCW2512280RFKEG")
 add_passive("RH2",368.3,165.1,"280R 1W","Resistor_SMD:R_2512_6332Metric","+12V_SW","HEATER_LOW",mpn="CRCW2512280RFKEG")
-add_passive("F3",350.52,149.86,"0R FITTED","Resistor_SMD:R_0603_1608Metric","+12V_SW","+12V_HTR",
-            note="FITTED 0R LINK, deliberately not a DNP placeholder -- it sits in SERIES in "
-                 "the only supply path to the ring, so leaving it unpopulated would open the "
-                 "heater feed and the heater would never run at all. It reserves the position "
-                 "for a protective device against a fault path that is NEW: with "
-                 "RH1/RH2 sitting in the main-board branch and NOT in the fork feed, "
-                 "nothing limits the fork itself, so a short between "
-                 "the fork fingers -- which run at 0.20 mm clearance to a metal cell can, "
-                 "RING-PCB.md section 1 -- puts +12V_SW across Q2 unlimited, and possibly 12 V "
-                 "onto the cell. DO NOT FIT AS DRAWN: a PPTC is likely the wrong device here, "
-                 "because F1's own note records IH derating to 0.36 A at 85 C, and a part that "
-                 "holds the heater's 83 mA at pile temperature would nuisance-trip. The land "
-                 "exists so the option is not designed out; size it once the ring's resistance "
-                 "is fixed. A PPTC is likely the wrong device: F1's own note records IH "
-                 "derating to 0.36 A at 85 C for a 0.75 A part, so one holding the heater's "
-                 "83 mA would nuisance-trip at pile temperature")
 place("TP6",TESTPOINT,350.52,180.34,value="TMP_CELL_EP",footprint="TestPoint:TestPoint_Pad_D1.0mm",in_bom=False); net("TP6",1,"TMP_CELL_EP")
-place("J5",RING_FORK,368.3,180.34,value="RING PCB FORK TIP",
-      footprint="o2-probe:Ring_Fork_Tip_DRAFT",
-      note="Solder lands at the tips of the two fork fingers, carrying the heater pair forward "
-           "to a perpendicular ring PCB (a soldered T-joint, the way any right-angle "
-           "daughterboard mounts). REPLACES the two edge castellations of "
-           "Heater_Ring_Solder_Lands, which HEATED-SPREADER.md section 0 showed are orphaned by "
-           "the end-window head. One finger per net, both layers of each finger paralleled. "
-           "RING-PCB.md section 1 offered 4 conductors; only 2 are used, because Fab dropped "
-           "the ring's temperature sensor from this revision -- the second layer of each finger "
-           "stays physically free, so a v2 ring can add one with NO main-board change. "
-           "FOOTPRINT IS DRAFT: RING-PCB.md section 5.1 forbids freezing the 0.6 mm finger "
-           "width before the printed ASA neck bore is measured on a real part")
-net("J5",1,"+12V_HTR"); net("J5",2,"HEATER_LOW")
+
 
 
 def symbol_block(lib_id: str) -> str:
@@ -1122,7 +1080,7 @@ def verify() -> None:
         elif ref.startswith("C"):
             expected_symbol[ref] = CAP2
         elif ref.startswith("F"):
-            expected_symbol[ref] = RES2 if ref == "F3" else POLYFUSE2
+            expected_symbol[ref] = POLYFUSE2
         elif ref.startswith("L"):
             expected_symbol[ref] = INDUCTOR2
         elif ref == "D1":
@@ -1137,8 +1095,6 @@ def verify() -> None:
             expected_symbol[ref] = NMOS
         elif ref.startswith("TP"):
             expected_symbol[ref] = TESTPOINT
-        elif ref == "J5":
-            expected_symbol[ref] = RING_FORK
         elif ref in ("J101", "J102", "J103", "J104", "J105", "J106"):
             expected_symbol[ref] = WIRE_LAND if ref in ("J103", "J104", "J105", "J106") else CONN1
     for ref, lib_id in expected_symbol.items():
@@ -1155,8 +1111,9 @@ def verify() -> None:
     # Locked interface/address facts.
     assert ASSIGNED[("U8","15")] == ASSIGNED[("U8","16")] == "GND"  # ADS1119 0x40
     assert ASSIGNED[("U10","4")] == "3V3D"                            # TMP117 0x49
-    # Fork tip to the ring PCB: one finger per net, and they must not be swapped.
-    assert ASSIGNED[("J5","1")] == "+12V_HTR" and ASSIGNED[("J5","2")] == "HEATER_LOW"
+    # J5 and its F3 feed are optional Rev C work, not a Rev B load.
+    assert not ({"J5", "F3"} & INST.keys())
+    assert "+12V_HTR" not in ASSIGNED.values()
     # The heat source stays on this board (Fab, 2026-09-04).  Both elements must
     # bridge +12V_SW to HEATER_LOW, i.e. sit above Q2, never below it.
     for _rh in ("RH1", "RH2"):
@@ -1257,17 +1214,12 @@ def verify() -> None:
     # The expansion connector and the BMP390 option are DELETED, not re-drawn
     # smaller: a Micro-Fit or an unverified DRAFT land creeping back is the exact
     # regression this deletion exists to prevent (docs/archive/2026-09-09-pcb-plans/BOM-REDUCTION.md 3).
-    # Micro-Fit is forbidden GLOBALLY. J5 is exempt from the DRAFT half only --
-    # the ring fork tip is legitimately a draft land (RING-PCB.md 5.1 forbids
-    # freezing the finger width before the printed bore is measured), but that
-    # is no licence for it to become a connector. The first version of this
-    # assertion excluded J5 before testing EITHER condition, and a review
-    # mutated J5's footprint to a Micro-Fit and got UNEXPECTED PASS.
+    # No draft footprint remains in the Rev B design.
     assert not any("Micro-Fit" in i["footprint"] for i in INST.values()), sorted(
         (r, i["footprint"]) for r, i in INST.items() if "Micro-Fit" in i["footprint"])
-    assert not any("DRAFT" in i["footprint"] for r, i in INST.items() if r != "J5"), sorted(
+    assert not any("DRAFT" in i["footprint"] for r, i in INST.items()), sorted(
         (r, i["footprint"]) for r, i in INST.items()
-        if r != "J5" and "DRAFT" in i["footprint"])
+        if "DRAFT" in i["footprint"])
     assert not any(n.startswith("EXP_") for n in ASSIGNED.values())
     # R4 and R39 are the two DNPs that SURVIVED, and they survived on argument:
     # a termination a farm cable can need, and an AFE headroom gate still open.

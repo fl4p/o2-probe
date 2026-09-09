@@ -14,7 +14,7 @@ def inspect(path):
     if b is None or b.GetCopperLayerCount() != 2:
         raise ValueError('Expected a two-layer Rev B board')
     fps = {f.GetReference(): f for f in b.GetFootprints()}
-    if len(fps) != 101 or 'RV1' in fps:
+    if len(fps) != 99 or {'RV1', 'J5', 'F3'} & fps.keys():
         raise ValueError('Unexpected Rev B component inventory')
     drills = {'PTH': [], 'NPTH': []}
     def drill(position, size, angle, kind):
@@ -42,7 +42,7 @@ def inspect(path):
             d = v.GetDrillValue()/1e6
             drill(v.GetPosition(), (d,d), 0, 'PTH')
     return {'layers': 2, 'components': len(fps), 'drills': drills,
-            'J5': 'Draft front/back SMD lands; no Rev A plated castellations',
+            'external_ring': 'Absent in Rev B; J5/F3 deferred to optional Rev C',
             'production_qualified': False}
 
 if __name__ == '__main__':

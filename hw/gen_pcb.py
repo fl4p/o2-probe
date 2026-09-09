@@ -172,12 +172,8 @@ PLACEMENT = {
  # Rail-monitor filters, at the MCU pins they feed rather than at the dividers.
  "C32":(14.5,44.5,0,"B"), "C33":(14.5,47.5,0,"B"),
  "U11":(10.0,93.5,0,"F"),
- # User-authored ring-tip floorplan, snapped and opened up for routing/rework.
- # RH1/RH2 conduct into the HEATER_LOW ring lands; U10 measures the warm tip.
- # They STAY here (Fab, 2026-09-04, "the heater stays where it is"); F3 remains
- # the reserved protective land in the fork feed, which they do not sit in.
+ # Main-board heaters and tip sensor retain their reviewed positions.
  "RH1":(5.0,96.5,270,"B"), "RH2":(15.0,96.5,270,"B"),
- "F3":(12.25,105.0,90,"B"),
  "Q2":(10.0,101.25,270,"B"), "R28":(6.5,101.25,180,"B"), "R29":(13.5,101.25,180,"B"), "TP6":(8.3,103.0,180,"B"),
  # U12 turned 180 degrees on 2026-09-05.  Its west pad column sits 0.60 mm from
  # the left side thermal slot's copper-clearance limit -- one 0.18 mm lane in
@@ -191,7 +187,6 @@ PLACEMENT = {
  # the constraint, not the millimetre.
  "U12":(3.5,101.5,180,"F"), "C20":(6.0,101.5,90,"F"),
  "U10":(10.0,102.525,270,"F"), "C21":(12.5,102.5,90,"F"),
- "J5":(10.0,105.5,0,"F"),
 }
 
 
@@ -347,9 +342,7 @@ def build():
     ensure_gnd_bridge(board)
     # The router owns the routine nets, but not these.  See critical_routes.py
     # for why each one is authored here rather than solved: CELL_RE must have no
-    # via barrel, the heater path must be where the thermal model puts it, and
-    # J5's fork fingers are two lands per finger that nothing in the footprint
-    # joins -- the one net the exploratory scout could not close.
+    # via barrel and the main-board heater path retains its thermal geometry.
     ensure_cell_re_via_keepout(board)
     ensure_barrier_web_keepout(board)
     add_critical_routes(board)
