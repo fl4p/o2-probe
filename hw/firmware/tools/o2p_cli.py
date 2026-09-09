@@ -259,7 +259,7 @@ def cmd_htest(bus, args):
     print("  Heater test block written atomically:")
     print("    ARM=%s, DUTY=%.2f %%, SP=%s, KP=%.2f, KI=%.2f"
           % ("ARMED" if args.arm else "DISARMED", duty / 100.0,
-             "none" if sp == -32768 else "%.2f C" % (sp / 100.0),
+             "none" if sp in (0x8000, -32768) else "%.2f C" % (sp / 100.0),
              kp / 100.0, ki / 100.0))
 
 
@@ -420,6 +420,7 @@ def main():
     parser.add_argument("--addr", type=int, default=3, help="Modbus slave address (default 3)")
     parser.add_argument("--elf", default=DEFAULT_ELF, help="Path to firmware.elf for symbol resolution")
     parser.add_argument("--force-build-id", action="store_true", help="Ignore build ID mismatch")
+    parser.add_argument("--force-bus-master", action="store_true", help="Force bus master operation on multi-drop cables")
 
     subparsers = parser.add_subparsers(dest="command", required=True)
 

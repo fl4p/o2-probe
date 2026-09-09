@@ -1393,6 +1393,10 @@ static void execute_diag_command(o2p_regmap_t *rm)
 
     switch (op) {
     case O2P_OP_READ_LMP_REG: {
+        if (p > 0xFFu) {
+            rm->diag_status = O2P_DMBOX_STATUS_ERR_OPCODE;
+            return;
+        }
         uint8_t reg = (uint8_t)p;
         if (reg != 0x00 && reg != 0x01 && reg != 0x10 && reg != 0x11 && reg != 0x12) {
             rm->diag_status = O2P_DMBOX_STATUS_ERR_OPCODE;
@@ -1411,15 +1415,15 @@ static void execute_diag_command(o2p_regmap_t *rm)
         break;
     }
     case O2P_OP_TRIM_LMP_TIACN: {
-        uint8_t val = (uint8_t)p;
-        if ((val & 0xE0u) != 0u) {
+        if (p > 0xFFu || (p & 0xE0u) != 0u) {
             rm->diag_status = O2P_DMBOX_STATUS_ERR_OPCODE;
             return;
         }
-        g_afe_override_s = g_uptime_s + 60u;
+        uint8_t val = (uint8_t)p;
         uint8_t payload[2] = { 0x10u, val };
         o2p_i2c_status_t st = o2p_i2c1_write(O2P_HW_I2C_ADDR_LMP91000, payload, 2u);
         if (st == O2P_I2C_OK) {
+            g_afe_override_s = g_uptime_s + 60u;
             rm->diag_status = O2P_DMBOX_STATUS_OK;
         } else if (st == O2P_I2C_TIMEOUT) {
             rm->diag_status = O2P_DMBOX_STATUS_ERR_TIMEOUT;
@@ -1457,6 +1461,10 @@ static void execute_diag_command(o2p_regmap_t *rm)
         break;
     }
     case O2P_OP_READ_TMP_REG: {
+        if (p > 0xFFu) {
+            rm->diag_status = O2P_DMBOX_STATUS_ERR_OPCODE;
+            return;
+        }
         uint8_t reg = (uint8_t)p;
         if (reg > 0x08u && reg != 0x0Fu) {
             rm->diag_status = O2P_DMBOX_STATUS_ERR_OPCODE;
