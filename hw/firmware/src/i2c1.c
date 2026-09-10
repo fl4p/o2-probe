@@ -3,6 +3,8 @@
 #include "board_pins.h"
 #include "mcu.h"
 
+#include <stdio.h>
+
 /* I2CCLK = PCLK = 16 MHz, 100 kHz standard mode, analog filter enabled.
  * Value from the RM0444 I2C_TIMINGR examples for a 16 MHz peripheral clock -
  * PRESC=3, SCLDEL=0, SDADEL=4, SCLH=0x0F, SCLL=0x13. */
@@ -45,6 +47,12 @@ void o2p_i2c1_init(void)
         O2P_I2C_SCL_PORT->AFR[p >> 3] = (O2P_I2C_SCL_PORT->AFR[p >> 3] & ~(0xFu << ((p & 7u) * 4u))) |
                              (6u << ((p & 7u) * 4u));
         O2P_I2C_SCL_PORT->MODER = (O2P_I2C_SCL_PORT->MODER & ~(3u << (p * 2u))) | (2u << (p * 2u));
+    }
+
+    bool scl_high = (O2P_I2C_SCL_PORT->IDR & (1u << O2P_I2C_SCL_PIN)) != 0u;
+    bool sda_high = (O2P_I2C_SDA_PORT->IDR & (1u << O2P_I2C_SDA_PIN)) != 0u;
+    if (!scl_high || !sda_high) {
+        printf("WARNING: I2C pin not high at boot (SCL=%d, SDA=%d)\n", (int)scl_high, (int)sda_high);
     }
 
     I2C1->CR1 = 0u;
