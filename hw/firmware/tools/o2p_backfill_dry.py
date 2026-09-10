@@ -50,6 +50,9 @@ import argparse, json, math, sys, urllib.request
 P_HPA_DEFAULT = 930.0      # ASSUMED_P_HPA; Rev A has no barometer
 K_NA_DEFAULT  = 425557.0   # recovered from the pre-2026-09-06 published pairs
 SRC   = ("gas_cell_ua", "gas_rh_chamber_pct", "gas_t_chamber_c")
+# Fetched to EXCLUDE, not to compute with. See --drop-settling.
+GATE  = ("gas_settle_s", "gas_faults")
+O2P_F_SETTLING = 0x0001
 
 def es(t):             # Magnus/Sonntag, hPa
     return 6.112 * math.exp(17.62 * t / (243.12 + t))
@@ -72,6 +75,25 @@ def main():
                         "is the stale pre-2026-09-06 constant.")
     a.add_argument("--p-hpa", type=float, default=P_HPA_DEFAULT,
                    help="total pressure for the dilution term, hPa")
+    a.add_argument("--tempco", type=float, default=0.0,
+                   help="cell tempco in %%/K, applied as a DIFFERENTIAL "
+                        "correction about --tempco-ref. 0 = none, which is "
+                        "what the firmware does (O2P_TEMPCO_DEFAULT). The "
+                        "jointly fitted value on this cell is +0.220 %%/K - "
+                        "read the warning this tool prints before using it.")
+    a.add_argument("--tempco-ref", type=float, default=None,
+                   help="reference temperature in C for --tempco. Default: the "
+                        "MEDIAN chamber temperature of the data, which removes "
+                        "temperature-driven variation without moving the mean - "
+                        "the absolute scale stays owned by K.")
+    a.add_argument("--drop-settling", action="store_true",
+                   help="omit every sample taken while the cell was settling: "
+                        "SETTLE_S != 0 or the SETTLING fault bit set. The cell "
+                        "needs up to 15 min after a bias interruption, and the "
+                        "FIRMWARE ITSELF refuses O2_COMP for exactly this "
+                        "reason (O2P_FAULTS_INVALIDATE_O2_COMP includes "
+                        "O2P_F_SETTLING) - a current measured mid-warm-up is "
+                        "not an equilibrium current.")
     a.add_argument("--alpha", type=float, default=None,
                    help="alias for --response, named as the probe names it "
                         "(DIL_ALPHA, register 0x0045)")
@@ -85,15 +107,49 @@ def main():
             sys.exit("--alpha and --response are the same knob and disagree; "
                      "pass one")
         o.response = o.alpha
-    if not (o.k > 0.0):
-        sys.exit("K must be positive; got %r" % o.k)
-    if not (500.0 <= o.p_hpa <= 1200.0):
+    # FINITE, not merely positive. `inf` satisfies k > 0, and then
+    # 1 - exp(-s/inf) is exactly 0.0, which passes the 0..30 %vol plausibility
+    # check below and imports a series of confident 0.000 %vol - a manufactured
+    # measurement, which is the one thing this tool must never produce. `nan`
+    # fails every comparison instead, so it slips through as "not out of range"
+    # and dies later on min([]) with an empty-series traceback. Found by
+    # review 2026-09-10.
+    if not (math.isfinite(o.k) and o.k > 0.0):
+        sys.exit("K must be a finite positive number of nA; got %r" % o.k)
+    if not (math.isfinite(o.response) and 0.0 <= o.response <= 2.0):
+        sys.exit("--response/--alpha must be finite in 0..2 (DIL_ALPHA's own "
+                 "range, O2P_DIL_ALPHA_MAX); got %r" % o.response)
+    if not (math.isfinite(o.p_hpa) and 500.0 <= o.p_hpa <= 1200.0):
         sys.exit("--p-hpa %r is not a plausible total pressure" % o.p_hpa)
-    print("K = %.1f nA   P = %.1f hPa   response/alpha = %.3f"
-          % (o.k, o.p_hpa, o.response), file=sys.stderr)
+    if not (math.isfinite(o.tempco) and -5.0 <= o.tempco <= 5.0):
+        sys.exit("--tempco %r is not a plausible %%/K" % o.tempco)
+    print("K = %.1f nA   P = %.1f hPa   response/alpha = %.3f   tempco = "
+          "%+.3f %%/K" % (o.k, o.p_hpa, o.response, o.tempco), file=sys.stderr)
+    if o.tempco != 0.0 or o.response < 0.55:
+        print(
+"WARNING, and it is this repo's own reviewed conclusion, not a caveat I am\n"
+"adding: O2-HUMIDITY-CORRECTION.md section 14 reviewed the joint\n"
+"alpha=0.442 / tempco=+0.220 %/K model adversarially and returned DO NOT\n"
+"FLASH, DO NOT BACKFILL. Two reasons, both reproduced by the author:\n"
+"  * At pile conditions the break-even is alpha = 1/(1+f) = 0.546. The\n"
+"    fitted 0.442 sits BELOW it, so a FULL dilution correction there is\n"
+"    worse than none (+11.40 % against -7.50 %). Passing the fitted alpha\n"
+"    is the right side of that - alpha=1.0 was the worst available choice -\n"
+"    but the margin is not the point:\n"
+"  * the effective sample size is about 26, not 6505. A delete-block\n"
+"    jackknife gives +/-0.09 to 0.10 on alpha, ten times the published\n"
+"    +/-0.010, and that interval STRADDLES 0.546. So the honest statement\n"
+"    is not 'this is wrong' but 'this data cannot tell you whether it helps\n"
+"    or hurts'.\n"
+"  * +0.220 %/K rests on ONE warming ramp over 6.5 K and 17 hPa. A pile is\n"
+"    30 K and 158 hPa beyond that, a deliberate isobaric sweep has never\n"
+"    been run, and leg transfer is inconsistent: the model interpolates one\n"
+"    day's trajectory and is NOT a demonstrated calibration.\n"
+"Use it knowingly, keep it in its own metric, and do not read absolute\n"
+"values off the result.\n", file=sys.stderr)
 
     series = {}
-    for name in SRC:
+    for name in SRC + (GATE if o.drop_settling else ()):
         for d in fetch(o.url, '{__name__="%s"}' % name):
             lbl = {k: v for k, v in d["metric"].items() if k != "__name__"}
             key = tuple(sorted(lbl.items()))
@@ -105,6 +161,37 @@ def main():
             print("skip %s: missing %s" % (dict(key), set(SRC) - set(m)), file=sys.stderr)
             continue
         ts = sorted(set(m[SRC[0]]) & set(m[SRC[1]]) & set(m[SRC[2]]))
+
+        # THE WARM-UP GATE. Dropped BEFORE the tempco reference is computed, so
+        # a long settling stretch cannot drag the reference temperature either.
+        dropped_settling = 0
+        if o.drop_settling:
+            keep = []
+            for t in ts:
+                st = m.get("gas_settle_s", {}).get(t)
+                fl = m.get("gas_faults", {}).get(t)
+                # UNEVALUABLE IS NOT OK: if we cannot see whether the cell was
+                # settling at this timestamp, we do not get to assume it wasn't.
+                if st is None or fl is None:
+                    dropped_settling += 1
+                    continue
+                if st != 0 or (int(fl) & O2P_F_SETTLING):
+                    dropped_settling += 1
+                    continue
+                keep.append(t)
+            ts = keep
+
+        # Differential tempco reference: the median T of what SURVIVED the gate.
+        # A median, not a mean, so one warm excursion cannot move it, and the
+        # correction is zero-mean by construction - the absolute scale stays
+        # owned by K rather than being silently re-scaled by an unmeasured
+        # coefficient.
+        t_ref = o.tempco_ref
+        if t_ref is None:
+            temps = sorted(m[SRC[2]][t] for t in ts
+                           if -40.0 < m[SRC[2]][t] < 80.0)
+            t_ref = temps[len(temps) // 2] if temps else 0.0
+
         out_t, out_v = [], []
         for t in ts:
             s, rh, tc = m[SRC[0]][t], m[SRC[1]][t], m[SRC[2]][t]
@@ -115,13 +202,32 @@ def main():
                 continue
             f = (o.p_hpa - pw) / o.p_hpa
             f = 1.0 - (1.0 - f) * o.response
-            c_wet = 1.0 - math.exp(-s * 1000.0 / o.k)
+            # TEMPCO on the CURRENT, before the cell law, because that is where
+            # the coefficient was fitted - a %/K on the signal, not on the
+            # derived fraction. Guarded so a bad pair cannot produce a negative
+            # or infinite current.
+            s_corr = s / (1.0 + o.tempco / 100.0 * (tc - t_ref))
+            if not (math.isfinite(s_corr) and s_corr > 0.0):
+                continue
+            c_wet = 1.0 - math.exp(-s_corr * 1000.0 / o.k)
             c_dry = c_wet / f * 100.0
             if not (0.0 <= c_dry <= 30.0):
                 continue
             out_t.append(t); out_v.append(round(c_dry, 4))
+        if o.drop_settling:
+            print("   dropped %d sample(s) taken while the cell was settling; "
+                  "tempco reference %.2f C" % (dropped_settling, t_ref),
+                  file=sys.stderr)
         lbl = dict(key); lbl["__name__"] = o.metric
         line = json.dumps({"metric": lbl, "values": out_v, "timestamps": out_t})
+        if not out_v:
+            # Every sample was unevaluable. Say so and write nothing for this
+            # series - an empty import is not a failure, but it must not look
+            # like a successful one, and it must not crash on min([]).
+            print("%-16s      0 samples - every point was unevaluable "
+                  "(no import for this series)" % lbl.get("device"),
+                  file=sys.stderr)
+            continue
         print("%-16s %6d samples  %.3f..%.3f %%vol"
               % (lbl.get("device"), len(out_v), min(out_v), max(out_v)))
         total += len(out_v)
