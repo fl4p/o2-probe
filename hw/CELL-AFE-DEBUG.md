@@ -546,3 +546,41 @@ tip cooling 79.8 → 44.5 °C over ~10 min. The bench verdict on sustained
 high-temperature operation is Fab's call, but the data says: at 80 °C
 soak the reference collapses, the AFE stops converting, and the supply
 sags to a reboot — while the firmware's own backstop never flinched.
+
+### Addendum ~23:30 — CONFIG_OFF: the heater refused at any RH, and why that was correct
+
+With the arms cleared the dashboard read "Blocked 0.0 %, Reasons:
+CONFIG_OFF". That flag is not a fault: `O2P_HB_CONFIG_OFF` means
+**`HEATER_MAX_DUTY` (0x0035) is zero** — one of the hard refusals
+(heater_ctl.c:466), a ceiling that caps every loop, the consented RH
+regulation included. The RH loop itself was fully armed the whole time:
+consent 0x0048 = 0x9C07, setpoint 0x0033 = 85.00 %, tip setpoint at the
+0x8000 sentinel — flag 15 (`TIP_DISARMED`), whose own comment reads
+"the RH loop is the configured law".
+
+The ceiling reads 0 because the fail-safe is allowed to fail in only one
+direction: HEATER_MAX_DUTY **defaults to 0, lives in flash**, and an
+upgrade never carries heat authority across — "a probe whose stored
+HEATER_MAX_DUTY was nonzero now declines to heat until consent is
+written" (regmap.h). Tonight's OTA plus the disarm/commit left it at 0,
+so a probe in the pile would have sat unprotected at RH > 90 % while
+the dashboard's old "consent updated" message claimed the loop was
+authorized. **A consented loop with a zero ceiling is indistinguishable
+from a commissioned one on every read except 0x0035/0x002E.**
+
+Fix, both halves:
+
+- **Tooling** (web-ble `317f992`): *Set RH* is now the commissioning
+  triple — setpoint 0x0033 + ceiling 0x0035 + consent 0x0048, each
+  readback-verified, ceiling field in the UI, default 12 % (the
+  POWER-BUDGET.md value the 28-day pile math is built on; at 12 % duty
+  the whole heater question is the budget, per that file). Interlock
+  names 13–15 (BLIND, IDLE, TIP_DISARMED) added so the card cannot
+  render an undefined reason again.
+- **This probe**: `0x0035=1200` + commit, once the bus returns from the
+  parallel session's flash (claims were refused mid-OTA; the write
+  bounces until the node finishes its reboot).
+
+Commissioning after ANY firmware flash is now a standing step, by
+design: the fail-safe guarantees the ceiling is 0 after an upgrade, and
+only the explicit triple (plus commit) restores pile protection.
