@@ -1648,11 +1648,32 @@ above zero because a small standing ΔT is expected by design —
 `PLAN.md:304-307` warns that *"U10 measures PCB copper, but the 5 g ABS cell
 couples via three pins and gas"*, so the two sensors disagree normally.
 
-**It latches until reset.** A FET conducting unasked is a hardware failure, and
-the firmware that has just discovered it cannot control the heater is not what
-should decide the fault has cleared. Auto-clearing would re-arm 1 W against the
-membrane every time the tip cooled. The cost is that a false positive disables
-heating until the next reset.
+**It holds while its evidence persists — and until 2026-09-10 it latched until
+reset.** The argument was that a FET conducting unasked is a hardware failure,
+that the firmware which just found it should not decide the fault has cleared,
+and that auto-clearing would re-arm 1 W every time the tip cooled.
+
+**The premise was refuted on the bench.** About 80 °C water poured into the jar
+with the RH loop running heated the tip 20 K in six minutes — starting two
+minutes *before* any duty was commanded — while the die lagged across the
+thermal barrier. Tip − die crossed 10 K and the latch set at 11:07 UTC on a
+healthy FET: VIN showed no heater load during the uncommanded rise, and the
+chamber ran up to 0.8 K *ahead* of the tip, which ring heat never does on this
+board. Any environment that heats the tip end faster than the die end produces
+the signature, and a probe pushed into a hot pile is exactly that.
+
+So the latch still sets on the same evidence and still holds for as long as that
+evidence persists, which is what a stuck FET does. It releases only after
+`O2P_HEATER_RUNAWAY_WINDOW_S` of evidence that is valid on **every** reference
+and below both thresholds by `O2P_HEATER_RUNAWAY_RELEASE_HYST_K100`. Requiring
+every reference matters because on Rev A the chamber tracks the tip whatever the
+FET does, so a lost die reading falls back to latched-until-reset instead of
+releasing. No register write clears it, the bench override freezes release as
+well as accumulation, and `FAULTS_EVER` keeps the event. What is given up: a
+firmware-side fault that forcing duty to zero *does* stop now cycles instead of
+stopping for good, bounded by the tip clamp and the TMP117 cutoff. The full
+argument is at `update_runaway()` in `heater_ctl.c`; the real event is replayed
+at 1 Hz by `test_the_80c_bath_of_2026_09_10_latches_and_then_releases`.
 
 Detection is skipped entirely when `O2P_HEATER_ENABLE=0`: PA8 is then a plain
 output held low, so a hot tip says something about the environment or the
@@ -1729,8 +1750,9 @@ The checklist every guard in this repository has to answer, for this loop.
    `o2p_heater_duty_x100()` — what the hardware layer actually applied — not
    the controller's request. If `heater.c` refuses a command, the register
    shows the refusal.
-5. **Persistence.** The runaway latch survives until reset and is never
-   cleared by a subsequent healthy cycle. The integrator is **zeroed** on any
+5. **Persistence.** The runaway latch holds while its evidence persists and is
+   never cleared by a register write or a brief healthy interval — only by a full
+   window of evidence that is valid and clear on every reference (see above). The integrator is **zeroed** on any
    interlock rather than frozen, so a cleared fault restarts from
    proportional-only instead of slamming to whatever it had wound up to.
 6. **Provenance.** `HEATER_DISABLED` (bit 15) is set whenever the loop is not

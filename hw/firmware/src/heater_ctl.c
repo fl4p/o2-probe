@@ -10,6 +10,7 @@ void o2p_heater_ctl_reset(o2p_heater_state_t *st)
     st->integ = 0.0f;
     st->runaway_latched = false;
     st->runaway_evidence_s = 0u;
+    st->runaway_clear_s = 0u;
     st->zero_duty_timing = false;
     st->zero_duty_since_s = 0u;
     st->dt_clamped = false;
@@ -150,13 +151,47 @@ static uint16_t interlocks(o2p_heater_state_t *st,
  * about the environment or the sensors, not a stuck FET. Attributing it to
  * runaway then would be a fault bit that no one can act on.
  *
- * LATCHES UNTIL RESET, on purpose. A FET that conducts without being asked, or
- * a gate node driven by something else, is a hardware failure - and the
- * firmware that just discovered it cannot control the heater is not the thing
- * that should decide the fault has cleared. Auto-clearing would re-arm 1 W
- * against a membrane every time the tip cooled. The cost is that a false
- * positive disables heating until the next reset; it is reported through
- * HEATER_BLOCK, and the safe direction is the one that does not cook the cell.
+ * HOLDS WHILE THE EVIDENCE PERSISTS. Until 2026-09-10 it latched until reset,
+ * on this argument: "A FET that conducts without being asked, or a gate node
+ * driven by something else, is a hardware failure - and the firmware that just
+ * discovered it cannot control the heater is not the thing that should decide
+ * the fault has cleared. Auto-clearing would re-arm 1 W against a membrane
+ * every time the tip cooled."
+ *
+ * WHAT REFUTED THE PREMISE. On 2026-09-10 about 80 C water was poured into
+ * the bench jar with the RH loop running (probe 3, build 75162fa). The tip rose
+ * 20 K in six minutes, starting two minutes BEFORE any duty was commanded,
+ * while the die lagged across the thermal barrier; tip-minus-die crossed 10 K
+ * and this latched at 11:07 UTC. The FET was healthy: VIN showed no heater
+ * load during the uncommanded rise and dipped only while 5.00 % was commanded,
+ * and the chamber ran up to 0.8 K AHEAD of the tip, which ring heat never does
+ * on this board (<= 0.17 K at any duty, measured 2026-09-04). So the signature
+ * does not mean uncommanded conduction: any environment that heats the tip end
+ * faster than the die end produces it, and a probe pushed into a hot pile is
+ * exactly that. Latched until reset, one such event disabled a working heater
+ * until someone power-cycled a probe that is meant to be buried.
+ *
+ * HOW NARROWLY TO READ THE CHANGE. The latch sets on the same evidence, holds
+ * duty at zero, and holds for as long as that evidence persists - which is what
+ * a stuck FET does, because it keeps heating. It releases only after
+ * O2P_HEATER_RUNAWAY_WINDOW_S of evidence that is evaluable on EVERY reference
+ * and below both thresholds by O2P_HEATER_RUNAWAY_RELEASE_HYST_K100. Every
+ * reference is the point: on Rev A the chamber tracks the tip within 0.17 K
+ * whatever the FET is doing, so the chamber alone can never exonerate one, and
+ * a lost die sensor therefore falls back to the old latched-until-reset
+ * behaviour instead of releasing. No register write clears it, the bench
+ * override freezes release exactly as it freezes accumulation, and FAULTS_EVER
+ * keeps HEATER_RUNAWAY after a release, so the event is never erased.
+ *
+ * WHAT IS GIVEN UP, stated rather than implied. "Re-arm every time the tip
+ * cooled" survives in one failure class: a firmware-side fault that heats while
+ * duty reads idle AND that forcing duty to zero does stop. That now cycles - a
+ * window of evidence to latch, a window of clear evidence to release - where it
+ * used to stop for good. The episodes stay bounded by the absolute tip clamp and
+ * the TMP117's 85 C therm-mode cutoff (configured and read back, never
+ * fault-injected), and they are visible as HEATER_RUNAWAY toggling. A FET that
+ * is physically shorted is unaffected either way: no duty command stops it,
+ * latched or not.
  */
 static void update_runaway(o2p_heater_state_t *st,
                            const o2p_heater_cfg_t *cfg,
@@ -175,9 +210,9 @@ static void update_runaway(o2p_heater_state_t *st,
      * false by construction: the probe is in a hot bath or beside a heat gun,
      * so the tip runs tens of kelvin above the die across the thermal barrier
      * at zero duty, which is exactly the die-referenced signature. It would
-     * latch inside the 60 s window and disable the heater for the rest of the
-     * run - and being latched-until-reset, on a potted probe, that ends the
-     * experiment rather than reporting on it.
+     * latch inside the 60 s window and disable the heater until the bath had
+     * equilibrated with the die end - which interrupts the experiment rather
+     * than reporting on it.
      *
      * What is given up is small and bounded: the detector already returns
      * early whenever duty exceeds the idle threshold, so it was never
@@ -204,6 +239,9 @@ static void update_runaway(o2p_heater_state_t *st,
          * a hot bath, from a stuck FET. That residual is exactly why this mode
          * needs a magic word, cannot survive a reset, and is documented as
          * attended. */
+        /* RELEASE IS FROZEN WITH ACCUMULATION, for the same reason: while
+         * armed we cannot tell a hot bath from a stuck FET, so we cannot
+         * exonerate one either. Arming must never be a way to clear the latch. */
         st->zero_duty_timing = true;
         st->zero_duty_since_s = now_s;
         return;
@@ -213,6 +251,7 @@ static void update_runaway(o2p_heater_state_t *st,
     if (duty_x100 > O2P_HEATER_RUNAWAY_IDLE_DUTY_X100) {
         st->zero_duty_timing = false;
         st->runaway_evidence_s = 0u;
+        st->runaway_clear_s = 0u;
         return;
     }
     /* Unevaluable is not evidence either way - but it is also not a reason to
@@ -227,11 +266,21 @@ static void update_runaway(o2p_heater_state_t *st,
      * fire on a board whose sensors sit on the same copper. Chamber first,
      * for a revision whose sensors are actually separated. */
     bool hot = false;
+    /* The release criterion is NOT "not hot". It needs every reference valid
+     * and each below its threshold by the hysteresis, so it starts false and
+     * any missing or marginal reference keeps it false. */
+    bool cleared = true;
     if (in->chamber_valid) {
         int32_t dt = (int32_t)in->t_tip_c100 - (int32_t)in->t_chamber_c100;
-        if (dt > (int32_t)cfg->dt_max_k100 + O2P_HEATER_RUNAWAY_MARGIN_K100) {
+        int32_t on = (int32_t)cfg->dt_max_k100 + O2P_HEATER_RUNAWAY_MARGIN_K100;
+        if (dt > on) {
             hot = true;
         }
+        if (dt > on - O2P_HEATER_RUNAWAY_RELEASE_HYST_K100) {
+            cleared = false;
+        }
+    } else {
+        cleared = false;
     }
     /* Die-referenced: the one that can see a stuck-on FET while the loop is
      * idle, because the die is across the thermal barrier and does not follow
@@ -244,12 +293,19 @@ static void update_runaway(o2p_heater_state_t *st,
         if (dd > O2P_HEATER_RUNAWAY_DIE_K100) {
             hot = true;
         }
+        if (dd > O2P_HEATER_RUNAWAY_DIE_K100 -
+                     O2P_HEATER_RUNAWAY_RELEASE_HYST_K100) {
+            cleared = false;
+        }
+    } else {
+        cleared = false;
     }
 
     if (!st->zero_duty_timing) {
         st->zero_duty_timing = true;
         st->zero_duty_since_s = now_s;
         st->runaway_evidence_s = 0u;
+        st->runaway_clear_s = 0u;
         return;
     }
     /* Unsigned subtraction, so a wrap of now_s is harmless. */
@@ -259,8 +315,28 @@ static void update_runaway(o2p_heater_state_t *st,
         /* We were not watching. What we hold describes a different
          * situation, so it is discarded rather than extended. */
         st->runaway_evidence_s = 0u;
+        st->runaway_clear_s = 0u;
         return;
     }
+
+    if (st->runaway_latched) {
+        /* Releasing. Any sample that is not fully cleared - hot, inside the
+         * hysteresis band, or missing a reference - restarts the window. */
+        if (!cleared) {
+            st->runaway_clear_s = 0u;
+            return;
+        }
+        if (st->runaway_clear_s < O2P_HEATER_RUNAWAY_WINDOW_S) {
+            st->runaway_clear_s = (uint16_t)(st->runaway_clear_s + since);
+        }
+        if (st->runaway_clear_s >= O2P_HEATER_RUNAWAY_WINDOW_S) {
+            st->runaway_latched = false;
+            st->runaway_clear_s = 0u;
+            st->runaway_evidence_s = 0u;
+        }
+        return;
+    }
+
     if (!hot) {
         st->runaway_evidence_s = 0u;
         return;
@@ -270,6 +346,7 @@ static void update_runaway(o2p_heater_state_t *st,
     }
     if (st->runaway_evidence_s >= O2P_HEATER_RUNAWAY_WINDOW_S) {
         st->runaway_latched = true;
+        st->runaway_clear_s = 0u;
     }
 }
 

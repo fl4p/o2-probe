@@ -412,9 +412,11 @@ def preflight(bus, want_duty_pct, retries, ohm=HEATER_OHM,
     # 4. Things that are merely suspicious.
     if "HEATER_RUNAWAY" in named:
         blocking.append(
-            "FAULTS carries HEATER_RUNAWAY. That latch survives until reset "
-            "and holds duty at 0. Power-cycle and find out why before adding "
-            "more heat.")
+            "FAULTS carries HEATER_RUNAWAY. The latch holds duty at 0 while "
+            "its evidence persists and releases after a full window of "
+            "cleared evidence on every reference; FAULTS_EVER keeps it. An "
+            "external heat source (a hot bath) produces the same signature as "
+            "a stuck FET - rule that out before suspecting the hardware.")
     for f in ("I2C_FAIL_TMP",):
         if f in named:
             blocking.append(

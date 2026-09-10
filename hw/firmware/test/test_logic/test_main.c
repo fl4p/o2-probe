@@ -1693,8 +1693,17 @@ static void test_runaway_does_not_false_positive_on_cold_start(void)
     TEST_ASSERT_TRUE((out.block & O2P_HB_RUNAWAY) == 0u);
 }
 
-static void test_runaway_latches_on_uncommanded_heat_and_stays_latched(void)
+static void test_runaway_latches_on_uncommanded_heat_and_holds_while_it_persists(void)
 {
+    /* This test used to be ..._and_stays_latched, and asserted that "latched
+     * means latched: a now-perfectly-healthy probe still refuses". That policy
+     * was reversed on 2026-09-10, when an 80 C bath produced the die signature
+     * with a healthy FET and disabled a working heater until reset - see
+     * update_runaway() in heater_ctl.c for the evidence. What it protected is
+     * kept, and is what this asserts: while the evidence persists the latch
+     * holds, for as long as it persists, and a healthy interval shorter than a
+     * full window does not release it. Release itself is covered by
+     * test_runaway_releases_only_after_a_full_window_of_cleared_evidence. */
     o2p_heater_state_t st;
     o2p_heater_ctl_reset(&st);
     o2p_heater_cfg_t cfg = hcfg_default();
@@ -1706,22 +1715,31 @@ static void test_runaway_latches_on_uncommanded_heat_and_stays_latched(void)
                                   O2P_HEATER_RUNAWAY_MARGIN_K100 - 50);
     o2p_heater_out_t out;
 
-    for (unsigned i = 0; i <= O2P_HEATER_RUNAWAY_WINDOW_S + 2u; i++) {
-        o2p_heater_ctl_step(&st, &cfg, &in, i, &out);
+    uint32_t t = 0u;
+    for (; t <= O2P_HEATER_RUNAWAY_WINDOW_S + 2u; t++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
     }
     TEST_ASSERT_TRUE(st.runaway_latched);
 
-    /* Latched means latched: a now-perfectly-healthy probe still refuses. A
-     * FET that conducts unasked is a hardware failure, and the firmware that
-     * just found it cannot control the heater is not what should decide the
-     * fault has cleared. */
-    o2p_heater_in_t healthy = hin_healthy();
-    o2p_heater_cfg_t full = hcfg_default();
-    for (unsigned i = 0; i < 10u; i++) {
-        o2p_heater_ctl_step(&st, &full, &healthy, 1000u + i, &out);
+    /* The far tail: an hour of the same evidence, which is what a stuck FET
+     * does. Monotonic - the verdict must not drift back as time passes. */
+    for (uint32_t i = 0u; i < 3600u; i++, t++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
         TEST_ASSERT_EQUAL_UINT16(0, out.duty_x100);
         TEST_ASSERT_TRUE((out.block & O2P_HB_RUNAWAY) != 0u);
     }
+    TEST_ASSERT_TRUE(st.runaway_latched);
+
+    /* A perfectly healthy probe with a full configuration, one sample short of
+     * a window, still refuses. */
+    o2p_heater_in_t healthy = hin_healthy();
+    o2p_heater_cfg_t full = hcfg_default();
+    for (uint32_t i = 0u; i < O2P_HEATER_RUNAWAY_WINDOW_S - 1u; i++, t++) {
+        o2p_heater_ctl_step(&st, &full, &healthy, t, &out);
+        TEST_ASSERT_EQUAL_UINT16(0, out.duty_x100);
+        TEST_ASSERT_TRUE((out.block & O2P_HB_RUNAWAY) != 0u);
+    }
+    TEST_ASSERT_TRUE(st.runaway_latched);
 }
 
 static void test_runaway_needs_the_full_window(void)
@@ -1741,6 +1759,260 @@ static void test_runaway_needs_the_full_window(void)
         o2p_heater_ctl_step(&st, &cfg, &in, i, &out);
     }
     TEST_ASSERT_FALSE(st.runaway_latched);
+}
+
+/* Latch through the die with the MEASURED stuck-FET separation (2026-09-04:
+ * tip 56 C, die near 28 C). Leaves *t at the next free second. */
+static void latch_through_die(o2p_heater_state_t *st,
+                              const o2p_heater_cfg_t *cfg, uint32_t *t)
+{
+    o2p_heater_ctl_reset(st);
+    o2p_heater_in_t hot = hin_healthy();
+    hot.t_tip_c100 = 5000;
+    hot.t_chamber_c100 = 4990;
+    hot.t_die_c100 = (int16_t)(hot.t_tip_c100 - 2800);
+    o2p_heater_out_t out;
+    for (uint32_t i = 0u; i <= O2P_HEATER_RUNAWAY_WINDOW_S + 2u; i++, (*t)++) {
+        o2p_heater_ctl_step(st, cfg, &hot, *t, &out);
+    }
+    TEST_ASSERT_TRUE(st->runaway_latched);
+}
+
+static void test_runaway_releases_only_after_a_full_window_of_cleared_evidence(void)
+{
+    o2p_heater_state_t st;
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;
+    o2p_heater_out_t out;
+    uint32_t t = 0u;
+    latch_through_die(&st, &cfg, &t);
+
+    /* Back at rest, both references valid and clear: tip-die -2.2 K, tip-ch
+     * +1 K. One sample short of a window must not release. */
+    o2p_heater_in_t rest = hin_healthy();
+    for (uint32_t i = 0u; i < O2P_HEATER_RUNAWAY_WINDOW_S - 1u; i++, t++) {
+        o2p_heater_ctl_step(&st, &cfg, &rest, t, &out);
+        TEST_ASSERT_TRUE((out.block & O2P_HB_RUNAWAY) != 0u);
+        TEST_ASSERT_EQUAL_UINT16(0u, out.duty_x100);
+    }
+    TEST_ASSERT_TRUE(st.runaway_latched);
+
+    /* The full window releases... */
+    o2p_heater_ctl_step(&st, &cfg, &rest, t++, &out);
+    TEST_ASSERT_FALSE(st.runaway_latched);
+
+    /* ...the heater is usable on the next decision... */
+    o2p_heater_cfg_t full = hcfg_default();
+    o2p_heater_ctl_step(&st, &full, &rest, t++, &out);
+    TEST_ASSERT_TRUE((out.block & O2P_HB_RUNAWAY) == 0u);
+    TEST_ASSERT_TRUE_MESSAGE(out.duty_x100 > 0u,
+        "a wet chamber must get heat again once released");
+
+    /* ...and the detector is re-armed: the same evidence latches again. */
+    o2p_heater_in_t hot = hin_healthy();
+    hot.t_tip_c100 = 5000;
+    hot.t_chamber_c100 = 4990;
+    hot.t_die_c100 = (int16_t)(hot.t_tip_c100 - 2800);
+    for (uint32_t i = 0u; i <= O2P_HEATER_RUNAWAY_WINDOW_S + 2u; i++, t++) {
+        o2p_heater_ctl_step(&st, &cfg, &hot, t, &out);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(st.runaway_latched,
+        "a release must re-arm the detector, not retire it");
+}
+
+static void test_runaway_release_needs_every_reference_valid_and_clear(void)
+{
+    /* Guard checklist item 1, for the release: unevaluable is not OK. On Rev A
+     * the chamber tracks the tip within 0.17 K whatever the FET is doing, so a
+     * chamber-only "clear" would exonerate a stuck FET the moment the die
+     * reading dropped out. Every case below must stay latched for three full
+     * windows - which is the old latched-until-reset behaviour, and the right
+     * fallback. */
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;
+    o2p_heater_out_t out;
+
+    for (unsigned c = 0u; c < 4u; c++) {
+        o2p_heater_state_t st;
+        uint32_t t = 0u;
+        latch_through_die(&st, &cfg, &t);
+        o2p_heater_in_t in = hin_healthy();
+        const char *why = "";
+        switch (c) {
+        case 0u: in.die_valid = false;     why = "die lost";     break;
+        case 1u: in.chamber_valid = false; why = "chamber lost"; break;
+        case 2u: in.tip_valid = false;     why = "tip lost";     break;
+        default:
+            /* Chamber clear, die still showing the stuck-FET separation. */
+            in.t_tip_c100 = 5000;
+            in.t_chamber_c100 = 4990;
+            in.t_die_c100 = (int16_t)(in.t_tip_c100 - 2800);
+            why = "die still hot";
+            break;
+        }
+        for (uint32_t i = 0u; i < 3u * O2P_HEATER_RUNAWAY_WINDOW_S; i++, t++) {
+            o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+        }
+        TEST_ASSERT_TRUE_MESSAGE(st.runaway_latched, why);
+    }
+}
+
+static void test_runaway_release_restarts_on_a_marginal_sample_or_a_gap(void)
+{
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;
+    o2p_heater_out_t out;
+    o2p_heater_in_t rest = hin_healthy();
+
+    /* A sample INSIDE the hysteresis band - below the latch threshold, so it is
+     * not evidence of runaway, but not far enough below it to count as clear -
+     * restarts the window. This is what stops a reference hovering on its
+     * threshold from releasing on dither. */
+    o2p_heater_in_t marginal = hin_healthy();
+    marginal.t_tip_c100 = 5000;
+    marginal.t_chamber_c100 = 4990;
+    marginal.t_die_c100 = (int16_t)(marginal.t_tip_c100 -
+        (O2P_HEATER_RUNAWAY_DIE_K100 - O2P_HEATER_RUNAWAY_RELEASE_HYST_K100 / 2));
+    {
+        o2p_heater_state_t st;
+        uint32_t t = 0u;
+        latch_through_die(&st, &cfg, &t);
+        for (uint32_t i = 0u; i < O2P_HEATER_RUNAWAY_WINDOW_S - 1u; i++, t++) {
+            o2p_heater_ctl_step(&st, &cfg, &rest, t, &out);
+        }
+        o2p_heater_ctl_step(&st, &cfg, &marginal, t++, &out);
+        for (uint32_t i = 0u; i < O2P_HEATER_RUNAWAY_WINDOW_S - 1u; i++, t++) {
+            o2p_heater_ctl_step(&st, &cfg, &rest, t, &out);
+        }
+        TEST_ASSERT_TRUE_MESSAGE(st.runaway_latched,
+            "a hysteresis-band sample must restart the release window");
+        o2p_heater_ctl_step(&st, &cfg, &rest, t++, &out);
+        TEST_ASSERT_FALSE(st.runaway_latched);
+    }
+
+    /* A gap in observation restarts it too: an unobserved interval must not be
+     * credited as clear, exactly as it is not credited as hot. */
+    {
+        o2p_heater_state_t st;
+        uint32_t t = 0u;
+        latch_through_die(&st, &cfg, &t);
+        for (uint32_t i = 0u; i < O2P_HEATER_RUNAWAY_WINDOW_S - 1u; i++, t++) {
+            o2p_heater_ctl_step(&st, &cfg, &rest, t, &out);
+        }
+        t += O2P_HEATER_RUNAWAY_MAX_GAP_S + 1u;
+        o2p_heater_ctl_step(&st, &cfg, &rest, t++, &out);
+        for (uint32_t i = 0u; i < O2P_HEATER_RUNAWAY_WINDOW_S - 1u; i++, t++) {
+            o2p_heater_ctl_step(&st, &cfg, &rest, t, &out);
+        }
+        TEST_ASSERT_TRUE_MESSAGE(st.runaway_latched,
+            "a gap must restart the release window");
+        o2p_heater_ctl_step(&st, &cfg, &rest, t++, &out);
+        TEST_ASSERT_FALSE(st.runaway_latched);
+    }
+}
+
+/* 2026-09-10, probe 3 on the bench, build 75162fa: about 80 C water poured
+ * into the jar at roughly 11:00 UTC with the RH loop running. One sample per
+ * minute from VictoriaMetrics (gas_t_tip_c, gas_t_die_c, gas_t_chamber_c,
+ * gas_rh_chamber_pct, probe="3"). The firmware runs at 1 Hz and these are
+ * interpolated linearly, which cannot reproduce the die's 0.29 K/LSB dither -
+ * so every instant asserted below keeps at least 20 s of margin from where the
+ * interpolation puts the transition. */
+static const struct {
+    uint32_t s;
+    int16_t  tip, die, ch;
+    uint16_t rh;
+} k_bath_2026_09_10[] = {
+    {   0u, 2066, 2245, 2054, 7678u },   /* 11:00:04 at rest                  */
+    {  60u, 2196, 2245, 2196, 7757u },   /* 11:01:04 heat arrives, duty 0     */
+    { 121u, 2445, 2361, 2490, 8106u },   /* 11:02:05 chamber AHEAD of tip     */
+    { 181u, 2817, 2419, 2897, 8723u },   /* 11:03:05 RH over 85 %, 5.00 %    */
+    { 241u, 3370, 2535, 3442, 9089u },   /* 11:04:05                          */
+    { 302u, 3708, 2710, 3764, 9192u },   /* 11:05:06 tip-die  9.98 K          */
+    { 362u, 3957, 2913, 3993, 9211u },   /* 11:06:06 tip-die 10.44 K, clear   */
+    { 423u, 3996, 2971, 4028, 9224u },   /* 11:07:07 faults 0x8100: LATCHED   */
+    { 483u, 3935, 3116, 3968, 9354u },   /* 11:08:07 tip-die  8.19 K          */
+    { 544u, 3962, 3232, 3991, 9490u },   /* 11:09:08                          */
+    { 604u, 4000, 3232, 4024, 9595u },   /* 11:10:08                          */
+    { 665u, 4037, 3319, 4054, 9654u },   /* 11:11:09                          */
+};
+
+static int32_t lerp_i32(int32_t a, int32_t b, uint32_t num, uint32_t den)
+{
+    return a + (int32_t)(((int64_t)(b - a) * (int64_t)num) / (int64_t)den);
+}
+
+static void bath_2026_09_10_at(uint32_t s, o2p_heater_in_t *in)
+{
+    const size_t n = sizeof(k_bath_2026_09_10) / sizeof(k_bath_2026_09_10[0]);
+    size_t i = 0u;
+    while (i + 2u < n && s >= k_bath_2026_09_10[i + 1u].s) {
+        i++;
+    }
+    uint32_t den = k_bath_2026_09_10[i + 1u].s - k_bath_2026_09_10[i].s;
+    uint32_t num = s - k_bath_2026_09_10[i].s;
+    if (num > den) {
+        num = den;
+    }
+    in->t_tip_c100 = (int16_t)lerp_i32(k_bath_2026_09_10[i].tip,
+                                       k_bath_2026_09_10[i + 1u].tip, num, den);
+    in->t_die_c100 = (int16_t)lerp_i32(k_bath_2026_09_10[i].die,
+                                       k_bath_2026_09_10[i + 1u].die, num, den);
+    in->t_chamber_c100 = (int16_t)lerp_i32(k_bath_2026_09_10[i].ch,
+                                           k_bath_2026_09_10[i + 1u].ch, num, den);
+    in->rh_x100 = (uint16_t)lerp_i32(k_bath_2026_09_10[i].rh,
+                                     k_bath_2026_09_10[i + 1u].rh, num, den);
+}
+
+static void test_the_80c_bath_of_2026_09_10_latches_and_then_releases(void)
+{
+    /* The fixture is the real event, run through the shipping controller, so
+     * the test is calibrated against a known-bad case rather than one written
+     * to match the code. It must first REPRODUCE what the probe did - the loop
+     * pinned at 5.00 %, not latched while tip-die was still under 10 K, latched
+     * by 11:07:07 - or nothing it says about the fix means anything. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    /* Not in telemetry. Inferred from the published duty sitting at exactly
+     * 5.00 % for four minutes against RH 7-9 points above setpoint. */
+    cfg.max_duty_x100 = 500u;
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    bool latched_302 = true, latched_423 = false;
+    bool latched_483 = false, latched_544 = true;
+    uint16_t duty_302 = 0u;
+    for (uint32_t s = 0u; s <= 665u; s++) {
+        bath_2026_09_10_at(s, &in);
+        o2p_heater_ctl_step(&st, &cfg, &in, 1000u + s, &out);
+        switch (s) {
+        case 302u: latched_302 = st.runaway_latched; duty_302 = out.duty_x100; break;
+        case 423u: latched_423 = st.runaway_latched; break;
+        case 483u: latched_483 = st.runaway_latched; break;
+        case 544u: latched_544 = st.runaway_latched; break;
+        default: break;
+        }
+    }
+
+    /* Reproduction. */
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(500u, duty_302,
+        "11:05:06 - the loop was pinned at its 5.00 % cap");
+    TEST_ASSERT_FALSE_MESSAGE(latched_302,
+        "11:05:06 - tip-die was 9.98 K and the probe was not latched");
+    TEST_ASSERT_TRUE_MESSAGE(latched_423,
+        "11:07:07 - the probe published HEATER_RUNAWAY");
+
+    /* The fix. */
+    TEST_ASSERT_TRUE_MESSAGE(latched_483,
+        "11:08:07 - still inside the release window");
+    TEST_ASSERT_FALSE_MESSAGE(latched_544,
+        "11:09:08 - released once the die caught up");
+    TEST_ASSERT_FALSE(st.runaway_latched);
+    TEST_ASSERT_TRUE_MESSAGE((out.block & O2P_HB_RUNAWAY) == 0u,
+        "11:11:09 - no runaway block");
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(500u, out.duty_x100,
+        "11:11:09 - RH 96.5 %: the loop is heating again, at its cap");
 }
 
 static void test_runaway_is_not_evaluated_when_we_cannot_drive(void)
@@ -2074,6 +2346,13 @@ static void test_die_runaway_threshold_brackets_the_measured_evidence(void)
      * The threshold must sit strictly between them. */
     TEST_ASSERT_TRUE(O2P_HEATER_RUNAWAY_DIE_K100 > 300);
     TEST_ASSERT_TRUE(O2P_HEATER_RUNAWAY_DIE_K100 < 2800);
+
+    /* The release point must sit ABOVE the widest legitimate excursion, or a
+     * probe back at rest could never release, and the hysteresis must span at
+     * least two die LSBs (0.29 K each) or dither alone can chatter it. */
+    TEST_ASSERT_TRUE(O2P_HEATER_RUNAWAY_DIE_K100 -
+                     O2P_HEATER_RUNAWAY_RELEASE_HYST_K100 > 300);
+    TEST_ASSERT_TRUE(O2P_HEATER_RUNAWAY_RELEASE_HYST_K100 >= 58);
 
     o2p_heater_cfg_t cfg = hcfg_default();
     cfg.max_duty_x100 = 0u;
@@ -4346,6 +4625,16 @@ static void test_override_cannot_clear_a_latched_runaway(void)
     TEST_ASSERT_EQUAL_UINT16(0u, out.duty_x100);
     TEST_ASSERT_TRUE((out.block & O2P_HB_RUNAWAY) != 0u);
     TEST_ASSERT_TRUE(st.runaway_latched);
+
+    /* Since the latch can release on cleared evidence, arming must not be a
+     * way to accumulate that evidence: three windows armed, at rest, with
+     * every reference valid and clear, must leave it latched. */
+    o2p_heater_in_t rest = hin_healthy();
+    for (uint32_t t = 1u; t <= 3u * O2P_HEATER_RUNAWAY_WINDOW_S; t++) {
+        o2p_heater_ctl_step(&st, &cfg, &rest, t, &out);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(st.runaway_latched,
+        "an armed override must freeze release as well as accumulation");
 }
 
 static void test_override_does_not_latch_runaway_on_external_heat(void)
@@ -6506,8 +6795,12 @@ int main(void)
     RUN_TEST(test_integrator_cannot_wind_up_while_clamped);
     RUN_TEST(test_loop_reaches_setpoint_in_steady_state);
     RUN_TEST(test_runaway_does_not_false_positive_on_cold_start);
-    RUN_TEST(test_runaway_latches_on_uncommanded_heat_and_stays_latched);
+    RUN_TEST(test_runaway_latches_on_uncommanded_heat_and_holds_while_it_persists);
     RUN_TEST(test_runaway_needs_the_full_window);
+    RUN_TEST(test_runaway_releases_only_after_a_full_window_of_cleared_evidence);
+    RUN_TEST(test_runaway_release_needs_every_reference_valid_and_clear);
+    RUN_TEST(test_runaway_release_restarts_on_a_marginal_sample_or_a_gap);
+    RUN_TEST(test_the_80c_bath_of_2026_09_10_latches_and_then_releases);
     RUN_TEST(test_runaway_is_not_evaluated_when_we_cannot_drive);
     RUN_TEST(test_setpoint_default_respects_the_cell_humidity_rating);
     RUN_TEST(test_die_temp_reads_the_calibration_point);

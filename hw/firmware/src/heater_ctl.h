@@ -157,6 +157,21 @@ enum {
  * that can see the failure, which is strictly better than one that cannot. */
 #define O2P_HEATER_RUNAWAY_DIE_K100 1000
 
+/* Release hysteresis below BOTH runaway thresholds, in 0.01 K.
+ *
+ * Sized against the noise it has to reject, not against any event: the die
+ * reads 0.29 K per LSB and dithers, so 1.00 K is about 3.4 LSB - enough that a
+ * reference sitting on its threshold cannot chatter the latch at 1 Hz. It must
+ * also leave the release point ABOVE the widest legitimate zero-duty excursion
+ * (+3.0 K, see O2P_HEATER_RUNAWAY_DIE_K100), or a probe back at rest could
+ * never release; 9.00 K is. Pinned by
+ * test_die_runaway_threshold_brackets_the_measured_evidence.
+ *
+ * Why a release exists at all is in update_runaway() (heater_ctl.c): on
+ * 2026-09-10 an 80 C bath produced the die-referenced signature with a healthy
+ * FET, and latched-until-reset disabled a working heater. */
+#define O2P_HEATER_RUNAWAY_RELEASE_HYST_K100 100
+
 /* Conservative default gains. Error is in 0.01 %RH, output in 0.01 % duty.
  *
  * kp = 2.00 means a 10 %RH error asks for 20 % duty; ki = 0.10 means the same
@@ -302,6 +317,12 @@ typedef struct {
      * looked at are counted, so a gap in sampling cannot be credited as if
      * the condition had held through it. */
     uint16_t runaway_evidence_s;
+    /* Seconds of observed evidence, while LATCHED, that the signature has
+     * cleared: every reference valid, and each below its threshold by
+     * O2P_HEATER_RUNAWAY_RELEASE_HYST_K100. Counted by the same rules as
+     * runaway_evidence_s, and reset by any hot or hysteresis-band sample, any
+     * gap longer than O2P_HEATER_RUNAWAY_MAX_GAP_S, and any lost reference. */
+    uint16_t runaway_clear_s;
     bool     dt_clamped;       /* hysteresis latches */
     bool     tip_clamped;
     /* Which loop produced the current integrator, so that switching between
