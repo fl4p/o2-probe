@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Generate the Rev-B O2 probe schematic and its project symbol library.
 
-The generator is the source of truth.  The emitted schematic is deliberately
-flat and label-connected: each functional block can be reviewed independently,
+The generator is the source of truth.  The emitted schematic connects functional subcircuits with explicit wires,
+junctions, and net stubs for human readability,
 while an audit below proves that every package pin is either assigned exactly
 one net or explicitly marked no-connect.
 """
@@ -34,7 +34,43 @@ def esc(value: str) -> str:
 SYMS: dict[str, dict] = {}
 INST: dict[str, dict] = {}
 WIRES: list[tuple[float, float, float, float]] = []
+JUNCTIONS: set[tuple[float, float]] = set()
 LABELS: list[tuple[str, float, float, int]] = []
+
+
+def snap(v: float) -> float:
+    return round(round(v / GRID) * GRID, 6)
+
+
+def wire(x1: float, y1: float, x2: float, y2: float) -> None:
+    x1, y1, x2, y2 = snap(x1), snap(y1), snap(x2), snap(y2)
+    if x1 == x2 and y1 == y2:
+        return
+    if x1 != x2 and y1 != y2:
+        raise ValueError(f"Non-orthogonal wire: ({x1}, {y1}) to ({x2}, {y2})")
+    if (x1, y1) > (x2, y2):
+        x1, y1, x2, y2 = x2, y2, x1, y1
+    WIRES.append((x1, y1, x2, y2))
+
+
+def wire_path(pts: list[tuple[float, float]]) -> None:
+    for pt1, pt2 in zip(pts[:-1], pts[1:]):
+        x1, y1 = snap(pt1[0]), snap(pt1[1])
+        x2, y2 = snap(pt2[0]), snap(pt2[1])
+        if x1 != x2 and y1 != y2:
+            wire(x1, y1, x2, y1)
+            wire(x2, y1, x2, y2)
+        else:
+            wire(x1, y1, x2, y2)
+
+
+def junc(pt: tuple[float, float]) -> None:
+    JUNCTIONS.add((snap(pt[0]), snap(pt[1])))
+
+
+def pin_xy(ref: str, pin_id: str | int) -> tuple[float, float]:
+    pos = pin_pos(ref, str(pin_id))
+    return (snap(pos[0]), snap(pos[1]))
 NOCONN: list[tuple[float, float]] = []
 ASSIGNED: dict[tuple[str, str], str] = {}
 
@@ -1002,6 +1038,91 @@ place("TP6",TESTPOINT,350.52,180.34,value="TMP_CELL_EP",footprint="TestPoint:Tes
 
 
 
+
+# --------------------------------------------------------------------------- schematic wiring
+def build_wiring() -> None:
+    # 1. Power Input & Protection
+    wire_path([pin_xy("J101", 1), (snap(36.83), snap(27.94)), pin_xy("F1", 1)])
+    wire_path([pin_xy("Q1", 1), (snap(57.15), snap(36.83)), pin_xy("R1", 1)])
+
+    # 2. Buck Converter
+    wire_path([pin_xy("U1", 5), (snap(95.25), snap(35.56)), (snap(95.25), snap(25.40)), (snap(125.73), snap(25.40)), pin_xy("L1", 1)])
+    v5_y = snap(38.10)
+    wire_path([pin_xy("L1", 2), (snap(133.35), v5_y), (snap(125.73), v5_y), pin_xy("C3", 1)])
+    wire_path([(snap(133.35), v5_y), (snap(143.51), v5_y), pin_xy("C4", 1)])
+    junc((snap(133.35), v5_y))
+    wire_path([pin_xy("C3", 2), (snap(133.35), snap(52.07)), (snap(151.13), snap(52.07)), pin_xy("C4", 2)])
+
+    # 3. LDOs
+    wire_path([pin_xy("U2", 1), pin_xy("U2", 3)])
+    wire_path([pin_xy("U2", 5), (snap(167.64), snap(40.64)), (snap(179.07), snap(40.64)), pin_xy("C6", 1)])
+    wire_path([pin_xy("U3", 1), pin_xy("U3", 3)])
+    wire_path([pin_xy("U3", 5), (snap(195.58), snap(40.64)), (snap(209.55), snap(40.64)), pin_xy("C8", 1)])
+    wire_path([pin_xy("C7", 1), (snap(186.69), snap(54.61)), (snap(207.01), snap(54.61)), pin_xy("C27", 1)])
+
+    # 4. Precision Reference & Electrometer Buffers
+    wire_path([pin_xy("U15", 1), (snap(218.44), snap(99.06)), pin_xy("U15", 2)])
+    wire_path([pin_xy("R31", 2), (snap(237.49), snap(116.84)), pin_xy("C10", 1)])
+    wire_path([pin_xy("U4", 1), (snap(233.68), snap(31.75)), (snap(233.68), snap(25.40)), (snap(259.08), snap(25.40)), (snap(259.08), snap(31.75)), pin_xy("U4", 2)])
+    wire_path([pin_xy("U4", 7), (snap(233.68), snap(39.37)), (snap(233.68), snap(44.45)), (snap(261.62), snap(44.45)), (snap(261.62), snap(36.83)), pin_xy("U4", 6)])
+    wire_path([pin_xy("R40", 2), (snap(289.56), snap(27.94)), pin_xy("TP5", 1)])
+
+    # 5. RS-485
+    wire_path([pin_xy("R2", 2), (snap(19.05), snap(87.63)), (snap(17.78), snap(87.63)), pin_xy("D2", 1)])
+    wire_path([pin_xy("R3", 2), (snap(19.05), snap(99.06)), (snap(33.02), snap(99.06)), pin_xy("D2", 2)])
+    wire_path([pin_xy("U5", 8), (snap(69.85), snap(95.25)), pin_xy("C11", 1)])
+
+    # 6. MCU Decoupling & Debug
+    wire_path([pin_xy("C12", 1), pin_xy("C13", 1), pin_xy("C14", 1), pin_xy("C26", 1)])
+    junc(pin_xy("C13", 1))
+    junc(pin_xy("C14", 1))
+    wire_path([pin_xy("C12", 2), pin_xy("C13", 2), pin_xy("C14", 2), pin_xy("C26", 2)])
+    junc(pin_xy("C13", 2))
+    junc(pin_xy("C14", 2))
+    nrst_y = snap(80.01)
+    wire_path([pin_xy("U6", 10), (snap(152.40), nrst_y), (snap(152.40), snap(83.82)), pin_xy("R8", 1)])
+    wire_path([(snap(152.40), nrst_y), (snap(152.40), snap(93.98)), pin_xy("C15", 1)])
+    junc((snap(152.40), nrst_y))
+    wire_path([pin_xy("U6", 36), (snap(119.38), snap(119.38)), (snap(152.40), snap(119.38)), (snap(152.40), snap(104.14)), pin_xy("R9", 1)])
+
+    # 7. AFE & Cell
+    wire_path([pin_xy("U7", 9), (snap(33.02), snap(163.83)), (snap(33.02), snap(170.18)), pin_xy("C17", 2)])
+    wire_path([pin_xy("U7", 2), (snap(63.50), snap(154.94)), (snap(63.50), snap(144.78)), (snap(16.51), snap(144.78)), pin_xy("R17", 1)])
+    wire_path([pin_xy("U7", 6), (snap(63.50), snap(160.02)), (snap(63.50), snap(142.24)), (snap(12.70), snap(142.24)), (snap(12.70), snap(160.02)), pin_xy("C16", 1)])
+    wire_path([pin_xy("R42", 2), (snap(38.10), snap(187.96)), pin_xy("D7", 1)])
+    wire_path([pin_xy("R43", 2), (snap(105.41), snap(193.04)), (snap(97.79), snap(193.04)), pin_xy("R44", 1)])
+    wire_path([pin_xy("U7", 12), (snap(76.20), snap(167.64)), pin_xy("TP1", 1)])
+
+    # 8. ADC & Dividers
+    wire_path([pin_xy("U8", 1), (snap(135.89), snap(152.40)), (snap(135.89), snap(147.32)), pin_xy("R18", 1)])
+    wire_path([pin_xy("U8", 12), (snap(135.89), snap(166.37)), (snap(135.89), snap(157.48)), pin_xy("R19", 1)])
+    wire_path([pin_xy("R33", 2), (snap(200.66), snap(147.32)), pin_xy("C28", 1)])
+    wire_path([(snap(200.66), snap(147.32)), (snap(200.66), snap(157.48)), pin_xy("R39", 1)])
+    junc((snap(200.66), snap(147.32)))
+    wire_path([pin_xy("R37", 2), pin_xy("C30", 1)])
+    wire_path([pin_xy("R38", 2), pin_xy("C31", 1)])
+    wire_path([pin_xy("R36", 2), pin_xy("C29", 1)])
+    wire_path([pin_xy("R34", 2), (snap(199.39), snap(187.96)), pin_xy("R35", 1)])
+    wire_path([(snap(199.39), snap(187.96)), (snap(199.39), snap(194.31)), (snap(180.34), snap(194.31)), (snap(180.34), snap(198.12)), pin_xy("R36", 1)])
+    junc((snap(199.39), snap(187.96)))
+    wire_path([pin_xy("R24", 2), (snap(168.91), snap(152.40)), (snap(161.29), snap(152.40)), pin_xy("R25", 1)])
+    wire_path([pin_xy("R26", 2), (snap(168.91), snap(172.72)), (snap(161.29), snap(172.72)), pin_xy("R27", 1)])
+
+    # 9. Chamber Sensors & Heater
+    gate_split = (snap(318.77), snap(157.48))
+    wire_path([pin_xy("R28", 2), (snap(318.77), snap(147.32)), gate_split, pin_xy("Q2", 1)])
+    wire_path([gate_split, (snap(318.77), snap(165.10)), (snap(303.53), snap(165.10)), pin_xy("R29", 1)])
+    junc(gate_split)
+    htr_low_split = (snap(375.92), snap(149.86))
+    wire_path([pin_xy("Q2", 3), (snap(330.20), snap(144.78)), (snap(375.92), snap(144.78)), htr_low_split, pin_xy("RH1", 2)])
+    wire_path([htr_low_split, (snap(375.92), snap(165.10)), pin_xy("RH2", 2)])
+    junc(htr_low_split)
+    wire_path([pin_xy("RH1", 1), (snap(360.68), snap(149.86)), (snap(360.68), snap(165.10)), pin_xy("RH2", 1)])
+    wire_path([pin_xy("U10", 7), (snap(234.95), snap(158.75)), (snap(234.95), snap(180.34)), pin_xy("TP6", 1)])
+
+build_wiring()
+
+
 def symbol_block(lib_id: str) -> str:
     s = SYMS[lib_id]
     if s.get("source_block"):
@@ -1041,6 +1162,8 @@ def emit_schematic() -> str:
          '\t(title_block (title "O2 Probe Rev B — SGX-OX Mini / LMP91000 / STM32G071 / RS-485") (comment 1 "GENERATED by gen_sch.py — edit generator, not schematic") (comment 2 "J3 is PRE-POT ONLY; post-pot update is over RS-485 bootloader") (comment 3 "SGX footprint remains a physical-sample gate"))', '\t(lib_symbols']
     for k in sorted(SYMS): a.extend('\t\t' + ln for ln in symbol_block(k).splitlines())
     a.append('\t)')
+    for jx, jy in sorted(JUNCTIONS):
+        a.append(f'\t(junction (at {jx:g} {jy:g}) (diameter 0) (color 0 0 0 0) (uuid "{uid("j", jx, jy)}"))')
     for x1,y1,x2,y2 in WIRES:
         a.append(f'\t(wire (pts (xy {x1:g} {y1:g}) (xy {x2:g} {y2:g})) (stroke (width 0) (type default)) (uuid "{uid("w",x1,y1,x2,y2)}"))')
     for x,y in NOCONN: a.append(f'\t(no_connect (at {x:g} {y:g}) (uuid "{uid("nc",x,y)}"))')
