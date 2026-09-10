@@ -71,7 +71,9 @@ def clipped_area(points, bounds):
                    for a, b in zip(points, points[1:] + points[:1]))) / 2
 
 
-def check_gerbers(directory, *, compact_95=False):
+def check_gerbers(directory, *, compact_95=False, tip_trim_mm=0):
+    if tip_trim_mm not in (0, 2) or (tip_trim_mm and not compact_95):
+        raise ValueError("Unsupported tip trim/profile combination")
     expected = {f'o2-probe-{l.replace(".", "_")}.gbr': f
                 for l, f in zip(LAYERS, FUNCTIONS)}
     if {p.name for p in directory.glob('*.gbr')} != set(expected):
@@ -94,7 +96,7 @@ def check_gerbers(directory, *, compact_95=False):
         def shifted(records, is_slot):
             out = Counter()
             def point(p):
-                return (p[0], round(p[1]+12, 3) if is_slot or p[1] == -157 else p[1])
+                return (p[0], round(p[1]+12+(tip_trim_mm if not is_slot else 0), 3) if is_slot or p[1] == -157 else p[1])
             for record, count in records.items():
                 item = (record[0], frozenset(point(p) for p in record[1]))
                 if record[0] == 'arc':
@@ -121,7 +123,7 @@ def check_gerbers(directory, *, compact_95=False):
             if clipped_area(polygon, (100, -123, 120, -121) if compact_95 else (100, -135, 120, -133)) > 1e-7:
                 raise ValueError(f'{layer}: zone copper bridges thermal fill gap')
         regions += len(polygons)
-    return {'layers': LAYERS, 'outline_mm': [20, 95 if compact_95 else 107], 'thermal_slots': 4,
+    return {'layers': LAYERS, 'outline_mm': [20, 95-tip_trim_mm if compact_95 else 107], 'thermal_slots': 4,
             'copper_regions': regions, 'thermal_fill_gap_clear': True}
 
 

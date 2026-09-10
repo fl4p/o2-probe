@@ -18,7 +18,8 @@ def copper(b):
   out[t.m_Uuid.AsString()]=(t.GetNetname(),t.GetLayer(),t.GetWidth(pcbnew.F_Cu) if via else t.GetWidth(),frozenset([xy(t.GetStart()),xy(t.GetEnd())]),t.GetDrill() if via else None)
  return out
 
-def check(path):
+def check(path, *, tip_trim_mm=0):
+ if tip_trim_mm not in (0,2):raise ValueError("Unsupported tip trim")
  started=time.monotonic()
  if hashlib.sha256(SOURCE.read_bytes()).hexdigest()!=SOURCE_SHA:raise ValueError('107 mm source changed')
  b=pcbnew.LoadBoard(str(path));old=pcbnew.LoadBoard(str(SOURCE));problems=[]
@@ -71,10 +72,18 @@ def check(path):
  p=pcbnew.SHAPE_POLY_SET();b.GetBoardPolygonOutlines(p,False)
  allxy=[xy(p.Outline(k).CPoint(i)) for k in range(p.OutlineCount()) for i in range(p.Outline(k).PointCount())]
  if not allxy:problems.append('Missing outline')
- elif tuple(round(v,3) for v in (min(x for x,y in allxy),min(y for x,y in allxy),max(x for x,y in allxy),max(y for x,y in allxy)))!=(100,50,120,145):problems.append('Outline is not 20 x 95 mm')
+ elif tuple(round(v,3) for v in (min(x for x,y in allxy),min(y for x,y in allxy),max(x for x,y in allxy),max(y for x,y in allxy)))!=(100,50,120,145-tip_trim_mm):problems.append(f'Outline is not 20 x {95-tip_trim_mm} mm')
+ if tip_trim_mm:
+  tip_source=ROOT/'routing/revb-95/o2-probe.kicad_pcb'
+  if hashlib.sha256(tip_source.read_bytes()).hexdigest()!='2139ab97aa7dd59272d35398bdb80f01eda497574057ac22c1ef1d07b6794fc5':raise ValueError('95 mm tip source changed')
+  source=pcbnew.LoadBoard(str(tip_source));source_fps={f.GetReference():f for f in source.GetFootprints()}
+  for ref,f in source_fps.items():
+   g=fps.get(ref)
+   if g is None or xy(f.GetPosition())!=xy(g.GetPosition()) or f.GetOrientationDegrees()!=g.GetOrientationDegrees() or f.GetLayer()!=g.GetLayer() or pad_geometry(f)!=pad_geometry(g):problems.append('Tip trim changed footprint/pads: '+ref)
  if problems:raise ValueError('\n'.join(problems))
- return {'outline_mm':[20,95],'rigidly_translated_footprints':sorted(moved),'retained_critical_items':49,'CELL_RE_no_vias':True,'new_nearby_vias_checked':checked,'nearest_new_via':nearest,'seconds':round(time.monotonic()-started,3)}
+ return {'outline_mm':[20,95-tip_trim_mm],'rigidly_translated_footprints':sorted(moved),'retained_critical_items':49,'CELL_RE_no_vias':True,'new_nearby_vias_checked':checked,'nearest_new_via':nearest,'seconds':round(time.monotonic()-started,3)}
 
 if __name__=='__main__':
- if len(sys.argv)!=3:raise SystemExit('usage: verify_revb_95.py BOARD OUTPUT_JSON')
- result=check(Path(sys.argv[1]));Path(sys.argv[2]).write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result))
+ import argparse
+ parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('board',type=Path);parser.add_argument('output',type=Path);parser.add_argument('--tip-trim-mm',type=int,choices=[0,2],default=0);args=parser.parse_args()
+ result=check(args.board,tip_trim_mm=args.tip_trim_mm);args.output.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result))

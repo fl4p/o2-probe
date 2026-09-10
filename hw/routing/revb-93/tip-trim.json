@@ -1,0 +1,21 @@
+{
+  "source_sha256": "2139ab97aa7dd59272d35398bdb80f01eda497574057ac22c1ef1d07b6794fc5",
+  "removed_ground_copper": [
+    "ccda53b4-6b7d-4505-824a-cad9aef74068",
+    "0f92682f-4324-4fdc-8560-7ca4cfe0addc",
+    "4906cdea-fcd6-4dd8-bdcd-231293e54c7c",
+    "7d3a8609-c02d-4c02-bafc-1f4bc85a7608",
+    "85f69021-7d2f-4858-8827-af905d9e25d9",
+    "94ed90eb-c82e-48d0-aa14-0a3b47de6c6d",
+    "c6326e5f-2b38-4188-b443-e1d693d929bc",
+    "decb5a6a-8a95-4447-80a4-bd1811820c71",
+    "e85cc05c-5699-4bf3-b0d4-de52d2cf7672",
+    "ec4c55d2-070b-4669-9c23-f7c4007d39f3",
+    "f9be1e0c-7343-4930-9704-9f2f4a8337fa"
+  ],
+  "trim_mm": 2,
+  "outline_mm": [
+    20,
+    93
+  ]
+}
