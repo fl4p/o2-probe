@@ -20,7 +20,10 @@ COURTYARDS = {tuple(sorted(p.split('/'))) for p in (
     'J103/R2', 'C4/C7', 'Q2/TP6')}
 
 
-def check_drc(path):
+COURTYARDS_95 = (COURTYARDS - {("R10", "R11")}) | {("J105", "R10"), ("J3", "TP5")}
+
+
+def check_drc(path, *, compact_95=False):
     report = json.loads(path.read_text())
     for key in ('violations', 'schematic_parity', 'unconnected_items', 'ignored_checks'):
         if not isinstance(report.get(key), list):
@@ -40,7 +43,7 @@ def check_drc(path):
                 raise ValueError('Unrecognised courtyard item')
             refs.append(match.group(1))
         pairs.append(tuple(sorted(refs)))
-    if Counter(pairs) != Counter(COURTYARDS):
+    if Counter(pairs) != Counter(COURTYARDS_95 if compact_95 else COURTYARDS):
         raise ValueError(f'Courtyard set changed: {pairs}')
     return {'errors': 0, 'unconnected': 0, 'parity': 0, 'silkscreen': 0,
             'manual_assembly_courtyard_warnings': len(pairs)}
@@ -68,7 +71,7 @@ def clipped_area(points, bounds):
                    for a, b in zip(points, points[1:] + points[:1]))) / 2
 
 
-def check_gerbers(directory):
+def check_gerbers(directory, *, compact_95=False):
     expected = {f'o2-probe-{l.replace(".", "_")}.gbr': f
                 for l, f in zip(LAYERS, FUNCTIONS)}
     if {p.name for p in directory.glob('*.gbr')} != set(expected):
@@ -86,7 +89,20 @@ def check_gerbers(directory):
         formats[name] = tuple(map(int, fmt.groups()))
     edge = 'o2-probe-Edge_Cuts.gbr'
     primitives = parse_gerber_primitives(texts[edge], *formats[edge])
-    if primitives != expected_outline_primitives() + expected_thermal_slot_primitives():
+    outline, slots = expected_outline_primitives(), expected_thermal_slot_primitives()
+    if compact_95:
+        def shifted(records, is_slot):
+            out = Counter()
+            def point(p):
+                return (p[0], round(p[1]+12, 3) if is_slot or p[1] == -157 else p[1])
+            for record, count in records.items():
+                item = (record[0], frozenset(point(p) for p in record[1]))
+                if record[0] == 'arc':
+                    item += (point(record[2]),)
+                out[item] += count
+            return out
+        outline, slots = shifted(outline, False), shifted(slots, True)
+    if primitives != outline + slots:
         raise ValueError('Exported outline/thermal slot geometry changed')
     regions = 0
     for layer in ('F_Cu', 'B_Cu'):
@@ -102,10 +118,10 @@ def check_gerbers(directory):
         if not polygons:
             raise ValueError(f'{layer}: missing filled copper')
         for polygon in polygons:
-            if clipped_area(polygon, (100, -135, 120, -133)) > 1e-7:
+            if clipped_area(polygon, (100, -123, 120, -121) if compact_95 else (100, -135, 120, -133)) > 1e-7:
                 raise ValueError(f'{layer}: zone copper bridges thermal fill gap')
         regions += len(polygons)
-    return {'layers': LAYERS, 'outline_mm': [20, 107], 'thermal_slots': 4,
+    return {'layers': LAYERS, 'outline_mm': [20, 95 if compact_95 else 107], 'thermal_slots': 4,
             'copper_regions': regions, 'thermal_fill_gap_clear': True}
 
 

@@ -1,0 +1,6 @@
+PASS: 299 package pins and 99 part values match the live schematic
+SHA256 2139ab97aa7dd59272d35398bdb80f01eda497574057ac22c1ef1d07b6794fc5  /private/tmp/o2-revb-95/ee/hw/o2-probe/routing/revb-95/o2-probe.kicad_pcb
+SHA256 5fc07e80107ef6bcea3c07c725e513def437800c4c489a85aaedfe3c4812bc85  /private/tmp/o2-revb-95/ee/hw/o2-probe/gen_sch.py
+SHA256 e63c1602a52ef418034fb73770f53ba293bb71a7a81ef0508ca302faa70b2325  /private/tmp/o2-revb-95/ee/hw/o2-probe/verify_revb_interfaces.py
+SHA256 8180acb7a3a641fcf65f3c891b3743f6b82629fb56cbf0514d41c6ae39fc4974  /private/tmp/o2-revb-95/ee/hw/o2-probe/firmware/tools/pcb_netlist.py
+Electrical connectivity/clearance requires a fresh KiCad DRC; bench qualification is separate.

@@ -122,9 +122,12 @@ def expected(rev_b: bool = False) -> tuple[list, list]:
     return tracks, vias
 
 
-def check(board_path: Path, expect_locked: bool, rev_b: bool = False) -> list[str]:
+def check(board_path: Path, expect_locked: bool, rev_b: bool = False, *,
+          expected_routes=None, guarded_band=None) -> list[str]:
     board = pcbnew.LoadBoard(str(board_path))
-    want_tracks, want_vias = expected(rev_b)
+    want_tracks, want_vias = expected(rev_b) if expected_routes is None else expected_routes
+    if not want_tracks:
+        raise ValueError("Critical route inventory is empty")
     problems = []
 
     have_tracks = []
@@ -202,7 +205,7 @@ def check(board_path: Path, expect_locked: bool, rev_b: bool = False) -> list[st
     # against "nearest foreign" and SKIPPED when nearest-guard was None -- so
     # deleting every rail made it pass, which is the exact shape of a check
     # that treats unevaluable input as OK.
-    band = (133.40, 139.60)
+    band = (133.40, 139.60) if guarded_band is None else guarded_band
 
     def clipped(track):
         """The part of a track inside the guarded band, or None."""
