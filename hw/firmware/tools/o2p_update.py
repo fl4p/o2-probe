@@ -175,12 +175,155 @@ class SerialLink:
         # into two fragments that both fail CRC and are both discarded. The
         # master then sees no reply and blames the cable.
         self.gap = max(3.5 * 11 / baud, 0.001750)
+        self._suspect = False
+        self._settle()
+
+    def _drain_quiet(self, quiet=0.30, cap=3.0):
+        """Discard everything until the line has been silent for `quiet`.
+
+        The gap has to exceed the far end's reply latency, not merely be
+        non-zero: at 9600 a 21-byte reply is ~24 ms on the wire, and the node
+        adds its relay scheduling on top. 300 ms clears both with margin while
+        staying far below the per-exchange timeout."""
+        t0 = time.time()
+        last = t0
+        old, self.ser.timeout = self.ser.timeout, 0.05
+        try:
+            while time.time() - t0 < cap:
+                if self.ser.read(4096):
+                    last = time.time()
+                elif time.time() - last > quiet:
+                    break
+        finally:
+            self.ser.timeout = old
+        self.ser.reset_input_buffer()
+
+    def _settle(self, quiet=2.0, cap=30.0):
+        """Wait for the far end to stop talking before the first transaction.
+
+        WHY THIS EXISTS. When this transport runs THROUGH THE NODE rather than
+        a dumb RS-485 dongle, opening the CDC RESETS the ESP32 - measured
+        2026-09-10, the node's own "=== farm node prototype boot (n) ==="
+        counter increments once per open. The node then prints ~1.6 kB of boot
+        log, brings up BLE (which a client promptly connects to, adding MTU
+        chatter), and only then services the relay. A first transaction issued
+        into that stream reads log text where it expects a reply.
+
+        Draining in a separate process before running this tool does NOT help
+        and is actively counter-productive: that open is itself a reset, so the
+        tool's own open starts a SECOND boot and the drain is wasted. The wait
+        has to happen inside the open that will carry the transfer.
+
+        Harmless on a dongle, which says nothing and returns immediately.
+        """
+        t0 = time.time()
+        last = t0
+        old, self.ser.timeout = self.ser.timeout, 0.25
+        try:
+            while time.time() - t0 < cap:
+                if self.ser.read(4096):
+                    last = time.time()
+                elif time.time() - last > quiet:
+                    break
+        finally:
+            self.ser.timeout = old
+        self.ser.reset_input_buffer()
 
     def exchange(self, adu, expect_len):
         time.sleep(self.gap)
+        # A LATE REPLY FROM THE PREVIOUS EXCHANGE IS INDISTINGUISHABLE FROM
+        # THIS ONE'S when both have the same address, function code and
+        # length. _find() would return it and the caller would read last
+        # transaction's values as this one's - silent, plausible, wrong. It is
+        # not hypothetical: measured 2026-09-10, "030302036e40980303" is a
+        # CRC-valid reply to the PREVIOUS read followed by two bytes of the
+        # next. A differing register count saved us that time; an R_STATUS
+        # poll loop, where every read is one register, would not be saved.
+        #
+        # reset_input_buffer() cannot fix this on its own: it discards what has
+        # ALREADY arrived, and the whole problem is a reply still in flight.
+        # So when the last exchange ended without a frame - the only way a
+        # reply can be left unclaimed - wait for the line to go quiet first.
+        #
+        # COST: nothing on a healthy run. The drain is skipped entirely unless
+        # the previous exchange actually failed, so a clean 151-block transfer
+        # pays for it zero times rather than 151 times.
+        if self._suspect:
+            self._drain_quiet()
         self.ser.reset_input_buffer()
         self.ser.write(adu)
-        return self.ser.read(expect_len)
+        # THE REPLY DOES NOT NECESSARILY START AT BYTE ZERO, and reading
+        # exactly expect_len bytes assumes it does. Two things measured on the
+        # farm cable on 2026-09-10 break that assumption:
+        #
+        #   * RS-485 turnaround noise. Every reply arrives with a leading
+        #     0x00, so the frame comes back shifted and fails CRC - or, when
+        #     only the glitch byte has arrived, looks like a 1-byte truncation.
+        #   * CONSOLE LOG TEXT. This transport now also runs THROUGH THE NODE,
+        #     whose USB console carries printf output on the same stream.
+        #     Reading blind returned "=== far" and "I NimBL" as replies.
+        #
+        # So SCAN for a candidate instead of trusting the offset. A candidate
+        # needs all three of: the address we addressed, the function code we
+        # asked for (or its exception form), and a CRC over the whole frame.
+        # Console text cannot satisfy that - byte one would have to be 0x03 or
+        # 0x10 and neither is printable, which is the argument src/serbus.h
+        # makes for the node's own side of this link.
+        addr, fc = adu[0], adu[1]
+        buf = self.ser.read(expect_len)
+        hit = self._find(buf, addr, fc, expect_len)
+        if hit is not None:
+            self._suspect = False
+            return hit
+        # Nothing yet. Keep reading until a candidate turns up or the budget
+        # runs out. A FIXED NUMBER OF READS IS NOT ENOUGH: when the node's own
+        # console is chattering (a BLE client reconnecting, say) each read
+        # comes back instantly and full of text, so five reads can cover a few
+        # dozen bytes of log and give up long before the reply lands. The
+        # bound has to be TIME, not read count.
+        deadline = time.time() + max(2.0, 3 * (self.ser.timeout or 1.0))
+        while time.time() < deadline:
+            more = self.ser.read(expect_len)
+            if more:
+                buf += more
+                hit = self._find(buf, addr, fc, expect_len)
+                if hit is not None:
+                    self._suspect = False
+                    return hit
+                # Keep the tail only: a candidate can straddle two reads, so
+                # retain more than one frame's worth, but do not grow forever
+                # on a console that never stops talking.
+                if len(buf) > 2048:
+                    buf = buf[-512:]
+        # Return what arrived UNCHANGED rather than an empty string. _txn()
+        # deliberately treats 1-2 bytes as "something started to answer" and
+        # not as silence, and the --bridge check must not be handed a
+        # manufactured silence it would read as permission.
+        #
+        # No frame claimed: a reply may still be in flight, so the NEXT
+        # exchange must drain before it writes.
+        self._suspect = True
+        return buf
+
+    @staticmethod
+    def _find(buf, addr, fc, expect_len):
+        """The first CRC-valid reply to (addr, fc) anywhere in buf, or None."""
+        for i in range(0, max(0, len(buf) - 3)):
+            if buf[i] != addr:
+                continue
+            got = buf[i + 1]
+            if got == fc:
+                n = expect_len
+            elif got == (fc | 0x80):
+                n = 5                       # exception: addr fc err crc crc
+            else:
+                continue
+            if i + n > len(buf):
+                continue
+            cand = buf[i:i + n]
+            if crc16(cand[:-2]) == struct.unpack("<H", cand[-2:])[0]:
+                return cand
+        return None
 
     def set_baud(self, baud):
         """Re-time this end of the line, in place.
