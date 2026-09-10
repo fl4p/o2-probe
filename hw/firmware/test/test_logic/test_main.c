@@ -16,6 +16,7 @@
 #include "config_migrate.h"
 #include "die_temp.h"
 #include "faults.h"
+#include "gpio_diag.h"
 #include "hw_caps.h"
 #include "hw_contract.h"
 #include "heater_ctl.h"
@@ -41,7 +42,15 @@ void setUp(void)
     handlers.write = o2p_regmap_write;
     handlers.ctx = &rm;
 }
-void tearDown(void) {}
+void tearDown(void)
+{
+#if O2P_DEBUG_ENABLE
+    /* A peek test that fails mid-way longjmps past its own cleanup; without
+     * this, its fake memory would answer every later test's peeks. */
+    o2p_peek_host_read = NULL;
+    o2p_peek_host_irq_depth = 0;
+#endif
+}
 
 /* --------------------------------------------------------------- CRC-16 */
 
@@ -6390,8 +6399,17 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    TEST_ASSERT_EQUAL_HEX16(0x000Cu, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x000Eu, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_UINT16(27u, O2P_REG_CONFIG_COUNT);
+#if O2P_DEBUG_ENABLE
+    /* 0x000D: the wide peek block appeared at 0x0100, 65 registers, where
+     *         every address previously answered exception 02.
+     * 0x000C: the 4-word peek trigger took an explicit burst length. */
+    TEST_ASSERT_EQUAL_HEX16(0x0100u, O2P_REG_PEEKW_BASE);
+    TEST_ASSERT_EQUAL_UINT16(65u, O2P_REG_PEEKW_COUNT);
+    TEST_ASSERT_EQUAL_UINT16(30u, O2P_PEEKW_WORDS_MAX);
+    TEST_ASSERT_EQUAL_UINT16(11u, O2P_REG_PEEK_COUNT);
+#endif
     /* 0x000B: diag block grew with HEATER_BLOCK and SAMPLER_TIMING_MS.
      * 0x000A: config block grew with TIP_SETPOINT and HEATER_TIP_CONSENT,
      *         the persistent tip-temperature loop.
@@ -6769,6 +6787,386 @@ static void test_peek_two_register_trigger_still_means_four_words(void)
     TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_ERR_RANGE, rm.peek_status);
 }
 
+/* ---- wide peek block, 0x0100 ---------------------------------------------
+ *
+ * The fake memory answers a pattern of the ADDRESS and an epoch, and it counts
+ * every address it is asked for. A status code says what the firmware decided;
+ * the dereference count says what it actually touched, and on a Cortex-M0+ the
+ * second is the one that HardFaults. So every refusal below is checked both
+ * ways: the right status AND zero dereferences. */
+static unsigned s_pk_reads;       /* dereferences since pk_count_from_here() */
+static unsigned s_pk_unmasked;    /* ... of which outside a masked section */
+static uint32_t s_pk_min, s_pk_max;
+static uint32_t s_pk_epoch;       /* bump to "change memory" after a trigger */
+
+/* Bit 31 clear, so it can never be the 0xFFFFFFFF an unexecuted word reads. */
+static uint32_t pk_pattern(uint32_t a)
+{
+    return (a ^ 0x5A5A5A5Au ^ (s_pk_epoch * 0x01000193u)) & 0x7FFFFFFFu;
+}
+
+static uint32_t pk_fake_read(uint32_t a)
+{
+    s_pk_reads++;
+    if (o2p_peek_host_irq_depth <= 0) {
+        s_pk_unmasked++;
+    }
+    if (a < s_pk_min) s_pk_min = a;
+    if (a > s_pk_max) s_pk_max = a;
+    return pk_pattern(a);
+}
+
+static void pk_count_from_here(void)
+{
+    s_pk_reads = 0u;
+    s_pk_min = 0xFFFFFFFFu;
+    s_pk_max = 0u;
+}
+
+static void pk_arm(void)
+{
+    o2p_peek_host_read = pk_fake_read;
+    s_pk_unmasked = 0u;
+    s_pk_epoch = 0u;
+    pk_count_from_here();
+}
+
+static uint8_t pkw_trigger(uint32_t target, uint16_t words)
+{
+    uint16_t t[3] = { (uint16_t)(target >> 16), (uint16_t)(target & 0xFFFFu), words };
+    return o2p_regmap_write(&rm, O2P_REG_PEEKW_BASE, 3u, t);
+}
+
+static size_t pk_adu(uint8_t *buf, const uint8_t *pdu, size_t n)
+{
+    buf[0] = 3u;
+    memcpy(buf + 1, pdu, n);
+    uint16_t crc = o2p_mb_crc16(buf, n + 1u);
+    buf[n + 1u] = (uint8_t)(crc & 0xFFu);
+    buf[n + 2u] = (uint8_t)(crc >> 8);
+    return n + 3u;
+}
+
+static uint32_t pkw_word(const uint16_t *block, unsigned w)
+{
+    return ((uint32_t)block[O2P_PEEKW_HEADER + 2u * w] << 16) |
+           (uint32_t)block[O2P_PEEKW_HEADER + 2u * w + 1u];
+}
+
+static void test_peekw_reads_as_nothing_held_until_triggered(void)
+{
+    uint16_t out[O2P_REG_PEEKW_COUNT];
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&rm, O2P_REG_PEEKW_BASE,
+                                               O2P_REG_PEEKW_COUNT, out));
+    TEST_ASSERT_EQUAL_HEX16(0u, out[0]);
+    TEST_ASSERT_EQUAL_HEX16(0u, out[1]);
+    TEST_ASSERT_EQUAL_UINT16(0u, out[2]);
+    TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_NONE, out[3]);
+    TEST_ASSERT_EQUAL_UINT16(0u, out[4]);
+    /* 0x0000 would be a plausible word of SRAM. Nothing has been read, and
+     * the data says so. */
+    for (unsigned i = O2P_PEEKW_HEADER; i < O2P_REG_PEEKW_COUNT; i++) {
+        TEST_ASSERT_EQUAL_HEX16(0xFFFFu, out[i]);
+    }
+}
+
+/* The point of the block: one trigger, one read, the whole burst - driven
+ * through the real PDU layer so the frame sizes are the ones on the wire. */
+static void test_peekw_one_trigger_and_one_read_return_the_whole_burst(void)
+{
+    pk_arm();
+    const uint32_t target = 0x20000100u;
+    uint8_t req[O2P_MB_MAX_ADU], rsp[O2P_MB_MAX_ADU];
+
+    const uint8_t fc16[] = { 0x10, 0x01, 0x00, 0x00, 0x03, 0x06,
+                             0x20, 0x00, 0x01, 0x00, 0x00, O2P_PEEKW_WORDS_MAX };
+    size_t n = pk_adu(req, fc16, sizeof fc16);
+    /* The trigger is 15 bytes: inside the Dragino A8's 40-byte ceiling. */
+    TEST_ASSERT_EQUAL_UINT(15u, n);
+    size_t len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_UINT(8u, len);
+    TEST_ASSERT_EQUAL_HEX8(0x10, rsp[1]);
+
+    TEST_ASSERT_EQUAL_UINT(O2P_PEEKW_WORDS_MAX, s_pk_reads);
+    TEST_ASSERT_EQUAL_HEX32(target, s_pk_min);
+    TEST_ASSERT_EQUAL_HEX32(target + 4u * (O2P_PEEKW_WORDS_MAX - 1u), s_pk_max);
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(0u, s_pk_unmasked,
+        "every dereference must happen with interrupts masked");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, o2p_peek_host_irq_depth,
+        "the mask must be restored after the copy");
+
+    const uint8_t fc03[] = { 0x03, 0x01, 0x00, 0x00, O2P_REG_PEEKW_COUNT };
+    n = pk_adu(req, fc03, sizeof fc03);
+    len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    /* 5 + 2 * 65 = 135 bytes: one read on every wired path and on the radio
+     * at DR4/DR5 (regmap.h, O2P_PEEKW_WORDS_MAX). */
+    TEST_ASSERT_EQUAL_UINT(135u, len);
+    TEST_ASSERT_TRUE(len <= O2P_MB_MAX_ADU);
+    TEST_ASSERT_EQUAL_HEX8(0x03, rsp[1]);
+    TEST_ASSERT_EQUAL_UINT8(130u, rsp[2]);
+
+    uint16_t block[O2P_REG_PEEKW_COUNT];
+    for (unsigned i = 0; i < O2P_REG_PEEKW_COUNT; i++) {
+        block[i] = (uint16_t)(((uint16_t)rsp[3u + 2u * i] << 8) | rsp[4u + 2u * i]);
+    }
+    TEST_ASSERT_EQUAL_HEX16(0x2000u, block[0]);
+    TEST_ASSERT_EQUAL_HEX16(0x0100u, block[1]);
+    TEST_ASSERT_EQUAL_UINT16(O2P_PEEKW_WORDS_MAX, block[2]);
+    TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_OK, block[3]);
+    TEST_ASSERT_EQUAL_UINT16(1u, block[4]);
+    for (unsigned w = 0; w < O2P_PEEKW_WORDS_MAX; w++) {
+        TEST_ASSERT_EQUAL_HEX32(pk_pattern(target + 4u * w), pkw_word(block, w));
+    }
+    /* The read served the snapshot; it did not go back to memory. */
+    TEST_ASSERT_EQUAL_UINT(O2P_PEEKW_WORDS_MAX, s_pk_reads);
+}
+
+/* A snapshot, not a window: memory that changes after the trigger does not
+ * change the answer, however many reads a narrow transport splits it into. */
+static void test_peekw_serves_the_trigger_time_snapshot_not_live_memory(void)
+{
+    pk_arm();
+    const uint32_t target = 0x20000200u;
+    const uint16_t words = 17u;   /* one o2p_snapshot_t, 68 bytes */
+    uint32_t want[17];
+    for (unsigned w = 0; w < words; w++) {
+        want[w] = pk_pattern(target + 4u * w);
+    }
+    TEST_ASSERT_EQUAL_HEX8(0u, pkw_trigger(target, words));
+    s_pk_epoch = 7u;                         /* "the sampler published" */
+    TEST_ASSERT_NOT_EQUAL(want[0], pk_pattern(target));
+
+    uint16_t whole[O2P_REG_PEEKW_COUNT];
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&rm, O2P_REG_PEEKW_BASE,
+                                               O2P_REG_PEEKW_COUNT, whole));
+    for (unsigned w = 0; w < words; w++) {
+        TEST_ASSERT_EQUAL_HEX32(want[w], pkw_word(whole, w));
+    }
+    for (unsigned w = words; w < O2P_PEEKW_WORDS_MAX; w++) {
+        TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFu, pkw_word(whole, w));
+    }
+
+    /* Carried the way a 51-byte uplink would: header plus 9 words (23
+     * registers, a 51-byte reply), then the other 8 words. */
+    uint16_t a[23], b[16];
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&rm, O2P_REG_PEEKW_BASE, 23u, a));
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&rm,
+        (uint16_t)(O2P_REG_PEEKW_DATA + 18u), 16u, b));
+    TEST_ASSERT_EQUAL_HEX16_ARRAY(whole, a, 23u);
+    TEST_ASSERT_EQUAL_HEX16_ARRAY(&whole[23], b, 16u);
+
+    /* And a trigger from anybody else in between moves SEQ, which is how
+     * such a reader knows its pieces no longer belong together. */
+    uint16_t seq_before = a[4];
+    TEST_ASSERT_EQUAL_HEX8(0u, pkw_trigger(0x08004000u, 2u));
+    uint16_t hdr[O2P_PEEKW_HEADER];
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&rm, O2P_REG_PEEKW_BASE,
+                                               O2P_PEEKW_HEADER, hdr));
+    TEST_ASSERT_NOT_EQUAL(seq_before, hdr[4]);
+}
+
+/* Every write that is not exactly the trigger is exception 03, and changes
+ * nothing: not the address, not the count, not the status, not the sequence,
+ * not one word - and it dereferences nothing. */
+static void test_peekw_a_malformed_trigger_changes_nothing_and_touches_no_memory(void)
+{
+    pk_arm();
+    TEST_ASSERT_EQUAL_HEX8(0u, pkw_trigger(0x08004000u, 4u));
+    uint16_t before[O2P_REG_PEEKW_COUNT], after[O2P_REG_PEEKW_COUNT];
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&rm, O2P_REG_PEEKW_BASE,
+                                               O2P_REG_PEEKW_COUNT, before));
+    TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_OK, before[3]);
+    pk_count_from_here();
+
+    uint16_t zero[3]  = { 0x2000u, 0x0000u, 0u };
+    uint16_t over[3]  = { 0x2000u, 0x0000u, (uint16_t)(O2P_PEEKW_WORDS_MAX + 1u) };
+    uint16_t huge[3]  = { 0x2000u, 0x0000u, 0xFFFFu };
+    uint16_t two[2]   = { 0x2000u, 0x0000u };
+    uint16_t four[4]  = { 0x2000u, 0x0000u, 1u, 0u };
+    uint16_t good[3]  = { 0x2000u, 0x0000u, 1u };
+    uint16_t many[123];
+    for (unsigned i = 0; i < 123u; i++) many[i] = (i == 2u) ? 1u : 0x2000u;
+
+    const struct { uint16_t addr; uint16_t count; const uint16_t *in; } bad[] = {
+        { O2P_REG_PEEKW_BASE, 3u, zero },     /* count 0 */
+        { O2P_REG_PEEKW_BASE, 3u, over },     /* count N_MAX + 1 */
+        { O2P_REG_PEEKW_BASE, 3u, huge },     /* count 0xFFFF */
+        { O2P_REG_PEEKW_BASE, 2u, two },      /* the 0x0065 short form */
+        { O2P_REG_PEEKW_BASE, 4u, four },
+        { O2P_REG_PEEKW_BASE, 1u, two },      /* an FC06 */
+        { O2P_REG_PEEKW_BASE, 123u, many },   /* the largest FC16 there is */
+        { O2P_REG_PEEKW_ADDR_LO, 1u, two },
+        { O2P_REG_PEEKW_ADDR_LO, 3u, good },  /* right length, wrong offset */
+        { O2P_REG_PEEKW_WORDS, 1u, good },
+        { O2P_REG_PEEKW_STATUS, 1u, good },
+        { O2P_REG_PEEKW_SEQ, 1u, good },
+        { O2P_REG_PEEKW_DATA, 3u, good },
+        { (uint16_t)(O2P_REG_PEEKW_BASE + O2P_REG_PEEKW_COUNT - 1u), 1u, good },
+        { (uint16_t)(O2P_REG_PEEKW_BASE - 1u), 3u, good },  /* straddles in */
+        { (uint16_t)(O2P_REG_PEEKW_BASE + O2P_REG_PEEKW_COUNT - 2u), 3u, good },
+    };
+    for (unsigned i = 0; i < sizeof bad / sizeof bad[0]; i++) {
+        TEST_ASSERT_EQUAL_HEX8_MESSAGE(O2P_MB_EX_ILLEGAL_VALUE,
+            o2p_regmap_write(&rm, bad[i].addr, bad[i].count, bad[i].in),
+            "a write that is not exactly the trigger must be exception 03");
+    }
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&rm, O2P_REG_PEEKW_BASE,
+                                               O2P_REG_PEEKW_COUNT, after));
+    TEST_ASSERT_EQUAL_HEX16_ARRAY(before, after, O2P_REG_PEEKW_COUNT);
+    TEST_ASSERT_EQUAL_UINT(0u, s_pk_reads);
+
+    /* The guard gap below the block and the address past it are not
+     * registers, and a read that straddles the end is not contained. */
+    uint16_t out[2];
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS, o2p_regmap_read(&rm, 0x00FFu, 1u, out));
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS,
+        o2p_regmap_read(&rm, (uint16_t)(O2P_REG_PEEKW_BASE + O2P_REG_PEEKW_COUNT), 1u, out));
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS,
+        o2p_regmap_read(&rm, (uint16_t)(O2P_REG_PEEKW_BASE + O2P_REG_PEEKW_COUNT - 1u), 2u, out));
+}
+
+/* A well-formed trigger at a target that may not be read is served with a
+ * status, replaces the previous result, and dereferences nothing. */
+static void test_peekw_refuses_misaligned_and_unmapped_targets_without_dereferencing(void)
+{
+    pk_arm();
+    static const struct { uint32_t a; uint16_t st; } bad[] = {
+        { 0x20000001u, O2P_PEEK_ERR_ALIGN }, { 0x20000002u, O2P_PEEK_ERR_ALIGN },
+        { 0x20000003u, O2P_PEEK_ERR_ALIGN }, { 0x0801FFFFu, O2P_PEEK_ERR_ALIGN },
+        { 0xFFFFFFFFu, O2P_PEEK_ERR_ALIGN },
+        /* The boot alias of flash at 0: mapped, and still not in the table. */
+        { 0x00000000u, O2P_PEEK_ERR_RANGE },
+        { 0x07FFFFFCu, O2P_PEEK_ERR_RANGE }, { 0x08020000u, O2P_PEEK_ERR_RANGE },
+        { 0x1FFFFFFCu, O2P_PEEK_ERR_RANGE }, { 0x20009000u, O2P_PEEK_ERR_RANGE },
+        { 0x1FFF758Cu, O2P_PEEK_ERR_RANGE }, { 0x1FFF759Cu, O2P_PEEK_ERR_RANGE },
+        { 0x1FFF75DCu, O2P_PEEK_ERR_RANGE }, { 0x1FFF75E4u, O2P_PEEK_ERR_RANGE },
+        /* Peripherals and the system space: destructive or faulting reads. */
+        { 0x40000000u, O2P_PEEK_ERR_RANGE }, { 0x50000000u, O2P_PEEK_ERR_RANGE },
+        { 0xE000E010u, O2P_PEEK_ERR_RANGE }, { 0xFFFFFFFCu, O2P_PEEK_ERR_RANGE },
+    };
+    static const uint16_t lens[] = { 1u, 2u, O2P_PEEKW_WORDS_MAX };
+    for (unsigned i = 0; i < sizeof bad / sizeof bad[0]; i++) {
+        for (unsigned j = 0; j < sizeof lens / sizeof lens[0]; j++) {
+            /* A good result first, so a refusal that failed to replace it
+             * would be visible as stale data under a fresh status. */
+            TEST_ASSERT_EQUAL_HEX8(0u, pkw_trigger(0x20000000u, O2P_PEEKW_WORDS_MAX));
+            TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_OK, rm.peekw_status);
+            uint16_t seq = rm.peekw_seq;
+            pk_count_from_here();
+
+            TEST_ASSERT_EQUAL_HEX8(0u, pkw_trigger(bad[i].a, lens[j]));
+            TEST_ASSERT_EQUAL_UINT16(bad[i].st, rm.peekw_status);
+            TEST_ASSERT_EQUAL_UINT_MESSAGE(0u, s_pk_reads,
+                "a refused target must not be dereferenced at all");
+            TEST_ASSERT_EQUAL_UINT16((uint16_t)(seq + 1u), rm.peekw_seq);
+
+            uint16_t out[O2P_REG_PEEKW_COUNT];
+            TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&rm, O2P_REG_PEEKW_BASE,
+                                                       O2P_REG_PEEKW_COUNT, out));
+            TEST_ASSERT_EQUAL_HEX16((uint16_t)(bad[i].a >> 16), out[0]);
+            TEST_ASSERT_EQUAL_HEX16((uint16_t)(bad[i].a & 0xFFFFu), out[1]);
+            TEST_ASSERT_EQUAL_UINT16(lens[j], out[2]);
+            for (unsigned k = O2P_PEEKW_HEADER; k < O2P_REG_PEEKW_COUNT; k++) {
+                TEST_ASSERT_EQUAL_HEX16(0xFFFFu, out[k]);
+            }
+        }
+    }
+}
+
+/* The far tail of every region, every burst length: OK exactly when the burst
+ * fits, the dereferences never pass the region's last word, and once a burst
+ * is too long for a target no longer burst is ever OK again. */
+static void test_peekw_far_tail_of_every_region_is_exact_and_monotonic(void)
+{
+    pk_arm();
+    static const struct { uint32_t first, last; } region[] = {
+        { 0x20000000u, 0x20008FFCu }, { 0x08000000u, 0x0801FFFCu },
+        { 0x1FFF7590u, 0x1FFF7598u }, { 0x1FFF75E0u, 0x1FFF75E0u },
+    };
+    for (unsigned r = 0; r < sizeof region / sizeof region[0]; r++) {
+        for (uint32_t left = 1u; left <= O2P_PEEKW_WORDS_MAX + 1u; left++) {
+            uint32_t target = region[r].last - 4u * (left - 1u);
+            if (target < region[r].first || target > region[r].last) {
+                break;
+            }
+            bool refused = false;
+            for (uint16_t words = 1u; words <= O2P_PEEKW_WORDS_MAX; words++) {
+                pk_count_from_here();
+                TEST_ASSERT_EQUAL_HEX8(0u, pkw_trigger(target, words));
+                if (words <= left) {
+                    TEST_ASSERT_FALSE_MESSAGE(refused,
+                        "a longer burst became OK after a shorter one was refused");
+                    TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_OK, rm.peekw_status);
+                    TEST_ASSERT_EQUAL_UINT(words, s_pk_reads);
+                    TEST_ASSERT_EQUAL_HEX32(target, s_pk_min);
+                    TEST_ASSERT_TRUE(s_pk_max <= region[r].last);
+                } else {
+                    refused = true;
+                    TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_ERR_RANGE, rm.peekw_status);
+                    TEST_ASSERT_EQUAL_UINT(0u, s_pk_reads);
+                }
+            }
+        }
+        /* One word BEFORE the region, a burst that would end inside it is
+         * still refused: a burst must start in the region it reads. */
+        uint32_t below = region[r].first - 4u;
+        for (uint16_t words = 1u; words <= O2P_PEEKW_WORDS_MAX; words++) {
+            pk_count_from_here();
+            TEST_ASSERT_EQUAL_HEX8(0u, pkw_trigger(below, words));
+            TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_ERR_RANGE, rm.peekw_status);
+            TEST_ASSERT_EQUAL_UINT(0u, s_pk_reads);
+        }
+    }
+    /* Address overflow: bursts whose last word would wrap past 0xFFFFFFFF. */
+    static const uint32_t wraps[] = { 0xFFFFFFFCu, 0xFFFFFFF0u, 0xFFFFFF90u, 0xFFFFFF8Cu };
+    for (unsigned i = 0; i < sizeof wraps / sizeof wraps[0]; i++) {
+        pk_count_from_here();
+        TEST_ASSERT_EQUAL_HEX8(0u, pkw_trigger(wraps[i], O2P_PEEKW_WORDS_MAX));
+        TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_ERR_RANGE, rm.peekw_status);
+        TEST_ASSERT_EQUAL_UINT(0u, s_pk_reads);
+    }
+}
+
+static void test_peekw_seq_counts_executed_triggers_and_skips_zero(void)
+{
+    rm.peekw_seq = 0xFFFFu;
+    TEST_ASSERT_EQUAL_HEX8(0u, pkw_trigger(0x20000000u, 1u));
+    TEST_ASSERT_EQUAL_UINT16(1u, rm.peekw_seq);
+    /* A refusal by STATUS is an executed trigger: it replaced the result. */
+    TEST_ASSERT_EQUAL_HEX8(0u, pkw_trigger(0x20000001u, 1u));
+    TEST_ASSERT_EQUAL_UINT16(2u, rm.peekw_seq);
+    /* A refusal by EXCEPTION is not: nothing was replaced. */
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE, pkw_trigger(0x20000000u, 0u));
+    TEST_ASSERT_EQUAL_UINT16(2u, rm.peekw_seq);
+}
+
+/* Both blocks answer from one validator. If they ever disagree about a target
+ * and a length, one of them is dereferencing something the other thinks is
+ * unsafe. */
+static void test_peekw_and_the_4_word_mailbox_share_one_idea_of_safe(void)
+{
+    pk_arm();
+    static const uint32_t targets[] = {
+        0x20008FF0u, 0x20008FF4u, 0x20008FF8u, 0x20008FFCu, 0x20009000u,
+        0x0801FFF4u, 0x0801FFFCu, 0x1FFF7590u, 0x1FFF7594u, 0x1FFF7598u,
+        0x1FFF75E0u, 0x1FFF75E4u, 0x20000002u, 0x40000000u, 0xFFFFFFFCu,
+    };
+    for (unsigned i = 0; i < sizeof targets / sizeof targets[0]; i++) {
+        for (uint16_t words = 1u; words <= 4u; words++) {
+            uint16_t narrow[3] = { (uint16_t)(targets[i] >> 16),
+                                   (uint16_t)(targets[i] & 0xFFFFu), words };
+            TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm, O2P_REG_PEEK_BASE, 3u, narrow));
+            TEST_ASSERT_EQUAL_HEX8(0u, pkw_trigger(targets[i], words));
+            TEST_ASSERT_EQUAL_UINT16(rm.peek_status, rm.peekw_status);
+            for (unsigned w = 0; w < 4u; w++) {
+                TEST_ASSERT_EQUAL_HEX32(rm.peek_words[w], rm.peekw_words[w]);
+            }
+        }
+    }
+    /* The 4-word mailbox's copy is masked too, now that it is the same copy. */
+    TEST_ASSERT_EQUAL_UINT(0u, s_pk_unmasked);
+}
+
 static void test_dmbox_validation_and_opcodes(void)
 {
     o2p_regmap_t rm;
@@ -6818,6 +7216,412 @@ static void test_crash_mailbox_read_and_clear(void)
     TEST_ASSERT_EQUAL_UINT16(O2P_CRASH_NONE, rm.crash_reason);
     TEST_ASSERT_EQUAL_HEX32(0u, rm.crash_pc);
 }
+
+/* ------------------------------------------------- OP_READ_GPIO, 0x5A08
+ *
+ * Driven through o2p_regmap_write/read - the Modbus handlers - against the
+ * counting GPIO/RCC fake in gpio_hal_host.c. Every refusal is checked by what
+ * was NOT loaded, not only by the status it returned. */
+
+/* The LQFP48 I/O pads of the STM32G071CBT7, as NAMES. Deliberately not the
+ * masks in gpio_diag.h: a typo in a mask must not be able to agree with itself.
+ * Source cited at O2P_GPIO_BONDED_A. */
+static const char *const k_lqfp48_io[] = {
+    "PA0", "PA1", "PA2", "PA3", "PA4", "PA5", "PA6", "PA7",
+    "PA8", "PA9", "PA10", "PA11", "PA12", "PA13", "PA14", "PA15",
+    "PB0", "PB1", "PB2", "PB3", "PB4", "PB5", "PB6", "PB7",
+    "PB8", "PB9", "PB10", "PB11", "PB12", "PB13", "PB14", "PB15",
+    "PC6", "PC7", "PC13", "PC14", "PC15",
+    "PD0", "PD1", "PD2", "PD3",
+    "PF0", "PF1", "PF2",
+};
+
+static bool gpio_named_on_package(unsigned port, unsigned pin)
+{
+    for (size_t i = 0; i < sizeof k_lqfp48_io / sizeof k_lqfp48_io[0]; i++) {
+        const char *s = k_lqfp48_io[i];
+        unsigned p = (s[1] == 'F') ? 5u : (unsigned)(s[1] - 'A');
+        if (p == port && (unsigned)atoi(s + 2) == pin) {
+            return true;
+        }
+    }
+    return false;
+}
+
+#define GPIO_R0_MODE(r) ((unsigned)((r) & O2P_GPIO_R0_MODE_MASK))
+#define GPIO_R0_PULL(r) ((unsigned)(((r) & O2P_GPIO_R0_PULL_MASK) >> O2P_GPIO_R0_PULL_SHIFT))
+#define GPIO_R0_AF(r)   ((unsigned)(((r) & O2P_GPIO_R0_AF_MASK) >> O2P_GPIO_R0_AF_SHIFT))
+
+static uint8_t gpio_cmd_raw(uint16_t count, uint16_t op, uint16_t param)
+{
+    uint16_t w[2] = { (uint16_t)(O2P_DIAG_MAGIC | op), param };
+    return o2p_regmap_write(&rm, O2P_REG_DMBOX_BASE, count, w);
+}
+
+static uint8_t gpio_cmd(unsigned port, unsigned pin)
+{
+    return gpio_cmd_raw(2u, O2P_OP_READ_GPIO, O2P_GPIO_PARAM(port, pin));
+}
+
+/* DIAG_STATUS, RDATA0, RDATA1, RDATA2, CRC_STATUS - as a master reads them. */
+static void gpio_result(uint16_t out[5])
+{
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&rm, O2P_REG_DIAG_STATUS, 5u, out));
+}
+
+static void fake_field(uint32_t *reg, unsigned width, unsigned index, uint32_t v)
+{
+    uint32_t mask = ((1u << width) - 1u) << (width * index);
+    *reg = (*reg & ~mask) | ((v << (width * index)) & mask);
+}
+
+static void fake_pin(unsigned port, unsigned pin, unsigned mode, unsigned pull,
+                     unsigned open_drain, unsigned af)
+{
+    o2p_host_gpio_regs_t *g = &o2p_host_gpio[port];
+    fake_field(&g->MODER, 2u, pin, mode);
+    fake_field(&g->PUPDR, 2u, pin, pull);
+    fake_field(&g->OTYPER, 1u, pin, open_drain);
+    fake_field(&g->AFR[pin >> 3], 4u, pin & 7u, af);
+}
+
+static void test_gpio_an_analog_pin_is_not_sampled_whatever_its_idr_bit_says(void)
+{
+    /* PB1, the ADS1119's DRDY, in the mode it sat in for a whole bring-up.
+     * The pad's voltage cannot reach IDR in analog mode, so neither a 1 nor a
+     * 0 in the fake's IDR bit may come back as a level - and the known-bad is
+     * the 0, which is what the real part shows and what looked like LOW. */
+    o2p_host_gpio_reset();
+    fake_pin(O2P_GPIO_PORT_B, 1u, O2P_GPIO_MODE_ANALOG, O2P_GPIO_PULL_DOWN, 0u, 0x3u);
+    const uint32_t idr[] = { 0x0002u, 0x0000u, 0xFFFFu, 0xFFFDu };
+    for (size_t i = 0; i < sizeof idr / sizeof idr[0]; i++) {
+        o2p_host_gpio[O2P_GPIO_PORT_B].IDR = idr[i];
+        TEST_ASSERT_EQUAL_HEX8(0u, gpio_cmd(O2P_GPIO_PORT_B, 1u));
+        uint16_t r[5];
+        gpio_result(r);
+        TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_GPIO_NOT_SAMPLED, r[0]);
+        TEST_ASSERT_EQUAL_HEX16(0u, r[1] & (O2P_GPIO_R0_LEVEL | O2P_GPIO_R0_LEVEL_VALID));
+        /* ...and the configuration that explains WHY still goes out. */
+        TEST_ASSERT_TRUE((r[1] & O2P_GPIO_R0_CONFIG_VALID) != 0u);
+        TEST_ASSERT_EQUAL_UINT(O2P_GPIO_MODE_ANALOG, GPIO_R0_MODE(r[1]));
+        TEST_ASSERT_EQUAL_UINT(O2P_GPIO_PULL_DOWN, GPIO_R0_PULL(r[1]));
+        TEST_ASSERT_EQUAL_UINT(3u, GPIO_R0_AF(r[1]));
+        TEST_ASSERT_EQUAL_HEX16((uint16_t)idr[i], r[2]);
+        TEST_ASSERT_TRUE((r[4] & (1u << 1)) != 0u);   /* analog mask names PB1 */
+    }
+}
+
+static void test_gpio_an_input_pin_reports_its_real_level_both_ways(void)
+{
+    /* Both extremes of the shift and of the AFR split, plus the DRDY pin. The
+     * other fifteen IDR bits are always the OPPOSITE of the pin's, so reading
+     * the wrong bit cannot pass by agreeing. */
+    const struct { uint8_t port, pin; } pins[] = {
+        { O2P_GPIO_PORT_B, 1u }, { O2P_GPIO_PORT_A, 0u },
+        { O2P_GPIO_PORT_B, 15u }, { O2P_GPIO_PORT_C, 13u }, { O2P_GPIO_PORT_A, 8u },
+    };
+    for (size_t i = 0; i < sizeof pins / sizeof pins[0]; i++) {
+        unsigned port = pins[i].port, pin = pins[i].pin;
+        for (unsigned level = 0; level < 2u; level++) {
+            o2p_host_gpio_reset();
+            fake_pin(port, pin, O2P_GPIO_MODE_INPUT, O2P_GPIO_PULL_UP, 0u, 0u);
+            uint32_t idr = level ? (1u << pin) : (0xFFFFu & ~(1u << pin));
+            o2p_host_gpio[port].IDR = idr;
+            TEST_ASSERT_EQUAL_HEX8(0u, gpio_cmd(port, pin));
+            uint16_t r[5];
+            gpio_result(r);
+            TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_OK, r[0]);
+            TEST_ASSERT_TRUE((r[1] & O2P_GPIO_R0_LEVEL_VALID) != 0u);
+            TEST_ASSERT_EQUAL_UINT(level, (r[1] & O2P_GPIO_R0_LEVEL) ? 1u : 0u);
+            TEST_ASSERT_EQUAL_UINT(O2P_GPIO_MODE_INPUT, GPIO_R0_MODE(r[1]));
+            TEST_ASSERT_EQUAL_HEX16((uint16_t)idr, r[2]);
+            TEST_ASSERT_EQUAL_HEX16(0u, r[4] & (1u << pin));
+        }
+    }
+}
+
+static void test_gpio_an_output_pin_reports_latch_and_level_separately(void)
+{
+    /* PC6, the RS-485 DE. ODR is what the firmware asked for and IDR is what
+     * the pad did; a stuck or overloaded driver is the case where they differ,
+     * and a decoder that published one as the other would hide it. */
+    for (unsigned odr = 0; odr < 2u; odr++) {
+        for (unsigned idr = 0; idr < 2u; idr++) {
+            o2p_host_gpio_reset();
+            fake_pin(O2P_GPIO_PORT_C, 6u, O2P_GPIO_MODE_OUTPUT, O2P_GPIO_PULL_NONE, 0u, 0u);
+            o2p_host_gpio[O2P_GPIO_PORT_C].ODR = odr ? (1u << 6) : (0xFFFFu & ~(1u << 6));
+            o2p_host_gpio[O2P_GPIO_PORT_C].IDR = idr ? (1u << 6) : (0xFFFFu & ~(1u << 6));
+            TEST_ASSERT_EQUAL_HEX8(0u, gpio_cmd(O2P_GPIO_PORT_C, 6u));
+            uint16_t r[5];
+            gpio_result(r);
+            TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_OK, r[0]);
+            TEST_ASSERT_EQUAL_UINT(O2P_GPIO_MODE_OUTPUT, GPIO_R0_MODE(r[1]));
+            TEST_ASSERT_EQUAL_UINT(odr, (r[1] & O2P_GPIO_R0_ODR) ? 1u : 0u);
+            TEST_ASSERT_EQUAL_UINT(idr, (r[1] & O2P_GPIO_R0_LEVEL) ? 1u : 0u);
+            TEST_ASSERT_TRUE((r[1] & O2P_GPIO_R0_LEVEL_VALID) != 0u);
+            TEST_ASSERT_EQUAL_HEX16((uint16_t)o2p_host_gpio[O2P_GPIO_PORT_C].ODR, r[3]);
+            TEST_ASSERT_EQUAL_HEX16((uint16_t)o2p_host_gpio[O2P_GPIO_PORT_C].IDR, r[2]);
+        }
+    }
+}
+
+static void test_gpio_an_unclocked_port_is_refused_without_loading_it(void)
+{
+    /* D and F are bonded and never clocked (mcu.c enables A, B, C). */
+    const struct { uint8_t port, pin; uint32_t iopenr; } cases[] = {
+        { O2P_GPIO_PORT_D, 0u, 0x07u },
+        { O2P_GPIO_PORT_F, 2u, 0x07u },
+        { O2P_GPIO_PORT_B, 1u, 0x05u },
+        { O2P_GPIO_PORT_A, 0u, 0x00u },
+        /* The far tail: every OTHER enable bit set, this port's clear. */
+        { O2P_GPIO_PORT_B, 7u, 0xFFFFFFFFu & ~(1u << O2P_GPIO_PORT_B) },
+        { O2P_GPIO_PORT_F, 0u, 0xFFFFFFFFu & ~(1u << O2P_GPIO_PORT_F) },
+    };
+    for (size_t i = 0; i < sizeof cases / sizeof cases[0]; i++) {
+        o2p_host_gpio_reset();
+        o2p_host_iopenr = cases[i].iopenr;
+        /* A plausible input pin at HIGH behind the gate, so a gate that leaked
+         * would publish a believable result rather than the fake's poison. */
+        fake_pin(cases[i].port, cases[i].pin, O2P_GPIO_MODE_INPUT, 0u, 0u, 0u);
+        o2p_host_gpio[cases[i].port].IDR = 0xFFFFu;
+        TEST_ASSERT_EQUAL_HEX8(0u, gpio_cmd(cases[i].port, cases[i].pin));
+        uint16_t r[5];
+        gpio_result(r);
+        TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_ERR_GPIO_UNCLOCKED, r[0]);
+        TEST_ASSERT_EQUAL_UINT(0u, o2p_host_gpio_reads);
+        TEST_ASSERT_EQUAL_UINT(1u, o2p_host_rcc_reads);
+        TEST_ASSERT_EQUAL_HEX16(0u, r[1]);
+        TEST_ASSERT_EQUAL_HEX16(0u, r[2]);
+        TEST_ASSERT_EQUAL_HEX16(0u, r[3]);
+        TEST_ASSERT_EQUAL_HEX16(0u, r[4]);
+        /* Never woken up to be looked at. */
+        TEST_ASSERT_EQUAL_HEX32(cases[i].iopenr, o2p_host_iopenr);
+    }
+
+    /* And the gate opens exactly when the bit does: D with its clock on. */
+    o2p_host_gpio_reset();
+    o2p_host_iopenr |= (1u << O2P_GPIO_PORT_D);
+    fake_pin(O2P_GPIO_PORT_D, 0u, O2P_GPIO_MODE_INPUT, 0u, 0u, 0u);
+    TEST_ASSERT_EQUAL_HEX8(0u, gpio_cmd(O2P_GPIO_PORT_D, 0u));
+    uint16_t r[5];
+    gpio_result(r);
+    TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_OK, r[0]);
+    TEST_ASSERT_EQUAL_UINT(6u, o2p_host_gpio_reads);
+}
+
+static void test_gpio_an_absent_pin_is_refused_without_loading_anything(void)
+{
+    const uint16_t params[] = {
+        O2P_GPIO_PARAM(O2P_GPIO_PORT_C, 0u),   /* PC0: in the die, not on the LQFP48 */
+        O2P_GPIO_PARAM(O2P_GPIO_PORT_C, 5u),
+        O2P_GPIO_PARAM(O2P_GPIO_PORT_C, 8u),
+        O2P_GPIO_PARAM(O2P_GPIO_PORT_C, 12u),
+        O2P_GPIO_PARAM(O2P_GPIO_PORT_D, 4u),
+        O2P_GPIO_PARAM(O2P_GPIO_PORT_D, 15u),
+        O2P_GPIO_PARAM(O2P_GPIO_PORT_F, 3u),
+        O2P_GPIO_PARAM(O2P_GPIO_PORT_A, 16u),  /* pin 16 */
+        O2P_GPIO_PARAM(O2P_GPIO_PORT_B, 0xFFu),
+        O2P_GPIO_PARAM(4u, 0u),                /* port E, which this part lacks */
+        O2P_GPIO_PARAM(4u, 3u),
+        O2P_GPIO_PARAM(6u, 0u),
+        O2P_GPIO_PARAM(0xFFu, 0u),             /* port 0xFF */
+        0xFFFFu,
+    };
+    for (size_t i = 0; i < sizeof params / sizeof params[0]; i++) {
+        o2p_host_gpio_reset();
+        /* Every clock on: the refusal must not lean on the clock gate. */
+        o2p_host_iopenr = 0xFFFFFFFFu;
+        TEST_ASSERT_EQUAL_HEX8(0u, gpio_cmd_raw(2u, O2P_OP_READ_GPIO, params[i]));
+        uint16_t r[5];
+        gpio_result(r);
+        TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_ERR_GPIO_NO_PIN, r[0]);
+        TEST_ASSERT_EQUAL_UINT(0u, o2p_host_gpio_reads);
+        TEST_ASSERT_EQUAL_UINT(0u, o2p_host_rcc_reads);
+        TEST_ASSERT_EQUAL_HEX16(0u, r[1]);
+        TEST_ASSERT_EQUAL_HEX16(0u, r[2]);
+        TEST_ASSERT_EQUAL_HEX16(0u, r[3]);
+        TEST_ASSERT_EQUAL_HEX16(0u, r[4]);
+        uint16_t p = 0u;
+        TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&rm, O2P_REG_DIAG_PARAM, 1u, &p));
+        TEST_ASSERT_EQUAL_HEX16(params[i], p);   /* the refusal says what it refused */
+    }
+}
+
+static void test_gpio_every_parameter_is_classified_by_the_package(void)
+{
+    /* All 65536 parameters, every clock on, every pin an input: exactly the
+     * pads named in k_lqfp48_io come back OK with six loads, and everything
+     * else - however far out - is refused with none. */
+    unsigned ok = 0u;
+    for (uint32_t param = 0; param <= 0xFFFFu; param++) {
+        o2p_host_gpio_reset();
+        o2p_host_iopenr = 0xFFFFFFFFu;
+        for (unsigned p = 0; p < O2P_GPIO_PORT_SLOTS; p++) {
+            o2p_host_gpio[p].MODER = 0u;
+        }
+        rm.diag_pending = false;
+        TEST_ASSERT_EQUAL_HEX8(0u, gpio_cmd_raw(2u, O2P_OP_READ_GPIO, (uint16_t)param));
+        unsigned port = param >> 8, pin = param & 0xFFu;
+        if (gpio_named_on_package(port, pin)) {
+            TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_OK, rm.diag_status);
+            TEST_ASSERT_EQUAL_UINT(6u, o2p_host_gpio_reads);
+            TEST_ASSERT_TRUE(o2p_gpio_pin_bonded((uint8_t)port, (uint8_t)pin));
+            ok++;
+        } else {
+            TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_ERR_GPIO_NO_PIN, rm.diag_status);
+            TEST_ASSERT_EQUAL_UINT(0u, o2p_host_gpio_reads + o2p_host_rcc_reads);
+        }
+    }
+    /* 44 I/O on the LQFP48. */
+    TEST_ASSERT_EQUAL_UINT(44u, ok);
+    TEST_ASSERT_EQUAL_UINT(sizeof k_lqfp48_io / sizeof k_lqfp48_io[0], ok);
+}
+
+static void test_gpio_decodes_each_field_from_its_own_bits(void)
+{
+    /* The pin under test and its fifteen neighbours carry opposite values in
+     * every field, at the shift extremes and on both sides of the AFRL/AFRH
+     * split, so an off-by-one index cannot decode the right answer. */
+    const uint8_t pins[] = { 0u, 7u, 8u, 13u, 15u };
+    for (size_t i = 0; i < sizeof pins; i++) {
+        unsigned pin = pins[i];
+        for (unsigned variant = 0; variant < 2u; variant++) {
+            unsigned mode = variant ? O2P_GPIO_MODE_AF : O2P_GPIO_MODE_OUTPUT;
+            unsigned pull = variant ? O2P_GPIO_PULL_DOWN : O2P_GPIO_PULL_RESERVED;
+            unsigned od = variant;
+            unsigned af = variant ? 0xBu : 0x4u;
+            o2p_host_gpio_reset();
+            for (unsigned n = 0; n < 16u; n++) {
+                fake_pin(O2P_GPIO_PORT_A, n, variant ? O2P_GPIO_MODE_INPUT : O2P_GPIO_MODE_AF,
+                         variant ? O2P_GPIO_PULL_UP : O2P_GPIO_PULL_NONE, !variant, (~af) & 0xFu);
+            }
+            fake_pin(O2P_GPIO_PORT_A, pin, mode, pull, od, af);
+            o2p_host_gpio[O2P_GPIO_PORT_A].ODR = variant ? (1u << pin) : (0xFFFFu & ~(1u << pin));
+            o2p_host_gpio[O2P_GPIO_PORT_A].IDR = variant ? (0xFFFFu & ~(1u << pin)) : (1u << pin);
+            TEST_ASSERT_EQUAL_HEX8(0u, gpio_cmd(O2P_GPIO_PORT_A, pin));
+            uint16_t r[5];
+            gpio_result(r);
+            TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_OK, r[0]);
+            TEST_ASSERT_EQUAL_UINT(mode, GPIO_R0_MODE(r[1]));
+            TEST_ASSERT_EQUAL_UINT(pull, GPIO_R0_PULL(r[1]));
+            TEST_ASSERT_EQUAL_UINT(od, (r[1] & O2P_GPIO_R0_OPEN_DRAIN) ? 1u : 0u);
+            TEST_ASSERT_EQUAL_UINT(af, GPIO_R0_AF(r[1]));
+            TEST_ASSERT_EQUAL_UINT(variant, (r[1] & O2P_GPIO_R0_ODR) ? 1u : 0u);
+            TEST_ASSERT_EQUAL_UINT(!variant, (r[1] & O2P_GPIO_R0_LEVEL) ? 1u : 0u);
+            TEST_ASSERT_EQUAL_HEX16(0u, r[1] & 0x3080u);   /* reserved bits stay 0 */
+            TEST_ASSERT_EQUAL_HEX16(0u, r[4]);             /* nothing analog on A */
+        }
+    }
+}
+
+static void test_gpio_snapshot_is_one_masked_section_and_writes_nothing(void)
+{
+    o2p_host_gpio_reset();
+    fake_pin(O2P_GPIO_PORT_C, 7u, O2P_GPIO_MODE_OUTPUT, O2P_GPIO_PULL_NONE, 0u, 0u);
+    o2p_host_gpio[O2P_GPIO_PORT_C].ODR = 0x0080u;
+    o2p_host_gpio[O2P_GPIO_PORT_C].IDR = 0x2080u;
+    o2p_host_gpio_regs_t before[O2P_GPIO_PORT_SLOTS];
+    memcpy(before, o2p_host_gpio, sizeof before);
+    uint32_t iopenr_before = o2p_host_iopenr;
+
+    TEST_ASSERT_EQUAL_HEX8(0u, gpio_cmd(O2P_GPIO_PORT_C, 7u));
+    TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_OK, rm.diag_status);
+    TEST_ASSERT_EQUAL_UINT(6u, o2p_host_gpio_reads);
+    TEST_ASSERT_EQUAL_UINT(1u, o2p_host_rcc_reads);
+    /* The clock check and all six loads inside ONE mask, and the mask undone. */
+    TEST_ASSERT_EQUAL_UINT(0u, o2p_host_gpio_unmasked_reads);
+    TEST_ASSERT_EQUAL_UINT(0u, o2p_host_rcc_unmasked_reads);
+    TEST_ASSERT_EQUAL_INT(0, o2p_host_gpio_irq_depth);
+    TEST_ASSERT_EQUAL_MEMORY(before, o2p_host_gpio, sizeof before);
+    TEST_ASSERT_EQUAL_HEX32(iopenr_before, o2p_host_iopenr);
+    /* Served in the write: nothing is left for main.c to run. */
+    TEST_ASSERT_FALSE(rm.diag_pending);
+}
+
+static void test_gpio_is_reachable_through_the_modbus_pdu_layer(void)
+{
+    /* The whole path a master uses, frames and all: FC16 of [0x5A08, PB1] to
+     * 0x0070, then FC03 of the seven mailbox registers. */
+    o2p_host_gpio_reset();
+    fake_pin(O2P_GPIO_PORT_B, 1u, O2P_GPIO_MODE_INPUT, O2P_GPIO_PULL_NONE, 0u, 0u);
+    o2p_host_gpio[O2P_GPIO_PORT_B].IDR = 0x0002u;
+
+    uint8_t req[32], rsp[O2P_MB_MAX_ADU];
+    const uint8_t wr[] = { 0x03, 0x10, 0x00, 0x70, 0x00, 0x02, 0x04,
+                           0x5A, 0x08, 0x01, 0x01 };
+    size_t n = framed(req, wr, sizeof wr);
+    TEST_ASSERT_EQUAL_UINT(8u, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
+    TEST_ASSERT_EQUAL_HEX8(0x10, rsp[1]);
+
+    const uint8_t rd[] = { 0x03, 0x03, 0x00, 0x70, 0x00, 0x07 };
+    n = framed(req, rd, sizeof rd);
+    TEST_ASSERT_EQUAL_UINT(3u + 14u + 2u, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
+    uint16_t reg[7];
+    for (unsigned i = 0; i < 7u; i++) {
+        reg[i] = (uint16_t)((rsp[3 + 2 * i] << 8) | rsp[4 + 2 * i]);
+    }
+    TEST_ASSERT_EQUAL_HEX16(0x5A08u, reg[0]);
+    TEST_ASSERT_EQUAL_HEX16(0x0101u, reg[1]);
+    TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_OK, reg[2]);
+    TEST_ASSERT_EQUAL_HEX16(O2P_GPIO_R0_CONFIG_VALID | O2P_GPIO_R0_LEVEL_VALID |
+                            O2P_GPIO_R0_LEVEL, reg[3]);
+
+    /* Opcode 0x09 is still nobody's. */
+    const uint8_t bad[] = { 0x03, 0x10, 0x00, 0x70, 0x00, 0x02, 0x04,
+                            0x5A, 0x09, 0x01, 0x01 };
+    n = framed(req, bad, sizeof bad);
+    TEST_ASSERT_EQUAL_UINT(5u, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
+    TEST_ASSERT_EQUAL_HEX8(0x90, rsp[1]);
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE, rsp[2]);
+}
+
+static void test_gpio_malformed_busy_or_refused_commands_leave_no_stale_level(void)
+{
+    o2p_host_gpio_reset();
+    fake_pin(O2P_GPIO_PORT_B, 1u, O2P_GPIO_MODE_INPUT, O2P_GPIO_PULL_NONE, 0u, 0u);
+    o2p_host_gpio[O2P_GPIO_PORT_B].IDR = 0xFFFFu;
+    TEST_ASSERT_EQUAL_HEX8(0u, gpio_cmd(O2P_GPIO_PORT_B, 1u));
+    TEST_ASSERT_TRUE((rm.diag_rdata0 & O2P_GPIO_R0_LEVEL_VALID) != 0u);
+
+    /* A refusal after a good read must not leave the good read's level
+     * readable under the refusal's status. */
+    o2p_host_gpio_reset();
+    TEST_ASSERT_EQUAL_HEX8(0u, gpio_cmd(O2P_GPIO_PORT_C, 0u));
+    TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_ERR_GPIO_NO_PIN, rm.diag_status);
+    TEST_ASSERT_EQUAL_HEX16(0u, rm.diag_rdata0);
+    TEST_ASSERT_EQUAL_HEX16(0u, rm.diag_rdata1);
+
+    /* No parameter: the opcode needs one. Refused like opcodes 0x01/0x05. */
+    o2p_host_gpio_reset();
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE, gpio_cmd_raw(1u, O2P_OP_READ_GPIO, 0u));
+    TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_ERR_OPCODE, rm.diag_status);
+    TEST_ASSERT_EQUAL_UINT(0u, o2p_host_gpio_reads + o2p_host_rcc_reads);
+
+    /* A queued I2C opcode owns the result registers until main.c runs it. */
+    o2p_host_gpio_reset();
+    rm.diag_pending = true;
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE, gpio_cmd(O2P_GPIO_PORT_B, 1u));
+    TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_ERR_BUSY, rm.diag_status);
+    TEST_ASSERT_EQUAL_UINT(0u, o2p_host_gpio_reads + o2p_host_rcc_reads);
+    rm.diag_pending = false;
+}
+
+static void test_gpio_wire_codes_are_the_published_ones(void)
+{
+    /* Wire contract, FW_VERSION 0x000E. gpio_diag.h, PLAN-MODBUS-DEBUG.md 5.3,
+     * FIRMWARE.md and tools/o2p_cli.py all carry these numbers. */
+    TEST_ASSERT_EQUAL_HEX8(0x08u, O2P_OP_READ_GPIO);
+    TEST_ASSERT_EQUAL_UINT(7u, O2P_DMBOX_STATUS_GPIO_NOT_SAMPLED);
+    TEST_ASSERT_EQUAL_UINT(8u, O2P_DMBOX_STATUS_ERR_GPIO_UNCLOCKED);
+    TEST_ASSERT_EQUAL_UINT(9u, O2P_DMBOX_STATUS_ERR_GPIO_NO_PIN);
+    TEST_ASSERT_EQUAL_HEX16(0x0501u, O2P_GPIO_PARAM(O2P_GPIO_PORT_F, 1u));
+    TEST_ASSERT_EQUAL_HEX16(0x8000u, O2P_GPIO_R0_CONFIG_VALID);
+    TEST_ASSERT_EQUAL_HEX16(0x4000u, O2P_GPIO_R0_LEVEL_VALID);
+    TEST_ASSERT_EQUAL_HEX16(0x0040u, O2P_GPIO_R0_LEVEL);
+    TEST_ASSERT_EQUAL_HEX16(0x0020u, O2P_GPIO_R0_ODR);
+    TEST_ASSERT_EQUAL_HEX16(0x0010u, O2P_GPIO_R0_OPEN_DRAIN);
+    TEST_ASSERT_EQUAL_HEX16(0x0F00u, O2P_GPIO_R0_AF_MASK);
+}
 #else
 static void test_debug_mailboxes_disabled(void)
 {
@@ -6830,6 +7634,33 @@ static void test_debug_mailboxes_disabled(void)
                            o2p_regmap_read(&rm, 0x0070u, 2u, out));
     TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS,
                            o2p_regmap_read(&rm, 0x0077u, 2u, out));
+    /* The wide peek block is compiled out with the rest: its header, its
+     * data, and its trigger all answer as undefined addresses. */
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS,
+                           o2p_regmap_read(&rm, 0x0100u, 2u, out));
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS,
+                           o2p_regmap_read(&rm, 0x0105u, 2u, out));
+    uint16_t trig[3] = { 0x2000u, 0x0000u, 1u };
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS,
+                           o2p_regmap_write(&rm, 0x0100u, 3u, trig));
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS,
+                           o2p_regmap_write(&rm, 0x0065u, 3u, trig));
+}
+#endif
+
+#if !O2P_DEBUG_ENABLE
+static void test_gpio_opcode_is_compiled_out_with_the_mailbox(void)
+{
+    /* A nodebug image has no mailbox to carry the opcode, so the pin query is
+     * an undefined address like the rest - not an OK with nothing behind it. */
+    o2p_regmap_t rm;
+    o2p_regmap_init(&rm);
+    uint16_t cmd[2] = { 0x5A08u, 0x0101u };
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS,
+                           o2p_regmap_write(&rm, 0x0070u, 2u, cmd));
+    uint16_t out[5];
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS,
+                           o2p_regmap_read(&rm, 0x0072u, 5u, out));
 }
 #endif
 
@@ -7057,10 +7888,30 @@ int main(void)
     RUN_TEST(test_peek_rejects_a_count_outside_one_to_four);
     RUN_TEST(test_a_write_straddling_a_mailbox_is_an_illegal_value);
     RUN_TEST(test_peek_two_register_trigger_still_means_four_words);
+    RUN_TEST(test_peekw_reads_as_nothing_held_until_triggered);
+    RUN_TEST(test_peekw_one_trigger_and_one_read_return_the_whole_burst);
+    RUN_TEST(test_peekw_serves_the_trigger_time_snapshot_not_live_memory);
+    RUN_TEST(test_peekw_a_malformed_trigger_changes_nothing_and_touches_no_memory);
+    RUN_TEST(test_peekw_refuses_misaligned_and_unmapped_targets_without_dereferencing);
+    RUN_TEST(test_peekw_far_tail_of_every_region_is_exact_and_monotonic);
+    RUN_TEST(test_peekw_seq_counts_executed_triggers_and_skips_zero);
+    RUN_TEST(test_peekw_and_the_4_word_mailbox_share_one_idea_of_safe);
     RUN_TEST(test_dmbox_validation_and_opcodes);
     RUN_TEST(test_crash_mailbox_read_and_clear);
+    RUN_TEST(test_gpio_an_analog_pin_is_not_sampled_whatever_its_idr_bit_says);
+    RUN_TEST(test_gpio_an_input_pin_reports_its_real_level_both_ways);
+    RUN_TEST(test_gpio_an_output_pin_reports_latch_and_level_separately);
+    RUN_TEST(test_gpio_an_unclocked_port_is_refused_without_loading_it);
+    RUN_TEST(test_gpio_an_absent_pin_is_refused_without_loading_anything);
+    RUN_TEST(test_gpio_every_parameter_is_classified_by_the_package);
+    RUN_TEST(test_gpio_decodes_each_field_from_its_own_bits);
+    RUN_TEST(test_gpio_snapshot_is_one_masked_section_and_writes_nothing);
+    RUN_TEST(test_gpio_is_reachable_through_the_modbus_pdu_layer);
+    RUN_TEST(test_gpio_malformed_busy_or_refused_commands_leave_no_stale_level);
+    RUN_TEST(test_gpio_wire_codes_are_the_published_ones);
 #else
     RUN_TEST(test_debug_mailboxes_disabled);
+    RUN_TEST(test_gpio_opcode_is_compiled_out_with_the_mailbox);
 #endif
     return UNITY_END();
 }

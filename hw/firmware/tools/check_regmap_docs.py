@@ -29,7 +29,12 @@ UPDATE = os.path.join(FW, "src", "update.h")
 DOCS = ["FIRMWARE.md", os.path.join("..", "DESIGN.md")]
 
 
-BLOCKS = ("PRIMARY", "DIAG", "CONFIG", "UPDATE", "UPDDATA")
+# The debug blocks are compiled out of a nodebug build, but they are still wire
+# contract on every debug build, and o2p_cli.py drives them by literal address.
+# PEEKW was the first block past 0x00FF, which the per-line address check below
+# used to ignore outright.
+BLOCKS = ("PRIMARY", "DIAG", "CONFIG", "UPDATE", "UPDDATA",
+          "PEEK", "DMBOX", "CRASH", "PEEKW")
 
 
 def parse_regmap(text):
@@ -104,10 +109,16 @@ def main():
         # job is to make a change stick.
         #
         # Only hex tokens that could BE an address are considered, so the
-        # magics themselves (0xCA11, 0x5AC1) are not mistaken for addresses.
+        # magics themselves (0xCA11, 0x5AC1) are not mistaken for addresses:
+        # the low page, where every block lived until 0x000D, or any address
+        # inside a declared block. The low-page-only filter silently exempted
+        # every line about the wide peek block at 0x0100.
+        spans = [(rm["%s_BASE" % n], rm["%s_BASE" % n] + rm["%s_COUNT" % n])
+                 for n in BLOCKS]
         for i, ln in enumerate(lines, 1):
             hexes = [int(h, 16) for h in re.findall(r"0x([0-9A-Fa-f]{4})\b", ln)]
-            hexes = [h for h in hexes if h <= 0xFF]
+            hexes = [h for h in hexes
+                     if h <= 0xFF or any(lo <= h < hi for lo, hi in spans)]
             if not hexes:
                 continue
             for nm, addr in rm["every"].items():

@@ -514,6 +514,93 @@ enum {
     O2P_PEEK_ERR_ALIGN = 3u,
 };
 
+/* ---- Wide peek block: 0x0100, 65 registers, read/write, VOLATILE ----
+ *
+ * The 4-word mailbox above costs a trigger and a read per 16 bytes, so a
+ * 68-byte snapshot struct took five round trips - and, worse, five separate
+ * moments: the sampler publishes between any two of them, and the dump that
+ * came back was a struct that never existed. This block takes the whole burst
+ * in ONE trigger and holds it, so it comes back consistent however many reads
+ * a small transport needs to carry it home.
+ *
+ * TRIGGER: exactly one FC16 of exactly 3 registers at PEEKW_ADDR_HI -
+ * [addr_hi, addr_lo, words]. No 2-register form, unlike 0x0065: there is no
+ * legacy master to keep working, and a default length is a length the
+ * firmware did not get to check. Every other write that touches the block,
+ * and a word count outside 1..O2P_PEEKW_WORDS_MAX, is exception 03 and
+ * changes NOTHING - address, count, status, sequence and words all still
+ * describe the previous trigger.
+ *
+ * A well-formed trigger always replaces the result, with OK or with the
+ * reason it could not be served (ERR_ALIGN, ERR_RANGE, the same codes and the
+ * same region rules as 0x0065). Words the trigger did not fill read 0xFFFF,
+ * including every word of a refused burst.
+ *
+ * SEQ advances on every executed trigger, skipping 0 on wrap so 0 keeps
+ * meaning "never triggered". It is what lets a reader that needs several
+ * FC03s prove they all came from one snapshot: read it with the first chunk
+ * and again after the last, and if it moved, somebody else peeked in between.
+ * The echo of ADDR and WORDS is what lets a reader prove the snapshot is the
+ * one it asked for.
+ *
+ * AT 0x0100, NOT IN 0x0065..0x007F. That window is full (peek, sensor
+ * diagnostics, crash context) and 0x0080..0x00FA is the update data window
+ * (update.h). 0x00FB..0x00FF is left empty as a guard: a mistyped FC16 that
+ * runs off the end of an update block must land in nothing rather than in a
+ * trigger. Nothing else answers at 0x01xx - not this map, not update.c, and
+ * not the bootloader, which routes only the two update blocks.
+ *
+ * WHY 30 WORDS: see O2P_PEEKW_WORDS_MAX. */
+enum {
+    O2P_REG_PEEKW_ADDR_HI = 0x0100u,  /* W: target [31:16]; R: address held */
+    O2P_REG_PEEKW_ADDR_LO = 0x0101u,  /* W: target [15:0]                    */
+    O2P_REG_PEEKW_WORDS   = 0x0102u,  /* W: burst 1..30; R: words requested   */
+    O2P_REG_PEEKW_STATUS  = 0x0103u,  /* RO: O2P_PEEK_*                        */
+    O2P_REG_PEEKW_SEQ     = 0x0104u,  /* RO: executed triggers, 0 = never      */
+    O2P_REG_PEEKW_DATA    = 0x0105u,  /* RO: word 0 hi, word 0 lo, word 1 hi.. */
+};
+#define O2P_REG_PEEKW_BASE  0x0100u
+#define O2P_REG_PEEKW_COUNT 65u
+#define O2P_PEEKW_HEADER    5u
+
+/* The ceiling on one burst, in 32-bit words.
+ *
+ * 30 words = 120 bytes, and the whole block - 5 header registers plus 60 data
+ * registers - is one FC03 whose reply is 5 + 2*65 = 135 bytes. That is chosen
+ * against the transports that carry this to a probe, not against the Modbus
+ * maximum. Largest reply ADU per path, read from the code 2026-09-10 (not
+ * measured on a cable):
+ *
+ *     USB-RS485 dongle, SWD bridge mailbox, node USB serial relay   255
+ *     node LoRaWAN relay, reply as an uplink at DR4/DR5             242
+ *                                         at DR3                    115
+ *                                         at DR0-DR2                 51
+ *     Dragino RS485-LS A8 (manual's 46-byte uplink data; unverified) 46
+ *
+ *   - It fits ONE read on every wired path and on the radio at DR4/DR5. A
+ *     60-word ceiling (the most a 125-register FC03 can hold with this header,
+ *     a 255-byte reply) would be one read on the wired paths only, and the
+ *     radio drops an oversized reply rather than truncating it.
+ *   - It holds every struct this firmware has a reason to dump except g_rm
+ *     itself: o2p_snapshot_t (68 bytes), o2p_config_t (48), o2p_update_t.
+ *   - The copy runs with interrupts masked and USART1 has no FIFO enabled, so
+ *     the masked window must stay well inside one character time at the
+ *     fastest rate offered: 95 us at 115200 8E1. 30 words is about 32 us by
+ *     the disassembly (estimated, not measured); 60 would be about 64 us, two
+ *     thirds of a character. See peek_copy() in regmap.c for the arithmetic.
+ *   - It costs 120 bytes of the 36 KiB SRAM, once.
+ *
+ * Transports narrower than 135 bytes read the same snapshot in pieces, guarded
+ * by SEQ. Raising this means re-deriving all four points, not editing a
+ * number. */
+#define O2P_PEEKW_WORDS_MAX 30u
+_Static_assert(O2P_REG_PEEKW_COUNT == O2P_PEEKW_HEADER + 2u * O2P_PEEKW_WORDS_MAX,
+               "the wide peek block is its header plus two registers per word");
+_Static_assert(O2P_REG_PEEKW_DATA == O2P_REG_PEEKW_BASE + O2P_PEEKW_HEADER,
+               "the data registers start right after the header");
+_Static_assert(O2P_REG_PEEKW_BASE >= O2P_REG_UPDDATA_BASE + O2P_REG_UPDDATA_COUNT,
+               "the wide peek block must not overlap the update data window");
+
 /* ---- Sensor diagnostic mailbox: 0x0070, 7 registers, read/write, VOLATILE ---- */
 enum {
     O2P_REG_DIAG_CMD         = 0x0070u,
@@ -538,6 +625,14 @@ enum {
     O2P_DMBOX_STATUS_ERR_NACK    = 4u,
     O2P_DMBOX_STATUS_ERR_TIMEOUT = 5u,
     O2P_DMBOX_STATUS_ERR_BUSY    = 6u,
+    /* OP_READ_GPIO only, FW_VERSION 0x000E. Distinct codes rather than
+     * ERR_NACK/ERR_TIMEOUT, which mean something specific about an I2C part:
+     * a reader that saw ERR_NACK for an unclocked port would go looking for a
+     * dead sensor. NOT_SAMPLED is not an ERR_ because its configuration data
+     * is real - only the level is absent. See gpio_diag.h. */
+    O2P_DMBOX_STATUS_GPIO_NOT_SAMPLED   = 7u,
+    O2P_DMBOX_STATUS_ERR_GPIO_UNCLOCKED = 8u,
+    O2P_DMBOX_STATUS_ERR_GPIO_NO_PIN    = 9u,
 };
 
 enum {
@@ -548,6 +643,10 @@ enum {
     O2P_OP_READ_TMP_REG    = 0x05u,
     O2P_OP_READ_SHT_SERIAL = 0x06u,
     O2P_OP_READ_SHT_SAMPLE = 0x07u,
+    /* One MCU pin's mode, pull, type, AF, latch and level, plus its port's
+     * IDR/ODR. Read-only; served in the write, not deferred. PARAM = port << 8
+     * | pin. Encoding and packing: gpio_diag.h. */
+    O2P_OP_READ_GPIO       = 0x08u,
 };
 
 /* ---- Crash context retention: 0x0077, 9 registers, read/write, RETENTION ---- */
@@ -647,9 +746,32 @@ enum {
  * words would not fit - the whole of the UID and the flash-size register - now
  * answer OK for a burst that does fit.
  *
+ * 0x000D adds the wide peek block at 0x0100 (65 registers: a 3-register FC16
+ * trigger of address and 1..30 words, then one FC03 of up to 60 data
+ * registers). Wire-visible in both directions, on a debug build only:
+ * 0x0100..0x0140 answered exception 02 to every read and write and now
+ * answers them, with exception 03 for any write that is not exactly the
+ * trigger. Nothing that answered under 0x000C changed: 0x0065..0x006F keep
+ * their layout, trigger forms and status codes. That mailbox now copies its
+ * words with interrupts masked too, which no master can tell from the wire.
+ * A nodebug build reports the same 0x000D and still answers exception 02 at
+ * 0x0100, exactly as it does at 0x0065 - so "FW_VERSION >= 0x000D" means the
+ * block MAY exist, and BUILD_ID bit 30 or the exception is what says it does.
+ *
+ * 0x000E adds OP_READ_GPIO (0x08) to the diagnostic mailbox at 0x0070, and
+ * three DIAG_STATUS codes with it: 7 GPIO_NOT_SAMPLED (analog-mode pin, config
+ * reported, no level), 8 ERR_GPIO_UNCLOCKED (port clock off, nothing loaded),
+ * 9 ERR_GPIO_NO_PIN (no such bonded pin, nothing loaded). Wire-visible: DIAG_CMD
+ * 0x5A08 used to be exception 03 with status ERR_OPCODE and is now accepted,
+ * and a master decoding DIAG_STATUS must know 7..9. For this opcode only,
+ * DIAG_CRC_STATUS carries the port's analog-pin mask instead of a CRC mask.
+ * It is served inside the write, so its status is never PENDING. No register
+ * moved and opcodes 0x01..0x07 are unchanged. Debug builds only; a nodebug
+ * build reports 0x000E and still answers exception 02 at 0x0070.
+ *
  * For "which build is this", read BUILD_ID (0x0028/0x0029) - this number is
  * hand-maintained and says nothing about the binary. */
-#define O2P_FW_VERSION 0x000Cu  /* v0.12 - peek trigger accepts an explicit 1..4 word burst count */
+#define O2P_FW_VERSION 0x000Eu  /* v0.14 - OP_READ_GPIO (0x08) in the diagnostic mailbox */
 
 /* Overridden by tools/pio_build_id.py on every target build. The default is
  * reached only by the host test build, and means "no stamp", never a commit. */
@@ -914,6 +1036,14 @@ typedef struct {
     uint16_t peek_status;
     uint32_t peek_words[4];
 
+    /* Wide peek block. The words are a SNAPSHOT taken at trigger time, not a
+     * window onto live memory: reads only ever return what was copied then. */
+    uint32_t peekw_addr;
+    uint16_t peekw_words_req;
+    uint16_t peekw_status;
+    uint16_t peekw_seq;
+    uint32_t peekw_words[O2P_PEEKW_WORDS_MAX];
+
     /* Sensor diagnostic mailbox */
     uint16_t diag_cmd;
     uint16_t diag_param;
@@ -935,6 +1065,17 @@ typedef struct {
 
 #if O2P_DEBUG_ENABLE
 void o2p_regmap_load_crash_context(o2p_regmap_t *rm);
+#ifdef O2P_HOST_TEST
+/* Host builds have no SRAM or flash at the addresses a peek names. Every
+ * dereference the peek paths would make goes through this instead, so a test
+ * can back the regions with a pattern AND see every address that was touched
+ * - which is how a test proves a refused burst dereferenced nothing, rather
+ * than inferring it from a status code. NULL gives a fixed pattern of the
+ * address. o2p_peek_host_irq_depth counts the masked sections the copy is
+ * inside, so a test can check the copy never runs with interrupts enabled. */
+extern uint32_t (*o2p_peek_host_read)(uint32_t addr);
+extern int o2p_peek_host_irq_depth;
+#endif
 #else
 static inline void o2p_regmap_load_crash_context(o2p_regmap_t *rm) { (void)rm; }
 #endif

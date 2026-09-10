@@ -578,6 +578,29 @@ Runaway *accumulation* is suspended while armed, because external heat — a
 water bath — produces the die-referenced runaway signature at zero commanded
 duty and would latch mid-run. The latch itself is never cleared by this mode.
 
+### Debug blocks, debug builds only
+
+Compiled in with `O2P_DEBUG_ENABLE=1` and out of `env:o2probe_nodebug`, where
+every address below raises exception 02. Design:
+`firmware/doc/PLAN-MODBUS-DEBUG.md`; operator detail: `firmware/FIRMWARE.md`.
+
+| Block | Declared as | Purpose |
+|---|---|---|
+| Memory peek mailbox | `0x0065`, 11 registers, read/write, volatile | 1..4 words per trigger |
+| Sensor diagnostic mailbox | `0x0070`, 7 registers, read/write, volatile | typed AFE/ADC/sensor register reads |
+| Crash context | `0x0077`, 9 registers, read/write, retained | last HardFault, assert or IWDG record |
+| Wide peek block | `0x0100`, 65 registers, read/write, volatile | 1..30 words per trigger, snapshotted |
+
+The wide peek block exists because a 4-word mailbox needs a trigger and a read
+per 16 bytes, and a struct dumped across several of those is several moments
+stitched together. One 3-register FC16 at `0x0100` (address, 1..30 words)
+copies the whole burst with interrupts masked and holds it; one 65-register
+FC03 returns it, a 135-byte reply that fits every wired path and the LoRaWAN
+relay at DR4/DR5. Narrower paths read the same snapshot in pieces, checking the
+sequence register at `0x0104` did not move. The peeks read only SRAM, flash,
+the UID and the flash-size word, 4-byte aligned, a burst wholly inside the
+region it starts in; a malformed trigger is exception 03 and changes nothing.
+
 ### Update block, `0x0050`, 16 registers
 
 The RS-485 firmware updater's control registers, implemented in

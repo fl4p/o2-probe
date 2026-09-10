@@ -1,5 +1,6 @@
 #include "regmap.h"
 #include "faults.h"
+#include "gpio_diag.h"
 #include "heater_ctl.h"
 #ifndef O2P_HOST_TEST
 #include "mcu.h"
@@ -325,6 +326,13 @@ void o2p_regmap_init(o2p_regmap_t *rm)
     for (int w = 0; w < 4; w++) {
         rm->peek_words[w] = 0xFFFFFFFFu;
     }
+    /* Wide peek: nothing held, sequence 0 = never triggered, and every word
+     * reads as unexecuted rather than as a plausible zero. */
+    rm->peekw_status = O2P_PEEK_NONE;
+    rm->peekw_seq = 0u;
+    for (unsigned w = 0; w < O2P_PEEKW_WORDS_MAX; w++) {
+        rm->peekw_words[w] = 0xFFFFFFFFu;
+    }
 
     /* Sensor diagnostic mailbox initialization */
     rm->diag_status = O2P_DMBOX_STATUS_NONE;
@@ -518,6 +526,32 @@ static uint16_t read_peek(const o2p_regmap_t *rm, uint16_t a)
     return O2P_U16_INVALID;
 }
 
+/* Reads serve the snapshot the last trigger took. Nothing here dereferences a
+ * target address - that happens once, at trigger time, in peek_copy(). */
+static uint16_t read_peekw(const o2p_regmap_t *rm, uint16_t a)
+{
+    switch (a) {
+    case O2P_REG_PEEKW_ADDR_HI: return (uint16_t)(rm->peekw_addr >> 16);
+    case O2P_REG_PEEKW_ADDR_LO: return (uint16_t)(rm->peekw_addr & 0xFFFFu);
+    case O2P_REG_PEEKW_WORDS:   return rm->peekw_words_req;
+    case O2P_REG_PEEKW_STATUS:  return rm->peekw_status;
+    case O2P_REG_PEEKW_SEQ:     return rm->peekw_seq;
+    default: break;
+    }
+    /* in_block() has already confined `a` to the block, so the index is below
+     * 2 * O2P_PEEKW_WORDS_MAX. Checked again anyway: running off this array
+     * would publish a neighbouring field of the regmap as target memory. */
+    if (a < O2P_REG_PEEKW_DATA) {
+        return O2P_U16_INVALID;
+    }
+    unsigned i = (unsigned)(a - O2P_REG_PEEKW_DATA);
+    if (i >= 2u * O2P_PEEKW_WORDS_MAX) {
+        return O2P_U16_INVALID;
+    }
+    uint32_t w = rm->peekw_words[i / 2u];
+    return (i & 1u) ? (uint16_t)(w & 0xFFFFu) : (uint16_t)(w >> 16);
+}
+
 static uint16_t read_dmbox(const o2p_regmap_t *rm, uint16_t a)
 {
     switch (a) {
@@ -627,6 +661,12 @@ uint8_t o2p_regmap_read(void *ctx, uint16_t addr, uint16_t count, uint16_t *out)
     if (in_block(addr, count, O2P_REG_PEEK_BASE, O2P_REG_PEEK_COUNT)) {
         for (uint16_t i = 0; i < count; i++) {
             out[i] = read_peek(rm, (uint16_t)(addr + i));
+        }
+        return 0u;
+    }
+    if (in_block(addr, count, O2P_REG_PEEKW_BASE, O2P_REG_PEEKW_COUNT)) {
+        for (uint16_t i = 0; i < count; i++) {
+            out[i] = read_peekw(rm, (uint16_t)(addr + i));
         }
         return 0u;
     }
@@ -848,6 +888,144 @@ static void reference_air_frac(o2p_config_t *c, uint16_t alpha_old)
     }
 }
 
+#if O2P_DEBUG_ENABLE
+/* ---- memory peek, shared by the 4-word mailbox and the wide block ----
+ *
+ * ONE validator and ONE copy loop for both blocks. On a Cortex-M0+ there is no
+ * configurable BusFault: a misaligned load, an unmapped address or an unclocked
+ * peripheral is a HardFault, and on a potted board that is a probe that resets
+ * every time somebody asks it a debugging question. */
+
+#ifdef O2P_HOST_TEST
+uint32_t (*o2p_peek_host_read)(uint32_t addr) = NULL;
+int o2p_peek_host_irq_depth = 0;
+typedef int o2p_peek_irq_t;
+static o2p_peek_irq_t peek_irq_save(void)
+{
+    o2p_peek_host_irq_depth++;
+    return 0;
+}
+static void peek_irq_restore(o2p_peek_irq_t s)
+{
+    (void)s;
+    o2p_peek_host_irq_depth--;
+}
+static uint32_t peek_load(uint32_t a)
+{
+    return (o2p_peek_host_read != NULL) ? o2p_peek_host_read(a) : (a ^ 0xA5A5A5A5u);
+}
+#else
+typedef uint32_t o2p_peek_irq_t;
+/* PRIMASK is saved and RESTORED, not unconditionally re-enabled, so this stays
+ * correct if a caller is ever already masked. */
+static inline o2p_peek_irq_t peek_irq_save(void)
+{
+    uint32_t s = __get_PRIMASK();
+    __disable_irq();
+    return s;
+}
+static inline void peek_irq_restore(o2p_peek_irq_t s)
+{
+    __set_PRIMASK(s);
+}
+static inline uint32_t peek_load(uint32_t a)
+{
+    return *(const volatile uint32_t *)a;
+}
+#endif
+
+/* The readable region containing `target`, as the address of its LAST aligned
+ * word. Exactly PLAN-MODBUS-DEBUG.md 3.1: SRAM, flash, the three words of the
+ * 96-bit UID and the one flash-size word - nothing with a read side effect and
+ * none of the unmapped holes between them. The flash-size register is a region
+ * of one word and the UID of three, which is why a burst's length is part of
+ * the check rather than an afterthought. */
+static bool peek_region_last(uint32_t target, uint32_t *last)
+{
+    if (target >= 0x20000000u && target <= 0x20008FFCu) {
+        *last = 0x20008FFCu;
+    } else if (target >= 0x08000000u && target <= 0x0801FFFCu) {
+        *last = 0x0801FFFCu;
+    } else if (target >= 0x1FFF7590u && target <= 0x1FFF7598u) {
+        *last = 0x1FFF7598u;
+    } else if (target == 0x1FFF75E0u) {
+        *last = 0x1FFF75E0u;
+    } else {
+        return false;
+    }
+    return true;
+}
+
+/* Whether `words` words starting at `target` may be dereferenced, as a
+ * O2P_PEEK_* status. A burst must lie wholly inside the region it starts in.
+ *
+ * The fit test counts the words LEFT in the region rather than computing the
+ * burst's last address. target + (words-1)*4 cannot wrap today only because
+ * every region sits low in the address space, which is a property of the table
+ * above and not of this function; the subtraction below cannot wrap for any
+ * target the table admits, and a count of 0 becomes 0xFFFFFFFF and is refused
+ * rather than read as "nothing to check". */
+static uint16_t peek_check(uint32_t target, uint16_t words, uint32_t *last)
+{
+    if ((target & 3u) != 0u) {
+        return O2P_PEEK_ERR_ALIGN;
+    }
+    if (!peek_region_last(target, last)) {
+        return O2P_PEEK_ERR_RANGE;
+    }
+    if ((uint32_t)words - 1u > (*last - target) / 4u) {
+        return O2P_PEEK_ERR_RANGE;
+    }
+    return O2P_PEEK_OK;
+}
+
+/* Copy a burst peek_check() has passed into dst[0..words), and 0xFFFFFFFF into
+ * the rest of dst. Returns false if any word was not copied, which the caller
+ * turns into a refusal rather than an OK with holes in it.
+ *
+ * INTERRUPTS ARE MASKED FOR THE COPY, AND ONLY FOR THE COPY. The trigger is
+ * served from the main loop, so the sampler cannot run mid-copy anyway; what
+ * the mask adds is the two interrupts that write memory - SysTick advancing
+ * the millisecond count, and USART1 moving its receive state. Without it a
+ * struct holding either can come back torn between two words, and a torn
+ * struct is a set of plausible values that were never true together. The
+ * whole point of taking the burst in one trigger is that it is one moment.
+ *
+ * The cost is bounded by the character time, not by taste. USART1 runs
+ * without its FIFO, so RDR holds one character and a second one completing
+ * inside the mask would overrun it. At 115200 8E1, the fastest rate this
+ * firmware offers, a character is 95 us. In the 2026-09-10 env:o2probe build
+ * this function masks for 15 instructions a word, two of them taken branches:
+ * about 17 clock cycles, 62.5 ns each at 16 MHz with zero flash wait states
+ * (mcu.c). A 30-word burst is therefore about 32 us, a third of a character -
+ * an ESTIMATE from the disassembly, NOT a measurement on the board, and the
+ * reason O2P_PEEKW_WORDS_MAX is not 60. In practice nothing should arrive in
+ * the window at all: the master is waiting for this very reply.
+ *
+ * Validation stays outside the mask - it is arithmetic, and the mask is for
+ * what can change underneath. The per-word bound inside repeats peek_check()
+ * because the cost of it being wrong is a HardFault on a potted board. */
+static bool peek_copy(uint32_t target, uint16_t words, uint32_t last,
+                      uint32_t *dst, unsigned dst_len)
+{
+    unsigned n = 0u;
+    o2p_peek_irq_t s = peek_irq_save();
+    for (; n < (unsigned)words && n < dst_len; n++) {
+        uint32_t a = target + (uint32_t)n * 4u;
+        if (a < target || a > last) {
+            break;
+        }
+        dst[n] = peek_load(a);
+    }
+    peek_irq_restore(s);
+    bool complete = (n == (unsigned)words);
+    for (; n < dst_len; n++) {
+        dst[n] = 0xFFFFFFFFu;
+    }
+    return complete;
+}
+#endif /* O2P_DEBUG_ENABLE */
+
 uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_t *in)
 {
     o2p_regmap_t *rm = (o2p_regmap_t *)ctx;
@@ -954,58 +1132,53 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
         rm->peek_addr_lo = in[1];
         uint32_t target = ((uint32_t)in[0] << 16) | (uint32_t)in[1];
 
-        if ((target & 3u) != 0u) {
-            rm->peek_status = O2P_PEEK_ERR_ALIGN;
-            for (int w = 0; w < 4; w++) rm->peek_words[w] = 0xFFFFFFFFu;
-            return 0u;
+        /* The validator and the copy are shared with the wide block, so the
+         * two cannot drift into different ideas of what is safe to
+         * dereference. Behaviour on the wire is what 0x000C shipped: status
+         * and address are always replaced by a well-formed trigger, and every
+         * word of a refused burst reads 0xFFFFFFFF. */
+        uint32_t last = 0u;
+        uint16_t st = peek_check(target, words, &last);
+        if (st == O2P_PEEK_OK && !peek_copy(target, words, last, rm->peek_words, 4u)) {
+            st = O2P_PEEK_ERR_RANGE;
         }
-
-        /* Each permitted region is contiguous and is identified by the address
-         * of its LAST aligned word, so the burst check below is one comparison
-         * and cannot silently admit a run that leaves the region it started
-         * in. The flash-size register is a region of exactly one word; the UID
-         * is three. Both were unreachable while the check assumed every burst
-         * was four words long. */
-        uint32_t region_last;
-        if (target >= 0x20000000u && target <= 0x20008FFCu) {
-            region_last = 0x20008FFCu;
-        } else if (target >= 0x08000000u && target <= 0x0801FFFCu) {
-            region_last = 0x0801FFFCu;
-        } else if (target >= 0x1FFF7590u && target <= 0x1FFF7598u) {
-            region_last = 0x1FFF7598u;
-        } else if (target == 0x1FFF75E0u) {
-            region_last = 0x1FFF75E0u;
-        } else {
-            rm->peek_status = O2P_PEEK_ERR_RANGE;
-            for (int w = 0; w < 4; w++) rm->peek_words[w] = 0xFFFFFFFFu;
-            return 0u;
+        if (st != O2P_PEEK_OK) {
+            for (unsigned w = 0; w < 4u; w++) rm->peek_words[w] = 0xFFFFFFFFu;
         }
+        rm->peek_status = st;
+        return 0u;
+    }
 
-        /* target is at most 0x0801FFFC and words at most 4, so the last
-         * address cannot wrap. */
-        uint32_t last = target + ((uint32_t)words - 1u) * 4u;
-        if (last > region_last) {
-            rm->peek_status = O2P_PEEK_ERR_RANGE;
-            for (int w = 0; w < 4; w++) rm->peek_words[w] = 0xFFFFFFFFu;
-            return 0u;
+    /* Wide peek block, 0x0100. The contract is in regmap.h; in short, the
+     * SHAPE is checked first and a wrong shape changes nothing at all, then
+     * a well-formed trigger always replaces the held result - with the data,
+     * or with the reason there is none. */
+    if (in_block(addr, count, O2P_REG_PEEKW_BASE, O2P_REG_PEEKW_COUNT)) {
+        if (addr != O2P_REG_PEEKW_BASE || count != 3u) {
+            return O2P_MB_EX_ILLEGAL_VALUE;
         }
-
-        for (int w = 0; w < 4; w++) {
-            uint32_t a = target + (uint32_t)w * 4u;
-            /* The region check above already proves every requested word is
-             * mapped; this repeats it per dereference because the cost of
-             * being wrong here is a HardFault on a potted board. */
-            if ((uint32_t)w < (uint32_t)words && a <= region_last) {
-#ifndef O2P_HOST_TEST
-                rm->peek_words[w] = *(const volatile uint32_t *)a;
-#else
-                rm->peek_words[w] = 0x12345678u + (uint32_t)w;
-#endif
-            } else {
-                rm->peek_words[w] = 0xFFFFFFFFu;
+        uint16_t words = in[2];
+        if (words < 1u || words > O2P_PEEKW_WORDS_MAX) {
+            return O2P_MB_EX_ILLEGAL_VALUE;
+        }
+        uint32_t target = ((uint32_t)in[0] << 16) | (uint32_t)in[1];
+        uint32_t last = 0u;
+        uint16_t st = peek_check(target, words, &last);
+        if (st == O2P_PEEK_OK &&
+            !peek_copy(target, words, last, rm->peekw_words, O2P_PEEKW_WORDS_MAX)) {
+            st = O2P_PEEK_ERR_RANGE;
+        }
+        if (st != O2P_PEEK_OK) {
+            for (unsigned w = 0; w < O2P_PEEKW_WORDS_MAX; w++) {
+                rm->peekw_words[w] = 0xFFFFFFFFu;
             }
         }
-        rm->peek_status = O2P_PEEK_OK;
+        rm->peekw_addr = target;
+        rm->peekw_words_req = words;
+        rm->peekw_status = st;
+        /* 0 stays "never triggered", so a reader comparing SEQ across its
+         * chunks cannot mistake a wrap for the initial state. */
+        rm->peekw_seq = (uint16_t)(rm->peekw_seq == 0xFFFFu ? 1u : rm->peekw_seq + 1u);
         return 0u;
     }
 
@@ -1024,9 +1197,60 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
             return O2P_MB_EX_ILLEGAL_VALUE;
         }
         uint8_t op = (uint8_t)(cmd & 0xFFu);
-        if (op < O2P_OP_READ_LMP_REG || op > O2P_OP_READ_SHT_SAMPLE) {
+        if (op < O2P_OP_READ_LMP_REG || op > O2P_OP_READ_GPIO) {
             rm->diag_status = O2P_DMBOX_STATUS_ERR_OPCODE;
             return O2P_MB_EX_ILLEGAL_VALUE;
+        }
+        /* OP_READ_GPIO IS SERVED HERE, inside the write that asks for it, and
+         * not queued for main.c like opcodes 0x01..0x07. The difference is
+         * deliberate.
+         *
+         * Those seven are I2C transactions - up to 25 ms each, one with a
+         * 10 ms conversion wait, on a bus the sampler owns between its phases
+         * - which is why main.c runs them only in PH_IDLE and only once the
+         * reply has left the wire. This one is seven register loads, the same
+         * class of work as the two peek triggers above, which are also served
+         * in the write.
+         *
+         * The property that could have argued for deferring - that MODER,
+         * PUPDR, OTYPER, AFR, IDR and ODR describe ONE instant relative to the
+         * code that changes pin modes - holds at this point already. Every
+         * writer of a pin's mode is main-loop code that runs to completion
+         * before it returns: o2p_i2c1_bus_recover() drives PB6/PB7 as outputs
+         * and re-runs o2p_i2c1_init() before returning; heater.c (PA8),
+         * ads1119.c (PB1), mcu_adc.c (PA4/PA6/PA7), lmp91000.c (PB0) and
+         * modbus_rtu.c (PA9/PA10/PC6/PC7) configure inside their own calls.
+         * This handler is reached from o2p_modbus_poll() in that same loop, so
+         * it cannot land half-way through any of them, PH_IDLE or not. No
+         * interrupt changes a pin MODE: SysTick counts milliseconds, and
+         * USART1's TC handler only drives DE and /RE (PC6/PC7) through BSRR -
+         * which the snapshot excludes by masking interrupts around its loads.
+         * Checked 2026-09-10 by grepping src/ for MODER/PUPDR/OTYPER/AFR/BSRR
+         * writers and for every *_Handler.
+         *
+         * What serving it here buys: the result exists when the write is
+         * acknowledged, so a port walk is sixteen request pairs rather than
+         * sixteen sampler cycles; and the path a host test drives through
+         * o2p_mb_dispatch() is the WHOLE path. A deferred case in main.c
+         * would be a line no host test can reach.
+         *
+         * BUSY still applies (checked above): a queued I2C opcode owns the
+         * result registers until it has run, and this would overwrite them. */
+        if (op == O2P_OP_READ_GPIO) {
+            if (count != 2u) {
+                rm->diag_status = O2P_DMBOX_STATUS_ERR_OPCODE;
+                return O2P_MB_EX_ILLEGAL_VALUE;
+            }
+            o2p_gpio_diag_result_t res;
+            uint16_t st = o2p_gpio_diag_read(in[1], &res);
+            rm->diag_cmd = cmd;
+            rm->diag_param = in[1];
+            rm->diag_rdata0 = res.rdata[0];
+            rm->diag_rdata1 = res.rdata[1];
+            rm->diag_rdata2 = res.rdata[2];
+            rm->diag_crc_status = res.analog_mask;
+            rm->diag_status = st;
+            return 0u;
         }
         bool needs_param = (op == O2P_OP_READ_LMP_REG ||
                             op == O2P_OP_TRIM_LMP_TIACN ||
@@ -1064,6 +1288,7 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
     if (overlaps_block(addr, count, O2P_REG_HTEST_BASE, O2P_REG_HTEST_COUNT)
 #if O2P_DEBUG_ENABLE
         || overlaps_block(addr, count, O2P_REG_PEEK_BASE, O2P_REG_PEEK_COUNT)
+        || overlaps_block(addr, count, O2P_REG_PEEKW_BASE, O2P_REG_PEEKW_COUNT)
         || overlaps_block(addr, count, O2P_REG_DMBOX_BASE, O2P_REG_DMBOX_COUNT)
         || overlaps_block(addr, count, O2P_REG_CRASH_BASE, O2P_REG_CRASH_COUNT)
 #endif

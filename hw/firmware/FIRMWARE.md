@@ -1179,6 +1179,133 @@ this to measure what the ring can do, not to hold a temperature.
 If `HEATER_DUTY` stays zero, read `HEATER_BLOCK` in the diagnostic block for
 the reason — it reports every interlock at once rather than the first.
 
+### Debug blocks — debug builds only
+
+Compiled in with `O2P_DEBUG_ENABLE=1` (`env:o2probe`, `env:o2probe_revb`).
+`env:o2probe_nodebug` compiles all four out, and every address in them then
+raises exception 02 like any other undefined register; `BUILD_ID` bit 30 says
+which kind of image is answering. Design, and the Cortex-M0+ rules the peeks
+obey: `doc/PLAN-MODBUS-DEBUG.md`.
+
+| Block | Declared as | Purpose |
+|---|---|---|
+| Memory peek mailbox | `0x0065`, 11 registers, read/write, volatile | 1..4 words per trigger |
+| Sensor diagnostic mailbox | `0x0070`, 7 registers, read/write, volatile | typed AFE/ADC/sensor register reads; MCU pin state (opcode 8, see below) |
+| Crash context | `0x0077`, 9 registers, read/write, retained | last HardFault, assert or IWDG record |
+| Wide peek block | `0x0100`, 65 registers, read/write, volatile | 1..30 words per trigger, snapshotted |
+
+Both peeks read only SRAM `0x20000000`–`0x20008FFC`, flash
+`0x08000000`–`0x0801FFFC`, the three UID words at `0x1FFF7590`–`0x1FFF7598`
+and the flash-size word at `0x1FFF75E0`, on 4-byte boundaries, and a burst must
+lie wholly inside the region it starts in. Anything else is refused with a
+status and is never dereferenced: on this core a bad load is a HardFault.
+
+#### Wide peek block — `0x0100`
+
+One FC16 of exactly three registers at `0x0100` — address high, address low,
+word count 1..30 — takes the whole burst in one go, with interrupts masked for
+the copy, and holds it. One FC03 of 65 registers then returns all of it: a
+135-byte reply. Because the words are a snapshot, a transport too narrow for
+that reads the same snapshot in several pieces, and nothing the sampler
+publishes in between can tear it.
+
+| Reg | Name | Access | Meaning |
+|---|---|---|---|
+| `0x0100` | `PEEKW_ADDR_HI` | rw | trigger: target address, high word; reads the address held |
+| `0x0101` | `PEEKW_ADDR_LO` | rw | low word |
+| `0x0102` | `PEEKW_WORDS` | rw | trigger: words, 1..30; reads the count held |
+| `0x0103` | `PEEKW_STATUS` | ro | 0 none, 1 OK, 2 out of range, 3 misaligned |
+| `0x0104` | `PEEKW_SEQ` | ro | triggers executed; skips 0 on wrap, so 0 means never |
+| `0x0105` | `PEEKW_DATA` | ro | word 0 high, word 0 low, word 1 high, … up to `0x0140` |
+
+- Any other write touching the block, and a count of 0 or above 30, is
+  **exception 03 and changes nothing** — address, count, status, sequence and
+  data still describe the previous trigger.
+- A well-formed trigger always replaces the result: with the data, or with a
+  status saying why there is none. Data past the requested count, and all of
+  it when the status is not OK, reads `0xFFFF`.
+- A reader that needs more than one FC03 reads the sequence register with its
+  first piece and again after its last. If it moved, another master peeked in
+  between and the pieces do not belong together.
+
+How much of the block one read carries, by the largest reply ADU on each path
+(read from the code 2026-09-10, not measured on a cable):
+
+| Path | Largest reply | One FC03 carries |
+|---|---|---|
+| USB-RS485 dongle, SWD bridge mailbox, node USB serial relay | 255 B | everything |
+| Node LoRaWAN relay, reply uplinked at DR4/DR5 | 242 B | everything |
+| … at DR3 | 115 B | header + 25 words |
+| … at DR0–DR2 | 51 B | header + 9 words |
+| Dragino RS485-LS `A8` (46-byte uplink data, unverified) | 46 B | header + 7 words |
+
+The trigger itself is 15 bytes, inside the `A8` ceiling. The radio drops an
+oversized reply rather than truncating it, so `--max-adu` in
+`tools/o2p_cli.py peek` is a ceiling to respect, not a hint.
+
+`tools/o2p_cli.py peek SYMBOL` uses this block when `FW_VERSION` (`0x0018`)
+reads `0x000D` or later, and falls back to the 4-word mailbox when it is older
+or the block answers exception 02 (a nodebug build). It reads the ELF symbol's
+size by default (`--bytes`/`--count` override), rounds an unaligned symbol out
+to whole words, splits the reads to fit `--max-adu` (`auto`, `dongle`, `swd`,
+`node`, `lorawan-dr4`, `lorawan-dr3`, `lorawan-dr0`, `a8`, or a number), and
+refuses the result if the sequence register moved between pieces.
+`tools/test_o2p_cli_peek.py` checks all of that host-side, against
+`src/regmap.c` and `src/modbus_pdu.c` compiled into `tools/peek_oracle.c`
+rather than against a Python imitation of them. Nothing in it has run against
+a probe.
+
+#### Pin state — opcode 8 (`OP_READ_GPIO`) in the sensor diagnostic mailbox
+
+Firmware `0x000E` and later, debug builds only. It reads what one MCU pin is
+really doing: its mode, pull, output type, alternate function, output latch and
+level, plus its whole port's input and output registers. It is strictly
+read-only: no mode, pull, output or clock register is written. It exists
+because PB1, the ADS1119's DRDY input, once sat unconfigured in analog mode,
+read 0 whatever the pin did, and got a healthy ADC replaced
+(`../PIN-IDENTITY-POSTMORTEM.md`).
+
+One FC16 of two registers:
+`DIAG_CMD` (`0x0070`) = `0x5A08`, and
+`DIAG_PARAM` (`0x0071`) = port × 256 + pin,
+where port A = 0, B = 1, C = 2, D = 3, F = 5 (there is no port E). Then read
+`DIAG_STATUS` (`0x0072`) through `DIAG_CRC_STATUS` (`0x0076`). The result is
+ready when the write is acknowledged; this opcode never reports PENDING.
+
+| Status | Meaning |
+|---|---|
+| 2 OK | level sampled; every field is real |
+| 7 GPIO_NOT_SAMPLED | the pin is in **analog mode**, so it has no level. RM0444 Rev 6 §7.3.13: IDR reads 0 in analog mode whatever the voltage. Mode, pull and AF are still reported. **Not a LOW.** |
+| 8 ERR_GPIO_UNCLOCKED | the port's clock is off. The firmware clocks A, B and C only; nothing on the port was read and no clock was enabled |
+| 9 ERR_GPIO_NO_PIN | not a pin on this LQFP48, per DS12232 Rev 5 Table 12: PA0–15, PB0–15, PC6/7/13/14/15, PD0–3, PF0–2. Nothing was read |
+
+| Register | Meaning |
+|---|---|
+| RDATA0 | bits 1..0 mode (0 input, 1 output, 2 AF, 3 analog) · bits 3..2 pull (0 none, 1 up, 2 down) · bit 4 open-drain · bit 5 output latch (ODR) · bit 6 level (IDR) · bits 11..8 AF number · bit 14 level valid · bit 15 configuration valid |
+| RDATA1 | the port's IDR, bits 15..0 |
+| RDATA2 | the port's ODR, bits 15..0 |
+| CRC_STATUS | for this opcode, the port's analog-pin mask: those pins' IDR bits are 0 by construction |
+
+With `tools/o2p_cli.py`:
+
+```sh
+python3 tools/o2p_cli.py --port /dev/cu.usbserial-X diag gpio ADC_DRDY   # or PB1
+python3 tools/o2p_cli.py --port /dev/cu.usbserial-X diag gpio --port B   # every bonded pin
+```
+
+A pin takes a `PB3`-style name or a `src/board_pins.h` signal name. The tool
+prints HIGH or LOW only for status OK with the level-valid bit. Otherwise it
+prints NOT SAMPLED with the reason, or the refusal. An output-mode pin whose
+latch and level disagree is flagged "driven level not reached - overloaded or
+shorted?".
+
+The opcode is served inside the write, with interrupts masked for its seven
+register loads (the reasoning is in `src/regmap.c` and
+`doc/PLAN-MODBUS-DEBUG.md` 5.4). It costs 568 bytes of flash on a debug build.
+`test/test_logic` `test_gpio_*` and `tools/test_o2p_cli_gpio.py` (against
+`tools/gpio_oracle.c`) check it host-side. **Nothing of it has run on a
+probe.**
+
 ### Update block — `0x0050`, 16 registers
 
 The firmware updater's control registers. Answered by the application and, with

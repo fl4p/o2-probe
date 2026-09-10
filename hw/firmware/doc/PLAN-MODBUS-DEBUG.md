@@ -38,7 +38,9 @@ All debug and diagnostic blocks are placed strictly in the free ground between t
    0x0065..0x006F : Memory Peek Mailbox (Burst window of 1-4 requested words, 11 registers)
    0x0070..0x0076 : Typed Sensor Diagnostic Mailbox (7 registers)
    0x0077..0x007F : Crash Context & Retention Mailbox (backed by TAMP->BKP0R..4R, 9 registers)
-   0x0080..       : Firmware Update Data Window
+   0x0080..0x00FA : Firmware Update Data Window (123 registers)
+   0x00FB..0x00FF : unassigned guard gap (exception 02)
+   0x0100..0x0140 : Wide Peek Block (1-30 words per trigger, snapshotted, 65 registers) - added 2026-09-10, FW_VERSION 0x000D, see 3.4
 ```
 
 ---
@@ -73,6 +75,34 @@ All debug and diagnostic blocks are placed strictly in the free ground between t
 ### 3.3 Atomic Trigger & Dispatch Semantics
 - **Atomic FC16 Requirement (Resolving A-1):** The write callback receives `(addr, count, in)`. Single-register writes to `0x0066` are rejected: the write is accepted and executed only if `addr == O2P_REG_PEEK_ADDR_HI` and `count` is 2 (address only, burst defaults to 4 words) or 3 (address plus a burst length of 1..4). Any other write length or offset touching the block, and any burst length outside 1..4, returns Modbus Exception `0x03` (`ILLEGAL_DATA_VALUE`). A refused trigger leaves the previous address, words and status untouched, so a malformed request cannot half-overwrite a result the operator is still reading.
 - **Initialization (Resolving A-2):** In `o2p_regmap_init()`, all `PEEK_W*_HI/LO` registers are explicitly initialized to `0xFFFF` and `PEEK_STATUS` to `0` (`NONE`), avoiding deceptive zero-readbacks.
+
+### 3.4 Wide Peek Block (`0x0100..0x0140`) — added 2026-09-10, `O2P_FW_VERSION` `0x000D`
+
+**Why.** The mailbox above returns 16 bytes per trigger + read pair. Dumping a 68-byte `o2p_snapshot_t` took five pairs, and the sampler could publish between any two of them, so the struct that came back had never existed as a whole. The wide block serves up to 30 words (120 bytes) per trigger and **snapshots the burst at trigger time**, so one struct comes back consistent however many FC03s carry it home. The 4-word mailbox is unchanged on the wire and keeps working.
+
+**Placement.** `0x0065..0x007F` is full and `0x0080..0x00FA` is the update data window (`src/update.h`). `0x00FB..0x00FF` is left empty as a guard, so an FC16 running off the end of an update block lands in nothing. Verified free on 2026-09-10 against `src/regmap.h`, `src/update.h`, the `o2p_regmap_read/write` dispatch, the bootloader's handlers (update blocks only) and `tools/check_regmap_docs.py`.
+
+| Reg Address | Name | Type | Description |
+|---|---|---|---|
+| `0x0100` | `O2P_REG_PEEKW_ADDR_HI` | R/W | Trigger: target [31:16]. Reads the address held |
+| `0x0101` | `O2P_REG_PEEKW_ADDR_LO` | R/W | Trigger: target [15:0] |
+| `0x0102` | `O2P_REG_PEEKW_WORDS` | R/W | Trigger: burst length 1..30. Reads the length held |
+| `0x0103` | `O2P_REG_PEEKW_STATUS` | RO | `0`=NONE, `1`=OK, `2`=ERR_RANGE, `3`=ERR_ALIGN (same codes and region rules as 3.1) |
+| `0x0104` | `O2P_REG_PEEKW_SEQ` | RO | Executed triggers; skips 0 on wrap, so 0 = never triggered |
+| `0x0105` | `O2P_REG_PEEKW_DATA` | RO | Word 0 [31:16], word 0 [15:0], word 1 [31:16] … through `0x0140`; `0xFFFF` if unexecuted |
+
+**Semantics.**
+- The trigger is exactly one FC16 of exactly 3 registers at `0x0100`. There is no 2-register form: no legacy master needs one, and a default length is a length the firmware never checked. Every other write touching the block, and a burst length of 0 or above 30, is exception `0x03` and changes nothing — address, length, status, sequence and data still describe the previous trigger, and no memory is dereferenced.
+- A well-formed trigger always replaces the result, with the data or with `ERR_ALIGN`/`ERR_RANGE`. Words not filled read `0xFFFF`, including every word of a refused burst.
+- The fit test counts the words left in the region (`(last - target) / 4`), so it cannot wrap for any target, including `0xFFFFFFFC`.
+- The copy runs with `PRIMASK` saved, set and restored around the copy loop only. The trigger is served from the main loop, so what the mask adds is SysTick and USART1. USART1 runs without its FIFO, so the masked window must stay inside one character time: 95 µs at 115200 8E1. In the 2026-09-10 `env:o2probe` build, `peek_copy` masks for 15 instructions per word, two of them taken branches, so about 17 clock cycles. At 16 MHz with zero flash wait states (`src/mcu.c`) a 30-word copy is about 32 µs, roughly a third of a character. That is an **estimate from the disassembly, not measured on the board**, and it is also why the ceiling is not 60 words.
+- A reader needing several FC03s reads `SEQ` with its first piece and again after its last. If it moved, the pieces came from different triggers.
+
+**The ceiling, 30 words.** The whole block is one 65-register FC03, a 135-byte reply. Largest reply ADU per path, read from the code on 2026-09-10 (not measured on a cable): USB-RS485 dongle, SWD bridge mailbox and node USB serial relay 255 B; node LoRaWAN relay 242 B at DR4/DR5, 115 B at DR3, 51 B at DR0-DR2; Dragino `A8` about 46 B (manual's uplink figure, unverified). With 30 words the block is one read on every wired path and on the radio at DR4/DR5. A 60-word ceiling, the most a 125-register FC03 holds, would be one read on the wired paths only, and the radio drops an oversized reply rather than truncating it. 30 words also covers every struct worth dumping except `g_rm` itself, and it costs 120 bytes of SRAM.
+
+**Compiled out** with the other debug blocks when `O2P_DEBUG_ENABLE=0`: every read and write at `0x0100..0x0140` is then exception `0x02`. A nodebug build reports the same `FW_VERSION`, so a master confirms the block exists from `BUILD_ID` bit 30 or from the exception, not from the version.
+
+**Tests.** `test/test_logic/test_main.c` `test_peekw_*` drive the block against a fake memory that counts every dereference, so each refusal is checked by status and by zero dereferences. They cover every region's far tail at every burst length, monotonicity in burst length, address wrap, malformed triggers, the snapshot property and SEQ.
 
 ---
 
@@ -117,11 +147,11 @@ Generic raw register writes are rejected. A typed, non-blocking diagnostic inter
 |---|---|---|---|
 | `0x0070` | `O2P_REG_DIAG_CMD` | R/W | Magic + Opcode: `0x5A00 | OPCODE` |
 | `0x0071` | `O2P_REG_DIAG_PARAM` | R/W | Parameter (register address, channel, or trimmed value) |
-| `0x0072` | `O2P_REG_DIAG_STATUS` | RO | `0`=NONE, `1`=PENDING, `2`=OK, `3`=ERR_OPCODE, `4`=ERR_NACK, `5`=ERR_TIMEOUT, `6`=ERR_BUSY |
+| `0x0072` | `O2P_REG_DIAG_STATUS` | RO | `0`=NONE, `1`=PENDING, `2`=OK, `3`=ERR_OPCODE, `4`=ERR_NACK, `5`=ERR_TIMEOUT, `6`=ERR_BUSY, `7`=GPIO_NOT_SAMPLED, `8`=ERR_GPIO_UNCLOCKED, `9`=ERR_GPIO_NO_PIN (7..9 for `OP_READ_GPIO` only, `O2P_FW_VERSION` `0x000E`, see 5.4) |
 | `0x0073` | `O2P_REG_DIAG_RDATA0` | RO | Result data byte 0/1 [31:16] |
 | `0x0074` | `O2P_REG_DIAG_RDATA1` | RO | Result data byte 2/3 [15:0] |
 | `0x0075` | `O2P_REG_DIAG_RDATA2` | RO | Result data byte 4/5 (for 6-byte SHT45 readouts) |
-| `0x0076` | `O2P_REG_DIAG_CRC_STATUS` | RO | CRC validity mask for multi-byte sensors |
+| `0x0076` | `O2P_REG_DIAG_CRC_STATUS` | RO | CRC validity mask for multi-byte sensors; for `OP_READ_GPIO`, the port's analog-pin mask instead (5.4) |
 
 ### 5.3 Supported Opcodes (Resolving C-2, C-3, C-4)
 - `0x01`: `OP_READ_LMP_REG` — Read LMP91000 register (param = `0x00` STATUS, `0x01` LOCK, `0x10` TIACN, `0x11` REFCN, `0x12` MODECN).
@@ -131,6 +161,38 @@ Generic raw register writes are rejected. A typed, non-blocking diagnostic inter
 - `0x05`: `OP_READ_TMP_REG` — Read TMP117 register (param = `0x00`..`0x08`, plus `0x0F` DEVICE_ID).
 - `0x06`: `OP_READ_SHT_SERIAL` — Read SHT45 32-bit electronic serial number into RDATA0/1.
 - `0x07`: `OP_READ_SHT_SAMPLE` — Read single-shot SHT45 conversion; returns 16-bit T in RDATA0, 16-bit RH in RDATA1, CRC flags in `CRC_STATUS`.
+- `0x08`: `OP_READ_GPIO` — Read-only snapshot of one MCU pin: mode, pull, output type, AF, output latch and level, plus its port's IDR, ODR and analog-pin mask (param = `port << 8 | pin`). Never reports a level for an analog-mode pin. Added 2026-09-10, `O2P_FW_VERSION` `0x000E`; see 5.4.
+
+### 5.4 `OP_READ_GPIO` (`0x08`) — added 2026-09-10, `O2P_FW_VERSION` `0x000E`
+
+**Why.** `../PIN-IDENTITY-POSTMORTEM.md`: PB1, the ADS1119 DRDY input, was never configured and sat in analog mode. IDR read 0 whatever the pin did, the conversion wait fell straight through, every channel read as the one before it, and a healthy ADC was replaced. One read of PB1's mode register would have said so. On a potted probe the bus is the only way to take that read.
+
+**Strictly read-only, and not a generic register read.** The opcode loads `RCC_IOPENR` and, for the one validated port, `GPIOx_MODER`, `OTYPER`, `PUPDR`, `IDR`, `ODR` and the relevant `AFRL`/`AFRH`. It writes nothing and never enables a clock. The register seam (`src/gpio_hal.h`) has no write function to call, which is what keeps 5.1's rejection of generic writes intact.
+
+**Parameter.** Port is 0 = A, 1 = B, 2 = C, 3 = D, 5 = F. 4 is where E would be, and the G071 has none: CMSIS `stm32g071xx.h` defines no `GPIOE`. Pin is 0..15. A one-register write with no parameter gets `ERR_OPCODE` and exception `0x03`, as `0x01` and `0x05` do.
+
+| Status | Meaning | What was loaded | Data |
+|---|---|---|---|
+| `2` OK | the level was sampled | IOPENR + 6 port registers | everything below |
+| `7` GPIO_NOT_SAMPLED | analog mode. ST RM0444 Rev 6, 7.3.13: "Read access to the input data register gets the value '0'", so there is no level | IOPENR + 6 port registers | configuration and port words real; `LEVEL` and `LEVEL_VALID` 0 |
+| `8` ERR_GPIO_UNCLOCKED | the port's `RCC_IOPENR` bit is clear. `src/mcu.c` enables A, B and C only | IOPENR only | all 0 |
+| `9` ERR_GPIO_NO_PIN | no such bonded pin: port 4 or above 5, pin above 15, or a pad not on the LQFP48 | nothing, RCC included | all 0 |
+
+These are new codes rather than `ERR_NACK`/`ERR_TIMEOUT`, which mean something specific about an I²C part. `ERR_BUSY` still applies while an I²C opcode is queued, because that opcode owns the result registers until it runs.
+
+**Packing.** `RDATA0`: bits 1..0 mode (MODER: 0 input, 1 output, 2 AF, 3 analog); bits 3..2 pull (PUPDR: 0 none, 1 up, 2 down, 3 reserved); bit 4 open-drain (OTYPER); bit 5 ODR, the latch; bit 6 LEVEL, the IDR bit; bits 11..8 AF number; bit 14 `LEVEL_VALID`, set only with OK; bit 15 `CONFIG_VALID`, set with OK or NOT_SAMPLED; other bits 0. Encodings are from RM0444 Rev 6 7.5.1, 7.5.2 and 7.5.4. `RDATA1` holds the port's IDR[15:0], `RDATA2` the port's ODR[15:0], and `CRC_STATUS` the port's analog mask (bit n = pin n in analog mode, so bit n of `RDATA1` is not a sample). A refusal leaves `RDATA0` at 0, not `0xFFFF`: `0xFFFF` would carry both VALID bits to a reader that ignored the status.
+
+**Bonded pins.** PA0–PA15, PB0–PB15, PC6, PC7, PC13–PC15, PD0–PD3 and PF0–PF2, 44 in all. Source: ST DS12232 Rev 5 (June 2025), Table 12 "Pin assignment and description", LQFP48 column, read 2026-09-10. The local KiCad 10.0.5 library has no STM32G071CBTx symbol, so it was not used. Caveat, from note 5 of that table and RM0444 8.1.1: `SYSCFG_CFGR1` PA11_RMP/PA12_RMP can put PA9/PA10 on pins 33/34. This firmware never writes SYSCFG, so those pads are PA11/PA12.
+
+**Where it executes: inside the FC16 handler, not deferred to `main.c`.** Opcodes `0x01..0x07` are I²C transactions of up to 25 ms on a bus the sampler owns between phases. `0x08` is seven register loads, the same class of work as the peek triggers, which are also served in the write. The consistency property that could argue for deferring already holds here. Every pin-mode writer is main-loop code that runs to completion before returning: I²C bus recovery re-runs `o2p_i2c1_init()` before it returns, and heater, ADC, AFE and RS-485 setup happen inside their own calls. The handler is reached from `o2p_modbus_poll()` in that same loop. No interrupt changes a pin mode. The one ISR that touches a pin at all, USART1 TC releasing DE and /RE through BSRR, is excluded by masking PRIMASK around the IOPENR check and the six loads. Serving it in the write also means the status is never PENDING: a port walk is 16 request pairs, not 16 sampler cycles. And the path a host test drives through `o2p_mb_dispatch()` is the whole path.
+
+**Cost.** +568 B of flash on `env:o2probe` and `env:o2probe_revb`, 0 on `env:o2probe_nodebug` and `env:loader`. Measured 2026-09-10 by building the same tree with and without the change. Compiled out with the rest of the mailbox at `O2P_DEBUG_ENABLE=0`.
+
+**Tests, host only.**
+- `test/test_logic/test_main.c` `test_gpio_*` run against `src/gpio_hal_host.c`, a GPIO/RCC fake that counts every load and every load made outside the mask. Each refusal is checked by status and by loads not made, and all 65536 parameters are classified.
+- `tools/test_o2p_cli_gpio.py` drives `o2p_cli.py diag gpio` through its real argument parser against `tools/gpio_oracle.c`, which is the real regmap, PDU layer and opcode.
+- Every guard was broken deliberately in a scratch copy and caught: analog check, clock gate, bonded table (bypassed, one extra bit, port E admitted), level and ODR bit indices, dispatch range, the immediate branch, the interrupt mask, stale result registers. On the CLI side: level taken from the port IDR word or without `LEVEL_VALID`, drive warning, walk mask, read-back ownership.
+- **Nothing has run on a probe.**
 
 ---
 
@@ -244,13 +306,13 @@ Because memory peek is an unauthenticated read primitive on a shared multi-drop 
 1. **Bench Bring-Up & Active Testing (`env:o2probe`):**
    - Default environment in `platformio.ini`.
    - Compiles with `-DO2P_DEBUG_ENABLE=1`.
-   - All volatile debug mailboxes (`0x0065..0x007F`: peek, sensor diagnostics, crash context) are live.
+   - All volatile debug mailboxes (`0x0065..0x007F`: peek, sensor diagnostics, crash context; and since 2026-09-10 the wide peek block `0x0100..0x0140`) are live.
    - Used for bench characterization, thermal step tests, sensor validation, and prototype field deployments where live wire debugging is required.
 
 2. **Production Field Deployment (`env:o2probe_nodebug`):**
    - Explicit target in `platformio.ini`.
    - Compiles with `-DO2P_DEBUG_ENABLE=0`.
-   - All debug mailboxes are compiled out; any read/write to `0x0065..0x007F` returns Modbus Exception `0x02` (`ILLEGAL_DATA_ADDRESS`).
+   - All debug mailboxes are compiled out; any read/write to `0x0065..0x007F` or `0x0100..0x0140` returns Modbus Exception `0x02` (`ILLEGAL_DATA_ADDRESS`).
    - HardFault handler falls back to a minimal `NVIC_SystemReset()`.
    - Saves 1,492 bytes of Flash and 64 bytes of RAM.
    - Mandatory target before potting production probes destined for unmonitored permanent burial.
