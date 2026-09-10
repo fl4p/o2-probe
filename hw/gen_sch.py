@@ -1062,10 +1062,10 @@ def build_wiring() -> None:
 
     # 4. Precision Reference & Electrometer Buffers
     wire_path([pin_xy("U15", 1), (snap(218.44), snap(99.06)), pin_xy("U15", 2)])
-    wire_path([pin_xy("R31", 2), (snap(237.49), snap(116.84)), pin_xy("C10", 1)])
+    wire_path([pin_xy("R31", 2), (snap(240.03), snap(101.60)), (snap(240.03), snap(121.92)), (snap(207.01), snap(121.92)), (snap(207.01), snap(116.84)), pin_xy("C10", 1)])
     wire_path([pin_xy("U4", 1), (snap(233.68), snap(31.75)), (snap(233.68), snap(25.40)), (snap(259.08), snap(25.40)), (snap(259.08), snap(31.75)), pin_xy("U4", 2)])
     wire_path([pin_xy("U4", 7), (snap(233.68), snap(39.37)), (snap(233.68), snap(44.45)), (snap(261.62), snap(44.45)), (snap(261.62), snap(36.83)), pin_xy("U4", 6)])
-    wire_path([pin_xy("R40", 2), (snap(289.56), snap(27.94)), pin_xy("TP5", 1)])
+    wire_path([pin_xy("R40", 2), (snap(276.86), snap(27.94)), (snap(276.86), snap(43.18)), pin_xy("TP5", 1)])
 
     # 5. RS-485
     wire_path([pin_xy("R2", 2), (snap(19.05), snap(87.63)), (snap(17.78), snap(87.63)), pin_xy("D2", 1)])
@@ -1087,7 +1087,7 @@ def build_wiring() -> None:
 
     # 7. AFE & Cell
     wire_path([pin_xy("U7", 9), (snap(33.02), snap(163.83)), (snap(33.02), snap(170.18)), pin_xy("C17", 2)])
-    wire_path([pin_xy("U7", 2), (snap(63.50), snap(154.94)), (snap(63.50), snap(144.78)), (snap(16.51), snap(144.78)), pin_xy("R17", 1)])
+    wire_path([pin_xy("U7", 2), (snap(60.96), snap(154.94)), (snap(60.96), snap(147.32)), (snap(16.51), snap(147.32)), pin_xy("R17", 1)])
     wire_path([pin_xy("U7", 6), (snap(63.50), snap(160.02)), (snap(63.50), snap(142.24)), (snap(12.70), snap(142.24)), (snap(12.70), snap(160.02)), pin_xy("C16", 1)])
     wire_path([pin_xy("R42", 2), (snap(38.10), snap(187.96)), pin_xy("D7", 1)])
     wire_path([pin_xy("R43", 2), (snap(105.41), snap(193.04)), (snap(97.79), snap(193.04)), pin_xy("R44", 1)])
