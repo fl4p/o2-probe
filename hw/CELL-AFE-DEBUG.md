@@ -142,6 +142,161 @@ VOUT. The 2026-09-09 timeline is its own counterexample — `t_afe` went valid a
 12:57, five minutes *before* the open pin 11 was found. A valid `t_afe` proves
 the I²C path, the mode switch and the ADC chain. It says nothing about VREF.
 
+### 2026-09-10 evening: the net itself collapsed — the mirror image of the §2 trap
+
+§2's trap was an open package pin on a healthy net: the monitor read 2.5 V
+while the die was attached to nothing. On 2026-09-10 the net itself went
+down, and the two together are the reason a meter is mandatory on both
+sides of the buffer.
+
+Measured on Probe 3 (Rev A, unpotted, after the day's 80 °C bath and heater
+runs), 16:45–17:00 UTC:
+
+| node | value | source |
+|---|---|---|
+| `/VREF_TRIM` (U7.11 = ADS1119 REF U8.7 = R34/R35 tap) | **233 mV** | meter at the pin; `ADC_VREF_MON` 232 mV — same net, they agree |
+| `/VREF_WIPER` | 2.344 V | meter |
+| `/VREF_TOP` | 2.68 V | meter |
+
+The feed is healthy, so the fault is between the wiper and the net: the
+buffer (U4 — `AFE-BRING-UP-POSTMORTEM.md` puts RV1 "upstream of U4") or
+the net itself. With the net down, measured: `O2_RAW`, `WE_BUF`, `RE_BUF`,
+`CELL_BIAS`, `T_AFE` all invalid, `afe_vout` 9–16 mV and still sinking,
+while `i2c_errs` 0, `lmp_readback` 0x0CCD, `ads_fail_count` 0 and `VA_MON`
+3.29 V. **Every digital check green, every analog quantity dead** — that
+is the reference-net signature. It is not an I²C failure, and swapping the
+LMP91000 or the ADS1119 will not fix it (§2 already cost one AFE to a
+cousin of that assumption).
+
+Two follow-ups, in order:
+
+1. 2344 mV ÷ 10 = 234 mV. If the exact tenth is not a coincidence,
+   something bridges WIPER to TRIM through a 9:1 path and the net is
+   UNDRIVEN, not leaking. Power off, ohms TRIM→GND, read against the
+   R34/R35 schematic values: a driven net at 233 mV means a leak — start at
+   the U7 pins 10–13 edge, which owns four prior faults (09-08 bridge,
+   09-09 open pin 11, 09-09 R–W short, 09-09 reference collapse) and was
+   soaked today; an undriven net means U4 or its trace.
+2. Once VREF is back (~2.496 V; WE ≈ 0.67 × VREF ≈ 1672 mV; no cell fitted,
+   `afe_vout` ≈ 1675 mV textbook), run the 10 kΩ dummy-cell test that has
+   never been run.
+
+**Update, same evening: the leak is quantified — U4 is exonerated, hunt the
+net.** Meter at U4.1 (`/VREF_BUF`, the follower output, isolated from the
+net by R31 = 47 Ω per SCHEMATIC-REVIEW.md "H1" — C10 = 4.7 µF and all
+LMP91000/ADS1119/guard loads sit ON `/VREF_TRIM`): **431 mV**, while the
+net holds 233 mV. Arithmetic across R31: (431 − 233) mV / 47 Ω =
+**4.2 mA flowing into the net**, which sits at 233 mV → the net leaks
+through ≈ **55 Ω to ground**. Self-check: 431 × 55.3/(55.3 + 47) =
+232.9 mV — three readings agreeing to three digits, so they are
+simultaneous and real. The follower is alive and in current limit: holding
+2.344 V into 47 + 55 Ω needs ~23 mA, a 17 µA-IQ chopper delivers ~4 mA and
+collapses to 431 mV. The fault is ON the net, not upstream of R31.
+
+Prime suspect: **C10, the 4.7 µF MLCC on `/VREF_TRIM`** — the only bulk
+part on the net. A cracked MLCC leaks ohms-to-kΩ, drifts with temperature
+and voltage, and can "heal" and re-fail, which fits the whole history:
+the 09-09 collapse that "cleared", today's re-collapse after the 80 °C
+bath + heater runs, and the monitor drifting 232 → 226 → 228 mV while
+idle. Confirm power-off: ohms across C10's pads — every parallel path is
+≥ 47 Ω + 93 kΩ, so a ~55 Ω reading is C10 itself. If C10 reads open, fall
+back to the U7 pins 10–13 edge (the 09-08 bridge site), U8.7's neighbors,
+R34/R35, then the net vias, in that order. Flex or warm the C10 area
+gently while watching `ADC_VREF_MON` (the keeper reads it in ~2 s) — a
+cracked cap jumps. The 2344/10 numerology above is dead: the net voltage
+is the amp's current limit intersecting the leak, nothing to do with the
+wiper ratio.
+
+**Confirmed, same evening: C10 is the leak.** Power off, ohms directly
+across C10's pads: **~60 Ω** (predicted ~55 from the live arithmetic; every
+parallel path on those pads is ≥ 93 kΩ). Replace C10 — 1–4.7 µF X7R is
+fine, it is reference decoupling behind R31, not a timing part, but this
+board heat-cycles by design so prefer a smaller case or flexible
+terminations over another large rigid MLCC there. Post-removal checks:
+the board's C10 pads should read ~93 kΩ (the divider alone); the lifted
+part should still read tens of Ω on the bench — if it reads healthy out
+of circuit, the 60 Ω lived in the pad/solder joints instead (same fix,
+different root cause, worth knowing). Then: power up, watch for the
+recovery signature (VREF ~2496 mV, T_AFE and WE_BUF/RE_BUF valid,
+afe_vout ≈ 1675 mV no-cell, O2_RAW valid only after the up-to-15-min
+settle window, §4), re-arm the heater, and run the never-run 10 kΩ
+dummy-cell test.
+
+**Correction, same evening: C10 was NOT the leak — the 60 Ω attribution
+was circular.** "60 Ω across C10" was pads-to-ground through the
+footprint, i.e. the whole net's leak; treating it as C10's own resistance
+assumed away the very leak being hunted. C10 removed and the board
+repowered: `/VREF_TRIM` still collapsed (monitor 240 → 246 mV, empty
+footprint 250 mV live, `afe_vout` 33 mV still dead). The fabricated Rev A
+netlist (`git show 16b5a606` + `firmware/tools/pcb_netlist.py`) puts the
+net's membership at: R31.2 (feed), R34.1 (divider → `VREF_MON_RAW` → R35
+→ GND), U7.11, U8.7, C10.1 (now empty). Suspects, in test order:
+
+1. **Chip-input protection, power off, ohms at the pins:** U7.11 → U7.1
+   (GND; U7 GND pads are 1, 7, 15) and U8.7 → U8.2 (GND; U8 GND pads are
+   2, 3, 6, 15, 16, 17). ~60 Ω either way = that chip's input protection
+   is leaking internally → replace the chip. The U7 pins 10–13 edge
+   (LMP_C1, VREF_TRIM, CELL_WE, CELL_RE — no adjacent GND pin) has four
+   prior rework faults; U7 internal damage is credible.
+2. **Surface contamination:** the net drifted UP as the board dried
+   (226 → 234 → 240 → 246 mV over ~15 min), the board was soaked and
+   boiled today, and the 09-09 collapse "cleared" (probably a cleaning).
+   IPA + brush the whole AFE region, dry, re-ohm the empty footprint →
+   GND. A spontaneous full recovery while drying is the contamination
+   verdict delivered by the data (the keeper watches `ADC_VREF_MON`
+   every 60 s).
+3. Copper/via last: a cracked via partially shorting to a ground via is
+   exotic but not impossible.
+
+Close C10's file separately: ohms on the lifted part alone — tens of Ω
+= it was also guilty; charging/open = innocent (likely, given the above).
+
+**Collapse timestamp pinned (VictoriaMetrics, same evening):** the
+ADS1119's last valid conversions landed at **15:01** — `AFE_VOUT` blipped
+963 → 1026 mV on its way down — and from **15:02** every overrange
+channel reads 0xFFFF (`gas_vin_mv`, `gas_afe_mv`, the lot). The reference
+collapsed at **~15:01, in the wet/heating afternoon, eight minutes
+before the first of the five resets** (15:10). Note the asymmetry:
+channels above the collapsed reference go invalid; channels below it
+still convert to garbage (AFE_VOUT has read ~10 mV all evening). Last
+valid `VIN_MON` readings: 10.57–10.79 V (14:48–15:01); earlier
+bench-era eras read 9.65–9.79 V (stuck at exactly 9.74 V for hours
+overnight) and ~11.1 V three days ago — absolute trust in these is low
+(§6). Observability lesson: **the fault blinded the board's only remote
+supply monitor** — VIN is ADS1119-converted, so once VREF collapses,
+only a bench meter can see the rail under load.
+
+**RECOVERED, same evening ~18:02 — bake-dried contamination is the
+leading explanation.** After the IPA surface clean (no change) and a
+~20-minute bake (heater to 80 °C setpoint), `/VREF_TRIM` stepped
+302 → 2488 mV at 18:02 **while hot** and has held 2494–2496 mV through
+heater duty swings to 92–100 %. The thermal-ionic signature was confirmed
+before it died: 174 mV with local heat, 322 mV plateau cold outdoors,
+climbing while cooling — a resistance that halves in minutes with
+temperature is contamination, not silicon; U7/U8 internal damage is
+exonerated without lifting anything. Recovery timing coincided with the
+duty throttle 100 % → 2 % (a confound), but VREF later held at high duty
+and `VIN_MON` showed no sag under load — supply coupling is weakened,
+not proven dead. AFE woke with it: `faults` dropped 2560 → 512 (18:12),
+`AFE_VOUT` settling ~952 mV, `T_AFE` valid (40–41 °C), `O2_RAW`
+converting; settle window §4 restarted at recovery.
+
+**Edding 751 paint applied ~18:13 by Fab around U7, U8 and U4 — AFTER
+the recovery, so it is insurance, not the cause.** Documented risks:
+it seals residue in, not out (works until the film fails); a thick
+paint-marker film is not rated for this board's thermal cycling — expect
+micro-cracking over days-to-weeks, and cracked film + humidity holds
+water against the pins; the U7 pins 10–13 edge (four prior faults) is
+now uninspectable without solvent; the ink is not a qualified conformal
+coating and was applied wet with the board powered. Durable fix remains:
+strip, clean under the packages, thin qualified conformal coat. The
+paint's verdict comes from days of thermal cycles and the next humid
+exposure, not from tonight.
+
+**Rule addition: `VA_MON` valid and `i2c_errs` zero prove nothing about the
+reference.** The only measurement that splits this is WIPER vs TRIM, and it
+needs a meter.
+
 ---
 
 ## 3. Reading the rails
@@ -306,3 +461,88 @@ reporting** — a torn row does not repeat.
 
 Each SWD attach resets the MCU, which unbiases the cell and restarts the settle
 window. Budget 15 minutes per attach.
+
+## 2026-09-10 ~23:00 — WE_BUF/RE_BUF 0xFFFF closed as a NON-QUESTION on Rev A; VOUT 975 mV is open-input
+
+- **Correction of the standing premise.** Earlier notes treated
+  `WE_BUF/RE_BUF` (`0x0025`/`0x0026`) reading `0xFFFF` as "either residual AFE
+  trouble or honest floating-electrode overrange, to be settled by the
+  dummy-cell test." Wrong on this board: `hw_caps_rev_a.h:36` sets
+  `O2P_HW_BIAS_ADC_REACHES_ELECTRODES 0` — AIN2/AIN3 are wired to
+  `/ADC_VA_MON` and `/ADC_VIN_MON` (hw_caps_rev_a.h:12-13), so those two
+  registers have **no measurement behind them at all on Rev A** and read the
+  sentinel in every cycle, whatever is connected to the cell pads
+  (main.c:finish_electrode only writes them under the Rev B caps). The rail
+  data reaches `va_mv`/`vin_mv` instead. They come alive on Rev B. The
+  dummy-cell test cannot move them on this board — drop that expectation.
+- **What the dummy-cell test CAN answer on Rev A** (all via the O2 chain):
+  `O2_RAW` (a 10 kΩ across WE/RE gives a definite µA), `AFE_VOUT`
+  (`0x0013`), `CE_MV` (`0x002D`), and the bias verdict.
+- **AFE_VOUT ≈ 975 mV explained as open-input, not an anomaly to chase.**
+  VOUT is the converter's own output, published unconditionally as a rail
+  diagnostic (main.c:977: "24 mV named the pin 10-11 bridge and 2495 mV named
+  the collapsed A1"). With no cell attached the TIA input floats and the
+  output parks mid-scale; the ~1675 mV expectation (0.67 × VREF 2494) assumed
+  a cell load holding the input at the LMP internal zero. One dummy cell
+  answers it. Post-0x0010 reboot: VOUT 975, VREF 2494, O2_RAW 98.97 µA (air
+  band, cal point 99.16).
+
+## 2026-09-10 ~22:20 — the sustained 80 °C soak: VREF falls with tip
+temperature again; the heater disarm has two arms
+
+The evening recovery (§2, 18:02) held VREF 2494–2496 mV through
+minutes-scale heater duty swings. The sustained soak is a different
+regime, and it re-activated the contamination. Heater armed at 80.00 °C
+setpoint, 100 % duty cap (0x0049=8000, consent 0x004A), ~94 % duty at
+steady state:
+
+| tip temp | VREF | notes |
+|---|---|---|
+| 63 °C | 2416 mV | falling |
+| ~75 °C | 2304 mV | |
+| 79.7 °C | **2258 mV** | ~94 % duty, steady soak |
+| duty backed off | 2404 mV | recovering as it cooled |
+
+That is the second temperature-reversal of the same resistance (first:
+the 18:02 bake-dry recovery) — reversibility with temperature keeps
+pointing at ionic contamination, not silicon. And the Edding paint
+(applied 18:13, after recovery) did **not** prevent the fall under soak:
+first data point for the paint verdict, and it is not in the paint's
+favour.
+
+The AFE during the soak: stuck in SETTLING, 12 settle restarts, ~10
+missed ADS conversions; `O2_RAW`, `T_AFE`, `VIN` invalid;
+`AFE_VOUT` ~10 mV — that is firmware honesty ("no cell current"), the
+same signature as the collapsed-net era, not a new fault.
+
+Supply at full duty: `VIN_MON` sagged to **10.2 V**, `VA_MON` 3.16 V,
+and the probe rebooted ~20:49 local (uptime regs 0x0016/0x0017; reset
+counter 0x001A read 12). With VREF down, VIN is ADS1119-converted and
+therefore blind (§3/§6) — trust the sag only as a lower bound. The
+firmware TIP_LIMIT 82/77 °C backstop held throughout: tip never
+exceeded ~79.8 °C into an 80 °C setpoint.
+
+**Operational lesson — the heater has two independent arms, and disarming
+one does nothing to the other:**
+
+- `0x0060` = volatile bench override (test arm; the firmware's own disarm
+  command writes 0 here)
+- `0x004A` = persistent tip-temp consent — **committed to flash it
+  survives reboots**
+
+Tonight: the dashboard's disarm cleared only 0x0060 and reported
+success; the probe rebooted after the OTA flash, restored the committed
+consent from NVM, and the heater re-armed itself at 80 °C while the UI
+said DISARMED. The keeper's atomic write+readback caught the honest
+failure shape (`0x0060 readback 1 != written 36519` — the register
+reflects the combined arm state). Kill sequence, verified: write
+`0x004A=0`, then `0x0060=0`, confirm both read back 0, then commit
+(`0x003E=0x5AC1`) so the next reboot restores DISARMED. Dashboard fixed
+accordingly (web-ble `1ffa508`: both arms, consent first, readback
+verified or it throws).
+
+Probe left disarmed and committed at ~22:10 local; output register 0,
+tip cooling 79.8 → 44.5 °C over ~10 min. The bench verdict on sustained
+high-temperature operation is Fab's call, but the data says: at 80 °C
+soak the reference collapses, the AFE stops converting, and the supply
+sags to a reboot — while the firmware's own backstop never flinched.
