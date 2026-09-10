@@ -584,3 +584,57 @@ Fix, both halves:
 Commissioning after ANY firmware flash is now a standing step, by
 design: the fail-safe guarantees the ceiling is 0 after an upgrade, and
 only the explicit triple (plus commit) restores pile protection.
+
+## 2026-09-11 ~01:40 — commissioning landed; the SUPPLY block is real;
+## a retraction; the node woke via LoRaWAN
+
+**Commissioning complete in config.** After the parallel session's
+22:01 OTA left the bench node hung, it recovered without a bench visit:
+the keeper's chirpstack path sent SESSION_OPEN (fPort 13, opcode 0x01,
+flags `CTRL_F_BLE_OTA`) against the node's invitation; BLE link
+authenticated 01:08:41. That downlink is the standing remote-wake lever
+— the node parses nothing, but the CTRL header is the one exception,
+and `+BLE_OTA` opens the radio without a button press.
+
+The triple, all readback-verified through the keeper (~01:35):
+`0x0033=8500` (armed all along), `0x0035=1200` (this write,
+readback 1200), `0x0048=0x9C07` (armed all along), commit
+`0x003E=23233` (readback 0 — edge-register echo, by design).
+`0x0049=8000` sentinel re-read: the RH loop is the configured law.
+`HEATER_BLOCK=0x0200` — SUPPLY only; CONFIG_OFF, NO_CONSENT and
+TIP_DISARMED are all clear. The config side of pile protection is done.
+
+**The SUPPLY block is new data for §contamination.** `VA_MON`
+2904 → 2852 mV over seconds, unloaded, at tip 48.2 °C; `VIN_MON`
+10.65 V (no VIN fault); VREF 2494 mV — healthy, so ADS-converted
+rail readings are trustworthy again (§3/§6 blindness does not apply).
+Compare the soak era: VA 3.16 V *under ~94 % duty*. The 3V3A domain is
+now further down unloaded and cool than it was loaded and hot. The
+interlock is right to refuse the 86 mA (main.c: "a rail already out of
+tolerance is not the place to put more load"); the RH loop will engage
+the moment the rail recovers — nothing further to commission.
+
+Also from this read: RH 97.7 % (chamber saturated post-soak),
+`O2_COMP` 0xFFFF (the wet-basis guard, correct — never a number
+instead), `FAULTS_EVER 0x8F41` (RUNAWAY/TEMP_OVER/DEW_SUSPECT/
+ADC_RANGE seen historically tonight; live word only HEATER_DISABLED,
+VA_LOW, +bit0), `SETTLE_RESTARTS=2` — VA sags restart settling
+(main.c phase_rails), so the 900 s settle clock is the rail's, not ours.
+
+**Retraction — the "wrong-base cross-wire" was never in the keeper.**
+At 01:13 the keeper was dead (killed externally, see below); `curl -s`
+swallowed the connection refusals and `-o` wrote nothing, so `cat
+/tmp/v1.json` resurrected hours-old files from the disarm turn —
+`{"base": 73, "regs": [8000, 0]}` is exactly the 0x0049:2 arm read.
+The keeper's per-line address check (o2p_ble_keeper.py /read handler)
+was right all along; my instrument was wrong. Lesson recorded: always
+print the status code and never cat a file curl may not have written.
+Defense in depth shipped anyway (web-ble d67c010): the client now
+refuses a wrong-block reply by base mismatch before count.
+
+**Keeper wars, fourth round.** The supervisor tree was killed three
+more times tonight (last at 01:10, no exit line — external pkill
+signature) and a duplicate instance spawned at 01:15 that could not
+bind 8923 and ran its BLE loop bare — likely the dangling CTRL session
+that refused every claim until its expiry. Standing rule for the two
+sessions: don't pkill the keeper, ask; one bus owner at a time.
