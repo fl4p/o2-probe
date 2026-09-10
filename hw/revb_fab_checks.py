@@ -23,7 +23,9 @@ COURTYARDS = {tuple(sorted(p.split('/'))) for p in (
 COURTYARDS_95 = (COURTYARDS - {("R10", "R11")}) | {("J105", "R10"), ("J3", "TP5")}
 
 
-def check_drc(path, *, compact_95=False):
+def check_drc(path, *, compact_95=False, power_compact_mm=0):
+    if power_compact_mm not in (0,4) or (power_compact_mm and not compact_95):
+        raise ValueError("Unsupported power compaction profile")
     report = json.loads(path.read_text())
     for key in ('violations', 'schematic_parity', 'unconnected_items', 'ignored_checks'):
         if not isinstance(report.get(key), list):
@@ -43,7 +45,8 @@ def check_drc(path, *, compact_95=False):
                 raise ValueError('Unrecognised courtyard item')
             refs.append(match.group(1))
         pairs.append(tuple(sorted(refs)))
-    if Counter(pairs) != Counter(COURTYARDS_95 if compact_95 else COURTYARDS):
+    expected_pairs = (COURTYARDS_95 - {("C4", "C7")}) if power_compact_mm else COURTYARDS_95 if compact_95 else COURTYARDS
+    if Counter(pairs) != Counter(expected_pairs):
         raise ValueError(f'Courtyard set changed: {pairs}')
     return {'errors': 0, 'unconnected': 0, 'parity': 0, 'silkscreen': 0,
             'manual_assembly_courtyard_warnings': len(pairs)}
@@ -71,7 +74,9 @@ def clipped_area(points, bounds):
                    for a, b in zip(points, points[1:] + points[:1]))) / 2
 
 
-def check_gerbers(directory, *, compact_95=False, tip_trim_mm=0):
+def check_gerbers(directory, *, compact_95=False, tip_trim_mm=0, power_compact_mm=0):
+    if power_compact_mm not in (0,4) or (power_compact_mm and (not compact_95 or tip_trim_mm!=2)):
+        raise ValueError("Unsupported power compaction profile")
     if tip_trim_mm not in (0, 2) or (tip_trim_mm and not compact_95):
         raise ValueError("Unsupported tip trim/profile combination")
     expected = {f'o2-probe-{l.replace(".", "_")}.gbr': f
@@ -96,7 +101,7 @@ def check_gerbers(directory, *, compact_95=False, tip_trim_mm=0):
         def shifted(records, is_slot):
             out = Counter()
             def point(p):
-                return (p[0], round(p[1]+12+(tip_trim_mm if not is_slot else 0), 3) if is_slot or p[1] == -157 else p[1])
+                return (p[0], round(p[1]+12+power_compact_mm+(tip_trim_mm if not is_slot else 0), 3) if is_slot or p[1] == -157 else p[1])
             for record, count in records.items():
                 item = (record[0], frozenset(point(p) for p in record[1]))
                 if record[0] == 'arc':
@@ -120,10 +125,10 @@ def check_gerbers(directory, *, compact_95=False, tip_trim_mm=0):
         if not polygons:
             raise ValueError(f'{layer}: missing filled copper')
         for polygon in polygons:
-            if clipped_area(polygon, (100, -123, 120, -121) if compact_95 else (100, -135, 120, -133)) > 1e-7:
+            if clipped_area(polygon, (100, -123+power_compact_mm, 120, -121+power_compact_mm) if compact_95 else (100, -135, 120, -133)) > 1e-7:
                 raise ValueError(f'{layer}: zone copper bridges thermal fill gap')
         regions += len(polygons)
-    return {'layers': LAYERS, 'outline_mm': [20, 95-tip_trim_mm if compact_95 else 107], 'thermal_slots': 4,
+    return {'layers': LAYERS, 'outline_mm': [20, 95-tip_trim_mm-power_compact_mm if compact_95 else 107], 'thermal_slots': 4,
             'copper_regions': regions, 'thermal_fill_gap_clear': True}
 
 

@@ -1,5 +1,8 @@
 # PCB plans
 
+- [Rev B 89 mm power compaction](../docs/REVB-89-POWER-REVIEW.md) — implemented
+  review candidate; LDO block on back, power section shortened by 4 mm.
+
 - [Rev B 93 mm tip trim](../docs/REVB-93-TIP-REVIEW.md) — removes another 2 mm
   from the tip; component/slot locations retained.
 
