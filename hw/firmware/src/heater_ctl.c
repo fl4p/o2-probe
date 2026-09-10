@@ -162,13 +162,21 @@ static uint16_t interlocks(o2p_heater_state_t *st,
  * the bench jar with the RH loop running (probe 3, build 75162fa). The tip rose
  * 20 K in six minutes, starting two minutes BEFORE any duty was commanded,
  * while the die lagged across the thermal barrier; tip-minus-die crossed 10 K
- * and this latched at 11:07 UTC. The FET was healthy: VIN showed no heater
- * load during the uncommanded rise and dipped only while 5.00 % was commanded,
- * and the chamber ran up to 0.8 K AHEAD of the tip, which ring heat never does
- * on this board (<= 0.17 K at any duty, measured 2026-09-04). So the signature
- * does not mean uncommanded conduction: any environment that heats the tip end
+ * and this latched at 11:07 UTC with no sign of the FET conducting. VIN held
+ * its 10710 mV baseline through the uncommanded rise; the 15-23 mV dip seen
+ * while 5.00 % WAS commanded puts the source impedance at 3.9-6.0 ohm, so
+ * continuous conduction (76.5 mA through 140 ohm) would have sagged it by an
+ * estimated 0.30-0.46 V. And the chamber ran up to 0.8 K AHEAD of the tip,
+ * which ring heat never does on this board (<= 0.17 K at any duty, measured
+ * 2026-09-04). HOW FAR THAT GOES: it excludes continuous conduction, not a
+ * small leak - published VIN resolves only 7.5 mV (main.c truncates to whole
+ * ADC millivolts before the 7.5 divider ratio), so a 0.5 mA leak would be
+ * invisible. Such a leak dissipates ~35 uW and cannot produce this signature,
+ * so the latch here was attributing the bath to the FET either way; and VIN
+ * also read 10695 mV once at zero duty, so it is corroboration, not proof.
+ * So the signature does not mean uncommanded conduction: any environment that heats the tip end
  * faster than the die end produces it, and a probe pushed into a hot pile is
- * exactly that. Latched until reset, one such event disabled a working heater
+ * exactly that. Latched until reset, one such event disabled the heater
  * until someone power-cycled a probe that is meant to be buried.
  *
  * HOW NARROWLY TO READ THE CHANGE. The latch sets on the same evidence, holds
@@ -179,19 +187,34 @@ static uint16_t interlocks(o2p_heater_state_t *st,
  * reference is the point: on Rev A the chamber tracks the tip within 0.17 K
  * whatever the FET is doing, so the chamber alone can never exonerate one, and
  * a lost die sensor therefore falls back to the old latched-until-reset
- * behaviour instead of releasing. No register write clears it, the bench
- * override freezes release exactly as it freezes accumulation, and FAULTS_EVER
- * keeps HEATER_RUNAWAY after a release, so the event is never erased.
+ * behaviour instead of releasing. Three further rules, all found by review of
+ * eae463f and all erring toward staying latched:
+ *   - a chamber temperature BRIDGED from the cache (main.c) does not count;
+ *     release requires chamber_fresh as well as chamber_valid, because a dead
+ *     SHT45 could otherwise finish the window on its last reading;
+ *   - a sample with the tip, or both references, invalid RESETS the release
+ *     window. For latching, crediting up to O2P_HEATER_RUNAWAY_MAX_GAP_S of
+ *     blindness errs toward latching and is kept; for release it errs toward
+ *     exoneration, so it is not;
+ *   - arming the bench override DISCARDS banked release evidence. Accumulation
+ *     is frozen while armed so arming cannot erase a stuck FET's record; clear
+ *     evidence is reset so arming cannot carry a half-proved exoneration across
+ *     an interval nobody could observe.
+ * No register write clears the latch, and FAULTS_EVER keeps HEATER_RUNAWAY
+ * after a release, so the event is never erased.
  *
  * WHAT IS GIVEN UP, stated rather than implied. "Re-arm every time the tip
  * cooled" survives in one failure class: a firmware-side fault that heats while
  * duty reads idle AND that forcing duty to zero does stop. That now cycles - a
  * window of evidence to latch, a window of clear evidence to release - where it
- * used to stop for good. The episodes stay bounded by the absolute tip clamp and
- * the TMP117's 85 C therm-mode cutoff (configured and read back, never
- * fault-injected), and they are visible as HEATER_RUNAWAY toggling. A FET that
- * is physically shorted is unaffected either way: no duty command stops it,
- * latched or not.
+ * used to stop for good, visible as HEATER_RUNAWAY toggling. What bounds it: the
+ * TMP117 ALERT is open-drain (VOL <= 0.4 V at 3 mA, TI SNOSD82) on the gate node,
+ * so it overpowers the MCU's drive through R28 (<= 0.33 mA) and can hold the FET
+ * off against a firmware fault - at its 85 C TRIP point, with overshoot never
+ * measured and the alert path never fault-injected. The 82 C firmware clamp
+ * helps only if the faulty path still honours a zero command. Neither stops a
+ * drain-source short or a strong driver directly on the gate, and no duty
+ * command does either, latched or not.
  */
 static void update_runaway(o2p_heater_state_t *st,
                            const o2p_heater_cfg_t *cfg,
@@ -239,9 +262,13 @@ static void update_runaway(o2p_heater_state_t *st,
          * a hot bath, from a stuck FET. That residual is exactly why this mode
          * needs a magic word, cannot survive a reset, and is documented as
          * attended. */
-        /* RELEASE IS FROZEN WITH ACCUMULATION, for the same reason: while
-         * armed we cannot tell a hot bath from a stuck FET, so we cannot
-         * exonerate one either. Arming must never be a way to clear the latch. */
+        /* RELEASE EVIDENCE IS RESET, NOT FROZEN - asymmetric on purpose, and
+         * both directions err toward staying latched. Freezing accumulation
+         * keeps arming from erasing a stuck FET's record. Freezing clear
+         * evidence would do the opposite: 59 banked seconds carried across an
+         * armed interval nobody could observe, released by the first clear
+         * sample after disarming. Found by review of eae463f. */
+        st->runaway_clear_s = 0u;
         st->zero_duty_timing = true;
         st->zero_duty_since_s = now_s;
         return;
@@ -259,6 +286,15 @@ static void update_runaway(o2p_heater_state_t *st,
      * once observation resumes. Leave the accumulator alone and let the gap
      * test below discard it if the blindness lasted. */
     if (!in->tip_valid || (!in->chamber_valid && !in->die_valid)) {
+        if (st->runaway_latched) {
+            /* For RELEASE the blind interval is not credited: reset the window
+             * and move the clock, so the next valid sample earns one second,
+             * not the whole gap. Leaving both alone released a latch on 59
+             * clear seconds, one invalid sample and one clear one. Found by
+             * review of eae463f. The latching path above is unchanged. */
+            st->runaway_clear_s = 0u;
+            st->zero_duty_since_s = now_s;
+        }
         return;
     }
 
@@ -277,6 +313,11 @@ static void update_runaway(o2p_heater_state_t *st,
             hot = true;
         }
         if (dt > on - O2P_HEATER_RUNAWAY_RELEASE_HYST_K100) {
+            cleared = false;
+        }
+        if (!in->chamber_fresh) {
+            /* Bridged from the cache: good enough for the clamp and for
+             * latching, not for exonerating. See chamber_fresh. */
             cleared = false;
         }
     } else {
@@ -321,7 +362,8 @@ static void update_runaway(o2p_heater_state_t *st,
 
     if (st->runaway_latched) {
         /* Releasing. Any sample that is not fully cleared - hot, inside the
-         * hysteresis band, or missing a reference - restarts the window. */
+         * hysteresis band, missing a reference, or carrying a bridged chamber
+         * temperature - restarts the window. */
         if (!cleared) {
             st->runaway_clear_s = 0u;
             return;

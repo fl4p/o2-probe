@@ -1311,6 +1311,10 @@ static void cycle_publish(o2p_snapshot_t *s)
             .t_tip_c100       = g_cyc.t_tip,
             .chamber_valid    = heater_chamber_ok,
             .t_chamber_c100   = heater_t_chamber,
+            /* Measured THIS cycle, as opposed to bridged above. The runaway
+             * release will not exonerate a FET on a cached chamber reading;
+             * see chamber_fresh in heater_ctl.h. */
+            .chamber_fresh    = g_cyc.chamber_ok,
             /* The die is a diagnostic channel everywhere else; here it is the
              * only reference that can witness a stuck-on FET. */
             .die_valid        = (s->t_die != O2P_I16_INVALID),

@@ -1656,10 +1656,13 @@ and that auto-clearing would re-arm 1 W every time the tip cooled.
 **The premise was refuted on the bench.** About 80 °C water poured into the jar
 with the RH loop running heated the tip 20 K in six minutes — starting two
 minutes *before* any duty was commanded — while the die lagged across the
-thermal barrier. Tip − die crossed 10 K and the latch set at 11:07 UTC on a
-healthy FET: VIN showed no heater load during the uncommanded rise, and the
-chamber ran up to 0.8 K *ahead* of the tip, which ring heat never does on this
-board. Any environment that heats the tip end faster than the die end produces
+thermal barrier. Tip − die crossed 10 K and the latch set at 11:07 UTC with no
+sign of the FET conducting: VIN held its 10710 mV baseline through the
+uncommanded rise, where continuous conduction would have sagged it by an
+estimated 0.30–0.46 V, and the chamber ran up to 0.8 K *ahead* of the tip, which
+ring heat never does on this board. That excludes continuous conduction, **not a
+small leak** — published VIN resolves only 7.5 mV — so it is corroboration of an
+external source, not proof of a healthy FET. Any environment that heats the tip end faster than the die end produces
 the signature, and a probe pushed into a hot pile is exactly that.
 
 So the latch still sets on the same evidence and still holds for as long as that
@@ -1668,10 +1671,17 @@ evidence persists, which is what a stuck FET does. It releases only after
 and below both thresholds by `O2P_HEATER_RUNAWAY_RELEASE_HYST_K100`. Requiring
 every reference matters because on Rev A the chamber tracks the tip whatever the
 FET does, so a lost die reading falls back to latched-until-reset instead of
-releasing. No register write clears it, the bench override freezes release as
-well as accumulation, and `FAULTS_EVER` keeps the event. What is given up: a
+releasing. A chamber temperature bridged from the cache does not count toward
+release, a sample with the tip or both references invalid restarts the window
+rather than being credited as observed time, and arming the bench override
+discards banked release evidence (it only *freezes* accumulation). All three were
+found by review of `eae463f`. No register write clears the latch, and
+`FAULTS_EVER` keeps the event. What is given up: a
 firmware-side fault that forcing duty to zero *does* stop now cycles instead of
-stopping for good, bounded by the tip clamp and the TMP117 cutoff. The full
+stopping for good. The TMP117's open-drain alert can hold the gate low against
+the MCU's drive through R28, but only at its 85 °C trip point, with overshoot
+unmeasured and the alert path never fault-injected; the 82 °C firmware clamp
+helps only if the faulty path still obeys a zero command. The full
 argument is at `update_runaway()` in `heater_ctl.c`; the real event is replayed
 at 1 Hz by `test_the_80c_bath_of_2026_09_10_latches_and_then_releases`.
 

@@ -159,17 +159,22 @@ enum {
 
 /* Release hysteresis below BOTH runaway thresholds, in 0.01 K.
  *
- * Sized against the noise it has to reject, not against any event: the die
- * reads 0.29 K per LSB and dithers, so 1.00 K is about 3.4 LSB - enough that a
- * reference sitting on its threshold cannot chatter the latch at 1 Hz. It must
- * also leave the release point ABOVE the widest legitimate zero-duty excursion
- * (+3.0 K, see O2P_HEATER_RUNAWAY_DIE_K100), or a probe back at rest could
- * never release; 9.00 K is. Pinned by
- * test_die_runaway_threshold_brackets_the_measured_evidence.
+ * Sized against the noise it has to reject, not against any event: one scaled
+ * die count is 100 K over the 347-count calibration span, 0.288 K (mcu_adc.c,
+ * die_temp.h), so 1.00 K is 3.47 counts - comfortably above adjacent-count
+ * dither. THAT IS AN ARGUMENT FROM THE LSB, NOT A MEASUREMENT: the die is
+ * converted each cycle without temporal averaging, against a separately
+ * sampled VDDA, and its 1 Hz noise amplitude has never been recorded. Whether
+ * a reference sitting on its threshold can chatter the release is therefore
+ * conditional on that amplitude, and the full-window dwell is what actually
+ * stands between dither and a release. It must also leave the release point
+ * ABOVE the widest legitimate zero-duty excursion (+3.0 K, see
+ * O2P_HEATER_RUNAWAY_DIE_K100), or a probe back at rest could never release;
+ * 9.00 K is. Pinned by test_die_runaway_threshold_brackets_the_measured_evidence.
  *
  * Why a release exists at all is in update_runaway() (heater_ctl.c): on
- * 2026-09-10 an 80 C bath produced the die-referenced signature with a healthy
- * FET, and latched-until-reset disabled a working heater. */
+ * 2026-09-10 an 80 C bath produced the die-referenced signature with no sign
+ * of the FET conducting, and latched-until-reset disabled the heater. */
 #define O2P_HEATER_RUNAWAY_RELEASE_HYST_K100 100
 
 /* Conservative default gains. Error is in 0.01 %RH, output in 0.01 % duty.
@@ -297,6 +302,12 @@ typedef struct {
     int16_t  t_tip_c100;
     bool     chamber_valid;
     int16_t  t_chamber_c100;
+    /* The chamber temperature was MEASURED this cycle rather than bridged from
+     * the cache. chamber_valid alone admits a cached value (main.c), which is
+     * right for the dT clamp and for latching and wrong for EXONERATING a
+     * latched runaway: release requires both. A zero-initialised caller gets
+     * "not fresh", which can only delay a release. */
+    bool     chamber_fresh;
     /* MCU die, o2p_mcu_adc_read_die_c100(). The ONLY sensor on this board
      * thermally separated from the tip - U10 and U12 sit 6.6 mm apart on the
      * same copper and cannot disagree. Used for runaway detection only; it is

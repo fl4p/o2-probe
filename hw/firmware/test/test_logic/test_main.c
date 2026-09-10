@@ -1447,6 +1447,7 @@ static o2p_heater_in_t hin_healthy(void)
     in.t_tip_c100 = 5500;
     in.chamber_valid = true;
     in.t_chamber_c100 = 5400;    /* dT = 1 K, inside the envelope */
+    in.chamber_fresh = true;     /* measured this cycle, not bridged */
     /* The die runs a couple of kelvin ABOVE the tip at rest - it is the MCU's
      * own junction - so tip-minus-die is negative on a healthy probe. Measured
      * -2.2 K on 2026-09-04. Leaving these unset would read indeterminate. */
@@ -1832,7 +1833,7 @@ static void test_runaway_release_needs_every_reference_valid_and_clear(void)
     cfg.max_duty_x100 = 0u;
     o2p_heater_out_t out;
 
-    for (unsigned c = 0u; c < 4u; c++) {
+    for (unsigned c = 0u; c < 5u; c++) {
         o2p_heater_state_t st;
         uint32_t t = 0u;
         latch_through_die(&st, &cfg, &t);
@@ -1842,12 +1843,17 @@ static void test_runaway_release_needs_every_reference_valid_and_clear(void)
         case 0u: in.die_valid = false;     why = "die lost";     break;
         case 1u: in.chamber_valid = false; why = "chamber lost"; break;
         case 2u: in.tip_valid = false;     why = "tip lost";     break;
-        default:
+        case 3u:
             /* Chamber clear, die still showing the stuck-FET separation. */
             in.t_tip_c100 = 5000;
             in.t_chamber_c100 = 4990;
             in.t_die_c100 = (int16_t)(in.t_tip_c100 - 2800);
             why = "die still hot";
+            break;
+        default:
+            /* Valid for the clamp, bridged from the cache - not fresh. */
+            in.chamber_fresh = false;
+            why = "chamber bridged from cache";
             break;
         }
         for (uint32_t i = 0u; i < 3u * O2P_HEATER_RUNAWAY_WINDOW_S; i++, t++) {
@@ -1909,6 +1915,97 @@ static void test_runaway_release_restarts_on_a_marginal_sample_or_a_gap(void)
         o2p_heater_ctl_step(&st, &cfg, &rest, t++, &out);
         TEST_ASSERT_FALSE(st.runaway_latched);
     }
+}
+
+static void test_runaway_release_is_not_credited_across_an_invalid_sample(void)
+{
+    /* Found by review of eae463f. An unevaluable sample returned early without
+     * touching the release window or its clock, so the next valid sample was
+     * credited with the whole blind interval whenever it was under the 5 s gap
+     * limit: 59 clear seconds, one sample with the tip invalid, one clear
+     * sample, released. For LATCHING that credit errs toward latching; for
+     * RELEASE it errs toward exoneration, so explicit invalidity resets it. */
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;
+    o2p_heater_out_t out;
+    o2p_heater_in_t rest = hin_healthy();
+
+    for (unsigned c = 0u; c < 2u; c++) {
+        o2p_heater_in_t blind = hin_healthy();
+        if (c == 0u) {
+            blind.tip_valid = false;
+        } else {
+            blind.chamber_valid = false;
+            blind.die_valid = false;
+        }
+        o2p_heater_state_t st;
+        uint32_t t = 0u;
+        latch_through_die(&st, &cfg, &t);
+        for (uint32_t i = 0u; i < O2P_HEATER_RUNAWAY_WINDOW_S - 1u; i++, t++) {
+            o2p_heater_ctl_step(&st, &cfg, &rest, t, &out);
+        }
+        o2p_heater_ctl_step(&st, &cfg, &blind, t++, &out);
+        o2p_heater_ctl_step(&st, &cfg, &rest, t++, &out);
+        TEST_ASSERT_TRUE_MESSAGE(st.runaway_latched,
+            c == 0u ? "one tip-invalid sample must restart the release window"
+                    : "one sample with both references invalid must restart it");
+        /* ...and a full window is needed afterwards, from one second. */
+        for (uint32_t i = 0u; i < O2P_HEATER_RUNAWAY_WINDOW_S - 2u; i++, t++) {
+            o2p_heater_ctl_step(&st, &cfg, &rest, t, &out);
+        }
+        TEST_ASSERT_TRUE(st.runaway_latched);
+        o2p_heater_ctl_step(&st, &cfg, &rest, t++, &out);
+        TEST_ASSERT_FALSE(st.runaway_latched);
+    }
+
+    /* The pattern the review built: one valid clear sample every five seconds,
+     * four explicitly invalid ones between. It used to add up to a release
+     * from twelve observations. It must never release. */
+    o2p_heater_state_t st;
+    uint32_t t = 0u;
+    latch_through_die(&st, &cfg, &t);
+    o2p_heater_in_t blind = hin_healthy();
+    blind.tip_valid = false;
+    for (uint32_t i = 0u; i < 10u * O2P_HEATER_RUNAWAY_WINDOW_S; i++, t++) {
+        o2p_heater_ctl_step(&st, &cfg, ((i % 5u) == 0u) ? &rest : &blind, t, &out);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(st.runaway_latched,
+        "sparse valid samples between invalid ones must not add up to a release");
+}
+
+static void test_runaway_release_does_not_count_a_bridged_chamber(void)
+{
+    /* Found by review of eae463f. main.c bridges the chamber temperature from
+     * its cache for up to O2P_HEATER_CHAMBER_MAX_AGE_S and still passes
+     * chamber_valid - right for the dT clamp. Counted toward release, it let a
+     * dead SHT45 finish the window on its last reading: 20 s of real clear
+     * evidence, 40 s of cache, released. */
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;
+    o2p_heater_out_t out;
+    o2p_heater_in_t fresh = hin_healthy();
+    o2p_heater_in_t bridged = hin_healthy();
+    bridged.chamber_fresh = false;
+
+    o2p_heater_state_t st;
+    uint32_t t = 0u;
+    latch_through_die(&st, &cfg, &t);
+    for (uint32_t i = 0u; i < 20u; i++, t++) {
+        o2p_heater_ctl_step(&st, &cfg, &fresh, t, &out);
+    }
+    for (uint32_t i = 0u; i < 3u * O2P_HEATER_RUNAWAY_WINDOW_S; i++, t++) {
+        o2p_heater_ctl_step(&st, &cfg, &bridged, t, &out);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(st.runaway_latched,
+        "a cached chamber temperature must not complete a release");
+
+    /* Fresh again: a full window from zero, not a resumption of the 20 s. */
+    for (uint32_t i = 0u; i < O2P_HEATER_RUNAWAY_WINDOW_S - 1u; i++, t++) {
+        o2p_heater_ctl_step(&st, &cfg, &fresh, t, &out);
+    }
+    TEST_ASSERT_TRUE(st.runaway_latched);
+    o2p_heater_ctl_step(&st, &cfg, &fresh, t++, &out);
+    TEST_ASSERT_FALSE(st.runaway_latched);
 }
 
 /* 2026-09-10, probe 3 on the bench, build 75162fa: about 80 C water poured
@@ -4634,7 +4731,36 @@ static void test_override_cannot_clear_a_latched_runaway(void)
         o2p_heater_ctl_step(&st, &cfg, &rest, t, &out);
     }
     TEST_ASSERT_TRUE_MESSAGE(st.runaway_latched,
-        "an armed override must freeze release as well as accumulation");
+        "an armed override must not accumulate release evidence");
+
+    /* Nor may BANKED release evidence survive an armed period. Found by review
+     * of eae463f: freezing it, as accumulation is frozen, carried 59 s of
+     * exoneration across an interval nobody could observe, and the first clear
+     * sample after disarming released the latch. */
+    o2p_heater_state_t b;
+    o2p_heater_ctl_reset(&b);
+    o2p_heater_cfg_t bcfg = hcfg_default();
+    bcfg.max_duty_x100 = 0u;
+    b.runaway_latched = true;
+    uint32_t bt = 0u;
+    /* One sample starts the clock; the next 59 are credited. */
+    for (uint32_t i = 0u; i < O2P_HEATER_RUNAWAY_WINDOW_S; i++, bt++) {
+        o2p_heater_ctl_step(&b, &bcfg, &rest, bt, &out);
+    }
+    TEST_ASSERT_TRUE(b.runaway_latched);
+    arm_override(&bcfg, 0u);
+    for (uint32_t i = 0u; i < 600u; i++, bt++) {
+        o2p_heater_ctl_step(&b, &bcfg, &rest, bt, &out);
+    }
+    bcfg.test_override = false;
+    bcfg.test_duty_x100 = 0u;
+    for (uint32_t i = 0u; i < O2P_HEATER_RUNAWAY_WINDOW_S - 1u; i++, bt++) {
+        o2p_heater_ctl_step(&b, &bcfg, &rest, bt, &out);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(b.runaway_latched,
+        "arming must discard banked release evidence, not freeze it");
+    o2p_heater_ctl_step(&b, &bcfg, &rest, bt++, &out);
+    TEST_ASSERT_FALSE(b.runaway_latched);
 }
 
 static void test_override_does_not_latch_runaway_on_external_heat(void)
@@ -5539,7 +5665,7 @@ static void test_runaway_does_not_latch_on_one_hot_sample(void)
     hot.t_tip_c100 = (int16_t)(hot.t_die_c100 + O2P_HEATER_RUNAWAY_DIE_K100 + 500);
     o2p_heater_ctl_step(&st, &cfg, &hot, t++, &out);
     TEST_ASSERT_FALSE_MESSAGE(st.runaway_latched,
-        "one hot sample must not latch a permanent runaway");
+        "one hot sample must not latch runaway");
 
     /* Back to normal - the evidence must be discarded, not banked. */
     for (unsigned i = 0; i < 10u; i++) {
@@ -6800,6 +6926,8 @@ int main(void)
     RUN_TEST(test_runaway_releases_only_after_a_full_window_of_cleared_evidence);
     RUN_TEST(test_runaway_release_needs_every_reference_valid_and_clear);
     RUN_TEST(test_runaway_release_restarts_on_a_marginal_sample_or_a_gap);
+    RUN_TEST(test_runaway_release_is_not_credited_across_an_invalid_sample);
+    RUN_TEST(test_runaway_release_does_not_count_a_bridged_chamber);
     RUN_TEST(test_the_80c_bath_of_2026_09_10_latches_and_then_releases);
     RUN_TEST(test_runaway_is_not_evaluated_when_we_cannot_drive);
     RUN_TEST(test_setpoint_default_respects_the_cell_humidity_rating);
