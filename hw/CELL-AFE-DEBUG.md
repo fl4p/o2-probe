@@ -727,7 +727,19 @@ returns early, so 0 is a measured ~0 mV at the divider tap), and the probe is
 running and heating, so the 12 V feed is present. **Inference:** the VIN_MON
 input path (R26/R27 130k/20k tap) is faulted — an open R26 or a leak from the
 tap to ground, the VA_MON failure shape of this morning on the other divider —
-not the rail. Not metered; `VIN_LOW` will stay latched until it is. And the 18:04–18:26 bus
+not the rail. Not metered; `VIN_LOW` will stay latched until it is.
+
+**Correction, 21:12 — the tap-fault inference above does not survive.** VIN_MON
+(`0x0012`) read **10710 mV** at 21:10, after the heater was disarmed (writes at
+21:06:40/21:07:25), with the same reference. VictoriaMetrics `gas_vin_mv` at
+10-min steps: 10650 (17:10) / 10717 (17:20) with the heater idle; 0 at 18:30
+(dew law driving) and 0 from 19:40 through 21:00 (stored tip loop armed, duty
+0–100 %, across the 20:45 and 21:00:35 power-on resets); 10710 at 21:10. So
+the zero follows the heater being armed or driving, not a static open/leak —
+mechanism unidentified (ADS mux/timing under heater PWM is one candidate, not
+checked). Separately, Fab metered **VIN = 13.11 V at ~21:08** against the
+published 10710 mV at duty 0: the published value is 18 % low (ratio 1.224) —
+divider/scaling check in progress (farming-f7), not concluded here. And the 18:04–18:26 bus
 silence ended in a power-on reset (`gas_link_ok` 0 → 1 at 18:27, uptime
 restarted ~18:25) — firmware 0x0013 ruled out by a read-only review; board
 damage/power loss or a hand on the bench are the candidates, unresolved.
