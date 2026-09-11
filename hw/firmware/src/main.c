@@ -324,7 +324,7 @@ static void phase_rails(o2p_snapshot_t *s)
 
 #if O2P_HW_VIN_MON_ON_MCU
     uint16_t vin_mv = 0u;
-    if (o2p_mcu_adc_read_vin_mv(&vin_mv)) {
+    if (o2p_mcu_adc_read_vin_mv(o2p_cfg_vin_div_x1000(&g_rm.cfg), &vin_mv)) {
         s->vin_mv = vin_mv;
         if (vin_mv < O2P_VIN_LOW_MV) {
             g_cyc.faults |= O2P_F_VIN_LOW;
@@ -868,7 +868,8 @@ static void finish_electrode(o2p_snapshot_t *s, bool working)
 #if O2P_HW_BIAS_ADC_REACHES_ELECTRODES
         s->re_buf_mv = (uint16_t)mv;
 #elif O2P_HW_VIN_MON_ON_ADS
-        s->vin_mv = o2p_scale_vin_ads((uint16_t)mv);
+        s->vin_mv = o2p_scale_vin_ads((uint16_t)mv,
+                                      o2p_cfg_vin_div_x1000(&g_rm.cfg));
         if (s->vin_mv < O2P_VIN_LOW_MV) {
             g_cyc.faults |= O2P_F_VIN_LOW;
         }

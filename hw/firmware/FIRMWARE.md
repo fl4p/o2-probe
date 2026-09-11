@@ -1001,7 +1001,7 @@ then two that exist because supervision here is *sampled*, not continuous:
   a commit. `FW_VERSION` is now bumped only when the wire contract changes, and
   is `0x000A` for this 27-register block.
 
-### Config block — `0x0030`, 27 registers, read/write, flash-backed
+### Config block — `0x0030`, 28 registers, read/write, flash-backed
 
 - `CAL_ZERO_NA_HI` `0x0046`, `CAL_ZERO_NA_LO` `0x0047` — cell dark current,
   i32 nanoamps, **signed**. Subtracted from every measured current *and* from
@@ -1011,6 +1011,18 @@ then two that exist because supervision here is *sampled*, not continuous:
   2 % relative at the air point but about 8 % at 5 %vol — where compost
   control acts. `0` is both a legitimate measured zero and the never-measured
   default; `CAL_STATE` bit 1 is what separates them.
+- `VIN_DIV_X1000` `0x004B` (FW `0x0014`) — the board's **own** input-rail
+  divider ratio × 1000, flash-backed (write, then `COMMIT`). `0` = the generated
+  netlist divider (Rev A R26/R27 130k/20k = ×7.5, Rev B 91k/10k = ×10.1);
+  `2000..20000` scales `VIN_MON_MV` by that ratio on either revision; anything
+  else is refused. It exists because Probe 3 (Rev A) carries 82k/10k (×9.2) and
+  published its metered 13.11 V input as 10.71 V (2026-09-11,
+  `CELL-AFE-DEBUG.md`) — a per-board fact, so it lives in the board's flash and
+  not in the generated `hw_caps_rev_a.h`. **No layout bump:** the value sits in
+  two formerly reserved bytes (offsets 31 and 35) that every older record holds
+  as zero, so a reflash keeps the heater consents, the O₂ calibration and the
+  transport. A stored value outside the window does not fail the record (that
+  would reset the address); it scales by the netlist and reads back as stored.
 
 `SLAVE_ADDR`, `BAUD_CODE`, `PARITY_CODE`, `RH_SETPOINT`, `DT_MAX_K`,
 `HEATER_MAX_DUTY`, `HEATER_PWM_HZ`, `CAL_AIR_NA_HI/LO`, `CAL_TEMP_C100`,

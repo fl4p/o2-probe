@@ -3,6 +3,7 @@
 #include "board_pins.h"
 #include "die_temp.h"
 #include "mcu.h"
+#include "regmap.h"
 
 /* Factory VREFINT calibration, measured at VDDA = 3.0 V (STM32G0 datasheet,
  * "Internal voltage reference"). */
@@ -180,8 +181,11 @@ static bool read_divided_rail(uint32_t channel, uint32_t num, uint32_t den,
     return true;
 }
 
-bool o2p_mcu_adc_read_vin_mv(uint16_t *out_mv)
+bool o2p_mcu_adc_read_vin_mv(uint16_t div_x1000, uint16_t *out_mv)
 {
+    if (o2p_vin_div_x1000_in_window(div_x1000)) {
+        return read_divided_rail(O2P_VIN_MON_ADC_CH, 1000u, div_x1000, out_mv);
+    }
     return read_divided_rail(O2P_VIN_MON_ADC_CH,
                              O2P_HW_DIV_VIN_NUM, O2P_HW_DIV_VIN_DEN, out_mv);
 }

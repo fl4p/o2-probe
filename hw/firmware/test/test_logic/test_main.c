@@ -837,15 +837,15 @@ static void test_config_block_read_covers_the_gains(void)
     /* The block grew from 16 to 18 registers with the gains, to 20 with
      * ASSUMED_P_HPA and CAL_AIR_FRAC, to 21 with CAL_P_HPA, to 22 with
      * DIL_ALPHA, to 24 with the CAL_ZERO_NA pair and to 25 with
-     * HEATER_RH_CONSENT, and to 27 with TIP_SETPOINT and HEATER_TIP_CONSENT.
-     * A read of all 27 must succeed; 28 must not, or the boundary rule has
-     * quietly stopped being enforced. */
+     * HEATER_RH_CONSENT, to 27 with TIP_SETPOINT and HEATER_TIP_CONSENT, and
+     * to 28 with VIN_DIV_X1000. A read of all 28 must succeed; 29 must not, or
+     * the boundary rule has quietly stopped being enforced. */
     uint8_t req[16], rsp[O2P_MB_MAX_ADU];
-    const uint8_t all[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x1B};
+    const uint8_t all[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x1C};
     size_t n = framed(req, all, sizeof(all));
-    TEST_ASSERT_EQUAL_UINT(3 + 54 + 2, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
+    TEST_ASSERT_EQUAL_UINT(3 + 56 + 2, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
 
-    const uint8_t over[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x1C};
+    const uint8_t over[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x1D};
     n = framed(req, over, sizeof(over));
     o2p_mb_dispatch(req, n, 3, &handlers, rsp);
     TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS, rsp[2]);
@@ -6889,12 +6889,152 @@ static void test_the_rev_a_divider_scaling(void)
     TEST_ASSERT_EQUAL_UINT16(3300u, va_scaled);
     TEST_ASSERT_TRUE(va_scaled >= O2P_VA_LOW_MV);
 
-    uint16_t vin_scaled = o2p_scale_vin_ads(1600u);
+    uint16_t vin_scaled = o2p_scale_vin_ads(1600u, O2P_VIN_DIV_X1000_NETLIST);
     TEST_ASSERT_EQUAL_UINT16(12000u, vin_scaled);
     TEST_ASSERT_TRUE(vin_scaled >= O2P_VIN_LOW_MV);
 
     /* Clamping to 0xFFFE so a railed measurement never emits 0xFFFF (O2P_U16_INVALID) */
-    TEST_ASSERT_EQUAL_UINT16(0xFFFEu, o2p_scale_vin_ads(10000u));
+    TEST_ASSERT_EQUAL_UINT16(0xFFFEu,
+        o2p_scale_vin_ads(10000u, O2P_VIN_DIV_X1000_NETLIST));
+}
+
+/* VIN_DIV_X1000 (0x004B). THE KNOWN-BAD IS THE BENCH BOARD ITSELF: Probe 3 is a
+ * Rev A board (netlist R26/R27 130k/20k, x7.5) fitted with 82k/10k (x9.2). On
+ * 2026-09-11 Fab metered 13.11 V at its input terminals while VIN_MON_MV
+ * published 10710 mV - a 1428 mV tap. */
+static void test_the_vin_divider_ratio_belongs_to_the_board(void)
+{
+    const uint16_t tap_mv = 1428u;
+
+    /* The bench failure, reproduced from the netlist... */
+    TEST_ASSERT_EQUAL_UINT16(10710u,
+        o2p_scale_vin_ads(tap_mv, O2P_VIN_DIV_X1000_NETLIST));
+    /* ...and corrected by the fitted parts (x9.2) and by the fit to the meter. */
+    TEST_ASSERT_EQUAL_UINT16(13137u, o2p_scale_vin_ads(tap_mv, 9200u));
+    TEST_ASSERT_EQUAL_UINT16(13110u, o2p_scale_vin_ads(tap_mv, 9181u));
+
+    /* Both window edges are ratios. One past either edge, and the far tail,
+     * scale by the netlist - never by the bytes. */
+    TEST_ASSERT_EQUAL_UINT16(2856u,
+        o2p_scale_vin_ads(tap_mv, O2P_VIN_DIV_X1000_MIN));
+    TEST_ASSERT_EQUAL_UINT16(28560u,
+        o2p_scale_vin_ads(tap_mv, O2P_VIN_DIV_X1000_MAX));
+    TEST_ASSERT_EQUAL_UINT16(10710u,
+        o2p_scale_vin_ads(tap_mv, O2P_VIN_DIV_X1000_MIN - 1u));
+    TEST_ASSERT_EQUAL_UINT16(10710u,
+        o2p_scale_vin_ads(tap_mv, O2P_VIN_DIV_X1000_MAX + 1u));
+    TEST_ASSERT_EQUAL_UINT16(10710u, o2p_scale_vin_ads(tap_mv, 0xFFFFu));
+    /* The stored branch clamps like the netlist one: 0xFFFF is the sentinel. */
+    TEST_ASSERT_EQUAL_UINT16(0xFFFEu,
+        o2p_scale_vin_ads(4000u, O2P_VIN_DIV_X1000_MAX));
+    TEST_ASSERT_EQUAL_UINT16(0xFFFEu,
+        o2p_scale_vin_ads(0xFFFFu, O2P_VIN_DIV_X1000_MAX));
+
+    /* The register. A fresh probe is on the netlist. */
+    o2p_regmap_t r;
+    o2p_regmap_init(&r);
+    uint16_t v = 0xAAAAu;
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&r, O2P_REG_VIN_DIV_X1000, 1u, &v));
+    TEST_ASSERT_EQUAL_UINT16(O2P_VIN_DIV_X1000_NETLIST, v);
+    uint16_t crc_netlist = o2p_config_crc(&r.cfg);
+
+    uint16_t w = 9200u;
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&r, O2P_REG_VIN_DIV_X1000, 1u, &w));
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&r, O2P_REG_VIN_DIV_X1000, 1u, &v));
+    TEST_ASSERT_EQUAL_UINT16(9200u, v);
+    /* In the two bytes the no-bump argument is about, high byte at 31. */
+    TEST_ASSERT_EQUAL_HEX8(0x23u, r.cfg.vin_div_x1000_hi);
+    TEST_ASSERT_EQUAL_HEX8(0xF0u, r.cfg.vin_div_x1000_lo);
+    /* It is configuration: CONFIG_CRC moves, which is how a master sees it. */
+    TEST_ASSERT_NOT_EQUAL(crc_netlist, o2p_config_crc(&r.cfg));
+
+    /* Refusals leave the ratio in force. 920 is the dropped digit. */
+    const uint16_t bad[] = { 920u, O2P_VIN_DIV_X1000_MIN - 1u,
+                             O2P_VIN_DIV_X1000_MAX + 1u, 0xFFFFu };
+    for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
+        uint16_t b = bad[i];
+        TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+            o2p_regmap_write(&r, O2P_REG_VIN_DIV_X1000, 1u, &b));
+        TEST_ASSERT_EQUAL_UINT16(9200u, o2p_cfg_vin_div_x1000(&r.cfg));
+    }
+
+    /* The block now ends at 0x004B and reads whole. */
+    TEST_ASSERT_EQUAL_HEX16(O2P_REG_VIN_DIV_X1000,
+        O2P_REG_CONFIG_BASE + O2P_REG_CONFIG_COUNT - 1u);
+    uint16_t blk[O2P_REG_CONFIG_COUNT];
+    TEST_ASSERT_EQUAL_HEX8(0u,
+        o2p_regmap_read(&r, O2P_REG_CONFIG_BASE, O2P_REG_CONFIG_COUNT, blk));
+    TEST_ASSERT_EQUAL_UINT16(9200u,
+        blk[O2P_REG_VIN_DIV_X1000 - O2P_REG_CONFIG_BASE]);
+
+    /* 0 returns the probe to the netlist, bit for bit. */
+    w = 0u;
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&r, O2P_REG_VIN_DIV_X1000, 1u, &w));
+    TEST_ASSERT_EQUAL_UINT16(crc_netlist, o2p_config_crc(&r.cfg));
+}
+
+/* The field's claim to skipping a layout bump, exercised against the real
+ * producer (config_flash.c on the host flash fake) and the real migration. */
+static void test_a_vin_ratio_is_stored_without_a_layout_bump(void)
+{
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE(8u, CONFIG_LAYOUT_VERSION,
+        "VIN_DIV_X1000 took reserved bytes precisely so this did not move");
+
+    /* Committed and reloaded: the ratio survives a reset, beside the fields a
+     * bump would have cost - the address and a heater consent. */
+    o2p_config_t cfg, got;
+    o2p_config_defaults(&cfg);
+    cfg.slave_addr = 22u;
+    cfg.heater_tip_consent = O2P_HEATER_TIP_CONSENT_MAGIC;
+    o2p_cfg_set_vin_div_x1000(&cfg, 9181u);
+    o2p_host_flash_reset(-1);
+    TEST_ASSERT_TRUE(o2p_config_store(&cfg));
+    memset(&got, 0, sizeof(got));
+    TEST_ASSERT_TRUE(o2p_config_load(&got));
+    TEST_ASSERT_EQUAL_UINT16(9181u, o2p_cfg_vin_div_x1000(&got));
+    TEST_ASSERT_EQUAL_UINT8(22u, got.slave_addr);
+    TEST_ASSERT_EQUAL_HEX16(O2P_HEATER_TIP_CONSENT_MAGIC, got.heater_tip_consent);
+
+    /* A pattern no write could produce does NOT cost the record: the probe
+     * keeps its address and scales VIN by the netlist. Were the window a
+     * clause of o2p_config_valid(), load would return false here and the
+     * address would read back as the default 3. */
+    cfg.vin_div_x1000_hi = 0xFFu;
+    cfg.vin_div_x1000_lo = 0xFFu;
+    TEST_ASSERT_TRUE(o2p_config_valid(&cfg));
+    o2p_host_flash_reset(-1);
+    TEST_ASSERT_TRUE(o2p_config_store(&cfg));
+    memset(&got, 0, sizeof(got));
+    TEST_ASSERT_TRUE_MESSAGE(o2p_config_load(&got),
+        "a stray VIN_DIV byte must not send the probe to full defaults");
+    TEST_ASSERT_EQUAL_UINT8(22u, got.slave_addr);
+    TEST_ASSERT_EQUAL_UINT16(10710u,
+        o2p_scale_vin_ads(1428u, o2p_cfg_vin_div_x1000(&got)));
+
+    /* An older layout migrates by NAME, so whatever an old record held in
+     * those reserved bytes - here the very pattern of a 9200 - the upgraded
+     * probe lands on the netlist. */
+    test_cfg_v7_t v7;
+    memset(&v7, 0, sizeof(v7));
+    v7.rh_setpoint_x100 = 8500u;
+    v7.dt_max_k_x100 = 400u;
+    v7.heater_pwm_hz = 1000u;
+    v7.cal_temp_c100 = 2500;
+    v7.sht_pulse_interval_h = 24u;
+    v7.assumed_p_hpa = 1013u;
+    v7.dil_alpha_x1000 = 1000u;
+    v7.slave_addr = 42u;
+    v7.baud_code = O2P_BAUD_9600;
+    v7.parity_code = O2P_PARITY_EVEN;
+    v7.reserved[0] = 0x23u;
+    v7.reserved2[0] = 0xF0u;
+    uint8_t rec[TEST_REC_BYTES];
+    build_vn_record(rec, &v7, sizeof(v7), 7u, 5u);
+    uint32_t seq = 0u;
+    TEST_ASSERT_TRUE(o2p_config_migrate(rec, sizeof(rec), &got, &seq));
+    TEST_ASSERT_EQUAL_UINT8(42u, got.slave_addr);
+    TEST_ASSERT_EQUAL_UINT16(O2P_VIN_DIV_X1000_NETLIST,
+                             o2p_cfg_vin_div_x1000(&got));
 }
 
 /* CAL_STATE must say how the air point was obtained, not just that one exists.
@@ -7006,7 +7146,11 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    /* 0x0013: the dew-margin heater law - the autonomous humidity-side slot
+    /* 0x0014: config block grew with VIN_DIV_X1000 (0x004B), the board's own
+     *         input-rail divider ratio, flash-backed without a layout bump
+     *         (Fab's order, 2026-09-11). A 28-word config read is refused by
+     *         0x0013 and earlier.
+     * 0x0013: the dew-margin heater law - the autonomous humidity-side slot
      *         regulates cell-side T_EXT to 4 K above the gas dew point
      *         whenever T_EXT is valid (Fab's order, 2026-09-11); no new
      *         register, HEATER_BLOCK bits unchanged, the law is new.
@@ -7022,7 +7166,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         steps the thermal mass cannot make are rejected for a cycle.
      * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
      *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
-    TEST_ASSERT_EQUAL_HEX16(0x0013u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x0014u, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_HEX16(0xC000u,
         (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
     /* The staleness cut must win the race against the watchdog's fastest
@@ -7033,7 +7177,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
 #if O2P_DEBUG_ENABLE
     TEST_ASSERT_EQUAL_UINT16(4u, O2P_PEEK_ERR_PARITY);
 #endif
-    TEST_ASSERT_EQUAL_UINT16(27u, O2P_REG_CONFIG_COUNT);
+    TEST_ASSERT_EQUAL_UINT16(28u, O2P_REG_CONFIG_COUNT);
 #if O2P_DEBUG_ENABLE
     /* 0x000D: the wide peek block appeared at 0x0100, 65 registers, where
      *         every address previously answered exception 02.
@@ -8900,6 +9044,8 @@ int main(void)
     RUN_TEST(test_a_written_air_point_resets_its_provenance);
     RUN_TEST(test_the_unverified_air_window_is_the_datasheet_population);
     RUN_TEST(test_the_rev_a_divider_scaling);
+    RUN_TEST(test_the_vin_divider_ratio_belongs_to_the_board);
+    RUN_TEST(test_a_vin_ratio_is_stored_without_a_layout_bump);
     RUN_TEST(test_the_wire_version_tracks_the_wire_contract);
     RUN_TEST(test_cell_current_is_the_departure_from_the_internal_zero);
     RUN_TEST(test_cell_current_keeps_its_sign);

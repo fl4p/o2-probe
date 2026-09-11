@@ -84,6 +84,10 @@ void o2p_config_defaults(o2p_config_t *cfg)
      * zero a memset would leave: 0 is a legal setpoint meaning "hold 0.00 C". */
     cfg->tip_setpoint_c100 = O2P_I16_INVALID;
     cfg->heater_tip_consent = 0u;
+    /* The netlist divider. The memset already left it; stated because WHY it
+     * is zero - every record written before 0x004B existed means exactly this -
+     * is what let the field skip a layout bump (regmap.h). */
+    o2p_cfg_set_vin_div_x1000(cfg, O2P_VIN_DIV_X1000_NETLIST);
 }
 
 bool o2p_config_valid(const o2p_config_t *cfg)
@@ -228,6 +232,9 @@ bool o2p_config_valid(const o2p_config_t *cfg)
     if (cfg->dil_alpha_x1000 > (uint16_t)(O2P_DIL_ALPHA_MAX * 1000.0f)) {
         return false;
     }
+    /* VIN_DIV_X1000 is NOT screened here, on purpose: no record is refused
+     * over it. Its consumers fall back to the netlist divider instead - see
+     * o2p_vin_div_x1000_in_window() for why that is the safe direction. */
     return true;
 }
 
@@ -717,6 +724,10 @@ static uint16_t read_config(const o2p_regmap_t *rm, uint16_t a)
     case O2P_REG_CAL_AIR_FRAC:    return c->cal_air_frac_x1000;
     case O2P_REG_CAL_P_HPA:       return c->cal_p_hpa;
     case O2P_REG_DIL_ALPHA:       return c->dil_alpha_x1000;
+    /* The stored bytes, not the ratio in force: a pattern outside the window
+     * reads back as itself, so an operator can see it, while the sampler
+     * scales by the netlist. */
+    case O2P_REG_VIN_DIV_X1000:   return o2p_cfg_vin_div_x1000(c);
     /* The trigger registers read back as zero: they are edges, not state.
      * Reading a 1 would suggest a calibration is pending when it is not. */
     case O2P_REG_SHT_PULSE_TRIG:  return 0u;
@@ -954,6 +965,15 @@ static uint8_t apply_config_word(o2p_config_t *c, uint16_t a, uint16_t v,
          * lands before 0x0045, and a master writing the pair it actually
          * wants had its own correct fraction transformed a second time. */
         c->dil_alpha_x1000 = v;
+        break;
+    case O2P_REG_VIN_DIV_X1000:
+        /* The only place the window is enforced, because o2p_config_valid()
+         * deliberately does not look at this field (regmap.h). 0 puts the
+         * probe back on the netlist divider. */
+        if (v != O2P_VIN_DIV_X1000_NETLIST && !o2p_vin_div_x1000_in_window(v)) {
+            return O2P_MB_EX_ILLEGAL_VALUE;
+        }
+        o2p_cfg_set_vin_div_x1000(c, v);
         break;
     default:
         return O2P_MB_EX_ILLEGAL_ADDRESS;

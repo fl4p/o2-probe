@@ -20,6 +20,7 @@
 #define O2P_REGMAP_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "modbus_pdu.h"
@@ -414,9 +415,29 @@ enum {
      * resuming on saturate-early/integrate-slowly defaults is safer than one
      * resuming on somebody's aggressive bench tuning. What must survive a
      * reset is the TARGET and the AUTHORISATION to pursue it, and those do. */
+
+    /* VIN DIVIDER RATIO, u16 x 1000. 0 = the generated netlist divider
+     * (hw_caps_rev_*.h). 2000..20000 = VIN_MON_MV (0x0012) is the measured
+     * tap voltage times this / 1000, on either revision. Anything else is
+     * refused. Flash-backed like the rest of the block, so it takes a COMMIT.
+     *
+     * A PER-BOARD FACT, not tuning. Probe 3 is a Rev A board whose netlist
+     * says R26/R27 = 130k/20k (x7.5), and it carries 82k/10k (x9.2): Fab
+     * metered 13.11 V at the probe's input terminals while 0x0012 published
+     * 10710 mV (2026-09-11), a ratio of 1.224 against the 9.2/7.5 = 1.227 the
+     * fitted parts predict. The generated header describes the DESIGN and must
+     * go on doing so; what one board actually carries belongs in that board's
+     * flash (Fab: "this calibration constants belongs in the stm non-volatile
+     * storage").
+     *
+     * The window is x2..x20. The ratios in play are x7.5, x9.2 and Rev B's
+     * x10.1; a dropped digit (920) is refused, and one digit too many does not
+     * fit a u16. Storage, and why this needed no layout bump:
+     * o2p_cfg_vin_div_x1000(). */
+    O2P_REG_VIN_DIV_X1000     = 0x004Bu,
 };
 #define O2P_REG_CONFIG_BASE  0x0030u
-#define O2P_REG_CONFIG_COUNT 27u
+#define O2P_REG_CONFIG_COUNT 28u
 
 /* ---- Heater test block: 0x0060, 5 registers, read/write, VOLATILE ----
  *
@@ -1000,7 +1021,7 @@ enum {
  *
  * For "which build is this", read BUILD_ID (0x0028/0x0029) - this number is
  * hand-maintained and says nothing about the binary. */
-#define O2P_FW_VERSION 0x0013u  /* v0.19 - dew-margin heater law (Fab 2026-09-11, steam bath: "fix it so it keeps a reasonable dew-margin"): cell-side TMP117 minus gas dew point held at 4 K, tip ceiling 79 C / clamp 80 C, RH law as fallback without a cell reading; v0.18 - poke mailbox 0x0198 + wide poke 0x01B0 (Fab 2026-09-11: "the equivalent write command of the peek" - SRAM .data/.bss writes only, flash/peripherals/SHARED/stack refused); v0.17 - supply veto removed (Fab 2026-09-11: <1 W, blind already heated through it; O2P_HB_SUPPLY now annotation-only); v0.16 was compost-readiness: fresh RH consent, HB IDLE/TIP_DISARMED, stale cut 2 s + STALE bit, tip glitch reject, VREF settle on recovery */
+#define O2P_FW_VERSION 0x0014u  /* v0.20 - VIN_DIV_X1000 at 0x004B, config block 27 -> 28 registers, no layout bump (Fab 2026-09-11: "this calibration constants belongs in the stm non-volatile storage"); v0.19 - dew-margin heater law (Fab 2026-09-11, steam bath: "fix it so it keeps a reasonable dew-margin"): cell-side TMP117 minus gas dew point held at 4 K, tip ceiling 79 C / clamp 80 C, RH law as fallback without a cell reading; v0.18 - poke mailbox 0x0198 + wide poke 0x01B0 (Fab 2026-09-11: "the equivalent write command of the peek" - SRAM .data/.bss writes only, flash/peripherals/SHARED/stack refused); v0.17 - supply veto removed (Fab 2026-09-11: <1 W, blind already heated through it; O2P_HB_SUPPLY now annotation-only); v0.16 was compost-readiness: fresh RH consent, HB IDLE/TIP_DISARMED, stale cut 2 s + STALE bit, tip glitch reject, VREF settle on recovery */
 
 /* Overridden by tools/pio_build_id.py on every target build. The default is
  * reached only by the host test build, and means "no stamp", never a commit. */
@@ -1056,14 +1077,17 @@ typedef struct {
     uint8_t  slave_addr;              /* 28 */
     uint8_t  baud_code;               /* 29 */
     uint8_t  parity_code;             /* 30 */
-    uint8_t  reserved[1];             /* 31 */
+    /* VIN divider ratio x 1000, HIGH byte - register 0x004B. Composed with
+     * vin_div_x1000_lo at offset 35 by o2p_cfg_vin_div_x1000(); see there for
+     * why one u16 lives in two non-adjacent bytes. */
+    uint8_t  vin_div_x1000_hi;        /* 31 */
     uint16_t dil_alpha_x1000;         /* 32 */
     /* 1 once a zero point has been TAKEN. Needed because 0 nA is a legitimate
      * measured zero as well as the never-measured default, and the two have
      * identical arithmetic (subtract nothing) but opposite meanings to an
      * operator deciding whether commissioning is finished. */
     uint8_t  cal_zero_taken;          /* 34 */
-    uint8_t  reserved2[1];            /* 35 */
+    uint8_t  vin_div_x1000_lo;        /* 35 - LOW byte of 0x004B, see offset 31 */
     /* APPENDED, deliberately. Placing it beside cal_air_na would move every
      * field after it and make the migration a re-layout instead of a
      * zero-fill; here every v5 offset is untouched and the only thing a v5
@@ -1160,6 +1184,58 @@ _Static_assert(sizeof(o2p_config_t) <= 50u,
  * again, 52 -> 56, and the fixed 64-byte record's reserved tail shrinks from
  * 10 bytes to 6. Both still fit, and the version-specific size arithmetic in
  * config_migrate.c means a v6 record is still checked at the v6 offset. */
+
+/* ---- VIN_DIV_X1000 (0x004B) storage ---------------------------------------
+ *
+ * TWO NON-ADJACENT BYTES, offsets 31 and 35, because those are free and
+ * nothing next to either one is. Making them adjacent means moving a field,
+ * which is a re-layout, which is a layout version bump, which sends every probe
+ * through config_migrate.c - and that discards both heater consents by policy.
+ * The value is composed here explicitly, so its byte order is this code's and
+ * not the compiler's, and the offsets are pinned so a later edit cannot slide
+ * it onto a field.
+ *
+ * NO VERSION BUMP IS NEEDED because zero is what every existing record already
+ * holds there, and zero means "the netlist divider" - the arithmetic those
+ * records were run with. Offset 31 was reserved in every layout since v4 and
+ * offset 35 since v6; the defaults memset the struct, every migration starts
+ * from the defaults, and no firmware ever wrote either byte. Same polarity
+ * argument as cal_bias_verified at offset 46.
+ *
+ * Offset 47 is now the record's last spare byte. */
+#define O2P_VIN_DIV_X1000_NETLIST 0u
+#define O2P_VIN_DIV_X1000_MIN     2000u
+#define O2P_VIN_DIV_X1000_MAX     20000u
+_Static_assert(offsetof(o2p_config_t, vin_div_x1000_hi) == 31u,
+               "VIN_DIV high byte must stay in v4's reserved byte at 31");
+_Static_assert(offsetof(o2p_config_t, vin_div_x1000_lo) == 35u,
+               "VIN_DIV low byte must stay in v6's reserved byte at 35");
+
+static inline uint16_t o2p_cfg_vin_div_x1000(const o2p_config_t *c)
+{
+    return (uint16_t)(((uint16_t)c->vin_div_x1000_hi << 8) | c->vin_div_x1000_lo);
+}
+
+static inline void o2p_cfg_set_vin_div_x1000(o2p_config_t *c, uint16_t v)
+{
+    c->vin_div_x1000_hi = (uint8_t)(v >> 8);
+    c->vin_div_x1000_lo = (uint8_t)(v & 0xFFu);
+}
+
+/* Is a stored ratio one the register write would have accepted? Every consumer
+ * asks this instead of trusting the bytes: anything outside the window - 0 by
+ * design, or a pattern that never came through a write - scales by the netlist
+ * divider.
+ *
+ * DELIBERATELY NOT a clause of o2p_config_valid(). A record that fails that
+ * function boots on FULL DEFAULTS, which resets slave_addr, baud and parity,
+ * and these are bytes older firmware never wrote and never checked. Refusing a
+ * whole record over a supply-monitor scale factor would trade a wrong voltage
+ * reading for a potted probe that no longer answers its master. */
+static inline bool o2p_vin_div_x1000_in_window(uint16_t v)
+{
+    return v >= O2P_VIN_DIV_X1000_MIN && v <= O2P_VIN_DIV_X1000_MAX;
+}
 
 /* Live measurement snapshot, published atomically by the sampler. */
 typedef struct {

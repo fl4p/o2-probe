@@ -343,7 +343,7 @@ prevent, and the probe is potted. Zero means *built without the stamp* (only the
 host test build after 2026-09-08) and is never reported as a commit.
 
 
-### Config block, `0x0030`, 27 registers, read/write, flash-backed
+### Config block, `0x0030`, 28 registers, read/write, flash-backed
 
 `SLAVE_ADDR`, `BAUD_CODE`, `PARITY_CODE`, `RH_SETPOINT`, `DT_MAX_K`,
 `HEATER_MAX_DUTY`, `HEATER_PWM_HZ`, `CAL_AIR_NA_HI/LO`, `CAL_TEMP_C100`,
@@ -356,6 +356,8 @@ pressure fields: `ASSUMED_P_HPA` at `0x0042`, `CAL_AIR_FRAC` at `0x0043` and
 The cell's dilution efficacy `DIL_ALPHA` sits at `0x0045`.
 `HEATER_RH_CONSENT` sits at `0x0048`.
 `TIP_SETPOINT` sits at `0x0049` and `HEATER_TIP_CONSENT` at `0x004A`.
+`VIN_DIV_X1000` sits at `0x004B`: the board's own input-rail divider ratio
+× 1000, `0` = the generated netlist divider (FW `0x0014`; see FIRMWARE.md).
 
 `HEATER_RH_CONSENT` (`0x0048`) is consent to **autonomous** heating: only the
 magic `0x9C07` lets the RH loop drive the ring, and anything else — zero

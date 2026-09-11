@@ -27,11 +27,13 @@ void o2p_mcu_adc_init(void);
  * the conversion or the VREFINT reference read failed - never a default. */
 bool o2p_mcu_adc_read_va_mv(uint16_t *out_mv);
 
-/* Millivolts on the +12V_SW input rail, undoing the R26/R27 divider. Same
- * contract: false on any failure, never a substituted default. The caller must
- * treat false as "supply not OK", because a rail that cannot be read is not a
- * rail that is known good - see phase_rails() in main.c. */
-bool o2p_mcu_adc_read_vin_mv(uint16_t *out_mv);
+/* Millivolts on the +12V_SW input rail, undoing the R26/R27 divider - or the
+ * board's stored ratio, VIN_DIV_X1000 (0x004B), when div_x1000 is one a write
+ * would have accepted. Same contract: false on any failure, never a
+ * substituted default. The caller must treat false as "supply not OK", because
+ * a rail that cannot be read is not a rail that is known good - see
+ * phase_rails() in main.c. */
+bool o2p_mcu_adc_read_vin_mv(uint16_t div_x1000, uint16_t *out_mv);
 
 /* VDDA/VREF+ in millivolts, derived from VREFINT. Exposed for bring-up. */
 bool o2p_mcu_adc_read_vdda_mv(uint16_t *out_mv);

@@ -111,9 +111,15 @@ static inline uint16_t o2p_scale_va_ads(uint16_t raw_mv)
     return (uint16_t)va;
 }
 
-static inline uint16_t o2p_scale_vin_ads(uint16_t raw_mv)
+/* VIN takes the board's stored ratio, VIN_DIV_X1000 (0x004B), when it holds
+ * one a write would have accepted, and the netlist divider otherwise - pass
+ * o2p_cfg_vin_div_x1000(&cfg). The stored branch cannot overflow: 65535 *
+ * 20000 is inside u32. */
+static inline uint16_t o2p_scale_vin_ads(uint16_t raw_mv, uint16_t div_x1000)
 {
-    uint32_t vin = ((uint32_t)raw_mv * O2P_HW_DIV_VIN_ADS_DEN) / O2P_HW_DIV_VIN_ADS_NUM;
+    uint32_t vin = o2p_vin_div_x1000_in_window(div_x1000)
+        ? ((uint32_t)raw_mv * div_x1000) / 1000u
+        : ((uint32_t)raw_mv * O2P_HW_DIV_VIN_ADS_DEN) / O2P_HW_DIV_VIN_ADS_NUM;
     if (vin > 0xFFFEu) {
         vin = 0xFFFEu;
     }
