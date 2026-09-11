@@ -45,6 +45,15 @@ TWO MODES, because the cell is the confounder.
                  which is why the plan calls for a second excursion that warms
                  the AFE end and not the tip, or for the dummy.
 
+                 --cell-temp ext replaces lag(T_CHAMBER, tau) with T_EXT,
+                 the external TMP117 (register 0x001F; CSV t_ext_c, VM
+                 gas_t_ext_c) on the side of the cell enclosure, far from the
+                 pins, since 2026-09-11. It is measured, so tau is NOT scanned (0 unless
+                 --tau is given) - the scan is what broke the 2026-09-11 split.
+                 It reads the can wall, not the electrolyte, so c still
+                 carries that coupling. Rows without T_EXT are dropped and
+                 counted as missing.
+
                  --afe-ppm-k fixes b to a value measured in dummy mode, and
                  then the fit solves for c alone: the cell's apparent
                  dependence on chamber temperature with the AFE's share
@@ -58,7 +67,10 @@ and it always prints the span so the reader can judge the rest. Rows are
 dropped when settle_s > 0, when faults intersect O2P_FAULTS_INVALIDATE_O2
 (0x6866: I2C_FAIL_LMP, I2C_FAIL_ADS, AFE_CONFIG_MISMATCH, VA_LOW, ADC_RANGE,
 ADS_DRDY_STUCK, ADS_CONFIG_LOST - a copy of faults.h, checked against it at
-startup), or when any regressor is missing. "Unevaluable" exits 2, never 0.
+startup), or when any regressor is missing or non-finite. Cell mode also
+refuses when its cell regressor moved less than --min-span-k, with or without
+--afe-ppm-k, and no result is "ok" while any number in it is non-finite.
+"Unevaluable" exits 2, never 0.
 
 INPUTS. --csv takes the schema o2p_poll.py, o2p_thermal.py and their
 --poll-csv write (utc, o2_raw_ua, t_afe_c, t_tip_c, t_chamber_c, faults,
@@ -96,6 +108,12 @@ INVALIDATE_MASK = 0x6866
 
 I16_INVALID = -32768
 
+# Cell-mode regressors: row key, CSV column, report label.
+CELL_TEMPS = {
+    "chamber-lag": ("t_cham", "t_chamber_c", "lagged T_CHAMBER"),
+    "ext":         ("t_ext", "t_ext_c", "T_EXT"),
+}
+
 
 # --------------------------------------------------------------------------
 # Agreement with the firmware.
@@ -129,7 +147,7 @@ def check_against_source():
 
 # --------------------------------------------------------------------------
 # Loading. Both loaders yield dicts with the same keys:
-#   t (float, unix s), i_ua, t_afe, t_tip, t_cham, faults (int|None),
+#   t (float, unix s), i_ua, t_afe, t_tip, t_cham, t_ext, faults (int|None),
 #   settle (float|None)
 
 def _f(v):
@@ -139,7 +157,7 @@ def _f(v):
         x = float(v)
     except (TypeError, ValueError):
         return None
-    if x != x:  # NaN
+    if not math.isfinite(x):  # NaN or +/-inf is unavailable, never a reading
         return None
     return x
 
@@ -187,6 +205,7 @@ def load_csv(path):
                 "t_afe": _f(r.get("t_afe_c")),
                 "t_tip": _f(r.get("t_tip_c")),
                 "t_cham": _f(r.get("t_chamber_c")),
+                "t_ext": _f(r.get("t_ext_c")),
                 "faults": _int(r.get("faults")),
                 "settle": _f(r.get("settle_s")),
             })
@@ -215,14 +234,16 @@ def load_vm_export(path):
             "t_afe": _f(g("gas_t_afe_c")),
             "t_tip": _f(g("gas_t_tip_c")),
             "t_cham": _f(g("gas_t_chamber_c")),
+            "t_ext": _f(g("gas_t_ext_c")),
             "faults": _int(g("gas_faults")),
             "settle": _f(g("gas_settle_s")),
         })
     return rows
 
 
-def select(rows, start=None, end=None):
-    """Window, then drop the rows the firmware itself would not trust."""
+def select(rows, start=None, end=None, require=()):
+    """Window, then drop the rows the firmware itself would not trust, and
+    the rows missing any regressor named in `require` (e.g. "t_ext")."""
     out = []
     dropped = {"window": 0, "settling": 0, "faulted": 0, "missing": 0}
     for r in rows:
@@ -236,7 +257,8 @@ def select(rows, start=None, end=None):
         if r["faults"] is not None and (r["faults"] & INVALIDATE_MASK):
             dropped["faulted"] += 1
             continue
-        if r["i_ua"] is None or r["t_afe"] is None:
+        if r["i_ua"] is None or r["t_afe"] is None or \
+           any(r.get(k) is None for k in require):
             dropped["missing"] += 1
             continue
         out.append(r)
@@ -324,11 +346,25 @@ def span(xs):
 # --------------------------------------------------------------------------
 # The analysis.
 
+def _settle_ok(res):
+    """Mark a finished fit ok - unless any number in it is non-finite, which
+    is a failed fit however clean the arithmetic path looked."""
+    bad = sorted(k for k, v in res.items()
+                 if isinstance(v, float) and not math.isfinite(v))
+    if bad:
+        res["reasons"].append("non-finite result (%s)" % ", ".join(bad))
+        res["verdict"] = "unevaluable"
+    else:
+        res["verdict"] = "ok"
+
 def analyse(rows, mode="dummy", tau=None, tau_grid=None, afe_ppm_k=None,
-            min_span_k=8.0, min_n=20, max_corr=0.95):
+            min_span_k=8.0, min_n=20, max_corr=0.95, cell_temp="chamber-lag"):
     """Return a result dict. result["verdict"] is "ok" or "unevaluable";
     result["reasons"] says why. Numbers are only present when they mean
-    something."""
+    something. cell_temp picks the cell-mode regressor: "chamber-lag" or
+    "ext" (the cell-side TMP117)."""
+    if cell_temp not in CELL_TEMPS:
+        raise ValueError("cell_temp must be one of %s" % ", ".join(CELL_TEMPS))
     res = {"mode": mode, "n": len(rows), "verdict": "unevaluable",
            "reasons": []}
     if not rows:
@@ -337,6 +373,11 @@ def analyse(rows, mode="dummy", tau=None, tau_grid=None, afe_ppm_k=None,
     ts = [r["t"] for r in rows]
     i_ua = [r["i_ua"] for r in rows]
     t_afe = [r["t_afe"] for r in rows]
+    if any(v is None or not math.isfinite(v) for v in i_ua + t_afe):
+        res["reasons"].append("missing or non-finite current or T_AFE in the "
+                              "rows - select() drops these; a direct call "
+                              "must too")
+        return res
     res["t_afe_span_k"] = span(t_afe)
     res["t_afe_min_c"], res["t_afe_max_c"] = min(t_afe), max(t_afe)
     res["i_mean_ua"] = sum(i_ua) / len(i_ua)
@@ -371,23 +412,41 @@ def analyse(rows, mode="dummy", tau=None, tau_grid=None, afe_ppm_k=None,
             "slope_ua_per_k": f["beta"][1],
             "r2": f["r2"], "rms_ua": f["rms"],
         })
-        res["verdict"] = "ok"
+        _settle_ok(res)
         return res
 
     if mode != "cell":
         raise ValueError("mode must be dummy or cell")
 
-    cham = [r["t_cham"] for r in rows]
-    if any(v is None for v in cham):
-        res["reasons"].append("cell mode needs t_chamber_c on every row")
+    key, col, label = CELL_TEMPS[cell_temp]
+    res["cell_temp"], res["cell_label"] = cell_temp, label
+    t_src = [r[key] for r in rows]
+    if any(v is None or not math.isfinite(v) for v in t_src):
+        res["reasons"].append("cell mode needs a finite %s on every row" % col)
+        return res
+    # A frozen cell regressor must refuse, not fit: 1,000 identical T_EXT rows
+    # once came back verdict=ok at +101,021 ppm/K, float cancellation having
+    # slipped past the singularity check (codex review 2026-09-11). Checked
+    # before any fit, so --afe-ppm-k cannot bypass it.
+    res["t_cell_src_span_k"] = span(t_src)
+    if res["t_cell_src_span_k"] < min_span_k:
+        res["reasons"].append("%s moved %.2f K, need %.1f K - no cell "
+                              "excursion to fit on"
+                              % (label, res["t_cell_src_span_k"], min_span_k))
         return res
 
-    # Scan tau for the best fit unless one was given.
-    grid = [tau] if tau is not None else (tau_grid or
-                                           [0] + list(range(60, 1801, 60)))
+    # Scan tau for the best fit unless one was given - but never for a
+    # MEASURED cell temperature: picking tau on the same data is what moved
+    # the 2026-09-11 AFE share from 124 to 457 ppm/K at unchanged residual.
+    if tau is not None:
+        grid = [tau]
+    elif cell_temp == "ext":
+        grid = [0]
+    else:
+        grid = tau_grid or [0] + list(range(60, 1801, 60))
     best = None
     for tau_try in grid:
-        tc = lag(ts, cham, tau_try)
+        tc = lag(ts, t_src, tau_try)
         if afe_ppm_k is None:
             X = [[1.0, a, c] for a, c in zip(t_afe, tc)]
             y = i_ua
@@ -425,16 +484,16 @@ def analyse(rows, mode="dummy", tau=None, tau_grid=None, afe_ppm_k=None,
         res["afe_ppm_k_fixed"] = True
         res["cell_apparent_ppm_k"] = f["beta"][1] / imean * 1e6
         res["cell_apparent_ppm_k_se"] = f["se"][1] / imean * 1e6
-        res["verdict"] = "ok"
+        _settle_ok(res)
         return res
 
     if abs(res["corr_afe_cell"]) > max_corr:
         res["reasons"].append(
-            "T_AFE and lagged T_CHAMBER are collinear (r = %.3f, limit %.2f): "
+            "T_AFE and %s are collinear (r = %.3f, limit %.2f): "
             "one heat source moved both, so the AFE's share cannot be "
             "separated from the cell's. Only the combined slopes are reported. "
             "Do the dummy-load run, or add an excursion that warms the AFE "
-            "end and not the tip." % (res["corr_afe_cell"], max_corr))
+            "end and not the tip." % (label, res["corr_afe_cell"], max_corr))
         res["verdict"] = "split-unevaluable"
         return res
 
@@ -442,7 +501,7 @@ def analyse(rows, mode="dummy", tau=None, tau_grid=None, afe_ppm_k=None,
     res["afe_ppm_k_se"] = f["se"][1] / imean * 1e6
     res["cell_apparent_ppm_k"] = f["beta"][2] / imean * 1e6
     res["cell_apparent_ppm_k_se"] = f["se"][2] / imean * 1e6
-    res["verdict"] = "ok"
+    _settle_ok(res)
     return res
 
 
@@ -473,12 +532,14 @@ def report(res, dropped, out=sys.stdout):
         p("  (less the dummy resistor's own tempco; a 25 ppm/K film adds "
           "that much uncertainty)")
     if res["mode"] == "cell" and "tau_s" in res:
-        p("  cell lag   tau = %d s   r(T_AFE, lagged T_CHAMBER) = %.3f"
-          % (res["tau_s"], res["corr_afe_cell"]))
-        p("  combined   on T_AFE alone %+.0f +/- %.0f ppm/K; on lagged "
-          "T_CHAMBER alone %+.0f +/- %.0f ppm/K"
+        label = res["cell_label"]
+        p("  cell lag   tau = %d s   r(T_AFE, %s) = %.3f"
+          % (res["tau_s"], label, res["corr_afe_cell"]))
+        p("  combined   on T_AFE alone %+.0f +/- %.0f ppm/K; on %s "
+          "alone %+.0f +/- %.0f ppm/K"
           % (res["combined_on_afe_ppm_k"], res["combined_on_afe_ppm_k_se"],
-             res["combined_on_cell_ppm_k"], res["combined_on_cell_ppm_k_se"]))
+             label, res["combined_on_cell_ppm_k"],
+             res["combined_on_cell_ppm_k_se"]))
         if "afe_ppm_k" in res:
             if res.get("afe_ppm_k_fixed"):
                 p("  AFE tempco %+.0f ppm/K   (FIXED from --afe-ppm-k)"
@@ -486,12 +547,16 @@ def report(res, dropped, out=sys.stdout):
             else:
                 p("  AFE tempco %+.0f +/- %.0f ppm/K"
                   % (res["afe_ppm_k"], res["afe_ppm_k_se"]))
-            p("  cell, apparent, per K of lagged chamber temperature: "
+            p("  cell, apparent, per K of %s: "
               "%+.0f +/- %.0f ppm/K   (R2 %.3f, residual %.3f uA rms)"
-              % (res["cell_apparent_ppm_k"], res["cell_apparent_ppm_k_se"],
-                 res["r2"], res["rms_ua"]))
-            p("  (that is a_cell * beta, the cell's coupling to the gas "
-              "temperature included; not the cell's tempco)")
+              % (label, res["cell_apparent_ppm_k"],
+                 res["cell_apparent_ppm_k_se"], res["r2"], res["rms_ua"]))
+            if res["cell_temp"] == "ext":
+                p("  (T_EXT reads the can wall; its coupling to the "
+                  "electrolyte is still included)")
+            else:
+                p("  (that is a_cell * beta, the cell's coupling to the gas "
+                  "temperature included; not the cell's tempco)")
 
 
 def plot(rows, res, path):
@@ -520,6 +585,9 @@ def plot(rows, res, path):
     if all(r["t_cham"] is not None for r in rows):
         ax[1].plot(tt, [r["t_cham"] for r in rows], color="tab:orange",
                    label="T_CHAMBER")
+    if all(r.get("t_ext") is not None for r in rows):
+        ax[1].plot(tt, [r["t_ext"] for r in rows], color="tab:olive",
+                   label="T_EXT (cell side)")
     ax[1].set_xlabel("minutes")
     ax[1].set_ylabel("C")
     ax[1].legend()
@@ -540,6 +608,10 @@ def main(argv=None):
     ap.add_argument("--end", help="UTC")
     ap.add_argument("--tau", type=float, default=None,
                     help="cell lag in s; default scans 0..1800")
+    ap.add_argument("--cell-temp", choices=sorted(CELL_TEMPS),
+                    default="chamber-lag",
+                    help="cell mode regressor: lagged chamber, or the "
+                         "cell-side TMP117 (t_ext_c / gas_t_ext_c)")
     ap.add_argument("--afe-ppm-k", type=float, default=None,
                     help="cell mode: fix the AFE tempco to this measured value")
     ap.add_argument("--min-span-k", type=float, default=8.0)
@@ -561,10 +633,12 @@ def main(argv=None):
     rows = load_csv(args.csv) if args.csv else load_vm_export(args.vm_export)
     start = parse_utc(args.start) if args.start else None
     end = parse_utc(args.end) if args.end else None
-    used, dropped = select(rows, start, end)
+    require = ((CELL_TEMPS[args.cell_temp][0],)
+               if args.mode == "cell" and args.cell_temp == "ext" else ())
+    used, dropped = select(rows, start, end, require=require)
     res = analyse(used, mode=args.mode, tau=args.tau, afe_ppm_k=args.afe_ppm_k,
                   min_span_k=args.min_span_k, min_n=args.min_n,
-                  max_corr=args.max_corr)
+                  max_corr=args.max_corr, cell_temp=args.cell_temp)
     report(res, dropped)
     if args.json:
         with open(args.json, "w") as fh:

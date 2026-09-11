@@ -196,6 +196,31 @@ along the same copper. **The cell is on flying leads** — the highest thermal
 resistance of the three, and coupled to the gas rather than to the board.
 Nothing in the telemetry measures the cell.
 
+> **Addendum 2026-09-11 afternoon — the cell now has a thermometer.** A second
+> TMP117 (ext I2C 0x4A, register 0x001F `EXP_DATA`) is attached to the side of
+> the cell enclosure, on the side **far from the pins** (Fab) — the end away
+> from the lead path to the board. Which end is the sensing face is **not
+> settled**: the DS-0637 Issue 2 drawing marks DO NOT OBSTRUCT on both faces
+> (the large opening opposite the pins, and the small pin-face port that
+> `DESIGN.md:735` calls the rear gas port and the board's flow slot serves),
+> and names neither as the membrane. It reads the outside of the ABS housing,
+> not the electrolyte; its lag behind the electrolyte is **unmeasured**.
+> Published as `gas_t_ext_c` from 13:43 (before that, raw centi-°C in
+> `gas_exp_data`, mostly solder heat); fit with `o2p_tempco.py --mode cell
+> --cell-temp ext`. The sentence above still holds for every dataset in this
+> document — all of it predates the sensor.
+>
+> **Not new, but not carried into this tree:** DS-0637 Issue 2 carries a
+> temperature chart ("%20°C Output vs Temperature", −40…60 °C, mean ±3σ, PDF
+> page 2). `compostlab/o2-probe/O2-CORRECTION-MODEL-BUDGET.md` §5 recorded it
+> on 2026-09-07/08 with eyeballed readings — ≈ +0.2 %/K, flattening above
+> 40 °C, **UNVERIFIED** — and named `dsdig` digitisation as the next step; it
+> has not been done. `2026-09-08-hot-bath-run.md:144` ("no tempco curve at
+> all") cites Issue 1; the firmware comments carried the same Issue 1 claim. Published as `gas_t_ext_c` from 13:43
+> (before that, raw centi-°C in `gas_exp_data`, mostly solder heat); fit with
+> `o2p_tempco.py --mode cell --cell-temp ext`. The sentence above still holds
+> for every dataset in this document — all of it predates the sensor.
+
 The ladder is visible in the data, and its rungs depend on *where the heat
 enters*:
 

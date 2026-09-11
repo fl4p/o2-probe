@@ -135,10 +135,12 @@ typedef struct {
      * negative means "never calibrated" and the caller must set CAL_DEFAULT. */
     int32_t cal_air_na;
     /* Fractional change in cell output per kelvin, referenced to cal_temp_c.
-     * SGX does not publish an output-vs-temperature curve for the Mini in
-     * DS-0637 Issue 1, so this is a HOLDING REGISTER with a documented default
-     * rather than a datasheet constant. Above 60 C it is extrapolation by
-     * explicit decision (PLAN.md:211-228). */
+     * DS-0637 Issue 1 published no output-vs-temperature curve. Issue 2
+     * (28-May-2026) does, but only as a chart: eyeballed at ~+0.2 %/K and
+     * visibly non-linear above 40 C, NOT digitised (compostlab/o2-probe
+     * O2-CORRECTION-MODEL-BUDGET.md s5). So this is still a HOLDING REGISTER
+     * with a documented default rather than a datasheet constant. Above 60 C
+     * it is extrapolation by explicit decision (PLAN.md:211-228). */
     float   tempco_per_k;
     /* How much of the modelled water-vapour dilution the CELL ACTUALLY SHOWS.
      *
@@ -314,19 +316,21 @@ static inline bool o2p_cal_zero_plausible(int32_t zero_na)
  * not been calibrated yet. Corrected 2026-09-08. */
 #define O2P_CAL_AIR_NOMINAL_NA 100000
 
-/* Default tempco until a bench characterisation replaces it. SGX publishes no
- * figure for this part; 0 means "no compensation applied", which is honest -
- * an invented coefficient would be worse than none, because it would look
- * like a correction had been made. */
+/* Default tempco until a bench characterisation replaces it. There is no
+ * sourced figure for this part: DS-0637 Issue 2's temperature chart is
+ * undigitised (see tempco_per_k above). 0 means "no compensation applied",
+ * which is honest - an invented coefficient would be worse than none, because
+ * it would look like a correction had been made. */
 /* Bound on the stored temperature coefficient. A CORRUPTION AND TYPO SCREEN,
- * nothing more: SGX publishes no curve for this cell, so no runtime check can
- * tell a wrong-but-legal alpha from a right one - that is a property of the
- * bench characterisation the number came from, not of the number. What this
- * does stop is a garbled Modbus write or a flash bit-flip installing a
- * coefficient that distorts every later reading. i16 allows +/-32767 ppm/K,
- * which at a 100 K excursion is a gain of 4.3 or of -2.3; 5000 ppm/K is
- * already an order of magnitude past any amperometric cell's published
- * tempco. */
+ * nothing more: no runtime check can tell a wrong-but-legal alpha from a
+ * right one - the vendor chart is a population, not this unit, so that is a
+ * property of the bench characterisation the number came from, not of the
+ * number. What this does stop is a garbled Modbus write or a flash bit-flip
+ * installing a coefficient that distorts every later reading. i16 allows
+ * +/-32767 ppm/K, which at a 100 K excursion is a gain of 4.3 or of -2.3;
+ * 5000 ppm/K is ~2.5x the ~2000 ppm/K eyeballed (UNVERIFIED) off DS-0637
+ * Issue 2's chart. (Until 2026-09-11 this said "an order of magnitude past any
+ * published tempco", written against Issue 1, which published none.) */
 #define O2P_TEMPCO_ABS_MAX_PPM_K 5000
 
 /* Bound on the stored CALIBRATION TEMPERATURE, 0.01 C. Without it the tempco
