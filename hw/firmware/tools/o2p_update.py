@@ -2029,10 +2029,47 @@ def _push_lookahead(bus, image, block_bytes, retries, seq, sent):
     return seq + n_blocks, sent + n_blocks * block_bytes
 
 
+# THE FIRST EXCHANGE OF A PUSH SETTLES AND ASKS AGAIN, 2026-09-11.
+#
+# Bench evidence (farmgw keeper.log, every /update from 14:42 to 17:44, seven
+# in a row): the bridge probe's BLE write timed out host-side ("BLE write
+# failed (TimeoutError)") while the NODE still received and queued the
+# slave-250 request. bridge_status returned at once, and this read went out
+# behind it: the node served 250 (silence), then dropped the read it had
+# queued behind the failure ("BUS FLUSH 1 queued dropped", bleota.cpp
+# bus_service), and the read was handed 250's zero-length reply as its own -
+# NoReply, and the push died at 0 bytes with the probe healthy (plain /read
+# answered before and after every attempt).
+#
+# The read is idempotent, so asking again is free; the settle is what makes
+# the second ask clean - it lets the stale request's reply land and be
+# discarded before the next exchange clears the link's reply slot. A
+# ModbusException is a real reply and is not retried.
+BLOCK_MAX_ATTEMPTS = 3
+BLOCK_MAX_SETTLE_S = 2.0
+
+
+def read_block_max(bus, attempts=BLOCK_MAX_ATTEMPTS,
+                   settle_s=BLOCK_MAX_SETTLE_S, sleep=time.sleep):
+    """R_BLOCK_MAX in bytes, asked up to `attempts` times across silence."""
+    last = None
+    for attempt in range(attempts):
+        try:
+            return bus.read(R_BLOCK_MAX, 1)[0] * 2
+        except IOError as e:       # NoReply is an IOError
+            last = e
+            if attempt + 1 < attempts:
+                print("   block-size read failed (%s); settling %.1f s and "
+                      "asking again" % (e, settle_s))
+                sleep(settle_s)
+    raise SystemExit("!! the probe did not answer the block-size read in %d "
+                     "attempts: %s" % (attempts, last))
+
+
 def push(bus, image, block_bytes, retries, no_resume=False):
     if block_bytes % ALIGN or block_bytes < ALIGN:
         raise SystemExit("!! block size must be a multiple of %d bytes" % ALIGN)
-    advertised = bus.read(R_BLOCK_MAX, 1)[0] * 2
+    advertised = read_block_max(bus)
     if block_bytes > advertised:
         raise SystemExit("!! probe accepts at most %d bytes per block"
                          % advertised)
