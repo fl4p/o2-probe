@@ -1735,6 +1735,13 @@ static void execute_diag_command(o2p_regmap_t *rm)
             rm->diag_status = O2P_DMBOX_STATUS_ERR_OPCODE;
             return;
         }
+        /* RESTRICTION (Codex review of b3f7711, finding 3): a read of the
+         * ext part's CONFIG or TEMP register here clears its Data_Ready
+         * without phase_temps seeing it. Repeated diagnostic reads between
+         * a conversion and the sampling phase can make a healthy part look
+         * stale, expire the heater's cell bridge and hand the dew-margin law
+         * to the RH law. Harmless for the occasional bench peek; do not
+         * poll the ext part through this mailbox while the dew law matters. */
         uint8_t ext_addr = o2p_tmp117_ext_address();
         uint8_t addr = (dev == 1u)
             ? (ext_addr != 0u ? ext_addr : O2P_HW_I2C_ADDR_TMP117_EXT)

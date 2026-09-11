@@ -2481,13 +2481,14 @@ setpoint at the sentinel, RH consent `0x0048`) **and** a cell-side reading no
 older than 10 s (`O2P_HEATER_CELL_MAX_AGE_S`, bridging the ext glitch
 filter). Without one, the RH law runs exactly as before. Precedence is now
 override > stored tip > dew > RH; the mode tag restarts the integrator on
-every hand-over. No register was added: `HEATER_BLOCK` has no free bit, so the
-law in command can only be inferred from `T_EXT`: `TIP_DISARMED` set + `T_EXT`
-valid ⇒ dew law. **The converse does not hold** (Codex review of `4fe6b36`,
-finding 5): a withheld or failed `T_EXT` sample publishes the sentinel while
-the heater's private bridge keeps the dew law in command for up to 10 s, so
-`T_EXT` invalid does not imply the RH law. An observable mode needs a spare
-diagnostic register.
+every hand-over. No register was added: `HEATER_BLOCK` has no free bit, and
+**the law in command cannot be read off `T_EXT` in either direction**. A
+withheld or failed sample publishes the sentinel while the heater's private
+bridge keeps the dew law for up to 10 s (Codex review of `4fe6b36`, finding
+5); and since `b3f7711` a responsive part whose conversions froze keeps
+publishing a valid `T_EXT` while the bridge, which needs `Data_Ready`, expires
+to the RH law (Codex review of `b3f7711`, finding 2). An observable mode needs
+a spare diagnostic register.
 
 **Its interlocks, per the per-law blind rule.** `NO_RH`, `NO_CHAMBER` and
 `NO_TIP` blind it (die-gated, as for every law) — the dew point is its control
@@ -2496,9 +2497,17 @@ quantity and the tip its only bound; a humidity the Magnus form rejects
 80.00 °C under this law unconditionally (release 77.00 °C).
 
 **Limits, stated.** The gains are provisional on an unmeasured plant. Magnus
-is fit to ~60 °C; 75 °C is extrapolation. The ext TMP117 has no data-ready
-freshness check, so a frozen conversion would hold a constant margin error —
-bounded by the tip, which is freshness-checked, at the 79/80 °C ceiling. In
-the bath the 4 K margin is physically unreachable under the cap; the law then
-holds the tip at the ceiling and the cell side as close as that allows.
+is fit to ~60 °C; 75 °C is extrapolation. `4fe6b36` (the image installed
+2026-09-11 17:53) had no conversion-freshness check on the ext TMP117, so a
+frozen conversion held a constant margin forever — a warm frozen reading keeps
+a drowning cell cold, which the tip ceiling does not bound; `b3f7711` ages the
+bridge from `Data_Ready` instead (diagnostic-mailbox reads of the ext part
+consume that flag — see the restriction in `main.c`). `4fe6b36` also let the
+shared integral drive past the 79 °C ceiling (57 % at 79.50 °C); `b3f7711`
+back-calculates it so duty is 0 above the ceiling, proven over 249 480 cases
+by the second review. That is a bound, not regulation: on a hypothetical
+first-order plant the re-entry cycled ~77.6–79.0 °C, and actual stability at
+the ceiling is unverified. In the bath the 4 K margin is physically
+unreachable under the cap; the law then runs the tip up to the ceiling and
+the cell side as close as that allows.
 Published `DEW_MARGIN` (0x0014) is unchanged and still tip-referenced. Tests: `test_dew_law_*` in `test/test_logic`.
