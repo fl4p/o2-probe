@@ -1,5 +1,6 @@
 #include "regmap.h"
 #include "faults.h"
+#include "flash_map.h"   /* O2P_BOOT_BASE, O2P_APP_BASE/_BYTES for the peek flash bound */
 #include "gpio_diag.h"
 #include "heater_ctl.h"
 #ifndef O2P_HOST_TEST
@@ -64,9 +65,20 @@ void o2p_config_defaults(o2p_config_t *cfg)
      * heater is never a single edit. See heater.h for the bench prerequisites.
      */
     cfg->heater_max_duty_x100 = 0u;
-    /* No consent by default. A probe that has never been told to heat by
-     * itself must not, and this is the field that says so. */
-    cfg->heater_rh_consent = 0u;
+    /* RH-loop consent GRANTED by default since 2026-09-10. A probe that
+     * cannot prevent its own condensation while no control channel is
+     * reachable is the worse risk, and the loop this authorises is the mild
+     * one: a few kelvin above ambient inside a 0-4 K envelope, with every
+     * burn-side interlock still applying. Two gates remain in front of it:
+     * heater_max_duty_x100 still defaults to zero above, so enabling the
+     * heater is never a single edit, and a config MIGRATION still lands on
+     * zero - an upgrade re-asks, because an older record cannot honestly
+     * express consent. Writing 0 to 0x0048 still refuses, permanently.
+     * Measured motivation: 2026-09-10, a bench board at 99 %RH with a
+     * collapsing dew margin could not heat itself because consent had never
+     * been granted, and the grant write was locked out by the node's CTRL
+     * budget at exactly that moment. */
+    cfg->heater_rh_consent = O2P_HEATER_RH_CONSENT_MAGIC;
     /* Persistent tip loop OFF by default, and the sentinel is what says so.
      * Note this is the one appended field whose correct default is NOT the
      * zero a memset would leave: 0 is a legal setpoint meaning "hold 0.00 C". */
@@ -938,6 +950,38 @@ static void reference_air_frac(o2p_config_t *c, uint16_t alpha_old)
 #ifdef O2P_HOST_TEST
 uint32_t (*o2p_peek_host_read)(uint32_t addr) = NULL;
 int o2p_peek_host_irq_depth = 0;
+/* The parity seam's defaults: the factory option byte (bit 22 set, parity
+ * check DISABLED) and the .data/.bss bounds of the 2026-09-10 env:o2probe map.
+ * The bounds are test data, not the image's - the image reads its own. */
+#define O2P_PEEK_HOST_OPTR_FACTORY 0xFFFFFFFFu
+#define O2P_PEEK_HOST_SDATA        0x20000010u
+#define O2P_PEEK_HOST_EDATA        0x20000088u
+#define O2P_PEEK_HOST_SBSS         0x20000088u
+#define O2P_PEEK_HOST_EBSS         0x2000058Cu
+uint32_t o2p_peek_host_optr  = O2P_PEEK_HOST_OPTR_FACTORY;
+uint32_t o2p_peek_host_sdata = O2P_PEEK_HOST_SDATA;
+uint32_t o2p_peek_host_edata = O2P_PEEK_HOST_EDATA;
+uint32_t o2p_peek_host_sbss  = O2P_PEEK_HOST_SBSS;
+uint32_t o2p_peek_host_ebss  = O2P_PEEK_HOST_EBSS;
+void o2p_peek_host_parity_reset(void)
+{
+    o2p_peek_host_optr  = O2P_PEEK_HOST_OPTR_FACTORY;
+    o2p_peek_host_sdata = O2P_PEEK_HOST_SDATA;
+    o2p_peek_host_edata = O2P_PEEK_HOST_EDATA;
+    o2p_peek_host_sbss  = O2P_PEEK_HOST_SBSS;
+    o2p_peek_host_ebss  = O2P_PEEK_HOST_EBSS;
+}
+static uint32_t peek_optr(void)
+{
+    return o2p_peek_host_optr;
+}
+static void peek_written(uint32_t *sdata, uint32_t *edata, uint32_t *sbss, uint32_t *ebss)
+{
+    *sdata = o2p_peek_host_sdata;
+    *edata = o2p_peek_host_edata;
+    *sbss = o2p_peek_host_sbss;
+    *ebss = o2p_peek_host_ebss;
+}
 typedef int o2p_peek_irq_t;
 static o2p_peek_irq_t peek_irq_save(void)
 {
@@ -953,7 +997,31 @@ static uint32_t peek_load(uint32_t a)
 {
     return (o2p_peek_host_read != NULL) ? o2p_peek_host_read(a) : (a ^ 0xA5A5A5A5u);
 }
+/* The peek-space address of the destination buffer. On the target it is just
+ * the pointer; on the host the destination is a plain object whose pointer is
+ * NOT in the peeked address space, so a test that wants to exercise the
+ * source/destination OVERLAP (N1) supplies the address its o2p_peek_host_read
+ * hook would map onto dst. NULL means "no overlap possible", which keeps the
+ * ascending copy the address-derived oracle tests already exercise. */
+uint32_t (*o2p_peek_host_dst_addr)(const uint32_t *dst) = NULL;
+static uint32_t peek_dst_addr(const uint32_t *dst)
+{
+    return (o2p_peek_host_dst_addr != NULL) ? o2p_peek_host_dst_addr(dst) : 0u;
+}
 #else
+/* ldscript/o2probe_app.ld (ST's stock names). */
+extern const uint8_t _sdata[], _edata[], _sbss[], _ebss[];
+static inline uint32_t peek_optr(void)
+{
+    return FLASH->OPTR;
+}
+static inline void peek_written(uint32_t *sdata, uint32_t *edata, uint32_t *sbss, uint32_t *ebss)
+{
+    *sdata = (uint32_t)(uintptr_t)_sdata;
+    *edata = (uint32_t)(uintptr_t)_edata;
+    *sbss = (uint32_t)(uintptr_t)_sbss;
+    *ebss = (uint32_t)(uintptr_t)_ebss;
+}
 typedef uint32_t o2p_peek_irq_t;
 /* PRIMASK is saved and RESTORED, not unconditionally re-enabled, so this stays
  * correct if a caller is ever already masked. */
@@ -971,6 +1039,12 @@ static inline uint32_t peek_load(uint32_t a)
 {
     return *(const volatile uint32_t *)a;
 }
+/* dst is g_rm's own snapshot buffer, in SRAM: its address IS its peek-space
+ * address, so the overlap test below compares like with like. */
+static inline uint32_t peek_dst_addr(const uint32_t *dst)
+{
+    return (uint32_t)(uintptr_t)dst;
+}
 #endif
 
 /* The readable region containing `target`, as the address of its LAST aligned
@@ -978,13 +1052,35 @@ static inline uint32_t peek_load(uint32_t a)
  * 96-bit UID and the one flash-size word - nothing with a read side effect and
  * none of the unmapped holes between them. The flash-size register is a region
  * of one word and the UID of three, which is why a burst's length is part of
- * the check rather than an afterthought. */
+ * the check rather than an afterthought.
+ *
+ * FLASH IS ONLY THE LOADER AND THE RUN SLOT (pages 0..33, 0x08000000..
+ * O2P_APP_BASE + O2P_APP_BYTES), NOT the whole 128 KiB. N4 mitigation
+ * (independent review, 2026-09-10): a flash doubleword left half-programmed by
+ * a power loss carries a bad ECC, and reading it raises a double-error NMI
+ * (RM0444 Rev 6 3.3.3, p. 74: "When two errors are detected ... a NMI is
+ * generated"; 3.3.6, p. 77: "The address concerned might trigger an ECC
+ * interrupt or an NMI when accessed later on"). The NMI vector is the default
+ * infinite loop, so such a peek hangs until the IWDG resets a potted probe.
+ * There is no recoverable read on a Cortex-M0+: the NMI resumes at the stacked
+ * PC - the faulting load - and nothing in RM0444 lets a handler step past it,
+ * while 3.3.3 warns a re-read "may not generate an ECC error if the data is
+ * still present in the current buffer", so recovery is not even deterministic.
+ * The three flash areas a power loss can tear are all written at RUN TIME -
+ * staging during a push, the boot descriptor when a transfer verifies, the
+ * config pages on COMMIT - and none is inside the loader or run slot, which
+ * are written only by the loader while the application is not running. So the
+ * peek is confined to those two, where the running image is by definition
+ * intact enough to execute. A peek of staging, the descriptor or config now
+ * answers ERR_RANGE. This is a mitigation, not a proof the excluded pages
+ * would fault: no torn page was ever read on a probe. */
 static bool peek_region_last(uint32_t target, uint32_t *last)
 {
     if (target >= 0x20000000u && target <= 0x20008FFCu) {
         *last = 0x20008FFCu;
-    } else if (target >= 0x08000000u && target <= 0x0801FFFCu) {
-        *last = 0x0801FFFCu;
+    } else if (target >= O2P_BOOT_BASE &&
+               target <= O2P_APP_BASE + O2P_APP_BYTES - 4u) {
+        *last = O2P_APP_BASE + O2P_APP_BYTES - 4u;
     } else if (target >= 0x1FFF7590u && target <= 0x1FFF7598u) {
         *last = 0x1FFF7598u;
     } else if (target == 0x1FFF75E0u) {
@@ -995,15 +1091,83 @@ static bool peek_region_last(uint32_t target, uint32_t *last)
     return true;
 }
 
-/* Whether `words` words starting at `target` may be dereferenced, as a
- * O2P_PEEK_* status. A burst must lie wholly inside the region it starts in.
+/* Whether [target, target + 4*words) lies wholly inside the written span
+ * [lo, end), and if so its last word. lo is rounded up and end down to whole
+ * words, so a span the linker did not align cannot admit a partial word. An
+ * empty or inverted span admits nothing. `target` is already aligned. */
+static bool peek_span_in(uint32_t target, uint16_t words, uint32_t lo, uint32_t end,
+                         uint32_t *last)
+{
+    lo = (lo + 3u) & ~3u;
+    end &= ~3u;
+    if (end <= lo || target < lo || target >= end) {
+        return false;
+    }
+    if ((uint32_t)words - 1u > (end - 4u - target) / 4u) {
+        return false;
+    }
+    *last = end - 4u;
+    return true;
+}
+
+/* ---- The SRAM parity gate (FW_VERSION 0x000F, O2P_PEEK_ERR_PARITY) ----
  *
- * The fit test counts the words LEFT in the region rather than computing the
- * burst's last address. target + (words-1)*4 cannot wrap today only because
- * every region sits low in the address space, which is a property of the table
- * above and not of this function; the subtraction below cannot wrap for any
- * target the table admits, and a count of 0 becomes 0xFFFFFFFF and is refused
- * rather than read as "nothing to check". */
+ * WHY. With the RAM_PARITY_CHECK option bit enabled, reading SRAM that has not
+ * been written since power-on can raise NMI plus a HardFault (RM0444 Rev 6,
+ * 2.3, p. 67, whose note advises initialising "the whole SRAM at the beginning
+ * of the code, to avoid getting parity errors when reading non-initialized
+ * locations"). This firmware does not, and must not: the bottom 16 bytes are
+ * SHARED, the boot hand-off that has to survive a warm reset
+ * (ldscript/o2probe_app.ld). Both peek blocks could name any of the 36 KiB.
+ *
+ * WHAT IS ADMITTED while the bit reads 0: a burst wholly inside .data or .bss,
+ * or inside both when they abut. Startup writes every word of both before
+ * main() - CopyDataInit and FillZerobss in framework-stm32cubeg0's
+ * startup_stm32g071xx.s store whole words, 4 bytes a step, between the
+ * linker's ALIGN(4) bounds - which is what makes their parity bits valid.
+ *
+ * WHAT IS NOT, deliberately: SHARED, the heap gap, and THE STACK. The obvious
+ * "SP up to _estack" is not proven written: a frame reserves space with one
+ * SUB and writes only what the code assigns, so padding, unused array tails
+ * and never-assigned locals stay as power-on left them. Every symbol `peek`
+ * resolves from the ELF is in .data, .bss or flash, so that is what is kept.
+ *
+ * FLASH IS NOT GATED. RAM_PARITY_CHECK covers SRAM only; flash carries ECC
+ * (RM0444 3.3.3, p. 74), and an erased flash word is written state as far as
+ * that is concerned.
+ *
+ * UNEVALUABLE INPUT FAILS CLOSED. The bit's enabled state is 0, so an OPTR
+ * that read as zero - the flash interface clock off, say - restricts peeks
+ * rather than admitting them. FLASHEN resets to 1 (RCC_AHBENR 0x0000 0100,
+ * RM0444 5.4.14, p. 193) and nothing in src/ clears it.
+ *
+ * PRECONDITION: FLASH_OPTR holds the LOADED option bytes. It would not after
+ * a write to FLASH_OPTR that had not yet been through OBL_LAUNCH or a reset
+ * (RM0444 3.4.2, p. 84), and nothing in src/ writes FLASH_OPTR, FLASH_OPTKEYR
+ * or OBL_LAUNCH - checked 2026-09-10 by grepping src/ for OPTR, OPTKEY,
+ * OPTSTRT, OBL_LAUNCH, WRP and RDP.
+ *
+ * REASONED, NOT MEASURED: whether this image boots at all with the bit
+ * enabled. RM0444 Table 7 (p. 66) gives the G071 32 KiB of SRAM with parity on
+ * against 36 KiB off, and the linker puts _estack at 0x20009000, in the 4 KiB
+ * that would be gone. No probe has had the bit set, and none should. This
+ * gate is for the image that does run, and costs one register load per
+ * trigger. */
+#define O2P_PEEK_SRAM_FIRST 0x20000000u
+#define O2P_PEEK_SRAM_LAST  0x20008FFCu
+/* FLASH_OPTR bit 22, RM0444 3.7.8. Spelled out so the host build can use it;
+ * the target build holds it to the CMSIS definition. */
+#define O2P_OPTR_RAM_PARITY_CHECK (1uL << 22)
+#ifndef O2P_HOST_TEST
+_Static_assert(O2P_OPTR_RAM_PARITY_CHECK == FLASH_OPTR_RAM_PARITY_CHECK,
+               "RAM_PARITY_CHECK is FLASH_OPTR bit 22 in stm32g071xx.h");
+#endif
+
+static bool peek_sram_parity_enabled(void)
+{
+    return (peek_optr() & O2P_OPTR_RAM_PARITY_CHECK) == 0u;
+}
+
 static uint16_t peek_check(uint32_t target, uint16_t words, uint32_t *last)
 {
     if ((target & 3u) != 0u) {
@@ -1015,12 +1179,42 @@ static uint16_t peek_check(uint32_t target, uint16_t words, uint32_t *last)
     if ((uint32_t)words - 1u > (*last - target) / 4u) {
         return O2P_PEEK_ERR_RANGE;
     }
+    /* Read at trigger time, every time: there is no cached "parity is off"
+     * to go stale. */
+    if (target >= O2P_PEEK_SRAM_FIRST && target <= O2P_PEEK_SRAM_LAST &&
+        peek_sram_parity_enabled()) {
+        uint32_t sdata = 0u, edata = 0u, sbss = 0u, ebss = 0u;
+        peek_written(&sdata, &edata, &sbss, &ebss);
+        bool ok;
+        if (edata == sbss) {
+            ok = peek_span_in(target, words, sdata, ebss, last);
+        } else {
+            /* A section placed between them was not written by startup, so a
+             * burst may not cross the gap. */
+            ok = peek_span_in(target, words, sdata, edata, last) ||
+                 peek_span_in(target, words, sbss, ebss, last);
+        }
+        if (!ok) {
+            return O2P_PEEK_ERR_PARITY;
+        }
+    }
     return O2P_PEEK_OK;
 }
 
 /* Copy a burst peek_check() has passed into dst[0..words), and 0xFFFFFFFF into
  * the rest of dst. Returns false if any word was not copied, which the caller
  * turns into a refusal rather than an OK with holes in it.
+ *
+ * OVERLAP-SAFE, memmove-style. dst is g_rm's own peekw_words/peek_words, in
+ * SRAM, so a peek of SRAM can name the very words being copied into. An
+ * ascending copy reads dst[n] = *(target + 4n): when dst sits ABOVE the source
+ * (dst_addr > target) a lower store clobbers a source word a higher load has
+ * not read yet, and the burst comes back corrupt with STATUS still OK. N1
+ * (independent review, 2026-09-10): an overlapping `peek g_rm` returned four
+ * zeros as if measured. The fix is memmove's rule - walk high-to-low when the
+ * destination is above the source, low-to-high otherwise - which reads every
+ * source word before any store can reach it. Disjoint bursts (the normal case)
+ * are correct either way.
  *
  * INTERRUPTS ARE MASKED FOR THE COPY, AND ONLY FOR THE COPY. The trigger is
  * served from the main loop, so the sampler cannot run mid-copy anyway; what
@@ -1033,32 +1227,49 @@ static uint16_t peek_check(uint32_t target, uint16_t words, uint32_t *last)
  * The cost is bounded by the character time, not by taste. USART1 runs
  * without its FIFO, so RDR holds one character and a second one completing
  * inside the mask would overrun it. At 115200 8E1, the fastest rate this
- * firmware offers, a character is 95 us. In the 2026-09-10 env:o2probe build
- * this function masks for 15 instructions a word, two of them taken branches:
- * about 17 clock cycles, 62.5 ns each at 16 MHz with zero flash wait states
- * (mcu.c). A 30-word burst is therefore about 32 us, a third of a character -
- * an ESTIMATE from the disassembly, NOT a measurement on the board, and the
- * reason O2P_PEEKW_WORDS_MAX is not 60. In practice nothing should arrive in
- * the window at all: the master is waiting for this very reply.
+ * firmware offers, a character is 95 us. The masked loop is one load and one
+ * store per word plus the loop counter either way - the direction choice is a
+ * single compare made OUTSIDE the mask - so the ~17 clock cycles a word
+ * estimated from the 2026-09-10 env:o2probe disassembly are unchanged by N1's
+ * fix. A 30-word burst is therefore about 32 us at 16 MHz with zero flash wait
+ * states (mcu.c), a third of a character - an ESTIMATE from the disassembly,
+ * NOT a measurement on the board, and the reason O2P_PEEKW_WORDS_MAX is not
+ * 60. In practice nothing should arrive in the window at all: the master is
+ * waiting for this very reply.
  *
  * Validation stays outside the mask - it is arithmetic, and the mask is for
- * what can change underneath. The per-word bound inside repeats peek_check()
- * because the cost of it being wrong is a HardFault on a potted board. */
+ * what can change underneath. The per-word bound below repeats peek_check()
+ * because the cost of it being wrong is a HardFault on a potted board; it runs
+ * before the mask so the masked window holds only the loads and stores. */
 static bool peek_copy(uint32_t target, uint16_t words, uint32_t last,
                       uint32_t *dst, unsigned dst_len)
 {
-    unsigned n = 0u;
-    o2p_peek_irq_t s = peek_irq_save();
-    for (; n < (unsigned)words && n < dst_len; n++) {
-        uint32_t a = target + (uint32_t)n * 4u;
-        if (a < target || a > last) {
+    /* The largest prefix [0, copyable) whose every word is in range. Addresses
+     * ascend from `target` (the region's lowest), so if word k is out of range
+     * every later word is too: a prefix is all peek_check() can have passed,
+     * and all this may dereference. */
+    unsigned copyable = ((unsigned)words < dst_len) ? (unsigned)words : dst_len;
+    while (copyable > 0u) {
+        uint32_t a = target + (uint32_t)(copyable - 1u) * 4u;
+        if (a >= target && a <= last) {
             break;
         }
-        dst[n] = peek_load(a);
+        copyable--;
+    }
+    bool descending = peek_dst_addr(dst) > target;
+    o2p_peek_irq_t s = peek_irq_save();
+    if (descending) {
+        for (unsigned i = copyable; i-- > 0u; ) {
+            dst[i] = peek_load(target + (uint32_t)i * 4u);
+        }
+    } else {
+        for (unsigned i = 0u; i < copyable; i++) {
+            dst[i] = peek_load(target + (uint32_t)i * 4u);
+        }
     }
     peek_irq_restore(s);
-    bool complete = (n == (unsigned)words);
-    for (; n < dst_len; n++) {
+    bool complete = (copyable == (unsigned)words);
+    for (unsigned n = copyable; n < dst_len; n++) {
         dst[n] = 0xFFFFFFFFu;
     }
     return complete;
@@ -1223,12 +1434,33 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
 
     /* Sensor diagnostic mailbox */
     if (in_block(addr, count, O2P_REG_DMBOX_BASE, O2P_REG_DMBOX_COUNT)) {
-        if (rm->diag_pending) {
-            rm->diag_status = O2P_DMBOX_STATUS_ERR_BUSY;
-            return O2P_MB_EX_ILLEGAL_VALUE;
-        }
+        /* SHAPE, then BUSY, then everything that writes a register.
+         *
+         * A queued I2C opcode owns every result register, DIAG_STATUS
+         * included, until main.c has run it. Up to FW_VERSION 0x000E a write
+         * arriving in that window was refused by setting DIAG_STATUS to
+         * ERR_BUSY - overwriting the queued command's PENDING with a status
+         * that command never produced. The master that queued it polls for
+         * "not PENDING", took ERR_BUSY as its answer, and stopped; its
+         * command then ran and nobody read the result (review F2,
+         * 2026-09-10, confirmed through this function).
+         *
+         * So the refusal says BUSY on the wire, to the master that was
+         * refused, and nowhere else: exception 06, SERVER DEVICE BUSY, which
+         * is what the Modbus specification has for "retry later". Not 03: a
+         * refused master must be able to tell "your request is wrong" from
+         * "the mailbox is taken", and 03 already means the first.
+         *
+         * The shape check stays first because it writes nothing and its
+         * answer does not depend on the queue. Every check after BUSY may
+         * write DIAG_STATUS (ERR_OPCODE), which is exactly why BUSY has to
+         * come before them: while busy, a bad magic is refused as busy
+         * rather than allowed to write ERR_OPCODE over PENDING. */
         if (addr != O2P_REG_DMBOX_BASE || count < 1u || count > 2u) {
             return O2P_MB_EX_ILLEGAL_VALUE;
+        }
+        if (rm->diag_pending) {
+            return O2P_MB_EX_DEVICE_BUSY;
         }
         uint16_t cmd = in[0];
         if ((cmd & O2P_DIAG_MAGIC_MASK) != O2P_DIAG_MAGIC) {
@@ -1273,8 +1505,9 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
          * o2p_mb_dispatch() is the WHOLE path. A deferred case in main.c
          * would be a line no host test can reach.
          *
-         * BUSY still applies (checked above): a queued I2C opcode owns the
-         * result registers until it has run, and this would overwrite them. */
+         * BUSY still applies (checked above, exception 06): a queued I2C
+         * opcode owns the result registers until it has run, and this would
+         * overwrite them. */
         if (op == O2P_OP_READ_GPIO) {
             if (count != 2u) {
                 rm->diag_status = O2P_DMBOX_STATUS_ERR_OPCODE;

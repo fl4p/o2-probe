@@ -1,0 +1,1 @@
+2026-09-06T17:50:33Z  DRY DRIFT-FLOOR SOAK START. Probe removed from the wet jar and wiped dry by Fab. Bare, unpotted, no tube, membrane placed not welded. Heater disabled, no interventions planned. RH at start 86.9 % (sensor still desorbing - the drift floor proper starts once RH plateaus at room level).

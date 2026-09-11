@@ -341,6 +341,35 @@ def test_a_transfer_complete_but_uncommitted_is_resumed():
           p.commits == 1, p.commits)
 
 
+def test_staged_is_image_compares_the_padded_representation():
+    """The slot declares the PADDED image (whole doublewords, CRC over the
+    padding - push() stages it that way by design, padded_image() is the
+    rule). staged_is_image() used to compare the RAW file and refused to
+    BOOT a correctly-staged build (2026-09-11 02:06: a 43356-byte build,
+    slot correctly declared 43360 - the 0x0010 build was 8-aligned and the
+    path had never fired). Pinned so the two ends cannot disagree again."""
+    raw = IMAGE[:127 * BLOCK + 8]              # deliberately not 8-aligned
+    if len(raw) % u.ALIGN == 0:
+        raw = raw[:-4]                         # keep the test honest forever
+    p = u.padded_image(raw)
+    probe = FakeProbe(state=u.STATES.index("STAGED"), pending_len=len(p),
+                      pending_crc=binascii.crc32(p) & 0xFFFFFFFF)
+    check("unaligned image matches its padded staged slot",
+          u.staged_is_image(probe, raw) is True)
+
+
+def test_staged_is_image_still_refuses_a_different_image():
+    """Padding the comparison must not loosen it: a slot holding SAME-LENGTH
+    DIFFERENT-BYTES is still a refusal."""
+    raw = IMAGE[:127 * BLOCK + 4]
+    p = u.padded_image(raw)
+    other = p[:-8] + b"\xAA" * 8               # same length, different bytes
+    probe = FakeProbe(state=u.STATES.index("STAGED"), pending_len=len(other),
+                      pending_crc=binascii.crc32(other) & 0xFFFFFFFF)
+    check("padded comparison still refuses a different image",
+          u.staged_is_image(probe, raw) is False)
+
+
 def main():
     print("resume decision, against a fake probe:")
     test_a_clean_first_push_still_begins()
@@ -355,6 +384,8 @@ def main():
     test_an_erased_ready_slot_is_not_re_erased()
     test_a_ready_slot_for_another_image_is_re_erased()
     test_a_transfer_complete_but_uncommitted_is_resumed()
+    test_staged_is_image_compares_the_padded_representation()
+    test_staged_is_image_still_refuses_a_different_image()
     if FAILURES:
         print("!! %d failed" % len(FAILURES))
         return 1

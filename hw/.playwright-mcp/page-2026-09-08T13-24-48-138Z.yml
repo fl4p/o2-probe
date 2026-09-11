@@ -1,0 +1,286 @@
+- generic [ref=f35e1]:
+  - generic: 
+  - banner [ref=f35e3]:
+    - generic [ref=f35e9]:
+      - link "Grafana Labs is a Leader in the 2026 Gartner® Magic Quadrant™ for Observability Platforms." [ref=f35e10] [cursor=pointer]:
+        - /url: /analyst-reports/gartner-magic-quadrant-observability-platforms/
+        - generic "Grafana Labs is a Leader in the 2026 Gartner® Magic Quadrant™ for Observability Platforms." [ref=f35e13]
+      - link "Learn more" [ref=f35e14] [cursor=pointer]:
+        - /url: /analyst-reports/gartner-magic-quadrant-observability-platforms/
+    - navigation "Main navigation" [ref=f35e18]:
+      - generic [ref=f35e19]:
+        - link [ref=f35e20] [cursor=pointer]:
+          - /url: /
+          - img "Logo" [ref=f35e21]
+        - button "Open menu" [ref=f35e23] [cursor=pointer]
+  - generic [ref=f35e30]:
+    - generic [ref=f35e31]:
+      - img "Grot 404" [ref=f35e33]
+      - heading "We can’t find this page" [level=1] [ref=f35e34]
+      - paragraph [ref=f35e35]: We searched high and low, but couldn’t find what you’re looking for. Let's find a better place for you to go.
+    - button "Ask Grot, your AI helper" [ref=f35e37] [cursor=pointer]
+  - contentinfo [ref=f35e42]:
+    - contentinfo "Site footer" [ref=f35e44]:
+      - generic [ref=f35e45]:
+        - generic [ref=f35e47]:
+          - generic [ref=f35e49]:
+            - generic [ref=f35e50]:
+              - heading "Still have questions?" [level=3] [ref=f35e51]
+              - paragraph [ref=f35e52]: Ask your questions. Let AI do the heavy lifting.
+            - generic [ref=f35e53]:
+              - img "Ask AI icon" [ref=f35e54]
+              - textbox "How do I get started with Grafana?" [ref=f35e55]
+              - button [ref=f35e56] [cursor=pointer]:
+                - img "Submit" [ref=f35e57]
+          - generic [ref=f35e59]:
+            - generic [ref=f35e60]:
+              - img "Newsletter icon" [ref=f35e61]
+              - generic [ref=f35e62]:
+                - heading "Get every update" [level=3] [ref=f35e63]
+                - paragraph [ref=f35e64]: Subscribe to our newsletter
+            - generic [ref=f35e66]:
+              - textbox "Email" [ref=f35e67]
+              - button "Subscribe" [ref=f35e68] [cursor=pointer]
+            - paragraph [ref=f35e70]:
+              - text: By submitting, you agree to our
+              - link "Privacy policy" [ref=f35e71] [cursor=pointer]:
+                - /url: /legal/privacy-policy/
+        - generic [ref=f35e73]:
+          - generic [ref=f35e74]:
+            - heading "Grafana Cloud" [level=3] [ref=f35e75]
+            - list [ref=f35e76]:
+              - listitem [ref=f35e77]:
+                - link "Overview" [ref=f35e78] [cursor=pointer]:
+                  - /url: /products/cloud/
+              - listitem [ref=f35e79]:
+                - link "Pricing" [ref=f35e80] [cursor=pointer]:
+                  - /url: /pricing/
+              - listitem [ref=f35e81]:
+                - link "What's in the free tier?" [ref=f35e82] [cursor=pointer]:
+                  - /url: /products/cloud/free-tier/
+              - listitem [ref=f35e83]:
+                - link "AI Assistant" [ref=f35e84] [cursor=pointer]:
+                  - /url: /products/cloud/ai-assistant/
+              - listitem [ref=f35e85]:
+                - link "Agent Observability" [ref=f35e86] [cursor=pointer]:
+                  - /url: /products/cloud/agent-observability/
+              - listitem [ref=f35e87]:
+                - link "Application Observability" [ref=f35e88] [cursor=pointer]:
+                  - /url: /products/cloud/application-observability/
+              - listitem [ref=f35e89]:
+                - link "Kubernetes Monitoring" [ref=f35e90] [cursor=pointer]:
+                  - /url: /products/cloud/kubernetes/
+              - listitem [ref=f35e91]:
+                - link "Dashboards & Visualization" [ref=f35e92] [cursor=pointer]:
+                  - /url: /products/cloud/grafana/
+              - listitem [ref=f35e93]:
+                - link "Database Observability" [ref=f35e94] [cursor=pointer]:
+                  - /url: /products/cloud/database-observability/
+              - listitem [ref=f35e95]:
+                - link "Frontend Observability" [ref=f35e96] [cursor=pointer]:
+                  - /url: /products/cloud/frontend-observability/
+              - listitem [ref=f35e97]:
+                - link "Synthetic Monitoring" [ref=f35e98] [cursor=pointer]:
+                  - /url: /products/cloud/synthetic-monitoring/
+              - listitem [ref=f35e99]:
+                - link "Performance & Load Testing" [ref=f35e100] [cursor=pointer]:
+                  - /url: /products/cloud/performance-load-testing-k6/
+              - listitem [ref=f35e101]:
+                - link "Incident Response & Management" [ref=f35e102] [cursor=pointer]:
+                  - /url: /products/cloud/irm/
+              - listitem [ref=f35e103]:
+                - link "AI Investigations" [ref=f35e104] [cursor=pointer]:
+                  - /url: /products/cloud/investigations/
+              - listitem [ref=f35e105]:
+                - link "What’s New" [ref=f35e106] [cursor=pointer]:
+                  - /url: /whats-new/
+              - listitem [ref=f35e107]:
+                - link "Grafana Cloud Status" [ref=f35e108] [cursor=pointer]:
+                  - /url: https://status.grafana.com/
+          - generic [ref=f35e109]:
+            - heading "Solutions" [level=3] [ref=f35e110]
+            - list [ref=f35e111]:
+              - listitem [ref=f35e112]:
+                - link "AI Observability" [ref=f35e113] [cursor=pointer]:
+                  - /url: /products/cloud/ai-tools-for-observability/
+              - listitem [ref=f35e114]:
+                - link "Full-Stack Observability" [ref=f35e115] [cursor=pointer]:
+                  - /url: /solutions/full-stack-observability/
+              - listitem [ref=f35e116]:
+                - link "Infrastructure & Cloud Observability" [ref=f35e117] [cursor=pointer]:
+                  - /url: /solutions/cloud-infrastructure-observability/
+              - listitem [ref=f35e118]:
+                - link "Cloud Provider Observability" [ref=f35e119] [cursor=pointer]:
+                  - /url: /solutions/cloud-provider-observability/
+              - listitem [ref=f35e120]:
+                - link "Digital Experience Monitoring" [ref=f35e121] [cursor=pointer]:
+                  - /url: /solutions/digital-experience-monitoring/
+              - listitem [ref=f35e122]:
+                - link "Scaled Prometheus" [ref=f35e123] [cursor=pointer]:
+                  - /url: /products/cloud/metrics/#why-scale-metrics-with-grafana-cloud
+              - listitem [ref=f35e124]:
+                - link "Cost Management & Optimization" [ref=f35e125] [cursor=pointer]:
+                  - /url: /products/cloud/cost-management-optimization/
+              - listitem [ref=f35e126]:
+                - link "Site Reliability" [ref=f35e127] [cursor=pointer]:
+                  - /url: /solutions/site-reliability/
+              - listitem [ref=f35e128]:
+                - link "Log Management" [ref=f35e129] [cursor=pointer]:
+                  - /url: /products/cloud/logs/
+              - listitem [ref=f35e130]:
+                - link "Migrate to OpenTelemetry" [ref=f35e131] [cursor=pointer]:
+                  - /url: /solutions/opentelemetry/#migrate-to-open-telemetry
+          - generic [ref=f35e132]:
+            - heading "Integrations" [level=3] [ref=f35e133]
+            - list [ref=f35e134]:
+              - listitem [ref=f35e135]:
+                - link "All Integrations" [ref=f35e136] [cursor=pointer]:
+                  - /url: /integrations/
+              - listitem [ref=f35e137]:
+                - link "All Plugins" [ref=f35e138] [cursor=pointer]:
+                  - /url: /plugins/
+              - listitem [ref=f35e139]:
+                - link "AWS" [ref=f35e140] [cursor=pointer]:
+                  - /url: /integrations/cloud-monitoring-aws/
+              - listitem [ref=f35e141]:
+                - link "Google Cloud" [ref=f35e142] [cursor=pointer]:
+                  - /url: /integrations/cloud-monitoring-google-cloud/
+              - listitem [ref=f35e143]:
+                - link "Microsoft Azure" [ref=f35e144] [cursor=pointer]:
+                  - /url: /integrations/cloud-monitoring-microsoft-azure/
+              - listitem [ref=f35e145]:
+                - link "Kubernetes" [ref=f35e146] [cursor=pointer]:
+                  - /url: /products/cloud/kubernetes/
+              - listitem [ref=f35e147]:
+                - link "Datadog" [ref=f35e148] [cursor=pointer]:
+                  - /url: /integrations/datadog/visualize/
+              - listitem [ref=f35e149]:
+                - link "New Relic" [ref=f35e150] [cursor=pointer]:
+                  - /url: /integrations/new-relic/visualize/
+          - generic [ref=f35e151]:
+            - heading "Open Source" [level=3] [ref=f35e152]
+            - list [ref=f35e153]:
+              - listitem [ref=f35e154]:
+                - link "Our Projects" [ref=f35e155] [cursor=pointer]:
+                  - /url: /oss/
+              - listitem [ref=f35e156]:
+                - link "GitHub" [ref=f35e157] [cursor=pointer]:
+                  - /url: https://github.com/grafana/
+              - listitem [ref=f35e158]:
+                - link "Downloads" [ref=f35e159] [cursor=pointer]:
+                  - /url: /get/
+              - listitem [ref=f35e160]:
+                - link "Dashboard Templates" [ref=f35e161] [cursor=pointer]:
+                  - /url: /grafana/dashboards/
+          - generic [ref=f35e162]:
+            - heading "Learn" [level=3] [ref=f35e163]
+            - list [ref=f35e164]:
+              - listitem [ref=f35e165]:
+                - link "Documentation" [ref=f35e166] [cursor=pointer]:
+                  - /url: /docs/
+              - listitem [ref=f35e167]:
+                - link "Blog" [ref=f35e168] [cursor=pointer]:
+                  - /url: /blog/
+              - listitem [ref=f35e169]:
+                - link "Community" [ref=f35e170] [cursor=pointer]:
+                  - /url: /community/
+              - listitem [ref=f35e171]:
+                - link "Events" [ref=f35e172] [cursor=pointer]:
+                  - /url: /events/
+              - listitem [ref=f35e173]:
+                - link "Observability Survey & Reports" [ref=f35e174] [cursor=pointer]:
+                  - /url: /observability-benefits-for-business/
+          - generic [ref=f35e175]:
+            - generic [ref=f35e176]:
+              - heading "Company" [level=3] [ref=f35e177]
+              - list [ref=f35e178]:
+                - listitem [ref=f35e179]:
+                  - link "About Grafana Labs" [ref=f35e180] [cursor=pointer]:
+                    - /url: /about/grafana-labs/
+                - listitem [ref=f35e181]:
+                  - link "Careers" [ref=f35e182] [cursor=pointer]:
+                    - /url: /careers/
+                - listitem [ref=f35e183]:
+                  - link "Partnerships" [ref=f35e184] [cursor=pointer]:
+                    - /url: /partnerships/
+                - listitem [ref=f35e185]:
+                  - link "Newsroom" [ref=f35e186] [cursor=pointer]:
+                    - /url: /press/
+                - listitem [ref=f35e187]:
+                  - link "Success Stories" [ref=f35e188] [cursor=pointer]:
+                    - /url: /success/
+                - listitem [ref=f35e189]:
+                  - link "Contact Us" [ref=f35e190] [cursor=pointer]:
+                    - /url: /contact/
+                - listitem [ref=f35e191]:
+                  - link "Getting Help" [ref=f35e192] [cursor=pointer]:
+                    - /url: /help/
+                - listitem [ref=f35e193]:
+                  - link "Professional Services" [ref=f35e194] [cursor=pointer]:
+                    - /url: /professional-services/
+                - listitem [ref=f35e195]:
+                  - link "Hey AI" [ref=f35e196] [cursor=pointer]:
+                    - /url: /ai-info/
+            - generic [ref=f35e197]:
+              - heading "Compare" [level=3] [ref=f35e198]
+              - list [ref=f35e199]:
+                - listitem [ref=f35e200]:
+                  - link "Datadog vs. Grafana Cloud" [ref=f35e201] [cursor=pointer]:
+                    - /url: /compare/grafana-vs-datadog/
+                - listitem [ref=f35e202]:
+                  - link "Dynatrace vs. Grafana Cloud" [ref=f35e203] [cursor=pointer]:
+                    - /url: /compare/grafana-vs-dynatrace/
+                - listitem [ref=f35e204]:
+                  - link "Elasticsearch vs. Grafana Cloud" [ref=f35e205] [cursor=pointer]:
+                    - /url: /compare/grafana-vs-elastic/
+                - listitem [ref=f35e206]:
+                  - link "New Relic vs. Grafana Cloud" [ref=f35e207] [cursor=pointer]:
+                    - /url: /compare/grafana-vs-new-relic/
+                - listitem [ref=f35e208]:
+                  - link "PagerDuty vs. Grafana Cloud" [ref=f35e209] [cursor=pointer]:
+                    - /url: /compare/grafana-vs-pagerduty/
+                - listitem [ref=f35e210]:
+                  - link "Splunk vs. Grafana Cloud" [ref=f35e211] [cursor=pointer]:
+                    - /url: /compare/grafana-vs-splunk/
+        - generic [ref=f35e212]:
+          - generic [ref=f35e213]:
+            - generic:
+              - img "Grafana Labs x unique logomark"
+            - paragraph [ref=f35e215]:
+              - text: Donut take our word for it. Try
+              - link "Grafana Cloud" [ref=f35e216] [cursor=pointer]:
+                - /url: /products/cloud/
+              - text: today.
+          - generic [ref=f35e217]:
+            - generic [ref=f35e218]:
+              - navigation "Footer navigation" [ref=f35e219]:
+                - link "Grafana Cloud Status" [ref=f35e220] [cursor=pointer]:
+                  - /url: https://status.grafana.com/
+                - link "Legal & Security" [ref=f35e221] [cursor=pointer]:
+                  - /url: /legal/
+                - link "Terms of Service" [ref=f35e222] [cursor=pointer]:
+                  - /url: /legal/terms/
+                - link "Privacy Policy" [ref=f35e223] [cursor=pointer]:
+                  - /url: /legal/privacy-policy/
+                - link "Trademark Policy" [ref=f35e224] [cursor=pointer]:
+                  - /url: /trademark-policy/
+              - paragraph [ref=f35e226]: Copyright 2026 © Grafana Labs
+            - generic [ref=f35e227]:
+              - link "Facebook" [ref=f35e228] [cursor=pointer]:
+                - /url: https://www.facebook.com/grafana/
+                - img "Facebook" [ref=f35e229]
+              - link "X" [ref=f35e230] [cursor=pointer]:
+                - /url: https://twitter.com/grafana/
+                - img "X" [ref=f35e231]
+              - link "Linkedin" [ref=f35e232] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/grafana-labs/
+                - img "Linkedin" [ref=f35e233]
+              - link "Github" [ref=f35e234] [cursor=pointer]:
+                - /url: https://github.com/grafana/
+                - img "Github" [ref=f35e235]
+              - link "Youtube" [ref=f35e236] [cursor=pointer]:
+                - /url: https://www.youtube.com/channel/UCYCwgQAMm9sTJv0rgwQLCxw/
+                - img "Youtube" [ref=f35e237]
+              - link "Reddit" [ref=f35e238] [cursor=pointer]:
+                - /url: https://www.reddit.com/r/grafana/
+                - img "Reddit" [ref=f35e239]

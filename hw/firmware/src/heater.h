@@ -25,7 +25,9 @@
  * 85 C and o2p_tmp117_safety_armed() latches whether that took; if it did
  * not, O2P_HB_SAFETY blocks the heater, in the bench override too. Below it
  * sits the firmware's own absolute clamp at O2P_HEATER_TIP_LIMIT_C100
- * (80.00 C, release 75.00), which the override also does not touch. What has
+ * (82.00 C, release 77.00 C - raised from 80.00/75.00 on 2026-09-08; this
+ * comment still said 80.00/75.00 until the 2026-09-10 audit), which the
+ * override also does not touch. What has
  * never been done is the INJECTED-FAULT test of the alert path - lowering
  * THIGH below ambient, commanding duty, and watching HEATER_LOW go high. So
  * the 85 C cutoff is configured and read back, not proven. The 80 C clamp is
@@ -56,10 +58,20 @@
 /* How long a duty command stays good. The sampler publishes at 1 Hz; if it
  * stops, the heater must not keep driving whatever it was last told.
  * PLAN.md:309-311 asks for a "watchdog-bounded enable" and this is the
- * firmware half of that - the IWDG is the other half. */
-#define O2P_HEATER_STALE_MS 5000u
+ * firmware half of that - the IWDG is the other half. The soft cut must
+ * land BEFORE the IWDG's fastest bound: the IWDG is ~4.096 s nominal but as
+ * fast as ~2.7 s across the LSI spread (mcu.c's own numbers), and at the
+ * previous 5000 ms the reset won the race on every part off the slow tail -
+ * where the cut fired silently with HEATER_DUTY still publishing the last
+ * command (2026-09-10 audit F2). 2 s clears the fastest bound with margin
+ * and still rides out a single missed 1 Hz publish. */
+#define O2P_HEATER_STALE_MS 2000u
 
 void o2p_heater_init(void);
+
+/* True when o2p_heater_service() has cut drive for staleness since the last
+ * apply() - cycle_publish() folds this into HEATER_BLOCK as O2P_HB_STALE. */
+bool o2p_heater_stale_cut(void);
 
 /* True if this build can drive the heater at all. */
 bool o2p_heater_compiled_in(void);

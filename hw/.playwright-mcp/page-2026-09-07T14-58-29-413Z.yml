@@ -1,0 +1,479 @@
+- generic [ref=f22e2]:
+  - banner [ref=f22e3]:
+    - generic [ref=f22e4]:
+      - link [ref=f22e6] [cursor=pointer]:
+        - /url: https://www.ptb.de/cms/cms/
+        - img "Logo der Physikalisch-Technischen Bundesanstalt" [ref=f22e7]
+      - navigation [ref=f22e8]:
+        - heading "Menü" [level=2] [ref=f22e9]
+        - list:
+          - listitem [ref=f22e10]:
+            - link [ref=f22e11] [cursor=pointer]:
+              - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt3/fb-34/ag-341/gasfeuchte.html?contrast=1
+              - img "Kontrastansicht aktivieren" [ref=f22e12]
+          - listitem [ref=f22e13]:
+            - link [ref=f22e14] [cursor=pointer]:
+              - /url: https://www.ptb.de/cms/meta/gebaerdensprache.html
+              - img "Zur Seite der Gebärdensprache" [ref=f22e15]
+          - listitem [ref=f22e16]:
+            - link [ref=f22e17] [cursor=pointer]:
+              - /url: https://www.ptb.de/cms/meta/leichte-sprache.html
+              - img "Zur Seite der Leichten Sprache" [ref=f22e18]
+          - listitem [ref=f22e19]:
+            - link "Barrierefreiheit" [ref=f22e20] [cursor=pointer]:
+              - /url: https://www.ptb.de/cms/meta/barrierefreiheit.html
+          - listitem [ref=f22e21]:
+            - link "Home" [ref=f22e22] [cursor=pointer]:
+              - /url: https://www.ptb.de/cms/cms/
+          - listitem [ref=f22e23]:
+            - link "EN" [ref=f22e24] [cursor=pointer]:
+              - /url: https://www.ptb.de/cms/en/ptb/fachabteilungen/abt3/fb-34/ag-341/gas-humidity.html
+          - listitem [ref=f22e25]:
+            - link "Kontakt" [ref=f22e26] [cursor=pointer]:
+              - /url: https://www.ptb.de/cms/meta/kontakt.html
+          - listitem [ref=f22e27]:
+            - link "Kontaktsuche" [ref=f22e28] [cursor=pointer]:
+              - /url: https://www.ptb.de/cms/meta/kontaktsuche.html
+          - listitem [ref=f22e29]:
+            - link "Suche" [ref=f22e30] [cursor=pointer]:
+              - /url: https://www.ptb.de/cms/nc/meta/suche.html
+          - listitem [ref=f22e31]:
+            - generic:
+              - generic: Suche
+              - textbox "Suche" [ref=f22e32]:
+                - /placeholder: Suchbegriff
+              - button "los" [ref=f22e33] [cursor=pointer]
+      - navigation [ref=f22e34]:
+        - heading "PTB Navigation" [level=2] [ref=f22e35]
+        - list:
+          - listitem [ref=f22e36]:
+            - link "Forschung & Entwicklung" [ref=f22e37] [cursor=pointer]:
+              - /url: https://www.ptb.de/cms/forschung-entwicklung.html
+          - listitem [ref=f22e38]:
+            - link "Metrologische Dienstleistungen" [ref=f22e39] [cursor=pointer]:
+              - /url: https://www.ptb.de/cms/metrologische-dienstleistungen.html
+          - listitem [ref=f22e40]:
+            - link "Internationales & Netzwerke" [ref=f22e41] [cursor=pointer]:
+              - /url: https://www.ptb.de/cms/internationales-netzwerke.html
+          - listitem [ref=f22e42]:
+            - link "Presse & Aktuelles" [ref=f22e43] [cursor=pointer]:
+              - /url: https://www.ptb.de/cms/presseaktuelles.html
+          - listitem [ref=f22e44]:
+            - link "Karriere & Über uns" [ref=f22e45] [cursor=pointer]:
+              - /url: https://www.ptb.de/cms/karriere-ueber-uns.html
+          - listitem [ref=f22e46]:
+            - link "Struktur & Abteilungen" [ref=f22e47] [cursor=pointer]:
+              - /url: https://www.ptb.de/cms/ptb.html
+      - navigation:
+        - heading "Direkteinstieg" [level=2] [ref=f22e48] [cursor=pointer]
+    - navigation [ref=f22e51]:
+      - paragraph [ref=f22e52]: "Sie befinden sich hier:"
+      - list:
+        - listitem [ref=f22e53]:
+          - link "Home" [ref=f22e54] [cursor=pointer]:
+            - /url: https://www.ptb.de/cms/cms/
+        - listitem [ref=f22e55]:
+          - text: ">"
+          - link "Struktur & Abteilungen" [ref=f22e56] [cursor=pointer]:
+            - /url: https://www.ptb.de/cms/ptb.html
+        - listitem [ref=f22e57]:
+          - text: ">"
+          - link "Abteilungen" [ref=f22e58] [cursor=pointer]:
+            - /url: https://www.ptb.de/cms/ptb/fachabteilungen.html
+        - listitem [ref=f22e59]:
+          - text: ">"
+          - link "Abt. 3 Chemische Physik und Explosionsschutz" [ref=f22e60] [cursor=pointer]:
+            - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt3.html
+        - listitem [ref=f22e61]:
+          - text: ">"
+          - link "3.4 Analytische Chemie der Gasphase" [ref=f22e62] [cursor=pointer]:
+            - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt3/fb-34.html
+        - listitem [ref=f22e63]:
+          - text: ">"
+          - link "3.41 Gasfeuchte, Atemalkohol und Getreidefeuchte" [ref=f22e64] [cursor=pointer]:
+            - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt3/fb-34/ag-341.html
+        - listitem [ref=f22e65]: "> Gasfeuchte"
+  - generic:
+    - navigation [ref=f22e66]:
+      - heading "Subnavigtion" [level=2] [ref=f22e67]
+      - list:
+        - listitem [ref=f22e68]:
+          - link "Abteilungen" [ref=f22e69] [cursor=pointer]:
+            - /url: https://www.ptb.de/cms/ptb/fachabteilungen.html
+          - list:
+            - listitem [ref=f22e70]:
+              - link "Abt. 1 Mechanik und Akustik" [ref=f22e71] [cursor=pointer]:
+                - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt1.html
+            - listitem [ref=f22e72]:
+              - link "Abt. 2 Elektrizität" [ref=f22e73] [cursor=pointer]:
+                - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt2.html
+            - listitem [ref=f22e74]:
+              - link "Abt. 3 Chemische Physik und Explosionsschutz" [ref=f22e75] [cursor=pointer]:
+                - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt3.html
+              - list:
+                - listitem:
+                  - link "3.1 Allgemeine und Anorganische Chemie" [ref=f22e76] [cursor=pointer]:
+                    - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt3/fb-31.html
+                - listitem:
+                  - link "3.2 Biochemie" [ref=f22e77] [cursor=pointer]:
+                    - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt3/fb-32.html
+                - listitem:
+                  - link "3.3 Physikalische Chemie" [ref=f22e78] [cursor=pointer]:
+                    - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt3/fb-33.html
+                - listitem:
+                  - link "3.4 Analytische Chemie der Gasphase" [ref=f22e79] [cursor=pointer]:
+                    - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt3/fb-34.html
+                  - list:
+                    - listitem:
+                      - link "3.41 Gasfeuchte, Atemalkohol und Getreidefeuchte" [ref=f22e80] [cursor=pointer]:
+                        - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt3/fb-34/ag-341.html
+                    - listitem:
+                      - link "3.42 Spektroskopische Gasanalytik und Referenzdaten" [ref=f22e81] [cursor=pointer]:
+                        - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt3/fb-34/ag-342.html
+                    - listitem:
+                      - link "3.43 Luftgetragene Nanopartikel" [ref=f22e82] [cursor=pointer]:
+                        - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt3/fb-34/ag-343.html
+                    - listitem:
+                      - link "3.44 Verkehrsemissionen" [ref=f22e83] [cursor=pointer]:
+                        - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt3/fb-34/ag-344.html
+                - listitem:
+                  - link "3.5 Explosionsschutz in der Energietechnik" [ref=f22e84] [cursor=pointer]:
+                    - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt3/fb-35.html
+                - listitem:
+                  - link "3.6 Explosionsgeschützte Sensorik und Messtechnik" [ref=f22e85] [cursor=pointer]:
+                    - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt3/fb-36.html
+                - listitem:
+                  - link "3.7 Grundlagen des Explosionsschutzes" [ref=f22e86] [cursor=pointer]:
+                    - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt3/fb-37.html
+            - listitem [ref=f22e87]:
+              - link "Abt. 4 Optik" [ref=f22e88] [cursor=pointer]:
+                - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt4.html
+            - listitem [ref=f22e89]:
+              - link "Abt. 5 Fertigungsmesstechnik" [ref=f22e90] [cursor=pointer]:
+                - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt5.html
+            - listitem [ref=f22e91]:
+              - link "Abt. 6 Ionisierende Strahlung" [ref=f22e92] [cursor=pointer]:
+                - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt6.html
+            - listitem [ref=f22e93]:
+              - link "Abt. 7 Temperatur und Synchrotronstrahlung" [ref=f22e94] [cursor=pointer]:
+                - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt7.html
+            - listitem [ref=f22e95]:
+              - link "Abt. 8 Medizinphysik und metrologische Informationstechnik" [ref=f22e96] [cursor=pointer]:
+                - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt8.html
+            - listitem [ref=f22e97]:
+              - 'link "Abt. 9 Qualitätsinfrastruktur: Messwesen und Digitalisierung" [ref=f22e98] [cursor=pointer]':
+                - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt9.html
+            - listitem [ref=f22e99]:
+              - link "Abt. Q Querschnittsdienste" [ref=f22e100] [cursor=pointer]:
+                - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abtq.html
+            - listitem [ref=f22e101]:
+              - link "Abt. Z Verwaltungsdienste" [ref=f22e102] [cursor=pointer]:
+                - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abtz.html
+        - listitem [ref=f22e103]:
+          - link "Institute und Forschergruppen" [ref=f22e104] [cursor=pointer]:
+            - /url: https://www.ptb.de/cms/ptb/institute-und-forschergruppen.html
+        - listitem [ref=f22e105]:
+          - link "Management der PTB" [ref=f22e106] [cursor=pointer]:
+            - /url: https://www.ptb.de/cms/ptb/management-der-ptb/praesidium.html
+        - listitem [ref=f22e107]:
+          - link "Kompetenzzentren" [ref=f22e108] [cursor=pointer]:
+            - /url: https://www.ptb.de/cms/ptb/kompetenzzentren.html
+        - listitem [ref=f22e109]:
+          - link "Konformitätsbewertungsstelle" [ref=f22e110] [cursor=pointer]:
+            - /url: https://www.ptb.de/cms/metrologische-dienstleistungen/kbs.html
+    - main [ref=f22e111]:
+      - article [ref=f22e114]:
+        - generic [ref=f22e115]:
+          - figure [ref=f22e117]:
+            - img "AG 3 41" [ref=f22e118]
+          - generic [ref=f22e119]:
+            - heading "Gasfeuchte, Atemalkohol und Getreidefeuchte" [level=1] [ref=f22e120]
+            - generic [ref=f22e121]: Arbeitsgruppe 3.41
+      - article [ref=f22e122]:
+        - heading "Gasfeuchte" [level=2] [ref=f22e123]
+        - paragraph [ref=f22e124]: Gasfeuchte bezeichnet den Wassergehalt in einem Gas. Die Feuchte wird dabei in verschiedenen Einheiten an- und weitergegeben, wie z.B. Tau/Frostpunkttemperatur, relative Feuchte oder Volumenanteil.
+        - paragraph [ref=f22e125]:
+          - text: Gemessen wird die Feuchte mit sogenannten Hygrometern, die nach unterschiedlichen Wirkprinzipien arbeiten. Eine Zusammenstellung wichtiger Arten von Hygrometern findet sich unter folgendem
+          - link [ref=f22e126] [cursor=pointer]:
+            - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt3/fb-34/ag-341/hygrometer-und-deren-wirkungsprinzipien-eine-uebersicht.html
+            - img "Opens internal link in current window" [ref=f22e127]
+            - text: Link
+          - text: .
+        - paragraph [ref=f22e128]:
+          - text: Die Sicherung und Rückführung der Gasfeuchteskala erfolgt mit sog. Feuchtegeneratoren. Eine Auswahl der an der PTB eingesetzten Feuchtegeneratoren zur Rückführung der Messgröße Feuchte ist unter folgendem
+          - link [ref=f22e129] [cursor=pointer]:
+            - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt3/fb-34/ag-341/sicherung-und-rueckfuehrung-von-gasfeuchtemessungen.html
+            - img "Opens internal link in current window" [ref=f22e130]
+            - text: Link
+          - text: gegeben.
+        - paragraph
+        - paragraph [ref=f22e131]
+      - article [ref=f22e132]:
+        - heading "Dienstleistungen" [level=2] [ref=f22e133]
+        - paragraph [ref=f22e134]: Für die Hygrometer der unterschiedlichen Wirkprinzipien und eine Auswahl an kommerziellen Feuchtegeneratoren wird die messtechnische Rückführung auf das nationale Normal angeboten.
+        - paragraph [ref=f22e135]:
+          - link [ref=f22e136] [cursor=pointer]:
+            - /url: https://www.ptb.de/cms/de/ptb/fachabteilungen/abt3/kalmess-3.html
+            - img "Opens external link in new window" [ref=f22e137]
+            - text: Kalibrier- und Messmöglichkeiten
+        - paragraph [ref=f22e138]:
+          - text: Anfragen zu
+          - strong [ref=f22e139]: Kalibrierungen
+          - text: sowie
+          - strong [ref=f22e140]: Fragen rund um das Thema Gasfeuchte
+          - text: richten Sie bitte an unsere E-Mail-Adresse
+          - link [ref=f22e141] [cursor=pointer]:
+            - /url: javascript:linkTo_UnCryptMailto('ocknvq,icuhgwejvgBrvd0fg');
+            - img "Opens window for sending email" [ref=f22e142]
+            - text: gasfeuchte(at)ptb.de
+      - article [ref=f22e143]:
+        - heading "Forschung und Entwicklung" [level=2] [ref=f22e144]
+        - paragraph [ref=f22e145]: "Die Forschungs- und Entwicklungstätigkeiten im Bereich der Gasfeuchte erstrecken sich auf folgenden Themen:"
+        - list [ref=f22e146]:
+          - listitem [ref=f22e147]: Aufbau eines neuen Primärnormals für einen Frost/Taupunktbereich von -40°C bis +95°C
+          - listitem [ref=f22e148]: Entwicklung von transportablen Gasfeuchtegeneratoren basierend auf dem Prinzip der Permeation
+          - listitem [ref=f22e149]: Aktivitäten im Bereich der Spuren- und Hochfeuchte
+          - listitem [ref=f22e150]: Aktivitäten im Bereich verschiedener Gasmatrizen, wie z.B. Energiegase oder Biogas
+          - listitem [ref=f22e151]: Entwicklung und Einsatz feldgängiger Feuchtetransferstandards auf Basis der Laserspektroskopie (TDLAS)
+          - listitem [ref=f22e152]: Rückführung atmosphärischer Feuchtemessungen auf Forschungsflugzeugen (HALO, Learjet etc.)
+          - listitem [ref=f22e153]: Entwicklung und Einsatz schneller Laserhygrometer zur dynamischen Charakterisierung klassischer Hygrometer
+      - article [ref=f22e154]:
+        - heading "Gremien" [level=2] [ref=f22e155]
+        - paragraph [ref=f22e156]: "Mitarbeit in folgenden Gremien:"
+        - list [ref=f22e157]:
+          - listitem [ref=f22e158]: DKD-Fachausschuss Temperatur und Feuchte
+          - listitem [ref=f22e159]: VDI/VDE-GMA FA 2.53 Gasfeuchtemessung
+          - listitem [ref=f22e160]: Technical Committee for Thermometry (EURAMET TC-T)
+          - listitem [ref=f22e161]: Consultive Committee for Thermometry (CCT)
+      - article [ref=f22e162]:
+        - heading "Allgemeine Literatur Gasfeuchte" [level=2] [ref=f22e163]
+        - list [ref=f22e164]:
+          - listitem [ref=f22e165]: "Hardy, R.: ITS-90 Formulations for Vapor Pressure, Frostpoint Temperature, Dewpoint Temperature and Enhancement Factors in the Range -100 to 100 °C; Proceedings of Third International Symposium on Humidity and Moisture; edited by National Physical Laboratory (NPL), London, 1998, pp. 214-221."
+          - listitem [ref=f22e166]: "Sonntag, D.: Important New Values of the Physical Constants of 1986, Vapor Pressure Formulations based on the ITS-90 and Psychrometer Formulae; Z. Meteorol., 70 (5), 1990, pp. 340-344."
+          - listitem [ref=f22e167]: "Wexler, A.: Vapor Pressure Formulation for Water in Range 0 to 100 °C. A Revision; J. Research NBS, A. Physics and Chemistry, 80A, 1976, pp. 775-785."
+          - listitem [ref=f22e168]: "Greenspan, L.: Functional Equations for Enhancement Factors for CO2-free Moist Air; J. Research NBS, A. Physics and Chemistry, 80A, 1976, pp. 41-44."
+          - listitem [ref=f22e169]: "Harrison, L. P.: Fundamental Concepts and Definitions Relating to Humidity, in Wexler, A., Wildhack, W. A. (Eds.), Humidity and Moisture Vol. 3 Fundamentals and Standards, Reinhold Publishing, New York 1965, pp. 3-69."
+    - complementary [ref=f22e170]:
+      - heading "Kontakt" [level=2] [ref=f22e171]
+      - article [ref=f22e172]:
+        - heading "Arbeitsgruppenleiterin" [level=3] [ref=f22e173]
+        - paragraph [ref=f22e174]: Dr.-Ing. Regina Deschermeier
+        - paragraph [ref=f22e175]:
+          - text: "Telefon: (0531) 592-3410 E-Mail:"
+          - link "regina.deschermeier(at)ptb.de" [ref=f22e176] [cursor=pointer]:
+            - /url: javascript:linkTo_UnCryptMailto('ocknvq,tgikpc0fguejgtogkgtBrvd0fg');
+      - article [ref=f22e177]:
+        - heading "Sekretariat" [level=3] [ref=f22e178]
+        - paragraph [ref=f22e179]: Silke Dohlien
+        - paragraph [ref=f22e180]:
+          - text: "Telefon: (0531) 592-3401 E-Mail:"
+          - link "silke.dohlien(at)ptb.de" [ref=f22e181] [cursor=pointer]:
+            - /url: javascript:linkTo_UnCryptMailto('ocknvq,uknmg0fqjnkgpBrvd0fg');
+      - article [ref=f22e182]:
+        - heading "Anschrift" [level=3] [ref=f22e183]
+        - paragraph [ref=f22e184]: Physikalisch-Technische Bundesanstalt Bundesallee 100 38116 Braunschweig
+      - article [ref=f22e186]:
+        - heading "Ansprechpartner" [level=2] [ref=f22e188]
+        - heading "Kontakt Gasfeuchte" [level=3] [ref=f22e189]
+        - paragraph [ref=f22e190]:
+          - text: "Tel.: 0531-592-3410Fax: 0531-592-3405E-Mail:"
+          - link [ref=f22e191] [cursor=pointer]:
+            - /url: javascript:linkTo_UnCryptMailto('ocknvq,icuhgwejvgBrvd0fg');
+            - img "Opens window for sending email" [ref=f22e192]
+            - text: gasfeuchte(at)ptb.de
+  - contentinfo:
+    - generic [ref=f22e193]:
+      - heading "Überblick" [level=2] [ref=f22e194]
+      - navigation [ref=f22e195]:
+        - list:
+          - listitem [ref=f22e196]:
+            - link "Forschung & Entwicklung" [ref=f22e197] [cursor=pointer]:
+              - /url: https://www.ptb.de/cms/forschung-entwicklung.html
+            - list [ref=f22e198]:
+              - listitem [ref=f22e199]:
+                - link "Arbeits- und Forschungsprogramm" [ref=f22e200] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/forschung-entwicklung/arbeits-und-forschungsprogramm.html
+              - listitem [ref=f22e201]:
+                - link "Die Innovationscluster der PTB" [ref=f22e202] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/forschung-entwicklung/die-innovationscluster-der-ptb.html
+              - listitem [ref=f22e203]:
+                - link "Themenbereiche der Metrologie" [ref=f22e204] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/forschung-entwicklung/themenbereiche-der-metrologie.html
+              - listitem [ref=f22e205]:
+                - link "Innovationen und Technologietransfer" [ref=f22e206] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/forschung-entwicklung/innovationen-und-technologietransfer.html
+          - listitem [ref=f22e207]:
+            - link "Metrologische Dienstleistungen" [ref=f22e208] [cursor=pointer]:
+              - /url: https://www.ptb.de/cms/metrologische-dienstleistungen.html
+            - list [ref=f22e209]:
+              - listitem [ref=f22e210]:
+                - link "Kalibrier- und Messmöglichkeiten der PTB" [ref=f22e211] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/metrologische-dienstleistungen/kalibrier-und-messmoeglichkeiten-der-ptb.html
+              - listitem [ref=f22e212]:
+                - link "Dienstleistungskatalog" [ref=f22e213] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/metrologische-dienstleistungen/dienstleistungskatalog.html
+              - listitem [ref=f22e214]:
+                - link "Konformitätsbewertungen" [ref=f22e215] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/metrologische-dienstleistungen/kbs.html
+              - listitem [ref=f22e216]:
+                - link "Ausschuss der Konf.bewertungsstellen" [ref=f22e217] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/metrologische-dienstleistungen/adkbs.html
+              - listitem [ref=f22e218]:
+                - link "Vollversammlung" [ref=f22e219] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/metrologische-dienstleistungen/vv.html
+              - listitem [ref=f22e220]:
+                - link "Arbeitskreise der PTB" [ref=f22e221] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/metrologische-dienstleistungen/arbeitskreise-der-ptb.html
+              - listitem [ref=f22e222]:
+                - link "Regelermittlungsausschuss" [ref=f22e223] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/metrologische-dienstleistungen/rea.html
+              - listitem [ref=f22e224]:
+                - link "Deutscher Kalibrierdienst" [ref=f22e225] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/metrologische-dienstleistungen/dkd.html
+              - listitem [ref=f22e226]:
+                - link "Ges. Messwesen u. Konf.bewertung" [ref=f22e227] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abt9/fb-92.html
+              - listitem [ref=f22e228]:
+                - link "Qualitätsmanagement-System" [ref=f22e229] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/ptb/management-der-ptb/pstab/pst2/pst2qualitaetsmanagementsystem.html
+              - listitem [ref=f22e230]:
+                - link "Informationen aus Datenbanken" [ref=f22e231] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/metrologische-dienstleistungen/informationen-aus-datenbanken.html
+              - listitem [ref=f22e232]:
+                - link "AGB / Zertifizierung / E-Rechnung" [ref=f22e233] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/metrologische-dienstleistungen/agb-zertifizierung-e-rechnung.html
+              - listitem [ref=f22e234]:
+                - link "Gebühren und sonstige Entgelte" [ref=f22e235] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abtz/sts-z01/entgelte-und-gebuehren.html
+          - listitem [ref=f22e236]:
+            - link "Internationales & Netzwerke" [ref=f22e237] [cursor=pointer]:
+              - /url: https://www.ptb.de/cms/internationales-netzwerke.html
+            - list [ref=f22e238]:
+              - listitem [ref=f22e239]:
+                - link "Metrologie in Europa" [ref=f22e240] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/internationales-netzwerke/metrologie-in-europa.html
+              - listitem [ref=f22e241]:
+                - link "Weltweite Metrologie" [ref=f22e242] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/internationales-netzwerke/weltweite-metrologie.html
+              - listitem [ref=f22e243]:
+                - link "Internationale Zusammenarbeit" [ref=f22e244] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/ptb/fachabteilungen/abtq/gruppe-q3.html
+              - listitem [ref=f22e245]:
+                - link "International Office" [ref=f22e246] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/internationales-netzwerke/international-office.html
+              - listitem [ref=f22e247]:
+                - link "Alumni-Netzwerk" [ref=f22e248] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/internationales-netzwerke/alumni-netzwerk.html
+              - listitem [ref=f22e249]:
+                - link "Nutzung von PTB-Großgeräten durch externe Forschende" [ref=f22e250] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/internationales-netzwerke/nutzung-von-ptb-grossgeraeten-durch-externe-forschende.html
+          - listitem [ref=f22e251]:
+            - link "Presse & Aktuelles" [ref=f22e252] [cursor=pointer]:
+              - /url: https://www.ptb.de/cms/presseaktuelles.html
+            - list [ref=f22e253]:
+              - listitem [ref=f22e254]:
+                - link "Für Journalisten" [ref=f22e255] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/presseaktuelles/journalisten.html
+              - listitem [ref=f22e256]:
+                - link "Genau! – Der Newsletter" [ref=f22e257] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/presseaktuelles/genau-der-newsletter.html
+              - listitem [ref=f22e258]:
+                - link "Zeitschriften & Magazine" [ref=f22e259] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/presseaktuelles/zeitschriften-magazine.html
+              - listitem [ref=f22e260]:
+                - link "Broschüren" [ref=f22e261] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/presseaktuelles/broschueren.html
+              - listitem [ref=f22e262]:
+                - link "Social-Media-Lounge" [ref=f22e263] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/presseaktuelles/social-media-lounge.html
+              - listitem [ref=f22e264]:
+                - link "PTB Science Blog" [ref=f22e265] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/presseaktuelles/ptb-science-blog.html
+              - listitem [ref=f22e266]:
+                - link "SI-Materialien für Schulen" [ref=f22e267] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/presseaktuelles/si-materialien-fuer-schulen.html
+              - listitem [ref=f22e268]:
+                - link "Veranstaltungen" [ref=f22e269] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/nc/presseaktuelles/veranstaltungen.html
+              - listitem [ref=f22e270]:
+                - link "PTB-Kolloquien" [ref=f22e271] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/service-seiten/ptb-kolloquien.html
+              - listitem [ref=f22e272]:
+                - link "Wissenschaftlich-technische Publikationen" [ref=f22e273] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/presseaktuelles/wissenschaftlich-technische-publikationen.html
+              - listitem [ref=f22e274]:
+                - link "Ausschreibungen der PTB" [ref=f22e275] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/presseaktuelles/ausschreibungen-der-ptb.html
+          - listitem [ref=f22e276]:
+            - link "Karriere & Über uns" [ref=f22e277] [cursor=pointer]:
+              - /url: https://www.ptb.de/cms/karriere-ueber-uns.html
+            - list [ref=f22e278]:
+              - listitem [ref=f22e279]:
+                - link "Karriere" [ref=f22e280] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/karriere-ueber-uns/karriere.html
+              - listitem [ref=f22e281]:
+                - link "Über uns" [ref=f22e282] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/karriere-ueber-uns/ueber-uns/fakten-zur-ptb.html
+              - listitem [ref=f22e283]:
+                - link "Strategien der PTB" [ref=f22e284] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/karriere-ueber-uns/strategien-der-ptb.html
+              - listitem [ref=f22e285]:
+                - link "Dokumente der PTB" [ref=f22e286] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/karriere-ueber-uns/dokumente-der-ptb.html
+              - listitem [ref=f22e287]:
+                - link "Unser Leitbild – Unsere Werte" [ref=f22e288] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/karriere-ueber-uns/unser-leitbild-unsere-werte.html
+              - listitem [ref=f22e289]:
+                - link "Besuchergruppen, Anmeldung" [ref=f22e290] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/karriere-ueber-uns/besuchergruppen-anmeldung.html
+          - listitem [ref=f22e291]:
+            - link "Struktur & Abteilungen" [ref=f22e292] [cursor=pointer]:
+              - /url: https://www.ptb.de/cms/ptb.html
+            - list [ref=f22e293]:
+              - listitem [ref=f22e294]:
+                - link "Abteilungen" [ref=f22e295] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/ptb/fachabteilungen.html
+              - listitem [ref=f22e296]:
+                - link "Institute und Forschergruppen" [ref=f22e297] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/ptb/institute-und-forschergruppen.html
+              - listitem [ref=f22e298]:
+                - link "Management der PTB" [ref=f22e299] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/ptb/management-der-ptb/praesidium.html
+              - listitem [ref=f22e300]:
+                - link "Kompetenzzentren" [ref=f22e301] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/ptb/kompetenzzentren.html
+              - listitem [ref=f22e302]:
+                - link "Konformitätsbewertungsstelle" [ref=f22e303] [cursor=pointer]:
+                  - /url: https://www.ptb.de/cms/metrologische-dienstleistungen/kbs.html
+    - generic [ref=f22e305]:
+      - generic [ref=f22e306]:
+        - link [ref=f22e307] [cursor=pointer]:
+          - /url: https://www.bundeswirtschaftsministerium.de
+          - img "Bundesministerium für Wirtschaft und Energie (Link zur Homepage)" [ref=f22e308]
+        - paragraph [ref=f22e309]: Die Physikalisch-Technische Bundesanstalt, das nationale Metrologieinstitut, ist eine wissenschaftlich-technische Bundesoberbehörde im Geschäftsbereich des Bundesministeriums für Wirtschaft und Energie.
+      - list
+    - navigation [ref=f22e310]:
+      - generic [ref=f22e311]:
+        - link [ref=f22e312] [cursor=pointer]:
+          - /url: https://www.linkedin.com/company/379368/
+          - img "LinkedIn Logo" [ref=f22e313]
+        - link [ref=f22e314] [cursor=pointer]:
+          - /url: https://www.instagram.com/ptb.bund/
+          - img "Instagram Logo" [ref=f22e315]
+        - link [ref=f22e316] [cursor=pointer]:
+          - /url: https://www.youtube.com/@physikalisch-technischebun6725
+          - img "YouTube Logo" [ref=f22e317]
+      - generic [ref=f22e318]: © Physikalisch-technische Bundesanstalt
+      - list [ref=f22e319]:
+        - listitem [ref=f22e320]:
+          - link "Impressum" [ref=f22e321] [cursor=pointer]:
+            - /url: https://www.ptb.de/cms/service-seiten/impressum.html
+        - listitem [ref=f22e322]:
+          - link "Datenschutz" [ref=f22e323] [cursor=pointer]:
+            - /url: https://www.ptb.de/cms/service-seiten/datenschutz.html
+        - listitem [ref=f22e324]:
+          - link "Barrierefreiheit" [ref=f22e325] [cursor=pointer]:
+            - /url: https://www.ptb.de/cms/meta/barrierefreiheit.html
+        - listitem [ref=f22e326]:
+          - link "Sitemap" [ref=f22e327] [cursor=pointer]:
+            - /url: https://www.ptb.de/cms/service-seiten/sitemap.html

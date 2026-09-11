@@ -6,7 +6,9 @@ the protected cell trace, the all-layer thermal pour gap, and nearby routed
 signals. KiCad removes regions which are not physically connected, so the
 source polygon alone is not proof that a driven guard will reach the sensor.
 This deterministic migration owns four through vias and ten short In1/B.Cu
-links. The resulting saved fill has connected rails on both sides of the long
+links.  The east link and via replace a west spur that the 2026-09-01
+SGX pin-map correction moved outside the re-tapered zone; the counts are
+unchanged. The resulting saved fill has connected rails on both sides of the long
 CELL_RE run while the y=133--135 mm plane gap remains empty.
 """
 
@@ -35,8 +37,8 @@ NET = "/GUARD_REPLICA"
 STITCH_VIAS = {
     (106.95, 136.00),
     (108.80, 136.00),
-    (109.45, 139.00),
     (111.00, 135.50),
+    (112.65, 137.15),
 }
 
 STITCH_TRACKS = {
@@ -46,10 +48,10 @@ STITCH_TRACKS = {
     ("In1.Cu", (108.00, 134.525736), (107.15, 135.375736)),
     ("In1.Cu", (107.15, 135.375736), (107.15, 135.80)),
     ("In1.Cu", (107.15, 135.80), (106.95, 136.00)),
-    ("B.Cu", (106.95, 136.00), (109.45, 139.00)),
     ("B.Cu", (106.95, 136.00), (108.80, 136.00)),
     ("In1.Cu", (108.80, 136.00), (110.65, 136.00)),
     ("In1.Cu", (110.65, 136.00), (111.00, 135.50)),
+    ("In1.Cu", (111.00, 135.50), (112.65, 137.15)),
 }
 
 LEGACY_STITCH_TRACKS = {
@@ -65,9 +67,9 @@ OBSOLETE_VIA = (111.50, 133.60)
 OBSOLETE_TRACK = ("In1.Cu", (110.65, 136.00), (111.50, 133.60))
 
 EXPECTED_FILLED_RAILS = {
-    (108.974715, 135.000000, 110.393458, 140.878865, 59),
-    (110.323477, 135.000000, 111.604500, 141.650000, 68),
-    (109.220228, 131.971835, 110.405022, 132.974500, 37),
+    (109.867055, 135.000000, 112.165584, 141.650000, 28),
+    (111.855300, 135.257645, 113.990268, 141.650000, 35),
+    (109.389700, 131.971835, 110.405022, 132.974500, 34),
 }
 
 

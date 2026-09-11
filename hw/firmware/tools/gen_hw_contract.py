@@ -244,6 +244,7 @@ def build(g) -> str:
     a("#define O2P_HW_I2C_ADDR_SHT45    0x44")
     a("#define O2P_HW_I2C_ADDR_LMP91000 0x48")
     a("#define O2P_HW_I2C_ADDR_TMP117   0x49")
+    a("#define O2P_HW_I2C_ADDR_TMP117_EXT 0x4A")
     a("#define O2P_HW_I2C_ADDR_BMP390   0x76  /* DNP */")
     a("")
     a("#endif /* O2P_HW_CONTRACT_H */")

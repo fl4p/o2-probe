@@ -28,6 +28,8 @@ python3 tools/check_update_tool.py          # field tool vs update.h + regmap.h
 python3 tools/test_swd_link.py              # the bridge's SWD transport, host-side
 python3 tools/test_resume.py                # the updater's resume decision, host-side
 python3 tools/test_baud.py                  # the updater's baud fallback, host-side
+python3 tools/test_serial_capture.py        # SerialLink against measured and late replies, host-side
+python3 tools/test_verify_install.py        # --boot proves the install or exits non-zero, host-side
 python3 tools/test_fallback_identity.py     # finding a probe whose loader fell back
 python3 tools/test_tempco.py                # the AFE-tempco fit recovers a planted slope and refuses a flat run
 python3 tools/o2p_update.py --port /dev/tty.usbserial-X --status
@@ -294,9 +296,17 @@ verification does.
 
 The cable is 9600 8E1 because the SMT100s on it are, and 9600 is what makes a
 30 KiB image take about four minutes. `BAUD_CODE` `0x0031` is a writable
-register, so `tools/o2p_update.py` moves the probe to **38400** for the
-duration of a push and puts it back afterwards — the same image in about a
-minute. `--no-speedup` turns it off.
+register, so `tools/o2p_update.py` moves the probe to the fastest rate its
+firmware offers for the duration of a push and puts it back afterwards. That
+was **38400** — the same image in about a minute; a probe running `a901947` or
+later also offers 115200, and the tool goes there. `--no-speedup` turns it off.
+
+**Not through the node.** When `--port` is the node's USB console (the
+`src/serbus.h` relay in node-prototype), the host's line rate never reaches the
+cable: the ESP32-S3 USB Serial/JTAG ignores the host line coding, so the probe
+would move alone and stay stranded until its probation reverts. Pass
+`--no-speedup` there; the tool does not yet refuse on its own. (ESP32-S3 TRM
+reading by another session, 2026-09-10 — not measured here.)
 
 Three properties make that defensible, and all three are load-bearing:
 
@@ -333,7 +343,39 @@ the write was never committed.
 `tools/test_baud.py` exercises the fallback on the host, against a fake line
 that drops frames whose rate does not match the probe's and applies a baud
 change only after the reply — including the unrecoverable case above, which it
-asserts ends the way described rather than the way one would prefer.
+asserts ends the way described rather than the way one would prefer. As of
+2026-09-10 its fixtures still assume 38400 is the top rate, and 30 of its checks
+fail against HEAD for exactly that reason; they have not been reconciled with
+`a901947`.
+
+### Late replies, and a `--boot` that proves the install
+
+Modbus RTU has no transaction id: a reply that arrives after its exchange gave
+up is indistinguishable from the next exchange's. So `SerialLink` drains the
+line until it has been silent for `--late-reply-s` (default 8 s, `LATE_REPLY_S`)
+after any exchange that did not end with a frame (including one that raised
+mid-read), and before the first exchange of every run, in case a previous process left a request queued in the node. 8 s is
+derived from the node's stall path — a relayed request waiting while the node
+is inside a LoRaWAN uplink — not measured; a longer stall is not covered, and
+`tools/test_serial_capture.py` pins that limit. After a real host rate change
+on a dongle the drain is 0.3 s, so it cannot outlast the probe's 10 s probation;
+a same-rate call, or a link that is the node's USB Serial/JTAG (recognised by
+VID/PID), keeps the full drain because nothing became undecodable.
+
+`--boot` used to exit 0 once the BOOT write was acknowledged, which happens
+before the reset and so proves nothing about the install. It now waits up to
+`--verify-timeout` (180 s) for the application and exits **0** only if
+`UPD_INSTALLS` advanced by exactly one — and `BUILD_ID` equals
+`--expect-build-id` when given; **1** when the probe contradicts that; **2**
+when it cannot be shown (no answer, a saturated counter, an unreadable count).
+A matching `BUILD_ID` alone is never enough: the image may already have been
+running, and every dirty build of a commit carries the same stamp.
+Before sending BOOT the tool also confirms the probe is STAGED with this image's
+length and CRC-32 (`UPD_LEN_*`, `UPD_CRC_*`) and refuses to boot otherwise
+(exit 1): an advancing count proves an install, not whose. Between that read and
+BOOT the tool must be the only master on the probe.
+`--no-verify` restores the old behaviour and says so. The farming repo's BLE
+and LoRaWAN push tools call the same check.
 
 ### The bootloader
 
@@ -811,12 +853,30 @@ what settles it. Firmware that took an absolute value would hide the answer.
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,
 0.01 K), `PRESSURE_HPA` (0 — BMP390 is DNP), `UPTIME_HI/LO`, `FW_VERSION`,
 `HW_REV`, `RESET_CAUSE`, `LMP_READBACK` (TIACN<<8 | REFCN as actually read),
-`MB_CRC_ERRS`, `MB_FRAME_ERRS`, `I2C_ERRS`, `EXP_DATA` (`0xFFFF` — J2 is DNP),
+`MB_CRC_ERRS`, `MB_FRAME_ERRS`, `I2C_ERRS`, `EXP_DATA` (`0xFFFF` if absent; external TMP117 on ext I2C in 0.01 C),
 `SETTLE_RESTARTS` (`0x0020`), `SAMPLE_SEQ` (`0x0021`), `T_DIE` (`0x0022`),
 `FAULTS_EVER` (`0x0023`), `ADS_FAIL_COUNT` (`0x0024`), `WE_BUF_MV` (`0x0025`),
 `RE_BUF_MV` (`0x0026`), `CELL_BIAS_MV` (`0x0027`), `BUILD_ID_HI/LO` (`0x0028`/`0x0029`),
 `CMD_RESULT` (`0x002A`), `CAL_STATE` (`0x002B`), `T_AFE` (`0x002C`), `CE_MV` (`0x002D`),
 `HEATER_BLOCK` (`0x002E`), `SAMPLER_TIMING_MS` (`0x002F`).
+
+Two of those deserve their own notes:
+
+- `RESET_CAUSE` (`0x001A`) is `(RCC_CSR >> 24) & 0xFF`, a **bitfield**, not an
+  enumeration — two causes can be set at once. `0x14` = PIN|SFT is a software
+  reset with the NRST pulse riding along (observed 2026-09-10 on a deliberate
+  update BOOT); `0x0C` = PIN|PWR is an ordinary power-cycle. Bits: 1 OBL,
+  2 PIN, 3 PWR, 4 SFT, 5 IWDG, 6 WWDG, 7 LPWR (`mcu.h:27`). `0xFFFF` is the
+  sentinel for an application under a bootloader that cleared CSR without
+  parking it.
+- `WE_BUF_MV`/`RE_BUF_MV` (`0x0025`/`0x0026`) read their `0xFFFF` sentinel
+  **always on Rev A**: `O2P_HW_BIAS_ADC_REACHES_ELECTRODES` is 0 there — AIN2
+  and AIN3 are wired to `/ADC_VA_MON` and `/ADC_VIN_MON` instead, so those
+  registers have no measurement behind them on this board at all (the rail
+  data reaches `va_mv`/`vin_mv`). They come alive only on Rev B. Reading them
+  for a verdict on a Rev A probe is reading a compiled-out path — noted
+  2026-09-10 after two nights of bench notes treated `0xFFFF` there as
+  residual AFE trouble.
 then two that exist because supervision here is *sampled*, not continuous:
 
 - `SETTLE_RESTARTS` `0x0020` — how many times the 15-minute settling timer has
@@ -928,8 +988,9 @@ then two that exist because supervision here is *sampled*, not continuous:
   faults: a probe with no zero point is unfinished, not broken, and it still
   measures.
 - `BUILD_ID_HI` `0x0028`, `BUILD_ID_LO` `0x0029` — which binary is running.
-  Bit 31 the working tree was dirty at build time, bits 30..28 reserved, bits
-  27..0 the 7-hex-digit commit prefix. `FW_VERSION` cannot do this job: it is a
+  Bit 31 the working tree was dirty at build time, bit 30 a debug build
+  (`O2P_DEBUG_ENABLE=1`, set by `src/regmap.c`; clear on `env:o2probe_nodebug`),
+  bits 29..28 reserved, bits 27..0 the 7-hex-digit commit prefix. `FW_VERSION` cannot do this job: it is a
   hand-edited constant that read v0.1 on every probe ever built, through
   every install, which is why the 0.51 % step in `O2_RAW` across the 2026-09-07
   install could not be attributed to an image. `tools/pio_build_id.py` stamps it
@@ -1196,10 +1257,32 @@ obey: `doc/PLAN-MODBUS-DEBUG.md`.
 | Arbitrary code execution mailbox | `0x0150`, 72 registers, read/write, volatile | Thumb-2 execution in SRAM with watchdog and fault interceptor |
 
 Both peeks read only SRAM `0x20000000`–`0x20008FFC`, flash
-`0x08000000`–`0x0801FFFC`, the three UID words at `0x1FFF7590`–`0x1FFF7598`
+`0x08000000`–`0x08010FFC`, the three UID words at `0x1FFF7590`–`0x1FFF7598`
 and the flash-size word at `0x1FFF75E0`, on 4-byte boundaries, and a burst must
 lie wholly inside the region it starts in. Anything else is refused with a
 status and is never dereferenced: on this core a bad load is a HardFault.
+
+The flash window is the loader and run slot only (pages 0–33), **not** the
+whole 128 KiB, from firmware `0x000F`. The staging slot, the boot descriptor
+and the config pages are written at run time, and a doubleword left
+half-programmed by a power loss raises an ECC NMI when read that the default
+handler does not survive (RM0444 Rev 6 §3.3.3/§3.3.6). A peek of those pages
+answers `ERR_RANGE`; the running image's own pages are intact by definition.
+It is a mitigation, not a proof — see `doc/PLAN-MODBUS-DEBUG.md` §3.6, and §11
+for the boot-path reads that carry the same risk and are not fixed. On `0x000E`
+and earlier the window was the whole 128 KiB.
+
+The snapshot copy is overlap-safe from `0x000F`: a peek that names the SRAM the
+copy writes into (`g_rm`'s own buffer) used to come back corrupt with status
+OK, and now copies in the safe direction (review N1).
+
+From firmware `0x000F`, if the part's `RAM_PARITY_CHECK` option bit is enabled
+(`FLASH_OPTR` bit 22 reads 0), an SRAM burst must also lie inside `.data` or
+`.bss`. Anything else answers status 4, ERR_PARITY, unread, because with parity
+on, reading SRAM nothing has written since power-on can raise NMI and a
+HardFault (RM0444 Rev 6 §2.3). The bit is disabled from the factory, and
+nothing in this firmware changes it, so on these probes every peek answers as
+it did under `0x000E`. Rule and reasoning: `doc/PLAN-MODBUS-DEBUG.md` §3.5.
 
 #### Wide peek block — `0x0100`
 
@@ -1215,7 +1298,7 @@ publishes in between can tear it.
 | `0x0100` | `PEEKW_ADDR_HI` | rw | trigger: target address, high word; reads the address held |
 | `0x0101` | `PEEKW_ADDR_LO` | rw | low word |
 | `0x0102` | `PEEKW_WORDS` | rw | trigger: words, 1..30; reads the count held |
-| `0x0103` | `PEEKW_STATUS` | ro | 0 none, 1 OK, 2 out of range, 3 misaligned |
+| `0x0103` | `PEEKW_STATUS` | ro | 0 none, 1 OK, 2 out of range, 3 misaligned, 4 SRAM not provably written on a part with RAM parity checking enabled (firmware `0x000F`+; see below) |
 | `0x0104` | `PEEKW_SEQ` | ro | triggers executed; skips 0 on wrap, so 0 means never |
 | `0x0105` | `PEEKW_DATA` | ro | word 0 high, word 0 low, word 1 high, … up to `0x0140` |
 
@@ -1235,26 +1318,55 @@ How much of the block one read carries, by the largest reply ADU on each path
 | Path | Largest reply | One FC03 carries |
 |---|---|---|
 | USB-RS485 dongle, SWD bridge mailbox, node USB serial relay | 255 B | everything |
-| Node LoRaWAN relay, reply uplinked at DR4/DR5 | 242 B | everything |
-| … at DR3 | 115 B | header + 25 words |
-| … at DR0–DR2 | 51 B | header + 9 words |
+| Node LoRaWAN relay, reply uplinked at DR4/DR5 | 227 B | everything |
+| … at DR3 | 100 B | header + 21 words |
+| … at DR0–DR2 | 36 B | header + 5 words |
 | Dragino RS485-LS `A8` (46-byte uplink data, unverified) | 46 B | header + 7 words |
 
+The radio rows are EU868's 242/115/51 application bytes (RadioLib 7.7.1
+`payloadLenMax`) less 15. The node uplinks the reply ADU as it is, and
+RadioLib's `getMaxPayloadLen()` subtracts whatever MAC answers are pending in
+`FOpts`, up to 15 bytes. A master cannot see those, so it plans for the full
+15. This table said 242/115/51 until an independent review on 2026-09-10.
+
 The trigger itself is 15 bytes, inside the `A8` ceiling. The radio drops an
-oversized reply rather than truncating it, so `--max-adu` in
-`tools/o2p_cli.py peek` is a ceiling to respect, not a hint.
+oversized reply rather than truncating it: the node logs `PACKET_TOO_LONG`
+and never sends it. So `--max-adu` in `tools/o2p_cli.py peek` is a ceiling to
+respect, not a hint.
 
 `tools/o2p_cli.py peek SYMBOL` uses this block when `FW_VERSION` (`0x0018`)
-reads `0x000D` or later, and falls back to the 4-word mailbox when it is older
-or the block answers exception 02 (a nodebug build). It reads the ELF symbol's
-size by default (`--bytes`/`--count` override), rounds an unaligned symbol out
-to whole words, splits the reads to fit `--max-adu` (`auto`, `dongle`, `swd`,
-`node`, `lorawan-dr4`, `lorawan-dr3`, `lorawan-dr0`, `a8`, or a number), and
-refuses the result if the sequence register moved between pieces.
+reads `0x000D` or later, and the 4-word mailbox when it is older. If the block
+answers exception 02 anyway, the tool says so and tries the mailbox. That
+serves an image without the wide block, but not a nodebug build: there
+`0x0065` answers exception 02 as well, and the tool reports **debug blocks
+compiled out** and exits 1. It reads the ELF symbol's size by default
+(`--bytes`/`--count` override), and refuses a name that several objects share
+(file-local statics in two source files; it lists their addresses to peek
+instead). It rounds an unaligned symbol out to whole words, splits the reads
+to fit `--max-adu` (`auto`, `dongle`, `swd`, `node`, `lorawan-dr4`,
+`lorawan-dr3`, `lorawan-dr0`, `a8`, or a number), plans them before it sends
+the trigger, and refuses the result if the sequence register moved between
+pieces.
 `tools/test_o2p_cli_peek.py` checks all of that host-side, against
 `src/regmap.c` and `src/modbus_pdu.c` compiled into `tools/peek_oracle.c`
 rather than against a Python imitation of them. Nothing in it has run against
 a probe.
+
+On the narrow path it also sizes the burst to `--max-adu`: the 4-word mailbox
+reply cannot be split, so a low ceiling caps how many words one trigger asks
+for (two under `--max-adu 19`), and a ceiling too small for even one word is
+refused before any trigger goes out.
+
+**The 4-word mailbox at `0x0065` assumes sole ownership for the trigger/read
+pair.** It echoes the target address but not the word count, so a shorter peer
+peek at the same address, arriving between another master's trigger and its
+read, returns `0xFFFFFFFF` unused-slot padding that the reader cannot tell from
+memory (and `0xFFFFFFFF` is also erased flash, so value cannot tell). There is
+no in-contract fix that closes this: re-reading the mailbox header carries no
+count either. The wide block at `0x0100` echoes both the word count and a
+sequence number and is used instead whenever `FW_VERSION` allows; when the tool
+must fall back to the mailbox it prints that the result assumes no other
+master. On a shared bus, prefer the wide block.
 
 #### Pin state — opcode 8 (`OP_READ_GPIO`) in the sensor diagnostic mailbox
 
@@ -1272,6 +1384,20 @@ One FC16 of two registers:
 where port A = 0, B = 1, C = 2, D = 3, F = 5 (there is no port E). Then read
 `DIAG_STATUS` (`0x0072`) through `DIAG_CRC_STATUS` (`0x0076`). The result is
 ready when the write is acknowledged; this opcode never reports PENDING.
+
+While an I²C opcode (1–7) is queued, every well-formed write to the mailbox,
+this one included, is refused with **exception 06** (busy) and changes
+nothing: the queued command's `DIAG_STATUS` stays PENDING until it has run.
+Retry. Firmware `0x000E` and earlier refused with exception 03 and wrote
+`DIAG_STATUS` = 6 ERR_BUSY over the queued command's PENDING. A master polling
+such a probe must not take 6 as its own command's result, and
+`tools/o2p_cli.py` does not.
+
+PF2 is the NRST pad. Its GPIO registers describe that pad only when the
+`NRST_MODE` option bits select GPIO (RM0444 Rev 6 §7.3.17). The factory
+setting is reset I/O, and nothing in this firmware writes option bytes, so a
+PF2 answer describes a GPIO cell that is not connected to the pin. Port F is
+unclocked today anyway, so PF0–PF2 all answer 8.
 
 | Status | Meaning |
 |---|---|
@@ -1322,6 +1448,59 @@ Allows loading and executing small Thumb-2 payloads (functions matching `uint32_
 | `0x0156` | `EXEC_RESULT_HI` | ro | 32-bit return value from R0, high word |
 | `0x0157` | `EXEC_RESULT_LO` | ro | low word |
 | `0x0158` | `EXEC_CODE_START` | rw | code payload registers (64 halfwords = 128 bytes, up to `0x0197`) |
+
+#### Through the node's USB console
+
+`peek` and `diag gpio` can also reach a probe through a farm node, whose USB
+console relays Modbus RTU onto its RS-485 pair. `nodecon.py` holds the node's
+port and hands the wrapped command a pty as `{port}`. Run from
+`~/dev/ha/farming`:
+
+```sh
+tech/node-prototype/tools/nodecon.py -n farm-node-01 -- \
+    python3 ~/dev/ee/hw/o2-probe/firmware/tools/o2p_cli.py \
+    --port {port} --addr 3 --timeout 3 peek <symbol>
+tech/node-prototype/tools/nodecon.py -n farm-node-01 -- \
+    python3 ~/dev/ee/hw/o2-probe/firmware/tools/o2p_cli.py \
+    --port {port} --addr 3 --timeout 3 diag gpio PB3
+```
+
+How the relay treats these frames (node-prototype `src/serbus.h`, read
+2026-09-10):
+
+- **There is no envelope.** A request is recognised by its structure: a
+  non-zero unit address, function code 03 or 16 and nothing else, and a valid
+  CRC over the exact length that code implies. Console log text cannot pass
+  that test. Everything `peek` and `diag gpio` send is FC03 or FC16.
+- **The ADU ceiling is 256 bytes** (`SERBUS_MAX_ADU`). `o2p_cli.py`'s `node`
+  preset uses 255, the probe's own FC03 limit. The largest reply these
+  commands ask for is the wide block's 135 bytes.
+- **Each accepted frame claims the pair for 30 s** (`SERBUS_HOLD_MS`), renewed
+  by the next frame. The node's own poller stays off the bus meanwhile, and a
+  crashed tool holds it off for at most that long.
+- **While that claim is held, only `bus` and `ble` act on the USB console.**
+  Other typed verbs are ignored, because relayed bytes can complete a typed
+  line (node-prototype `README.md`, console table).
+
+**The node must be awake.** In deep sleep its USB-Serial-JTAG peripheral is
+powered down and the port disappears (node README, "A sleeping node is not
+reachable over USB at all"). Since node-prototype `ce20225` it stays awake
+while a USB host is present.
+
+`--timeout` (default 1 s) is the per-read serial timeout, and 3 s follows the
+node README's relayed `o2p_update.py` example. The committed
+`SerialLink.exchange()` in `tools/o2p_update.py` also keeps reading for
+max(2 s, 3 × timeout) after a read that held no frame. So the default already
+waits about 4 s for a relayed reply, and `--timeout 3` about 12 s.
+
+**This path is UNVERIFIED.** On 2026-09-10 a wrapped `o2p_update.py --status`
+crossed the relay end to end and released its locks, but no probe reply came
+back (node README). farming `docs/2026-09-10-rs485-lost-replies.md` traced it
+to the node, not the probe: the RS-485 turnaround byte committed the node's
+`read_frame()` to its 20 ms inter-frame gap, so it stopped listening before
+the probe answered. Node-prototype `ce20225` fixed that. No relayed exchange
+has been recorded as succeeding since, and neither command here has been run
+through the node.
 
 ### Update block — `0x0050`, 16 registers
 
@@ -1517,8 +1696,10 @@ mechanisms that exist:
 3. Push the same image back to it: `… o2p_update.py --port … firmware.bin`.
    Expect `STAGED`, and confirm the probe kept answering Modbus throughout the
    erase and the transfer.
-4. `--boot`, then confirm it comes back, that `UPD_INSTALLS` has advanced, and
-   that the run slot is running the image you sent.
+4. `--boot --expect-build-id <the image's stamp>`. The tool now waits for the
+   application and checks that `UPD_INSTALLS` advanced and that the running
+   `BUILD_ID` is the one you sent: exit 0 proven, 1 contradicted, 2 not shown.
+   Read its lines, not just its exit code.
 5. **Pull the power mid-transfer.** Restore it, and confirm the probe comes
    back with the *old* application running and no staged image — this is the
    claim the whole staging-slot design rests on, and it is not proven by
@@ -1758,12 +1939,16 @@ zero for that cycle.
 | `NO_RH` | no fresh SHT45 humidity — **including during the de-creep pulse mask** |
 | `NO_TIP` | no fresh TMP117 reading |
 | `NO_CHAMBER` | no chamber temperature, so the ΔT clamp cannot be enforced |
-| `TIP_LIMIT` | tip ≥ 80.00 °C (firmware limit, releases at 75.00 °C) |
-| `DT_LIMIT` | tip − chamber ≥ `DT_MAX_K` (releases 0.5 K below) |
-| `RUNAWAY` | latched: heat with no command |
+| `TIP_LIMIT` | tip ≥ 82.00 °C (firmware absolute limit, releases at 77.00 °C) — the *setpoint* guard refuses above 80.00 °C separately |
+| `DT_LIMIT` | tip − chamber ≥ `DT_MAX_K` (releases 0.5 K below) — **inert on Rev A**, where the chamber sensor is the SHT45 and the clamp's premise does not hold |
+| `RUNAWAY` | latched: heat with no command — **releases on clear evidence since 2026-09-10**, see below |
 | `SUPPLY` | `VA_LOW` or `VIN_LOW` — heating adds ~86 mA to a rail already out of tolerance |
 | `PIN_INTEGRITY` | `TIM1.CCER.CC1NE` set, or PA7 no longer analog |
-| `STALE` | no duty command within 5 s — the sampler stalled |
+| `STALE` | no duty command within 2 s (`O2P_HEATER_STALE_MS` 2000, 0x0010; was 5000, outrun by the IWDG on a slow LSI tail — review 2026-09-10); the drive is cut and the bit latches for the cycle |
+| `NO_CONSENT` | the consent registers (`0x0048` RH, `0x004A` tip) do not carry their magics |
+| `BLIND` | the sensor-less fallback is driving at `O2P_HEATER_BLIND_DUTY_X100` because tip/die readings are missing or the die is above `O2P_HEATER_BLIND_DIE_MAX_C100` |
+| `IDLE` | **annotation, not a refusal, since 0x0010**: a loop is in command and simply has no demand — duty 0 with the loop healthy |
+| `TIP_DISARMED` | **annotation, not a refusal, since 0x0010**: the stored tip setpoint is at the `0x8000` sentinel — the RH loop is the configured law |
 
 Two of these deserve their reasoning spelled out.
 
@@ -2047,12 +2232,13 @@ close it:
   `../DESIGN.md`, outside the boundary this work was scoped to. It is one
   commit of `regmap.h` plus a `DESIGN.md` table row, and it should be done
   before anyone tunes a loop on a board they intend to pot.
-- **The refusal reason is not published.** `HEATER_DISABLED` says the loop is
-  not driving; it does not say which of the twelve interlocks fired. That mask
-  exists in firmware (`O2P_HB_*`) and a `HEATER_BLOCK` diagnostic register
-  would surface it, but it is the same map change as above. Until then,
-  diagnosing a refusal from a buried probe means reasoning from the other
-  fault bits.
+- **The refusal reason is published since FW 0x000F** as `HEATER_BLOCK` (`0x002E`), the table above. This paragraph originally said the reason was
+  not published and named "twelve interlocks"; the register went live and the
+  word gained `NO_CONSENT`, `BLIND` (0x000F-era) and the `IDLE`/
+  `TIP_DISARMED` annotations (0x0010), so it is kept as history, corrected:
+  diagnosing a refusal from a buried probe is now a register read, with the
+  caveat that bits 14/15 are annotations, not refusals, and the word is full —
+  a future "why" needs a mode field in a spare diagnostic register.
 - **The PWM edge is unverified.** `SCHEMATIC-REVIEW.md` H3's closure makes
   gate-edge and frequency verification an explicit firmware and thermal bench
   requirement, and no scope has been near this board. 1000 Hz is
@@ -2136,3 +2322,30 @@ Still open:
   `tech/RS485-LS-SMT100.md` ("Adding the o2-probe") but not sent. Deploy the
   codec first and set `AT+PAYVER` last, so the codec is never behind the node.
 - A dedicated always-on 12 V supply on the probe cable.
+
+### HEATER_BLOCK correction, 2026-09-11 ~01:50 — the supply veto is removed (Fab's order)
+
+`O2P_HB_SUPPLY` no longer vetoes any heating path. Old rule: a rail fault
+(VA < 3130 mV or VIN < 9000 mV) forced duty 0 everywhere, "heating adds
+~86 mA, a rail out of tolerance is not the place for more load" — while
+`blind_duty()` simultaneously drove 50 % through the *same* fault with no
+sensors at all. Working sensors earned less heating than none: backwards.
+The heater is <1 W and cannot start a fire, and heat is exactly what a wet
+board needs. New rule: the bit is an **annotation** — duty runs, and
+HEATER_BLOCK says the rail was out of tolerance while it did. Removed from
+the loop interlocks (`heater_ctl.c` `interlocks()`, dated comment) and from
+the override's do-not-bypass list (`regmap.h`, dated correction);
+`main.c`'s `supply_ok` feeds the annotation only. Tests:
+`test_supply_fault_annotates_but_does_not_veto` pins that identical inputs
+give identical duty regardless of `supply_ok`, with the bit reported;
+"supply" removed from both forces-zero tables.
+
+Correction to the correction, 2026-09-11 ~01:58 (codex-xhigh audit, finding 9):
+the runaway-latch-this-cycle branch in `o2p_heater_ctl_step` used to overwrite
+HEATER_BLOCK with `O2P_HB_RUNAWAY` alone, dropping the supply annotation on
+exactly the cycle the register most needs to tell the whole truth. It now
+ORs the latch in (`|=`), so a wet-rail cycle that also latches runaway reads
+`RUNAWAY | SUPPLY`. Gap acknowledged, not yet closed in tests: no test
+covers supply-fault + same-cycle runaway latch (the 60 s accumulation makes
+it tedious to construct); the latch-cycle path with a healthy rail is
+covered and unchanged.

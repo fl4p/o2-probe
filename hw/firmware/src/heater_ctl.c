@@ -85,9 +85,15 @@ static uint16_t interlocks(o2p_heater_state_t *st,
          * open-loop on temperature. */
         block |= O2P_HB_NO_CHAMBER;
     }
-    if (!in->supply_ok) {
-        block |= O2P_HB_SUPPLY;
-    }
+    /* REMOVED 2026-09-11 (Fab's order, ~01:45): the supply veto. The old
+     * rule refused ALL autonomous heating on a rail fault "because heating
+     * adds ~86 mA" - while blind_duty() below happily drives 50 % through
+     * the SAME rail fault with no sensors at all. Working sensors earned
+     * LESS heating than no sensors: backwards. The heater is <1 W and cannot
+     * start a fire; heat is also exactly what a wet board needs. The bit
+     * stays VISIBLE - o2p_heater_ctl_step() ORs O2P_HB_SUPPLY into
+     * HEATER_BLOCK as an annotation when duty is being driven despite the
+     * rail - it no longer vetoes anything. */
     if (st->runaway_latched) {
         block |= O2P_HB_RUNAWAY;
     }
@@ -457,6 +463,36 @@ static uint16_t pi_step(o2p_heater_state_t *st, uint8_t mode, uint8_t session,
     return (uint16_t)(u + 0.5f);
 }
 
+/* The duty the blind fallback drives, or zero if it may not. The rule and its
+ * reasons are at O2P_HEATER_BLIND_DUTY_X100 in heater_ctl.h. */
+static uint16_t blind_duty(const o2p_heater_cfg_t *cfg,
+                           const o2p_heater_in_t *in,
+                           uint16_t block)
+{
+    const uint16_t hard = O2P_HB_NOT_COMPILED | O2P_HB_CONFIG_OFF |
+                          O2P_HB_NO_CONSENT | O2P_HB_PIN_INTEGRITY |
+                          O2P_HB_TIP_LIMIT | O2P_HB_DT_LIMIT;
+    const uint16_t wet = O2P_HB_SAFETY | O2P_HB_NO_TIP | O2P_HB_NO_CHAMBER |
+                         O2P_HB_SUPPLY | O2P_HB_RUNAWAY;
+    if ((block & hard) != 0u || (block & wet) == 0u) {
+        return 0u;
+    }
+    if (!in->die_valid || in->t_die_c100 >= O2P_HEATER_BLIND_DIE_MAX_C100) {
+        return 0u;
+    }
+    uint16_t duty = O2P_HEATER_BLIND_DUTY_X100;
+    if (duty > cfg->max_duty_x100) {
+        duty = cfg->max_duty_x100;
+    }
+    /* An operator's open-loop duty is a ceiling too. The override's tip loop
+     * has no duty of its own, so only the cap applies there. */
+    if (cfg->test_override && !cfg->test_tip_sp_valid &&
+        duty > cfg->test_duty_x100) {
+        duty = cfg->test_duty_x100;
+    }
+    return duty;
+}
+
 void o2p_heater_ctl_step(o2p_heater_state_t *st,
                          const o2p_heater_cfg_t *cfg,
                          const o2p_heater_in_t *in,
@@ -468,6 +504,10 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
     }
 
     uint16_t block = interlocks(st, cfg, in);
+    /* Annotation, not refusal (removed as a veto 2026-09-11, Fab's order):
+     * a rail fault is reported so the register explains why the duty reads
+     * what it reads, but no longer stops the heater. See interlocks(). */
+    const uint16_t supply_note = in->supply_ok ? 0u : O2P_HB_SUPPLY;
     if (block != 0u) {
         /* Zero the integrator rather than freezing it. Freezing would make the
          * loop slam to whatever it had wound up to the moment an interlock
@@ -475,9 +515,11 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
          * from proportional-only is bumpless and slow, which is correct for a
          * plant nobody has measured. */
         st->integ = 0.0f;
-        out->duty_x100 = 0u;
-        out->block = block;
-        update_runaway(st, cfg, in, now_s, 0u);
+        const uint16_t duty = blind_duty(cfg, in, block);
+        out->duty_x100 = duty;
+        out->block = (uint16_t)((block | supply_note) |
+                                ((duty != 0u) ? O2P_HB_BLIND : 0u));
+        update_runaway(st, cfg, in, now_s, duty);
         return;
     }
 
@@ -533,13 +575,27 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
     }
 
     out->duty_x100 = duty;
-    out->block = 0u;
+    out->block = supply_note;   /* annotation only - see interlocks() */
+    /* Annotations, not refusals (see the bit definitions): duty 0 with no
+     * interlock raised is an answer, not a fault, and a stored tip setpoint
+     * at the sentinel selects the RH loop - both belong in HEATER_BLOCK so
+     * the register explains why duty is zero in these cases too. */
+    if (duty == 0u && !cfg->test_override) {
+        out->block |= O2P_HB_IDLE;
+    }
+    if (!cfg->tip_sp_valid && !cfg->test_override) {
+        out->block |= O2P_HB_TIP_DISARMED;
+    }
 
     update_runaway(st, cfg, in, now_s, out->duty_x100);
     if (st->runaway_latched) {
-        /* Latched this very cycle: do not wait a cycle to act on it. */
+        /* Latched this very cycle: do not wait a cycle to act on it.
+         * (CORRECTED 2026-09-11, codex-xhigh audit finding 9: this used to
+         * OVERWRITE the mask, dropping the supply annotation on the latch
+         * cycle - the register must keep telling the whole truth even while
+         * refusing to burn. OR it in instead.) */
         out->duty_x100 = 0u;
-        out->block = O2P_HB_RUNAWAY;
+        out->block |= O2P_HB_RUNAWAY;
         st->integ = 0.0f;
     }
 }

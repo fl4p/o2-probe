@@ -217,3 +217,71 @@ One export, `start=-30h`, taken 2026-09-11 08:37 CEST through the existing
 `127.0.0.1:8428` tunnel. Scripts: `/tmp/ovn3.py` (windowing + regression),
 `/tmp/rails.py` (rail trace). Every number above is from that export; nothing was
 read from the probe and no register was written.
+
+## 7. Fully coated — 2026-09-11, and the prediction it makes
+
+**Fab: "the board analog circuitry is now fully coated."** Recorded as hardware
+history; the coating material and its exact extent are his, not measured here.
+
+**Dated from the telemetry at ~09:34**, 19 min after the cleaning. One frame shows
+the signature of a wet intervention on the analog nodes and nothing else does:
+
+| time | va_mv | vref_mv | afe_mv | cell µA | settle_s | faults |
+|---|--:|--:|--:|--:|--:|---|
+| 09:25:22 | 3280 | 2492 | 969 | 100.04 | **293** | `0x8001` SETTLING\|HEATER_DISABLED |
+| **09:34:26** | **3182** | **2418** | 992 | 89.64 | **892** | `0x8a01` +TEMP_OVER+**ADC_RANGE** |
+| 09:35:26 | 3284 | 2494 | 1011 | 94.14 | 893 | `0x8801` |
+| 09:45:31 | 3280 | 2492 | 981 | 98.28 | 288 | `0x8001` |
+
+VREF left its trim band for one minute, which raised `ADC_RANGE` and — on
+re-entry — re-armed the settle window through the documented F6 path in
+`finish_vref()` (`main.c:658-686`), throwing away the 293 s it had already
+counted. That is the firmware behaving correctly on a real reference excursion.
+The 09:34 timestamp is **inferred** from that signature, not stated by Fab.
+
+### 7.1 The prediction, and what would falsify it
+
+§2.1 concluded surface contamination on the VA_MON divider midpoint. That
+conclusion now has a consequence that can be checked by waiting:
+
+> **If the leak was surface contamination on a bare node, a fully coated analog
+> section should not reproduce it.** A second VA_MON decay would falsify that
+> reading and point at absorbed moisture in the laminate, or at the coating
+> process itself.
+
+The second branch is not hypothetical, and the timing is the thing to watch. The
+**first** coating went on at ~20:00 on 09-10 (§7.2 of
+`2026-09-11-o2-model-fit-vs-truth.md`), and VA_MON began decaying **5 h later at
+01:07**. If a decay reappears roughly 5 h after 09:34 — call it ~14:30 — then the
+common cause is the coating operation, not the bare copper: uncured solvent
+conducting, or residue sealed *under* the coat where no air gun can reach it.
+Nothing in the 09-10 data distinguishes those two, because that coating was
+applied to an uncleaned board.
+
+**One thing to confirm before trusting the prediction:** whether R24/R25 — the
+10k/10k VA_MON divider, the actual suspect parts — are inside what "analog
+circuitry" covers. The prediction is only as good as that extent. This is not
+derivable from telemetry.
+
+### 7.2 Post-coating baseline, for comparison against the next event
+
+Clean, and the first quantitative read on the model since 09-08:
+
+```
+09:55:36  va 3280  vref 2492  afe 985  cell 97.70 uA  settle_s 0
+          pct_vol 21.14  t_chamber 23.07 C  RH 36.69 %   faults 0x8000
+```
+
+- `va_mv` **3280-3284** across 09:15 -> 10:00, the pre-fault value, with only the
+  09:34 dip. `vref_mv` 2492 +/- 2.
+- Fault word is **`0x8000`, `HEATER_DISABLED` alone** — expected, heater committed
+  OFF at 08:50. `settle_s` 0. Nothing is being withheld.
+- `gas_pct_vol` n=11, **21.14..21.47 %vol, mean 21.315**, against the 20.946 truth:
+  **+0.37 %vol mean error, 0.33 %vol spread** over ~25 min at 23 °C and RH 28-37 %.
+- **That is the error of the DEFAULTS, not of the commissioned probe.** No reset or
+  reflash in the window (`fw_version` 17 only, one `build_id` 3265401358, uptime
+  monotone 21131 -> 27926 s), so the config is still whatever 02:18 left, and the
+  tool's recovery on the 09-10/11 export returns alpha 1.000, tempco 0,
+  K ~416554 nA — firmware defaults. A 25-minute room-temperature window is also
+  far too narrow to test a model whose failure is across temperature; quote it as a
+  baseline for the next comparison, not as a model result.

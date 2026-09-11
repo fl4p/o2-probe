@@ -38,6 +38,8 @@ static int nibble(int c)
     return -1;
 }
 
+static o2p_regmap_t *s_rm;
+
 static void control(const char *line)
 {
 #if O2P_DEBUG_ENABLE
@@ -61,6 +63,17 @@ static void control(const char *line)
         g->AFR[1] = (uint32_t)v[7];
     } else if (sscanf(line, "#iopenr %lx", &v[0]) == 1) {
         o2p_host_iopenr = (uint32_t)v[0];
+    } else if (sscanf(line, "#diagdone %lx %lx %lx %lx %lx",
+                      &v[0], &v[1], &v[2], &v[3], &v[4]) == 5 && s_rm != NULL) {
+        /* What main.c's execute_diag_command() leaves behind when a queued
+         * I2C opcode has run: its status and data, and the mailbox free.
+         * main.c is not linked here, so the queue is emptied by hand. */
+        s_rm->diag_status = (uint16_t)v[0];
+        s_rm->diag_rdata0 = (uint16_t)v[1];
+        s_rm->diag_rdata1 = (uint16_t)v[2];
+        s_rm->diag_rdata2 = (uint16_t)v[3];
+        s_rm->diag_crc_status = (uint16_t)v[4];
+        s_rm->diag_pending = false;
     } else {
         printf("?\n");
         return;
@@ -76,6 +89,7 @@ int main(void)
 {
     static o2p_regmap_t rm;
     o2p_regmap_init(&rm);
+    s_rm = &rm;
 #if O2P_DEBUG_ENABLE
     o2p_host_gpio_reset();
 #endif

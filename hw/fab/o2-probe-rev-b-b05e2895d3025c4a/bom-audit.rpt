@@ -1,0 +1,24 @@
+O2 probe procurement (BOM) audit
+schematic sha256: 3a5af7c8e482578d8d5d4bd00874cff51864ff02593f13ba251843bfda3463d1
+components: 101; bom rows: 54
+sourcing: dnp=2, generic-stock=53, mpn=28, not-purchased=12, unsourced=6
+unsourced fitted components: 6 (C1, C7, C9, F3, J3, J5)
+purchase orders: purchase-orders.json captured 2026-08-31T18:37:55+00:00, 211 lines
+result: FAIL
+ERROR: C1 is fitted but unbuyable: value '10u 25V X7R' footprint 'Capacitor_SMD:C_1206_3216Metric' has no MPN and no declared sourcing class
+ERROR: C7 is fitted but unbuyable: value '10u 25V X7R' footprint 'Capacitor_SMD:C_1206_3216Metric' has no MPN and no declared sourcing class
+ERROR: C9 is fitted but unbuyable: value '1n' footprint 'Capacitor_SMD:C_0603_1608Metric' has no MPN and no declared sourcing class
+ERROR: F3 is fitted but unbuyable: value '0R FITTED' footprint 'Resistor_SMD:R_0603_1608Metric' has no MPN and no declared sourcing class
+ERROR: J3 is fitted but unbuyable: value 'TC2030 SWD PRE-POT' footprint 'Connector:Tag-Connect_TC2030-IDC-NL_2x03_P1.27mm_Vertical' has no MPN and no declared sourcing class
+ERROR: J5 is fitted but unbuyable: value 'RING PCB FORK TIP' footprint 'o2-probe:Ring_Fork_Tip_DRAFT' has no MPN and no declared sourcing class
+ERROR: sourcing entry 'Capacitor_SMD:C_0603_1608Metric|100n' matches no fitted component; a declaration that no longer describes the board must be removed, not carried
+ERROR: sourcing entry 'o2-probe:Heater_Ring_Solder_Lands|HEATED MEMBRANE RING' matches no fitted component; a declaration that no longer describes the board must be removed, not carried
+ERROR: F1 needs '0ZCJ0075AF2E' (qty 1) but it appears on no purchase order
+ERROR: U15 needs 'AZ431BN-ATRG1' (qty 1) but it appears on no purchase order
+ERROR: DZ1 needs 'BZT52C10-E3-08' (qty 1) but it appears on no purchase order
+ERROR: R26 R43 R44 needs 'RC0603FR-0791KL' but no order has it; the orders do contain the near-identical 'RC0603FR-071KL' -- confirm the substitution and write it back to the schematic, or reorder
+ERROR: R34 R35 needs 'RT0603BRD0747KL' (qty 2) but it appears on no purchase order; the same orders carry unrelated RT-family lines that are on no BOM row, in case one was bought in its place: RTBS0200B075Z00 on PO-0005, RTCS0100B050Z00 on PO-0005, RTT051001FTP on PO-0004
+ERROR: L1 needs 'SRN6028C-4R7M' (qty 1) but it appears on no purchase order
+ERROR: U6 needs 'STM32G071CBT7' but no order has it; the orders do contain the near-identical 'STM32G071CBT6TR' -- confirm the substitution and write it back to the schematic, or reorder
+ERROR: D7 needs 'TPD2E2U06QDBZRQ1' (qty 1) but it appears on no purchase order
+ERROR: U2 U3 needs 'TPS7A2033PDBVR' (qty 2) but it appears on no purchase order; the same orders carry unrelated TPS-family lines that are on no BOM row, in case one was bought in its place: TPS3840DL49DBVR on PO-0010

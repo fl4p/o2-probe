@@ -1,0 +1,12 @@
+PASS: O2 probe fabrication audit
+- 106 schematic footprints; 20.00 x 107.00 x 1.00 mm; four copper layers
+- CELL_RE: 9.652 mm single F.Cu segment, no via/testpoint; U7-to-cell pin distance 9.652 mm
+- two exact 6.75 x 1.50 mm horizontal Edge.Cuts slots at y=134.00 mm; 0.75 mm edge webs, 5.00 mm centre neck, and a 2.00 mm all-layer pour gap; two exact 0.80 x 16.00 mm side slots remove lateral coupling over y=137..153 mm while retaining the 2.25 mm upper connection; 14 routed crossings and 2 vias locked; one 0.15 mm In2 GND bridge; no side-slot copper bridge and no transverse pad/copper-graphic/footprint-zone crossings
+- driven guard: 3 physically stitched F.Cu regions; sampled copper flanks CELL_RE on both sides of the pour gap
+- heated island: 1 connected B.Cu HEATER_LOW spreader region; exact fill and gap coverage locked
+- heated ring: two exact 2.00 x 3.00 mm PTH corner pads with 1.00 x 2.00 mm plated-slot castellations; TMP117-to-ring-center 2.975 mm
+- minimum track/via/drill 0.09/0.25/0.15 mm
+- /+12V_SW minimum track 0.18 mm
+- KiCad error DRC: 0 errors, 0 unconnected; independent XML-to-PCB parity: 0 mismatches; reviewed warnings {'courtyards_overlap': 27, 'silk_edge_clearance': 1, 'silk_over_copper': 14, 'silk_overlap': 18}
+- project rules: 12 process rules; 62 enabled DRC severities; Default 0.15 mm clearance
+- calibration: 33/33 known-bad variants rejected

@@ -10,7 +10,10 @@ This is: the 28-bit prefix of the commit the image was built from, plus a
 dirty bit, published as BUILD_ID_HI/LO (0x0028/0x0029).
 
   bit  31     working tree was dirty at build time
-  bits 30..28 reserved, zero
+  bit  30     NOT set here: src/regmap.c sets it on an O2P_DEBUG_ENABLE=1
+              image and clears it otherwise (O2P_BUILD_ID_FLAG_DEBUG, since
+              faf52d8), so a master can tell a debug build from the register
+  bits 29..28 reserved, zero
   bits 27..0  `git rev-parse --short=7 HEAD`
 
 A dirty build is stamped, not refused - bench iteration is the normal case -

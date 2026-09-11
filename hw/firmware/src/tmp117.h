@@ -106,4 +106,14 @@ o2p_tmp_status_t o2p_tmp117_verify_safety(void);
  * is holding the heater off. Reading this clears nothing in therm mode. */
 o2p_tmp_status_t o2p_tmp117_alert_active(bool *out_active);
 
+/* External TMP117 on ext I2C (default address 0x4A, fallback 0x4B).
+ *
+ * Measures external temperature (tmp117-probe) on the expansion connector /
+ * flying leads. Unlike the on-board U10, ALERT is not wired to the heater
+ * gate; this is purely a temperature sensor. */
+o2p_tmp_status_t o2p_tmp117_ext_init(void);
+o2p_tmp_status_t o2p_tmp117_ext_read_c100(int16_t *out_c100);
+bool o2p_tmp117_ext_present(void);
+uint8_t o2p_tmp117_ext_address(void);
+
 #endif /* O2P_TMP117_H */

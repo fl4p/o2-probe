@@ -1,0 +1,62 @@
+diff --git a/ee/hw/o2-probe/firmware/src/ads1119.c b/ee/hw/o2-probe/firmware/src/ads1119.c
+index 18a6942..5e53dba 100644
+--- a/ee/hw/o2-probe/firmware/src/ads1119.c
++++ b/ee/hw/o2-probe/firmware/src/ads1119.c
+@@ -6,19 +6,6 @@
+ 
+ #define ADS_ADDR O2P_HW_I2C_ADDR_ADS1119
+ 
+-/* Last configuration actually converted with. SBAS925A 8.3.3 says the internal
+- * reference needs under 25 us to settle "when switching from the external
+- * reference source to the internal reference", and switching the multiplexer
+- * likewise presents the modulator with a step. A single-shot conversion
+- * started immediately after either change can therefore be taken on a settling
+- * input - and this driver's very first use of that is the VREF HEALTH CHECK,
+- * where a bad reading would falsely condemn a perfectly good reference. So the
+- * first conversion after any change of channel or reference is discarded. */
+-static uint8_t s_last_cfg = 0xFFu;
+-
+-static o2p_ads_status_t convert_once(uint8_t cfg, uint8_t dr, int16_t *out_code);
+-
+-
+ static uint8_t cfg_byte(uint8_t mux, uint8_t dr, bool ext_ref)
+ {
+     /* GAIN stays at 1 and CM at single-shot. Gain 4 would halve the LSB but
+@@ -47,7 +34,6 @@ o2p_ads_status_t o2p_ads1119_init(void)
+     /* RESET pin has no GPIO on this board (R18 holds it released), so the
+      * command is the only reset available - which is why it is used first,
+      * before trusting anything the part says. */
+-    s_last_cfg = 0xFFu;   /* a reset invalidates any cached configuration */
+     const uint8_t rst = O2P_ADS_CMD_RESET;
+     if (o2p_i2c1_write(ADS_ADDR, &rst, 1u) != O2P_I2C_OK) {
+         return O2P_ADS_IO;
+@@ -93,20 +79,6 @@ o2p_ads_status_t o2p_ads1119_convert(uint8_t mux, uint8_t dr, bool ext_ref,
+         return O2P_ADS_IO;
+     }
+     uint8_t cfg = cfg_byte(mux, dr, ext_ref);
+-    if (cfg != s_last_cfg) {
+-        int16_t throwaway = 0;
+-        o2p_ads_status_t st = convert_once(cfg, dr, &throwaway);
+-        if (st != O2P_ADS_OK) {
+-            s_last_cfg = 0xFFu;   /* unknown state; discard again next time */
+-            return st;
+-        }
+-        s_last_cfg = cfg;
+-    }
+-    return convert_once(cfg, dr, out_code);
+-}
+-
+-static o2p_ads_status_t convert_once(uint8_t cfg, uint8_t dr, int16_t *out_code)
+-{
+     o2p_ads_status_t st = write_cfg(cfg);
+     if (st != O2P_ADS_OK) {
+         return st;
+@@ -123,7 +95,7 @@ static o2p_ads_status_t convert_once(uint8_t cfg, uint8_t dr, int16_t *out_code)
+      * bus transaction per poll on a bus shared with three other devices. */
+     uint32_t t0 = o2p_millis();
+     uint32_t limit = conversion_timeout_ms(dr);
+-    while ((O2P_ADC_DRDY_PORT->IDR & (1u << O2P_ADC_DRDY_PIN)) != 0u) {
++    while ((GPIOB->IDR & (1u << O2P_ADC_DRDY_PIN)) != 0u) {
+         if (o2p_elapsed(t0, limit)) {
+             return O2P_ADS_TIMEOUT;
+         }

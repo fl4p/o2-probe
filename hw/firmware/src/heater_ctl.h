@@ -64,7 +64,66 @@ enum {
      * the bench override is armed - that path carries its own authorisation
      * and an operator. */
     O2P_HB_NO_CONSENT    = 1u << 12,
+    /* NOT a refusal: the ring IS being driven, open-loop at the blind
+     * fallback duty, despite the other bits set alongside it. See
+     * O2P_HEATER_BLIND_DUTY_X100. */
+    O2P_HB_BLIND         = 1u << 13,
+    /* NOT refusals either - annotations, added 2026-09-10 (audit F5) for the
+     * states an operator cannot otherwise tell from a fault. With the RH
+     * loop in command - the default since fresh configs ship consent - a
+     * cold, dry probe computes duty 0 with block 0, indistinguishable on
+     * the bus from "would drive if needed" and from "tip mode disarmed at
+     * the sentinel". These two make HEATER_BLOCK's contract ("explains why
+     * HEATER_DUTY is zero") true for idleness too. They are the last two
+     * free bits in the u16: the numbering is published append-only, so
+     * there is no room for a third - a future "why" needs a mode field in
+     * a spare diag register instead. */
+    O2P_HB_IDLE          = 1u << 14, /* a loop is in command and simply has no demand */
+    O2P_HB_TIP_DISARMED  = 1u << 15, /* stored tip setpoint at the 0x8000 sentinel: the RH loop is the configured law */
 };
+
+/* THE BLIND FALLBACK, added 2026-09-10 at Fab's instruction: "fix the firmware
+ * so the heater can run at 10% duty, no mater the i2c".
+ *
+ * Twice that day the I2C bus died with the board wet - after an 80 C bath and
+ * after an 80 C heater run - and the sensor-derived interlocks (NO_TIP,
+ * NO_CHAMBER, SAFETY) then held the heater at zero, which is the one situation
+ * where heat is the remedy. The runaway latch did the same, a false positive on
+ * the cool-down that only a reset cleared.
+ *
+ * So when the only reasons to refuse are ones a wet or sensorless board
+ * produces, the ring runs OPEN LOOP at this duty instead of zero.
+ *
+ * WHAT BOUNDS IT WITHOUT A TIP READING: the duty alone. Still air on this
+ * board is about 1.0 K per % at the tip (PILE-THERMAL-TEST.md). Shipped at
+ * 10 % (~80 mW at the bench's 10.7 V, ~+10 K); raised to 50 % the same day at
+ * Fab's instruction: ~0.4 W, roughly +50 K above ambient at the asymptote in
+ * still air - about 76 C on a 26 C bench, with the 82 C clamp blind because
+ * the tip is. It is not a bound on absolute temperature: in a warm pile it
+ * adds tens of kelvin to ambient. HEATER_MAX_DUTY still caps it, and an armed
+ * open-loop override caps it at the operator's duty.
+ *
+ * STILL REFUSES: NOT_COMPILED and CONFIG_OFF (the off switches), NO_CONSENT,
+ * PIN_INTEGRITY (reads MCU registers, not pin levels, so water cannot trip it;
+ * heater.c refuses on it independently), TIP_LIMIT and DT_LIMIT (raised only
+ * from VALID readings - a measured overtemperature is never overridden), and a
+ * die reading that is missing or at/above O2P_HEATER_BLIND_DIE_MAX_C100: the
+ * MCU's own sensor, off the I2C bus, and the one thermal witness left.
+ * OVERRIDES: SAFETY, NO_TIP, NO_CHAMBER, SUPPLY (VA/VIN come from on-board
+ * dividers a wet board can skew) and RUNAWAY (computed from the tip sensor).
+ *
+ * NO_RH ON ITS OWN DOES NOT TRIGGER IT: that is the SHT45's scheduled 350 s
+ * de-creep mask on a healthy probe, and the humidity loop idles through it. */
+#define O2P_HEATER_BLIND_DUTY_X100    5000u
+/* 40.00 C, lowered from 70.00 at Fab's instruction when the blind duty went to
+ * 50 %: "make sure the blind 50% are only available if MCU die is below 40°C".
+ * The die sat at 32 C while the tip reached 76 C at 70 % duty (2026-09-10), so
+ * this is a bound on the MCU end of the board and on how warm the environment
+ * already is, not a tip limit. No hysteresis: at the threshold the fallback
+ * toggles at the 1 Hz decision rate, a slow bang-bang on a thermal plant with a
+ * time constant of tens of seconds, and the die's 0.29 K/LSB dither sets how
+ * often it flips there. */
+#define O2P_HEATER_BLIND_DIE_MAX_C100 4000
 
 /* Firmware's own absolute tip limit, independent of the TMP117's alert.
  *

@@ -29,20 +29,34 @@ static bool s_limits_known;
 static uint16_t s_thigh_lsb;
 static uint16_t s_tlow_lsb;
 
-static bool wr16(uint8_t reg, uint16_t val)
+static bool s_ext_present;
+static uint8_t s_ext_addr;
+static uint8_t s_ext_fail_count;
+
+static bool wr16_addr(uint8_t addr, uint8_t reg, uint16_t val)
 {
     const uint8_t tx[3] = {reg, (uint8_t)(val >> 8), (uint8_t)(val & 0xFFu)};
-    return o2p_i2c1_write(TMP_ADDR, tx, 3u) == O2P_I2C_OK;
+    return o2p_i2c1_write(addr, tx, 3u) == O2P_I2C_OK;
 }
 
-static bool rd16(uint8_t reg, uint16_t *val)
+static bool rd16_addr(uint8_t addr, uint8_t reg, uint16_t *val)
 {
     uint8_t rx[2];
-    if (o2p_i2c1_write_read(TMP_ADDR, &reg, 1u, rx, 2u) != O2P_I2C_OK) {
+    if (o2p_i2c1_write_read(addr, &reg, 1u, rx, 2u) != O2P_I2C_OK) {
         return false;
     }
     *val = (uint16_t)(((uint16_t)rx[0] << 8) | rx[1]);
     return true;
+}
+
+static bool wr16(uint8_t reg, uint16_t val)
+{
+    return wr16_addr(TMP_ADDR, reg, val);
+}
+
+static bool rd16(uint8_t reg, uint16_t *val)
+{
+    return rd16_addr(TMP_ADDR, reg, val);
 }
 
 static int16_t c100_to_lsb(int32_t c100)
@@ -182,5 +196,74 @@ o2p_tmp_status_t o2p_tmp117_alert_active(bool *out_active)
         return O2P_TMP_IO;
     }
     *out_active = (cfg & (1u << 15)) != 0u;   /* HIGH_Alert */
+    return O2P_TMP_OK;
+}
+
+bool o2p_tmp117_ext_present(void)
+{
+    return s_ext_present;
+}
+
+uint8_t o2p_tmp117_ext_address(void)
+{
+    return s_ext_addr;
+}
+
+o2p_tmp_status_t o2p_tmp117_ext_init(void)
+{
+    s_ext_present = false;
+    s_ext_addr = 0u;
+
+    const uint8_t candidate_addrs[2] = {
+        O2P_HW_I2C_ADDR_TMP117_EXT,  /* 0x4A: ADD0 strapped to SDA (default on tmp117-probe) */
+        0x4Bu                        /* 0x4B: ADD0 strapped to SCL (alternate) */
+    };
+
+    for (unsigned i = 0; i < 2u; i++) {
+        uint8_t a = candidate_addrs[i];
+        if (o2p_i2c1_probe(a) != O2P_I2C_OK) {
+            continue;
+        }
+        uint16_t id = 0u;
+        if (!rd16_addr(a, O2P_TMP_REG_DEVID, &id)) {
+            continue;
+        }
+        if ((uint16_t)(id & 0x0FFFu) != O2P_TMP_DEVICE_ID) {
+            continue;
+        }
+        /* Continuous conversion, 8-sample averaging, 500 ms conversion cycle.
+         * The external sensor does not use therm mode or hardware alert cutoff. */
+        if (!wr16_addr(a, O2P_TMP_REG_CONFIG, TMP_CFG_BASE)) {
+            continue;
+        }
+        s_ext_addr = a;
+        s_ext_present = true;
+        s_ext_fail_count = 0u;
+        return O2P_TMP_OK;
+    }
+    return O2P_TMP_IO;
+}
+
+o2p_tmp_status_t o2p_tmp117_ext_read_c100(int16_t *out_c100)
+{
+    if (out_c100 == NULL) {
+        return O2P_TMP_IO;
+    }
+    if (!s_ext_present || s_ext_addr == 0u) {
+        return O2P_TMP_IO;
+    }
+    uint16_t raw = 0u;
+    if (!rd16_addr(s_ext_addr, O2P_TMP_REG_TEMP, &raw)) {
+        if (++s_ext_fail_count >= 3u) {
+            s_ext_present = false;
+        }
+        return O2P_TMP_IO;
+    }
+    s_ext_fail_count = 0u;
+    int32_t c100 = ((int32_t)(int16_t)raw * 100) / 128;
+    if (c100 < O2P_TMP117_MIN_C100 || c100 > O2P_TMP117_MAX_C100) {
+        return O2P_TMP_RANGE;
+    }
+    *out_c100 = (int16_t)c100;
     return O2P_TMP_OK;
 }

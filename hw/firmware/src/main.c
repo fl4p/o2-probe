@@ -221,8 +221,10 @@ static struct {
     uint32_t vref_mv;
     int16_t  t_tip;
     int16_t  t_chamber;
+    int16_t  t_ext;
     uint16_t rh;
     bool     tip_ok;
+    bool     ext_ok;
     /* tip_ok says the read SUCCEEDED; this says the part has actually
      * converted since we last looked. Only the heater consumes it - see
      * phase_temps(). */
@@ -269,6 +271,8 @@ static void cycle_begin(void)
     g_cyc.vref_mv = O2P_HW_VREF_TARGET_MV;
     g_cyc.t_tip = O2P_I16_INVALID;
     g_cyc.t_chamber = O2P_I16_INVALID;
+    g_cyc.t_ext = O2P_I16_INVALID;
+    g_cyc.ext_ok = false;
     g_sub = 0u;
     g_acc = 0;
     g_acc_clipped = false;
@@ -403,9 +407,36 @@ static void phase_temps(o2p_snapshot_t *s)
     g_cyc.tip_fresh = (s_tip_notready_cycles < O2P_TIP_STALE_CYCLES);
 
     if (o2p_tmp117_read_c100(&t) == O2P_TMP_OK) {
-        s->t_tip = t;
-        g_cyc.t_tip = t;
-        g_cyc.tip_ok = true;
+        /* One-word glitch rejection (2026-09-10 audit F7). The TMP117
+         * transaction has no CRC, and the 17:53 event - tip stepping
+         * 79.3 -> 63.3 C in one 1 Hz cycle at 100 % duty, no reset,
+         * self-recovery - fits a single corrupted word and nothing else:
+         * this thermal mass cannot move 16 K in a second, and every
+         * firmware drive-cut path publishes duty 0. A step that large
+         * against the last ACCEPTED value is discarded for this cycle:
+         * not an I2C failure (that would be a lie about the bus) and not
+         * a temperature (that would command 100 % duty against a phantom
+         * error) - the tip simply publishes invalid and the loop sees
+         * NO_TIP, which is the safe reaction. After ten consecutive
+         * rejections the new value is taken as the baseline: a sensor
+         * that has genuinely moved, or is broken and stuck, must not be
+         * locked out of the loop forever. */
+        static int16_t s_prev_tip_c100;
+        static bool s_have_tip;
+        static uint8_t s_tip_glitch_cycles;
+        const bool glitch =
+            s_have_tip &&
+            (t > s_prev_tip_c100 + 200 || t < s_prev_tip_c100 - 200);
+        if (glitch && s_tip_glitch_cycles < 10u) {
+            s_tip_glitch_cycles++;
+        } else {
+            s_prev_tip_c100 = t;
+            s_have_tip = true;
+            s_tip_glitch_cycles = 0u;
+            s->t_tip = t;
+            g_cyc.t_tip = t;
+            g_cyc.tip_ok = true;
+        }
     } else {
         g_cyc.faults |= O2P_F_I2C_FAIL_TMP;
     }
@@ -433,6 +464,34 @@ static void phase_temps(o2p_snapshot_t *s)
         s_tmp_verify_div = 0u;
         if (o2p_tmp117_verify_safety() != O2P_TMP_OK) {
             g_cyc.faults |= O2P_F_I2C_FAIL_TMP;
+        }
+    }
+
+    /* External TMP117 on ext I2C (expansion connector / flying leads).
+     * If not present, probe periodically (every 10 cycles). */
+    if (!o2p_tmp117_ext_present()) {
+        static uint8_t s_ext_probe_div;
+        if (++s_ext_probe_div >= 10u) {
+            s_ext_probe_div = 0u;
+            (void)o2p_tmp117_ext_init();
+        }
+    }
+    int16_t text = 0;
+    if (o2p_tmp117_ext_read_c100(&text) == O2P_TMP_OK) {
+        /* Single-word glitch rejection for external sensor on flying leads. */
+        static int16_t s_prev_ext_c100;
+        static bool s_have_ext;
+        static uint8_t s_ext_glitch_cycles;
+        const bool glitch = s_have_ext &&
+            (text > s_prev_ext_c100 + 300 || text < s_prev_ext_c100 - 300);
+        if (glitch && s_ext_glitch_cycles < 5u) {
+            s_ext_glitch_cycles++;
+        } else {
+            s_prev_ext_c100 = text;
+            s_have_ext = true;
+            s_ext_glitch_cycles = 0u;
+            g_cyc.t_ext = text;
+            g_cyc.ext_ok = true;
         }
     }
 
@@ -595,6 +654,9 @@ static bool accumulate(uint8_t mux, uint8_t dr, bool ext_ref, unsigned n)
 
 static void finish_vref(o2p_snapshot_t *s)
 {
+    static bool s_vref_was_out;   /* true while VREF_MON sits outside the
+                                   * trim band; cleared on re-entry, where
+                                   * the settle window restarts (F6) */
     if ((g_cyc.faults & O2P_FAULTS_ADS_NO_CONVERSION) != 0u) {
         return;
     }
@@ -611,7 +673,20 @@ static void finish_vref(o2p_snapshot_t *s)
     if (measured < (int32_t)O2P_HW_VREF_MIN_MV - 100 ||
         measured > (int32_t)O2P_HW_VREF_MAX_MV + 100) {
         g_cyc.faults |= O2P_F_ADC_RANGE;
+        s_vref_was_out = true;
     } else {
+        if (s_vref_was_out) {
+            /* The reference is back inside the trim band after being
+             * outside it. The commanded cell bias rode the whole excursion
+             * (0.67 x VREF: a 2.5 V -> 0.3 V -> 2.5 V swing is at least as
+             * violent as the VA_LOW interruptions phase_rails already
+             * restarts settling for), so the window starts HERE, at
+             * recovery - not wherever mid-fault the old deadline stood
+             * (2026-09-10 audit F6; the 15:01 collapse and its 18:02
+             * recovery were the case that proved the gap). */
+            s_vref_was_out = false;
+            restart_settling();
+        }
         g_cyc.vref_mv = (uint32_t)measured;
         g_cyc.vref_measured = true;
     }
@@ -1319,9 +1394,13 @@ static void cycle_publish(o2p_snapshot_t *s)
              * only reference that can witness a stuck-on FET. */
             .die_valid        = (s->t_die != O2P_I16_INVALID),
             .t_die_c100       = s->t_die,
-            /* Heating adds ~86 mA. A rail already out of tolerance is not the
-             * place to put more load, and VA_LOW in particular means the AFE
-             * may have lost its bias already. */
+            /* REMOVED as a veto 2026-09-11 (Fab's order): "heating adds
+             * ~86 mA, a rail out of tolerance is not the place for more
+             * load" - overruled. The heater is <1 W and cannot start a
+             * fire, and blind mode already heated through the same fault;
+             * heat is also what a wet board needs. supply_ok now only
+             * annotates HEATER_BLOCK (O2P_HB_SUPPLY), it no longer gates
+             * duty. See heater_ctl.c interlocks(). */
             .supply_ok        = (g_cyc.faults &
                                  (O2P_F_VA_LOW | O2P_F_VIN_LOW)) == 0u,
         };
@@ -1334,16 +1413,34 @@ static void cycle_publish(o2p_snapshot_t *s)
         }
         /* HEATER_DISABLED now means "not driving this cycle", whatever the
          * reason. In v0 it was a constant; the reason bits are in
-         * HEATER_BLOCK. */
-        if (hout.block != 0u) {
+         * HEATER_BLOCK. The blind fallback drives WITH reason bits set
+         * (O2P_HB_BLIND), so a blocked mask is not driving only at zero duty. */
+        if (hout.block != 0u && hout.duty_x100 == 0u &&
+            (hout.block & (O2P_HB_IDLE | O2P_HB_TIP_DISARMED)) == 0u) {
+            /* The annotation bits (0x0010) are answers, not faults: an
+             * idle RH loop on a cold, dry probe must not count as
+             * HEATER_DISABLED. */
             g_cyc.faults |= O2P_F_HEATER_DISABLED;
         }
     }
     s->heater_duty = o2p_heater_duty_x100();
     s->heater_block = g_cyc.heater_block;
+    /* The staleness cut runs on the heater's own tick, not the sampler's,
+     * and it drives the gate low WITHOUT passing through heater_ctl - so
+     * fold its latch in here. Until 0x0010 the bit existed in the contract
+     * and in the host decoders and nothing could raise it (audit F3). */
+    if (o2p_heater_stale_cut()) {
+        s->heater_block |= O2P_HB_STALE;
+    }
     s->sampler_timing_ms = (uint16_t)(o2p_millis() - s_cycle_start_ms);
     s->pressure_hpa = 0u;             /* BMP390 is DNP on Rev A */
-    s->exp_data = O2P_U16_INVALID;    /* J2 expansion is DNP on Rev A */
+    if (g_cyc.ext_ok) {
+        s->exp_data = (g_cyc.t_ext == (int16_t)O2P_U16_INVALID)
+            ? (uint16_t)0
+            : (uint16_t)g_cyc.t_ext;
+    } else {
+        s->exp_data = O2P_U16_INVALID;    /* no external sensor present */
+    }
     s->uptime_s = g_uptime_s;
     s->reset_cause = o2p_reset_cause();
     s->mb_crc_errs = o2p_modbus_crc_errors();
@@ -1580,17 +1677,22 @@ static void execute_diag_command(o2p_regmap_t *rm)
         break;
     }
     case O2P_OP_READ_TMP_REG: {
-        if (p > 0xFFu) {
+        uint8_t dev = (uint8_t)(p >> 8);
+        uint8_t reg = (uint8_t)(p & 0xFFu);
+        if (dev > 1u) {
             rm->diag_status = O2P_DMBOX_STATUS_ERR_OPCODE;
             return;
         }
-        uint8_t reg = (uint8_t)p;
         if (reg > 0x08u && reg != 0x0Fu) {
             rm->diag_status = O2P_DMBOX_STATUS_ERR_OPCODE;
             return;
         }
+        uint8_t ext_addr = o2p_tmp117_ext_address();
+        uint8_t addr = (dev == 1u)
+            ? (ext_addr != 0u ? ext_addr : O2P_HW_I2C_ADDR_TMP117_EXT)
+            : O2P_HW_I2C_ADDR_TMP117;
         uint8_t buf[2] = {0};
-        o2p_i2c_status_t st = o2p_i2c1_write_read(O2P_HW_I2C_ADDR_TMP117, &reg, 1u, buf, 2u);
+        o2p_i2c_status_t st = o2p_i2c1_write_read(addr, &reg, 1u, buf, 2u);
         if (st == O2P_I2C_OK) {
             rm->diag_rdata0 = ((uint16_t)buf[0] << 8) | buf[1];
             rm->diag_status = O2P_DMBOX_STATUS_OK;
@@ -1775,6 +1877,7 @@ static void bring_up_devices(void)
      * cutoff is not armed. v1's heater must gate on
      * o2p_tmp117_safety_armed(); v0 surfaces it as a fault. */
     (void)o2p_tmp117_init(O2P_TIP_LIMIT_C100, O2P_TIP_HYST_K100);
+    (void)o2p_tmp117_ext_init();
     (void)o2p_sht4x_reset();
 
     /* An earlier version of this skipped the 15-minute settling wait when the

@@ -11,6 +11,8 @@ Exit 0: every check passed. 1: a check failed. 2: something could not be
 evaluated (no host C compiler, no built ELF) - which is not a pass.
 """
 import argparse
+import contextlib
+import io
 import os
 import shutil
 import struct
@@ -182,10 +184,15 @@ def test_plan():
     check(cover, "the reads cover the header and every data register once, in order")
     check(whole, "no word is split across two reads")
     check(mono, "a larger ceiling never needs more reads")
-    check(len(cli.plan_wide_reads(30, 255)) == 1 and len(cli.plan_wide_reads(30, 242)) == 1,
-          "the full 30-word block is one read on the wired paths and at DR4/DR5")
-    check(cli.plan_wide_reads(30, 115)[0] == (0x0100, 55),
-          "at DR3 the first read is the header and 25 words")
+    dr4, dr3, dr0 = (cli.MAX_ADU_PRESETS[k] for k in ("lorawan-dr4", "lorawan-dr3", "lorawan-dr0"))
+    check((dr4, dr3, dr0) == (242 - 15, 115 - 15, 51 - 15),
+          "the LoRaWAN presets are RadioLib's EU868 payloadLenMax less a full 15-byte FOpts")
+    check(len(cli.plan_wide_reads(30, 255)) == 1 and len(cli.plan_wide_reads(30, dr4)) == 1,
+          "the full 30-word block is one read on the wired paths and at DR4/DR5, FOpts full")
+    check(cli.plan_wide_reads(30, dr3)[0] == (0x0100, 47),
+          "at DR3 the first read is the header and 21 words")
+    check(cli.plan_wide_reads(30, dr0)[0] == (0x0100, 15),
+          "at DR0-DR2 the first read is the header and 5 words")
     check(cli.plan_wide_reads(30, 46)[0] == (0x0100, 19),
           "at the A8's 46 bytes the first read is the header and 7 words")
     check(raises(lambda: cli.plan_wide_reads(1, 18), ValueError) is not None,
@@ -197,7 +204,7 @@ def test_plan():
 
     print("--max-adu")
     check(cli.parse_max_adu("auto") is None, "auto defers to the link")
-    check(cli.parse_max_adu("a8") == 46 and cli.parse_max_adu("lorawan-dr3") == 115,
+    check(cli.parse_max_adu("a8") == 46 and cli.parse_max_adu("lorawan-dr3") == 100,
           "named paths map to their reply ceilings")
     check(cli.parse_max_adu("0x40") == 64, "a number is a number")
     check(raises(lambda: cli.parse_max_adu("18"), argparse.ArgumentTypeError) is not None,
@@ -208,7 +215,9 @@ def test_plan():
 
 def test_resolve():
     print("what a symbol means")
-    syms = {"g_rm": (0x20000130, 412), "label": (0x08004000, 0)}
+    syms = {"g_rm": [(0x20000130, 412)], "label": [(0x08004000, 0)],
+            # Two file-local statics of one name, as in the real ELF (review F4).
+            "finish": [(0x08007EAC, 56), (0x08009C00, 22)]}
 
     def ns(target, nbytes=None, count=None):
         return types.SimpleNamespace(target=target, elf="unused.elf",
@@ -229,6 +238,13 @@ def test_resolve():
           "an unknown symbol is an error, not address 0")
     check(raises(lambda: cli.resolve_peek_target(ns("g_rm", nbytes=0), get), ValueError)
           is not None, "zero bytes is refused")
+    e = raises(lambda: cli.resolve_peek_target(ns("finish"), get), cli.AmbiguousSymbol)
+    check(e is not None and "0x08007EAC" in str(e) and "0x08009C00" in str(e) and
+          "peek 0x08007EAC" in str(e),
+          "a name two objects share is refused, listing both addresses and a hex example")
+    check(raises(lambda: cli.resolve_peek_target(ns("finish", count=1), get),
+                 cli.AmbiguousSymbol) is not None,
+          "and still refused when the size is given: the size was never the ambiguity")
 
 
 # ---------------------------------------------------------- against firmware
@@ -353,8 +369,119 @@ def test_end_to_end(exe):
               [n for _, n, _, _ in narrow] == [2], "0x000B gets the 2-register trigger it knows")
         check(cli.peek_bytes(bus, 0x20008FFC, 4, 255, 0x000B)["status"] == 2,
               "and is refused where its fixed 4-word burst does not fit, as 0x000B was")
+
+        print("N2: the narrow path respects --max-adu")
+        check(cli.max_narrow_words(19) == 2 and cli.max_narrow_words(255) == 4 and
+              cli.max_narrow_words(23) == 3, "the mailbox word cap follows 11 + 4*words")
+        for fw, narrow, why in ((0x000C, False, "old firmware"), (0x000E, True, "--narrow")):
+            link.log.clear()
+            res = cli.peek_bytes(bus, 0x20000000, 16, 19, fw, narrow=narrow)
+            replies = [len(rsp) for _, rsp in link.log if rsp and rsp[1] in (3, 0x83)]
+            check(res["status"] == 1 and res["bytes"] == memory(0x20000000, 16) and
+                  max(replies) <= 19,
+                  "%s: 16 bytes under --max-adu 19 split into <=19-byte replies (was 27)" % why)
+            triggers = [n for _, n, _, _ in requests(link, 16, 0x0065)]
+            check(all(t == 3 for t in triggers) and len(triggers) >= 2,
+                  "%s: two-word mailbox triggers, not one 4-word request" % why)
+        check(raises(lambda: cli.peek_bytes(bus, 0x20000000, 4, 14, 0x000C), ValueError)
+              is not None,
+              "a ceiling too small for even a one-word mailbox reply is refused before any trigger")
+
+        print("N3: the mailbox cannot tell padding from data under a shorter peer")
+        state = {"armed": True}
+
+        def shorter_peer(l, adu):
+            # B triggers ONE word at the same address between A's trigger and read.
+            if state["armed"] and adu[1] == 3:
+                state["armed"] = False
+                rsp = l.raw(frame(struct.pack(">BHHBHHH", 16, 0x0065, 3, 6,
+                                              0x2000, 0x0000, 1)))
+                assert rsp[1] == 16, rsp.hex()
+
+        link.before = shorter_peer
+        status, got = cli.peek_narrow(bus, 0x20000000, 4, 0x000C)
+        link.before = None
+        # The wire cannot distinguish it: status OK, address echo passes, and 3
+        # of 4 words are 0xFFFFFFFF padding. This documents the hole N3 is about;
+        # cmd_peek() carries the sole-ownership caveat that warns of it.
+        check(status == cli.PEEK_OK and got[0] == pattern(0x20000000) and
+              got[1:] == [0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF],
+              "a shorter same-address peer makes padding read as data (address echo cannot catch it)")
+
+        code, text = run_cmd_peek(bus, "0x20000000", narrow=True)
+        check(code in (0, None) and "sole ownership" in text and "4-word mailbox" in text,
+              "a --narrow peek prints the sole-ownership caveat")
+        code, text = run_cmd_peek(bus, "0x20000000")
+        check("sole ownership" not in text and "wide block" in text,
+              "a wide-block peek carries no such caveat")
     finally:
+        link.before = None
         link.close()
+
+
+def test_echoes(exe):
+    """Each echo check the CLI makes, broken on purpose: a peer's frame goes
+    onto the bus at the one moment that check exists for (review C5, C6, F6)."""
+    link = OracleLink(exe)
+    bus = Bus(link, 3)
+    state = {"armed": True}
+    try:
+        print("the echoes that prove a result is this trigger's")
+
+        def same_addr_other_words(l, adu):
+            if state["armed"] and adu[1] == 3:
+                state["armed"] = False
+                peer_trigger(l, 0x20000130, 29)
+
+        link.before = same_addr_other_words
+        e = raises(lambda: cli.peek_wide(bus, 0x20000130, 30, 255), cli.PeekTorn)
+        link.before = None
+        check(e is not None and not state["armed"],
+              "a peer's trigger at the SAME address for 29 words is caught by the WORDS echo")
+
+        def narrow_elsewhere(l, adu):
+            if state["armed"] and adu[1] == 3:
+                state["armed"] = False
+                rsp = l.raw(frame(struct.pack(">BHHBHHH", 16, 0x0065, 3, 6,
+                                              0x0800, 0x4000, 4)))
+                assert rsp[1] == 16, rsp.hex()
+
+        state["armed"] = True
+        link.before = narrow_elsewhere
+        e = raises(lambda: cli.peek_narrow(bus, 0x20000130, 4, 0x000C), cli.PeekTorn)
+        link.before = None
+        check(e is not None and not state["armed"],
+              "a peer's 4-word trigger at another address is caught by the mailbox's address echo")
+
+        print("a ceiling too small is refused before anything is sent")
+        link.log.clear()
+        e = raises(lambda: cli.peek_wide(bus, 0x20000130, 1, 18), ValueError)
+        check(e is not None and not link.log,
+              "no trigger goes out when the reads cannot be planned")
+    finally:
+        link.before = None
+        link.close()
+
+
+def run_cmd_peek(bus, target, **kw):
+    """cmd_peek() as main() calls it, stdout captured. No ELF: a literal
+    address, with the build-ID check forced past."""
+    args = types.SimpleNamespace(elf="/nonexistent/firmware.elf", force_build_id=True,
+                                 target=target, bytes=None, count=None, max_adu=255,
+                                 narrow=False, port="/dev/oracle")
+    for k, v in kw.items():
+        setattr(args, k, v)
+    out, code = io.StringIO(), 0
+    with contextlib.redirect_stdout(out):
+        try:
+            cli.cmd_peek(bus, args)
+        except SystemExit as e:
+            code = e.code if isinstance(e.code, int) else 1
+        except (ModbusException, LookupError, IOError) as e:
+            # Escaping the command IS the failure a caller checks for: return
+            # it as an outcome, so a check names it instead of the script dying.
+            code = "raised %s: %s" % (type(e).__name__, e)
+    return code, out.getvalue()
 
 
 def test_nodebug(exe):
@@ -367,6 +494,11 @@ def test_nodebug(exe):
                    ModbusException)
         check(e is not None and e.code == 2,
               "both peeks answer exception 02, and the tool reports it rather than data")
+        check(notes and not any("using the 4-word mailbox" in n for n in notes),
+              "the fallback note does not promise a mailbox a nodebug build refuses too")
+        code, text = run_cmd_peek(bus, "0x20000130")
+        check(code == 1 and "debug blocks compiled out" in text and "Status   : OK" not in text,
+              "`peek` on a nodebug build says the debug blocks are compiled out, exit 1")
     finally:
         link.close()
 
@@ -382,10 +514,16 @@ def test_elf():
     except RuntimeError as e:
         skip("no nm: %s" % e)
         return
-    g_rm = syms.get("g_rm")
-    check(isinstance(g_rm, tuple) and g_rm[1] >= 272 + 4 * cli.PEEKW_WORDS_MAX and g_rm[1] % 4 == 0,
-          "g_rm has a size, and it includes the wide block's buffer (%r)" % (g_rm,))
-    check(syms.get("g_o2p_build_id", (0, 0))[1] == 4, "g_o2p_build_id is 4 bytes")
+    g_rm = syms.get("g_rm", [])
+    check(len(g_rm) == 1 and g_rm[0][1] >= 272 + 4 * cli.PEEKW_WORDS_MAX and g_rm[0][1] % 4 == 0,
+          "g_rm is one object with a size, and it includes the wide block's buffer (%r)" % (g_rm,))
+    check(syms.get("g_o2p_build_id", [(0, 0)]) [0][1] == 4, "g_o2p_build_id is 4 bytes")
+    shared = sorted(n for n, v in syms.items() if len(v) > 1)
+    check(bool(shared), "the real ELF has names that several objects share (%s)" % shared[:4])
+    if shared:
+        args = types.SimpleNamespace(target=shared[0], elf=elf, bytes=None, count=None)
+        check(raises(lambda: cli.resolve_peek_target(args), cli.AmbiguousSymbol) is not None,
+              "and `peek %s` against it is refused, not resolved to one of them" % shared[0])
 
 
 def main():
@@ -404,6 +542,7 @@ def main():
                 skip("no host C compiler: the CLI was NOT checked against the firmware")
         else:
             test_end_to_end(exe)
+            test_echoes(exe)
             test_nodebug(exe0)
         test_elf()
     finally:

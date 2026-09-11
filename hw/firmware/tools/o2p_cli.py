@@ -57,7 +57,7 @@ REGISTERS = {
     "UPTIME_HI": 0x0016, "UPTIME_LO": 0x0017, "FW_VERSION": 0x0018,
     "HW_REV": 0x0019, "RESET_CAUSE": 0x001A, "LMP_READBACK": 0x001B,
     "MB_CRC_ERRS": 0x001C, "MB_FRAME_ERRS": 0x001D, "I2C_ERRS": 0x001E,
-    "EXP_DATA": 0x001F, "SETTLE_RESTARTS": 0x0020, "SAMPLE_SEQ": 0x0021,
+    "EXP_DATA": 0x001F, "T_EXT": 0x001F, "SETTLE_RESTARTS": 0x0020, "SAMPLE_SEQ": 0x0021,
     "T_DIE": 0x0022, "FAULTS_EVER": 0x0023, "ADS_FAIL_COUNT": 0x0024,
     "WE_BUF_MV": 0x0025, "RE_BUF_MV": 0x0026, "CELL_BIAS_MV": 0x0027,
     "BUILD_ID_HI": 0x0028, "BUILD_ID_LO": 0x0029, "CMD_RESULT": 0x002A,
@@ -100,7 +100,9 @@ REGISTERS = {
     "CRASH_DETAIL_LO": 0x007D, "CRASH_BUILD_ID_HI": 0x007E, "CRASH_BUILD_ID_LO": 0x007F,
 }
 
-PEEK_STATUS_NAMES = {0: "NONE", 1: "OK", 2: "ERR_RANGE", 3: "ERR_ALIGN"}
+# 4 is FW_VERSION 0x000F+, and only on a part whose RAM_PARITY_CHECK option
+# bit is enabled: SRAM outside .data/.bss, refused unread (src/regmap.h).
+PEEK_STATUS_NAMES = {0: "NONE", 1: "OK", 2: "ERR_RANGE", 3: "ERR_ALIGN", 4: "ERR_PARITY"}
 DIAG_STATUS_NAMES = {
     0: "NONE", 1: "PENDING", 2: "OK", 3: "ERR_OPCODE",
     4: "ERR_NACK", 5: "ERR_TIMEOUT", 6: "ERR_BUSY",
@@ -109,11 +111,40 @@ DIAG_STATUS_NAMES = {
 }
 CRASH_REASONS = {0: "NONE", 1: "HARDFAULT", 2: "ASSERT", 3: "IWDG"}
 
+# HEATER_BLOCK (0x002E) decode, bits in heater_ctl.h order. Bits 14/15 are
+# ANNOTATIONS, not refusals, since FW_VERSION 0x0010: a loop in command with
+# no demand (IDLE), and the stored tip setpoint at the 0x8000 sentinel
+# (TIP_DISARMED). Before 0x0010 they read as zeros.
 HB_BITS = [
     "NOT_COMPILED", "CONFIG_OFF", "SAFETY", "NO_RH",
     "NO_TIP", "NO_CHAMBER", "TIP_LIMIT", "DT_LIMIT",
-    "RUNAWAY", "SUPPLY", "PIN_INTEGRITY", "STALE", "NO_CONSENT"
+    "RUNAWAY", "SUPPLY", "PIN_INTEGRITY", "STALE", "NO_CONSENT",
+    "BLIND", "IDLE*", "TIP_DISARMED*",
 ]
+
+# FAULTS (0x0006) / FAULTS_EVER (0x0023) decode, faults.h order. FAULTS_EVER
+# ORs every bit seen since power-up (main.c), so it reads as history, not
+# state; e.g. 0x8301 after a bake-and-reboot is SETTLING|HEATER_RUNAWAY|
+# TEMP_OVER|HEATER_DISABLED, every one expected.
+FAULT_BITS = [
+    "SETTLING", "I2C_FAIL_LMP", "I2C_FAIL_ADS", "I2C_FAIL_TMP",
+    "I2C_FAIL_SHT", "AFE_CONFIG_MISMATCH", "VA_LOW", "VIN_LOW",
+    "HEATER_RUNAWAY", "TEMP_OVER", "DEW_SUSPECT", "ADC_RANGE",
+    "CAL_DEFAULT", "ADS_DRDY_STUCK", "ADS_CONFIG_LOST", "HEATER_DISABLED",
+]
+
+# RESET_CAUSE (0x001A) is (RCC_CSR >> 24) & 0xFF, a BITFIELD (mcu.h:27-43):
+# two causes can be set at once, e.g. 0x14 = PIN|SFT for a software reset
+# with the NRST pulse riding along. 0xFFFF is "could not be recovered".
+RESET_CAUSE_BITS = {
+    1: "OBL", 2: "PIN", 3: "PWR", 4: "SFT",
+    5: "IWDG", 6: "WWDG", 7: "LPWR",
+}
+
+# Write to arm the heater test block; 0 disarms. Reads back 1/0 by design
+# (regmap.h:452), never the magic. Canonical home: O2P_HEATER_TEST_MAGIC,
+# regmap.h:721.
+HEATER_TEST_MAGIC = 0x8EA7
 
 
 def resolve_reg(name_or_addr):
@@ -132,6 +163,14 @@ def resolve_reg(name_or_addr):
 
 
 def format_reg(name, val):
+    if name in ("RESET_CAUSE",):
+        # NOT the u16 invalid sentinel: 0xFFFF here is its own meaning
+        # ("CSR not parked", mcu.h) and must be decoded as such.
+        if val == 0xFFFF:
+            return "0xFFFF (unknown: CSR not parked)"
+        active = [nm for bit, nm in sorted(RESET_CAUSE_BITS.items())
+                  if val & (1 << bit)]
+        return "0x%04X (%s)" % (val, "|".join(active) if active else "none")
     if val == 0xFFFF:
         return "0xFFFF (invalid)"
     if name in ("O2_COMP",):
@@ -151,6 +190,10 @@ def format_reg(name, val):
     if name in ("HEATER_BLOCK",):
         active = [HB_BITS[i] for i in range(len(HB_BITS)) if val & (1 << i)]
         return "0x%04X (%s)" % (val, "|".join(active) if active else "none")
+    if name in ("FAULTS", "FAULTS_EVER"):
+        active = [FAULT_BITS[i] for i in range(len(FAULT_BITS))
+                  if val & (1 << i)]
+        return "0x%04X (%s)" % (val, "|".join(active) if active else "none")
     if name in ("SAMPLER_TIMING_MS",):
         return "%d ms" % val
     if name in ("BUILD_ID_HI", "BUILD_ID_LO"):
@@ -158,13 +201,23 @@ def format_reg(name, val):
     return "0x%04X (%d)" % (val, val)
 
 
+class AmbiguousSymbol(LookupError):
+    """One name, several objects in the ELF: nothing says which was meant."""
+
+
 def get_elf_symbols(elf_path):
-    """{name: (address, size)} from the ELF, via arm-none-eabi-nm or nm.
+    """{name: [(address, size), ...]} from the ELF, via arm-none-eabi-nm or nm.
 
     The size is nm -S's, i.e. the symbol table's st_size, so a struct's size
     comes from the compiler rather than from anyone's arithmetic; 0 where the
     symbol has none (labels, some assembler symbols). pyelftools would give
     the same number, and is not a dependency this tree has.
+
+    A LIST PER NAME, because a name is not unique: file-local statics in two
+    translation units share it. The 2026-09-10 env:o2probe ELF has two
+    `finish`, two `s_sequence` and two `s_live_page`. A dict of one entry kept
+    whichever nm printed last, and a peek of the wrong object reads as a
+    plausible answer. resolve_peek_target() refuses a name with more than one.
     """
     nm_bins = ["arm-none-eabi-nm", "nm"]
     for nm in nm_bins:
@@ -178,9 +231,14 @@ def get_elf_symbols(elf_path):
                 # "addr size type name" when the symbol has a size,
                 # "addr type name" when it does not.
                 if len(parts) == 4:
-                    symbols[parts[3]] = (int(parts[0], 16), int(parts[1], 16))
+                    name, entry = parts[3], (int(parts[0], 16), int(parts[1], 16))
                 elif len(parts) == 3:
-                    symbols[parts[2]] = (int(parts[0], 16), 0)
+                    name, entry = parts[2], (int(parts[0], 16), 0)
+                else:
+                    continue
+                entries = symbols.setdefault(name, [])
+                if entry not in entries:
+                    entries.append(entry)
             return symbols
         except (subprocess.SubprocessError, FileNotFoundError):
             continue
@@ -290,7 +348,7 @@ def cmd_htest(bus, args):
     sp = int(args.sp * 100.0) if args.sp is not None else 0x8000
     kp = int(args.kp * 100.0) if args.kp is not None else 100
     ki = int(args.ki * 100.0) if args.ki is not None else 20
-    arm_magic = 0x8EA7 if args.arm else 0x0000
+    arm_magic = HEATER_TEST_MAGIC if args.arm else 0x0000
     block = [arm_magic, duty, sp, kp, ki]
     bus.write(REGISTERS["HEATER_TEST_ARM"], block)
     print("  Heater test block written atomically:")
@@ -327,6 +385,13 @@ def cmd_config(bus, args):
 
 FW_PEEK_COUNT = 0x000C
 FW_WIDE_PEEK = 0x000D
+# 0x000F: a busy diagnostic mailbox refuses with exception 06 and writes
+# nothing (up to 0x000E: exception 03 plus DIAG_STATUS 6 ERR_BUSY over the
+# queued command's PENDING), and a peek may answer 4 ERR_PARITY. The newest
+# wire contract this tool knows; test_o2p_cli_gpio.py holds it to regmap.h.
+FW_BUSY_IS_EXCEPTION = 0x000F
+FW_LATEST = 0x000F
+MB_EX_BUSY = 6
 PEEK_OK = 1
 PEEKW_BASE = 0x0100
 PEEKW_HEADER = 5
@@ -339,13 +404,25 @@ MB_MAX_READ_REGS = 125        # O2P_MB_MAX_READ_REGS, src/modbus_pdu.c
 # can open itself - a USB-RS485 dongle, or the node's USB console relay - is
 # limited by the probe's own 125-register FC03, 255 bytes; the radio figures
 # are here for a transport that reuses plan_wide_reads().
+#
+# THE RADIO FIGURES ASSUME A FULL FOpts. The node uplinks a relayed reply as
+# the raw ADU (node-prototype main.cpp relay(): reply_push(rbuf, rlen,
+# O2P_FPORT)), and RadioLib 7.7.1 refuses a payload longer than
+# getMaxPayloadLen() = payloadLenMax[dr] - fOptsUpLen (LoRaWAN.cpp:3785-3805),
+# with payloadLenMax 51/51/51/115/242/242 for EU868 DR0..DR5
+# (LoRaWANBands.cpp:25). The node drops such a reply for good (main.cpp,
+# PACKET_TOO_LONG). Pending MAC answers take up to
+# RADIOLIB_LORAWAN_FHDR_FOPTS_MAX_LEN = 15 bytes (LoRaWAN.h:124) and nobody
+# on this side can see how many are pending, so each preset is the EU868
+# figure minus 15: a ceiling that holds whatever the MAC layer is doing.
+LORAWAN_FOPTS_MAX = 15
 MAX_ADU_PRESETS = {
     "dongle": 255,        # USB-RS485: probe O2P_MB_MAX_READ_REGS
     "swd": 255,           # bridge mailbox tx/rx[O2P_MB_MAX_ADU]
     "node": 255,          # node-prototype serbus.h SERBUS_MAX_ADU / MAX_FRAME
-    "lorawan-dr4": 242,   # reply uplinked at DR4/DR5
-    "lorawan-dr3": 115,
-    "lorawan-dr0": 51,    # DR0..DR2
+    "lorawan-dr4": 242 - LORAWAN_FOPTS_MAX,   # 227, reply uplinked at DR4/DR5
+    "lorawan-dr3": 115 - LORAWAN_FOPTS_MAX,   # 100
+    "lorawan-dr0": 51 - LORAWAN_FOPTS_MAX,    # 36, DR0..DR2
     "a8": 46,             # Dragino A8: manual's 46-byte uplink data, UNVERIFIED
 }
 PROBE_MAX_ADU = 255
@@ -387,6 +464,19 @@ def max_read_regs(max_adu):
     return min(MB_MAX_READ_REGS, (max_adu - 5) // 2)
 
 
+def max_narrow_words(max_adu):
+    """Words the 4-word mailbox may return under `max_adu`, never above 4.
+
+    The mailbox reply is 3 header registers plus 2 per word, and an FC03 ADU is
+    5 framing bytes plus 2 per register: 11 + 4*words bytes. N2 (review,
+    2026-09-10): peek_bytes always asked for four words on the narrow path, a
+    27-byte reply, even under `--max-adu 19` - a ceiling that link then drops.
+    Unlike the wide block, the mailbox has no way to split a burst, so the only
+    lever is how many words one trigger asks for.
+    """
+    return min(4, (max_adu - 11) // 4)
+
+
 def plan_wide_reads(words, max_adu):
     """The FC03s that carry a `words`-word snapshot home under `max_adu`.
 
@@ -419,15 +509,21 @@ def peek_wide(bus, addr, words, max_adu):
     The firmware validates the address and the count; this only checks that
     what came back is the answer to THIS trigger. Raises PeekTorn when it is
     not - never returns data it cannot vouch for.
+
+    The reads are PLANNED BEFORE THE TRIGGER IS SENT. A ceiling that cannot
+    carry the header and one word is refused with nothing on the wire, rather
+    than after a trigger has replaced whatever the block held - possibly
+    another master's snapshot, half-read.
     """
-    bus.write(PEEKW_BASE, [(addr >> 16) & 0xFFFF, addr & 0xFFFF, words])
     reads = plan_wide_reads(words, max_adu)
-    header, regs = None, []
-    for base, count in reads:
-        got = bus.read(base, count)
-        if header is None:
-            header, got = got[:PEEKW_HEADER], got[PEEKW_HEADER:]
-        regs.extend(got)
+    bus.write(PEEKW_BASE, [(addr >> 16) & 0xFFFF, addr & 0xFFFF, words])
+    # The first planned read always starts at the header (plan_wide_reads),
+    # so the header is taken from it unconditionally: there is no path on
+    # which it could be missing.
+    first = bus.read(*reads[0])
+    header, regs = first[:PEEKW_HEADER], list(first[PEEKW_HEADER:])
+    for base, count in reads[1:]:
+        regs.extend(bus.read(base, count))
     if len(reads) > 1:
         closing = bus.read(PEEKW_BASE, PEEKW_HEADER)
         if closing != header:
@@ -448,7 +544,14 @@ def peek_wide(bus, addr, words, max_adu):
 
 
 def peek_narrow(bus, addr, words, fw_version):
-    """The 4-word mailbox at 0x0065. Returns (status, words)."""
+    """The 4-word mailbox at 0x0065. Returns (status, words).
+
+    ASSUMES SOLE OWNERSHIP of the mailbox for the trigger/read pair. The header
+    echoes the address but not the word count, so a shorter peer trigger at the
+    same address in between returns 0xFFFFFFFF padding this cannot distinguish
+    from data (N3). cmd_peek() prints that caveat; the wide block, which echoes
+    WORDS and SEQ, is used instead whenever the firmware supports it.
+    """
     if not 1 <= words <= 4:
         raise ValueError("the 4-word mailbox takes 1..4 words, not %d" % words)
     hi, lo = (addr >> 16) & 0xFFFF, addr & 0xFFFF
@@ -481,6 +584,13 @@ def peek_bytes(bus, addr, nbytes, max_adu, fw_version, narrow=False, log=print):
     start = addr & ~3
     total_words = (addr + nbytes - start + 3) // 4
     wide = (not narrow) and fw_version >= FW_WIDE_PEEK
+    # The narrow burst cap under this ceiling, refused up front rather than
+    # after a trigger has fired (N2). Computed even when starting wide, because
+    # a wide block that answers exception 02 falls back to the mailbox below.
+    narrow_cap = max_narrow_words(max_adu)
+    if not wide and narrow_cap < 1:
+        raise ValueError("max ADU %d cannot carry even a one-word mailbox reply "
+                         "(needs 15)" % max_adu)
     words, snapshots, off = [], 0, 0
     while off < total_words:
         a = start + 4 * off
@@ -491,13 +601,23 @@ def peek_bytes(bus, addr, nbytes, max_adu, fw_version, narrow=False, log=print):
             except ModbusException as e:
                 if e.code != 2 or snapshots:
                     raise
-                log("   note: FW_VERSION 0x%04X but 0x%04X answers exception 02 "
-                    "(a nodebug build?); using the 4-word mailbox"
-                    % (fw_version, PEEKW_BASE))
+                # NOT "using the mailbox": on a nodebug build - the likeliest
+                # reason for this 02 - 0x0065 is compiled out too and refuses
+                # the same way, and cmd_peek() then says so. The note must not
+                # promise a read that cannot happen there.
+                log("   note: 0x%04X answers exception 02 although FW_VERSION is "
+                    "0x%04X - either the debug blocks are compiled out (a nodebug "
+                    "build, which refuses 0x0065 too) or the image lacks the wide "
+                    "block; trying the 4-word mailbox at 0x0065"
+                    % (PEEKW_BASE, fw_version))
                 wide = False
+                if narrow_cap < 1:
+                    raise ValueError(
+                        "max ADU %d cannot carry a one-word mailbox reply, and "
+                        "the wide block is unavailable (needs 15)" % max_adu)
                 continue
         else:
-            n = min(4, total_words - off)
+            n = min(narrow_cap, total_words - off)
             status, got = peek_narrow(bus, a, n, fw_version)
         snapshots += 1
         if status != PEEK_OK:
@@ -522,7 +642,16 @@ def resolve_peek_target(args, symbols_fn=None):
         symbols = (symbols_fn or get_elf_symbols)(args.elf)
         if target not in symbols:
             raise KeyError("Symbol '%s' not found in %s" % (target, args.elf))
-        addr, size = symbols[target]
+        entries = symbols[target]
+        if len(entries) != 1:
+            raise AmbiguousSymbol(
+                "symbol '%s' names %d objects in %s (file-local statics share "
+                "a name across translation units): %s. Nothing here says which "
+                "one you meant - peek the address, e.g. `peek 0x%08X --bytes %d`"
+                % (target, len(entries), args.elf,
+                   ", ".join("0x%08X (%d bytes)" % e for e in entries),
+                   entries[0][0], entries[0][1] or 4))
+        addr, size = entries[0]
         label = "%s (0x%08X)" % (target, addr)
     if args.bytes is not None:
         nbytes = args.bytes
@@ -541,19 +670,52 @@ def resolve_peek_target(args, symbols_fn=None):
 
 
 def cmd_peek(bus, args):
-    check_build_id(bus, args.elf, force=args.force_build_id)
-    addr, nbytes, label = resolve_peek_target(args)
+    b_id, _sha, _dirty, debug = check_build_id(bus, args.elf, force=args.force_build_id)
+    try:
+        addr, nbytes, label = resolve_peek_target(args)
+    except (KeyError, AmbiguousSymbol) as e:
+        print("  !! %s" % (e.args[0] if e.args else e))
+        sys.exit(1)
     if args.max_adu is None:
         max_adu, why = auto_max_adu(args.port)
     else:
         max_adu, why = args.max_adu, "--max-adu"
     fw = bus.read(REGISTERS["FW_VERSION"], 1)[0]
 
-    res = peek_bytes(bus, addr, nbytes, max_adu, fw, narrow=args.narrow)
+    try:
+        res = peek_bytes(bus, addr, nbytes, max_adu, fw, narrow=args.narrow)
+    except ModbusException as e:
+        if e.code != 2:
+            raise
+        # Both peek blocks refused as undefined addresses. That is a nodebug
+        # image, whatever FW_VERSION says - a nodebug build reports the same
+        # version (src/regmap.h). BUILD_ID bit 30 is quoted only when it was
+        # read; an image older than faf52d8 has it clear either way.
+        print("  !! 0x%04X answers exception 02: debug blocks compiled out (an "
+              "O2P_DEBUG_ENABLE=0 build%s). This image has no memory peek; "
+              "nothing was read."
+              % (REGISTERS["PEEK_ADDR_HI"],
+                 "" if b_id is None else
+                 ", BUILD_ID bit 30 reads %d" % (1 if debug else 0)))
+        sys.exit(1)
     print("  Peek %s, %d bytes:" % (label, nbytes))
     print("    Path     : %s, FW_VERSION 0x%04X, max ADU %d (%s)"
           % ("wide block 0x0100" if res["wide"] else "4-word mailbox 0x0065",
              fw, max_adu, why))
+    if not res["wide"]:
+        # N3: the legacy mailbox echoes the address but not the word COUNT, so
+        # a shorter peer trigger at the same address, serialized before this
+        # read, returns unused-slot 0xFFFFFFFF padding that reads as memory
+        # (and 0xFFFFFFFF is also erased flash, so value cannot tell). The wide
+        # block has WORDS and SEQ and is preferred whenever FW_VERSION allows;
+        # here it was not available. Re-reading the mailbox header cannot close
+        # this - it carries no count either - so the tool states the assumption
+        # rather than pretending to have checked it.
+        print("    !! assumes sole ownership of the 0x0065 mailbox: it echoes "
+              "no word count, so a shorter peer peek at this address between "
+              "trigger and read would return padding as data undetectably. "
+              "Use the wide block (FW_VERSION 0x000D+, no --narrow) for a "
+              "shared bus.")
     if res["status"] != PEEK_OK:
         print("    Status   : %s at 0x%08X"
               % (PEEK_STATUS_NAMES.get(res["status"], "ERR_%d" % res["status"]),
@@ -604,7 +766,7 @@ def cmd_diag(bus, args):
         op = 0x04
     elif sub == "tmp-read":
         op = 0x05
-        param = int(param_text, 0)
+        param = (getattr(args, "dev", 0) << 8) | int(param_text, 0)
     elif sub == "sht-serial":
         op = 0x06
     elif sub == "sht-sample":
@@ -613,14 +775,36 @@ def cmd_diag(bus, args):
         raise ValueError("Unknown diag command: %s" % sub)
 
     cmd_word = 0x5A00 | op
-    bus.write(REGISTERS["DIAG_CMD"], [cmd_word, param])
+    try:
+        bus.write(REGISTERS["DIAG_CMD"], [cmd_word, param])
+    except ModbusException as e:
+        if e.code != MB_EX_BUSY:
+            raise
+        print("  !! the probe answered exception 06 (busy): an earlier diagnostic "
+              "command is still queued on it, and nothing of '%s' was queued. "
+              "Retry once that one has run." % sub)
+        sys.exit(1)
 
-    # Poll status until done (max 1000ms)
+    # Poll until THIS command's status is final (max 1000 ms). Two rules, both
+    # from review F2 (2026-09-10):
+    #   * The command and parameter are read with every status and must be
+    #     ours. Another master may queue its own once ours has run, and its
+    #     status would otherwise be printed as this command's.
+    #   * ERR_BUSY is not final. This command was ACCEPTED, so it never
+    #     produces ERR_BUSY; on FW_VERSION <= 0x000E that value is another
+    #     master's refused write overwriting our PENDING while ours is still
+    #     queued, and the real result is yet to come. 0x000F+ never writes it.
     t0 = time.time()
     while time.time() - t0 < 1.0:
-        regs = bus.read(REGISTERS["DIAG_STATUS"], 5)
+        regs = bus.read(REGISTERS["DIAG_CMD"], 7)
+        if regs[0] != cmd_word or regs[1] != (param & 0xFFFF):
+            raise DiagTorn("the mailbox holds command 0x%04X param 0x%04X, not "
+                           "0x%04X 0x%04X: another master's command replaced "
+                           "this one; its status is not reported as ours"
+                           % (regs[0], regs[1], cmd_word, param & 0xFFFF))
+        regs = regs[2:]
         st = regs[0]
-        if st != 1:  # Not pending
+        if st not in (DIAG_PENDING, DIAG_ERR_BUSY):
             st_str = DIAG_STATUS_NAMES.get(st, "STATUS_%d" % st)
             print("  Diag '%s' result: %s" % (sub, st_str))
             if st == 2:
@@ -658,7 +842,7 @@ BOARD_PINS_H = os.path.join(FW_DIR, "src", "board_pins.h")
 
 GPIO_PORTS = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4, "F": 5}
 GPIO_LETTERS = {v: k for k, v in GPIO_PORTS.items()}
-DIAG_OK, DIAG_PENDING = 2, 1
+DIAG_OK, DIAG_PENDING, DIAG_ERR_BUSY = 2, 1, 6
 GPIO_NOT_SAMPLED, GPIO_UNCLOCKED, GPIO_NO_PIN = 7, 8, 9
 
 R0_MODE_MASK = 0x0003
@@ -677,7 +861,12 @@ MODE_OUTPUT, MODE_AF, MODE_ANALOG = 1, 2, 3
 DRIVEN_NOT_REACHED = "driven level not reached - overloaded or shorted?"
 
 
-class GpioTorn(IOError):
+class DiagTorn(IOError):
+    """The diagnostic mailbox held somebody else's command when this tool read
+    it back, so the status beside it is not this tool's to report."""
+
+
+class GpioTorn(DiagTorn):
     """The mailbox held somebody else's command when this tool read it back."""
 
 
@@ -893,14 +1082,22 @@ def cmd_diag_gpio(bus, args, out=print, names=None, bonded=None):
             out("  !! 0x0070 answers exception 02: this image has no diagnostic "
                 "mailbox (a nodebug build)")
             return 1
+        if e.code == MB_EX_BUSY:
+            # FW_VERSION 0x000F+. Nothing was read and nothing was written: the
+            # queued command's registers are still its own.
+            out("  !! the probe answered exception 06 (busy): an I2C diagnostic "
+                "command queued on it owns the mailbox until it has run. No pin "
+                "was read; retry")
+            return 1
         if e.code == 3:
             try:
                 fw = "0x%04X" % bus.read(REGISTERS["FW_VERSION"], 1)[0]
             except (ModbusException, NoReply):
                 fw = "unreadable"
             out("  !! the probe refused opcode 0x%02X with exception 03 (FW_VERSION %s; "
-                "READ_GPIO needs 0x%04X or later - or another diag command is still "
-                "pending)" % (OP_READ_GPIO, fw, FW_READ_GPIO))
+                "READ_GPIO needs 0x%04X or later - and up to 0x000E, 03 was also "
+                "the answer while another diag command was still pending)"
+                % (OP_READ_GPIO, fw, FW_READ_GPIO))
             return 1
         raise
 
@@ -964,6 +1161,15 @@ def main():
     parser.add_argument("--elf", default=DEFAULT_ELF, help="Path to firmware.elf for symbol resolution")
     parser.add_argument("--force-build-id", action="store_true", help="Ignore build ID mismatch")
     parser.add_argument("--force-bus-master", action="store_true", help="Force bus master operation on multi-drop cables")
+    # Was a hardcoded 1.0. The committed SerialLink.exchange() keeps reading for
+    # max(2, 3 x timeout) s after a read that held no frame, so 1.0 already
+    # waits ~4 s for a late reply (the independent review's reasoning, checked
+    # against HEAD's o2p_update.py 2026-09-10). The flag exists anyway because
+    # the node README's relayed example passes --timeout 3 to o2p_update.py,
+    # and the same wrapped command line should work for both tools.
+    parser.add_argument("--timeout", type=float, default=1.0,
+                        help="per-read serial timeout in seconds (default 1.0; "
+                             "3 through the node's USB console relay)")
 
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -1008,6 +1214,8 @@ def main():
     p_diag.add_argument("param", nargs="?", default=None,
                         help="Parameter (reg address or value); for gpio a pin: "
                              "PB3-style, or a src/board_pins.h name such as ADC_DRDY")
+    p_diag.add_argument("--dev", type=int, default=0,
+                        help="tmp-read only: device selector (0=tip at 0x49, 1=ext at 0x4A/0x4B)")
     # dest is NOT "port": that is the serial port given before the subcommand.
     p_diag.add_argument("--port", dest="gpio_port", default=None, metavar="LETTER",
                         help="gpio only: walk every bonded pin of this GPIO port (A, B, C, D, F)")
@@ -1017,7 +1225,7 @@ def main():
 
     args = parser.parse_args()
 
-    link = SerialLink(args.port, args.baud, args.parity, timeout=1.0)
+    link = SerialLink(args.port, args.baud, args.parity, timeout=args.timeout)
     bus = Bus(link, args.addr)
 
     try:

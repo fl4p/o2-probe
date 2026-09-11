@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <export version="E">
   <design>
-    <source>/private/tmp/o2-revb-no-ring/ee/hw/o2-probe/o2-probe.kicad_sch</source>
-    <date>2026-09-09T18:23:49</date>
+    <source>/Users/fab/dev/ee/hw/o2-probe/o2-probe.kicad_sch</source>
+    <date>2026-09-11T11:32:00</date>
     <tool>Eeschema 10.0.5</tool>
     <sheet number="1" name="/" tstamps="/">
       <title_block>
@@ -791,6 +791,32 @@
       <property name="ki_fp_filters" value="C_*"/>
       <sheetpath names="/" tstamps="/"/>
       <tstamps>6c0529c5-516f-58f0-ad94-b94c339a1d7c</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
+            <pin num="2"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
+    <comp ref="C35">
+      <value>100n</value>
+      <footprint>Capacitor_SMD:C_0402_1005Metric</footprint>
+      <fields>
+        <field name="Design Note">Local TMP302 supply bypass</field>
+        <field name="Footprint">Capacitor_SMD:C_0402_1005Metric</field>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
+      <property name="Design Note" value="Local TMP302 supply bypass"/>
+      <property name="Sheetname" value="o2-probe"/>
+      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
+      <property name="ki_keywords" value="cap capacitor"/>
+      <property name="ki_fp_filters" value="C_*"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>e5e42289-dd43-5392-a454-a40666bfcf00</tstamps>
       <units>
         <unit name="A">
           <pins>
@@ -2645,6 +2671,36 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
         </unit>
       </units>
     </comp>
+    <comp ref="U16">
+      <value>TMP302BDRLR</value>
+      <footprint>o2-probe:TMP302_DRL6_TI</footprint>
+      <fields>
+        <field name="MPN">TMP302BDRLR</field>
+        <field name="Design Note">Autonomous HEATER_GATE clamp: TRIPSET1/0=11 gives 85 C; HYSTSET=VS gives nominal 10 C hysteresis. Not supply-failure safe; qualify thermal coupling and restart.</field>
+        <field name="Footprint">o2-probe:TMP302_DRL6_TI</field>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <libsource lib="o2-probe" part="TMP302B" description="TMP302B autonomous thermostat; 85 C trip, nominal 75 C reset with all straps high"/>
+      <property name="MPN" value="TMP302BDRLR"/>
+      <property name="Design Note" value="Autonomous HEATER_GATE clamp: TRIPSET1/0=11 gives 85 C; HYSTSET=VS gives nominal 10 C hysteresis. Not supply-failure safe; qualify thermal coupling and restart."/>
+      <property name="Sheetname" value="o2-probe"/>
+      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>302d814e-038c-50a1-aede-0f6a1c72a509</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
+            <pin num="6"/>
+            <pin num="4"/>
+            <pin num="3"/>
+            <pin num="2"/>
+            <pin num="5"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
   </components>
   <libparts>
     <libpart lib="Connector" part="TestPoint">
@@ -3076,6 +3132,24 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
         <pin num="7" name="EP" type="passive"/>
       </pins>
     </libpart>
+    <libpart lib="o2-probe" part="TMP302B">
+      <description>TMP302B autonomous thermostat; 85 C trip, nominal 75 C reset with all straps high</description>
+      <fields>
+        <field name="Reference">U</field>
+        <field name="Value">TMP302B</field>
+        <field name="Footprint"/>
+        <field name="Datasheet"/>
+        <field name="Description">TMP302B autonomous thermostat; 85 C trip, nominal 75 C reset with all straps high</field>
+      </fields>
+      <pins>
+        <pin num="1" name="TRIPSET0" type="input"/>
+        <pin num="2" name="GND" type="power_in"/>
+        <pin num="3" name="~{OUT}" type="open_collector"/>
+        <pin num="4" name="HYSTSET" type="input"/>
+        <pin num="5" name="VS" type="power_in"/>
+        <pin num="6" name="TRIPSET1" type="input"/>
+      </pins>
+    </libpart>
     <libpart lib="o2-probe" part="TPS7A2033PDBV">
       <description>TPS7A20 3.3 V fixed low-noise LDO, SOT-23-5</description>
       <fields>
@@ -3201,6 +3275,7 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
       <node ref="C20" pin="1" pintype="passive"/>
       <node ref="C21" pin="1" pintype="passive"/>
       <node ref="C26" pin="1" pintype="passive"/>
+      <node ref="C35" pin="1" pintype="passive"/>
       <node ref="C6" pin="1" pintype="passive"/>
       <node ref="J3" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
       <node ref="R10" pin="2" pintype="passive"/>
@@ -3211,6 +3286,10 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
       <node ref="U10" pin="4" pinfunction="ADD0_4" pintype="input"/>
       <node ref="U10" pin="5" pinfunction="V+_5" pintype="power_in"/>
       <node ref="U12" pin="3" pinfunction="VDD_3" pintype="power_in"/>
+      <node ref="U16" pin="1" pinfunction="TRIPSET0_1" pintype="input"/>
+      <node ref="U16" pin="4" pinfunction="HYSTSET_4" pintype="input"/>
+      <node ref="U16" pin="5" pinfunction="VS_5" pintype="power_in"/>
+      <node ref="U16" pin="6" pinfunction="TRIPSET1_6" pintype="input"/>
       <node ref="U2" pin="5" pinfunction="OUT_5" pintype="power_out"/>
       <node ref="U5" pin="8" pinfunction="VCC_8" pintype="power_in"/>
       <node ref="U6" pin="4" pinfunction="VBAT_4" pintype="power_in"/>
@@ -3318,6 +3397,7 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
       <node ref="C32" pin="2" pintype="passive"/>
       <node ref="C33" pin="2" pintype="passive"/>
       <node ref="C34" pin="2" pintype="passive"/>
+      <node ref="C35" pin="2" pintype="passive"/>
       <node ref="C4" pin="2" pintype="passive"/>
       <node ref="C5" pin="2" pintype="passive"/>
       <node ref="C6" pin="2" pintype="passive"/>
@@ -3346,6 +3426,7 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
       <node ref="U10" pin="2" pinfunction="GND_2" pintype="power_in"/>
       <node ref="U12" pin="4" pinfunction="VSS_4" pintype="power_in"/>
       <node ref="U15" pin="3" pinfunction="A_3" pintype="passive"/>
+      <node ref="U16" pin="2" pinfunction="GND_2" pintype="power_in"/>
       <node ref="U2" pin="2" pinfunction="GND_2" pintype="power_in"/>
       <node ref="U3" pin="2" pinfunction="GND_2" pintype="power_in"/>
       <node ref="U4" pin="4" pinfunction="V-_4" pintype="power_in"/>
@@ -3370,6 +3451,7 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
       <node ref="R28" pin="2" pintype="passive"/>
       <node ref="R29" pin="1" pintype="passive"/>
       <node ref="U10" pin="3" pinfunction="ALERT_3" pintype="open_collector"/>
+      <node ref="U16" pin="3" pinfunction="~{OUT}_3" pintype="open_collector"/>
     </net>
     <net code="26" name="/HEATER_LOW" class="Default">
       <node ref="Q2" pin="3" pinfunction="D_3" pintype="passive"/>

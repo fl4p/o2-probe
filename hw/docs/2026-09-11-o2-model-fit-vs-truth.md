@@ -382,6 +382,36 @@ calibration was lost and a **fresh air point** was taken that morning. Scale
 history: 431 500 (through 09-08) → 428 615 (09-09, post-rework) → 416 543
 (09-10 morning, recalibrated), stable since.
 
+### 7.2a The first coating was PARTIAL — a second one followed on 09-11
+
+Fab, 2026-09-11: **"the board analog circuitry is now fully coated."** So the
+coating dated to ~20:00 on 09-10 in §7.1 was not full coverage, and the timeline
+has two coating events, not one:
+
+| when | what | evidence |
+|---|---|---|
+| 09-10 ~20:00 | **first coating**, after the last VREF failure was fixed | VREF collapse 17:46–19:47 (192–336 mV), recovery to 2492 mV at 20:17 |
+| 09-11 01:07 | VA_MON begins decaying — 5 h after that coating, on a node it did not cover | `va_mv` 3282 → 2008 mV, `VA_LOW` latched 7 h 54 min |
+| 09-11 ~09:15 | air-gun + clean; `va_mv` recovers 1338 → 3282 mV in one frame | `2026-09-11-va-mon-collapse.md` §2.1 |
+| 09-11 ~09:34 | **second coating — analog section now full** | VREF dipped to 2418 mV for one minute, `ADC_RANGE`, settle re-armed (inferred, not stated) |
+
+This matters for reading §7.2 above. "The coating did not move the scale" was
+measured across the **first, partial** coating, so it is evidence about that
+coverage only. The 09-11 coating is wider and has **not** been tested against K
+— no post-09:34 window long enough to refit exists yet, and the probe is at
+room temperature with the heater off, so nothing is being driven across the
+range that would expose a transport change.
+
+**Retest K when the next heated run happens.** The §7.2 method applies
+unchanged: refit K per window, residual under 0.003 %vol, compare against
+416 543–416 587 nA. A capillary restriction from the wider coat would appear
+there first, exactly as the earlier worry predicted and did not find.
+
+The falsifiable prediction that the second coating creates — whether a fully
+coated analog section stops the VA_MON leak recurring, and what a recurrence at
+~14:30 would instead implicate — is in `2026-09-11-va-mon-collapse.md` §7.1,
+with the one extent question that has to be answered before trusting it.
+
 ### 7.3 The steam test, and why it is not in any fit
 
 ```

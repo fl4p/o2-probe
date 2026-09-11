@@ -545,7 +545,11 @@
       {
         "clearance": 0.15,
         "name": "CELL_RE",
-        "track_width": 0.25
+        "pcb_color": "rgba(0, 0, 0, 0.000)",
+        "priority": -1,
+        "schematic_color": "rgba(0, 0, 0, 0.000)",
+        "track_width": 0.25,
+        "tuning_profile": ""
       }
     ],
     "meta": {

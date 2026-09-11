@@ -1,0 +1,231 @@
+- generic [ref=f49e1]:
+  - banner [ref=f49e2]:
+    - button "Skip to content" [ref=f49e3] [cursor=pointer]
+    - button "Accessibility Feedback" [ref=f49e6] [cursor=pointer]
+    - generic [ref=f49e9]:
+      - link [ref=f49e10] [cursor=pointer]:
+        - /url: /?FORM=Z9FD1
+        - heading "Back to Bing search" [level=1] [ref=f49e11]
+      - search [ref=f49e12]:
+        - button "Search" [ref=f49e15] [cursor=pointer]
+        - searchbox "Enter your search here – Search suggestions will show as you type" [ref=f49e16]: grafana spanNulls milliseconds
+        - generic [ref=f49e17] [cursor=pointer]
+        - button "Search using an image" [ref=f49e22] [cursor=pointer]
+    - complementary "Account Rewards and Preferences" [ref=f49e24]:
+      - button "Microsoft Rewards" [ref=f49e25] [cursor=pointer]
+      - link "Sign in" [ref=f49e26] [cursor=pointer]:
+        - /url: javascript:void(0)
+    - navigation "Search Filter" [ref=f49e28]:
+      - list [ref=f49e29]:
+        - listitem [ref=f49e30]:
+          - link "All" [ref=f49e31] [cursor=pointer]:
+            - /url: /?scope=web&FORM=HDRSC1
+        - listitem [ref=f49e32]:
+          - link "Search" [ref=f49e33] [cursor=pointer]:
+            - /url: /copilotsearch?q=grafana+spanNulls+milliseconds&FORM=CSSCOP
+        - listitem [ref=f49e36]:
+          - link "Shopping" [ref=f49e37] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=6ba7b66907df231f8914692eef1a652bd2754074145c28e3f31695d8878c9351JmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1L3Nob3AvdG9waWNzP3E9Z3JhZmFuYStzcGFuTnVsbHMrbWlsbGlzZWNvbmRzJkZPUk09U0hPUFRC&ntb=1
+        - listitem [ref=f49e38]:
+          - link "Images" [ref=f49e39] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=4e816c771b186a0ef8b9f16d731b0e684c31e99e58e2dd173108d5190953360bJmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1L2ltYWdlcy9zZWFyY2g_cT1ncmFmYW5hK3NwYW5OdWxscyttaWxsaXNlY29uZHMmRk9STT1IRFJTQzM&ntb=1
+        - listitem [ref=f49e40]:
+          - link "Videos" [ref=f49e41] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=ef98f1626e19674f5ea9e81d1681d9afb4880906aab54f3f7d2f2dd91da13143JmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1L3ZpZGVvcy9zZWFyY2g_cT1ncmFmYW5hK3NwYW5OdWxscyttaWxsaXNlY29uZHMmRk9STT1IRFJTQzQ&ntb=1
+        - listitem [ref=f49e42]:
+          - link "Maps" [ref=f49e43] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=ddc17c64f36e982d3f35076cb16c5bf52e39473297dd28884866a4c977f568a5JmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1L21hcHM_cT1ncmFmYW5hK3NwYW5OdWxscyttaWxsaXNlY29uZHMmRk9STT1IRFJTQzY&ntb=1
+        - listitem [ref=f49e44]:
+          - link "Copilot" [ref=f49e45] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=5d7c6678cbbc20eba3758b69ee169417d80eb5a770eb64320a2d24c3d2cfc1dbJmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1L2NoYXQ_cHJvbXB0PWdyYWZhbmErc3Bhbk51bGxzK21pbGxpc2Vjb25kcyZzZW5kcXVlcnk9MSZGT1JNPVNDQ09EWA&ntb=1
+        - listitem [ref=f49e46]:
+          - button [ref=f49e47] [cursor=pointer]
+  - main "Search Results" [ref=f49e52]:
+    - generic [ref=f49e53]:
+      - list [ref=f49e54]:
+        - listitem [ref=f49e55]:
+          - generic [ref=f49e57]:
+            - region "Copilot Search" [ref=f49e58]:
+              - list [ref=f49e65]:
+                - listitem [ref=f49e66]:
+                  - generic [ref=f49e92]:
+                    - status
+                    - generic [ref=f49e93]:
+                      - button "Undo" [disabled] [ref=f49e95]
+                      - button "Redo" [disabled] [ref=f49e98]
+                      - button "Copy" [disabled] [ref=f49e101]
+                      - button "Export" [disabled] [ref=f49e104]
+                      - textbox "What would you like to adjust?" [disabled] [ref=f49e107]
+                      - button "Rewrite" [disabled] [ref=f49e109]
+                      - group [ref=f49e111]:
+                        - group [ref=f49e112]:
+                          - button "Testing Tools" [disabled] [ref=f49e114]
+                      - group [ref=f49e116]:
+                        - group [ref=f49e117]:
+                          - button "More Actions" [disabled] [ref=f49e119]
+                      - generic [ref=f49e123]:
+                        - generic [aria-hidden] [ref=f49e124]: Try more templates
+                        - combobox "Try more templates" [ref=f49e125] [cursor=pointer]
+            - generic [ref=f49e134]:
+              - button [aria-hidden] [ref=f49e135]
+              - button [aria-hidden] [ref=f49e138]
+              - list "Please use arrow keys to navigate" [ref=f49e143]:
+                - listitem [ref=f49e144]:
+                  - link "Ignition Perspective time picker" [ref=f49e145] [cursor=pointer]:
+                    - /url: https://www.bing.com/ck/a?!&&p=ca417b557b82d41f0d6afae6e10da7cf2786292a5a7f5974b28034947b588fabJmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1L2NvcGlsb3RzZWFyY2g_cT1JZ25pdGlvbitQZXJzcGVjdGl2ZSt0aW1lK3BpY2tlciZmb3JtPUNTU0FOUw&ntb=1
+                - listitem [ref=f49e148]:
+                  - link "Custom quick ranges Grafana" [ref=f49e149] [cursor=pointer]:
+                    - /url: https://www.bing.com/ck/a?!&&p=78d6e0be3513c410889d4468305dd2fcc3623ed4356a66d1bf596ef6f22c1fd5JmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1L2NvcGlsb3RzZWFyY2g_cT1DdXN0b20rcXVpY2srcmFuZ2VzK0dyYWZhbmEmZm9ybT1DU1NBTlM&ntb=1
+                - listitem [ref=f49e152]:
+                  - link "Grafana timestamp formats" [ref=f49e153] [cursor=pointer]:
+                    - /url: https://www.bing.com/ck/a?!&&p=53fa6e19afe15d62c67935fe0537652a5abc1ce30237356c4281ac6993dc452eJmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1L2NvcGlsb3RzZWFyY2g_cT1HcmFmYW5hK3RpbWVzdGFtcCtmb3JtYXRzJmZvcm09Q1NTQU5T&ntb=1
+      - list [ref=f49e158]:
+        - listitem [ref=f49e159]:
+          - link "Grafana Labs Community Forums" [ref=f49e161] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=467f4b7ab5ed807e3a16b32422ab0c923d9fb3d6c37843581cbe22ee1d5c9d0dJmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1aHR0cHM6Ly9jb21tdW5pdHkuZ3JhZmFuYS5jb20vdC9zcGFubnVsbHMtY29uZmlndXJhdGlvbi1uby1sb25nZXItc3VwcG9ydGVkLWluLWdyYWZhbmEtc2NlbmVzLWFwcHMtZm9yLXN0YXRlLXRpbWVsaW5lcy8xMTMxMzg&ntb=1
+            - generic [ref=f49e166]:
+              - generic [ref=f49e167]: Grafana Labs Community Forums
+              - generic [ref=f49e168]: https://community.grafana.com › spannulls-configuration-no-longer...
+          - heading [level=2] [ref=f49e171]:
+            - link "spanNulls configuration no longer supported in Grafana Scenes Apps …" [ref=f49e172] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=467f4b7ab5ed807e3a16b32422ab0c923d9fb3d6c37843581cbe22ee1d5c9d0dJmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1aHR0cHM6Ly9jb21tdW5pdHkuZ3JhZmFuYS5jb20vdC9zcGFubnVsbHMtY29uZmlndXJhdGlvbi1uby1sb25nZXItc3VwcG9ydGVkLWluLWdyYWZhbmEtc2NlbmVzLWFwcHMtZm9yLXN0YXRlLXRpbWVsaW5lcy8xMTMxMzg&ntb=1
+          - paragraph [ref=f49e174]: "29 Jan 2024 · When looking at the panel JSON to port it over to Grafana Scenes, there is this line: \"fieldConfig\": { \"defaults\": { …"
+        - listitem [ref=f49e175]:
+          - link "Grafana Labs" [ref=f49e177] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=4897b098e0cf1bfb2f2fd2f8fc96ef5fe63159e3b53ad30b10c9366a89ecaf01JmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1aHR0cHM6Ly9ncmFmYW5hLmNvbS9kb2NzL2dyYWZhbmEvbGF0ZXN0L3Zpc3VhbGl6YXRpb25zL2Rhc2hib2FyZHMvdmFyaWFibGVzL2dsb2JhbC12YXJpYWJsZXMv&ntb=1
+            - generic [ref=f49e182]:
+              - generic [ref=f49e183]: Grafana Labs
+              - generic [ref=f49e184]: https://grafana.com › docs › grafana › latest › visualizations › dashboards › ...
+          - heading [level=2] [ref=f49e187]:
+            - link "Global variables | Grafana documentation" [ref=f49e188] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=4897b098e0cf1bfb2f2fd2f8fc96ef5fe63159e3b53ad30b10c9366a89ecaf01JmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1aHR0cHM6Ly9ncmFmYW5hLmNvbS9kb2NzL2dyYWZhbmEvbGF0ZXN0L3Zpc3VhbGl6YXRpb25zL2Rhc2hib2FyZHMvdmFyaWFibGVzL2dsb2JhbC12YXJpYWJsZXMv&ntb=1
+          - paragraph [ref=f49e190]: Use Grafana built-in global variables to reference dashboard metadata, time ranges, intervals, and user context in queries, links, and …
+        - listitem [ref=f49e191]:
+          - link "Grafana Labs Community Forums" [ref=f49e193] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=7800a3b2c6d1aecbd7bc6e120d367164c1090125f7b340f7c676bf11d4b65eb2JmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1aHR0cHM6Ly9jb21tdW5pdHkuZ3JhZmFuYS5jb20vdC9ncmFmYW5hLWZpbHRlcmluZy1vdXQtbWlsbGlzZWNvbmRzLzEyNjU4Mg&ntb=1
+            - generic [ref=f49e198]:
+              - generic [ref=f49e199]: Grafana Labs Community Forums
+              - generic [ref=f49e200]: https://community.grafana.com › grafana-filtering-out-milliseconds
+          - heading [level=2] [ref=f49e203]:
+            - link "Grafana filtering out milliseconds - Dashboards - Grafana Labs ..." [ref=f49e204] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=7800a3b2c6d1aecbd7bc6e120d367164c1090125f7b340f7c676bf11d4b65eb2JmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1aHR0cHM6Ly9jb21tdW5pdHkuZ3JhZmFuYS5jb20vdC9ncmFmYW5hLWZpbHRlcmluZy1vdXQtbWlsbGlzZWNvbmRzLzEyNjU4Mg&ntb=1
+          - paragraph [ref=f49e206]: 18 Jul 2024 · I am trying to display my timestamp and have it include milliseconds. Right now, I’ve verified that my timestamp is …
+        - listitem [ref=f49e207]:
+          - link "grafana.github.io" [ref=f49e209] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=60e890ad76d57cf33d4b687c2096efe8e16652d2bcb4c10ff0e3b0a32eedcb8fJmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1aHR0cHM6Ly9ncmFmYW5hLmdpdGh1Yi5pby9ncmFmYW5hLWZvdW5kYXRpb24tc2RrL3BocC9SZWZlcmVuY2UvY29tbW9uL2J1aWxkZXItTGluZUNvbmZpZ0J1aWxkZXIv&ntb=1
+            - generic [ref=f49e214]:
+              - generic [ref=f49e215]: grafana.github.io
+              - generic [ref=f49e216]: https://grafana.github.io › grafana-foundation-sdk › php › Reference › commo…
+          - heading [level=2] [ref=f49e219]:
+            - link "LineConfigBuilder - Grafana Foundation SDK" [ref=f49e220] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=60e890ad76d57cf33d4b687c2096efe8e16652d2bcb4c10ff0e3b0a32eedcb8fJmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1aHR0cHM6Ly9ncmFmYW5hLmdpdGh1Yi5pby9ncmFmYW5hLWZvdW5kYXRpb24tc2RrL3BocC9SZWZlcmVuY2UvY29tbW9uL2J1aWxkZXItTGluZUNvbmZpZ0J1aWxkZXIv&ntb=1
+          - paragraph [ref=f49e222]: X axis that should be considered connected. For timeseries, this is milliseconds @param bool|float $spanNulls
+        - listitem [ref=f49e223]:
+          - link "Grafana Labs" [ref=f49e225] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=950a64dd6a345988f545e55841d72871be7ab5e547713c762f14c7eacd1fed72JmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1aHR0cHM6Ly9ncmFmYW5hLmNvbS9kb2NzL3RlbXBvL2xhdGVzdC9tZXRyaWNzLWZyb20tdHJhY2VzL3NwYW4tbWV0cmljcy9zcGFuLW1ldHJpY3MtbWV0cmljcy1nZW5lcmF0b3Iv&ntb=1
+            - generic [ref=f49e230]:
+              - generic [ref=f49e231]: Grafana Labs
+              - generic [ref=f49e232]: https://grafana.com › docs › tempo › latest › metrics-from-traces › span-metri…
+          - heading "Use the span metrics processor | Grafana Tempo documentation" [level=2] [ref=f49e235]:
+            - link "Use the span metrics processor | Grafana Tempo documentation":
+              - /url: https://www.bing.com/ck/a?!&&p=950a64dd6a345988f545e55841d72871be7ab5e547713c762f14c7eacd1fed72JmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1aHR0cHM6Ly9ncmFmYW5hLmNvbS9kb2NzL3RlbXBvL2xhdGVzdC9tZXRyaWNzLWZyb20tdHJhY2VzL3NwYW4tbWV0cmljcy9zcGFuLW1ldHJpY3MtbWV0cmljcy1nZW5lcmF0b3Iv&ntb=1
+          - paragraph [ref=f49e237]: To enable span metrics in Tempo or Grafana Enterprise Traces, enable the metrics generator and add an overrides section which …
+        - listitem [ref=f49e238]:
+          - link "grafana.github.io" [ref=f49e240] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=6a22a5a113e0b2dce22b1ffae4759bcd1c6d71aeb1020ce3a051bb6d5c500e34JmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1aHR0cHM6Ly9ncmFmYW5hLmdpdGh1Yi5pby9ncmFmYW5hLWZvdW5kYXRpb24tc2RrL2dvL1JlZmVyZW5jZS91bml0cy9vYmplY3QtTWlsbGlzZWNvbmRzLw&ntb=1
+            - generic [ref=f49e245]:
+              - generic [ref=f49e246]: grafana.github.io
+              - generic [ref=f49e247]: https://grafana.github.io › ... › go › Reference › units › object-Milliseconds
+          - heading "Milliseconds - Grafana Foundation SDK" [level=2] [ref=f49e250]:
+            - link "Milliseconds - Grafana Foundation SDK":
+              - /url: https://www.bing.com/ck/a?!&&p=6a22a5a113e0b2dce22b1ffae4759bcd1c6d71aeb1020ce3a051bb6d5c500e34JmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1aHR0cHM6Ly9ncmFmYW5hLmdpdGh1Yi5pby9ncmFmYW5hLWZvdW5kYXRpb24tc2RrL2dvL1JlZmVyZW5jZS91bml0cy9vYmplY3QtTWlsbGlzZWNvbmRzLw&ntb=1
+          - paragraph [ref=f49e252]: "Typescript Table of contents Definition Milliseconds🔗 Time: milliseconds (ms) Definition🔗 constMilliseconds=\"ms\""
+        - listitem [ref=f49e253]:
+          - link "Github" [ref=f49e255] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=547bad6a9310ad46171f567fa60d721bf512dd828351b1856a906fe8ac832786JmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1aHR0cHM6Ly9naXRodWIuY29tL2dyYWZhbmEvZ3JhZmFuYS9pc3N1ZXMvNjkwNDg&ntb=1
+            - generic [ref=f49e260]:
+              - generic [ref=f49e261]: Github
+              - generic [ref=f49e262]: https://github.com › grafana › grafana › issues
+          - 'heading "Timeseries: Support showing milliseconds and nanoseconds #69048" [level=2] [ref=f49e265]':
+            - 'link "Timeseries: Support showing milliseconds and nanoseconds #69048"':
+              - /url: https://www.bing.com/ck/a?!&&p=547bad6a9310ad46171f567fa60d721bf512dd828351b1856a906fe8ac832786JmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1aHR0cHM6Ly9naXRodWIuY29tL2dyYWZhbmEvZ3JhZmFuYS9pc3N1ZXMvNjkwNDg&ntb=1
+          - paragraph [ref=f49e267]: 25 May 2023 · Which control can display nanoseconds or milliseconds. When I use the timeseries control, I occasionally experience …
+        - listitem [ref=f49e268]:
+          - link "Stack Overflow" [ref=f49e270] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=9535efd68e59a350da28a52d1acdc898b872c11ebcb59ed4304b245b3546e0acJmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1aHR0cHM6Ly9zdGFja292ZXJmbG93LmNvbS9xdWVzdGlvbnMvNzcxNDU4NDkvaG93LXRvLWNvbnZlcnQtYS10aW1lc3RhbXAtaW4tZ3JhZmFuYS1mcm9tLWEtZm9ybWF0dGVkLXN0cmluZy10by1lcG9jaC1taWxsaXNlY28&ntb=1
+            - generic [ref=f49e275]:
+              - generic [ref=f49e276]: Stack Overflow
+              - generic [ref=f49e277]: https://stackoverflow.com › questions › how-to-convert-a...
+          - heading "How to convert a timestamp in Grafana from a formatted string to …" [level=2] [ref=f49e280]:
+            - link "How to convert a timestamp in Grafana from a formatted string to …":
+              - /url: https://www.bing.com/ck/a?!&&p=9535efd68e59a350da28a52d1acdc898b872c11ebcb59ed4304b245b3546e0acJmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1aHR0cHM6Ly9zdGFja292ZXJmbG93LmNvbS9xdWVzdGlvbnMvNzcxNDU4NDkvaG93LXRvLWNvbnZlcnQtYS10aW1lc3RhbXAtaW4tZ3JhZmFuYS1mcm9tLWEtZm9ybWF0dGVkLXN0cmluZy10by1lcG9jaC1taWxsaXNlY28&ntb=1
+          - paragraph [ref=f49e282]: 20 Sept 2023 · I attempted to use the epochmillis function to convert the formatted date-time string to epoch milliseconds directly …
+        - listitem [ref=f49e283]:
+          - link "Github" [ref=f49e285] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=379d4b694866940aff85364b9f634b5b74ee9b56515ce436c3da015ffc79791aJmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1aHR0cHM6Ly9naXRodWIuY29tL2dyYWZhbmEvZ3JhZmFuYS9pc3N1ZXMvNjI1Mg&ntb=1
+            - generic [ref=f49e290]:
+              - generic [ref=f49e291]: Github
+              - generic [ref=f49e292]: https://github.com › grafana › grafana › issues
+          - 'heading "Feature req: Support nanosecond resolution · Issue #6252 · …" [level=2] [ref=f49e295]':
+            - 'link "Feature req: Support nanosecond resolution · Issue #6252 · …"':
+              - /url: https://www.bing.com/ck/a?!&&p=379d4b694866940aff85364b9f634b5b74ee9b56515ce436c3da015ffc79791aJmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1aHR0cHM6Ly9naXRodWIuY29tL2dyYWZhbmEvZ3JhZmFuYS9pc3N1ZXMvNjI1Mg&ntb=1
+          - paragraph [ref=f49e297]: 12 Oct 2016 · The end result is that while influxdb returns all of these values to grafana, their timestamps are truncated to millisecond …
+        - listitem [ref=f49e298]:
+          - link "Stack Overflow" [ref=f49e300] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=086c43a8593e62b48a30291ec80f380b270c43c108f58b68f415e754c334359eJmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1aHR0cHM6Ly9zdGFja292ZXJmbG93LmNvbS9xdWVzdGlvbnMvNjI0NTI2NzgvaG93LWRvLXdlLWNoYW5nZS10aGUtcHJlY2lzaW9ubXMtc2V0dGluZy1pbi10aGUtZ3JhZmFuYS1xdWVyeS1pbnNwZWN0b3I&ntb=1
+            - generic [ref=f49e305]:
+              - generic [ref=f49e306]: Stack Overflow
+              - generic [ref=f49e307]: https://stackoverflow.com › questions
+          - heading "influxdb - How do we change the \"precision:ms\" setting in the Grafana ..." [level=2] [ref=f49e310]:
+            - link "influxdb - How do we change the \"precision:ms\" setting in the Grafana ...":
+              - /url: https://www.bing.com/ck/a?!&&p=086c43a8593e62b48a30291ec80f380b270c43c108f58b68f415e754c334359eJmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1aHR0cHM6Ly9zdGFja292ZXJmbG93LmNvbS9xdWVzdGlvbnMvNjI0NTI2NzgvaG93LWRvLXdlLWNoYW5nZS10aGUtcHJlY2lzaW9ubXMtc2V0dGluZy1pbi10aGUtZ3JhZmFuYS1xdWVyeS1pbnNwZWN0b3I&ntb=1
+          - paragraph [ref=f49e312]: 18 Jun 2020 · I have an InfluxDB database with only x11 data points in it. These data are not displaying correctly (or at least as I …
+        - listitem [ref=f49e313]:
+          - generic [ref=f49e315]:
+            - heading "People also ask" [level=2] [ref=f49e316]
+            - list [ref=f49e320]:
+              - listitem [ref=f49e321]:
+                - heading [level=3] [ref=f49e322]:
+                  - button "Can Grafana convert a date-time string to epoch milliseconds?" [ref=f49e323] [cursor=pointer]
+              - listitem [ref=f49e325]:
+                - heading [level=3] [ref=f49e326]:
+                  - button "What is a time range variable in Grafana?" [ref=f49e327] [cursor=pointer]
+              - listitem [ref=f49e329]:
+                - heading [level=3] [ref=f49e330]:
+                  - button "How do I enable span metrics in tempo or Grafana enterprise traces?" [ref=f49e331] [cursor=pointer]
+              - listitem [ref=f49e333]:
+                - heading [level=3] [ref=f49e334]:
+                  - button "How do I set a date in Grafana?" [ref=f49e335] [cursor=pointer]
+        - listitem [ref=f49e338]:
+          - link "Some results have been removed" [ref=f49e340] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=36f75f5d8fedf97345046530e832a88618fe680d86729ead5f7a2af77e1492f7JmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1aHR0cDovL2dvLm1pY3Jvc29mdC5jb20vZndsaW5rLz9MaW5rSUQ9NjE3MzUw&ntb=1
+        - listitem [ref=f49e341]:
+          - navigation "More results for grafana spanNulls milliseconds":
+            - list:
+              - listitem [ref=f49e342]:
+                - generic "Page 1" [ref=f49e343]: "1"
+              - listitem [ref=f49e344]:
+                - link "Page 2" [ref=f49e345] [cursor=pointer]:
+                  - /url: /search?q=grafana+spanNulls+milliseconds&FPIG=A3A7B100C5684D3F8EAD6A1E3ADE3DCE&first=11&FORM=PERE
+                  - text: "2"
+              - listitem [ref=f49e346]:
+                - link "Page 3" [ref=f49e347] [cursor=pointer]:
+                  - /url: /search?q=grafana+spanNulls+milliseconds&FPIG=A3A7B100C5684D3F8EAD6A1E3ADE3DCE&first=21&FORM=PERE1
+                  - text: "3"
+              - listitem [ref=f49e348]:
+                - link "Next page" [ref=f49e349] [cursor=pointer]:
+                  - /url: /search?q=grafana+spanNulls+milliseconds&FPIG=A3A7B100C5684D3F8EAD6A1E3ADE3DCE&first=11&FORM=PORE
+      - complementary "Additional Results" [ref=f49e350]:
+        - list
+  - contentinfo [ref=f49e351]:
+    - generic [ref=f49e352]:
+      - list:
+        - listitem [ref=f49e353]:
+          - link "Privacy" [ref=f49e354] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=8ed934708dc5ca7a04a6a51804e91d05cb690b5aa0158d41d13c210e19ecd13cJmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1aHR0cDovL2dvLm1pY3Jvc29mdC5jb20vZndsaW5rLz9MaW5rSWQ9NTIxODM5&ntb=1
+        - listitem [ref=f49e355]:
+          - link "Terms" [ref=f49e356] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=9499d40c606d22173c846f5857b338c4fbcb84957ee7e9ea026ec2b70d1fda85JmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1aHR0cDovL2dvLm1pY3Jvc29mdC5jb20vZndsaW5rLz9MaW5rSUQ9MjQ2MzM4&ntb=1
+        - listitem [ref=f49e357]:
+          - link "Bing Summary of Terms" [ref=f49e358] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=69759c38c2ab93d49ca508b01d669391a2f88e570cc5d7209e7aa79c2fac3943JmltdHM9MTc4ODgyNTYwMA&ptn=3&ver=2&hsh=4&fclid=3b5a2afc-900e-6a5a-291a-3d3291146b2a&u=a1aHR0cHM6Ly9nby5taWNyb3NvZnQuY29tL2Z3bGluay8_bGlua2lkPTIzMDA4MDc&ntb=1

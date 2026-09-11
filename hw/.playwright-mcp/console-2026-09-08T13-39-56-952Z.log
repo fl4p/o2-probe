@@ -1,0 +1,28 @@
+[     512ms] [LOG] %c EvalError
+    at Co (https://www.ti.com/Dl82I3Ui/init.js:2:32571)
+    at rc (https://www.ti.com/Dl82I3Ui/init.js:2:39791)
+    at https://www.ti.com/Dl82I3Ui/init.js:2:181765
+    at https://www.ti.com/Dl82I3Ui/init.js:2:181849
+    at https://www.ti.com/Dl82I3Ui/init.js:2:182194
+    at https://www.ti.com/Dl82I3Ui/init.js:2:182197 @ https://www.ti.com/Dl82I3Ui/init.js:1
+[    1134ms] TypeError: Cannot read properties of undefined (reading 'en-US')
+    at https://www.ti.com/assets/js/@ticom/header-content/1.latest/en-us/js/header-responsive.js:66:28668
+[    2463ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://www.ti.com/folders-inventory/api/v1/opns/inventory?opn=TMP117AIDRVR&opn=TMP117AIDRVRG4&opn=TMP117AIYBGR&opn=TMP117MAIDRVR&opn=TMP117MAIYBGR:0
+[    2495ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://www.ti.com/folders-inventory/api/v1/opns/inventory?opn=TMP117NAIDRVR&opn=TMP117NAIYBGR&opn=TMP117AIDRVT&opn=TMP117AIYBGT&opn=TMP117MAIYBGT:0
+[    2495ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://www.ti.com/folders-inventory/api/v1/opns/inventory?opn=TMP117NAIYBGT&opn=TMP117EVM:0
+[    3306ms] [LOG] TrafficAgent: Initializing storage protection for internal items. @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    3306ms] [LOG] Client code is required to start Traffic Agent. Please provide it in the script tag or as a query param. @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    3307ms] [LOG] Force removing localStorage item with key: katalon_traffic_agent_pending_related_tab, bypassing protection. @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    3307ms] [LOG] Force removing localStorage item with key: katalon_traffic_agent_pending_related_tab, bypassing protection. @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    3455ms] [LOG] PX captcha: rendered @ https://www.ti.com/assets/js/headerfooter/ticommon.js?single:322
+[    3487ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://www.ti.com/cartmodel/mini-cart?includeItems=false&locale=en-US:0
+[    3767ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://www.ti.com/cartmodel/mini-cart?currency=USD&includeItems=true&locale=en-US&cartType=PAID:0
+[    4201ms] [LOG] Starting TrafficAgent for client code: KA-86773-5 @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    4372ms] [LOG] TrafficAgent: Initializing storage protection for internal items. @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    4372ms] [LOG] Force removing localStorage item with key: katalon_traffic_agent_pending_related_tab, bypassing protection. @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    4372ms] [LOG] Force removing localStorage item with key: katalon_traffic_agent_pending_related_tab, bypassing protection. @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    5286ms] [LOG] Starting TrafficAgent for client code: KA-86773-5 @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    5290ms] [LOG] TrafficAgent: Initializing storage protection for internal items. @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    5298ms] [LOG] Force removing localStorage item with key: katalon_traffic_agent_pending_related_tab, bypassing protection. @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    5298ms] [LOG] Force removing localStorage item with key: katalon_traffic_agent_pending_related_tab, bypassing protection. @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    6231ms] [LOG] Starting TrafficAgent for client code: KA-86773-5 @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0

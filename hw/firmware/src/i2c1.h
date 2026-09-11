@@ -39,6 +39,11 @@ o2p_i2c_status_t o2p_i2c1_write_read(uint8_t addr7,
                                      const uint8_t *wbuf, size_t wlen,
                                      uint8_t *rbuf, size_t rlen);
 
+/* Probe an address with a 0-byte transfer without bumping the bus error count
+ * if the device is absent (NACK). Returns O2P_I2C_OK if ACKed, O2P_I2C_NACK if
+ * not present. */
+o2p_i2c_status_t o2p_i2c1_probe(uint8_t addr7);
+
 /* Bit-bang nine clocks to free a slave that is holding SDA low - the classic
  * wedge after a reset in the middle of a read. Called automatically when a
  * transfer finds the bus busy; exposed for the bring-up self-test. */

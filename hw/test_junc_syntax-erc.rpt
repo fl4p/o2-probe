@@ -1,0 +1,90 @@
+ERC report (2026-09-10T19:20:10, Encoding UTF8)
+Report includes: Errors, Warnings
+
+***** Sheet /
+[lib_symbol_issues]: The current configuration does not include the symbol library 'o2-probe'
+    ; warning
+    @(25.40 mm, 105.41 mm): Symbol D2 [SM712]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'o2-probe'
+    ; warning
+    @(35.56 mm, 91.44 mm): Symbol U5 [THVD1410DR]
+[footprint_link_issues]: The current configuration does not include the footprint library 'o2-probe'
+    ; warning
+    @(38.10 mm, 38.10 mm): Symbol J103 [WIRE_LAND]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'o2-probe'
+    ; warning
+    @(38.10 mm, 38.10 mm): Symbol J103 [WIRE_LAND]
+[footprint_link_issues]: The current configuration does not include the footprint library 'o2-probe'
+    ; warning
+    @(38.10 mm, 43.18 mm): Symbol J104 [WIRE_LAND]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'o2-probe'
+    ; warning
+    @(38.10 mm, 43.18 mm): Symbol J104 [WIRE_LAND]
+[footprint_link_issues]: The current configuration does not include the footprint library 'o2-probe'
+    ; warning
+    @(40.64 mm, 30.48 mm): Symbol F1 [Polyfuse]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'o2-probe'
+    ; warning
+    @(45.72 mm, 187.96 mm): Symbol D7 [TVS_ARRAY_2CH]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'o2-probe'
+    ; warning
+    @(50.80 mm, 162.56 mm): Symbol U7 [LMP91000]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'o2-probe'
+    ; warning
+    @(106.68 mm, 33.02 mm): Symbol U1 [AP63205WU]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'o2-probe'
+    ; warning
+    @(111.76 mm, 99.06 mm): Symbol U6 [STM32G071CBT7]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'o2-probe'
+    ; warning
+    @(111.76 mm, 162.56 mm): Symbol U8 [ADS1119]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'o2-probe'
+    ; warning
+    @(175.26 mm, 33.02 mm): Symbol U2 [TPS7A2033PDBV]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'o2-probe'
+    ; warning
+    @(203.20 mm, 33.02 mm): Symbol U3 [TPS7A2033PDBV]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'o2-probe'
+    ; warning
+    @(203.20 mm, 88.90 mm): Symbol J3 [CONN_02x03]
+[footprint_link_issues]: The current configuration does not include the footprint library 'o2-probe'
+    ; warning
+    @(203.20 mm, 160.02 mm): Symbol U11 [SGX_OX_MINI]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'o2-probe'
+    ; warning
+    @(203.20 mm, 160.02 mm): Symbol U11 [SGX_OX_MINI]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'o2-probe'
+    ; warning
+    @(215.90 mm, 101.60 mm): Symbol U15 [AZ431_SOT23]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'o2-probe'
+    ; warning
+    @(246.38 mm, 35.56 mm): Symbol U4 [OPA2333]
+[footprint_link_issues]: The current configuration does not include the footprint library 'tmp117-probe'
+    ; warning
+    @(246.38 mm, 154.94 mm): Symbol U10 [TMP117]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'o2-probe'
+    ; warning
+    @(246.38 mm, 154.94 mm): Symbol U10 [TMP117]
+[footprint_link_issues]: The current configuration does not include the footprint library 'o2-probe'
+    ; warning
+    @(251.46 mm, 116.84 mm): Symbol J105 [WIRE_LAND]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'o2-probe'
+    ; warning
+    @(251.46 mm, 116.84 mm): Symbol J105 [WIRE_LAND]
+[footprint_link_issues]: The current configuration does not include the footprint library 'o2-probe'
+    ; warning
+    @(251.46 mm, 127.00 mm): Symbol J106 [WIRE_LAND]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'o2-probe'
+    ; warning
+    @(251.46 mm, 127.00 mm): Symbol J106 [WIRE_LAND]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'o2-probe'
+    ; warning
+    @(281.94 mm, 154.94 mm): Symbol U12 [SHT45_AD1F]
+
+ ** ERC messages: 26  Errors 0  Warnings 26
+
+ ** Ignored checks:
+    - Global label only appears once in the schematic
+    - Four connection points are joined together
+    - SPICE model issue
+    - Assigned footprint doesn't match footprint filters

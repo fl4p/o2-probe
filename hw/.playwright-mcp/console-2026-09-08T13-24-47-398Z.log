@@ -1,0 +1,2 @@
+[     143ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://grafana.com/docs/grafana/latest/observability-as-code/schema-v2/panel-schema/:0
+[    1261ms] [WARNING] No analytics consent given @ https://grafana.com/web/app.dec066e15abdc6dcda903e224eaff37b12562bb4763b5c4393fc477b24ce4fe4.js:113

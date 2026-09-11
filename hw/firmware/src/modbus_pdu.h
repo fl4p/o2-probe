@@ -33,6 +33,12 @@ enum {
     O2P_MB_EX_ILLEGAL_ADDRESS  = 0x02u,
     O2P_MB_EX_ILLEGAL_VALUE    = 0x03u,
     O2P_MB_EX_DEVICE_FAILURE   = 0x04u,
+    /* Modbus Application Protocol v1.1b3, section 7: SERVER DEVICE BUSY, "the
+     * client should retransmit the message later when the server is free".
+     * Used since FW_VERSION 0x000F by the diagnostic mailbox only, for a write
+     * that arrives while a queued I2C opcode still owns the result registers
+     * (regmap.c). A refusal that writes nothing needs a code of its own: 03
+     * already means "this request is malformed". */
     O2P_MB_EX_DEVICE_BUSY      = 0x06u,
 };
 

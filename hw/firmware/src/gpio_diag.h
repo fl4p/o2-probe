@@ -83,7 +83,19 @@
  * the default, through SYSCFG_CFGR1. This firmware never writes SYSCFG, so the
  * pads are PA11/PA12 and PA9/PA10 are pins 29/32. Were a remap ever added, the
  * PA11/PA12 GPIO bits would stop describing a pad, and this table would be the
- * place that has to learn about it. */
+ * place that has to learn about it.
+ *
+ * PF2 SHARES ITS PAD WITH NRST ("PF2-NRST" in DS12232 Table 12). Its GPIO
+ * registers describe that pad only when the NRST_MODE option bits (FLASH_OPTR
+ * 28:27) select 10,
+ * GPIO: RM0444 Rev 6, 7.3.17 "Reset pin (PF2-NRST) in GPIO mode" (p. 237), and
+ * 3.7.8 (p. 102). The factory value is 11, bidirectional reset (RM0444 Table
+ * 17, p. 83), and nothing in src/ writes the option bytes - so on these probes
+ * the pad is the reset pin, and a PF2 answer describes a GPIO cell that is not
+ * connected to it. No runtime effect today either way: mcu.c never enables
+ * GPIOF's clock, so PF0..PF2 answer ERR_GPIO_UNCLOCKED before any GPIOF
+ * register is loaded. PF2 stays in the table because it IS bonded, and
+ * refusing it as absent would be the wrong reason. */
 #define O2P_GPIO_BONDED_A 0xFFFFu   /* PA0..PA15                         */
 #define O2P_GPIO_BONDED_B 0xFFFFu   /* PB0..PB15                         */
 #define O2P_GPIO_BONDED_C 0xE0C0u   /* PC6, PC7, PC13, PC14, PC15        */

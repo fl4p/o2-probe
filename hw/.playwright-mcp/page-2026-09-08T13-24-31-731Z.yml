@@ -1,0 +1,1065 @@
+- generic [ref=f30e2]:
+  - banner [ref=f30e3]:
+    - generic [ref=f30e11]:
+      - text: Join
+      - link "PromCon EU 2026" [ref=f30e12] [cursor=pointer]:
+        - /url: https://promcon.io/2026-munich/
+      - text: ", the Prometheus users conference, on October 7–8, 2026 in Munich."
+    - generic [ref=f30e19]:
+      - link [ref=f30e20] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f30e21]:
+          - img "Prometheus logo" [ref=f30e22]
+          - paragraph [ref=f30e23]: Prometheus
+      - generic [ref=f30e24]:
+        - generic [ref=f30e25]:
+          - link "Docs" [ref=f30e26] [cursor=pointer]:
+            - /url: /docs/introduction/overview/
+          - link "Download" [ref=f30e27] [cursor=pointer]:
+            - /url: /download/
+          - link "Community" [ref=f30e28] [cursor=pointer]:
+            - /url: /community/
+          - link "Support & Training" [ref=f30e29] [cursor=pointer]:
+            - /url: /support-training/
+          - link "Blog" [ref=f30e30] [cursor=pointer]:
+            - /url: /blog/
+        - generic [ref=f30e31]:
+          - generic [ref=f30e33]:
+            - textbox "Search / Ask AI" [ref=f30e38]
+            - paragraph [ref=f30e40]: Ctrl + K
+          - button "Switch to light theme" [ref=f30e41] [cursor=pointer]
+          - link [ref=f30e45] [cursor=pointer]:
+            - /url: https://github.com/prometheus
+            - img "GitHub Logo" [ref=f30e47]
+  - main [ref=f30e48]:
+    - generic [ref=f30e50]:
+      - navigation [ref=f30e51]:
+        - generic [ref=f30e55]:
+          - link "Introduction" [ref=f30e56] [cursor=pointer]:
+            - /url: "#required-for-focus"
+          - generic [ref=f30e68]:
+            - link [ref=f30e69] [cursor=pointer]:
+              - /url: /docs/introduction/overview/
+              - generic [ref=f30e70]: Overview
+            - link [ref=f30e71] [cursor=pointer]:
+              - /url: /docs/introduction/first_steps/
+              - generic [ref=f30e72]: First steps
+            - link [ref=f30e73] [cursor=pointer]:
+              - /url: /docs/introduction/comparison/
+              - generic [ref=f30e74]: Comparison to alternatives
+            - link [ref=f30e75] [cursor=pointer]:
+              - /url: /docs/introduction/faq/
+              - generic [ref=f30e76]: FAQ
+            - link [ref=f30e77] [cursor=pointer]:
+              - /url: /docs/introduction/roadmap/
+              - generic [ref=f30e78]: Roadmap
+            - link [ref=f30e79] [cursor=pointer]:
+              - /url: /docs/introduction/design-doc/
+              - generic [ref=f30e80]: Design documents
+            - link [ref=f30e81] [cursor=pointer]:
+              - /url: /docs/introduction/media/
+              - generic [ref=f30e82]: Media
+            - link [ref=f30e83] [cursor=pointer]:
+              - /url: /docs/introduction/glossary/
+              - generic [ref=f30e84]: Glossary
+            - link [ref=f30e85] [cursor=pointer]:
+              - /url: /docs/introduction/release-cycle/
+              - generic [ref=f30e86]: Long-term support
+          - link "Concepts" [ref=f30e87] [cursor=pointer]:
+            - /url: "#required-for-focus"
+          - generic [ref=f30e96]:
+            - link [ref=f30e97] [cursor=pointer]:
+              - /url: /docs/concepts/data_model/
+              - generic [ref=f30e98]: Data model
+            - link [ref=f30e99] [cursor=pointer]:
+              - /url: /docs/concepts/metric_types/
+              - generic [ref=f30e100]: Metric types
+            - link [ref=f30e101] [cursor=pointer]:
+              - /url: /docs/concepts/jobs_instances/
+              - generic [ref=f30e102]: Jobs and instances
+          - link "Prometheus Server" [ref=f30e103] [cursor=pointer]:
+            - /url: "#required-for-focus"
+          - generic [ref=f30e114]:
+            - textbox "Select version" [ref=f30e121] [cursor=pointer]: 3.14 (latest)
+            - link "Getting started" [ref=f30e122] [cursor=pointer]:
+              - /url: /docs/prometheus/latest/getting_started/
+            - link "Installation" [ref=f30e124] [cursor=pointer]:
+              - /url: /docs/prometheus/latest/installation/
+            - link "Configuration" [ref=f30e126] [cursor=pointer]:
+              - /url: "#required-for-focus"
+            - generic [ref=f30e132]:
+              - link [ref=f30e133] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/configuration/configuration/
+                - generic [ref=f30e134]: Configuration
+              - link [ref=f30e135] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/configuration/recording_rules/
+                - generic [ref=f30e136]: Recording rules
+              - link [ref=f30e137] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/configuration/alerting_rules/
+                - generic [ref=f30e138]: Alerting rules
+              - link [ref=f30e139] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/configuration/template_examples/
+                - generic [ref=f30e140]: Template examples
+              - link [ref=f30e141] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/configuration/template_reference/
+                - generic [ref=f30e142]: Template reference
+              - link [ref=f30e143] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/configuration/promtool/
+                - generic [ref=f30e144]: HTTP configuration for promtool
+              - link [ref=f30e145] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/configuration/unit_testing_rules/
+                - generic [ref=f30e146]: Unit testing for rules
+              - link [ref=f30e147] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/configuration/https/
+                - generic [ref=f30e148]: HTTPS and authentication
+            - link "Agent Mode" [ref=f30e149] [cursor=pointer]:
+              - /url: /docs/prometheus/latest/prometheus_agent/
+            - link "Querying" [ref=f30e151] [cursor=pointer]:
+              - /url: "#required-for-focus"
+            - generic [ref=f30e158]:
+              - link "Basics" [ref=f30e159] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/querying/basics/
+              - link "Operators" [ref=f30e161] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/querying/operators/
+              - link "Functions" [ref=f30e163] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/querying/functions/
+              - link "Examples" [ref=f30e165] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/querying/examples/
+              - link "HTTP API" [ref=f30e167] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/querying/api/
+              - link "Remote Read API" [ref=f30e169] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/querying/remote_read_api/
+            - link "Storage" [ref=f30e171] [cursor=pointer]:
+              - /url: /docs/prometheus/latest/storage/
+            - link "Federation" [ref=f30e173] [cursor=pointer]:
+              - /url: /docs/prometheus/latest/federation/
+            - link "HTTP SD" [ref=f30e175] [cursor=pointer]:
+              - /url: /docs/prometheus/latest/http_sd/
+            - link "Management API" [ref=f30e177] [cursor=pointer]:
+              - /url: /docs/prometheus/latest/management_api/
+            - link "Command Line" [ref=f30e179] [cursor=pointer]:
+              - /url: "#required-for-focus"
+            - generic [ref=f30e185]:
+              - link [ref=f30e186] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/command-line/prometheus/
+                - generic [ref=f30e187]: prometheus
+              - link [ref=f30e188] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/command-line/promtool/
+                - generic [ref=f30e189]: promtool
+            - link "Migration" [ref=f30e190] [cursor=pointer]:
+              - /url: /docs/prometheus/latest/migration/
+            - link "API stability" [ref=f30e192] [cursor=pointer]:
+              - /url: /docs/prometheus/latest/stability/
+            - link "Feature flags" [ref=f30e194] [cursor=pointer]:
+              - /url: /docs/prometheus/latest/feature_flags/
+          - link "Visualization" [ref=f30e196] [cursor=pointer]:
+            - /url: "#required-for-focus"
+          - generic [ref=f30e205]:
+            - link [ref=f30e206] [cursor=pointer]:
+              - /url: /docs/visualization/browser/
+              - generic [ref=f30e207]: Expression browser
+            - link [ref=f30e208] [cursor=pointer]:
+              - /url: /docs/visualization/grafana/
+              - generic [ref=f30e209]: Grafana
+            - link [ref=f30e210] [cursor=pointer]:
+              - /url: /docs/visualization/perses/
+              - generic [ref=f30e211]: Perses
+            - link [ref=f30e212] [cursor=pointer]:
+              - /url: /docs/visualization/consoles/
+              - generic [ref=f30e213]: Console templates
+          - link "Instrumenting" [ref=f30e214] [cursor=pointer]:
+            - /url: "#required-for-focus"
+          - generic [ref=f30e225]:
+            - link [ref=f30e226] [cursor=pointer]:
+              - /url: /docs/instrumenting/clientlibs/
+              - generic [ref=f30e227]: Client libraries
+            - link [ref=f30e228] [cursor=pointer]:
+              - /url: /docs/instrumenting/writing_clientlibs/
+              - generic [ref=f30e229]: Writing client libraries
+            - link [ref=f30e230] [cursor=pointer]:
+              - /url: /docs/instrumenting/pushing/
+              - generic [ref=f30e231]: Pushing metrics
+            - link [ref=f30e232] [cursor=pointer]:
+              - /url: /docs/instrumenting/exporters/
+              - generic [ref=f30e233]: Exporters and integrations
+            - link [ref=f30e234] [cursor=pointer]:
+              - /url: /docs/instrumenting/writing_exporters/
+              - generic [ref=f30e235]: Writing exporters
+            - link [ref=f30e236] [cursor=pointer]:
+              - /url: /docs/instrumenting/exposition_formats/
+              - generic [ref=f30e237]: Exposition formats
+            - link [ref=f30e238] [cursor=pointer]:
+              - /url: /docs/instrumenting/escaping_schemes/
+              - generic [ref=f30e239]: UTF-8 escaping schemes
+            - link [ref=f30e240] [cursor=pointer]:
+              - /url: /docs/instrumenting/content_negotiation/
+              - generic [ref=f30e241]: Content negotiation
+          - link "Operating" [ref=f30e242] [cursor=pointer]:
+            - /url: "#required-for-focus"
+          - generic [ref=f30e252]:
+            - link [ref=f30e253] [cursor=pointer]:
+              - /url: /docs/operating/security/
+              - generic [ref=f30e254]: Security
+            - link [ref=f30e255] [cursor=pointer]:
+              - /url: /docs/operating/integrations/
+              - generic [ref=f30e256]: Integrations
+          - link "Alertmanager" [ref=f30e257] [cursor=pointer]:
+            - /url: "#required-for-focus"
+          - generic [ref=f30e267]:
+            - textbox [ref=f30e274] [cursor=pointer]: 0.34 (latest)
+            - link [ref=f30e275] [cursor=pointer]:
+              - /url: /docs/alerting/latest/overview/
+              - generic [ref=f30e276]: Alerting overview
+            - link [ref=f30e277] [cursor=pointer]:
+              - /url: /docs/alerting/latest/alertmanager/
+              - generic [ref=f30e278]: Alertmanager
+            - link [ref=f30e279] [cursor=pointer]:
+              - /url: /docs/alerting/latest/configuration/
+              - generic [ref=f30e280]: Configuration
+            - link [ref=f30e281] [cursor=pointer]:
+              - /url: /docs/alerting/latest/high_availability/
+              - generic [ref=f30e282]: High Availability
+            - link [ref=f30e283] [cursor=pointer]:
+              - /url: /docs/alerting/latest/integrations/
+              - generic [ref=f30e284]: Notification Integrations
+            - link [ref=f30e285] [cursor=pointer]:
+              - /url: /docs/alerting/latest/alerts_api/
+              - generic [ref=f30e286]: Alerts API
+            - link [ref=f30e287] [cursor=pointer]:
+              - /url: /docs/alerting/latest/notifications/
+              - generic [ref=f30e288]: Notification template reference
+            - link [ref=f30e289] [cursor=pointer]:
+              - /url: /docs/alerting/latest/notification_examples/
+              - generic [ref=f30e290]: Notification template examples
+            - link [ref=f30e291] [cursor=pointer]:
+              - /url: /docs/alerting/latest/management_api/
+              - generic [ref=f30e292]: Management API
+            - link [ref=f30e293] [cursor=pointer]:
+              - /url: /docs/alerting/latest/https/
+              - generic [ref=f30e294]: HTTPS and authentication
+          - link "Best practices" [ref=f30e295] [cursor=pointer]:
+            - /url: "#required-for-focus"
+          - generic [ref=f30e304]:
+            - link [ref=f30e305] [cursor=pointer]:
+              - /url: /docs/practices/naming/
+              - generic [ref=f30e306]: Metric and label naming
+            - link [ref=f30e307] [cursor=pointer]:
+              - /url: /docs/practices/consoles/
+              - generic [ref=f30e308]: Consoles and dashboards
+            - link [ref=f30e309] [cursor=pointer]:
+              - /url: /docs/practices/instrumentation/
+              - generic [ref=f30e310]: Instrumentation
+            - link [ref=f30e311] [cursor=pointer]:
+              - /url: /docs/practices/histograms/
+              - generic [ref=f30e312]: Histograms and summaries
+            - link [ref=f30e313] [cursor=pointer]:
+              - /url: /docs/practices/alerting/
+              - generic [ref=f30e314]: Alerting
+            - link [ref=f30e315] [cursor=pointer]:
+              - /url: /docs/practices/rules/
+              - generic [ref=f30e316]: Recording rules
+            - link [ref=f30e317] [cursor=pointer]:
+              - /url: /docs/practices/pushing/
+              - generic [ref=f30e318]: When to use the Pushgateway
+            - link [ref=f30e319] [cursor=pointer]:
+              - /url: /docs/practices/remote_write/
+              - generic [ref=f30e320]: Remote write tuning
+            - link [ref=f30e321] [cursor=pointer]:
+              - /url: /docs/practices/the_zen/
+              - generic [ref=f30e322]: The Zen of Prometheus
+          - link "Guides" [ref=f30e323] [cursor=pointer]:
+            - /url: "#required-for-focus"
+          - generic [ref=f30e332]:
+            - link [ref=f30e333] [cursor=pointer]:
+              - /url: /docs/guides/basic-auth/
+              - generic [ref=f30e334]: Basic auth
+            - link [ref=f30e335] [cursor=pointer]:
+              - /url: /docs/guides/cadvisor/
+              - generic [ref=f30e336]: Monitoring Docker container metrics using cAdvisor
+            - link [ref=f30e337] [cursor=pointer]:
+              - /url: /docs/guides/contributing/
+              - generic [ref=f30e338]: Contributing
+            - link [ref=f30e339] [cursor=pointer]:
+              - /url: /docs/guides/file-sd/
+              - generic [ref=f30e340]: Use file-based service discovery to discover scrape targets
+            - link [ref=f30e341] [cursor=pointer]:
+              - /url: /docs/guides/go-application/
+              - generic [ref=f30e342]: Instrumenting a Go application
+            - link [ref=f30e343] [cursor=pointer]:
+              - /url: /docs/guides/multi-target-exporter/
+              - generic [ref=f30e344]: Understanding and using the multi-target exporter pattern
+            - link [ref=f30e345] [cursor=pointer]:
+              - /url: /docs/guides/node-exporter/
+              - generic [ref=f30e346]: Monitoring Linux host metrics with the Node Exporter
+            - link [ref=f30e347] [cursor=pointer]:
+              - /url: /docs/guides/opentelemetry/
+              - generic [ref=f30e348]: OpenTelemetry
+            - link [ref=f30e349] [cursor=pointer]:
+              - /url: /docs/guides/utf8/
+              - generic [ref=f30e350]: UTF-8 in Prometheus
+            - link [ref=f30e351] [cursor=pointer]:
+              - /url: /docs/guides/dockerswarm/
+              - generic [ref=f30e352]: Docker Swarm
+            - link [ref=f30e353] [cursor=pointer]:
+              - /url: /docs/guides/open_metrics_2_0_migration/
+              - generic [ref=f30e354]: OpenMetrics 2.0 Migration Guide for Client Libraries
+            - link [ref=f30e355] [cursor=pointer]:
+              - /url: /docs/guides/query-log/
+              - generic [ref=f30e356]: Query log
+            - link [ref=f30e357] [cursor=pointer]:
+              - /url: /docs/guides/tls-encryption/
+              - generic [ref=f30e358]: TLS encryption
+          - link "Tutorials" [ref=f30e359] [cursor=pointer]:
+            - /url: "#required-for-focus"
+          - generic [ref=f30e369]:
+            - link [ref=f30e370] [cursor=pointer]:
+              - /url: /docs/tutorials/getting_started/
+              - generic [ref=f30e371]: Getting started with Prometheus
+            - link [ref=f30e372] [cursor=pointer]:
+              - /url: /docs/tutorials/understanding_metric_types/
+              - generic [ref=f30e373]: Understanding metric types
+            - link [ref=f30e374] [cursor=pointer]:
+              - /url: /docs/tutorials/instrumenting_http_server_in_go/
+              - generic [ref=f30e375]: Instrumenting HTTP server written in Go
+            - link [ref=f30e376] [cursor=pointer]:
+              - /url: /docs/tutorials/visualizing_metrics_using_grafana/
+              - generic [ref=f30e377]: Visualizing metrics using Grafana
+            - link [ref=f30e378] [cursor=pointer]:
+              - /url: /docs/tutorials/alerting_based_on_metrics/
+              - generic [ref=f30e379]: Alerting based on metrics
+          - link "Specifications" [ref=f30e380] [cursor=pointer]:
+            - /url: "#required-for-focus"
+          - generic [ref=f30e390]:
+            - link [ref=f30e391] [cursor=pointer]:
+              - /url: /docs/specs/native_histograms/
+              - generic [ref=f30e392]: Native Histograms
+            - link [ref=f30e393] [cursor=pointer]:
+              - /url: "#required-for-focus"
+              - generic [ref=f30e394]: OpenMetrics
+            - generic [ref=f30e399]:
+              - link [ref=f30e400] [cursor=pointer]:
+                - /url: /docs/specs/om/open_metrics_spec/
+                - generic [ref=f30e401]: "1.0"
+              - link [ref=f30e402] [cursor=pointer]:
+                - /url: /docs/specs/om/open_metrics_spec_2_0/
+                - generic [ref=f30e403]: "2.0"
+            - link [ref=f30e404] [cursor=pointer]:
+              - /url: "#required-for-focus"
+              - generic [ref=f30e405]: Remote Write
+            - generic [ref=f30e410]:
+              - link [ref=f30e411] [cursor=pointer]:
+                - /url: /docs/specs/prw/remote_write_spec/
+                - generic [ref=f30e412]: "1.0"
+              - link [ref=f30e413] [cursor=pointer]:
+                - /url: /docs/specs/prw/remote_write_spec_2_0/
+                - generic [ref=f30e414]: "2.0"
+      - generic [ref=f30e415]:
+        - generic [ref=f30e416]:
+          - heading "Querying basics" [level=1] [ref=f30e417]
+          - generic [ref=f30e418]:
+            - paragraph [ref=f30e419]: Prometheus provides a functional query language called PromQL (Prometheus Query Language) that lets the user select and aggregate time series data in real time.
+            - paragraph [ref=f30e420]:
+              - text: When you send a query request to Prometheus, it can be an
+              - emphasis [ref=f30e421]: instant query
+              - text: ", evaluated at one point in time, or a"
+              - emphasis [ref=f30e422]: range query
+              - text: at equally-spaced steps between a start and an end time. PromQL works exactly the same in each case; the range query is just like an instant query run multiple times at different timestamps.
+            - paragraph [ref=f30e423]: In the Prometheus UI, the "Table" tab is for instant queries and the "Graph" tab is for range queries.
+            - paragraph [ref=f30e424]:
+              - text: Other programs can fetch the result of a PromQL expression via the
+              - link "HTTP API" [ref=f30e425] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/querying/api/
+              - text: .
+            - heading "Examples" [level=2] [ref=f30e426]:
+              - text: Examples
+              - link [ref=f30e427] [cursor=pointer]:
+                - /url: "#examples"
+            - paragraph [ref=f30e432]:
+              - text: This document is a Prometheus basic language reference. For learning, it may be easier to start with a couple of
+              - link "examples" [ref=f30e433] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/querying/examples/
+              - text: .
+            - heading "Samples" [level=2] [ref=f30e434]:
+              - text: Samples
+              - link [ref=f30e435] [cursor=pointer]:
+                - /url: "#samples"
+            - paragraph [ref=f30e440]:
+              - text: The value of a sample at a given timestamp returned by PromQL may be a float or a
+              - link "native histogram" [ref=f30e441] [cursor=pointer]:
+                - /url: /docs/specs/native_histograms/
+              - text: . A float sample is a simple floating point number, whereas a native histograms sample contains a full histogram including count, sum, and buckets.
+            - paragraph [ref=f30e442]:
+              - text: Note that the term “histogram sample” in the PromQL documentation always refers to a native histogram. The term "classic histogram" refers to a set of time series containing float samples with the
+              - code [ref=f30e443]: _bucket
+              - text: ","
+              - code [ref=f30e444]: _count
+              - text: ", and"
+              - code [ref=f30e445]: _sum
+              - text: suffixes that together describe a histogram. From the perspective of PromQL, these contain just float samples, there are no “classic histogram samples”.
+            - paragraph [ref=f30e446]:
+              - text: Both float samples and histogram samples can have a counter or a gauge “flavor”. Float samples with a counter or gauge flavor are generally simply called “counters” or “gauges”, respectively, while their histogram counterparts are called “counter histograms” or “gauge histograms”. Float samples do not store their flavor, leaving it to the user to take their flavor into account when writing PromQL queries. (By convention, time series containing float counters have a name ending on
+              - code [ref=f30e447]: _total
+              - text: to help with the distinction.)
+            - paragraph [ref=f30e448]:
+              - text: Since histogram samples “know” their counter or gauge flavor, this allows reliable warnings about mismatched operations. For example, applying the
+              - code [ref=f30e449]: rate
+              - text: function to gauge floats will most likely produce a nonsensical result, but the query will be processed without complains. However, if applied to gauge histograms, the result of the query will be annotated with a warning.
+            - heading "Expression language data types" [level=2] [ref=f30e450]:
+              - text: Expression language data types
+              - link [ref=f30e451] [cursor=pointer]:
+                - /url: "#expression-language-data-types"
+            - paragraph [ref=f30e456]: "In Prometheus's expression language, an expression or sub-expression can evaluate to one of four types:"
+            - list [ref=f30e457]:
+              - listitem [ref=f30e458]:
+                - strong [ref=f30e459]: Instant vector
+                - text: "- a set of time series containing a single sample for each time series, all sharing the same timestamp"
+              - listitem [ref=f30e460]:
+                - strong [ref=f30e461]: Range vector
+                - text: "- a set of time series containing a range of data points over time for each time series"
+              - listitem [ref=f30e462]:
+                - strong [ref=f30e463]: Scalar
+                - text: "- a simple numeric floating point value"
+              - listitem [ref=f30e464]:
+                - strong [ref=f30e465]: String
+                - text: "- a simple string value; currently unused"
+            - paragraph [ref=f30e466]:
+              - text: Depending on the use case (e.g. when graphing vs. displaying the output of an expression), only some of these types are legal as the result of a user-specified expression. For
+              - link "instant queries" [ref=f30e467] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/querying/api/#instant-queries
+              - text: ", any of the above data types are allowed as the root of the expression."
+              - link "Range queries" [ref=f30e468] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/querying/api/#range-queries
+              - text: only support scalar-typed and instant-vector-typed expressions.
+            - paragraph [ref=f30e469]: Both vectors and time series may contain a mix of float samples and histogram samples.
+            - heading "Reconciliation of histogram bucket layouts" [level=2] [ref=f30e470]:
+              - text: Reconciliation of histogram bucket layouts
+              - link [ref=f30e471] [cursor=pointer]:
+                - /url: "#reconciliation-of-histogram-bucket-layouts"
+            - paragraph [ref=f30e476]: Native histograms can have different bucket layouts, but they are generally convertible to compatible versions to apply binary and aggregation operations to them. Functions acting on range vectors that are applicable to native histograms also perform such reconciliation. In binary operations this reconciliation is performed pairwise, in aggregation operations and functions all histogram samples are reconciled to one compatible bucket layout.
+            - paragraph [ref=f30e477]:
+              - text: Not all bucket layouts can be reconciled, if incompatible histograms are encountered in an operation, the corresponding output vector element is removed from the result, flagged with a warn-level annotation. More details can be found in the
+              - link "native histogram specification" [ref=f30e478] [cursor=pointer]:
+                - /url: /docs/specs/native_histograms/#compatibility-between-histograms
+              - text: .
+            - heading "Literals" [level=2] [ref=f30e479]:
+              - text: Literals
+              - link [ref=f30e480] [cursor=pointer]:
+                - /url: "#literals"
+            - paragraph [ref=f30e485]: The following section describes literal values of various kinds. Note that there is no “histogram literal”.
+            - heading "String literals" [level=3] [ref=f30e486]:
+              - text: String literals
+              - link [ref=f30e487] [cursor=pointer]:
+                - /url: "#string-literals"
+            - paragraph [ref=f30e492]: String literals are designated by single quotes, double quotes or backticks.
+            - paragraph [ref=f30e493]:
+              - text: PromQL follows the same
+              - link "escaping rules as Go" [ref=f30e494] [cursor=pointer]:
+                - /url: https://golang.org/ref/spec#String_literals
+              - text: . For string literals in single or double quotes, a backslash begins an escape sequence, which may be followed by
+              - code [ref=f30e500]: a
+              - text: ","
+              - code [ref=f30e501]: b
+              - text: ","
+              - code [ref=f30e502]: f
+              - text: ","
+              - code [ref=f30e503]: "n"
+              - text: ","
+              - code [ref=f30e504]: r
+              - text: ","
+              - code [ref=f30e505]: t
+              - text: ","
+              - code [ref=f30e506]: v
+              - text: or
+              - code [ref=f30e507]: \
+              - text: . Specific characters can be provided using octal (
+              - code [ref=f30e508]: \nnn
+              - text: ) or hexadecimal (
+              - code [ref=f30e509]: \xnn
+              - text: ","
+              - code [ref=f30e510]: \unnnn
+              - text: and
+              - code [ref=f30e511]: \Unnnnnnnn
+              - text: ) notations.
+            - paragraph [ref=f30e512]: Conversely, escape characters are not parsed in string literals designated by backticks. It is important to note that, unlike Go, Prometheus does not discard newlines inside backticks.
+            - paragraph [ref=f30e513]: "Example:"
+            - code [ref=f30e515]: "\"this is a string\" 'these are unescaped: \\n \\\\ \\t' `these are not unescaped: \\n ' \" \\t`"
+            - heading "Float literals and time durations" [level=3] [ref=f30e516]:
+              - text: Float literals and time durations
+              - link [ref=f30e517] [cursor=pointer]:
+                - /url: "#float-literals-and-time-durations"
+            - paragraph [ref=f30e522]: "Scalar float values can be written as literal integer or floating-point numbers in the format (whitespace only included for better readability):"
+            - code [ref=f30e524]: "[-+]?( [0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)? | 0[xX][0-9a-fA-F]+ | [nN][aA][nN] | [iI][nN][fF] )"
+            - paragraph [ref=f30e525]: "Examples:"
+            - code [ref=f30e527]: 23 -2.43 3.4e-9 0x8f -Inf NaN
+            - paragraph [ref=f30e528]:
+              - text: Additionally, underscores (
+              - code [ref=f30e529]: _
+              - text: ) can be used in between decimal or hexadecimal digits to improve readability.
+            - paragraph [ref=f30e530]: "Examples:"
+            - code [ref=f30e532]: 1_000_000 .123_456_789 0x_53_AB_F3_82
+            - paragraph [ref=f30e533]: "Float literals are also used to specify durations in seconds. For convenience, decimal integer numbers may be combined with the following time units:"
+            - list [ref=f30e534]:
+              - listitem [ref=f30e535]:
+                - code [ref=f30e536]: ms
+                - text: – milliseconds
+              - listitem [ref=f30e537]:
+                - code [ref=f30e538]: s
+                - text: – seconds – 1s equals 1000ms
+              - listitem [ref=f30e539]:
+                - code [ref=f30e540]: m
+                - text: – minutes – 1m equals 60s (ignoring leap seconds)
+              - listitem [ref=f30e541]:
+                - code [ref=f30e542]: h
+                - text: – hours – 1h equals 60m
+              - listitem [ref=f30e543]:
+                - code [ref=f30e544]: d
+                - text: – days – 1d equals 24h (ignoring so-called daylight saving time)
+              - listitem [ref=f30e545]:
+                - code [ref=f30e546]: w
+                - text: – weeks – 1w equals 7d
+              - listitem [ref=f30e547]:
+                - code [ref=f30e548]: "y"
+                - text: – years – 1y equals 365d (ignoring leap days)
+            - paragraph [ref=f30e549]: Suffixing a decimal integer number with one of the units above is a different representation of the equivalent number of seconds as a bare float literal.
+            - paragraph [ref=f30e550]: "Examples:"
+            - code [ref=f30e552]: "1s # Equivalent to 1. 2m # Equivalent to 120. 1ms # Equivalent to 0.001. -2h # Equivalent to -7200."
+            - paragraph [ref=f30e553]:
+              - text: The following examples do
+              - emphasis [ref=f30e554]: not
+              - text: "work:"
+            - code [ref=f30e556]: "0xABm # No suffixing of hexadecimal numbers. 1.5h # Time units cannot be combined with a floating point. +Infd # No suffixing of ±Inf or NaN."
+            - paragraph [ref=f30e557]: Multiple units can be combined by concatenation of suffixed integers. Units must be ordered from the longest to the shortest. A given unit must only appear once per float literal.
+            - paragraph [ref=f30e558]: "Examples:"
+            - code [ref=f30e560]: "1h30m # Equivalent to 5400s and thus 5400. 12h34m56s # Equivalent to 45296s and thus 45296. 54s321ms # Equivalent to 54.321."
+            - heading "Duration expressions" [level=3] [ref=f30e561]:
+              - text: Duration expressions
+              - link [ref=f30e562] [cursor=pointer]:
+                - /url: "#duration-expressions"
+            - paragraph [ref=f30e567]:
+              - text: Arithmetic expressions can be used wherever a time duration is expected, that is in
+              - link "range vector selectors" [ref=f30e568] [cursor=pointer]:
+                - /url: "#range-vector-selectors"
+              - text: and in
+              - link "offset durations" [ref=f30e569] [cursor=pointer]:
+                - /url: "#offset-modifier"
+              - text: .
+            - paragraph [ref=f30e570]: "In range vectors:"
+            - code [ref=f30e572]: "rate(http_requests_total[5m * 2]) # 10 minute range rate(http_requests_total[(5+2) * 1m]) # 7 minute range"
+            - paragraph [ref=f30e573]: "In offset durations:"
+            - code [ref=f30e575]: "http_requests_total offset (1h / 2) # 30 minute offset http_requests_total offset ((2 ^ 3) * 1m) # 8 minute offset"
+            - paragraph [ref=f30e576]:
+              - text: When using
+              - code [ref=f30e577]: offset
+              - text: with a duration expression, you must wrap the expression in parentheses. Without parentheses, only the first duration value is used in the offset calculation.
+            - paragraph [ref=f30e578]: "The following operators are supported, following the usual precedence rules:"
+            - list [ref=f30e579]:
+              - listitem [ref=f30e580]:
+                - code [ref=f30e581]: +
+                - text: – addition
+              - listitem [ref=f30e582]:
+                - code [ref=f30e583]: "-"
+                - text: – subtraction
+              - listitem [ref=f30e584]:
+                - code [ref=f30e585]: "*"
+                - text: – multiplication
+              - listitem [ref=f30e586]:
+                - code [ref=f30e587]: /
+                - text: – division
+              - listitem [ref=f30e588]:
+                - code [ref=f30e589]: "%"
+                - text: – modulo
+              - listitem [ref=f30e590]:
+                - code [ref=f30e591]: ^
+                - text: – exponentiation
+            - paragraph [ref=f30e592]: "The following functions can be used inside duration expressions:"
+            - list [ref=f30e593]:
+              - listitem [ref=f30e594]:
+                - code [ref=f30e595]: step()
+                - text: resolves to the step width of a
+                - link "range query" [ref=f30e596] [cursor=pointer]:
+                  - /url: /docs/prometheus/latest/querying/api/#range-queries
+                - text: ", and to"
+                - code [ref=f30e597]: 0s
+                - text: for an
+                - link "instant query" [ref=f30e598] [cursor=pointer]:
+                  - /url: /docs/prometheus/latest/querying/api/#instant-queries
+                - text: .
+              - listitem [ref=f30e599]:
+                - code [ref=f30e600]: range()
+                - text: resolves to the full range of a range query (end time − start time), and to
+                - code [ref=f30e601]: 0s
+                - text: for an instant query. This is particularly useful in combination with
+                - code [ref=f30e602]: "@ end()"
+                - text: to look back over the entire query range, e.g.
+                - code [ref=f30e603]: max_over_time(metric[range()] @ end())
+                - text: .
+              - listitem [ref=f30e604]:
+                - code [ref=f30e605]: min_of(<duration>, <duration>)
+                - text: returns the smaller of the two durations, which is useful for capping a duration at a maximum value.
+              - listitem [ref=f30e606]:
+                - code [ref=f30e607]: max_of(<duration>, <duration>)
+                - text: returns the larger of the two durations, which is useful for enforcing a minimum value.
+            - paragraph [ref=f30e608]:
+              - text: For example,
+              - code [ref=f30e609]: max_of(step(), 5s)
+              - text: ensures the duration is never shorter than
+              - code [ref=f30e610]: 5s
+              - text: ", while"
+              - code [ref=f30e611]: min_of(range(), 1h)
+              - text: caps the duration at
+              - code [ref=f30e612]: 1h
+              - text: .
+            - paragraph [ref=f30e613]:
+              - strong [ref=f30e614]: Note
+              - text: ": Duration expressions are not supported in the"
+              - link [ref=f30e615] [cursor=pointer]:
+                - /url: "#modifier"
+                - code [ref=f30e616]: "@"
+                - text: modifier
+              - text: .
+            - paragraph [ref=f30e617]: "Examples of equivalent durations:"
+            - list [ref=f30e618]:
+              - listitem [ref=f30e619]:
+                - code [ref=f30e620]: 5m * 2
+                - text: is equivalent to
+                - code [ref=f30e621]: 10m
+                - text: or
+                - code [ref=f30e622]: 600s
+                - text: .
+              - listitem [ref=f30e623]:
+                - code [ref=f30e624]: 10m - 1m
+                - text: is equivalent to
+                - code [ref=f30e625]: 9m
+                - text: or
+                - code [ref=f30e626]: 540s
+                - text: .
+              - listitem [ref=f30e627]:
+                - code [ref=f30e628]: (5+2) * 1m
+                - text: is equivalent to
+                - code [ref=f30e629]: 7m
+                - text: or
+                - code [ref=f30e630]: 420s
+                - text: .
+              - listitem [ref=f30e631]:
+                - code [ref=f30e632]: 1h / 2
+                - text: is equivalent to
+                - code [ref=f30e633]: 30m
+                - text: or
+                - code [ref=f30e634]: 1800s
+                - text: .
+              - listitem [ref=f30e635]:
+                - code [ref=f30e636]: 4h % 3h
+                - text: is equivalent to
+                - code [ref=f30e637]: 1h
+                - text: or
+                - code [ref=f30e638]: 3600s
+                - text: .
+              - listitem [ref=f30e639]:
+                - code [ref=f30e640]: (2 ^ 3) * 1m
+                - text: is equivalent to
+                - code [ref=f30e641]: 8m
+                - text: or
+                - code [ref=f30e642]: 480s
+                - text: .
+              - listitem [ref=f30e643]:
+                - code [ref=f30e644]: step() + 1
+                - text: is equivalent to the query step width increased by
+                - code [ref=f30e645]: 1s
+                - text: .
+              - listitem [ref=f30e646]:
+                - code [ref=f30e647]: max_of(step(), 5s)
+                - text: is equivalent to the larger of the query step width and
+                - code [ref=f30e648]: 5s
+                - text: .
+              - listitem [ref=f30e649]:
+                - code [ref=f30e650]: min_of(2 * step() + 5s, 5m)
+                - text: is equivalent to the smaller of twice the query step increased by
+                - code [ref=f30e651]: 5s
+                - text: and
+                - code [ref=f30e652]: 5m
+                - text: .
+            - heading "Time series selectors" [level=2] [ref=f30e653]:
+              - text: Time series selectors
+              - link [ref=f30e654] [cursor=pointer]:
+                - /url: "#time-series-selectors"
+            - paragraph [ref=f30e659]: These are the basic building-blocks that instruct PromQL what data to fetch.
+            - heading "Instant vector selectors" [level=3] [ref=f30e660]:
+              - text: Instant vector selectors
+              - link [ref=f30e661] [cursor=pointer]:
+                - /url: "#instant-vector-selectors"
+            - paragraph [ref=f30e666]: Instant vector selectors allow the selection of a set of time series and a single sample value for each at a given timestamp (point in time). In the simplest form, only a metric name is specified, which results in an instant vector containing elements for all time series that have this metric name.
+            - paragraph [ref=f30e667]:
+              - text: The value returned will be that of the most recent sample at or before the query's evaluation timestamp (in the case of an
+              - link "instant query" [ref=f30e668] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/querying/api/#instant-queries
+              - text: ) or the current step within the query (in the case of a
+              - link "range query" [ref=f30e669] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/querying/api/#range-queries
+              - text: ). The
+              - link [ref=f30e670] [cursor=pointer]:
+                - /url: "#modifier"
+                - code [ref=f30e671]: "@"
+                - text: modifier
+              - text: allows overriding the timestamp relative to which the selection takes place. Time series are only returned if their most recent sample is less than the
+              - link "lookback period" [ref=f30e672] [cursor=pointer]:
+                - /url: "#staleness"
+              - text: ago.
+            - paragraph [ref=f30e673]:
+              - text: This example selects all time series that have the
+              - code [ref=f30e674]: http_requests_total
+              - text: "metric name, returning the most recent sample for each:"
+            - code [ref=f30e676]: http_requests_total
+            - paragraph [ref=f30e677]:
+              - text: It is possible to filter these time series further by appending a comma-separated list of label matchers in curly braces (
+              - code [ref=f30e678]: "{}"
+              - text: ).
+            - paragraph [ref=f30e679]:
+              - text: This example selects only those time series with the
+              - code [ref=f30e680]: http_requests_total
+              - text: metric name that also have the
+              - code [ref=f30e681]: job
+              - text: label set to
+              - code [ref=f30e682]: prometheus
+              - text: and their
+              - code [ref=f30e683]: group
+              - text: label set to
+              - code [ref=f30e684]: canary
+              - text: ":"
+            - code [ref=f30e686]: "http_requests_total{job=\"prometheus\",group=\"canary\"}"
+            - paragraph [ref=f30e687]: "It is also possible to negatively match a label value, or to match label values against regular expressions. The following label matching operators exist:"
+            - list [ref=f30e688]:
+              - listitem [ref=f30e689]:
+                - code [ref=f30e690]: =
+                - text: ": Select labels that are exactly equal to the provided string."
+              - listitem [ref=f30e691]:
+                - code [ref=f30e692]: "!="
+                - text: ": Select labels that are not equal to the provided string."
+              - listitem [ref=f30e693]:
+                - code [ref=f30e694]: =~
+                - text: ": Select labels that regex-match the provided string."
+              - listitem [ref=f30e695]:
+                - code [ref=f30e696]: "!~"
+                - text: ": Select labels that do not regex-match the provided string."
+            - paragraph [ref=f30e697]:
+              - link "Regex" [ref=f30e698] [cursor=pointer]:
+                - /url: "#regular-expressions"
+              - text: matches are fully anchored. A match of
+              - code [ref=f30e699]: env=~"foo"
+              - text: is treated as
+              - code [ref=f30e700]: env=~"^foo$"
+              - text: .
+            - paragraph [ref=f30e701]:
+              - text: For example, this selects all
+              - code [ref=f30e702]: http_requests_total
+              - text: time series for
+              - code [ref=f30e703]: staging
+              - text: ","
+              - code [ref=f30e704]: testing
+              - text: ", and"
+              - code [ref=f30e705]: development
+              - text: environments and HTTP methods other than
+              - code [ref=f30e706]: GET
+              - text: .
+            - code [ref=f30e708]: "http_requests_total{environment=~\"staging|testing|development\",method!=\"GET\"}"
+            - paragraph [ref=f30e709]: Label matchers that match empty label values also select all time series that do not have the specific label set at all. It is possible to have multiple matchers for the same label name.
+            - paragraph [ref=f30e710]: "For example, given the dataset:"
+            - code [ref=f30e712]: "http_requests_total http_requests_total{replica=\"rep-a\"} http_requests_total{replica=\"rep-b\"} http_requests_total{environment=\"development\"}"
+            - paragraph [ref=f30e713]:
+              - text: The query
+              - code [ref=f30e714]: "http_requests_total{environment=\"\"}"
+              - text: "would match and return:"
+            - code [ref=f30e716]: "http_requests_total http_requests_total{replica=\"rep-a\"} http_requests_total{replica=\"rep-b\"}"
+            - paragraph [ref=f30e717]: "and would exclude:"
+            - code [ref=f30e719]: "http_requests_total{environment=\"development\"}"
+            - paragraph [ref=f30e720]: Multiple matchers can be used for the same label name; they all must pass for a result to be returned.
+            - paragraph [ref=f30e721]: "The query:"
+            - code [ref=f30e723]: "http_requests_total{replica!=\"rep-a\",replica=~\"rep.*\"}"
+            - paragraph [ref=f30e724]: "Would then match:"
+            - code [ref=f30e726]: "http_requests_total{replica=\"rep-b\"}"
+            - paragraph [ref=f30e727]: "Vector selectors must either specify a name or at least one label matcher that does not match the empty string. The following expression is illegal:"
+            - code [ref=f30e729]: "{job=~\".*\"} # Bad!"
+            - paragraph [ref=f30e730]: In contrast, these expressions are valid as they both have a selector that does not match empty label values.
+            - code [ref=f30e732]: "{job=~\".+\"} # Good! {job=~\".*\",method=\"get\"} # Good!"
+            - paragraph [ref=f30e733]:
+              - text: Label matchers can also be applied to metric names by matching against the internal
+              - code [ref=f30e734]: __name__
+              - text: label. For example, the expression
+              - code [ref=f30e735]: http_requests_total
+              - text: is equivalent to
+              - code [ref=f30e736]: "{__name__=\"http_requests_total\"}"
+              - text: . Matchers other than
+              - code [ref=f30e737]: =
+              - text: (
+              - code [ref=f30e738]: "!="
+              - text: ","
+              - code [ref=f30e739]: =~
+              - text: ","
+              - code [ref=f30e740]: "!~"
+              - text: ) may also be used. The following expression selects all metrics that have a name starting with
+              - code [ref=f30e741]: "job:"
+              - text: ":"
+            - code [ref=f30e743]: "{__name__=~\"job:.*\"}"
+            - paragraph [ref=f30e744]:
+              - text: The metric name must not be one of the keywords
+              - code [ref=f30e745]: bool
+              - text: ","
+              - code [ref=f30e746]: "on"
+              - text: ","
+              - code [ref=f30e747]: ignoring
+              - text: ","
+              - code [ref=f30e748]: group_left
+              - text: and
+              - code [ref=f30e749]: group_right
+              - text: ". The following expression is illegal:"
+            - code [ref=f30e751]: "on{} # Bad!"
+            - paragraph [ref=f30e752]:
+              - text: A workaround for this restriction is to use the
+              - code [ref=f30e753]: __name__
+              - text: "label:"
+            - code [ref=f30e755]: "{__name__=\"on\"} # Good!"
+            - heading "Range Vector Selectors" [level=3] [ref=f30e756]:
+              - text: Range Vector Selectors
+              - link [ref=f30e757] [cursor=pointer]:
+                - /url: "#range-vector-selectors"
+            - paragraph [ref=f30e762]:
+              - text: Range vector literals work like instant vector literals, except that they select a range of samples back from the current instant. Syntactically, a
+              - link "float literal" [ref=f30e763] [cursor=pointer]:
+                - /url: "#float-literals-and-time-durations"
+              - text: is appended in square brackets (
+              - code [ref=f30e764]: "[]"
+              - text: ) at the end of a vector selector to specify for how many seconds back in time values should be fetched for each resulting range vector element. Commonly, the float literal uses the syntax with one or more time units, e.g.
+              - code [ref=f30e765]: "[5m]"
+              - text: . The range is a left-open and right-closed interval, i.e. samples with timestamps coinciding with the left boundary of the range are excluded from the selection, while samples coinciding with the right boundary of the range are included in the selection.
+            - paragraph [ref=f30e766]:
+              - text: In this example, we select all the values recorded less than 5m ago for all time series that have the metric name
+              - code [ref=f30e767]: http_requests_total
+              - text: and a
+              - code [ref=f30e768]: job
+              - text: label set to
+              - code [ref=f30e769]: prometheus
+              - text: ":"
+            - code [ref=f30e771]: "http_requests_total{job=\"prometheus\"}[5m]"
+            - heading "Offset modifier" [level=3] [ref=f30e772]:
+              - text: Offset modifier
+              - link [ref=f30e773] [cursor=pointer]:
+                - /url: "#offset-modifier"
+            - paragraph [ref=f30e778]:
+              - text: The
+              - code [ref=f30e779]: offset
+              - text: modifier allows changing the time offset for individual instant and range vectors in a query.
+            - paragraph [ref=f30e780]:
+              - text: For example, the following expression returns the value of
+              - code [ref=f30e781]: http_requests_total
+              - text: "5 minutes in the past relative to the current query evaluation time:"
+            - code [ref=f30e783]: http_requests_total offset 5m
+            - paragraph [ref=f30e784]:
+              - text: Note that the
+              - code [ref=f30e785]: offset
+              - text: "modifier always needs to follow the selector immediately, i.e. the following would be correct:"
+            - code [ref=f30e787]: "sum(http_requests_total{method=\"GET\"} offset 5m) // GOOD."
+            - paragraph [ref=f30e788]:
+              - text: While the following would be
+              - emphasis [ref=f30e789]: incorrect
+              - text: ":"
+            - code [ref=f30e791]: "sum(http_requests_total{method=\"GET\"}) offset 5m // INVALID."
+            - paragraph [ref=f30e792]:
+              - text: The same works for range vectors. This returns the 5-minute
+              - link "rate" [ref=f30e793] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/querying/functions/#rate
+              - text: that
+              - code [ref=f30e794]: http_requests_total
+              - text: "had a week ago:"
+            - code [ref=f30e796]: rate(http_requests_total[5m] offset 1w)
+            - paragraph [ref=f30e797]: "When querying for samples in the past, a negative offset will enable temporal comparisons forward in time:"
+            - code [ref=f30e799]: rate(http_requests_total[5m] offset -1w)
+            - paragraph [ref=f30e800]: Note that this allows a query to look ahead of its evaluation time.
+            - heading "@ modifier" [level=3] [ref=f30e801]:
+              - text: "@ modifier"
+              - link [ref=f30e802] [cursor=pointer]:
+                - /url: "#-modifier"
+            - paragraph [ref=f30e807]:
+              - text: The
+              - code [ref=f30e808]: "@"
+              - text: modifier allows changing the evaluation time for individual instant and range vectors in a query. The time supplied to the
+              - code [ref=f30e809]: "@"
+              - text: modifier is a Unix timestamp and described with a float literal.
+            - paragraph [ref=f30e810]:
+              - text: For example, the following expression returns the value of
+              - code [ref=f30e811]: http_requests_total
+              - text: at
+              - code [ref=f30e812]: 2021-01-04T07:40:00+00:00
+              - text: ":"
+            - code [ref=f30e814]: http_requests_total @ 1609746000
+            - paragraph [ref=f30e815]:
+              - text: Note that the
+              - code [ref=f30e816]: "@"
+              - text: "modifier always needs to follow the selector immediately, i.e. the following would be correct:"
+            - code [ref=f30e818]: "sum(http_requests_total{method=\"GET\"} @ 1609746000) // GOOD."
+            - paragraph [ref=f30e819]:
+              - text: While the following would be
+              - emphasis [ref=f30e820]: incorrect
+              - text: ":"
+            - code [ref=f30e822]: "sum(http_requests_total{method=\"GET\"}) @ 1609746000 // INVALID."
+            - paragraph [ref=f30e823]:
+              - text: The same works for range vectors. This returns the 5-minute rate that
+              - code [ref=f30e824]: http_requests_total
+              - text: had at
+              - code [ref=f30e825]: 2021-01-04T07:40:00+00:00
+              - text: ":"
+            - code [ref=f30e827]: rate(http_requests_total[5m] @ 1609746000)
+            - paragraph [ref=f30e828]:
+              - text: The
+              - code [ref=f30e829]: "@"
+              - text: modifier supports all representations of numeric literals described above. It works with the
+              - code [ref=f30e830]: offset
+              - text: modifier where the offset is applied relative to the
+              - code [ref=f30e831]: "@"
+              - text: modifier time. The results are the same irrespective of the order of the modifiers.
+            - paragraph [ref=f30e832]: "For example, these two queries will produce the same result:"
+            - code [ref=f30e834]: "# offset after @ http_requests_total @ 1609746000 offset 5m # offset before @ http_requests_total offset 5m @ 1609746000"
+            - paragraph [ref=f30e835]:
+              - text: Additionally,
+              - code [ref=f30e836]: start()
+              - text: and
+              - code [ref=f30e837]: end()
+              - text: can also be used as values for the
+              - code [ref=f30e838]: "@"
+              - text: modifier as special values.
+            - paragraph [ref=f30e839]: For a range query, they resolve to the start and end of the range query respectively and remain the same for all steps.
+            - paragraph [ref=f30e840]:
+              - text: For an instant query,
+              - code [ref=f30e841]: start()
+              - text: and
+              - code [ref=f30e842]: end()
+              - text: both resolve to the evaluation time.
+            - code [ref=f30e844]: http_requests_total @ start() rate(http_requests_total[5m] @ end())
+            - paragraph [ref=f30e845]:
+              - text: Note that the
+              - code [ref=f30e846]: "@"
+              - text: modifier allows a query to look ahead of its evaluation time.
+            - heading "Subquery" [level=2] [ref=f30e847]:
+              - text: Subquery
+              - link [ref=f30e848] [cursor=pointer]:
+                - /url: "#subquery"
+            - paragraph [ref=f30e853]: Subquery allows you to run an instant query for a given range and resolution. The result of a subquery is a range vector.
+            - paragraph [ref=f30e854]:
+              - text: "Syntax:"
+              - code [ref=f30e855]: <instant_query> '[' <range> ':' [<resolution>] ']' [ @ <float_literal> ] [ offset <float_literal> ]
+            - list [ref=f30e856]:
+              - listitem [ref=f30e857]:
+                - code [ref=f30e858]: <resolution>
+                - text: is optional. Default is the global evaluation interval.
+            - heading "Operators" [level=2] [ref=f30e859]:
+              - text: Operators
+              - link [ref=f30e860] [cursor=pointer]:
+                - /url: "#operators"
+            - paragraph [ref=f30e865]:
+              - text: Prometheus supports many binary and aggregation operators. These are described in detail in the
+              - link "expression language operators" [ref=f30e866] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/querying/operators/
+              - text: page.
+            - heading "Functions" [level=2] [ref=f30e867]:
+              - text: Functions
+              - link [ref=f30e868] [cursor=pointer]:
+                - /url: "#functions"
+            - paragraph [ref=f30e873]:
+              - text: Prometheus supports several functions to operate on data. These are described in detail in the
+              - link "expression language functions" [ref=f30e874] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/querying/functions/
+              - text: page.
+            - heading "Comments" [level=2] [ref=f30e875]:
+              - text: Comments
+              - link [ref=f30e876] [cursor=pointer]:
+                - /url: "#comments"
+            - paragraph [ref=f30e881]:
+              - text: PromQL supports line comments that start with
+              - code [ref=f30e882]: "#"
+              - text: ". Example:"
+            - code [ref=f30e884]: "# This is a comment"
+            - heading "Regular expressions" [level=2] [ref=f30e885]:
+              - text: Regular expressions
+              - link [ref=f30e886] [cursor=pointer]:
+                - /url: "#regular-expressions"
+            - paragraph [ref=f30e891]:
+              - text: All regular expressions in Prometheus use
+              - link "RE2 syntax" [ref=f30e892] [cursor=pointer]:
+                - /url: https://github.com/google/re2/wiki/Syntax
+              - text: .
+            - paragraph [ref=f30e898]: Regex matches are always fully anchored.
+            - heading "Gotchas" [level=2] [ref=f30e899]:
+              - text: Gotchas
+              - link [ref=f30e900] [cursor=pointer]:
+                - /url: "#gotchas"
+            - heading "Staleness" [level=3] [ref=f30e905]:
+              - text: Staleness
+              - link [ref=f30e906] [cursor=pointer]:
+                - /url: "#staleness"
+            - paragraph [ref=f30e911]:
+              - text: The timestamps at which to sample data, during a query, are selected independently of the actual present time series data. This is mainly to support cases like aggregation (
+              - code [ref=f30e912]: sum
+              - text: ","
+              - code [ref=f30e913]: avg
+              - text: ", and so on), where multiple aggregated time series do not precisely align in time. Because of their independence, Prometheus needs to assign a value at those timestamps for each relevant time series. It does so by taking the newest sample that is less than the lookback period ago. The lookback period is 5 minutes by default, but can be"
+              - link [ref=f30e914] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/command-line/prometheus/
+                - text: set with the
+                - code [ref=f30e915]: "--query.lookback-delta"
+                - text: flag
+              - text: or overridden on an individual query via the
+              - code [ref=f30e916]: lookback_delta
+              - text: parameter.
+            - paragraph [ref=f30e917]: If a target scrape or rule evaluation no longer returns a sample for a time series that was previously present, this time series will be marked as stale. If a target is removed, the previously retrieved time series will be marked as stale soon after removal.
+            - paragraph [ref=f30e918]: If a query is evaluated at a sampling timestamp after a time series is marked as stale, then no value is returned for that time series. If new samples are subsequently ingested for that time series, they will be returned as expected.
+            - paragraph [ref=f30e919]: A time series will go stale when it is no longer exported, or the target no longer exists. Such time series will disappear from graphs at the times of their latest collected sample, and they will not be returned in queries after they are marked stale.
+            - paragraph [ref=f30e920]:
+              - text: "Some exporters, which put their own timestamps on samples, get a different behaviour: series that stop being exported take the last value for (by default) 5 minutes before disappearing. The"
+              - code [ref=f30e921]: track_timestamps_staleness
+              - text: setting can change this.
+            - heading "Avoiding slow queries and overloads" [level=3] [ref=f30e922]:
+              - text: Avoiding slow queries and overloads
+              - link [ref=f30e923] [cursor=pointer]:
+                - /url: "#avoiding-slow-queries-and-overloads"
+            - paragraph [ref=f30e928]:
+              - text: If a query needs to operate on a substantial amount of data, graphing it might time out or overload the server or browser. Thus, when constructing queries over unknown data, always start building the query in the tabular view of Prometheus's expression browser until the result set seems reasonable (hundreds, not thousands, of time series at most). Only when you have filtered or aggregated your data sufficiently, switch to graph mode. If the expression still takes too long to graph ad-hoc, pre-record it via a
+              - link "recording rule" [ref=f30e929] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/configuration/recording_rules/#recording-rules
+              - text: .
+            - paragraph [ref=f30e930]:
+              - text: This is especially relevant for Prometheus's query language, where a bare metric name selector like
+              - code [ref=f30e931]: api_http_requests_total
+              - text: could expand to thousands of time series with different labels. Also, keep in mind that expressions that aggregate over many time series will generate load on the server even if the output is only a small number of time series. This is similar to how it would be slow to sum all values of a column in a relational database, even if the output value is only a single number.
+        - separator [ref=f30e932]
+        - navigation "pagination" [ref=f30e933]:
+          - link [ref=f30e935] [cursor=pointer]:
+            - /url: /docs/prometheus/latest/prometheus_agent/
+            - generic [ref=f30e942]:
+              - paragraph [ref=f30e943]: Previous
+              - paragraph [ref=f30e944]: Agent Mode
+          - generic [ref=f30e945]:
+            - link [ref=f30e946] [cursor=pointer]:
+              - /url: https://github.com/prometheus/prometheus/blob/main/docs/querying/basics.md
+              - paragraph [ref=f30e953]: Edit this page
+            - link [ref=f30e954] [cursor=pointer]:
+              - /url: https://github.com/prometheus/prometheus/issues/new?title=docs%3A%20Issue%20with%20%22Querying%20basics%22&body=**Page%3A**%20https%3A%2F%2Fprometheus.io%2Fdocs%2Fprometheus%2Flatest%2Fquerying%2Fbasics%2F%0A%0A**Describe%20the%20issue%3A**%0A%0A
+              - paragraph [ref=f30e965]: Report an issue
+          - link [ref=f30e967] [cursor=pointer]:
+            - /url: /docs/prometheus/latest/querying/operators/
+            - generic [ref=f30e970]:
+              - paragraph [ref=f30e971]: Next
+              - paragraph [ref=f30e972]: Operators
+      - paragraph [ref=f30e982]: On this page
+  - contentinfo [ref=f30e984]:
+    - generic [ref=f30e986]:
+      - paragraph [ref=f30e987]:
+        - text: © Prometheus Authors 2014-2026 | All components are available under the
+        - link "Apache 2 License" [ref=f30e988] [cursor=pointer]:
+          - /url: http://www.apache.org/licenses/LICENSE-2.0
+        - text: "on"
+        - link "GitHub" [ref=f30e989] [cursor=pointer]:
+          - /url: https://github.com/prometheus
+        - text: .
+      - paragraph [ref=f30e990]:
+        - text: © 2026 The Linux Foundation. All rights reserved. The Linux Foundation has registered trademarks and uses trademarks. For a list of trademarks of The Linux Foundation, please see our
+        - link "Trademark Usage" [ref=f30e991] [cursor=pointer]:
+          - /url: https://www.linuxfoundation.org/trademark-usage
+        - text: page.

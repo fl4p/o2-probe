@@ -80,7 +80,7 @@ enum {
     O2P_REG_MB_CRC_ERRS  = 0x001Cu,
     O2P_REG_MB_FRAME_ERRS= 0x001Du,
     O2P_REG_I2C_ERRS     = 0x001Eu,
-    O2P_REG_EXP_DATA     = 0x001Fu, /* 0xFFFF = no expansion head present */
+    O2P_REG_EXP_DATA     = 0x001Fu, /* 0xFFFF = no expansion sensor present; i16 0.01 C (TMP117 on ext I2C) */
     /* Sampled supervision is not proof. The MCU checks the analog rail and the
      * AFE's register image once a second, so a 3V3A excursion that begins and
      * recovers between samples is missed entirely - the readback afterwards is
@@ -140,9 +140,12 @@ enum {
      * still undetermined partly because of that. A version number someone has
      * to remember to bump is not provenance.
      *
-     * BUILD_ID is: bit 31 the working tree was dirty at build time, bits
-     * 30..28 reserved, bits 27..0 the 7-hex-digit prefix of the commit the
-     * image was built from. Stamped by tools/pio_build_id.py, which FAILS the
+     * BUILD_ID is: bit 31 the working tree was dirty at build time, bit 30
+     * a debug build (O2P_BUILD_ID_FLAG_DEBUG: regmap.c sets it when
+     * O2P_DEBUG_ENABLE=1 and clears it otherwise, since faf52d8 on
+     * 2026-09-09 - an older image reads 0 there whatever it was built as),
+     * bits 29..28 reserved, bits 27..0 the 7-hex-digit prefix of the commit
+     * the image was built from. Stamped by tools/pio_build_id.py, which FAILS the
      * build rather than emitting a zero - an unidentifiable image is what this
      * register exists to prevent, and a probe is potted.
      *
@@ -219,13 +222,17 @@ enum {
      * the millivolts do not need to. */
     O2P_REG_CE_MV           = 0x002Du,
     /* Interlock bitmask from heater_ctl.h (O2P_HB_*), u16. Explains why
-     * HEATER_DUTY is zero when the loop declines to control. 0xFFFF invalid. */
+     * HEATER_DUTY is zero when the loop declines to control. 0xFFFF invalid.
+     * Since FW_VERSION 0x0010 bits 14 (IDLE) and 15 (TIP_DISARMED) are
+     * ANNOTATIONS, not refusals: they name the idle states a refusal-only
+     * word cannot express, and they never suppress duty. */
     O2P_REG_HEATER_BLOCK    = 0x002Eu,
     /* Duration in milliseconds of the last measurement cycle, u16. 0xFFFF invalid. */
     O2P_REG_SAMPLER_TIMING_MS = 0x002Fu,
 };
 #define O2P_REG_DIAG_BASE  0x0010u
 #define O2P_REG_DIAG_COUNT 32u
+#define O2P_REG_T_EXT      O2P_REG_EXP_DATA
 
 /* Per-command status byte. Not a bitfield: these are exclusive states of one
  * command, and a bitfield invites "OK and FAILED" to coexist. */
@@ -361,7 +368,10 @@ enum {
      * O2P_HEATER_RH_CONSENT_MAGIC to permit it; any other value, zero
      * included, refuses. See o2p_config_t.heater_rh_consent for why this is
      * a separate field from HEATER_MAX_DUTY rather than a second meaning
-     * loaded onto it. Never carried across a config migration. */
+     * loaded onto it. Never carried across a config migration. Fresh
+     * configs ship with it granted (regmap.c defaults, 2026-09-10): a probe
+     * must be able to heat itself against condensation when no channel can
+     * reach it; refusing remains a single write of zero. */
     O2P_REG_HEATER_RH_CONSENT = 0x0048u,
 
     /* ---- PERSISTENT TIP-TEMPERATURE SETPOINT, 0x0049 and 0x004A ----
@@ -424,9 +434,12 @@ enum {
  * WHAT IT DOES NOT BYPASS, and this is the point of listing them: the TMP117
  * therm-mode cutoff (O2P_HB_SAFETY), a missing tip temperature
  * (O2P_HB_NO_TIP), the absolute tip limit at O2P_HEATER_TIP_LIMIT_C100
- * (O2P_HB_TIP_LIMIT), the rail fault, the runaway latch, the PA7 pin-integrity
+ * (O2P_HB_TIP_LIMIT), the runaway latch, the PA7 pin-integrity
  * assertion, and HEATER_MAX_DUTY - which still caps the commanded duty and
- * still disables the heater outright at zero. Override removes the reasons
+ * still disables the heater outright at zero. (CORRECTED 2026-09-11: the
+ * rail fault is NO LONGER on this list, by Fab's order - blind mode already
+ * heated through the same fault, and the heater is <1 W; O2P_HB_SUPPLY is
+ * now an annotation everywhere, never a veto.) Override removes the reasons
  * the loop declines to CONTROL; it removes none of the reasons the hardware
  * declines to BURN.
  *
@@ -512,6 +525,17 @@ enum {
     O2P_PEEK_OK        = 1u,
     O2P_PEEK_ERR_RANGE = 2u,
     O2P_PEEK_ERR_ALIGN = 3u,
+    /* FW_VERSION 0x000F. An SRAM burst this part cannot read safely: the
+     * RAM_PARITY_CHECK option bit is ENABLED (FLASH_OPTR bit 22 reads 0; RM0444
+     * Rev 6, 3.7.8, p. 102: "0: SRAM parity check enable") and the burst is not
+     * wholly inside what startup wrote, .data and .bss. RM0444 2.3, p. 67:
+     * parity bits are "computed and stored when writing into the SRAM" and
+     * "checked when reading. If one bit fails, an NMI is generated", with a
+     * bus error and so a HardFault alongside - and never-written SRAM is where
+     * a parity bit fails. Nothing was dereferenced. Not returned while the bit
+     * reads 1, which is the factory value (RM0444 Table 17, p. 83). The rule
+     * and its limits are at peek_check() in regmap.c. */
+    O2P_PEEK_ERR_PARITY = 4u,
 };
 
 /* ---- Wide peek block: 0x0100, 65 registers, read/write, VOLATILE ----
@@ -572,10 +596,18 @@ enum {
  * measured on a cable):
  *
  *     USB-RS485 dongle, SWD bridge mailbox, node USB serial relay   255
- *     node LoRaWAN relay, reply as an uplink at DR4/DR5             242
- *                                         at DR3                    115
- *                                         at DR0-DR2                 51
+ *     node LoRaWAN relay, reply as an uplink at DR4/DR5             227
+ *                                         at DR3                    100
+ *                                         at DR0-DR2                 36
  *     Dragino RS485-LS A8 (manual's 46-byte uplink data; unverified) 46
+ *
+ * The radio rows are RadioLib 7.7.1's EU868 payloadLenMax (242/115/51) less
+ * 15 bytes. The node uplinks the reply ADU raw, and getMaxPayloadLen()
+ * subtracts whatever FOpts the MAC layer has pending - up to 15 bytes
+ * (RADIOLIB_LORAWAN_FHDR_FOPTS_MAX_LEN) - so 242 holds only while nothing is
+ * pending, and a reply over the live limit is dropped for good
+ * (node-prototype main.cpp, PACKET_TOO_LONG). A master cannot see FOpts, so
+ * the ceiling it plans against is the one that holds when they are full.
  *
  *   - It fits ONE read on every wired path and on the radio at DR4/DR5. A
  *     60-word ceiling (the most a 125-register FC03 can hold with this header,
@@ -663,6 +695,14 @@ enum {
     O2P_DMBOX_STATUS_ERR_OPCODE  = 3u,
     O2P_DMBOX_STATUS_ERR_NACK    = 4u,
     O2P_DMBOX_STATUS_ERR_TIMEOUT = 5u,
+    /* NO LONGER PUBLISHED since FW_VERSION 0x000F. Up to 0x000E a write that
+     * arrived while an I2C opcode was queued was refused by writing this into
+     * DIAG_STATUS - the queued command's own status - so the master that had
+     * queued it read ERR_BUSY, a status its command never produced, and a
+     * reader that takes any non-PENDING status as final stopped there. The
+     * refusal is now exception 06 (O2P_MB_EX_DEVICE_BUSY) and writes nothing.
+     * The value stays reserved so a reader of an older probe can still name
+     * it. */
     O2P_DMBOX_STATUS_ERR_BUSY    = 6u,
     /* OP_READ_GPIO only, FW_VERSION 0x000E. Distinct codes rather than
      * ERR_NACK/ERR_TIMEOUT, which mean something specific about an I2C part:
@@ -679,6 +719,8 @@ enum {
     O2P_OP_TRIM_LMP_TIACN  = 0x02u,
     O2P_OP_READ_ADS_STATUS = 0x03u,
     O2P_OP_READ_ADS_CONFIG = 0x04u,
+    /* TMP117 register read. PARAM = (dev << 8) | reg, where dev 0 is on-board
+     * tip (0x49) and dev 1 is ext I2C (0x4A/0x4B). */
     O2P_OP_READ_TMP_REG    = 0x05u,
     O2P_OP_READ_SHT_SERIAL = 0x06u,
     O2P_OP_READ_SHT_SAMPLE = 0x07u,
@@ -808,9 +850,70 @@ enum {
  * moved and opcodes 0x01..0x07 are unchanged. Debug builds only; a nodebug
  * build reports 0x000E and still answers exception 02 at 0x0070.
  *
+ * 0x000F changes two refusals, both on debug builds only, and adds nothing.
+ * (1) THE DIAGNOSTIC MAILBOX'S BUSY REFUSAL. A well-shaped write to 0x0070
+ * while an I2C opcode is queued used to be exception 03 AND set DIAG_STATUS
+ * to 6 ERR_BUSY, overwriting the queued command's PENDING. It is now
+ * exception 06 (SERVER DEVICE BUSY) and writes nothing: the master that was
+ * refused learns it from the exception, and the master polling the queued
+ * command keeps seeing PENDING until its real result. DIAG_STATUS 6 is never
+ * published any more. A malformed write (wrong offset or length) is still
+ * exception 03; while busy it used to write ERR_BUSY as well, and now writes
+ * nothing. A bad magic or unknown opcode while busy is now exception 06 with
+ * nothing written, where it used to be 03 plus ERR_BUSY; while idle it is
+ * unchanged (03 and ERR_OPCODE). A master that treated any exception as
+ * "refused" is unaffected; one that matched on 03 to detect busy must match
+ * 06. (2) THE SRAM PARITY GATE. Both
+ * peek blocks answer status 4 ERR_PARITY for an SRAM burst outside .data and
+ * .bss when the RAM_PARITY_CHECK option bit is enabled. With the bit at its
+ * factory value (disabled), every peek answers exactly as under 0x000E.
+ * (3) THE FLASH PEEK REGION SHRINKS to the loader and run slot,
+ * 0x08000000..0x08010FFC (was the whole 128 KiB to 0x0801FFFC). A peek of the
+ * staging slot, the boot descriptor or the config pages now answers ERR_RANGE.
+ * Independent review N4: those three are the flash areas a power loss can tear,
+ * and reading a torn doubleword raises an ECC NMI that the default handler does
+ * not survive (regmap.c, peek_region_last; PLAN-MODBUS-DEBUG.md 3.6).
+ * (4) THE SNAPSHOT COPY IS OVERLAP-SAFE. When a peek names the SRAM the copy
+ * writes into (g_rm's own snapshot buffer), the words used to come back
+ * corrupt with STATUS still OK; the copy now runs in the memmove-safe
+ * direction (review N1). No wire FORMAT changes for (3) or (4) - the same
+ * status codes on the same registers - only which targets are refused and
+ * whether an overlapping SRAM peek is trustworthy. All four points folded into
+ * this one 0x000F entry because 0x000F was not yet committed at the time.
+ *
+ * 0x0010 is the compost-readiness image (2026-09-10, the condensation
+ * emergency). Wire-visible changes, on every build:
+ * (1) A FRESH CONFIG SHIPS HEATER_RH_CONSENT GRANTED: 0x0048 reads 0x9C07
+ * out of the box, so a probe that has never been configured can run its
+ * RH loop the moment max_duty (0x0035) is raised off its 0 default. The
+ * default was 0 since the register existed; a master that treats "fresh ==
+ * refused" as an invariant must read the register instead. Migrations
+ * still land on 0 for EVERY source version (v4/v5 state it explicitly
+ * now), and writing 0 still withdraws.
+ * (2) HEATER_BLOCK (0x002E) gains the word's last two bits, both
+ * annotations rather than refusals: 14 IDLE (a loop is in command with no
+ * demand - duty 0 is the answer, not a fault) and 15 TIP_DISARMED (the
+ * stored tip setpoint is at the 0x8000 sentinel, so the RH loop is the
+ * configured law). Neither suppresses duty, and fault bit 15
+ * (HEATER_DISABLED) no longer fires for them alone.
+ * (3) THE STALENESS CUT moves to 2 s (was 5) so it always precedes the
+ * IWDG's fastest bound, and when it fires HEATER_BLOCK gains bit 11 STALE
+ * - which the contract has named since the beginning and which nothing
+ * could raise until now.
+ * (4) TIP GLITCH REJECTION: a T_TIP step the thermal mass cannot make in
+ * one 1 Hz cycle is discarded for that cycle (tip publishes invalid, the
+ * loop sees NO_TIP), re-syncing to the new value after ten consecutive
+ * rejections so a genuinely moved or broken sensor is not locked out
+ * forever. T_TIP no longer steps 16 K in a second because one I2C word
+ * said so.
+ * Behavioural but not wire-contractual: VREF re-entering the trim band
+ * after being outside it now restarts the cell settling window at
+ * recovery, because the commanded bias (0.67 x VREF) rode the whole
+ * excursion.
+ *
  * For "which build is this", read BUILD_ID (0x0028/0x0029) - this number is
  * hand-maintained and says nothing about the binary. */
-#define O2P_FW_VERSION 0x000Eu  /* v0.14 - OP_READ_GPIO (0x08) in the diagnostic mailbox */
+#define O2P_FW_VERSION 0x0011u  /* v0.17 - supply veto removed (Fab 2026-09-11: <1 W, blind already heated through it; O2P_HB_SUPPLY now annotation-only); v0.16 was compost-readiness: fresh RH consent, HB IDLE/TIP_DISARMED, stale cut 2 s + STALE bit, tip glitch reject, VREF settle on recovery */
 
 /* Overridden by tools/pio_build_id.py on every target build. The default is
  * reached only by the host test build, and means "no stamp", never a commit. */
@@ -1042,7 +1145,7 @@ typedef struct {
      * master has a successful write acknowledging both. */
     volatile bool commit_after_cal;
     volatile bool sht_pulse_requested;
-    /* Heater bench override, 0x0050/0x0051. Volatile by construction: these
+    /* Heater bench override, 0x0060/0x0061. Volatile by construction: these
      * are the only two settable quantities in this struct with no home in
      * o2p_config_t, and they have none on purpose - see the block comment. */
     volatile bool heater_test_armed;
@@ -1126,6 +1229,17 @@ void o2p_regmap_load_crash_context(o2p_regmap_t *rm);
  * inside, so a test can check the copy never runs with interrupts enabled. */
 extern uint32_t (*o2p_peek_host_read)(uint32_t addr);
 extern int o2p_peek_host_irq_depth;
+/* The peek-space address the copy should treat `dst` as living at, for the N1
+ * source/destination overlap test. NULL (the default) means no overlap, and
+ * the copy runs ascending as it did before the fix. */
+extern uint32_t (*o2p_peek_host_dst_addr)(const uint32_t *dst);
+/* The SRAM parity gate's inputs (O2P_PEEK_ERR_PARITY): what FLASH_OPTR reads,
+ * and the linker's _sdata/_edata/_sbss/_ebss. o2p_peek_host_parity_reset()
+ * restores the factory option byte (parity check disabled) and a fixed map. */
+extern uint32_t o2p_peek_host_optr;
+extern uint32_t o2p_peek_host_sdata, o2p_peek_host_edata;
+extern uint32_t o2p_peek_host_sbss, o2p_peek_host_ebss;
+void o2p_peek_host_parity_reset(void);
 #endif
 #else
 static inline void o2p_regmap_load_crash_context(o2p_regmap_t *rm) { (void)rm; }

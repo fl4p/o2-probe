@@ -236,3 +236,36 @@ o2p_i2c_status_t o2p_i2c1_write_read(uint8_t addr7,
                 I2C_CR2_RD_WRN | I2C_CR2_START | I2C_CR2_AUTOEND;
     return finish(pull(rbuf, rlen));
 }
+
+o2p_i2c_status_t o2p_i2c1_probe(uint8_t addr7)
+{
+    o2p_i2c_status_t st = start(addr7, 0u, false, true);
+    if (st != O2P_I2C_OK) {
+        bump_errors();
+        return st;
+    }
+    st = wait_isr(I2C_ISR_STOPF);
+    if (st == O2P_I2C_NACK) {
+        /* Device did not acknowledge address byte. AUTOEND generates STOP;
+         * wait for STOPF to ensure the bus is cleanly released, then clear it.
+         * NACK is expected for an absent optional sensor and does not bump errors. */
+        o2p_i2c_status_t s = wait_isr(I2C_ISR_STOPF);
+        I2C1->ICR = I2C_ICR_STOPCF;
+        if (s != O2P_I2C_OK) {
+            I2C1->CR2 |= I2C_CR2_STOP;
+            (void)wait_isr(I2C_ISR_STOPF);
+            I2C1->ICR = I2C_ICR_STOPCF;
+            bump_errors();
+            return s;
+        }
+        return O2P_I2C_NACK;
+    }
+    I2C1->ICR = I2C_ICR_STOPCF;
+    if (st != O2P_I2C_OK) {
+        I2C1->CR2 |= I2C_CR2_STOP;
+        (void)wait_isr(I2C_ISR_STOPF);
+        I2C1->ICR = I2C_ICR_STOPCF;
+        bump_errors();
+    }
+    return st;
+}

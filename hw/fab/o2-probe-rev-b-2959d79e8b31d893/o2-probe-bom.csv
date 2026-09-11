@@ -1,0 +1,53 @@
+mpn,value,footprint,qty_per_board,fitted,sourcing,refs
+,120R DNP,Resistor_SMD:R_0603_1608Metric,0,no,dnp,R4
+,DNP 100k,Resistor_SMD:R_0603_1608Metric,0,no,dnp,R39
+,100k,Resistor_SMD:R_0603_1608Metric,4,yes,generic-stock,R1 R17 R29 R9
+,100n,Capacitor_SMD:C_0402_1005Metric,19,yes,generic-stock,C11 C12 C13 C15 C16 C18 C19 C2 C20 C21 C25 C27 C28 C29 C30 C31 C32 C33 C34
+,10R,Resistor_SMD:R_0603_1608Metric,3,yes,generic-stock,R2 R3 R32
+,10k,Resistor_SMD:R_0603_1608Metric,5,yes,generic-stock,R18 R19 R27 R28 R8
+,10n,Capacitor_SMD:C_0603_1608Metric,1,yes,generic-stock,C17
+,1k,Resistor_SMD:R_0603_1608Metric,5,yes,generic-stock,R33 R36 R37 R38 R41
+,1u,Capacitor_SMD:C_0603_1608Metric,4,yes,generic-stock,C26 C5 C6 C8
+,22u,Capacitor_SMD:C_1206_3216Metric,2,yes,generic-stock,C3 C4
+,4.7k,Resistor_SMD:R_0603_1608Metric,2,yes,generic-stock,R10 R11
+,4.7u,Capacitor_SMD:C_0603_1608Metric,2,yes,generic-stock,C10 C14
+,47R,Resistor_SMD:R_0603_1608Metric,2,yes,generic-stock,R31 R40
+,47k,Resistor_SMD:R_0603_1608Metric,4,yes,generic-stock,R24 R25 R45 R7
+0ZCJ0075AF2E,0.75A PTC,o2-probe:PTC_1206_3216Metric,1,yes,mpn,F1
+ADS1119IRTER,ADS1119IRTER,Package_DFN_QFN:Texas_RTE0016D_WQFN-16-1EP_3x3mm_P0.5mm_EP0.8x0.8mm,1,yes,mpn,U8
+AO3400A,AO3400A,Package_TO_SOT_SMD:SOT-23,1,yes,mpn,Q2
+AP63205WU-7,AP63205WU-7,Package_TO_SOT_SMD:TSOT-23-6,1,yes,mpn,U1
+AZ431BN-ATRG1,AZ431BN-ATRG1,Package_TO_SOT_SMD:SOT-23,1,yes,mpn,U15
+BZT52C10-E3-08,10V ZENER,Diode_SMD:D_SOD-123,1,yes,mpn,DZ1
+C0603C102J5GACTU,1n,Capacitor_SMD:C_0603_1608Metric,1,yes,mpn,C9
+C1206C106K3RACTU,10u 25V X7R,Capacitor_SMD:C_1206_3216Metric,2,yes,mpn,C1 C7
+CRCW2512280RFKEG,280R 1W,Resistor_SMD:R_2512_6332Metric,2,yes,mpn,RH1 RH2
+DMP3130L-7,DMP3130L,Package_TO_SOT_SMD:SOT-23,1,yes,mpn,Q1
+LMP91000SDX/NOPB,LMP91000SD/NOPB,Package_SON:WSON-14-1EP_4.0x4.0mm_P0.5mm_EP2.6x2.6mm,1,yes,mpn,U7
+OPA2333AIDGKR,OPA2333AIDGKR,Package_SO:VSSOP-8_3x3mm_P0.65mm,1,yes,mpn,U4
+RC0603FR-071KL,1k 1%,Resistor_SMD:R_0603_1608Metric,1,yes,mpn,R42
+RC0603FR-0791KL,91k 1%,Resistor_SMD:R_0603_1608Metric,3,yes,mpn,R26 R43 R44
+RT0603BRD0747KL,47k 0.1%,Resistor_SMD:R_0603_1608Metric,2,yes,mpn,R34 R35
+SGX-OX-ROHS-Mini,SGX-OX-ROHS-Mini,o2-probe:SGX-OX-ROHS-Mini_ISS2,1,yes,mpn,U11
+SHT45-AD1F-R2,SHT45-AD1F,Sensor_Humidity:Sensirion_DFN-4_1.5x1.5mm_P0.8mm_SHT4x_NoCentralPad,1,yes,mpn,U12
+SM712-02HTG,SM712-02HTG,Package_TO_SOT_SMD:SOT-23,1,yes,mpn,D2
+SMBJ15A-13-F,SMBJ15A-13-F,Diode_SMD:D_SMB,1,yes,mpn,D1
+SRN6028C-4R7M,4.7u SHIELDED,Inductor_SMD:L_6.3x6.3_H3,1,yes,mpn,L1
+STM32G071CBT7,STM32G071CBT7,Package_QFP:LQFP-48_7x7mm_P0.5mm,1,yes,mpn,U6
+THVD1410DR,THVD1410DR,Package_SO:SOIC-8_3.9x4.9mm_P1.27mm,1,yes,mpn,U5
+TMP117AIDRVR,TMP117 CELL,tmp117-probe:TMP117_WSON-6-1EP_2x2mm_TI,1,yes,mpn,U10
+TPD2E2U06QDBZRQ1,TPD2E2U06-Q1,Package_TO_SOT_SMD:SOT-23,1,yes,mpn,D7
+TPS7A2033PDBVR,TPS7A2033PDBVR,Package_TO_SOT_SMD:SOT-23-5,2,yes,mpn,U2 U3
+,BRIDGE RX (PA3),o2-probe:SolderWireNoRelief_J106,1,yes,not-purchased,J106
+,BRIDGE TX (PA2),o2-probe:SolderWireNoRelief_J105,1,yes,not-purchased,J105
+,CELL_CE,TestPoint:TestPoint_Pad_D1.0mm,1,yes,not-purchased,TP3
+,CELL_WE,TestPoint:TestPoint_Pad_D1.0mm,1,yes,not-purchased,TP1
+,GND,TestPoint:TestPoint_Pad_D1.0mm,1,yes,not-purchased,TP2
+,GUARD,TestPoint:TestPoint_Pad_D1.0mm,1,yes,not-purchased,TP5
+,J1.1 BROWN +12V,Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief,1,yes,not-purchased,J101
+,J1.2 WHITE GND,Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief,1,yes,not-purchased,J102
+,J1.3 GREEN A,o2-probe:SolderWire_RaisedRelief_1x01,1,yes,not-purchased,J103
+,J1.4 YELLOW B,o2-probe:SolderWire_RaisedRelief_1x01,1,yes,not-purchased,J104
+,TC2030 SWD PRE-POT,Connector:Tag-Connect_TC2030-IDC-NL_2x03_P1.27mm_Vertical,1,yes,not-purchased,J3
+,TMP_CELL_EP,TestPoint:TestPoint_Pad_D1.0mm,1,yes,not-purchased,TP6
+,VREF,TestPoint:TestPoint_Pad_D1.0mm,1,yes,not-purchased,TP4

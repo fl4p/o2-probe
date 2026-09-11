@@ -168,8 +168,16 @@ def test_sources_of_truth():
     m = re.search(r"O2P_OP_READ_GPIO\s*=\s*(0x[0-9A-Fa-f]+)u", regmap)
     check(m is not None and int(m.group(1), 16) == cli.OP_READ_GPIO, "opcode 0x08 is regmap.h's")
     m = re.search(r"#define O2P_FW_VERSION (0x[0-9A-Fa-f]+)u", regmap)
-    check(m is not None and int(m.group(1), 16) == cli.FW_READ_GPIO,
-          "FW_READ_GPIO is the version that introduced the opcode")
+    check(m is not None and int(m.group(1), 16) == cli.FW_LATEST,
+          "the CLI knows the probe's current wire contract (FW_VERSION %s)"
+          % (m.group(1) if m else "?"))
+    check(re.search(r"0x%04X adds OP_READ_GPIO" % cli.FW_READ_GPIO, regmap) is not None,
+          "FW_READ_GPIO is the version regmap.h's changelog says introduced the opcode")
+    check(re.search(r"0x%04X changes two refusals" % cli.FW_BUSY_IS_EXCEPTION, regmap)
+          is not None and "O2P_MB_EX_DEVICE_BUSY      = 0x06u" in
+          open(os.path.join(SRC, "modbus_pdu.h"), encoding="utf-8").read() and
+          cli.MB_EX_BUSY == 6,
+          "the busy refusal is exception 06 from the version the changelog names")
     diag_h = open(os.path.join(SRC, "gpio_diag.h"), encoding="utf-8").read()
     ok = True
     for macro, value in (("CONFIG_VALID", cli.R0_CONFIG_VALID), ("LEVEL_VALID", cli.R0_LEVEL_VALID),
@@ -339,6 +347,118 @@ def test_end_to_end(exe):
         check(not state["armed"], "a peer's command between write and read-back is refused")
     h.finish()
 
+    print("a queued I2C command, and a second master's pin query (review F2)")
+
+    def queue_lmp(link):
+        """Master 1's LMP91000 read, queued and not yet run: nothing links
+        main.c into the oracle, so it stays PENDING until #diagdone."""
+        rsp = link.raw(peek.frame(struct.pack(">BHHBHH", 16, 0x0070, 2, 4, 0x5A01, 0x0010)))
+        assert rsp[1] == 16, rsp.hex()
+
+    def mailbox(link):
+        rsp = link.raw(peek.frame(struct.pack(">BHH", 3, 0x0070, 7)))
+        return list(struct.unpack(">7H", rsp[3:17]))
+
+    try:
+        code, text = h.run(["diag", "gpio", "PB1"], setup=queue_lmp)
+    except ModbusException as e:
+        # The tool must report the refusal, not let it escape.
+        code, text = "raised exception %d" % e.code, ""
+    link = h.link
+    after = mailbox(link)
+    reads = h.finish()
+    check(code == 1 and "exception 06" in text and "busy" in text.lower() and
+          not LEVEL_WORD.search(text),
+          "master 2's `diag gpio PB1` is refused as busy, exit 1, no level")
+    check(after[:3] == [0x5A01, 0x0010, cli.DIAG_PENDING],
+          "and master 1's command still reads 0x5A01 0x0010 PENDING (%s)"
+          % ["0x%04X" % v for v in after[:3]])
+    check(reads == (0, 0, 0), "no GPIO or RCC register was loaded (%r)" % (reads,))
+
+    code, text = h.run(["diag", "gpio", "--port", "A"], setup=queue_lmp)
+    params = gpio_writes(h.link)
+    h.finish()
+    check(code == 1 and params == [0x0000] and "exception 06" in text,
+          "a port walk stops at its first refused pin rather than printing sixteen of them")
+
+    # Master 1's side: its poll must neither end at a status its command did
+    # not produce, nor report a result that belongs to someone else.
+    state = {"n": 0}
+
+    def peer_gpio_then_done(link, adu):
+        if adu[1] != 3 or struct.unpack(">H", adu[2:4])[0] != 0x0070:
+            return
+        state["n"] += 1
+        if state["n"] == 1:
+            rsp = link.raw(peek.frame(struct.pack(">BHHBHH", 16, 0x0070, 2, 4, 0x5A08, 0x0101)))
+            state["peer"] = (rsp[1], rsp[2] if len(rsp) > 2 else None)
+        elif state["n"] == 2:
+            assert ctl(link, "#diagdone 2 1234 0 0 0") == "ok"
+
+    code, text = h.run(["diag", "lmp-read", "0x10"], before=peer_gpio_then_done)
+    h.finish()
+    check(state.get("peer") == (0x90, 6),
+          "the peer's pin query between master 1's polls got exception 06 (%r)"
+          % (state.get("peer"),))
+    check(code in (0, None) and "result: OK" in text and "0x1234" in text and
+          "ERR_BUSY" not in text,
+          "master 1 kept polling through it and reports its own OK and RDATA0 0x1234")
+
+    def peer_replaces_after_done(link, adu):
+        if adu[1] != 3 or struct.unpack(">H", adu[2:4])[0] != 0x0070:
+            return
+        state["n"] += 1
+        if state["n"] == 1:
+            assert ctl(link, "#diagdone 2 1234 0 0 0") == "ok"
+            rsp = link.raw(peek.frame(struct.pack(">BHHBHH", 16, 0x0070, 2, 4, 0x5A08, 0x0101)))
+            assert rsp[1] == 16, rsp.hex()
+
+    state["n"] = 0
+    try:
+        h.run(["diag", "lmp-read", "0x10"], setup=pin_setup(PORT["B"], 1, 0, idr=2),
+              before=peer_replaces_after_done)
+        check(False, "a result that is another master's command is refused, not printed")
+    except cli.DiagTorn:
+        check(True, "a result that is another master's command is refused, not printed")
+    h.finish()
+
+    # A 0x000E probe's clobber, replayed on the wire the old regmap.c produced
+    # (9c05fef: DIAG_STATUS := ERR_BUSY while the command stays queued). The
+    # current oracle cannot produce it any more, which is the point of F2.
+    class Clobber0x000E:
+        def __init__(self, inner):
+            self.inner, self.p, self.log, self.polls = inner, inner.p, inner.log, 0
+
+        def exchange(self, adu, expect_len):
+            rsp = self.inner.exchange(adu, expect_len)
+            if adu[1] == 3 and struct.unpack(">H", adu[2:4])[0] == 0x0070:
+                self.polls += 1
+                if self.polls == 1:
+                    regs = list(struct.unpack(">7H", rsp[3:17]))
+                    regs[2] = 6
+                    return peek.frame(bytes([3, 14]) + struct.pack(">7H", *regs))
+                if self.polls == 2:
+                    assert ctl(self.inner, "#diagdone 2 beef 0 0 0") == "ok"
+                    return self.inner.exchange(adu, expect_len)
+            return rsp
+
+        def close(self):
+            pass
+
+    link = peek.OracleLink(exe)
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        try:
+            cli.cmd_diag(Bus(Clobber0x000E(link), 3),
+                         type("A", (), {"diag_cmd": "lmp-read", "param": "0x10",
+                                        "gpio_port": None})())
+            rc = 0
+        except SystemExit as e:
+            rc = e.code
+    link.close()
+    check(rc == 0 and "ERR_BUSY" not in out.getvalue() and "0xBEEF" in out.getvalue(),
+          "on a 0x000E probe, ERR_BUSY over master 1's PENDING is not taken as its answer")
+
     print("a probe that does not know the opcode")
     class Refuse08:
         def __init__(self, inner):
@@ -359,7 +479,9 @@ def test_end_to_end(exe):
     rc = cli.cmd_diag_gpio(Bus(Refuse08(link), 3),
                            type("A", (), {"param": "PB1", "gpio_port": None})(), out=out.append)
     link.close()
-    check(rc == 1 and any("0x000E" in ln and "FW_VERSION 0x000E" in ln for ln in out),
+    probe_fw = "FW_VERSION 0x%04X" % cli.FW_LATEST
+    check(rc == 1 and any(probe_fw in ln and "needs 0x%04X" % cli.FW_READ_GPIO in ln
+                          for ln in out),
           "exception 03 is reported with the probe's FW_VERSION and the one needed")
     return fw_ok
 

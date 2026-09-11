@@ -103,6 +103,7 @@ CSV_COLUMNS = [
     "uptime_s", "fw", "hw", "reset_cause", "lmp_readback",
     "mb_crc_errs", "mb_frame_errs", "i2c_errs", "settle_restarts",
     "faults_ever", "faults_ever_named", "ads_fail_count", "exp_data",
+    "t_ext_c",
 ]
 
 
@@ -235,6 +236,7 @@ def decode_diag(r):
         "lmp_readback": "0x%04X" % r[0x0B],
         "mb_crc_errs": r[0x0C], "mb_frame_errs": r[0x0D], "i2c_errs": r[0x0E],
         "exp_data": None if r[0x0F] == U16_INVALID else r[0x0F],
+        "t_ext_c": scaled(i16(r[0x0F]), 100.0) if r[0x0F] != U16_INVALID else None,
         "settle_restarts": r[0x10],
         "sample_seq": r[0x11],
         "t_die_c": scaled(i16(r[0x12]), 100.0),
@@ -316,6 +318,8 @@ def show(row):
         print("  dew margin    %s" % fmt(row["dew_margin_k"], " K"))
         print("  die temp      %s" % fmt(row["t_die_c"], " C"))
         print("  AFE temp      %s" % fmt(row.get("t_afe_c"), " C"))
+        if row.get("t_ext_c") is not None:
+            print("  ext temp      %s" % fmt(row["t_ext_c"], " C"))
         print("  uptime        %d s   seq %d   fw %s hw %s"
               % (row["uptime_s"], row["sample_seq"], row["fw"], row["hw"]))
         print("  errors        crc %d  frame %d  i2c %d  ads_fail %d  "

@@ -360,6 +360,14 @@ bool o2p_config_migrate(const void *record, size_t len,
         migrated.slave_addr = v4.slave_addr;
         migrated.baud_code = v4.baud_code;
         migrated.parity_code = v4.parity_code;
+        /* heater_rh_consent is NOT carried, deliberately. The fresh-config
+         * default grants it (regmap.c, 2026-09-10), so leaving the seeded
+         * default standing would mint authority the stored record never had
+         * and bring a field unit up consented after an upgrade - the exact
+         * hazard the consent field exists to gate. carry_common() enforces
+         * the same rule for v2/v3 and carry_v6_body() for v6/v7; v4/v5 copy
+         * field-by-field and must state it too (2026-09-10 audit F1). */
+        migrated.heater_rh_consent = 0u;
         /* dil_alpha_x1000 keeps the default o2p_config_defaults() installed,
          * 1000, which is the arithmetic v4 performed. */
         break;
@@ -393,6 +401,9 @@ bool o2p_config_migrate(const void *record, size_t len,
         migrated.slave_addr = v5.slave_addr;
         migrated.baud_code = v5.baud_code;
         migrated.parity_code = v5.parity_code;
+        /* heater_rh_consent is NOT carried - same rule and same reason as
+         * case 4u above (2026-09-10 audit F1). */
+        migrated.heater_rh_consent = 0u;
         break;
     }
     case 6u: {

@@ -1,0 +1,410 @@
+xPack Open On-Chip Debugger 0.12.0+dev-02228-ge5888bda3-dirty (2025-10-04-22:45)
+Licensed under GNU GPL v2
+For bug reports, read
+	http://openocd.org/doc/doxygen/bugs.html
+Warn : DEPRECATED: auto-selecting transport "swd". Use 'transport select swd' to suppress this message.
+Warn : Transport "swd" was already selected
+Info : CMSIS-DAP: SWD supported
+Info : CMSIS-DAP: JTAG supported
+Info : CMSIS-DAP: Atomic commands supported
+Info : CMSIS-DAP: Test domain timer supported
+Info : CMSIS-DAP: FW Version = 2.0.0
+Info : CMSIS-DAP: Interface Initialised (SWD)
+Info : SWCLK/TCK = 0 SWDIO/TMS = 1 TDI = 1 TDO = 0 nTRST = 0 nRESET = 0
+Info : CMSIS-DAP: Interface ready
+Info : clock speed 2000 kHz
+Info : SWD DPIDR 0x0bc11477
+Info : [stm32g0x.cpu] Cortex-M0+ r0p1 processor detected
+Info : [stm32g0x.cpu] target has 4 breakpoints, 2 watchpoints
+Info : [stm32g0x.cpu] Examination succeed
+Info : [stm32g0x.cpu] starting gdb server on 3333
+Info : Listening on port 3333 for gdb connections
+Warn : [stm32g0x.cpu] target was in unknown state when halt was requested
+up  5760s settle    0  AFE  1697 mV  cell    -3.72 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x080089ec msp: 0x20008f94
+up  5765s settle    0  AFE  1696 mV  cell    -3.57 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08008a10 msp: 0x20008e68
+up  5770s settle    0  AFE  1696 mV  cell    -3.57 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x81000000 pc: 0x08007a2c msp: 0x20008fa8
+up  5775s settle    0  AFE  1696 mV  cell    -3.57 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x81000000 pc: 0x08007a2c msp: 0x20008fa8
+up  5780s settle    0  AFE  1696 mV  cell    -3.57 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x41000000 pc: 0x08007ac0 msp: 0x20008fa8
+up  5785s settle    0  AFE  1696 mV  cell    -3.57 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007a4c msp: 0x20008fa8
+up  5790s settle    0  AFE  1696 mV  cell    -3.57 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007138 msp: 0x20008fa8
+up  5795s settle    0  AFE  1696 mV  cell    -3.57 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08008160 msp: 0x20008fa8
+up  5800s settle    0  AFE  1696 mV  cell    -3.57 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x01000000 pc: 0x08007ac4 msp: 0x20008fa8
+up  5805s settle    0  AFE  1696 mV  cell    -3.57 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x81000000 pc: 0x08007b1a msp: 0x20008fa8
+up  5810s settle    0  AFE  1696 mV  cell    -3.57 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x81000000 pc: 0x08009ac2 msp: 0x20008f08
+up  5815s settle    0  AFE  1696 mV  cell    -3.57 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x01000000 pc: 0x08007aa4 msp: 0x20008fa8
+up  5820s settle    0  AFE  1696 mV  cell    -3.57 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x01000000 pc: 0x08007ac4 msp: 0x20008fa8
+up  5825s settle    0  AFE  1696 mV  cell    -3.57 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x81000000 pc: 0x08007a2c msp: 0x20008fa8
+up  5830s settle    0  AFE  1696 mV  cell    -3.57 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08008160 msp: 0x20008fa8
+up  5835s settle    0  AFE  1696 mV  cell    -3.57 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x81000000 pc: 0x08007b1a msp: 0x20008fa8
+up  5840s settle    0  AFE  1696 mV  cell    -3.57 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x21000000 pc: 0x08009a8c msp: 0x20008f08
+up  5845s settle    0  AFE  1696 mV  cell    -3.57 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007aa8 msp: 0x20008fa8
+up  5850s settle    0  AFE  1696 mV  cell    -3.57 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x21000000 pc: 0x08009a7c msp: 0x20008fa8
+up  5855s settle    0  AFE  1696 mV  cell    -3.57 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007a16 msp: 0x20008fa8
+up  5860s settle    0  AFE  1695 mV  cell    -3.43 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x080089b0 msp: 0x20008e68
+up  5865s settle    0  AFE  1695 mV  cell    -3.43 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x21000000 pc: 0x08008170 msp: 0x20008f70
+up  5870s settle    0  AFE  1695 mV  cell    -3.43 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x41000000 pc: 0x08007468 msp: 0x20008f20
+up  5875s settle    0  AFE  1695 mV  cell    -3.43 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x01000000 pc: 0x08008164 msp: 0x20008f40
+up  5880s settle    0  AFE  1696 mV  cell    -3.57 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x81000000 pc: 0x08006a00 msp: 0x20008f40
+up  5885s settle    0  AFE  1696 mV  cell    -3.57 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x01000000 pc: 0x08008164 msp: 0x20008f40
+up  5890s settle    0  AFE  1696 mV  cell    -3.57 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x01000000 pc: 0x08008164 msp: 0x20008f40
+up  5895s settle    0  AFE  1673 mV  cell    -0.29 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x01000000 pc: 0x08008164 msp: 0x20008f40
+up  5900s settle    0  AFE  1695 mV  cell    -3.43 uA  F 0x9800
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08008a10 msp: 0x20008e68
+up  5906s settle    0  AFE 65535 mV  cell -9123.43 uA  F 0x8004
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x01000000 pc: 0x08007ac4 msp: 0x20008fa8
+up  5911s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x81000000 pc: 0x08009aba msp: 0x20008f08
+up  5916s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x0800713c msp: 0x20008fa0
+up  5921s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007138 msp: 0x20008fa8
+up  5926s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007138 msp: 0x20008fa8
+up  5931s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x81000000 pc: 0x08007a2c msp: 0x20008fa8
+up  5936s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08008a10 msp: 0x20008e68
+up  5941s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x81000000 pc: 0x08009aba msp: 0x20008f08
+up  5946s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x0800713c msp: 0x20008fa0
+up  5951s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x0800714e msp: 0x20008fa0
+up  5956s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x21000000 pc: 0x08009a88 msp: 0x20008f08
+up  5961s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x080089a8 msp: 0x20008fa8
+up  5966s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x0800713c msp: 0x20008fa0
+up  5971s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x0800714e msp: 0x20008fa0
+up  5976s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x0800713c msp: 0x20008fa0
+up  5981s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007a4c msp: 0x20008fa8
+up  5986s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x01000000 pc: 0x08007aa4 msp: 0x20008fa8
+up  5991s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x01000000 pc: 0x08007ac4 msp: 0x20008fa8
+up  5996s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x21000000 pc: 0x08008a14 msp: 0x20008e68
+up  6001s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x01000000 pc: 0x08007a94 msp: 0x20008fa8
+up  6006s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x080089ec msp: 0x20008f94
+up  6011s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08008160 msp: 0x20008fa8
+up  6016s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x080089b0 msp: 0x20008e68
+up  6021s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007a28 msp: 0x20008fa8
+up  6026s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007a24 msp: 0x20008fa8
+up  6031s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x81000000 pc: 0x08009aba msp: 0x20008f08
+up  6036s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x81000000 pc: 0x08007a44 msp: 0x20008fa8
+up  6041s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007138 msp: 0x20008fa8
+up  6046s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08008160 msp: 0x20008fa8
+up  6051s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x080089b0 msp: 0x20008e68
+up  6056s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x81000000 pc: 0x08007a2c msp: 0x20008fa8
+up  6061s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007ac8 msp: 0x20008fa8
+up  6066s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x21000000 pc: 0x08009a88 msp: 0x20008f08
+up  6071s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x080089ec msp: 0x20008f94
+up  6076s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x81000000 pc: 0x08007b1a msp: 0x20008fa8
+up  6081s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x81000000 pc: 0x08007a84 msp: 0x20008fa8
+up  6086s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007138 msp: 0x20008fa8
+up  6091s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x21000000 pc: 0x08007abc msp: 0x20008fa8
+up  6096s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x01000000 pc: 0x08007ac4 msp: 0x20008fa8
+up  6101s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007ad6 msp: 0x20008fa8
+up  6106s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x21000000 pc: 0x08007a90 msp: 0x20008fa8
+up  6111s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x21000000 pc: 0x08009a84 msp: 0x20008f08
+up  6116s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007138 msp: 0x20008fa8
+up  6121s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08008164 msp: 0x20008fa8
+up  6126s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007a24 msp: 0x20008fa8
+up  6131s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x81000000 pc: 0x08007a88 msp: 0x20008fa8
+up  6136s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x0800714e msp: 0x20008fa0
+up  6141s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x41000000 pc: 0x08007468 msp: 0x20008f40
+up  6146s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x41000000 pc: 0x08008160 msp: 0x20008f38
+up  6151s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x0800745c msp: 0x20008f38
+up  6156s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x41000000 pc: 0x0800745c msp: 0x20008f50
+up  6161s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x81000000 pc: 0x08007458 msp: 0x20008f20
+up  6166s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x81000000 pc: 0x08007470 msp: 0x20008f20
+up  6171s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x41000000 pc: 0x08008164 msp: 0x20008f20
+up  6176s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x41000000 pc: 0x08008164 msp: 0x20008f20
+up  6181s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x41000000 pc: 0x08007464 msp: 0x20008f20
+up  6186s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x01000000 pc: 0x08007ae0 msp: 0x20008fa8
+up  6192s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x21000000 pc: 0x08007a50 msp: 0x20008fa8
+up  6197s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x21000000 pc: 0x08009a84 msp: 0x20008f08
+up  6202s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x21000000 pc: 0x08007a90 msp: 0x20008fa8
+up  6207s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x21000000 pc: 0x08009a8c msp: 0x20008f08
+up  6212s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x080089ac msp: 0x20008f94
+up  6217s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x81000000 pc: 0x08007a40 msp: 0x20008fa8
+up  6222s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08008160 msp: 0x20008fa8
+up  6227s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x0800714e msp: 0x20008fa0
+up  6232s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x81000000 pc: 0x08007a40 msp: 0x20008fa8
+up  6237s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08008160 msp: 0x20008fa8
+up  6242s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007138 msp: 0x20008fa8
+up  6247s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007ae4 msp: 0x20008fa8
+up  6252s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x81000000 pc: 0x08008884 msp: 0x20008fa8
+up  6257s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x01000000 pc: 0x08007a94 msp: 0x20008fa8
+up  6262s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x080089b0 msp: 0x20008e68
+up  6267s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007a4c msp: 0x20008fa8
+up  6272s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x0800714e msp: 0x20008fa0
+up  6277s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007138 msp: 0x20008fa8
+up  6282s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x21000000 pc: 0x08009a84 msp: 0x20008f08
+up  6287s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007ae8 msp: 0x20008fa8
+up  6292s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007ab8 msp: 0x20008fa8
+up  6297s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08008a30 msp: 0x20008e68
+up  6302s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x0800713c msp: 0x20008fa0
+up  6307s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007138 msp: 0x20008fa8
+up  6312s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x080089a8 msp: 0x20008fa8
+up  6317s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x81000000 pc: 0x08007a84 msp: 0x20008fa8
+up  6322s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007ac8 msp: 0x20008fa8
+up  6327s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x01000000 pc: 0x08007ae0 msp: 0x20008fa8
+up  6332s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08008160 msp: 0x20008fa8
+up  6337s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x41000000 pc: 0x08009ac0 msp: 0x20008f94
+up  6342s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x01000000 pc: 0x08007aa4 msp: 0x20008fa8
+up  6347s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x81000000 pc: 0x08007a2c msp: 0x20008fa8
+up  6352s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x080089ec msp: 0x20008f94
+up  6357s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007a28 msp: 0x20008fa8
+up  6362s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x01000000 pc: 0x08007ac4 msp: 0x20008fa8
+up  6367s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08008a34 msp: 0x20008e68
+up  6372s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x08007138 msp: 0x20008fa8
+up  6377s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x080089b4 msp: 0x20008e68
+up  6382s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x080089a8 msp: 0x20008fa8
+up  6387s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x41000000 pc: 0x08007ac0 msp: 0x20008fa8
+up  6392s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x080089ec msp: 0x20008f94
+up  6397s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x61000000 pc: 0x0800714e msp: 0x20008fa0
+up  6402s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f
+[stm32g0x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x21000000 pc: 0x08009a7c msp: 0x20008fa8
+up  6407s settle  900  AFE 65535 mV  cell -3089.51 uA  F 0x801f

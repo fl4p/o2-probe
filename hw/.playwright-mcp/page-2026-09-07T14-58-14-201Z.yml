@@ -1,0 +1,216 @@
+- generic [ref=f20e1]:
+  - banner [ref=f20e2]:
+    - button "Skip to content" [ref=f20e3] [cursor=pointer]
+    - button "Accessibility Feedback" [ref=f20e6] [cursor=pointer]
+    - generic [ref=f20e9]:
+      - link [ref=f20e10] [cursor=pointer]:
+        - /url: /?FORM=Z9FD1
+        - heading "Back to Bing search" [level=1] [ref=f20e11]
+      - search [ref=f20e12]:
+        - button "Search" [ref=f20e15] [cursor=pointer]
+        - searchbox "Enter your search here – Search suggestions will show as you type" [ref=f20e16]: "\"Important new Values\" Sonntag 1990 vapour pressure PDF"
+        - generic [ref=f20e17] [cursor=pointer]
+        - button "Search using an image" [ref=f20e22] [cursor=pointer]
+    - complementary "Account Rewards and Preferences" [ref=f20e24]:
+      - button "Microsoft Rewards" [ref=f20e25] [cursor=pointer]
+      - link "Sign in" [ref=f20e26] [cursor=pointer]:
+        - /url: javascript:void(0)
+    - navigation "Search Filter" [ref=f20e28]:
+      - list [ref=f20e29]:
+        - listitem [ref=f20e30]:
+          - link "All" [ref=f20e31] [cursor=pointer]:
+            - /url: /?scope=web&FORM=HDRSC1
+        - listitem [ref=f20e32]:
+          - link "Search" [ref=f20e33] [cursor=pointer]:
+            - /url: /copilotsearch?q=%22Important+new+Values%22+Sonntag+1990+vapour+pressure+PDF&FORM=CSSCOP
+        - listitem [ref=f20e36]:
+          - link "Shopping" [ref=f20e37] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=4c97b8f06ded32abbf54324bbd0e6f29d1ddaec4115e60457667ecd5104e4f9dJmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1L3Nob3AvdG9waWNzP3E9JTIySW1wb3J0YW50K25ldytWYWx1ZXMlMjIrU29ubnRhZysxOTkwK3ZhcG91citwcmVzc3VyZStQREYmRk9STT1TSE9QVEI&ntb=1
+        - listitem [ref=f20e38]:
+          - link "Images" [ref=f20e39] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=31dc44ea6665555444db4c3cb95c235514f2e8ede3a43ac3146b9697bbf04f6bJmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1L2ltYWdlcy9zZWFyY2g_cT0lMjJJbXBvcnRhbnQrbmV3K1ZhbHVlcyUyMitTb25udGFnKzE5OTArdmFwb3VyK3ByZXNzdXJlK1BERiZGT1JNPUhEUlNDMw&ntb=1
+        - listitem [ref=f20e40]:
+          - link "Videos" [ref=f20e41] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=edfef8bcfc36f8a780989980a7c2e39a326c8730513800a7f35a6ee3a18f739aJmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1L3ZpZGVvcy9zZWFyY2g_cT0lMjJJbXBvcnRhbnQrbmV3K1ZhbHVlcyUyMitTb25udGFnKzE5OTArdmFwb3VyK3ByZXNzdXJlK1BERiZGT1JNPUhEUlNDNA&ntb=1
+        - listitem [ref=f20e42]:
+          - link "Maps" [ref=f20e43] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=3b6da43053222eeb584fc0007b29d7a9b40984532f564d200f810815b0b4ff89JmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1L21hcHM_cT0lMjJJbXBvcnRhbnQrbmV3K1ZhbHVlcyUyMitTb25udGFnKzE5OTArdmFwb3VyK3ByZXNzdXJlK1BERiZGT1JNPUhEUlNDNg&ntb=1
+        - listitem [ref=f20e44]:
+          - link "News" [ref=f20e45] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=182c05c09e7d8bf7d9ac47fb161b20e4379db01023500cf4c8ab4690cf4c0c04JmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1L25ld3Mvc2VhcmNoP3E9JTIySW1wb3J0YW50K25ldytWYWx1ZXMlMjIrU29ubnRhZysxOTkwK3ZhcG91citwcmVzc3VyZStQREYmRk9STT1IRFJTQzc&ntb=1
+        - listitem [ref=f20e46]:
+          - button [ref=f20e47] [cursor=pointer]
+  - generic [ref=f20e51]:
+    - main "Search Results" [ref=f20e52]:
+      - generic [ref=f20e54]:
+        - generic [aria-hidden] [ref=f20e55]:
+          - generic [ref=f20e56] [cursor=pointer]
+          - generic [ref=f20e59] [cursor=pointer]
+          - generic [ref=f20e62] [cursor=pointer]
+        - text: About 3,740 results
+      - list [ref=f20e65]:
+        - listitem [ref=f20e66]:
+          - link "Bases bibliographiques Pascal et Francis" [ref=f20e68] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=63762a25d12a63239b5f2f0601e3b74e306c5f98ee906937e726273eedc522deJmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1aHR0cHM6Ly9wYXNjYWwtZnJhbmNpcy5pbmlzdC5mci92aWJhZC9pbmRleC5waHA_YWN0aW9uPWdldFJlY29yZERldGFpbCZpZHQ9NDk2NTE5MQ&ntb=1
+            - generic [ref=f20e73]:
+              - generic [ref=f20e74]: Bases bibliographiques Pascal et Francis
+              - generic [ref=f20e77]:
+                - strong [ref=f20e78]: https://
+                - text: pascal-francis.inist.fr › vibad › index.php
+          - heading [level=2] [ref=f20e79]:
+            - link "Important new values of the physical constants of 1986, vapour …" [ref=f20e80] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=63762a25d12a63239b5f2f0601e3b74e306c5f98ee906937e726273eedc522deJmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1aHR0cHM6Ly9wYXNjYWwtZnJhbmNpcy5pbmlzdC5mci92aWJhZC9pbmRleC5waHA_YWN0aW9uPWdldFJlY29yZERldGFpbCZpZHQ9NDk2NTE5MQ&ntb=1
+          - paragraph [ref=f20e82]: Important new values of the physical constants of 1986, vapour pressure formulations based on the ITS-90, and psychrometer …
+        - listitem [ref=f20e83]:
+          - link "Semantic Scholar" [ref=f20e85] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=743eaa482675747f24255dea3e4c3ffa0eef8072d204248dbff6e45b889c377bJmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1aHR0cHM6Ly93d3cuc2VtYW50aWNzY2hvbGFyLm9yZy9wYXBlci9JbXBvcnRhbnQtbmV3LXZhbHVlcy1vZi10aGUtcGh5c2ljYWwtY29uc3RhbnRzLW9mLVNvbm50YWcvZDZiYjk1M2U4ZTNjYmM5ZGVlNDFjZDEzZmZiMzAzMTFiZGE0NzZiMA&ntb=1
+            - generic [ref=f20e90]:
+              - generic [ref=f20e91]: Semantic Scholar
+              - generic [ref=f20e94]:
+                - strong [ref=f20e95]: https://
+                - text: www.semanticscholar.org › paper › Important-new-values-of-the...
+          - heading [level=2] [ref=f20e96]:
+            - link "Important new values of the physical constants of 1986, vapour …" [ref=f20e97] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=743eaa482675747f24255dea3e4c3ffa0eef8072d204248dbff6e45b889c377bJmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1aHR0cHM6Ly93d3cuc2VtYW50aWNzY2hvbGFyLm9yZy9wYXBlci9JbXBvcnRhbnQtbmV3LXZhbHVlcy1vZi10aGUtcGh5c2ljYWwtY29uc3RhbnRzLW9mLVNvbm50YWcvZDZiYjk1M2U4ZTNjYmM5ZGVlNDFjZDEzZmZiMzAzMTFiZGE0NzZiMA&ntb=1
+          - paragraph [ref=f20e99]: Important new values of the physical constants of 1986, vapour pressure formulations based on the ITS-90, and psychrometer formulae.
+        - listitem [ref=f20e100]:
+          - link "CiNii Research" [ref=f20e102] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=bcd15997c434c8fddbce87352e2f8442a633825e27dd574c3b39f2c889b26304JmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1aHR0cHM6Ly9jaXIubmlpLmFjLmpwL2NyaWQvMTM3MDU4NDM0MDcxOTE1MzE4Nj9sYW5nPWVu&ntb=1
+            - generic [ref=f20e107]:
+              - generic [ref=f20e108]: CiNii Research
+              - generic [ref=f20e110]:
+                - generic [ref=f20e111]:
+                  - strong [ref=f20e112]: https://
+                  - text: cir.nii.ac.jp › crid
+                - generic [ref=f20e113]: Translate this result
+          - heading [level=2] [ref=f20e114]:
+            - link "Important new values of the physical constants of 1986, vapour …" [ref=f20e115] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=bcd15997c434c8fddbce87352e2f8442a633825e27dd574c3b39f2c889b26304JmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1aHR0cHM6Ly9jaXIubmlpLmFjLmpwL2NyaWQvMTM3MDU4NDM0MDcxOTE1MzE4Nj9sYW5nPWVu&ntb=1
+          - paragraph [ref=f20e117]: Important new values of the physical constants of 1986, vapour pressure formulations based on the ITS-90, and psychrometer …
+        - listitem [ref=f20e118]:
+          - link "latu.org.uy" [ref=f20e120] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=9b4294d9fb535c7790f524008176bbe5ceb3afff32e9256d6243b88dd7ce589eJmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1aHR0cHM6Ly9jYXRhbG9nby5sYXR1Lm9yZy51eS9vcGFjX2Nzcy9pbmRleC5waHA_bHZsPW5vdGljZV9kaXNwbGF5JmlkPTMxODU5&ntb=1
+            - generic [ref=f20e125]:
+              - generic [ref=f20e126]: latu.org.uy
+              - generic [ref=f20e128]:
+                - generic [ref=f20e129]:
+                  - strong [ref=f20e130]: https://
+                  - text: catalogo.latu.org.uy › opac_css › index.php
+                - generic [ref=f20e131]: Translate this result
+          - heading [level=2] [ref=f20e132]:
+            - link "Important new values of the physical constants of 1986, vapour …" [ref=f20e133] [cursor=pointer]:
+              - /url: https://www.bing.com/ck/a?!&&p=9b4294d9fb535c7790f524008176bbe5ceb3afff32e9256d6243b88dd7ce589eJmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1aHR0cHM6Ly9jYXRhbG9nby5sYXR1Lm9yZy51eS9vcGFjX2Nzcy9pbmRleC5waHA_bHZsPW5vdGljZV9kaXNwbGF5JmlkPTMxODU5&ntb=1
+          - paragraph [ref=f20e135]: Catálogo en línea Centro de Información Técnica - LATU.
+        - listitem [ref=f20e136]:
+          - link "J-GLOBAL 科学技術総合リンクセンター" [ref=f20e138] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=c076b10d760499da5356838d3de89fd410ee889a92bb4085f20834250f035b0bJmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1aHR0cHM6Ly9qZ2xvYmFsLmpzdC5nby5qcC9lbi9kZXRhaWw_SkdMT0JBTF9JRD0yMDA5MDIwNTcxMjAzNTE0MDQ&ntb=1
+            - generic [ref=f20e143]:
+              - generic [ref=f20e144]: J-GLOBAL 科学技術総合リンクセンター
+              - generic [ref=f20e146]:
+                - generic [ref=f20e147]:
+                  - strong [ref=f20e148]: https://
+                  - text: jglobal.jst.go.jp › en › detail
+                - generic [ref=f20e149]: Translate this result
+          - heading "Important new values of the physical constants of 1986, vapour …" [level=2] [ref=f20e150]:
+            - link "Important new values of the physical constants of 1986, vapour …":
+              - /url: https://www.bing.com/ck/a?!&&p=c076b10d760499da5356838d3de89fd410ee889a92bb4085f20834250f035b0bJmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1aHR0cHM6Ly9qZ2xvYmFsLmpzdC5nby5qcC9lbi9kZXRhaWw_SkdMT0JBTF9JRD0yMDA5MDIwNTcxMjAzNTE0MDQ&ntb=1
+          - paragraph [ref=f20e152]: Article "Important new values of the physical constants of 1986, vapour pressure formulations based on the ITS-90, and …
+        - listitem [ref=f20e153]:
+          - link "CiNii Research" [ref=f20e155] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=dfba3bcb474cb0094960a3d5f07b7568d551b264b05c3b43719911000030cf34JmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1aHR0cHM6Ly9jaXIubmlpLmFjLmpwL2NyaWQvMTU3MTQxNzEyNjYzNTk2NTk1Mj9sYW5nPWVu&ntb=1
+            - generic [ref=f20e160]:
+              - generic [ref=f20e161]: CiNii Research
+              - generic [ref=f20e163]:
+                - generic [ref=f20e164]:
+                  - strong [ref=f20e165]: https://
+                  - text: cir.nii.ac.jp › crid
+                - generic [ref=f20e166]: Translate this result
+          - heading "Important new values of the physical constants of 1986, vapor …" [level=2] [ref=f20e167]:
+            - link "Important new values of the physical constants of 1986, vapor …":
+              - /url: https://www.bing.com/ck/a?!&&p=dfba3bcb474cb0094960a3d5f07b7568d551b264b05c3b43719911000030cf34JmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1aHR0cHM6Ly9jaXIubmlpLmFjLmpwL2NyaWQvMTU3MTQxNzEyNjYzNTk2NTk1Mj9sYW5nPWVu&ntb=1
+          - paragraph [ref=f20e169]: Important new values of the physical constants of 1986, vapor pressure formulations based on the ITS-90, and psychrometer …
+        - listitem [ref=f20e170]:
+          - link "ResearchGate" [ref=f20e172] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=bbcc6f9a620584d8c62e993f9fc6783779f59ac85bc15a9304211566bc909bcdJmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1aHR0cHM6Ly93d3cucmVzZWFyY2hnYXRlLm5ldC9wdWJsaWNhdGlvbi8yMzY0Njk0MTlfUmVjb21tZW5kZWRfVmFsdWVzX29mX3RoZV9GdW5kYW1lbnRhbF9QaHlzaWNhbF9Db25zdGFudHNfQV9TdGF0dXNfUmVwb3J0&ntb=1
+            - generic [ref=f20e177]:
+              - generic [ref=f20e178]: ResearchGate
+              - generic [ref=f20e181]:
+                - strong [ref=f20e182]: https://
+                - text: www.researchgate.net › publication
+          - 'heading "(PDF) Recommended Values of the Fundamental Physical Constants: …" [level=2] [ref=f20e183]':
+            - 'link "(PDF) Recommended Values of the Fundamental Physical Constants: …"':
+              - /url: https://www.bing.com/ck/a?!&&p=bbcc6f9a620584d8c62e993f9fc6783779f59ac85bc15a9304211566bc909bcdJmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1aHR0cHM6Ly93d3cucmVzZWFyY2hnYXRlLm5ldC9wdWJsaWNhdGlvbi8yMzY0Njk0MTlfUmVjb21tZW5kZWRfVmFsdWVzX29mX3RoZV9GdW5kYW1lbnRhbF9QaHlzaWNhbF9Db25zdGFudHNfQV9TdGF0dXNfUmVwb3J0&ntb=1
+          - paragraph [ref=f20e185]: 1 Sept 1990 · PDF | The authors summarize the principal advances made in the fundamental physical constants field since the …
+        - listitem [ref=f20e186]:
+          - link "Semantic Scholar" [ref=f20e188] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=86d6119d592fae0a9a4b74f781b3aa9637665e58e5be4f46bd319eb7a0afa5daJmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1aHR0cHM6Ly93d3cuc2VtYW50aWNzY2hvbGFyLm9yZy9hdXRob3IvRC4tU29ubnRhZy82NzAzNjE2Ng&ntb=1
+            - generic [ref=f20e193]:
+              - generic [ref=f20e194]: Semantic Scholar
+              - generic [ref=f20e197]:
+                - strong [ref=f20e198]: https://
+                - text: www.semanticscholar.org › author › D.-Sonntag
+          - heading "D. Sonntag | Semantic Scholar" [level=2] [ref=f20e199]:
+            - link "D. Sonntag | Semantic Scholar":
+              - /url: https://www.bing.com/ck/a?!&&p=86d6119d592fae0a9a4b74f781b3aa9637665e58e5be4f46bd319eb7a0afa5daJmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1aHR0cHM6Ly93d3cuc2VtYW50aWNzY2hvbGFyLm9yZy9hdXRob3IvRC4tU29ubnRhZy82NzAzNjE2Ng&ntb=1
+          - paragraph [ref=f20e201]: Semantic Scholar profile for D. Sonntag, with 35 highly influential citations and 10 scientific research papers.
+        - listitem [ref=f20e202]:
+          - link "unlv.edu" [ref=f20e204] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=d94125664cb175952e52ddc08e912e28e0ea2831e033e8a6c636ac0bbfed906dJmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1aHR0cHM6Ly93d3cuc2NodWx0ZS5mYWN1bHR5LnVubHYuZWR1L1NvZnR3YXJlL1dhdGVyUHJvcC5wZGY&ntb=1
+            - generic [ref=f20e209]:
+              - generic [ref=f20e210]: unlv.edu
+              - generic [ref=f20e212]:
+                - generic [ref=f20e213]:
+                  - strong [ref=f20e214]: https://
+                  - text: www.schulte.faculty.unlv.edu › Software › WaterProp.pdf
+                - text: · PDF file
+          - heading "University of Nevada, Las Vegas" [level=2] [ref=f20e215]:
+            - link "University of Nevada, Las Vegas":
+              - /url: https://www.bing.com/ck/a?!&&p=d94125664cb175952e52ddc08e912e28e0ea2831e033e8a6c636ac0bbfed906dJmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1aHR0cHM6Ly93d3cuc2NodWx0ZS5mYWN1bHR5LnVubHYuZWR1L1NvZnR3YXJlL1dhdGVyUHJvcC5wZGY&ntb=1
+          - paragraph [ref=f20e217]: Important new values of the physical constants of 1986, vapor pressure formulations based on ITS-90 and psychrometer formulae. …
+        - listitem [ref=f20e218]:
+          - link "Physikalisch-Technische Bundesanstalt" [ref=f20e220] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=22f5c8200bf945d201862fa4eea4bd188f2457dc19dbf5a42d314642049a5623JmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1aHR0cHM6Ly93d3cucHRiLmRlL2Ntcy9wdGIvZmFjaGFidGVpbHVuZ2VuL2FidDMvZmItMzQvYWctMzQxL2dhc2ZldWNodGUuaHRtbA&ntb=1
+            - generic [ref=f20e225]:
+              - generic [ref=f20e226]: Physikalisch-Technische Bundesanstalt
+              - generic [ref=f20e228]:
+                - generic [ref=f20e229]:
+                  - strong [ref=f20e230]: https://
+                  - text: www.ptb.de › cms › ptb › fachabteilungen › ...
+                - generic [ref=f20e231]: Translate this result
+          - heading "Gasfeuchte - PTB.de" [level=2] [ref=f20e232]:
+            - link "Gasfeuchte - PTB.de":
+              - /url: https://www.bing.com/ck/a?!&&p=22f5c8200bf945d201862fa4eea4bd188f2457dc19dbf5a42d314642049a5623JmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1aHR0cHM6Ly93d3cucHRiLmRlL2Ntcy9wdGIvZmFjaGFidGVpbHVuZ2VuL2FidDMvZmItMzQvYWctMzQxL2dhc2ZldWNodGUuaHRtbA&ntb=1
+          - paragraph [ref=f20e234]: "Sonntag, D.: Important New Values of the Physical Constants of 1986, Vapor Pressure Formulations based on the ITS-90 and …"
+        - listitem [ref=f20e235]:
+          - link "Some results have been removed" [ref=f20e237] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=ab4b8fa900ede3108f776cc60e604640a58fbb1c1e583c45d51848de36d91957JmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1aHR0cDovL2dvLm1pY3Jvc29mdC5jb20vZndsaW5rLz9MaW5rSUQ9NjE3MzUw&ntb=1
+        - listitem [ref=f20e238]:
+          - navigation "More results for \"Important new Values\" Sonntag 1990 vapour pressure PDF":
+            - list:
+              - listitem [ref=f20e239]:
+                - generic "Page 1" [ref=f20e240]: "1"
+              - listitem [ref=f20e241]:
+                - link "Page 2" [ref=f20e242] [cursor=pointer]:
+                  - /url: /search?q=%22Important+new+Values%22+Sonntag+1990+vapour+pressure+PDF&FPIG=E4938768CE984070818303837CA80F7B&first=11&FORM=PERE
+                  - text: "2"
+              - listitem [ref=f20e243]:
+                - link "Page 3" [ref=f20e244] [cursor=pointer]:
+                  - /url: /search?q=%22Important+new+Values%22+Sonntag+1990+vapour+pressure+PDF&FPIG=E4938768CE984070818303837CA80F7B&first=21&FORM=PERE1
+                  - text: "3"
+              - listitem [ref=f20e245]:
+                - link "Next page" [ref=f20e246] [cursor=pointer]:
+                  - /url: /search?q=%22Important+new+Values%22+Sonntag+1990+vapour+pressure+PDF&FPIG=E4938768CE984070818303837CA80F7B&first=11&FORM=PORE
+    - complementary "Additional Results" [ref=f20e247]:
+      - list
+  - contentinfo [ref=f20e248]:
+    - generic [ref=f20e249]:
+      - list:
+        - listitem [ref=f20e250]:
+          - link "Privacy" [ref=f20e251] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=8782a167a96586178abb814c6ccdcc5861529c3cca231839af22971ac409ae09JmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1aHR0cDovL2dvLm1pY3Jvc29mdC5jb20vZndsaW5rLz9MaW5rSWQ9NTIxODM5&ntb=1
+        - listitem [ref=f20e252]:
+          - link "Terms" [ref=f20e253] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=5e9426d1ace9d151c9a0a4fa78e2d52959e990910213dc3097bfa5a0da68233fJmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1aHR0cDovL2dvLm1pY3Jvc29mdC5jb20vZndsaW5rLz9MaW5rSUQ9MjQ2MzM4&ntb=1
+        - listitem [ref=f20e254]:
+          - link "Bing Summary of Terms" [ref=f20e255] [cursor=pointer]:
+            - /url: https://www.bing.com/ck/a?!&&p=3ccd208deb8d9b2a6d7f315c96ffd16ae89dc01ebafe5b54845431c6433e5cdcJmltdHM9MTc4ODczOTIwMA&ptn=3&ver=2&hsh=4&fclid=1c7e705d-cbd8-6480-3057-6790ca426543&u=a1aHR0cHM6Ly9nby5taWNyb3NvZnQuY29tL2Z3bGluay8_bGlua2lkPTIzMDA4MDc&ntb=1

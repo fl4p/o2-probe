@@ -1,0 +1,378 @@
+- generic [ref=f21e1]:
+  - generic [ref=f21e2]:
+    - generic [ref=f21e3]:
+      - generic: Navigation und Service
+      - paragraph:
+        - emphasis [ref=f21e4]: "Springe direkt zu:"
+      - list:
+        - listitem:
+          - link "Inhalt" [ref=f21e5] [cursor=pointer]:
+            - /url: DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/start.html#Inhalt
+        - listitem:
+          - link "Hauptmenu" [ref=f21e6] [cursor=pointer]:
+            - /url: DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/start.html#Hauptmenu
+        - listitem:
+          - link "Suche" [ref=f21e7] [cursor=pointer]:
+            - /url: DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/start.html#Suche
+      - banner [ref=f21e9]:
+        - generic [ref=f21e10]:
+          - generic [ref=f21e11]:
+            - paragraph [ref=f21e12]:
+              - link [ref=f21e13] [cursor=pointer]:
+                - /url: DE/Home/home_node.html
+                - img "Logo der Bundesnetzagentur (Link zur Startseite)" [ref=f21e14]
+            - generic [ref=f21e16]:
+              - heading "Service" [level=2] [ref=f21e17]
+              - list:
+                - listitem [ref=f21e18]:
+                  - link "Kontakt" [ref=f21e19] [cursor=pointer]:
+                    - /url: DE/Allgemeines/Kontakt/start.html
+                - listitem [ref=f21e20]:
+                  - link "English" [ref=f21e21] [cursor=pointer]:
+                    - /url: EN/Home/home_node.html
+                - listitem [ref=f21e22]:
+                  - link "Leichte Sprache" [ref=f21e23] [cursor=pointer]:
+                    - /url: DE/Service/Leichte-Sprache/start.html
+                - listitem [ref=f21e24]:
+                  - link "Gebärdensprache Videos" [ref=f21e25] [cursor=pointer]:
+                    - /url: DE/Service/Gebaerdensprache/start.html
+                - listitem [ref=f21e26]:
+                  - link "RSS" [ref=f21e27] [cursor=pointer]:
+                    - /url: DE/Service/RSSNewsfeed/rssnewsfeed_node.html
+          - navigation "Hauptmenu" [ref=f21e29]:
+            - menubar "Hauptmenu" [ref=f21e30]:
+              - menuitem [ref=f21e31] [cursor=pointer]:
+                - emphasis [ref=f21e32]: Fachthemen
+              - menuitem "Verbraucherportal" [ref=f21e33] [cursor=pointer]
+              - menuitem "Datenportal" [ref=f21e34] [cursor=pointer]
+              - menuitem "Bundesnetzagentur" [ref=f21e35] [cursor=pointer]
+              - menuitem "Presse" [ref=f21e36] [cursor=pointer]
+            - button "Suchen" [ref=f21e39] [cursor=pointer]
+        - generic [ref=f21e40]:
+          - paragraph [ref=f21e41]: "Sie sind hier:"
+          - list [ref=f21e42]:
+            - listitem [ref=f21e43]:
+              - link "Homepage" [ref=f21e44] [cursor=pointer]:
+                - /url: DE/Home/home_node.html
+            - listitem [ref=f21e47]:
+              - link "Fachthemen" [ref=f21e49] [cursor=pointer]:
+                - /url: DE/Themen/start.html
+            - listitem [ref=f21e50]:
+              - link "UntermenuOeffnen" [ref=f21e51] [cursor=pointer]:
+                - /url: javascript:void(0)
+            - listitem [ref=f21e53]:
+              - link "Telekommunikation" [ref=f21e55] [cursor=pointer]:
+                - /url: DE/Fachthemen/Telekommunikation/start.html
+            - listitem [ref=f21e56]:
+              - link "UntermenuOeffnen" [ref=f21e57] [cursor=pointer]:
+                - /url: javascript:void(0)
+            - listitem [ref=f21e59]:
+              - link "Funk und Frequenzen" [ref=f21e61] [cursor=pointer]:
+                - /url: DE/Fachthemen/Telekommunikation/Frequenzen/start.html
+            - listitem [ref=f21e62]:
+              - link "UntermenuOeffnen" [ref=f21e63] [cursor=pointer]:
+                - /url: javascript:void(0)
+            - listitem [ref=f21e65]:
+              - strong [ref=f21e67]: Allgemeinzuteilungen
+            - listitem [ref=f21e68]:
+              - strong [ref=f21e70]
+      - main [ref=f21e71]:
+        - generic [ref=f21e72]:
+          - generic [ref=f21e73]:
+            - list [ref=f21e74]:
+              - listitem [ref=f21e75]:
+                - link [ref=f21e76] [cursor=pointer]:
+                  - /url: DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/start.html#Inhalt
+                  - strong [ref=f21e77]: Allgemeinzuteilungen
+              - listitem [ref=f21e78]:
+                - link "Allgemeinzuteilung von Frequenzen zur Nutzung durch Geräte geringer Reichweite (SRD)" [ref=f21e79] [cursor=pointer]:
+                  - /url: DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/start.html#doc1078010bodyText1
+              - listitem [ref=f21e80]:
+                - link "Gültige Verfügungen" [ref=f21e81] [cursor=pointer]:
+                  - /url: DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/start.html#doc1078010bodyText2
+              - listitem [ref=f21e82]:
+                - link "Funkanlagen geringer Reichweite (SRD)" [ref=f21e83] [cursor=pointer]:
+                  - /url: DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/start.html#doc1078010bodyText3
+              - listitem [ref=f21e84]:
+                - link "Alarm, Überwachung, Ortung" [ref=f21e85] [cursor=pointer]:
+                  - /url: DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/start.html#doc1078010bodyText4
+              - listitem [ref=f21e86]:
+                - link "Drahtlose Mikrofone u.ä. Anwendungen" [ref=f21e87] [cursor=pointer]:
+                  - /url: DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/start.html#doc1078010bodyText5
+              - listitem [ref=f21e88]:
+                - link "Mobilfunk, Kurzstreckenfunk, DECT, WLAN, CB-Funk, etc." [ref=f21e89] [cursor=pointer]:
+                  - /url: DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/start.html#doc1078010bodyText6
+              - listitem [ref=f21e90]:
+                - link "Richtfunkanwendungen" [ref=f21e91] [cursor=pointer]:
+                  - /url: DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/start.html#doc1078010bodyText7
+              - listitem [ref=f21e92]:
+                - link "Verkehrsanwendungen (Fahrzeuge/Straße/Schiene)" [ref=f21e93] [cursor=pointer]:
+                  - /url: DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/start.html#doc1078010bodyText8
+              - listitem [ref=f21e94]:
+                - link "Sonstige Funkanwendungen" [ref=f21e95] [cursor=pointer]:
+                  - /url: DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/start.html#doc1078010bodyText9
+            - generic: +
+          - generic [ref=f21e99]:
+            - heading "Allgemeinzuteilungen" [level=1] [ref=f21e100]
+            - paragraph [ref=f21e102]: Frequenzen werden in der Regel von Amts wegen als Allgemeinzuteilungen durch die Bundesnetzagentur für die Nutzung durch die Allgemeinheit oder einen nach allgemeinen Merkmalen bestimmten oder bestimmbaren Personenkreis zugeteilt (gem. § 91 Abs. 2 TKG). Die Allgemeinzuteilungen werden veröffentlicht.
+            - generic [ref=f21e103]:
+              - list
+              - paragraph [ref=f21e104]:
+                - text: Allgemeinzuteilungen sind nur dann möglich, wenn durch die somit nutzbar gemachten Anwendungen keine Gefahr von funktechnischen Störungen ausgeht und sie nicht der Sicherstellung einer effizienten Frequenznutzung widersprechen (
+                - generic "gemäß" [ref=f21e105]:
+                  - generic "gemäß" [ref=f21e106]:
+                    - generic "gemäß" [ref=f21e107]:
+                      - generic "gemäß" [ref=f21e108]:
+                        - generic "gemäß" [ref=f21e109]:
+                          - generic "gemäß" [ref=f21e110]: gem.
+                - text: § 91
+                - generic "Absatz" [ref=f21e111]:
+                  - generic "Absatz" [ref=f21e112]:
+                    - generic "Absatz" [ref=f21e113]:
+                      - generic "Absatz" [ref=f21e114]:
+                        - generic "Absatz" [ref=f21e115]:
+                          - generic "Absatz" [ref=f21e116]: Abs.
+                - text: "3"
+                - generic "Telekommunikationsgesetz" [ref=f21e117]:
+                  - generic "Telekommunikationsgesetz" [ref=f21e118]:
+                    - generic "Telekommunikationsgesetz" [ref=f21e119]:
+                      - generic "Telekommunikationsgesetz" [ref=f21e120]:
+                        - generic "Telekommunikationsgesetz" [ref=f21e121]:
+                          - generic "Telekommunikationsgesetz" [ref=f21e122]: TKG
+                - text: ). Bei Allgemeinzuteilungen sind außerdem eine Mengenbetrachtung und detaillierte Kenntnisse über die Frequenzauslastung ausgeschlossen. Eine technische Koordinierung (Frequenz- und Standortkoordinierung) von Frequenznutzungen unter Berücksichtigung der regionalen Kapazitäten ist deshalb nur im Rahmen von Einzelzuteilungen möglich.
+              - heading "Allgemeinzuteilung von Frequenzen zur Nutzung durch Geräte geringer Reichweite (SRD)" [level=2] [ref=f21e123]
+              - paragraph [ref=f21e124]:
+                - text: Die Allgemeinzuteilung von Frequenzen zur Nutzung durch Geräte geringer Reichweite (
+                - generic "Short Range Device" [ref=f21e125]:
+                  - generic "Short Range Device" [ref=f21e126]:
+                    - generic "Short Range Device" [ref=f21e127]:
+                      - generic "Short Range Device" [ref=f21e128]:
+                        - generic "Short Range Device" [ref=f21e129]: SRD
+                - text: ) (
+                - generic "Verfügung" [ref=f21e130]:
+                  - generic "Verfügung" [ref=f21e131]:
+                    - generic "Verfügung" [ref=f21e132]:
+                      - generic "Verfügung" [ref=f21e133]:
+                        - generic "Verfügung" [ref=f21e134]: Vfg.
+                - text: 91/2025) teilt bestimmte Frequenzen zur Nutzung durch die Allgemeinheit für Funkanwendungen (Geräte) geringer Reichweite zu, welche bisher durch separate Allgemeinzuteilungen zugeteilt wurden.
+              - link "Allgemeinzuteilung von Frequenzen zur Nutzung durch Geräte geringer Reichweite (SRD) (Vfg. 91/2025) (pdf / 399 KB)" [ref=f21e136] [cursor=pointer]:
+                - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/vfg91_2025.pdf?__blob=publicationFile&v=3
+              - heading "Diese zuvor ergangenen separaten Allgemeinzuteilungen sind somit vollständig aufgehoben." [level=2] [ref=f21e139] [cursor=pointer]
+              - heading "Gültige Verfügungen" [level=2] [ref=f21e140]
+              - heading "Funkanlagen geringer Reichweite (SRD)" [level=3] [ref=f21e141]:
+                - text: Funkanlagen geringer Reichweite (
+                - generic "Short Range Device" [ref=f21e142]:
+                  - generic "Short Range Device" [ref=f21e143]:
+                    - generic "Short Range Device" [ref=f21e144]:
+                      - generic "Short Range Device" [ref=f21e145]:
+                        - generic "Short Range Device" [ref=f21e146]: SRD
+                - text: )
+              - paragraph [ref=f21e147]:
+                - link "Allgemeinzuteilung von Frequenzen zur Nutzung durch Geräte geringer Reichweite (SRD) (Vfg. 91/2025) (pdf / 399 KB)" [ref=f21e148] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/vfg91_2025.pdf?__blob=publicationFile&v=3
+              - paragraph [ref=f21e149]:
+                - link "Allgemeinzuteilung von Frequenzen für die Nutzung durch Ultrabreitband Anwendungen (UWB) (Vfg.11/2025) (pdf / 244 KB)" [ref=f21e150] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/vfg11_2025.pdf?__blob=publicationFile&v=3
+              - heading "Alarm, Überwachung, Ortung" [level=3] [ref=f21e151]
+              - paragraph [ref=f21e152]:
+                - link "Allgemeinzuteilung der Frequenz 155,45 MHz für die Übertragung von Positionsdaten von Jagd-, Rettungs- und Spürhunden (Vfg. 96/2021) (pdf / 39 KB)" [ref=f21e153] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/Ortung/vfg96_2021.pdf?__blob=publicationFile&v=3
+              - paragraph [ref=f21e154]:
+                - link "Allgemeinzuteilung von Frequenzen für Funkanwendungen geringer Reichweite für Bodenradaranwendungen; „Ground Probing Radar (GPR)“ (Vfg. 22/2017) (pdf / 64 KB)" [ref=f21e155] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/Ortung/vfg22_2017.pdf?__blob=publicationFile&v=2
+              - paragraph [ref=f21e156]:
+                - link "Allgemeinzuteilung einer Frequenz zur Ortung verschütteter Lebewesen (Vfg. 126/2023) (pdf / 14 KB)" [ref=f21e157] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/Ortung/vfg126_2023.pdf?__blob=publicationFile&v=3
+              - paragraph [ref=f21e158]:
+                - link "Allgemeinzuteilung von Frequenzen in den Frequenzbereichen 2900 – 3100 MHz und 9200 – 9500 MHz für Radaranlagen des Navigationsfunkdienstes / Seenavigationsfunkdienstes für Navigationszwecke auf Schiffen und zur Navigationshilfe auf Schifffahrtszeichen (Vfg. 12/2017) (pdf / 92 KB)" [ref=f21e159] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/Ortung/vfg12_2017.pdf?__blob=publicationFile&v=2
+              - paragraph [ref=f21e160]:
+                - link "Allgemeinzuteilung von Frequenzen zur Radiomarkierung von Tieren (Vfg. 125/2023) (pdf / 13 KB)" [ref=f21e161] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/Ortung/vfg125_2023.pdf?__blob=publicationFile&v=3
+              - paragraph [ref=f21e162]:
+                - link "Allgemeinzuteilung von Frequenzen für bestimmte Funkortungssysteme im Frequenzbereich 116 – 260 GHz (Vfg. 90/2023) (pdf / 113 KB)" [ref=f21e163] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/Ortung/vfg90_2023.pdf?__blob=publicationFile&v=3
+              - heading "Drahtlose Mikrofone u.ä. Anwendungen" [level=3] [ref=f21e164]
+              - paragraph [ref=f21e165]: Drahtlose PMSE-Audioausrüstungen sind Funkanlagen zur Übertragung analoger und digitaler Audiosignale zwischen einer begrenzten Anzahl von Sende- und Empfangsgeräten, wie Funkmikrofonen, In-Ear-Monitoring Systemen oder Audio-Links, die vor allem für die Herstellung von Rundfunkprogrammen oder bei privaten oder öffentlichen gesellschaftlichen oder kulturellen Veranstaltungen eingesetzt werden.
+              - paragraph [ref=f21e166]:
+                - strong [ref=f21e167]:
+                  - text: 821,5 - 826
+                  - generic "Megahertz" [ref=f21e168]:
+                    - generic "Megahertz" [ref=f21e169]: MHz
+                  - text: ", 826 - 832"
+                  - generic "Megahertz" [ref=f21e170]:
+                    - generic "Megahertz" [ref=f21e171]: MHz
+                  - text: sowie 863 - 865
+                  - generic "Megahertz" [ref=f21e172]:
+                    - generic "Megahertz" [ref=f21e173]: MHz
+                  - text: und 1785 – 1805
+                  - generic "Megahertz" [ref=f21e174]:
+                    - generic "Megahertz" [ref=f21e175]: MHz
+                - text: Die jeweils geltenden harmonisierten technischen Frequenzzugangsbedingungen ergeben sich aus den
+                - strong [ref=f21e176]: Tabellen 2 und 3
+                - text: der
+                - link "Allgemeinzuteilung von Frequenzen zur Nutzung durch Geräte geringer Reichweite (SRD) (Vfg. 91/2025) (pdf / 399 KB)" [ref=f21e177] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/vfg91_2025.pdf?__blob=publicationFile&v=3
+                - text: .
+              - paragraph [ref=f21e178]:
+                - strong [ref=f21e179]: 32,475 - 34,325 MHz / 34,530 - 34,950 MHz / 36,610 - 38,125 MHz, 174 - 230 MHz
+                - strong [ref=f21e180]: 470 - 608 MHz / 614 - 698 MHz, 736 - 753 MHz, 1350 - 1400 MHz
+              - paragraph [ref=f21e181]:
+                - link "Allgemeinzuteilung von Frequenzen für Funkmikrofone (Vfg. 37/2026) (pdf / 120 KB)" [ref=f21e182] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/Mikrofone/vfg37_2026.pdf?__blob=publicationFile&v=3
+              - heading "Mobilfunk, Kurzstreckenfunk, DECT, WLAN, CB-Funk, etc." [level=3] [ref=f21e183]:
+                - text: Mobilfunk, Kurzstreckenfunk, DECT,
+                - generic "Wireless Local Area Network" [ref=f21e184]:
+                  - generic "Wireless Local Area Network" [ref=f21e185]:
+                    - generic "Wireless Local Area Network" [ref=f21e186]:
+                      - generic "Wireless Local Area Network" [ref=f21e187]: WLAN
+                - text: ","
+                - generic "citizens band" [ref=f21e188]:
+                  - generic "citizens band" [ref=f21e189]:
+                    - generic "citizens band" [ref=f21e190]:
+                      - generic "citizens band" [ref=f21e191]: CB
+                - text: "-Funk,"
+                - generic "und so weiter" [ref=f21e192]:
+                  - generic "und so weiter" [ref=f21e193]:
+                    - generic "und so weiter" [ref=f21e194]:
+                      - generic "und so weiter" [ref=f21e195]: etc.
+              - paragraph [ref=f21e196]:
+                - text: Informationen zur Meldepflicht der Anbieter von Telekommunikationsdiensten und Betreibern öffentlicher Telekommunikationsnetze finden Sie
+                - link "hier" [ref=f21e197] [cursor=pointer]:
+                  - /url: DE/Fachthemen/Telekommunikation/Unternehmenspflichten/Meldepflicht/start.html
+                - text: .
+              - paragraph [ref=f21e198]:
+                - link "Allgemeinzuteilung von Frequenzen im Frequenzbereich 5755 MHz – 5875 MHz für gewerblich öffentliche Funkanwendungen für breitbandige ortsfeste Verteilsysteme; Broadband Fixed Wireless Access (BFWA) (Vfg. 34/2017) (pdf / 26 KB)" [ref=f21e199] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/MobilfunkDectWlanCBFunk/vfg34_2017.pdf?__blob=publicationFile&v=2
+              - paragraph [ref=f21e200]:
+                - link "Allgemeinzuteilung von Frequenzen für den CB-Funk (Vfg. 21/2021) (pdf / 151 KB)" [ref=f21e201] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/MobilfunkDectWlanCBFunk/vfg21_2021.pdf?__blob=publicationFile&v=2
+              - paragraph [ref=f21e202]:
+                - link "Allgemeinzuteilung für die Frequenznutzung durch das Luftfahrtpersonal für Funkanwendungen des zivilen mobilen Flug- und Flugnavigationsfunks in Luftfahrzeugen (Vfg. 147/2018) (pdf / 103 KB)" [ref=f21e203] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/MobilfunkDectWlanCBFunk/vfg147_2018.pdf?__blob=publicationFile&v=3
+              - paragraph [ref=f21e204]:
+                - link "Allgemeinzuteilung von Frequenzen im Frequenzbereich 149,01875 MHz - 149,11875 MHz für die Sprachkommunikation mit Handsprechfunkgeräten, korrigiert durch Mitt. 193/2025 (Vfg. 45/2025) (pdf / 72 KB)" [ref=f21e205] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/MobilfunkDectWlanCBFunk/vfg45_2025.pdf?__blob=publicationFile&v=11
+              - paragraph [ref=f21e206]:
+                - link "Allgemeinzuteilung von Frequenzen zur Nutzung von Mobilfunkdiensten an Bord von Flugzeugen (MCA-Dienste) (Vfg. 1/2026) (pdf / 159 KB)" [ref=f21e207] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/MobilfunkDectWlanCBFunk/vfg1_2026.pdf?__blob=publicationFile&v=3
+              - paragraph [ref=f21e208]:
+                - link "Allgemeinzuteilung von Frequenzen zur Nutzung von Mobilfunkdiensten an Bord von Schiffen (MCV-Dienste) (Vfg. 2/2026) (pdf / 142 KB)" [ref=f21e209] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/MobilfunkDectWlanCBFunk/vfg2_2026.pdf?__blob=publicationFile&v=3
+              - paragraph [ref=f21e210]:
+                - link "Allgemeinzuteilung von Frequenzen für die Nutzung durch schnurlose Telekommunikationsanlagen des Systems DECT (Vfg. 102/2024) (pdf / 98 KB)" [ref=f21e211] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/MobilfunkDectWlanCBFunk/vfg102_2024.pdf?__blob=publicationFile&v=3
+              - paragraph [ref=f21e212]:
+                - link "Allgemeinzuteilung von Frequenzen für mobile Funkanwendungen des See- und Binnenschifffahrtsfunks (Vfg. 52/2023) (pdf / 159 KB)" [ref=f21e213] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/MobilfunkDectWlanCBFunk/vfg52_2023.pdf?__blob=publicationFile&v=2
+              - paragraph [ref=f21e214]:
+                - link "Allgemeinzuteilung von Frequenzen für Funkanwendungen durch autonome Seefunkgeräte (Autonomous Maritime Radio Devices – AMRD) (Vfg. 51/2023) (pdf / 69 KB)" [ref=f21e215] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/MobilfunkDectWlanCBFunk/vfg51_2023.pdf?__blob=publicationFile&v=2
+              - paragraph [ref=f21e216]:
+                - link "Allgemeinzuteilung von Frequenzen in den Bereichen 5150 MHz - 5250 MHz, 5250 - 5350 MHz und 5470 MHz - 5725 MHz für drahtlose Zugangssysteme einschließlich lokaler Funknetze (WAS/Funk-LANs) (Vfg. 136 / 2022, geändert durch Vfg. 49 / 2023) (pdf / 384 KB)" [ref=f21e217] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/MobilfunkDectWlanCBFunk/vfg136_2022.pdf?__blob=publicationFile&v=2
+              - paragraph [ref=f21e218]:
+                - link "Allgemeinzuteilung von Frequenzen im Bereich 5945 MHz - 6425 MHz für drahtlose Zugangssysteme, einschließlich lokaler Funknetze WAS/WLAN („Wireless Access Systems/Wireless Local Area Networks“) (Vfg. 76/2025) (pdf / 30 KB)" [ref=f21e219] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/MobilfunkDectWlanCBFunk/vfg76_2025.pdf?__blob=publicationFile&v=5
+              - paragraph [ref=f21e220]:
+                - link "Allgemeinzuteilung von Frequenzen für betriebsinterne Funkanwendungen für Sprach- und Datenkommunikation in Groß- und Einzelhandelsunternehmungen unterschiedlicher Art (z.B. Verbrauchermärkte, Baumärkte) sowie Logistikzentren (Vfg. 50/2025) (pdf / 96 KB)" [ref=f21e221] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/MobilfunkDectWlanCBFunk/vfg50_2025.pdf?__blob=publicationFile&v=5
+              - paragraph [ref=f21e222]:
+                - link "Allgemeinzuteilungen von Frequenznutzungen in Bündelfunknetzen (Vfg. 36/2026) (pdf / 112 KB)" [ref=f21e223] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/Richtfunk/vfg36_2026.pdf?__blob=publicationFile&v=5
+              - heading "Richtfunkanwendungen" [level=3] [ref=f21e224]
+              - paragraph [ref=f21e225]:
+                - link "Allgemeinzuteilung für Punkt-zu-Punkt-Grundstücksrichtfunk im Frequenzbereich 37 GHz – 39,5 GHz (Vfg. 83/2024) (pdf / 15 KB)" [ref=f21e226] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/Richtfunk/vfg83_2024.pdf?__blob=publicationFile&v=4
+              - paragraph [ref=f21e227]:
+                - link "Allgemeinzuteilung von Frequenzen für die Nutzung durch optische Richtfunk - und Infrarot- Funkanwendungen (Vfg. 127/2023) (pdf / 16 KB)" [ref=f21e228] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/Richtfunk/vfg127_2023.pdf?__blob=publicationFile&v=3
+              - heading "Verkehrsanwendungen (Fahrzeuge/Straße/Schiene)" [level=3] [ref=f21e229]
+              - paragraph [ref=f21e230]:
+                - link "Allgemeinzuteilung von Frequenznutzungen für mobile Funkanwendungen der Eisenbahnen unterhalb 800 MHz (Vfg. 62/2026) (pdf / 100 KB)" [ref=f21e231] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/Verkehrsanwendungen/vfg62_2026.pdf?__blob=publicationFile&v=2
+              - paragraph [ref=f21e232]:
+                - link "Allgemeinzuteilung von Frequenzen zur Steuerung von Baustellenampeln (Vfg.39/2021) (pdf / 20 KB)" [ref=f21e233] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/Verkehrsanwendungen/vfg39_2021.pdf?__blob=publicationFile&v=2
+              - paragraph [ref=f21e234]:
+                - link "Allgemeinzuteilung der Frequenz 27,285 MHz für Baustellenwarnsysteme (Vfg. 99/2019) (pdf / 15 KB)" [ref=f21e235] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/Verkehrsanwendungen/vfg99_2019.pdf?__blob=publicationFile&v=2
+                - link "Allgemeinzuteilung von Frequenzen für sicherheitsbezogene Funkanwendungen intelligenter Verkehrssysteme (Intelligent Transport Systems, ITS) im Frequenzbereich 5875 – 5915 MHz (Vfg. 48/2021, geändert durch Vfg. 102/2025) (pdf / 91 KB)" [ref=f21e236] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/vfg102_2025.pdf?__blob=publicationFile&v=3
+              - paragraph [ref=f21e237]:
+                - link "Allgemeinzuteilung von Frequenzen für Kraftfahrzeug-Kurzstreckenradare im Frequenzbereich 21,65- 26,65 GHz (Vfg. 121/2022) (pdf / 64 KB)" [ref=f21e238] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/Verkehrsanwendungen/vfg121_2022.pdf?__blob=publicationFile&v=2
+              - paragraph [ref=f21e239]:
+                - link "Allgemeinzuteilung von Frequenzen für Kraftfahrzeug - Kurzstreckenradare im Frequenzbereich 77 – 81 GHz (Vfg. 13/2025) (pdf / 26 KB)" [ref=f21e240] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/Verkehrsanwendungen/vfg13_2025.pdf?__blob=publicationFile&v=3
+                - link "Allgemeinzuteilung von Frequenzen zur Nutzung durch Zugbeeinflussungssysteme zur Sicherung des Schienenverkehrs öffentlicher Eisenbahnen und des öffentlichen Personennahverkehrs (Vfg. 68/2023 Änderung und Widerruf der Vfg. 85/2021) (pdf / 104 KB)" [ref=f21e241] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/Verkehrsanwendungen/vfg68_2023.pdf?__blob=publicationFile&v=2
+              - heading "Sonstige Funkanwendungen" [level=3] [ref=f21e242]
+              - paragraph [ref=f21e243]:
+                - link "Allgemeinzuteilung von Frequenzen für Demonstrationsfunk für Bildungseinrichtungen (Vfg. 98/2021) (pdf / 17 KB)" [ref=f21e244] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/SonstigeFunkanwendungen/vfg98_2021.pdf?__blob=publicationFile&v=2
+              - paragraph [ref=f21e245]:
+                - link "Allgemeinzuteilung für Testsignalsender zur Selbstüberprüfung von Transpondersignalempfängern in Systemen zur bedarfsgerechten Nachtkennzeichnung von Windkraftanlagen auf der Frequenz 1090 MHz (Vfg. 87/2020) (pdf / 19 KB)" [ref=f21e246] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/SonstigeFunkanwendungen/vfg87_2020.pdf?__blob=publicationFile&v=2
+              - paragraph [ref=f21e247]:
+                - link "Allgemeinzuteilung einer Frequenz für Funkanwendungen zum Auslösen von Wählvorgängen (Funkfinger) (Vfg. 124/2023) (pdf / 13 KB)" [ref=f21e248] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/SonstigeFunkanwendungen/vfg124_2023.pdf?__blob=publicationFile&v=4
+              - paragraph [ref=f21e249]:
+                - link "Allgemeinzuteilung von Frequenzen zur Nutzung unter Tage (Vfg. 33/2020) (pdf / 56 KB)" [ref=f21e250] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/SonstigeFunkanwendungen/vfg33_2020.pdf?__blob=publicationFile&v=2
+              - paragraph [ref=f21e251]:
+                - link "Allgemeinzuteilung der Frequenz 150,00 MHz für ISM-Anwendungen im Rahmen der Hochfrequenzmagnetfeld-Therapie zur Nutzung durch die Allgemeinheit (Vfg. 107/2025) (pdf / 75 KB)" [ref=f21e252] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/SonstigeFunkanwendungen/vfg107_2025.pdf?__blob=publicationFile&v=3
+              - paragraph [ref=f21e253]:
+                - 'link "Allgemeinzuteilung von Frequenzen in den Frequenzteilbereichen gemäß Frequenzbereichszuweisungsplanverordnung (FreqBZPV), Teil B: Nutzungsbestimmungen (NB) D138 und D150 für die Nutzung durch die Allgemeinheit für ISM-Anwendungen (Vfg. 76/2003) (pdf / 17 KB)" [ref=f21e254] [cursor=pointer]':
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/SonstigeFunkanwendungen/vfg76_2003.pdf?__blob=publicationFile&v=2
+              - paragraph [ref=f21e255]:
+                - link "Allgemeinzuteilung von Frequenzen zur Fernsteuerung von Modellen (Vfg. 120/2022, geändert durch Vfg. 108/2023) (pdf / 45 KB)" [ref=f21e256] [cursor=pointer]:
+                  - /url: /DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/_DL/SonstigeFunkanwendungen/vfg120_2022.pdf?__blob=publicationFile&v=2
+            - paragraph [ref=f21e258]: "Stand: 15.04.2026"
+    - contentinfo [ref=f21e259]:
+      - generic [ref=f21e264]:
+        - link "Seite drucken" [ref=f21e265] [cursor=pointer]:
+          - /url: javascript:window.print();
+        - link "Seite teilen" [ref=f21e266] [cursor=pointer]:
+          - /url: javascript:void(0);
+        - link "Kurzlink" [ref=f21e267] [cursor=pointer]:
+          - /url: javascript:void(0);
+      - generic [ref=f21e269]:
+        - generic [ref=f21e271]:
+          - heading "Folgen Sie uns" [level=2] [ref=f21e272]
+          - generic [ref=f21e273]:
+            - link "LinkedIn" [ref=f21e274] [cursor=pointer]:
+              - /url: SharedDocs/Social_Datenschutz/linked.html?nn=648532
+            - link "Mastodon" [ref=f21e281] [cursor=pointer]:
+              - /url: SharedDocs/Social_Datenschutz/mastodon.html?nn=648532
+            - link "Twitter" [ref=f21e286] [cursor=pointer]:
+              - /url: SharedDocs/Social_Datenschutz/x.html?nn=648532
+            - link "YouTube" [ref=f21e291] [cursor=pointer]:
+              - /url: SharedDocs/Social_Datenschutz/yt.html?nn=648532
+            - link "Xing" [ref=f21e296] [cursor=pointer]:
+              - /url: SharedDocs/Social_Datenschutz/xing.html?nn=648532
+            - link "Kununu" [ref=f21e304] [cursor=pointer]:
+              - /url: SharedDocs/Social_Datenschutz/kunu.html?nn=648532
+        - paragraph [ref=f21e309]:
+          - emphasis [ref=f21e310]: © Bundesnetzagentur - 2026
+        - navigation [ref=f21e312]:
+          - heading "ServiceMenu" [level=2] [ref=f21e313]
+          - list [ref=f21e314]:
+            - listitem [ref=f21e315]:
+              - link "Impressum" [ref=f21e316] [cursor=pointer]:
+                - /url: DE/Service/Impressum/start.html
+            - listitem [ref=f21e317]:
+              - link "Barrierefreiheit" [ref=f21e318] [cursor=pointer]:
+                - /url: DE/Service/Barrierefreiheit/start.html
+            - listitem [ref=f21e319]:
+              - link "Datenschutz" [ref=f21e320] [cursor=pointer]:
+                - /url: DE/Service/Datenschutz/start.html
+            - listitem [ref=f21e321]:
+              - link "Inhaltsverzeichnis" [ref=f21e322] [cursor=pointer]:
+                - /url: DE/Service/Sitemap/sitemap_node.html
+            - listitem [ref=f21e323]:
+              - link "Kontakt" [ref=f21e324] [cursor=pointer]:
+                - /url: kontakt
+  - link "Mastodon" [ref=f21e325] [cursor=pointer]:
+    - /url: https://social.bund.de/@BNetzA

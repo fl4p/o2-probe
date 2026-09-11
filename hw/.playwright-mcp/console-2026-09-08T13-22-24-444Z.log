@@ -1,0 +1,713 @@
+[    1169ms] [LOG] init gallery size: 0 @ https://www.bundesnetzagentur.de/_tools/_baustelle/gallery/gallery_script.js?v=1:2281
+[    1250ms] [LOG] doc ready @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1250ms] [LOG] init ajaxReload @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1250ms] [LOG] init ajaxReload2 @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1250ms] [LOG] init klappschalter @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:581
+[    1250ms] [LOG] init collector @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1251ms] [LOG] go accordion @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1251ms] [LOG] found jsacc0 @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1251ms] [LOG] found element @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1251ms] [LOG] go master accordion @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1251ms] [LOG] go sub accordion @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1252ms] [LOG] go accordion v3 @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1252ms] [LOG] init scrollspy @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1253ms] [LOG] found toc-li @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1253ms] [LOG] [object Object] = DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/start.html#doc1078010bodyText1 @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1253ms] [LOG] found toc-li @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1253ms] [LOG] [object Object] = DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/start.html#doc1078010bodyText2 @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1254ms] [LOG] found toc-li @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1254ms] [LOG] [object Object] = DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/start.html#doc1078010bodyText3 @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1254ms] [LOG] found toc-li @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1254ms] [LOG] [object Object] = DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/start.html#doc1078010bodyText4 @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1254ms] [LOG] found toc-li @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1254ms] [LOG] [object Object] = DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/start.html#doc1078010bodyText5 @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1254ms] [LOG] found toc-li @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1254ms] [LOG] [object Object] = DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/start.html#doc1078010bodyText6 @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1254ms] [LOG] found toc-li @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1254ms] [LOG] [object Object] = DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/start.html#doc1078010bodyText7 @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1254ms] [LOG] found toc-li @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1254ms] [LOG] [object Object] = DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/start.html#doc1078010bodyText8 @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1254ms] [LOG] found toc-li @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1254ms] [LOG] [object Object] = DE/Fachthemen/Telekommunikation/Frequenzen/Allgemeinzuteilungen/start.html#doc1078010bodyText9 @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1254ms] [LOG] hasScrollspy 1 @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1257ms] [LOG] inner width=1200 @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1262ms] [LOG] go location hash @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1262ms] [LOG] go hash:  @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1262ms] [LOG] init ankerKontrolle mit  @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1262ms] [LOG] go keypress all @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1262ms] [LOG] go first search result @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1263ms] [LOG] S.fn.init @ https://www.bundesnetzagentur.de/static/JavaScript/addon/addon-scripts-dist.js?v=1:0
+[    1263ms] [LOG] S.fn.init @ https://www.bundesnetzagentur.de/static/JavaScript/addon/addon-scripts-dist.js?v=1:0
+[    1265ms] [LOG] searching tables in bodyText @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1265ms] [LOG] found bodytext: 1125 @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1265ms] [LOG] found bodytext: 1125 @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1265ms] [LOG] init box heights @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1265ms] [LOG] init bkTable @ https://www.bundesnetzagentur.de/SiteGlobals/Functions/JavaScript/fl/script_qw.js?v=8:1
+[    1331ms] [LOG] S.fn.init @ https://www.bundesnetzagentur.de/static/JavaScript/addon/addon-scripts-dist.js?v=1:0
+[    1331ms] [LOG] 
+
+                <ul role="menubar" aria-label="Hauptmenu" >
+                  <li role="none" id="node859634_0" class="Sub_true">
+                      
+  <a role="menuitem"  id="Hauptmenu"  class="" href="DE/Themen/start.html" aria-haspopup="true" aria-expanded="false"  title="erster Klick öffnet das Untermenü, zweiter Klick geht zur Zielseite">
+<em>     Fachthemen
+  </em>
+  </a>
+                          <ul role="menu" aria-hidden="true" class="topnavilayer fwo" style="" aria-label="Fachthemen">
+                            <div class="topnavifiller">
+                              <div class="inner dapadding fwo">
+                                <div class="row ">
+                                  <div class="col-lg-12 col-sm-12 hidden-xs">
+                                    <div class="colHead">
+                                      Fachthemen
+                                    </div>
+                                  </div>
+                                  <div class="col-sm-12 visible-xs-block"><div class="colHead"><strong>Fachthemen</strong></div></div>
+                                  <div class="col-lg-3 col-sm-3 menuCol l2 active">
+                                    <div class="colLinks block_1">
+                                       <li role="none" class="Sub_false">
+  <a role="menuitem" class="" href="DE/Fachthemen/ElektrizitaetundGas/start.html">
+   Energie
+  
+  </a>
+                                       </li>
+                                      <li role="none" class="Sub_true">
+  <a role="menuitem" class="" href="DE/Fachthemen/Telekommunikation/start.html">
+<em>     Telekom­munikation
+  </em>
+  </a>
+                                        <ul class="col-lg-3 col-sm-3 menuCol l3 active ">
+<div class="colLinks block_2">                                            <li role="none"  class="Sub_false">
+  <a role="menuitem" class="" href="DE/Fachthemen/Telekommunikation/Breitband/start.html">
+   Breitbandversorgung
+  
+  </a>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Fachthemen/Telekommunikation/Kupfer-Glas/start.html">
+   Kupfer-Glas-Migration
+  
+  </a>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+  <a role="menuitem" class="" href="DE/Fachthemen/Telekommunikation/Frequenzen/start.html">
+<em>     Funk und Frequenzen
+  </em>
+  </a>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+  <a role="menuitem" class="" href="DE/Fachthemen/Telekommunikation/Nummerierung/start.html">
+   Nummerierung
+  
+  </a>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+  <a role="menuitem" class="" href="DE/Fachthemen/Telekommunikation/Unternehmenspflichten/start.html">
+   Unternehmenspflichten
+  
+  </a>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+  <a role="menuitem" class="" href="DE/Fachthemen/Telekommunikation/Technik/start.html">
+   Technik und Produktsicherheit
+  
+  </a>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+  <a role="menuitem" class="" href="DE/Fachthemen/Telekommunikation/OeffentlicheSicherheit/start.html">
+   Öffentliche Sicherheit
+  
+  </a>
+                                             </li>
+                                            <li role="none"  class="Sub_true">
+  <a role="menuitem" class="" href="DE/Fachthemen/Telekommunikation/Grundversorgung/start.html">
+   Grundversorgung
+  
+  </a>
+                                                <ul class="col-lg-3 col-sm-3 menuCol l4 active">
+<div class="colLinks block_3">                                                    <li role="none" class="Sub_false">  <a role="menuitem" class="" href="DE/Fachthemen/Telekommunikation/Grundversorgung/start2.html">
+   Allgemeines
+  
+  </a>
+</li>
+                                                    <li role="none" class="Sub_false">   <a role="menuitem" class="nochildren" href="DE/Fachthemen/Telekommunikation/Grundversorgung/Unterversorgungsfeststellungen/start.html">
+   Unterversorgungsfeststellung
+  
+  </a>
+</li>
+ </div>                                                </ul>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Fachthemen/Telekommunikation/Resilienz/start.html">
+   Resilienz der Netze
+  
+  </a>
+                                             </li>
+                                            <li role="none"  class="Sub_true">
+  <a role="menuitem" class="" href="DE/Beschlusskammern/0_Main/Beschlusskammern%20Telekommunikation.html">
+   Beschlusskammern
+  
+  </a>
+                                                <ul class="col-lg-3 col-sm-3 menuCol l4 active">
+<div class="colLinks block_3">                                                    <li role="none" class="Sub_false">  <a role="menuitem" class="" href="DE/Beschlusskammern/BK02/BK2.html">
+   Beschlusskammer 2
+  
+  </a>
+</li>
+                                                    <li role="none" class="Sub_false">  <a role="menuitem" class="" href="DE/Beschlusskammern/BK03/BK3.html">
+   Beschlusskammer 3
+  
+  </a>
+</li>
+                                                    <li role="none" class="Sub_false">  <a role="menuitem" class="" href="DE/Beschlusskammern/BK11/BK11.html">
+   Beschlusskammer 11
+  
+  </a>
+</li>
+ </div>                                                </ul>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Fachthemen/Telekommunikation/Marktdaten/start.html">
+   Marktdaten
+  
+  </a>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+  <a role="menuitem" class="" href="DE/Fachthemen/Telekommunikation/Marktregulierung/start.html">
+   Marktregulierung
+  
+  </a>
+                                             </li>
+ </div>                                        </ul>
+                                       </li>
+                                      <li role="none" class="Sub_false">
+  <a role="menuitem" class="" href="DE/Fachthemen/Digitales/start.html">
+   Digitales
+  
+  </a>
+                                       </li>
+                                      <li role="none" class="Sub_true">
+  <a role="menuitem" class="" href="DE/Fachthemen/Post/start.html">
+   Post
+  
+  </a>
+                                        <ul class="col-lg-3 col-sm-3 menuCol l3 active ">
+<div class="colLinks block_2">                                            <li role="none"  class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Fachthemen/Post/Anbieterverzeichnis/start.html">
+   Anbieterverzeichnis
+  
+  </a>
+                                             </li>
+                                            <li role="none"  class="Sub_true">
+  <a role="menuitem" class="" href="DE/Fachthemen/Post/Marktbeobachtung/start.html">
+   Marktbeobachtung
+  
+  </a>
+                                                <ul class="col-lg-3 col-sm-3 menuCol l4 active">
+<div class="colLinks block_3">                                                    <li role="none" class="Sub_false">   <a role="menuitem" class="nochildren" href="DE/Fachthemen/Post/Marktbeobachtung/Marktdaten/start.html">
+   Marktdaten
+  
+  </a>
+</li>
+                                                    <li role="none" class="Sub_false">   <a role="menuitem" class="nochildren" href="DE/Fachthemen/Post/Marktbeobachtung/JaehrlicheDatenerhebung/start.html">
+   Jährliche Datenerhebung
+  
+  </a>
+</li>
+                                                    <li role="none" class="Sub_false">   <a role="menuitem" class="nochildren" href="DE/Fachthemen/Post/Marktbeobachtung/Marktuntersuchungen/start.html">
+   Marktuntersuchungen
+  
+  </a>
+</li>
+                                                    <li role="none" class="Sub_false">   <a role="menuitem" class="nochildren" href="DE/Fachthemen/Post/Marktbeobachtung/Briefpreisvergleich/start.html">
+   Internationaler Briefpreisvergleich
+  
+  </a>
+</li>
+                                                    <li role="none" class="Sub_false">   <a role="menuitem" class="nochildren" href="DE/Fachthemen/Post/Marktbeobachtung/Paketpreisvergleich/start.html">
+   Paketpreisvergleich
+  
+  </a>
+</li>
+ </div>                                                </ul>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Fachthemen/Post/Marktregulierung/start.html">
+   Marktregulierung
+  
+  </a>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Fachthemen/Post/Meldestelle/start.html">
+   Meldestelle für Hinweisgebende
+  
+  </a>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Fachthemen/Post/PostgeheimnisDatenschutz/start.html">
+   Postgeheimnis und Datenschutz
+  
+  </a>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Fachthemen/Post/Postmarktpruefungen/start.html">
+   Postmarktprüfungen
+  
+  </a>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Fachthemen/Post/Qualitaetsmonitoring/start.html">
+   Qualitätsmonitoring
+  
+  </a>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Fachthemen/Post/RegelungenZurPostversorgung/start.html">
+   Regelungen zur Postversorgung
+  
+  </a>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Fachthemen/Post/SicherstellungPostversorgung/start.html">
+   Sicherstellung der Postversorgung
+  
+  </a>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Fachthemen/Post/Standardisierung/start.html">
+   Standardisierung
+  
+  </a>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Fachthemen/Post/StationaereEinrichtungen/start.html">
+   Stationäre Einrichtungen
+  
+  </a>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Fachthemen/Post/Teilleistungen/start.html">
+   Teilleistungen - Zugang und Entgelte
+  
+  </a>
+                                             </li>
+ </div>                                        </ul>
+                                       </li>
+                                      <li role="none" class="Sub_false">
+  <a role="menuitem" class="" href="DE/Fachthemen/Eisenbahnen/start.html">
+   Eisenbahnen
+  
+  </a>
+                                       </li>
+                                      <li role="none" class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Fachthemen/DataHub/start.html">
+   BNetzA Data Hub
+  
+  </a>
+                                       </li>
+                                      <li role="none" class="Sub_false">
+  <a role="menuitem" class="" href="DE/Beschlusskammern/BK_Start.html">
+   Beschlusskammern
+  
+  </a>
+                                       </li>
+                                     </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                           <button style="border:none;" class="closebutton button" href="javascript:void()"  title="NavigationSchliessen"><span class="aural">NavigationSchliessen</span></button>
+
+                          </ul>
+                  </li>
+                  <li role="none" id="node669294_0" class="Sub_true">
+                      
+  <a role="menuitem"  class="" href="DE/Vportal/vportal_node.html" aria-haspopup="true" aria-expanded="false"  title="erster Klick öffnet das Untermenü, zweiter Klick geht zur Zielseite">
+   Verbraucherportal
+  
+  </a>
+                          <ul role="menu" aria-hidden="true" class="topnavilayer fwo" style="" aria-label="Verbraucherportal">
+                            <div class="topnavifiller">
+                              <div class="inner dapadding fwo">
+                                <div class="row ">
+                                  <div class="col-lg-12 col-sm-12 hidden-xs">
+                                    <div class="colHead">
+                                      Verbraucherportal
+                                    </div>
+                                  </div>
+                                  <div class="col-sm-12 visible-xs-block"><div class="colHead"><strong>Verbraucherportal</strong></div></div>
+                                  <div class="col-lg-3 col-sm-3 menuCol l2 active">
+                                    <div class="colLinks block_1">
+                                       <li role="none" class="Sub_false">
+  <a role="menuitem" class="" href="DE/Vportal/TK/start.html">
+   Digitales und Telekommunikation
+  
+  </a>
+                                       </li>
+                                      <li role="none" class="Sub_false">
+  <a role="menuitem" class="" href="DE/Vportal/Energie/start.html">
+   Energie
+  
+  </a>
+                                       </li>
+                                      <li role="none" class="Sub_false">
+  <a role="menuitem" class="" href="DE/Vportal/Post/start.html">
+   Post
+  
+  </a>
+                                       </li>
+                                      <li role="none" class="Sub_false">
+  <a role="menuitem" class="" href="DE/Vportal/AnfragenBeschwerden/start.html">
+   Anfragen und Beschwerden
+  
+  </a>
+                                       </li>
+                                      <li role="none" class="Sub_false">
+  <a role="menuitem" class="" href="DE/Vportal/Schlichtung/start.html">
+   Schlichtung
+  
+  </a>
+                                       </li>
+                                      <li role="none" class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Vportal/Verbraucher-Radar/start.html">
+   Verbraucherschutz in Zahlen
+  
+  </a>
+                                       </li>
+                                     </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                           <button style="border:none;" class="closebutton button" href="javascript:void()"  title="NavigationSchliessen"><span class="aural">NavigationSchliessen</span></button>
+
+                          </ul>
+                  </li>
+                  <li role="none" id="node860116_0" class="Sub_false">
+                      
+  <a role="menuitem" class="" href="DE/Fachthemen/Datenportal/start.html">
+   Datenportal
+  
+  </a>
+                  </li>
+                  <li role="none" id="node654666_0" class="Sub_true">
+                      
+  <a role="menuitem"  class="" href="DE/Allgemeines/DieBundesnetzagentur/start.html" aria-haspopup="true" aria-expanded="false"  title="erster Klick öffnet das Untermenü, zweiter Klick geht zur Zielseite">
+   Bundesnetzagentur
+  
+  </a>
+                          <ul role="menu" aria-hidden="true" class="topnavilayer fwo" style="" aria-label="Bundesnetzagentur">
+                            <div class="topnavifiller">
+                              <div class="inner dapadding fwo">
+                                <div class="row ">
+                                  <div class="col-lg-12 col-sm-12 hidden-xs">
+                                    <div class="colHead">
+                                      Bundesnetzagentur
+                                    </div>
+                                  </div>
+                                  <div class="col-sm-12 visible-xs-block"><div class="colHead"><strong>Bundesnetzagentur</strong></div></div>
+                                  <div class="col-lg-3 col-sm-3 menuCol l2 active">
+                                    <div class="colLinks block_1">
+                                       <li role="none" class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/AufgabenStruktur/start.html">
+   Aufgaben und Struktur
+  
+  </a>
+                                       </li>
+                                      <li role="none" class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/Praesidium/start.html">
+   Präsidium
+  
+  </a>
+                                       </li>
+                                      <li role="none" class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/Historie/start.html">
+   Historie
+  
+  </a>
+                                       </li>
+                                      <li role="none" class="Sub_false">
+  <a role="menuitem" class="" href="DE/Allgemeines/DieBundesnetzagentur/Karriere/start.html">
+   Karriere
+  
+  </a>
+                                       </li>
+                                      <li role="none" class="Sub_false">
+  <a role="menuitem" class="" href="DE/Allgemeines/DieBundesnetzagentur/Ausbildung_Studium/start.html">
+   Ausbildung und Duales Studium
+  
+  </a>
+                                       </li>
+                                      <li role="none" class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/Podcast/start.html">
+   Die Pod­casts der Bundesnetzagentur
+  
+  </a>
+                                       </li>
+                                      <li role="none" class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/Insight/Blog/start.html">
+   Insight Blog
+  
+  </a>
+                                       </li>
+                                      <li role="none" class="Sub_true">
+  <a role="menuitem" class="" href="DE/Allgemeines/DieBundesnetzagentur/BeiraeteAusschuesse/start.html">
+   Beiräte, Gremien, Beauftragte
+  
+  </a>
+                                        <ul class="col-lg-3 col-sm-3 menuCol l3 active ">
+<div class="colLinks block_2">                                            <li role="none"  class="Sub_false">
+  <a role="menuitem" class="" href="DE/Allgemeines/DieBundesnetzagentur/BeiraeteAusschuesse/Beirat/start.html">
+   Beirat
+  
+  </a>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/BeiraeteAusschuesse/Eisenbahninfrastrukturbeirat/start.html">
+   Eisenbahninfrastrukturbeirat
+  
+  </a>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/BeiraeteAusschuesse/Bundesfachplanungsbeirat/start.html">
+   Bundesfachplanungsbeirat
+  
+  </a>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/BeiraeteAusschuesse/Laenderausschuss/start.html">
+   Länderausschuss
+  
+  </a>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+  <a role="menuitem" class="" href="DE/Allgemeines/DieBundesnetzagentur/BeiraeteAusschuesse/WAR/start.html">
+   Wissenschaftlicher Arbeitskreis für Regulierungsfragen
+  
+  </a>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/BeiraeteAusschuesse/Korruptionspraevention/start.html">
+   Korruptionsprävention
+  
+  </a>
+                                             </li>
+ </div>                                        </ul>
+                                       </li>
+                                      <li role="none" class="Sub_true">
+  <a role="menuitem" class="" href="DE/Allgemeines/DieBundesnetzagentur/Internationales/start.html">
+   Internationales und Europa
+  
+  </a>
+                                        <ul class="col-lg-3 col-sm-3 menuCol l3 active ">
+<div class="colLinks block_2">                                            <li role="none"  class="Sub_true">
+  <a role="menuitem" class="" href="DE/Allgemeines/DieBundesnetzagentur/Internationales/Energie/start.html">
+   Energie (Internationales)
+  
+  </a>
+                                                <ul class="col-lg-3 col-sm-3 menuCol l4 active">
+<div class="colLinks block_3">                                                    <li role="none" class="Sub_false">   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/Internationales/Energie/ACER/start.html">
+   ACER
+  
+  </a>
+</li>
+                                                    <li role="none" class="Sub_false">   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/Internationales/Energie/CEER/start.html">
+   CEER
+  
+  </a>
+</li>
+                                                    <li role="none" class="Sub_false">   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/Internationales/Energie/PCI/start.html">
+   PCI
+  
+  </a>
+</li>
+ </div>                                                </ul>
+                                             </li>
+                                            <li role="none"  class="Sub_true">
+  <a role="menuitem" class="" href="DE/Allgemeines/DieBundesnetzagentur/Internationales/Telekommunikation/start.html">
+   Telekommunikation
+  
+  </a>
+                                                <ul class="col-lg-3 col-sm-3 menuCol l4 active">
+<div class="colLinks block_3">                                                    <li role="none" class="Sub_false">  <a role="menuitem" class="" href="DE/Allgemeines/DieBundesnetzagentur/Internationales/Telekommunikation/BEREC/start.html">
+   BEREC
+  
+  </a>
+</li>
+                                                    <li role="none" class="Sub_false">   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/Internationales/Telekommunikation/IRG/start.html">
+   IRG
+  
+  </a>
+</li>
+                                                    <li role="none" class="Sub_false">   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/Internationales/Telekommunikation/CEPT/start.html">
+   CEPT
+  
+  </a>
+</li>
+                                                    <li role="none" class="Sub_false">   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/Internationales/Telekommunikation/ITU/start.html">
+   ITU
+  
+  </a>
+</li>
+                                                    <li role="none" class="Sub_false">   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/Internationales/Telekommunikation/RSPG/start.html">
+   RSPG
+  
+  </a>
+</li>
+                                                    <li role="none" class="Sub_false">   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/Internationales/Telekommunikation/RSC/start.html">
+   RSC
+  
+  </a>
+</li>
+ </div>                                                </ul>
+                                             </li>
+                                            <li role="none"  class="Sub_true">
+  <a role="menuitem" class="" href="DE/Allgemeines/DieBundesnetzagentur/Internationales/Post/start.html">
+   Post
+  
+  </a>
+                                                <ul class="col-lg-3 col-sm-3 menuCol l4 active">
+<div class="colLinks block_3">                                                    <li role="none" class="Sub_false">   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/Internationales/Post/ERGP/start.html">
+   ERGP
+  
+  </a>
+</li>
+                                                    <li role="none" class="Sub_false">   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/Internationales/Post/CERP/start.html">
+   CEPT - CERP
+  
+  </a>
+</li>
+                                                    <li role="none" class="Sub_false">   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/Internationales/Post/CEN/start.html">
+   CEN
+  
+  </a>
+</li>
+                                                    <li role="none" class="Sub_false">   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/Internationales/Post/UPU/start.html">
+   UPU
+  
+  </a>
+</li>
+                                                    <li role="none" class="Sub_false">   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/Internationales/Post/ISO/start.html">
+   ISO
+  
+  </a>
+</li>
+ </div>                                                </ul>
+                                             </li>
+                                            <li role="none"  class="Sub_true">
+  <a role="menuitem" class="" href="DE/Allgemeines/DieBundesnetzagentur/Internationales/Eisenbahnen/start.html">
+   Eisenbahnen
+  
+  </a>
+                                                <ul class="col-lg-3 col-sm-3 menuCol l4 active">
+<div class="colLinks block_3">                                                    <li role="none" class="Sub_false">   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/Internationales/Eisenbahnen/IRG-Rail/start.html">
+   IRG-Rail
+  
+  </a>
+</li>
+                                                    <li role="none" class="Sub_false">   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/Internationales/Eisenbahnen/ENRRB/start.html">
+   ENRRB
+  
+  </a>
+</li>
+ </div>                                                </ul>
+                                             </li>
+                                            <li role="none"  class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/Internationales/QualifizierteelektronischeSignatur/start.html">
+   Qualifizierte elektronische Signatur
+  
+  </a>
+                                             </li>
+ </div>                                        </ul>
+                                       </li>
+                                      <li role="none" class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/AufgabenStruktur/Standorte/start.html">
+   Standorte
+  
+  </a>
+                                       </li>
+                                      <li role="none" class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Allgemeines/Kontakt/start.html">
+   Kontakt
+  
+  </a>
+                                       </li>
+                                      <li role="none" class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/BeschaffungAusschreibungen/start.html">
+   Ausschreibungen
+  
+  </a>
+                                       </li>
+                                      <li role="none" class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Allgemeines/DieBundesnetzagentur/OeffentlicheZustellung/start.html">
+   Öffentliche Zustellung
+  
+  </a>
+                                       </li>
+                                     </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                           <button style="border:none;" class="closebutton button" href="javascript:void()"  title="NavigationSchliessen"><span class="aural">NavigationSchliessen</span></button>
+
+                          </ul>
+                  </li>
+                  <li role="none" id="node659906_0" class="Sub_true">
+                      
+  <a role="menuitem"  class="" href="DE/Allgemeines/Presse/start.html" aria-haspopup="true" aria-expanded="false"  title="erster Klick öffnet das Untermenü, zweiter Klick geht zur Zielseite">
+   Presse
+  
+  </a>
+                          <ul role="menu" aria-hidden="true" class="topnavilayer fwo" style="" aria-label="Presse">
+                            <div class="topnavifiller">
+                              <div class="inner dapadding fwo">
+                                <div class="row ">
+                                  <div class="col-lg-12 col-sm-12 hidden-xs">
+                                    <div class="colHead">
+                                      Presse
+                                    </div>
+                                  </div>
+                                  <div class="col-sm-12 visible-xs-block"><div class="colHead"><strong>Presse</strong></div></div>
+                                  <div class="col-lg-3 col-sm-3 menuCol l2 active">
+                                    <div class="colLinks block_1">
+                                       <li role="none" class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Allgemeines/Presse/Pressemitteilungen/start.html">
+   Pressemitteilungen
+  
+  </a>
+                                       </li>
+                                      <li role="none" class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Allgemeines/Presse/Ansprechpartner/start.html">
+   Pressekontakt
+  
+  </a>
+                                       </li>
+                                      <li role="none" class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Allgemeines/Aktuelles/start.html">
+   Aktuelles
+  
+  </a>
+                                       </li>
+                                      <li role="none" class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Allgemeines/Presse/Mediathek_3/start.html">
+   Mediathek
+  
+  </a>
+                                       </li>
+                                      <li role="none" class="Sub_false">
+   <a role="menuitem" class="nochildren" href="DE/Allgemeines/Presse/Amtsblatt/start.html">
+   Amtsblatt
+  
+  </a>
+                                       </li>
+                                     </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                           <button style="border:none;" class="closebutton button" href="javascript:void()"  title="NavigationSchliessen"><span class="aural">NavigationSchliessen</span></button>
+
+                          </ul>
+                  </li>
+                 </ul> @ https://www.bundesnetzagentur.de/static/JavaScript/addon/addon-scripts-dist.js?v=1:0

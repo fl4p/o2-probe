@@ -151,6 +151,46 @@ def crc16(buf):
     return crc
 
 
+# How long a reply to a request that TIMED OUT can still arrive, and so how long
+# the line must stay silent before the next request after a failure.
+#
+# NOT MEASURED END TO END. Derived from node-prototype src/main.cpp, the path
+# this transport takes through the node: a relayed request waits in the USB
+# FIFO while loop() is elsewhere, and loop() does not skip its LoRaWAN uplink
+# during a serial bus claim - sendReceive() "blocks through RX1 and RX2 - well
+# over a second at DR3", at DR0 an uplink is ~2.5 s of airtime before those
+# windows even open, and the request ahead of it can already have spent
+# REPLY_WAIT_MS (1500 ms) waiting on the probe. The node then answers the
+# queued requests IN ORDER. 8 s covers that sum with margin; a longer stall is
+# not covered, and test_serial_capture.py pins that limit rather than hiding it.
+LATE_REPLY_S = 8.0
+
+# The ESP32-S3's built-in USB Serial/JTAG (Espressif VID, and the PID
+# farm-node-01 enumerates with, measured 2026-09-10 in system_profiler).
+ESPRESSIF_USB_SERIAL_JTAG = (0x303A, 0x1001)
+
+
+def is_usb_serial_jtag(port, ports=None):
+    """True if `port` is an ESP32-S3's built-in USB Serial/JTAG - this link then
+    runs THROUGH THE NODE, where the host line rate never reaches the RS-485
+    cable. False when it is not listed as one, including when pyserial cannot
+    list ports at all: a dongle is what this tool was written for."""
+    if ports is None:
+        try:
+            from serial.tools import list_ports
+            ports = list_ports.comports()
+        except Exception:                            # noqa: BLE001
+            return False
+    names = {port, port.replace("/dev/tty.", "/dev/cu."),
+             port.replace("/dev/cu.", "/dev/tty.")}
+    for p in ports:
+        if (getattr(p, "device", None) in names and
+                (getattr(p, "vid", None), getattr(p, "pid", None))
+                == ESPRESSIF_USB_SERIAL_JTAG):
+            return True
+    return False
+
+
 class SerialLink:
     """A serial line: a USB-RS485 dongle, or a USB-TTL lead into a bridge."""
 
@@ -160,6 +200,7 @@ class SerialLink:
         self.ser = serial.Serial(port, baud, parity=parity, stopbits=1,
                                  bytesize=8, timeout=timeout)
         self.baud = baud
+        self.via_usb_serial_jtag = is_usb_serial_jtag(port)
         # Silence between frames. TWO RULES, and Modbus over Serial Line v1.02
         # 2.5.1.1 switches between them at 19200: 3.5 character times up to
         # there, and a FIXED 1.750 ms above it, because a character time keeps
@@ -175,16 +216,37 @@ class SerialLink:
         # into two fragments that both fail CRC and are both discarded. The
         # master then sees no reply and blames the cable.
         self.gap = max(3.5 * 11 / baud, 0.001750)
-        self._suspect = False
+        # SUSPECT FROM THE FIRST EXCHANGE (review 2026-09-10). A previous
+        # process - an earlier run of this tool, a crashed one, nodecon - can
+        # leave a request queued in the node that is answered after this open,
+        # and _settle()'s 2 s of quiet does not cover a node stalled in its
+        # uplink. So the first exchange drains as if the one before it had
+        # failed: up to late_reply_s, once per run.
+        self._suspect = True
+        self._short_drain = False
+        self.late_reply_s = LATE_REPLY_S
         self._settle()
 
-    def _drain_quiet(self, quiet=0.30, cap=3.0):
+    def _drain_quiet(self, quiet=0.30, cap=None):
         """Discard everything until the line has been silent for `quiet`.
 
         The gap has to exceed the far end's reply latency, not merely be
         non-zero: at 9600 a 21-byte reply is ~24 ms on the wire, and the node
         adds its relay scheduling on top. 300 ms clears both with margin while
-        staying far below the per-exchange timeout."""
+        staying far below the per-exchange timeout.
+
+        AMENDED 2026-09-10: after a FAILED exchange the latency that matters is
+        not the wire's, it is how long the node can go without servicing the
+        console at all - and 300 ms does not cover that. Modelled in
+        test_serial_capture.py: a stall that outlasted the exchange and then
+        the 300 ms quiet window let the late reply land inside the NEXT
+        exchange, where _find() accepted it; that cleared _suspect, so every
+        read after it returned the previous request's answer for the rest of
+        the run. exchange() now drains for late_reply_s (LATE_REPLY_S) after a
+        failure. The healthy path still pays nothing. `cap` defaults to leave
+        room for a reply that arrives inside the window and restarts it."""
+        if cap is None:
+            cap = max(3.0, quiet + 10.0)
         t0 = time.time()
         last = t0
         old, self.ser.timeout = self.ser.timeout, 0.05
@@ -248,9 +310,24 @@ class SerialLink:
         # COST: nothing on a healthy run. The drain is skipped entirely unless
         # the previous exchange actually failed, so a clean 151-block transfer
         # pays for it zero times rather than 151 times.
+        #
+        # FOR HOW LONG: late_reply_s, not a wire-latency figure - see
+        # LATE_REPLY_S and the amendment in _drain_quiet(). A 300 ms window
+        # let a reply from a node stalled in its LoRaWAN uplink arrive after
+        # the next write and be taken as that exchange's answer.
         if self._suspect:
-            self._drain_quiet()
+            quiet = (0.30 if getattr(self, "_short_drain", False)
+                     else getattr(self, "late_reply_s", LATE_REPLY_S))
+            self._drain_quiet(quiet=quiet)
+        self._short_drain = False
         self.ser.reset_input_buffer()
+        # SUSPECT UNTIL PROVEN OTHERWISE (review 2026-09-10, round two). The flag
+        # used to be set only when the read loop ran out normally, so an
+        # exception out of a read after this write - a USB hiccup, a device
+        # that vanished - left it False, and the retry took this request's late
+        # reply as its own. It is now set before the write and cleared only by
+        # a frame that was actually found.
+        self._suspect = True
         self.ser.write(adu)
         # THE REPLY DOES NOT NECESSARILY START AT BYTE ZERO, and reading
         # exactly expect_len bytes assumes it does. Two things measured on the
@@ -342,8 +419,24 @@ class SerialLink:
         with and nothing this end does can change it.
         """
         self.ser.flush()
+        changed = baud != self.baud
         self.ser.baudrate = baud
         self.baud = baud
+        # A reply to a request sent BEFORE this retime left at the old rate and
+        # does not decode at the new one on a dongle or a bridge, so the next
+        # drain only has to clear the wire, not wait out a node stall - and must
+        # not: a full LATE_REPLY_S drain here outlasted the probe's 10 s serial
+        # probation after a lost BAUD_CODE ACK (review 2026-09-10, modelled
+        # 4.9 s -> 49 s). NOT TRUE THROUGH THE NODE'S USB CDC, which ignores the
+        # host line rate; but a retime there moves nothing on the cable, and
+        # the speed-up cannot work through the node at all.
+        #
+        # SO THE SHORT DRAIN IS EARNED, NOT GRANTED (review 2026-09-10, round
+        # two): only when the rate really changed, and not when this link is the
+        # node's USB Serial/JTAG. A same-rate call and a retime through the node
+        # both made nothing undecodable, and both re-opened the stale-reply hole.
+        self._short_drain = changed and not getattr(self, "via_usb_serial_jtag",
+                                                    False)
         self.gap = 3.5 * 11 / baud
 
     def close(self):
@@ -583,11 +676,11 @@ class Bus:
         if rsp[1] != 3:
             raise IOError("reply is function %d, not FC03" % rsp[1])
         if rsp[2] != 2 * count:
-            raise IOError("reply declares %d data bytes, asked for %d"
-                          % (rsp[2], 2 * count))
+            raise IOError("reply declares %d data bytes, asked for %d: %s"
+                          % (rsp[2], 2 * count, rsp.hex()))
         if len(rsp) != 5 + 2 * count:
-            raise IOError("reply is %d bytes, expected %d"
-                          % (len(rsp), 5 + 2 * count))
+            raise IOError("reply is %d bytes, expected %d: %s"
+                          % (len(rsp), 5 + 2 * count, rsp.hex()))
         return list(struct.unpack(">%dH" % count, rsp[3:3 + 2 * count]))
 
     def write(self, addr, values):
@@ -604,7 +697,53 @@ class Bus:
             # Exact, not a minimum. SwdLink.exchange() ignores expect_len, so a
             # long reply is not truncated for us the way SerialLink truncates
             # it - and a trailing byte means the framing is not what we think.
-            raise IOError("FC16 reply is %d bytes, expected 8" % len(rsp))
+            #
+            # CONFIRMED 2026-09-10 (repro, instrumented): the 9-byte frame was
+            # 031000540005403800 - THIS WRITE'S OWN 8-byte echo (CRC 0x3840
+            # over 0310005400 05) followed by one 0x00. The write landed; the
+            # parse died on the trailing byte. Both observed crash sites are
+            # the two update commands whose handlers do no inline flash work
+            # (BEGIN, COMMIT): their replies return in ~2-5 ms, FASTER than
+            # the node's RS-485 turnaround artifact (a 0x00 the node's own
+            # read_frame_wait comments measure "on essentially every
+            # exchange", normally LEADING a reply because the probe's answer
+            # latency on reads is ~85 ms). On a fast reply the ordering inverts
+            # - echo first, artifact behind - and the node's resync strips
+            # leading fragments only, so a trailing 0x00 rides inside the
+            # frame. Data writes (inline flash programming, slower replies)
+            # never hit it; reads never hit it. The fix belongs in the node's
+            # read_frame_wait: trim a single trailing 0x00 that arrives within
+            # the gap window after a CRC-valid frame, mirroring the judgment
+            # it already applies to leading fragments. Until then, the
+            # operator workaround is to re-run: the echo proves the write
+            # landed, and the state machine holds the progress.
+            #
+            # 2026-09-10 night addendum: that node-side trim is now IMPLEMENTED
+            # - tech/node-prototype/src/mbresync.h step 3 (fixed-length
+            # FC05/06/0F/10 echo, exactly one trailing 0x00, CRC-gated), host-
+            # tested in test/mbresync_host_test.cpp. It protects nothing here
+            # until a node runs it - flashing is Fab's call - so this strict
+            # check and the re-run workaround above still stand for every node
+            # on pre-fix firmware.
+            #
+            # 2026-09-11 ~02:05, opt-in tolerance replaces the workaround for
+            # host-side use: O2P_FC16_TOLERATE_TZ=1 accepts EXACTLY the frame
+            # the node-side trim is written to remove (9 bytes, last one 0x00,
+            # first 8 the CRC-valid echo - the confirmed artifact, not a
+            # general "ignore extra bytes" licence). This is the same judgment
+            # mbresync.h step 3 encodes, on the host side of a link that has
+            # one unflashed end. Strict remains the default: once nodes run
+            # the trim, this flag stops mattering either way. (The old
+            # ~/blepush/o2probe-tol/ patched copy died here: it was 1283 lines
+            # vs 2136, missing retimable_line and the BOOT-silence discipline -
+            # the drift farmgw-verify.sh was built to catch. No more patched
+            # copies; the repo carries the tolerance as a flag.)
+            if (len(rsp) == 9 and rsp[8] == 0x00
+                    and os.environ.get("O2P_FC16_TOLERATE_TZ") == "1"):
+                rsp = rsp[:8]
+            elif len(rsp) != 8:
+                raise IOError("FC16 reply is %d bytes, expected 8: %s"
+                              % (len(rsp), rsp.hex()))
         echo_addr, echo_count = struct.unpack(">HH", rsp[2:6])
         if echo_addr != addr or echo_count != len(values):
             raise IOError("FC16 echoed addr 0x%04X count %d, wrote 0x%04X "
@@ -636,6 +775,245 @@ class ModbusException(Exception):
         super().__init__("Modbus exception %d (%s)"
                          % (code, self.NAMES.get(code, "?")))
         self.code = code
+
+
+# BUILD_ID is published by the APPLICATION (src/regmap.c), not the loader, so a
+# probe still sitting in its bootloader cannot answer it: bit 31 dirty tree,
+# bits 27..0 the 7-hex-digit commit (src/regmap.h:143-152). Not in
+# check_update_tool.py's REGS, which covers update.h; these come from regmap.h.
+R_BUILD_ID_HI = 0x0028
+R_BUILD_ID_LO = 0x0029
+# UPD_INSTALLS saturates rather than wrapping (review 2026-09-10), so at the
+# ceiling it can no longer show that an install happened.
+INSTALLS_MAX = 0xFFFF
+
+
+def read_installs(bus):
+    return bus.read(R_LOADER_VER, 3)[2]
+
+
+def verify_install(bus, installs_before, expect_build_id=None, timeout=180.0,
+                   poll=3.0, staged_ok=None):
+    """After BOOT: did the probe install the staged image and come back up
+    running it? True, False, or None.
+
+    WHY THIS EXISTS. `--boot` used to print "rebooting into the bootloader to
+    install it" and exit 0 on the BOOT write alone. That write is answered
+    BEFORE the reset, so it proves the command arrived and nothing about the
+    install: a CRC failure in the loader, an image that faults and rolls back,
+    and a probe that never came back all exited 0.
+
+    True only when the probe answers as the APPLICATION (UPD_STATUS bit 15
+    clear) with error NONE, the install count advanced by exactly one, and -
+    when `expect_build_id` is given - BUILD_ID equals it. False when an answer
+    contradicts any of those. None when nothing conclusive arrived in
+    `timeout`, or when nothing proves an install HAPPENED. A matching BUILD_ID
+    on its own does not (review 2026-09-10): the image may simply still be
+    running, and every dirty-tree build of one commit carries the same stamp.
+    An unverified install is not a verified one; run() does not exit 0 on it.
+
+    An advancing count proves AN install, not whose (review 2026-09-10, round
+    two). So True also needs `staged_ok`: boot_and_verify() confirms,
+    immediately before BOOT, that the probe is STAGED with this image's length
+    and CRC-32. Between that read and BOOT this tool must be the only master on
+    the probe - which is what the push tools' bus claim is for.
+
+    The reads are only as trustworthy as the link: a stale reply accepted as a
+    fresh one could satisfy every check here, which is why SerialLink drains
+    for LATE_REPLY_S after a failed exchange.
+    """
+    deadline = time.time() + timeout
+    last = "no answer yet"
+    print("verifying the install: waiting up to %.0f s for the application"
+          % timeout)
+    while True:
+        try:
+            st, err, loader = status(bus)
+            last = "state %s error %s from the %s" % (
+                STATES[st] if st < len(STATES) else st,
+                ERRORS[err] if err < len(ERRORS) else err,
+                "BOOTLOADER" if loader else "application")
+            if not loader:
+                break
+        except (NoReply, IOError, ModbusException) as exc:
+            last = "%s: %s" % (type(exc).__name__, exc)
+        if time.time() >= deadline:
+            print("!! install NOT verified: the application did not answer "
+                  "within %.0f s (last: %s)" % (timeout, last))
+            return None
+        time.sleep(poll)
+
+    ok = True
+    if err != 0:
+        print("!! the application answers with error %s"
+              % (ERRORS[err] if err < len(ERRORS) else err))
+        ok = False
+    try:
+        installs = read_installs(bus)
+        hi, lo = bus.read(R_BUILD_ID_HI, 2)
+    except (NoReply, IOError, ModbusException) as exc:
+        print("!! install NOT verified: the application answered its status "
+              "and then not its identity (%s: %s)" % (type(exc).__name__, exc))
+        return None if ok else False
+    build_id = (hi << 16) | lo
+
+    installed = None                     # True shown, False disproven, None unknown
+    if installs_before is None:
+        print("   installs: %d (NOT compared - the count before BOOT could "
+              "not be read, so nothing here shows an install happened)"
+              % installs)
+    elif installs_before >= INSTALLS_MAX:
+        print("   installs: %d before BOOT, %d now - the counter is saturated "
+              "at %d and cannot show another install"
+              % (installs_before, installs, INSTALLS_MAX))
+    elif installs == installs_before + 1:
+        print("   installs: %d -> %d" % (installs_before, installs))
+        installed = True
+    else:
+        print("!! installs: %d before BOOT, %d now - the staged image was NOT "
+              "installed" % (installs_before, installs))
+        installed = False
+        ok = False
+
+    dirty = bool(build_id & 0x80000000)
+    if expect_build_id is None:
+        print("   running BUILD_ID %08X (NOT compared - pass "
+              "--expect-build-id)" % build_id)
+    elif build_id == expect_build_id:
+        print("   running BUILD_ID %08X, as expected%s"
+              % (build_id, " - a DIRTY-tree stamp, which names the commit and "
+                 "not the exact binary" if dirty else ""))
+    else:
+        print("!! running BUILD_ID %08X, expected %08X"
+              % (build_id, expect_build_id))
+        ok = False
+
+    if not ok:
+        return False
+    if installed is not True:
+        print("!! install NOT verified: nothing here shows the staged image was "
+              "installed%s" % (" - a matching BUILD_ID alone cannot: that image "
+                              "may already have been running"
+                              if expect_build_id is not None else ""))
+        return None
+    if staged_ok is not True:
+        print("!! install NOT verified: an install happened, but nothing here "
+              "showed the staged image was THIS one (no image to compare, or "
+              "the staged slot could not be read before BOOT)")
+        return None
+    print("install VERIFIED (installs advanced by one%s)"
+          % ("" if expect_build_id is None else
+             "; BUILD_ID %08X%s" % (build_id, " dirty" if dirty else "")))
+    return True
+
+
+def padded_image(image):
+    """The image as the wire protocol declares it: padded to ALIGN with
+    0xFF so only whole doublewords stage. push() stages THIS, the probe's
+    slot declares THIS, and the probe CRCs THIS at BOOT - so every
+    length/CRC comparison against a slot must be made against THIS, never
+    the raw file. (Added 2026-09-11 after the 02:06 push refused to BOOT a
+    correctly-staged build: staged_is_image() compared the raw 43356-byte
+    file against the slot's by-design padded 43360 declaration. The 0x0010
+    build happened to be 8-aligned, so the path had never fired.)"""
+    if len(image) % ALIGN:
+        return image + b"\xff" * (ALIGN - len(image) % ALIGN)
+    return image
+
+
+def staged_is_image(bus, image):
+    """True if the probe reports STAGED with this image's declared length and
+    CRC-32 (UPD_LEN_*/UPD_CRC_*), False if it reports anything else, None when
+    there is no image to compare or the slot cannot be read."""
+    if image is None:
+        print("   the staged slot was NOT compared with an image (none given)")
+        return None
+    # Padded, like the slot's declaration (padded_image doc, 2026-09-11).
+    p = padded_image(image)
+    want_len, want_crc = len(p), binascii.crc32(p) & 0xFFFFFFFF
+    try:
+        st, _err, _loader = status(bus)
+        len_hi, len_lo = bus.read(R_LEN_HI, 2)
+        crc_hi, crc_lo = bus.read(R_CRC_HI, 2)
+    except (NoReply, IOError, ModbusException) as exc:
+        print("   could not read the staged slot before BOOT (%s)" % exc)
+        return None
+    got_len, got_crc = (len_hi << 16) | len_lo, (crc_hi << 16) | crc_lo
+    if st != STATES.index("STAGED"):
+        print("!! the probe is %s, not STAGED"
+              % (STATES[st] if st < len(STATES) else st))
+        return False
+    if (got_len, got_crc) != (want_len, want_crc):
+        print("!! the staged slot declares %d bytes, CRC %08X; this image is "
+              "%d bytes, CRC %08X" % (got_len, got_crc, want_len, want_crc))
+        return False
+    print("   staged slot holds this image (%d bytes, CRC %08X)"
+          % (want_len, want_crc))
+    return True
+
+
+def boot_and_verify(bus, args, image=None):
+    """Send BOOT (or STAY) and, for BOOT, verify the install. -> exit code:
+    0 verified or not asked, 1 contradicted, 2 could not be verified."""
+    installs_before = None
+    if args.boot:
+        try:
+            installs_before = read_installs(bus)
+        except (NoReply, IOError, ModbusException) as exc:
+            print("   could not read the install count before BOOT (%s); an "
+                  "install cannot then be shown" % exc)
+    staged_ok = None
+    if args.boot:
+        staged_ok = staged_is_image(bus, image)
+        if staged_ok is False:
+            print("!! NOT sending BOOT: installing now would not install this "
+                  "image")
+            return 1
+    stay = getattr(args, "stay", False)
+    try:
+        bus.write(R_CMD, [CMD_STAY if stay else CMD_BOOT])
+    except NoReply as exc:
+        # BUS SILENCE AFTER A BOOT WRITE IS NOT EVIDENCE THE BOOT FAILED.
+        #
+        # Measured 2026-09-10 bench: a BOOT whose reply was bus silence went
+        # through anyway - the install landed. The FC16 echo races the reset:
+        # a probe that accepts BOOT resets immediately, and the reply can be
+        # cut by that reset or by the bus turnaround, so "no reply" here
+        # means "no echo", not "no boot". Re-sending BOOT blind is the
+        # dangerous reflex - a second BOOT into a probe that is already
+        # installing (or has installed and rebooted) is at best a wasted
+        # reset and at worst lands in the application, which does not own the
+        # update block.
+        #
+        # A malformed reply (truncated, bad CRC, wrong address) is a
+        # different case - something answered - and still raises. Only the
+        # zero-byte silence takes this path. STAY has no reset to race, so
+        # silence after STAY is an ordinary failure and also still raises.
+        if stay:
+            raise
+        print("!! BOOT write (%s) - still an error, but not the one it "
+              "looks like" % exc)
+        print("   The reply races the reset: the BOOT usually LANDS, and "
+              "silence here means the echo was lost, not the command.")
+        print("   Read the update block before assuming failure or "
+              "re-sending: R_STATUS 0x0050 (state) and R_INSTALLS 0x005E "
+              "(count) - this tool's --status does both.")
+        print("   Do NOT re-send BOOT blind; decide from R_STATUS/R_INSTALLS "
+              "whether an install actually happened.")
+        return 2
+    print("rebooting into the bootloader to install it. The cell needs "
+          "15 minutes of settling afterwards before O2_COMP means anything.")
+    if not args.boot:
+        return 0
+    if getattr(args, "no_verify", False):
+        print("install NOT verified (--no-verify): nothing here has confirmed "
+              "the probe is running this image")
+        return 0
+    result = verify_install(bus, installs_before,
+                            getattr(args, "expect_build_id", None),
+                            getattr(args, "verify_timeout", 180.0),
+                            staged_ok=staged_ok)
+    return 0 if result is True else (1 if result is False else 2)
 
 
 def status(bus):
@@ -1513,10 +1891,11 @@ def push(bus, image, block_bytes, retries, no_resume=False):
         raise SystemExit("!! probe accepts at most %d bytes per block"
                          % advertised)
 
-    # Pad to a whole number of doublewords. The padding is inside the declared
-    # length, so the CRC covers it and both sides compute the same number.
-    if len(image) % ALIGN:
-        image += b"\xff" * (ALIGN - len(image) % ALIGN)
+    # Pad to a whole number of doublewords (padded_image() is the single
+    # source of this rule - staged_is_image() compares against the same
+    # representation). The padding is inside the declared length, so the
+    # CRC covers it and both sides compute the same number.
+    image = padded_image(image)
     if len(image) < IMAGE_MIN:
         raise SystemExit("!! image is only %d bytes" % len(image))
 
@@ -1613,6 +1992,18 @@ def main():
                          "probe is holding a verified prefix of this exact "
                          "image from an interrupted run")
     ap.add_argument("--timeout", type=float, default=1.0)
+    ap.add_argument("--late-reply-s", type=float, default=LATE_REPLY_S,
+                    help="after a failed exchange, how long the line must be "
+                         "silent before the next request (default %(default)s; "
+                         "see LATE_REPLY_S)")
+    ap.add_argument("--expect-build-id", type=lambda s: int(s, 16),
+                    default=None, metavar="HEX",
+                    help="after --boot, require the running BUILD_ID to equal "
+                         "this, e.g. 0E7220EF (bit 31 = dirty tree)")
+    ap.add_argument("--verify-timeout", type=float, default=180.0,
+                    help="after --boot, how long to wait for the application")
+    ap.add_argument("--no-verify", action="store_true",
+                    help="after --boot, do not check the install; says so")
     ap.add_argument("--status", action="store_true", help="report and exit")
     ap.add_argument("--bridge", action="store_true",
                     help="ask the bench bridge about itself, not a probe")
@@ -1644,6 +2035,7 @@ def main():
                   "bridge's bus settings are compiled in")
     else:
         link = SerialLink(args.port, args.baud, args.parity, args.timeout)
+        link.late_reply_s = args.late_reply_s
 
     try:
         return run(args, link)
@@ -1767,15 +2159,10 @@ def run(args, link):
                   "actually is; the reset returns it to its stored rate"
                   % ended_at)
             line.set_baud(ended_at)
-        bus.write(R_CMD, [CMD_STAY if args.stay else CMD_BOOT])
-        # The probe resets while this reply is on the wire, so there is
-        # nothing further to read; give it the settling time before anyone
-        # believes the oxygen number it publishes next.
-        print("rebooting into the bootloader to install it. The cell needs "
-              "15 minutes of settling afterwards before O2_COMP means "
-              "anything.")
-    else:
-        print("staged but NOT installed. Run again with --boot when ready.")
+        # The BOOT reply leaves before the reset, so on its own it proves the
+        # command arrived and nothing about the install - see verify_install().
+        return boot_and_verify(bus, args, image)
+    print("staged but NOT installed. Run again with --boot when ready.")
     return 0
 
 

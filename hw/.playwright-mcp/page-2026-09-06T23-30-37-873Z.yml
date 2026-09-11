@@ -1,0 +1,688 @@
+- generic [ref=e1]:
+  - banner [ref=e2]:
+    - link "Close" [ref=e6] [cursor=pointer]:
+      - /url: "#"
+    - generic [ref=e8]:
+      - link "Skip to main content" [ref=e10] [cursor=pointer]:
+        - /url: "#"
+      - generic [ref=e11]:
+        - link "Home" [ref=e12] [cursor=pointer]:
+          - /url: //www.ti.com
+          - img "Texas Instruments" [ref=e13]
+        - generic [ref=e14]:
+          - generic [ref=e20]:
+            - generic:
+              - generic:
+                - status
+                - status
+              - generic [ref=e22]:
+                - combobox "Enter a query with minimum of 2 character(s) to enable search." [ref=e24]
+                - button "Search" [disabled] [ref=e25]
+          - link "Cross-reference" [ref=e27] [cursor=pointer]:
+            - /url: //www.ti.com/cross-reference-search/en-us/
+            - generic [aria-hidden] [ref=e28]: crossReference
+        - generic [ref=e33]:
+          - link "Login / Register" [ref=e36] [cursor=pointer]:
+            - /url: /secure-link-forward/?gotoUrl=https%3A%2F%2Fwww.ti.com%2Fproduct%2FLMP91000
+          - generic:
+            - generic: OK
+            - generic:
+              - option "English" [selected]
+              - option "简体中文"
+              - option "繁體中文"
+              - option "Deutsch"
+              - option "日本語"
+              - option "한국어"
+              - option "Español"
+              - option "USD" [selected]
+            - generic:
+              - generic: Save
+              - generic: Cancel
+    - navigation "Primary" [ref=e37]:
+      - menubar [ref=e38]:
+        - button "Menu" [ref=e39] [cursor=pointer]
+        - menuitem "Language" [ref=e41] [cursor=pointer]
+        - menuitem "My cart" [ref=e43] [cursor=pointer]
+  - main [ref=e45]:
+    - generic [ref=e48]:
+      - generic [ref=e52]:
+        - link "Home" [ref=e54] [cursor=pointer]:
+          - /url: /
+        - generic [ref=e55]:
+          - text: /
+          - link "Sensors" [ref=e56] [cursor=pointer]:
+            - /url: /product-category/sensors/overview.html
+        - generic [ref=e57]:
+          - text: /
+          - link "Specialty sensors" [ref=e58] [cursor=pointer]:
+            - /url: /product-category/sensors/specialty/overview.html
+        - generic [ref=e59]:
+          - text: /
+          - link "Signal conditioners" [ref=e60] [cursor=pointer]:
+            - /url: /product-category/sensors/specialty/signal-conditioners/overview.html
+      - generic [ref=e63]:
+        - generic [ref=e64]:
+          - generic [ref=e65]:
+            - heading "LMP91000" [level=1] [ref=e66]
+            - link "ACTIVE" [ref=e69] [cursor=pointer]:
+              - /url: /quality-reliability/quality/product-life-cycle.html
+          - heading "Configurable AFE potentiostat for low-power electrochemical cell monitoring" [level=2] [ref=e74]
+        - generic [ref=e76]:
+          - button "Product notifications" [ref=e79]:
+            - generic:
+              - generic [aria-hidden] [ref=e80]: alarm
+              - text: Product notifications
+          - link "Order now" [ref=e84] [cursor=pointer]:
+            - /url: "#order-quality"
+      - generic [ref=e87]:
+        - generic [ref=e88]: Data sheet
+        - list [ref=e91]:
+          - listitem [ref=e92]:
+            - generic [ref=e93]:
+              - link [ref=e94] [cursor=pointer]:
+                - /url: https://www.ti.com/lit/gpn/LMP91000
+                - generic [aria-hidden] [ref=e95]: document-pdfAcrobat
+              - generic [ref=e98]:
+                - 'link "LMP91000 Sensor AFE System: Configurable AFE Potentiostat for Low-Power Chemical-Sensing Applications datasheet (Rev. I)" [ref=e99] [cursor=pointer]':
+                  - /url: https://www.ti.com/lit/gpn/LMP91000
+                - generic [ref=e100]:
+                  - link "PDF" [ref=e101] [cursor=pointer]:
+                    - /url: https://www.ti.com/lit/gpn/LMP91000
+                  - generic [ref=e102]: "|"
+                  - link "HTML" [ref=e103] [cursor=pointer]:
+                    - /url: https://www.ti.com/document-viewer/LMP91000/datasheet
+    - navigation [ref=e112]:
+      - list [ref=e113]:
+        - listitem [ref=e114]:
+          - link "Product details" [ref=e115] [cursor=pointer]:
+            - /url: "#product-details"
+        - listitem [ref=e116]:
+          - link "Technical documentation" [ref=e117] [cursor=pointer]:
+            - /url: "#tech-docs"
+        - listitem [ref=e118]:
+          - link "Design & development" [ref=e119] [cursor=pointer]:
+            - /url: "#design-development"
+        - listitem [ref=e120]:
+          - link "Ordering & quality" [ref=e121] [cursor=pointer]:
+            - /url: "#order-quality"
+        - listitem [ref=e122]:
+          - link "Support & training" [ref=e123] [cursor=pointer]:
+            - /url: "#support-training"
+    - generic [ref=e124]:
+      - heading "Product details" [level=3] [ref=e127]
+      - generic [ref=e129]:
+        - generic [ref=e130]:
+          - generic [ref=e132]:
+            - tablist [ref=e134]:
+              - tab "Parameters" [selected] [ref=e135] [cursor=pointer]
+              - tab "Package | Pins | Size" [ref=e136] [cursor=pointer]
+              - tab "Features" [ref=e137] [cursor=pointer]
+              - tab "Description" [ref=e138] [cursor=pointer]
+            - tabpanel "Parameters" [ref=e140]:
+              - generic [ref=e149]:
+                - generic:
+                  - generic [ref=e150]:
+                    - generic:
+                      - generic [ref=e151]: Number of input channels
+                      - generic [ref=e152]: "1"
+                  - generic [ref=e153]:
+                    - generic:
+                      - generic [ref=e154]: Features
+                      - generic [ref=e155]: Temp. Sensor, Transimpedance Amplifier
+                  - generic [ref=e156]:
+                    - generic:
+                      - generic [ref=e157]: Operating temperature range (°C)
+                      - generic [ref=e158]: "-40 to 85"
+                  - generic [ref=e159]:
+                    - generic:
+                      - generic [ref=e160]: Vs (min) (V)
+                      - generic [ref=e161]: "2.7"
+                  - generic [ref=e162]:
+                    - generic:
+                      - generic [ref=e163]: Vs (max) (V)
+                      - generic [ref=e164]: "5.25"
+                  - generic [ref=e165]:
+                    - generic:
+                      - generic [ref=e166]: Interface type
+                      - generic [ref=e167]: Serial I2C
+                  - generic [ref=e168]:
+                    - generic:
+                      - generic [ref=e169]: Rating
+                      - generic [ref=e170]: Catalog
+          - link "Find other Signal conditioners" [ref=e172] [cursor=pointer]:
+            - /url: /product-category/sensors/specialty/signal-conditioners/products.html
+            - generic [aria-hidden] [ref=e174]: filter
+        - generic [ref=e180]:
+          - figure "test" [ref=e181]:
+            - button "Navigate images with the arrow keys, or click to zoom the image" [ref=e182]:
+              - generic [ref=e188] [cursor=pointer]
+            - generic [ref=e195]: Image 1 of 3
+          - generic [ref=e196]:
+            - img "LMP91000 - SNAS506I" [ref=e200] [cursor=pointer]
+            - img "LMP91000 Micro-Power Chemical & Gas Sensor AFE Overview" [ref=e204] [cursor=pointer]
+            - img "14-pin (NHL) package image" [ref=e208] [cursor=pointer]
+    - generic [ref=e211]:
+      - heading "Technical documentation" [level=3] [ref=e212]
+      - table [ref=e217]:
+        - rowgroup [ref=e223]:
+          - row [ref=e224]:
+            - columnheader "Top documentation" [ref=e225]
+            - columnheader "Type" [ref=e227]
+            - columnheader "Title" [ref=e229]
+            - columnheader "Format options" [ref=e231]
+          - row "filter results" [ref=e233]:
+            - cell [ref=e234]
+            - cell [ref=e235]:
+              - combobox [ref=e237] [cursor=pointer]:
+                - option "All" [selected]
+                - option "Application note"
+                - option "Data sheet"
+                - option "More literature"
+                - option "Technical article"
+            - cell [ref=e238]:
+              - generic [ref=e240]:
+                - textbox "Filter title by keyword" [ref=e241]
+                - button "Search" [ref=e243] [cursor=pointer]:
+                  - generic [aria-hidden] [ref=e244]: search
+            - cell [ref=e247]
+        - rowgroup [ref=e248]:
+          - row [ref=e249]:
+            - cell "Yes" [ref=e250]:
+              - generic [aria-hidden] [ref=e252]: star
+            - cell "Data sheet" [ref=e255]
+            - cell [ref=e256]:
+              - 'link "LMP91000 Sensor AFE System: Configurable AFE Potentiostat for Low-Power Chemical-Sensing Applications datasheet (Rev. I)" [ref=e257] [cursor=pointer]':
+                - /url: https://www.ti.com/lit/gpn/LMP91000
+            - cell [ref=e258]:
+              - link "PDF" [ref=e259] [cursor=pointer]:
+                - /url: https://www.ti.com/lit/gpn/lmp91000
+              - text: "|"
+              - link "HTML" [ref=e260] [cursor=pointer]:
+                - /url: https://www.ti.com/document-viewer/lmp91000/datasheet
+          - row [ref=e261]:
+            - cell "No" [ref=e262]
+            - cell "Technical article" [ref=e264]
+            - cell [ref=e265]:
+              - link "Designing signal chains for portable diagnostics" [ref=e266] [cursor=pointer]:
+                - /url: https://www.ti.com/lit/pdf/SSZT075
+            - cell [ref=e267]:
+              - link "PDF" [ref=e268] [cursor=pointer]:
+                - /url: https://www.ti.com/lit/pdf/sszt075
+              - text: "|"
+              - link "HTML" [ref=e269] [cursor=pointer]:
+                - /url: https://www.ti.com/document-viewer/lit/html/sszt075
+          - row [ref=e270]:
+            - cell "No" [ref=e271]
+            - cell "Technical article" [ref=e273]
+            - cell [ref=e274]:
+              - link "What is the IQ of your home or building? Is it indeed smart?" [ref=e275] [cursor=pointer]:
+                - /url: https://www.ti.com/lit/pdf/SSZTCT9
+            - cell [ref=e276]:
+              - link "PDF" [ref=e277] [cursor=pointer]:
+                - /url: https://www.ti.com/lit/pdf/ssztct9
+              - text: "|"
+              - link "HTML" [ref=e278] [cursor=pointer]:
+                - /url: https://www.ti.com/document-viewer/lit/html/ssztct9
+          - row [ref=e279]:
+            - cell "No" [ref=e280]
+            - cell "Application note" [ref=e282]
+            - cell [ref=e283]:
+              - link "AN-2230 MSP430 Interface to LMP91000 Code Library (Rev. C)" [ref=e284] [cursor=pointer]:
+                - /url: https://www.ti.com/lit/pdf/SNAA138
+            - cell [ref=e285]
+          - row [ref=e286]:
+            - cell "No" [ref=e287]
+            - cell "More literature" [ref=e289]
+            - cell [ref=e290]:
+              - link "Sensor Analog Front Ends Brochure" [ref=e291] [cursor=pointer]:
+                - /url: https://www.ti.com/lit/pdf/SLAB061
+            - cell [ref=e292]
+    - generic [ref=e294]:
+      - generic [ref=e296]:
+        - heading "Design & development" [level=3] [ref=e297]
+        - paragraph [ref=e298]: For additional terms or required resources, click any title below to view the detail page where available.
+      - generic [ref=e301]:
+        - generic [ref=e303]:
+          - tablist [ref=e305]:
+            - tab "All" [ref=e306] [cursor=pointer]
+            - tab "Hardware development" [selected] [ref=e307] [cursor=pointer]
+            - tab "Software development" [ref=e308] [cursor=pointer]
+            - tab "Design tools & simulation" [ref=e309] [cursor=pointer]
+            - tab "CAD symbols, footprints & 3D models" [ref=e310] [cursor=pointer]
+          - tabpanel "Hardware development" [ref=e312]:
+            - generic [ref=e318]:
+              - img "LMP91000EVM/NOPB Angled" [ref=e323]
+              - generic [ref=e325]:
+                - generic [ref=e326]: Evaluation board
+                - heading [level=4] [ref=e327]:
+                  - link "LMP91000EVM" [ref=e328] [cursor=pointer]:
+                    - /url: /tool/LMP91000EVM
+                  - text: — LMP91000 evaluation module
+                - generic [ref=e329]:
+                  - paragraph [ref=e330]: The Texas Instruments LMP91000EVM evaluation module (EVM) helps designers evaluate the operation and performance of the LMP91000 Sensor Analog Front End for Electrochemical sensor. The LMP91000EVM is part of the Sensor AFE evaluation platform.
+                  - paragraph [ref=e331]: The SPIO4 communication board is a data capture board, (...)
+                - generic [ref=e332]:
+                  - text: "User guide:"
+                  - link "PDF" [ref=e334] [cursor=pointer]:
+                    - /url: https://www.ti.com/lit/pdf/SNAU121
+              - generic [ref=e335]: Not available
+        - link "TI's Standard Terms and Conditions for Evaluation Items apply." [ref=e342] [cursor=pointer]:
+          - /url: /legal/terms-of-sale.html
+    - generic [ref=e344]:
+      - heading "Ordering & quality" [level=3] [ref=e348]
+      - generic [ref=e350]:
+        - table [ref=e355]:
+          - rowgroup [ref=e356]:
+            - row [ref=e357]:
+              - columnheader [ref=e358]:
+                - button "Part number" [ref=e361] [cursor=pointer]
+              - columnheader "Buy" [ref=e365]
+              - columnheader [ref=e368]:
+                - button "TI.com inventory" [ref=e371] [cursor=pointer]
+              - columnheader [ref=e375]:
+                - button [ref=e378] [cursor=pointer]:
+                  - generic [ref=e379]:
+                    - generic:
+                      - text: Qty | Price (
+                      - generic [ref=e380]: USD
+                      - text: )
+              - columnheader [ref=e383]:
+                - generic [ref=e384]:
+                  - button "Package qty | Carrier" [ref=e386] [cursor=pointer]
+                  - generic [ref=e391]:
+                    - button "Select; Click to toggle options" [ref=e393] [cursor=pointer]: Select
+                    - list [ref=e397]:
+                      - listitem [ref=e398]:
+                        - button "Close" [ref=e399] [cursor=pointer]
+                      - listitem [ref=e400]:
+                        - checkbox "250 | SMALL T&R" [ref=e401] [cursor=pointer]
+                      - listitem [ref=e403]:
+                        - checkbox "4,500 | LARGE T&R" [ref=e404] [cursor=pointer]
+              - columnheader [ref=e406]:
+                - generic [ref=e407]:
+                  - button "Package | Pins" [ref=e409] [cursor=pointer]
+                  - generic [ref=e414]:
+                    - button "Select; Click to toggle options" [ref=e416] [cursor=pointer]: Select
+                    - list [ref=e420]:
+                      - listitem [ref=e421]:
+                        - button "Close" [ref=e422] [cursor=pointer]
+                      - listitem [ref=e423]:
+                        - checkbox "WSON (NHL) | 14" [ref=e424] [cursor=pointer]
+              - columnheader [ref=e426]:
+                - button "Material type" [ref=e429] [cursor=pointer]
+              - columnheader "Status Select; Click to toggle options Close ACTIVE OBSOLETE" [ref=e433]:
+                - generic [ref=e434]:
+                  - generic [ref=e435]: Status
+                  - generic [ref=e437]:
+                    - button "Select; Click to toggle options" [ref=e439] [cursor=pointer]: Select
+                    - list [ref=e443]:
+                      - listitem [ref=e444]:
+                        - button "Close" [ref=e445] [cursor=pointer]
+                      - listitem [ref=e446]:
+                        - checkbox "ACTIVE" [ref=e447] [cursor=pointer]
+                      - listitem [ref=e449]:
+                        - checkbox "OBSOLETE" [ref=e450] [cursor=pointer]
+              - columnheader "Operating temperature range (°C)" [ref=e452]
+              - columnheader [ref=e455]:
+                - button "Lead finish/Ball material" [ref=e458] [cursor=pointer]
+              - columnheader [ref=e462]:
+                - button "MSL rating/Peak reflow" [ref=e465] [cursor=pointer]
+              - columnheader [ref=e469]:
+                - button "RoHS" [ref=e472] [cursor=pointer]
+              - columnheader [ref=e476]:
+                - button "REACH" [ref=e479] [cursor=pointer]
+              - columnheader [ref=e483]:
+                - generic [ref=e486]:
+                  - text: Quality, reliability & packaging information
+                  - generic [aria-hidden] [ref=e487]: info-circle
+              - columnheader [ref=e490]:
+                - generic [ref=e493]:
+                  - text: Additional manufacturing information
+                  - generic [aria-hidden] [ref=e494]: info-circle
+              - columnheader [ref=e497]:
+                - button "Samples" [ref=e500] [cursor=pointer]
+        - table [ref=e508]:
+          - rowgroup [ref=e509]:
+            - row [ref=e510]:
+              - columnheader [ref=e511]:
+                - button "Part number" [ref=e514] [cursor=pointer]
+              - columnheader "Buy" [ref=e518]
+              - columnheader [ref=e521]:
+                - button "TI.com inventory" [ref=e524] [cursor=pointer]
+              - columnheader [ref=e528]:
+                - button [ref=e531] [cursor=pointer]:
+                  - generic [ref=e532]:
+                    - generic:
+                      - text: Qty | Price (
+                      - generic [ref=e533]: USD
+                      - text: )
+              - columnheader [ref=e536]:
+                - generic [ref=e537]:
+                  - button "Package qty | Carrier" [ref=e539] [cursor=pointer]
+                  - generic [ref=e544]:
+                    - button "Select; Click to toggle options" [ref=e546] [cursor=pointer]: Select
+                    - list [ref=e550]:
+                      - listitem [ref=e551]:
+                        - button "Close" [ref=e552] [cursor=pointer]
+                      - listitem [ref=e553]:
+                        - checkbox "250 | SMALL T&R" [ref=e554] [cursor=pointer]
+                      - listitem [ref=e556]:
+                        - checkbox "4,500 | LARGE T&R" [ref=e557] [cursor=pointer]
+              - columnheader [ref=e559]:
+                - generic [ref=e560]:
+                  - button "Package | Pins" [ref=e562] [cursor=pointer]
+                  - generic [ref=e567]:
+                    - button "Select; Click to toggle options" [ref=e569] [cursor=pointer]: Select
+                    - list [ref=e573]:
+                      - listitem [ref=e574]:
+                        - button "Close" [ref=e575] [cursor=pointer]
+                      - listitem [ref=e576]:
+                        - checkbox "WSON (NHL) | 14" [ref=e577] [cursor=pointer]
+              - columnheader [ref=e579]:
+                - button "Material type" [ref=e582] [cursor=pointer]
+              - columnheader "Status Select; Click to toggle options Close ACTIVE OBSOLETE" [ref=e586]:
+                - generic [ref=e587]:
+                  - generic [ref=e588]: Status
+                  - generic [ref=e590]:
+                    - button "Select; Click to toggle options" [ref=e592] [cursor=pointer]: Select
+                    - list [ref=e596]:
+                      - listitem [ref=e597]:
+                        - button "Close" [ref=e598] [cursor=pointer]
+                      - listitem [ref=e599]:
+                        - checkbox "ACTIVE" [ref=e600] [cursor=pointer]
+                      - listitem [ref=e602]:
+                        - checkbox "OBSOLETE" [ref=e603] [cursor=pointer]
+              - columnheader "Operating temperature range (°C)" [ref=e605]
+              - columnheader [ref=e608]:
+                - button "Lead finish/Ball material" [ref=e611] [cursor=pointer]
+              - columnheader [ref=e615]:
+                - button "MSL rating/Peak reflow" [ref=e618] [cursor=pointer]
+              - columnheader [ref=e622]:
+                - button "RoHS" [ref=e625] [cursor=pointer]
+              - columnheader [ref=e629]:
+                - button "REACH" [ref=e632] [cursor=pointer]
+              - columnheader [ref=e636]:
+                - generic [ref=e639]:
+                  - text: Quality, reliability & packaging information
+                  - generic [aria-hidden] [ref=e640]: info-circle
+              - columnheader [ref=e643]:
+                - generic [ref=e646]:
+                  - text: Additional manufacturing information
+                  - generic [aria-hidden] [ref=e647]: info-circle
+              - columnheader [ref=e650]:
+                - button "Samples" [ref=e653] [cursor=pointer]
+          - rowgroup [ref=e657]:
+            - row [ref=e658]:
+              - 'cell "LMP91000SDX/NOPB Same as: LMP91000SDX/NOPB.A" [ref=e659]':
+                - generic [ref=e660]:
+                  - link "LMP91000SDX/NOPB" [ref=e667] [cursor=pointer]:
+                    - /url: /product/LMP91000/part-details/LMP91000SDX/NOPB
+                  - generic [ref=e668]: "Same as: LMP91000SDX/NOPB.A"
+              - cell "Not available" [ref=e670]
+              - cell "Not available Part notifications" [ref=e675]:
+                - generic [ref=e676]:
+                  - generic [ref=e677]: Not available
+                  - button [ref=e682]:
+                    - generic:
+                      - generic [aria-hidden] [ref=e684]: alarm
+                      - text: Part notifications
+              - cell "1ku | $1.879 1-99 $3.796 100-249 $3.326 250-999 $2.332 1,000+ $1.879" [ref=e687]:
+                - generic [ref=e689]:
+                  - button "1ku | $1.879" [ref=e690]:
+                    - generic [ref=e691] [cursor=pointer]:
+                      - generic: 1ku | $1.879
+                      - generic [aria-hidden] [ref=e693]: chevron-down
+                  - generic [ref=e696]:
+                    - generic:
+                      - generic [ref=e697]:
+                        - generic:
+                          - generic [ref=e698]: 1-99
+                          - generic [ref=e699]: $3.796
+                      - generic [ref=e700]:
+                        - generic:
+                          - generic [ref=e701]: 100-249
+                          - generic [ref=e702]: $3.326
+                      - generic [ref=e703]:
+                        - generic:
+                          - generic [ref=e704]: 250-999
+                          - generic [ref=e705]: $2.332
+                      - generic [ref=e706]:
+                        - generic:
+                          - generic [ref=e707]: 1,000+
+                          - generic [ref=e708]: $1.879
+              - cell [ref=e709]:
+                - generic [ref=e710]:
+                  - link "4,500 | LARGE T&R" [ref=e712] [cursor=pointer]:
+                    - /url: /packaging/docs/carriermaterial/carrierlookup?OPN=LMP91000SDX/NOPB&state=details
+                  - button "CUSTOM" [ref=e714]:
+                    - generic [aria-hidden] [ref=e715]: custom-reels
+                    - text: CUSTOM
+              - cell [ref=e718]:
+                - generic [ref=e719]:
+                  - link "WSON (NHL)" [ref=e720] [cursor=pointer]:
+                    - /url: /lit/pdf/MPDS421
+                  - text: "| 14"
+              - cell "Production" [ref=e721]
+              - cell [ref=e722]:
+                - link "ACTIVE" [ref=e726] [cursor=pointer]:
+                  - /url: /quality-reliability/quality/product-life-cycle.html
+              - cell "-40 to 85" [ref=e731]
+              - cell "Sn" [ref=e732]
+              - cell "Level-3-260C-168 HR" [ref=e733]
+              - cell "Yes" [ref=e734]
+              - cell "Yes" [ref=e735]
+              - cell [ref=e736]:
+                - link "View or download" [ref=e737] [cursor=pointer]:
+                  - /url: /quality-reliability-packaging-download/report?opn=LMP91000SDX/NOPB
+              - cell [ref=e738]:
+                - link "View" [ref=e739] [cursor=pointer]:
+                  - /url: /material-attributes-search?material=LMP91000SDX/NOPB
+              - cell "Not available" [ref=e740]
+            - row [ref=e741]:
+              - cell "LMP91000SDE/NOPB View alternates" [ref=e742]:
+                - generic [ref=e743]:
+                  - link "LMP91000SDE/NOPB" [ref=e750] [cursor=pointer]:
+                    - /url: /product/LMP91000/part-details/LMP91000SDE/NOPB
+                  - generic [ref=e754] [cursor=pointer]:
+                    - generic [aria-hidden] [ref=e755]: open-in-new
+                    - generic [ref=e758]: View alternates
+              - cell "Not available" [ref=e759]
+              - cell "Not available" [ref=e764]
+              - cell "1ku | $2.255 1-99 $4.555 100-249 $3.991 250-999 $2.798 1,000+ $2.255" [ref=e769]:
+                - generic [ref=e771]:
+                  - button "1ku | $2.255" [ref=e772]:
+                    - generic [ref=e773] [cursor=pointer]:
+                      - generic: 1ku | $2.255
+                      - generic [aria-hidden] [ref=e775]: chevron-down
+                  - generic [ref=e778]:
+                    - generic:
+                      - generic [ref=e779]:
+                        - generic:
+                          - generic [ref=e780]: 1-99
+                          - generic [ref=e781]: $4.555
+                      - generic [ref=e782]:
+                        - generic:
+                          - generic [ref=e783]: 100-249
+                          - generic [ref=e784]: $3.991
+                      - generic [ref=e785]:
+                        - generic:
+                          - generic [ref=e786]: 250-999
+                          - generic [ref=e787]: $2.798
+                      - generic [ref=e788]:
+                        - generic:
+                          - generic [ref=e789]: 1,000+
+                          - generic [ref=e790]: $2.255
+              - cell [ref=e791]:
+                - generic [ref=e792]:
+                  - link "250 | SMALL T&R" [ref=e794] [cursor=pointer]:
+                    - /url: /packaging/docs/carriermaterial/carrierlookup?OPN=LMP91000SDE/NOPB&state=details
+                  - button "CUSTOM" [ref=e796]:
+                    - generic [aria-hidden] [ref=e797]: custom-reels
+                    - text: CUSTOM
+              - cell [ref=e800]:
+                - generic [ref=e801]:
+                  - link "WSON (NHL)" [ref=e802] [cursor=pointer]:
+                    - /url: /lit/pdf/MPDS421
+                  - text: "| 14"
+              - cell "Production" [ref=e803]
+              - cell [ref=e804]:
+                - link "OBSOLETE" [ref=e808] [cursor=pointer]:
+                  - /url: /quality-reliability/quality/product-life-cycle.html
+              - cell "-40 to 85" [ref=e813]
+              - cell "—" [ref=e814]
+              - cell "—" [ref=e815]
+              - cell "—" [ref=e816]
+              - cell "—" [ref=e817]
+              - cell [ref=e818]:
+                - link "View or download" [ref=e819] [cursor=pointer]:
+                  - /url: /quality-reliability-packaging-download/report?opn=LMP91000SDE/NOPB
+              - cell [ref=e820]:
+                - link "View" [ref=e821] [cursor=pointer]:
+                  - /url: /material-attributes-search?material=LMP91000SDE/NOPB
+              - cell "Not available" [ref=e822]
+    - generic [ref=e827]:
+      - heading "Products to complete your design" [level=2] [ref=e828]
+      - generic [ref=e830]:
+        - group "Carousel navigation":
+          - button "Previous slide" [disabled] [ref=e831]:
+            - generic [aria-hidden] [ref=e832]: chevron-left
+          - button "Next slide" [ref=e835] [cursor=pointer]:
+            - generic [aria-hidden] [ref=e836]: chevron-right
+        - generic [ref=e841]:
+          - generic:
+            - article [ref=e846]:
+              - generic [ref=e848]:
+                - link [ref=e851] [cursor=pointer]:
+                  - /url: /product/LP5899
+                - generic [ref=e853]:
+                  - link "LED display drivers" [ref=e854] [cursor=pointer]:
+                    - /url: /product-category/power-management/led-drivers/display/overview.html
+                  - generic [ref=e856]:
+                    - heading [level=4] [ref=e857]:
+                      - generic [ref=e858]:
+                        - link "LP5899" [ref=e859] [cursor=pointer]:
+                          - /url: /product/LP5899
+                        - generic: ACTIVE
+                    - generic [ref=e864]: Bridge between SPI and LP589x display LED matrix driver
+              - generic [ref=e867]: Approx. price (USD) 1ku | 0.537
+              - link "Data sheet (PDF)" [ref=e871] [cursor=pointer]:
+                - /url: https://www.ti.com/lit/gpn/LP5899
+              - link "Online data sheet" [ref=e873] [cursor=pointer]:
+                - /url: https://www.ti.com/document-viewer/LP5899/datasheet
+            - article [ref=e878]:
+              - generic [ref=e880]:
+                - link [ref=e883] [cursor=pointer]:
+                  - /url: /product/ESD562
+                - generic [ref=e885]:
+                  - link "ESD protection diodes" [ref=e886] [cursor=pointer]:
+                    - /url: /product-category/passive-discrete/diodes/esd-protection-diodes/overview.html
+                  - generic [ref=e888]:
+                    - heading [level=4] [ref=e889]:
+                      - generic [ref=e890]:
+                        - link "ESD562" [ref=e891] [cursor=pointer]:
+                          - /url: /product/ESD562
+                        - generic: ACTIVE
+                    - generic [ref=e896]: Two-channel bidirectional 12V ESD protection diode
+              - generic [ref=e899]: Approx. price (USD) 1ku | 0.057
+              - link "Data sheet (PDF)" [ref=e903] [cursor=pointer]:
+                - /url: https://www.ti.com/lit/gpn/ESD562
+              - link "Online data sheet" [ref=e905] [cursor=pointer]:
+                - /url: https://www.ti.com/document-viewer/ESD562/datasheet
+            - article [ref=e910]:
+              - generic [ref=e912]:
+                - link [ref=e915] [cursor=pointer]:
+                  - /url: /product/TPS3840
+                - generic [ref=e917]:
+                  - link "Reset & watchdog ICs" [ref=e918] [cursor=pointer]:
+                    - /url: /product-category/power-management/supervisor-reset-ics/reset-watchdog/overview.html
+                  - generic [ref=e920]:
+                    - heading [level=4] [ref=e921]:
+                      - generic [ref=e922]:
+                        - link "TPS3840" [ref=e923] [cursor=pointer]:
+                          - /url: /product/TPS3840
+                        - generic: ACTIVE
+                    - generic [ref=e928]: Nanopower high-input voltage supervisor with manual reset and programmable-reset time delay
+              - generic [ref=e931]: Approx. price (USD) 1ku | 0.259
+              - link "Data sheet (PDF)" [ref=e935] [cursor=pointer]:
+                - /url: https://www.ti.com/lit/gpn/TPS3840
+              - link "Online data sheet" [ref=e937] [cursor=pointer]:
+                - /url: https://www.ti.com/document-viewer/TPS3840/datasheet
+            - article [ref=e942]:
+              - generic [ref=e944]:
+                - link [ref=e947] [cursor=pointer]:
+                  - /url: /product/MSPM0L2228
+                - generic [ref=e949]:
+                  - link "Low-power MCUs" [ref=e950] [cursor=pointer]:
+                    - /url: /product-category/microcontrollers-processors/mcus/low-power/overview.html
+                  - generic [ref=e952]:
+                    - heading [level=4] [ref=e953]:
+                      - generic [ref=e954]:
+                        - link "MSPM0L2228" [ref=e955] [cursor=pointer]:
+                          - /url: /product/MSPM0L2228
+                        - generic: ACTIVE
+                    - generic [ref=e960]: 32MHz Arm® Cortex®-M0+ MCU with 256KB dual-bank flash, 32KB SRAM, 12-bit ADC, COMP, LCD, VBAT
+              - generic [ref=e963]: Approx. price (USD) 1ku | 1.017
+              - link "Data sheet (PDF)" [ref=e967] [cursor=pointer]:
+                - /url: https://www.ti.com/lit/gpn/MSPM0L2228
+              - link "Online data sheet" [ref=e969] [cursor=pointer]:
+                - /url: https://www.ti.com/document-viewer/MSPM0L2228/datasheet
+            - article [ref=e974]:
+              - generic [ref=e976]:
+                - link [ref=e979] [cursor=pointer]:
+                  - /url: /product/MSPM0G1106
+                - generic [ref=e981]:
+                  - link "General-purpose MCUs" [ref=e982] [cursor=pointer]:
+                    - /url: /product-category/microcontrollers-processors/mcus/general-purpose/overview.html
+                  - generic [ref=e984]:
+                    - heading [level=4] [ref=e985]:
+                      - generic [ref=e986]:
+                        - link "MSPM0G1106" [ref=e987] [cursor=pointer]:
+                          - /url: /product/MSPM0G1106
+                        - generic: ACTIVE
+                    - generic [ref=e992]: 80MHz Arm® Cortex®-M0+ MCU with 64KB flash 32KB SRAM 2x12-bit 4Msps ADC, op-amp
+              - generic [ref=e995]: Approx. price (USD) 1ku | 0.750
+              - link "Data sheet (PDF)" [ref=e999] [cursor=pointer]:
+                - /url: https://www.ti.com/lit/gpn/MSPM0G1106
+              - link "Online data sheet" [ref=e1001] [cursor=pointer]:
+                - /url: https://www.ti.com/document-viewer/MSPM0G1106/datasheet
+        - generic [ref=e1002]: Slides 1 to 2 of 5
+      - paragraph [ref=e1004]: Recommended products may have parameters, evaluation modules or reference designs related to this TI product.
+    - generic [ref=e1005]:
+      - heading "Support & training" [level=3] [ref=e1009]
+      - article [ref=e1010]:
+        - generic [ref=e1012]:
+          - heading "TI E2E™ forums with technical support from TI engineers" [level=4] [ref=e1013]
+          - progressbar "Processing" [ref=e1019]
+          - link "View all forum topics" [ref=e1024] [cursor=pointer]:
+            - /url: https://e2e.ti.com/search?category=forum&q=LMP91000
+          - paragraph [ref=e1025]:
+            - generic [ref=e1026]:
+              - text: Content is provided "as is" by TI and community contributors and does not constitute TI specifications. See
+              - link "terms of use" [ref=e1027] [cursor=pointer]:
+                - /url: /legal/terms-conditions/terms-of-use.html
+              - text: .
+          - paragraph [ref=e1028]:
+            - text: If you have questions about quality, packaging or ordering TI products, see
+            - link "TI support" [ref=e1029] [cursor=pointer]:
+              - /url: /info/customer-support.html
+            - text: .
+      - article [ref=e1030]:
+        - progressbar "Processing" [ref=e1038]
+      - article [ref=e1041]:
+        - progressbar "Processing" [ref=e1046]
+  - generic [ref=e1055]:
+    - generic [ref=e1058]:
+      - text: Die TI-Websites verwenden Cookies, um die Seitenfunktionalität und Ihre persönliche Benutzererfahrung zu verbessern. Um weitere Informationen zu erhalten oder Ihre Präferenzen zu ändern, besuchen Sie die Seite mit unserer
+      - link "Cookie-Richtlinie" [ref=e1059] [cursor=pointer]:
+        - /url: https://www.ti.com/legal/terms-conditions/cookie-policy/north-america.html?dnt=1
+      - text: . Klicken Sie auf „Annehmen und Fortfahren“, um Cookies anzunehmen und zur Seite zu gelangen.
+    - generic [ref=e1060]:
+      - link "Präferenzen verwalten" [ref=e1061] [cursor=pointer]:
+        - /url: javascript:void(0)
+      - link "Annehmen und Fortfahren" [ref=e1062] [cursor=pointer]:
+        - /url: javascript:void(0)
+  - iframe [ref=e1063]:
+    - generic [ref=f1e2]:
+      - img "Logo" [ref=f1e3]
+      - generic [ref=f1e4]: Verify you are a human (and not a bot).
+      - generic [ref=f1e9]: Reference ID f68afc75-aa4a-11f1-bed9-7e3f399b1f37

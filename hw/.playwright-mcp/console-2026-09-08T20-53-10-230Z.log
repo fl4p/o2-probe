@@ -1,0 +1,29 @@
+[     495ms] [LOG] %c EvalError
+    at Co (https://www.ti.com/Dl82I3Ui/init.js:2:32571)
+    at rc (https://www.ti.com/Dl82I3Ui/init.js:2:39791)
+    at https://www.ti.com/Dl82I3Ui/init.js:2:181765
+    at https://www.ti.com/Dl82I3Ui/init.js:2:181849
+    at https://www.ti.com/Dl82I3Ui/init.js:2:182194
+    at https://www.ti.com/Dl82I3Ui/init.js:2:182197 @ https://www.ti.com/Dl82I3Ui/init.js:1
+[    1038ms] TypeError: Cannot read properties of undefined (reading 'en-US')
+    at https://www.ti.com/assets/js/@ticom/header-content/1.latest/en-us/js/header-responsive.js:66:28668
+[    2150ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://www.ti.com/folders-inventory/api/v1/opns/inventory?opn=LMP91000SDX%2FNOPB&opn=LMP91000SDE%2FNOPB&opn=LMP91000EVM:0
+[    3515ms] [LOG] TrafficAgent: Initializing storage protection for internal items. @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    3515ms] [LOG] Client code is required to start Traffic Agent. Please provide it in the script tag or as a query param. @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    3515ms] [LOG] Force removing localStorage item with key: katalon_traffic_agent_pending_related_tab, bypassing protection. @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    3515ms] [LOG] Force removing localStorage item with key: katalon_traffic_agent_pending_related_tab, bypassing protection. @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    3830ms] [LOG] PX captcha: rendered @ https://www.ti.com/assets/js/headerfooter/ticommon.js?single:322
+[    4012ms] [LOG] Starting TrafficAgent for client code: KA-86773-5 @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    4309ms] [LOG] TrafficAgent: Initializing storage protection for internal items. @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    4309ms] [LOG] Force removing localStorage item with key: katalon_traffic_agent_pending_related_tab, bypassing protection. @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    4310ms] [LOG] Force removing localStorage item with key: katalon_traffic_agent_pending_related_tab, bypassing protection. @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    4512ms] [LOG] TrafficAgent: Initializing storage protection for internal items. @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    4535ms] [LOG] Force removing localStorage item with key: katalon_traffic_agent_pending_related_tab, bypassing protection. @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    4535ms] [LOG] Force removing localStorage item with key: katalon_traffic_agent_pending_related_tab, bypassing protection. @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    4680ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://www.ti.com/cartmodel/mini-cart?includeItems=false&locale=en-US:0
+[    4856ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://www.ti.com/cartmodel/mini-cart?currency=USD&includeItems=true&locale=en-US&cartType=PAID:0
+[    5129ms] [LOG] Starting TrafficAgent for client code: KA-86773-5 @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    5138ms] [LOG] TrafficAgent: Initializing storage protection for internal items. @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    5145ms] [LOG] Force removing localStorage item with key: katalon_traffic_agent_pending_related_tab, bypassing protection. @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    5145ms] [LOG] Force removing localStorage item with key: katalon_traffic_agent_pending_related_tab, bypassing protection. @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0
+[    6069ms] [LOG] Starting TrafficAgent for client code: KA-86773-5 @ https://static.katalon.com/libs/traffic-agent/v1/traffic-agent.min.js:0

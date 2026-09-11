@@ -1,0 +1,39 @@
+[    1155ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://ametekcdn.azureedge.net/favicon.ico:0
+[   92215ms] [ERROR] Access to fetch at 'https://ametekcdn.azureedge.net/mediafiles/project/oneweb/oneweb/alphasense/products/application%20notes/aan_009_app-note_v0_en_1.pdf?revision:6df09839-f47f-4e64-ac30-0c04d58f90bd' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ about:blank:0
+[   92215ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://ametekcdn.azureedge.net/mediafiles/project/oneweb/oneweb/alphasense/products/application%20notes/aan_009_app-note_v0_en_1.pdf?revision:6df09839-f47f-4e64-ac30-0c04d58f90bd:0
+[  110655ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://ametekcdn.azureedge.net/:0
+[  111102ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://ametekcdn.azureedge.net/favicon.ico:0
+[  313692ms] [LOG] Warning: getHexString - ignoring invalid character: 33 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313692ms] [LOG] Warning: getHexString - ignoring invalid character: 111 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313692ms] [LOG] Warning: getHexString - ignoring invalid character: 116 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313692ms] [LOG] Warning: getHexString - ignoring invalid character: 121 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313692ms] [LOG] Warning: getHexString - ignoring invalid character: 112 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313692ms] [LOG] Warning: getHexString - ignoring additional invalid characters. @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313692ms] [LOG] Warning: getHexString - ignoring invalid character: 104 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313693ms] [LOG] Warning: getHexString - ignoring invalid character: 116 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313693ms] [LOG] Warning: getHexString - ignoring invalid character: 109 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313693ms] [LOG] Warning: getHexString - ignoring invalid character: 108 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313693ms] [LOG] Warning: getHexString - ignoring invalid character: 104 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313693ms] [LOG] Warning: getHexString - ignoring invalid character: 108 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313693ms] [LOG] Warning: getHexString - ignoring invalid character: 105 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313693ms] [LOG] Warning: getHexString - ignoring invalid character: 110 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313693ms] [LOG] Warning: getHexString - ignoring invalid character: 107 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313693ms] [LOG] Warning: getHexString - ignoring invalid character: 114 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313694ms] [LOG] Warning: getHexString - ignoring additional invalid characters. @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313694ms] [LOG] Warning: getHexString - ignoring invalid character: 47 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313694ms] [LOG] Warning: getHexString - ignoring invalid character: 104 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313694ms] [LOG] Warning: getHexString - ignoring invalid character: 111 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313694ms] [LOG] Warning: getHexString - ignoring invalid character: 121 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313694ms] [LOG] Warning: getHexString - ignoring invalid character: 33 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313694ms] [LOG] Warning: getHexString - ignoring invalid character: 111 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313695ms] [LOG] Warning: getHexString - ignoring invalid character: 116 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313695ms] [LOG] Warning: getHexString - ignoring invalid character: 121 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313695ms] [LOG] Warning: getHexString - ignoring invalid character: 112 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313695ms] [LOG] Warning: getHexString - ignoring additional invalid characters. @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313695ms] [LOG] Warning: getHexString - ignoring invalid character: 104 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313695ms] [LOG] Warning: getHexString - ignoring invalid character: 116 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313695ms] [LOG] Warning: getHexString - ignoring invalid character: 109 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313695ms] [LOG] Warning: getHexString - ignoring invalid character: 108 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313695ms] [LOG] Warning: getHexString - ignoring invalid character: 104 @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  313695ms] [LOG] Warning: Indexing all PDF objects @ https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js:21
+[  322631ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://ametekcdn.azureedge.net/favicon.ico:0

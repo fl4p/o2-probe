@@ -7,6 +7,12 @@ static uint16_t s_duty_x100;
 static uint16_t s_pwm_hz;
 static uint32_t s_last_cmd_ms;
 static bool s_have_cmd;
+/* Latched when o2p_heater_service() cut drive for staleness, cleared by the
+ * next apply() of any duty. cycle_publish() folds it into HEATER_BLOCK as
+ * O2P_HB_STALE - the bit has been in the published contract and in the host
+ * decoders since the beginning, and until 2026-09-10 nothing could raise it
+ * (audit F3). */
+static bool s_stale_cut;
 
 bool o2p_heater_compiled_in(void)
 {
@@ -120,6 +126,7 @@ void o2p_heater_apply(uint16_t duty_x100, uint16_t pwm_hz)
 {
     s_last_cmd_ms = o2p_millis();
     s_have_cmd = true;
+    s_stale_cut = false;
 
     if (duty_x100 == 0u) {
         o2p_heater_force_off();
@@ -170,6 +177,7 @@ void o2p_heater_apply(uint16_t duty_x100, uint16_t pwm_hz)
     (void)pwm_hz;
     s_last_cmd_ms = o2p_millis();
     s_have_cmd = true;
+    s_stale_cut = false;
     /* The controller already refuses to ask for heat in this build - it sees
      * O2P_HB_NOT_COMPILED - so a non-zero duty reaching here would be a bug in
      * the caller, not a configuration choice. Hold the gate low regardless. */
@@ -192,8 +200,14 @@ void o2p_heater_service(void)
     if (!s_have_cmd || o2p_elapsed(s_last_cmd_ms, O2P_HEATER_STALE_MS)) {
         /* The sampler has stopped publishing. Whatever the last command was,
          * it is now a guess about a probe nobody is measuring. */
+        s_stale_cut = true;
         o2p_heater_force_off();
     }
+}
+
+bool o2p_heater_stale_cut(void)
+{
+    return s_stale_cut;
 }
 
 uint16_t o2p_heater_duty_x100(void)

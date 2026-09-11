@@ -51,8 +51,8 @@ All debug and diagnostic blocks are placed strictly in the free ground between t
 1. **No Configurable BusFault:** On Cortex-M0+, any unaligned load (`addr & 3 != 0`) or read of an unmapped address or unclocked peripheral escalates immediately to a fatal `HardFault`.
 2. **Destructive Reads Banned:** Reading peripheral registers like `ADC_DR` clears `EOC` (silently stealing conversions from the active sampler) and reading `USART_RDR`/`I2C_RXDR` clears FIFOs.
 3. **Strict Memory Boundary:** `peek` is restricted **strictly to SRAM and Flash memory**, plus exact system constants:
-   - **SRAM:** `0x20000000 .. 0x20008FFC` (36 KiB; `0x20008FFC` is the exact last 4-byte aligned word).
-   - **Flash:** `0x08000000 .. 0x0801FFFC` (128 KiB; `0x0801FFFC` is the exact last 4-byte aligned word).
+   - **SRAM:** `0x20000000 .. 0x20008FFC` (36 KiB; `0x20008FFC` is the exact last 4-byte aligned word). See §3.5 for the SRAM parity gate that narrows this further when the option bit is set.
+   - **Flash:** `0x08000000 .. 0x08010FFC` — the loader (pages 0–7) and the run slot (pages 8–33) only, **not** the whole 128 KiB. §3.6 is why. `0x08010FFC` is `O2P_APP_BASE + O2P_APP_BYTES - 4`, the run slot's last aligned word.
    - **Device Constants:** STM32G071 96-bit Unique Device ID (`0x1FFF7590`, `0x1FFF7594`, `0x1FFF7598`) and Flash Size Register (`0x1FFF75E0`). Unmapped option-byte holes are completely excluded.
 4. **Burst Throughput (Resolving A-4):** Rather than 1 word per 2 Modbus round-trips (~25s to dump `g_rm`), the mailbox accepts a count of 1 to 4 words (up to 16 bytes), returning them into 8 contiguous read registers (`0x0068..0x006F`). The count is a **third register of the trigger write**, so the firmware validates it; a client that merely limits how many already-fetched words it prints has validated nothing. A burst must lie wholly inside the region it starts in, which is why the count is load-bearing rather than cosmetic: the UID is three words and the flash-size register is one, so neither is reachable by a fixed four-word burst.
 
@@ -87,7 +87,7 @@ All debug and diagnostic blocks are placed strictly in the free ground between t
 | `0x0100` | `O2P_REG_PEEKW_ADDR_HI` | R/W | Trigger: target [31:16]. Reads the address held |
 | `0x0101` | `O2P_REG_PEEKW_ADDR_LO` | R/W | Trigger: target [15:0] |
 | `0x0102` | `O2P_REG_PEEKW_WORDS` | R/W | Trigger: burst length 1..30. Reads the length held |
-| `0x0103` | `O2P_REG_PEEKW_STATUS` | RO | `0`=NONE, `1`=OK, `2`=ERR_RANGE, `3`=ERR_ALIGN (same codes and region rules as 3.1) |
+| `0x0103` | `O2P_REG_PEEKW_STATUS` | RO | `0`=NONE, `1`=OK, `2`=ERR_RANGE, `3`=ERR_ALIGN, `4`=ERR_PARITY (same codes and region rules as 3.1; `4` since `0x000F`, see 3.5) |
 | `0x0104` | `O2P_REG_PEEKW_SEQ` | RO | Executed triggers; skips 0 on wrap, so 0 = never triggered |
 | `0x0105` | `O2P_REG_PEEKW_DATA` | RO | Word 0 [31:16], word 0 [15:0], word 1 [31:16] … through `0x0140`; `0xFFFF` if unexecuted |
 
@@ -98,11 +98,40 @@ All debug and diagnostic blocks are placed strictly in the free ground between t
 - The copy runs with `PRIMASK` saved, set and restored around the copy loop only. The trigger is served from the main loop, so what the mask adds is SysTick and USART1. USART1 runs without its FIFO, so the masked window must stay inside one character time: 95 µs at 115200 8E1. In the 2026-09-10 `env:o2probe` build, `peek_copy` masks for 15 instructions per word, two of them taken branches, so about 17 clock cycles. At 16 MHz with zero flash wait states (`src/mcu.c`) a 30-word copy is about 32 µs, roughly a third of a character. That is an **estimate from the disassembly, not measured on the board**, and it is also why the ceiling is not 60 words.
 - A reader needing several FC03s reads `SEQ` with its first piece and again after its last. If it moved, the pieces came from different triggers.
 
-**The ceiling, 30 words.** The whole block is one 65-register FC03, a 135-byte reply. Largest reply ADU per path, read from the code on 2026-09-10 (not measured on a cable): USB-RS485 dongle, SWD bridge mailbox and node USB serial relay 255 B; node LoRaWAN relay 242 B at DR4/DR5, 115 B at DR3, 51 B at DR0-DR2; Dragino `A8` about 46 B (manual's uplink figure, unverified). With 30 words the block is one read on every wired path and on the radio at DR4/DR5. A 60-word ceiling, the most a 125-register FC03 holds, would be one read on the wired paths only, and the radio drops an oversized reply rather than truncating it. 30 words also covers every struct worth dumping except `g_rm` itself, and it costs 120 bytes of SRAM.
+**The ceiling, 30 words.** The whole block is one 65-register FC03, a 135-byte reply. Largest reply ADU per path, read from the code on 2026-09-10 (not measured on a cable): USB-RS485 dongle, SWD bridge mailbox and node USB serial relay 255 B; node LoRaWAN relay 227 B at DR4/DR5, 100 B at DR3, 36 B at DR0-DR2; Dragino `A8` about 46 B (manual's uplink figure, unverified). The radio figures were first written as 242/115/51, which is RadioLib 7.7.1's EU868 `payloadLenMax` (`LoRaWANBands.cpp:25`). They are 15 B lower because the node uplinks the reply ADU raw (`reply_push()` in node-prototype `main.cpp` `relay()`), and RadioLib's `getMaxPayloadLen()` subtracts the FOpts the MAC layer has pending (`LoRaWAN.cpp:3785-3805`), up to `RADIOLIB_LORAWAN_FHDR_FOPTS_MAX_LEN` = 15 (`LoRaWAN.h:124`). An over-length reply is dropped for good (`PACKET_TOO_LONG` in `main.cpp`), and a master cannot see FOpts, so it plans against the ceiling that holds when FOpts is full. Corrected 2026-09-10 after independent review. With 30 words the block is one read on every wired path and on the radio at DR4/DR5. A 60-word ceiling, the most a 125-register FC03 holds, would be one read on the wired paths only, and the radio drops an oversized reply rather than truncating it. 30 words also covers every struct worth dumping except `g_rm` itself, and it costs 120 bytes of SRAM.
 
 **Compiled out** with the other debug blocks when `O2P_DEBUG_ENABLE=0`: every read and write at `0x0100..0x0140` is then exception `0x02`. A nodebug build reports the same `FW_VERSION`, so a master confirms the block exists from `BUILD_ID` bit 30 or from the exception, not from the version.
 
 **Tests.** `test/test_logic/test_main.c` `test_peekw_*` drive the block against a fake memory that counts every dereference, so each refusal is checked by status and by zero dereferences. They cover every region's far tail at every burst length, monotonicity in burst length, address wrap, malformed triggers, the snapshot property and SEQ.
+
+### 3.5 SRAM parity gate — added 2026-09-10, `O2P_FW_VERSION` `0x000F`
+
+**Why.** Independent review F1, reasoned rather than observed. ST RM0444 Rev 6 §2.3 (p. 67): with the `RAM_PARITY_CHECK` option bit enabled, parity is "computed and stored when writing into the SRAM" and checked on every read, and a failing bit raises an NMI plus a bus error, i.e. a HardFault. Its note advises initialising the whole SRAM at startup "to avoid getting parity errors when reading non-initialized locations". This firmware does not, and must not: the bottom 16 bytes are `SHARED`, the boot hand-off that has to survive a warm reset (`ldscript/o2probe_app.ld`). Both peek blocks could name all 36 KiB.
+
+**Rule.** On every trigger `peek_check()` loads `FLASH_OPTR`. If bit 22 reads 0 (enabled; RM0444 §3.7.8, p. 102), an SRAM burst must lie wholly inside `.data`, inside `.bss`, or inside both when they abut, from the linker's `_sdata`/`_edata`/`_sbss`/`_ebss`. Anything else is status `4` ERR_PARITY, with nothing dereferenced. Startup writes every word of both sections (`CopyDataInit`/`FillZerobss` in `startup_stm32g071xx.s`, 4-byte stores between `ALIGN(4)` bounds). Flash, the UID and the flash-size word are not gated. Alignment and range errors keep their precedence. With the bit at 1, the factory value (Table 17, p. 83), every peek answers exactly as under `0x000E`.
+
+**Deliberately not admitted:** `SHARED`, the heap gap and the stack. "SP up to `_estack`" is not proven written, because a frame reserves space with one `SUB` and writes only what the code assigns. Every symbol `peek` resolves from the ELF lives in `.data`, `.bss` or flash.
+
+**Guard review.**
+- **Unevaluable input** fails closed. An OPTR that reads 0, for example with the flash interface clock off, means enabled and restricts. FLASHEN resets to 1 (RM0444 §5.4.14, p. 193) and nothing in `src/` clears it.
+- **Monotonicity:** a longer burst from the same target is never OK once a shorter one was refused, tested at `_ebss` for every length.
+- **Precondition:** `FLASH_OPTR` holds the loaded option bytes. It would not after an OPTR write that had not yet been through `OBL_LAUNCH` (RM0444 §3.4.2, p. 84), and nothing in `src/` writes OPTR, OPTKEYR or `OBL_LAUNCH` (grepped 2026-09-10).
+- **Known-bad calibration:** the test reads every refused SRAM target first with the factory bit and sees it read OK, so each refusal is the gate's doing.
+- **Provenance:** a refusal is its own status, not ERR_RANGE, so an address that is in range is never reported as out of range.
+
+**Reasoned, not measured: whether this image boots with the bit enabled at all.** RM0444 Table 7 (p. 66) gives the G071 32 KiB of SRAM with parity against 36 KiB without, and the linker places `_estack` at the top of 36 KiB. No probe has had the bit set, and none should. The gate is for the image that does run, and it costs one register load per trigger.
+
+**Tests.** `test_peek_parity_on_*`, with every refusal checked by zero dereferences through both blocks. They cover known-bad calibration, bit-exact decoding, OPTR = 0, the far tail at `_ebss`, a gap between `.data` and `.bss`, unaligned bounds, and empty or inverted spans. `test_peek_the_first_word_of_every_region_is_readable` closes review mutant R2. Nothing of this has run on a probe.
+
+### 3.6 Flash peek is the loader and run slot only — added 2026-09-10, `O2P_FW_VERSION` `0x000F`
+
+**Why.** Independent review N4, reasoned rather than observed. Flash is programmed 64 bits at a time with 8 ECC bits per doubleword (RM0444 Rev 6 §3.3.3, p. 74). A program or erase interrupted by a power loss "might result in a corrupted flash memory data and/or ECC bits. The address concerned might trigger an ECC interrupt or an NMI when accessed later on" (§3.3.6, p. 77), and "when two errors are detected ... a NMI is generated" (§3.3.3). The NMI vector on this build is the default infinite loop (`NMI_Handler` shares the looping `Default_Handler` address in the ELF), so a peek of a torn doubleword hangs until the IWDG resets the probe.
+
+**Why not an ECC-aware NMI handler.** On a Cortex-M0+ the read cannot be made recoverable. The NMI returns to the stacked PC — the faulting load — and ARMv6-M gives a handler no architected way to step past it without decoding the Thumb instruction to know its length; nothing in RM0444 licenses that. RM0444 §3.3.3 also warns that "a new read at the failing address may not generate an ECC error if the data is still present in the current buffer," so even a retry is not deterministic. A "peek in progress" flag plus an ECCD clear cannot yield a defined resume.
+
+**The mitigation instead.** The three flash areas a power loss can tear are all written **at run time** — the staging slot during a push, the boot descriptor when a transfer verifies, the config pages A/B on `COMMIT` (`src/flash_map.h`). None is inside the loader (pages 0–7, never rewritten) or the run slot (pages 8–33, written only by the loader while the application is not running). So the flash peek region is confined to pages 0–33, `0x08000000 .. 0x08010FFC`; a peek of staging, the descriptor or config now answers `ERR_RANGE`. Where the running image lives is, by definition, intact enough to execute. This is a **mitigation, not a proof** the excluded pages would fault: no torn page was ever read on a probe. Ordinary flash *activity* — a read while a program/erase is in progress — is a different case that stalls then completes (§3.3.6) and is unaffected.
+
+See §11 for the boot-path reads that share this exposure and are **not** fixed here.
 
 ---
 
@@ -178,7 +207,9 @@ Generic raw register writes are rejected. A typed, non-blocking diagnostic inter
 | `8` ERR_GPIO_UNCLOCKED | the port's `RCC_IOPENR` bit is clear. `src/mcu.c` enables A, B and C only | IOPENR only | all 0 |
 | `9` ERR_GPIO_NO_PIN | no such bonded pin: port 4 or above 5, pin above 15, or a pad not on the LQFP48 | nothing, RCC included | all 0 |
 
-These are new codes rather than `ERR_NACK`/`ERR_TIMEOUT`, which mean something specific about an I²C part. `ERR_BUSY` still applies while an I²C opcode is queued, because that opcode owns the result registers until it runs.
+These are new codes rather than `ERR_NACK`/`ERR_TIMEOUT`, which mean something specific about an I²C part. A queued I²C opcode owns the result registers until it runs, so a request that arrives meanwhile is refused. Up to `0x000E` it was refused with exception `0x03` and `DIAG_STATUS` := `6` ERR_BUSY. That overwrote the queued command's PENDING, and the CLI, which polls for "not PENDING", took ERR_BUSY as that command's result (independent review F2, 2026-09-10, confirmed through `o2p_regmap_write`). From `0x000F` the refusal is exception `0x06` SERVER DEVICE BUSY and writes nothing; the shape check runs before it and the magic/opcode checks after it, so while busy nothing can write `DIAG_STATUS`. `o2p_cli.py` reports the 06, checks `DIAG_CMD`/`DIAG_PARAM` against its own command on every poll, and does not treat ERR_BUSY as final. Tests: `test_dmbox_a_busy_refusal_is_exception_06_and_writes_nothing` (through `o2p_mb_dispatch`) and the "queued I2C command" cases in `tools/test_o2p_cli_gpio.py`.
+
+**PF2 is the NRST pad.** Its GPIO registers describe the pad only when the `NRST_MODE` option bits select GPIO (RM0444 Rev 6, 7.3.17, p. 237; 3.7.8, p. 102). The factory value is `11`, reset I/O (Table 17, p. 83), and nothing in `src/` writes option bytes. PF2 therefore describes an unconnected GPIO cell on these probes. No runtime effect today: `src/mcu.c` never clocks port F, so every PF pin answers `8` ERR_GPIO_UNCLOCKED before anything is loaded.
 
 **Packing.** `RDATA0`: bits 1..0 mode (MODER: 0 input, 1 output, 2 AF, 3 analog); bits 3..2 pull (PUPDR: 0 none, 1 up, 2 down, 3 reserved); bit 4 open-drain (OTYPER); bit 5 ODR, the latch; bit 6 LEVEL, the IDR bit; bits 11..8 AF number; bit 14 `LEVEL_VALID`, set only with OK; bit 15 `CONFIG_VALID`, set with OK or NOT_SAMPLED; other bits 0. Encodings are from RM0444 Rev 6 7.5.1, 7.5.2 and 7.5.4. `RDATA1` holds the port's IDR[15:0], `RDATA2` the port's ODR[15:0], and `CRC_STATUS` the port's analog mask (bit n = pin n in analog mode, so bit n of `RDATA1` is not a sample). A refusal leaves `RDATA0` at 0, not `0xFFFF`: `0xFFFF` would carry both VALID bits to a reader that ignored the status.
 
@@ -314,5 +345,62 @@ Because memory peek is an unauthenticated read primitive on a shared multi-drop 
    - Compiles with `-DO2P_DEBUG_ENABLE=0`.
    - All debug mailboxes are compiled out; any read/write to `0x0065..0x007F` or `0x0100..0x0140` returns Modbus Exception `0x02` (`ILLEGAL_DATA_ADDRESS`).
    - HardFault handler falls back to a minimal `NVIC_SystemReset()`.
-   - Saves 1,492 bytes of Flash and 64 bytes of RAM.
+   - Saves 3,112 bytes of `firmware.bin` and 196 bytes of RAM as PlatformIO counts it, measured 2026-09-10 as `env:o2probe` minus `env:o2probe_nodebug` from the same tree at `O2P_FW_VERSION` `0x000F`. Given as the DELTA rather than an absolute pair: the difference is exactly the debug mailboxes and is independent of whatever else is linked, since both images carry it. This line said 1,492 bytes of Flash and 64 of RAM, and `platformio.ini` said about 1.8 KiB; both predate the wide peek block, the GPIO opcode and the 0x000F work.
    - Mandatory target before potting production probes destined for unmonitored permanent burial.
+
+---
+
+## 10. Considered, not built: executing uploaded code
+
+**Status: a proposal, 2026-09-10. Nothing here is built, and the recommendation is not to build it.** It is written down because the wide peek block makes it look like a short step, and it is not.
+
+**Why it would work.** The pieces exist:
+- An FC16 window to carry a blob. The update data window already takes 123 registers per frame (`src/update.h`).
+- A trigger register holding the entry address.
+- A blob linked with `--just-symbols=firmware.elf`, so it calls firmware functions by name.
+
+Cortex-M0+ SRAM is executable when no MPU region says otherwise. That is the ARMv6-M default memory map, stated from knowledge of the architecture and not re-read for this note. This firmware never programs the MPU: on 2026-09-10, `grep MPU src/` matched only the word "COMPUTED" in two comments.
+
+**Why it is worse than the existing updater.**
+- **It bypasses the heater interlocks.** Every interlock in FIRMWARE.md "Interlocks" is main-loop code that decides TIM1's compare value (`src/heater.c`). A blob runs at the same privilege as that code, with nothing between it and TIM1. An install replaces the whole image, and the image that then runs carries its interlocks.
+- **It can erase the loader or rewrite the option bytes.** The flash unlock keys are already in the image (`src/flash_hal.c` lines 39–40), so a blob linked against the ELF can erase any page. That includes pages 0–7, the bootloader that `src/flash_map.h` marks "NEVER rewritten". A blob can also unlock `OPTLOCK` (RM0444 Rev 6 §3.4.2, p. 84) and rewrite RDP, WRP or `NRST_MODE`. Nothing write-protects anything today. On 2026-09-10, `src/` was grepped for OPTR, OPTKEY, OPTSTRT, `OBL_LAUNCH`, WRP and RDP, and the only hit is `FLASH_SR_WRPERR` in `flash_hal.c`'s error mask. On a potted probe an erased loader is permanent.
+- **It is unauthenticated code execution on a plaintext bus.** LoRaWAN reaches that bus through the node's fPort-10 relay (node-prototype `README.md`). farming `tech/IMAGE-AUTH.md`: "Status 2026-09-06: specification. Nothing in it is built." The updater is unauthenticated too, so this is not a new class of exposure. What an install still has is `update.c`'s length and CRC checks on the staged image, a loader outside the region it writes, and a reset into a whole image. A blob gets none of those, and runs mid-sampler inside live state, possibly with the heater on.
+- **A hung blob is recovered only by the IWDG.** It is started in `src/mcu.c` and cannot be stopped (`IWDG->KR = 0xCCCC`), so a hang resets the probe within 4.096 s nominal (`mcu.c`, prescaler /64, reload 2047). A blob that refreshes the IWDG itself is not recovered, and nothing stops it doing so.
+
+**Containment, if it were ever wanted.**
+- **Debug builds only**, behind `O2P_DEBUG_ENABLE` with the peeks. `env:o2probe_nodebug`, the build §9 mandates before potting, would then have no path at all. This is the one option that holds against a deliberate blob, because the code is not there.
+- **Locking `FLASH_CR` with a deliberately wrong key before the jump.** Verified in RM0444: a wrong sequence "locks the FLASH_CR register until the next system reset", and it also means "a bus error is detected and a Hard Fault interrupt is generated" (§3.3.6, p. 77; LOCK bit, §3.7.5, p. 98). The same holds for `OPTLOCK` (§3.4.2, p. 84). Setting LOCK by software instead contains nothing, because the blob can unlock again with the published keys. The wrong-key lock, though, arrives as a HardFault, and this firmware's `HardFault_Handler` records a crash and calls `NVIC_SystemReset()` (`src/mcu.c`), which clears the lock. So it contains a blob only if the handler learns to recognise that one fault and return from it, which on ARMv6-M means rewriting the stacked PC. **UNVERIFIED** that this is safe on this part. As the handler stands, it is not a containment.
+- **MPU plus unprivileged execution.** `__MPU_PRESENT` is 1 in CMSIS `stm32g071xx.h` (line 50), and DS12232 Rev 5 §3.2 describes the MPU. A blob in unprivileged Thread mode, with regions that deny `FLASH`, `RCC` and the timers, could not undo its own confinement. On ARMv6-M a violation arrives as a HardFault, since there is no MemManage exception, so the handler again has to tell a blob's fault from a real one. **UNVERIFIED:** whether ST configured this Cortex-M0+ with unprivileged Thread mode. Neither DS12232 nor RM0444, as searched, says so.
+
+**Pre-potting recommendation, independent of the above: a proposal, not adopted.** Write-protect the loader's pages before potting. RM0444 §3.5.3 (p. 90): a WRP area "cannot be erased or programmed", at 2 KiB page granularity, set in `FLASH_WRP1AR`. For pages 0–7 that is `WRP1A_STRT` = 0 and `WRP1A_END` = 7, and it applies at the next option-byte load. It guards against an **accidental** erase: a wrong page number, a stray `PER`. It does not guard against a **deliberate** privileged write, because WRP lives in the option bytes and any privileged code can clear it with the §3.4.2 sequence. Before adopting it, check two things: that no bench or loader-update path legitimately writes pages 0–7, and that the SWD flashing recipes in FIRMWARE.md "Flashing" still work, or say how to lift WRP first. RDP Level 2 is not proposed. It is irreversible and removes the debug port and the system bootloader (RM0444 §3.5.1, p. 86).
+
+---
+
+## 11. Considered, not built: flash ECC beyond the peek (report, 2026-09-10)
+
+§3.6 confined the *peek* to the loader and run slot because a torn flash doubleword raises an NMI the default handler does not survive. That handler is shared by every read of mapped flash, not only the peek, so review finding N4(b) asked which boot-path reads carry the same exposure. This section is a **report and does not change any code** — above all it does not touch the loader.
+
+**The handler.** `NMI_Handler` is a weak alias to `Default_Handler`, an infinite loop (`startup_stm32g071xx.s:190-191`, `:116-118`), and nothing in `src/` overrides either. So a double-ECC-error NMI (RM0444 Rev 6 §3.3.3, p. 74 — **sourced**) spins until the IWDG resets (`src/mcu.c`, ~4.096 s — sourced). If the read that faulted runs again on the next boot, the probe resets forever. That a plain `memcpy`/struct read of a torn doubleword raises this NMI is **reasoned** from §3.3.6 (p. 77, "might trigger an ECC interrupt or an NMI when accessed later on"); no torn page was read on a probe.
+
+**Reads of run-time-programmed flash on the boot path:**
+
+| Site | Reads | Pages | On whose boot |
+|---|---|---|---|
+| `src/config_flash.c:53-54` (`read_record`, from `o2p_config_load` `:111`) | both config records, always, to pick the newer | 62, 63 | application (`src/main.c:1741`) |
+| `src/boot_desc.c:86` (`read_page`, from `o2p_desc_load` `:90`) | both descriptor records, always | 60, 61 | application via `o2p_update_target_init` (`src/main.c:1748` → `src/update_target.c:18`) **and the loader** (`src/loader_main.c:490`, and again at `:500`) |
+
+Both readers touch **both** A/B pages unconditionally — validity is judged only after the bytes are read — so a single torn page faults the read regardless of which page is live. A config store writes the page that is *not* live (`config_select.h`, `o2p_config_other_page`), and the descriptor is A/B likewise, so the page a power loss tears is the non-live one, and the next boot reads it anyway.
+
+**Consequences (reasoned):**
+- A torn **config** page (power loss during `COMMIT`) faults `o2p_config_load` at application boot → NMI → IWDG reset → **the application boot-loops**. The config machinery's own A/B redundancy does not help, because the read that faults happens before any validity check.
+- A torn **descriptor** page (power loss when the application writes the descriptor after a verified transfer, or when the loader rewrites it after an install) faults `o2p_desc_load`. The application reads it at boot, and **so does the loader at every reset** (`loader_main.c:490`). A descriptor tear that faults the loader is **permanent on a potted probe**: the loader cannot be reflashed once potted, and it never gets far enough to start the application.
+- The **staging** slot is not read on the boot path (`update_target.c` initialises from descriptors only, and the peek no longer reaches it), so a staging tear alone does not boot-loop anything.
+
+**Is the loader exposed?** Yes — `src/loader_main.c:490` and `:500`, through `o2p_desc_load`. This is the most serious case, and it is exactly the one this task must not change.
+
+**What an ECC-aware NMI handler would need**, if this is ever taken up (reasoned, and the reason §3.6 chose restriction over recovery on the peek):
+1. A real `NMI_Handler` replacing the weak default, that reads `FLASH_ECCR` (`ECCD`, `ADDR_ECC`, `SYSF_ECC`), clears `ECCD` by writing 1, and returns without re-executing the faulting load. On Cortex-M0+ that last step is the hard part: the NMI resumes at the stacked PC, and stepping past a load means decoding the Thumb instruction's length and rewriting the stacked PC — architecturally unsupported and fragile. RM0444 §3.3.3 also warns a re-read "may not generate an ECC error if the data is still present in the current buffer," so a retry is not deterministic.
+2. For the boot path specifically, a handler cannot simply "return failure" the way a peek can, because the caller expects valid config/descriptor bytes. It would need a boot policy: on an ECC fault reading config, fall back to defaults; reading the descriptor, treat the slot as empty. That is design work spanning `config_flash.c`, `boot_desc.c`, `update_target.c` and `loader_main.c`, and it changes the loader — out of scope here.
+3. ST **AN5342** ("ECC management on STM32…") was named in the brief as a source for whether a safe return is possible; it was **not fetched** for this pass (the task is host-only and no code depends on it), so the recoverability conclusion rests on RM0444 and the ARMv6-M architecture alone. Fetching AN5342 is the first step if recovery is ever pursued. **UNVERIFIED** until then.
+
+**Recommendation:** treat the loader's descriptor read as the priority if this is taken up, since it is the only permanent-brick path; the application-side config and descriptor reads boot-loop but remain recoverable by a new install once the tear is understood. No change is made now.

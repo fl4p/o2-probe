@@ -19,6 +19,7 @@
 #include "gpio_diag.h"
 #include "hw_caps.h"
 #include "hw_contract.h"
+#include "heater.h"
 #include "heater_ctl.h"
 #include "lmp91000.h"
 #include "modbus_pdu.h"
@@ -31,6 +32,8 @@
 #include "transport_record.h"
 #include "modbus_rtu.h"
 #include "tmp117.h"
+
+#include <stdio.h>
 
 static o2p_regmap_t rm;
 static o2p_mb_handlers_t handlers;
@@ -49,6 +52,8 @@ void tearDown(void)
      * this, its fake memory would answer every later test's peeks. */
     o2p_peek_host_read = NULL;
     o2p_peek_host_irq_depth = 0;
+    o2p_peek_host_dst_addr = NULL;
+    o2p_peek_host_parity_reset();
 #endif
 }
 
@@ -1476,8 +1481,31 @@ static void test_heater_healthy_input_actually_heats(void)
     o2p_heater_in_t in = hin_healthy();
     o2p_heater_out_t out;
     o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
-    TEST_ASSERT_EQUAL_UINT16(0, out.block);
+    /* Since 0x0010 the block carries annotation bits: this drives the RH
+     * loop (no stored tip setpoint), so TIP_DISARMED rides along. The
+     * baseline's point is that no REFUSAL bit is set - assert the exact
+     * word, not "nonzero would be fine". */
+    TEST_ASSERT_EQUAL_UINT16(O2P_HB_TIP_DISARMED, out.block);
     TEST_ASSERT_TRUE(out.duty_x100 > 0u);
+}
+
+static void test_a_cold_dry_probe_reports_idle_not_nothing(void)
+{
+    /* 0x0010 (audit F5): duty 0 with no refusal must still SAY something.
+     * The RH loop in command with no demand is an answer - and a cold probe
+     * next to HEATER_BLOCK = 0 was indistinguishable on the bus from a
+     * fault that failed to raise (tonight's "heater again blocked"
+     * confusion, 2026-09-10). IDLE names the state; TIP_DISARMED names the
+     * law in command. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_healthy();
+    in.rh_x100 = 4000u;   /* dry: error <= 0, the loop wants no heat */
+    o2p_heater_out_t out;
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_EQUAL_UINT16(0u, out.duty_x100);
+    TEST_ASSERT_EQUAL_UINT16(O2P_HB_IDLE | O2P_HB_TIP_DISARMED, out.block);
 }
 
 static void test_every_interlock_independently_forces_zero(void)
@@ -1485,6 +1513,10 @@ static void test_every_interlock_independently_forces_zero(void)
     o2p_heater_cfg_t cfg = hcfg_default();
     o2p_heater_out_t out;
 
+    /* REMOVED from this table 2026-09-11 (Fab's order): {"supply",
+     * O2P_HB_SUPPLY} - the supply veto is gone; see
+     * test_supply_fault_annotates_but_does_not_veto() below for what is
+     * true now. */
     struct { const char *name; uint16_t bit; } cases[] = {
         {"not compiled",   O2P_HB_NOT_COMPILED},
         {"config off",     O2P_HB_CONFIG_OFF},
@@ -1494,7 +1526,6 @@ static void test_every_interlock_independently_forces_zero(void)
         {"no chamber",     O2P_HB_NO_CHAMBER},
         {"tip limit",      O2P_HB_TIP_LIMIT},
         {"dt limit",       O2P_HB_DT_LIMIT},
-        {"supply",         O2P_HB_SUPPLY},
         {"pin integrity",  O2P_HB_PIN_INTEGRITY},
     };
 
@@ -1515,7 +1546,6 @@ static void test_every_interlock_independently_forces_zero(void)
         case O2P_HB_DT_LIMIT:      in.t_chamber_c100 =
                                        (int16_t)(in.t_tip_c100 - (int16_t)c.dt_max_k100);
                                    break;
-        case O2P_HB_SUPPLY:        in.supply_ok = false; break;
         default:                   in.pin_integrity_ok = false; break;
         }
 
@@ -1523,6 +1553,31 @@ static void test_every_interlock_independently_forces_zero(void)
         TEST_ASSERT_EQUAL_UINT16_MESSAGE(0, out.duty_x100, cases[i].name);
         TEST_ASSERT_TRUE_MESSAGE((out.block & cases[i].bit) != 0u, cases[i].name);
     }
+}
+
+static void test_supply_fault_annotates_but_does_not_veto(void)
+{
+    /* 2026-09-11, Fab's order: the supply veto is REMOVED. It was
+     * inconsistent - blind_duty() drove 50 % through the same rail fault
+     * with no sensors at all, so working sensors earned LESS heating than
+     * none - and the heater is <1 W and cannot start a fire. What is true
+     * now: identical inputs give identical duty regardless of supply_ok,
+     * and HEATER_BLOCK carries O2P_HB_SUPPLY as an annotation so the
+     * register still tells the truth about the rail. */
+    o2p_heater_state_t st_ok, st_bad;
+    o2p_heater_ctl_reset(&st_ok);
+    o2p_heater_ctl_reset(&st_bad);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in_ok = hin_healthy();
+    o2p_heater_in_t in_bad = hin_healthy();
+    in_bad.supply_ok = false;
+    o2p_heater_out_t out_ok, out_bad;
+    o2p_heater_ctl_step(&st_ok, &cfg, &in_ok, 0u, &out_ok);
+    o2p_heater_ctl_step(&st_bad, &cfg, &in_bad, 0u, &out_bad);
+    TEST_ASSERT_EQUAL_UINT16(out_ok.duty_x100, out_bad.duty_x100);
+    TEST_ASSERT_TRUE_MESSAGE((out_bad.block & O2P_HB_SUPPLY) != 0u,
+                              "the rail fault is still reported");
+    TEST_ASSERT_EQUAL_UINT16(0u, out_ok.block & O2P_HB_SUPPLY);
 }
 
 static void test_unevaluable_input_is_off_not_midrange(void)
@@ -1680,7 +1735,9 @@ static void test_loop_reaches_setpoint_in_steady_state(void)
         in.t_chamber_c100 = (int16_t)(in.t_tip_c100 - 100);
         o2p_heater_ctl_step(&st, &cfg, &in, i, &out);
     }
-    TEST_ASSERT_EQUAL_UINT16(0, out.block);
+    /* TIP_DISARMED rides along with the RH loop since 0x0010; no refusal
+     * bit may be set in steady state. */
+    TEST_ASSERT_EQUAL_UINT16(O2P_HB_TIP_DISARMED, out.block);
     TEST_ASSERT_INT_WITHIN(20, (int)cfg.setpoint_x100, (int)in.rh_x100);
 }
 
@@ -3166,6 +3223,9 @@ static void test_v4_migration_keeps_the_air_point(void)
     /* And the new field arrives at the value that reproduces v4 exactly. */
     TEST_ASSERT_EQUAL_UINT16(1000u, out.dil_alpha_x1000);
     TEST_ASSERT_TRUE(o2p_config_valid(&out));
+    /* RH consent is NEVER carried, on any migration path (audit F1,
+     * 2026-09-10). */
+    TEST_ASSERT_EQUAL_UINT16(0u, out.heater_rh_consent);
 
     /* A corrupt v4 record is still refused - the CRC is checked on this path
      * too, and the caller falls back to full defaults. */
@@ -4679,12 +4739,14 @@ static void test_override_does_not_bypass_the_hardware_interlocks(void)
 {
     /* The list that makes this mode acceptable at all. Each is broken alone,
      * from an otherwise healthy input, with the override armed at full duty:
-     * every one must still force zero. */
+     * every one must still force zero. (CORRECTED 2026-09-11, Fab's order:
+     * "supply" left this list - the rail fault no longer vetoes any path,
+     * override included; O2P_HB_SUPPLY is an annotation now. See
+     * regmap.h's dated correction.) */
     struct { const char *name; int which; uint16_t bit; } cases[] = {
         { "safety",        0, O2P_HB_SAFETY        },
         { "no tip",        1, O2P_HB_NO_TIP        },
         { "tip limit",     2, O2P_HB_TIP_LIMIT     },
-        { "supply",        3, O2P_HB_SUPPLY        },
         { "pin integrity", 4, O2P_HB_PIN_INTEGRITY },
         { "not compiled",  5, O2P_HB_NOT_COMPILED  },
         { "config off",    6, O2P_HB_CONFIG_OFF    },
@@ -5015,11 +5077,13 @@ static void test_tip_mode_still_obeys_every_hardware_interlock(void)
         { "safety",        0, O2P_HB_SAFETY        },
         { "no tip",        1, O2P_HB_NO_TIP        },
         { "tip limit",     2, O2P_HB_TIP_LIMIT     },
-        { "supply",        3, O2P_HB_SUPPLY        },
         { "pin integrity", 4, O2P_HB_PIN_INTEGRITY },
         { "not compiled",  5, O2P_HB_NOT_COMPILED  },
         { "config off",    6, O2P_HB_CONFIG_OFF    },
     };
+    /* ("supply" removed from this table 2026-09-11, Fab's order - the rail
+     * fault no longer vetoes any path; O2P_HB_SUPPLY is an annotation. See
+     * test_supply_fault_annotates_but_does_not_veto.) */
     for (unsigned i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
         o2p_heater_state_t st;
         o2p_heater_ctl_reset(&st);
@@ -5279,10 +5343,11 @@ static void test_autonomous_heating_needs_consent(void)
         "a stored duty maximum must not by itself start autonomous heating");
     TEST_ASSERT_TRUE((out.block & O2P_HB_NO_CONSENT) != 0u);
 
-    /* With consent, the same inputs drive. */
+    /* With consent, the same inputs drive. TIP_DISARMED rides along with
+     * the RH law since 0x0010 - it is an annotation, not a refusal. */
     cfg.rh_consent = true;
     o2p_heater_ctl_step(&st, &cfg, &in, 1u, &out);
-    TEST_ASSERT_EQUAL_UINT16(0u, out.block);
+    TEST_ASSERT_EQUAL_UINT16(O2P_HB_TIP_DISARMED, out.block);
     TEST_ASSERT_TRUE(out.duty_x100 > 0u);
 }
 
@@ -5308,14 +5373,19 @@ static void test_the_bench_override_does_not_need_consent(void)
 
 static void test_consent_is_never_carried_across_a_migration(void)
 {
-    /* The failure this whole field exists to prevent: an upgrade landing on a
-     * probe whose old record said "heat hard", and heating. An older record
-     * was written by firmware that could not express consent, so there is no
-     * honest value to carry - only zero. */
+    /* The migration failure this field exists to prevent: an upgrade landing
+     * on a probe whose old record said "heat hard", and heating. An older
+     * record was written by firmware that could not express consent, so there
+     * is no honest value to carry - only zero. The migration output is
+     * asserted elsewhere; what is asserted here is the FRESH default, which
+     * changed 2026-09-10 to granted, for the same measured reason as the
+     * regmap.c comment: a board at 99 %RH could not heat itself. */
     o2p_config_t c;
     o2p_config_defaults(&c);
-    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, c.heater_rh_consent,
-        "a probe that was never told to heat by itself must not");
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(O2P_HEATER_RH_CONSENT_MAGIC,
+        c.heater_rh_consent,
+        "fresh configs ship with RH consent granted (2026-09-10); refusing "
+        "is a single write of zero, and max_duty still defaults to off");
 
     /* And only the two legal values may ever be stored, so a corrupt image
      * cannot land on something that reads as consent. */
@@ -5444,6 +5514,69 @@ static void test_tmp117_rejects_a_reading_outside_the_rating(void)
      * register could hold was accepted as a temperature. */
     TEST_ASSERT_TRUE(O2P_TMP117_MAX_C100 < 25599);
     TEST_ASSERT_TRUE(O2P_TMP117_MIN_C100 > -25600);
+}
+
+static void test_ext_tmp117_address_and_register_mapping(void)
+{
+    /* The external TMP117 sits on ext I2C (tmp117-probe, ADD0=SDA -> 0x4A).
+     * It must not collide with any on-board I2C device. */
+    TEST_ASSERT_EQUAL_HEX8(0x4Au, O2P_HW_I2C_ADDR_TMP117_EXT);
+    TEST_ASSERT_TRUE(O2P_HW_I2C_ADDR_TMP117_EXT != O2P_HW_I2C_ADDR_TMP117);
+    TEST_ASSERT_TRUE(O2P_HW_I2C_ADDR_TMP117_EXT != O2P_HW_I2C_ADDR_LMP91000);
+    TEST_ASSERT_TRUE(O2P_HW_I2C_ADDR_TMP117_EXT != O2P_HW_I2C_ADDR_SHT45);
+    TEST_ASSERT_TRUE(O2P_HW_I2C_ADDR_TMP117_EXT != O2P_HW_I2C_ADDR_ADS1119);
+
+    /* O2P_REG_T_EXT maps to O2P_REG_EXP_DATA (0x001F) in the diagnostic block. */
+    TEST_ASSERT_EQUAL_HEX16(0x001Fu, O2P_REG_EXP_DATA);
+    TEST_ASSERT_EQUAL_HEX16(O2P_REG_EXP_DATA, O2P_REG_T_EXT);
+
+    /* Test readback through regmap: absent returns 0xFFFF, present returns int16 */
+    o2p_regmap_t rm_test;
+    o2p_regmap_init(&rm_test);
+
+    o2p_snapshot_t *s = o2p_regmap_staging(&rm_test);
+    o2p_snapshot_reset(s);
+    TEST_ASSERT_EQUAL_HEX16(O2P_U16_INVALID, s->exp_data);
+
+    /* Publish snapshot with invalid / absent ext sensor */
+    o2p_regmap_publish(&rm_test);
+    uint16_t val = 0;
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&rm_test, O2P_REG_T_EXT, 1u, &val));
+    TEST_ASSERT_EQUAL_HEX16(0xFFFFu, val);
+
+    /* Publish snapshot with a valid ext temperature, e.g. 23.50 C (2350 c100) */
+    s = o2p_regmap_staging(&rm_test);
+    s->exp_data = (uint16_t)2350;
+    o2p_regmap_publish(&rm_test);
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&rm_test, O2P_REG_T_EXT, 1u, &val));
+    TEST_ASSERT_EQUAL_INT16(2350, (int16_t)val);
+
+    /* Negative temperature, e.g. -10.00 C (-1000 c100) */
+    s = o2p_regmap_staging(&rm_test);
+    s->exp_data = (uint16_t)(int16_t)-1000;
+    o2p_regmap_publish(&rm_test);
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&rm_test, O2P_REG_T_EXT, 1u, &val));
+    TEST_ASSERT_EQUAL_INT16(-1000, (int16_t)val);
+
+    /* TMP117 raw to c100 conversion and rating bounds:
+     * 1 LSB = 7.8125 mC (count * 100 / 128) */
+    int32_t c_zero = ((int32_t)(int16_t)0x0000 * 100) / 128;
+    TEST_ASSERT_EQUAL_INT32(0, c_zero);
+
+    int32_t c_25 = ((int32_t)(int16_t)0x0C80 * 100) / 128;
+    TEST_ASSERT_EQUAL_INT32(2500, c_25);
+
+    int32_t c_m25 = ((int32_t)(int16_t)(uint16_t)0xF380 * 100) / 128;
+    TEST_ASSERT_EQUAL_INT32(-2500, c_m25);
+
+    /* POR value (0x8000 = -256 C) is strictly outside operating rating */
+    int32_t c_por = ((int32_t)(int16_t)(uint16_t)0x8000 * 100) / 128;
+    TEST_ASSERT_TRUE(c_por < O2P_TMP117_MIN_C100);
+
+    /* Max rating +150 C (0x4B00) */
+    int32_t c_150 = ((int32_t)(int16_t)0x4B00 * 100) / 128;
+    TEST_ASSERT_EQUAL_INT32(15000, c_150);
+    TEST_ASSERT_TRUE(c_150 <= O2P_TMP117_MAX_C100);
 }
 
 /* ---- cell zero point, 2026-09-08 ---- */
@@ -5632,6 +5765,12 @@ static void test_v5_migration_keeps_everything_and_adds_no_zero(void)
     memset(&out, 0xAA, sizeof(out));
     TEST_ASSERT_TRUE(o2p_config_migrate(rec, sizeof(rec), &out, &seq));
     TEST_ASSERT_EQUAL_UINT32(91u, seq);
+    /* RH consent is NEVER carried, on any migration path (audit F1,
+     * 2026-09-10): v5 copies field-by-field and used to leave the
+     * fresh-config default standing, which since tonight GRANTS consent.
+     * The field runs v5 - a deployed unit upgrading must not come up
+     * consented and armed off its stored max_duty. */
+    TEST_ASSERT_EQUAL_UINT16(0u, out.heater_rh_consent);
 
     /* The calibration survives intact - forcing a recalibration on every
      * deployed probe for an appended field would be the bug. */
@@ -6399,7 +6538,26 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    TEST_ASSERT_EQUAL_HEX16(0x000Eu, O2P_FW_VERSION);
+    /* 0x0011: the supply veto is REMOVED - O2P_HB_SUPPLY is annotation-only
+     *         on every path (Fab's order, 2026-09-11; no wire-format change,
+     *         the bit still appears, it just stops refusing).
+     * 0x0010: fresh configs ship RH consent; HEATER_BLOCK's last two bits
+     *         are annotations (IDLE, TIP_DISARMED); the staleness cut
+     *         precedes the IWDG's fastest bound and raises STALE; T_TIP
+     *         steps the thermal mass cannot make are rejected for a cycle.
+     * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
+     *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
+    TEST_ASSERT_EQUAL_HEX16(0x0011u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0xC000u,
+        (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
+    /* The staleness cut must win the race against the watchdog's fastest
+     * bound (~2.7 s across the LSI spread, mcu.c's own numbers) - at the
+     * old 5000 ms the reset won on every part off the slow tail (F2). */
+    TEST_ASSERT_TRUE(O2P_HEATER_STALE_MS < 2700u);
+    TEST_ASSERT_EQUAL_HEX8(0x06u, O2P_MB_EX_DEVICE_BUSY);
+#if O2P_DEBUG_ENABLE
+    TEST_ASSERT_EQUAL_UINT16(4u, O2P_PEEK_ERR_PARITY);
+#endif
     TEST_ASSERT_EQUAL_UINT16(27u, O2P_REG_CONFIG_COUNT);
 #if O2P_DEBUG_ENABLE
     /* 0x000D: the wide peek block appeared at 0x0100, 65 registers, where
@@ -7080,7 +7238,9 @@ static void test_peekw_far_tail_of_every_region_is_exact_and_monotonic(void)
 {
     pk_arm();
     static const struct { uint32_t first, last; } region[] = {
-        { 0x20000000u, 0x20008FFCu }, { 0x08000000u, 0x0801FFFCu },
+        /* Flash is the loader + run slot only (N4 mitigation): pages 0..33,
+         * ending at O2P_APP_BASE + O2P_APP_BYTES - 4 = 0x08010FFC. */
+        { 0x20000000u, 0x20008FFCu }, { 0x08000000u, 0x08010FFCu },
         { 0x1FFF7590u, 0x1FFF7598u }, { 0x1FFF75E0u, 0x1FFF75E0u },
     };
     for (unsigned r = 0; r < sizeof region / sizeof region[0]; r++) {
@@ -7140,6 +7300,59 @@ static void test_peekw_seq_counts_executed_triggers_and_skips_zero(void)
     TEST_ASSERT_EQUAL_UINT16(2u, rm.peekw_seq);
 }
 
+/* N1 (independent review, 2026-09-10): the snapshot copy's destination is
+ * g_rm's own SRAM buffer, so a peek of SRAM can name the words being copied
+ * into. This drives peek_load through a hook that ALIASES the real regmap
+ * object - the exact relation the address-derived oracle cannot express - and
+ * checks that an overlapping burst comes back as the source held BEFORE the
+ * copy. The ascending-only copy read words a lower store had already
+ * clobbered; the memmove-safe copy does not. */
+static uint32_t pk_alias_base;
+static uint32_t pk_alias_load(uint32_t a)
+{
+    s_pk_reads++;
+    if (o2p_peek_host_irq_depth <= 0) {
+        s_pk_unmasked++;
+    }
+    uint32_t w;
+    memcpy(&w, (const char *)&rm + (a - pk_alias_base), sizeof w);
+    return w;
+}
+static uint32_t pk_alias_dst_addr(const uint32_t *dst)
+{
+    return pk_alias_base + (uint32_t)((const char *)dst - (const char *)&rm);
+}
+static void test_peekw_overlapping_its_own_buffer_copies_the_source_not_a_clobber(void)
+{
+    o2p_regmap_init(&rm);
+    pk_alias_base = 0x20000000u;   /* peek 0x20000000 == &rm[0] */
+    o2p_peek_host_read = pk_alias_load;
+    o2p_peek_host_dst_addr = pk_alias_dst_addr;
+    s_pk_unmasked = 0u;
+
+    for (unsigned i = 0; i < O2P_PEEKW_WORDS_MAX; i++) {
+        rm.peekw_words[i] = 0x11111111u * (i + 1u);
+    }
+    /* Source starts one word BELOW the destination buffer, so [target, +4w)
+     * overlaps peekw_words from below - the case that corrupts ascending. */
+    uint32_t target = pk_alias_dst_addr(rm.peekw_words) - 4u;
+    uint32_t expect[4];
+    for (unsigned i = 0; i < 4u; i++) {
+        memcpy(&expect[i], (const char *)&rm + (target + 4u * i - pk_alias_base), 4u);
+    }
+    TEST_ASSERT_EQUAL_HEX8(0u, pkw_trigger(target, 4u));
+    TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_OK, rm.peekw_status);
+    for (unsigned i = 0; i < 4u; i++) {
+        TEST_ASSERT_EQUAL_HEX32_MESSAGE(expect[i], rm.peekw_words[i],
+            "an overlapping peek returned a word its own copy had overwritten");
+    }
+    /* The direction choice is made outside the mask; the copy still ran with
+     * interrupts masked throughout. */
+    TEST_ASSERT_EQUAL_UINT(0u, s_pk_unmasked);
+    o2p_peek_host_read = NULL;
+    o2p_peek_host_dst_addr = NULL;
+}
+
 /* Both blocks answer from one validator. If they ever disagree about a target
  * and a length, one of them is dereferencing something the other thinks is
  * unsafe. */
@@ -7148,7 +7361,7 @@ static void test_peekw_and_the_4_word_mailbox_share_one_idea_of_safe(void)
     pk_arm();
     static const uint32_t targets[] = {
         0x20008FF0u, 0x20008FF4u, 0x20008FF8u, 0x20008FFCu, 0x20009000u,
-        0x0801FFF4u, 0x0801FFFCu, 0x1FFF7590u, 0x1FFF7594u, 0x1FFF7598u,
+        0x08010FF8u, 0x08011000u, 0x1FFF7590u, 0x1FFF7594u, 0x1FFF7598u,
         0x1FFF75E0u, 0x1FFF75E4u, 0x20000002u, 0x40000000u, 0xFFFFFFFCu,
     };
     for (unsigned i = 0; i < sizeof targets / sizeof targets[0]; i++) {
@@ -7165,6 +7378,154 @@ static void test_peekw_and_the_4_word_mailbox_share_one_idea_of_safe(void)
     }
     /* The 4-word mailbox's copy is masked too, now that it is the same copy. */
     TEST_ASSERT_EQUAL_UINT(0u, s_pk_unmasked);
+}
+
+/* One target through BOTH blocks: the status each publishes, and exactly the
+ * dereferences an OK makes - none for a refusal. */
+static void pk_expect(uint32_t a, uint16_t words, uint16_t st)
+{
+    char msg[64];
+    snprintf(msg, sizeof msg, "target 0x%08lX, %u words", (unsigned long)a, words);
+    pk_count_from_here();
+    TEST_ASSERT_EQUAL_HEX8_MESSAGE(0u, pkw_trigger(a, words), msg);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(st, rm.peekw_status, msg);
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(st == O2P_PEEK_OK ? words : 0u, s_pk_reads, msg);
+    if (words <= 4u) {
+        uint16_t t[3] = { (uint16_t)(a >> 16), (uint16_t)(a & 0xFFFFu), words };
+        pk_count_from_here();
+        TEST_ASSERT_EQUAL_HEX8_MESSAGE(0u, o2p_regmap_write(&rm, O2P_REG_PEEK_BASE, 3u, t), msg);
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(st, rm.peek_status, msg);
+        TEST_ASSERT_EQUAL_UINT_MESSAGE(st == O2P_PEEK_OK ? words : 0u, s_pk_reads, msg);
+    }
+}
+
+/* Review R2: the FIRST word of every region is readable. The far-tail test
+ * walks each region's end and refuses the word below its start, so a lower
+ * bound moved up by one word (flash from 0x08000004) passed everything. */
+static void test_peek_the_first_word_of_every_region_is_readable(void)
+{
+    pk_arm();
+    static const uint32_t first[] = { 0x20000000u, 0x08000000u, 0x1FFF7590u, 0x1FFF75E0u };
+    for (unsigned r = 0; r < sizeof first / sizeof first[0]; r++) {
+        pk_expect(first[r], 1u, O2P_PEEK_OK);
+        TEST_ASSERT_EQUAL_HEX32(first[r], s_pk_min);
+        pk_expect(first[r] - 4u, 1u, O2P_PEEK_ERR_RANGE);
+    }
+}
+
+#define PK_OPTR_PARITY_ON (0xFFFFFFFFu & ~(1uL << 22))
+
+/* Review F1. With RAM_PARITY_CHECK enabled, only what startup wrote may be
+ * dereferenced. The seam's map is the 2026-09-10 env:o2probe one: SHARED
+ * 0x20000000..0F, .data 0x20000010..87, .bss 0x20000088..0x2000058B. */
+static void test_peek_parity_on_reads_only_what_startup_wrote(void)
+{
+    pk_arm();
+    static const struct { uint32_t a; uint16_t words; uint16_t on; } cases[] = {
+        { 0x20000010u, 30u, O2P_PEEK_OK },          /* first word of .data */
+        { 0x20000084u, 2u,  O2P_PEEK_OK },          /* .data into .bss, abutting */
+        { 0x20000588u, 1u,  O2P_PEEK_OK },          /* last word of .bss */
+        { 0x20000570u, 7u,  O2P_PEEK_OK },          /* ... reached by a burst */
+        { 0x20000570u, 8u,  O2P_PEEK_ERR_PARITY },  /* one word too many */
+        { 0x2000058Cu, 1u,  O2P_PEEK_ERR_PARITY },  /* heap gap */
+        { 0x20000000u, 1u,  O2P_PEEK_ERR_PARITY },  /* SHARED, the boot hand-off */
+        { 0x2000000Cu, 2u,  O2P_PEEK_ERR_PARITY },  /* SHARED into .data */
+        { 0x20004000u, 4u,  O2P_PEEK_ERR_PARITY },
+        { 0x20008FFCu, 1u,  O2P_PEEK_ERR_PARITY },  /* top of the stack */
+        { 0x20008FF8u, 3u,  O2P_PEEK_ERR_RANGE },   /* off SRAM: range first */
+        { 0x20009000u, 1u,  O2P_PEEK_ERR_RANGE },
+        { 0x20000011u, 1u,  O2P_PEEK_ERR_ALIGN },
+        { 0x08000000u, 30u, O2P_PEEK_OK },          /* flash is not gated */
+        { 0x08010FFCu, 1u,  O2P_PEEK_OK },          /* run-slot tail (N4 bound) */
+        { 0x1FFF7590u, 3u,  O2P_PEEK_OK },
+        { 0x1FFF75E0u, 1u,  O2P_PEEK_OK },
+    };
+    /* KNOWN-BAD CALIBRATION FIRST. With the factory option byte every SRAM
+     * case above reads OK and dereferences its words - so the refusals below
+     * are the gate's doing, not an accident of the targets. */
+    for (unsigned i = 0; i < sizeof cases / sizeof cases[0]; i++) {
+        o2p_peek_host_optr = 0xFFFFFFFFu;
+        uint16_t off = (cases[i].on == O2P_PEEK_ERR_PARITY) ? O2P_PEEK_OK : cases[i].on;
+        pk_expect(cases[i].a, cases[i].words, off);
+    }
+    for (unsigned i = 0; i < sizeof cases / sizeof cases[0]; i++) {
+        o2p_peek_host_optr = PK_OPTR_PARITY_ON;
+        pk_expect(cases[i].a, cases[i].words, cases[i].on);
+    }
+    /* Bit-exact: bit 22 alone decides, not "the register is nonzero". */
+    o2p_peek_host_optr = (uint32_t)(1uL << 22);
+    pk_expect(0x20008FFCu, 1u, O2P_PEEK_OK);
+    /* UNEVALUABLE: an OPTR that reads 0 - an unclocked flash interface -
+     * means ENABLED, and restricts. */
+    o2p_peek_host_optr = 0u;
+    pk_expect(0x20008FFCu, 1u, O2P_PEEK_ERR_PARITY);
+    pk_expect(0x20000100u, 4u, O2P_PEEK_OK);
+    TEST_ASSERT_EQUAL_UINT(0u, s_pk_unmasked);
+}
+
+/* The far tail of the written span, every burst length: exact at _ebss, and
+ * never OK again once refused. Same shape as the region far-tail test. */
+static void test_peek_parity_on_far_tail_at_ebss_is_exact_and_monotonic(void)
+{
+    pk_arm();
+    o2p_peek_host_optr = PK_OPTR_PARITY_ON;
+    const uint32_t last = 0x20000588u;
+    for (uint32_t left = 1u; left <= O2P_PEEKW_WORDS_MAX + 1u; left++) {
+        uint32_t target = last - 4u * (left - 1u);
+        bool refused = false;
+        for (uint16_t words = 1u; words <= O2P_PEEKW_WORDS_MAX; words++) {
+            pk_count_from_here();
+            TEST_ASSERT_EQUAL_HEX8(0u, pkw_trigger(target, words));
+            if (words <= left) {
+                TEST_ASSERT_FALSE(refused);
+                TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_OK, rm.peekw_status);
+                TEST_ASSERT_TRUE(s_pk_max <= last);
+            } else {
+                refused = true;
+                TEST_ASSERT_EQUAL_UINT16(O2P_PEEK_ERR_PARITY, rm.peekw_status);
+                TEST_ASSERT_EQUAL_UINT(0u, s_pk_reads);
+            }
+        }
+    }
+}
+
+/* What the linker could hand the gate that the 2026-09-10 map does not: a
+ * section between .data and .bss, bounds that are not word-aligned, and an
+ * empty or inverted span. Each must narrow what is admitted, never widen it. */
+static void test_peek_parity_on_odd_linker_maps_only_ever_narrow(void)
+{
+    pk_arm();
+    o2p_peek_host_optr = PK_OPTR_PARITY_ON;
+
+    /* A gap: .data ends at 0x20000080, .bss starts at 0x20000088. */
+    o2p_peek_host_edata = 0x20000080u;
+    o2p_peek_host_sbss = 0x20000088u;
+    pk_expect(0x2000007Cu, 1u, O2P_PEEK_OK);
+    pk_expect(0x2000007Cu, 2u, O2P_PEEK_ERR_PARITY);   /* would cross the gap */
+    pk_expect(0x20000080u, 1u, O2P_PEEK_ERR_PARITY);   /* in the gap */
+    pk_expect(0x20000088u, 30u, O2P_PEEK_OK);
+    o2p_peek_host_parity_reset();
+    o2p_peek_host_optr = PK_OPTR_PARITY_ON;
+
+    /* Unaligned bounds round INWARD. */
+    o2p_peek_host_sdata = 0x20000011u;
+    o2p_peek_host_ebss = 0x2000058Eu;
+    pk_expect(0x20000010u, 1u, O2P_PEEK_ERR_PARITY);
+    pk_expect(0x20000014u, 1u, O2P_PEEK_OK);
+    pk_expect(0x20000588u, 1u, O2P_PEEK_OK);
+    pk_expect(0x2000058Cu, 1u, O2P_PEEK_ERR_PARITY);
+    o2p_peek_host_parity_reset();
+    o2p_peek_host_optr = PK_OPTR_PARITY_ON;
+
+    /* Empty, then inverted: nothing in SRAM is admitted. */
+    o2p_peek_host_sdata = o2p_peek_host_edata = o2p_peek_host_sbss =
+        o2p_peek_host_ebss = 0x20000100u;
+    pk_expect(0x20000100u, 1u, O2P_PEEK_ERR_PARITY);
+    o2p_peek_host_sdata = o2p_peek_host_edata = o2p_peek_host_sbss = 0x20000500u;
+    o2p_peek_host_ebss = 0x20000100u;
+    pk_expect(0x20000100u, 1u, O2P_PEEK_ERR_PARITY);
+    pk_expect(0x200004FCu, 1u, O2P_PEEK_ERR_PARITY);
+    pk_expect(0x08004000u, 4u, O2P_PEEK_OK);
 }
 
 static void test_dmbox_validation_and_opcodes(void)
@@ -7184,6 +7545,24 @@ static void test_dmbox_validation_and_opcodes(void)
     TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm, O2P_REG_DMBOX_BASE, 2u, cmd));
     TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_PENDING, rm.diag_status);
     TEST_ASSERT_TRUE(rm.diag_pending);
+    rm.diag_pending = false;
+
+    /* OP_READ_TMP_REG accepts dev 0 (tip) and dev 1 (ext I2C) */
+    uint16_t cmd_tmp[2] = { (uint16_t)(0x5A00u | O2P_OP_READ_TMP_REG), 0x0000u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm, O2P_REG_DMBOX_BASE, 2u, cmd_tmp));
+    TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_PENDING, rm.diag_status);
+    rm.diag_pending = false;
+
+    uint16_t cmd_tmp_ext[2] = { (uint16_t)(0x5A00u | O2P_OP_READ_TMP_REG), 0x0100u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm, O2P_REG_DMBOX_BASE, 2u, cmd_tmp_ext));
+    TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_PENDING, rm.diag_status);
+    rm.diag_pending = false;
+
+    /* An unassigned opcode is refused */
+    uint16_t cmd_bad_op[2] = { (uint16_t)(0x5A00u | 0x09u), 0x0000u };
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm, O2P_REG_DMBOX_BASE, 2u, cmd_bad_op));
+    TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_ERR_OPCODE, rm.diag_status);
 }
 
 static void test_crash_mailbox_read_and_clear(void)
@@ -7215,98 +7594,6 @@ static void test_crash_mailbox_read_and_clear(void)
     TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm, O2P_REG_CRASH_BUILD_ID_LO, 1u, &zero));
     TEST_ASSERT_EQUAL_UINT16(O2P_CRASH_NONE, rm.crash_reason);
     TEST_ASSERT_EQUAL_HEX32(0u, rm.crash_pc);
-}
-
-static void test_exec_mailbox_operations(void)
-{
-    o2p_regmap_t rm_local;
-    o2p_regmap_init(&rm_local);
-
-    uint16_t out[16];
-    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&rm_local, O2P_REG_EXEC_BASE, 8u, out));
-    TEST_ASSERT_EQUAL_UINT16(0u, out[0]); /* CMD */
-    TEST_ASSERT_EQUAL_UINT16(0u, out[1]); /* LEN */
-    TEST_ASSERT_EQUAL_UINT16(0u, out[2]); /* PARAM_HI */
-    TEST_ASSERT_EQUAL_UINT16(0u, out[3]); /* PARAM_LO */
-    TEST_ASSERT_EQUAL_UINT16(50u, out[4]); /* TIMEOUT_MS */
-    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_NONE, out[5]); /* STATUS */
-    TEST_ASSERT_EQUAL_UINT16(0u, out[6]); /* RESULT_HI */
-    TEST_ASSERT_EQUAL_UINT16(0u, out[7]); /* RESULT_LO */
-    TEST_ASSERT_FALSE(rm_local.exec_pending);
-
-    /* Write 4 halfwords of code to 0x0158 */
-    uint16_t code[4] = { 0x4600u, 0x4770u, 0x1234u, 0x5678u };
-    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm_local, O2P_REG_EXEC_CODE_BASE, 4u, code));
-    uint16_t code_read[4];
-    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&rm_local, O2P_REG_EXEC_CODE_BASE, 4u, code_read));
-    TEST_ASSERT_EQUAL_HEX16_ARRAY(code, code_read, 4);
-
-    /* Invalid length: 0 */
-    uint16_t setup_bad_len[5] = { 0x5A01u, 0u, 0x0001u, 0x0002u, 100u };
-    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
-                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_BASE, 5u, setup_bad_len));
-    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_ERR_LEN, rm_local.exec_status);
-    TEST_ASSERT_FALSE(rm_local.exec_pending);
-
-    /* Invalid length: odd */
-    setup_bad_len[1] = 5u;
-    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
-                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_BASE, 5u, setup_bad_len));
-    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_ERR_LEN, rm_local.exec_status);
-
-    /* Invalid length: > 128 */
-    setup_bad_len[1] = 130u;
-    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
-                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_BASE, 5u, setup_bad_len));
-    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_ERR_LEN, rm_local.exec_status);
-
-    /* Invalid magic */
-    uint16_t bad_magic[5] = { 0x1201u, 8u, 0x0001u, 0x0002u, 100u };
-    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
-                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_BASE, 5u, bad_magic));
-    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_ERR_OPCODE, rm_local.exec_status);
-
-    /* Valid trigger: length 8, param 0x12345678, timeout 100 */
-    uint16_t valid_run[5] = { 0x5A01u, 8u, 0x1234u, 0x5678u, 100u };
-    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm_local, O2P_REG_EXEC_BASE, 5u, valid_run));
-    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_PENDING, rm_local.exec_status);
-    TEST_ASSERT_TRUE(rm_local.exec_pending);
-
-    /* While busy, another write is refused with exception 06 SERVER_BUSY */
-    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_DEVICE_BUSY,
-                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_BASE, 5u, valid_run));
-
-    /* M1: Abort directly cancels while exec_pending is true */
-    uint16_t abort_cmd[1] = { 0x5A00u };
-    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm_local, O2P_REG_EXEC_BASE, 1u, abort_cmd));
-    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_NONE, rm_local.exec_status);
-    TEST_ASSERT_FALSE(rm_local.exec_pending);
-
-    /* M3: Writing strictly to read-only status/result is refused */
-    uint16_t ro_write[1] = { 0x1234u };
-    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
-                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_STATUS, 1u, ro_write));
-    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
-                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_RESULT_HI, 2u, ro_write));
-
-    /* Finding 4: Spanning write across TIMEOUT_MS into read-only STATUS is refused */
-    uint16_t span_ro[4] = { 50u, 0u, 0u, 0u };
-    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
-                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_TIMEOUT_MS, 4u, span_ro));
-
-    /* Finding 2: Direct write to EXEC_LEN with invalid value is refused */
-    uint16_t bad_direct_len = 7u; /* odd */
-    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
-                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_LEN, 1u, &bad_direct_len));
-    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_ERR_LEN, rm_local.exec_status);
-
-    /* M2: Rejected command does not mutate staged fields */
-    uint16_t prev_len = rm_local.exec_len;
-    uint16_t bad_cmd_seq[5] = { 0x1201u, 30u, 0x9999u, 0x8888u, 200u };
-    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
-                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_BASE, 5u, bad_cmd_seq));
-    TEST_ASSERT_EQUAL_UINT16(prev_len, rm_local.exec_len);
-    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_ERR_OPCODE, rm_local.exec_status);
 }
 
 /* ------------------------------------------------- OP_READ_GPIO, 0x5A08
@@ -7689,13 +7976,193 @@ static void test_gpio_malformed_busy_or_refused_commands_leave_no_stale_level(vo
     TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_ERR_OPCODE, rm.diag_status);
     TEST_ASSERT_EQUAL_UINT(0u, o2p_host_gpio_reads + o2p_host_rcc_reads);
 
-    /* A queued I2C opcode owns the result registers until main.c runs it. */
+    /* A queued I2C opcode owns the result registers until main.c runs it:
+     * the GPIO request is refused with exception 06 and writes NOTHING - not
+     * even DIAG_STATUS, which is the queued command's. Up to 0x000E this
+     * wrote ERR_BUSY there (review F2, 2026-09-10). */
     o2p_host_gpio_reset();
+    rm.diag_cmd = (uint16_t)(O2P_DIAG_MAGIC | O2P_OP_READ_LMP_REG);
+    rm.diag_param = 0x0010u;
+    rm.diag_status = O2P_DMBOX_STATUS_PENDING;
     rm.diag_pending = true;
-    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE, gpio_cmd(O2P_GPIO_PORT_B, 1u));
-    TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_ERR_BUSY, rm.diag_status);
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_DEVICE_BUSY, gpio_cmd(O2P_GPIO_PORT_B, 1u));
+    TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_PENDING, rm.diag_status);
+    TEST_ASSERT_EQUAL_HEX16(O2P_DIAG_MAGIC | O2P_OP_READ_LMP_REG, rm.diag_cmd);
+    TEST_ASSERT_EQUAL_HEX16(0x0010u, rm.diag_param);
+    TEST_ASSERT_TRUE(rm.diag_pending);
     TEST_ASSERT_EQUAL_UINT(0u, o2p_host_gpio_reads + o2p_host_rcc_reads);
     rm.diag_pending = false;
+}
+
+/* Review F2, through the WHOLE path a master uses: the dispatch, frames and
+ * all. Master 1 queues an I2C opcode; master 2's GPIO query, a second I2C
+ * opcode, a bad magic and a malformed frame all arrive before main.c runs it.
+ * None of them may change a register master 1 is polling. */
+static void test_dmbox_a_busy_refusal_is_exception_06_and_writes_nothing(void)
+{
+    o2p_host_gpio_reset();
+    fake_pin(O2P_GPIO_PORT_B, 1u, O2P_GPIO_MODE_INPUT, O2P_GPIO_PULL_NONE, 0u, 0u);
+    uint8_t req[32], rsp[O2P_MB_MAX_ADU];
+
+    const uint8_t queue_lmp[] = { 0x03, 0x10, 0x00, 0x70, 0x00, 0x02, 0x04,
+                                  0x5A, 0x01, 0x00, 0x10 };
+    size_t n = framed(req, queue_lmp, sizeof queue_lmp);
+    TEST_ASSERT_EQUAL_UINT(8u, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
+    TEST_ASSERT_EQUAL_HEX8(0x10, rsp[1]);
+
+    const uint8_t rd[] = { 0x03, 0x03, 0x00, 0x70, 0x00, 0x07 };
+    uint8_t before[3u + 14u + 2u];
+    n = framed(req, rd, sizeof rd);
+    TEST_ASSERT_EQUAL_UINT(sizeof before, o2p_mb_dispatch(req, n, 3, &handlers, before));
+    TEST_ASSERT_EQUAL_HEX8(0x5A, before[3]);
+    TEST_ASSERT_EQUAL_HEX8(O2P_DMBOX_STATUS_PENDING, before[8]);
+
+    static const struct { uint8_t pdu[11]; size_t len; uint8_t ex; } refused[] = {
+        /* GPIO PB1 - the reviewer's sequence */
+        { { 0x03, 0x10, 0x00, 0x70, 0x00, 0x02, 0x04, 0x5A, 0x08, 0x01, 0x01 }, 11u, 0x06 },
+        /* another I2C opcode */
+        { { 0x03, 0x10, 0x00, 0x70, 0x00, 0x02, 0x04, 0x5A, 0x05, 0x00, 0x0F }, 11u, 0x06 },
+        /* a bad magic: while busy, it may not write ERR_OPCODE either */
+        { { 0x03, 0x10, 0x00, 0x70, 0x00, 0x02, 0x04, 0x12, 0x08, 0x01, 0x01 }, 11u, 0x06 },
+        /* an opcode nobody owns */
+        { { 0x03, 0x10, 0x00, 0x70, 0x00, 0x02, 0x04, 0x5A, 0x09, 0x01, 0x01 }, 11u, 0x06 },
+        /* malformed shape: exception 03 as ever, and still nothing written */
+        { { 0x03, 0x10, 0x00, 0x71, 0x00, 0x01, 0x02, 0x00, 0x00 }, 9u, 0x03 },
+    };
+    for (size_t i = 0; i < sizeof refused / sizeof refused[0]; i++) {
+        n = framed(req, refused[i].pdu, refused[i].len);
+        TEST_ASSERT_EQUAL_UINT(5u, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
+        TEST_ASSERT_EQUAL_HEX8(0x90, rsp[1]);
+        TEST_ASSERT_EQUAL_HEX8(refused[i].ex, rsp[2]);
+
+        uint8_t after[sizeof before];
+        n = framed(req, rd, sizeof rd);
+        TEST_ASSERT_EQUAL_UINT(sizeof after, o2p_mb_dispatch(req, n, 3, &handlers, after));
+        TEST_ASSERT_EQUAL_HEX8_ARRAY(before, after, sizeof before);
+        TEST_ASSERT_TRUE(rm.diag_pending);
+    }
+    TEST_ASSERT_EQUAL_UINT(0u, o2p_host_gpio_reads + o2p_host_rcc_reads);
+
+    /* Once main.c has run it, the mailbox is free again and GPIO is served. */
+    rm.diag_pending = false;
+    rm.diag_status = O2P_DMBOX_STATUS_OK;
+    n = framed(req, refused[0].pdu, refused[0].len);
+    TEST_ASSERT_EQUAL_UINT(8u, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
+    TEST_ASSERT_EQUAL_HEX8(0x10, rsp[1]);
+}
+
+static void test_exec_mailbox_operations(void)
+{
+    o2p_regmap_t rm_local;
+    o2p_regmap_init(&rm_local);
+
+    uint16_t out[16];
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&rm_local, O2P_REG_EXEC_BASE, 8u, out));
+    TEST_ASSERT_EQUAL_UINT16(0u, out[0]); /* CMD */
+    TEST_ASSERT_EQUAL_UINT16(0u, out[1]); /* LEN */
+    TEST_ASSERT_EQUAL_UINT16(0u, out[2]); /* PARAM_HI */
+    TEST_ASSERT_EQUAL_UINT16(0u, out[3]); /* PARAM_LO */
+    TEST_ASSERT_EQUAL_UINT16(50u, out[4]); /* TIMEOUT_MS */
+    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_NONE, out[5]); /* STATUS */
+    TEST_ASSERT_EQUAL_UINT16(0u, out[6]); /* RESULT_HI */
+    TEST_ASSERT_EQUAL_UINT16(0u, out[7]); /* RESULT_LO */
+    TEST_ASSERT_FALSE(rm_local.exec_pending);
+
+    /* Write 4 halfwords of code to 0x0158 */
+    uint16_t code[4] = { 0x4600u, 0x4770u, 0x1234u, 0x5678u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm_local, O2P_REG_EXEC_CODE_BASE, 4u, code));
+    uint16_t code_read[4];
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&rm_local, O2P_REG_EXEC_CODE_BASE, 4u, code_read));
+    TEST_ASSERT_EQUAL_HEX16_ARRAY(code, code_read, 4);
+
+    /* Invalid length: 0 */
+    uint16_t setup_bad_len[5] = { 0x5A01u, 0u, 0x0001u, 0x0002u, 100u };
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_BASE, 5u, setup_bad_len));
+    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_ERR_LEN, rm_local.exec_status);
+    TEST_ASSERT_FALSE(rm_local.exec_pending);
+
+    /* Invalid length: odd */
+    setup_bad_len[1] = 5u;
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_BASE, 5u, setup_bad_len));
+    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_ERR_LEN, rm_local.exec_status);
+
+    /* Invalid length: > 128 */
+    setup_bad_len[1] = 130u;
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_BASE, 5u, setup_bad_len));
+    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_ERR_LEN, rm_local.exec_status);
+
+    /* Invalid magic */
+    uint16_t bad_magic[5] = { 0x1201u, 8u, 0x0001u, 0x0002u, 100u };
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_BASE, 5u, bad_magic));
+    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_ERR_OPCODE, rm_local.exec_status);
+
+    /* Valid trigger: length 8, param 0x12345678, timeout 100 */
+    uint16_t valid_run[5] = { 0x5A01u, 8u, 0x1234u, 0x5678u, 100u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm_local, O2P_REG_EXEC_BASE, 5u, valid_run));
+    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_PENDING, rm_local.exec_status);
+    TEST_ASSERT_TRUE(rm_local.exec_pending);
+
+    /* While busy, another write is refused with exception 06 SERVER_BUSY */
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_DEVICE_BUSY,
+                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_BASE, 5u, valid_run));
+
+    /* M1: Abort directly cancels while exec_pending is true */
+    uint16_t abort_cmd[1] = { 0x5A00u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm_local, O2P_REG_EXEC_BASE, 1u, abort_cmd));
+    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_NONE, rm_local.exec_status);
+    TEST_ASSERT_FALSE(rm_local.exec_pending);
+
+    /* M3: Writing strictly to read-only status/result is refused */
+    uint16_t ro_write[1] = { 0x1234u };
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_STATUS, 1u, ro_write));
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_RESULT_HI, 2u, ro_write));
+
+    /* Finding 4: Spanning write across TIMEOUT_MS into read-only STATUS is refused */
+    uint16_t span_ro[4] = { 50u, 0u, 0u, 0u };
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_TIMEOUT_MS, 4u, span_ro));
+
+    /* Finding 2: Direct write to EXEC_LEN with invalid value is refused */
+    uint16_t bad_direct_len = 7u; /* odd */
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_LEN, 1u, &bad_direct_len));
+    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_ERR_LEN, rm_local.exec_status);
+
+    /* M2: Rejected command does not mutate staged fields */
+    uint16_t prev_len = rm_local.exec_len;
+    uint16_t bad_cmd_seq[5] = { 0x1201u, 30u, 0x9999u, 0x8888u, 200u };
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_BASE, 5u, bad_cmd_seq));
+    TEST_ASSERT_EQUAL_UINT16(prev_len, rm_local.exec_len);
+    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_ERR_OPCODE, rm_local.exec_status);
+}
+
+/* Review R1: the analog mask must describe all sixteen pins. Every earlier
+ * check looked at low pins only, so a loop that stopped at pin 14 passed. */
+static void test_gpio_analog_mask_covers_pin_15_and_pin_0(void)
+{
+    static const uint16_t want[] = { 0x8000u, 0x0001u, 0xFFFEu, 0x7FFFu, 0xFFFFu };
+    for (size_t i = 0; i < sizeof want / sizeof want[0]; i++) {
+        o2p_host_gpio_reset();
+        o2p_host_gpio_regs_t *g = &o2p_host_gpio[O2P_GPIO_PORT_A];
+        g->MODER = 0u;
+        for (unsigned p = 0; p < 16u; p++) {
+            if ((want[i] >> p) & 1u) {
+                fake_field(&g->MODER, 2u, p, O2P_GPIO_MODE_ANALOG);
+            }
+        }
+        /* Query a pin whose own mode is irrelevant to the mask: PA8. */
+        TEST_ASSERT_EQUAL_HEX8(0u, gpio_cmd(O2P_GPIO_PORT_A, 8u));
+        uint16_t r[5];
+        gpio_result(r);
+        TEST_ASSERT_EQUAL_HEX16(want[i], r[4]);
+    }
 }
 
 static void test_gpio_wire_codes_are_the_published_ones(void)
@@ -7835,7 +8302,9 @@ int main(void)
     RUN_TEST(test_dewpoint_refuses_impossible_humidity);
     RUN_TEST(test_dew_margin_sign);
     RUN_TEST(test_heater_healthy_input_actually_heats);
+    RUN_TEST(test_a_cold_dry_probe_reports_idle_not_nothing);
     RUN_TEST(test_every_interlock_independently_forces_zero);
+    RUN_TEST(test_supply_fault_annotates_but_does_not_veto);
     RUN_TEST(test_unevaluable_input_is_off_not_midrange);
     RUN_TEST(test_duty_is_monotonic_in_humidity);
     RUN_TEST(test_duty_clamp_binds);
@@ -7910,6 +8379,7 @@ int main(void)
     RUN_TEST(test_a_commit_outcome_never_clobbers_the_cal_outcome);
     RUN_TEST(test_cmd_result_sits_outside_the_published_decoder_block);
     RUN_TEST(test_tmp117_rejects_a_reading_outside_the_rating);
+    RUN_TEST(test_ext_tmp117_address_and_register_mapping);
     RUN_TEST(test_zero_point_is_an_offset_not_a_slope);
     RUN_TEST(test_a_zero_at_or_above_the_air_point_is_unevaluable);
     RUN_TEST(test_a_negative_zero_is_accepted);
@@ -7988,9 +8458,13 @@ int main(void)
     RUN_TEST(test_peekw_far_tail_of_every_region_is_exact_and_monotonic);
     RUN_TEST(test_peekw_seq_counts_executed_triggers_and_skips_zero);
     RUN_TEST(test_peekw_and_the_4_word_mailbox_share_one_idea_of_safe);
+    RUN_TEST(test_peekw_overlapping_its_own_buffer_copies_the_source_not_a_clobber);
+    RUN_TEST(test_peek_the_first_word_of_every_region_is_readable);
+    RUN_TEST(test_peek_parity_on_reads_only_what_startup_wrote);
+    RUN_TEST(test_peek_parity_on_far_tail_at_ebss_is_exact_and_monotonic);
+    RUN_TEST(test_peek_parity_on_odd_linker_maps_only_ever_narrow);
     RUN_TEST(test_dmbox_validation_and_opcodes);
     RUN_TEST(test_crash_mailbox_read_and_clear);
-    RUN_TEST(test_exec_mailbox_operations);
     RUN_TEST(test_gpio_an_analog_pin_is_not_sampled_whatever_its_idr_bit_says);
     RUN_TEST(test_gpio_an_input_pin_reports_its_real_level_both_ways);
     RUN_TEST(test_gpio_an_output_pin_reports_latch_and_level_separately);
@@ -8001,6 +8475,9 @@ int main(void)
     RUN_TEST(test_gpio_snapshot_is_one_masked_section_and_writes_nothing);
     RUN_TEST(test_gpio_is_reachable_through_the_modbus_pdu_layer);
     RUN_TEST(test_gpio_malformed_busy_or_refused_commands_leave_no_stale_level);
+    RUN_TEST(test_dmbox_a_busy_refusal_is_exception_06_and_writes_nothing);
+    RUN_TEST(test_exec_mailbox_operations);
+    RUN_TEST(test_gpio_analog_mask_covers_pin_15_and_pin_0);
     RUN_TEST(test_gpio_wire_codes_are_the_published_ones);
 #else
     RUN_TEST(test_debug_mailboxes_disabled);
