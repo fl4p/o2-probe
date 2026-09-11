@@ -62,6 +62,7 @@ from o2p_update import Bus, ModbusException, SerialLink  # noqa: E402  # type: i
 # second transcription here would be a second thing to keep in step, and the
 # one that rotted would be the one nobody was watching.
 from o2p_poll import (  # noqa: E402  # type: ignore[import-not-found]
+    utc_stamp,
     CSV_COLUMNS as POLL_COLUMNS,
     check_against_source as poll_check_against_source,
     decode_diag, decode_primary,
@@ -660,8 +661,7 @@ def run(args, bus, writer, poll_writer=None):
                     row = sample_retry(bus, args.retries)
                     now = time.time()
                     row.update({
-                        "utc": time.strftime("%Y-%m-%dT%H:%M:%SZ",
-                                             time.gmtime(now)),
+                        "utc": utc_stamp(now),
                         "t_s": round(now - t_start, 1),
                         "cycle": cycle,
                         "phase": phase,

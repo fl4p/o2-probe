@@ -273,6 +273,18 @@ def decode_diag(r):
     }
 
 
+def utc_stamp(when=None):
+    """ISO-8601 UTC with milliseconds, e.g. 2026-09-11T12:00:00.250Z.
+
+    Whole seconds gave every sample of a sub-second --interval the same
+    timestamp, and o2p_tempco rightly refuses duplicate times - so the whole
+    CSV was lost (codex review of 75dfc0a). o2p_tempco.parse_utc,
+    o2p_thermal's reader and o2p_plot all accept the fractional form."""
+    when = time.time() if when is None else when
+    return (time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(when))
+            + ".%03dZ" % int((when % 1.0) * 1000))
+
+
 def poll(bus, want_diag):
     row = decode_primary(bus.read(PRIMARY_BASE, PRIMARY_COUNT))
     if want_diag:
@@ -401,7 +413,7 @@ def main():
     try:
         while args.count == 0 or n < args.count:
             n += 1
-            stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            stamp = utc_stamp()
             row = {c: "" for c in CSV_COLUMNS}
             row["utc"] = stamp
             last = None

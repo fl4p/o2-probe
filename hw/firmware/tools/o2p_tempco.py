@@ -62,7 +62,8 @@ TWO MODES, because the cell is the confounder.
 
 WHAT IT REFUSES. A regression over a flat run returns a slope, and the slope
 is noise divided by nothing. So it refuses to report when the T_AFE span is
-below --min-span-k (8 K) or fewer than --min-n (20) usable samples remain,
+below --min-span-k (8 K) - except in cell mode with --afe-ppm-k, where T_AFE is
+not an unknown - or fewer than --min-n (20) usable samples remain,
 and it always prints the span so the reader can judge the rest. Rows are
 dropped when settle_s > 0, when faults intersect O2P_FAULTS_INVALIDATE_O2
 (0x6866: I2C_FAIL_LMP, I2C_FAIL_ADS, AFE_CONFIG_MISMATCH, VA_LOW, ADC_RANGE,
@@ -202,10 +203,35 @@ def _meta_f(v):
 
 
 def _meta_int(v):
-    if v in (None, ""):
+    """A FAULTS word: None when not recorded, else a u16 - or FAULTS_INVALID.
+
+    Booleans, fractions, negatives and values above 0xFFFF are invalid, not
+    truncated: "0.9" and "-0.5" used to become 0 (no faults) and JSON true
+    became bit 1 (codex review of 75dfc0a). Integral floats such as a VM
+    export's 32768.0 are the real word and pass."""
+    if v is None or (isinstance(v, str) and v.strip() == ""):
         return None
-    x = _int(v)
-    return FAULTS_INVALID if x is None or x < 0 else x
+    if isinstance(v, bool):
+        return FAULTS_INVALID
+    if isinstance(v, int):
+        x = v
+    elif isinstance(v, float):
+        if not (math.isfinite(v) and v == int(v)):
+            return FAULTS_INVALID
+        x = int(v)
+    else:
+        text = str(v).strip()
+        try:
+            x = int(text, 0)
+        except ValueError:
+            try:
+                f = float(text)
+            except ValueError:
+                return FAULTS_INVALID
+            if not (math.isfinite(f) and f == int(f)):
+                return FAULTS_INVALID
+            x = int(f)
+    return x if 0 <= x <= 0xFFFF else FAULTS_INVALID
 
 
 def parse_utc(s):
@@ -292,8 +318,9 @@ def select(rows, start=None, end=None, require=()):
             dropped["window"] += 1
             continue
         settle, faults = r.get("settle"), r.get("faults")
-        if (settle is not None and not _finite(settle)) or \
-           (faults is not None and faults < 0):
+        if (settle is not None and (not _finite(settle) or settle < 0)) or \
+           (faults is not None and (isinstance(faults, bool) or not isinstance(faults, int)
+                                    or not 0 <= faults <= 0xFFFF)):
             dropped["invalid_metadata"] += 1
             continue
         if settle is not None and settle > 0:
@@ -370,28 +397,41 @@ def ols(X, y):
     if n <= p:
         raise ZeroDivisionError("fewer rows than parameters")
     k = p - 1
-    ybar = sum(y) / n
-    means = [sum(row[j + 1] for row in X) / n for j in range(k)]
-    sds = [math.sqrt(sum((row[j + 1] - means[j]) ** 2 for row in X) / n)
-           for j in range(k)]
+    # Work relative to the FIRST row, with exact summation: a regressor sitting
+    # at ~22 C that moves by a few ulps loses that movement to rounding in a
+    # plain mean, which returned half the slope (codex review of 75dfc0a).
+    x0 = [X[0][j + 1] for j in range(k)]
+    D = [[row[j + 1] - x0[j] for j in range(k)] for row in X]
+    if any(all(d[j] == 0.0 for d in D) for j in range(k)):
+        raise ZeroDivisionError("a regressor does not move")
+    dmean = [math.fsum(d[j] for d in D) / n for j in range(k)]
+    C = [[d[j] - dmean[j] for j in range(k)] for d in D]
+    sds = [math.sqrt(math.fsum(c[j] ** 2 for c in C) / n) for j in range(k)]
     if any(not (sd > 0) or not math.isfinite(sd) for sd in sds):
         raise ZeroDivisionError("a regressor does not move")
-    Z = [[(row[j + 1] - means[j]) / sds[j] for j in range(k)] for row in X]
+    dy = [yy - y[0] for yy in y]
+    dymean = math.fsum(dy) / n
+    yc = [v - dymean for v in dy]
+    Z = [[c[j] / sds[j] for j in range(k)] for c in C]
     beta_z, inv_z = [], []
     if k:
-        ztz = [[sum(z[i] * z[j] for z in Z) for j in range(k)] for i in range(k)]
-        zty = [sum(z[i] * (yy - ybar) for z, yy in zip(Z, y)) for i in range(k)]
+        ztz = [[math.fsum(z[i] * z[j] for z in Z) for j in range(k)] for i in range(k)]
+        zty = [math.fsum(z[i] * v for z, v in zip(Z, yc)) for i in range(k)]
         beta_z, inv_z = _solve(ztz, zty, tol=1e-10 * n)
     slopes = [bz / sd for bz, sd in zip(beta_z, sds)]
-    b0 = ybar - sum(sl * m for sl, m in zip(slopes, means))
+    means = [x0[j] + dmean[j] for j in range(k)]
+    ybar = y[0] + dymean
+    b0 = ybar - math.fsum(sl * m for sl, m in zip(slopes, means))
     beta = [b0] + slopes
-    fit = [b0 + sum(sl * row[j + 1] for j, sl in enumerate(slopes)) for row in X]
-    rss = sum((yy - ff) ** 2 for yy, ff in zip(y, fit))
-    tss = sum((yy - ybar) ** 2 for yy in y)
+    # residuals in the small coordinates, so they do not cancel against b0
+    resid = [v - math.fsum(sl * c[j] for j, sl in enumerate(slopes)) for v, c in zip(yc, C)]
+    fit = [yy - e for yy, e in zip(y, resid)]
+    rss = math.fsum(e * e for e in resid)
+    tss = math.fsum(v * v for v in yc)
     s2 = rss / (n - p)
     cov = [[s2 * inv_z[i][j] / (sds[i] * sds[j]) for j in range(k)] for i in range(k)]
-    var_b0 = s2 / n + sum(means[i] * means[j] * cov[i][j]
-                          for i in range(k) for j in range(k))
+    var_b0 = s2 / n + math.fsum(means[i] * means[j] * cov[i][j]
+                                for i in range(k) for j in range(k))
     se = [math.sqrt(max(var_b0, 0.0))] + [math.sqrt(max(cov[i][i], 0.0)) for i in range(k)]
     return {"beta": beta, "se": se, "r2": (1.0 - rss / tss) if tss > 0 else 0.0,
             "rss": rss, "rms": math.sqrt(rss / n), "n": n, "p": p, "fit": fit}
@@ -482,23 +522,33 @@ def analyse(rows, mode="dummy", tau=None, tau_grid=None, afe_ppm_k=None,
     res["i_mean_ua"] = sum(i_ua) / len(i_ua)
     res["duration_s"] = ts[-1] - ts[0]
 
-    # gamma: how much of the tip's excursion the AFE saw. Reported whenever
-    # the tip moved, in every mode - it is the coupling the hot-bath note
-    # called unknowable.
-    tip = [r["t_tip"] for r in rows]
-    if all(v is not None for v in tip) and span(tip) >= 2.0:
-        g = ols([[1.0, v] for v in tip], t_afe)
-        res["gamma_afe_per_tip"] = g["beta"][1]
-        res["gamma_se"] = g["se"][1]
-        res["t_tip_span_k"] = span(tip)
-
+    # The row count comes first: the optional fits below must never be what
+    # decides a tiny input (two rows used to crash in the gamma fit).
     if len(rows) < min_n:
         res["reasons"].append("only %d usable rows, need %d"
                               % (len(rows), min_n))
-    if res["t_afe_span_k"] < min_span_k:
+        return res
+
+    # gamma: how much of the tip's excursion the AFE saw. Reported whenever
+    # the tip moved, in every mode - it is the coupling the hot-bath note
+    # called unknowable. A diagnostic: it may be absent, never fatal.
+    tip = [r["t_tip"] for r in rows]
+    if all(_finite(v) for v in tip) and span(tip) >= 2.0:
+        try:
+            g = ols([[1.0, v] for v in tip], t_afe)
+            res["gamma_afe_per_tip"] = g["beta"][1]
+            res["gamma_se"] = g["se"][1]
+            res["t_tip_span_k"] = span(tip)
+        except ZeroDivisionError:
+            pass
+
+    # With the AFE coefficient FIXED (cell mode, --afe-ppm-k) T_AFE is not an
+    # unknown and needs no excursion of its own; only the cell term is gated,
+    # below. A 19.7 K cell run used to refuse because the AFE sat still.
+    afe_fixed = mode == "cell" and afe_ppm_k is not None
+    if not afe_fixed and res["t_afe_span_k"] < min_span_k:
         res["reasons"].append("T_AFE moved %.2f K, need %.1f K - no excursion "
                               "to fit on" % (res["t_afe_span_k"], min_span_k))
-    if res["reasons"]:
         return res
 
     imean = res["i_mean_ua"]
@@ -583,12 +633,13 @@ def analyse(rows, mode="dummy", tau=None, tau_grid=None, afe_ppm_k=None,
 
     # The combined single-regressor slopes are always reportable: they are
     # what a collinear run measures, and they bound the split.
-    fa = ols([[1.0, a] for a in t_afe], i_ua)
-    fc = ols([[1.0, c] for c in tc], i_ua)
-    res["combined_on_afe_ppm_k"] = fa["beta"][1] / imean * 1e6
-    res["combined_on_afe_ppm_k_se"] = fa["se"][1] / imean * 1e6
-    res["combined_on_cell_ppm_k"] = fc["beta"][1] / imean * 1e6
-    res["combined_on_cell_ppm_k_se"] = fc["se"][1] / imean * 1e6
+    for name, xs in (("afe", t_afe), ("cell", tc)):
+        try:
+            fx = ols([[1.0, v] for v in xs], i_ua)
+        except ZeroDivisionError:
+            continue          # e.g. a still AFE with its share fixed: no slope to report
+        res["combined_on_%s_ppm_k" % name] = fx["beta"][1] / imean * 1e6
+        res["combined_on_%s_ppm_k_se" % name] = fx["se"][1] / imean * 1e6
 
     if afe_ppm_k is not None:
         res["afe_ppm_k"] = afe_ppm_k
@@ -648,11 +699,12 @@ def report(res, dropped, out=sys.stdout):
         label = res["cell_label"]
         p("  cell lag   tau = %d s   r(T_AFE, %s) = %.3f"
           % (res["tau_s"], label, res["corr_afe_cell"]))
-        p("  combined   on T_AFE alone %+.0f +/- %.0f ppm/K; on %s "
-          "alone %+.0f +/- %.0f ppm/K"
-          % (res["combined_on_afe_ppm_k"], res["combined_on_afe_ppm_k_se"],
-             label, res["combined_on_cell_ppm_k"],
-             res["combined_on_cell_ppm_k_se"]))
+        def combo(key):
+            if key not in res:
+                return "n/a (regressor did not move)"
+            return "%+.0f +/- %.0f ppm/K" % (res[key], res[key + "_se"])
+        p("  combined   on T_AFE alone %s; on %s alone %s"
+          % (combo("combined_on_afe_ppm_k"), label, combo("combined_on_cell_ppm_k")))
         if "afe_ppm_k" in res:
             if res.get("afe_ppm_k_fixed"):
                 p("  AFE tempco %+.0f ppm/K   (FIXED from --afe-ppm-k)"
@@ -771,6 +823,7 @@ def main(argv=None):
     require = ((CELL_TEMPS[args.cell_temp][0],)
                if args.mode == "cell" and args.cell_temp == "ext" else ())
     used, dropped = select(rows, start, end, require=require)
+    used.sort(key=lambda r: r["t"])   # plot and --json see time order too; analyse sorts its own copy
     res = analyse(used, mode=args.mode, tau=args.tau, afe_ppm_k=args.afe_ppm_k,
                   min_span_k=args.min_span_k, min_n=args.min_n,
                   max_corr=args.max_corr, cell_temp=args.cell_temp)

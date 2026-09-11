@@ -301,6 +301,153 @@ f = T.ols([[1.0, 25.0 + 0.01 * x] for x in range(40)], [3.0 + 2.0 * (25.0 + 0.01
 check("a small wobble on a large offset is still solved exactly",
       abs(f["beta"][1] - 2.0) < 1e-9 and abs(f["beta"][0] - 3.0) < 1e-7, str(f["beta"]))
 
+print("third review (75dfc0a): malformed finite metadata, ulp regressors, fixed AFE, tiny inputs, plot order")
+check("fractional/negative/boolean/oversize faults are invalid; integral floats are the word",
+      T._meta_int("0.9") == T.FAULTS_INVALID and T._meta_int("-0.5") == T.FAULTS_INVALID
+      and T._meta_int(0.9) == T.FAULTS_INVALID and T._meta_int(True) == T.FAULTS_INVALID
+      and T._meta_int(70000) == T.FAULTS_INVALID and T._meta_int(32768.0) == 32768
+      and T._meta_int("32768") == 32768 and T._meta_int("0x8000") == 0x8000)
+sel, dropped = T.select([dict(x, settle=-1.0) for x in rows[:4]]
+                        + [dict(x, faults=True) for x in rows[4:6]] + rows[6:])
+check("negative settle and boolean faults are dropped as invalid",
+      dropped["invalid_metadata"] == 6 and len(sel) == len(rows) - 6, str(dropped))
+
+with tempfile.TemporaryDirectory() as d:
+    p_vm, p_json = os.path.join(d, "bad.jsonl"), os.path.join(d, "r.json")
+    part = rows[:200]
+    faults_vm = [True if k % 3 == 0 else (0.9 if k % 3 == 1 else 32768.0) for k in range(len(part))]
+    settle_vm = [float("nan") if k % 2 else 0.0 for k in range(len(part))]
+    with open(p_vm, "w") as fh:
+        for name, vals in (("gas_cell_ua", [x["i_ua"] for x in part]),
+                           ("gas_t_afe_c", [x["t_afe"] for x in part]),
+                           ("gas_t_tip_c", [x["t_tip"] for x in part]),
+                           ("gas_t_chamber_c", [x["t_cham"] for x in part]),
+                           ("gas_faults", faults_vm), ("gas_settle_s", settle_vm)):
+            fh.write(json.dumps({"metric": {"__name__": name}, "values": vals,
+                                 "timestamps": [int(x["t"] * 1000) for x in part]}) + "\n")
+    T.main(["--vm-export", p_vm, "--mode", "dummy", "--json", p_json, "--no-check"])
+    with open(p_json) as fh:
+        out = json.load(fh)
+    bad = sum(1 for k in range(len(part)) if not (k % 3 == 2 and k % 2 == 0))
+    check("VM export through main(): true / 0.9 faults and NaN settle are counted invalid",
+          out["dropped"]["invalid_metadata"] == bad and out["result"]["n"] == len(part) - bad,
+          "%s n=%s want %d invalid" % (out["dropped"], out["result"].get("n"), bad))
+
+# ols against independent oracles: closed-form simple regression, both SEs
+xs = [20.0 + 0.37 * k for k in range(25)]
+ys = [3.0 + 2.0 * x + (-1) ** k * 0.01 * (1 + k % 4) for k, x in enumerate(xs)]
+f = T.ols([[1.0, x] for x in xs], ys)
+nn = len(xs)
+xb, yb = math.fsum(xs) / nn, math.fsum(ys) / nn
+sxx = math.fsum((x - xb) ** 2 for x in xs)
+b1 = math.fsum((x - xb) * (y - yb) for x, y in zip(xs, ys)) / sxx
+b0 = yb - b1 * xb
+s2 = math.fsum((y - b0 - b1 * x) ** 2 for x, y in zip(xs, ys)) / (nn - 2)
+check("ols matches the closed-form slope, intercept and both standard errors",
+      abs(f["beta"][1] - b1) < 1e-10 and abs(f["beta"][0] - b0) < 1e-8
+      and abs(f["se"][1] - math.sqrt(s2 / sxx)) < 1e-10
+      and abs(f["se"][0] - math.sqrt(s2 * (1.0 / nn + xb * xb / sxx))) < 1e-9,
+      "%s %s" % (f["beta"], f["se"]))
+
+
+def _det3(m):
+    return (m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+            - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+            + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]))
+
+
+X2 = [[1.0, float(k), float((k * 7) % 13)] for k in range(30)]
+y2 = [1.0 + 0.5 * r[1] - 0.25 * r[2] + 0.02 * math.sin(k * 1.7) for k, r in enumerate(X2)]
+A = [[math.fsum(r[i] * r[j] for r in X2) for j in range(3)] for i in range(3)]
+bvec = [math.fsum(r[i] * yy for r, yy in zip(X2, y2)) for i in range(3)]
+dA = _det3(A)
+beta_c = [_det3([[bvec[r] if c == j else A[r][c] for c in range(3)] for r in range(3)]) / dA for j in range(3)]
+res_c = [yy - math.fsum(bb * v for bb, v in zip(beta_c, r)) for r, yy in zip(X2, y2)]
+s2c = math.fsum(e * e for e in res_c) / (30 - 3)
+inv_diag = [_det3([[A[r][c] for c in range(3) if c != j] + [0.0] for r in range(3) if r != j] + [[0, 0, 1]]) / dA
+            for j in range(3)]
+f2 = T.ols(X2, y2)
+check("two-regressor ols matches Cramer's rule on the raw normal equations (beta and se)",
+      all(abs(a - b) < 1e-9 for a, b in zip(f2["beta"], beta_c))
+      and all(abs(a - math.sqrt(s2c * dg)) < 1e-9 for a, dg in zip(f2["se"], inv_diag)),
+      "%s vs %s" % (f2["se"], [math.sqrt(s2c * dg) for dg in inv_diag]))
+
+u0 = 22.01
+u1 = math.nextafter(u0, math.inf)
+f = T.ols([[1.0, u0 if k % 2 == 0 else u1] for k in range(40)],
+          [100.0 if k % 2 == 0 else 101.0 for k in range(40)])
+check("a regressor moving by one ulp gets the exact slope and zero residual",
+      abs(f["beta"][1] * (u1 - u0) - 1.0) < 1e-9 and f["rss"] == 0.0,
+      "%r %r" % (f["beta"][1] * (u1 - u0), f["rss"]))
+try:
+    T.ols([[1.0, 22.01] for _ in range(40)], [float(k) for k in range(40)])
+    check("an exactly constant column raises", False)
+except ZeroDivisionError:
+    check("an exactly constant column raises", True)
+
+still = run(720, 100.0, 650.0, 2000.0, lambda s: 25.0, lambda s: 25 + 20 * min(s, 1800) / 1800.0, tau=1.0)
+r = T.analyse(still, "cell", cell_temp="ext", afe_ppm_k=650.0)
+check("fixed AFE: a still AFE does not block a well-excited cell fit",
+      r["verdict"] == "ok" and abs(r.get("cell_apparent_ppm_k", 0) - 2000) < 100
+      and "combined_on_afe_ppm_k" not in r,
+      "%s %s" % (r.get("cell_apparent_ppm_k"), r["reasons"]))
+r = T.analyse(still, "cell", cell_temp="ext")
+check("... while without the fixed share the still AFE refuses",
+      r["verdict"] == "unevaluable" and "afe_ppm_k" not in r, r["reasons"])
+
+r = T.analyse([dict(rows[0]), dict(rows[1], t_tip=rows[0]["t_tip"] + 5.0)], "dummy", min_n=4)
+check("two rows refuse on the row count, not with a crash",
+      r["verdict"] == "unevaluable" and "usable rows" in " ".join(r["reasons"]), r["reasons"])
+
+with tempfile.TemporaryDirectory() as d:
+    p_csv = os.path.join(d, "shuffled.csv")
+    part = list(rows[:120])
+    random.Random(11).shuffle(part)
+    with open(p_csv, "w", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=["utc", "o2_raw_ua", "t_afe_c", "t_tip_c",
+                                           "t_chamber_c", "faults", "settle_s"])
+        w.writeheader()
+        for x in part:
+            w.writerow({"utc": T.dt.datetime.fromtimestamp(x["t"], T.dt.timezone.utc)
+                        .strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        "o2_raw_ua": x["i_ua"], "t_afe_c": x["t_afe"], "t_tip_c": x["t_tip"],
+                        "t_chamber_c": x["t_cham"], "faults": x["faults"], "settle_s": 0})
+    seen = {}
+    real_plot = T.plot
+    T.plot = lambda rs, res, path: seen.setdefault("t", [x["t"] for x in rs])
+    try:
+        T.main(["--csv", p_csv, "--mode", "dummy", "--plot", os.path.join(d, "p.png"), "--no-check"])
+    finally:
+        T.plot = real_plot
+    check("plot receives the rows in time order", seen.get("t") and seen["t"] == sorted(seen["t"]),
+          "%d rows" % len(seen.get("t", [])))
+
+# producer -> fitter: the stamps o2p_poll/o2p_thermal write at a sub-second interval
+try:
+    import o2p_poll  # noqa: E402
+except ImportError as exc:
+    print("  SKIP producer->fitter timestamp test: cannot import o2p_poll (%s)" % exc)
+else:
+    with tempfile.TemporaryDirectory() as d:
+        p_csv = os.path.join(d, "poll.csv")
+        base = 1789128000.0
+        with open(p_csv, "w", newline="") as fh:
+            w = csv.DictWriter(fh, fieldnames=["utc", "o2_raw_ua", "t_afe_c", "t_tip_c",
+                                               "t_chamber_c", "faults", "settle_s"])
+            w.writeheader()
+            for k, x in enumerate(rows):
+                w.writerow({"utc": o2p_poll.utc_stamp(base + 0.25 * k),
+                            "o2_raw_ua": x["i_ua"], "t_afe_c": x["t_afe"], "t_tip_c": x["t_tip"],
+                            "t_chamber_c": x["t_cham"], "faults": x["faults"], "settle_s": 0})
+        loaded = T.load_csv(p_csv)
+        stamps = [x["t"] for x in loaded]
+        check("utc_stamp at 0.25 s spacing parses back distinct and exact to the millisecond",
+              len(set(stamps)) == len(rows)
+              and all(abs(t - (base + 0.25 * k)) < 1e-3 for k, t in enumerate(stamps)))
+        r = T.analyse(T.select(loaded)[0], "dummy")
+        check("... and the fitter does not refuse them as duplicates",
+              not any("duplicate" in reason for reason in r["reasons"]), r["reasons"])
+
 if FAILS:
     print("FAILED: %s" % ", ".join(FAILS))
     sys.exit(1)
