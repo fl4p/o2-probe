@@ -799,3 +799,52 @@ layout migration ran. Then `0x004B=9181`, COMMIT result 2 (OK), CRC 47343 →
 24106; `VIN_MON_MV` 10717 → **13119 / 13110 mV** against the metered 13.11 V.
 The commit has not been proven by a reset yet. The ~18:27–20:48 zero above is a
 separate effect and still unexplained.
+
+## 2026-09-11 late — coating, then hot air: the 3V3A-supplied AFE went silent
+
+**Hardware history (Fab, stated afterwards):** coating applied to the board at
+about the time VREF collapsed; roughly half an hour later, a hot air gun. Times
+below are telemetry, not his.
+
+VictoriaMetrics `gas_*{probe="3"}`, 1-min steps, change points:
+
+| time | uptime / reset cause | FAULTS | `vref_mv` | `va_mv` | `afe_mv` | tip °C |
+|---|---|---|--:|--:|--:|--:|
+| 22:03 | 953 s / 20 | 0x8041 | 2496 | 3076 | 980 | 22.9 |
+| 22:24 | 2178 s / 20 | 0x8805 | **78** | **4432** | 43 | 28.3 |
+| 22:26 | 2299 s / 20 | 0x8805 | 76 | **5054** | 38 | 40.6 |
+| 22:30 | 2540 s / 20 | 0x8805 | 70 | 5034 | 35 | 25.8 |
+| **22:37** | **32 s / 12** | **0x8047** | 65535 | **12** | 65535 | 23.5 |
+| 22:43 | 394 s / 12 | 0x8247 | 65535 | 12 | 65535 | 63.1 (hot air) |
+| 23:03–23:17 | — | 0x8247 | 65535 | 8–12 | 65535 | 81.6–81.8, die 82.3–82.9 |
+
+- **22:03 → 22:24 (coating):** VREF_MON — converted against the ADS1119's
+  INTERNAL reference, so a real measurement — fell 2496 → 70–94 mV, and
+  I2C_FAIL_ADS began appearing while conversions still landed. `va_mv` in that
+  window is the MCU's PA7 read (the ADS path does not publish without a
+  measured VREF): 4432–5054 mV, i.e. the `/VA_MON` tap at 2.2–2.5 V. A driven
+  3V3A or a corrupt reading; **unverified**. The 22:24–22:26 tip rise with the
+  heater off is unattributed.
+- **22:36:30, power-on/brownout reset** (cause 12). The farmgw keeper log shows
+  no write, update, nodeflash, diag or restart between 22:20 and 22:39, so it was
+  not a tool.
+- **Since that reset the two 3V3A-supplied parts NACK and the 3V3D-only parts
+  answer.** Rev A netlist: U7 LMP91000 VDD = `/3V3A` (pad 6); U8 ADS1119 AVDD =
+  `/3V3A` (pad 10), DVDD = `/3V3D` (pad 11); U10 TMP117, U12 SHT45 and U6 STM32 on
+  `/3V3D`; all on one `/I2C_SCL`/`/I2C_SDA`. Diag mailbox 23:13: `READ_ADS_STATUS`,
+  `READ_ADS_CONFIG`, `READ_LMP_REG` all **ERR_NACK**; tip and chamber still read.
+  PA7 puts the 3V3A ÷ 2 tap at 8–12 mV. **Inference:** 3V3A is down — one fault
+  explains both NACKs; two parts failing independently in the same minute does
+  not. Whether an ADS1119 NACKs with DVDD present and AVDD absent is not checked
+  against SBAS925. **Not metered.**
+- The hot air (from ~22:41) held tip/die at ~82–83 °C; the probe went bus-silent
+  again from ~23:18.
+
+FW 0x0015 (`d10091c`, diag opcode 9, internal-reference override —
+`firmware/FIRMWARE.md`) was installed 23:13:11 and the override set 23:13:40
+(volatile). It cannot show anything while the ADS NACKs.
+
+**Open:** coating type and cure schedule (a wet solvent film bridging the
+high-impedance VREF_TRIM and VA_MON nodes would fit the 22:24 readings — not
+established); meter 3V3A and U8 pad 11 with the board cool; if 3V3A is absent,
+the regulator and a short/film on that rail before U7/U8.
