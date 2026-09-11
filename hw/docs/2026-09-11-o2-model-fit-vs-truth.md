@@ -409,8 +409,9 @@ there first, exactly as the earlier worry predicted and did not find.
 
 The falsifiable prediction that the second coating creates — whether a fully
 coated analog section stops the VA_MON leak recurring, and what a recurrence at
-~14:30 would instead implicate — is in `2026-09-11-va-mon-collapse.md` §7.1,
-with the one extent question that has to be answered before trusting it.
+~14:30 would instead implicate — is in `2026-09-11-va-mon-collapse.md` §7.1.
+Its one extent question is answered: Fab confirmed R24/R25, the VA_MON divider,
+are inside the coating.
 
 ### 7.3 The steam test, and why it is not in any fit
 

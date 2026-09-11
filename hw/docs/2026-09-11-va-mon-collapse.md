@@ -258,10 +258,11 @@ conducting, or residue sealed *under* the coat where no air gun can reach it.
 Nothing in the 09-10 data distinguishes those two, because that coating was
 applied to an uncleaned board.
 
-**One thing to confirm before trusting the prediction:** whether R24/R25 — the
-10k/10k VA_MON divider, the actual suspect parts — are inside what "analog
-circuitry" covers. The prediction is only as good as that extent. This is not
-derivable from telemetry.
+**Extent confirmed — Fab, 2026-09-11 ~12:00: R24/R25 are inside the coating.**
+The 10k/10k VA_MON divider, the actual suspect parts, is covered, so the
+prediction above applies to the node that failed and no longer carries a caveat
+about coverage. Status at 12:01: `va_mv` 3280-3288 mV over the preceding 45 min,
+no decay. The watch point is still ~14:30.
 
 ### 7.2 Post-coating baseline, for comparison against the next event
 
