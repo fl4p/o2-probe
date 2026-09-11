@@ -4,7 +4,7 @@
   "captures": [
     {
       "id": "glitch_lead_trail_fc03",
-      "measured": "2026-09-09 23:04Z, farm-node-01 console, ~/bench/boot-20260910-010416.log lines 44, 46 and 48: three consecutive boot ping attempts in one boot, byte-identical (probe-char session, printed by its ping diagnostics). CRC of the inner 21 bytes recomputed independently by ble-spped: calc 86A8 equals got 86A8.",
+      "measured": "2026-09-09 23:04Z, farm-node-01 console, ~/dev/ha/farming/tech/bench/boot-20260910-010416.log lines 44, 46 and 48: three consecutive boot ping attempts in one boot, byte-identical (probe-char session, printed by its ping diagnostics). CRC of the inner 21 bytes recomputed independently by ble-spped: calc 86A8 equals got 86A8.",
       "path": "o2-probe slave 3, RS-485 over a 10 m cable at 9600 8E1, MIKROE-989 click, node UART1, read_frame() before any resync existed",
       "slave": 3,
       "function": 3,
