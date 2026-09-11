@@ -772,3 +772,30 @@ leak, **if** the supply is constant — which is unverified. And the 18:04–18:
 silence ended in a power-on reset (`gas_link_ok` 0 → 1 at 18:27, uptime
 restarted ~18:25) — firmware 0x0013 ruled out by a read-only review; board
 damage/power loss or a hand on the bench are the candidates, unresolved.
+
+**Resolved, 2026-09-11 evening — the 18 % is the fitted VIN divider (Fab).**
+Fab: the 13.11 V was metered **at the probe's input terminals**, and the board
+carries a **10 k / 82 k** divider, not the Rev A netlist's R26/R27 130 k / 20 k.
+Orientation inferred, not stated: 82 k top / 10 k bottom (×9.2) — the reverse
+would put ~11.7 V on AIN3. Check: 13.11 V × 10/92 = 1.425 V tap × 7.5 (the
+firmware's netlist scale) = **10.69 V predicted vs 10.71 V published**; ratio
+9.2/7.5 = 1.2267 predicted vs 1.2241 measured (−0.2 %, inside 1 % part
+tolerance). The "equivalent hardware" line above is superseded. Hardware
+history: this bench board deviates from its netlist at R26/R27 (when and why
+unrecorded).
+
+Fix, per Fab ("this calibration constants belongs in the stm non-volatile
+storage"): flash-backed config register `VIN_DIV_X1000` `0x004B`, FW 0x0014
+(`firmware/FIRMWARE.md`), no layout bump, so a reflash keeps heater consents
+and O₂ calibration. Candidate values were 9200 (nominal parts; 13.14 V from the
+1428 mV tap) or 9181 (fit to the 21:08 meter pair; 13.11 V).
+
+**Installed and written, 2026-09-11 21:47–21:48 (Fab: "flash it", "write
+0x004B").** FW 0x0014 via keeper `/update`, install #7 → #8, running BUILD_ID
+`CD8DD459` (dirty tree on d8dd459 — names the commit, not the binary; image md5
+`9e8f2f25…`). Across the boot `CONFIG_CRC` stayed 47343, O₂ calibration
+(0x0037/38, 0x0043–0x0045) and the committed heater-OFF record unchanged, so no
+layout migration ran. Then `0x004B=9181`, COMMIT result 2 (OK), CRC 47343 →
+24106; `VIN_MON_MV` 10717 → **13119 / 13110 mV** against the metered 13.11 V.
+The commit has not been proven by a reset yet. The ~18:27–20:48 zero above is a
+separate effect and still unexplained.
