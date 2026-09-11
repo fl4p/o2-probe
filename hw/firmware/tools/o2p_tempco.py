@@ -28,8 +28,8 @@ TWO MODES, because the cell is the confounder.
                  measurement and the one to do first.
 
   --mode cell    The real cell is fitted. The current then also follows the
-                 CELL's temperature, which nothing measures directly: the
-                 chamber SHT45 sees the gas, and the cell body lags it by
+                 CELL's temperature. By default the chamber SHT45 stands in
+                 for it; that sensor sees the gas, and the cell body lags it by
                  about ten minutes (2026-09-08 run). So the model is
 
                      I ~ a + b*T_AFE + c*lag(T_CHAMBER, tau)
@@ -67,14 +67,19 @@ and it always prints the span so the reader can judge the rest. Rows are
 dropped when settle_s > 0, when faults intersect O2P_FAULTS_INVALIDATE_O2
 (0x6866: I2C_FAIL_LMP, I2C_FAIL_ADS, AFE_CONFIG_MISMATCH, VA_LOW, ADC_RANGE,
 ADS_DRDY_STUCK, ADS_CONFIG_LOST - a copy of faults.h, checked against it at
-startup), or when any regressor is missing or non-finite. Cell mode also
-refuses when its cell regressor moved less than --min-span-k, with or without
---afe-ppm-k, and no result is "ok" while any number in it is non-finite.
-"Unevaluable" exits 2, never 0.
+startup), when any regressor is missing or non-finite, when the timestamp is
+unparseable, and when settle_s or faults was recorded but is not a number -
+each counted in its own bucket. A direct analyse() call refuses missing,
+non-finite or duplicate timestamps (rows are sorted by time). Cell mode also
+refuses when its cell regressor - the source AND, for every tau tried, the
+lagged series actually fitted - moved less than --min-span-k, with or without
+--afe-ppm-k; no result is "ok" while any number in it is non-finite; and the
+thresholds themselves must be finite and in range. "Unevaluable" exits 2,
+never 0.
 
 INPUTS. --csv takes the schema o2p_poll.py, o2p_thermal.py and their
---poll-csv write (utc, o2_raw_ua, t_afe_c, t_tip_c, t_chamber_c, faults,
-settle_s). --vm-export takes VictoriaMetrics /api/v1/export lines for the
+--poll-csv write (utc, o2_raw_ua, t_afe_c, t_tip_c, t_chamber_c, t_ext_c,
+faults, settle_s). --vm-export takes VictoriaMetrics /api/v1/export lines for the
 gas_* metrics of one probe, e.g.
 
     ssh root@100.64.0.3 'curl -sg "http://127.0.0.1:8428/api/v1/export?\\
@@ -86,7 +91,9 @@ range query because those are the points as written, not step-aligned
 re-evaluations. Rows from the two sources are the same shape once loaded.
 
 PURE PYTHON, no numpy: this runs on the bench laptop next to the other
-tools. The least squares is three parameters at most and is solved exactly.
+tools. The least squares is three parameters at most and is solved exactly, on
+centred and scaled slope columns so a regressor's wobble is not lost to
+cancellation.
 """
 
 import argparse
@@ -150,6 +157,10 @@ def check_against_source():
 #   t (float, unix s), i_ua, t_afe, t_tip, t_cham, t_ext, faults (int|None),
 #   settle (float|None)
 
+def _finite(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
 def _f(v):
     if v in (None, ""):
         return None
@@ -170,8 +181,31 @@ def _int(v):
     except ValueError:
         try:
             return int(float(v))
-        except ValueError:
+        except (ValueError, OverflowError):
             return None
+
+
+# A faults value that was recorded but is not an integer. select() drops it.
+FAULTS_INVALID = -1
+
+
+def _meta_f(v):
+    """Row metadata (settle_s): None when not recorded, the float when it is -
+    inf/nan kept, and NaN for text - so select() can refuse what was supplied
+    but unusable instead of reading it as absent (codex review 2026-09-11)."""
+    if v in (None, ""):
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return float("nan")
+
+
+def _meta_int(v):
+    if v in (None, ""):
+        return None
+    x = _int(v)
+    return FAULTS_INVALID if x is None or x < 0 else x
 
 
 def parse_utc(s):
@@ -193,12 +227,10 @@ def load_csv(path):
     with open(path) as fh:
         for r in csv.DictReader(fh):
             ts = r.get("utc") or r.get("iso_time")
-            if not ts:
-                continue
             try:
-                t = parse_utc(ts)
+                t = parse_utc(ts) if ts else None
             except ValueError:
-                continue
+                t = None          # kept, so select() counts it as bad time
             rows.append({
                 "t": t,
                 "i_ua": _f(r.get("o2_raw_ua", r.get("cell_ua"))),
@@ -206,8 +238,8 @@ def load_csv(path):
                 "t_tip": _f(r.get("t_tip_c")),
                 "t_cham": _f(r.get("t_chamber_c")),
                 "t_ext": _f(r.get("t_ext_c")),
-                "faults": _int(r.get("faults")),
-                "settle": _f(r.get("settle_s")),
+                "faults": _meta_int(r.get("faults")),
+                "settle": _meta_f(r.get("settle_s")),
             })
     return rows
 
@@ -235,26 +267,39 @@ def load_vm_export(path):
             "t_tip": _f(g("gas_t_tip_c")),
             "t_cham": _f(g("gas_t_chamber_c")),
             "t_ext": _f(g("gas_t_ext_c")),
-            "faults": _int(g("gas_faults")),
-            "settle": _f(g("gas_settle_s")),
+            "faults": _meta_int(g("gas_faults")),
+            "settle": _meta_f(g("gas_settle_s")),
         })
     return rows
 
 
 def select(rows, start=None, end=None, require=()):
     """Window, then drop the rows the firmware itself would not trust, and
-    the rows missing any regressor named in `require` (e.g. "t_ext")."""
+    the rows missing any regressor named in `require` (e.g. "t_ext").
+
+    Metadata that was recorded but is not a number (settle_s inf/nan/text,
+    faults unparseable) is dropped as invalid, never read as absent: absent
+    means not recorded, invalid means it cannot be trusted."""
     out = []
-    dropped = {"window": 0, "settling": 0, "faulted": 0, "missing": 0}
+    dropped = {"window": 0, "settling": 0, "faulted": 0, "missing": 0,
+               "bad_time": 0, "invalid_metadata": 0}
     for r in rows:
+        if not _finite(r.get("t")):
+            dropped["bad_time"] += 1
+            continue
         if (start is not None and r["t"] < start) or \
            (end is not None and r["t"] > end):
             dropped["window"] += 1
             continue
-        if r["settle"] is not None and r["settle"] > 0:
+        settle, faults = r.get("settle"), r.get("faults")
+        if (settle is not None and not _finite(settle)) or \
+           (faults is not None and faults < 0):
+            dropped["invalid_metadata"] += 1
+            continue
+        if settle is not None and settle > 0:
             dropped["settling"] += 1
             continue
-        if r["faults"] is not None and (r["faults"] & INVALIDATE_MASK):
+        if faults is not None and (faults & INVALIDATE_MASK):
             dropped["faulted"] += 1
             continue
         if r["i_ua"] is None or r["t_afe"] is None or \
@@ -288,14 +333,15 @@ def lag(ts, xs, tau):
     return out
 
 
-def _solve(a, b):
-    """Gauss-Jordan on a square system; returns (x, inverse) or raises."""
+def _solve(a, b, tol=1e-12):
+    """Gauss-Jordan on a square system; returns (x, inverse) or raises when a
+    pivot falls below tol."""
     n = len(a)
     m = [list(map(float, a[i])) + [1.0 if i == j else 0.0 for j in range(n)]
          + [float(b[i])] for i in range(n)]
     for col in range(n):
         piv = max(range(col, n), key=lambda r: abs(m[r][col]))
-        if abs(m[piv][col]) < 1e-12:
+        if abs(m[piv][col]) < tol:
             raise ZeroDivisionError("singular normal equations")
         m[col], m[piv] = m[piv], m[col]
         p = m[col][col]
@@ -310,20 +356,43 @@ def _solve(a, b):
 
 
 def ols(X, y):
-    """X: list of rows (with leading 1.0), y: list. Returns dict with beta,
-    se, r2, rss, rms, n, p."""
+    """X: rows with a leading 1.0 intercept column, y: list. Returns dict with
+    beta, se, r2, rss, rms, n, p, fit.
+
+    The slope columns are centred and scaled before solving. Raw normal
+    equations on a regressor sitting at ~25 C lose a small wobble to float
+    cancellation - which is how a frozen or near-frozen regressor used to pass
+    the singularity check and come back with zero uncertainty. A column that
+    does not move, or columns collinear to ~1e-10, raise ZeroDivisionError."""
     n, p = len(X), len(X[0])
-    xtx = [[sum(X[k][i] * X[k][j] for k in range(n)) for j in range(p)]
-           for i in range(p)]
-    xty = [sum(X[k][i] * y[k] for k in range(n)) for i in range(p)]
-    beta, inv = _solve(xtx, xty)
-    fit = [sum(b * x for b, x in zip(beta, row)) for row in X]
-    rss = sum((yy - ff) ** 2 for yy, ff in zip(y, fit))
+    if any(row[0] != 1.0 for row in X):
+        raise ValueError("ols needs a leading intercept column of 1.0")
+    if n <= p:
+        raise ZeroDivisionError("fewer rows than parameters")
+    k = p - 1
     ybar = sum(y) / n
+    means = [sum(row[j + 1] for row in X) / n for j in range(k)]
+    sds = [math.sqrt(sum((row[j + 1] - means[j]) ** 2 for row in X) / n)
+           for j in range(k)]
+    if any(not (sd > 0) or not math.isfinite(sd) for sd in sds):
+        raise ZeroDivisionError("a regressor does not move")
+    Z = [[(row[j + 1] - means[j]) / sds[j] for j in range(k)] for row in X]
+    beta_z, inv_z = [], []
+    if k:
+        ztz = [[sum(z[i] * z[j] for z in Z) for j in range(k)] for i in range(k)]
+        zty = [sum(z[i] * (yy - ybar) for z, yy in zip(Z, y)) for i in range(k)]
+        beta_z, inv_z = _solve(ztz, zty, tol=1e-10 * n)
+    slopes = [bz / sd for bz, sd in zip(beta_z, sds)]
+    b0 = ybar - sum(sl * m for sl, m in zip(slopes, means))
+    beta = [b0] + slopes
+    fit = [b0 + sum(sl * row[j + 1] for j, sl in enumerate(slopes)) for row in X]
+    rss = sum((yy - ff) ** 2 for yy, ff in zip(y, fit))
     tss = sum((yy - ybar) ** 2 for yy in y)
-    dof = max(n - p, 1)
-    s2 = rss / dof
-    se = [math.sqrt(max(s2 * inv[i][i], 0.0)) for i in range(p)]
+    s2 = rss / (n - p)
+    cov = [[s2 * inv_z[i][j] / (sds[i] * sds[j]) for j in range(k)] for i in range(k)]
+    var_b0 = s2 / n + sum(means[i] * means[j] * cov[i][j]
+                          for i in range(k) for j in range(k))
+    se = [math.sqrt(max(var_b0, 0.0))] + [math.sqrt(max(cov[i][i], 0.0)) for i in range(k)]
     return {"beta": beta, "se": se, "r2": (1.0 - rss / tss) if tss > 0 else 0.0,
             "rss": rss, "rms": math.sqrt(rss / n), "n": n, "p": p, "fit": fit}
 
@@ -357,6 +426,24 @@ def _settle_ok(res):
     else:
         res["verdict"] = "ok"
 
+def _check_options(tau, tau_grid, afe_ppm_k, min_span_k, min_n, max_corr):
+    """Refuse nonsense thresholds. A NaN min_span_k compares False against every
+    span, which silently resurrected the frozen-regressor acceptance (codex
+    review 2026-09-11)."""
+    if not (_finite(min_span_k) and min_span_k > 0):
+        raise ValueError("min_span_k must be a finite number > 0, got %r" % (min_span_k,))
+    if not (isinstance(min_n, int) and not isinstance(min_n, bool) and min_n >= 4):
+        raise ValueError("min_n must be an integer >= 4, got %r" % (min_n,))
+    if not (_finite(max_corr) and 0 < max_corr <= 1):
+        raise ValueError("max_corr must be in (0, 1], got %r" % (max_corr,))
+    if tau is not None and not (_finite(tau) and tau >= 0):
+        raise ValueError("tau must be a finite number >= 0, got %r" % (tau,))
+    if tau_grid is not None and (not tau_grid or not all(_finite(t) and t >= 0 for t in tau_grid)):
+        raise ValueError("tau_grid must be non-empty finite values >= 0")
+    if afe_ppm_k is not None and not _finite(afe_ppm_k):
+        raise ValueError("afe_ppm_k must be finite, got %r" % (afe_ppm_k,))
+
+
 def analyse(rows, mode="dummy", tau=None, tau_grid=None, afe_ppm_k=None,
             min_span_k=8.0, min_n=20, max_corr=0.95, cell_temp="chamber-lag"):
     """Return a result dict. result["verdict"] is "ok" or "unevaluable";
@@ -365,10 +452,22 @@ def analyse(rows, mode="dummy", tau=None, tau_grid=None, afe_ppm_k=None,
     "ext" (the cell-side TMP117)."""
     if cell_temp not in CELL_TEMPS:
         raise ValueError("cell_temp must be one of %s" % ", ".join(CELL_TEMPS))
+    _check_options(tau, tau_grid, afe_ppm_k, min_span_k, min_n, max_corr)
     res = {"mode": mode, "n": len(rows), "verdict": "unevaluable",
            "reasons": []}
     if not rows:
         res["reasons"].append("no usable rows")
+        return res
+    # Time is an input too - lag() integrates over it. One NaN timestamp
+    # poisoned every tau > 0 and let tau = 0 win with finite, wrong numbers
+    # (codex review 2026-09-11); duplicates freeze the lag. Refuse both, and
+    # sort the rest rather than trust the caller's order.
+    if any(not _finite(r.get("t")) for r in rows):
+        res["reasons"].append("missing or non-finite timestamp in the rows")
+        return res
+    rows = sorted(rows, key=lambda r: r["t"])
+    if any(b["t"] <= a["t"] for a, b in zip(rows, rows[1:])):
+        res["reasons"].append("duplicate timestamps - every row must be a distinct sample")
         return res
     ts = [r["t"] for r in rows]
     i_ua = [r["i_ua"] for r in rows]
@@ -445,8 +544,15 @@ def analyse(rows, mode="dummy", tau=None, tau_grid=None, afe_ppm_k=None,
     else:
         grid = tau_grid or [0] + list(range(60, 1801, 60))
     best = None
+    unexcited = 0
     for tau_try in grid:
         tc = lag(ts, t_src, tau_try)
+        # The gate above saw the SOURCE; the fit sees the lagged series, which a
+        # long tau flattens to a constant (codex review 2026-09-11: +38,093
+        # ppm/K at zero uncertainty). Gate what is actually fitted.
+        if span(tc) < min_span_k:
+            unexcited += 1
+            continue
         if afe_ppm_k is None:
             X = [[1.0, a, c] for a, c in zip(t_afe, tc)]
             y = i_ua
@@ -462,7 +568,12 @@ def analyse(rows, mode="dummy", tau=None, tau_grid=None, afe_ppm_k=None,
         if best is None or f["rss"] < best[1]["rss"]:
             best = (tau_try, f, tc)
     if best is None:
-        res["reasons"].append("normal equations singular at every tau")
+        if unexcited == len(grid):
+            res["reasons"].append("%s moves less than %.1f K after the lag at every "
+                                  "tau tried - nothing to fit on" % (label, min_span_k))
+        else:
+            res["reasons"].append("normal equations singular at every tau "
+                                  "(%d more tau left %s unexcited)" % (unexcited, label))
         return res
     tau_best, f, tc = best
     res["tau_s"] = tau_best
@@ -492,8 +603,8 @@ def analyse(rows, mode="dummy", tau=None, tau_grid=None, afe_ppm_k=None,
             "T_AFE and %s are collinear (r = %.3f, limit %.2f): "
             "one heat source moved both, so the AFE's share cannot be "
             "separated from the cell's. Only the combined slopes are reported. "
-            "Do the dummy-load run, or add an excursion that warms the AFE "
-            "end and not the tip." % (label, res["corr_afe_cell"], max_corr))
+            "Do the dummy-load run, or an excursion that warms or cools one end "
+            "only (the AFE end or the cell)." % (label, res["corr_afe_cell"], max_corr))
         res["verdict"] = "split-unevaluable"
         return res
 
@@ -511,9 +622,11 @@ def analyse(rows, mode="dummy", tau=None, tau_grid=None, afe_ppm_k=None,
 def report(res, dropped, out=sys.stdout):
     p = lambda *a: print(*a, file=out)  # noqa: E731
     p("o2p_tempco  mode=%s  verdict=%s" % (res["mode"], res["verdict"]))
-    p("  rows used %d   dropped: window %d, settling %d, faulted %d, missing %d"
+    p("  rows used %d   dropped: window %d, settling %d, faulted %d, missing %d, "
+      "bad time %d, invalid metadata %d"
       % (res["n"], dropped["window"], dropped["settling"], dropped["faulted"],
-         dropped["missing"]))
+         dropped["missing"], dropped.get("bad_time", 0),
+         dropped.get("invalid_metadata", 0)))
     if "duration_s" in res:
         p("  window     %.0f s   mean current %.2f uA"
           % (res["duration_s"], res["i_mean_ua"]))
@@ -595,6 +708,28 @@ def plot(rows, res, path):
     fig.savefig(path, dpi=120)
 
 
+def _arg_number(check, what):
+    def parse(text):
+        try:
+            v = float(text)
+        except ValueError:
+            raise argparse.ArgumentTypeError("not a number: %r" % text)
+        if not (math.isfinite(v) and check(v)):
+            raise argparse.ArgumentTypeError("must be %s, got %r" % (what, text))
+        return v
+    return parse
+
+
+def _arg_min_n(text):
+    try:
+        v = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError("not an integer: %r" % text)
+    if v < 4:
+        raise argparse.ArgumentTypeError("must be >= 4, got %r" % text)
+    return v
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(
         description=DOC.split("\n\n")[0],
@@ -606,17 +741,17 @@ def main(argv=None):
     ap.add_argument("--mode", choices=["dummy", "cell"], default="dummy")
     ap.add_argument("--start", help="UTC, e.g. 2026-09-10T08:00Z")
     ap.add_argument("--end", help="UTC")
-    ap.add_argument("--tau", type=float, default=None,
+    ap.add_argument("--tau", type=_arg_number(lambda v: v >= 0, "finite and >= 0"), default=None,
                     help="cell lag in s; default scans 0..1800")
     ap.add_argument("--cell-temp", choices=sorted(CELL_TEMPS),
                     default="chamber-lag",
                     help="cell mode regressor: lagged chamber, or the "
                          "cell-side TMP117 (t_ext_c / gas_t_ext_c)")
-    ap.add_argument("--afe-ppm-k", type=float, default=None,
+    ap.add_argument("--afe-ppm-k", type=_arg_number(lambda v: True, "finite"), default=None,
                     help="cell mode: fix the AFE tempco to this measured value")
-    ap.add_argument("--min-span-k", type=float, default=8.0)
-    ap.add_argument("--min-n", type=int, default=20)
-    ap.add_argument("--max-corr", type=float, default=0.95)
+    ap.add_argument("--min-span-k", type=_arg_number(lambda v: v > 0, "finite and > 0"), default=8.0)
+    ap.add_argument("--min-n", type=_arg_min_n, default=20)
+    ap.add_argument("--max-corr", type=_arg_number(lambda v: 0 < v <= 1, "in (0, 1]"), default=0.95)
     ap.add_argument("--json", metavar="PATH", help="also write the result dict")
     ap.add_argument("--plot", metavar="PNG")
     ap.add_argument("--no-check", action="store_true",

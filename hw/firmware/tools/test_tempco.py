@@ -211,6 +211,96 @@ with tempfile.TemporaryDirectory() as d:
     rc = T.main(["--csv", frozen_csv, "--mode", "cell", "--cell-temp", "ext", "--no-check"])
     check("CLI: a frozen T_EXT exits 2, never 0", rc == 2, "rc=%s" % rc)
 
+print("second review (2026-09-11): lagged span, timestamps, metadata, options, rank")
+r = T.analyse(de, "cell", tau=1e12)
+check("a tau that flattens the lagged regressor refuses",
+      r["verdict"] == "unevaluable" and "cell_apparent_ppm_k" not in r, r["reasons"])
+r = T.analyse(co, "cell", tau=1e12, afe_ppm_k=650.0)
+check("... also with the AFE share fixed",
+      r["verdict"] == "unevaluable" and "cell_apparent_ppm_k" not in r, r["reasons"])
+r = T.analyse(de, "cell", tau_grid=[1e12, 600.0])
+check("an unexcited tau is skipped, not chosen", r["verdict"] == "ok" and r.get("tau_s") == 600.0,
+      "%s %s" % (r.get("tau_s"), r["reasons"]))
+
+r = T.analyse([dict(x, t=1.7e9) for x in de], "cell")
+check("duplicate timestamps refuse", r["verdict"] == "unevaluable" and "afe_ppm_k" not in r,
+      r["reasons"])
+r = T.analyse([dict(x, t=float("nan")) if k == 600 else x for k, x in enumerate(de)], "cell")
+check("one NaN timestamp refuses, instead of moving tau", r["verdict"] == "unevaluable",
+      r["reasons"])
+r = T.analyse([dict(x, t=None) if k == 300 else x for k, x in enumerate(rows)], "dummy")
+check("a missing timestamp refuses in dummy mode too", r["verdict"] == "unevaluable", r["reasons"])
+shuffled = list(de)
+random.Random(3).shuffle(shuffled)
+r1, r2 = T.analyse(de, "cell", cell_temp="ext"), T.analyse(shuffled, "cell", cell_temp="ext")
+check("row order does not change the fit",
+      r2["verdict"] == "ok" and abs(r1["cell_apparent_ppm_k"] - r2["cell_apparent_ppm_k"]) < 1e-6,
+      "%s vs %s" % (r1.get("cell_apparent_ppm_k"), r2.get("cell_apparent_ppm_k")))
+
+for kw in ({"min_span_k": float("nan")}, {"min_span_k": 0.0}, {"max_corr": float("nan")},
+           {"max_corr": 1.5}, {"tau": -5.0}, {"tau": float("inf")}, {"min_n": 2},
+           {"afe_ppm_k": float("inf")}, {"tau_grid": [float("nan")]}):
+    try:
+        T.analyse(frozen, "cell", cell_temp="ext", **kw)
+        check("option %s raises" % kw, False)
+    except ValueError:
+        check("option %s raises" % kw, True)
+
+sel, dropped = T.select([dict(x, settle=float("inf")) for x in rows[:3]]
+                        + [dict(x, settle=float("nan")) for x in rows[3:6]]
+                        + [dict(x, faults=T.FAULTS_INVALID) for x in rows[6:8]]
+                        + [dict(x, t=None) for x in rows[8:10]]
+                        + [dict(x, t=float("nan")) for x in rows[10:11]]
+                        + rows[11:])
+check("recorded-but-invalid settle/faults are dropped as invalid, not accepted",
+      dropped["invalid_metadata"] == 8 and dropped["settling"] == 0, str(dropped))
+check("missing/non-finite time is dropped and counted", dropped["bad_time"] == 3, str(dropped))
+check("everything else is kept", len(sel) == len(rows) - 11)
+check("the metadata loader keeps inf, marks text NaN, and None stays None",
+      T._meta_f("inf") == float("inf") and math.isnan(T._meta_f("x")) and T._meta_f("") is None)
+check("unparseable faults become the invalid sentinel",
+      T._meta_int("zz") == T.FAULTS_INVALID and T._meta_int("inf") == T.FAULTS_INVALID
+      and T._meta_int("") is None and T._meta_int("0x8000") == 0x8000)
+
+with tempfile.TemporaryDirectory() as d:
+    p_csv, p_json = os.path.join(d, "settle.csv"), os.path.join(d, "r.json")
+    with open(p_csv, "w", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=["utc", "o2_raw_ua", "t_afe_c", "t_tip_c",
+                                           "t_chamber_c", "faults", "settle_s"])
+        w.writeheader()
+        for k, x in enumerate(rows):
+            w.writerow({"utc": "garbage" if k == 0 else
+                        T.dt.datetime.fromtimestamp(x["t"], T.dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        "o2_raw_ua": x["i_ua"], "t_afe_c": x["t_afe"], "t_tip_c": x["t_tip"],
+                        "t_chamber_c": x["t_cham"], "faults": x["faults"],
+                        "settle_s": "inf" if k % 2 else "nan"})
+    rc = T.main(["--csv", p_csv, "--mode", "dummy", "--json", p_json, "--no-check"])
+    with open(p_json) as fh:
+        out = json.load(fh)
+    check("CLI: every settle_s inf/nan refuses the run (exit 2), counted as invalid",
+          rc == 2 and out["dropped"]["invalid_metadata"] == len(rows) - 1
+          and out["dropped"]["bad_time"] == 1, "rc=%s %s" % (rc, out["dropped"]))
+    for bad in (["--min-span-k", "nan"], ["--max-corr", "0"], ["--tau", "-1"], ["--min-n", "2"]):
+        try:
+            T.main(["--csv", p_csv, "--mode", "cell", "--no-check"] + bad)
+            check("CLI rejects %s" % bad, False)
+        except SystemExit as exc:
+            check("CLI rejects %s" % bad, exc.code == 2, "code=%s" % exc.code)
+
+try:
+    T.ols([[1.0, float(x), x + 1e-13] for x in range(30)], [float(x) for x in range(30)])
+    check("collinear columns raise in ols", False)
+except ZeroDivisionError:
+    check("collinear columns raise in ols", True)
+try:
+    T.ols([[1.0, 25.0 + 1e-15 * (x % 2)] for x in range(30)], [float(x) for x in range(30)])
+    check("a column that does not move raises in ols", False)
+except ZeroDivisionError:
+    check("a column that does not move raises in ols", True)
+f = T.ols([[1.0, 25.0 + 0.01 * x] for x in range(40)], [3.0 + 2.0 * (25.0 + 0.01 * x) for x in range(40)])
+check("a small wobble on a large offset is still solved exactly",
+      abs(f["beta"][1] - 2.0) < 1e-9 and abs(f["beta"][0] - 3.0) < 1e-7, str(f["beta"]))
+
 if FAILS:
     print("FAILED: %s" % ", ".join(FAILS))
     sys.exit(1)
