@@ -157,6 +157,14 @@ That value is **eyeballed, not digitised**, so it is not yet a sourced number an
 `O2P_TEMPCO_DEFAULT` stays 0. Digitising it with `dsdig` is the next step and it is
 cheap.
 
+> **Correction 2026-09-11.** "That was true of DS-0637 Issue 1" above is **false**:
+> Issue 1 (07-Apr-2025) carries the same `%20 °C Output vs Temperature °C` chart (mean,
+> ±3σ, −40…60 °C) on PDF page 2. Both charts are raster images, so text extraction never
+> found either (codex review 2026-09-11; confirmed by rendering page 2 of
+> `~/dev/ee/hw/o2-probe/datasheets/DS-0637-SGX-OX-ROHS-Mini-Issue1-SUPERSEDED.pdf`).
+> Neither issue's chart has a human-verified digitisation yet, so "no sourced number"
+> still stands. The Sources entry below repeats the error.
+
 > **The curve is visibly not a straight line, and a single `α` cannot close it.**
 > The 2026-09-08 review read the mean curve as roughly 97.3 / 100 / 104.1 / 104.9 /
 > 106.2 % of the 20 °C output at 10 / 20 / 40 / 50 / 60 °C — flattening markedly above
@@ -328,6 +336,8 @@ Argued but not changed:
   800–1200 mbar, long-term drift < 5 % over life, **and a `%20 °C Output vs Temperature`
   plot with ±3σ bands on page 2**. Issue 1 (07-Apr-2025) gave 0.07 ± 0.03 mA and no
   curve; it is what `o2.h` was originally written against.
+  *(Correction 2026-09-11: "and no curve" is false. Issue 1 has the same chart on page
+  2; see the §5 correction.)*
 - SGX **DS-0143** Issue 3 (4-series SGX-4OX): CO₂ enhancement ≈ 0.3 % of signal per
   1 %CO₂; *"please contact SGX for temperature performance other than 20 °C"*.
   Fetched via Angst+Pfister (Mouser's copy is behind PerimeterX).
