@@ -679,3 +679,55 @@ it was available 8 h before the cleaning confirmed it.
 Full write-up, including the double-mute (`phase_rails()` re-arms settling every
 cycle, pinning `settle_s` at 900 while `settle_restarts` stays at 1 and hides it):
 `docs/2026-09-11-va-mon-collapse.md`.
+
+## 2026-09-11 evening — steam bath: VREF collapsed 18:48–19:37, came back *under* an 80 °C soak
+
+Source: VictoriaMetrics `gas_*{probe="3"}` (2-min step unless noted), keeper
+register reads. Probe in a steam bath from ~17:07 (die 25.6 → 78.8 °C,
+17:05–17:14).
+
+| time | `vref_mv` | context |
+|---|--:|---|
+| 14:30 | 2492 | in window (2489–2511) |
+| 17:12 | 2460 | bath going in |
+| 17:28–18:28 | 65535 in stretches | invalid; I2C errors climbing from 17:22 (FW 0x0011) |
+| 18:28 | 2494 | after the 18:25 power-on reset (reset cause 12) |
+| **18:48** | **606** | collapsed |
+| 19:33–19:36 (1-min) | 428 → 440 → 538 | still collapsed |
+| **19:37** (1-min) | **2496** | back in window, and stayed |
+
+At recovery the stored tip loop (0x0049 = 80.00 °C, committed 19:04) held the
+tip at 80.0 °C, chamber 80.0 °C at **6.5 %RH**, die 80.3 °C, cell side 78–79 °C,
+duty 0–6 % (the surroundings were at the setpoint).
+
+AFE consequence: `settle_restarts` 1 → 2 at 19:38, `settle_s` 848 (settled
+~19:52); `FAULTS` gained `SETTLING` (with no reset — uptime continuous, reset
+cause 20). `cell_ua` read **235.7 µA** while VREF was collapsed and **84.7 µA**
+at 19:41, settling. Treat O₂ from 18:48 until the settle ends as invalid.
+
+**Contrast with 2026-09-10 ~22:20** (the 80 °C soak above): there the reference
+*fell* with tip temperature on a board that had been baked dry. Today it had
+collapsed for an hour at moderate temperature on a steam-wet board and
+*recovered* after ~30 min at 80 °C and single-digit RH. Reversible in both
+directions again — still consistent with ionic/moisture contamination on
+`/VREF_TRIM` rather than silicon. **Inference, not measured**: nothing isolates
+the node's resistance directly.
+
+Two readings that are **not** supply findings: `VIN_LOW` appeared alongside
+`SETTLING` at 19:38, and `vin_mv` read 0/1132/2220/65535 through the evening.
+On Rev A VIN_MON is not on the MCU ADC but **is** ADS1119-converted
+(`hw_caps_rev_a.h:90-91`, R26/R27 130k/20k), i.e. against the same external
+reference that was collapsed — blind while VREF is out of window, as the
+2026-09-10 ~22:20 entry already says (65535 through 19:36). (A read-only
+reviewer's "Rev A has no real VIN measurement" was half right and is corrected
+here.) **But it is not blind now:** since VREF came back (19:38, 2496–2498 mV)
+`vin_mv` reads a steady **0**, and it read 0 at 18:27 next to an in-window VREF
+too. `main.c:853-874` publishes the scaled conversion as-is (a negative code
+returns early, so 0 is a measured ~0 mV at the divider tap), and the probe is
+running and heating, so the 12 V feed is present. **Inference:** the VIN_MON
+input path (R26/R27 130k/20k tap) is faulted — an open R26 or a leak from the
+tap to ground, the VA_MON failure shape of this morning on the other divider —
+not the rail. Not metered; `VIN_LOW` will stay latched until it is. And the 18:04–18:26 bus
+silence ended in a power-on reset (`gas_link_ok` 0 → 1 at 18:27, uptime
+restarted ~18:25) — firmware 0x0013 ruled out by a read-only review; board
+damage/power loss or a hand on the bench are the candidates, unresolved.
