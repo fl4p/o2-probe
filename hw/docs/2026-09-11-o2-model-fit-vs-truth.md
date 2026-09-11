@@ -216,10 +216,34 @@ Nothing in the telemetry measures the cell.
 > on 2026-09-07/08 with eyeballed readings — ≈ +0.2 %/K, flattening above
 > 40 °C, **UNVERIFIED** — and named `dsdig` digitisation as the next step; it
 > has not been done. `2026-09-08-hot-bath-run.md:144` ("no tempco curve at
-> all") cites Issue 1; the firmware comments carried the same Issue 1 claim. Published as `gas_t_ext_c` from 13:43
-> (before that, raw centi-°C in `gas_exp_data`, mostly solder heat); fit with
-> `o2p_tempco.py --mode cell --cell-temp ext`. The sentence above still holds
-> for every dataset in this document — all of it predates the sensor.
+> all") cites Issue 1; the firmware comments carried the same Issue 1 claim.
+> **Corrected the same day: Issue 1 carries the chart too** (PDF page 2, a
+> raster image that text extraction skips - found by the codex review of
+> b9f9cae). "SGX publishes no curve" was never true of either issue.
+>
+> **Addendum 2026-09-11 ~15:00 - first check of the chart against a sweep:
+> inconclusive.** Chart digitized with a new dsdig plugin (status
+> overlay-review-required, NOT human-verified): mean slope +0.22 %/K at 24 °C
+> (quadratic 0-50 °C, ≈ 2150 ppm/K of I(24)), ≈ +0.10 %/K over 40-60 °C; the
+> Issue 1 mean agrees within ~0.1 %. Sweep: ambient warm-up 12:09-12:53 UTC,
+> heater 0, T_EXT 22.06→26.32 °C, T_CHAMBER 22.06→28.21, T_AFE 23.09→29.29,
+> RH ≈ 83 % throughout, so vapour fraction 2.31→3.29 %. Cell current
+> 99.78→100.24 µA (medians of 6) = **+0.47 %, ±~0.5 % (1σ)**; 60 s sample
+> sd 0.69 µA. Predicted: chart +0.92 % + AFE +0.14 % + dilution at
+> α = 0 / 0.4 / 1 (0 / −0.39 / −1.00 %) = +1.06 / +0.67 / +0.06 %. Slope on
+> T_EXT +0.31 / +0.40 / +0.54 %/K for the same α, 95 % intervals ≈ ±0.2.
+> **The data cannot discriminate**: one unsettled 4 K ramp, humidity moving,
+> and noise the size of the effect. The AFE/cell split is now *measurable* -
+> T_AFE and the cell-shell T_EXT are both logged - but this run did not
+> *excite* it: corr(T_AFE, T_EXT) = 0.993, the difference T_AFE − T_EXT moved
+> only 1.6 K, and a two-term fit returns AFE −4200 / cell-shell +8300 ppm/K
+> with 95 % intervals of ±~25 000 ppm/K. `o2p_tempco --cell-temp ext` agrees:
+> unevaluable (T_AFE span 5.7 < 8 K), and split-unevaluable (collinear) with
+> the gate lowered. A room excursion moves both; the split needs an excursion
+> that warms or cools one end only (see kb
+> `measurement/unsettled-updown-ladder-identifies-tempco`). Published
+> O₂ drifted ≈ 21.8→22.2 %vol over the same ramp. A test needs ≥ 15 K, both
+> directions, dwell well beyond the lag, and humidity held or logged per point.
 
 The ladder is visible in the data, and its rungs depend on *where the heat
 enters*:
