@@ -7146,7 +7146,11 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    /* 0x0014: config block grew with VIN_DIV_X1000 (0x004B), the board's own
+    /* 0x0015: diag opcode 9, O2P_OP_ADS_INTERNAL_REF - a volatile debug flag
+     *         putting every ADS1119 conversion on the internal 2.048 V
+     *         reference (Fab's order, 2026-09-11, "the external ref is
+     *         down"). Opcode 9 is ERR_OPCODE on 0x0014 and earlier.
+     * 0x0014: config block grew with VIN_DIV_X1000 (0x004B), the board's own
      *         input-rail divider ratio, flash-backed without a layout bump
      *         (Fab's order, 2026-09-11). A 28-word config read is refused by
      *         0x0013 and earlier.
@@ -7166,7 +7170,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         steps the thermal mass cannot make are rejected for a cycle.
      * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
      *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
-    TEST_ASSERT_EQUAL_HEX16(0x0014u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x0015u, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_HEX16(0xC000u,
         (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
     /* The staleness cut must win the race against the watchdog's fastest
@@ -8177,8 +8181,9 @@ static void test_dmbox_validation_and_opcodes(void)
     TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_PENDING, rm.diag_status);
     rm.diag_pending = false;
 
-    /* An unassigned opcode is refused */
-    uint16_t cmd_bad_op[2] = { (uint16_t)(0x5A00u | 0x09u), 0x0000u };
+    /* An unassigned opcode is refused. 0x0A since FW 0x0015 assigned 0x09
+     * (O2P_OP_ADS_INTERNAL_REF) - the first value past the range's top. */
+    uint16_t cmd_bad_op[2] = { (uint16_t)(0x5A00u | 0x0Au), 0x0000u };
     TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
                            o2p_regmap_write(&rm, O2P_REG_DMBOX_BASE, 2u, cmd_bad_op));
     TEST_ASSERT_EQUAL_UINT16(O2P_DMBOX_STATUS_ERR_OPCODE, rm.diag_status);
@@ -8265,6 +8270,67 @@ static uint8_t gpio_cmd(unsigned port, unsigned pin)
 static void gpio_result(uint16_t out[5])
 {
     TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&rm, O2P_REG_DIAG_STATUS, 5u, out));
+}
+
+/* ---- diag opcode 9, O2P_OP_ADS_INTERNAL_REF (FW 0x0015) ---- */
+
+static void test_ads_internal_ref_opcode_sets_and_clears_the_flag(void)
+{
+    /* Served in the write: PARAM 1 sets, 0 clears, RDATA0 echoes, status OK.
+     * Off after init, because a debug override must not survive a reset. */
+    o2p_regmap_init(&rm);
+    TEST_ASSERT_EQUAL_HEX8(0x09u, O2P_OP_ADS_INTERNAL_REF);
+    TEST_ASSERT_EQUAL_UINT32(0u, rm.ads_internal_ref);
+    uint16_t out[5];
+
+    TEST_ASSERT_EQUAL_HEX8(0u, gpio_cmd_raw(2u, O2P_OP_ADS_INTERNAL_REF, 1u));
+    TEST_ASSERT_EQUAL_UINT32(1u, rm.ads_internal_ref);
+    gpio_result(out);
+    TEST_ASSERT_EQUAL_HEX16(O2P_DMBOX_STATUS_OK, out[0]);
+    TEST_ASSERT_EQUAL_HEX16(1u, out[1]);
+
+    TEST_ASSERT_EQUAL_HEX8(0u, gpio_cmd_raw(2u, O2P_OP_ADS_INTERNAL_REF, 0u));
+    TEST_ASSERT_EQUAL_UINT32(0u, rm.ads_internal_ref);
+    gpio_result(out);
+    TEST_ASSERT_EQUAL_HEX16(O2P_DMBOX_STATUS_OK, out[0]);
+    TEST_ASSERT_EQUAL_HEX16(0u, out[1]);
+}
+
+static void test_ads_internal_ref_opcode_refuses_bad_shapes_and_changes_nothing(void)
+{
+    o2p_regmap_init(&rm);
+    TEST_ASSERT_EQUAL_HEX8(0u, gpio_cmd_raw(2u, O2P_OP_ADS_INTERNAL_REF, 1u));
+
+    /* No PARAM, and every PARAM that is not 0/1, out to the far tail. */
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           gpio_cmd_raw(1u, O2P_OP_ADS_INTERNAL_REF, 0u));
+    static const uint16_t bad[] = { 2u, 0x0100u, 0xFFFFu };
+    for (unsigned i = 0u; i < sizeof bad / sizeof bad[0]; i++) {
+        TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                               gpio_cmd_raw(2u, O2P_OP_ADS_INTERNAL_REF, bad[i]));
+    }
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE(1u, rm.ads_internal_ref,
+        "a refused write must leave the flag exactly as it was");
+
+    /* The new top of the opcode range is 9, not unbounded. */
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+        gpio_cmd_raw(2u, (uint16_t)(O2P_OP_ADS_INTERNAL_REF + 1u), 0u));
+}
+
+static void test_cell_current_from_absolute_uv_matches_the_ratiometric_form(void)
+{
+    /* o2p_cell_na_from_uv is what finish_o2 uses under opcode 9. Fed the
+     * microvolts the ratiometric path would compute, it must agree exactly;
+     * and an absolute reading AT the internal zero is zero current. */
+    const uint32_t vref = 2496u;
+    static const int32_t codes[] = { 0, 12000, 21904, 32767 };
+    for (unsigned i = 0u; i < sizeof codes / sizeof codes[0]; i++) {
+        int32_t uv = o2p_ads1119_code_to_uv(codes[i], vref);
+        TEST_ASSERT_EQUAL_INT32(o2p_cell_na_from_code(codes[i], vref),
+                                o2p_cell_na_from_uv(uv, vref));
+    }
+    /* 0.67 x 2496 mV = 1672.32 mV exactly. */
+    TEST_ASSERT_EQUAL_INT32(0, o2p_cell_na_from_uv(1672320, vref));
 }
 
 static void fake_field(uint32_t *reg, unsigned width, unsigned index, uint32_t v)
@@ -9114,6 +9180,9 @@ int main(void)
     RUN_TEST(test_exec_mailbox_operations);
     RUN_TEST(test_gpio_analog_mask_covers_pin_15_and_pin_0);
     RUN_TEST(test_gpio_wire_codes_are_the_published_ones);
+    RUN_TEST(test_ads_internal_ref_opcode_sets_and_clears_the_flag);
+    RUN_TEST(test_ads_internal_ref_opcode_refuses_bad_shapes_and_changes_nothing);
+    RUN_TEST(test_cell_current_from_absolute_uv_matches_the_ratiometric_form);
 #else
     RUN_TEST(test_debug_mailboxes_disabled);
     RUN_TEST(test_gpio_opcode_is_compiled_out_with_the_mailbox);

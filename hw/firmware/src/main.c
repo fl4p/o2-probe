@@ -258,6 +258,9 @@ static struct {
      * 2620 mV. That slack is deliberate there and is not this flag's promise
      * to make. Corrected after review 2026-09-08 said the comment claimed it. */
     bool     vref_measured;
+    /* The debug override (diag opcode 9) as latched for THIS cycle: every
+     * ADS1119 conversion on the internal 2.048 V reference, scaled by it. */
+    bool     ads_internal;
 } g_cyc;
 
 static uint32_t s_cycle_start_ms;
@@ -270,6 +273,11 @@ static void cycle_begin(void)
     /* Until the reference is actually measured this cycle, assume the trim
      * target rather than carrying last cycle's number forward. */
     g_cyc.vref_mv = O2P_HW_VREF_TARGET_MV;
+#if O2P_DEBUG_ENABLE
+    /* Latched once, here: a flag written mid-cycle takes effect at the next
+     * cycle, so no phase averages conversions taken against two references. */
+    g_cyc.ads_internal = (g_rm.ads_internal_ref != 0u);
+#endif
     g_cyc.t_tip = O2P_I16_INVALID;
     g_cyc.t_chamber = O2P_I16_INVALID;
     g_cyc.t_ext = O2P_I16_INVALID;
@@ -619,11 +627,24 @@ static void phase_temps(o2p_snapshot_t *s)
     }
 }
 
+/* Millivolts at ADS1119 full scale for a conversion that ASKED for the external
+ * reference: the measured VREF_TRIM normally, or the internal 2.048 V while the
+ * debug override is in force (diag opcode 9, O2P_OP_ADS_INTERNAL_REF; latched
+ * per cycle in cycle_begin(), so one average never mixes references). Fab
+ * 2026-09-11: "let it use the internal ref for all channels now, for
+ * debugging. the external ref is down". */
+static uint32_t ads_ext_scale_mv(void)
+{
+    return g_cyc.ads_internal ? O2P_ADS_INTERNAL_REF_MV : g_cyc.vref_mv;
+}
+
 /* One ADS1119 conversion into g_acc. Returns true when the phase is done. */
 static bool accumulate(uint8_t mux, uint8_t dr, bool ext_ref, unsigned n)
 {
     int16_t code = 0;
-    o2p_ads_status_t st = o2p_ads1119_convert(mux, dr, ext_ref, &code);
+    o2p_ads_status_t st = o2p_ads1119_convert(mux, dr,
+                                              ext_ref && !g_cyc.ads_internal,
+                                              &code);
     if (st != O2P_ADS_OK) {
         /* A DRDY that does not behave is a PIN failure, not a bus failure, and
          * it gets its own bit. Collapsing every status into I2C_FAIL_ADS is how
@@ -843,14 +864,16 @@ static void finish_electrode(o2p_snapshot_t *s, bool working)
      * for every cycle after. A guard must not be disarmed by the failure it
      * is there to name. vref_measured asks the question actually meant here.
      */
-    if (g_acc_clipped || !g_cyc.vref_measured) {
+    /* Under the internal-reference override (diag opcode 9) the scale is
+     * 2048 mV, not VREF, so a collapsed reference no longer blanks these. */
+    if (g_acc_clipped || (!g_cyc.ads_internal && !g_cyc.vref_measured)) {
         return;
     }
     int32_t code = g_acc / (int32_t)O2P_N_CELL;
     if (code < 0) {
         return;
     }
-    int32_t uv = o2p_ads1119_code_to_uv(code, g_cyc.vref_mv);
+    int32_t uv = o2p_ads1119_code_to_uv(code, ads_ext_scale_mv());
     int32_t mv = uv / 1000;
     if (mv < 0 || mv > 65534) {
         return;
@@ -990,7 +1013,10 @@ static void finish_t_afe(o2p_snapshot_t *s)
      * losing the diagnostic precisely when things were going wrong. What
      * matters to this channel is its own conversions plus the reference.
      * Found by review 2026-09-08. */
-    if (!g_cyc.vref_measured) {
+    /* Skipped under the internal-reference override (diag opcode 9): the
+     * scale is then 2048 mV, and the LMP91000 temperature output is
+     * ground-referred (SNAS506I 7.3.1.5), so nothing here depends on VREF. */
+    if (!g_cyc.ads_internal && !g_cyc.vref_measured) {
         return;
     }
     if (g_acc_clipped || (g_cyc.faults & O2P_FAULTS_ADS_NO_CONVERSION) != 0u) {
@@ -1008,7 +1034,7 @@ static void finish_t_afe(o2p_snapshot_t *s)
      * rejected as implausible. Rounding also halves the quantisation error,
      * which flooring pushed from the advertised 0.41/2.12 C to 0.53/2.21 C
      * end to end. Found by review 2026-09-08. */
-    int32_t uv = o2p_ads1119_code_to_uv(code, g_cyc.vref_mv);
+    int32_t uv = o2p_ads1119_code_to_uv(code, ads_ext_scale_mv());
     int32_t mv = (uv + 500) / 1000;
     if (mv < 0 || mv > 65534) {
         return;
@@ -1029,7 +1055,7 @@ static void finish_o2(o2p_snapshot_t *s)
         g_cyc.faults |= O2P_F_ADC_RANGE;
     }
     int32_t code = g_acc / (int32_t)O2P_N_O2;
-    int32_t uv = o2p_ads1119_code_to_uv(code, g_cyc.vref_mv);
+    int32_t uv = o2p_ads1119_code_to_uv(code, ads_ext_scale_mv());
 
     /* AFE_VOUT_MV IS THE UNCONDITIONAL CHANNEL, and deliberately so. It is
      * the converter's own output in millivolts, published whatever happened,
@@ -1039,7 +1065,12 @@ static void finish_o2(o2p_snapshot_t *s)
      * question on a number being read for its order of magnitude. */
     s->afe_vout_mv = (uv < 0) ? 0u : (uint16_t)(uv / 1000);
 
-    int32_t cell_na = o2p_cell_na_from_code(code, g_cyc.vref_mv);
+    /* Under opcode 9 the volts above are absolute (internal reference), so the
+     * current takes them as they are and only the internal zero uses VREF -
+     * no longer ratiometric; O2_RAW below still requires a measured VREF. */
+    int32_t cell_na = g_cyc.ads_internal
+        ? o2p_cell_na_from_uv(uv, g_cyc.vref_mv)
+        : o2p_cell_na_from_code(code, g_cyc.vref_mv);
 
     /* O2_RAW, ON THE OTHER HAND, IS A CURRENT, and a current derived from a
      * rail is a fabrication - 2026-09-09, from the Codex review of the

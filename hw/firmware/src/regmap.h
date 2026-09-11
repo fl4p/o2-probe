@@ -836,6 +836,15 @@ enum {
      * IDR/ODR. Read-only; served in the write, not deferred. PARAM = port << 8
      * | pin. Encoding and packing: gpio_diag.h. */
     O2P_OP_READ_GPIO       = 0x08u,
+    /* ADS1119 reference override, FW_VERSION 0x0015 (Fab 2026-09-11, "let it
+     * use the internal ref for all channels now, for debugging. the external
+     * ref is down"). PARAM 0 = the normal per-channel references, 1 = EVERY
+     * conversion on the internal 2.048 V reference and scaled by it. VOLATILE:
+     * a reset clears it. Served in the write like OP_READ_GPIO; RDATA0 echoes
+     * the value now in force. The flag is o2p_regmap_t.ads_internal_ref, a
+     * uint32_t in .bss, so the poke mailbox reaches it too. main.c latches it
+     * once per cycle - see ads_ext_scale_mv(). */
+    O2P_OP_ADS_INTERNAL_REF = 0x09u,
 };
 
 /* ---- Crash context retention: 0x0077, 9 registers, read/write, RETENTION ---- */
@@ -1021,7 +1030,7 @@ enum {
  *
  * For "which build is this", read BUILD_ID (0x0028/0x0029) - this number is
  * hand-maintained and says nothing about the binary. */
-#define O2P_FW_VERSION 0x0014u  /* v0.20 - VIN_DIV_X1000 at 0x004B, config block 27 -> 28 registers, no layout bump (Fab 2026-09-11: "this calibration constants belongs in the stm non-volatile storage"); v0.19 - dew-margin heater law (Fab 2026-09-11, steam bath: "fix it so it keeps a reasonable dew-margin"): cell-side TMP117 minus gas dew point held at 4 K, tip ceiling 79 C / clamp 80 C, RH law as fallback without a cell reading; v0.18 - poke mailbox 0x0198 + wide poke 0x01B0 (Fab 2026-09-11: "the equivalent write command of the peek" - SRAM .data/.bss writes only, flash/peripherals/SHARED/stack refused); v0.17 - supply veto removed (Fab 2026-09-11: <1 W, blind already heated through it; O2P_HB_SUPPLY now annotation-only); v0.16 was compost-readiness: fresh RH consent, HB IDLE/TIP_DISARMED, stale cut 2 s + STALE bit, tip glitch reject, VREF settle on recovery */
+#define O2P_FW_VERSION 0x0015u  /* v0.21 - diag opcode 9 O2P_OP_ADS_INTERNAL_REF: volatile debug flag, every ADS1119 conversion on the internal 2.048 V reference (Fab 2026-09-11: "let it use the internal ref for all channels now, for debugging. the external ref is down"); v0.20 - VIN_DIV_X1000 at 0x004B, config block 27 -> 28 registers, no layout bump (Fab 2026-09-11: "this calibration constants belongs in the stm non-volatile storage"); v0.19 - dew-margin heater law (Fab 2026-09-11, steam bath: "fix it so it keeps a reasonable dew-margin"): cell-side TMP117 minus gas dew point held at 4 K, tip ceiling 79 C / clamp 80 C, RH law as fallback without a cell reading; v0.18 - poke mailbox 0x0198 + wide poke 0x01B0 (Fab 2026-09-11: "the equivalent write command of the peek" - SRAM .data/.bss writes only, flash/peripherals/SHARED/stack refused); v0.17 - supply veto removed (Fab 2026-09-11: <1 W, blind already heated through it; O2P_HB_SUPPLY now annotation-only); v0.16 was compost-readiness: fresh RH consent, HB IDLE/TIP_DISARMED, stale cut 2 s + STALE bit, tip glitch reject, VREF settle on recovery */
 
 /* Overridden by tools/pio_build_id.py on every target build. The default is
  * reached only by the host test build, and means "no stamp", never a commit. */
@@ -1374,6 +1383,11 @@ typedef struct {
     uint16_t diag_rdata2;
     uint16_t diag_crc_status;
     volatile bool diag_pending;
+    /* O2P_OP_ADS_INTERNAL_REF (diag opcode 9): nonzero = every ADS1119
+     * conversion on the internal 2.048 V reference. uint32_t, not bool, so it
+     * is one aligned word the poke mailbox can write and the peek read back.
+     * Volatile and zeroed by o2p_regmap_init(), i.e. off after every reset. */
+    volatile uint32_t ads_internal_ref;
 
     /* Arbitrary code execution mailbox */
     uint16_t exec_cmd;

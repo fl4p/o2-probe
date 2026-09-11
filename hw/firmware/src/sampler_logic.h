@@ -46,6 +46,20 @@ static inline int32_t o2p_cell_na_from_code(int32_t code, uint32_t vref_mv)
     return (int32_t)(((int64_t)delta_uv * 1000) / O2P_LMP_TIA_OHM);
 }
 
+/* The same current from an AIN0 reading already in absolute microvolts - one
+ * taken against the ADS1119's INTERNAL 2.048 V reference (debug opcode 9). The
+ * LMP91000's internal zero is still 0.67 x the analog reference it is fed, so
+ * that term keeps the measured VREF: this is NOT ratiometric, and a VREF error
+ * now lands in the current instead of cancelling. Equal to
+ * o2p_cell_na_from_code(code, vref) when uv = o2p_ads1119_code_to_uv(code, vref). */
+static inline int32_t o2p_cell_na_from_uv(int32_t uv, uint32_t zero_ref_mv)
+{
+    int32_t zero_uv = (int32_t)(((int64_t)zero_ref_mv * 1000 * O2P_LMP_INT_Z_NUM) /
+                                O2P_LMP_INT_Z_DEN);
+    int32_t delta_uv = zero_uv - uv;
+    return (int32_t)(((int64_t)delta_uv * 1000) / O2P_LMP_TIA_OHM);
+}
+
 /* The gas temperature the conversion should use: the CHAMBER sensor if it
  * read, else the tip, else nothing.
  *

@@ -1382,6 +1382,33 @@ sequence number and is used instead whenever `FW_VERSION` allows; when the tool
 must fall back to the mailbox it prints that the result assumes no other
 master. On a shared bus, prefer the wide block.
 
+#### ADS1119 internal-reference override — opcode 9 (`OP_ADS_INTERNAL_REF`)
+
+Firmware `0x0015` and later, debug builds only, **volatile** (every reset
+clears it). Added 2026-09-11 on Fab's order: "let it use the internal ref for
+all channels now, for debugging. the external ref is down".
+
+Normally only VREF_MON converts against the ADS1119's internal 2.048 V
+reference; AFE_VOUT, T_AFE and AIN2/AIN3 (VA_MON/VIN_MON on Rev A, WE/RE on
+Rev B) convert against the external `/VREF_TRIM` and are scaled by the
+measured VREF, so they go invalid whenever that reference collapses. With the
+override set, every conversion uses the internal reference and is scaled by
+2048 mV, and the rail and die-temperature channels no longer wait for a
+measured VREF. `O2_RAW` still requires one: the LMP91000's internal zero is
+0.67 × the analog reference, so in this mode the current is **not
+ratiometric** and a VREF error lands in it instead of cancelling. Full scale is
+2048 mV; a clipped conversion still refuses.
+
+One FC16 of two registers:
+`DIAG_CMD` (`0x0070`) = `0x5A09`, and
+`DIAG_PARAM` (`0x0071`) = 1 (override on) or 0 (normal). Served inside the write: status
+2 OK, `DIAG_RDATA0` echoes the value now in force. Any other PARAM, or a
+one-register write, is exception 03 with `DIAG_STATUS` = 3 and changes nothing.
+`main.c` latches the flag at the start of the next measurement cycle. Through
+the farmgw keeper: `diag 9:1` / `diag 9:0`. The flag itself is
+`o2p_regmap_t.ads_internal_ref`, a `uint32_t` in `.bss`, so the poke mailbox
+can write it as well.
+
 #### Pin state — opcode 8 (`OP_READ_GPIO`) in the sensor diagnostic mailbox
 
 Firmware `0x000E` and later, debug builds only. It reads what one MCU pin is

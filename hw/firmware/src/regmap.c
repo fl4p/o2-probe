@@ -1802,7 +1802,7 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
             return O2P_MB_EX_ILLEGAL_VALUE;
         }
         uint8_t op = (uint8_t)(cmd & 0xFFu);
-        if (op < O2P_OP_READ_LMP_REG || op > O2P_OP_READ_GPIO) {
+        if (op < O2P_OP_READ_LMP_REG || op > O2P_OP_ADS_INTERNAL_REF) {
             rm->diag_status = O2P_DMBOX_STATUS_ERR_OPCODE;
             return O2P_MB_EX_ILLEGAL_VALUE;
         }
@@ -1856,6 +1856,26 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
             rm->diag_rdata2 = res.rdata[2];
             rm->diag_crc_status = res.analog_mask;
             rm->diag_status = st;
+            return 0u;
+        }
+        /* OP_ADS_INTERNAL_REF: a flag store, served in the write for the same
+         * reasons as OP_READ_GPIO above - no I2C, and the whole path is the one
+         * a host test drives. Shape-then-act: a missing PARAM or one that is
+         * not 0/1 changes nothing. main.c reads the flag at the start of the
+         * next cycle, never mid-average. */
+        if (op == O2P_OP_ADS_INTERNAL_REF) {
+            if (count != 2u || in[1] > 1u) {
+                rm->diag_status = O2P_DMBOX_STATUS_ERR_OPCODE;
+                return O2P_MB_EX_ILLEGAL_VALUE;
+            }
+            rm->ads_internal_ref = in[1];
+            rm->diag_cmd = cmd;
+            rm->diag_param = in[1];
+            rm->diag_rdata0 = (uint16_t)rm->ads_internal_ref;
+            rm->diag_rdata1 = 0u;
+            rm->diag_rdata2 = 0u;
+            rm->diag_crc_status = 0u;
+            rm->diag_status = O2P_DMBOX_STATUS_OK;
             return 0u;
         }
         bool needs_param = (op == O2P_OP_READ_LMP_REG ||
