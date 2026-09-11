@@ -2046,7 +2046,7 @@ zero for that cycle.
 | `NO_CONSENT` | the consent registers (`0x0048` RH, `0x004A` tip) do not carry their magics |
 | `BLIND` | the sensor-less fallback is driving at `O2P_HEATER_BLIND_DUTY_X100` because tip/die readings are missing or the die is above `O2P_HEATER_BLIND_DIE_MAX_C100` |
 | `IDLE` | **annotation, not a refusal, since 0x0010**: a loop is in command and simply has no demand — duty 0 with the loop healthy |
-| `TIP_DISARMED` | **annotation, not a refusal, since 0x0010**: the stored tip setpoint is at the `0x8000` sentinel — the RH loop is the configured law |
+| `TIP_DISARMED` | **annotation, not a refusal, since 0x0010**: the stored tip setpoint is at the `0x8000` sentinel — the RH loop is the configured law (since 0x0013: the dew-margin law while the cell-side reading is valid, the RH loop otherwise — see "Dew-margin law" below) |
 
 Two of these deserve their reasoning spelled out.
 
@@ -2447,3 +2447,50 @@ ORs the latch in (`|=`), so a wet-rail cycle that also latches runaway reads
 covers supply-fault + same-cycle runaway latch (the 60 s accumulation makes
 it tedious to construct); the latch-cycle path with a healthy rail is
 covered and unchanged.
+
+### Dew-margin law, 2026-09-11 (FW 0x0013) — Fab's order
+
+Trigger, measured 2026-09-11 15:18 UTC with the probe in a steam bath (FW
+0x0011, keeper register read): tip 77.7 °C, cell side (`T_EXT`) 74.9 °C, gas
+dew point ≈ 76.2 °C from the SHT45. The cell side sat **below** the dew point
+while the published tip-referenced margin (tip − Td) read ≈ +1.5 K. The heater
+was off with block word 0x1004 = `NO_CONSENT` + `SAFETY` (the RH consent
+register read 0), and for the RH
+law SAFETY blinds, which the die gate (die 73.6 °C ≥ 40 °C) then closes — so
+consent alone would not have heated either. Order: *"fix it so it keeps a
+reasonable dew-margin"*; answers: reference = cell-side `T_EXT`, margin 4 K,
+"margin, up to the 80 °C tip cap", implement + test + flash + arm.
+
+**The law.** `margin = T_cell − Td(T_chamber, RH)`; error =
+`min(4.00 K − margin, 79.00 °C − T_tip)` in 0.01 K, PI with kp 5 / ki 0.05
+(duty 0.01 % per 0.01 K), `O2P_HEATER_MODE_DEW`. The dew point is a property
+of the gas and survives the island's self-heating, so the SHT45 still supplies
+it; what changes is the surface it is compared with. The `min` holds the tip
+at 79 °C when the margin cannot be met — which saturated gas near 76 °C
+guarantees, since the cell side gains only ~0.4 K per K of tip — so the
+80.00 °C clamp stays a backstop. Above the cell's 60 °C rating the margin
+still wins, per the answer. Constants and reasoning: `heater_ctl.h`
+`O2P_HEATER_DEW_*`.
+
+**When it is in command.** The RH law's slot (no override, stored tip
+setpoint at the sentinel, RH consent `0x0048`) **and** a cell-side reading no
+older than 10 s (`O2P_HEATER_CELL_MAX_AGE_S`, bridging the ext glitch
+filter). Without one, the RH law runs exactly as before. Precedence is now
+override > stored tip > dew > RH; the mode tag restarts the integrator on
+every hand-over. No register was added: `HEATER_BLOCK` has no free bit, so the
+law in command is read off `T_EXT` validity (`TIP_DISARMED` set + `T_EXT`
+valid ⇒ dew law).
+
+**Its interlocks, per the per-law blind rule.** `NO_RH`, `NO_CHAMBER` and
+`NO_TIP` blind it (die-gated, as for every law) — the dew point is its control
+quantity and the tip its only bound; a humidity the Magnus form rejects
+(≤ 0 or > 100 %RH) raises `NO_RH`. `SAFETY` annotates, and `TIP_LIMIT` is
+80.00 °C under this law unconditionally (release 77.00 °C).
+
+**Limits, stated.** The gains are provisional on an unmeasured plant. Magnus
+is fit to ~60 °C; 75 °C is extrapolation. The ext TMP117 has no data-ready
+freshness check, so a frozen conversion would hold a constant margin error —
+bounded by the tip, which is freshness-checked, at the 79/80 °C ceiling. In
+the bath the 4 K margin is physically unreachable under the cap; the law then
+holds the tip at the ceiling and the cell side as close as that allows.
+Published `DEW_MARGIN` (0x0014) is unchanged and still tip-referenced. Tests: `test_dew_law_*` in `test/test_logic`.

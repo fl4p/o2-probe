@@ -312,6 +312,61 @@ enum {
 #define O2P_HEATER_TEST_KP_X100_DEFAULT 5000u
 #define O2P_HEATER_TEST_KI_X100_DEFAULT 50u
 
+/* THE DEW-MARGIN LAW, FW 0x0013 (Fab's order 2026-09-11, probe in a steam
+ * bath: "fix it so it keeps a reasonable dew-margin"; his answers: reference
+ * surface = the cell-side TMP117, margin = 4 K, "margin, up to the 80 C tip
+ * cap").
+ *
+ * WHY THE RH LAW WAS NOT ENOUGH. It regulates RH measured by the SHT45 on
+ * the heated island, i.e. at a PCB temperature, not at the cell. Published
+ * DEW_MARGIN is tip minus dew point and has the same blindness
+ * (DEW-MARGIN-IS-BLIND.md): every reference sat on the self-heated copper.
+ * Measured 2026-09-11 15:18 UTC in the bath: tip 77.7 C, cell side 74.9 C,
+ * gas dew point ~76.2 C - the cell was condensing with the tip reporting
+ * +1.5 K of margin.
+ *
+ * WHAT IT REGULATES. margin = T_cell - Td(T_chamber, RH). The dew point is a
+ * property of the gas, and absolute humidity survives the island's
+ * self-heating, so the SHT45's RH at its own temperature still gives the
+ * gas dew point; only the SURFACE it is compared against changes, from the
+ * tip to the cell side. Positive error (margin short of 4 K) asks for duty.
+ *
+ * WHAT BOUNDS IT, and "margin wins, up to the 80 C cap" read literally. The
+ * error is min(margin shortfall, tip ceiling room), so the loop holds the tip
+ * at O2P_HEATER_DEW_TIP_CEIL_C100 when the margin cannot be met - which a
+ * saturated gas near 76 C guarantees, because the cell side gains only ~0.4 K
+ * per K of tip. The ceiling is a kelvin below the 80.00 C clamp so the clamp
+ * stays a backstop rather than becoming the control mechanism (the argument
+ * at O2P_HEATER_TIP_LIMIT_C100). The clamp itself is 80.00 C under this law
+ * whatever SAFETY says. Above the cell's 60 C rating the margin still wins,
+ * per the same answer.
+ *
+ * WHEN IT IS IN COMMAND. The autonomous humidity-side slot - no override, no
+ * stored tip setpoint, RH consent (0x0048) - and a valid cell reading. With
+ * the cell invalid the RH law runs exactly as before; the mode tag restarts
+ * the integrator on every hand-over.
+ *
+ * Its sensors, per the per-law blind rule: RH and chamber temperature are its
+ * control quantity (the dew point), and the tip is its only bound - so NO_RH,
+ * NO_CHAMBER and NO_TIP blind it; SAFETY annotates (the tip clamp is 80.00
+ * here unconditionally, the "annotate and regulate (keep <=80 C)" ruling).
+ *
+ * The Magnus fit is stated to ~60 C; a bath or pile at 75 C is extrapolation
+ * (psychro.h). All four numbers are compile-time: PROVISIONAL gains for an
+ * unmeasured plant. Error in 0.01 K, output in 0.01 % duty: kp = 5 asks 20 %
+ * for a 4 K shortfall, ki = 0.05 integrates 0.2 %/s at that error (Ti 100 s,
+ * slow on purpose - the cell side lags the tip). */
+#define O2P_HEATER_DEW_MARGIN_K100    400
+#define O2P_HEATER_DEW_TIP_CEIL_C100  7900
+#define O2P_HEATER_DEW_KP_X100        500u
+#define O2P_HEATER_DEW_KI_X100        5u
+/* How long main.c bridges the last accepted cell-side reading. Its glitch
+ * filter withholds up to five 1 Hz readings after a >3 K jump; without a
+ * bridge each of those would hand the loop to the RH law and back, restarting
+ * the integrator twice. 10 s covers that and no more: the cell side moves
+ * slowly, and past it the RH law takes over. */
+#define O2P_HEATER_CELL_MAX_AGE_S     10u
+
 
 typedef struct {
     uint16_t setpoint_x100;    /* target chamber RH, 0.01 %RH */
@@ -337,7 +392,10 @@ typedef struct {
      * "off" at zero. */
     bool     test_override;
     uint16_t test_duty_x100;   /* 0.01 %, clamped to max_duty_x100 */
-    /* HEATER_RH_CONSENT holds its magic. Gates the RH loop ONLY.
+    /* HEATER_RH_CONSENT holds its magic. Gates the RH loop ONLY - and, since
+     * FW 0x0013, the dew-margin law that takes the RH loop's slot whenever
+     * the cell-side reading is valid (O2P_HEATER_DEW_MARGIN_K100). Same
+     * autonomous slot, same authorisation; no new register.
      *
      * The heater used to be compiled out, so O2P_HB_NOT_COMPILED refused
      * every path whatever the stored configuration said. Once the ring is
@@ -425,6 +483,12 @@ typedef struct {
     bool     die_valid;
     int16_t  t_die_c100;
     bool     supply_ok;
+    /* The cell-side TMP117 (T_EXT, on the cell enclosure's side far from the
+     * pins), bridged by main.c for O2P_HEATER_CELL_MAX_AGE_S. The dew-margin
+     * law's reference surface; while it is invalid the RH law is in command
+     * instead. A zero-initialised caller gets "no cell", i.e. the RH law. */
+    bool     cell_valid;
+    int16_t  t_cell_c100;
 } o2p_heater_in_t;
 
 typedef struct {
@@ -465,6 +529,10 @@ enum {
      * and different authorisation. Sliding between them with a wound-up
      * integral would carry a bench run's history into an unattended one. */
     O2P_HEATER_MODE_TIP_AUTO = 3u,
+    /* The dew-margin law (FW 0x0013). Its own tag because its error is in
+     * kelvin of margin while the RH law it replaces is in %RH: an integral
+     * carried between them would be in the wrong units. */
+    O2P_HEATER_MODE_DEW = 4u,
 };
 
 typedef struct {

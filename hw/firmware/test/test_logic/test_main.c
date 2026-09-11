@@ -4598,6 +4598,279 @@ static void test_persistent_tip_loop_regulates_through_no_chamber(void)
     TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_DT_LIMIT);
 }
 
+/* ---------------------------------------------- the dew-margin law (0x0013) */
+
+/* Baseline for the dew-margin law: hin_healthy() plus a valid cell-side
+ * reading 2 K below the gas dew point. Chamber 54.00 C at 95.00 %RH gives
+ * Td = 52.95 C (Magnus 17.62/243.12), so the cell at 50.95 C has -2.00 K of
+ * margin - 6 K short of the 4 K target. Tip 55.00 C: 24 K under the ceiling.
+ * The die stays at hin_healthy()'s 57.20 C, above the blind gate, so any
+ * duty seen here came from the regulator, not the fallback.
+ *
+ * Tests that move the tip move the chamber with it: DT_LIMIT (tip - chamber
+ * >= 4 K) is a hard refusal, and a hot tip over a 54 C chamber would trip it
+ * and prove nothing about this law. */
+static o2p_heater_in_t hin_dew(void)
+{
+    o2p_heater_in_t in = hin_healthy();
+    in.cell_valid = true;
+    in.t_cell_c100 = 5095;
+    return in;
+}
+
+static uint16_t dew_step_fresh(const o2p_heater_cfg_t *cfg,
+                               const o2p_heater_in_t *in,
+                               o2p_heater_out_t *out)
+{
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_ctl_step(&st, cfg, in, 0u, out);
+    return out->duty_x100;
+}
+
+static void test_dew_law_heats_a_cell_short_of_margin(void)
+{
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_dew();
+    o2p_heater_out_t out;
+
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_EQUAL_UINT8(O2P_HEATER_MODE_DEW, st.last_mode);
+    /* No refusal, no blind, no IDLE - just the sentinel annotation. */
+    TEST_ASSERT_EQUAL_UINT16(O2P_HB_TIP_DISARMED, out.block);
+    TEST_ASSERT_TRUE(out.duty_x100 > 0u);
+}
+
+static void test_dew_law_idles_with_margin_to_spare(void)
+{
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_dew();
+    o2p_heater_out_t out;
+
+    /* Td = 52.95 C; the cell 5 K above it has a kelvin more than the target. */
+    in.t_cell_c100 = 5795;
+    TEST_ASSERT_EQUAL_UINT16(0u, dew_step_fresh(&cfg, &in, &out));
+    TEST_ASSERT_EQUAL_UINT16(O2P_HB_TIP_DISARMED | O2P_HB_IDLE, out.block);
+}
+
+static void test_dew_law_reads_the_cell_not_the_tip_or_the_rh_setpoint(void)
+{
+    /* The discriminating case: 80 %RH is BELOW the RH law's 85 % setpoint, so
+     * the RH law idles; and the tip at 57 C sits 7.5 K above the dew point, so
+     * a tip-referenced margin looks comfortable. Only the cell - 2 K below
+     * Td = 49.47 C - says the membrane is condensing. */
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_dew();
+    o2p_heater_out_t out;
+    in.rh_x100 = 8000u;
+    in.t_tip_c100 = 5700;
+    in.t_cell_c100 = 4747;
+
+    TEST_ASSERT_TRUE_MESSAGE(dew_step_fresh(&cfg, &in, &out) > 0u,
+        "a cell below the dew point must be heated whatever the tip and RH say");
+    TEST_ASSERT_EQUAL_UINT16(O2P_HB_TIP_DISARMED, out.block);
+
+    in.cell_valid = false;   /* the same probe with no cell reading */
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, dew_step_fresh(&cfg, &in, &out),
+        "without a cell the RH law is in command, and 80 %RH is under its setpoint");
+    TEST_ASSERT_EQUAL_UINT16(O2P_HB_TIP_DISARMED | O2P_HB_IDLE, out.block);
+}
+
+static void test_dew_law_falls_back_to_the_rh_law_without_a_cell(void)
+{
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_dew();
+    o2p_heater_out_t out;
+
+    in.cell_valid = false;
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_EQUAL_UINT8(O2P_HEATER_MODE_RH, st.last_mode);
+    TEST_ASSERT_TRUE(out.duty_x100 > 0u);   /* 95 %RH: the RH law heats */
+}
+
+static void test_dew_law_hand_over_restarts_the_integrator(void)
+{
+    /* An integral wound up in 0.01 %RH is meaningless in 0.01 K of margin. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_dew();
+    o2p_heater_out_t out;
+
+    in.cell_valid = false;
+    for (uint32_t t = 0u; t < 30u; t++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+    }
+    TEST_ASSERT_TRUE(st.integ > 1000.0f);   /* 10 %RH x ki 0.10 x 30 s */
+
+    in.cell_valid = true;
+    o2p_heater_ctl_step(&st, &cfg, &in, 30u, &out);
+    TEST_ASSERT_EQUAL_UINT8(O2P_HEATER_MODE_DEW, st.last_mode);
+    /* One second of dew-law integration from zero: ki 0.05 x ~600 = ~30. */
+    TEST_ASSERT_FLOAT_WITHIN(1.0f, 30.0f, st.integ);
+}
+
+static void test_dew_law_regulates_through_safety(void)
+{
+    /* The steam-bath configuration: therm thresholds lost, tip valid. Under
+     * the RH law SAFETY blinds, and the die gate then closes the blind path -
+     * which is why the heater sat at zero. The dew law regulates instead. */
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_dew();
+    o2p_heater_out_t out;
+    in.safety_armed = false;
+
+    TEST_ASSERT_TRUE(dew_step_fresh(&cfg, &in, &out) > 0u);
+    TEST_ASSERT_TRUE((out.block & O2P_HB_SAFETY) != 0u);
+    TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_BLIND);
+
+    in.cell_valid = false;   /* the RH law, same inputs: refused, die-gated */
+    TEST_ASSERT_EQUAL_UINT16(0u, dew_step_fresh(&cfg, &in, &out));
+}
+
+static void test_dew_law_clamps_the_tip_at_80c_even_with_safety_armed(void)
+{
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_dew();
+    o2p_heater_out_t out;
+    TEST_ASSERT_TRUE(in.safety_armed);
+
+    in.t_tip_c100 = 8000;
+    in.t_chamber_c100 = 7900;
+    in.t_cell_c100 = 5000;   /* margin far short: the law wants heat */
+    TEST_ASSERT_EQUAL_UINT16(0u, dew_step_fresh(&cfg, &in, &out));
+    TEST_ASSERT_TRUE((out.block & O2P_HB_TIP_LIMIT) != 0u);
+    TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_DT_LIMIT);
+
+    /* The contrast: the RH law with safety armed clamps at 82.00, not 80.00. */
+    in.cell_valid = false;
+    TEST_ASSERT_TRUE(dew_step_fresh(&cfg, &in, &out) > 0u);
+    TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_TIP_LIMIT);
+}
+
+static void test_dew_law_holds_the_tip_under_its_79c_ceiling(void)
+{
+    /* Margin still short, tip between the ceiling and the clamp: the ceiling
+     * wins the min(), so the regulator backs off before the clamp is needed. */
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_dew();
+    o2p_heater_out_t out;
+
+    in.t_tip_c100 = 7950;
+    in.t_chamber_c100 = 7850;
+    TEST_ASSERT_EQUAL_UINT16(0u, dew_step_fresh(&cfg, &in, &out));
+    TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_TIP_LIMIT);
+    TEST_ASSERT_TRUE((out.block & O2P_HB_IDLE) != 0u);
+
+    /* Half a kelvin under the ceiling: kp 5 x 50 = 250, plus one second of
+     * integral (ki 0.05 x 50 = 2.5). */
+    in.t_tip_c100 = 7850;
+    in.t_chamber_c100 = 7750;
+    TEST_ASSERT_UINT16_WITHIN(2u, 253u, dew_step_fresh(&cfg, &in, &out));
+}
+
+static void test_dew_law_without_a_tip_does_not_regulate(void)
+{
+    /* The tip is the law's only bound: an unevaluable cap is not a cap. */
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_dew();
+    o2p_heater_out_t out;
+    in.tip_valid = false;
+
+    TEST_ASSERT_EQUAL_UINT16(0u, dew_step_fresh(&cfg, &in, &out));
+    TEST_ASSERT_TRUE((out.block & O2P_HB_NO_TIP) != 0u);
+
+    in.t_die_c100 = 3000;   /* die under the gate: the blind fallback runs */
+    TEST_ASSERT_EQUAL_UINT16(O2P_HEATER_BLIND_DUTY_X100,
+                             dew_step_fresh(&cfg, &in, &out));
+    TEST_ASSERT_TRUE((out.block & O2P_HB_BLIND) != 0u);
+}
+
+static void test_dew_law_needs_its_dew_point(void)
+{
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_dew();
+    o2p_heater_out_t out;
+
+    in.chamber_valid = false;   /* annotates the RH law; refuses this one */
+    TEST_ASSERT_EQUAL_UINT16(0u, dew_step_fresh(&cfg, &in, &out));
+    TEST_ASSERT_TRUE((out.block & O2P_HB_NO_CHAMBER) != 0u);
+
+    in = hin_dew();
+    in.rh_valid = false;
+    TEST_ASSERT_EQUAL_UINT16(0u, dew_step_fresh(&cfg, &in, &out));
+    TEST_ASSERT_TRUE((out.block & O2P_HB_NO_RH) != 0u);
+
+    /* Valid-flagged humidities the Magnus form cannot take must not read as
+     * an infinite margin. */
+    static const uint16_t bad_rh[] = { 0u, 10001u, 65535u };
+    for (unsigned i = 0u; i < sizeof bad_rh / sizeof bad_rh[0]; i++) {
+        in = hin_dew();
+        in.rh_x100 = bad_rh[i];
+        TEST_ASSERT_EQUAL_UINT16(0u, dew_step_fresh(&cfg, &in, &out));
+        TEST_ASSERT_TRUE((out.block & O2P_HB_NO_RH) != 0u);
+    }
+}
+
+static void test_dew_law_needs_rh_consent(void)
+{
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_dew();
+    o2p_heater_out_t out;
+    cfg.rh_consent = false;
+
+    TEST_ASSERT_EQUAL_UINT16(0u, dew_step_fresh(&cfg, &in, &out));
+    TEST_ASSERT_TRUE((out.block & O2P_HB_NO_CONSENT) != 0u);
+}
+
+static void test_dew_law_yields_to_a_stored_tip_setpoint(void)
+{
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_tip_auto();
+    o2p_heater_in_t in = hin_dew();
+    o2p_heater_out_t out;
+
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_EQUAL_UINT8(O2P_HEATER_MODE_TIP_AUTO, st.last_mode);
+}
+
+static void test_dew_law_duty_is_monotonic_in_margin(void)
+{
+    /* Guard checklist 2: as the cell gets colder (or the gas wetter) the
+     * duty must never fall, out to the far tail. Fresh state per point so
+     * the integrator does not blur the static map. Tip 70 C over a 69 C
+     * chamber: 9 K of ceiling room, no DT_LIMIT. */
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+    uint16_t prev = 0u;
+    for (int16_t cell = 7000; cell >= -4000; cell = (int16_t)(cell - 250)) {
+        o2p_heater_in_t in = hin_dew();
+        in.t_tip_c100 = 7000;
+        in.t_chamber_c100 = 6900;
+        in.t_cell_c100 = cell;
+        const uint16_t d = dew_step_fresh(&cfg, &in, &out);
+        TEST_ASSERT_TRUE_MESSAGE(d >= prev, "duty fell as the cell got colder");
+        prev = d;
+    }
+    TEST_ASSERT_TRUE(prev > 0u);
+
+    prev = 0u;
+    for (uint16_t rh = 100u; rh <= 10000u; rh = (uint16_t)(rh + 100u)) {
+        o2p_heater_in_t in = hin_dew();
+        in.rh_x100 = rh;
+        in.t_cell_c100 = 5400;
+        const uint16_t d = dew_step_fresh(&cfg, &in, &out);
+        TEST_ASSERT_TRUE_MESSAGE(d >= prev, "duty fell as the gas got wetter");
+        prev = d;
+    }
+    TEST_ASSERT_TRUE(prev > 0u);
+}
+
 static void test_the_bench_override_outranks_a_stored_setpoint(void)
 {
     /* Precedence. An armed override means an operator is at the bench NOW,
@@ -6694,7 +6967,11 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    /* 0x0012: poke mailbox 0x0198 and wide poke 0x01B0 - the WRITE
+    /* 0x0013: the dew-margin heater law - the autonomous humidity-side slot
+     *         regulates cell-side T_EXT to 4 K above the gas dew point
+     *         whenever T_EXT is valid (Fab's order, 2026-09-11); no new
+     *         register, HEATER_BLOCK bits unchanged, the law is new.
+     * 0x0012: poke mailbox 0x0198 and wide poke 0x01B0 - the WRITE
      *         counterpart of the peek (Fab's order, 2026-09-11); SRAM
      *         .data/.bss writes only, flash/peripherals/SHARED refused.
      * 0x0011: the supply veto is REMOVED - O2P_HB_SUPPLY is annotation-only
@@ -6706,7 +6983,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         steps the thermal mass cannot make are rejected for a cycle.
      * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
      *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
-    TEST_ASSERT_EQUAL_HEX16(0x0012u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x0013u, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_HEX16(0xC000u,
         (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
     /* The staleness cut must win the race against the watchdog's fastest
@@ -8501,6 +8778,19 @@ int main(void)
     RUN_TEST(test_persistent_tip_loop_does_not_need_humidity);
     RUN_TEST(test_persistent_tip_loop_still_honours_the_dt_clamp);
     RUN_TEST(test_persistent_tip_loop_regulates_through_no_chamber);
+    RUN_TEST(test_dew_law_heats_a_cell_short_of_margin);
+    RUN_TEST(test_dew_law_idles_with_margin_to_spare);
+    RUN_TEST(test_dew_law_reads_the_cell_not_the_tip_or_the_rh_setpoint);
+    RUN_TEST(test_dew_law_falls_back_to_the_rh_law_without_a_cell);
+    RUN_TEST(test_dew_law_hand_over_restarts_the_integrator);
+    RUN_TEST(test_dew_law_regulates_through_safety);
+    RUN_TEST(test_dew_law_clamps_the_tip_at_80c_even_with_safety_armed);
+    RUN_TEST(test_dew_law_holds_the_tip_under_its_79c_ceiling);
+    RUN_TEST(test_dew_law_without_a_tip_does_not_regulate);
+    RUN_TEST(test_dew_law_needs_its_dew_point);
+    RUN_TEST(test_dew_law_needs_rh_consent);
+    RUN_TEST(test_dew_law_yields_to_a_stored_tip_setpoint);
+    RUN_TEST(test_dew_law_duty_is_monotonic_in_margin);
     RUN_TEST(test_the_bench_override_outranks_a_stored_setpoint);
     RUN_TEST(test_a_v7_record_does_not_arm_a_temperature_loop);
     RUN_TEST(test_tip_setpoint_and_consent_are_bounded_on_the_wire);

@@ -1,5 +1,7 @@
 #include "heater_ctl.h"
 
+#include "psychro.h"
+
 #include <stddef.h>
 
 void o2p_heater_ctl_reset(o2p_heater_state_t *st)
@@ -29,7 +31,11 @@ void o2p_heater_ctl_reset(o2p_heater_state_t *st)
  * o2p_heater_ctl_step() for the annotation/refusal split; defined after this
  * function, declared here. */
 static bool tip_law_in_command(const o2p_heater_cfg_t *cfg);
-static uint16_t law_wet_mask(const o2p_heater_cfg_t *cfg);
+static bool dew_law_in_command(const o2p_heater_cfg_t *cfg,
+                               const o2p_heater_in_t *in);
+static bool gas_dew_point_c100(const o2p_heater_in_t *in, float *out_c100);
+static uint16_t law_wet_mask(const o2p_heater_cfg_t *cfg,
+                             const o2p_heater_in_t *in);
 static uint16_t interlocks(o2p_heater_state_t *st,
                            const o2p_heater_cfg_t *cfg,
                            const o2p_heater_in_t *in)
@@ -70,6 +76,16 @@ static uint16_t interlocks(o2p_heater_state_t *st,
          * into the membrane while the only autonomous limit is unprogrammed
          * is precisely what DESIGN.md:47-51 refuses to credit. */
         block |= O2P_HB_SAFETY;
+    }
+    if (dew_law_in_command(cfg, in) && in->rh_valid && in->chamber_valid) {
+        /* The dew-margin law's control quantity is the gas dew point. A
+         * humidity the Magnus form cannot take (<= 0 or > 100 %RH) is no
+         * humidity for this law - raised under the RH sensor's own bit
+         * rather than read as a comfortable margin. */
+        float td_c100;
+        if (!gas_dew_point_c100(in, &td_c100)) {
+            block |= O2P_HB_NO_RH;
+        }
     }
     if (!in->rh_valid && !cfg->test_override && !cfg->tip_sp_valid) {
         /* No humidity means no controlled quantity. Note this also covers the
@@ -114,10 +130,16 @@ static uint16_t interlocks(o2p_heater_state_t *st,
      * backstop known down (Fab's order 2026-09-11: "unattended loop:
      * annotate and regulate (keep <=80 C)"). NOT a permanent change: the
      * normal limit resumes the moment safety_armed does or no tip law is
-     * in command. */
+     * in command.
+     *
+     * The dew-margin law (FW 0x0013) clamps at 80.00 C UNCONDITIONALLY: it
+     * is the law that deliberately drives the tip toward its cap in
+     * saturated gas ("margin, up to the 80 C tip cap", Fab 2026-09-11), so
+     * the cap is part of the law, not a SAFETY-dependent tightening. */
     if (in->tip_valid) {
         const int32_t tip_limit =
-            (!in->safety_armed && tip_law_in_command(cfg))
+            ((!in->safety_armed && tip_law_in_command(cfg)) ||
+             dew_law_in_command(cfg, in))
                 ? (int32_t)O2P_HEATER_TIP_LIMIT_ANNOTATED_C100
                 : (int32_t)O2P_HEATER_TIP_LIMIT_C100;
         if (st->tip_clamped) {
@@ -522,7 +544,31 @@ static bool tip_law_in_command(const o2p_heater_cfg_t *cfg)
  * RUNAWAY that zeroed the blind path - is the state where a sensor verdict
  * is what leaves a wet board cold, which is the one situation the fallback
  * exists to prevent. */
-static uint16_t law_wet_mask(const o2p_heater_cfg_t *cfg)
+/* The dew-margin law (FW 0x0013) holds the autonomous humidity-side slot -
+ * no override, no stored tip setpoint - whenever the cell-side reading is
+ * valid. See O2P_HEATER_DEW_MARGIN_K100. */
+static bool dew_law_in_command(const o2p_heater_cfg_t *cfg,
+                               const o2p_heater_in_t *in)
+{
+    return !cfg->test_override && !cfg->tip_sp_valid && in->cell_valid;
+}
+
+/* The gas dew point, in 0.01 C, from the SHT45's RH at the chamber
+ * temperature. False if the Magnus form cannot take the humidity; the caller
+ * owns validity of the two readings. */
+static bool gas_dew_point_c100(const o2p_heater_in_t *in, float *out_c100)
+{
+    float td_c;
+    if (!o2p_dewpoint_c((float)in->t_chamber_c100 * 0.01f,
+                        (float)in->rh_x100 * 0.01f, &td_c)) {
+        return false;
+    }
+    *out_c100 = td_c * 100.0f;
+    return true;
+}
+
+static uint16_t law_wet_mask(const o2p_heater_cfg_t *cfg,
+                             const o2p_heater_in_t *in)
 {
     uint16_t wet = O2P_HB_RUNAWAY;
     if (tip_law_in_command(cfg)) {
@@ -531,6 +577,13 @@ static uint16_t law_wet_mask(const o2p_heater_cfg_t *cfg)
         /* Open loop: no control quantity to lose; SAFETY keeps its founding
          * blind membership here. */
         wet |= O2P_HB_SAFETY;
+    } else if (dew_law_in_command(cfg, in)) {
+        /* The dew-margin law: RH and chamber temperature ARE its control
+         * quantity (the dew point), and the tip is its only bound - an
+         * unevaluable 80 C cap is not a cap, and this is the law that runs
+         * the tip up against it. SAFETY annotates: the 80.00 C clamp is
+         * unconditional here (interlocks()). */
+        wet |= O2P_HB_NO_RH | O2P_HB_NO_CHAMBER | O2P_HB_NO_TIP;
     } else {
         /* The RH law: its own sensor's absence blinds it. */
         wet |= O2P_HB_NO_RH | O2P_HB_SAFETY;
@@ -544,7 +597,7 @@ static uint16_t blind_duty(const o2p_heater_cfg_t *cfg,
                            const o2p_heater_in_t *in,
                            uint16_t refusing)
 {
-    const uint16_t wet = law_wet_mask(cfg);
+    const uint16_t wet = law_wet_mask(cfg, in);
     if ((refusing & hard_mask) != 0u || (refusing & wet) == 0u) {
         return 0u;
     }
@@ -604,7 +657,7 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
      * sensorless case, blind), NO_RH still refuses the RH law, and every
      * hard bit refuses as before. */
     const uint16_t refusing =
-        (uint16_t)(block & (hard_mask | law_wet_mask(cfg)));
+        (uint16_t)(block & (hard_mask | law_wet_mask(cfg, in)));
     if (refusing != 0u) {
         /* Zero the integrator rather than freezing it. Freezing would make the
          * loop slam to whatever it had wound up to the moment an interlock
@@ -661,6 +714,28 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
         duty = pi_step(st, O2P_HEATER_MODE_TIP_AUTO, cfg->session, e,
                        (float)cfg->test_kp_x100 * 0.01f,
                        (float)cfg->test_ki_x100 * 0.01f,
+                       max_duty);
+    } else if (dew_law_in_command(cfg, in)) {
+        /* THE DEW-MARGIN LAW (FW 0x0013; see O2P_HEATER_DEW_MARGIN_K100).
+         * Positive error means the cell side is short of margin - more duty.
+         * The min() with the tip's room under its ceiling is "margin, up to
+         * the 80 C tip cap": when the margin cannot be met, the loop holds
+         * the tip at the ceiling instead of bouncing it off the clamp.
+         *
+         * The dew point is guaranteed evaluable here: rh and chamber invalid
+         * are NO_RH/NO_CHAMBER, an unevaluable Magnus input is NO_RH
+         * (interlocks()), and all three are in this law's wet mask, which
+         * returned above. So is the tip, for the same reason via NO_TIP. */
+        float td_c100 = 0.0f;
+        (void)gas_dew_point_c100(in, &td_c100);
+        const float margin_short = (float)O2P_HEATER_DEW_MARGIN_K100 -
+                                   ((float)in->t_cell_c100 - td_c100);
+        const float tip_room = (float)((int32_t)O2P_HEATER_DEW_TIP_CEIL_C100 -
+                                       (int32_t)in->t_tip_c100);
+        const float e = (margin_short < tip_room) ? margin_short : tip_room;
+        duty = pi_step(st, O2P_HEATER_MODE_DEW, cfg->session, e,
+                       (float)O2P_HEATER_DEW_KP_X100 * 0.01f,
+                       (float)O2P_HEATER_DEW_KI_X100 * 0.01f,
                        max_duty);
     } else {
         /* Positive error means too humid, which means not enough heat. */

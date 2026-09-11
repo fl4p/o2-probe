@@ -1000,7 +1000,7 @@ enum {
  *
  * For "which build is this", read BUILD_ID (0x0028/0x0029) - this number is
  * hand-maintained and says nothing about the binary. */
-#define O2P_FW_VERSION 0x0012u  /* v0.18 - poke mailbox 0x0198 + wide poke 0x01B0 (Fab 2026-09-11: "the equivalent write command of the peek" - SRAM .data/.bss writes only, flash/peripherals/SHARED/stack refused); v0.17 - supply veto removed (Fab 2026-09-11: <1 W, blind already heated through it; O2P_HB_SUPPLY now annotation-only); v0.16 was compost-readiness: fresh RH consent, HB IDLE/TIP_DISARMED, stale cut 2 s + STALE bit, tip glitch reject, VREF settle on recovery */
+#define O2P_FW_VERSION 0x0013u  /* v0.19 - dew-margin heater law (Fab 2026-09-11, steam bath: "fix it so it keeps a reasonable dew-margin"): cell-side TMP117 minus gas dew point held at 4 K, tip ceiling 79 C / clamp 80 C, RH law as fallback without a cell reading; v0.18 - poke mailbox 0x0198 + wide poke 0x01B0 (Fab 2026-09-11: "the equivalent write command of the peek" - SRAM .data/.bss writes only, flash/peripherals/SHARED/stack refused); v0.17 - supply veto removed (Fab 2026-09-11: <1 W, blind already heated through it; O2P_HB_SUPPLY now annotation-only); v0.16 was compost-readiness: fresh RH consent, HB IDLE/TIP_DISARMED, stale cut 2 s + STALE bit, tip glitch reject, VREF settle on recovery */
 
 /* Overridden by tools/pio_build_id.py on every target build. The default is
  * reached only by the host test build, and means "no stamp", never a commit. */

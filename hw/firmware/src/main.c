@@ -1378,6 +1378,26 @@ static void cycle_publish(o2p_snapshot_t *s)
             }
         }
 
+        /* CELL-SIDE TEMPERATURE FOR THE DEW-MARGIN LAW (FW 0x0013), bridged
+         * for O2P_HEATER_CELL_MAX_AGE_S across the ext glitch filter's
+         * withheld readings - see that constant. No data-ready freshness
+         * check exists for the ext part (unlike the tip): a frozen
+         * conversion engine would hold a constant margin error. What bounds
+         * that is the tip, which IS freshness-checked - the law holds the
+         * tip at its 79 C ceiling and clamps at 80 C whatever the cell
+         * reads. */
+        static int16_t s_heater_cell_c100;
+        static uint32_t s_heater_cell_taken_s;
+        static bool s_heater_have_cell;
+        if (g_cyc.ext_ok) {
+            s_heater_cell_c100 = g_cyc.t_ext;
+            s_heater_cell_taken_s = g_uptime_s;
+            s_heater_have_cell = true;
+        }
+        const bool heater_cell_ok = s_heater_have_cell &&
+            (uint32_t)(g_uptime_s - s_heater_cell_taken_s) <=
+                O2P_HEATER_CELL_MAX_AGE_S;
+
         const o2p_heater_in_t hin = {
             .drive_possible   = o2p_heater_compiled_in(),
             .safety_armed     = o2p_tmp117_safety_armed(),
@@ -1412,6 +1432,9 @@ static void cycle_publish(o2p_snapshot_t *s)
              * duty. See heater_ctl.c interlocks(). */
             .supply_ok        = (g_cyc.faults &
                                  (O2P_F_VA_LOW | O2P_F_VIN_LOW)) == 0u,
+            /* The dew-margin law's reference surface; bridged above. */
+            .cell_valid       = heater_cell_ok,
+            .t_cell_c100      = s_heater_cell_c100,
         };
         o2p_heater_out_t hout = {0u, 0u};
         o2p_heater_ctl_step(&g_heat, &hcfg, &hin, g_uptime_s, &hout);
