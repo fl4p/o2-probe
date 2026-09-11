@@ -227,17 +227,20 @@ Nothing in the telemetry measures the cell.
 > (quadratic 0-50 °C, ≈ 2150 ppm/K of I(24)), ≈ +0.10 %/K over 40-60 °C; the
 > Issue 1 mean agrees within ~0.1 %. Sweep: ambient warm-up 12:09-12:53 UTC,
 > heater 0, T_EXT 22.06→26.32 °C, T_CHAMBER 22.06→28.21, T_AFE 23.09→29.29,
-> RH ≈ 83 % throughout, so vapour fraction 2.31→3.29 %. Cell current
-> 99.78→100.24 µA (medians of 6) = **+0.47 %, ±~0.5 % (1σ)**; 60 s sample
-> sd 0.69 µA. Predicted: chart +0.92 % + AFE +0.14 % + dilution at
+> RH ≈ 83 % throughout, so vapour fraction 2.31→3.29 % (total pressure
+> ASSUMED 950 hPa - not measured). Cell current 99.78→100.24 µA (medians of the
+> 6 samples 12:03-12:08 and of the last 6) = **+0.47 %**; about ±0.5 % 1σ if
+> the noise is independent (0.69 µA first-difference estimate; plain sample sd
+> 0.79 µA). Predicted: chart +0.92 % + AFE +0.14 % + dilution at
 > α = 0 / 0.4 / 1 (0 / −0.39 / −1.00 %) = +1.06 / +0.67 / +0.06 %. Slope on
 > T_EXT +0.31 / +0.40 / +0.54 %/K for the same α, 95 % intervals ≈ ±0.2.
 > **The data cannot discriminate**: one unsettled 4 K ramp, humidity moving,
 > and noise the size of the effect. The AFE/cell split is now *measurable* -
 > T_AFE and the cell-shell T_EXT are both logged - but this run did not
 > *excite* it: corr(T_AFE, T_EXT) = 0.993, the difference T_AFE − T_EXT moved
-> only 1.6 K, and a two-term fit returns AFE −4200 / cell-shell +8300 ppm/K
-> with 95 % intervals of ±~25 000 ppm/K. `o2p_tempco --cell-temp ext` agrees:
+> only 1.6 K, and a two-term fit (α = 0) returns AFE −4200 ppm/K, 95 %
+> interval −19 800…+29 900, and cell-shell +8300 ppm/K, −29 900…+26 800
+> (5-sample block bootstrap, 3000 draws). `o2p_tempco --cell-temp ext` agrees:
 > unevaluable (T_AFE span 5.7 < 8 K), and split-unevaluable (collinear) with
 > the gate lowered. A room excursion moves both; the split needs an excursion
 > that warms or cools one end only (see kb
