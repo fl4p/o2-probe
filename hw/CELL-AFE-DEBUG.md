@@ -739,7 +739,36 @@ the zero follows the heater being armed or driving, not a static open/leak —
 mechanism unidentified (ADS mux/timing under heater PWM is one candidate, not
 checked). Separately, Fab metered **VIN = 13.11 V at ~21:08** against the
 published 10710 mV at duty 0: the published value is 18 % low (ratio 1.224) —
-divider/scaling check in progress (farming-f7), not concluded here. And the 18:04–18:26 bus
+divider/scaling check in progress (farming-f7), not concluded here.
+
+**Correction to the correction, 21:25 — the zero does not follow the heater
+either.** The 21:12 claim came from 10-min VictoriaMetrics steps, which skipped
+the counter-examples. At 1-min steps (`gas_vin_mv` vs `gas_heater_duty_pct`):
+
+| time | `vin_mv` | duty % | note |
+|---|--:|--:|---|
+| 18:27 | 0 | 33 | first zero after the 18:25 power-on reset |
+| 18:37 | 1740 | 100 | a near-zero-scale value, not the rail |
+| 19:38–20:45 | 0 (7, 52 once each) | 0–2.6 | heater idle, stored loop armed |
+| 20:48 | 0 | 100 | after the 20:45 power-on reset |
+| **21:03** | **10560** | **100** | valid while driving (farming-f7: also 21:02:15/21:03:16, and 10552 at 21:05:54) |
+| 21:08 | 10710 | 0 | six reads 21:08:25–21:08:49, VREF 2498, VA 3288 |
+
+So the zero spans ~18:27–20:48 at every duty and recovered somewhere between
+20:48 and 21:03 — a window containing the 21:00:35 power-on reset and the board
+cooling after its 80 °C soak. **Mechanism unidentified.** A tap-to-ground leak
+that dried out is consistent with the timing; nothing measured isolates it.
+
+**The 18 % low reading is a separate, stable effect** (numbers: farming-f7).
+Fab metered 13.11 V at ~21:08 (measurement point not yet stated); the published
+10710 mV gives ratio 1.2241, i.e. a tap of 1428 mV against the design 1748 mV
+(13.11 V × 20k/150k). Equivalent hardware: R26 ≈ 163.6 k instead of 130 k, or an
+effective R27 ≈ 15.9 k (≈ 77 k tap-to-GND ∥ 20 k). ADC loading is excluded (ADS1119
+input current ±5 nA ≈ 0.1 mV across the 18.3 k source). A reference running 18 %
+high is excluded by VA_MON on the same external reference reading 3288 mV — true
+3V3A would be ~4.0 V. The valid readings on 09-10/09-11 all sit at 10.49–10.79 V,
+ratios 1.215–1.250 against 13.11 V: a stable gain error rather than a varying
+leak, **if** the supply is constant — which is unverified. And the 18:04–18:26 bus
 silence ended in a power-on reset (`gas_link_ok` 0 → 1 at 18:27, uptime
 restarted ~18:25) — firmware 0x0013 ruled out by a read-only review; board
 damage/power loss or a hand on the bench are the candidates, unresolved.
