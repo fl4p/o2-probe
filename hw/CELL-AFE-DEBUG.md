@@ -638,3 +638,44 @@ signature) and a duplicate instance spawned at 01:15 that could not
 bind 8923 and ran its BLE loop bare — likely the dangling CTRL session
 that refused every claim until its expiry. Standing rule for the two
 sessions: don't pkill the keeper, ask; one bus owner at a time.
+
+## 2026-09-11 morning — VA_MON: a false rail, cleaned off
+
+**`va_mv` is not a rail measurement you can trust on this board.** From 01:07 it
+fell 3282 → 2008 mV and latched `VA_LOW` for 7 h 54 min, muting oxygen entirely
+(`VA_LOW` ∈ `O2P_FAULTS_INVALIDATE_O2`). The rail was fine. Fab air-gunned and
+cleaned the board at 09:15 and it recovered **1338 → 3282 mV in a single frame**,
+back to its exact pre-fault value.
+
+Numbers for this file's purpose:
+
+| quantity | during the fault | after cleaning |
+|---|--:|--:|
+| `va_mv` (ADS AIN2, ÷2, ext. ref) | 2008–2168 | 3280–3284 |
+| `vin_mv` | 10485–10500 | 10642–10672 |
+| `vref_mv` (ADS, **internal** 2.048 V ref) | 2490 ± 2 | 2492 ± 2 |
+| `cell_ua` (ADS, same ext. ref as VA) | 100.5 → 103.65, smooth | 97–105 |
+| `afe_mv` | 944–990 | 933–990 |
+| `i2c_errs` / `ads_fail_count` | 0 / 0 | 0 / 0 |
+| `lmp_readback` | 0x0CCD | 0x0CCD |
+
+The arithmetic: a **~7.9 kΩ** leak from the 10k/10k divider midpoint
+(`hw_caps_rev_a.h:95-96`, ÷2) to ground puts the node at 1004 mV instead of
+1643 mV — 10k ∥ 7.9k = 4.40 k, 4.40/14.40 × 3282 = 1004. Cleanable without a bake,
+so surface contamination, unlike the `/VREF_TRIM` leak this file already records.
+
+**The rule this adds to the one at line 296.** That rule says `VA_MON` valid and
+`i2c_errs` zero prove nothing about the cell. The converse now also holds:
+**`VA_MON` invalid proves nothing about the rail.** VA_MON and the cell current
+share the ADS *and* the external VREF_TRIM reference (`main.c:829` and
+`main.c:1017`), while VREF_MON is converted against the ADS's internal 2.048 V
+reference (`main.c:664`, `ads1119.h:50`) — so VREF_MON healthy plus a physical
+cell current localizes any VA_MON excursion to the VA_MON *input node* alone.
+U4A is a follower off a tap on 3V3A (`SCHEMATIC-REVIEW.md:304`,
+`AFE-BRING-UP-POSTMORTEM.md:254`, `/VREF_TOP` metered 2.68 V at line 159), so it
+cannot output 2.49 V from a 2.01 V rail: that inequality is the whole diagnosis and
+it was available 8 h before the cleaning confirmed it.
+
+Full write-up, including the double-mute (`phase_rails()` re-arms settling every
+cycle, pinning `settle_s` at 900 while `settle_restarts` stays at 1 and hides it):
+`docs/2026-09-11-va-mon-collapse.md`.

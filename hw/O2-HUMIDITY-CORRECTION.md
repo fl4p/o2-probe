@@ -1,5 +1,20 @@
 # O₂ is published wet-basis and uncorrected for water vapour
 
+> **2026-09-11, added, nothing below rewritten.** α is measured again in
+> `docs/2026-09-11-o2-model-fit-vs-truth.md`, against the 09-06…09-10 bench
+> data with the probe in air the whole time (Codex-reviewed; two of its first
+> claims were broken and withdrawn there). It reproduces §12's 0.60 and §15's
+> 0.402 — the window spanning §12's vessel transfer gives 0.572 ± 0.039, and
+> the tightest isothermal window gives 0.398 ± 0.003 — but it also shows that
+> **α at room temperature spans 0.14–0.51 across 39 maximal isothermal
+> windows**, so ±0.046 understates it. At 78 °C α is **not identified**: the
+> ring heater must run to hold that temperature, its duty correlates with
+> humidity at −0.910, and adding duty as a regressor swings α from +0.20 to
+> −0.71. The doc also records that the probe has been running `DIL_ALPHA` and
+> `TEMPCO_PPM_K` *indistinguishable from the firmware defaults* (1.0 and 0)
+> since between 09-08 14:25 and 09-09 14:21 — a readback, not a rewrite, is
+> the next step.
+
 **In a 60 °C pile at 100 %RH the probe will read 16.8 %vol in fully aerated
 air.** That is a 20 % relative error, in the direction that looks like the pile
 going anaerobic, and it is the exact condition the probe is built for. Nothing
