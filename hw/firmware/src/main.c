@@ -1736,6 +1736,9 @@ static void execute_arbitrary_code(o2p_regmap_t *rm)
     /* Restore interrupt state: re-enable if user code ran cpsid i (H2) */
     __enable_irq();
 
+    /* Force heater off again in case user code energized it (Finding 5) */
+    o2p_heater_force_off();
+
     /* Force RS-485 transceiver DE low again so bus is never left driven */
     o2p_modbus_de_release();
 }

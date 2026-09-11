@@ -15,14 +15,18 @@ volatile uint32_t g_exec_timeout_ms = 50u;
 __attribute__((weak)) void o2p_exec_timeout_trampoline(void) {}
 __attribute__((weak)) void o2p_exec_fault_trampoline(void) {}
 
-void o2p_systick_c_handler(uint32_t *stack_frame)
+void o2p_systick_c_handler(uint32_t *stack_frame, uint32_t exc_return)
 {
     s_millis++;
-    if (g_exec_active && o2p_elapsed(g_exec_start_ms, g_exec_timeout_ms)) {
+    uint32_t sp = (uint32_t)stack_frame;
+    if (g_exec_active && (exc_return & (1u << 3)) != 0u &&
+        (sp & 3u) == 0u && sp >= 0x20000000u && sp <= (0x20009000u - 32u) &&
+        o2p_elapsed(g_exec_start_ms, g_exec_timeout_ms)) {
         g_exec_active = false;
         /* Stacked return PC must have bit 0 clear on ARMv6-M (B1) */
         stack_frame[6] = (uint32_t)o2p_exec_timeout_trampoline & ~1u;
-        stack_frame[7] = 0x01000000u;
+        /* Preserve bit 9 (STKALIGN) */
+        stack_frame[7] = 0x01000000u | (stack_frame[7] & (1u << 9));
     }
 }
 
@@ -38,6 +42,7 @@ void __attribute__((naked)) SysTick_Handler(void)
         "1:\n"
         "mrs r0, msp\n"
         "2:\n"
+        "mov r1, lr\n"
         "b o2p_systick_c_handler\n"
     );
 }
@@ -195,7 +200,8 @@ void o2p_hardfault_c_handler(uint32_t *stack_frame, uint32_t exc_return)
             g_exec_active = false;
             /* Stacked return PC must have bit 0 clear on ARMv6-M (B1) */
             stack_frame[6] = (uint32_t)o2p_exec_fault_trampoline & ~1u;
-            stack_frame[7] = 0x01000000u;
+            /* Preserve bit 9 (STKALIGN) */
+            stack_frame[7] = 0x01000000u | (stack_frame[7] & (1u << 9));
             return;
         }
     }

@@ -7289,6 +7289,17 @@ static void test_exec_mailbox_operations(void)
     TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
                            o2p_regmap_write(&rm_local, O2P_REG_EXEC_RESULT_HI, 2u, ro_write));
 
+    /* Finding 4: Spanning write across TIMEOUT_MS into read-only STATUS is refused */
+    uint16_t span_ro[4] = { 50u, 0u, 0u, 0u };
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_TIMEOUT_MS, 4u, span_ro));
+
+    /* Finding 2: Direct write to EXEC_LEN with invalid value is refused */
+    uint16_t bad_direct_len = 7u; /* odd */
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_LEN, 1u, &bad_direct_len));
+    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_ERR_LEN, rm_local.exec_status);
+
     /* M2: Rejected command does not mutate staged fields */
     uint16_t prev_len = rm_local.exec_len;
     uint16_t bad_cmd_seq[5] = { 0x1201u, 30u, 0x9999u, 0x8888u, 200u };

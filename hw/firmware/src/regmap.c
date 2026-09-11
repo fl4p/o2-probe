@@ -1319,8 +1319,8 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
             return O2P_MB_EX_DEVICE_BUSY;
         }
 
-        /* M3: Reject writes that target strictly read-only status/result registers */
-        if (addr >= O2P_REG_EXEC_STATUS && (addr + count) <= O2P_REG_EXEC_CODE_BASE) {
+        /* M3 / Finding 4: Reject any write overlapping read-only registers (STATUS, RESULT_HI, RESULT_LO) */
+        if (overlaps_block(addr, count, O2P_REG_EXEC_STATUS, 3u)) {
             return O2P_MB_EX_ILLEGAL_VALUE;
         }
 
@@ -1361,6 +1361,11 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
                     rm->exec_cmd = v;
                     break;
                 case O2P_REG_EXEC_LEN:
+                    /* Finding 2: Validate direct length writes */
+                    if (v < 2u || v > (O2P_REG_EXEC_CODE_COUNT * 2u) || (v & 1u) != 0u) {
+                        rm->exec_status = O2P_EXEC_STATUS_ERR_LEN;
+                        return O2P_MB_EX_ILLEGAL_VALUE;
+                    }
                     rm->exec_len = v;
                     break;
                 case O2P_REG_EXEC_PARAM_HI:
