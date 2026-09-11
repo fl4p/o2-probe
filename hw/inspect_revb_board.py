@@ -9,12 +9,12 @@ _APP = wx.AppConsole()
 import pcbnew
 
 
-def inspect(path):
+def inspect(path, *, tmp302=False):
     b = pcbnew.LoadBoard(str(path))
     if b is None or b.GetCopperLayerCount() != 2:
         raise ValueError('Expected a two-layer Rev B board')
     fps = {f.GetReference(): f for f in b.GetFootprints()}
-    if len(fps) != 99 or {'RV1', 'J5', 'F3'} & fps.keys():
+    if len(fps) != (101 if tmp302 else 99) or {'RV1', 'J5', 'F3'} & fps.keys() or ({'U16','C35'} <= fps.keys()) != tmp302:
         raise ValueError('Unexpected Rev B component inventory')
     drills = {'PTH': [], 'NPTH': []}
     def drill(position, size, angle, kind):
@@ -46,6 +46,6 @@ def inspect(path):
             'production_qualified': False}
 
 if __name__ == '__main__':
-    if len(sys.argv) != 3:
+    if len(sys.argv) not in (3,4) or (len(sys.argv)==4 and sys.argv[3]!='--tmp302'):
         raise SystemExit('usage: inspect_revb_board.py BOARD JSON')
-    Path(sys.argv[2]).write_text(json.dumps(inspect(Path(sys.argv[1])), indent=2)+'\n')
+    Path(sys.argv[2]).write_text(json.dumps(inspect(Path(sys.argv[1]),tmp302=len(sys.argv)==4), indent=2)+'\n')

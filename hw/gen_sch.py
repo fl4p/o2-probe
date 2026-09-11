@@ -1009,6 +1009,12 @@ place("U11",CELL,203.2,160.02,value="SGX-OX-ROHS-Mini",footprint="o2-probe:SGX-O
       note="DS-0637 Issue 2 pin/body geometry; elongated rear-flow aperture remains a first-article fit gate")
 net("U11",1,"CELL_CE"); net("U11",2,"CELL_RE"); net("U11",3,"CELL_WE")
 
+# TI SBOS488E: top-view DRL6 pin map, Table 1 and Table 3.
+TMP302 = symbol("TMP302B", [("1","TRIPSET0","input"),("3","~{OUT}","open_collector"),
+    ("6","TRIPSET1","input"),("2","GND","power_in"),
+    ("4","HYSTSET","input"),("5","VS","power_in")],
+    description="TMP302B autonomous thermostat; 85 C trip, nominal 75 C reset with all straps high")
+
 # --------------------------------------------------------------------------- chamber sensors / membrane-ring heater
 place("U10",TMP117,246.38,154.94,value="TMP117 CELL",footprint="tmp117-probe:TMP117_WSON-6-1EP_2x2mm_TI",mpn="TMP117AIDRVR")
 for p,n in {1:"I2C_SCL",2:"GND",3:"HEATER_GATE",4:"3V3D",5:"3V3D",6:"I2C_SDA",7:"TMP_CELL_EP"}.items(): net("U10",p,n)
@@ -1034,6 +1040,11 @@ add_passive("R29",307.34,160.02,"100k","Resistor_SMD:R_0603_1608Metric","HEATER_
 # branch are deferred to optional Rev C (2026-09-09); see plans/REVC-HEATED-RING.md.
 add_passive("RH1",368.3,149.86,"280R 1W","Resistor_SMD:R_2512_6332Metric","+12V_SW","HEATER_LOW",mpn="CRCW2512280RFKEG")
 add_passive("RH2",368.3,165.1,"280R 1W","Resistor_SMD:R_2512_6332Metric","+12V_SW","HEATER_LOW",mpn="CRCW2512280RFKEG")
+place("U16",TMP302,327.66,198.12,value="TMP302BDRLR",footprint="o2-probe:TMP302_DRL6_TI",mpn="TMP302BDRLR",
+      note="Autonomous HEATER_GATE clamp: TRIPSET1/0=11 gives 85 C; HYSTSET=VS gives nominal 10 C hysteresis. Not supply-failure safe; qualify thermal coupling and restart.")
+for p,n in {1:"3V3D",2:"GND",3:"HEATER_GATE",4:"3V3D",5:"3V3D",6:"3V3D"}.items(): net("U16",p,n)
+add_passive("C35",350.52,210.82,"100n","Capacitor_SMD:C_0402_1005Metric","3V3D","GND",
+            note="Local TMP302 supply bypass")
 place("TP6",TESTPOINT,350.52,180.34,value="TMP_CELL_EP",footprint="TestPoint:TestPoint_Pad_D1.0mm",in_bom=False); net("TP6",1,"TMP_CELL_EP")
 
 
@@ -1109,6 +1120,12 @@ def build_wiring() -> None:
     wire_path([pin_xy("R26", 2), (snap(168.91), snap(172.72)), (snap(161.29), snap(172.72)), pin_xy("R27", 1)])
 
     # 9. Chamber Sensors & Heater
+    # Local straps and bypass. OUT shares HEATER_GATE with TMP117 ALERT.
+    wire_path([pin_xy("U16",1),(316.23,195.58),(316.23,198.12),pin_xy("U16",6)])
+    wire_path([(316.23,198.12),(316.23,200.66),pin_xy("U16",4)])
+    junc((316.23,198.12))
+    wire_path([pin_xy("U16",5),(340.36,200.66),(340.36,210.82),pin_xy("C35",1)])
+    wire_path([pin_xy("U16",2),(363.22,198.12),(363.22,210.82),pin_xy("C35",2)])
     gate_split = (snap(318.77), snap(157.48))
     wire_path([pin_xy("R28", 2), (snap(318.77), snap(147.32)), gate_split, pin_xy("Q2", 1)])
     wire_path([gate_split, (snap(318.77), snap(165.10)), (snap(303.53), snap(165.10)), pin_xy("R29", 1)])
@@ -1185,6 +1202,10 @@ def emit_schematic() -> str:
 
 
 def verify() -> None:
+    if INST["U16"]["mpn"] != "TMP302BDRLR" or INST["U16"]["dnp"]:
+        raise ValueError("U16 must be fitted TMP302BDRLR")
+    if {p: ASSIGNED[("U16",p)] for p in "123456"} != dict(zip("123456",["3V3D","GND","HEATER_GATE","3V3D","3V3D","3V3D"])):
+        raise ValueError("TMP302 85 C / 10 C hysteresis pin mapping changed")
     expected={(ref,num) for ref,i in INST.items() for num,_,_ in SYMS[i["lib_id"]]["pins"]}
     assert expected == set(ASSIGNED), f"pin assignment mismatch missing={expected-set(ASSIGNED)} extra={set(ASSIGNED)-expected}"
     assert all(i["footprint"] or ref.startswith("#") for ref,i in INST.items())
