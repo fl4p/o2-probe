@@ -590,6 +590,7 @@ every address below raises exception 02. Design:
 | Sensor diagnostic mailbox | `0x0070`, 7 registers, read/write, volatile | typed AFE/ADC/sensor register reads |
 | Crash context | `0x0077`, 9 registers, read/write, retained | last HardFault, assert or IWDG record |
 | Wide peek block | `0x0100`, 65 registers, read/write, volatile | 1..30 words per trigger, snapshotted |
+| Arbitrary code execution mailbox | `0x0150`, 72 registers, read/write, volatile | Thumb-2 execution in SRAM with watchdog and fault interceptor |
 
 The wide peek block exists because a 4-word mailbox needs a trigger and a read
 per 16 bytes, and a struct dumped across several of those is several moments

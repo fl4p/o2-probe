@@ -617,7 +617,10 @@ enum {
 #define O2P_REG_EXEC_HDR_COUNT   8u
 #define O2P_REG_EXEC_CODE_BASE   0x0158u
 #define O2P_REG_EXEC_CODE_COUNT  64u
-#define O2P_REG_EXEC_COUNT       (O2P_REG_EXEC_HDR_COUNT + O2P_REG_EXEC_CODE_COUNT)
+#define O2P_REG_EXEC_COUNT       72u
+
+_Static_assert(O2P_REG_EXEC_COUNT == O2P_REG_EXEC_HDR_COUNT + O2P_REG_EXEC_CODE_COUNT,
+               "exec count is header count plus code count");
 
 #define O2P_EXEC_MAGIC_MASK      0xFF00u
 #define O2P_EXEC_MAGIC           0x5A00u

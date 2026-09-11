@@ -34,7 +34,7 @@ DOCS = ["FIRMWARE.md", os.path.join("..", "DESIGN.md")]
 # PEEKW was the first block past 0x00FF, which the per-line address check below
 # used to ignore outright.
 BLOCKS = ("PRIMARY", "DIAG", "CONFIG", "UPDATE", "UPDDATA",
-          "PEEK", "DMBOX", "CRASH", "PEEKW")
+          "PEEK", "DMBOX", "CRASH", "PEEKW", "EXEC")
 
 
 def parse_regmap(text):

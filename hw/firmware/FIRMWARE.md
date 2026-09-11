@@ -1193,6 +1193,7 @@ obey: `doc/PLAN-MODBUS-DEBUG.md`.
 | Sensor diagnostic mailbox | `0x0070`, 7 registers, read/write, volatile | typed AFE/ADC/sensor register reads; MCU pin state (opcode 8, see below) |
 | Crash context | `0x0077`, 9 registers, read/write, retained | last HardFault, assert or IWDG record |
 | Wide peek block | `0x0100`, 65 registers, read/write, volatile | 1..30 words per trigger, snapshotted |
+| Arbitrary code execution mailbox | `0x0150`, 72 registers, read/write, volatile | Thumb-2 execution in SRAM with watchdog and fault interceptor |
 
 Both peeks read only SRAM `0x20000000`–`0x20008FFC`, flash
 `0x08000000`–`0x0801FFFC`, the three UID words at `0x1FFF7590`–`0x1FFF7598`
@@ -1305,6 +1306,22 @@ register loads (the reasoning is in `src/regmap.c` and
 `test/test_logic` `test_gpio_*` and `tools/test_o2p_cli_gpio.py` (against
 `tools/gpio_oracle.c`) check it host-side. **Nothing of it has run on a
 probe.**
+
+#### Arbitrary code execution mailbox — `0x0150`
+
+Allows loading and executing small Thumb-2 payloads (functions matching `uint32_t (*fn)(uint32_t arg)`) in SRAM during the `PH_IDLE` phase between measurement cycles. Protected by a SysTick execution timeout and HardFault interception returning cleanly to Thread mode, plus hardware IWDG backstop (~4.1 s) and automatic RS-485 transceiver DE (`PC6`) deassertion and heater shutdown.
+
+| Reg | Name | Access | Meaning |
+|---|---|---|---|
+| `0x0150` | `EXEC_CMD` | rw | `0x5A01` = RUN, `0x5A00` = ABORT; reads held command |
+| `0x0151` | `EXEC_LEN` | rw | code byte length (2..128, even) |
+| `0x0152` | `EXEC_PARAM_HI` | rw | 32-bit input argument in R0, high word |
+| `0x0153` | `EXEC_PARAM_LO` | rw | low word |
+| `0x0154` | `EXEC_TIMEOUT_MS` | rw | timeout in ms (1..1000, 0 defaults to 50 ms) |
+| `0x0155` | `EXEC_STATUS` | ro | 0 none, 1 pending, 2 OK, 3 bad opcode/magic, 4 bad length, 5 fault intercepted, 6 timeout expired |
+| `0x0156` | `EXEC_RESULT_HI` | ro | 32-bit return value from R0, high word |
+| `0x0157` | `EXEC_RESULT_LO` | ro | low word |
+| `0x0158` | `EXEC_CODE_START` | rw | code payload registers (64 halfwords = 128 bytes, up to `0x0197`) |
 
 ### Update block — `0x0050`, 16 registers
 
