@@ -1067,8 +1067,8 @@ static void test_bench_humidity_step_no_longer_moves_the_channel(void)
     o2p_cal_t cal = { .dil_alpha = 1.0f };
     /* The cell's own temperature coefficient, ~+0.2 %/K, which section 1
      * identifies as the rest of the observed step. It is a shipped default of
-     * ZERO in the firmware because no sourced figure exists (DS-0637 Issue 2's
-     * chart is undigitised; Issue 1 had none), so this test also
+     * ZERO in the firmware because no sourced figure exists (DS-0637 Issue 1
+     * and Issue 2 both carry a chart; neither is digitised), so this test also
      * shows what that costs: with it, the corrected channel is flat; without
      * it, what remains is the tempco and not the humidity. */
     cal.tempco_per_k = 0.002f;

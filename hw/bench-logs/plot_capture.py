@@ -26,7 +26,7 @@ DAY = dt.date(2026, 9, 4)
 # Stored air point (2026-09-04) and the firmware's own constants, so the
 # derived curve is the same arithmetic the probe does, not an approximation:
 #   K = cal_air_na / O2P_LN_AIR ;  C = 1 - exp(-S/K)      (o2.c:47-61)
-# tempco_ppm_per_k defaults to 0 - no sourced figure (DS-0637 Issue 2's curve is undigitised).
+# tempco_ppm_per_k defaults to 0 - no sourced figure (DS-0637's curve, Issues 1 and 2, is undigitised).
 CAL_AIR_NA = 100026.0
 LN_AIR = 0.23503902
 

@@ -37,7 +37,7 @@ void o2p_config_defaults(o2p_config_t *cfg)
     cfg->cal_zero_na = 0;
     cfg->cal_zero_taken = 0u;   /* never measured; reported in CAL_STATE */
     cfg->cal_temp_c100 = 2500;
-    cfg->tempco_ppm_per_k = 0;            /* no sourced figure: DS-0637 Issue 2's curve is undigitised (o2.h) */
+    cfg->tempco_ppm_per_k = 0;            /* no sourced figure: DS-0637's curve (Issues 1 and 2) is undigitised (o2.h) */
     cfg->sht_pulse_interval_h = 8u;       /* PLAN.md:312, every 6-12 h */
     /* Total pressure for the water-vapour correction. Rev A has no barometer,
      * so this is the only P the firmware has; 930 hPa is the 715 m
