@@ -113,6 +113,13 @@ o2p_tmp_status_t o2p_tmp117_alert_active(bool *out_active);
  * gate; this is purely a temperature sensor. */
 o2p_tmp_status_t o2p_tmp117_ext_init(void);
 o2p_tmp_status_t o2p_tmp117_ext_read_c100(int16_t *out_c100);
+/* Data_Ready on the external part - the same freshness evidence
+ * o2p_tmp117_data_ready() gives for U10, and for the same reason: since FW
+ * 0x0013 the dew-margin law controls on this reading, and a frozen conversion
+ * engine that still answers I2C would hold a constant (possibly comfortable)
+ * margin forever. Call BEFORE o2p_tmp117_ext_read_c100(): reading TEMP clears
+ * the flag. Does not count toward the ext part's I2C failure tally. */
+o2p_tmp_status_t o2p_tmp117_ext_data_ready(bool *out_ready);
 bool o2p_tmp117_ext_present(void);
 uint8_t o2p_tmp117_ext_address(void);
 

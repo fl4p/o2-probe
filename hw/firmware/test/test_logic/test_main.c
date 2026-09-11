@@ -4773,6 +4773,45 @@ static void test_dew_law_holds_the_tip_under_its_79c_ceiling(void)
     TEST_ASSERT_UINT16_WITHIN(2u, 253u, dew_step_fresh(&cfg, &in, &out));
 }
 
+static void test_dew_law_ceiling_sheds_accumulated_integral(void)
+{
+    /* Codex review of 4fe6b36, finding 2: the min() limits the ERROR, and
+     * the shared integrator keeps whatever it accumulated while the margin
+     * was the binding constraint. A fresh-state test cannot see that, so
+     * this one winds the integral first. Measured on the unfixed law: 57 %
+     * duty at 79.50 C with the ceiling error negative. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_dew();
+    o2p_heater_out_t out;
+
+    /* Td 52.95 C, cell 54.95 C: 2 K of margin, 2 K short - a moderate error
+     * that integrates without saturating. */
+    in.t_cell_c100 = 5495;
+    uint32_t t = 0u;
+    for (; t < 600u; t++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+    }
+    TEST_ASSERT_TRUE(st.integ > 5000.0f);
+
+    /* Tip half a kelvin over the ceiling, under the clamp. */
+    in.t_tip_c100 = 7950;
+    in.t_chamber_c100 = 7850;
+    o2p_heater_ctl_step(&st, &cfg, &in, t++, &out);
+    TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_TIP_LIMIT);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.duty_x100,
+        "a tip above the ceiling must get no duty, whatever the integral holds");
+
+    /* Back under the ceiling: a bumpless restart, not the old integral. */
+    in.t_tip_c100 = 7850;
+    in.t_chamber_c100 = 7750;
+    o2p_heater_ctl_step(&st, &cfg, &in, t++, &out);
+    TEST_ASSERT_TRUE(out.duty_x100 > 0u);
+    TEST_ASSERT_TRUE_MESSAGE(out.duty_x100 < 1000u,
+        "re-entry under the ceiling must not resume the wound-up integral");
+}
+
 static void test_dew_law_without_a_tip_does_not_regulate(void)
 {
     /* The tip is the law's only bound: an unevaluable cap is not a cap. */
@@ -8786,6 +8825,7 @@ int main(void)
     RUN_TEST(test_dew_law_regulates_through_safety);
     RUN_TEST(test_dew_law_clamps_the_tip_at_80c_even_with_safety_armed);
     RUN_TEST(test_dew_law_holds_the_tip_under_its_79c_ceiling);
+    RUN_TEST(test_dew_law_ceiling_sheds_accumulated_integral);
     RUN_TEST(test_dew_law_without_a_tip_does_not_regulate);
     RUN_TEST(test_dew_law_needs_its_dew_point);
     RUN_TEST(test_dew_law_needs_rh_consent);

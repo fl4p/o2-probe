@@ -330,6 +330,10 @@ enum {
  * self-heating, so the SHT45's RH at its own temperature still gives the
  * gas dew point; only the SURFACE it is compared against changes, from the
  * tip to the cell side. Positive error (margin short of 4 K) asks for duty.
+ * CONDITION (Codex review of 4fe6b36, finding 4): only while the SHT45 is
+ * responsive to the gas. Liquid water on its surface makes it unresponsive
+ * to air RH (Sensirion SHT4x datasheet v7.3), and nothing here can detect
+ * that - a successful read and a Magnus-valid input are not evidence of it.
  *
  * WHAT BOUNDS IT, and "margin wins, up to the 80 C cap" read literally. The
  * error is min(margin shortfall, tip ceiling room), so the loop holds the tip

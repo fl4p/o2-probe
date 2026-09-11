@@ -209,6 +209,19 @@ uint8_t o2p_tmp117_ext_address(void)
     return s_ext_addr;
 }
 
+o2p_tmp_status_t o2p_tmp117_ext_data_ready(bool *out_ready)
+{
+    uint16_t cfg = 0u;
+    if (out_ready == NULL || !s_ext_present || s_ext_addr == 0u) {
+        return O2P_TMP_IO;
+    }
+    if (!rd16_addr(s_ext_addr, O2P_TMP_REG_CONFIG, &cfg)) {
+        return O2P_TMP_IO;
+    }
+    *out_ready = (cfg & (1u << 13)) != 0u;   /* Data_Ready */
+    return O2P_TMP_OK;
+}
+
 o2p_tmp_status_t o2p_tmp117_ext_init(void)
 {
     s_ext_present = false;

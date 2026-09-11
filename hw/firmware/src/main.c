@@ -225,6 +225,7 @@ static struct {
     uint16_t rh;
     bool     tip_ok;
     bool     ext_ok;
+    bool     ext_fresh;     /* ext Data_Ready seen recently; heater bridge only */
     /* tip_ok says the read SUCCEEDED; this says the part has actually
      * converted since we last looked. Only the heater consumes it - see
      * phase_temps(). */
@@ -476,6 +477,20 @@ static void phase_temps(o2p_snapshot_t *s)
             (void)o2p_tmp117_ext_init();
         }
     }
+    /* Conversion freshness for the dew-margin law, the tip's rule applied to
+     * the ext part (Codex review of 4fe6b36, finding 1). BEFORE the TEMP read,
+     * which clears Data_Ready. Only the heater's bridge consumes it: T_EXT
+     * still publishes every good read. */
+    static uint8_t s_ext_notready_cycles = O2P_TIP_STALE_CYCLES;
+    bool ext_ready = false;
+    if (o2p_tmp117_ext_present() &&
+        o2p_tmp117_ext_data_ready(&ext_ready) == O2P_TMP_OK && ext_ready) {
+        s_ext_notready_cycles = 0u;
+    } else if (s_ext_notready_cycles < 0xFFu) {
+        s_ext_notready_cycles++;
+    }
+    g_cyc.ext_fresh = (s_ext_notready_cycles < O2P_TIP_STALE_CYCLES);
+
     int16_t text = 0;
     if (o2p_tmp117_ext_read_c100(&text) == O2P_TMP_OK) {
         /* Single-word glitch rejection for external sensor on flying leads. */
@@ -1380,16 +1395,17 @@ static void cycle_publish(o2p_snapshot_t *s)
 
         /* CELL-SIDE TEMPERATURE FOR THE DEW-MARGIN LAW (FW 0x0013), bridged
          * for O2P_HEATER_CELL_MAX_AGE_S across the ext glitch filter's
-         * withheld readings - see that constant. No data-ready freshness
-         * check exists for the ext part (unlike the tip): a frozen
-         * conversion engine would hold a constant margin error. What bounds
-         * that is the tip, which IS freshness-checked - the law holds the
-         * tip at its 79 C ceiling and clamps at 80 C whatever the cell
-         * reads. */
+         * withheld readings - see that constant. The age runs from the last
+         * reading that was both accepted AND fresh (ext Data_Ready, see
+         * phase_temps): a frozen conversion engine still answers I2C, and
+         * refreshing on every read held a constant margin forever - a warm
+         * frozen cell reading would have kept a drowning cell cold (Codex
+         * review of 4fe6b36, finding 1; the tip ceiling only bounds the
+         * opposite failure). */
         static int16_t s_heater_cell_c100;
         static uint32_t s_heater_cell_taken_s;
         static bool s_heater_have_cell;
-        if (g_cyc.ext_ok) {
+        if (g_cyc.ext_ok && g_cyc.ext_fresh) {
             s_heater_cell_c100 = g_cyc.t_ext;
             s_heater_cell_taken_s = g_uptime_s;
             s_heater_have_cell = true;

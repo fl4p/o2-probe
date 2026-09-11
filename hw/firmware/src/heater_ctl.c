@@ -733,8 +733,19 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
         const float tip_room = (float)((int32_t)O2P_HEATER_DEW_TIP_CEIL_C100 -
                                        (int32_t)in->t_tip_c100);
         const float e = (margin_short < tip_room) ? margin_short : tip_room;
-        duty = pi_step(st, O2P_HEATER_MODE_DEW, cfg->session, e,
-                       (float)O2P_HEATER_DEW_KP_X100 * 0.01f,
+        const float kp = (float)O2P_HEATER_DEW_KP_X100 * 0.01f;
+        if (tip_room < 0.0f && st->integ > -kp * tip_room) {
+            /* ABOVE THE CEILING THE OUTPUT IS ZERO (Codex review of 4fe6b36,
+             * finding 2). The min() limits the error, not the integral: one
+             * wound up while the margin was binding kept driving 57 % at
+             * 79.50 C with the ceiling error negative, into TIP_LIMIT.
+             * Back-calculate instead - park the integral where p + integ is
+             * exactly zero - so the ceiling is a bound, and re-entry below it
+             * restarts from there rather than from the old wind-up. A mode
+             * or session change zeroes it in pi_step() regardless. */
+            st->integ = -kp * tip_room;
+        }
+        duty = pi_step(st, O2P_HEATER_MODE_DEW, cfg->session, e, kp,
                        (float)O2P_HEATER_DEW_KI_X100 * 0.01f,
                        max_duty);
     } else {

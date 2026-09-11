@@ -2465,7 +2465,11 @@ reasonable dew-margin"*; answers: reference = cell-side `T_EXT`, margin 4 K,
 `min(4.00 K − margin, 79.00 °C − T_tip)` in 0.01 K, PI with kp 5 / ki 0.05
 (duty 0.01 % per 0.01 K), `O2P_HEATER_MODE_DEW`. The dew point is a property
 of the gas and survives the island's self-heating, so the SHT45 still supplies
-it; what changes is the surface it is compared with. The `min` holds the tip
+it; what changes is the surface it is compared with. **That holds only while
+the SHT45 is responsive to the gas**: liquid water on its surface makes it
+unresponsive to air RH (Sensirion SHT4x datasheet v7.3), and a successful I2C
+read plus a Magnus-valid input cannot tell. Whether it held in the 15:18 steam
+bath is unverified. The `min` holds the tip
 at 79 °C when the margin cannot be met — which saturated gas near 76 °C
 guarantees, since the cell side gains only ~0.4 K per K of tip — so the
 80.00 °C clamp stays a backstop. Above the cell's 60 °C rating the margin
@@ -2478,8 +2482,12 @@ older than 10 s (`O2P_HEATER_CELL_MAX_AGE_S`, bridging the ext glitch
 filter). Without one, the RH law runs exactly as before. Precedence is now
 override > stored tip > dew > RH; the mode tag restarts the integrator on
 every hand-over. No register was added: `HEATER_BLOCK` has no free bit, so the
-law in command is read off `T_EXT` validity (`TIP_DISARMED` set + `T_EXT`
-valid ⇒ dew law).
+law in command can only be inferred from `T_EXT`: `TIP_DISARMED` set + `T_EXT`
+valid ⇒ dew law. **The converse does not hold** (Codex review of `4fe6b36`,
+finding 5): a withheld or failed `T_EXT` sample publishes the sentinel while
+the heater's private bridge keeps the dew law in command for up to 10 s, so
+`T_EXT` invalid does not imply the RH law. An observable mode needs a spare
+diagnostic register.
 
 **Its interlocks, per the per-law blind rule.** `NO_RH`, `NO_CHAMBER` and
 `NO_TIP` blind it (die-gated, as for every law) — the dew point is its control
