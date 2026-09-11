@@ -646,10 +646,16 @@ class Bus:
         self.addr = addr
         self.verbose = verbose
 
-    def _txn(self, pdu, expect_len):
+    def _adu(self, pdu):
+        """The wire form of a request: address, PDU, CRC. Shared by the
+        one-at-a-time path (_txn) and the lookahead path (_push_lookahead
+        in push()), so a lookahead block and a serial block are byte for
+        byte the same request."""
         adu = bytes([self.addr]) + pdu
-        adu += struct.pack("<H", crc16(adu))
-        rsp = self.link.exchange(adu, expect_len)
+        return adu + struct.pack("<H", crc16(adu))
+
+    def _check(self, rsp):
+        """The reply half of _txn: shape, CRC, address, exception code."""
         if len(rsp) < 3:
             if not rsp:
                 raise NoReply("no reply")
@@ -665,6 +671,39 @@ class Bus:
         if rsp[1] & 0x80:
             raise ModbusException(rsp[2])
         return rsp
+
+    def _txn(self, pdu, expect_len):
+        try:
+            rsp = self.link.exchange(self._adu(pdu), expect_len)
+        except IOError as exc:
+            # 2026-09-11, bench evidence (keeper.log "bridge probe: ...
+            # the probe did not answer (bus silence)"): the BLE mailbox
+            # reports WIRE silence - the node watched the bus and nothing
+            # answered - as an IOError, which bridge_status read as
+            # "something answered but did not decode" and answered "could
+            # not rule out a bridge" on a bench with no bridge on it. To
+            # this layer that error IS NoReply: no bytes came back, nobody
+            # is on that address. The string match is deliberate - the two
+            # sides share no exception type (the coordinated link deploy
+            # can give them one), and the sentence is o2p_ble_link.py's
+            # documented contract for exactly this case.
+            #
+            # BUT ONLY FOR REAL SILENCE (codex review 2026-09-11, bg-12 P1):
+            # the node sends the same zero-length notification when it
+            # REFUSES the exchange - bus unclaimed, build cannot drive
+            # RS-485 (bleota.cpp:791) - and the link stamps those "bus
+            # silence" too, dropping the refusal detail that sits on its
+            # status channel. A refusal is not silence: a refused BOOT read
+            # as NoReply becomes "BOOT usually LANDS" and a 180-s verify
+            # wait instead of an honest error. The refusal evidence is the
+            # link's _status lines (the same surface ctrl readers use); if
+            # any BUS FAIL is pending, the error passes through untouched.
+            if "bus silence" in str(exc):
+                pending = getattr(self.link, "_status", None) or []
+                if not any(s.startswith("BUS FAIL") for s in pending):
+                    raise NoReply(str(exc))
+            raise
+        return self._check(rsp)
 
     def read(self, addr, count):
         rsp = self._txn(struct.pack(">BHH", 3, addr, count), 5 + 2 * count)
@@ -686,7 +725,12 @@ class Bus:
     def write(self, addr, values):
         pdu = struct.pack(">BHHB", 16, addr, len(values), 2 * len(values))
         pdu += b"".join(struct.pack(">H", v) for v in values)
-        rsp = self._txn(pdu, 8)
+        return self._check_fc16(self._txn(pdu, 8), addr, len(values))
+
+    def _check_fc16(self, rsp, addr, nvalues):
+        """The reply checks for an FC16 write, shared by write() and the
+        lookahead path in push(), so a pipelined block and a serial block
+        are held to the same standard."""
         # FC16 echoes the address and count it actually applied. A device that
         # wrote somewhere else, or wrote fewer registers, says so here - and a
         # config write that silently landed elsewhere is exactly the failure
@@ -745,10 +789,10 @@ class Bus:
                 raise IOError("FC16 reply is %d bytes, expected 8: %s"
                               % (len(rsp), rsp.hex()))
         echo_addr, echo_count = struct.unpack(">HH", rsp[2:6])
-        if echo_addr != addr or echo_count != len(values):
+        if echo_addr != addr or echo_count != nvalues:
             raise IOError("FC16 echoed addr 0x%04X count %d, wrote 0x%04X "
                           "count %d" % (echo_addr, echo_count, addr,
-                                        len(values)))
+                                        nvalues))
 
 
 class NoReply(IOError):
@@ -1237,9 +1281,20 @@ def bridge_status(link, probe_addr):
             r = bus.read(0, len(BRIDGE_FIELDS))
         except NoReply:
             continue
-        except ModbusException:
+        except ModbusException as exc:
+            # 2026-09-11: "could not rule out a bridge in the path" was
+            # all the caller ever learned - the reply's actual fault was
+            # discarded here. The bench needs the bytes, not the verdict.
+            print("bridge probe: slave %d answered with Modbus error %s"
+                  % (BRIDGE_ADDR, exc))
             return None, None, None
-        except (IOError, OSError):
+        except (IOError, OSError) as exc:
+            # Neutral wording (codex review 2026-09-11, bg-12 P2): this arm
+            # also catches timeouts with no notification at all, where "a
+            # reply did not decode" asserts a reply that never arrived. The
+            # exception's own message carries the detail either way.
+            print("bridge probe: slave %d exchange failed: %s"
+                  % (BRIDGE_ADDR, exc))
             return None, None, None
         if r[0] != BRIDGE_IDENT:
             return False, None, None
@@ -1883,6 +1938,97 @@ def resume_point(bus, image_len, crc, block_bytes):
     return (next_seq, received)
 
 
+def _push_lookahead(bus, image, block_bytes, retries, seq, sent):
+    """push()'s staging loop for a link whose bus queue is two deep.
+
+    THE NODE'S CONTRACT (bleota.cpp bus_service): one exchange at a time
+    on the wire, a second request may sit queued behind it, a third is
+    refused, and a failed exchange DROPS what was queued behind it with a
+    "BUS FLUSH n queued dropped" line for the host to resend. So: write
+    block N, write block N+1 - its ATT write crosses the air while N is
+    still on the wire - collect N's reply, repeat. Measured 2026-09-11,
+    bench, bus at 115200 with MTU 517: the one-at-a-time loop pays ~280 ms
+    per 240-B block (ATT round trip and the node's ~50 ms service cadence,
+    in series with ~40 ms of wire); lookahead hides both behind the
+    running exchange.
+
+    SAME RESYNC POLICY AS THE ONE-AT-A-TIME LOOP: on a failure, ask the
+    probe which block it wants next - a lost reply looks exactly like a
+    lost request from here - and only resend what did not land. The
+    flushed speculative block never reached the probe, so dropping it
+    here is what the node promised.
+
+    FC16 echoes carry no block sequence, so reply accounting can slide by
+    one after a lost notification. That cannot corrupt anything: COMMIT
+    verifies the whole image's CRC-32 before the state machine calls a
+    stage done, and a slide costs one bounded timeout-and-resync at the
+    tail, which the R_NEXT_SEQ check resolves as "it did land".
+
+    Returns (seq, sent) advanced past the last block, having printed the
+    same progress lines the serial loop prints.
+    """
+    link = bus.link
+    total = len(image)
+    n_blocks = (total - sent + block_bytes - 1) // block_bytes
+
+    def block_pdu(i):
+        off = sent + i * block_bytes
+        chunk = image[off:off + block_bytes]
+        regs = [seq + i] + [int.from_bytes(chunk[j:j + 2], "big")
+                            for j in range(0, len(chunk), 2)]
+        pdu = struct.pack(">BHHB", 16, R_DATA, len(regs), 2 * len(regs))
+        return (pdu + b"".join(struct.pack(">H", v) for v in regs),
+                len(regs))
+
+    pending = []          # written, reply not yet collected (at most 2)
+    base = 0              # first block not yet collected successfully
+    tries = {}
+    while base < n_blocks:
+        while len(pending) < 2 and base + len(pending) < n_blocks:
+            nxt = base + len(pending)
+            pdu, _ = block_pdu(nxt)
+            link.bus_send(bus._adu(pdu))
+            pending.append(nxt)
+        blk = pending[0]
+        try:
+            rsp = link.bus_collect()
+            bus._check(rsp)
+            _, nregs = block_pdu(blk)
+            bus._check_fc16(rsp, R_DATA, nregs)
+        except (IOError, ModbusException) as e:
+            tries[blk] = tries.get(blk, 0) + 1
+            if tries[blk] > retries:
+                raise SystemExit("!! block %d failed: %s" % (seq + blk, e))
+            # Whatever was queued behind the failure was dropped by the
+            # node (its BUS FLUSH contract); nothing pending is written as
+            # far as the probe is concerned. The resync read is a plain
+            # exchange, which resets the link's reply state - any late
+            # straggler for a lost-notification case is discarded there.
+            pending = []
+            nxt = bus.read(R_NEXT_SEQ, 1)[0]
+            if nxt == seq + blk + 1:
+                # It did land; the reply was lost. The speculative block
+                # behind it is STILL QUEUED on the node - its reply will
+                # arrive in order - so keep collecting it rather than
+                # resending: a resend here would sit in the queue as a
+                # second copy, and the block after THAT would be the third
+                # request the node refuses.
+                if blk + 1 < n_blocks:
+                    pending = [blk + 1]
+                base = blk + 1
+            else:
+                print("   retrying block %d (%s)" % (seq + blk, e))
+                base = blk              # resend from the failed block
+            continue
+        pending.pop(0)
+        base += 1
+        done = sent + base * block_bytes
+        if (seq + base) % 10 == 0 or done >= total:
+            print("   %d/%d bytes" % (min(done, total), total),
+                  end="\r", flush=True)
+    return seq + n_blocks, sent + n_blocks * block_bytes
+
+
 def push(bus, image, block_bytes, retries, no_resume=False):
     if block_bytes % ALIGN or block_bytes < ALIGN:
         raise SystemExit("!! block size must be a multiple of %d bytes" % ALIGN)
@@ -1923,28 +2069,39 @@ def push(bus, image, block_bytes, retries, no_resume=False):
         seq, sent = start
 
     t0 = time.time()
-    while sent < len(image):
-        chunk = image[sent:sent + block_bytes]
-        regs = [seq] + [int.from_bytes(chunk[i:i + 2], "big")
-                        for i in range(0, len(chunk), 2)]
-        for attempt in range(retries + 1):
-            try:
-                bus.write(R_DATA, regs)
-                break
-            except (IOError, ModbusException) as e:
-                if attempt == retries:
-                    raise SystemExit("!! block %d failed: %s" % (seq, e))
-                # Resynchronise rather than guess: the probe knows which block
-                # it wants next, and a lost REPLY looks exactly like a lost
-                # request from here.
-                nxt = bus.read(R_NEXT_SEQ, 1)[0]
-                if nxt == seq + 1:
-                    break          # it did land; the reply was lost
-                print("   retrying block %d (%s)" % (seq, e))
-        sent += len(chunk)
-        seq += 1
-        if seq % 10 == 0 or sent == len(image):
-            print("   %d/%d bytes" % (sent, len(image)), end="\r", flush=True)
+    # getattr twice: test harnesses fake the whole probe with no .link, and
+    # the serial loop below never looked at one.
+    if getattr(getattr(bus, "link", None), "bus_queue_depth", 1) >= 2:
+        # The node's two-deep bus queue is the whole point of this link
+        # (bleota.cpp): the next request crosses the air while this one is
+        # on the wire. Anything else falls back to the one-at-a-time loop
+        # below, unchanged.
+        seq, sent = _push_lookahead(bus, image, block_bytes, retries,
+                                    seq, sent)
+    else:
+        while sent < len(image):
+            chunk = image[sent:sent + block_bytes]
+            regs = [seq] + [int.from_bytes(chunk[i:i + 2], "big")
+                            for i in range(0, len(chunk), 2)]
+            for attempt in range(retries + 1):
+                try:
+                    bus.write(R_DATA, regs)
+                    break
+                except (IOError, ModbusException) as e:
+                    if attempt == retries:
+                        raise SystemExit("!! block %d failed: %s" % (seq, e))
+                    # Resynchronise rather than guess: the probe knows which
+                    # block it wants next, and a lost REPLY looks exactly
+                    # like a lost request from here.
+                    nxt = bus.read(R_NEXT_SEQ, 1)[0]
+                    if nxt == seq + 1:
+                        break          # it did land; the reply was lost
+                    print("   retrying block %d (%s)" % (seq, e))
+            sent += len(chunk)
+            seq += 1
+            if seq % 10 == 0 or sent == len(image):
+                print("   %d/%d bytes" % (sent, len(image)), end="\r",
+                      flush=True)
     print("\n   sent in %.1f s" % (time.time() - t0))
 
     bus.write(R_CMD, [CMD_COMMIT])

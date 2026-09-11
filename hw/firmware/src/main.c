@@ -532,13 +532,22 @@ static void phase_temps(o2p_snapshot_t *s)
      * bridges the gap from this sensor's own last real reading, bounded by
      * O2P_RH_MAX_AGE_S, which the static assertion in o2.h ties to this mask.
      *
-     * THE HEATER DOES STAND DOWN FOR THE WHOLE WINDOW, and it now lasts
-     * 350 s rather than 25 s - about 1.2 % of the time, on a schedule, three
-     * times a day. Only the RH loop: the persistent tip loop keeps its
-     * chamber temperature from the same cache (see the dT clamp below), and
-     * O2P_REG_HEATER_BLOCK names NO_RH as the reason on the bus, so it is
-     * visible rather than silent. Refusing is also the RIGHT answer at this
-     * length, not merely the conservative one - the pulse drives the measured
+     * THE HEATER RIDES THROUGH THE WINDOW BLIND, 2026-09-11 (Fab's order:
+     * "nope, no stand-down. 50 is safe if MCU die is < 40 C") - corrected
+     * from the earlier "stands down for the whole window", which described
+     * the intent, not the firmware: the mask takes the RH AND the chamber
+     * reading together (the same sensor), NO_RH lands the RH law on the
+     * blind path (heater_ctl.c, law_wet_mask), and the ring drives
+     * O2P_HEATER_BLIND_DUTY_X100 bounded by the ceiling and the
+     * O2P_HEATER_BLIND_DIE_MAX_C100 gate - the die crossing 40 C IS the
+     * stand-down, die-referenced instead of schedule-referenced. The window
+     * lasts 350 s rather than 25 s - about 1.2 % of the time, on a
+     * schedule, three times a day. Only the RH law: a persistent tip law
+     * keeps regulating through it (its control sensor is the tip; NO_RH and
+     * NO_CHAMBER are annotations to it, heater_ctl.c), its chamber
+     * temperature from the same cache (see the dT clamp below), and
+     * O2P_REG_HEATER_BLOCK names NO_RH/NO_CHAMBER on the bus, so it is
+     * visible rather than silent. The pulse drives the measured
      * RH LOW, and a loop that regulated on it would read the chamber as drier
      * than it is and under-heat, which is the direction that condenses. */
     if (o2p_sht_masked(o2p_millis(), g_sht_pulse_ms)) {

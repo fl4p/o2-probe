@@ -10,6 +10,7 @@ Communicates with the o2-probe over RS-485 Modbus RTU, providing:
     mailbox at 0x0065 on older or nodebug firmware.
   * Typed sensor diagnostic mailbox access (LMP91000, ADS1119, TMP117, SHT45).
   * Crash context decoding via arm-none-eabi-addr2line.
+  * Arbitrary code execution mailbox (0x0150) for small Thumb-2 payloads in SRAM.
 
 Usage:
     python3 tools/o2p_cli.py --port /dev/tty.usbserial-X read O2_COMP T_TIP HEATER_BLOCK
@@ -20,6 +21,10 @@ Usage:
     python3 tools/o2p_cli.py --port ... diag gpio PB1          # or ADC_DRDY
     python3 tools/o2p_cli.py --port ... diag gpio --port B     # every bonded pin
     python3 tools/o2p_cli.py --port ... crash [--clear]
+    python3 tools/o2p_cli.py --port ... exec "202a 4770"       # returns 42
+    python3 tools/o2p_cli.py --port ... exec "3005 4770" --param 37 --timeout-ms 100
+    python3 tools/o2p_cli.py --port ... exec payload.bin --param 0x1234
+    python3 tools/o2p_cli.py --port ... exec --abort
 """
 
 import argparse
@@ -98,6 +103,11 @@ REGISTERS = {
     "CRASH_REASON": 0x0077, "CRASH_PC_HI": 0x0078, "CRASH_PC_LO": 0x0079,
     "CRASH_LR_HI": 0x007A, "CRASH_LR_LO": 0x007B, "CRASH_DETAIL_HI": 0x007C,
     "CRASH_DETAIL_LO": 0x007D, "CRASH_BUILD_ID_HI": 0x007E, "CRASH_BUILD_ID_LO": 0x007F,
+
+    # Arbitrary code execution mailbox (0x0150), debug builds only
+    "EXEC_CMD": 0x0150, "EXEC_LEN": 0x0151, "EXEC_PARAM_HI": 0x0152,
+    "EXEC_PARAM_LO": 0x0153, "EXEC_TIMEOUT_MS": 0x0154, "EXEC_STATUS": 0x0155,
+    "EXEC_RESULT_HI": 0x0156, "EXEC_RESULT_LO": 0x0157, "EXEC_CODE_START": 0x0158,
 }
 
 # 4 is FW_VERSION 0x000F+, and only on a part whose RAM_PARITY_CHECK option
@@ -110,6 +120,23 @@ DIAG_STATUS_NAMES = {
     7: "GPIO_NOT_SAMPLED", 8: "ERR_GPIO_UNCLOCKED", 9: "ERR_GPIO_NO_PIN",
 }
 CRASH_REASONS = {0: "NONE", 1: "HARDFAULT", 2: "ASSERT", 3: "IWDG"}
+
+EXEC_MAGIC = 0x5A00
+EXEC_OP_RUN = 0x0001
+EXEC_OP_ABORT = 0x0000
+
+EXEC_STATUS_NONE = 0
+EXEC_STATUS_PENDING = 1
+EXEC_STATUS_OK = 2
+EXEC_STATUS_ERR_OPCODE = 3
+EXEC_STATUS_ERR_LEN = 4
+EXEC_STATUS_FAULT = 5
+EXEC_STATUS_TIMEOUT = 6
+
+EXEC_STATUS_NAMES = {
+    0: "NONE", 1: "PENDING", 2: "OK", 3: "ERR_OPCODE",
+    4: "ERR_LEN", 5: "FAULT_INTERCEPTED", 6: "TIMEOUT_EXPIRED",
+}
 
 # HEATER_BLOCK (0x002E) decode, bits in heater_ctl.h order. Bits 14/15 are
 # ANNOTATIONS, not refusals, since FW_VERSION 0x0010: a loop in command with
@@ -387,10 +414,10 @@ FW_PEEK_COUNT = 0x000C
 FW_WIDE_PEEK = 0x000D
 # 0x000F: a busy diagnostic mailbox refuses with exception 06 and writes
 # nothing (up to 0x000E: exception 03 plus DIAG_STATUS 6 ERR_BUSY over the
-# queued command's PENDING), and a peek may answer 4 ERR_PARITY. The newest
-# wire contract this tool knows; test_o2p_cli_gpio.py holds it to regmap.h.
+# queued command's PENDING), and a peek may answer 4 ERR_PARITY.
+# 0x0011: heater supply veto removed, arbitrary code execution mailbox (0x0150).
 FW_BUSY_IS_EXCEPTION = 0x000F
-FW_LATEST = 0x000F
+FW_LATEST = 0x0011
 MB_EX_BUSY = 6
 PEEK_OK = 1
 PEEKW_BASE = 0x0100
@@ -1149,6 +1176,176 @@ def cmd_crash(bus, args):
         print("  Crash record cleared.")
 
 
+# ---------------------------------------------------------------- Exec (0x0150)
+
+def parse_code_payload(code_arg):
+    """Parse code argument from file path or hex string into (byte_len, words)."""
+    if os.path.isfile(code_arg):
+        with open(code_arg, "rb") as f:
+            raw = f.read()
+        if len(raw) % 2 != 0:
+            raise ValueError("Binary payload length must be even (16-bit halfwords), got %d bytes" % len(raw))
+        if len(raw) < 2 or len(raw) > 128:
+            raise ValueError("Payload must be 2..128 bytes, got %d bytes" % len(raw))
+        words = [w[0] for w in struct.iter_unpack("<H", raw)]
+        return len(raw), words
+
+    cleaned = code_arg.strip()
+    tokens = [t for t in re.split(r'[\s,]+', cleaned) if t]
+    words = []
+    if len(tokens) == 1 and len(tokens[0]) > 4 and not tokens[0].lower().startswith("0x"):
+        hex_str = tokens[0]
+        if not re.fullmatch(r'[0-9a-fA-F]+', hex_str):
+            raise ValueError("Continuous hex string contains non-hexadecimal characters: %r" % hex_str)
+        if len(hex_str) % 4 != 0:
+            raise ValueError("Hex string length must be a multiple of 4 characters (16-bit words), got %d chars" % len(hex_str))
+        for i in range(0, len(hex_str), 4):
+            chunk = hex_str[i:i+4]
+            val = int(chunk, 16)
+            if val < 0 or val > 0xFFFF:
+                raise ValueError("Code word 0x%X out of range (must be 16-bit unsigned integer)" % val)
+            words.append(val)
+    else:
+        for t in tokens:
+            t_clean = t.lower()
+            if t_clean.startswith("0x"):
+                t_hex = t_clean[2:]
+            else:
+                t_hex = t_clean
+            if not re.fullmatch(r'[0-9a-fA-F]+', t_hex):
+                raise ValueError("Invalid hex token %r (must be positive hex halfword)" % t)
+            val = int(t, 16)
+            if val < 0 or val > 0xFFFF:
+                raise ValueError("Code word 0x%X out of range (must be 16-bit unsigned integer)" % val)
+            words.append(val)
+
+    byte_len = len(words) * 2
+    if byte_len < 2 or byte_len > 128:
+        raise ValueError("Payload must be 2..128 bytes (1..64 halfwords), got %d bytes" % byte_len)
+    return byte_len, words
+
+
+def cmd_exec(bus, args):
+    if args.abort:
+        print("  Aborting arbitrary code execution...")
+        try:
+            bus.write(REGISTERS["EXEC_CMD"], [EXEC_MAGIC | EXEC_OP_ABORT])
+        except ModbusException as e:
+            if e.code == 2:
+                print("  !! Exception 02: debug blocks compiled out (O2P_DEBUG_ENABLE=0).")
+                sys.exit(1)
+            raise
+        st = bus.read(REGISTERS["EXEC_STATUS"], 1)[0]
+        print("  Status: %s (%d)" % (EXEC_STATUS_NAMES.get(st, "UNKNOWN_%d" % st), st))
+        return
+
+    if not args.code:
+        print("  !! Error: code payload required unless --abort is specified.")
+        sys.exit(1)
+
+    try:
+        byte_len, words = parse_code_payload(args.code)
+    except Exception as e:
+        print("  !! Error parsing code payload: %s" % e)
+        sys.exit(1)
+
+    try:
+        param = int(args.param, 0) if isinstance(args.param, str) else int(args.param)
+    except (ValueError, TypeError) as e:
+        print("  !! Invalid integer for --param: %s" % e)
+        sys.exit(1)
+    if param < -2147483648 or param > 0xFFFFFFFF:
+        print("  !! --param %d out of range (must fit in 32-bit signed or unsigned integer: -2147483648..4294967295)" % param)
+        sys.exit(1)
+    param_u32 = param & 0xFFFFFFFF
+    param_hi = (param_u32 >> 16) & 0xFFFF
+    param_lo = param_u32 & 0xFFFF
+    timeout_ms = args.timeout_ms
+    if timeout_ms < 1 or timeout_ms > 1000:
+        print("  !! Timeout must be 1..1000 ms, got %d" % timeout_ms)
+        sys.exit(1)
+
+    # 1. Upload code payload to EXEC_CODE_START (0x0158)
+    try:
+        bus.write(REGISTERS["EXEC_CODE_START"], words)
+    except ModbusException as e:
+        if e.code == 2:
+            print("  !! 0x0150 answers exception 02: debug blocks compiled out (O2P_DEBUG_ENABLE=0). "
+                  "This image does not support arbitrary code execution.")
+            sys.exit(1)
+        if e.code == MB_EX_BUSY:
+            print("  !! The probe answered exception 06 (busy): execution is currently pending.")
+            sys.exit(1)
+        raise
+
+    # 2. Trigger execution: write [CMD, LEN, PARAM_HI, PARAM_LO, TIMEOUT_MS] to 0x0150
+    cmd_payload = [
+        EXEC_MAGIC | EXEC_OP_RUN,
+        byte_len,
+        param_hi,
+        param_lo,
+        timeout_ms,
+    ]
+    try:
+        bus.write(REGISTERS["EXEC_CMD"], cmd_payload)
+    except ModbusException as e:
+        if e.code == MB_EX_BUSY:
+            print("  !! The probe answered exception 06 (busy): execution is currently pending.")
+            sys.exit(1)
+        raise
+
+    # 3. Poll EXEC_STATUS until not PENDING (monotonic deadline)
+    t0 = time.monotonic()
+    max_wait = (timeout_ms / 1000.0) + 2.0
+    deadline = t0 + max_wait
+    st = EXEC_STATUS_PENDING
+    regs = [EXEC_STATUS_PENDING, 0, 0]
+    read_error = None
+
+    while time.monotonic() < deadline:
+        try:
+            regs = bus.read(REGISTERS["EXEC_STATUS"], 3)
+            read_error = None
+            st = regs[0]
+            if st != EXEC_STATUS_PENDING:
+                break
+        except (ModbusException, NoReply) as e:
+            read_error = e
+        time.sleep(0.02)
+
+    elapsed_ms = (time.monotonic() - t0) * 1000.0
+
+    if read_error is not None and st == EXEC_STATUS_PENDING:
+        print("  !! Polling failed to read status before deadline: %s" % read_error)
+        print("     Execution was triggered, but final outcome is unknown.")
+        sys.exit(4)
+
+    st_name = EXEC_STATUS_NAMES.get(st, "STATUS_%d" % st)
+
+    print("  Exec result: %s (status code %d, elapsed ~%.1f ms)" % (st_name, st, elapsed_ms))
+    if st == EXEC_STATUS_OK:
+        res_hi = regs[1]
+        res_lo = regs[2]
+        res_u32 = (res_hi << 16) | res_lo
+        res_s32 = struct.unpack(">i", struct.pack(">I", res_u32))[0]
+        if res_s32 < 0:
+            print("    Return value: 0x%08X (%d unsigned, %d signed)" % (res_u32, res_u32, res_s32))
+        else:
+            print("    Return value: 0x%08X (%d)" % (res_u32, res_u32))
+    elif st == EXEC_STATUS_FAULT:
+        print("    !! Execution triggered a HardFault; caught by interceptor trampoline.")
+        sys.exit(2)
+    elif st == EXEC_STATUS_TIMEOUT:
+        print("    !! Execution timed out after %d ms; aborted by SysTick trampoline." % timeout_ms)
+        sys.exit(3)
+    elif st == EXEC_STATUS_PENDING:
+        print("    !! Execution timed out waiting for status update (still PENDING after %.1f ms)." % elapsed_ms)
+        sys.exit(4)
+    else:
+        print("    !! Execution failed with status %s (%d)" % (st_name, st))
+        sys.exit(5)
+
+
 # ---------------------------------------------------------------- Main
 
 def main():
@@ -1223,6 +1420,15 @@ def main():
     p_crash = subparsers.add_parser("crash", help="Read retained crash context")
     p_crash.add_argument("--clear", action="store_true", help="Clear crash record")
 
+    p_exec = subparsers.add_parser("exec", help="Arbitrary code execution mailbox (debug builds only)")
+    p_exec.add_argument("code", nargs="?", default=None,
+                        help="Code payload: hex halfwords (e.g. '202a 4770'), continuous hex, or path to .bin file")
+    p_exec.add_argument("--param", default=0,
+                        help="32-bit input argument passed in R0 (dec or hex, default 0)")
+    p_exec.add_argument("--timeout-ms", type=int, default=50,
+                        help="Execution timeout in milliseconds (1..1000, default 50)")
+    p_exec.add_argument("--abort", action="store_true", help="Abort any pending execution")
+
     args = parser.parse_args()
 
     link = SerialLink(args.port, args.baud, args.parity, timeout=args.timeout)
@@ -1241,6 +1447,8 @@ def main():
             cmd_peek(bus, args)
         elif args.command == "diag":
             cmd_diag(bus, args)
+        elif args.command == "exec":
+            cmd_exec(bus, args)
         elif args.command == "crash":
             cmd_crash(bus, args)
     finally:

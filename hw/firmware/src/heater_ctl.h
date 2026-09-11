@@ -44,7 +44,14 @@
 enum {
     O2P_HB_NOT_COMPILED  = 1u << 0,  /* built with O2P_HEATER_ENABLE = 0 */
     O2P_HB_CONFIG_OFF    = 1u << 1,  /* HEATER_MAX_DUTY is zero */
-    O2P_HB_SAFETY        = 1u << 2,  /* TMP117 therm-mode alert not armed */
+    O2P_HB_SAFETY        = 1u << 2,  /* TMP117 therm-mode alert not armed.
+                                      * An ANNOTATION, not a refusal, when it
+                                      * is the ONLY bit and the attended tip
+                                      * loop is armed with a valid tip - see
+                                      * o2p_heater_ctl_step() (2026-09-11,
+                                      * Fab's order). A hard refusal in every
+                                      * other configuration, including all
+                                      * autonomous loops. */
     O2P_HB_NO_RH         = 1u << 3,  /* no fresh, unmasked SHT45 humidity */
     O2P_HB_NO_TIP        = 1u << 4,  /* no fresh TMP117 reading */
     O2P_HB_NO_CHAMBER    = 1u << 5,  /* no chamber temperature for the dT clamp */
@@ -109,20 +116,55 @@ enum {
  * from VALID readings - a measured overtemperature is never overridden), and a
  * die reading that is missing or at/above O2P_HEATER_BLIND_DIE_MAX_C100: the
  * MCU's own sensor, off the I2C bus, and the one thermal witness left.
- * OVERRIDES: SAFETY, NO_TIP, NO_CHAMBER, SUPPLY (VA/VIN come from on-board
- * dividers a wet board can skew) and RUNAWAY (computed from the tip sensor).
  *
- * NO_RH ON ITS OWN DOES NOT TRIGGER IT: that is the SHT45's scheduled 350 s
- * de-creep mask on a healthy probe, and the humidity loop idles through it. */
+ * OVERRIDES, LAW-AWARE (Fab's rulings 2026-09-11 - "fix that control loop
+ * bullshit", "unattended loop: annotate and regulate (keep <=80 C)", and the
+ * per-law blind rule: blind must require the in-command loop's own control
+ * sensor to be invalid): a sensor-unavailability bit may blind ONLY the law
+ * whose control quantity it is. When the law in command's own sensor is
+ * valid, the other sensor bits are annotations and the loop REGULATES,
+ * bounded by whatever limits remain evaluable. So:
+ *   - NO_TIP blinds only a tip law (the volatile override's setpoint or the
+ *     stored one) - for the RH loop it annotates, because the tip only feeds
+ *     TIP_LIMIT there (its latch semantics unchanged: unevaluable never
+ *     exonerates);
+ *   - NO_RH blinds only the RH law, whose own control sensor it is;
+ *   - NO_CHAMBER never blinds anything: the chamber is no law's control
+ *     quantity, it only feeds DT_LIMIT, whose evidence-based latch needs
+ *     both sensors and stays fully live as a hard refusal;
+ *   - SAFETY annotates the tip laws (the setpoint laws Fab named) and keeps
+ *     its founding blind membership for the open-loop override and the RH
+ *     law - the rulings did not touch those;
+ *   - SUPPLY annotates everywhere (de-vetoed 2026-09-11) and RUNAWAY, not a
+ *     sensor bit, keeps its membership: a latched stuck-FET verdict still
+ *     blinds every law.
+ * The old premise that a setpoint law with a dead chamber must "refuse
+ * rather than heat open-loop on temperature" is overruled: the controlled
+ * quantity is the TIP, the chamber only feeds DT_LIMIT, and DT_LIMIT remains
+ * the bound.
+ *
+ * THE DIE GATE IS THE STAND-DOWN (Fab's order 2026-09-11: "nope, no
+ * stand-down. 50 is safe if MCU die is < 40 C"): nothing schedules the
+ * heater down - blind heat rides through sensor loss bounded by the duty,
+ * and stands down exactly when the die gate closes. During the SHT45's
+ * scheduled de-creep the RH AND the chamber reading both go invalid (the
+ * same sensor's mask, main.c), so the RH law's control sensor is down: NO_RH
+ * blinds it and the ring rides at this duty until the window ends or the
+ * die crosses 40 C, whichever comes first. The old claim that "NO_RH on its
+ * own does not trigger it" was wrong twice: NO_RH now blinds the RH law by
+ * rule, and it never did arrive alone - the mask takes the chamber with it. */
 #define O2P_HEATER_BLIND_DUTY_X100    5000u
 /* 40.00 C, lowered from 70.00 at Fab's instruction when the blind duty went to
  * 50 %: "make sure the blind 50% are only available if MCU die is below 40°C".
- * The die sat at 32 C while the tip reached 76 C at 70 % duty (2026-09-10), so
- * this is a bound on the MCU end of the board and on how warm the environment
- * already is, not a tip limit. No hysteresis: at the threshold the fallback
- * toggles at the 1 Hz decision rate, a slow bang-bang on a thermal plant with a
- * time constant of tens of seconds, and the die's 0.29 K/LSB dither sets how
- * often it flips there. */
+ * THE BLIND DISCRIMINATOR AND STAND-DOWN GATE (Fab's order 2026-09-11, see
+ * O2P_HEATER_BLIND_DUTY_X100 above): the one bound that decides whether the
+ * blind fallback may drive at all, evaluated deliberately in every blind
+ * cell. The die sat at 32 C while the tip reached 76 C at 70 % duty
+ * (2026-09-10), so this is a bound on the MCU end of the board and on how
+ * warm the environment already is, not a tip limit. No hysteresis: at the
+ * threshold the fallback toggles at the 1 Hz decision rate, a slow bang-bang
+ * on a thermal plant with a time constant of tens of seconds, and the die's
+ * 0.29 K/LSB dither sets how often it flips there. */
 #define O2P_HEATER_BLIND_DIE_MAX_C100 4000
 
 /* Firmware's own absolute tip limit, independent of the TMP117's alert.
@@ -149,6 +191,14 @@ enum {
  * mechanisms at the same threshold would be one mechanism. */
 #define O2P_HEATER_TIP_LIMIT_C100  8200
 #define O2P_HEATER_TIP_RELEASE_C100 7700
+/* 80.00 C: the tip clamp while SAFETY is in the annotated state - a tip law
+ * in command, its sensor valid, and the hardware therm backstop known down.
+ * Fab's order 2026-09-11: "unattended loop: annotate and regulate (keep
+ * <=80 C)". Tighter than the 82.00 C limit on purpose: when the TMP117's
+ * therm-mode alert cannot be credited, firmware backs off 2 K earlier. NOT
+ * a permanent change - the normal O2P_HEATER_TIP_LIMIT_C100 resumes the
+ * moment safety_armed does, or when no tip law is in command. */
+#define O2P_HEATER_TIP_LIMIT_ANNOTATED_C100 8000
 
 /* The dT clamp releases half a kelvin below DT_MAX_K, same reasoning. */
 #define O2P_HEATER_DT_HYST_K100 50

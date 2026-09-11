@@ -654,6 +654,93 @@ enum {
 _Static_assert(O2P_REG_EXEC_COUNT == O2P_REG_EXEC_HDR_COUNT + O2P_REG_EXEC_CODE_COUNT,
                "exec count is header count plus code count");
 
+/* ---- Memory poke mailbox: 0x0198, 12 registers, read/write, VOLATILE ----
+ * (FW_VERSION 0x0012, 2026-09-11) The WRITE counterpart of the peek at
+ * 0x0065, for the bench state a read cannot fix: Fab's order "the equivalent
+ * write command of the peek", after a lost TMP117 threshold pair could only
+ * be repaired by an MCU reset because no runtime path could write memory.
+ *
+ * The trigger is ONE FC16 starting exactly at O2P_REG_POKE_ADDR_HI, of
+ * 3 + 2*words registers: [addr_hi, addr_lo, words, w0_hi, w0_lo, ...].
+ * `words` is 1..4, so the accepted counts are exactly 5, 7, 9 and 11 - the
+ * payload travels in the trigger frame, so (unlike the peek, whose data
+ * registers are OUTPUT) the payload registers sit contiguously behind the
+ * header and STATUS is the read-only tail. Every other write touching the
+ * block is exception 03 and changes NOTHING - the same shape-then-act
+ * contract as the wide peek at regmap.h's 0x0100 entry.
+ *
+ * WHAT IT MAY WRITE: .data/.bss only. The rules and the reasoning are at
+ * poke_check() in regmap.c; in short, the poke admits exactly the span the
+ * peek admits under the parity gate, so anything poked is peekable back for
+ * verification. Flash, peripherals (SCB AIRCR included), the UID, SHARED
+ * and the stack/heap-gap are all ERR_RANGE, deliberately. */
+enum {
+    O2P_REG_POKE_ADDR_HI       = 0x0198u,  /* W: target [31:16]; R: held      */
+    O2P_REG_POKE_ADDR_LO       = 0x0199u,  /* W: target [15:0]; R: held       */
+    O2P_REG_POKE_WORDS         = 0x019Au,  /* W: 1..4; R: words last poked    */
+    O2P_REG_POKE_W0_HI         = 0x019Bu,  /* W: payload; R: payload held     */
+    O2P_REG_POKE_W0_LO         = 0x019Cu,
+    O2P_REG_POKE_W1_HI         = 0x019Du,
+    O2P_REG_POKE_W1_LO         = 0x019Eu,
+    O2P_REG_POKE_W2_HI         = 0x019Fu,
+    O2P_REG_POKE_W2_LO         = 0x01A0u,
+    O2P_REG_POKE_W3_HI         = 0x01A1u,
+    O2P_REG_POKE_W3_LO         = 0x01A2u,
+    O2P_REG_POKE_STATUS        = 0x01A3u,  /* RO: O2P_POKE_*                  */
+};
+#define O2P_REG_POKE_BASE  0x0198u
+#define O2P_REG_POKE_COUNT 12u
+
+/* The poke's status vocabulary deliberately mirrors O2P_PEEK_*. There is no
+ * ERR_PARITY: RM0444 2.3 (p. 67) computes and stores the parity bit "when
+ * writing into the SRAM", so a store cannot hit the read-side NMI that a
+ * never-written word can - the span gate below is policy, not parity. */
+enum {
+    O2P_POKE_NONE      = 0u,
+    O2P_POKE_OK        = 1u,
+    O2P_POKE_ERR_RANGE = 2u,
+    O2P_POKE_ERR_ALIGN = 3u,
+};
+
+/* ---- Wide poke block: 0x01B0, 65 registers, read/write, VOLATILE ----
+ *
+ * The poke counterpart of the wide peek at 0x0100, for the same reason that
+ * block exists: 4 words per round trip does not scale to patching a struct.
+ * One FC16 of 3 + 2*words registers at O2P_REG_POKEW_ADDR_HI -
+ * [addr_hi, addr_lo, words, payload...] - writes the whole burst in one
+ * trigger, `words` 1..O2P_PEEKW_WORDS_MAX, so accepted counts run 5..63,
+ * inside the 123-register FC16 ceiling (modbus_pdu.c:73).
+ *
+ * 0x01A4..0x01AF is left empty as a guard between this block and the poke
+ * mailbox above, on the same convention as 0x00FB..0x00FF (a malformed FC16
+ * that runs off the end of a block lands in nothing).
+ *
+ * LAYOUT DEVIATION FROM 0x0100, on purpose: the wide peek holds its data
+ * after STATUS and SEQ because its data is output a master reads back;
+ * this block's data is INPUT, and it must be contiguous with the trigger
+ * header for one-frame delivery. STATUS and SEQ are the read-only tail. */
+enum {
+    O2P_REG_POKEW_ADDR_HI = 0x01B0u,  /* W: target [31:16]; R: address held */
+    O2P_REG_POKEW_ADDR_LO = 0x01B1u,  /* W: target [15:0]                   */
+    O2P_REG_POKEW_WORDS   = 0x01B2u,  /* W: burst 1..30; R: words requested */
+    O2P_REG_POKEW_DATA    = 0x01B3u,  /* W: word 0 hi, word 0 lo, ...; R: held */
+    O2P_REG_POKEW_STATUS  = 0x01EFu,  /* RO: O2P_POKE_*                     */
+    O2P_REG_POKEW_SEQ     = 0x01F0u,  /* RO: executed triggers, 0 = never   */
+};
+#define O2P_REG_POKEW_BASE  0x01B0u
+#define O2P_REG_POKEW_HEADER 3u
+#define O2P_REG_POKEW_COUNT 65u
+
+_Static_assert(O2P_REG_POKE_BASE >= O2P_REG_EXEC_BASE + O2P_REG_EXEC_COUNT,
+               "the poke mailbox must not overlap the exec block");
+_Static_assert(O2P_REG_POKEW_BASE >= O2P_REG_POKE_BASE + O2P_REG_POKE_COUNT + 12u,
+               "the wide poke block must sit beyond the poke mailbox and its guard");
+_Static_assert(O2P_REG_POKEW_COUNT == O2P_REG_POKEW_HEADER + 2u * O2P_PEEKW_WORDS_MAX + 2u,
+               "wide poke is its header plus two registers per word plus STATUS and SEQ");
+_Static_assert(O2P_REG_POKEW_STATUS == O2P_REG_POKEW_BASE + O2P_REG_POKEW_HEADER +
+               2u * O2P_PEEKW_WORDS_MAX,
+               "STATUS and SEQ are the tail after the payload registers");
+
 #define O2P_EXEC_MAGIC_MASK      0xFF00u
 #define O2P_EXEC_MAGIC           0x5A00u
 #define O2P_EXEC_OP_ABORT        0x00u
@@ -913,7 +1000,7 @@ enum {
  *
  * For "which build is this", read BUILD_ID (0x0028/0x0029) - this number is
  * hand-maintained and says nothing about the binary. */
-#define O2P_FW_VERSION 0x0011u  /* v0.17 - supply veto removed (Fab 2026-09-11: <1 W, blind already heated through it; O2P_HB_SUPPLY now annotation-only); v0.16 was compost-readiness: fresh RH consent, HB IDLE/TIP_DISARMED, stale cut 2 s + STALE bit, tip glitch reject, VREF settle on recovery */
+#define O2P_FW_VERSION 0x0012u  /* v0.18 - poke mailbox 0x0198 + wide poke 0x01B0 (Fab 2026-09-11: "the equivalent write command of the peek" - SRAM .data/.bss writes only, flash/peripherals/SHARED/stack refused); v0.17 - supply veto removed (Fab 2026-09-11: <1 W, blind already heated through it; O2P_HB_SUPPLY now annotation-only); v0.16 was compost-readiness: fresh RH consent, HB IDLE/TIP_DISARMED, stale cut 2 s + STALE bit, tip glitch reject, VREF settle on recovery */
 
 /* Overridden by tools/pio_build_id.py on every target build. The default is
  * reached only by the host test build, and means "no stamp", never a commit. */
@@ -1186,6 +1273,22 @@ typedef struct {
     uint16_t peekw_seq;
     uint32_t peekw_words[O2P_PEEKW_WORDS_MAX];
 
+    /* Memory poke mailbox and wide poke (2026-09-11, FW_VERSION 0x0012):
+     * the write counterparts above. The payload is HELD after the trigger
+     * so a readback shows exactly what was sent - the poke's own answer to
+     * "did it take" before any peek is aimed at the target. */
+    uint16_t poke_addr_hi;
+    uint16_t poke_addr_lo;
+    uint16_t poke_words_held;
+    uint16_t poke_status;
+    uint32_t poke_words[4];
+
+    uint32_t pokew_addr;
+    uint16_t pokew_words_req;
+    uint16_t pokew_status;
+    uint16_t pokew_seq;
+    uint32_t pokew_words[O2P_PEEKW_WORDS_MAX];
+
     /* Sensor diagnostic mailbox */
     uint16_t diag_cmd;
     uint16_t diag_param;
@@ -1233,6 +1336,14 @@ extern int o2p_peek_host_irq_depth;
  * source/destination overlap test. NULL (the default) means no overlap, and
  * the copy runs ascending as it did before the fix. */
 extern uint32_t (*o2p_peek_host_dst_addr)(const uint32_t *dst);
+/* The poke's store seam (2026-09-11): every store the poke paths would make
+ * goes through this, so a test can back the regions with memory AND count
+ * every store - which is how a test proves a refused poke wrote nothing,
+ * rather than inferring it from a status code. The peek-space address the
+ * store should treat its payload buffer as living at, for the write-side
+ * overlap test (the N1 mirror). NULL means no overlap. */
+extern void (*o2p_peek_host_store)(uint32_t addr, uint32_t val);
+extern uint32_t (*o2p_peek_host_src_addr)(const uint32_t *src);
 /* The SRAM parity gate's inputs (O2P_PEEK_ERR_PARITY): what FLASH_OPTR reads,
  * and the linker's _sdata/_edata/_sbss/_ebss. o2p_peek_host_parity_reset()
  * restores the factory option byte (parity check disabled) and a fixed map. */

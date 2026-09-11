@@ -42,8 +42,20 @@ while preserving layer order, finished thickness, and copper weights.
   16 mm series barrier between tip and body.
 - U11 contains a separate routed mechanical aperture: one 3.00 × 6.00 mm
   gasward-offset NPTH oblong centred at `(110.00,145.30)` mm in the Excellon
-  data. Its nearest edge is 0.50 mm from U11 pad-2 copper. Do not convert it to
+  data. Its nearest edge is 0.30 mm from U11 pad-2 copper. Do not convert it to
   a round drill, move it, or resize it without engineering approval.
+- U11's three cell pads are a **socket land, not a pin land**. The oxygen cell
+  may not be soldered (SGX DS-0317 Issue 2 note 3), so the holes take a
+  receptacle. Finished hole **1.32 mm +0.10/−0.00** — one-sided, because only an
+  undersize hole blocks insertion — on a 2.00 mm land, for TE Connectivity
+  5050462. The land is oversized on purpose: an assembler may **bore these three
+  holes to 1.40 mm** to fit Cambion 450-3703 instead, which leaves a 0.30 mm
+  annular ring and is an approved build option. Do not shrink the land to
+  "recover" clearance to the NPTH aperture; the 0.30 mm figure above already
+  accounts for it, and `audit_pcb.py` asserts it.
+- Assembly: degrease the board before the cell is fitted (DS-0317 Issue 2
+  note 8), and fit the cell **last** — after clean, bake, coat, pot and cure.
+  It may never see reflow, wash, or cure heat.
 - J5 has two 2.00 × 3.00 mm through-hole pads centred at `(100.00,155.50)` and
   `(120.00,155.50)` mm. Each contains a 1.00 × 2.00 mm plated slot marked with
   KiCad's castellated-pad fabrication property. The finished left/right profile

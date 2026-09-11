@@ -591,6 +591,8 @@ every address below raises exception 02. Design:
 | Crash context | `0x0077`, 9 registers, read/write, retained | last HardFault, assert or IWDG record |
 | Wide peek block | `0x0100`, 65 registers, read/write, volatile | 1..30 words per trigger, snapshotted |
 | Arbitrary code execution mailbox | `0x0150`, 72 registers, read/write, volatile | Thumb-2 execution in SRAM with watchdog and fault interceptor |
+| Memory poke mailbox | `0x0198`, 12 registers, read/write, volatile | 1..4 words per trigger, payload in the trigger frame — the WRITE counterpart of the peek |
+| Wide poke block | `0x01B0`, 65 registers, read/write, volatile | 1..30 words per trigger, payload in the trigger frame |
 
 The wide peek block exists because a 4-word mailbox needs a trigger and a read
 per 16 bytes, and a struct dumped across several of those is several moments

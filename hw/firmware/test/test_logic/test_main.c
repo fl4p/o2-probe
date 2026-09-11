@@ -1509,25 +1509,40 @@ static void test_a_cold_dry_probe_reports_idle_not_nothing(void)
     TEST_ASSERT_EQUAL_UINT16(O2P_HB_IDLE | O2P_HB_TIP_DISARMED, out.block);
 }
 
-static void test_every_interlock_independently_forces_zero(void)
+static void test_interlocks_refuse_blind_or_annotate_by_law(void)
 {
-    o2p_heater_cfg_t cfg = hcfg_default();
+    /* RENAMED AND RE-PINNED 2026-09-11 (Fab's per-law ruling: a sensor bit
+     * may blind only the law whose control quantity it is). The old name
+     * ("every interlock independently forces zero") stopped being true:
+     * with the RH law in command, NO_TIP and NO_CHAMBER are ADVISORY - the
+     * tip only feeds TIP_LIMIT, the chamber only feeds DT_LIMIT - so they
+     * annotate while the loop regulates. What forces what, per the ruling:
+     *   hard bits (not compiled, config off, tip limit, dt limit, pin
+     *     integrity) force zero, always;
+     *   the law's own control-sensor loss (NO_RH here) and SAFETY (founding
+     *     membership, untouched) force the BLIND path - at the blind duty
+     *     when the die gate permits it, zero when it does not;
+     *   advisory losses annotate and regulate.
+     * The die is stated at 27.00 C, under the gate, so the blind cells'
+     * 50 % is the die gate PERMITTING it - hin_healthy()'s 57.20 C used to
+     * make the same cells read zero by accident, which is what the
+     * reviewer caught. */
+    o2p_heater_cfg_t cfg = hcfg_default();      /* the RH law: no tip setpoint */
     o2p_heater_out_t out;
 
-    /* REMOVED from this table 2026-09-11 (Fab's order): {"supply",
-     * O2P_HB_SUPPLY} - the supply veto is gone; see
-     * test_supply_fault_annotates_but_does_not_veto() below for what is
-     * true now. */
-    struct { const char *name; uint16_t bit; } cases[] = {
-        {"not compiled",   O2P_HB_NOT_COMPILED},
-        {"config off",     O2P_HB_CONFIG_OFF},
-        {"safety",         O2P_HB_SAFETY},
-        {"no rh",          O2P_HB_NO_RH},
-        {"no tip",         O2P_HB_NO_TIP},
-        {"no chamber",     O2P_HB_NO_CHAMBER},
-        {"tip limit",      O2P_HB_TIP_LIMIT},
-        {"dt limit",       O2P_HB_DT_LIMIT},
-        {"pin integrity",  O2P_HB_PIN_INTEGRITY},
+    struct { const char *name; uint16_t bit; uint16_t duty;
+             uint16_t extra; int kind; } cases[] = {
+        /* kind 0: hard refusal, duty 0. 1: blind path, die-gated 50 %.
+         * 2: advisory annotation, the loop regulates. */
+        {"not compiled",   O2P_HB_NOT_COMPILED,   0u, 0u, 0},
+        {"config off",     O2P_HB_CONFIG_OFF,     0u, 0u, 0},
+        {"safety",         O2P_HB_SAFETY,         O2P_HEATER_BLIND_DUTY_X100, O2P_HB_BLIND, 1},
+        {"no rh",          O2P_HB_NO_RH,          O2P_HEATER_BLIND_DUTY_X100, O2P_HB_BLIND, 1},
+        {"no tip",         O2P_HB_NO_TIP,         0u, 0u, 2},
+        {"no chamber",     O2P_HB_NO_CHAMBER,     0u, 0u, 2},
+        {"tip limit",      O2P_HB_TIP_LIMIT,      0u, 0u, 0},
+        {"dt limit",       O2P_HB_DT_LIMIT,       0u, 0u, 0},
+        {"pin integrity",  O2P_HB_PIN_INTEGRITY,  0u, 0u, 0},
     };
 
     for (unsigned i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
@@ -1535,6 +1550,7 @@ static void test_every_interlock_independently_forces_zero(void)
         o2p_heater_ctl_reset(&st);
         o2p_heater_cfg_t c = cfg;
         o2p_heater_in_t in = hin_healthy();
+        in.t_die_c100 = 2700;   /* stated: under the gate, deliberately */
 
         switch (cases[i].bit) {
         case O2P_HB_NOT_COMPILED:  in.drive_possible = false; break;
@@ -1551,8 +1567,21 @@ static void test_every_interlock_independently_forces_zero(void)
         }
 
         o2p_heater_ctl_step(&st, &c, &in, 0u, &out);
-        TEST_ASSERT_EQUAL_UINT16_MESSAGE(0, out.duty_x100, cases[i].name);
-        TEST_ASSERT_TRUE_MESSAGE((out.block & cases[i].bit) != 0u, cases[i].name);
+        TEST_ASSERT_TRUE_MESSAGE((out.block & cases[i].bit) != 0u,
+                                 cases[i].name);
+        if (cases[i].kind == 2u) {
+            TEST_ASSERT_TRUE_MESSAGE(out.duty_x100 > 0u,
+                "an advisory sensor loss must annotate, not stop the loop");
+            TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.block & O2P_HB_BLIND,
+                cases[i].name);
+        } else {
+            TEST_ASSERT_EQUAL_UINT16_MESSAGE(cases[i].duty, out.duty_x100,
+                                             cases[i].name);
+            if (cases[i].extra != 0u) {
+                TEST_ASSERT_TRUE_MESSAGE((out.block & cases[i].extra) != 0u,
+                                         cases[i].name);
+            }
+        }
     }
 }
 
@@ -1581,23 +1610,49 @@ static void test_supply_fault_annotates_but_does_not_veto(void)
     TEST_ASSERT_EQUAL_UINT16(0u, out_ok.block & O2P_HB_SUPPLY);
 }
 
-static void test_unevaluable_input_is_off_not_midrange(void)
+static void test_unevaluable_control_quantity_blinds_not_midranges(void)
 {
-    /* The guard-checklist rule: missing data must never read as OK. Every
-     * combination of missing sensor must be OFF, never a comfortable duty. */
+    /* RENAMED AND RE-PINNED 2026-09-11 (Fab's per-law ruling). The old
+     * premise ("every combination of missing sensor must be OFF") stopped
+     * being true: with the RH law in command, a missing TIP or CHAMBER is
+     * an advisory loss - the loop keeps answering, with the miss visible
+     * in HEATER_BLOCK. What the guard-checklist rule still means, and what
+     * this test now pins: a law missing its OWN control quantity (RH here)
+     * never reads as a comfortable duty - it takes the blind path, at the
+     * blind duty while the die gate permits (27.00 C, stated deliberately
+     * instead of hin_healthy()'s 57.20 C, which used to make these cells
+     * read zero by accident) - and every mask with a miss reports
+     * SOMETHING in HEATER_BLOCK. */
     o2p_heater_cfg_t cfg = hcfg_default();
     o2p_heater_out_t out;
     for (unsigned mask = 0u; mask < 8u; mask++) {
         o2p_heater_state_t st;
         o2p_heater_ctl_reset(&st);
         o2p_heater_in_t in = hin_healthy();
+        in.t_die_c100 = 2700;   /* stated: under the blind gate */
         if (mask & 1u) { in.rh_valid = false; }
         if (mask & 2u) { in.tip_valid = false; }
         if (mask & 4u) { in.chamber_valid = false; }
         o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
-        if (mask != 0u) {
-            TEST_ASSERT_EQUAL_UINT16(0, out.duty_x100);
-            TEST_ASSERT_TRUE(out.block != 0u);
+        if (mask == 0u) {
+            TEST_ASSERT_TRUE(out.duty_x100 > 0u);   /* 95 % vs 85 %: demand */
+            continue;
+        }
+        TEST_ASSERT_TRUE_MESSAGE(out.block != 0u,
+            "every missing-sensor mask must report something");
+        if (mask & 1u) {
+            /* The control quantity itself is unevaluable: blind, never
+             * midrange. */
+            TEST_ASSERT_EQUAL_UINT16_MESSAGE(
+                O2P_HEATER_BLIND_DUTY_X100, out.duty_x100,
+                "a law missing its own control quantity goes blind");
+            TEST_ASSERT_TRUE((out.block & O2P_HB_NO_RH) != 0u);
+            TEST_ASSERT_TRUE((out.block & O2P_HB_BLIND) != 0u);
+        } else {
+            /* Advisory losses only: the loop regulates, misses visible. */
+            TEST_ASSERT_TRUE_MESSAGE(out.duty_x100 > 0u,
+                "an advisory miss must not stop the loop");
+            TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_BLIND);
         }
     }
 }
@@ -4476,16 +4531,25 @@ static void test_persistent_tip_loop_does_not_need_humidity(void)
         "the tip loop must clear NO_RH");
     TEST_ASSERT_TRUE(out.duty_x100 > 0u);
 
-    /* Past the bridge's age bound, or with a genuinely dead SHT45: the chamber
-     * goes with the humidity and the loop must refuse. This is the half the
-     * original test omitted, and it is the one that proves the bridge is a
-     * BOUNDED substitution rather than a suppression. */
+    /* Past the bridge's age bound, or with a genuinely dead SHT45: the
+     * chamber goes with the humidity. OVERTURNED 2026-09-11 (Fab's per-law
+     * ruling: the chamber is no law's control quantity, it only feeds
+     * DT_LIMIT): the loop REGULATES through NO_CHAMBER as an annotation.
+     * The bridge is no longer what stands between this loop and driving;
+     * what a fresh reference still buys is DT_LIMIT's release evidence
+     * (chamber_fresh, heater_ctl.c - bridged is good enough for latching,
+     * not for exonerating). The die is stated deliberately: 57.20 C from
+     * hin_healthy(), above the blind gate and moot here only because no
+     * blind path is taken. */
     o2p_heater_ctl_reset(&st);
     in.chamber_valid = false;
+    in.chamber_fresh = false;
     o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
     TEST_ASSERT_TRUE_MESSAGE((out.block & O2P_HB_NO_CHAMBER) != 0u,
-        "an expired bridge must refuse, not keep driving on a stale reference");
-    TEST_ASSERT_EQUAL_UINT16(0u, out.duty_x100);
+        "NO_CHAMBER must stay visible while the loop drives");
+    TEST_ASSERT_TRUE_MESSAGE(out.duty_x100 > 0u,
+        "a tip law regulates through a dead chamber (2026-09-11 ruling)");
+    TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_BLIND);
 }
 
 static void test_persistent_tip_loop_still_honours_the_dt_clamp(void)
@@ -4506,21 +4570,32 @@ static void test_persistent_tip_loop_still_honours_the_dt_clamp(void)
     TEST_ASSERT_EQUAL_UINT16(0u, out.duty_x100);
 }
 
-static void test_persistent_tip_loop_still_needs_a_chamber_reading(void)
+static void test_persistent_tip_loop_regulates_through_no_chamber(void)
 {
-    /* Follows from the above: without a chamber temperature the dT envelope
-     * cannot be enforced, and this mode keeps that envelope. Suppressing
-     * NO_CHAMBER while keeping DT_LIMIT would be a clamp that cannot fire. */
+    /* RENAMED AND RE-PINNED 2026-09-11 (Fab's per-law ruling: the chamber is
+     * no law's control quantity - it only feeds DT_LIMIT). The old pin
+     * ("still needs a chamber reading") demanded duty 0 on NO_CHAMBER and
+     * passed twice over by accident: the refusal it asserted was overturned
+     * by the ruling, and the blind path that would have replaced it was
+     * already closed by hin_healthy()'s die = 57.20 C sitting above
+     * O2P_HEATER_BLIND_DIE_MAX_C100 - the reviewer's finding. The die is
+     * now stated where it matters instead of inherited silently. DT_LIMIT
+     * stays fully live as the hard bound; it simply cannot fire on a
+     * chamber it cannot read, and an unevaluable clamp is not a refusal of
+     * the loop. */
     o2p_heater_state_t st;
     o2p_heater_ctl_reset(&st);
     o2p_heater_cfg_t cfg = hcfg_tip_auto();
-    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_in_t in = hin_healthy();   /* die 57.20 C: stated, and moot - no blind path */
     o2p_heater_out_t out;
 
     in.chamber_valid = false;
     o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
     TEST_ASSERT_TRUE((out.block & O2P_HB_NO_CHAMBER) != 0u);
-    TEST_ASSERT_EQUAL_UINT16(0u, out.duty_x100);
+    TEST_ASSERT_TRUE_MESSAGE(out.duty_x100 > 0u,
+        "the persistent tip loop regulates through NO_CHAMBER (2026-09-11)");
+    TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_BLIND);
+    TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_DT_LIMIT);
 }
 
 static void test_the_bench_override_outranks_a_stored_setpoint(void)
@@ -4739,18 +4814,31 @@ static void test_override_is_clamped_by_max_duty(void)
 static void test_override_does_not_bypass_the_hardware_interlocks(void)
 {
     /* The list that makes this mode acceptable at all. Each is broken alone,
-     * from an otherwise healthy input, with the override armed at full duty:
-     * every one must still force zero. (CORRECTED 2026-09-11, Fab's order:
-     * "supply" left this list - the rail fault no longer vetoes any path,
-     * override included; O2P_HB_SUPPLY is an annotation now. See
-     * regmap.h's dated correction.) */
-    struct { const char *name; int which; uint16_t bit; } cases[] = {
-        { "safety",        0, O2P_HB_SAFETY        },
-        { "no tip",        1, O2P_HB_NO_TIP        },
-        { "tip limit",     2, O2P_HB_TIP_LIMIT     },
-        { "pin integrity", 4, O2P_HB_PIN_INTEGRITY },
-        { "not compiled",  5, O2P_HB_NOT_COMPILED  },
-        { "config off",    6, O2P_HB_CONFIG_OFF    },
+     * from an otherwise healthy input, with the OPEN-LOOP override armed at
+     * full duty. RE-PINNED 2026-09-11 (Fab's per-law ruling + the die-gate
+     * ruling): "supply" had already left this list (the rail fault is an
+     * annotation now, regmap.h's dated correction), and two more entries
+     * changed shape rather than leaving:
+     *   - "safety" still stops the open loop - via the BLIND path, whose
+     *     duty the die gate now decides. At the stated 27.00 C (under the
+     *     gate) that is the 50 % blind duty, NOT zero; the old pin's zero
+     *     was hin_healthy()'s 57.20 C closing the gate by accident. At
+     *     40.00 C and above it is zero - the die gate is the stand-down.
+     *   - "no tip" no longer stops it at all: the open loop has no control
+     *     quantity to lose, so NO_TIP is an advisory annotation and the
+     *     operator's duty stands.
+     * The hard bits (tip limit, pin integrity, not compiled, config off)
+     * still force zero, and that is the list that makes the mode
+     * acceptable. */
+    struct { const char *name; int which; uint16_t bit; uint16_t duty;
+             uint16_t extra; int kind; } cases[] = {
+        /* kind 0: hard, duty 0. 1: blind, die-gated. 2: annotation, drives. */
+        { "safety",        0, O2P_HB_SAFETY,        O2P_HEATER_BLIND_DUTY_X100, O2P_HB_BLIND, 1 },
+        { "no tip",        1, O2P_HB_NO_TIP,        0u, 0u, 2 },
+        { "tip limit",     2, O2P_HB_TIP_LIMIT,     0u, 0u, 0 },
+        { "pin integrity", 4, O2P_HB_PIN_INTEGRITY, 0u, 0u, 0 },
+        { "not compiled",  5, O2P_HB_NOT_COMPILED,  0u, 0u, 0 },
+        { "config off",    6, O2P_HB_CONFIG_OFF,    0u, 0u, 0 },
     };
     for (unsigned i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
         o2p_heater_state_t st;
@@ -4759,21 +4847,52 @@ static void test_override_does_not_bypass_the_hardware_interlocks(void)
         o2p_heater_in_t in = hin_healthy();
         o2p_heater_out_t out;
         arm_override(&cfg, 10000u);
+        in.t_die_c100 = 2700;   /* stated: under the gate, so the safety
+                                   case's blind duty is what it permits */
 
         switch (cases[i].which) {
         case 0: in.safety_armed = false; break;
         case 1: in.tip_valid = false; break;
         case 2: in.t_tip_c100 = O2P_HEATER_TIP_LIMIT_C100; break;
-        case 3: in.supply_ok = false; break;
         case 4: in.pin_integrity_ok = false; break;
         case 5: in.drive_possible = false; break;
         case 6: cfg.max_duty_x100 = 0u; break;
         default: break;
         }
         o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
-        TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.duty_x100, cases[i].name);
         TEST_ASSERT_TRUE_MESSAGE((out.block & cases[i].bit) != 0u,
                                  cases[i].name);
+        if (cases[i].kind == 2u) {
+            TEST_ASSERT_EQUAL_UINT16_MESSAGE(10000u, out.duty_x100,
+                cases[i].name);
+            TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.block & O2P_HB_BLIND,
+                cases[i].name);
+        } else {
+            TEST_ASSERT_EQUAL_UINT16_MESSAGE(cases[i].duty, out.duty_x100,
+                                             cases[i].name);
+            if (cases[i].extra != 0u) {
+                TEST_ASSERT_TRUE_MESSAGE((out.block & cases[i].extra) != 0u,
+                                         cases[i].name);
+            }
+        }
+    }
+
+    /* The stand-down half of the safety case: same state, die at the gate
+     * - the blind duty is zero, the die IS the discriminator (Fab's order
+     * 2026-09-11: "nope, no stand-down. 50 is safe if MCU die is < 40 C"). */
+    {
+        o2p_heater_state_t st;
+        o2p_heater_ctl_reset(&st);
+        o2p_heater_cfg_t cfg = hcfg_default();
+        o2p_heater_in_t in = hin_healthy();
+        o2p_heater_out_t out;
+        arm_override(&cfg, 10000u);
+        in.safety_armed = false;
+        in.t_die_c100 = O2P_HEATER_BLIND_DIE_MAX_C100;
+        o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+        TEST_ASSERT_EQUAL_UINT16(0u, out.duty_x100);
+        TEST_ASSERT_TRUE((out.block & O2P_HB_SAFETY) != 0u);
+        TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_BLIND);
     }
 }
 
@@ -5073,14 +5192,20 @@ static void test_the_integrator_does_not_leak_between_loops(void)
 static void test_tip_mode_still_obeys_every_hardware_interlock(void)
 {
     /* The setpoint loop is not a second way in. Same list as the open-loop
-     * override, with a setpoint far above the tip so the loop wants full duty. */
-    struct { const char *name; int which; uint16_t bit; } cases[] = {
-        { "safety",        0, O2P_HB_SAFETY        },
-        { "no tip",        1, O2P_HB_NO_TIP        },
-        { "tip limit",     2, O2P_HB_TIP_LIMIT     },
-        { "pin integrity", 4, O2P_HB_PIN_INTEGRITY },
-        { "not compiled",  5, O2P_HB_NOT_COMPILED  },
-        { "config off",    6, O2P_HB_CONFIG_OFF    },
+     * override, with a setpoint far above the tip so the loop wants full
+     * duty. RE-PINNED 2026-09-11 (Fab's rulings): SAFETY alone no longer
+     * refuses a tip law - it annotates and the loop runs, so the safety
+     * case moved out of this refusal table into its own pin below - and
+     * the die is stated at 27.00 C, under the blind gate, so the no-tip
+     * case's blind duty is what the DIE GATE permits, visible and
+     * deliberate, never an accident of hin_healthy()'s 57.20 C. */
+    struct { const char *name; int which; uint16_t bit; uint16_t duty;
+             uint16_t extra; } cases[] = {
+        { "no tip",        1, O2P_HB_NO_TIP,        O2P_HEATER_BLIND_DUTY_X100, O2P_HB_BLIND },
+        { "tip limit",     2, O2P_HB_TIP_LIMIT,     0u, 0u },
+        { "pin integrity", 4, O2P_HB_PIN_INTEGRITY, 0u, 0u },
+        { "not compiled",  5, O2P_HB_NOT_COMPILED,  0u, 0u },
+        { "config off",    6, O2P_HB_CONFIG_OFF,    0u, 0u },
     };
     /* ("supply" removed from this table 2026-09-11, Fab's order - the rail
      * fault no longer vetoes any path; O2P_HB_SUPPLY is an annotation. See
@@ -5097,21 +5222,51 @@ static void test_tip_mode_still_obeys_every_hardware_interlock(void)
         cfg.test_kp_x100 = O2P_HEATER_TEST_KP_X100_DEFAULT;
         cfg.test_ki_x100 = O2P_HEATER_TEST_KI_X100_DEFAULT;
         in.t_tip_c100 = 2500;
+        in.t_die_c100 = 2700;   /* stated: UNDER the blind gate, so the
+                                   no-tip case's 50 % is permitted, not accidental */
 
         switch (cases[i].which) {
-        case 0: in.safety_armed = false; break;
         case 1: in.tip_valid = false; break;
         case 2: in.t_tip_c100 = O2P_HEATER_TIP_LIMIT_C100; break;
-        case 3: in.supply_ok = false; break;
         case 4: in.pin_integrity_ok = false; break;
         case 5: in.drive_possible = false; break;
         case 6: cfg.max_duty_x100 = 0u; break;
         default: break;
         }
         o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
-        TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.duty_x100, cases[i].name);
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(cases[i].duty, out.duty_x100,
+                                         cases[i].name);
         TEST_ASSERT_TRUE_MESSAGE((out.block & cases[i].bit) != 0u,
                                  cases[i].name);
+        if (cases[i].extra != 0u) {
+            TEST_ASSERT_TRUE_MESSAGE((out.block & cases[i].extra) != 0u,
+                                     cases[i].name);
+        }
+    }
+
+    /* SAFETY ALONE, 2026-09-11 (Fab's order: "fix that control loop
+     * bullshit"): the annotation pin the case it used to be in the table
+     * for. The tip law runs at full demand with SAFETY visible in
+     * HEATER_BLOCK - the state whose old duty-0 pin was the setpoint
+     * discard the ruling ended. */
+    {
+        o2p_heater_state_t st;
+        o2p_heater_ctl_reset(&st);
+        o2p_heater_cfg_t cfg = hcfg_default();
+        o2p_heater_in_t in = hin_healthy();
+        o2p_heater_out_t out;
+        cfg.test_override = true;
+        cfg.test_tip_sp_valid = true;
+        cfg.test_tip_sp_c100 = O2P_HEATER_TEST_SP_MAX_C100;
+        cfg.test_kp_x100 = O2P_HEATER_TEST_KP_X100_DEFAULT;
+        cfg.test_ki_x100 = O2P_HEATER_TEST_KI_X100_DEFAULT;
+        in.t_tip_c100 = 2500;
+        in.safety_armed = false;
+        o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+        TEST_ASSERT_TRUE_MESSAGE(out.duty_x100 > 0u,
+            "SAFETY alone must not refuse a tip law - annotate and regulate");
+        TEST_ASSERT_TRUE((out.block & O2P_HB_SAFETY) != 0u);
+        TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_BLIND);
     }
 }
 
@@ -6539,7 +6694,10 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    /* 0x0011: the supply veto is REMOVED - O2P_HB_SUPPLY is annotation-only
+    /* 0x0012: poke mailbox 0x0198 and wide poke 0x01B0 - the WRITE
+     *         counterpart of the peek (Fab's order, 2026-09-11); SRAM
+     *         .data/.bss writes only, flash/peripherals/SHARED refused.
+     * 0x0011: the supply veto is REMOVED - O2P_HB_SUPPLY is annotation-only
      *         on every path (Fab's order, 2026-09-11; no wire-format change,
      *         the bit still appears, it just stops refusing).
      * 0x0010: fresh configs ship RH consent; HEATER_BLOCK's last two bits
@@ -6548,7 +6706,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         steps the thermal mass cannot make are rejected for a cycle.
      * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
      *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
-    TEST_ASSERT_EQUAL_HEX16(0x0011u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x0012u, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_HEX16(0xC000u,
         (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
     /* The staleness cut must win the race against the watchdog's fastest
@@ -8304,9 +8462,9 @@ int main(void)
     RUN_TEST(test_dew_margin_sign);
     RUN_TEST(test_heater_healthy_input_actually_heats);
     RUN_TEST(test_a_cold_dry_probe_reports_idle_not_nothing);
-    RUN_TEST(test_every_interlock_independently_forces_zero);
+    RUN_TEST(test_interlocks_refuse_blind_or_annotate_by_law);
     RUN_TEST(test_supply_fault_annotates_but_does_not_veto);
-    RUN_TEST(test_unevaluable_input_is_off_not_midrange);
+    RUN_TEST(test_unevaluable_control_quantity_blinds_not_midranges);
     RUN_TEST(test_duty_is_monotonic_in_humidity);
     RUN_TEST(test_duty_clamp_binds);
     RUN_TEST(test_dt_clamp_binds_and_has_hysteresis);
@@ -8342,7 +8500,7 @@ int main(void)
     RUN_TEST(test_persistent_tip_setpoint_drives_towards_its_target);
     RUN_TEST(test_persistent_tip_loop_does_not_need_humidity);
     RUN_TEST(test_persistent_tip_loop_still_honours_the_dt_clamp);
-    RUN_TEST(test_persistent_tip_loop_still_needs_a_chamber_reading);
+    RUN_TEST(test_persistent_tip_loop_regulates_through_no_chamber);
     RUN_TEST(test_the_bench_override_outranks_a_stored_setpoint);
     RUN_TEST(test_a_v7_record_does_not_arm_a_temperature_loop);
     RUN_TEST(test_tip_setpoint_and_consent_are_bounded_on_the_wire);

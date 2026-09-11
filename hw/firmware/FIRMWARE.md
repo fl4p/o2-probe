@@ -1255,6 +1255,8 @@ obey: `doc/PLAN-MODBUS-DEBUG.md`.
 | Crash context | `0x0077`, 9 registers, read/write, retained | last HardFault, assert or IWDG record |
 | Wide peek block | `0x0100`, 65 registers, read/write, volatile | 1..30 words per trigger, snapshotted |
 | Arbitrary code execution mailbox | `0x0150`, 72 registers, read/write, volatile | Thumb-2 execution in SRAM with watchdog and fault interceptor |
+| Memory poke mailbox | `0x0198`, 12 registers, read/write, volatile | 1..4 words per trigger, payload in the trigger frame — the WRITE counterpart of the peek |
+| Wide poke block | `0x01B0`, 65 registers, read/write, volatile | 1..30 words per trigger, payload in the trigger frame |
 
 Both peeks read only SRAM `0x20000000`–`0x20008FFC`, flash
 `0x08000000`–`0x08010FFC`, the three UID words at `0x1FFF7590`–`0x1FFF7598`
@@ -1433,9 +1435,52 @@ register loads (the reasoning is in `src/regmap.c` and
 `tools/gpio_oracle.c`) check it host-side. **Nothing of it has run on a
 probe.**
 
+#### Memory poke mailbox — `0x0198` and wide poke — `0x01B0` (2026-09-11)
+
+The WRITE counterpart of the two peek blocks (Fab's order, 2026-09-11):
+SRAM variable patching from the bench, under the same debug gate. The full
+cortex-M0+ reasoning is `doc/PLAN-MODBUS-DEBUG.md` §3.7; the operator rules:
+
+- One FC16 starting exactly at the block base, of exactly `3 + 2*words`
+  registers: `[addr_hi, addr_lo, words, w0_hi, w0_lo, …]`. `words` is 1..4 at
+  `0x0198` (accepted counts 5, 7, 9, 11) and 1..30 at `0x01B0` (accepted
+  counts 5..63). Any other in-block write is **exception 03 and changes
+  nothing**; a frame running off the block's end is exception 02 like any
+  off-map frame.
+- Writes land only in the `.data`/`.bss` span — the same span the SRAM parity
+  gate admits for reads — so anything poked is peekable back for verification.
+  Flash, peripherals (SCB AIRCR included), the UID, SHARED, the stack and the
+  `.data`/`.bss` gap are all status 2 (out of range), deliberately. Misaligned
+  targets are status 3.
+- Every register reads back what the last trigger HELD: address, word count,
+  payload, status — and for `0x01B0`, a sequence number that skips 0 on wrap.
+  A REFUSED poke still holds the payload, so the readback shows what was
+  attempted while the status says it never landed.
+
+| Reg | Name | Access | Meaning |
+|---|---|---|---|
+| `0x0198` | `POKE_ADDR_HI` | rw | trigger: target address, high word; reads the address held |
+| `0x0199` | `POKE_ADDR_LO` | rw | low word |
+| `0x019A` | `POKE_WORDS` | rw | trigger: words, 1..4; reads the count held |
+| `0x019B` | `POKE_W0_HI` | rw | trigger: payload word 0, high; reads the payload held (to `0x01A2`) |
+| `0x01A3` | `POKE_STATUS` | ro | 0 none, 1 OK, 2 out of range, 3 misaligned |
+
+| Reg | Name | Access | Meaning |
+|---|---|---|---|
+| `0x01B0` | `POKEW_ADDR_HI` | rw | trigger: target address, high word; reads the address held |
+| `0x01B1` | `POKEW_ADDR_LO` | rw | low word |
+| `0x01B2` | `POKEW_WORDS` | rw | trigger: words, 1..30; reads the count held |
+| `0x01B3` | `POKEW_DATA` | rw | trigger: payload word 0 high, word 0 low, … (60 registers, to `0x01EE`); reads the payload held |
+| `0x01EF` | `POKEW_STATUS` | ro | 0 none, 1 OK, 2 out of range, 3 misaligned |
+| `0x01F0` | `POKEW_SEQ` | ro | triggers executed; skips 0 on wrap, so 0 means never |
+
+**Nothing of this has run on a probe** — host-tested only
+(`test/test_peek_write`, 17 cases: every refusal proven by status AND a
+store count of zero, the poke-then-peek roundtrip, both overlap directions).
+
 #### Arbitrary code execution mailbox — `0x0150`
 
-Allows loading and executing small Thumb-2 payloads (functions matching `uint32_t (*fn)(uint32_t arg)`) in SRAM during the `PH_IDLE` phase between measurement cycles. Protected by a SysTick execution timeout and HardFault interception returning cleanly to Thread mode, plus hardware IWDG backstop (~4.1 s) and automatic RS-485 transceiver DE (`PC6`) deassertion and heater shutdown.
+Allows loading and executing small ARMv6-M Thumb payloads (functions matching `uint32_t (*fn)(uint32_t arg)`) in SRAM during the `PH_IDLE` phase between measurement cycles. Protected by a SysTick execution timeout and Thread-mode HardFault interception, plus hardware IWDG backstop (~4.1 s) and automatic RS-485 transceiver DE (`PC6`) deassertion and heater shutdown.
 
 | Reg | Name | Access | Meaning |
 |---|---|---|---|
@@ -1448,6 +1493,59 @@ Allows loading and executing small Thumb-2 payloads (functions matching `uint32_
 | `0x0156` | `EXEC_RESULT_HI` | ro | 32-bit return value from R0, high word |
 | `0x0157` | `EXEC_RESULT_LO` | ro | low word |
 | `0x0158` | `EXEC_CODE_START` | rw | code payload registers (64 halfwords = 128 bytes, up to `0x0197`) |
+
+##### Execution protocol and register access rules
+
+1. **Payload upload:** Write 16-bit Thumb instruction halfwords to `EXEC_CODE_START` (`0x0158..`, count 1..64).
+   * **Byte, register, and wire mapping:**
+     Modbus holding registers store 16-bit halfword values. On Cortex-M0+ (little-endian), a 16-bit Thumb instruction halfword like `movs r0, #42` (`0x202A`) is stored in flash/memory as bytes `2A 20`. Over Modbus FC16, register `0x0158` transmits MSB first (`20 2A`):
+
+     | Representation | Value for `movs r0, #42; bx lr` |
+     |---|---|
+     | Binary file (`.bin`) / SRAM bytes | `2A 20 70 47` |
+     | Register values (16-bit halfwords) | `0x202A`, `0x4770` |
+     | CLI continuous hex input | `202a4770` |
+     | Modbus FC16 wire bytes | `20 2A 70 47` |
+
+     Note: do not paste raw byte dumps (`xxd -p payload.bin` -> `2a207047`) into the CLI as register values; use the `.bin` path directly or specify halfwords.
+2. **Trigger write:** Write 5 registers to `0x0150..0x0154` using FC16: `[0x5A01, LEN, PARAM_HI, PARAM_LO, TIMEOUT_MS]`.
+   * **Span warning & precedence:** Registers `0x0155..0x0157` (`STATUS`, `RESULT_HI/LO`) are read-only. Any write command overlapping them is rejected with Modbus Exception 03 (`ILLEGAL_DATA_VALUE`), *except* that an `ABORT` write (`0x5A00` at `0x0150`) is accepted before the overlap check, and an already pending execution returns Exception 06 (`DEVICE_BUSY`) before the overlap check. Always write payload words to `0x0158+` and trigger words to `0x0150..0x0154` separately.
+3. **Execution & polling:** When `0x5A01` is accepted, `EXEC_STATUS` becomes `PENDING` (1). During the next `PH_IDLE` phase in the main loop, the MCU copies the payload into an aligned SRAM buffer, fills unused words with `BKPT 0` (`0xBE00`) traps, releases RS-485 DE, turns off the heater, and calls the entry point. Poll `0x0155` until it is no longer 1:
+   * `2` = `OK`: execution succeeded; 32-bit return value available in `0x0156:0x0157`.
+   * `5` = `FAULT_INTERCEPTED`: payload raised HardFault in Thread mode; intercepted by trampoline, returning without immediate chip reset. (Note: state changes or peripheral mutations made before the fault survive; stack corruption or handler-mode faults fall back to normal reset).
+   * `6` = `TIMEOUT_EXPIRED`: execution exceeded `EXEC_TIMEOUT_MS`; terminated by SysTick trampoline. (Note: if interrupts are masked via `cpsid i`, SysTick cannot fire and hardware IWDG resets the MCU at ~4.1 s).
+4. **Abort:** Writing `0x5A00` to `0x0150` cancels a pending execution before it runs.
+
+##### Calling convention & ABI constraints (ARMv6-M Cortex-M0+)
+* **Architecture:** Target is strictly ARMv6-M (Cortex-M0+), not generic Thumb-2. Compile with `-mcpu=cortex-m0plus -mthumb`. Instructions not supported on ARMv6-M (e.g. `movw`, `movt`, `cbz`, `it`, 32-bit arithmetic) will trigger a HardFault.
+* **Signature:** `uint32_t fn(uint32_t arg);`
+* **Calling convention:** AAPCS for ARMv6-M (Thumb).
+  * Input argument `arg` in `R0`.
+  * Return value in `R0`.
+  * Caller-saved (scratch): `R0`–`R3`, `R12`.
+  * Callee-saved: `R4`–`R7` and high registers `R8`–`R11`. On ARMv6-M, high registers cannot be pushed/popped directly (e.g. `push {r8}` is illegal); they must be moved to low registers before push/pop.
+  * Stack pointer (`SP`): Must remain 4-byte aligned throughout execution, and 8-byte aligned at external call boundaries.
+  * Return address: Passed in `LR`. The function returns via `bx lr` or `pop {..., pc}`.
+  * The Thumb bit (bit 0 of entry point address) is set automatically by the firmware before calling.
+
+##### CLI usage
+
+Using `tools/o2p_cli.py exec`:
+
+```sh
+# Execute snippet returning 42 (movs r0, #42 [0x202A]; bx lr [0x4770]):
+python3 tools/o2p_cli.py --port /dev/cu.usbserial-X exec "202a 4770"
+
+# Execute snippet adding 5 to the parameter (adds r0, #5 [0x3005]; bx lr [0x4770]):
+python3 tools/o2p_cli.py --port /dev/cu.usbserial-X exec "3005 4770" --param 37 --timeout-ms 100
+
+# Execute from a compiled binary file (compiled with -mcpu=cortex-m0plus -mthumb):
+python3 tools/o2p_cli.py --port /dev/cu.usbserial-X exec payload.bin --param 0x12345678
+
+# Abort any currently pending execution:
+python3 tools/o2p_cli.py --port /dev/cu.usbserial-X exec --abort
+```
+
 
 #### Through the node's USB console
 

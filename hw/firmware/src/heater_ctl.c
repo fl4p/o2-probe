@@ -22,7 +22,14 @@ void o2p_heater_ctl_reset(o2p_heater_state_t *st)
  *
  * Written as an accumulating mask rather than a chain of early returns so that
  * adding an interlock cannot accidentally shadow an existing one, and so each
- * can be tested in isolation. */
+ * can be tested in isolation.
+ *
+ * The 2026-09-11 law-aware helpers below (tip_law_in_command, law_wet_mask)
+ * are used here for the annotated 80.00 C tip clamp and in
+ * o2p_heater_ctl_step() for the annotation/refusal split; defined after this
+ * function, declared here. */
+static bool tip_law_in_command(const o2p_heater_cfg_t *cfg);
+static uint16_t law_wet_mask(const o2p_heater_cfg_t *cfg);
 static uint16_t interlocks(o2p_heater_state_t *st,
                            const o2p_heater_cfg_t *cfg,
                            const o2p_heater_in_t *in)
@@ -100,13 +107,24 @@ static uint16_t interlocks(o2p_heater_state_t *st,
 
     /* Absolute tip limit, with hysteresis. Evaluated only when the reading is
      * good: an unevaluable temperature is already NO_TIP above, and must not
-     * silently pass the limit check as though it were cold. */
+     * silently pass the limit check as though it were cold.
+     *
+     * The clamp is 80.00 C, not 82.00, while SAFETY is in the annotated
+     * state - a tip law in command, its sensor valid, the hardware therm
+     * backstop known down (Fab's order 2026-09-11: "unattended loop:
+     * annotate and regulate (keep <=80 C)"). NOT a permanent change: the
+     * normal limit resumes the moment safety_armed does or no tip law is
+     * in command. */
     if (in->tip_valid) {
+        const int32_t tip_limit =
+            (!in->safety_armed && tip_law_in_command(cfg))
+                ? (int32_t)O2P_HEATER_TIP_LIMIT_ANNOTATED_C100
+                : (int32_t)O2P_HEATER_TIP_LIMIT_C100;
         if (st->tip_clamped) {
             if (in->t_tip_c100 < O2P_HEATER_TIP_RELEASE_C100) {
                 st->tip_clamped = false;
             }
-        } else if (in->t_tip_c100 >= O2P_HEATER_TIP_LIMIT_C100) {
+        } else if (in->t_tip_c100 >= tip_limit) {
             st->tip_clamped = true;
         }
         if (st->tip_clamped) {
@@ -463,20 +481,76 @@ static uint16_t pi_step(o2p_heater_state_t *st, uint8_t mode, uint8_t session,
     return (uint16_t)(u + 0.5f);
 }
 
+/* THE HARD MASK, unchanged by the 2026-09-11 rulings: the off switches, the
+ * authorisations, the pin evidence, and the two measured-overtemperature
+ * clamps. These refuse for every law, and TIP_LIMIT and DT_LIMIT are raised
+ * only from VALID readings - a measured overtemperature is never
+ * overridden. */
+static const uint16_t hard_mask = O2P_HB_NOT_COMPILED | O2P_HB_CONFIG_OFF |
+                                  O2P_HB_NO_CONSENT | O2P_HB_PIN_INTEGRITY |
+                                  O2P_HB_TIP_LIMIT | O2P_HB_DT_LIMIT;
+
+/* The law in command (Fab's rulings 2026-09-11: "unattended loop: annotate
+ * and regulate (keep <=80 C)" and the per-law blind rule - blind must
+ * require the in-command loop's own control sensor to be invalid). A tip
+ * setpoint - the volatile override's or the stored one - selects a tip law
+ * whose control quantity is the tip; the override without one is open loop
+ * (no control quantity, the operator's duty is the command); everything
+ * else is the RH law, whose control quantity is the SHT45's RH. */
+static bool tip_law_in_command(const o2p_heater_cfg_t *cfg)
+{
+    return (cfg->test_override && cfg->test_tip_sp_valid) ||
+           (!cfg->test_override && cfg->tip_sp_valid);
+}
+
+/* The wet mask, LAW-AWARE: the sensor-unavailability bits that may blind
+ * THIS law - only its own control sensor's absence - plus RUNAWAY, which is
+ * not a sensor bit and keeps its membership for every law (a latched
+ * stuck-FET verdict blinds everything). NO_CHAMBER is in no law's mask: the
+ * chamber is no law's control quantity, it only feeds DT_LIMIT. SAFETY is
+ * in the tip laws' mask ONLY while their control sensor is invalid - with
+ * the tip valid it annotates instead (the 2026-09-11 annotate-and-regulate
+ * ruling) - so it is masked for tip laws and kept for the open-loop
+ * override and the RH law, which the rulings did not touch.
+ *
+ * RUNAWAY's wet membership has a second face, accepted with eyes open
+ * (2026-09-11, review P2-7, Fab's call on the liberal option): because the
+ * latch sits in the WET set, blind_duty() may DRIVE through it - a
+ * blind-driven latch can sawtooth 50 % <-> 0 while its evidence persists.
+ * That is the accepted price of the 2026-09-10 wet-board stubbornness
+ * ("heat is exactly what a wet board needs"): the alternative - a hard
+ * RUNAWAY that zeroed the blind path - is the state where a sensor verdict
+ * is what leaves a wet board cold, which is the one situation the fallback
+ * exists to prevent. */
+static uint16_t law_wet_mask(const o2p_heater_cfg_t *cfg)
+{
+    uint16_t wet = O2P_HB_RUNAWAY;
+    if (tip_law_in_command(cfg)) {
+        wet |= O2P_HB_NO_TIP;
+    } else if (cfg->test_override) {
+        /* Open loop: no control quantity to lose; SAFETY keeps its founding
+         * blind membership here. */
+        wet |= O2P_HB_SAFETY;
+    } else {
+        /* The RH law: its own sensor's absence blinds it. */
+        wet |= O2P_HB_NO_RH | O2P_HB_SAFETY;
+    }
+    return wet;
+}
+
 /* The duty the blind fallback drives, or zero if it may not. The rule and its
  * reasons are at O2P_HEATER_BLIND_DUTY_X100 in heater_ctl.h. */
 static uint16_t blind_duty(const o2p_heater_cfg_t *cfg,
                            const o2p_heater_in_t *in,
-                           uint16_t block)
+                           uint16_t refusing)
 {
-    const uint16_t hard = O2P_HB_NOT_COMPILED | O2P_HB_CONFIG_OFF |
-                          O2P_HB_NO_CONSENT | O2P_HB_PIN_INTEGRITY |
-                          O2P_HB_TIP_LIMIT | O2P_HB_DT_LIMIT;
-    const uint16_t wet = O2P_HB_SAFETY | O2P_HB_NO_TIP | O2P_HB_NO_CHAMBER |
-                         O2P_HB_SUPPLY | O2P_HB_RUNAWAY;
-    if ((block & hard) != 0u || (block & wet) == 0u) {
+    const uint16_t wet = law_wet_mask(cfg);
+    if ((refusing & hard_mask) != 0u || (refusing & wet) == 0u) {
         return 0u;
     }
+    /* THE DISCRIMINATOR (Fab's order 2026-09-11: "nope, no stand-down. 50
+     * is safe if MCU die is < 40 C"): nothing else stands the blind path
+     * down - the die gate is the stand-down, evaluated here for every law. */
     if (!in->die_valid || in->t_die_c100 >= O2P_HEATER_BLIND_DIE_MAX_C100) {
         return 0u;
     }
@@ -508,14 +582,37 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
      * a rail fault is reported so the register explains why the duty reads
      * what it reads, but no longer stops the heater. See interlocks(). */
     const uint16_t supply_note = in->supply_ok ? 0u : O2P_HB_SUPPLY;
-    if (block != 0u) {
+    /* SENSOR BITS ARE LAW-AWARE, 2026-09-11 (Fab's orders: "fix that control
+     * loop bullshit", "unattended loop: annotate and regulate (keep
+     * <=80 C)", and the per-law blind rule - blind must require the
+     * in-command loop's own control sensor to be invalid). Live that day,
+     * twice: the operator armed 50.00 C attended with the tip sensor VALID
+     * and only the TMP117 therm thresholds lost - SAFETY was the sole
+     * refusal, and this step() fell through to blind_duty(): 50 % open loop
+     * toward the ~76 C asymptote, the setpoint silently ignored while the
+     * control sensor worked. The same discard threatened the stored tip
+     * setpoint the moment its chamber went invalid. Both were the fallback
+     * doing the opposite of its job: it exists for a board with NO control
+     * quantity, not for a working loop with one redundant backstop down.
+     *
+     * So a sensor-unavailability bit outside this law's hard and wet masks
+     * (hard_mask/law_wet_mask above) is an ANNOTATION, exactly like SUPPLY:
+     * the loop REGULATES, bounded by whatever limits remain evaluable -
+     * TIP_LIMIT (tightened to 80.00 C while SAFETY is annotated, per the
+     * same order), DT_LIMIT, the ceiling, RUNAWAY. NO_TIP still refuses a
+     * tip law outright (no control sensor, no loop - the founding
+     * sensorless case, blind), NO_RH still refuses the RH law, and every
+     * hard bit refuses as before. */
+    const uint16_t refusing =
+        (uint16_t)(block & (hard_mask | law_wet_mask(cfg)));
+    if (refusing != 0u) {
         /* Zero the integrator rather than freezing it. Freezing would make the
          * loop slam to whatever it had wound up to the moment an interlock
          * cleared - the opposite of what you want after a fault. Restarting
          * from proportional-only is bumpless and slow, which is correct for a
          * plant nobody has measured. */
         st->integ = 0.0f;
-        const uint16_t duty = blind_duty(cfg, in, block);
+        const uint16_t duty = blind_duty(cfg, in, refusing);
         out->duty_x100 = duty;
         out->block = (uint16_t)((block | supply_note) |
                                 ((duty != 0u) ? O2P_HB_BLIND : 0u));
@@ -575,7 +672,14 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
     }
 
     out->duty_x100 = duty;
-    out->block = supply_note;   /* annotation only - see interlocks() */
+    /* Annotation only - see interlocks() and the law-aware gate above.
+     * `block` is zero on the fully healthy path; on an annotated path it
+     * carries whatever sensor bits the law in command merely reports (e.g.
+     * SAFETY or NO_CHAMBER while a tip loop regulates, NO_TIP while the RH
+     * loop regulates) and must stay VISIBLE so HEATER_BLOCK keeps telling
+     * the whole truth while the loop drives - the same contract the SUPPLY
+     * annotation serves. */
+    out->block = (uint16_t)(supply_note | block);
     /* Annotations, not refusals (see the bit definitions): duty 0 with no
      * interlock raised is an answer, not a fault, and a stored tip setpoint
      * at the sentinel selects the RH loop - both belong in HEATER_BLOCK so

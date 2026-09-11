@@ -133,6 +133,30 @@ All debug and diagnostic blocks are placed strictly in the free ground between t
 
 See §11 for the boot-path reads that share this exposure and are **not** fixed here.
 
+### 3.7 Memory poke mailbox and wide poke — added 2026-09-11, `O2P_FW_VERSION` `0x0012`
+
+**Why.** Fab's order 2026-09-11: "let an agent implement the equivalent write command of the peek", after a lost TMP117 threshold pair could only be repaired by an MCU reset because no runtime path could write memory. The peek blocks read; these two blocks write, under the same debug gate.
+
+**Blocks.** Mailbox `0x0198..0x01A3` (12 registers) mirrors the 4-word peek mailbox; wide poke `0x01B0..0x01F0` (65 registers) mirrors the wide peek block. `0x01A4..0x01AF` is an empty guard on the `0x00FB..0x00FF` convention: a malformed FC16 that runs off the end of a block lands in nothing. Placement verified free against `src/regmap.h`, `src/update.h` and the `o2p_regmap_read/write` dispatch.
+
+**Trigger shapes.** Each block takes ONE FC16 starting exactly at its base, of exactly `3 + 2*words` registers — the payload rides the trigger frame, `[addr_hi, addr_lo, words, w0_hi, w0_lo, ...]`, `words` 1..4 (mailbox) or 1..30 (wide), so accepted counts are 5..11 and 5..63, inside the 123-register FC16 ceiling (`src/modbus_pdu.c:73`). Any other in-block write is exception `03` and changes nothing; a frame that runs off the block's end leaves the map and is exception `02` like any off-map frame. A well-formed trigger always replaces the held state — address, count, payload and status — and the wide block's SEQ advances on every executed trigger, skipping 0 on wrap. On a REFUSED poke the payload is still held (unlike a refused peek's `0xFFFF` words): the readback shows exactly what was attempted while the status says it never landed, and a store counter in the host tests proves nothing was written.
+
+**Write space, and every exclusion's reason.** The `.data`/`.bss` span the SRAM parity gate (§3.5) admits, and NOTHING else:
+
+- The reasoning INVERTS from the read side. A peek admits that span because startup made those words' parity valid; a poke could safely write ANY SRAM word, because RM0444 §2.3 (p. 67) computes and stores parity "when writing into the SRAM" — a store cannot hit the never-written NMI a read can. The span is kept anyway, as POLICY: (1) SYMMETRY — whatever the poke may write, the peek can read back, so a poke's verification is a peek it already has; (2) THE SPAN IS THE LINKER'S PROMISE — ".data and .bss" are the words the image can NAME, "a variable", which is what a poke is for.
+- SHARED (`0x20000000..0x2000000F`, below `_sdata`) is excluded: the boot hand-off that must survive a warm reset (`ldscript/o2probe_app.ld`).
+- The stack and never-written SRAM above `_ebss`, and the heap gap between non-abutting `.data` and `.bss`, are excluded — a burst must lie wholly inside one section or the abutting union, exactly the read-side rule.
+- FLASH is excluded — the write-side form of §3.6's N4 reasoning: a runtime flash write tears pages (bad ECC, NMI, a hung probe), and the only sanctioned runtime flash writer is the updater's.
+- PERIPHERALS AND SYSTEM REGISTERS are excluded, SCB AIRCR (`0xE000ED0C`) included, on purpose: the peek reads no peripheral either (its regions are SRAM, the loader/run slot, the UID, the flash-size word), and a peripheral write is an arbitrary side effect. A bench-triggered MCU reset through AIRCR would be an undocumented reset path competing with the ones the firmware owns; if wanted, it is a new register with its own review, not an accident of this one.
+
+**Status codes** mirror `O2P_PEEK_*` (0 none, 1 OK, 2 range, 3 align). There is deliberately no parity code: a store creates valid parity, so the read-side parity failure mode cannot happen on the write path.
+
+**The store loop** mirrors `peek_copy()`: interrupts masked for the stores only (the torn-struct argument run the other way — an ISR must not read a struct half-poked, old and new plausible together), the same 95 µs character bound and ~17 cycles/word estimate, so 30 words ≈ 32 µs and the ceiling stays 30. Overlap is handled memmove-style with the ROLES REVERSED from `peek_copy` — the payload is the SOURCE and the target the DESTINATION — so the walk is high-to-low when the payload sits BELOW the target, low-to-high above it: the write-side image of N1, where an early store could clobber a payload word a later load still needs.
+
+**Compiled out** with the other debug blocks when `O2P_DEBUG_ENABLE=0`: every read and write at both blocks is exception `02`.
+
+**Tests.** `test/test_peek_write/test_peek_write.c` (its own suite, `pio test -e native -f test_peek_write`): every refusal is checked by status AND by a store count proving nothing was written; the accepted shapes are enumerated; SHARED, the stack, the gap, the span tail and the empty-span degenerate map are pinned; the regions a READ may touch but a WRITE may not (run slot, UID, flash-size, AIRCR) are pinned; the poke-then-peek roundtrip proves the symmetry; and both overlap directions prove the store order.
+
 ---
 
 ## 4. Component B: Exposing Trapped Telemetry in Regmap
@@ -350,9 +374,23 @@ Because memory peek is an unauthenticated read primitive on a shared multi-drop 
 
 ---
 
-## 10. Considered, not built: executing uploaded code
+## 10. Executing uploaded code (0x0150 mailbox)
 
-**Status: a proposal, 2026-09-10. Nothing here is built, and the recommendation is not to build it.** It is written down because the wide peek block makes it look like a short step, and it is not.
+**Status: Implemented 2026-09-11 in commit `0b31cd9` under `O2P_DEBUG_ENABLE=1` at register base `0x0150`.**
+
+Originally considered and deferred on 2026-09-10 due to safety and privilege concerns; subsequently implemented with software fault interception and hardware watchdog backstop:
+- **Debug builds only**: compiled in only when `O2P_DEBUG_ENABLE=1`. In production/potting builds (`env:o2probe_nodebug`), the entire block (72 registers) is omitted and returns Modbus Exception 02.
+- **Containment & Fault Interception (narrow scope)**:
+  - Unused buffer space is filled with `BKPT 0` (`0xBE00`) trap instructions.
+  - SysTick execution timeout watchdog (default 50 ms, configurable 1..1000 ms) uses a C trampoline to unwind via `setjmp`/`longjmp` back to Thread mode with `STATUS_TIMEOUT`. Note: if user code disables interrupts (`cpsid i`) and hangs, SysTick cannot fire; only the hardware IWDG (~4.1 s) will reset the MCU.
+  - HardFault interception (`o2p_hardfault_c_handler`) traps instruction/bus/alignment errors in Thread mode and unwinds via `longjmp` back to Thread mode with `STATUS_FAULT`, returning control without an immediate chip reset or 15-minute cell settling cycle. State mutations made before the fault survive; stack-corruption or handler-mode faults fall back to the default reset.
+  - Automatic heater cut-off (`o2p_heater_force_off()`) before and after invocation.
+  - Automatic RS-485 DE line release (`o2p_modbus_de_release()`) before and after invocation so the bus transceiver is not left driven on return.
+- **Execution model**:
+  ARMv6-M (Cortex-M0+) Thumb functions matching `uint32_t (*fn)(uint32_t arg)` in SRAM, taking `R0` from `EXEC_PARAM_HI:LO` and returning `R0` into `EXEC_RESULT_HI:LO`. Runs during `PH_IDLE` between sampler cycles. Must be compiled specifically for Cortex-M0+ (`-mcpu=cortex-m0plus -mthumb`).
+
+The original design rationale and hazard analysis from 2026-09-10 are retained below for provenance:
+
 
 **Why it would work.** The pieces exist:
 - An FC16 window to carry a blob. The update data window already takes 123 registers per frame (`src/update.h`).

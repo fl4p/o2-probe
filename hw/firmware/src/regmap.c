@@ -345,6 +345,22 @@ void o2p_regmap_init(o2p_regmap_t *rm)
     for (unsigned w = 0; w < O2P_PEEKW_WORDS_MAX; w++) {
         rm->peekw_words[w] = 0xFFFFFFFFu;
     }
+    /* Poke mailbox and wide poke (2026-09-11): nothing held, no payload, and
+     * the same 0 = never-triggered convention for the wide sequence. */
+    rm->poke_addr_hi = 0u;
+    rm->poke_addr_lo = 0u;
+    rm->poke_words_held = 0u;
+    rm->poke_status = O2P_POKE_NONE;
+    for (unsigned w = 0; w < 4u; w++) {
+        rm->poke_words[w] = 0u;
+    }
+    rm->pokew_addr = 0u;
+    rm->pokew_words_req = 0u;
+    rm->pokew_status = O2P_POKE_NONE;
+    rm->pokew_seq = 0u;
+    for (unsigned w = 0; w < O2P_PEEKW_WORDS_MAX; w++) {
+        rm->pokew_words[w] = 0u;
+    }
 
     /* Sensor diagnostic mailbox initialization */
     rm->diag_status = O2P_DMBOX_STATUS_NONE;
@@ -578,6 +594,50 @@ static uint16_t read_peekw(const o2p_regmap_t *rm, uint16_t a)
     return (i & 1u) ? (uint16_t)(w & 0xFFFFu) : (uint16_t)(w >> 16);
 }
 
+/* ---- Poke mailbox + wide poke reads (2026-09-11, FW_VERSION 0x0012) ----
+ *
+ * Everything reads back what the last trigger HELD - address, word count and
+ * the payload - plus the outcome in STATUS. That is the write side's answer
+ * to "did it take": the payload registers echo what was sent before any
+ * peek is aimed at the target, so a master can tell a refused poke (status,
+ * nothing stored) from a served one (status OK, payload held, memory
+ * changed) without a second guess. */
+static uint16_t read_poke(const o2p_regmap_t *rm, uint16_t a)
+{
+    switch (a) {
+    case O2P_REG_POKE_ADDR_HI: return rm->poke_addr_hi;
+    case O2P_REG_POKE_ADDR_LO: return rm->poke_addr_lo;
+    case O2P_REG_POKE_WORDS:   return rm->poke_words_held;
+    case O2P_REG_POKE_STATUS:  return rm->poke_status;
+    default: break;
+    }
+    if (a < O2P_REG_POKE_W0_HI || a > O2P_REG_POKE_W3_LO) {
+        return O2P_U16_INVALID;
+    }
+    unsigned i = (unsigned)(a - O2P_REG_POKE_W0_HI);
+    uint32_t w = rm->poke_words[i / 2u];
+    return (i & 1u) ? (uint16_t)(w & 0xFFFFu) : (uint16_t)(w >> 16);
+}
+
+static uint16_t read_pokew(const o2p_regmap_t *rm, uint16_t a)
+{
+    switch (a) {
+    case O2P_REG_POKEW_ADDR_HI: return (uint16_t)(rm->pokew_addr >> 16);
+    case O2P_REG_POKEW_ADDR_LO: return (uint16_t)(rm->pokew_addr & 0xFFFFu);
+    case O2P_REG_POKEW_WORDS:   return rm->pokew_words_req;
+    case O2P_REG_POKEW_STATUS:  return rm->pokew_status;
+    case O2P_REG_POKEW_SEQ:     return rm->pokew_seq;
+    default: break;
+    }
+    if (a < O2P_REG_POKEW_DATA ||
+        a >= O2P_REG_POKEW_DATA + 2u * O2P_PEEKW_WORDS_MAX) {
+        return O2P_U16_INVALID;
+    }
+    unsigned i = (unsigned)(a - O2P_REG_POKEW_DATA);
+    uint32_t w = rm->pokew_words[i / 2u];
+    return (i & 1u) ? (uint16_t)(w & 0xFFFFu) : (uint16_t)(w >> 16);
+}
+
 static uint16_t read_dmbox(const o2p_regmap_t *rm, uint16_t a)
 {
     switch (a) {
@@ -712,6 +772,18 @@ uint8_t o2p_regmap_read(void *ctx, uint16_t addr, uint16_t count, uint16_t *out)
     if (in_block(addr, count, O2P_REG_PEEKW_BASE, O2P_REG_PEEKW_COUNT)) {
         for (uint16_t i = 0; i < count; i++) {
             out[i] = read_peekw(rm, (uint16_t)(addr + i));
+        }
+        return 0u;
+    }
+    if (in_block(addr, count, O2P_REG_POKE_BASE, O2P_REG_POKE_COUNT)) {
+        for (uint16_t i = 0; i < count; i++) {
+            out[i] = read_poke(rm, (uint16_t)(addr + i));
+        }
+        return 0u;
+    }
+    if (in_block(addr, count, O2P_REG_POKEW_BASE, O2P_REG_POKEW_COUNT)) {
+        for (uint16_t i = 0; i < count; i++) {
+            out[i] = read_pokew(rm, (uint16_t)(addr + i));
         }
         return 0u;
     }
@@ -1008,6 +1080,22 @@ static uint32_t peek_dst_addr(const uint32_t *dst)
 {
     return (o2p_peek_host_dst_addr != NULL) ? o2p_peek_host_dst_addr(dst) : 0u;
 }
+/* The poke's seams (2026-09-11): every store a poke would make, and the
+ * poke-space address of the payload buffer it copies from. NULL defaults -
+ * a suite that installs neither sees stores vanish and no overlap, which
+ * is the pre-poke behaviour and fine for every suite but the poke's own. */
+void (*o2p_peek_host_store)(uint32_t addr, uint32_t val) = NULL;
+uint32_t (*o2p_peek_host_src_addr)(const uint32_t *src) = NULL;
+static void peek_store(uint32_t a, uint32_t v)
+{
+    if (o2p_peek_host_store != NULL) {
+        o2p_peek_host_store(a, v);
+    }
+}
+static uint32_t poke_src_addr(const uint32_t *src)
+{
+    return (o2p_peek_host_src_addr != NULL) ? o2p_peek_host_src_addr(src) : 0u;
+}
 #else
 /* ldscript/o2probe_app.ld (ST's stock names). */
 extern const uint8_t _sdata[], _edata[], _sbss[], _ebss[];
@@ -1044,6 +1132,17 @@ static inline uint32_t peek_load(uint32_t a)
 static inline uint32_t peek_dst_addr(const uint32_t *dst)
 {
     return (uint32_t)(uintptr_t)dst;
+}
+/* The poke's target side: a store is a plain volatile store, and src is
+ * g_rm's own payload buffer, in SRAM, whose address IS its poke-space
+ * address - the same like-with-like rule as peek_dst_addr above. */
+static inline void peek_store(uint32_t a, uint32_t v)
+{
+    *(volatile uint32_t *)a = v;
+}
+static inline uint32_t poke_src_addr(const uint32_t *src)
+{
+    return (uint32_t)(uintptr_t)src;
 }
 #endif
 
@@ -1201,6 +1300,80 @@ static uint16_t peek_check(uint32_t target, uint16_t words, uint32_t *last)
     return O2P_PEEK_OK;
 }
 
+/* ---- The poke validator (FW_VERSION 0x0012, 2026-09-11) ----
+ *
+ * WHAT IT ADMITS, and each exclusion's reason:
+ *
+ * SRAM, the .data/.bss written span, and NOTHING ELSE. The read-side parity
+ * gate (peek_check above) admits that span because those are the words whose
+ * parity startup made valid; the poke admits the SAME span for the OPPOSITE
+ * parity reason - RM0444 2.3, p. 67, computes and stores a word's parity
+ * "when writing into the SRAM", so a store cannot hit the never-written NMI
+ * a read can, and any SRAM word would be safe to WRITE. The span is kept
+ * anyway, for two reasons that are policy, not parity:
+ *   1. SYMMETRY: whatever the poke may write, the peek may read back, so a
+ *      master verifies a poke with the read it already has. Admitting more
+ *      write space than read space would be a write whose only verification
+ *      is its own status word.
+ *   2. THE SPAN IS THE LINKER'S PROMISE: .data and .bss are the words the
+ *      image can NAME - "a variable" - which is what a poke is for. Outside
+ *      it sits SHARED (the bottom 16 bytes, the boot hand-off that must
+ *      survive a warm reset - ldscript/o2probe_app.ld), the stack an ISR is
+ *      running on, and never-written SRAM whose parity the poke would fix
+ *      but whose CONTENT nothing reasoned about. Writing those with a casual
+ *      poke is how a debug tool becomes a potted brick.
+ *
+ * FLASH IS REFUSED, as the peek's own N4 comment reasons at the wide-block
+ * bound above: a runtime flash write tears pages (bad ECC, NMI, a hung
+ * probe), and the only sanctioned runtime flash writer in this firmware is
+ * the updater's, which stages and commits through its own protocol.
+ *
+ * PERIPHERALS AND SYSTEM REGISTERS ARE REFUSED, including SCB AIRCR
+ * (0xE000ED0C): the peek reads them nowhere either (peek_region_last admits
+ * SRAM, the loader and run slot, the UID and the flash-size word only), and a
+ * peripheral write is an arbitrary side effect - an SYSRESETREQ through a
+ * poke would be an undocumented reset path competing with the ones the
+ * firmware owns. A deliberate bench-reset op, if wanted, is a new register
+ * with its own review, not an accident of this one.
+ *
+ * No ERR_PARITY code exists for the poke (regmap.h's O2P_POKE_* comment):
+ * a store creates valid parity, so the parity failure mode simply cannot
+ * happen on this path. */
+static uint16_t poke_check(uint32_t target, uint16_t words, uint32_t *last)
+{
+    if ((target & 3u) != 0u) {
+        return O2P_POKE_ERR_ALIGN;
+    }
+    /* SRAM bound first, exactly the peek's: nothing above 0x20008FFC and
+     * nothing below 0x20000000, so flash, peripherals, the UID and the
+     * flash-size word all fail here before any span arithmetic. */
+    if (target < O2P_PEEK_SRAM_FIRST || target > O2P_PEEK_SRAM_LAST) {
+        return O2P_POKE_ERR_RANGE;
+    }
+    if ((uint32_t)words - 1u > (O2P_PEEK_SRAM_LAST - target) / 4u) {
+        return O2P_POKE_ERR_RANGE;
+    }
+    *last = O2P_PEEK_SRAM_LAST;
+    /* The same written-span logic the read uses, unconditionally: the read
+     * consults it only under the parity bit, the poke always, because for the
+     * poke the span is the whole policy (see the block comment above). */
+    uint32_t sdata = 0u, edata = 0u, sbss = 0u, ebss = 0u;
+    peek_written(&sdata, &edata, &sbss, &ebss);
+    bool ok;
+    if (edata == sbss) {
+        ok = peek_span_in(target, words, sdata, ebss, last);
+    } else {
+        /* A section placed between .data and .bss is outside the span the
+         * linker promised, and a burst may not cross the gap in it. */
+        ok = peek_span_in(target, words, sdata, edata, last) ||
+             peek_span_in(target, words, sbss, ebss, last);
+    }
+    if (!ok) {
+        return O2P_POKE_ERR_RANGE;
+    }
+    return O2P_POKE_OK;
+}
+
 /* Copy a burst peek_check() has passed into dst[0..words), and 0xFFFFFFFF into
  * the rest of dst. Returns false if any word was not copied, which the caller
  * turns into a refusal rather than an OK with holes in it.
@@ -1274,6 +1447,70 @@ static bool peek_copy(uint32_t target, uint16_t words, uint32_t last,
     }
     return complete;
 }
+
+/* Store a burst poke_check() has passed from src[0..words) into target.
+ * The WRITE mirror of peek_copy(), inheriting its two properties:
+ *
+ * OVERLAP-SAFE, memmove-style. src is g_rm's own payload buffer, in SRAM, so
+ * a poke can name the very words being copied from. The roles are the
+ * REVERSE of peek_copy's - there the destination was the regmap buffer and
+ * the source the target; here the destination IS the target and the source
+ * the payload - so the walk is the reverse too: when the payload sits BELOW
+ * the target (src_addr < target, destination above source) an ascending
+ * store clobbers a payload word a later load has not read yet, and the poke
+ * writes corrupted values with STATUS still OK - the write-side image of N1
+ * (independent review, 2026-09-10), whose read-side fix this mirrors. Walk
+ * high-to-low when the payload is below the target, low-to-high otherwise;
+ * a src_addr of 0 (the host default, "no overlap possible") walks ascending,
+ * the pre-poke order. Disjoint pokes (the normal case) are correct either
+ * way.
+ *
+ * INTERRUPTS ARE MASKED FOR THE STORES, AND ONLY THE STORES - the same
+ * argument as peek_copy, run the other way: there the mask kept a torn
+ * struct from being READ as one moment; here it keeps a struct an ISR reads
+ * from being seen HALF-POKED, old and new values plausible together. The
+ * same 95 us character bound at 115200 8E1 applies, and the same ~17 clock
+ * cycles a word estimated from the 2026-09-10 disassembly, so a 30-word poke
+ * is about 32 us at 16 MHz - an ESTIMATE, not a measurement, and the reason
+ * the burst ceiling stays O2P_PEEKW_WORDS_MAX.
+ *
+ * Validation stays outside the mask - it is arithmetic, and the per-word
+ * bound repeats poke_check() because the cost of it being wrong is a store
+ * into a region the policy above excluded. */
+static bool poke_store(uint32_t target, uint16_t words, uint32_t last,
+                       const uint32_t *src)
+{
+    /* The largest prefix [0, storable) whose every word is in range, so this
+     * never dereferences past the SRAM bound poke_check() enforced. */
+    unsigned storable = (unsigned)words;
+    while (storable > 0u) {
+        uint32_t a = target + (uint32_t)(storable - 1u) * 4u;
+        if (a >= target && a <= last) {
+            break;
+        }
+        storable--;
+    }
+    bool descending;
+    {
+        uint32_t src_a = poke_src_addr(src);
+        /* Destination above source (memmove's rule, see the block comment):
+         * walk high-to-low so every payload word is read before any store
+         * can reach it. 0 = no overlap the host knows of: ascending. */
+        descending = (src_a != 0u) && (src_a < target);
+    }
+    o2p_peek_irq_t s = peek_irq_save();
+    if (descending) {
+        for (unsigned i = storable; i-- > 0u; ) {
+            peek_store(target + (uint32_t)i * 4u, src[i]);
+        }
+    } else {
+        for (unsigned i = 0u; i < storable; i++) {
+            peek_store(target + (uint32_t)i * 4u, src[i]);
+        }
+    }
+    peek_irq_restore(s);
+    return storable == (unsigned)words;
+}
 #endif /* O2P_DEBUG_ENABLE */
 
 uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_t *in)
@@ -1332,6 +1569,13 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
                 sp = (int16_t)v;
                 break;
             case O2P_REG_HEATER_TEST_KP:
+                /* UNVALIDATED, DELIBERATELY (accepted 2026-09-11, Fab's call
+                 * on review P2-5 - the liberal option): the volatile gains
+                 * ride in with no range check and are SHARED with the
+                 * committed tip loop (heater_ctl.c - the record had no room
+                 * for a flash-backed pair). The bounds that hold the result
+                 * are HEATER_MAX_DUTY and the 82.00 C tip clamp: a nonsense
+                 * gain can mis-tune the loop but cannot move those. */
                 kp = v;
                 break;
             default:
@@ -1429,6 +1673,76 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
         /* 0 stays "never triggered", so a reader comparing SEQ across its
          * chunks cannot mistake a wrap for the initial state. */
         rm->peekw_seq = (uint16_t)(rm->peekw_seq == 0xFFFFu ? 1u : rm->peekw_seq + 1u);
+        return 0u;
+    }
+
+    /* Memory poke mailbox (2026-09-11, FW_VERSION 0x0012): the write
+     * counterpart of the peek above. ONE FC16 starting exactly at
+     * O2P_REG_POKE_ADDR_HI of exactly 3 + 2*words registers - the payload
+     * rides the trigger frame, so the count and the word count in it must
+     * agree, and any other shape (a lone STATUS write, a short frame, a
+     * frame that starts mid-block) is exception 03 and changes NOTHING,
+     * exactly the wide peek's contract one block up.
+     *
+     * A WELL-FORMED trigger always replaces the held state - address, word
+     * count, payload and status - even when the poke is REFUSED: unlike a
+     * refused peek (whose words read back as 0xFFFFFFFF so no half-result
+     * looks measured), a refused poke's payload is not a result at all, it
+     * is the request, and holding it lets the readback show exactly what was
+     * attempted while the status says it never landed. Nothing was stored.
+     */
+    if (in_block(addr, count, O2P_REG_POKE_BASE, O2P_REG_POKE_COUNT)) {
+        uint16_t words = (count >= 3u) ? in[2] : 0u;
+        if (addr != O2P_REG_POKE_BASE || words < 1u || words > 4u ||
+            count != (uint16_t)(3u + 2u * words)) {
+            return O2P_MB_EX_ILLEGAL_VALUE;
+        }
+        uint32_t target = ((uint32_t)in[0] << 16) | (uint32_t)in[1];
+        for (unsigned w = 0; w < 4u; w++) {
+            rm->poke_words[w] = (w < words)
+                ? (((uint32_t)in[3u + 2u * w] << 16) | (uint32_t)in[4u + 2u * w])
+                : 0u;
+        }
+        rm->poke_addr_hi = in[0];
+        rm->poke_addr_lo = in[1];
+        rm->poke_words_held = words;
+        uint32_t last = 0u;
+        uint16_t st = poke_check(target, words, &last);
+        if (st == O2P_POKE_OK && !poke_store(target, words, last, rm->poke_words)) {
+            st = O2P_POKE_ERR_RANGE;
+        }
+        rm->poke_status = st;
+        return 0u;
+    }
+
+    /* Wide poke block (2026-09-11, FW_VERSION 0x0012): the poke counterpart
+     * of the wide peek, same trigger discipline - ONE FC16 of exactly
+     * 3 + 2*words registers at O2P_REG_POKEW_ADDR_HI, words 1..30, payload in
+     * the frame. SEQ advances on every executed trigger and skips 0 on wrap,
+     * so 0 keeps meaning "never triggered" for a reader comparing SEQ
+     * across chunks. */
+    if (in_block(addr, count, O2P_REG_POKEW_BASE, O2P_REG_POKEW_COUNT)) {
+        uint16_t words = (count >= 3u) ? in[2] : 0u;
+        if (addr != O2P_REG_POKEW_ADDR_HI || words < 1u ||
+            words > O2P_PEEKW_WORDS_MAX ||
+            count != (uint16_t)(3u + 2u * words)) {
+            return O2P_MB_EX_ILLEGAL_VALUE;
+        }
+        uint32_t target = ((uint32_t)in[0] << 16) | (uint32_t)in[1];
+        for (unsigned w = 0; w < O2P_PEEKW_WORDS_MAX; w++) {
+            rm->pokew_words[w] = (w < words)
+                ? (((uint32_t)in[3u + 2u * w] << 16) | (uint32_t)in[4u + 2u * w])
+                : 0u;
+        }
+        rm->pokew_addr = target;
+        rm->pokew_words_req = words;
+        uint32_t last = 0u;
+        uint16_t st = poke_check(target, words, &last);
+        if (st == O2P_POKE_OK && !poke_store(target, words, last, rm->pokew_words)) {
+            st = O2P_POKE_ERR_RANGE;
+        }
+        rm->pokew_status = st;
+        rm->pokew_seq = (uint16_t)(rm->pokew_seq == 0xFFFFu ? 1u : rm->pokew_seq + 1u);
         return 0u;
     }
 
