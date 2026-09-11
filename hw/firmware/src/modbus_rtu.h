@@ -64,6 +64,9 @@ uint16_t o2p_modbus_frame_errors(void);
  * LISTENING through the same reset. */
 bool o2p_modbus_bus_jam_suspected(void);
 
+/* Force RS-485 transceiver DE low and /RE low (driver off, receiver active). */
+void o2p_modbus_de_release(void);
+
 /* Put the transceiver into, or take it out of, its 0.1 uA standby state
  * (/RE high, DE low). A probe in standby is DEAF: it cannot be polled and
  * cannot be reached by the RS-485 field updater, so this is not a power knob

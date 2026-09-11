@@ -110,6 +110,12 @@ static void re_disable(void)
     O2P_RS485_RE_PORT->BSRR = (1u << O2P_RS485_RE_PIN);
 }
 
+void o2p_modbus_de_release(void)
+{
+    de_release();
+    re_enable();
+}
+
 /* Set when the caller has explicitly asked for transceiver standby. Nothing in
  * this file sets it; main.c does not call it yet. It exists so that the return
  * from a transmission goes back to the state the SYSTEM asked for rather than

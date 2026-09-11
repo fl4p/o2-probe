@@ -79,6 +79,14 @@ bool o2p_reset_was_power_cycle(void);
 #endif
 
 #if O2P_DEBUG_ENABLE
+extern volatile bool g_exec_active;
+extern volatile uint32_t g_exec_start_ms;
+extern volatile uint32_t g_exec_timeout_ms;
+void o2p_exec_timeout_trampoline(void);
+void o2p_exec_fault_trampoline(void);
+#endif
+
+#if O2P_DEBUG_ENABLE
 uint32_t o2p_crash_read_reg(uint8_t index);
 void o2p_crash_clear(void);
 void o2p_crash_set_breadcrumb(uint32_t val);

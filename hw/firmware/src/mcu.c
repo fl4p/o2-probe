@@ -7,10 +7,46 @@ static volatile uint32_t s_millis;
 static uint16_t s_reset_cause;
 static bool s_power_cycled;
 
+#if O2P_DEBUG_ENABLE
+volatile bool g_exec_active = false;
+volatile uint32_t g_exec_start_ms = 0u;
+volatile uint32_t g_exec_timeout_ms = 50u;
+
+__attribute__((weak)) void o2p_exec_timeout_trampoline(void) {}
+__attribute__((weak)) void o2p_exec_fault_trampoline(void) {}
+
+void o2p_systick_c_handler(uint32_t *stack_frame)
+{
+    s_millis++;
+    if (g_exec_active && o2p_elapsed(g_exec_start_ms, g_exec_timeout_ms)) {
+        g_exec_active = false;
+        /* Stacked return PC must have bit 0 clear on ARMv6-M (B1) */
+        stack_frame[6] = (uint32_t)o2p_exec_timeout_trampoline & ~1u;
+        stack_frame[7] = 0x01000000u;
+    }
+}
+
+void __attribute__((naked)) SysTick_Handler(void)
+{
+    __asm volatile(
+        "mov r0, lr\n"
+        "movs r1, #4\n"
+        "tst r0, r1\n"
+        "beq 1f\n"
+        "mrs r0, psp\n"
+        "b 2f\n"
+        "1:\n"
+        "mrs r0, msp\n"
+        "2:\n"
+        "b o2p_systick_c_handler\n"
+    );
+}
+#else
 void SysTick_Handler(void)
 {
     s_millis++;
 }
+#endif
 
 uint32_t o2p_millis(void)
 {
@@ -151,6 +187,17 @@ void o2p_hardfault_c_handler(uint32_t *stack_frame, uint32_t exc_return)
     if ((sp & 3u) == 0u && sp >= 0x20000000u && sp <= (0x20009000u - 32u)) {
         pc = stack_frame[6];
         lr = stack_frame[5];
+    }
+
+    if (g_exec_active && (sp & 3u) == 0u && sp >= 0x20000000u && sp <= (0x20009000u - 32u)) {
+        /* Only intercept if returning to Thread mode (EXC_RETURN bit 3 set, H1) */
+        if ((exc_return & (1u << 3)) != 0u) {
+            g_exec_active = false;
+            /* Stacked return PC must have bit 0 clear on ARMv6-M (B1) */
+            stack_frame[6] = (uint32_t)o2p_exec_fault_trampoline & ~1u;
+            stack_frame[7] = 0x01000000u;
+            return;
+        }
     }
 
     /* Backup-domain access, established HERE rather than assumed.

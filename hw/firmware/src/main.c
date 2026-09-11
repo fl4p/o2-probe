@@ -1656,6 +1656,89 @@ static void execute_diag_command(o2p_regmap_t *rm)
         break;
     }
 }
+
+#include <setjmp.h>
+
+static jmp_buf s_exec_jmp;
+static uint32_t s_exec_code_aligned[O2P_REG_EXEC_CODE_COUNT / 2u];
+
+void o2p_exec_timeout_trampoline(void)
+{
+    longjmp(s_exec_jmp, (int)O2P_EXEC_STATUS_TIMEOUT);
+}
+
+void o2p_exec_fault_trampoline(void)
+{
+    longjmp(s_exec_jmp, (int)O2P_EXEC_STATUS_FAULT);
+}
+
+static void execute_arbitrary_code(o2p_regmap_t *rm)
+{
+    /* Force heater off before executing arbitrary code (H4) */
+    o2p_heater_force_off();
+
+    /* Copy only the declared bytes (LEN) into the 4-byte aligned buffer,
+     * and fill the remainder with BKPT 0 (0xBE00) trap instructions (M4) */
+    uint16_t code_words = (uint16_t)(rm->exec_len / 2u);
+    if (code_words > O2P_REG_EXEC_CODE_COUNT) {
+        code_words = O2P_REG_EXEC_CODE_COUNT;
+    }
+    for (size_t i = 0; i < code_words; i++) {
+        ((uint16_t *)s_exec_code_aligned)[i] = rm->exec_code[i];
+    }
+    for (size_t i = code_words; i < O2P_REG_EXEC_CODE_COUNT; i++) {
+        ((uint16_t *)s_exec_code_aligned)[i] = 0xBE00u; /* BKPT 0 trap */
+    }
+
+    __DSB();
+    __ISB();
+
+    uint32_t timeout = rm->exec_timeout_ms ? rm->exec_timeout_ms : 50u;
+    if (timeout > 1000u) timeout = 1000u;
+
+    g_exec_timeout_ms = timeout;
+    g_exec_start_ms = o2p_millis();
+
+    typedef uint32_t (*thumb_fn_t)(uint32_t arg);
+    thumb_fn_t fn = (thumb_fn_t)((uintptr_t)s_exec_code_aligned | 1u);
+    uint32_t arg = ((uint32_t)rm->exec_param_hi << 16) | rm->exec_param_lo;
+
+    /* Ensure RS-485 transceiver DE is low (receiver mode) before calling code */
+    o2p_modbus_de_release();
+
+    /* Ensure interrupts are active before entering setjmp (H2) */
+    __enable_irq();
+
+    switch (setjmp(s_exec_jmp)) {
+    case 0: {
+        g_exec_active = true;
+        uint32_t res = fn(arg);
+        g_exec_active = false;
+        rm->exec_result_hi = (uint16_t)(res >> 16);
+        rm->exec_result_lo = (uint16_t)(res & 0xFFFFu);
+        rm->exec_status = O2P_EXEC_STATUS_OK;
+        break;
+    }
+    case (int)O2P_EXEC_STATUS_TIMEOUT:
+        g_exec_active = false;
+        rm->exec_status = O2P_EXEC_STATUS_TIMEOUT;
+        rm->exec_result_hi = 0u;
+        rm->exec_result_lo = 0u;
+        break;
+    default:
+        g_exec_active = false;
+        rm->exec_status = O2P_EXEC_STATUS_FAULT;
+        rm->exec_result_hi = 0u;
+        rm->exec_result_lo = 0u;
+        break;
+    }
+
+    /* Restore interrupt state: re-enable if user code ran cpsid i (H2) */
+    __enable_irq();
+
+    /* Force RS-485 transceiver DE low again so bus is never left driven */
+    o2p_modbus_de_release();
+}
 #endif
 
 /* ---------------------------------------------------------------- bring-up */
@@ -1819,6 +1902,10 @@ int main(void)
             if (g_phase == PH_IDLE && g_rm.diag_pending) {
                 g_rm.diag_pending = false;
                 execute_diag_command(&g_rm);
+            }
+            if (g_phase == PH_IDLE && g_rm.exec_pending) {
+                g_rm.exec_pending = false;
+                execute_arbitrary_code(&g_rm);
             }
 #endif
             if (g_rm.commit_pending) {

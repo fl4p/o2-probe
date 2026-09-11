@@ -341,6 +341,20 @@ void o2p_regmap_init(o2p_regmap_t *rm)
     /* Crash retention initialization */
     rm->crash_reason = O2P_CRASH_NONE;
     rm->crash_build_id = g_o2p_build_id;
+
+    /* Arbitrary code execution mailbox */
+    rm->exec_cmd = 0u;
+    rm->exec_len = 0u;
+    rm->exec_param_hi = 0u;
+    rm->exec_param_lo = 0u;
+    rm->exec_timeout_ms = 50u;
+    rm->exec_status = O2P_EXEC_STATUS_NONE;
+    rm->exec_result_hi = 0u;
+    rm->exec_result_lo = 0u;
+    for (unsigned i = 0; i < O2P_REG_EXEC_CODE_COUNT; i++) {
+        rm->exec_code[i] = 0u;
+    }
+    rm->exec_pending = false;
 #endif
 }
 
@@ -583,6 +597,25 @@ static uint16_t read_crash(const o2p_regmap_t *rm, uint16_t a)
     }
     return O2P_U16_INVALID;
 }
+
+static uint16_t read_exec(const o2p_regmap_t *rm, uint16_t a)
+{
+    switch (a) {
+    case O2P_REG_EXEC_CMD:        return rm->exec_cmd;
+    case O2P_REG_EXEC_LEN:        return rm->exec_len;
+    case O2P_REG_EXEC_PARAM_HI:   return rm->exec_param_hi;
+    case O2P_REG_EXEC_PARAM_LO:   return rm->exec_param_lo;
+    case O2P_REG_EXEC_TIMEOUT_MS: return rm->exec_timeout_ms;
+    case O2P_REG_EXEC_STATUS:     return rm->exec_status;
+    case O2P_REG_EXEC_RESULT_HI:  return rm->exec_result_hi;
+    case O2P_REG_EXEC_RESULT_LO:  return rm->exec_result_lo;
+    default: break;
+    }
+    if (a >= O2P_REG_EXEC_CODE_BASE && a < O2P_REG_EXEC_CODE_BASE + O2P_REG_EXEC_CODE_COUNT) {
+        return rm->exec_code[a - O2P_REG_EXEC_CODE_BASE];
+    }
+    return O2P_U16_INVALID;
+}
 #endif
 
 static uint16_t read_config(const o2p_regmap_t *rm, uint16_t a)
@@ -679,6 +712,12 @@ uint8_t o2p_regmap_read(void *ctx, uint16_t addr, uint16_t count, uint16_t *out)
     if (in_block(addr, count, O2P_REG_CRASH_BASE, O2P_REG_CRASH_COUNT)) {
         for (uint16_t i = 0; i < count; i++) {
             out[i] = read_crash(rm, (uint16_t)(addr + i));
+        }
+        return 0u;
+    }
+    if (in_block(addr, count, O2P_REG_EXEC_BASE, O2P_REG_EXEC_COUNT)) {
+        for (uint16_t i = 0; i < count; i++) {
+            out[i] = read_exec(rm, (uint16_t)(addr + i));
         }
         return 0u;
     }
@@ -1266,6 +1305,94 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
         return 0u;
     }
 
+    /* Arbitrary code execution mailbox */
+    if (in_block(addr, count, O2P_REG_EXEC_BASE, O2P_REG_EXEC_COUNT)) {
+        /* M1: Allow validated ABORT to cancel a pending execution before the busy check */
+        if (addr == O2P_REG_EXEC_CMD && in[0] == (O2P_EXEC_MAGIC | O2P_EXEC_OP_ABORT)) {
+            rm->exec_cmd = in[0];
+            rm->exec_pending = false;
+            rm->exec_status = O2P_EXEC_STATUS_NONE;
+            return 0u;
+        }
+
+        if (rm->exec_pending) {
+            return O2P_MB_EX_DEVICE_BUSY;
+        }
+
+        /* M3: Reject writes that target strictly read-only status/result registers */
+        if (addr >= O2P_REG_EXEC_STATUS && (addr + count) <= O2P_REG_EXEC_CODE_BASE) {
+            return O2P_MB_EX_ILLEGAL_VALUE;
+        }
+
+        /* M2: If writing CMD (0x0150), validate magic, opcode, and candidate length
+         * BEFORE modifying any internal staged registers. */
+        if (addr == O2P_REG_EXEC_CMD) {
+            uint16_t cmd = in[0];
+            if ((cmd & O2P_EXEC_MAGIC_MASK) != O2P_EXEC_MAGIC) {
+                rm->exec_status = O2P_EXEC_STATUS_ERR_OPCODE;
+                return O2P_MB_EX_ILLEGAL_VALUE;
+            }
+
+            uint8_t op = (uint8_t)(cmd & 0xFFu);
+            if (op != O2P_EXEC_OP_RUN && op != O2P_EXEC_OP_ABORT) {
+                rm->exec_status = O2P_EXEC_STATUS_ERR_OPCODE;
+                return O2P_MB_EX_ILLEGAL_VALUE;
+            }
+
+            if (op == O2P_EXEC_OP_RUN) {
+                uint16_t candidate_len = (count > 1u) ? in[1] : rm->exec_len;
+                if (candidate_len < 2u || candidate_len > (O2P_REG_EXEC_CODE_COUNT * 2u) || (candidate_len & 1u) != 0u) {
+                    rm->exec_status = O2P_EXEC_STATUS_ERR_LEN;
+                    return O2P_MB_EX_ILLEGAL_VALUE;
+                }
+            }
+        }
+
+        /* All validations passed; apply writes to writable fields */
+        for (uint16_t i = 0; i < count; i++) {
+            uint16_t a = (uint16_t)(addr + i);
+            uint16_t v = in[i];
+
+            if (a >= O2P_REG_EXEC_CODE_BASE && a < O2P_REG_EXEC_CODE_BASE + O2P_REG_EXEC_CODE_COUNT) {
+                rm->exec_code[a - O2P_REG_EXEC_CODE_BASE] = v;
+            } else {
+                switch (a) {
+                case O2P_REG_EXEC_CMD:
+                    rm->exec_cmd = v;
+                    break;
+                case O2P_REG_EXEC_LEN:
+                    rm->exec_len = v;
+                    break;
+                case O2P_REG_EXEC_PARAM_HI:
+                    rm->exec_param_hi = v;
+                    break;
+                case O2P_REG_EXEC_PARAM_LO:
+                    rm->exec_param_lo = v;
+                    break;
+                case O2P_REG_EXEC_TIMEOUT_MS:
+                    rm->exec_timeout_ms = v;
+                    break;
+                default:
+                    /* Skip read-only status and result registers */
+                    break;
+                }
+            }
+        }
+
+        if (addr == O2P_REG_EXEC_CMD) {
+            uint8_t op = (uint8_t)(in[0] & 0xFFu);
+            if (op == O2P_EXEC_OP_RUN) {
+                rm->exec_status = O2P_EXEC_STATUS_PENDING;
+                rm->exec_pending = true;
+            } else {
+                rm->exec_pending = false;
+                rm->exec_status = O2P_EXEC_STATUS_NONE;
+            }
+        }
+
+        return 0u;
+    }
+
     /* Crash retention mailbox: writing 0 strictly to CRASH_BUILD_ID_LO clears record */
     if (in_block(addr, count, O2P_REG_CRASH_BASE, O2P_REG_CRASH_COUNT)) {
         if (addr == O2P_REG_CRASH_BUILD_ID_LO && count == 1u && in[0] == 0u) {
@@ -1289,6 +1416,7 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
 #if O2P_DEBUG_ENABLE
         || overlaps_block(addr, count, O2P_REG_PEEK_BASE, O2P_REG_PEEK_COUNT)
         || overlaps_block(addr, count, O2P_REG_PEEKW_BASE, O2P_REG_PEEKW_COUNT)
+        || overlaps_block(addr, count, O2P_REG_EXEC_BASE, O2P_REG_EXEC_COUNT)
         || overlaps_block(addr, count, O2P_REG_DMBOX_BASE, O2P_REG_DMBOX_COUNT)
         || overlaps_block(addr, count, O2P_REG_CRASH_BASE, O2P_REG_CRASH_COUNT)
 #endif

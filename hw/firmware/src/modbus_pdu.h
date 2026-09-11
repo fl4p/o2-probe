@@ -33,6 +33,7 @@ enum {
     O2P_MB_EX_ILLEGAL_ADDRESS  = 0x02u,
     O2P_MB_EX_ILLEGAL_VALUE    = 0x03u,
     O2P_MB_EX_DEVICE_FAILURE   = 0x04u,
+    O2P_MB_EX_DEVICE_BUSY      = 0x06u,
 };
 
 /* Valid unicast slave addresses are 1..247. 0 is broadcast.

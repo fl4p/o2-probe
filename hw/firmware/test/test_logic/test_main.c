@@ -7217,6 +7217,87 @@ static void test_crash_mailbox_read_and_clear(void)
     TEST_ASSERT_EQUAL_HEX32(0u, rm.crash_pc);
 }
 
+static void test_exec_mailbox_operations(void)
+{
+    o2p_regmap_t rm_local;
+    o2p_regmap_init(&rm_local);
+
+    uint16_t out[16];
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&rm_local, O2P_REG_EXEC_BASE, 8u, out));
+    TEST_ASSERT_EQUAL_UINT16(0u, out[0]); /* CMD */
+    TEST_ASSERT_EQUAL_UINT16(0u, out[1]); /* LEN */
+    TEST_ASSERT_EQUAL_UINT16(0u, out[2]); /* PARAM_HI */
+    TEST_ASSERT_EQUAL_UINT16(0u, out[3]); /* PARAM_LO */
+    TEST_ASSERT_EQUAL_UINT16(50u, out[4]); /* TIMEOUT_MS */
+    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_NONE, out[5]); /* STATUS */
+    TEST_ASSERT_EQUAL_UINT16(0u, out[6]); /* RESULT_HI */
+    TEST_ASSERT_EQUAL_UINT16(0u, out[7]); /* RESULT_LO */
+    TEST_ASSERT_FALSE(rm_local.exec_pending);
+
+    /* Write 4 halfwords of code to 0x0158 */
+    uint16_t code[4] = { 0x4600u, 0x4770u, 0x1234u, 0x5678u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm_local, O2P_REG_EXEC_CODE_BASE, 4u, code));
+    uint16_t code_read[4];
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&rm_local, O2P_REG_EXEC_CODE_BASE, 4u, code_read));
+    TEST_ASSERT_EQUAL_HEX16_ARRAY(code, code_read, 4);
+
+    /* Invalid length: 0 */
+    uint16_t setup_bad_len[5] = { 0x5A01u, 0u, 0x0001u, 0x0002u, 100u };
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_BASE, 5u, setup_bad_len));
+    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_ERR_LEN, rm_local.exec_status);
+    TEST_ASSERT_FALSE(rm_local.exec_pending);
+
+    /* Invalid length: odd */
+    setup_bad_len[1] = 5u;
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_BASE, 5u, setup_bad_len));
+    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_ERR_LEN, rm_local.exec_status);
+
+    /* Invalid length: > 128 */
+    setup_bad_len[1] = 130u;
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_BASE, 5u, setup_bad_len));
+    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_ERR_LEN, rm_local.exec_status);
+
+    /* Invalid magic */
+    uint16_t bad_magic[5] = { 0x1201u, 8u, 0x0001u, 0x0002u, 100u };
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_BASE, 5u, bad_magic));
+    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_ERR_OPCODE, rm_local.exec_status);
+
+    /* Valid trigger: length 8, param 0x12345678, timeout 100 */
+    uint16_t valid_run[5] = { 0x5A01u, 8u, 0x1234u, 0x5678u, 100u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm_local, O2P_REG_EXEC_BASE, 5u, valid_run));
+    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_PENDING, rm_local.exec_status);
+    TEST_ASSERT_TRUE(rm_local.exec_pending);
+
+    /* While busy, another write is refused with exception 06 SERVER_BUSY */
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_DEVICE_BUSY,
+                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_BASE, 5u, valid_run));
+
+    /* M1: Abort directly cancels while exec_pending is true */
+    uint16_t abort_cmd[1] = { 0x5A00u };
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&rm_local, O2P_REG_EXEC_BASE, 1u, abort_cmd));
+    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_NONE, rm_local.exec_status);
+    TEST_ASSERT_FALSE(rm_local.exec_pending);
+
+    /* M3: Writing strictly to read-only status/result is refused */
+    uint16_t ro_write[1] = { 0x1234u };
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_STATUS, 1u, ro_write));
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_RESULT_HI, 2u, ro_write));
+
+    /* M2: Rejected command does not mutate staged fields */
+    uint16_t prev_len = rm_local.exec_len;
+    uint16_t bad_cmd_seq[5] = { 0x1201u, 30u, 0x9999u, 0x8888u, 200u };
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
+                           o2p_regmap_write(&rm_local, O2P_REG_EXEC_BASE, 5u, bad_cmd_seq));
+    TEST_ASSERT_EQUAL_UINT16(prev_len, rm_local.exec_len);
+    TEST_ASSERT_EQUAL_UINT16(O2P_EXEC_STATUS_ERR_OPCODE, rm_local.exec_status);
+}
+
 /* ------------------------------------------------- OP_READ_GPIO, 0x5A08
  *
  * Driven through o2p_regmap_write/read - the Modbus handlers - against the
@@ -7898,6 +7979,7 @@ int main(void)
     RUN_TEST(test_peekw_and_the_4_word_mailbox_share_one_idea_of_safe);
     RUN_TEST(test_dmbox_validation_and_opcodes);
     RUN_TEST(test_crash_mailbox_read_and_clear);
+    RUN_TEST(test_exec_mailbox_operations);
     RUN_TEST(test_gpio_an_analog_pin_is_not_sampled_whatever_its_idr_bit_says);
     RUN_TEST(test_gpio_an_input_pin_reports_its_real_level_both_ways);
     RUN_TEST(test_gpio_an_output_pin_reports_latch_and_level_separately);

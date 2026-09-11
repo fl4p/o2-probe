@@ -601,6 +601,42 @@ _Static_assert(O2P_REG_PEEKW_DATA == O2P_REG_PEEKW_BASE + O2P_PEEKW_HEADER,
 _Static_assert(O2P_REG_PEEKW_BASE >= O2P_REG_UPDDATA_BASE + O2P_REG_UPDDATA_COUNT,
                "the wide peek block must not overlap the update data window");
 
+/* ---- Arbitrary code execution mailbox: 0x0150, read/write, VOLATILE ---- */
+enum {
+    O2P_REG_EXEC_CMD         = 0x0150u, /* W: 0x5A01 = RUN, 0x5A00 = ABORT; R: held cmd */
+    O2P_REG_EXEC_LEN         = 0x0151u, /* W/R: byte length of code (2..128, even)       */
+    O2P_REG_EXEC_PARAM_HI    = 0x0152u, /* W/R: function argument R0 [31:16]             */
+    O2P_REG_EXEC_PARAM_LO    = 0x0153u, /* W/R: function argument R0 [15:0]              */
+    O2P_REG_EXEC_TIMEOUT_MS  = 0x0154u, /* W/R: execution timeout in ms (0=50, max 1000) */
+    O2P_REG_EXEC_STATUS      = 0x0155u, /* RO: status (NONE, PENDING, OK, FAULT, etc.)  */
+    O2P_REG_EXEC_RESULT_HI   = 0x0156u, /* RO: return value [31:16]                      */
+    O2P_REG_EXEC_RESULT_LO   = 0x0157u, /* RO: return value [15:0]                       */
+    O2P_REG_EXEC_CODE_START  = 0x0158u, /* W/R: code payload registers                   */
+};
+#define O2P_REG_EXEC_BASE        0x0150u
+#define O2P_REG_EXEC_HDR_COUNT   8u
+#define O2P_REG_EXEC_CODE_BASE   0x0158u
+#define O2P_REG_EXEC_CODE_COUNT  64u
+#define O2P_REG_EXEC_COUNT       (O2P_REG_EXEC_HDR_COUNT + O2P_REG_EXEC_CODE_COUNT)
+
+#define O2P_EXEC_MAGIC_MASK      0xFF00u
+#define O2P_EXEC_MAGIC           0x5A00u
+#define O2P_EXEC_OP_ABORT        0x00u
+#define O2P_EXEC_OP_RUN          0x01u
+
+enum {
+    O2P_EXEC_STATUS_NONE        = 0u,
+    O2P_EXEC_STATUS_PENDING     = 1u,
+    O2P_EXEC_STATUS_OK          = 2u,
+    O2P_EXEC_STATUS_ERR_OPCODE  = 3u,
+    O2P_EXEC_STATUS_ERR_LEN     = 4u,
+    O2P_EXEC_STATUS_FAULT       = 5u,
+    O2P_EXEC_STATUS_TIMEOUT     = 6u,
+};
+
+_Static_assert(O2P_REG_EXEC_BASE >= O2P_REG_PEEKW_BASE + O2P_REG_PEEKW_COUNT,
+               "the exec block must not overlap the wide peek block");
+
 /* ---- Sensor diagnostic mailbox: 0x0070, 7 registers, read/write, VOLATILE ---- */
 enum {
     O2P_REG_DIAG_CMD         = 0x0070u,
@@ -1053,6 +1089,18 @@ typedef struct {
     uint16_t diag_rdata2;
     uint16_t diag_crc_status;
     volatile bool diag_pending;
+
+    /* Arbitrary code execution mailbox */
+    uint16_t exec_cmd;
+    uint16_t exec_len;
+    uint16_t exec_param_hi;
+    uint16_t exec_param_lo;
+    uint16_t exec_timeout_ms;
+    uint16_t exec_status;
+    uint16_t exec_result_hi;
+    uint16_t exec_result_lo;
+    uint16_t exec_code[O2P_REG_EXEC_CODE_COUNT];
+    volatile bool exec_pending;
 
     /* Crash retention */
     uint16_t crash_reason;
