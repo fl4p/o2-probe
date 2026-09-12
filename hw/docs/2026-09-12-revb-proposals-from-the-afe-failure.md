@@ -25,9 +25,13 @@ clear the leak, which refutes a water-based film).
 
 ## P0. DELETE THE ADS1119 — use the STM32's own ADC (Fab, 2026-09-12: "do we really need the ADS?")
 
+> **DECIDED 2026-09-12** — superseded in part by [`2026-09-12-revb-decision-vref-monitor.md`](2026-09-12-revb-decision-vref-monitor.md): `/VREF_TRIM` is measured DIRECTLY on a free MCU ADC pin (no divider — it is 2.5 V, under VDDA), deleting R34/R35/R36/C29. The `VREF+` move proposed in P0 is DEFERRED to the U8 decision.
+
 This subsumes P1, P2, P4 and P5, and it is the most consequential idea to come
-out of the failure. **Not yet validated** — three measurements are required
-before committing (below). Recorded as a proposal, not a decision.
+out of the failure. The three measurements once listed as prerequisites are all
+ANSWERED (below) without bench time. **Deleting U8 is still a proposal, not a
+decision** — what blocks it now is design work and one uncharacterized
+datasheet condition, not missing evidence.
 
 ### The only real reason for the ADS1119 is ratiometry, and the MCU can have it
 
@@ -195,6 +199,8 @@ coupling need deliberate attention rather than a net rename.
 
 ## P1. Put VREF on the MCU's own ADC — a second, independent path
 
+> **DECIDED 2026-09-12** — superseded in part by [`2026-09-12-revb-decision-vref-monitor.md`](2026-09-12-revb-decision-vref-monitor.md): `/VREF_TRIM` is measured DIRECTLY on a free MCU ADC pin (no divider — it is 2.5 V, under VDDA), deleting R34/R35/R36/C29. The `VREF+` move proposed in P0 is DEFERRED to the U8 decision.
+
 **Highest value of anything here.** The entire five-hour investigation existed
 because the only measurement of the 2.5 V reference ran through **one ADS1119
 input**. When that input developed a ~800 Ω leak, the firmware could not tell
@@ -222,6 +228,8 @@ not have it.
 VREF correctly and the firmware must name which path disagreed.
 
 ## P2. Lower the VREF sense divider impedance — INTERACTS with the reference redesign
+
+> **DECIDED 2026-09-12** — superseded in part by [`2026-09-12-revb-decision-vref-monitor.md`](2026-09-12-revb-decision-vref-monitor.md): `/VREF_TRIM` is measured DIRECTLY on a free MCU ADC pin (no divider — it is 2.5 V, under VDDA), deleting R34/R35/R36/C29. The `VREF+` move proposed in P0 is DEFERRED to the U8 decision.
 
 R34/R35 are 47k/47k, a 23.5 kΩ Thévenin source. An ~800 Ω leak collapsed the
 tap to **2.9 %** of nominal — 36 mV where 1250 mV was due. At 4.7k/4.7k the
