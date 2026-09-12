@@ -936,3 +936,72 @@ and fits the timing); C10 4.7 µF shorted; U15 shunt reference failed short.
 Note that a residue film explaining `/VA_MON` at 0 mV must be **well under
 47 k**, which is a lot more than a damp film — check for a solder bridge or
 displaced part from the hot air before assuming contamination.
+
+### 09:40 correction — TP4 = 2484 mV. The reference is GOOD; three ADS inputs are not
+
+Fab metered TP4 (`/VREF_TRIM`): **2484 mV**, right on the 2500 mV trim target.
+That refutes the section above, which is left standing as written. Two errors
+in it, one of consequence:
+
+1. **Wrong board.** I read `gen_sch.py`, which is Rev B. The bench board is
+   Rev A (`fab/o2-probe-rev-a-source/source/o2-probe.kicad_pro`), and its
+   reference is not a shunt at all: `3V3A` → R20 1.91k → `/VREF_TOP` → RV1 2k
+   10-turn → `/VREF_WIPER` → U4 OPA2333 buffer → `/VREF_BUF` → R31 47R →
+   `/VREF_TRIM`. There is no U15, no R41, and `/+5V_ANALOG` is not in the path.
+   Ignore measurement 2 of the previous section.
+2. **`VREF_MON` is a measurement of the SENSE TAP, not of the reference.**
+   `/VREF_TRIM` → R34 47k → `/VREF_MON_RAW` → R35 47k → GND, and R36 1k →
+   `/ADC_VREF_MON` (C29 100n) → U8 pin 8. `finish_vref()` (main.c:700) converts
+   that pin against the internal 2.048 V reference and doubles it
+   (`O2P_HW_DIV_VREF_NUM/DEN` = 47000/94000). Reported 70 mV therefore means
+   **the pin is at 35 mV**, where half of 2484 = 1242 mV is due.
+
+So the reference is fine and the firmware cannot see it. Everything downstream
+follows from that one blind spot, without any reference fault:
+
+- 70 mV is outside the trim band, so `finish_vref` raises ADC_RANGE and
+  **refuses to update `g_cyc.vref_mv`**, leaving `vref_measured` false. Every
+  ADS channel that needs a measured reference is then suppressed — that is why
+  `VIN_MV` published 0xFFFF, not because VIN was unreadable.
+- With `vref_measured` false the ADS VA path returns early, so `VA_MV` under
+  the external reference is the **MCU's PA7** value, not the ADS's.
+
+Rev A ADS1119 channel map (`hw_caps_rev_a.h:10-13`) and what each reads now:
+
+| pin | AIN | net | measured | due |
+|---|---|---|--:|--:|
+| 4 | AIN3 | `/ADC_VIN_MON` | **13128 mV** reconstructed — sane | — |
+| 5 | AIN2 | `/ADC_VA_MON` | **0 mV** | 1650 |
+| 7 | — | `/VREF_TRIM` (REFP) | 2484 at TP4 | 2500 |
+| 8 | AIN1 | `/ADC_VREF_MON` | **35 mV** | 1242 |
+| 9 | AIN0 | `/ADC_AFE_VOUT` | **34 mV** | ~1660 (0.67 × 2484) |
+
+**Three of the four analog inputs are pinned near ground; the fourth is
+correct.** AIN3 reading 13.128 V proves the converter, the internal reference
+and the I2C path. Pins 5, 8 and 9 sit on one side of the WQFN, around the GND
+at pin 6.
+
+**The two ADCs contradict each other on `/VA_MON`, across 1 kΩ:** PA7 reads the
+node at **2594 mV** (`va_mv` 5188 = tap × 2, `O2P_HW_DIV_VA_NUM/DEN`), while the
+ADS reads `/ADC_VA_MON` — the same node through R37 1k — at **0 mV**. Both
+cannot be true, and neither is the 1650 mV a 10k/10k divider off a good 3V3A
+owes. (PA7 read this node at 6–9 mV during last night's outage, so it has
+moved.) One of the two front ends is lying and a meter settles it in one touch.
+
+Note the 22:24 collapse of VREF_MON preceded the hot air (22:41) and followed
+the coating — so whatever pinned the sense tap arrived with the coating, and
+the AFE_VOUT and VA inputs joined later.
+
+#### Probe list, powered
+
+| # | point | expect | meaning if it differs |
+|---|---|--:|---|
+| 1 | R34/R35 junction (= R36 pad 1), `/VREF_MON_RAW` | **1242 mV** | 0 here ⇒ R34 open or the tap is shorted; 1242 here ⇒ the fault is at the ADS pin |
+| 2 | U8 pin 8 or C29, `/ADC_VREF_MON` | 1242 mV | 35 mV with #1 at 1242 ⇒ C29 shorted or AIN1 dead |
+| 3 | R24/R25 junction (= R37 pad 1, U6 pin 18), `/VA_MON` | **1650 mV** | settles PA7 (2594) vs ADS (0) |
+| 4 | U8 pin 7, REFP | 2484 mV | proves the PIN, not just TP4 |
+| 5 | U7 pin 8 (= R33 pad 1), `/AFE_VOUT` | ~1660 mV | 0 ⇒ the LMP output is genuinely down; 1660 ⇒ AIN0 is the fault |
+
+If #1, #3 and #5 all read correctly while the ADS reports 35/0/34 mV, the board
+is fine and the ADS1119's input mux is damaged on three of four channels — and
+the part gets replaced rather than debugged further.
