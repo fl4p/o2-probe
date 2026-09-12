@@ -2593,3 +2593,25 @@ of R33 and C28 are **not** the same net. From the Rev A board, R33.1 (x 106.825)
 is `/AFE_VOUT` and C28.2 (x 108.520) is **GND**; the `/ADC_AFE_VOUT` pads are the
 two *outer* ones, R33.2 (x 105.175) and C28.1 (x 109.480). The nets join through
 the copper, not across the gap.
+
+#### 18:35 — C28 removed, still shorted
+
+C28 is eliminated. `/ADC_AFE_VOUT` now has exactly three nodes left:
+
+| node | note |
+|---|---|
+| **R39.1** | `100k` **DNP** — and R39.2 goes to **GND**. This is a designed pull-down to ground on the shorted net. At its drawn 100 kΩ it would pull 1679 mV down to only 1662 mV, so a *correctly fitted* R39 cannot do this; a fitted-and-shorted or wrong-value R39 can. **Confirm the pads are bare** before going near U8. R39 is at (112.400, 128.500) on B.Cu, between U7 and U8 |
+| **U8.9 (AIN0)** | the *new* converter. AIN1/AIN2/AIN3 read correctly (VREF 2506, VA 3298), so a whole-part failure does not fit — a rework bridge to one of the GND pins or the exposed pad does |
+| **copper** | the bottom-side trace/via from the R33/C28 row at y≈114 to U8 at (115.5, 127.0). The 22:24 heat event is the origin of every other defect on this board, and it does not spare copper |
+
+**Measure the resistance, do not just call it "short".** The value separates the
+three:
+
+| R33.2 → GND | reads as |
+|---|---|
+| **< 1 Ω** | metal — a solder bridge or a copper defect |
+| **tens to hundreds of Ω** | damaged silicon, the same signature the old U8's AIN1 gave at ~730 Ω |
+| **kΩ and up** | residue/contamination, which washes off |
+
+If R39 is bare and the number is low, lifting U8 is the only cut left that
+separates the converter from the board.
