@@ -1389,3 +1389,72 @@ fitted-vs-designed divergence has precedent here, the VIN divider being 82k/10k
 rather than the designed 130k/20k (reg 0x004B). This is also what made `/VA_MON`
 look wrong all morning. One meter touch on the rail and the R24/R25 junction
 settles it.
+
+### 12:20 — U8 is the fault. AIN1 leaks, AIN0's mux does not connect, the board is clean
+
+The AFE_VOUT row, swept the same way (single GND landmark at position 2 decoded
+the reversal):
+
+| # | pad | net | mV | due |
+|---|---|---|--:|--:|
+| 1 | C28.1 | `/ADC_AFE_VOUT` | 1650 | 1675 |
+| 2 | C28.2 | GND | 0 | 0 |
+| 3 | R33.1 | `/AFE_VOUT` | **1673** | 1675 |
+| 4 | R33.2 | `/ADC_AFE_VOUT` | 1650 | 1675 |
+
+`/AFE_VOUT` = 1673 mV is 0.67 × 2500 to within 2 mV. **The LMP91000 is working
+correctly** — right reference, right INT_Z, right output. R33 and C28 are fine.
+
+**And U8 pin 9 sits at 1650 mV while the ADS reports AFE_VOUT as 34 mV.**
+
+That is a different failure from AIN1, where meter and ADS agreed (36 vs 35) and
+the pin was genuinely dragged. Here the pin is correct and the converter is
+wrong — and 34 mV is precisely what AIN1 produced. Checked in source before
+concluding:
+
+- Mux codes match SBAS925A (`ads1119.h:33-44`): AIN0-AGND = 011, AIN1 = 100.
+  Each phase passes the right one (`main.c:1571,1580`). No channel mix-up.
+- **PH_VREF (AIN1) runs immediately before PH_O2 (AIN0)** — consecutive states
+  in the phase machine (`main.c:1567-1588`).
+- `afe_vout_mv` is the raw AIN0 pin voltage, `uv / 1000`, unscaled
+  (`main.c:1066`).
+- A stale-read/DRDY bug would shift EVERY channel by one phase. It does not:
+  PH_RE (AIN3) publishes VIN at 13138 mV, consistent with AIN3's own divider
+  tap (~1752 mV × 7.5). No global shift, so AIN0 alone is broken.
+
+**Conclusion: AIN0's mux switch is not connecting, and the converter retains
+the preceding channel's sample.**
+
+#### Both defects, and the board exonerated
+
+| pin | channel | defect | evidence |
+|---|---|---|---|
+| U8.8 | AIN1 | input leaks ≈720 Ω to GND | 50 µA measured into the stub; node currents balance to 0.4 µA |
+| U8.9 | AIN0 | mux does not connect | pin 1650 mV, converts as 34 mV = the preceding AIN1 sample |
+| U8.4 | AIN3 | **works** | VIN 13138 mV, correct |
+
+Why AIN1's node collapses and AIN0's does not, despite both inputs leaking:
+source impedance. AIN1 is fed from 47k∥47k + 1k ≈ 24.5 kΩ, so a 720 Ω shunt
+gives 1250 × 720/25220 = **35.7 mV** — the 36 mV measured. AIN0 is fed from
+1 kΩ, and its milder ≈72 kΩ leak (23 µA across R33's 23 mV drop) barely moves
+it. One high-impedance node is the only reason this was visible at all.
+
+Proven healthy and NOT to be touched: the 2.5 V reference and its OPA2333
+buffer (2500 mV on target), `/VREF_TRIM` end to end, R34, R35, R36, R33, C28,
+R24, R25, and the LMP91000 with its whole bias chain.
+
+**U8 (ADS1119IRTER, WQFN-16) is replaced. Nothing else.**
+
+#### Fix the rail FIRST
+
+3V3A is still intermittent and is currently substituted by a bench supply. Do
+not fit the new ADS1119 until the rail is repaired: with AVDD absent and DVDD
+present, `/ADC_VIN_MON` stays near 1.75 V off the VIN divider — which is NOT
+on 3V3A — and forward-biases that input's ESD path into a dead AVDD. Every
+3V3A dropout has been running that condition. A new part fitted under the same
+rail fault is a candidate to fail the same way.
+
+Outstanding on the rail: U3 pin 3 (EN, 111.86/86.95) against pin 1 (IN,
+111.86/85.05) — an open EN joint lets the internal 500 kΩ pulldown shut the
+regulator off; and U3 pin 5 (114.14/85.05) against the injection point, since a
+break there would explain both the dead rail and the supply seeing no current.
