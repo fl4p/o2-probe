@@ -2837,3 +2837,29 @@ and the +600 mV bias argument above still stands. Also do not calibrate in the
 swapped state: with C and R exchanged the bias is regulated against the counter
 electrode rather than a true reference, which is fine for an air point and not
 fine for tempco or long-term drift.
+
+#### 20:00 — the removed U8, ohmed out of circuit: one leak confirmed, one not
+
+| pins | net pair | in circuit, powered | **removed part, unpowered** |
+|---|---|---|---|
+| 5 → 10 | AIN2 → AVDD (`/3V3A`) | ~2.6 kΩ | **2.2 kΩ** |
+| 8 → 6 | AIN1 → AGND | ~730 Ω | **1.5 MΩ** |
+
+**AIN2 → AVDD is confirmed damaged silicon.** 2.2 kΩ with the part off the board
+and no supply is a hard resistive defect inside the package, and it agrees with
+the in-circuit estimate. That one is not residue and never was.
+
+**AIN1 → GND did not reproduce.** Two readings fit:
+
+1. **Board residue on `/ADC_VREF_MON`**, removed by the rework itself — which
+   also fits R36 failing during that same operation, and fits this board's
+   history of surface leaks (`/VREF_TRIM`, `/VA_MON`).
+2. **A bias-dependent leak** the original diagnosis already described as
+   *"only when powered"*. A DMM's ohms range sources a volt or two; a structure
+   that conducts at 3.3 V can read open below its threshold.
+
+Not settled. **The cheap discriminator is diode mode, both polarities, pin 8 to
+pin 6** — it drives a higher test voltage and will catch a junction that ohms
+missed. Worth doing while the part still exists; the answer decides whether
+`/ADC_VREF_MON` on this board is still a residue risk to watch, or whether the
+whole fault went away with the chip.
