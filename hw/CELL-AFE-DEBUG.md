@@ -1732,3 +1732,57 @@ sequencing hazard in the Rev A design, independent of whether it caused this
 failure. A series resistor large enough to hold the clamp current to a few
 tens of µA, or a divider referenced to a rail that comes up with AVDD, would
 remove it. Carry this into any Rev B review.
+
+### 14:25 — the leak is NOT supply-dependent. Temperature is the variable: contamination
+
+Test run in the cleanest available configuration — VIN on, 3V3A off, board
+warm and running, Fab's 3 kΩ pull-up to an external 3.3 V still fitted, so no
+cooling confound. Predictions were ~2940 mV for "leak needs AVDD" and ~730 mV
+for "leak present anyway".
+
+**Measured `/ADC_VREF_MON` = 1.1 V.** Solving:
+
+    in  from 3k pull-up: (3300 - 1100)/3k     = 733 uA
+    out through R36 + collapsed divider (24.5k): 1100/24.5k = 45 uA
+    leak: 688 uA at 1100 mV                   = 1.6 kohm
+
+**The leak conducts with AVDD at zero.** Latch-up is excluded, and the 13:00
+conclusion is wrong.
+
+All three operating points together:
+
+| condition | board | AVDD | leak |
+|---|---|---|--:|
+| powered, running | **warm** | 3.3 V | ~890 Ω |
+| VIN on, 3V3A off | **warm** | 0 | ~1.6 kΩ |
+| fully off, ohmmeter minutes later | **cold** | 0 | 36 kΩ |
+
+Removing AVDD moves it **1.8×**. Cooling moves it **22×**. Temperature
+dominates by an order of magnitude — the 2026-09-10 signature in this file
+("silicon ESD damage doesn't halve its resistance in minutes with temperature;
+ionic contamination does"). The 36 kΩ reading was **cold**, not
+de-energized; that was the confound, and it is now measured rather than
+suspected.
+
+**Working conclusion: the AIN1 leak is thermally-activated ionic contamination
+on `/ADC_VREF_MON`.** Candidate fix is the 09-10 recovery — IPA clean plus a
+bake, which took `/VREF_TRIM` from 302 mV to 2488 mV that day. The net's
+surface extent is small: R36.2's pad, a short trace, the now-empty C29
+footprint (its GND pad 0.96 mm away), and the copper at U8 pin 8. A bake also
+reaches under the package, which a wipe does not.
+
+**AIN0 remains a separate defect and is not cleanable.** A channel returning
+the PRECEDING channel's sample is a switching fault, not a resistive one, and
+contamination bridging AIN0 to AIN1 is excluded because their pins do not
+equalise: 1650 mV against 36 mV across source impedances of 1 kΩ and 24.5 kΩ.
+Confirmed live at 13:40, where AFE_VOUT tracked AIN1 from 34→740 while
+`/AFE_VOUT` itself stayed at 1673.
+
+So the board may need **only a clean and bake for AIN1**, with U8's
+replacement decided afterwards on AIN0 alone — and judged on a board whose
+high-impedance net is no longer poisoned.
+
+**To confirm before acting:** 1.1 V is also the value reported for
+`/ADC_VIN_MON` minutes earlier. Two different nets reading the same value is
+possible but, after this morning's designator offset, is worth one explicit
+re-check that the probe landed on two distinct pads.
