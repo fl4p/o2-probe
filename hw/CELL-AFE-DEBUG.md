@@ -1921,3 +1921,100 @@ AIN2 but is not established by the tempco.
 - Rev B note, unmeasured but derivable: `/ADC_VIN_MON` is biased from the VIN
   divider while VIN is upstream of AVDD, so that input exceeds
   `AVDD + 0.3 V` on every power-up.
+
+### 12:50 — Codex xhigh review: the U8 verdict is DOWNGRADED. Contamination is not excluded
+
+Independent adversarial review (codex exec, network + headed Chrome over CDP;
+log `~/codex-reviews/o2probe-afe-20260912/review.log`). Its ACCESS proof is
+corroborated: the live keeper read it quoted, `VREF_MON 72` at uptime 1206 s,
+matches this session's own watcher log (72 at uptime 1172 s). No
+`no connected browsers` in the log.
+
+**Its verdict: "U8 is a credible suspect, but 'contamination excluded; replace
+U8' is not established."** Accepted. The 12:10 verdict and its "No clean, no
+bake" instruction are withdrawn.
+
+#### Findings that change the decision
+
+1. **The powered temperature sweep does NOT exclude contamination.** The sign
+   argument holds ionic mobility constant while varying temperature — but
+   heating a coated board also changes the film's water content, and
+   **hydration is reversible**, so "it retraced, therefore not drying" does not
+   follow. Thermal movement of a cracked contact or a residue bridge is equally
+   admissible. And the document's own data defeats a single-valued relationship
+   with chamber temperature: **894 Ω at 33.29 °C versus 747 Ω at 32.61 °C**.
+   The die-leading-chamber explanation is plausible but the copper, coating and
+   joints can lead that sensor too; it cannot establish a die location.
+
+2. **Current entering a PCB stub is not current entering the package.**
+   Removing C29 excludes C29 as the *component*; it does not exclude residue
+   across its now-vacant footprint, a bridge beneath U8, or another board path.
+   So "current flows, therefore pin 8 is not open" is circular — it assumes the
+   current's destination. Same for the 23 µA at R33 and pin 9. Also flagged:
+   **R39, a DNP shunt footprint on `/ADC_AFE_VOUT`**, whose fitted state and
+   surface condition were never established (Rev A netlist).
+
+3. **The 36 kΩ unpowered reading was real evidence, wrongly discarded.** A
+   fixed ~800 Ω ohmic shunt to ground should dominate an ordinary unpowered
+   resistance measurement; parallel protection structures do not make it
+   vanish. So 36 kΩ is evidence **against the fixed-ohmic-shunt model** — the
+   14:45 blanket dismissal of all unpowered data was too broad. Conversely the
+   1.1 V injection genuinely IS confounded, not only by protection but by
+   **back-powering**: 688 µA through the clamp can partially raise AVDD. That
+   rehabilitates supply-dependence as a live hypothesis. Net effect: whether
+   the leak needs the supply is **unresolved**, and this session concluded both
+   ways on inadequate grounds.
+
+4. **AIN2 is not localized to U8.** The arithmetic survives conditionally, but
+   "the only other path into `/VA_MON` is R37" omits **MCU PA7**, and the R37
+   pair remains an unverified single-designator reading from the offset window
+   (its different PCB row means the offset does not prove it wrong — but does
+   not validate it either). Additionally, **`VA_MV = 0` is unexplained**: the
+   claim that it is an overrange artifact contradicts main.c:869, where
+   `g_acc_clipped` returns early and PRESERVES the earlier PA7 value (~5190).
+
+5. **AIN0's cross-channel dependence survives; "open mux" is an attribution.**
+   The reviewer found no accumulate/DRDY/reference-selection bug in source, and
+   noted the firmware is stronger than this document credited — config readback
+   with a discarded conversion, status-readiness gating, an eight-conversion
+   average with the accumulator reset after PH_VREF, and diag-9 latched per
+   cycle. R33/C28 settling is ~0.1 ms against ~50 ms per O2 conversion, so
+   settling is not it either. But no runtime transaction trace exists, so an
+   internal mux defect is not distinguished from every connection fault.
+
+#### Arithmetic and sourcing errors confirmed against the primaries
+
+| claim | published | correct |
+|---|---|---|
+| `/VREF_TRIM` tempco needed to fake the sign | 4800 ppm/K | **9590 ppm/K** — a half-node increment was divided by the full-node value |
+| divider current closure | "balance 0.4 µA" | −0.47 µA, and **±0.5 mV rounding alone permits ±1.03 µA**, so it is consistency, not verification of three resistors |
+| VIN scale in the AIN3 argument | ×7.5 (caps header) | **×9.18** (stored `VIN_DIV_X1000` 0x004B, fitted 82k/10k) |
+| TPS7A20 ICL 360/520/730 mA | quoted as bounding U3 | that row is **`VOUT < 1.5 V` (DBV)**; the ≥1.5 V rows name YCJ/YCK and DQN, so it is **unverified** for a 3.3 V DBV part. ISC 160 mA typ is correct |
+| "leak is ohmic" | 720→887→901 Ω | a ~25 % spread — broadly resistive loading, not a constant ohmic element |
+| VREF_MON granularity | "2× the pin voltage" | 2 × floor(µV/1000): **2 mV register steps, and twice a TRUNCATED estimate** |
+| `0xFFFF` in VREF_MON | "3V3A is down" | an invalid-snapshot sentinel that can also mean an I²C/readback/DRDY failure or abandoned acquisition |
+
+#### What survived
+
+- **The powered AIN1-stub load is real.** Landmarked multi-pad readings, ~50 µA
+  inferred, persisting after C29 removal. SBAS925A §6.5 gives absolute input
+  current as **±5 nA typical at VIN = 0** (no maximum in that row), so
+  "protection is nanoamps at 36 mV" is stronger than the spec — but 50 µA is
+  plainly inconsistent with healthy input loading. **An abnormal circuit
+  condition is established; its physical location is not.**
+- The watcher's formula: 24500 × V/(1250−V), 726.524 → 727 Ω at 36 mV. Correct.
+- The mux map (011/100/101/110), the phase order, and the diag-9 override all
+  match source. ADS specifies single-cycle settling.
+- The PA7 ÷2 scaling discrepancy (contract 47k/94k vs fitted 10k/10k) is
+  harmless for voltage reconstruction, and the AIN2 current calculation
+  correctly used 10k.
+- ADS absolute-maximum quotations are correct.
+
+#### Standing position
+
+U8 replacement is **a reasonable candidate intervention after rail repair, not
+a proven necessary remedy.** Still unexcluded: board contamination, damaged or
+intermittent joints, fitted-component deviations, PA7 error or loading, shared
+supply/ground/reference faults, and runtime acquisition behaviour that source
+review cannot reach. **An IPA clean and bake is cheap, non-destructive, and has
+precedent on this exact board (09-10) — it should be tried before desoldering.**
