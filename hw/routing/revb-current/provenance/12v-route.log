@@ -1,0 +1,90 @@
+CMD: Python route_revb_12v_completion.py checks/12v-neck/o2-probe.kicad_pcb
+ENV KNOBS: KICAD_INRUN_FLOOR_SYNC=0
+--clearance not given; honoring net classes with base = the board Default net-class clearance 0.1mm.
+--hole-to-hole-clearance not given; using 0.3mm [board constraint].
+--board-edge-clearance not given; using 0.3mm [board constraint].
+Loading /Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/checks/12v-neck/o2-probe.kicad_pcb to expand net patterns...
+Routing 1 nets: ['/+12V_SW']
+Loaded per-net clearances for 1/72 nets from /Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/routing/revb-current/net-clearances.json
+Loading /Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/checks/12v-neck/o2-probe.kicad_pcb...
+Using 2 routing layers: ['F.Cu', 'B.Cu']
+  Layer costs: F.Cu=1.0x, B.Cu=3.0x
+No BGA components detected - no exclusion zones needed
+Same-net pad via clearance 0.2mm (from flag, #581): vias stay off same-net pads
+
+Power net width assignments (5 nets):
+  0.15mm: /3V3D
+  0.2mm: /+12V_SW
+  0.25mm: /3V3A
+  0.5mm: /+12V_FUSED, /+12V_RAW
+
+Using MPS ordering strategy...
+MPS: Using segment intersection method (no nets on BGA chips)
+MPS: 1 nets with 0 crossing conflicts detected
+MPS Round 1: 1 units: /+12V_SW
+
+Routing 1 single-ended net(s)...
+============================================================
+Building base obstacle map...
+  12 PROTECTED net(s) excluded from pre-existing rip candidacy (locked: /ADC_WE_BUF, /ADC_RE_BUF, /CELL_CE, /CELL_RE...) -- name a net exactly (no glob) to override
+10 unprotected pre-existing net(s) registered as main-pass rip candidates (<=30 seg/<=6 via, custody-backed; KICAD_RIP_PREEXISTING=0 disables)
+  .kicad_dru: rule 'cell_re_surface_leakage': track-to-track clearance 0.25mm for class 'CELL_RE' vs other classes only -- handled by the track channel (#549)
+Track-to-track clearance rule from the board's .kicad_dru (#549, raise-only on seg-seg pairs): 'cell_re_surface_leakage' class 'CELL_RE' 0.25mm (vs other classes only) -- 1 net(s) priced
+Base obstacle map built in 0.93s
+Found 46 unrouted nets in PCB for stub proximity
+Pre-computing net obstacle cache...
+Net obstacle cache built in 0.87s (46 nets)
+Plane fragility: exact-fill geometry (31 filled island(s) from KiCad refill)
+Plane fragility field: 3230138 cells near the edges of 3 pour(s) (KICAD_PLANE_FRAGILITY_COST=2.0mm-equiv, DYNAMIC #466 (=0 via KICAD_PLANE_FRAGILITY_DYNAMIC reverts))
+History congestion (#590) armed: +0.1mm-equiv per contest, cap 0.5, escalate 0.0, rip weight 1.0 (radius +0.25mm), frontier weight 0.25
+
+[1/1] Routing /+12V_SW (id=54)
+  Detected multi-point net with 5 pads (Phase 1: main route only)
+  Existing copper joins 5 terminals into 2 group(s)
+  Multi-point net Phase 1: routing longest MST edge (pads 2 and 3, length=48.92mm)
+  Wide route blocked - retrying at default track width (neck-down)
+  Phase 1 edge (pads 2,3) failed after 2664155 iterations
+  Phase 1 exhausted from the pads; deferring 1 edge(s) to Phase 3's island-copper sources (base component: 4 terminal(s))
+  SUCCESS: 0 segments, 0 vias, 2664155 iterations, length=86.55mm (stubs=86.55mm) (11.85s)
+
+Sync pcb_data: 2292 -> 2292 (kept stubs) -> 2292 (after adding 0)
+
+============================================================
+Multi-point Phase 3: Routing 1 tap connections
+============================================================
+
+/+12V_SW (net 54):
+  Seeding tap sources from the base island's existing copper (3087 cell(s) across 2 island(s))
+  Multi-point net Phase 3: routing 1 remaining MST edges (longest first)
+    [1/1] Routing MST edge: pad 2 -> pad 3 (length=48.92mm) target=(108.75, 123.80)
+      Wide route blocked - retrying at default track width (neck-down)
+      Routed in 4038564 iterations (17.43s)
+  Phase 3 routing complete: 1 edges, 68 total segments, 5 total vias
+  Added 68 tap segments, 5 tap vias
+  (seam re-ask skipped: /+12V_SW is protected)
+  Net total time: 18.05s, 6702719 iterations
+Cycle prune: removed 4 redundant loop segment(s) across 1 net(s)
+
+============================================================
+Routing complete
+============================================================
+  Single-ended:  1/1 routed
+  Multi-point:   7/7 pads connected (1 nets)
+  Total vias:    5
+  Total time:    11.85s
+  Iterations:    2,664,155
+
+Power trace ampacity (bottleneck segment, IPC-2152):
+  /+12V_FUSED: 1.45A max (0.500mm on B.Cu (1 oz copper, 10°C rise), IPC-2221: 1.45A)
+  /+12V_RAW: 0.60A max (0.150mm on F.Cu (1 oz copper, 10°C rise), IPC-2221: 0.60A)
+  /+12V_SW: 0.45A max (0.100mm on B.Cu (1 oz copper, 10°C rise), IPC-2221: 0.45A)
+  /3V3A: 0.74A max (0.200mm on F.Cu (1 oz copper, 10°C rise), IPC-2221: 0.74A)
+  /3V3D: 0.45A max (0.100mm on B.Cu (1 oz copper, 10°C rise), IPC-2221: 0.45A)
+JSON_SUMMARY: {"routed_single": ["/+12V_SW"], "failed_single": [], "open_single": [], "failed_multipoint": [], "multipoint_nets": 1, "multipoint_pads_connected": 7, "multipoint_pads_total": 7, "multipoint_edges_routed": 1, "multipoint_edges_failed": 0, "ripup_success_pairs": [], "rerouted_pairs": [], "single_ended_target_swaps": [], "layer_swaps": 0, "successful": 1, "failed": 0, "total_time": 11.85, "total_iterations": 2664155, "total_vias": 5, "cleanup_disconnected": [], "min_clearance_used": 0.1, "oracle_check": "disabled", "protected_skipped": {"pre-existing rip candidacy": {"/ADC_WE_BUF": "locked", "/ADC_RE_BUF": "locked", "/CELL_CE": "locked", "/CELL_RE": "locked", "/CELL_WE": "locked", "/BUCK_SW": "locked", "/HEATER_GATE": "locked", "/BUCK_BST": "locked", "/LMP_C2": "locked", "/LMP_C1": "locked", "/TMP_CELL_EP": "locked", "/GUARD_REPLICA": "locked"}}, "pad_pairs_connected": 20, "pad_pairs_total": 20, "power_trace_ampacity": [{"net": "/+12V_FUSED", "bottleneck_width_mm": 0.5, "bottleneck_layer": "B.Cu", "copper_oz": 1.0000000000000002, "max_current_a": 1.45, "max_current_ipc2152_a": 1.45, "temp_rise_c": 10.0, "trace_length_mm": 13.2}, {"net": "/+12V_RAW", "bottleneck_width_mm": 0.15, "bottleneck_layer": "F.Cu", "copper_oz": 1.0000000000000002, "max_current_a": 0.6, "max_current_ipc2152_a": 0.6, "temp_rise_c": 10.0, "trace_length_mm": 18.9}, {"net": "/+12V_SW", "bottleneck_width_mm": 0.1, "bottleneck_layer": "B.Cu", "copper_oz": 1.0000000000000002, "max_current_a": 0.45, "max_current_ipc2152_a": 0.45, "temp_rise_c": 10.0, "trace_length_mm": 106.7}, {"net": "/3V3A", "bottleneck_width_mm": 0.2, "bottleneck_layer": "F.Cu", "copper_oz": 1.0000000000000002, "max_current_a": 0.74, "max_current_ipc2152_a": 0.74, "temp_rise_c": 10.0, "trace_length_mm": 62.2}, {"net": "/3V3D", "bottleneck_width_mm": 0.1, "bottleneck_layer": "B.Cu", "copper_oz": 1.0000000000000002, "max_current_a": 0.45, "max_current_ipc2152_a": 0.45, "temp_rise_c": 10.0, "trace_length_mm": 193.7}], "scope": "run", "env_knobs": {"KICAD_INRUN_FLOOR_SYNC": "0"}}
+
+Writing output to /Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/checks/12v-neck/o2-probe.kicad_pcb...
+Successfully wrote /Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/checks/12v-neck/o2-probe.kicad_pcb
+  Plane finalize: zone net(s) /HEATER_LOW, GND are OUTSIDE this route's --nets scope -- excluded from the finalize BY PLAN. Since #562 a pour alone connects nothing: unless a later route step covers these nets, their pads ship disconnected.
+  route summary written to /Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/checks/12v-neck/12v-completion-summary.json
+JSON_SUMMARY_MIN: {"failed": 0, "failed_single": [], "finalize_excluded_nets": ["/HEATER_LOW", "GND"], "main_loop_time_s": 11.85, "min_clearance_used": 0.1, "multipoint_deficit": 0, "open_single": [], "pad_pairs_open": {"count": 0, "nets": []}, "routed": 1, "scope": "merged", "terminal_restores_broken": [], "vias": 5}
+EXIT=0

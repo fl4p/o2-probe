@@ -1,0 +1,94 @@
+{
+  "status": "PASS",
+  "code_sha256": "2e600b44b2572a21a0ba59b31f44c52af5a3c8172d0176ad60d70c702a1e5404",
+  "fixture_code_sha256": "9476d2c9a54cba870ecd83748a37095cf7dea89c35e78b24c21a443b2b2ade06",
+  "source_sha256": "463fcecbde5b0d191928ffdcdc848ad01d1a289fddcb6cd787615acd6a06a07f",
+  "cases": [
+    {
+      "name": "unchanged",
+      "expected": "PASS",
+      "observed": "PASS",
+      "returncode": 0,
+      "seconds": 0.34526770900000014
+    },
+    {
+      "name": "deleted",
+      "expected": "FAIL",
+      "observed": "FAIL",
+      "returncode": 1,
+      "seconds": 0.4732824579999999
+    },
+    {
+      "name": "unlocked",
+      "expected": "FAIL",
+      "observed": "FAIL",
+      "returncode": 1,
+      "seconds": 0.37390995800000004
+    },
+    {
+      "name": "near_width",
+      "expected": "FAIL",
+      "observed": "FAIL",
+      "returncode": 1,
+      "seconds": 0.3608116250000002
+    },
+    {
+      "name": "far_width",
+      "expected": "FAIL",
+      "observed": "FAIL",
+      "returncode": 1,
+      "seconds": 0.35091437500000033
+    },
+    {
+      "name": "cell_via",
+      "expected": "FAIL",
+      "observed": "FAIL",
+      "returncode": 1,
+      "seconds": 0.3764579160000001
+    },
+    {
+      "name": "via_floor",
+      "expected": "FAIL",
+      "observed": "FAIL",
+      "returncode": 1,
+      "seconds": 0.37074558300000016
+    },
+    {
+      "name": "pad_parity",
+      "expected": "FAIL",
+      "observed": "FAIL",
+      "returncode": 1,
+      "seconds": 0.3435975409999994
+    },
+    {
+      "name": "outline",
+      "expected": "FAIL",
+      "observed": "FAIL",
+      "returncode": 1,
+      "seconds": 0.3532325829999996
+    },
+    {
+      "name": "previous_pass_then_malformed",
+      "expected": "UNVERIFIED",
+      "observed": "UNVERIFIED",
+      "returncode": 2,
+      "seconds": 0.21706033300000005
+    },
+    {
+      "name": "missing_input",
+      "expected": "UNVERIFIED",
+      "observed": "UNVERIFIED",
+      "returncode": 2,
+      "seconds": 0.24636916600000003
+    },
+    {
+      "name": "empty_scope",
+      "expected": "UNVERIFIED",
+      "observed": "UNVERIFIED",
+      "returncode": 2,
+      "seconds": 0.3670196250000002
+    }
+  ],
+  "snapshot_seconds": 0.37651979100000005,
+  "seconds": 5.233177625
+}

@@ -1,0 +1,150 @@
+[
+  {
+    "before": {
+      "uuid": "8450c96f-6c6e-44b6-9612-c7262d20b7e6",
+      "net": "/+12V_SW",
+      "start": [
+        114025000,
+        107525000
+      ],
+      "end": [
+        114625000,
+        106925000
+      ],
+      "locked": false,
+      "kind": "track",
+      "width": 200000,
+      "layer": 0
+    },
+    "after": {
+      "uuid": "8450c96f-6c6e-44b6-9612-c7262d20b7e6",
+      "net": "/+12V_SW",
+      "start": [
+        113950000,
+        107550000
+      ],
+      "end": [
+        114625000,
+        106925000
+      ],
+      "locked": false,
+      "kind": "track",
+      "width": 200000,
+      "layer": 0
+    }
+  },
+  {
+    "before": {
+      "uuid": "aca6747e-c58b-4f03-b23a-75db41bd09f5",
+      "net": "/+12V_SW",
+      "start": [
+        108850000,
+        104725000
+      ],
+      "end": [
+        110575000,
+        106450000
+      ],
+      "locked": false,
+      "kind": "track",
+      "width": 150000,
+      "layer": 0
+    },
+    "after": {
+      "uuid": "aca6747e-c58b-4f03-b23a-75db41bd09f5",
+      "net": "/+12V_SW",
+      "start": [
+        108775000,
+        104725000
+      ],
+      "end": [
+        110575000,
+        106450000
+      ],
+      "locked": false,
+      "kind": "track",
+      "width": 150000,
+      "layer": 0
+    }
+  },
+  {
+    "before": {
+      "uuid": "7670ad4c-473e-47d0-996d-60c76f5024bd",
+      "net": "/+12V_SW",
+      "start": [
+        116500000,
+        108150000
+      ],
+      "end": [
+        116500000,
+        108650000
+      ],
+      "locked": false,
+      "kind": "track",
+      "width": 150000,
+      "layer": 2
+    },
+    "after": {
+      "uuid": "7670ad4c-473e-47d0-996d-60c76f5024bd",
+      "net": "/+12V_SW",
+      "start": [
+        116475000,
+        108125000
+      ],
+      "end": [
+        116500000,
+        108650000
+      ],
+      "locked": false,
+      "kind": "track",
+      "width": 150000,
+      "layer": 2
+    }
+  },
+  {
+    "removed": {
+      "uuid": "2ef29c58-6a12-4113-a58b-b96e4198f7d1",
+      "net": "/3V3D",
+      "start": [
+        113407143,
+        97292857
+      ],
+      "end": [
+        113400000,
+        97300000
+      ],
+      "locked": false,
+      "kind": "track",
+      "width": 300000,
+      "layer": 2
+    },
+    "reason": "Native dangling endpoint; new feed and load meet at retained node",
+    "contact_proof": null
+  },
+  {
+    "removed": {
+      "uuid": "dea7dc7d-4bb2-4065-afd0-0b31004f14ac",
+      "net": "/+12V_SW",
+      "start": [
+        111900000,
+        121050000
+      ],
+      "end": [
+        111850000,
+        120700000
+      ],
+      "locked": true,
+      "kind": "track",
+      "width": 100000,
+      "layer": 2
+    },
+    "reason": "Native dangling endpoint; new feed and load meet at retained node",
+    "contact_proof": {
+      "feed_node_contacts": [
+        "3bd833fc-75b6-4547-827b-3db4e0e08a59",
+        "d8e0e502-69c2-430a-8e12-f1494c4a8a41"
+      ],
+      "free_end_contacts": []
+    }
+  }
+]

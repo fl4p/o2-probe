@@ -25,4 +25,4 @@ exported copper/drills and a clearly identified comparison board in KiCad.
 The previous procurement and physical qualification gates remain applicable.
 
 Status: implemented as a separate routed review candidate. See
-[review results and remaining physical gates](../docs/REVB-95-REVIEW.md).
+[review results and remaining physical gates](../../REVB-95-REVIEW.md).

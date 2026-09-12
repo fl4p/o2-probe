@@ -1,0 +1,173 @@
+{
+  "status": "PASS",
+  "scope": "independent source/gate/native-report/export-structure/drill/ZIP review; PDF visual inspection by parent separately",
+  "package": "fab/o2-probe-revb-current-8eef4aa26e24a6cb",
+  "archive_sha256": "8eef4aa26e24a6cbb3982035edca36912ff0eacdc27902f211216c8bb3cd0b2a",
+  "manifest_sha256": "68ceba7503c4feb5660e37b4f2752c31b63540f9b8dade33fc28eb3e45ed9492",
+  "source_board_sha256": "3c24db8193af09d4d9ad07b2166c7f818885211b63b3e2af6e0c7cbec900c665",
+  "review_record_sha256": "e449143c3d02fc993224d8dafa3b2b4fc38c818a82749f65ed03e2fac5a39887",
+  "source_files": 32,
+  "checksummed_files": 68,
+  "zip_entries": 69,
+  "runtime_seconds": 0.17875954199917032,
+  "checks": {
+    "drc-saved.json": {
+      "errors": 0,
+      "unconnected": 0,
+      "schematic_parity": 0,
+      "reviewed_guard_endpoint_warnings": [
+        "7a4d4b0e-2f12-4bd4-b267-16bb450f841a",
+        "89269d21-c6ed-4b39-b0a9-b4b13dbc9d4f"
+      ],
+      "manual_assembly_courtyard_warnings": 10,
+      "pairs": [
+        [
+          "D1",
+          "J101"
+        ],
+        [
+          "D1",
+          "J102"
+        ],
+        [
+          "D2",
+          "J103"
+        ],
+        [
+          "D2",
+          "J104"
+        ],
+        [
+          "J103",
+          "R2"
+        ],
+        [
+          "J104",
+          "R3"
+        ],
+        [
+          "J105",
+          "R10"
+        ],
+        [
+          "J3",
+          "TP5"
+        ],
+        [
+          "Q2",
+          "TP6"
+        ],
+        [
+          "TP3",
+          "U4"
+        ]
+      ]
+    },
+    "drc-refill.json": {
+      "errors": 0,
+      "unconnected": 0,
+      "schematic_parity": 0,
+      "reviewed_guard_endpoint_warnings": [
+        "7a4d4b0e-2f12-4bd4-b267-16bb450f841a",
+        "89269d21-c6ed-4b39-b0a9-b4b13dbc9d4f"
+      ],
+      "manual_assembly_courtyard_warnings": 10,
+      "pairs": [
+        [
+          "D1",
+          "J101"
+        ],
+        [
+          "D1",
+          "J102"
+        ],
+        [
+          "D2",
+          "J103"
+        ],
+        [
+          "D2",
+          "J104"
+        ],
+        [
+          "J103",
+          "R2"
+        ],
+        [
+          "J104",
+          "R3"
+        ],
+        [
+          "J105",
+          "R10"
+        ],
+        [
+          "J3",
+          "TP5"
+        ],
+        [
+          "Q2",
+          "TP6"
+        ],
+        [
+          "TP3",
+          "U4"
+        ]
+      ]
+    },
+    "native-before.json": {
+      "status": "PASS",
+      "footprints": 83,
+      "protected_items": 705
+    },
+    "native-after-refill.json": {
+      "status": "PASS",
+      "footprints": 83,
+      "protected_items": 705
+    },
+    "erc": {
+      "reported_findings": 0,
+      "existing_ignored_categories": [
+        "single_global_label",
+        "four_way_junction",
+        "simulation_model_issue",
+        "footprint_filter"
+      ]
+    },
+    "drills": {
+      "drill_geometry_matches_board": true,
+      "coordinate_quantum_mm": 0.001,
+      "maximum_coordinate_error_mm": 0.0005,
+      "PTH_count": 204,
+      "NPTH_count": 8
+    },
+    "gerbers": {
+      "layers": [
+        "F.Cu",
+        "B.Cu",
+        "F.Mask",
+        "B.Mask",
+        "F.Paste",
+        "B.Paste",
+        "F.Silkscreen",
+        "B.Silkscreen",
+        "Edge.Cuts"
+      ],
+      "outline_mm": [
+        20,
+        89
+      ],
+      "thermal_slots": 4,
+      "copper_regions": 36,
+      "thermal_fill_gap_clear": true
+    }
+  },
+  "DNP_C4_C8_excluded_from_fitted_positions": true,
+  "production_qualified": false,
+  "parent_visual_handoff": {
+    "reported_complete": true,
+    "pdf_check_report": "routing/revb-current/evidence/final/pdf-checks.json",
+    "no_via_in_pad_report": "routing/revb-current/evidence/final/no-via-in-pad.json",
+    "scope": "Parent viewed exported assembly/schematic and native copper views; no additional finding reported. Physical assembly fit remains bounded."
+  }
+}

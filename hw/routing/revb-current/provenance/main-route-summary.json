@@ -1,0 +1,488 @@
+{
+ "routed_single": [],
+ "failed_single": [
+  "/LMP_C1",
+  "/LMP_C2"
+ ],
+ "open_single": [],
+ "failed_multipoint": [
+  {
+   "net_name": "/I2C_SDA",
+   "failed_pads": [
+    {
+     "component_ref": "U12",
+     "pad_number": "?",
+     "x": 104.2,
+     "y": 135.9
+    },
+    {
+     "component_ref": "U10",
+     "pad_number": "?",
+     "x": 110.65,
+     "y": 137.5
+    }
+   ]
+  },
+  {
+   "net_name": "/I2C_SCL",
+   "failed_pads": [
+    {
+     "component_ref": "U12",
+     "pad_number": "?",
+     "x": 104.2,
+     "y": 135.1
+    },
+    {
+     "component_ref": "U10",
+     "pad_number": "?",
+     "x": 110.65,
+     "y": 135.55
+    }
+   ]
+  },
+  {
+   "net_name": "/NRST",
+   "failed_pads": [
+    {
+     "component_ref": "J3",
+     "pad_number": "?",
+     "x": 105.3,
+     "y": 98.435
+    }
+   ]
+  }
+ ],
+ "multipoint_nets": 4,
+ "multipoint_pads_connected": 12,
+ "multipoint_pads_total": 17,
+ "multipoint_edges_routed": 4,
+ "multipoint_edges_failed": 5,
+ "ripup_success_pairs": [],
+ "rerouted_pairs": [],
+ "single_ended_target_swaps": [],
+ "layer_swaps": 0,
+ "successful": 0,
+ "failed": 4,
+ "total_time": 13.940000000000001,
+ "total_iterations": 15070305,
+ "total_vias": 120,
+ "cleanup_disconnected": [],
+ "min_clearance_used": 0.1,
+ "rescue": {
+  "attempted": 4,
+  "recovered": [],
+  "improved": [],
+  "unchanged": [
+   "/I2C_SCL",
+   "/I2C_SDA",
+   "/LMP_C1",
+   "/LMP_C2"
+  ],
+  "pads_reconnected": 0,
+  "widths": {},
+  "time": 7.94
+ },
+ "terminal_escalations": {
+  "/I2C_SCL": "unrecovered",
+  "/I2C_SDA": "unrecovered",
+  "/LMP_C1": "unrecovered",
+  "/LMP_C2": "unrecovered"
+ },
+ "preexisting_rips": {
+  "/NRST": "rerouted PARTIAL (pads still disconnected; original corridor taken -- reconciliation retries it) [was blocking '/I2C_SCL']",
+  "/UART2_TX": "original copper restored [was blocking '/I2C_SCL']",
+  "/UART2_RX": "original copper restored [was blocking '/I2C_SCL']",
+  "/CE_MON": "rerouted [was blocking '/I2C_SCL']",
+  "/VA_MON": "original copper restored [was blocking '/I2C_SCL']",
+  "/AFE_MENB": "original copper restored [was blocking '/I2C_SCL']",
+  "/SWO": "original copper restored [was blocking '/I2C_SCL']",
+  "/CELL_CE_DRV": "original copper restored [was blocking '/I2C_SCL']",
+  "/WE_BUF": "original copper restored [was blocking '/I2C_SCL']",
+  "/RE_BUF": "original copper restored [was blocking '/I2C_SCL']"
+ },
+ "oracle_check": "disabled",
+ "ripped_open": [
+  "/NRST"
+ ],
+ "ripped_open_uncounted": [
+  "/NRST"
+ ],
+ "ripped_open_note": "ripped_open nets are OUTSIDE this run's --nets scope, so they move neither failed_single nor open_single. Those listed in ripped_open_uncounted are additionally not in either scoped term: if they are also outside the multipoint pad deficit, the run's open-net verdict is understated by that many.",
+ "protected_skipped": {
+  "--rip-existing-nets": {
+   "/ADC_WE_BUF": "locked",
+   "/ADC_RE_BUF": "locked",
+   "/CELL_RE": "locked",
+   "/CELL_WE": "locked",
+   "/BUCK_SW": "locked",
+   "/HEATER_GATE": "locked",
+   "/BUCK_BST": "locked",
+   "/TMP_CELL_EP": "locked",
+   "/GUARD_REPLICA": "locked",
+   "/3V3D": "locked",
+   "/VREF_TRIM": "locked",
+   "/VIN_MON": "locked",
+   "/ADC_AFE_VOUT": "locked",
+   "/HEATER_PWM": "locked",
+   "/CELL_CE": "locked",
+   "/+12V_SW": "locked",
+   "/3V3A": "locked"
+  },
+  "pre-existing rip candidacy": {
+   "/ADC_WE_BUF": "locked",
+   "/ADC_RE_BUF": "locked",
+   "/CELL_RE": "locked",
+   "/CELL_WE": "locked",
+   "/BUCK_SW": "locked",
+   "/HEATER_GATE": "locked",
+   "/BUCK_BST": "locked",
+   "/TMP_CELL_EP": "locked"
+  },
+  "SE rip ladder": {
+   "/3V3D": "locked",
+   "/CELL_CE": "locked",
+   "/+12V_SW": "locked"
+  },
+  "phase3 tap cascade": {
+   "/HEATER_PWM": "locked",
+   "/3V3A": "locked",
+   "/+12V_SW": "locked",
+   "/ADC_AFE_VOUT": "locked",
+   "/VIN_MON": "locked",
+   "/3V3D": "locked",
+   "/VREF_TRIM": "locked",
+   "/CELL_CE": "locked"
+  }
+ },
+ "blockers": [
+  {
+   "net": "/LMP_C1",
+   "stage": "preexisting",
+   "blocked_by": [
+    {
+     "net": "/3V3D",
+     "preexisting": true
+    },
+    {
+     "net": "/VREF_TRIM",
+     "preexisting": true
+    },
+    {
+     "net": "/GUARD_REPLICA",
+     "preexisting": true
+    },
+    {
+     "net": "/CELL_CE",
+     "preexisting": true
+    },
+    {
+     "net": "/HEATER_PWM",
+     "preexisting": true
+    },
+    {
+     "net": "/+12V_SW",
+     "preexisting": true
+    },
+    {
+     "net": "/CELL_WE",
+     "preexisting": true
+    }
+   ]
+  },
+  {
+   "net": "/LMP_C2",
+   "stage": "preexisting",
+   "blocked_by": [
+    {
+     "net": "/+12V_SW",
+     "preexisting": true
+    },
+    {
+     "net": "/3V3D",
+     "preexisting": true
+    },
+    {
+     "net": "/HEATER_PWM",
+     "preexisting": true
+    },
+    {
+     "net": "/GUARD_REPLICA",
+     "preexisting": true
+    },
+    {
+     "net": "/CELL_CE",
+     "preexisting": true
+    },
+    {
+     "net": "/VREF_TRIM",
+     "preexisting": true
+    }
+   ]
+  },
+  {
+   "net": "/I2C_SDA",
+   "stage": "phase3",
+   "blocked_by": [
+    {
+     "net": "/3V3D",
+     "blocked_count": 1,
+     "unique_cells": 1,
+     "track_cells": 1,
+     "via_cells": 0,
+     "near_target_cells": 1,
+     "near_source_cells": 0
+    }
+   ]
+  },
+  {
+   "net": "/I2C_SCL",
+   "stage": "phase3",
+   "blocked_by": [
+    {
+     "net": "/RS485_B",
+     "blocked_count": 590,
+     "unique_cells": 590,
+     "track_cells": 561,
+     "via_cells": 30,
+     "near_target_cells": 0,
+     "near_source_cells": 0
+    },
+    {
+     "net": "/AFE_VOUT",
+     "blocked_count": 403,
+     "unique_cells": 403,
+     "track_cells": 387,
+     "via_cells": 16,
+     "near_target_cells": 0,
+     "near_source_cells": 0
+    },
+    {
+     "net": "/RS485_A",
+     "blocked_count": 326,
+     "unique_cells": 326,
+     "track_cells": 317,
+     "via_cells": 9,
+     "near_target_cells": 0,
+     "near_source_cells": 0
+    },
+    {
+     "net": "/RS485_DE",
+     "blocked_count": 164,
+     "unique_cells": 164,
+     "track_cells": 147,
+     "via_cells": 17,
+     "near_target_cells": 0,
+     "near_source_cells": 0
+    },
+    {
+     "net": "/RS485_RE",
+     "blocked_count": 141,
+     "unique_cells": 141,
+     "track_cells": 131,
+     "via_cells": 10,
+     "near_target_cells": 0,
+     "near_source_cells": 0
+    },
+    {
+     "net": "/RS485_RX",
+     "blocked_count": 118,
+     "unique_cells": 118,
+     "track_cells": 118,
+     "via_cells": 0,
+     "near_target_cells": 0,
+     "near_source_cells": 0
+    },
+    {
+     "net": "/CELL_CE_DRV",
+     "blocked_count": 69,
+     "unique_cells": 69,
+     "track_cells": 62,
+     "via_cells": 7,
+     "near_target_cells": 0,
+     "near_source_cells": 0
+    },
+    {
+     "net": "/SWDIO",
+     "blocked_count": 65,
+     "unique_cells": 65,
+     "track_cells": 65,
+     "via_cells": 0,
+     "near_target_cells": 0,
+     "near_source_cells": 0
+    },
+    {
+     "net": "/RS485_TX",
+     "blocked_count": 63,
+     "unique_cells": 63,
+     "track_cells": 63,
+     "via_cells": 0,
+     "near_target_cells": 0,
+     "near_source_cells": 0
+    },
+    {
+     "net": "/SWCLK_BOOT0",
+     "blocked_count": 34,
+     "unique_cells": 34,
+     "track_cells": 34,
+     "via_cells": 0,
+     "near_target_cells": 0,
+     "near_source_cells": 0
+    }
+   ],
+   "more": 1
+  },
+  {
+   "net": "/I2C_SCL",
+   "stage": "preexisting",
+   "blocked_by": [
+    {
+     "net": "/3V3D",
+     "preexisting": true
+    },
+    {
+     "net": "/VIN_MON",
+     "preexisting": true
+    },
+    {
+     "net": "/HEATER_PWM",
+     "preexisting": true
+    },
+    {
+     "net": "/ADC_AFE_VOUT",
+     "preexisting": true
+    },
+    {
+     "net": "/+12V_SW",
+     "preexisting": true
+    },
+    {
+     "net": "/3V3A",
+     "preexisting": true
+    }
+   ]
+  }
+ ],
+ "boxed_in": [
+  {
+   "verdict": "boxed_in_static",
+   "iterations": 5166,
+   "geometry": {
+    "grid_step": 0.05,
+    "clearance": 0.1,
+    "track_width": 0.15,
+    "via_diameter": null
+   },
+   "net": "/LMP_C1"
+  },
+  {
+   "verdict": "boxed_in_static",
+   "iterations": 5187,
+   "geometry": {
+    "grid_step": 0.05,
+    "clearance": 0.1,
+    "track_width": 0.15,
+    "via_diameter": null
+   },
+   "net": "/LMP_C2"
+  }
+ ],
+ "pad_pairs_connected": 102,
+ "pad_pairs_total": 108,
+ "pad_pairs_open": [
+  {
+   "net": "/I2C_SCL",
+   "pairs_connected": 3,
+   "pairs_total": 4,
+   "outcome": "open",
+   "open_subtype": "partial"
+  },
+  {
+   "net": "/I2C_SDA",
+   "pairs_connected": 2,
+   "pairs_total": 4,
+   "outcome": "open",
+   "open_subtype": "partial"
+  },
+  {
+   "net": "/LMP_C1",
+   "pairs_connected": 0,
+   "pairs_total": 1,
+   "outcome": "open",
+   "open_subtype": "unrouted"
+  },
+  {
+   "net": "/LMP_C2",
+   "pairs_connected": 0,
+   "pairs_total": 1,
+   "outcome": "open",
+   "open_subtype": "unrouted"
+  },
+  {
+   "net": "/NRST",
+   "pairs_connected": 1,
+   "pairs_total": 2,
+   "outcome": "open",
+   "open_subtype": "collision_refused"
+  }
+ ],
+ "power_trace_ampacity": [
+  {
+   "net": "/+12V_FUSED",
+   "bottleneck_width_mm": 0.5,
+   "bottleneck_layer": "B.Cu",
+   "copper_oz": 1.0000000000000002,
+   "max_current_a": 1.45,
+   "max_current_ipc2152_a": 1.45,
+   "temp_rise_c": 10.0,
+   "trace_length_mm": 13.1
+  },
+  {
+   "net": "/+12V_RAW",
+   "bottleneck_width_mm": 0.15,
+   "bottleneck_layer": "F.Cu",
+   "copper_oz": 1.0000000000000002,
+   "max_current_a": 0.6,
+   "max_current_ipc2152_a": 0.6,
+   "temp_rise_c": 10.0,
+   "trace_length_mm": 18.9
+  },
+  {
+   "net": "/+12V_SW",
+   "bottleneck_width_mm": 0.1,
+   "bottleneck_layer": "B.Cu",
+   "copper_oz": 1.0000000000000002,
+   "max_current_a": 0.45,
+   "max_current_ipc2152_a": 0.45,
+   "temp_rise_c": 10.0,
+   "trace_length_mm": 94.4
+  },
+  {
+   "net": "/3V3A",
+   "bottleneck_width_mm": 0.2,
+   "bottleneck_layer": "F.Cu",
+   "copper_oz": 1.0000000000000002,
+   "max_current_a": 0.74,
+   "max_current_ipc2152_a": 0.74,
+   "temp_rise_c": 10.0,
+   "trace_length_mm": 62.1
+  },
+  {
+   "net": "/3V3D",
+   "bottleneck_width_mm": 0.1,
+   "bottleneck_layer": "B.Cu",
+   "copper_oz": 1.0000000000000002,
+   "max_current_a": 0.45,
+   "max_current_ipc2152_a": 0.45,
+   "temp_rise_c": 10.0,
+   "trace_length_mm": 192.2
+  }
+ ],
+ "scope": "reconciliation-subset",
+ "board_scoped_keys": [
+  "power_trace_ampacity",
+  "min_clearance_used"
+ ],
+ "env_knobs": {
+  "KICAD_INRUN_FLOOR_SYNC": "0"
+ }
+}

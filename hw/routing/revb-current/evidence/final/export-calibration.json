@@ -1,0 +1,98 @@
+{
+  "status": "PASS_REJECTION_CALIBRATION",
+  "scope": "No final package or clean current-board acceptance implied; positive DRC acceptance awaits finished native report.",
+  "tests": [
+    {
+      "case": "actual_native_two_power_opens",
+      "rejected": true,
+      "exception": "Native parity/open/ignored finding remains",
+      "seconds": 0.0006411249996745028
+    },
+    {
+      "case": "actual_native_annulus_far_error",
+      "rejected": true,
+      "exception": "Native DRC did not include all severities",
+      "seconds": 0.00042791700252564624
+    },
+    {
+      "case": "missing_drc",
+      "rejected": true,
+      "exception": "[Errno 2] No such file or directory: '/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/checks/current-fab-workflow/absent-drc.json'",
+      "seconds": 2.204100019298494e-05
+    },
+    {
+      "case": "native_report_missing_required_field",
+      "rejected": true,
+      "exception": "Absent/malformed DRC ignored_checks",
+      "seconds": 5.920799958403222e-05
+    },
+    {
+      "case": "native_report_repeated_200_opens",
+      "rejected": true,
+      "exception": "Native parity/open/ignored finding remains",
+      "seconds": 0.0004571249992295634
+    },
+    {
+      "case": "truncated_json",
+      "rejected": true,
+      "exception": "Expecting property name enclosed in double quotes: line 1 column 2 (char 1)",
+      "seconds": 2.9625000024680048e-05
+    },
+    {
+      "case": "unreviewed_gate",
+      "rejected": true,
+      "exception": "Final review gate is absent or not REVIEWED",
+      "seconds": 2.91700052912347e-06
+    },
+    {
+      "case": "missing_review_file",
+      "rejected": true,
+      "exception": "Final review record missing or its content hash changed",
+      "seconds": 7.466599709005095e-05
+    },
+    {
+      "case": "changed_review_content_hash",
+      "rejected": true,
+      "exception": "Final review record missing or its content hash changed",
+      "seconds": 7.329099753405899e-05
+    },
+    {
+      "case": "changed_hash_o2-probe/routing/revb-current/o2-probe.kicad_pcb",
+      "rejected": true,
+      "exception": "Reviewed input/code/library hashes changed",
+      "seconds": 2.4665998353157192e-05
+    },
+    {
+      "case": "changed_hash_o2-probe/make_fab_revb_current.py",
+      "rejected": true,
+      "exception": "Reviewed input/code/library hashes changed",
+      "seconds": 2.3584001610288396e-05
+    },
+    {
+      "case": "unbound_guard_warning",
+      "rejected": true,
+      "exception": "Guard endpoint disposition needs exact UUID, board hash, net and reason",
+      "seconds": 8.558300032746047e-05
+    },
+    {
+      "case": "real_excellon_one_native_hit_removed",
+      "rejected": true,
+      "exception": "PTH: missing/ambiguous source match for drill ('hit', 0.2, (108.25, -116.1))",
+      "seconds": 0.004495875000429805
+    }
+  ],
+  "native_rejection_mean_seconds_1000": 3.90704170022218e-05,
+  "real_drill_positive": {
+    "drill_geometry_matches_board": true,
+    "coordinate_quantum_mm": 0.001,
+    "maximum_coordinate_error_mm": 0.0005,
+    "PTH_count": 195,
+    "NPTH_count": 8
+  },
+  "producer_sha256": {
+    "checks/r44-repair/integrated-drc.json": "a5f8ae065e5d2a974df3e5844ec29295cf2f9305f8b1ac1082377e6053f90e90",
+    "make_fab_revb_current.py": "1323e3ad6523eb152c663697bf574678fe87eea3b86984ee6d0f359b8cb7c693",
+    "inspect_revb_current_fab.py": "9f302291d13bc009398745617bd002ff69c74d3a7d7d27e97cf29ea22982599a",
+    "checks/current-fab-workflow/calibrate.py": "a933b3b84ca043d203c76a18b2314f22f84c69304b6ffd53bdeb488a0fa89f88"
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "source_commit": "root fixes after 2a20e8c; exact hashes below",
+  "source_sha256": {
+    "gen_sch.py": "ef3d782cf9f20048eb7b44a2e9cab7168468305c7532430e0a090a3892830c11",
+    "audit_schematic.py": "a9ec52c451eebe7a573e38742430ac4fd977c0b8905deba5e3fc66ee4c4bc588",
+    "o2-probe.kicad_sch": "9f06ced24c53ee2e52a823052d4e7d5a4581eef53be99d1e067ee78b1f6a5aba"
+  },
+  "calibration_script_sha256": "6c59ce9e6efaed50abb27404bc6e338744d6f548ab53f9178d8bb2831b3f8045",
+  "cases": [
+    {
+      "case": "good",
+      "returncode": 0,
+      "seconds": 0.618085959000382,
+      "schematic_sha256": "9f06ced24c53ee2e52a823052d4e7d5a4581eef53be99d1e067ee78b1f6a5aba",
+      "expected_pass": true,
+      "netlist_sha256": "a77eb8e99abb590f6e40c455c6df4d15340553f1f03678ae58b81b1fd4965e47",
+      "d8_pin_nets": {
+        "1": "/VIN_MON",
+        "2": "GND"
+      },
+      "expected_result_observed": true
+    },
+    {
+      "case": "reversed",
+      "returncode": 1,
+      "seconds": 0.48131350000039674,
+      "schematic_sha256": "75c91b1e58ac329c062f24b83f6aec43928ab7c6d189ba601dc43f6c7325e440",
+      "expected_pass": false,
+      "netlist_sha256": "17ced6a7b38f9cd480a496de8e77e0e293e7ac7c1390427a81e31bc9ff88f3b5",
+      "d8_pin_nets": {
+        "2": "/VIN_MON",
+        "1": "GND"
+      },
+      "expected_result_observed": true
+    },
+    {
+      "case": "missing",
+      "returncode": 1,
+      "seconds": 0.04724970800089068,
+      "schematic_sha256": null,
+      "expected_pass": false,
+      "expected_result_observed": true
+    },
+    {
+      "case": "malformed",
+      "returncode": 1,
+      "seconds": 0.29313091699987126,
+      "schematic_sha256": "553d1d80c18abdd434b7c1762e4b573e2638aed9887b526b9ad1cd27d5d62a13",
+      "expected_pass": false,
+      "expected_result_observed": true
+    },
+    {
+      "case": "legal_reference_text_move",
+      "returncode": 0,
+      "seconds": 0.4431924580003397,
+      "schematic_sha256": "93910c2c5a3db9a05c21348bd22b2fc2966a726b1d71477dcb0d9d27d85b80b0",
+      "expected_pass": true,
+      "netlist_sha256": "2e6a9a91dd4e8859613bf3e0de0cbcd0a16f11a9ac1ab34ff08e7795671cca91",
+      "d8_pin_nets": {
+        "1": "/VIN_MON",
+        "2": "GND"
+      },
+      "expected_result_observed": true
+    }
+  ],
+  "all_expected": true,
+  "source_unchanged": true
+}

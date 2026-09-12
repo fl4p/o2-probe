@@ -43,17 +43,20 @@ pin 2 unconnected.
 **`BAT54W-G-vishay-85885-rev1.1.pdf`** — Mechanical Data (p. 1) gives **Case: SOD-123**
 and the Parts Table gives circuit configuration **Single**, which is what makes
 `BAT54W-G` a drop-in for the existing two-terminal footprint and authoritative
-symbol. Electrical Characteristics gives `IR` **2 µA max at VR = 25 V**,
-identical to the Diodes headline, so the leakage budget did not move with the
-part.
+symbol. Electrical Characteristics gives `IR` **2 µA max at 25 °C and
+VR = 25 V**. That room-temperature maximum does not establish the 85 °C
+monitor-error budget; it must not be carried across as a qualified limit.
 
 **Note the suffix trap.** "W" means SOT-323 at Diodes *and* at Nexperia, but
 SOD-123 at Vishay. `BAT54W-7-F` (Diodes) is SOT323; `BAT54W-G` (Vishay) is
 SOD-123. These are not interchangeable and the part numbers look alike.
 
-## The leakage gate: the curve is better than I claimed, and the part is worse
+## Leakage acceptance: corrected curve identification
 
-D8's selection gate is `Ir ≤ 1 µA at 1.2 V reverse, 85 °C`.
+The former selection gate was `Ir ≤ 1 µA at 1.2 V reverse, 85 °C`. Fab retired
+that arbitrary numerical gate on 2026-09-12 (relayed on revB: ‘relax the gate,
+record the number’) and retained BAT54W-G3-08 for VIN_MON health telemetry.
+This does not establish a measured or guaranteed 85 °C leakage value.
 
 **Correction, 2026-09-12, from the Codex PCB session, verified here.** An earlier
 version of this file and of the `gen_sch.py` comment said Fig. 3 plots
@@ -65,29 +68,12 @@ interleave, and assigned Fig. 1's legend to Fig. 3 — the exact merged-render t
 that the two-render rule exists to prevent, not applied to the document it was
 adopted for.
 
-So 85 °C is bracketed by two *plotted* curves, 75 °C and 100 °C, and the gate is
-far more answerable than claimed. It is also, on a first reading, **failed**:
-
-| Tj | Ir at VR ≈ 1.2 V (read off Fig. 3) |
-|---|---|
-| 25 °C | ~0.05 µA |
-| 50 °C | ~0.8 µA |
-| 75 °C | ~4.5 µA |
-| 100 °C | ~21 µA |
-| 125 °C | ~90 µA |
-
-Log-interpolating 75 → 100 °C puts **85 °C at roughly 8 µA — about 8× the
-gate**. Through the divider's 9.0 kΩ (R26‖R27) that is ~75 mV on VIN_MON, not
-the 18 mV the `gen_sch.py` block comment budgets. These are *typical* curves; the
-2 µA at 25 V / 25 °C maximum implies a max/typ spread of roughly 40×.
-
-**This reading is by eye and is NOT the verdict.** Digitize Fig. 3 with `dsdig`
-(`~/dev/pv/ee/datasheet-chart-digitizer`) before anything depends on the number.
-
-The decision it feeds is not purely numeric, and belongs to Fab or the schematic
-owner rather than to whoever digitizes the curve: VIN_MON is *health only*,
-nothing scales by it, and its thresholds are 7 V and 15 V on a 12 V rail, so ~75 mV
-of offset may well be acceptable — in which case the gate is too strict and should
-be relaxed **explicitly, with the number written down**, not left silently unmet.
-The alternative is a lower-leakage part. Either way, `85 °C` here is a worst-case
-*ambient* assumption for a buried potted probe with no dissipation at this node.
+85 °C lies between the plotted 75 °C and 100 °C typical curves. That fact
+establishes the available source temperatures, not a numerical leakage value or
+a guaranteed limit. The peer's by-eye readings and derived offsets are not
+adopted as evidence here. Use `dsdig` (`~/dev/pv/ee/datasheet-chart-digitizer`)
+if a typical estimate is needed; digitization alone does not establish an 85 °C
+maximum. Physical leakage and resulting threshold error remain unqualified. The
+retired numerical gate is not a continuing release blocker. Any replacement
+part or quantitative accuracy claim still needs evidence supporting its
+accuracy/protection requirements.

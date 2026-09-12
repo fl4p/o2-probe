@@ -1,0 +1,42 @@
+{
+  "scope": "Final board native copper, mask and paste geometry; no physical solder-process qualification",
+  "board_path": "routing/revb-current/o2-probe.kicad_pcb",
+  "board_sha256": "3c24db8193af09d4d9ad07b2166c7f818885211b63b3e2af6e0c7cbec900c665",
+  "code_path": "checks/review_final_no_vip.py",
+  "code_sha256": "2ade68dad3a5008074a8478491fcff4ac7ac008e46f86dc80024946915f87774",
+  "native_binding_sha256": "cb758e0a7af2042b40d9ba4e758ce136fbbbb467c4fdf0347750749de402e557",
+  "kicad_version": "10.0.5",
+  "project_sha256": "25fbd981382c98984790c7a89c2d3c976478aebbbe724de0d0f674bdd2f18827",
+  "rules_sha256": "8937c6fe68e0b4c2df727f54283bcf4731544972dc6eeda6007c2d158d8d8a93",
+  "footprints": 83,
+  "via_count": 195,
+  "via_drills_mm": {
+    "0.2": 190,
+    "0.25": 5
+  },
+  "smd_copper_layer_shapes": 237,
+  "pad_apertures": {
+    "mask_apertures_at_zero_expansion": 277,
+    "paste_apertures_at_zero_margin": 235
+  },
+  "resolved_front_tented": 195,
+  "resolved_back_tented": 195,
+  "includes_anonymous_paste_only_pads": true,
+  "contact_margin_mm": 0,
+  "hits": {
+    "via_copper_to_smd_copper": [],
+    "via_drill_to_pad_mask_opening": [],
+    "via_drill_to_paste_aperture": []
+  },
+  "known_bad_calibration": {
+    "copper_overlap_detected": true,
+    "paste_only_window_overlap_detected": true
+  },
+  "status": "NO_NATIVE_OVERLAPS",
+  "limits": [
+    "No universal 0.20 mm via-to-land rule is assumed.",
+    "Tenting is a resolved design setting, not proof that the fabricator will reliably cover every hole.",
+    "Zero drawn overlap does not establish a qualified solder-mask web, stencil process, registration tolerance, or filled/capped-via process."
+  ],
+  "runtime_seconds": 0.429
+}

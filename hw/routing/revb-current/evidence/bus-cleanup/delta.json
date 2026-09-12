@@ -1,0 +1,77 @@
+[
+  {
+    "kind": "center_endpoint",
+    "uuid": "827970b2-17b8-44cb-8890-2bf7ff1fcac6",
+    "index": 0,
+    "old": [
+      113950000,
+      108150000
+    ],
+    "new": [
+      113950000,
+      108150000
+    ]
+  },
+  {
+    "kind": "center_endpoint",
+    "uuid": "089fd670-3de6-4e8f-93ce-5585ef1fac35",
+    "index": 0,
+    "old": [
+      109400000,
+      110400000
+    ],
+    "new": [
+      109400000,
+      110400000
+    ]
+  },
+  {
+    "kind": "center_endpoint",
+    "uuid": "1a0603a2-c627-4da2-98a9-2056b58007fc",
+    "index": 1,
+    "old": [
+      114900000,
+      97250000
+    ],
+    "new": [
+      114900000,
+      97250000
+    ]
+  },
+  {
+    "kind": "remove_unused_via",
+    "uuid": "19f12076-a27d-4b0c-893b-542deb83d8df",
+    "net": "/I2C_SCL",
+    "xy": [
+      109650000,
+      121600000
+    ]
+  },
+  {
+    "kind": "remove_unused_via",
+    "uuid": "6dcef814-3bbc-4df3-ab11-ba2813c112c9",
+    "net": "/I2C_SCL",
+    "xy": [
+      111250000,
+      135550000
+    ]
+  },
+  {
+    "kind": "remove_unused_via",
+    "uuid": "d645c8bd-27ea-4025-b3ea-6014d5a46f24",
+    "net": "/I2C_SCL",
+    "xy": [
+      102800000,
+      115500000
+    ]
+  },
+  {
+    "kind": "remove_unused_via",
+    "uuid": "726ffadb-b9d0-43ee-8dba-de312bcd4a62",
+    "net": "/I2C_SDA",
+    "xy": [
+      106600000,
+      123200000
+    ]
+  }
+]

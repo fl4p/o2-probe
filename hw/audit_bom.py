@@ -179,14 +179,14 @@ def resolve(components: list[Component], entries: dict[str, dict],
         if comp.ref.startswith("#"):          # power flags carry no footprint
             state[comp.ref] = "not-a-component"
             continue
-        # Value-string DNP and the real dnp property must agree, or one of the
-        # two lies to whoever reads the schematic.
+        # The explicit property owns population status. An unpopulated part
+        # may retain its useful numeric value; only a DNP label on a fitted
+        # component contradicts that authoritative status.
         says_dnp = "DNP" in comp.value.upper()
-        if says_dnp != comp.dnp:
+        if says_dnp and not comp.dnp:
             errors.append(
-                f"{comp.ref} DNP mismatch: value {comp.value!r} says "
-                f"{'DNP' if says_dnp else 'fitted'} but the dnp property says "
-                f"{'DNP' if comp.dnp else 'fitted'}")
+                f"{comp.ref} DNP mismatch: value {comp.value!r} says DNP "
+                "but the dnp property says fitted")
         if comp.dnp:
             state[comp.ref] = "dnp"
             continue
@@ -303,15 +303,35 @@ def main() -> int:
                         help="reuse the existing netlist instead of re-exporting")
     args = parser.parse_args()
 
+    if args.purchase_orders.resolve() in {REPORT.resolve(), BOM_CSV.resolve()}:
+        raise SystemExit("purchase-order input must not be an audit output")
+    mode = "reused (--no-export)" if args.no_export else "fresh native export"
+    REPORT.write_text("O2 probe procurement (BOM) audit\n"
+                      f"netlist mode requested: {mode}\nresult: UNVERIFIED\n")
+    BOM_CSV.unlink(missing_ok=True)
+    inputs = {"audit code": Path(__file__).resolve(), "schematic": SCH,
+              "sourcing": SOURCING, "purchase orders": args.purchase_orders}
+    fingerprints = {name: sha256(path) if path.is_file() else None
+                    for name, path in inputs.items()}
+    if fingerprints["schematic"] is None:
+        raise SystemExit(f"schematic not found: {SCH}")
     if not args.no_export:
+        XML.unlink(missing_ok=True)
         export_netlist()
     if not XML.is_file():
         raise SystemExit(f"netlist not found: {XML}")
+    inputs["netlist"] = XML
+    fingerprints["netlist"] = sha256(XML)
 
     errors: list[str] = []
     notes: list[str] = []
     root = ET.parse(XML).getroot()
     components = [Component(c) for c in root.findall("./components/comp")]
+    if root.tag != "export" or not components:
+        raise SystemExit("netlist has no evaluable KiCad component inventory")
+    refs = [comp.ref for comp in components]
+    if any(not ref for ref in refs) or len(set(refs)) != len(refs):
+        raise SystemExit("netlist component references are missing or duplicated")
     entries = load_sourcing(errors)
     state, _ = resolve(components, entries, errors)
     rows = build_rows(components, state)
@@ -325,6 +345,11 @@ def main() -> int:
             "and read off everything outstanding")
     else:
         diff_purchase_orders(rows, args.purchase_orders, errors, notes)
+
+    current_fingerprints = {name: sha256(path) if path.is_file() else None
+                            for name, path in inputs.items()}
+    if current_fingerprints != fingerprints:
+        errors.append("audit input changed during evaluation; result is not verified")
 
     with BOM_CSV.open("w", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=[
@@ -340,7 +365,9 @@ def main() -> int:
 
     lines = [
         "O2 probe procurement (BOM) audit",
-        f"schematic sha256: {sha256(SCH)}",
+        f"netlist mode: {mode}",
+        *[f"{name} sha256: {digest if digest is not None else 'MISSING'}"
+          for name, digest in fingerprints.items()],
         f"components: {len(components)}; bom rows: {len(rows)}",
         "sourcing: " + ", ".join(f"{k}={tally[k]}" for k in sorted(tally)),
         f"unsourced fitted components: {len(unsourced)}"

@@ -1,13 +1,15 @@
 O2 probe procurement (BOM) audit
-schematic sha256: c2eeb80bbcfddaca3fe0c450baf54a70daf5125bdd85f23dfda126e262b0af8f
+netlist mode: reused (--no-export)
+audit code sha256: cc1ed8b009177b8e9ae29a962326fba50a105325752eca0048dfa0d31ecb8f61
+schematic sha256: 9f06ced24c53ee2e52a823052d4e7d5a4581eef53be99d1e067ee78b1f6a5aba
+sourcing sha256: 29e5ca4c6a6014476f166624ea1faf539098de14c64df159d8af80903943fc7c
+purchase orders sha256: 9ed2e78da93cbf830e130d10e866c4a0dbd5a21e4ae514300d1e4c1921232db4
+netlist sha256: 8a565b892a669f39a4f98bf176bf96f0b8e208bcb1684dd4e203dcced8795b77
 components: 83; bom rows: 51
 sourcing: dnp=4, generic-stock=39, mpn=27, not-purchased=13
 unsourced fitted components: 0
 purchase orders: purchase-orders.json captured 2026-09-09T14:55:10.072651+00:00, 264 lines
 result: FAIL
-ERROR: C4 DNP mismatch: value '22u' says fitted but the dnp property says DNP
-ERROR: C8 DNP mismatch: value '1u' says fitted but the dnp property says DNP
-ERROR: sourcing entry 'Capacitor_SMD:C_1206_3216Metric|22u' matches no fitted component; a declaration that no longer describes the board must be removed, not carried
 ERROR: U1 needs 'AP63203WU-7' but no order has it; the orders do contain the near-identical 'AP63205WU-7' -- confirm the substitution and write it back to the schematic, or reorder
 ERROR: D8 needs 'BAT54W-G3-08' (qty 1) but it appears on no purchase order
 ERROR: C1 C7 needs 'C1206C106K3RACTU' (qty 2) but it appears on no purchase order

@@ -1,0 +1,699 @@
+{
+    "$schema": "https://schemas.kicad.org/drc.v1.json",
+    "coordinate_units": "mm",
+    "date": "2026-09-12T19:08:01",
+    "ignored_checks": [],
+    "included_severities": [
+        "error",
+        "warning",
+        "exclusion"
+    ],
+    "kicad_version": "10.0.5",
+    "schematic_parity": [],
+    "source": "o2-probe.kicad_pcb",
+    "unconnected_items": [
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Pad 1 [/3V3D] of U1 on F.Cu",
+                    "pos": {
+                        "x": 103.3625,
+                        "y": 76.55
+                    },
+                    "uuid": "638eafd1-f763-5558-828b-a390b32c9c1d"
+                },
+                {
+                    "description": "Track [/3V3D] on F.Cu, length 1.7500 mm",
+                    "pos": {
+                        "x": 101.52,
+                        "y": 83.4
+                    },
+                    "uuid": "8b14cb8d-4a26-4a7e-9ac8-da20a114485c"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        },
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Pad 1 [/3V3D] of J3 on F.Cu",
+                    "pos": {
+                        "x": 104.03,
+                        "y": 98.435
+                    },
+                    "uuid": "c654925d-6270-5204-a26e-41eba971b808"
+                },
+                {
+                    "description": "Pad 1 [/3V3D] of R32 on B.Cu",
+                    "pos": {
+                        "x": 107.0,
+                        "y": 105.975
+                    },
+                    "uuid": "8afced6e-ff11-5f52-9eb7-b2d65b9128d2"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        },
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Pad 1 [/3V3D] of R32 on B.Cu",
+                    "pos": {
+                        "x": 107.0,
+                        "y": 105.975
+                    },
+                    "uuid": "8afced6e-ff11-5f52-9eb7-b2d65b9128d2"
+                },
+                {
+                    "description": "Track [/3V3D] on F.Cu, length 0.7925 mm",
+                    "pos": {
+                        "x": 114.3625,
+                        "y": 109.2575
+                    },
+                    "uuid": "ab452e72-9eff-4a07-9689-b4df5de74365"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        },
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Pad 2 [/3V3D] of R10 on B.Cu",
+                    "pos": {
+                        "x": 110.0,
+                        "y": 96.375
+                    },
+                    "uuid": "0d193b6d-e2b7-5654-a14c-02ca43fb028a"
+                },
+                {
+                    "description": "Pad 2 [/3V3D] of R11 on B.Cu",
+                    "pos": {
+                        "x": 114.3,
+                        "y": 96.375
+                    },
+                    "uuid": "698f6ce1-a9d6-5a9d-b079-5e52d652f641"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        },
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Pad 2 [/3V3D] of R10 on B.Cu",
+                    "pos": {
+                        "x": 110.0,
+                        "y": 96.375
+                    },
+                    "uuid": "0d193b6d-e2b7-5654-a14c-02ca43fb028a"
+                },
+                {
+                    "description": "Pad 1 [/3V3D] of C12 on B.Cu",
+                    "pos": {
+                        "x": 109.48,
+                        "y": 92.0
+                    },
+                    "uuid": "81428e6d-cfda-5fcb-a950-ba79c601cb38"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        },
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Pad 2 [/3V3D] of R10 on B.Cu",
+                    "pos": {
+                        "x": 110.0,
+                        "y": 96.375
+                    },
+                    "uuid": "0d193b6d-e2b7-5654-a14c-02ca43fb028a"
+                },
+                {
+                    "description": "Pad 1 [/3V3D] of J3 on F.Cu",
+                    "pos": {
+                        "x": 104.03,
+                        "y": 98.435
+                    },
+                    "uuid": "c654925d-6270-5204-a26e-41eba971b808"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        },
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Track [/3V3D] on F.Cu, length 1.1250 mm",
+                    "pos": {
+                        "x": 113.25,
+                        "y": 77.5
+                    },
+                    "uuid": "a0149cde-94ee-4312-b9f2-2a1feebf8a24"
+                },
+                {
+                    "description": "Pad 1 [/3V3D] of U1 on F.Cu",
+                    "pos": {
+                        "x": 103.3625,
+                        "y": 76.55
+                    },
+                    "uuid": "638eafd1-f763-5558-828b-a390b32c9c1d"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        },
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Pad 4 [/3V3D] of U15 on F.Cu",
+                    "pos": {
+                        "x": 114.3625,
+                        "y": 110.05
+                    },
+                    "uuid": "c6e41e3b-4e48-4d7b-93aa-ede526f69060"
+                },
+                {
+                    "description": "Track [/3V3D] on B.Cu, length 5.7306 mm",
+                    "pos": {
+                        "x": 114.3,
+                        "y": 124.3
+                    },
+                    "uuid": "49f057a5-07f6-4b9c-9df6-bdbe56ebb08c"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        },
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Track [/3V3D] on F.Cu, length 1.4496 mm",
+                    "pos": {
+                        "x": 114.375,
+                        "y": 77.5
+                    },
+                    "uuid": "44bfd691-2429-4004-b19b-9ba5d3be882a"
+                },
+                {
+                    "description": "Pad 1 [/3V3D] of C4 on F.Cu",
+                    "pos": {
+                        "x": 117.5,
+                        "y": 81.475
+                    },
+                    "uuid": "7c37ac79-eec7-58c0-995b-581a6daf6af6"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        },
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Track [/3V3D] on F.Cu, length 0.9298 mm",
+                    "pos": {
+                        "x": 115.02,
+                        "y": 108.6
+                    },
+                    "uuid": "964f49a9-4be3-4a4c-a115-8f07226a6108"
+                },
+                {
+                    "description": "Pad 3 [/3V3D] of U15 on F.Cu",
+                    "pos": {
+                        "x": 116.6375,
+                        "y": 110.05
+                    },
+                    "uuid": "21b6e81d-d18d-492d-8060-75f54f9c369b"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        },
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Track [/3V3D] on B.Cu, length 1.3500 mm",
+                    "pos": {
+                        "x": 115.375,
+                        "y": 93.35
+                    },
+                    "uuid": "ef81ec53-b8da-4386-8377-da27324493e8"
+                },
+                {
+                    "description": "Pad 2 [/3V3D] of R11 on B.Cu",
+                    "pos": {
+                        "x": 114.3,
+                        "y": 96.375
+                    },
+                    "uuid": "698f6ce1-a9d6-5a9d-b079-5e52d652f641"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        },
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Pad 1 [/3V3D] of C4 on F.Cu",
+                    "pos": {
+                        "x": 117.5,
+                        "y": 81.475
+                    },
+                    "uuid": "7c37ac79-eec7-58c0-995b-581a6daf6af6"
+                },
+                {
+                    "description": "Track [/3V3D] on B.Cu, length 0.6700 mm",
+                    "pos": {
+                        "x": 118.3,
+                        "y": 90.75
+                    },
+                    "uuid": "cdead123-6d7a-4118-bbda-f40d24a7bab4"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        },
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Pad 28 [/HEATER_PWM] of U6 on F.Cu",
+                    "pos": {
+                        "x": 110.3375,
+                        "y": 89.25
+                    },
+                    "uuid": "965bf6c2-be4f-5a60-8db7-02a4d96c14e4"
+                },
+                {
+                    "description": "Track [/HEATER_PWM] on B.Cu, length 0.9000 mm",
+                    "pos": {
+                        "x": 100.4,
+                        "y": 118.4
+                    },
+                    "uuid": "a0d1e220-0050-471b-af57-181ddc45121e"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        },
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Pad 2 [/+12V_SW] of U1 on F.Cu",
+                    "pos": {
+                        "x": 103.3625,
+                        "y": 77.5
+                    },
+                    "uuid": "61e7335c-ae9b-5ee6-b7d1-a7f7e7ab6246"
+                },
+                {
+                    "description": "Track [/+12V_SW] on F.Cu, length 0.7601 mm",
+                    "pos": {
+                        "x": 103.3625,
+                        "y": 78.45
+                    },
+                    "uuid": "5d1b033c-2fa2-45d0-b4f1-92531316b867"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        },
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Pad 1 [/+12V_SW] of D3 on F.Cu",
+                    "pos": {
+                        "x": 111.5,
+                        "y": 70.9
+                    },
+                    "uuid": "e52c2f8a-2ff8-4852-99aa-54a0f6ca0377"
+                },
+                {
+                    "description": "Pad 2 [/+12V_SW] of U1 on F.Cu",
+                    "pos": {
+                        "x": 103.3625,
+                        "y": 77.5
+                    },
+                    "uuid": "61e7335c-ae9b-5ee6-b7d1-a7f7e7ab6246"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        },
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Track [/+12V_SW] on B.Cu, length 0.3536 mm",
+                    "pos": {
+                        "x": 111.9,
+                        "y": 121.05
+                    },
+                    "uuid": "dea7dc7d-4bb2-4065-afd0-0b31004f14ac"
+                },
+                {
+                    "description": "Pad 1 [/+12V_SW] of R26 on B.Cu",
+                    "pos": {
+                        "x": 113.35,
+                        "y": 103.175
+                    },
+                    "uuid": "a4eacaf0-9264-51e4-850f-e9ab344679f3"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        },
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Pad 1 [/+12V_SW] of R26 on B.Cu",
+                    "pos": {
+                        "x": 113.35,
+                        "y": 103.175
+                    },
+                    "uuid": "a4eacaf0-9264-51e4-850f-e9ab344679f3"
+                },
+                {
+                    "description": "Pad 1 [/+12V_SW] of C1 on F.Cu",
+                    "pos": {
+                        "x": 102.825,
+                        "y": 80.8
+                    },
+                    "uuid": "e5b4c4f8-9124-5cc2-9975-f1a343b04382"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        }
+    ],
+    "violations": [
+        {
+            "description": "Track has unconnected end",
+            "items": [
+                {
+                    "description": "Track [/3V3D] on B.Cu, length 5.7306 mm",
+                    "pos": {
+                        "x": 114.3,
+                        "y": 124.3
+                    },
+                    "uuid": "49f057a5-07f6-4b9c-9df6-bdbe56ebb08c"
+                }
+            ],
+            "severity": "warning",
+            "type": "track_dangling"
+        },
+        {
+            "description": "Track has unconnected end",
+            "items": [
+                {
+                    "description": "Track [/HEATER_PWM] on B.Cu, length 0.9000 mm",
+                    "pos": {
+                        "x": 100.4,
+                        "y": 118.4
+                    },
+                    "uuid": "a0d1e220-0050-471b-af57-181ddc45121e"
+                }
+            ],
+            "severity": "warning",
+            "type": "track_dangling"
+        },
+        {
+            "description": "Track has unconnected end",
+            "items": [
+                {
+                    "description": "Track [/+12V_SW] on B.Cu, length 0.3536 mm",
+                    "pos": {
+                        "x": 111.9,
+                        "y": 121.05
+                    },
+                    "uuid": "dea7dc7d-4bb2-4065-afd0-0b31004f14ac"
+                }
+            ],
+            "severity": "warning",
+            "type": "track_dangling"
+        },
+        {
+            "description": "Track has unconnected end",
+            "items": [
+                {
+                    "description": "Track [/GUARD_REPLICA] on F.Cu, length 6.2000 mm",
+                    "pos": {
+                        "x": 110.95,
+                        "y": 117.4
+                    },
+                    "uuid": "89269d21-c6ed-4b39-b0a9-b4b13dbc9d4f"
+                }
+            ],
+            "severity": "warning",
+            "type": "track_dangling"
+        },
+        {
+            "description": "Courtyards overlap",
+            "items": [
+                {
+                    "description": "Footprint D1",
+                    "pos": {
+                        "x": 106.5,
+                        "y": 69.5
+                    },
+                    "uuid": "1898da8d-22a6-5240-a41b-071389574d94"
+                },
+                {
+                    "description": "Footprint J102",
+                    "pos": {
+                        "x": 107.7,
+                        "y": 54.5
+                    },
+                    "uuid": "396f2559-03b4-55c9-a3aa-a66cd3a3c264"
+                }
+            ],
+            "severity": "warning",
+            "type": "courtyards_overlap"
+        },
+        {
+            "description": "Courtyards overlap",
+            "items": [
+                {
+                    "description": "Footprint D1",
+                    "pos": {
+                        "x": 106.5,
+                        "y": 69.5
+                    },
+                    "uuid": "1898da8d-22a6-5240-a41b-071389574d94"
+                },
+                {
+                    "description": "Footprint J101",
+                    "pos": {
+                        "x": 103.0,
+                        "y": 54.5
+                    },
+                    "uuid": "ad8602f0-bd9d-5d11-bc55-01b1a155a868"
+                }
+            ],
+            "severity": "warning",
+            "type": "courtyards_overlap"
+        },
+        {
+            "description": "Courtyards overlap",
+            "items": [
+                {
+                    "description": "Footprint R10",
+                    "pos": {
+                        "x": 110.0,
+                        "y": 97.2
+                    },
+                    "uuid": "19a1d642-f2f2-59c5-9883-00f08c2da27d"
+                },
+                {
+                    "description": "Footprint J105",
+                    "pos": {
+                        "x": 111.75,
+                        "y": 97.8
+                    },
+                    "uuid": "65649f16-b6a6-5032-9755-64d23023047f"
+                }
+            ],
+            "severity": "warning",
+            "type": "courtyards_overlap"
+        },
+        {
+            "description": "Courtyards overlap",
+            "items": [
+                {
+                    "description": "Footprint R3",
+                    "pos": {
+                        "x": 117.5,
+                        "y": 59.0
+                    },
+                    "uuid": "5bbf8e0d-5c34-5b07-8b57-208cb7bdbf8f"
+                },
+                {
+                    "description": "Footprint J104",
+                    "pos": {
+                        "x": 117.0,
+                        "y": 54.5
+                    },
+                    "uuid": "e9b0e14e-3700-560e-8916-9fa861371cc0"
+                }
+            ],
+            "severity": "warning",
+            "type": "courtyards_overlap"
+        },
+        {
+            "description": "Courtyards overlap",
+            "items": [
+                {
+                    "description": "Footprint D2",
+                    "pos": {
+                        "x": 114.7,
+                        "y": 59.0
+                    },
+                    "uuid": "6167e088-ce49-572c-ae0e-0937f041eb04"
+                },
+                {
+                    "description": "Footprint J103",
+                    "pos": {
+                        "x": 112.3,
+                        "y": 54.5
+                    },
+                    "uuid": "99113dc5-d665-56a3-8b8e-ba15c2b4bc7b"
+                }
+            ],
+            "severity": "warning",
+            "type": "courtyards_overlap"
+        },
+        {
+            "description": "Courtyards overlap",
+            "items": [
+                {
+                    "description": "Footprint D2",
+                    "pos": {
+                        "x": 114.7,
+                        "y": 59.0
+                    },
+                    "uuid": "6167e088-ce49-572c-ae0e-0937f041eb04"
+                },
+                {
+                    "description": "Footprint J104",
+                    "pos": {
+                        "x": 117.0,
+                        "y": 54.5
+                    },
+                    "uuid": "e9b0e14e-3700-560e-8916-9fa861371cc0"
+                }
+            ],
+            "severity": "warning",
+            "type": "courtyards_overlap"
+        },
+        {
+            "description": "Courtyards overlap",
+            "items": [
+                {
+                    "description": "Footprint TP3",
+                    "pos": {
+                        "x": 101.0,
+                        "y": 107.5
+                    },
+                    "uuid": "6cd31ac2-cb52-51f3-a979-ddef7cdb16e9"
+                },
+                {
+                    "description": "Footprint U4",
+                    "pos": {
+                        "x": 103.0,
+                        "y": 111.0
+                    },
+                    "uuid": "d83a9d86-d03f-5d95-bde0-97cc3f42b3f5"
+                }
+            ],
+            "severity": "warning",
+            "type": "courtyards_overlap"
+        },
+        {
+            "description": "Courtyards overlap",
+            "items": [
+                {
+                    "description": "Footprint R2",
+                    "pos": {
+                        "x": 112.0,
+                        "y": 59.0
+                    },
+                    "uuid": "734978b9-d423-5f26-85e1-451bfdb15775"
+                },
+                {
+                    "description": "Footprint J103",
+                    "pos": {
+                        "x": 112.3,
+                        "y": 54.5
+                    },
+                    "uuid": "99113dc5-d665-56a3-8b8e-ba15c2b4bc7b"
+                }
+            ],
+            "severity": "warning",
+            "type": "courtyards_overlap"
+        },
+        {
+            "description": "Courtyards overlap",
+            "items": [
+                {
+                    "description": "Footprint Q2",
+                    "pos": {
+                        "x": 110.0,
+                        "y": 135.25
+                    },
+                    "uuid": "825708f6-bbcb-5200-a514-3d7886a6d9a8"
+                },
+                {
+                    "description": "Footprint TP6",
+                    "pos": {
+                        "x": 108.3,
+                        "y": 137.0
+                    },
+                    "uuid": "c7e927c7-6231-5de3-8f01-21dd59f19b0b"
+                }
+            ],
+            "severity": "warning",
+            "type": "courtyards_overlap"
+        },
+        {
+            "description": "Courtyards overlap",
+            "items": [
+                {
+                    "description": "Footprint J3",
+                    "pos": {
+                        "x": 105.3,
+                        "y": 97.8
+                    },
+                    "uuid": "b2ecdfcd-fe5e-5930-964a-663ace03ee08"
+                },
+                {
+                    "description": "Footprint TP5",
+                    "pos": {
+                        "x": 101.0,
+                        "y": 99.5
+                    },
+                    "uuid": "ece19d2e-e589-5db9-b38e-e3a47f02a2cd"
+                }
+            ],
+            "severity": "warning",
+            "type": "courtyards_overlap"
+        }
+    ]
+}

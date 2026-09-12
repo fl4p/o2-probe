@@ -1,0 +1,14 @@
+{
+  "adapter_sha256": "c0f79b11af3c90a8fcb7522718119eedc1f7a36ffe16d515e0ccfcd0e3119bbc",
+  "candidate_sha256": "e771152044d5624b2fa85d5adcc35d72188352e2b0db531a0809689a2d4f98c8",
+  "removed": [
+    "1ed5e83e-bc47-4eac-ab25-4dd23013a437",
+    "1f373dc5-9473-45cb-aca9-f01226c9c1eb"
+  ],
+  "added": 8,
+  "all_retained_track_and_pad_net_names_unchanged": true,
+  "front_guard_tracks_identical": 7,
+  "guard_native_copper_items": 29,
+  "guard_native_contact_components": 1,
+  "new_via_smd_overlap_pairs": []
+}

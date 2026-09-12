@@ -1,0 +1,15 @@
+# Independent guard bottom-feed review — 2026-09-12
+
+Accepted as a bounded layout change on candidate SHA-256 `e771152044d5624b2fa85d5adcc35d72188352e2b0db531a0809689a2d4f98c8`. This is the completed 3V3D neck connection before the remaining +12V_SW connection. It is not final PCB or fabrication acceptance.
+
+The independent native before/after inventory removes exactly B.Cu guard track `1ed5e83e-bc47-4eac-ab25-4dd23013a437`, (110.935,117.4) to (112.15,117.1), and through via `1f373dc5-9473-45cb-aca9-f01226c9c1eb` at (112.15,117.1). It adds eight 3V3D copper items and changes no retained copper item. All seven F.Cu guard tracks, all CELL_RE copper, footprint/pad records and board outline remain exact. This delta must be reconciled explicitly against the original critical inventory; an unrestricted new snapshot would conceal it.
+
+The right F.Cu rail remains fed through bottom B.Cu bridge `90bdd9e8-a471-4727-922b-b1b8083d1deb`, from (110.95,123.6) to (112.15,123.68), and its retained plated connections. The left rail still receives the original driven guard feed. The upper right stub remains connected through the right rail. Fresh native copper extraction independently finds one connected guard component, including the plated ties.
+
+The schematic drives this shield from the RE follower through R40=47 ohm. It is a driven shield carrying leakage and displacement current, with no intended load-return current; dual-ended feeding is not required for its DC function. The retained approximately 0.3 mm wide copper path is continuous. The change preserves the same front shielding geometry and removes a rear branch that obstructed the two supply paths. This establishes a reasonable circuit/layout correction; it does not quantify wet-surface leakage, settling, parasitic capacitance or op-amp stability after potting.
+
+Fresh saved-fill review takes 267 samples along actual CELL_RE in y117..123.6 at spacing at most 0.025 mm, including front tracks, pads, vias and native filled zones. No sampled foreign copper is nearer than the guard; no sampled guard is farther than the diagnostic 0.6 mm reach bound. All eight CELL_RE tracks remain via-free F.Cu. At y118 the only GND crossing is retained F.Cu track `e5c418ee-ce00-48fa-99bb-1452609f54ce`, x100.30..100.45; no extra GND track, pad, via or filled-zone crossing was found.
+
+The added 3V3D route is on B.Cu, including x111.4 from y117.1 to119.3. The front-side nearest-copper result does not test opposite-layer capacitive coupling: this rear supply lane is near the CELL_RE projection and adds some coupling to the decoupled supply. No numeric ripple or capacitance allowance is invented here. The combined final +12V_SW route and saved fills require a final rerun, and physical supply/heater/I2C activity testing remains necessary to establish measurement performance.
+
+Evidence: `checks/current-native-guard-thermal-v3/independent-delta.json` and `review.json`, with frozen board; producer `checks/review_current_guard_thermal.py`. Geometry review runtime: **52.943 s**. Its result is a bounded diagnostic with stated coverage, not a general clearance, leakage, thermal or release validator.

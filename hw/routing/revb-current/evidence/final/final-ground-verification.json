@@ -1,0 +1,10 @@
+{
+  "candidate_sha256": "7bff361b8cc6bfae9574d384096151fce433a3ef2460f703254162e8d4aa05d2",
+  "retained_copper_objects_identical": 2543,
+  "pad_net_and_pose_identity": true,
+  "new_GND_objects": 2,
+  "native_errors": 0,
+  "native_unconnected": 0,
+  "native_parity": 0,
+  "whole_board_vias": 195
+}

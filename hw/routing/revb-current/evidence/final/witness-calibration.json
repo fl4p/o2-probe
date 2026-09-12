@@ -1,0 +1,44 @@
+{
+  "status": "PASS_LIFECYCLE_CALIBRATION",
+  "cases": [
+    {
+      "case": "initial_success",
+      "returncode": 0,
+      "status": "PASS",
+      "wall_seconds": 0.5426406250007858,
+      "probe_seconds": 0.48837870800000005,
+      "exception": null
+    },
+    {
+      "case": "same_output_missing_netlist",
+      "returncode": 2,
+      "status": "UNVERIFIED",
+      "wall_seconds": 0.20471166599963908,
+      "probe_seconds": 0.167132875,
+      "exception": "FileNotFoundError(2, 'No such file or directory')"
+    },
+    {
+      "case": "success_before_bad_data",
+      "returncode": 0,
+      "status": "PASS",
+      "wall_seconds": 0.5109727089984517,
+      "probe_seconds": 0.466557333,
+      "exception": null
+    },
+    {
+      "case": "same_output_actual_xml_component_removed",
+      "returncode": 2,
+      "status": "UNVERIFIED",
+      "wall_seconds": 0.2588178340010927,
+      "probe_seconds": 0.219828917,
+      "exception": "ValueError('Expected current83-component netlist; got 82')"
+    },
+    {
+      "case": "output_equals_netlist",
+      "rejected": true,
+      "inputs_unchanged": true
+    }
+  ],
+  "producer_sha256": "9f302291d13bc009398745617bd002ff69c74d3a7d7d27e97cf29ea22982599a",
+  "calibration_sha256": "2b74c10e44f8b8fc33ca3360b838b3307f34c3bd62ce7bf0e15a7311c0ecbbc1"
+}

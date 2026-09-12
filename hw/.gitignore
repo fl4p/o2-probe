@@ -9,3 +9,7 @@ firmware/.pio/
 
 # Retain vendor datasheets locally; commit source pointers and hashes.
 literature/ce-protection/*.pdf
+
+# Persistent local validation fixtures and exploratory routing; accepted evidence
+# is copied explicitly into the reviewed candidate directory.
+/checks/

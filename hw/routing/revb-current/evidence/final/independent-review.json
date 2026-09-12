@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "status": "REVIEWED",
+  "scope": "completed current RevB PCB and explicit preservation inventory; fabrication artifact generation authorized by existing task, artifact review still pending",
+  "reviewer": "independent final_reviewer",
+  "board_sha256": "3c24db8193af09d4d9ad07b2166c7f818885211b63b3e2af6e0c7cbec900c665",
+  "critical_snapshot_sha256": "08995394a6f19c619af29e3580245f23ea0cccb594fdeba388498c756dbfe0dc",
+  "drc_sha256": "9c07784037112c9fbb6518cee01a69ab9d623edfe8e7b1629c6732d946ee0109",
+  "guard_thermal_sha256": "651e48945900cafc7a5a34b1e66f86636424897bc0499f553b16a089a6bb88d3",
+  "review_record": "docs/2026-09-12-current-pcb-independent-review.md",
+  "review_record_sha256": "e449143c3d02fc993224d8dafa3b2b4fc38c818a82749f65ed03e2fac5a39887",
+  "reviewed_guard_endpoints": [
+    {
+      "uuid": "7a4d4b0e-2f12-4bd4-b267-16bb450f841a",
+      "net": "/GUARD_REPLICA",
+      "board_sha256": "3c24db8193af09d4d9ad07b2166c7f818885211b63b3e2af6e0c7cbec900c665",
+      "reason": "Retained upper-right F shield stub (112.15,117.1) to(112.04,117.4); its lower endpoint joins the unchanged right rail, driven through the retained bottom plated tie and B bridge. Entire native guard is one connected group."
+    },
+    {
+      "uuid": "89269d21-c6ed-4b39-b0a9-b4b13dbc9d4f",
+      "net": "/GUARD_REPLICA",
+      "board_sha256": "3c24db8193af09d4d9ad07b2166c7f818885211b63b3e2af6e0c7cbec900c665",
+      "reason": "Left F shield rail upper endpoint (110.95,117.4) intentionally extends above the feed via at(110.95,117.8); the rail and bottom bridge remain driven. Entire native guard is one connected group."
+    }
+  ],
+  "unresolved_pcb_implementation_findings": [],
+  "procurement_complete": false,
+  "production_qualified": false
+}

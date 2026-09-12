@@ -1,5 +1,17 @@
 # o2-probe
 
+Current Rev B PCB work is in
+[`routing/revb-current/o2-probe.kicad_pcb`](routing/revb-current/o2-probe.kicad_pcb).
+It uses the current 83-component schematic: AP63203 supplies 3.3 V, R32 filters
+the analog rail, REF3425 supplies the reference, and the STM32 ADC replaces
+ADS1119. The outline is 20 × 89 mm on two copper layers with a 1.6 mm nominal
+board target. J5 and the external heated ring remain
+[deferred Rev C work](plans/REVC-HEATED-RING.md).
+
+The PCB is complete and [independently reviewed](docs/2026-09-12-current-pcb-independent-review.md): native 0 errors, 0 unconnected items and 0 schematic mismatches, with 195 vias. The ten assembly courtyard and two intentional guard-endpoint warnings remain visible and individually documented.
+
+[Fabrication package](fab/o2-probe-revb-current-8eef4aa26e24a6cb/o2-probe-revb-current.zip) · [artifact review](docs/2026-09-12-current-artifact-review.md) · [archived implementation plan](docs/archive/2026-09-12-pcb-plans/REVB-AISLER.md). This uses the user-overridden 0.10 mm trace/spacing and 0.20 mm via-drill profile; it is not a standard-Aisler-compliance claim. Procurement and first-article electrical, thermal and mechanical qualification remain open.
+
 A buried oxygen probe for compost windrows: an electrochemical cell, its
 potentiostat, a heated membrane, and an STM32 that speaks Modbus RTU, on one
 elongated PCB that is potted at one end and breathing at the other.
@@ -15,7 +27,7 @@ Hardware and firmware live together here because they are one contract: the
 firmware's scale factors are **generated** from the schematic (see
 [The hardware contract](#the-hardware-contract)).
 
-## Status
+## Rev A status snapshot, 2026-09-05
 
 **Bare-board first article. Not qualified, not deployed, not potted.**
 
@@ -44,7 +56,7 @@ Two consequences worth stating plainly:
   holding the membrane above the dew point. It is a bench and short-trial
   build. `firmware/FIRMWARE.md` says so in more detail.
 
-## The signal chain
+## Rev A signal chain
 
 ```
 SGX-OX-ROHS-Mini ──▶ LMP91000 ──▶ ADS1119 ──▶ STM32G071CBT7 ──▶ THVD1410 ──▶ RS-485

@@ -1,0 +1,50 @@
+{
+  "inputs": {
+    "gen_sch.py": "1b69807d0b3772998be9c751b2d6a5d0948f9281c607c8040cccbbc6f91226ef",
+    "audit_layout.py": "0750f53a236488f1725fdb2e22de2a8f520b6684546be1201c346b3dc8b8d26a",
+    "audit_layout_references.py": "fb407939f2a208fd2ef22749890738a1448c11528606cd286a3c912b247cd32f",
+    "o2-probe.kicad_sch": "9f06ced24c53ee2e52a823052d4e7d5a4581eef53be99d1e067ee78b1f6a5aba"
+  },
+  "cases": [
+    {
+      "case": "good",
+      "returncode": 0,
+      "seconds": 0.13743279200025427,
+      "expected": 0,
+      "native_pdf_sha256": "c5292c4604f4d58a68861d9e7b6b3e809563911490488558ea4080df0bce7953"
+    },
+    {
+      "case": "original_overlap",
+      "returncode": 1,
+      "seconds": 0.10783012499996403,
+      "expected": 1,
+      "native_pdf_sha256": "d6c57b6f9b088169a0b9e164d33d9be436a486e6be5d9e2c444fc621e982615e"
+    },
+    {
+      "case": "deeper_overlap",
+      "returncode": 1,
+      "seconds": 0.11041520800063154,
+      "expected": 1
+    },
+    {
+      "case": "legal_move",
+      "returncode": 0,
+      "seconds": 0.1100681669995538,
+      "expected": 0
+    },
+    {
+      "case": "malformed",
+      "returncode": 2,
+      "seconds": 0.11373579099927156,
+      "expected": 2
+    },
+    {
+      "case": "missing",
+      "returncode": 2,
+      "seconds": 0.0319221669997205,
+      "expected": 2
+    }
+  ],
+  "script_sha256": "973acb153f1a930274d9d5144eb229d50234cc85d9d09ff4418f6566289486f7",
+  "all_expected": true
+}

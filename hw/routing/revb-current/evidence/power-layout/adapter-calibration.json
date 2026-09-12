@@ -1,0 +1,12 @@
+{
+  "status": "pass",
+  "positive": {
+    "added": 22,
+    "tracks": 22
+  },
+  "wrong_net_rejected": "net mismatch U15.5 GND != /VREF_TRIM",
+  "no_partial_additions": true,
+  "seconds": 0.11352124999999999,
+  "kicad": "10.0.5",
+  "scope": "Native API and endpoint preconditions only; no full-board collision/DRC claim"
+}

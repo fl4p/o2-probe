@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "status": "REVIEWED",
+  "snapshot": "routing/revb-current/evidence/final/critical-snapshot.json",
+  "inputs_sha256": {
+    "o2-probe/docs/2026-09-12-current-assembly-review.md": "40c036971a84e3a90b305869f57faf3b21c0166e92bf42c0ca13406be139da21",
+    "o2-probe/fp-lib-table": "2d1e5cf65295520e59bcd514f91470bdd4d7a5972ca0a381c46103139a497ff1",
+    "o2-probe/gen_sch.py": "2e6d40fbbde9c4c128e92b75f951a373e8a35f0b2e5d5903025d61fab44a4dc8",
+    "o2-probe/inspect_revb_current_fab.py": "9f302291d13bc009398745617bd002ff69c74d3a7d7d27e97cf29ea22982599a",
+    "o2-probe/lib/o2-probe.kicad_sym": "7eb9ee2fa8e7ccc85842e799f551e39c8a1cd76cd8cd5b3e2e7a92ce5eb0b1dc",
+    "o2-probe/lib/o2-probe.pretty/BMP390_LGA10_DRAFT.kicad_mod": "8498892e1884ecec6b63eee0888cd93339f66c4222c4e8414c9a3372a8a83fa0",
+    "o2-probe/lib/o2-probe.pretty/Heater_Ring_Solder_Lands.kicad_mod": "d64f21b2ecbf3ac071dc5cb2db7867cd124d34a6265655672971bd576e211f9e",
+    "o2-probe/lib/o2-probe.pretty/PTC_1206_3216Metric.kicad_mod": "54ecc33724c6bf5ec0c67535534f709fecac1144696505519dc0993795651055",
+    "o2-probe/lib/o2-probe.pretty/Ring_Fork_Tip_DRAFT.kicad_mod": "6825a50625c83d68a8cd1971abe8ada62f8d5ef9711067ea176a0c8076d9f9f9",
+    "o2-probe/lib/o2-probe.pretty/SGX-OX-ROHS-Mini_ISS2.kicad_mod": "7026de8d24b4cb5b66d814327993702a098de5fbf70217901a56f1ca0a980b83",
+    "o2-probe/lib/o2-probe.pretty/SolderWireNoRelief_J105.kicad_mod": "bec54ee94cb61a5c23c1f34bd0f98bdac9fc7d1726b38a8b5ca541c785e5188b",
+    "o2-probe/lib/o2-probe.pretty/SolderWireNoRelief_J106.kicad_mod": "d7a2c1b58f7c089378d05eb8e3db353f1b45703672cafd3843ab8c623513ceff",
+    "o2-probe/lib/o2-probe.pretty/SolderWire_RaisedRelief_1x01.kicad_mod": "7c1f1568edd7241e67f0c0c3dd73c93895f0d5ae2fdb6248632ae12fc0eeeb24",
+    "o2-probe/lib/o2-probe.pretty/TMP302_DRL6_TI.kicad_mod": "c85a9c75edce465799d0e6fb95dc8aea68242ec5584ff409aba0356c9fb8a66b",
+    "o2-probe/make_fab.py": "7bfb7e5e72dcd005ed0c545e87ecd71beae23dd9c21f28f89d696429042dd91e",
+    "o2-probe/make_fab_revb_current.py": "f1fdf00d15e7b6d2d17c71ed53886d05a335c746f8f57caff630d8a94fd5f206",
+    "o2-probe/o2-probe.kicad_sch": "9f06ced24c53ee2e52a823052d4e7d5a4581eef53be99d1e067ee78b1f6a5aba",
+    "o2-probe/o2-probe.xml": "8a565b892a669f39a4f98bf176bf96f0b8e208bcb1684dd4e203dcced8795b77",
+    "o2-probe/revb_fab_checks.py": "b3c2db9765349abd0d303948cd418fdb8d5d58f756e7c4739472974c63fd9059",
+    "o2-probe/routing/revb-89-tmp302/o2-probe.kicad_pcb": "4520074e475656a14fe82fea1ac86e2004d09b85485ee1155a594fc5e271b303",
+    "o2-probe/routing/revb-current/evidence/final/critical-snapshot.json": "08995394a6f19c619af29e3580245f23ea0cccb594fdeba388498c756dbfe0dc",
+    "o2-probe/routing/revb-current/fp-lib-table": "b7c51e30dd9ac9b219e67afa1e07db12c844079570fdbe47b8b5f473ad44bdd3",
+    "o2-probe/routing/revb-current/o2-probe.kicad_dru": "8937c6fe68e0b4c2df727f54283bcf4731544972dc6eeda6007c2d158d8d8a93",
+    "o2-probe/routing/revb-current/o2-probe.kicad_pcb": "3c24db8193af09d4d9ad07b2166c7f818885211b63b3e2af6e0c7cbec900c665",
+    "o2-probe/routing/revb-current/o2-probe.kicad_pro": "25fbd981382c98984790c7a89c2d3c976478aebbbe724de0d0f674bdd2f18827",
+    "o2-probe/routing/revb-current/o2-probe.kicad_sch": "9f06ced24c53ee2e52a823052d4e7d5a4581eef53be99d1e067ee78b1f6a5aba",
+    "o2-probe/sym-lib-table": "39fb1c168a1bd5640e5a5b58ee1782d411e58a00884cfb59b686270ebc623763",
+    "o2-probe/verify_revb_current.py": "2e600b44b2572a21a0ba59b31f44c52af5a3c8172d0176ad60d70c702a1e5404",
+    "tmp117-probe/lib/tmp117-probe.pretty/TMP117_WSON-6-1EP_2x2mm_TI.kicad_mod": "68aeebabcc55a3aaf126f3127b4b0c8ca9e8a8211cb10d75ded3f5652f9d6ddd",
+    "tmp117-probe/lib/tmp117-probe.pretty/TestPad_1.0x1.0mm.kicad_mod": "c94e43dd8116bbda0388698605516d57a95f0965c67e7c9558af5d50932ac3e7",
+    "tmp117-probe/lib/tmp117-probe.pretty/WirePad_1x04_P1.40mm.kicad_mod": "56f1146c3c92e945c06b2fe264b739e41452f2bda61cb128ed2191e2e0884add",
+    "tmp117-probe/lib/tmp117-probe.pretty/WirePad_1x04_P1.80mm.kicad_mod": "bb41d714c3ea27d9e2dd8452e6f065d386f2bce70a43107b5c1c29f84bbe8587"
+  },
+  "assembly_disposition": "docs/2026-09-12-current-assembly-review.md",
+  "courtyard_pairs": [
+    [
+      "D1",
+      "J101"
+    ],
+    [
+      "D1",
+      "J102"
+    ],
+    [
+      "D2",
+      "J103"
+    ],
+    [
+      "D2",
+      "J104"
+    ],
+    [
+      "J103",
+      "R2"
+    ],
+    [
+      "J104",
+      "R3"
+    ],
+    [
+      "J105",
+      "R10"
+    ],
+    [
+      "J3",
+      "TP5"
+    ],
+    [
+      "Q2",
+      "TP6"
+    ],
+    [
+      "TP3",
+      "U4"
+    ]
+  ],
+  "review_record": "docs/2026-09-12-current-pcb-independent-review.md",
+  "review_record_sha256": "e449143c3d02fc993224d8dafa3b2b4fc38c818a82749f65ed03e2fac5a39887",
+  "reviewed_guard_endpoints": [
+    {
+      "uuid": "7a4d4b0e-2f12-4bd4-b267-16bb450f841a",
+      "net": "/GUARD_REPLICA",
+      "board_sha256": "3c24db8193af09d4d9ad07b2166c7f818885211b63b3e2af6e0c7cbec900c665",
+      "reason": "Retained upper-right F shield stub (112.15,117.1) to(112.04,117.4); its lower endpoint joins the unchanged right rail, driven through the retained bottom plated tie and B bridge. Entire native guard is one connected group."
+    },
+    {
+      "uuid": "89269d21-c6ed-4b39-b0a9-b4b13dbc9d4f",
+      "net": "/GUARD_REPLICA",
+      "board_sha256": "3c24db8193af09d4d9ad07b2166c7f818885211b63b3e2af6e0c7cbec900c665",
+      "reason": "Left F shield rail upper endpoint (110.95,117.4) intentionally extends above the feed via at(110.95,117.8); the rail and bottom bridge remain driven. Entire native guard is one connected group."
+    }
+  ]
+}

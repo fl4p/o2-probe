@@ -1,0 +1,222 @@
+{
+ "routed_single": [],
+ "failed_single": [],
+ "open_single": [],
+ "failed_multipoint": [
+  {
+   "net_name": "/3V3D",
+   "failed_pads": [
+    {
+     "component_ref": "C35",
+     "pad_number": "?",
+     "x": 117.0,
+     "y": 136.98
+    },
+    {
+     "component_ref": "U16",
+     "pad_number": "?",
+     "x": 113.66,
+     "y": 136.0
+    },
+    {
+     "component_ref": "U16",
+     "pad_number": "?",
+     "x": 115.14,
+     "y": 137.0
+    },
+    {
+     "component_ref": "U16",
+     "pad_number": "?",
+     "x": 115.14,
+     "y": 136.5
+    },
+    {
+     "component_ref": "U16",
+     "pad_number": "?",
+     "x": 115.14,
+     "y": 136.0
+    },
+    {
+     "component_ref": "U12",
+     "pad_number": "?",
+     "x": 102.8,
+     "y": 135.1
+    },
+    {
+     "component_ref": "C21",
+     "pad_number": "?",
+     "x": 112.5,
+     "y": 136.98
+    },
+    {
+     "component_ref": "U10",
+     "pad_number": "?",
+     "x": 109.35,
+     "y": 137.5
+    },
+    {
+     "component_ref": "U10",
+     "pad_number": "?",
+     "x": 110.0,
+     "y": 137.5
+    },
+    {
+     "component_ref": "C20",
+     "pad_number": "?",
+     "x": 106.0,
+     "y": 135.98
+    }
+   ]
+  },
+  {
+   "net_name": "/+12V_SW",
+   "failed_pads": [
+    {
+     "component_ref": "RH1",
+     "pad_number": "?",
+     "x": 105.0,
+     "y": 127.5375
+    },
+    {
+     "component_ref": "RH2",
+     "pad_number": "?",
+     "x": 115.0,
+     "y": 127.5375
+    }
+   ]
+  }
+ ],
+ "multipoint_nets": 2,
+ "multipoint_pads_connected": 23,
+ "multipoint_pads_total": 35,
+ "multipoint_edges_routed": 0,
+ "multipoint_edges_failed": 3,
+ "ripup_success_pairs": [],
+ "rerouted_pairs": [],
+ "single_ended_target_swaps": [],
+ "layer_swaps": 0,
+ "successful": 0,
+ "failed": 2,
+ "total_time": 19.33,
+ "total_iterations": 6702756,
+ "total_vias": 18,
+ "cleanup_disconnected": [],
+ "min_clearance_used": 0.1,
+ "rescue": {
+  "attempted": 2,
+  "recovered": [],
+  "improved": [],
+  "unchanged": [
+   "/+12V_SW",
+   "/3V3D"
+  ],
+  "pads_reconnected": 0,
+  "widths": {},
+  "time": 8.26
+ },
+ "terminal_escalations": {
+  "/+12V_SW": "unrecovered",
+  "/3V3D": "unrecovered"
+ },
+ "oracle_check": "disabled",
+ "protected_skipped": {
+  "pre-existing rip candidacy": {
+   "/ADC_WE_BUF": "locked",
+   "/ADC_RE_BUF": "locked",
+   "/CELL_CE": "locked",
+   "/CELL_RE": "locked",
+   "/CELL_WE": "locked",
+   "/BUCK_SW": "locked",
+   "/HEATER_GATE": "locked",
+   "/BUCK_BST": "locked",
+   "/LMP_C2": "locked",
+   "/LMP_C1": "locked",
+   "/TMP_CELL_EP": "locked"
+  },
+  "SE rip ladder": {
+   "/3V3D": "locked"
+  }
+ },
+ "pad_pairs_connected": 46,
+ "pad_pairs_total": 48,
+ "pad_pairs_open": [
+  {
+   "net": "/+12V_SW",
+   "pairs_connected": 5,
+   "pairs_total": 6,
+   "outcome": "open",
+   "open_subtype": "partial"
+  },
+  {
+   "net": "/3V3D",
+   "pairs_connected": 26,
+   "pairs_total": 27,
+   "outcome": "open",
+   "open_subtype": "partial"
+  }
+ ],
+ "power_trace_ampacity": [
+  {
+   "net": "/+12V_FUSED",
+   "bottleneck_width_mm": 0.5,
+   "bottleneck_layer": "B.Cu",
+   "copper_oz": 1.0000000000000002,
+   "max_current_a": 1.45,
+   "max_current_ipc2152_a": 1.45,
+   "temp_rise_c": 10.0,
+   "trace_length_mm": 13.2
+  },
+  {
+   "net": "/+12V_RAW",
+   "bottleneck_width_mm": 0.15,
+   "bottleneck_layer": "F.Cu",
+   "copper_oz": 1.0000000000000002,
+   "max_current_a": 0.6,
+   "max_current_ipc2152_a": 0.6,
+   "temp_rise_c": 10.0,
+   "trace_length_mm": 18.9
+  },
+  {
+   "net": "/+12V_SW",
+   "bottleneck_width_mm": 0.1,
+   "bottleneck_layer": "B.Cu",
+   "copper_oz": 1.0000000000000002,
+   "max_current_a": 0.45,
+   "max_current_ipc2152_a": 0.45,
+   "temp_rise_c": 10.0,
+   "trace_length_mm": 76.5
+  },
+  {
+   "net": "/3V3A",
+   "bottleneck_width_mm": 0.2,
+   "bottleneck_layer": "F.Cu",
+   "copper_oz": 1.0000000000000002,
+   "max_current_a": 0.74,
+   "max_current_ipc2152_a": 0.74,
+   "temp_rise_c": 10.0,
+   "trace_length_mm": 62.2
+  },
+  {
+   "net": "/3V3D",
+   "bottleneck_width_mm": 0.1,
+   "bottleneck_layer": "B.Cu",
+   "copper_oz": 1.0000000000000002,
+   "max_current_a": 0.45,
+   "max_current_ipc2152_a": 0.45,
+   "temp_rise_c": 10.0,
+   "trace_length_mm": 181.5
+  }
+ ],
+ "scope": "reconciliation-subset",
+ "board_scoped_keys": [
+  "power_trace_ampacity",
+  "min_clearance_used"
+ ],
+ "env_knobs": {
+  "KICAD_INRUN_FLOOR_SYNC": "0"
+ },
+ "finalize_excluded_nets": [
+  "/HEATER_LOW",
+  "GND"
+ ]
+}

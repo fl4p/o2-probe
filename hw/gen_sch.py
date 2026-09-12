@@ -1476,14 +1476,17 @@ add_passive("C31",208.28,177.8,"100n","Capacitor_SMD:C_0402_1005Metric","ADC_RE_
 # Retire the earlier arbitrary Ir <= 1 uA at 1.2 V / 85 C selection gate.
 # VIN_MON is health telemetry with 7 V / 15 V rail thresholds; it does not
 # scale oxygen measurements. The earlier 18 mV budget was not a requirement.
-# Peer visual estimate from Vishay 85885 Fig. 3: approximately 8 uA at
-# 1.2 V / 85 C, about 75 mV at VIN_MON (about 0.76 V referred to the rail).
-# THESE NUMBERS ARE UNVERIFIED VISUAL ESTIMATES, not digitized measurements,
-# production limits, or physical qualification. revb-ee is preparing dsdig
-# overlays; replace estimates with evidence when that work is reviewed.
-# The nominal 12 V rail is 3 V from the nearest threshold (15 V), NOT 5 V;
-# 5 V is the distance to the lower 7 V threshold. Typical leakage plots do not
-# guarantee worst-case accuracy at either decision boundary.
+# Provisional dsdig result, pending HUMAN OVERLAY VERIFICATION for the new
+# chart class: 8.662 uA at VR=1.3314 V, Tj=85 C; about 78.0 mV at VIN_MON
+# through R26||R27=9.0 kohm, about 0.79 V referred to the rail. This is a
+# digitized TYPICAL-CURVE ESTIMATE, not a device measurement or maximum.
+# 85 C uses log-current interpolation between plotted 75 C and 100 C curves;
+# 1.3314 V is the common supported query point, not 1.2 V. Evidence and
+# pending verification: datasheets/BAT54W-G-leakage-digitized/README.md.
+# Do not use the provisional values as a qualified production error budget.
+# Nominal 12 V is 3 V from 15 V and 5 V from 7 V. Reverse D8 leakage pulls the
+# monitor DOWN, so its signed error approaches the 7 V undervoltage threshold.
+# Typical curves do not guarantee worst-case accuracy at either boundary.
 # This node-specific acceptance does not authorize clamps on oxygen inputs.
 # Vishay 85885's 2 uA maximum is specified at 25 C / VR=25 V and does not
 # bound leakage at 85 C. Fig. 3 shows typical 25/50/75/100/125 C leakage;
