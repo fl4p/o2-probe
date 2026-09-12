@@ -213,3 +213,37 @@ answerable from a datasheet: every row of DS12232 Table 60 is specified at
 `VDDA = VREF+`, and ST publishes no accuracy figure for `VREF+` < VDDA. That is
 now the single open question gating the reference architecture — not parts, not
 observability, not headroom.
+
+## The last objection narrows: ST ships a feature whose purpose is `VREF+` < VDDA
+
+Found by revB, verified here against the archived DS12232 Rev 5 — and two of the
+three lines were already in my own earlier greps, unregistered. Second time
+today that has happened; noting the pattern, not just the fact.
+
+**Confirmed, exactly as stated:** every conditions cell in Table 60 reads
+`VDDA = VREF+`. `ET`, `EO`, `EG`, `ED`, `EL` and `ENOB` are genuinely not
+re-specified at a lower `VREF+`.
+
+**But "uncharacterized" was too strong.** §3.16: the on-chip VREFBUF drives
+`VREF+` to *"around 2.5 V (requiring VDDA equal to or higher than 2.8 V)"* —
+a mode that **requires** `VREF+` < VDDA. Table 63 then specifies it in full:
+`VREFBUF_OUT` 2.497 / 2.500 / 2.503 V at VRS = 1, trim step, load regulation,
+PSRR, start-up, `CL` 0.5–1.5 µF, ESR ≤ 2 Ω. And LQFP48 pin 5 carries the
+additional function `VREF_OUT`, the buffer's output, so this part has it;
+§3.16's only exclusion is packages where the VREF+ pad is double-bonded.
+
+So the honest restatement: **the ADC's INL, offset and gain are not re-specified
+at a lower `VREF+`, even though ST ships and fully specifies a reference buffer
+that puts you there.** That is a documentation gap in a SUPPORTED configuration,
+not an excursion outside the datasheet — materially weaker than my wording.
+
+**And it rules one thing out before anyone reaches for it.** VREFBUF is not a
+substitute for the REF3425: Table 63 note 3 says the tempco at the `VREF+`
+output is the **sum** of `TCoeff_vrefint` and `TCoeff_vrefbuf`, 50 + 50 =
+**100 ppm/degC** max — worse than VREFINT alone and 17x worse than the
+REF3425's 6. Its only value here is as evidence of ST's design intent.
+
+Also worth knowing: **C10's 4.7 µF is outside Table 63's 0.5–1.5 µF `CL`
+window.** Moot with VREFBUF disabled, and inside the REF3425's own 0.1–10 µF
+stable range — but the two parts want different capacitors on the same pin, so
+"enable VREFBUF as a fallback" is not free.
