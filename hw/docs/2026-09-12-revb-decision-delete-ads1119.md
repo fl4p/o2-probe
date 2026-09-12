@@ -322,8 +322,12 @@ sensitivity, both behind R32/C7. **~1000x on the term that dominates.**
 3. **The cell/AFE tempco split** is still unmeasured. Only the dummy-cell run in
    `2026-09-09-afe-tempco-plan.md` (6.04 kOhm in the socket + ring heater) closes
    it. No longer gates this decision, since the acceptance criterion is re-based.
-4. **STM32G0 `CHSELR`/`CCRDY` errata** — unverified, the errata sheet is not
-   archived. Worth one fetch before the sampler port relies on the handshake.
+4. ~~**STM32G0 `CHSELR`/`CCRDY` errata** — unverified, the errata sheet is not
+   archived.~~ **CLOSED 2026-09-12 — no such erratum exists**, ES0418 Rev 5 is
+   archived, and the fetch turned up a different erratum that does apply:
+   **2.6.7, `EO` out of specification below `VREF+` = 3.0 V.** See the ES0418
+   section at the foot of this document. No hardware change; firmware gains a
+   `CALFACT` fault bit and a workaround path, and PA5 is no longer free.
 
 ## Implemented 2026-09-12 — revB, `~/dev/ee` commit `68e6bde` (unpushed)
 
@@ -370,3 +374,128 @@ and it is the distinction that makes footnote 3's mitigation safe to fit.
 it. Checked against stock on hand — **nothing suitable**: the five Schottkys
 held are all power rectifiers (1 A to 40 A, 40-100 V), whose reverse leakage at
 85 C is orders of magnitude outside the 1 uA gate. D8 must be bought.
+
+## ES0418 fetched 2026-09-12 — open item 4 answered, and it found a bigger one
+
+Archived: `~/dev/ee/datasheets/ST-STM32G071-ES0418-Rev5-errata.pdf`,
+**Rev 5, November 2023** — the current revision. Provenance matters here: a
+mirror served Rev 4 (Oct 2022) while st.com hung on every curl rung, and Rev 4
+is materially different at exactly the erratum below. Rev 5 came through a
+headless browser `fetch()`. Do not re-derive this from the Rev 4 text.
+
+**Open item 4 is answered, as a clean negative: there is no `CHSELR`/`CCRDY`
+erratum.** Zero occurrences of either string in Rev 5 (or Rev 4). The ADC
+errata are 2.6.1-2.6.7 and the channel-selection handshake is not among them.
+The sampler port may rely on it.
+
+### 2.6.7 — `EO` may be out of specification when `VREF+` < 3.0 V
+
+Nobody costed this, and the adopted architecture is the reason it applies.
+
+> "When the `VREF+` voltage is lower than 3.0 V, the ADC hardware calibration
+> may not fully compensate for the offset error caused by the diffusion process
+> variation. When this occurs, the `CALFACT` register value is either 0x00 or
+> 0x7F and the `EO` parameter is out of the maximum stated in the device data
+> sheet."
+
+`VREF+` = `/VREF_TRIM` = **2.500 V**. That is the whole point of the adopted
+form, and it puts the part inside this erratum's stated condition.
+
+At our `fADC` = 16 MHz (HSI16, `mcu.c:99`), the substituted specification:
+
+| | DS12232 Table 60 | ES0418 Rev 5 2.6.7 | |
+|---|---|---|---|
+| `EO` typ | 1.5 LSB | 1.5 LSB | **unchanged** |
+| `EO` max | 4.5 LSB | **50 LSB** | 11x |
+| `ET` max | 6.5 LSB | **52 LSB** | 8x |
+
+At 2.500 V full scale one LSB is 610.4 uV, so 50 LSB = **30.5 mV** = 4.36 uA
+through the 7 kOhm TIA. Stated the way this document now requires — mV at the
+TIA output, %O2 only at a named cell output — that is 30.5 mV, and at
+DS-0637's 99 uA air point **0.92 %O2** raw.
+
+**What the air calibration does and does not remove.** A converter offset is a
+constant current error, so the air point absorbs it there and nowhere else.
+With `d` = 4.36 uA on a 99 uA air point, the normalised fraction at zero oxygen
+reads `d/(I_air+d)` = 4.2 % of the air fraction, i.e. **0.88 %O2 of error at
+0 %O2, falling linearly to zero at the air point**. The error is largest at the
+low-oxygen end, which is the end compost aeration decisions are taken at. It is
+4-6x the whole 0.14-0.20 %O2 static budget.
+
+**Three things make it much less alarming than that, and one makes it worse.**
+
+- **Typ is unchanged.** This is not a continuous degradation, it is a
+  population effect: an affected part saturates `CALFACT` to 0x00 or 0x7F.
+- **It is detectable per part at boot, and the detector is already specified
+  above** — "Publish `ADC_CALFACT` per boot". That line was written as a proxy
+  for offset drift; it is now also the erratum's own trigger condition. Make it
+  a fault bit, not just telemetry.
+- **Two independent absolute checks already exist**: `WE_BUF` should read code
+  2744 (0.67 x FS) and `RE_BUF` code 3727 (0.91 x FS), both to the LMP's
+  +/-0.04 % = ~1.6 LSB. A 50 LSB offset is 30x that, so it cannot hide.
+- **Worse:** it is silicon-revision dependent, and *we do not know which
+  silicon we have.* ES0418 Table 3: marking **B** (`REV_ID` 0x2000) = present
+  with workaround; marking **Y** (0x2002) = **absent**. `DBGMCU_IDCODE` is not
+  in the firmware's peek allowlist (`regmap.c:1199-1211` admits SRAM, the boot
+  and app slots, the UID and the flash-size word — peripheral space is
+  excluded), so this needs one SWD read or the package marking on U6. Not worth
+  disturbing a settled bench measurement for; do it next time the board is on
+  the debugger.
+
+### The workaround is free on the board as designed — but only in Rev 5
+
+Rev 4's third workaround required `VREF+` and `VSSA` **on ADC GPIO inputs**,
+which the adopted spec had just deleted the means to do: PA5 is `nc()`
+(`gen_sch.py:1117`) precisely because converting the reference against itself
+saturates. Rev 5 adds four words — "**or internally through the DAC output**" —
+and that changes the answer from "one more pin and a route" to **firmware
+only**:
+
+- DAC channel 2 is on PA5, which is already `nc` and already free.
+- DAC full scale is `VREF+` and DAC zero is `VSSA`, giving both `CALFACT`
+  branches, with the pad isolated.
+- So **no schematic change, no part, no pin.** `68e6bde` stands as committed.
+
+Two caveats, both firmware-side:
+
+1. **Reserve PA5.** It is documented above as "returns to the pool"; it is now
+   the erratum's workaround channel (DAC_OUT2 / ADC_IN5). Do not hand it to
+   anything else. DAC_OUT1 is on **PA4 = pin 15 = `CE_MON`** and is therefore
+   unavailable, so channel 2 is the only one.
+2. **The exact register path is unverified** — RM0444 is not archived and the
+   "connected to on-chip peripheral" DAC mode needs reading before the sampler
+   port relies on it. ES0418 sanctions the method; it does not give the
+   sequence. Also check erratum 2.3.1 ("GPIO assigned to DAC cannot be used in
+   output mode when the DAC output is connected to on-chip peripheral") — PA5
+   is an input-only `nc` pin here, so it should not bite, but confirm.
+
+### A firmware option that removes the term entirely, not decided here
+
+`I = V_REF x (code_WE - code_AFE) / 4096 / R_TIA`, using the **measured**
+`WE_BUF` code in place of the compile-time 0.67 constant, cancels a common
+converter offset exactly — both channels are FT_a pins on the same converter,
+and `EO` subtracts out. This is **not** the rejected three-conversion form:
+that one reads `/VREF_TRIM` itself and saturates. `WE_BUF` sits at 67 % of full
+scale and converts normally.
+
+It is a real trade, not a free win, and it is Fab's and revB's call:
+
+- **For:** removes `EO` (erratum or not) and the LMP's own internal-zero ratio
+  error from the oxygen term.
+- **Against:** adds a second conversion's noise, and it spends the independent
+  check. Today a leak on PA0 breaks a *known constant* and is caught; if
+  `code_WE` becomes part of the measurement, that same leak corrupts oxygen
+  silently. That is the failure mode this whole revision exists to prevent.
+
+The conservative shape: keep the constant form as primary, publish both, and
+switch only when `CALFACT` says the erratum has bitten on this part.
+
+### Other ADC errata checked against the sampler port
+
+| | applies? |
+|---|---|
+| 2.6.1 `OVR` not set if `EOC` clear coincides with conversion end | only if the port polls `EOC` and can overrun |
+| 2.6.2 writing `ADC_CFGR1` while `ADEN` set resets `RES[1:0]` to 00 | **yes, a real trap** — a 12-bit config silently becomes 6-bit. Disable, configure, re-enable |
+| 2.6.3 AWD1 misses out-of-threshold in Single mode past the first channel | only if an analog watchdog is used on a sequence; none is today |
+| 2.6.4 sampling time one cycle longer | **no** — 1.5/3.5 cycles only; we use 160.5 |
+| 2.6.5 / 2.6.6 | documentation errata, trigger latency |
