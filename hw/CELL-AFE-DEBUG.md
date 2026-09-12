@@ -2813,6 +2813,27 @@ board socket** — if it is on flying leads, the bench result says nothing about
 the pad map, and Fab's "R is swapped with C" is describing his wiring. Ask
 before concluding.
 
-**This matters beyond this board: Rev B is built on the corrected footprint.**
-If the 15:45 change is wrong, Rev B ships with WE and RE transposed at the cell.
-Do not close this out on the strength of Rev A working.
+**RESOLVED, and it is a latent Rev A board error.** Fab: the cell is on
+**flying leads**, and "i just put it the wrong way" - C and R swapped, and it
+still worked. So:
+
+- The bench result says **nothing** about the socket's pad map, because the
+  socket is bypassed. The three-signs argument above only proves the *nets* are
+  right, not the *holes*.
+- **Rev A's socket is wrong.** The datasheet puts Working on the centre pin and
+  the Rev A hole at x=0 carries `/CELL_RE`. A cell plugged directly into this
+  board would have its working electrode on the reference net. Caveat: this is
+  read from `fab/o2-probe-rev-a-source/`, which is the Rev A source in the tree,
+  not the fabricated artwork itself.
+- **The 2026-09-01 15:45 change was the correction, not the regression**, and
+  Rev B already carries it. Nothing to do there beyond not reverting it.
+- It never bit because the cell has been on flying leads throughout.
+
+**Separate finding worth keeping: this cell tolerates C and R swapped**, giving a
+normal ~100 µA air reading either way - consistent with the reference and counter
+electrodes being similar metal in the same electrolyte. **It does not generalise
+to W.** Swapping W with either of them puts the TIA on a non-working electrode,
+and the +600 mV bias argument above still stands. Also do not calibrate in the
+swapped state: with C and R exchanged the bias is regulated against the counter
+electrode rather than a true reference, which is fine for an air point and not
+fine for tempco or long-term drift.
