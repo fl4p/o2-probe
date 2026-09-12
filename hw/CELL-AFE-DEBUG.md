@@ -2765,3 +2765,54 @@ clears when a cell goes in.
 allow the datasheet's up-to-15-minute settling, expect **~979 mV** in air. Cell
 #1 is worth trying first — it was condemned on a 610 µA reading that this short
 manufactured.
+
+#### 19:41 — acceptance test 2 PASSES. Board fully repaired
+
+Cell fitted at ~19:30. `AFE_VOUT` rose from 17 mV through 898 at 19:32 and
+settled:
+
+| | |
+|---|---|
+| `AFE_VOUT` | **966 mV** (19:41) |
+| implied cell current | (1679 − 966) / 7 kΩ = **101.9 µA** |
+| datasheet | 0.1 ± 0.03 mA in air |
+| `faults` | 34816 → **32768 = 0x8000, HEATER_DISABLED only** |
+
+ADC_RANGE and SETTLING both cleared. Cell, LMP91000, ADS1119 AIN0 and the whole
+reference chain are confirmed together by that one number.
+
+#### OPEN — a cell-footprint discrepancy that Rev B inherits
+
+Fab's note "R is swapped with C" is unresolved, and looking for it turned up a
+real file-level conflict:
+
+| source | pad at −2.54 | **centre (x=0)** | pad at +2.54 |
+|---|---|---|---|
+| Rev A board, `fab/o2-probe-rev-a-source/…/o2-probe.kicad_pcb` | pad 1 = CE | **pad 2 = RE** | pad 3 = WE |
+| library `SGX-OX-ROHS-Mini_ISS2.kicad_mod` backup, 2026-09-01 **15:14:53** | pad 1 = CE | **pad 2 = RE** | pad 3 = WE |
+| library backup 2026-09-01 **15:45:43** and HEAD | pad 1 = CE | **pad 3 = WE** | pad 2 = RE |
+
+So the footprint was **changed at 15:45 on 2026-09-01 to put WE on the centre
+pin**, and the fabricated Rev A board carries the older map with RE there.
+
+The datasheet figure supports the change. Re-read independently at 400 dpi from
+`DS-0637-SGX-OX-ROHS-Mini-Issue2.pdf` page 2: in the pin-face (bottom) view the
+Counter leader lands on the left pin, **Working on the centre pin**, Reference on
+the right — the same tracing the footprint `descr` records at 1400 dpi.
+
+**But the bench just contradicted it.** If the board's RE net met the cell's
+Working electrode, the potentiostat would hold `cell_R − cell_W = −600 mV`, i.e.
+bias the cell at **+600**, and the TIA would be measuring the *reference*
+electrode — no ~100 µA, and any current the wrong way, putting `AFE_VOUT` ABOVE
+the 1679 mV zero. It is at 966, below, at 101.9 µA, with the loop closing at the
+specified −601 mV. Three independent signs that the connection as it stands is
+correct.
+
+Something has to give. The likeliest resolution is that **the cell is not in the
+board socket** — if it is on flying leads, the bench result says nothing about
+the pad map, and Fab's "R is swapped with C" is describing his wiring. Ask
+before concluding.
+
+**This matters beyond this board: Rev B is built on the corrected footprint.**
+If the 15:45 change is wrong, Rev B ships with WE and RE transposed at the cell.
+Do not close this out on the strength of Rev A working.
