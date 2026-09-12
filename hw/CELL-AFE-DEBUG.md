@@ -1496,3 +1496,77 @@ is independent and comes first regardless.
 What survives 12:20 untouched: every pad voltage, the current balances, the
 LMP91000's clean bill of health, `/VREF_TRIM` at 2500, and the exoneration of
 R33, R34, R35, R36, R24, R25 and the reference chain.
+
+### 13:00 — the leak is SUPPLY-DEPENDENT. U8 is damaged; every passive cause is excluded
+
+Two experiments closed it.
+
+**C29 removed** (Fab): `VREF_MON` unchanged at 70 mV across three reads,
+`/VREF_MON_RAW` still 86 mV. C29 excluded as a component. This also proved pin
+8 is not an open joint — current is flowing into that stub, and an open lead
+draws none.
+
+**3 kΩ pull-up to 3.3 V on `/ADC_VREF_MON`** (Fab): node rose to 765 mV,
+`/VREF_MON_RAW` to 783 mV. Solving:
+
+    in  from pull-up:  (3300 - 765)/3k     = 845 uA
+    in  through R36:   (783 - 765)/1k      =  18 uA   (predicted 20)
+    at node A: in (2500-783)/47k = 36.5 uA, out 783/47k + 18 = 34.7 uA
+                                            -> balance 1.8 uA
+    leak: 863 uA at 765 mV                  = 887 ohm
+
+against 720 Ω at the unpulled operating point (36 mV / 50 µA). **Ohmic across
+a 17× current range** — not a junction, which would conduct nanoamps at 36 mV
+and get steeply less resistive at 765 mV. R34/R35/R36 confirmed intact a third
+time.
+
+**Then the falsifier: ohm `/ADC_VREF_MON` to GND with the board unpowered.**
+Fab measured **36 kΩ**. R36 1 k + R35 47 k with a partial path through R34
+puts a clean board between 24 k and 48 k, so 36 kΩ IS the passive network —
+and it is 40× the 885 Ω the powered measurement requires.
+
+That reading self-validates the conditions too: with the external 3.3 V still
+injected it would have read ~866 Ω, and with the 3 k pull-up still on a
+low-impedance source, ~3 kΩ. Neither happened.
+
+**The leak exists only when the chip is powered**, which excludes every
+passive cause simultaneously:
+
+| candidate | verdict |
+|---|---|
+| surface residue / coating film on the net | **excluded** — would conduct unpowered |
+| residue across the empty C29 footprint | **excluded** — same |
+| solder/metal bridge to the pad under U8 | **excluded** — same |
+| C29 soft-shorted | excluded by removal |
+| supply-dependent conduction inside U8 | **only survivor** |
+
+A conduction path that appears with AVDD and vanishes without it is a damaged
+input clamp or a latched parasitic — consistent with the ohmic behaviour.
+
+**U8 (ADS1119IRTER) is damaged and is replaced.** Unlike the 12:20 call, the
+falsifying experiment was run and came back clean. The AIN0 misreport (pin at
+1650 mV, converts as 34 mV, = the preceding AIN1 sample) is a second defect in
+the same part and no longer needs separating from a joint.
+
+Still exonerated, and not to be touched: the 2.5 V reference and its OPA2333
+buffer, `/VREF_TRIM`, R24, R25, R33, R34, R35, R36, C28, and the LMP91000 —
+whose output at 1673 mV is 0.67 × 2500 to within 2 mV.
+
+#### Likely cause, and the sequencing that follows from it
+
+Every 3V3A dropout ran the ADS in an abusive state: DVDD present, AVDD at
+zero, and `/ADC_VIN_MON` still held near 1.75 V by the VIN divider, **which is
+not fed from 3V3A**. That injects into a dead supply through the input clamp,
+repeatedly, across at least the 22:37 and the 09-12 morning events.
+
+**Repair 3V3A before fitting the replacement**, or the new part is a candidate
+to fail the same way. Rail work outstanding: U3 pin 3 (EN, 111.86/86.95) vs
+pin 1 (IN, 111.86/85.05) — an open EN joint lets the internal 500 kΩ pulldown
+shut the regulator off; and U3 pin 5 (114.14/85.05) vs the injection point.
+
+**Open, asked three times:** what the bench supply is set to. PA7 keeps putting
+the 3V3A tap at 2612 mV, i.e. a **5.2 V** rail through the ÷2 R24/R25 are
+supposed to be — inside the ADS1119's range but at the LMP91000's 5.25 V
+ceiling. Either the supply is set high, or R24/R25 as fitted are not ÷2 and the
+firmware's scale factor is wrong. Fitted-vs-designed divergence has precedent
+here (the VIN divider is 82k/10k, not the designed 130k/20k, reg 0x004B).
