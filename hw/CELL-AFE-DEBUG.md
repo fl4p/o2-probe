@@ -1118,3 +1118,40 @@ R33.2 (105.18, 114.0) makes it three of four and separates a genuinely dead
 LMP output from one being dragged by the ADS. And what damaged three inputs
 while sparing AIN3 is unexplained; all four are fed through equal 1 k series
 resistors.
+
+### 10:50 — discriminator run: `/VREF_MON_RAW` = 90 mV. AIN1 is damaged, confirmed
+
+The 10:35 section's AIN1 half was briefly in doubt: a 34 mV reading at R36.1
+would have meant the node and the ADS pin sat at the same voltage, hence no
+current across R36 and an innocent AIN1 with a ~680 Ω leak on the board node
+instead. The two hypotheses predicted different node voltages — 90 mV if the
+ADS sinks, 35 mV if the board leaks — so one careful re-probe settles it.
+
+**Measured 90 mV at R34.2, R35.1 and R36.1 alike.** The 34 mV was a bad
+contact. The board-leak hypothesis is refuted; **AIN1 sinks.**
+
+Solving exactly, with R34.1 = 2484 mV and the firmware's pin estimate of
+35 mV (VREF_MON 70 / 2) as the constraint:
+
+    (2484 - V)/47k = V/47k + (V - 35)/1k   ->   V = 84.3 mV
+
+against 90 mV measured — a 6 mV agreement on a node whose expected value is
+1242 mV. The implied pin shunt is **35 mV / 49.3 µA ≈ 710 Ω**.
+
+So both diagnoses in the 10:35 section stand, each independently derived and
+each cross-checked against a measurement that was not used to build it:
+
+| pin | channel | leak | direction | cross-check |
+|---|---|--:|---|---|
+| U8.8 | AIN1 | ≈710 Ω to GND, 49 µA in | **down** | node predicted 84.3 mV, measured 90 |
+| U8.5 | AIN2 | ≈2.6 kΩ to AVDD, 198 µA out | **up** | `/VA_MON` predicted 2.64 V, measured 2.59 |
+| U8.4 | AIN3 | none | — | VIN 13.128 V, correct |
+
+Opposite polarities on adjacent pins, both quantitatively consistent with an
+internal clamp to the respective supply rail. **Replace U8.** The reference,
+`/VREF_TRIM`, R24, R25, R34, R35, R36, R37 and the via chain are all exonerated
+by the same two calculations.
+
+Still open: AIN0 `/ADC_AFE_VOUT` (R33.1 106.83,114.0 vs R33.2 105.18,114.0),
+and why AIN3 survived when all four inputs sit behind identical 1 kΩ series
+resistors.
