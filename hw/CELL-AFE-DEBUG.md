@@ -1227,3 +1227,80 @@ Also unexplained and now urgent: `/VA_MON` was 2.590 V at ~10:20 and 35 mV at
 3V3A, so either R24 is open or **3V3A has gone**. If 3V3A dropped, TP4 = 2484
 is stale too, since the reference is derived from it. Meter 3V3A and TP4 again
 before anything else.
+
+### 11:25 — 3V3A IS DOWN. It is intermittent, and everything this morning was downstream of it
+
+The self-locating sweep worked. Fab read the row left-to-right **as seen from
+the bottom side**, which is decreasing x in board coordinates, so the sequence
+arrived reversed — and the landmarks caught it: his zeros fell at positions 2
+and 6, exactly the reversed pattern. Decoded:
+
+| # | pad | net | mV |
+|---|---|---|--:|
+| 1 | C29.1 | `/ADC_VREF_MON` | 425 |
+| 2 | C29.2 | GND | 0 |
+| 3 | R36.1 | `/VREF_MON_RAW` | 416 |
+| 4 | R36.2 | `/ADC_VREF_MON` | 425 |
+| 5 | R35.1 | `/VREF_MON_RAW` | 416 |
+| 6 | R35.2 | GND | 0 |
+| 7 | R34.1 | `/VREF_TRIM` | **500** |
+| 8 | R34.2 | `/VREF_MON_RAW` | 416 |
+
+Both `/ADC_VREF_MON` pads agree at 425, all three `/VREF_MON_RAW` pads agree
+at 416, both grounds are 0, and TP4 — a different point on `/VREF_TRIM`,
+metered separately — also reads 500. Every net is internally consistent and
+cross-checked. **This is the first pad measurement today that can be trusted,
+and the technique is why: read a row as a SEQUENCE with known landmarks in it,
+never by counting to a designator.**
+
+C30.1 (`/ADC_VA_MON`) = 36 mV.
+
+Over the wire at the same moment (probe uptime 328 s):
+
+    diag 3      ADS1119 STATUS  -> ERR_NACK
+    diag 1:0x00 LMP91000 STATUS -> ERR_NACK
+    diag 5      TMP117          -> ERR_TIMEOUT
+    VA_MV 48    VREF/VIN/AFE_VOUT all invalid
+
+**`3V3A` is at ~48 mV.** PA7 puts the 10k/10k tap at 24 mV. Both 3V3A-powered
+parts NACK. `/VREF_TRIM` collapsed to 500 mV because U4, the OPA2333 that
+buffers the reference, is itself powered from 3V3A (U4.8).
+
+At 09:10 those same two parts ANSWERED and AIN3 returned a correct 13.128 V,
+and TP4 read 2484 mV. **So 3V3A is intermittent, not dead.** That is also what
+moved `/VA_MON` from 2.590 V to 35 mV between 10:20 and 10:55: the rail went
+away underneath it. It is the same signature as last night's 22:37 event,
+where the 3V3A parts NACKed and the 3V3D parts answered.
+
+**Every pad-level conclusion this morning was measuring a symptom of this.**
+The AIN1/AIN2 leak models are not merely unproven, they were fitted to a
+network whose supply was coming and going during the measurements.
+
+Rev A analog rail: `+5V` → R32 10R → `/+5V_ANALOG` (C7 10u, C27 100n) → U3
+TPS7A2033PDBVR (pin 1 IN, pin 3 IN/EN, pin 5 OUT) → `/3V3A` (C8 1u, C16, C18,
+C25 100n) → U4.8, U7.6, U8.10, R20, R24. All on F.Cu around y = 83–88 except
+the decoupling.
+
+#### Next, powered, top side
+
+| point | x, y | expect |
+|---|---|--:|
+| U3.5 `3V3A` | 114.14, 85.05 | 3.3 V — predict ~0.05 |
+| U3.1 / U3.3 `/+5V_ANALOG` | 111.86, 85.05 / 86.95 | ~4.9 V |
+| across R32 (`+5V` 110.00, 83.59 → `/+5V_ANALOG` 110.00, 85.41) | | the analog rail's whole current, 1 mV = 100 µA |
+
+- +5V_ANALOG good, 3V3A ~0, R32 drop < 10 mV ⇒ nothing is drawing; U3 has
+  stopped conducting. A cracked joint on a SOT-23-5 after coating and 30 min
+  of hot air is the obvious intermittent.
+- Large R32 drop ⇒ 3V3A is shorted and U3 is in current limit; then ohm 3V3A
+  to GND unpowered and work through C8, C16, C18, C25, U7, U8.
+- +5V_ANALOG also low ⇒ upstream, R32 or the +5 V buck.
+
+#### Bench-measurement rule adopted today
+
+Three wrong conclusions came from single designator-labelled pad readings on a
+3 mm-pitch row. From now on, for any dense row: give the pads as a **sequence
+with landmarks** (grounds, and one pad at a known distinctive voltage), have
+every net appear at **two or more pads**, and state that a bottom-side view
+mirrors left-to-right against board coordinates. Fit no network model to a
+reading until the sequence has decoded itself.
