@@ -1471,21 +1471,23 @@ add_passive("C31",208.28,177.8,"100n","Capacitor_SMD:C_0402_1005Metric","ADC_RE_
 # internal diode share the current -- which is the exact thing being prevented.
 # A BAT54 at 10 uA sits near -0.1 V and keeps the pad off.
 #
-# THE LEAKAGE COST IS REAL AND IS BUDGETED, not waved past: this diode's reverse
-# leakage flows through the divider's 9.0 kOhm (R26||R27).  BAT54W-G's 2 uA max
-# is quoted at VR = 25 V (Vishay 86409 Electrical Characteristics -- identical to
-# the Diodes BAT54 headline, so the budget below did not move when the part did);
-# at the 1.2 V of reverse bias this node actually applies it is
-# far lower, but taking the catalogue maximum anyway gives 18 mV on a 1188 mV
-# reading -- 0.18 V of apparent error on a 12 V rail whose thresholds are 7 V
-# and 15 V.  Acceptable HERE because VIN_MON is health and nothing scales by it.
-# THIS REASONING DOES NOT LICENSE A CLAMP ON AN OXYGEN-PATH CHANNEL: the same
-# 2 uA on R33's 1k would be 2 mV, 0.06 %O2, on the measurement itself.
-# SELECTION GATE, STILL OPEN AS OF 2026-09-12: Ir <= 1 uA at 1.2 V reverse,
-# 85 C.  Confirm on the curve, not on the 25 V headline number, before release.
-# Vishay 86409 Fig. 3 plots Ir vs Vr at -40 / 25 / 125 C ONLY, so 85 C is an
-# interpolation between plotted curves and NOT a specified value.  Digitize it
-# (dsdig, not by eye) before calling this gate met; it is not met today.
+# VIN_MON LEAKAGE ACCEPTANCE, 2026-09-12. Fab's decision relayed by revb-ee
+# on channel revB: "relax the gate, record the number"; retain BAT54W-G3-08.
+# Retire the earlier arbitrary Ir <= 1 uA at 1.2 V / 85 C selection gate.
+# VIN_MON is health telemetry with 7 V / 15 V rail thresholds; it does not
+# scale oxygen measurements. The earlier 18 mV budget was not a requirement.
+# Peer visual estimate from Vishay 85885 Fig. 3: approximately 8 uA at
+# 1.2 V / 85 C, about 75 mV at VIN_MON (about 0.76 V referred to the rail).
+# THESE NUMBERS ARE UNVERIFIED VISUAL ESTIMATES, not digitized measurements,
+# production limits, or physical qualification. revb-ee is preparing dsdig
+# overlays; replace estimates with evidence when that work is reviewed.
+# The nominal 12 V rail is 3 V from the nearest threshold (15 V), NOT 5 V;
+# 5 V is the distance to the lower 7 V threshold. Typical leakage plots do not
+# guarantee worst-case accuracy at either decision boundary.
+# This node-specific acceptance does not authorize clamps on oxygen inputs.
+# Vishay 85885's 2 uA maximum is specified at 25 C / VR=25 V and does not
+# bound leakage at 85 C. Fig. 3 shows typical 25/50/75/100/125 C leakage;
+# the -40/25/125 C legend belongs to Fig. 1 FORWARD current.
 #
 # PART AND POLARITY, CORRECTED 2026-09-12 after the Codex PCB session found BOTH
 # wrong in the first landing.  Recorded because the shape of the error matters:
@@ -1504,12 +1506,12 @@ add_passive("C31",208.28,177.8,"100n","Capacitor_SMD:C_0402_1005Metric","ADC_RE_
 #   ships no authoritative one for that part, so keeping the MPN would have
 #   meant hand-authoring a symbol -- exactly what authoritative_symbol() exists
 #   to forbid.  Vishay BAT54W-G is the same 30 V / 200 mA single Schottky in
-#   SOD-123 (Vishay 86409: Mechanical Data "Case: SOD-123", Parts Table
+#   SOD-123 (Vishay 85885: Mechanical Data "Case: SOD-123", Parts Table
 #   "Single"), so the footprint, the two-pin authoritative symbol and the land
 #   pattern all stay as drawn.  BEWARE THE W SUFFIX: it means SOT-323 at Diodes
 #   and at Nexperia but SOD-123 at Vishay, which is the likeliest source of the
 #   original error.  Orderable as BAT54W-G3-08 (Mouser DE, 29.5k in stock).
-add_passive("D8", 246.38, 167.64, "BAT54W-G", "Diode_SMD:D_SOD-123",
+add_passive("D8", 246.38, 175.26, "BAT54W-G", "Diode_SMD:D_SOD-123",
             "VIN_MON", "GND", lib=SCHOTTKY2, angle=180, mpn="BAT54W-G3-08",
             note="Negative-injection clamp on PA6. Pin 1 is the CATHODE and goes to VIN_MON; "
                  "pin 2 is the ANODE and goes to AGND. It therefore sits reverse-biased at "
@@ -1528,17 +1530,11 @@ add_passive("C33",226.06,177.8,"100n","Capacitor_SMD:C_0402_1005Metric","VA_MON"
                  "note originally assumed, so the conclusion is unchanged: this reservoir is "
                  "MORE load-bearing, not less, because it is what absorbs the ADC's sampling "
                  "kick at the higher source impedance")
-# R34/R35/R36/C29 -- the 47k/47k VREF health divider and its 1k/100n filter --
-# are DELETED (docs/2026-09-12-revb-decision-vref-monitor.md), and with them the
-# nets /VREF_MON_RAW and /ADC_VREF_MON.  /VREF_TRIM is 2.500 V, below VDDA, so
-# the MCU converts it with NO DIVIDER AT ALL -- straight off U15's REF3425
-# output, against the 50 kOhm RAIN limit of DS12232 Table 59.  (Rev A reached
-# this net through R31's 47 Ohm from an OPA2333 buffering trimpot RV1; that
-# whole network died with the AZ431 shunt.)  The old
-# path put two 23.5 kOhm-source nodes on the board, where DS12232 Table 51's
-# 70 nA of pad leakage is 1.6 mV of error; direct, it is 3 uV.  That divider is
-# where the ~800 Ohm leak of 2026-09-11 grew.  This does not make an in-package
-# leak impossible -- it makes one unable to blind the reference monitor.
+# R34/R35/R36/C29 and their monitor nets are deleted. REF3425 drives the
+# ADC reference input U6.5/VREF+ directly; PA5/U6.16 remains unused. There is
+# no conversion of VREF_TRIM as a signal channel. Reference collapse is
+# detected by measuring internal VREFINT against this external full scale;
+# this does not measure REF3425 drift. See the adopted 2026-09-12 specification.
 
 place("U11",CELL,85.09,162.56,value="SGX-OX-ROHS-Mini",footprint="o2-probe:SGX-OX-ROHS-Mini_ISS2",
       mpn="SGX-OX-ROHS-Mini",

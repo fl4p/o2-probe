@@ -1,22 +1,27 @@
 #!/usr/bin/env python3
-"""Find overlapping graphics and text on the generated schematic sheet.
+"""Heuristic screen of generated schematic geometry; not rendered signoff.
 
 ERC does not care what a sheet LOOKS like, and this board's sheet had grown
 symbols sitting on each other and value strings printed through net labels
-(Fab, 2026-09-12: "fix that overlapping text").  This audit is the check that
-was missing: it rebuilds the placement model from gen_sch.py and reports every
-box that intersects another.
+(Fab, 2026-09-12: "fix that overlapping text").  The legacy pass uses coarse model boxes; those are not the emitted field
+anchors. A separate bounded pass reads saved reference anchors for 0/180-degree
+instances and detects their overlap with symbol body boxes.
 
 Text extents are ESTIMATED from KiCad's default 1.27 mm text and ~0.85 aspect,
-so a near miss here is advisory.  A hit is not: symbol-on-symbol overlap is
-computed from real geometry.
+so these hits are screening findings, not exact glyph intersections. Symbol
+body overlap is estimated from the generator body model. Values and quarter-turn fields remain
+outside the saved-reference check and require visual review.
 """
-import importlib.util, io, contextlib, sys
+import importlib.util, io, contextlib, sys, hashlib
+from pathlib import Path
+from audit_layout_references import reference_body_hits
+
+ROOT = Path(__file__).resolve().parent
 
 CH_W, TXT_H, PAD = 1.08, 1.27, 0.4
 
 def load():
-    spec = importlib.util.spec_from_file_location("gs", "gen_sch.py")
+    spec = importlib.util.spec_from_file_location("gs", str(ROOT / "gen_sch.py"))
     m = importlib.util.module_from_spec(spec)
     sys.argv = ["gen_sch.py"]
     with contextlib.redirect_stdout(io.StringIO()):
@@ -83,6 +88,13 @@ def struck_through(m, bx):
 
 
 def main():
+    for name in ("gen_sch.py", "audit_layout.py", "audit_layout_references.py", "o2-probe.kicad_sch"):
+        try:
+            digest = hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
+        except OSError as exc:
+            print("result: UNVERIFIED - missing audit input:", exc)
+            return 2
+        print(f"input {name}: {digest}")
     m = load()
     bx = boxes(m)
     hits = []
@@ -97,9 +109,17 @@ def main():
             if ox > PAD and oy > PAD:
                 hits.append((round(ox * oy, 2), n1, n2))
     hits.extend(struck_through(m, bx))
+    try:
+        reference_hits, coverage = reference_body_hits(m, (ROOT / "o2-probe.kicad_sch").read_text())
+    except (OSError, ValueError) as exc:
+        print("result: UNVERIFIED - saved reference/body screen:", exc)
+        return 2
+    hits.extend(reference_hits)
     hits.sort(reverse=True)
     print("O2 probe schematic LAYOUT audit")
+    print("scope: heuristic model boxes plus bounded saved-reference/body screen; rendered review required")
     print(f"items: {len(bx)}")
+    print("saved reference coverage:", coverage)
     print(f"collisions: {len(hits)}")
     for area, n1, n2 in hits[:40]:
         print(f"  {area:8.2f} mm2  {n1}  <->  {n2}")

@@ -3,6 +3,7 @@
 
 from pathlib import Path
 import re
+import hashlib
 import shutil
 import subprocess
 import sys
@@ -13,6 +14,18 @@ SCH = ROOT / "o2-probe.kicad_sch"
 XML = ROOT / "o2-probe.xml"
 REPORT = ROOT / "schematic-audit.rpt"
 KICAD = shutil.which("kicad-cli") or "/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli"
+
+# Invalidate persisted success before any operation that can fail. Missing,
+# unreadable, malformed or failed native exports leave an explicit UNVERIFIED
+# result and cannot expose an XML file from a previous successful run.
+REPORT.write_text("O2 probe schematic connectivity audit\nresult: UNVERIFIED\n")
+XML.unlink(missing_ok=True)
+def fingerprint(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+input_hashes = {name: fingerprint(ROOT / name)
+                for name in ("o2-probe.kicad_sch", "gen_sch.py", "audit_schematic.py")}
+REPORT.write_text("O2 probe schematic connectivity audit\nresult: UNVERIFIED\n" +
+                  "".join(f"input {name}: {digest}\n" for name, digest in input_hashes.items()))
 
 subprocess.run(
     [KICAD, "sch", "export", "netlist", "--format", "kicadxml", "-o", str(XML), str(SCH)],
@@ -225,6 +238,10 @@ for node in ("J104.1", "D2.2", "J103.1", "D2.1", "U11.1", "U11.2", "U11.3"):
     if pin_to_net.get(node) == "GND":
         errors.append(f"{node} unexpectedly shorted to GND")
 
+for name, digest in input_hashes.items():
+    if fingerprint(ROOT / name) != digest:
+        errors.append(f"input changed while auditing: {name}")
+
 lines = [
     "O2 probe schematic connectivity audit",
     f"components: {len(components)}",
@@ -232,6 +249,8 @@ lines = [
     f"result: {'FAIL' if errors else 'PASS'}",
 ]
 lines.extend(f"ERROR: {e}" for e in errors)
+lines += [f"input {name}: {digest}" for name, digest in input_hashes.items()]
+lines.append(f"export o2-probe.xml: {fingerprint(XML)}")
 REPORT.write_text("\n".join(lines) + "\n")
 print(REPORT.read_text(), end="")
 sys.exit(bool(errors))

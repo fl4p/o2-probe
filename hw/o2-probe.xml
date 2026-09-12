@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <export version="E">
   <design>
-    <source>/Users/fab/dev/ee/hw/o2-probe/o2-probe.kicad_sch</source>
-    <date>2026-09-12T17:27:39</date>
+    <source>/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/o2-probe.kicad_sch</source>
+    <date>2026-09-12T18:22:42</date>
     <tool>Eeschema 10.0.5</tool>
     <sheet number="1" name="/" tstamps="/">
       <title_block>
