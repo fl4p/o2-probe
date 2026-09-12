@@ -2660,3 +2660,85 @@ parts on this board stands at three: U8 (the original), U3, R36.
 Next: inspect R39 — fitted part, or a bridge across bare pads. Clear it, refit
 C28, and `AFE_VOUT` should read **~1679 mV with no cell**, which is the U7
 acceptance test and is already half-passed by the 1.5 V meter reading.
+
+### 2026-09-12 19:17 — SOLVED. A solder bridge at C9, found by 1 A injection + thermal camera
+
+Fab injected **1 A** into the R39 pad and photographed the board with a thermal
+camera. The current path lit up as a serpentine trace at **82.2 °C** against a
+29.9 °C board, terminating at **C9**. Desoldering C9 cleared the short. The
+solder mask looked intact and the damage was not visible under magnification.
+
+**Live confirmation, 19:16:43, no cell fitted:**
+
+| register | value | expected |
+|---|---|---|
+| `AFE_VOUT` | **1679 mV** | 0.67 × 2506 = **1679** |
+| `cell_ua` | **−0.03 µA** | 0 |
+| `VREF_MON` | 2506 | — |
+| `VA_MON` | 3298 | — |
+
+**Acceptance test 1 passes exactly.** U7, the new U8 and both cells are all
+confirmed good.
+
+#### The bridge was not a failed capacitor
+
+C9 is `100n` **on `/VREF_WIPER`** — RV1's wiper into U4.3, the OPA2333 that
+buffers the reference — with C9.2 to GND. It is not on `/ADC_AFE_VOUT` at all,
+and `VREF_MON` read a correct 2506 mV throughout, so C9 itself was never
+shorted.
+
+What it was is a **bridge from C9's copper to the `/ADC_AFE_VOUT` trace running
+past it.** C9 sits at (112.400, 122.500) on B.Cu and R39 at (112.400, 128.500) —
+same x, 6 mm apart — so that trace passes directly by C9 on its way to R39,
+which is exactly what the IR gradient said at 18:50: the sink is past U8, at the
+R39 end. Removing C9 took the bridging solder with it.
+
+#### The 1 A / thermal-camera technique found in minutes what µV probing could not
+
+The IR gradient localised the sink to the R39 end of the net and gave its
+resistance as ~5 mΩ — correct, and enough to rule out U7, U8 and both cells, but
+it could not point at a part 6 mm away with nothing on the schematic connecting
+it. Injecting a current large enough to make 5 mΩ dissipate visibly, and looking
+at where the heat goes, does not need the netlist to be right about anything.
+**Reach for this earlier on any short that ohms out as metal.**
+
+#### It was self-inflicted, and it was the SECOND defect on this channel
+
+| when | `gas_afe_mv` | |
+|---|---|---|
+| up to 09-11 22:20 | **979–980 mV** | textbook air reading |
+| 09-11 22:25 → 09-12 15:45 | 54, then a slow drift **35–43 mV** | the coating-heat damage to the *old* U8 |
+| **09-12 ~16:25 onward** | **exactly 0** | the C9 bridge |
+| 09-12 19:16 | **1679 mV** | no cell, fixed |
+
+The hard zero does **not** date to the 22:24 coating-heat event. It appears at
+~16:25 today, *after* the bottom-side hot-air work at R36/C30 — and **C9 is
+1.7 mm from R36 on the same side of the board**. Likely, not proven: the U8
+rework is also a hot-air event in the neighbourhood, though on the opposite
+face. Either way the bridge was made during diagnosis, not by the original
+failure, and it sent the investigation through a retracted U7 verdict.
+
+**Check for new shorts after every hot-air intervention on this board.** The
+bottom-side row here is dense and the mask survives temperatures that mobilise
+solder onto a neighbouring trace.
+
+#### C9 must go back
+
+It is the filter on the trimpot wiper feeding the reference buffer, and VREF
+scales every ADS channel. The board runs without it — VREF reads 2506 right now
+— but it is not a DNP. Refit it, then **re-measure R33.2 to GND before trusting
+the channel again**, since refitting is the same operation that created the
+bridge.
+
+#### Final tally for this board
+
+| part | fault | status |
+|---|---|---|
+| U8 ADS1119 (original) | two powered input leaks + a mux returning the preceding channel | replaced |
+| U3 TPS7A2033 | would not regulate with IN, EN and GND all correct | replaced |
+| R36 1 kΩ | failed during the U8 rework | replaced |
+| C9 | solder bridge to the `/ADC_AFE_VOUT` trace, made during diagnosis | **removed — must be refitted** |
+
+Withdrawn along the way: U7, the replacement U8, cell #1 and cell #2. The
+"610 µA" that condemned cell #1 and the "240 µA" that condemned U7 were the same
+arithmetic artefact of `V_out = 0`.
