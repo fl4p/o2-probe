@@ -2476,3 +2476,54 @@ board shunt gives the identical reading, and the two were never separated.
 
 Pull cell #2 first: there is no reason to leave a good cell biased into a short,
 and it is very likely still good.
+
+### 18:05 — U7 is the third damaged part: current enters the TIA node from inside the package
+
+With **no cell fitted**, three consecutive reads gave `AFE_VOUT` = 0 against an
+internal zero of 1679 mV, i.e. **≥240 µA into WE with nothing connected to it.**
+Telemetry confirms it was 0 on every sample from 17:09 to 17:40, including the
+17:37–17:39 window when cell #1 was out and cell #2 not yet in.
+
+**Both cells are exonerated, and so is the 80 °C drying verdict of 17:45.**
+
+#### The chain of elimination
+
+| observation | eliminates |
+|---|---|
+| `AFE_VOUT` = 0 with no cell, on every sample | the cells |
+| Fab: **WE = 1680 mV** while the output sits at 0 | **a stuck output stage.** If VOUT were stuck at 0, the internal 7 kΩ feedback resistor would drag WE to 0 as well, since WE has no other DC path with the cell out. WE sitting at the internal zero means the amplifier is REGULATING, which requires it to be sinking real current |
+| CE = 0 mV, RE = 40 mV — both **below** WE's 1680 | CE, RE and GND as sources. The TIA is SINKING (VOUT below the zero), so current flows INTO WE; a leak to a lower node would pull current OUT and drive VOUT up |
+| every board path **>1 MΩ**, and TP1↔TP4 reads 5.8 MΩ one way and **negative** reversed — a junction or an EMF, not a resistor | **all passive residue**, including the pin 11 ↔ pin 12 bridge that the 09-10 note made the prime suspect |
+
+**Conclusion: the current enters the TIA summing node from inside U7 when
+powered.** Identical in signature to the ADS1119 earlier today — open to an
+ohmmeter, hundreds of microamps when energised — and U7 has taken everything
+that part took: the 22:24 coating heat, steam, submersion, 80 °C drying, and two
+reworks at the pins 10–13 edge (09-10 note).
+
+*Note the pin 11 ↔ pin 12 hypothesis of 18:00 was a good one — `/VREF_TRIM` on
+pin 11 and `/CELL_WE` on pin 12 are 0.5 mm apart, VREF at 2506 mV is the only
+neighbour above WE's 1680, and 826 mV / 240 µA = 3.44 kΩ fits a residue film.
+It was killed by measurement, which is the right way for it to die.*
+
+#### Replace U7 (LMP91000)
+
+**Stock: InvenTree reports `LMP91000SDX/NOPB` in_stock 0, but PO-0010 carries
+5×** and Fab confirmed that order as received — the receipts were never booked
+(the parked PO-0010 discrepancy). Check the physical bin before ordering. SDX is
+the same WSON-14 part as the SD in the netlist, in reel packaging.
+
+**Acceptance tests, in order:**
+
+1. **No cell fitted**, power up, read `AFE_VOUT` — **~1679 mV = fixed.** This is
+   the better test: no cell, no settling delay, and unambiguous.
+2. Then fit a cell, wait out the settling, expect **~979 mV** in air.
+
+#### Running total for this board
+
+| part | fault |
+|---|---|
+| U8 ADS1119 | two powered input leaks + a mux returning the preceding channel |
+| U3 TPS7A2033 | would not regulate with IN, EN and GND all correct |
+| R36 1 kΩ | failed during the U8 rework |
+| **U7 LMP91000** | **current into the TIA node from inside the package** |
