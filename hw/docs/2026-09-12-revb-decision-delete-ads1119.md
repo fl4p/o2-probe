@@ -301,12 +301,19 @@ sensitivity, both behind R32/C7. **~1000x on the term that dominates.**
 
 ## Open, and deliberately not closed by this decision
 
-1. **Keep U8's footprint, or reclaim the area?** The footprint was a hedge
-   against an undecided question, and the question is now decided — but the one
-   term no datasheet can settle is still unmeasured: whether the MCU's
-   conversions pick up noise from its own digital activity, RS-485 and the LoRa
-   duty cycle. **Recommendation: keep it if board area allows on a probe this
-   size, drop it if it costs routing.** revB's call as the layout owner.
+1. ~~**Keep U8's footprint, or reclaim the area?**~~ **CLOSED 2026-09-12 —
+   DROPPED**, by revB, on a better argument than the one I offered. I had
+   recommended keeping it if area allowed, treating it as a PCB-area question.
+   It is not: on a generated board a footprint can only be retained by keeping
+   U8 in the netlist as a DNP, and a DNP U8 puts U8's pads back into `ASSIGNED`,
+   which makes `gen_hw_caps.py` derive `O2P_HW_HAS_ADS1119 = 1` and emit channel
+   macros for a part that is not fitted. **That is precisely the failure the
+   per-revision capability split exists to prevent**, and the one that cost a
+   healthy probe every oxygen reading on 09-09. A hedge that makes firmware
+   assert hardware the board does not have is not a hedge. If the digital-noise
+   term does bite, the remedy is shielding, a sampling change or a different
+   converter — not a resurrected ADS1119 whose three dead inputs are the reason
+   for this document.
 2. **The single-rail buck ripple** remains the release gate of
    `2026-09-12-revb-single-rail-supply.md` §8.7/§9. This decision makes the
    oxygen channel insensitive to it; it does not measure it. That gate needs a
@@ -317,3 +324,49 @@ sensitivity, both behind R32/C7. **~1000x on the term that dominates.**
    it. No longer gates this decision, since the acceptance criterion is re-based.
 4. **STM32G0 `CHSELR`/`CCRDY` errata** — unverified, the errata sheet is not
    archived. Worth one fetch before the sampler port relies on the handshake.
+
+## Implemented 2026-09-12 — revB, `~/dev/ee` commit `68e6bde` (unpushed)
+
+83 components / 292 pins, `kicad-cli sch erc` 0/0, `audit_schematic` PASS
+(72 nets), `audit_layout` PASS, `pio run -e o2probe` SUCCESS, 360/360 native.
+Every hardware line above is in, plus `C26` 100 n relocated onto `/VREF_TRIM` at
+pin 5 and `D8` BAT54 on PA6.
+
+**Verified independently here, not relayed:** regenerating both caps headers
+from the current netlist reproduces revB's committed files **byte-identically**,
+so the emitted capability set is what the netlist actually implies.
+
+Two defects they found by reading the *emitted header* rather than trusting the
+restructure — **both silent, neither would have failed a build, both would have
+lied to a firmware guard**:
+
+1. `O2P_HW_VREF_NET_SHARED_WITH_AFE` inverted to **0** on Rev B. The
+   `has_ads` branch read PA5 as "the converter's reference", true only while the
+   reference was a measured channel; once `VREF+` became the reference, PA5 went
+   to `(NC)` and the flag flipped — while the true answer is emphatically yes.
+   Now derived from U6.5.
+2. The pad normaliser prefixed the `(NC)` marker into `/(NC)`, which reads as a
+   net named `NC`.
+
+**The architecture is now locked in the caps, not just documented.**
+`O2P_HW_VREF_IS_ADC_REFERENCE`, derived from one pad: when 1,
+`O2P_HW_DIV_VREF_MON_*` **do not exist** and `O2P_HW_VREF_MV` 2500u does; when
+0, the reverse. Asking for the wrong one is a compile error. And `board_pins.h`
+asserts `/VREF_TRIM` lands on pin 5 via a new `O2P_LQFP48_VREFP`, so **putting
+pin 5 back on 3V3D stops the build** rather than quietly re-admitting VDDA at
+0.718 mV/mV. That is the right shape: the thing that must not silently regress
+now cannot.
+
+### D8 selection gate, and its deliberate limit
+
+`Ir <= 1 uA at 1.2 V reverse, 85 C`, taken from the **curve**, not the headline.
+The catalogue 2 uA at 25 V would be 18 mV on `VIN_MON` through the divider's
+9.0k — tolerable only because nothing scales by that reading. revB recorded in
+the schematic that this reasoning **does not license a clamp on an oxygen-path
+channel**: 2 uA into R33's 1 k is 0.06 %O2 on the measurement itself. Correct,
+and it is the distinction that makes footnote 3's mitigation safe to fit.
+
+**Procurement gap:** `BAT54-7-F` is on no purchase order and `audit_bom` flags
+it. Checked against stock on hand — **nothing suitable**: the five Schottkys
+held are all power rectifiers (1 A to 40 A, 40-100 V), whose reverse leakage at
+85 C is orders of magnitude outside the 1 uA gate. D8 must be bought.
