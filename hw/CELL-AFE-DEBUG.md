@@ -2018,3 +2018,72 @@ intermittent joints, fitted-component deviations, PA7 error or loading, shared
 supply/ground/reference faults, and runtime acquisition behaviour that source
 review cannot reach. **An IPA clean and bake is cheap, non-destructive, and has
 precedent on this exact board (09-10) — it should be tried before desoldering.**
+
+### 13:10 — ROOT CAUSE from the VictoriaMetrics history: heat applied to dry the coating, 22:24
+
+Fab asked whether the captured ADC telemetry had been examined for over-voltage.
+It had not — five hours of live bench work had been done without querying the
+historian. Three queries answered what the bench had not.
+
+**There is no over-voltage anywhere in fourteen days.** Sentinels excluded:
+
+| channel | max over 14 d | implied ADS input | AVDD |
+|---|--:|--:|--:|
+| `gas_vin_mv` | 13138 | AIN3 pin **1.43 V** (stored ÷9.18) | 3.3 V |
+| `gas_afe_mv` | **2495 mV** | AIN0 | 3.3 V |
+| `gas_vref_mv` | **2512 mV** | — | 3.3 V |
+| `gas_va_mv` 5226 | `/VA_MON` tap **2.61 V** | AIN2 | 3.3 V |
+
+No ADS input ever exceeded ~2.6 V against a 3.3 V supply, in any recorded
+sample.
+
+**Both defects were born in the same minute, 2026-09-11 22:24.** `gas_va_mv`
+had been a steady 3080–3114 mV since **09-06**; minute-resolution trace:
+
+    time    vref    va      vin     afe   faults   i2c_err  ads_fail  duty  chamber  die
+    22:23   2496   3114   13119    980   0x8041         0         0   0.0     23.4   23.9
+    22:24     78   4432   65535     43   0x8805        18         3   0.0     28.4   29.4
+    22:26     76   5054   65535     38   0x8805        18         3   0.0     40.5   48.0
+    22:35     70   5028   65535     35   0x8805        18         3   0.0     23.2   27.7
+    22:37  65535     12   65535  65535   0x8047       227        32   0.0     23.8   26.2   <- reset, cause 12
+    22:41+                                                                     33->68.8  72.2 <- the hot-air session
+
+Heater duty is **0.0 throughout**, so the 22:24–22:26 excursion was external —
+and it is a *separate, earlier* event from the 22:41 hot air. Chamber RH was
+also climbing 34.6 % → 38.3 % across 22:03–22:23, consistent with coating
+solvent outgassing after the ~22:03 application.
+
+**Fab, asked: "i remember i applied some heat to dry the coating paint. this
+was probably not a good idea."** That is the event, and it dates the failure to
+the minute.
+
+**Mechanism:** warm solvent wicks under a QFN by capillary action, carrying
+dissolved no-clean flux with it, and leaves a conductive residue that persists
+after cool-down. It accounts for two ADC channels failing in the same sample,
+I²C errors appearing from zero at the same instant, and the fault surviving the
+return to 23 °C.
+
+**Crucially, the stress required for silicon damage is absent.** At 22:24 the
+die reached 48 °C against an ADS1119 junction rating of 150 °C, with no
+over-voltage on any input. There is no recorded stress capable of damaging the
+part at the moment it broke.
+
+#### Consequences
+
+- **The 12:10 tempco argument against contamination is now worth almost
+  nothing.** It assumed an aqueous ionic film, whose conduction rises with
+  temperature. A paint-plus-flux residue is not that, and its tempco sign is
+  not well defined. The Codex review had already flagged the argument as
+  holding hydration constant; the paint identification removes what was left.
+- **Do not desolder U8.** Clean first, then bake — the 09-10 recovery on this
+  exact board (IPA surface clean plus a ~20 min bake, `/VREF_TRIM` stepping
+  302 → 2488 mV while hot) is the precedent and the recipe.
+- Sequence matters and is the whole lesson: baking a CLEANED board drives
+  residue off; baking WET PAINT mobilizes it into the package. Clean, then bake.
+- If cleaning does not reach it, the film is under the package. U8 then comes
+  off **to clean underneath**, and may be refittable rather than scrapped.
+- Open: which coating was used on 09-11. The 09-10 record names Edding 751
+  around U7/U8/U4; if the same, it is an enamel marker and IPA may not shift it
+  once set. The answer decides the solvent.
+- `VREF_MON` will be watched over the wire throughout, with
+  `tech/bench/o2p_reg_watch.py`; on 09-10 the recovery appeared as a step.
