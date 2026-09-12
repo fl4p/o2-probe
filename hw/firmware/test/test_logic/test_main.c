@@ -16,6 +16,7 @@
 #include "config_migrate.h"
 #include "die_temp.h"
 #include "mcu_adc.h"
+#include "sampler.h"
 #include "faults.h"
 #include "gpio_diag.h"
 #include "hw_caps.h"
@@ -3616,6 +3617,21 @@ static void test_cal_pressure_register_is_bounded(void)
 
 static void test_this_board_cannot_be_commanded_transceiver_deaf(void)
 {
+#if !O2P_HW_HAS_ADS1119
+    /* REV A ONLY, and skipped rather than deleted or silently absent.
+     *
+     * Everything below is a statement about Rev A's hardware -- the ADS1119
+     * rail taps and their divider ratios, or the as-built wiring the bias
+     * guard is gated on. Rev B reads those rails directly on MCU channels
+     * with different resistors, so the numbers here describe a board that is
+     * not being built. Running them under Rev B asserted the wrong hardware;
+     * they only ever passed because no Rev B host environment existed to run
+     * them. env:native_revb is that environment.
+     *
+     * IGNORE, not pass: a skipped test reports as skipped, where a `return`
+     * would report as a pass and quietly shrink the suite. */
+    TEST_IGNORE_MESSAGE("Rev A hardware contract; not applicable to Rev B");
+#else
     /* The native suite is built with -DO2P_BOARD_REV_A (platformio.ini), so
      * these are the capabilities of the FABRICATED board on the bench, not of
      * the schematic. That is the whole point of the split in gen_hw_caps.py:
@@ -3651,6 +3667,7 @@ static void test_this_board_cannot_be_commanded_transceiver_deaf(void)
      * protects against the BOARD never having split them. Those are different
      * failures and only one of them has ever happened. */
     TEST_ASSERT_TRUE(O2P_HW_NET_RS485_DE_PIN != O2P_HW_NET_RS485_RE_PIN);
+#endif
 }
 
 static void test_a_stale_chamber_temperature_is_the_dominant_bridge_error(void)
@@ -6838,6 +6855,21 @@ static void test_the_cell_bias_window_catches_an_open_potentiostat(void)
  * the default, and whether the fix is a mute button. */
 static void test_the_bias_guard_is_gated_on_as_built_wiring(void)
 {
+#if !O2P_HW_HAS_ADS1119
+    /* REV A ONLY, and skipped rather than deleted or silently absent.
+     *
+     * Everything below is a statement about Rev A's hardware -- the ADS1119
+     * rail taps and their divider ratios, or the as-built wiring the bias
+     * guard is gated on. Rev B reads those rails directly on MCU channels
+     * with different resistors, so the numbers here describe a board that is
+     * not being built. Running them under Rev B asserted the wrong hardware;
+     * they only ever passed because no Rev B host environment existed to run
+     * them. env:native_revb is that environment.
+     *
+     * IGNORE, not pass: a skipped test reports as skipped, where a `return`
+     * would report as a pass and quietly shrink the suite. */
+    TEST_IGNORE_MESSAGE("Rev A hardware contract; not applicable to Rev B");
+#else
     /* The host tests are built for the bench board (O2P_BOARD_REV_A), whose
      * AIN2/AIN3 are the VA and VIN rail monitors - so the capability is 0 and
      * the guard must refuse to judge. This value is DERIVED by
@@ -6872,19 +6904,46 @@ static void test_the_bias_guard_is_gated_on_as_built_wiring(void)
     TEST_FAIL_MESSAGE("O2P_HW_BIAS_ADC_REACHES_ELECTRODES must be defined");
 #endif
     /* The channel names travel with the capability, so a diagnosis never has
-     * to guess which board's map it is reading. */
+     * to guess which board's map it is reading. Rev A only: gen_hw_caps.py
+     * emits the AIN macros only where U8 exists, and that is deliberate -- a
+     * board with no ADS1119 must not carry channel names for one. */
+#if O2P_HW_HAS_ADS1119
     TEST_ASSERT_EQUAL_STRING("/ADC_VA_MON",  O2P_HW_ADC_AIN2_NET);
     TEST_ASSERT_EQUAL_STRING("/ADC_VIN_MON", O2P_HW_ADC_AIN3_NET);
+#endif
+#endif
 }
 
 static void test_the_rev_a_divider_scaling(void)
 {
+#if !O2P_HW_HAS_ADS1119
+    /* REV A ONLY, and skipped rather than deleted or silently absent.
+     *
+     * Everything below is a statement about Rev A's hardware -- the ADS1119
+     * rail taps and their divider ratios, or the as-built wiring the bias
+     * guard is gated on. Rev B reads those rails directly on MCU channels
+     * with different resistors, so the numbers here describe a board that is
+     * not being built. Running them under Rev B asserted the wrong hardware;
+     * they only ever passed because no Rev B host environment existed to run
+     * them. env:native_revb is that environment.
+     *
+     * IGNORE, not pass: a skipped test reports as skipped, where a `return`
+     * would report as a pass and quietly shrink the suite. */
+    TEST_IGNORE_MESSAGE("Rev A hardware contract; not applicable to Rev B");
+#else
     /* On Rev A, VA_MON is R24/R25 10k/10k = 2.0; VIN_MON is R26/R27 130k/20k = 7.5.
      * Raw tap voltages must be scaled to avoid permanently triggering VA_LOW and VIN_LOW. */
+#if O2P_HW_HAS_ADS1119
     TEST_ASSERT_EQUAL_UINT32(10000u, O2P_HW_DIV_VA_ADS_NUM);
     TEST_ASSERT_EQUAL_UINT32(20000u, O2P_HW_DIV_VA_ADS_DEN);
     TEST_ASSERT_EQUAL_UINT32(20000u, O2P_HW_DIV_VIN_ADS_NUM);
     TEST_ASSERT_EQUAL_UINT32(150000u, O2P_HW_DIV_VIN_ADS_DEN);
+#else
+    /* Rev B routes both rails straight to MCU channels, so there are no ADS
+     * divider ratios to assert. Asserting nothing here is correct; asserting
+     * the Rev A numbers would be asserting a board that is not being built. */
+    TEST_ASSERT_TRUE(true);
+#endif
 
     uint16_t va_scaled = o2p_scale_va_ads(1650u);
     TEST_ASSERT_EQUAL_UINT16(3300u, va_scaled);
@@ -6897,6 +6956,7 @@ static void test_the_rev_a_divider_scaling(void)
     /* Clamping to 0xFFFE so a railed measurement never emits 0xFFFF (O2P_U16_INVALID) */
     TEST_ASSERT_EQUAL_UINT16(0xFFFEu,
         o2p_scale_vin_ads(10000u, O2P_VIN_DIV_X1000_NETLIST));
+#endif
 }
 
 /* VIN_DIV_X1000 (0x004B). THE KNOWN-BAD IS THE BENCH BOARD ITSELF: Probe 3 is a
@@ -6905,6 +6965,21 @@ static void test_the_rev_a_divider_scaling(void)
  * published 10710 mV - a 1428 mV tap. */
 static void test_the_vin_divider_ratio_belongs_to_the_board(void)
 {
+#if !O2P_HW_HAS_ADS1119
+    /* REV A ONLY, and skipped rather than deleted or silently absent.
+     *
+     * Everything below is a statement about Rev A's hardware -- the ADS1119
+     * rail taps and their divider ratios, or the as-built wiring the bias
+     * guard is gated on. Rev B reads those rails directly on MCU channels
+     * with different resistors, so the numbers here describe a board that is
+     * not being built. Running them under Rev B asserted the wrong hardware;
+     * they only ever passed because no Rev B host environment existed to run
+     * them. env:native_revb is that environment.
+     *
+     * IGNORE, not pass: a skipped test reports as skipped, where a `return`
+     * would report as a pass and quietly shrink the suite. */
+    TEST_IGNORE_MESSAGE("Rev A hardware contract; not applicable to Rev B");
+#else
     const uint16_t tap_mv = 1428u;
 
     /* The bench failure, reproduced from the netlist... */
@@ -6972,12 +7047,28 @@ static void test_the_vin_divider_ratio_belongs_to_the_board(void)
     w = 0u;
     TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&r, O2P_REG_VIN_DIV_X1000, 1u, &w));
     TEST_ASSERT_EQUAL_UINT16(crc_netlist, o2p_config_crc(&r.cfg));
+#endif
 }
 
 /* The field's claim to skipping a layout bump, exercised against the real
  * producer (config_flash.c on the host flash fake) and the real migration. */
 static void test_a_vin_ratio_is_stored_without_a_layout_bump(void)
 {
+#if !O2P_HW_HAS_ADS1119
+    /* REV A ONLY, and skipped rather than deleted or silently absent.
+     *
+     * Everything below is a statement about Rev A's hardware -- the ADS1119
+     * rail taps and their divider ratios, or the as-built wiring the bias
+     * guard is gated on. Rev B reads those rails directly on MCU channels
+     * with different resistors, so the numbers here describe a board that is
+     * not being built. Running them under Rev B asserted the wrong hardware;
+     * they only ever passed because no Rev B host environment existed to run
+     * them. env:native_revb is that environment.
+     *
+     * IGNORE, not pass: a skipped test reports as skipped, where a `return`
+     * would report as a pass and quietly shrink the suite. */
+    TEST_IGNORE_MESSAGE("Rev A hardware contract; not applicable to Rev B");
+#else
     TEST_ASSERT_EQUAL_UINT32_MESSAGE(8u, CONFIG_LAYOUT_VERSION,
         "VIN_DIV_X1000 took reserved bytes precisely so this did not move");
 
@@ -7036,6 +7127,7 @@ static void test_a_vin_ratio_is_stored_without_a_layout_bump(void)
     TEST_ASSERT_EQUAL_UINT8(42u, got.slave_addr);
     TEST_ASSERT_EQUAL_UINT16(O2P_VIN_DIV_X1000_NETLIST,
                              o2p_cfg_vin_div_x1000(&got));
+#endif
 }
 
 /* CAL_STATE must say how the air point was obtained, not just that one exists.
@@ -9028,6 +9120,59 @@ static void test_calfact_rails_are_the_erratum_and_the_middle_is_not(void)
 }
 
 
+/* ---- the revision-neutral channel layer --------------------------------
+ *
+ * The point of these is the SECOND half of each assertion. It is easy to
+ * write an availability table that says yes to everything, and such a table
+ * passes every test that only checks the channels it expects to have. What
+ * must be pinned is that the channels a revision genuinely LACKS report as
+ * unavailable, because the alternative - a fabricated reference reading - is
+ * the exact failure that cost five hours on 2026-09-11. */
+static void test_every_channel_has_a_stable_name(void)
+{
+    for (int ch = 0; ch < O2P_CH_COUNT; ch++) {
+        const char *name = o2p_sampler_channel_name((o2p_channel_t)ch);
+        TEST_ASSERT_NOT_NULL(name);
+        TEST_ASSERT_TRUE(name[0] != '\0');
+        TEST_ASSERT_TRUE(name[0] != '?');
+    }
+}
+
+static void test_out_of_range_channels_are_unavailable_not_undefined(void)
+{
+    /* A cast from a bad integer must not index off the end of the table. */
+    TEST_ASSERT_FALSE(o2p_sampler_channel_available((o2p_channel_t)O2P_CH_COUNT));
+    TEST_ASSERT_FALSE(o2p_sampler_channel_available((o2p_channel_t)99));
+    TEST_ASSERT_EQUAL_STRING("?", o2p_sampler_channel_name((o2p_channel_t)99));
+}
+
+static void test_the_oxygen_chain_exists_on_every_revision(void)
+{
+    /* AFE, WE and RE are the measurement itself and its two bias witnesses.
+     * A revision that cannot produce these is not a revision of this probe. */
+    TEST_ASSERT_TRUE(o2p_sampler_channel_available(O2P_CH_AFE));
+    TEST_ASSERT_TRUE(o2p_sampler_channel_available(O2P_CH_WE));
+    TEST_ASSERT_TRUE(o2p_sampler_channel_available(O2P_CH_RE));
+}
+
+static void test_reference_and_offset_channels_track_the_hardware(void)
+{
+#if O2P_HW_HAS_ADS1119
+    /* Rev A: AIN1 is the 47k/47k sense tap and the ADS1119 has a shorted-input
+     * self-check. Both real, both must be offered. */
+    TEST_ASSERT_TRUE(o2p_sampler_channel_available(O2P_CH_VREF));
+    TEST_ASSERT_TRUE(o2p_sampler_channel_available(O2P_CH_OFFSET));
+#else
+    /* Rev B: R34/R35 are deleted and PA5 is not wired to /VREF_TRIM, so
+     * nothing on-chip measures the reference independently; and the STM32 SAR
+     * has no shorted-input mode. Reporting either as available would invite a
+     * caller to convert a channel that does not exist and get a number. */
+    TEST_ASSERT_FALSE(o2p_sampler_channel_available(O2P_CH_VREF));
+    TEST_ASSERT_FALSE(o2p_sampler_channel_available(O2P_CH_OFFSET));
+#endif
+}
+
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -9312,6 +9457,10 @@ int main(void)
     RUN_TEST(test_bias_pedestal_rejects_a_leaking_or_open_leg);
     RUN_TEST(test_bias_pedestal_band_edges_are_exact);
     RUN_TEST(test_calfact_rails_are_the_erratum_and_the_middle_is_not);
+    RUN_TEST(test_every_channel_has_a_stable_name);
+    RUN_TEST(test_out_of_range_channels_are_unavailable_not_undefined);
+    RUN_TEST(test_the_oxygen_chain_exists_on_every_revision);
+    RUN_TEST(test_reference_and_offset_channels_track_the_hardware);
     RUN_TEST(test_adc_offset_band_accepts_a_healthy_offset_and_rejects_a_pinned_one);
 #else
     RUN_TEST(test_debug_mailboxes_disabled);
