@@ -2527,3 +2527,69 @@ the same WSON-14 part as the SD in the netlist, in reel packaging.
 | U3 TPS7A2033 | would not regulate with IN, EN and GND all correct |
 | R36 1 kΩ | failed during the U8 rework |
 | **U7 LMP91000** | **current into the TIA node from inside the package** |
+
+---
+
+### 2026-09-12 18:25 — RETRACTED: U7 is healthy. `/ADC_AFE_VOUT` is shorted to ground
+
+**The whole U7 case above is withdrawn.** It rested on `AFE_VOUT = 0`, read from
+telemetry, being taken as *the TIA output sits at ground*. Fab put a meter on
+R33 and it does not.
+
+| pad | net | meter | telemetry, same minute |
+|---|---|---|---|
+| R33.1 (the pad nearer C28) | `/AFE_VOUT` = U7.8 | **1.5 V** | — |
+| R33.2 (the outer pad) | `/ADC_AFE_VOUT` = U8.9 | **0 V** | `gas_afe_mv` = 0 at 18:21:35 |
+
+R33 is 1 kΩ, so **1.5 mA is flowing out of the LMP91000's output into a short to
+ground on `/ADC_AFE_VOUT`.**
+
+The assignment does not depend on resolving which physical pad is which — the
+other one is refuted outright. If the 1.5 V pad were `/ADC_AFE_VOUT`, the ADS
+would publish 1500 mV, not 0.
+
+**U7 is exonerated, and the 240 µA never existed.** `o2p_cell_na_from_code`
+computes `(0.67 × VREF − V_out) / 7 kΩ`; at VREF 2506 and `V_out` 0 that is
+239.86 µA *by arithmetic*. Every "flat line at 240 µA", with a cell and without
+one, was the same single fact — AIN0 reading zero — restated as a current. The
+`ads1119.h:81-97` warning about a saturated TIA read as a steady current was
+the right warning for the wrong reason: this converter never saturated.
+
+The `O2P_F_ADC_RANGE` bit is likewise downstream, not evidence of saturation.
+`g_acc_clipped` needs ±32767 and a shorted input gives code 0; the bit comes
+from `main.c:1141`, where `o2p_dry_fraction_from_current` returns `O2P_RANGE`
+because 239.86 µA is outside the O2 model. Confirmed against the running build
+(`d10091c`), not the working tree.
+
+And U7 is not merely alive — sourcing 1.5 mA into a dead short while sagging
+only 179 mV below its 1679 mV internal zero is a *healthy* output stage.
+
+#### Two faults were stacked on this channel
+
+`gas_afe_mv` tracked `gas_vref_mv / 2` exactly from 22:24 on 09-11 — the old
+U8's cross-channel mux fault. Replacing U8 cleared the i2c errors and revealed
+the short underneath, which had been there the whole time and invisible behind
+the first fault. That is why AIN0 still misbehaved after a new converter went
+on, and it is the reason the U7 case looked airtight.
+
+#### Suspects on `/ADC_AFE_VOUT`
+
+The net is four nodes: C28.1, R33.2, R39.1, U8.9.
+
+| candidate | note |
+|---|---|
+| **C28 100n 0402** | a shorted MLCC is the single most likely part, and the cheapest to remove |
+| **U8 pin 9 (AIN0)** | the *new* converter; AIN1/AIN2/AIN3 all read correctly (VREF 2506, VA 3298), so it would have to be channel-specific |
+| R39 | **DNP** — confirm it is genuinely unfitted before dismissing it |
+| trace / via | the net runs bottom-side between the R33/C28 row at y≈114 and U8 at (115.5, 127.0) |
+
+#### Next
+
+Power off, ohm R33.2 to ground; then lift C28 and re-measure. C28 is an 0402 on
+its own in that row, 1.7 mm from R33 — removable without touching anything else.
+
+**Correction to the probing instruction given at 18:23:** the two *facing* pads
+of R33 and C28 are **not** the same net. From the Rev A board, R33.1 (x 106.825)
+is `/AFE_VOUT` and C28.2 (x 108.520) is **GND**; the `/ADC_AFE_VOUT` pads are the
+two *outer* ones, R33.2 (x 105.175) and C28.1 (x 109.480). The nets join through
+the copper, not across the gap.
