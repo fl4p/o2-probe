@@ -1786,3 +1786,61 @@ high-impedance net is no longer poisoned.
 `/ADC_VIN_MON` minutes earlier. Two different nets reading the same value is
 possible but, after this morning's designator offset, is worth one explicit
 re-check that the probe landed on two distinct pads.
+
+### 14:45 — retractions: the 1.1 V readings were both `/ADC_VREF_MON`, and unpowered data cannot answer this
+
+Fab: *"i always injected the 3.3V/3k at `/ADC_VREF_MON`"*, and the 1.1 V was
+taken with **3V3A = 0 and 3V3D = 0**. Two consequences, both retractions.
+
+**1. The AIN3 injection analysis (14:05) is withdrawn.** "The injection reads
+1.1 V" was read as `/ADC_VIN_MON` and turned into "33 µA into AIN3's clamp with
+AVDD at zero, confirming the abs-max violation is actually happening."
+`/ADC_VIN_MON` was never measured. That number does not exist.
+
+What survives is only the schematic observation, unmeasured: `/ADC_VIN_MON` is
+fed from the VIN divider (R26/R27, R38) and VIN is upstream of AVDD
+(VIN → U1 → +5V → R32 → +5V_ANALOG → U3 → 3V3A), so that input is biased
+before AVDD rises on every power-up, beyond SBAS925A §6.1's `AVDD + 0.3 V`.
+Keep it as a **Rev B design note**, not as a quantified trigger for this
+failure.
+
+**2. The 14:25 contamination conclusion is withdrawn, and so is the 13:00
+supply-dependence conclusion.** Both rested on unpowered measurements of a CMOS
+input. With AVDD and DVDD at 0, the input protection is a diode to a 0 V rail —
+exactly what the abs-max table describes — so conduction above roughly half a
+volt is expected of an undamaged part, and behaviour below it depends on where
+the floating rails settle. **Unpowered readings on this pin cannot separate
+damage from contamination in either direction.** That disqualifies the 36 kΩ
+ohmmeter reading (offered at 13:00 as the decisive falsifier) and the 1.6 kΩ
+derived at 14:25 alike.
+
+(For the record, 1.1 V at 688 µA is also a poor fit for a single forward ESD
+diode, which would sit near 0.65 V at that current. Whether that means a
+series element, a non-diode clamp, or a floating AVDD being lifted by the
+injected current is unresolved — and is another reason not to build on it.)
+
+#### The one durable measurement
+
+    Powered, AVDD = 3.3 V: AIN1's pin sits at 36 mV with 50 uA flowing into it.
+
+No healthy structure conducts 50 µA at 36 mV; protection is nanoamps there. It
+scales ohmically to ~860 µA at 775 mV, a 21× voltage range. **That resistive
+path of ~800 Ω is real, and it is the whole of the AIN1 case.** Everything
+else measured today about AIN1 either supports it (the meter and ADS agreeing
+on the pin; the divider currents balancing to under 2 µA three times; AIN1
+tracking the pull-up to 1484) or is uninformative (all unpowered data).
+
+#### Remaining test — must be POWERED
+
+Board running, vary only temperature, poll `VREF_MON` over the wire:
+
+- cools → climbs from 70 toward 2500 ⇒ contamination, cleanable
+- warms → drops below 70 ⇒ contamination
+- unmoved ⇒ fixed defect in the die ⇒ U8 damaged
+
+Supporting but not decisive: `VREF_MON` has read exactly 70 mV on every read
+across five hours and several reboots, with no drift — though the board's
+temperature was stable throughout, so that is not itself a test.
+
+AIN0's defect (returns the preceding channel's sample, confirmed live at 13:40)
+is untouched by any of this and remains a genuine ADS fault.
