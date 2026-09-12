@@ -8,9 +8,18 @@ and takes one step of P0. It did **not** decide U8's fate; that was decided late
 ## ADOPTED — measure `/VREF_TRIM` directly on a free MCU ADC pin
 
 `/VREF_TRIM` is 2.500 V, which is **below** VDDA (3.3 V), so the MCU can
-convert it with **no divider at all**. Source impedance is the OPA2333 output
-plus R31's 47 Ohm, actively driven, against the 50 kOhm `RAIN` limit of
+convert it with **no divider at all**, against the 50 kOhm `RAIN` limit of
 DS12232 Table 59.
+
+> **CORRECTED 2026-09-12** — this first read "source impedance is the OPA2333
+> output plus R31's 47 Ohm". That is **Rev A's** topology. On Rev B
+> `/VREF_TRIM` is the Kelvin-sensed output of **U15, a REF3425IDBVR** series
+> reference with C10 4.7 uF (`gen_sch.py:930`, `:945`, `:1499`) — no trimpot,
+> no buffer, no R31. This strengthens the conclusion rather than weakening it:
+> the source is a reference output rated for +/-10 mA, so pad leakage and
+> sample-cap charge are both irrelevant. The erroneous 47 Ohm figure was
+> passed to the Rev B session and reached a code comment at
+> `gen_sch.py:1093`; flagged to them for correction.
 
 **Delete R34, R35, R36, C29** (`gen_sch.py:1362-1375` — 47k 0.1 %, 47k 0.1 %,
 1k, 100n), and with them the nets `/VREF_MON_RAW` and `/ADC_VREF_MON`.

@@ -8,6 +8,12 @@ whose deferred item is resolved here as **rejected**, not adopted.
 
 Every analog channel moves to the STM32G071CBT7's own ADC. U8 comes off the BOM.
 
+> **IMPLEMENTED in the schematic the same day** by the Rev B session —
+> `docs/2026-09-12-revb-ads1119-removal-implemented.md`. 82 components (was 89),
+> ERC 0/0. The firmware sampler port is deliberately NOT done and
+> `o2probe_revb` is out of `default_envs` until it lands. Their report also
+> corrected two things in this document; both are marked below.
+
 ## The architecture: `VREF+` stays on VDDA, and the reference is MEASURED
 
 This is the part that took two wrong turns to reach, so it is stated plainly.
@@ -44,10 +50,26 @@ it, and it costs four things the arithmetic form does not:
    tap at exactly full scale and clip above it. That is not hypothetical: the
    14-day over-voltage sweep that dated this failure is precisely that
    measurement.
-3. **The ADC scale would depend on trimpot RV1** instead of an LDO. Cancels for
-   O2 by construction; does not cancel for the rail monitors.
-4. **A switched-cap load would land on `/VREF_TRIM`**, the net the LMP's 0.67x
-   zero derives from.
+3. ~~**The ADC scale would depend on trimpot RV1** instead of an LDO.~~
+   **STRUCK 2026-09-12** — wrong for Rev B. There is no trimpot: Rev B's
+   `/VREF_TRIM` is U15, a **REF3425IDBVR** series reference, Kelvin-sensed
+   (`gen_sch.py:930`, `:945`, `:1499`), with C10 4.7 uF. The RV1/OPA2333
+   divider is Rev A's topology and I carried it across by mistake.
+4. ~~**A switched-cap load would land on `/VREF_TRIM`**~~ **WEAK** — the
+   REF3425 sources +/-10 mA (SBAS804G Table, `IL`) into a 0.1-10 uF stable
+   load range. 0.26 uA of `IDDV(ADC)` is not a load it notices.
+
+**And one reason pointed the other way, which is worth stating rather than
+quietly dropping.** With `VREF+` = VDDA the scale factor is VREFINT at 50
+ppm/degC max; with `VREF+` = the REF3425 it would be **6 ppm/degC max**
+(SBAS804G, 2.5 typ), an 8x better tempco. Over a 20 K swing that is 120 ppm
+against 1000 ppm — 0.0025 %O2 against 0.021 %O2.
+
+**The decision stands, on reasons 1 and 2 alone.** Both remaining terms are
+18x to 150x under the cell's own 0.38 %O2 over the same swing, so the
+better tempco buys nothing measurable, while reason 1 (uncharacterized
+accuracy outside `VDDA = VREF+`) and reason 2 (the rail monitors' over-range
+headroom) are real and unmitigated. But it rests on two reasons, not four.
 
 ## Error budget, entirely from datasheets — no bench measurement required
 
@@ -89,11 +111,28 @@ the 50 kOhm `RAIN` limit. Deleting them would have been a real error.
 
 I2C pull-ups also stay — the bus is shared with the other sensors.
 
-## Pins
+## Pins — as allocated by the Rev B session, verified here
 
-Not a constraint. `gen_sch.py:1082` assigns 22 of 48; PA0 (11), PA1 (12) and
-PA5 (16) are already unassigned and ADC-capable, and deleting U8 frees PB1
-(`ADC_DRDY`) on top of that. Four channels are needed.
+The allocation is theirs, and it applies the leakage argument further than this
+document did: `Ilkg` differs by pad type (DS12232 Table 51), so the three
+1k-sourced signals take the quieter `FT_a` pads and the reference — driven by
+U15's output, where even 150 nA is negligible — takes the `TT_a` one.
+
+| pin | port | channel | pad | net |
+|---|---|---|---|---|
+| 11 | PA0 | ADC_IN0 | FT_a, +/-70 nA | `/ADC_WE_BUF` |
+| 12 | PA1 | ADC_IN1 | FT_a, +/-70 nA | `/ADC_RE_BUF` |
+| 16 | PA5 | ADC_IN5 | **TT_a, +/-150 nA** | `/VREF_TRIM`, undivided |
+| 20 | PB1 | **ADC_IN9** | FT_a, +/-70 nA | `/ADC_AFE_VOUT` |
+
+Verified against DS12232 Rev 5 on 2026-09-12: the pad types are exactly as
+claimed, and **PB0 is ADC_IN8 while PB1 is ADC_IN9** — their correction to my
+handover message, which had the channel numbering wrong. `ADC_IN17`/`IN18` are
+not on any LQFP48 port pin. Whoever writes `mcu_adc.c` needs IN9, not IN17.
+
+Putting WE and RE on adjacent pins of identical structure is deliberate: their
+leakage common-modes out of the WE-RE difference, which is the quantity the
+bias check actually uses.
 
 ## Design work this creates — tasks, not open questions
 
@@ -106,9 +145,14 @@ PA5 (16) are already unassigned and ADC-capable, and deleting U8 frees PB1
    power-up."* It is what removes `EO`.
 3. Rescale the retained dividers for the channels' operating ranges, and choose
    a long sampling time (160.5 cycles allows 50 kOhm `RAIN`).
-4. Re-derive the VREF gate at `main.c:700` / `main.c:869` from an MCU channel;
-   delete the `O2P_HW_*_ON_ADS` capability flags and regenerate
-   `hw_caps_rev_b.h` from the new netlist.
+4. Re-derive the VREF gate at `main.c:700` / `main.c:869` from an MCU channel.
+   **Partly done** — the Rev B session moved the divider constant out of the
+   generated contract and into the per-revision caps headers as
+   `O2P_HW_DIV_VREF_MON_NUM/DEN` (A: 47000/94000, B: 1/1), which had to happen
+   first: `hw_contract.h` is GENERATED from `gen_sch.py`, so deleting R34/R35
+   would have rescaled the constant that `main.c:770` applies to the **Rev A
+   bench board**, which really does read a halved copy. Rev A would have
+   published 1250 mV and tripped its own VREF gate. Caught by them, not by me.
 5. Oversampling is available and not required. Do not spend it to chase the
    ADS's 76 uV — the `uv / 1000` publication grid throws that away. If the
    register format is ever widened, revisit.
