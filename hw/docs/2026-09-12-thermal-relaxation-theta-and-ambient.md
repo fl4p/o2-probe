@@ -31,10 +31,28 @@ average (2.69 %, spread 6.02 pp over 10 samples) is not a steady state. Cycles
 - **θ = 0.83 ± 0.02 K per % duty** (bench, still air, enclosure fitted)
 - **τ = 150 ± 3 s**
 
-θ in K/W and C in J/K need the ring's power at 100 % duty, which is **not
-measured**. At an assumed 1 W: θ ≈ 83 K/W, C = τ/θ ≈ 1.8 J/K — a small heated
-mass, consistent with the tip ring being thermally separate from the stem.
-Measure the ring's resistance and rail before quoting either number.
+### Ring power, from the netlist — and θ in real units
+
+The ring is **RH1 ∥ RH2, 280 R 1 W each = 140 Ω**, fed from `/+12V_SW` and
+switched to ground by Q2 (AO3400A, whose R_DS(on) is negligible against 140 Ω).
+J5 is the `HEATED MEMBRANE RING` solder land. At the measured `VIN_MON` of
+**13.092 V**:
+
+    I = 93.5 mA        P_max = V²/R = 1.224 W
+
+**Independent confirmation of the 140 Ω**: at 12.000 V that ring draws
+85.7 mA, and `heater_ctl.h` describes the load as "86 mA" — an exact match to a
+number written from the schematic, not from this calculation.
+
+So:
+
+| | cycle 2 | cycle 3 |
+|---|---|---|
+| **θ** | **66.6 K/W** | **69.3 K/W** |
+| **C = τ/θ** | 2.28 J/K | 2.13 J/K |
+
+**θ = 68 ± 2 K/W, C = 2.2 ± 0.1 J/K** for the ring-to-ambient path in still
+air, enclosure fitted. P scales with VIN², so both move with the supply.
 
 ## The absolute setpoint drifted, exactly as predicted
 
@@ -92,21 +110,57 @@ relaxation cycles in the control path at all: `T_EXT` is the reference, and the
 heater-off measurement becomes the occasional calibration that validates it
 rather than a required step.
 
-## Extrapolating to a windrow — bounded at one end only
+## This closes a gap the firmware names as open
 
-θ = 83 K/W (assumed P) is **still air inside an enclosure**, the most
-favourable case. Buried in moist compost the coupling is far better and θ far
-smaller. If a buried probe reaches θ ≈ 2–5 K/W, a 1 W ring buys 2–5 K, so:
+`heater_ctl.h:24-31` says, in as many words:
 
-- **+2 K is achievable buried.** 
-- **The dew law's 4 K is marginal at best**, and at the top of that range the
-  loop would sit near 100 % duty permanently.
+> THE PLANT GAIN IS UNKNOWN. THERMAL-BARRIER.md:5-9 gives 98 K/W (interval
+> 91-102, engineering bound 90-110 K/W) for the bare-PCB transverse path, and
+> :18 says plainly that this "is for PCB conduction only. It is not the
+> ring-to-ambient" path — which is the one that actually sets how many kelvin
+> a watt buys in wet pore gas.
 
-This is an inference from one end of the range. The buried θ is unmeasured, and
-the tool exists to measure it: bury the probe in damp compost and run the same
-three cycles. That single number decides whether the margin target is 2 K or
-something smaller, and whether the power budget or the cell rating is the
-binding constraint.
+**That ring-to-ambient path is what the 68 K/W above measures** — in still
+bench air, which is the easy end, but it is the first number of that kind this
+project has. The gains in `heater_ctl.h` are described as "conservative
+starting points, NOT design values … exposed as holding registers precisely
+because they cannot be known until the loop runs on hardware". The loop has now
+run on hardware.
+
+## RETRACTION: "the dew law's 4 K is unreachable" was not supported
+
+Stated on 2026-09-12 evening, before this measurement: that a <1 W heater could
+not hold 4 K in a buried probe, so the dew law would pin at 100 % duty forever.
+**That rested on a guessed buried conductance of 0.2–0.5 W/K, and nothing
+measured.** The bench number gives it no support: 1.224 W at 68 K/W buys 83 K
+in still air, and the buried value is simply unknown — somewhere between that
+and the couple of K/W the guess assumed. The claim should not have been made
+with the confidence it was.
+
+What can honestly be said: **buried θ is the one number that decides the
+thermal design**, and it is one bucket of damp compost and three cycles of this
+tool away.
+
+## And PLAN.md already argued against a fixed +2 K
+
+Worth surfacing before any fixed-offset law is built, because it is the
+project's own prior decision (`heater_ctl.h:14-18`, quoting PLAN.md:300-302):
+
+> "+2 K gives only ~90-91 % RH on saturated gas; 85 % needs ~3.1-3.7 K at
+> 40-65 C — design the thermal path for a 0-4 K dT range, not a fixed 2 K." A
+> fixed offset that is right at 40 C is wrong at 65 C, and the pile spans both.
+
+An independent check of that arithmetic agrees: 2 K of superheat leaves local
+RH at ~92 % at 70 °C and ~89 % at 20 °C. So a fixed 2 K does keep liquid water
+off the membrane, but it does **not** reach the 85 % the plan targets, and the
+required ΔT genuinely does rise with temperature. **The dew-margin law's 4 K is
+the design intent, not an arbitrary number** — it sits inside the 3.1–3.7 K
+band PLAN.md asks for.
+
+This does not settle 2 K vs 4 K; it means the choice is between "keep liquid
+water off" (2 K, cheap, achievable) and "hold the RH the plan specified"
+(3–4 K, cost unknown until buried θ is measured). That is Fab's call, and it
+should be made with PLAN.md's reasoning in front of it rather than around it.
 
 ## Method notes
 
@@ -129,8 +183,7 @@ binding constraint.
 
 ## Open
 
-- Ring power at 100 % duty — the missing input for θ in K/W and C in J/K.
-- Buried θ, per above.
+- **Buried θ** — the one number that decides the thermal design.
 - Whether τ's downward trend (167 → 152 → 147 s) is real or fit noise.
 - The dew law's 79 °C tip ceiling against the cell's 60 °C rating still stands
   as a separate open item; see the heater standing-order memory.
