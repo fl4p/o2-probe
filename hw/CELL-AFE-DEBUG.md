@@ -1155,3 +1155,75 @@ by the same two calculations.
 Still open: AIN0 `/ADC_AFE_VOUT` (R33.1 106.83,114.0 vs R33.2 105.18,114.0),
 and why AIN3 survived when all four inputs sit behind identical 1 kΩ series
 resistors.
+
+### 11:05 — HOLD: the pad readings were misattributed by one part. Sections above are unproven
+
+Fab, at the bench: *"during all my pad measurements i measured C29 instead of
+R36, R36 instead of R35, R35 instead of R34."* Every reported designator in
+the 09:40–10:50 sections is one position to the LEFT of the part actually
+probed. R34, R35, R36 and C29 sit in a 3 mm-pitch row at y = 120.8 on B.Cu,
+which is how the miscount happened.
+
+His own ohmmeter proves it: he measured "R35 pad-to-pad" and got **exactly
+1 k**. R35 is 47k 0.1%; **R36 is the 1 k part**. So the probe was on R36, and
+R36 reads its design value.
+
+**Therefore the following are withdrawn pending re-measurement, and must not
+be acted on:**
+
+- 10:35 / 10:50 (`e3e256d`, `5d967a0`): "AIN1 sinks 49 µA through ≈710 Ω",
+  "AIN2 sources 198 µA through ≈2.6 kΩ", "replace U8". Both rest on
+  designator-labelled pad voltages. **Do not order or fit a new ADS1119 on
+  this basis.**
+- 10:15 (`935ca72`) was already retracted for an unrelated reason and stays
+  retracted.
+- 09:40 (`90a7cf2`): the channel map and the `finish_vref` mechanism are read
+  from source and the netlist, not from pads, and stand. Its pad-derived
+  numbers do not.
+
+**What survives, because it does not depend on a designator:**
+
+- **TP4 = 2484 mV.** A named testpoint, unambiguous.
+- **`/ADC_VREF_MON` = 34 mV.** Reported as "R36.1", so actually C29.1 — which
+  is on `/ADC_VREF_MON`, the ADS's AIN1 pin. The firmware independently puts
+  that pin at 35 mV (VREF_MON 70 / 2). Two instruments, one number: **the ADS
+  converts its own AIN1 pin correctly, and the pin really is at ~34 mV.** That
+  is worth more than anything derived this morning.
+- Every register reading taken over the wire.
+
+**Lesson, and the fix.** Three wrong conclusions today, each built by fitting a
+network model to one or two designator-labelled readings. A 3 mm-pitch row of
+four two-pad parts cannot be indexed by counting. The row is self-locating if
+read as a sequence, because it contains landmarks:
+
+| x (B.Cu, y=120.8 unless noted) | pad | net |
+|--:|---|---|
+| 103.52 (y=120.0) | C31.2 | GND |
+| 104.48 (y=120.0) | C31.1 | `/ADC_VIN_MON` |
+| 105.98 | R34.2 | `/VREF_MON_RAW` |
+| 107.63 | R34.1 | `/VREF_TRIM` — **the only 2484 mV pad in the row** |
+| 108.98 | R35.2 | **GND** |
+| 110.63 | R35.1 | `/VREF_MON_RAW` |
+| 111.98 | R36.2 | `/ADC_VREF_MON` |
+| 113.63 | R36.1 | `/VREF_MON_RAW` |
+| 115.32 | C29.2 | **GND** |
+| 116.28 | C29.1 | `/ADC_VREF_MON` |
+| 117.80 (y=120.02) | C30.1 | `/ADC_VA_MON` |
+| 117.80 (y=120.98) | C30.2 | GND |
+
+Two GND pads and one 2484 mV pad inside the group fix the alignment from the
+readings themselves. `/VREF_MON_RAW` appears at three pads and
+`/ADC_VREF_MON` at two, so each net is cross-checked against itself, and the
+diagnosis reduces to one question: is there a voltage difference across R36?
+Equal ⇒ the ADS input is innocent and the leak is on the board node. Lower on
+the `/ADC_VREF_MON` side ⇒ current into the pin ⇒ AIN1 damaged.
+
+C30.1 gives the AIN2 pin in the same row, so the VA channel can be re-tested
+without R37, which is in a different row and was not covered by Fab's stated
+offset.
+
+Also unexplained and now urgent: `/VA_MON` was 2.590 V at ~10:20 and 35 mV at
+~10:55. 35 mV is not reachable through R37 from a 10k/10k divider on a live
+3V3A, so either R24 is open or **3V3A has gone**. If 3V3A dropped, TP4 = 2484
+is stale too, since the reference is derived from it. Meter 3V3A and TP4 again
+before anything else.
