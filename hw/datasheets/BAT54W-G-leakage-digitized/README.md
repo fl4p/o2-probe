@@ -4,12 +4,15 @@ Digitization of `../BAT54W-G-vishay-85885-rev1.1.pdf`, page 2, **Fig. 3 —
 Typical Reverse Current vs. Reverse Voltage vs. Various Temperatures**, produced
 2026-09-12 for the D8 clamp-leakage question.
 
-## STATUS: NOT YET HUMAN-VERIFIED
+## STATUS: overlay HUMAN-VERIFIED by Fab, 2026-09-12 ("overlay: PASS")
 
-The overlay has been shown to Fab but **no approval has been given**, and the
-standing rule for this tool is that an unvalidated chart category needs
-human-verified overlay samples before its output is used. Treat every number
-here as provisional until that happens.
+The source-versus-extracted overlay was reviewed and passed by Fab, which is
+what the standing rule requires before an unvalidated chart category's output is
+used. The **trace fidelity and temperature assignment are accepted**: the curves
+are the curves, read correctly off this figure.
+
+That is a statement about the *digitization*, and only about it. It does not
+upgrade what the underlying figure is — see immediately below.
 
 ## What these numbers are, and are not
 
@@ -122,10 +125,12 @@ are 7 V and 15 V on a nominally 12 V rail. That decision rests on *what VIN_MON
 is for*, not on any value in this directory, and it does not become unsettled if
 the digitization is later corrected.
 
-**The 0.79 V figure, provisional:** the offset referred to the rail, derived
-from the unapproved 8.662 µA above. It illustrates the margin; it is not the
-basis of the decision. If human verification revises the digitization, this
-number changes and the decision does not.
+**The 0.79 V figure, now overlay-verified but still typical:** the offset
+referred to the rail, from the 8.662 µA above. Fab passed the overlay on
+2026-09-12, so the *reading* is accepted — but it remains a reading of a
+**typical** curve, so it still does not bound a production part. It illustrates
+the margin; it is not the basis of the decision. Had the overlay failed, this
+number would have changed and the decision would not.
 
 **The error is signed** — this part is topology, not measurement, and holds
 whatever the leakage turns out to be. D8's cathode is on VIN_MON, so its reverse
