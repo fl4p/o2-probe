@@ -2863,3 +2863,45 @@ pin 6** — it drives a higher test voltage and will catch a junction that ohms
 missed. Worth doing while the part still exists; the answer decides whether
 `/ADC_VREF_MON` on this board is still a residue risk to watch, or whether the
 whole fault went away with the chip.
+
+### 2026-09-12 20:35 — air point re-taken and committed. O2_COMP 20.94 %vol
+
+Taken through the keeper (`cal_air.py --keeper --in-open-air --commit`), probe
+in its enclosure with the membrane fitted — that IS the designed gas path, not a
+jar. Cell #1, settled, `FAULTS` 0x8000.
+
+| | before (2026-09-10) | **after** |
+|---|---|---|
+| `CAL_AIR_NA` | 96 580 nA | **101 327 nA** |
+| `CAL_AIR_FRAC` | 0.20693 | 0.20654 |
+| `CAL_TEMP` | — | 21.54 °C |
+| `CAL_P_HPA` | 930 | 930 |
+| **K** | 416 543 nA | **437 977 nA** |
+| `O2_COMP` | 21.98 %vol | **20.94 %vol** |
+| `CONFIG_CRC` | — | 0x0D41 |
+
+`CMD_RESULT` cal=OK commit=OK, so it survives a probe reset. Stability before
+the point: n=11 over 120 s, mean 101.44 µA, spread **0.14 %** against a 1 %
+limit. O2_COMP landing on 20.94 against atmospheric 20.946 is the arithmetic
+closing on itself, not independent confirmation — but it is the right number.
+
+**K moved +5.1 %, and that is worth explaining before it is trusted.** The
+2026-09-11 model-fit note records K as 416 543 nA both pre- and post-coating,
+"stable to 0.01 % through the freezer soak and the steam blast". A 5 % step is
+two orders larger than anything that campaign saw. Candidates, none yet
+tested:
+
+- **A different cell.** Today's point is cell #1; the 09-10 point may not be.
+- **The replaced reference chain.** `VREF_MON` was ~2494–2496 mV then and reads
+  2506 now — but that is +0.5 %, not +5 %.
+- **The old point was taken on the board that failed the next evening.** The
+  ADS1119's AIN0 fault is dated 09-11 22:24, *after* the 09-10 calibration, so
+  this does not explain it on its own.
+
+**Taken under defaults: `DIL_ALPHA` 1.000 and `TEMPCO` 0 ppm/K.** Both are
+firmware defaults lost across a reflash, and neither has ever been measured on
+the coated board. So this K is a 21.5 °C constant with no tempco behind it and
+no dilution correction, and every alpha/tempco determination in the repo is
+pre-coating. `CAL_STATE` stays `NO_ZERO | BIAS_UNVERIFIED` — structural on
+Rev A, where AIN2/AIN3 are the rail monitors and the electrodes are not
+measurable.
