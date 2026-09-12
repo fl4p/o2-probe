@@ -2905,3 +2905,69 @@ no dilution correction, and every alpha/tempco determination in the repo is
 pre-coating. `CAL_STATE` stays `NO_ZERO | BIAS_UNVERIFIED` — structural on
 Rev A, where AIN2/AIN3 are the rail monitors and the electrodes are not
 measurable.
+
+### 2026-09-12 21:0x — the +5.1 % K step: wiring cleared, and half of it accounted for
+
+Follow-up to the 20:35 air point. Three of its four candidates can be narrowed
+without touching the bench.
+
+**Cell wiring: CLEARED.** Fab, 2026-09-12: *"yes cell is un-swapped"*. The
+19:44 C/R-swapped state was corrected before the point was taken, so the
+calibration is not standing on the state this file forbids calibrating in
+(bias regulated against the counter electrode). That candidate was not on the
+commit's list and is now closed rather than left implicit.
+
+**The two air points were taken 12 K apart, and neither carried a tempco.**
+From VictoriaMetrics, `gas_cell_ua` with `gas_t_chamber_c` at 600 s steps:
+
+| | 2026-09-10 | 2026-09-12 |
+|---|---|---|
+| `CAL_AIR_NA` | 96 580 nA | 101 327 nA |
+| matching plateau | 95.9–96.5 µA, 05:00–08:30 UTC | 101.4 µA at 18:30 UTC |
+| chamber | **7.0 → 12.3 °C** | **21.7 °C** |
+| cell-side `t_ext` | **no samples at all** | 21.0 °C |
+
+`TEMPCO` was 0 at both. **So the two K values are not comparable as constants**,
+and "+5.1 % unexplained" overstates the anomaly: part of it is the arithmetic of
+differencing two uncorrected points ~12 K apart.
+
+**An in-situ tempco falls out of the same window, and it is the slow kind worth
+having.** 05:00 → 08:30 UTC on 09-10 the chamber ramped 7.2 → 12.3 °C while the
+cell went 96.0 → 96.5 µA: **+0.52 % over +5.1 K = ~1 020 ppm/K**, consistent
+with the ~800–1000 ppm/K this repo already records for the signal. Applying it
+across the +12 K between the points predicts +1.22 %, i.e. 97.76 µA against
+101.33 measured. **Temperature explains 1.2 of the 4.9 points, not all of it.**
+(The 08:40–08:50 ramp reads ~2 500 ppm/K, but the chamber sensor leads the cell
+during a fast ramp, so the slow segment is the only usable one.)
+
+**The reference shift is worth ~1.1 %, not the 0.5 % the commit dismissed it
+as — because the measurement is a difference with a lever arm.** `VREF_MON` read
+2494–2496 mV then and 2506 now, +12 mV = +0.48 %. But the current is derived as
+`(INT_Z - V_out)/R_TIA` with `INT_Z` **computed** as 0.67 × VREF while `V_out`
+is measured. At the air point the difference is only 713 mV of a 1679 mV
+pedestal, so an error in VREF is amplified by 1679/713 = **2.36x**:
+
+```
+dI/I = 0.67 x dVREF / (I x R_TIA) = 0.67 x 12 mV / 713 mV = +1.13 %
+```
+
+**And there is a mechanism for the VREF reading to move without the reference
+moving: R36 was replaced during the U8 rework**, and R36 sits in the
+`/VREF_MON_RAW` sense path with R34/R35. A shifted divider changes the *measured*
+VREF while the physical 2.5 V is untouched — and only the measured one enters
+`INT_Z`. If instead the reference truly moved, `INT_Z` and `V_out` move together
+and the difference is unchanged, contributing nothing. **The two cases differ by
+1.1 % of K and are told apart with a DMM**: meter `/VREF_TRIM` at TP4 and compare
+against `VREF_MON_MV` (0x0010) in the same minute. Disagreement beyond a few mV
+indicts the monitor path, i.e. R36.
+
+Running total: **1.2 % temperature + 1.1 % reference lever arm = 2.3 % of the
+4.9 %.** The residual ~2.6 % remains open, and the strongest untested candidate
+stays the one the commit listed first: the 09-10 point may not have been cell #1.
+
+**Unrelated artifact seen while reading the series, not investigated:**
+`gas_cell_ua` returns **236–237 µA** on isolated samples every 20–30 min through
+today's window (17:30, 18:00, 18:20) and **-0.0 µA** at 17:20, between clean
+100–102 µA readings. 237 µA is ~2.37x the air point. Flagged because a periodic
+non-physical sample will bias any mean taken over these series — the figures
+above use plateau values, not means.
