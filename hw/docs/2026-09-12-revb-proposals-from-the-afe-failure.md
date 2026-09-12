@@ -25,6 +25,8 @@ clear the leak, which refutes a water-based film).
 
 ## P0. DELETE THE ADS1119 — use the STM32's own ADC (Fab, 2026-09-12: "do we really need the ADS?")
 
+> **DECIDED 2026-09-12: ADOPTED.** U8 is deleted — [`2026-09-12-revb-decision-delete-ads1119.md`](2026-09-12-revb-decision-delete-ads1119.md). Two corrections to what follows: `VREF+` STAYS on VDDA (the reference is measured, not made the full scale), and R33/C28, R37/C30, R38/C31 are **kept**, not deleted — a SAR needs those RC filters more than a delta-sigma does.
+
 > **DECIDED 2026-09-12** — superseded in part by [`2026-09-12-revb-decision-vref-monitor.md`](2026-09-12-revb-decision-vref-monitor.md): `/VREF_TRIM` is measured DIRECTLY on a free MCU ADC pin (no divider — it is 2.5 V, under VDDA), deleting R34/R35/R36/C29. The `VREF+` move proposed in P0 is DEFERRED to the U8 decision.
 
 This subsumes P1, P2, P4 and P5, and it is the most consequential idea to come

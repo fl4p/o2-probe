@@ -3,7 +3,7 @@
 **Decided 2026-09-12 by Fab.** Scope: the reference-monitoring path only. This
 resolves P1 and P2 of
 [`2026-09-12-revb-proposals-from-the-afe-failure.md`](2026-09-12-revb-proposals-from-the-afe-failure.md)
-and takes one step of P0. It does **not** decide U8's fate.
+and takes one step of P0. It did **not** decide U8's fate; that was decided later the same day in [`2026-09-12-revb-decision-delete-ads1119.md`](2026-09-12-revb-decision-delete-ads1119.md).
 
 ## ADOPTED — measure `/VREF_TRIM` directly on a free MCU ADC pin
 
@@ -39,7 +39,10 @@ That is the durable win and it is larger than the four parts: the 2026-09-12
 investigation cost five hours because the only view of the 2.5 V reference ran
 through the single ADS1119 channel that was lying about it.
 
-## DEFERRED — moving `VREF+` (pin 5) from 3V3D to `/VREF_TRIM`
+## DEFERRED → REJECTED — moving `VREF+` (pin 5) from 3V3D to `/VREF_TRIM`
+
+> **RESOLVED 2026-09-12, same day: REJECTED.** See [`2026-09-12-revb-decision-delete-ads1119.md`](2026-09-12-revb-decision-delete-ads1119.md). It is not needed for ratiometry at all — measuring `/VREF_TRIM` on an MCU channel makes the reference's drift cancel arithmetically, so `VREF+` stays on VDDA and the whole error budget stays inside DS12232 Table 60's specified conditions. The reasoning below stands as the cost side; what changed is that the benefit turned out to be obtainable without paying it.
+
 
 Proposed under P0 and **not adopted now**. Its only benefit is ratiometry for
 an MCU-side O2 conversion, which pays off only if U8 is deleted, and it carries
@@ -69,10 +72,11 @@ Revisit with the U8 decision, not before.
    two nets; regenerate `hw_caps_rev_b.h` with `tools/gen_hw_caps.py` (it reads
    the revision's own netlist, which is why Rev A's caps header and the
    hand-written `hw_contract.h` disagree on the VA divider today).
-2. **U8's AIN1 must not be left floating** if U8 stays fitted. Tie it to AGND
-   or guarantee firmware never selects it —
-   `~/dev/kb/adc/floating-mux-input-mirrors-previous-channel.md` is exactly
-   this failure, and it is what AIN0 has been doing since 22:24 on 09-11.
+2. ~~**U8's AIN1 must not be left floating** if U8 stays fitted.~~ **MOOT** —
+   U8 was deleted later the same day. The underlying trap still applies to any
+   unused muxed input on any future part:
+   `~/dev/kb/adc/floating-mux-input-mirrors-previous-channel.md`, which is what
+   AIN0 has been doing since 22:24 on 09-11.
 3. **Firmware: re-derive the VREF gate.** `finish_vref()` (`main.c:700`) reads
    the ADS AIN1 and reconstructs x2 via `O2P_HW_DIV_VREF_NUM/DEN`
    (`hw_contract.h:64-65`); with no divider the factor is 1 and the source is
