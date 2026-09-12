@@ -8,7 +8,14 @@ whose deferred item is resolved here as **rejected**, not adopted.
 
 Every analog channel moves to the STM32G071CBT7's own ADC. U8 comes off the BOM.
 
-> **CONTESTED 2026-09-12, same day — DO NOT TREAT AS SETTLED.** A Codex review
+> **RE-TAKEN AND ADOPTED — Fab, 2026-09-12: "del u8".** U8 is deleted, in the
+> **REF3425 form**, which is what this document's own recommendation and both
+> reviews converged on. The binding specification is the "Final specification as
+> adopted" section at the foot of this file; where the body below disagrees with
+> it, the foot wins — the body is kept as the record of how the decision was
+> reached, including the parts of it that were wrong.
+>
+> **CONTESTED 2026-09-12, same day — the body below was not settled.** A Codex review
 > at xhigh returned **VERDICT: NO**, and I verified four of its five findings
 > against the datasheets, the firmware and the working tree; all four hold. See
 > [`2026-09-12-revb-codex-review-of-the-u8-decision.md`](2026-09-12-revb-codex-review-of-the-u8-decision.md).
@@ -189,3 +196,124 @@ digital activity, the RS-485 traffic and the LoRa duty cycle. Table 60's
 This is a layout and sampling-timing concern with standard mitigations, and the
 margin above would have to be wrong by ~5x for it to matter — but it is the
 one term that Rev B itself will have to confirm.
+
+---
+
+# Final specification as adopted (Fab, 2026-09-12)
+
+Binding. Supersedes every conflicting statement above and in
+`2026-09-12-revb-decision-vref-monitor.md`. Derived from this document plus
+[`2026-09-12-revb-codex-review-of-the-u8-decision.md`](2026-09-12-revb-codex-review-of-the-u8-decision.md)
+and [`2026-09-12-revb-claude-review-of-the-u8-deletion.md`](2026-09-12-revb-claude-review-of-the-u8-deletion.md).
+
+## Hardware
+
+| | |
+|---|---|
+| **U8 (ADS1119)** | **DELETED**, with its local decoupling, its I2C traffic and `ADC_DRDY` |
+| **`VREF+` (pin 5)** | driven from **`/VREF_TRIM`** — U15 REF3425, Kelvin-sensed. NOT 3V3D. |
+| R34, R35, R36, C29 | DELETED, with nets `/VREF_MON_RAW` and `/ADC_VREF_MON` |
+| **R25** | **47k -> 27k** — rescales `VA_MON` for the 2.5 V full scale; ceiling 6.85 V, *better* than today's 6.60, source impedance 23.5k -> 17.2k |
+| **new: 100 nF at `VREF+`** | local decoupling. Pin 5 leaves 3V3D, and its only capacitor would otherwise be C10 at U15. DS12232 Table 63 note 4; inside the REF3425's 0.1-10 uF stable range |
+| **new: Schottky, PA6 -> AGND** | Table 50 rates PA6 at **0 mA** negative injection and it is the only analog channel with a path to the external supply cable (R26 91k from `+12V_SW`) |
+| **NO VDDA divider** | `VA_MON` already reads 3V3D to within 1-2 mV through R32's 10 Ohm, better than a divider's own 1.65 mV leakage error — and a divider's 10 us aperture cannot see the buck anyway |
+| R33/C28, R37/C30, R38/C31 | **KEPT**. A SAR needs them more than a delta-sigma does |
+| `VIN_MON` (91k/10k), `CE_MON` (91k/91k) | unchanged; both already fit a 2.5 V full scale |
+| U8 footprint | **open sub-question, see below** |
+
+## Channels
+
+| pin | port | ch | pad | net |
+|---|---|---|---|---|
+| 11 | PA0 | IN0 | FT_a | `/ADC_WE_BUF` |
+| 12 | PA1 | IN1 | FT_a | `/ADC_RE_BUF` |
+| 20 | PB1 | **IN9** | FT_a | `/ADC_AFE_VOUT` |
+| 16 | PA5 | IN5 | TT_a | **returns to the pool** |
+
+`PA5` is freed: with `VREF+` = `/VREF_TRIM`, converting the reference against
+itself saturates at 4095 and carries no information. Reference health is
+**VREFINT against the 2.5 V full scale** — and note what that is: a **collapse
+detector, not a drift monitor.** VREFINT's own tempco (50 ppm/degC) and `ACoeff`
+(1000 ppm/1000 h) are 8x and 40x worse than the reference it watches. Do not
+document it as a drift monitor.
+
+## Firmware
+
+**The oxygen equation. There is no `code_REF` term.**
+
+```
+I = V_REF x (0.67 - code_AFE / 4095) / R_TIA      V_REF a COMPILE-TIME CONSTANT
+```
+
+The three-conversion form carried in the body above is the **VDDA-architecture**
+equation and must not be ported. It would read a saturated channel — leaving
+0.06 %O2 of zero error at `EG` = -5 LSB that no air-point calibration removes,
+and violating the rule every other guard here enforces
+(`ads1119.h:126`, `main.c:1176`).
+
+- `ADCAL` after **every** power-up. Not optional: DS12232 Table 60 footnote 2
+  says the DC accuracy figures are measured *after* internal calibration, so it
+  is a precondition of the spec and `EO` stays in the budget regardless.
+- **Publish `ADC_CALFACT`** per boot. It is a per-part proxy for converter offset
+  and its drift, and the functional replacement for the ADS's lost shorted-input
+  self-check — a register read against P4's whole `PH_OFFSET` phase and a MUX
+  write per cycle.
+- **Use the two exact ratiometric constants** the 2.5 V full scale creates:
+  `V_WE` = 0.67 x FS (code 2744) and `V_RE` = 0.91 x FS (code 3727), both to the
+  LMP's +/-0.04 %. `WE_BUF` is then an independent measurement of the very
+  pedestal the oxygen subtraction uses, on a different pin, and a per-channel
+  leak breaks a known constant instead of hiding in a signal.
+- Re-derive the VREF gate at `main.c:700` / `:869` from the MCU path; drop the
+  `O2P_HW_*_ON_ADS` flags; regenerate `hw_caps_rev_b.h`.
+- Keep `VREF_MON_MV` (0x0010) and its units — the telemetry history is the only
+  record of the 09-11 failure and must stay comparable.
+
+## How this budget is to be written from now on
+
+Both reviews rejected the old framing and they were right.
+
+- **State the budget in mV at the TIA output.** Quote %O2 only *at a named cell
+  output*, with a `CAL_AIR_NA`-scaled derating note: DS-0637 is 0.1 +/- 0.03 mA,
+  so a legal replacement cell inflates every %O2 figure by up to 1.4x and an
+  aged one by more.
+- **Judge against the application requirement, not the cell tempco.** Compost
+  aeration decisions are taken at whole-percent thresholds; the budget is
+  0.14-0.20 %O2. The old "~5x to 18x under the cell" comparison was
+  mis-attributed (it is the whole signal, on a *board* temperature), circular (it
+  contained the ADS path's own tempco) and a category error (the cell's tempco is
+  corrected in firmware; INL is not).
+- **Carry `ACoeff`.** VREFINT is 1000 ppm max per 1000 **hours** and a buried
+  probe runs continuously: 0.183 %O2 at a year, the same size as the entire
+  static budget. This is a large part of why the REF3425 form won — it is
+  25 ppm/1000 h.
+- **Drop `VDDCoeff`.** 0.0015 %O2 across the rail's own range. Both earlier
+  passes over-weighted it.
+
+## Why the REF3425 form and not the VDDA form
+
+With `VREF+` = VDDA the three conversions happen at different times on a rail
+with no LDO, so the cancellation fails: the worst pair at zero oxygen couples
+0.718 mV/mV, i.e. **4.63 mV of supply variation costs 0.1 %O2**, on a 3V3D that
+is now a bare AP63203 buck output. With `VREF+` = the REF3425 that coupling is
+not reduced, it is **zero** — VDDA appears nowhere in the derivation. Residuals
+are the LMP's PSRR at RE (80 dB min) and the TIA's unspecified supply
+sensitivity, both behind R32/C7. **~1000x on the term that dominates.**
+
+## Open, and deliberately not closed by this decision
+
+1. **Keep U8's footprint, or reclaim the area?** The footprint was a hedge
+   against an undecided question, and the question is now decided — but the one
+   term no datasheet can settle is still unmeasured: whether the MCU's
+   conversions pick up noise from its own digital activity, RS-485 and the LoRa
+   duty cycle. **Recommendation: keep it if board area allows on a probe this
+   size, drop it if it costs routing.** revB's call as the layout owner.
+2. **The single-rail buck ripple** remains the release gate of
+   `2026-09-12-revb-single-rail-supply.md` §8.7/§9. This decision makes the
+   oxygen channel insensitive to it; it does not measure it. That gate needs a
+   scope or a deliberate peak detector — **an ADC channel cannot answer it**, the
+   10 us aperture nulls at 99.7 kHz.
+3. **The cell/AFE tempco split** is still unmeasured. Only the dummy-cell run in
+   `2026-09-09-afe-tempco-plan.md` (6.04 kOhm in the socket + ring heater) closes
+   it. No longer gates this decision, since the acceptance criterion is re-based.
+4. **STM32G0 `CHSELR`/`CCRDY` errata** — unverified, the errata sheet is not
+   archived. Worth one fetch before the sampler port relies on the handshake.
