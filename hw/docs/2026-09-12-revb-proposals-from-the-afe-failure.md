@@ -82,20 +82,110 @@ pad-clearance problem disappear along with the pads.
 Net BOM deletion: U8, C28, C29, C30, C31, R33, R36, R37, R38, the whole
 `/ADC_*` stub family, and the I2C traffic and its failure modes.
 
-### Required before committing — measure, do not assume
+### Required before committing — ANSWERED 2026-09-12, no bench time needed
 
-1. **ADC noise against the real signal.** The ADS1119 at 20 SPS is genuinely
-   ~30x quieter per sample. Oversampling should close the gap for a
-   multi-second measurement, but that is a datasheet argument, not evidence.
-   **Bench-compare both converters on a GOOD board** before deciding.
-2. **STM32G0 ADC input leakage is far worse than the ADS's +/-5 nA typ** — up
-   to +/-1 uA over temperature. Into the 1 kOhm AFE_VOUT series that is 1 mV,
-   i.e. 0.03 %O2 of static offset, which calibration absorbs. Into anything
-   high-impedance it is fatal, so **P2 becomes mandatory rather than
-   optional** for every retained divider.
-3. **VREF+ draws switched-cap current during conversions.** Whether the Rev B
-   series voltage reference can supply it is a question for
-   `2026-09-12-revb-single-rail-supply.md`, not for this document.
+This section originally listed three measurements as prerequisites. Fab asked
+"can't we answer this already from the data we have?" and the answer was yes
+to all three: two from telemetry already in VictoriaMetrics, one from
+DS12232. The original wording is kept under each item, because one of them was
+wrong by 14x and that matters more than a tidy page.
+
+**1. ADC noise against the real signal — ANSWERED from telemetry.**
+Originally: *"the ADS1119 at 20 SPS is genuinely ~30x quieter per sample …
+bench-compare both converters on a GOOD board before deciding."*
+
+No bench comparison is needed, because **the firmware discards the ADS1119's
+resolution before the number ever leaves the probe.** `main.c:1066` publishes
+`uv / 1000` — whole millivolts — while `ads1119.h:124` resolves 76 uV/LSB
+against a 2500 mV reference. The published quantity is 13x coarser than the
+converter that produced it.
+
+Measured against that grid over 4981 adjacent sample pairs in the healthy era
+(2026-09-06 to 09-11 22:23), keeping only pairs where the die temperature
+moved less than 0.1 K so that what remains is chain noise and not drift
+(`farming/tech/bench/o2p_adc_noise_from_vm.py`):
+
+| adjacent-pair difference | share |
+|---|---|
+| 0 mV | 71.3 % |
+| 1 mV | 28.2 % |
+| 2 mV or more | 0.46 % |
+| **implied chain noise** | **0.43 mV rms = 0.013 %O2** |
+
+The chain dithers between two adjacent codes, so its entire noise — cell, LMP,
+ADS and reference together — sits BELOW the 1 mV publication grid. The
+comparison that actually decides this is therefore not ADS-versus-STM32, it is
+each candidate against that 1 mV:
+
+| | mV | %O2 |
+|---|---|---|
+| measured in-situ chain noise | 0.431 | 0.0130 |
+| **firmware publication grid** | **1.000** | **0.0301** |
+| ADS1119 LSB (16-bit, VREF 2500 mV) | 0.076 | 0.0023 |
+| **STM32 12-bit LSB (VREF+ 2500 mV)** | **0.610** | **0.0184** |
+| STM32 12-bit + 16x oversample | 0.038 | 0.0011 |
+| cell tempco 900 ppm/K, per 1 K | 0.624 | 0.0188 |
+
+**A bare 12-bit conversion (0.610 mV) is already finer than the millivolt the
+probe reports, and is the same size as 1 K of the cell's own tempco.**
+Oversampling is available if wanted but is not needed to match today's
+telemetry. The ADS1119's 76 uV was never reaching anyone.
+
+Caveat on scope: this measures the ADS in situ and bounds the whole chain. It
+does not measure an STM32 conversion on this board — nothing on Rev A can,
+since `/ADC_AFE_VOUT` reaches no MCU pin. The STM32 figures above are
+quantization, not measured noise, so they are a floor. What the telemetry
+settles is the question that was actually blocking: whether the ADS's extra
+resolution is being used. It is not.
+
+**2. STM32 ADC input leakage — ANSWERED from DS12232, and my figure was
+wrong.** Originally: *"up to +/-1 uA over temperature … P2 becomes mandatory
+rather than optional."*
+
+That +/-1 uA was unsourced and it is wrong. DS12232 Rev 5 Table 51
+(`datasheets/ST-STM32G071-DS12232-Rev5.pdf`, p.81) gives `Ilkg` per pad type,
+and PA7 — the existing `/ADC_VA_MON` input — is an **`FT_a`** pad, which falls
+in the *"Other FT_xx"* row: **+/-70 nA max** for `0 < VIN <= VDDIO1`. The
+worst pad type on the part (`TT_a`) is +/-150 nA. The real gap to the
+ADS1119's +/-5 nA typ is **14x, not 200x**, and that is max against typ.
+
+Consequences: into the existing 23.5 kOhm VREF Thevenin, 70 nA is 1.6 mV on a
+1250 mV node — 0.13 %, a DC offset that calibrates out, leaving only its
+tempco. Into the AFE output, a driven op-amp, leakage is irrelevant. **P2 is
+therefore desirable, not mandatory.** I overstated it; the case for lowering
+divider impedance has to stand on settling and contamination margin — which it
+does — and not on leakage.
+
+Related and useful: Table 58 gives `RAIN` max 50 kOhm external input
+impedance, and Table 59 resolves it against sampling time — at 12 bits,
+160.5 sampling cycles allows **50 kOhm** while 12.5 cycles allows 4.7 kOhm.
+Even the untouched 23.5 kOhm divider is inside spec at a long sample time.
+That is a settling budget, not a leakage limit.
+
+**3. VREF+ switched-cap current — ANSWERED from DS12232, and it is
+negligible.** Originally deferred to the single-rail document.
+
+Table 58, `IDDV(ADC)`, "ADC consumption from VREF+":
+
+| sampling rate | current from VREF+ |
+|---|---|
+| 2.5 MSps | 65 uA |
+| 1 MSps | 26 uA |
+| 10 kSps | **0.26 uA typ** |
+
+The probe converts a handful of channels a few times per measurement cycle,
+orders of magnitude below 10 kSps, so **VREF+ costs 0.26 uA**. A series
+reference or the existing OPA2333 buffer supplies that without noticing. This
+is no longer a question for `2026-09-12-revb-single-rail-supply.md`.
+
+Also confirmed compatible (DS12232 p.809-817): with `VDDA >= 2 V`, VREF+ must
+lie between 2 V and VDDA. `/VREF_TRIM` at 2.500 V against VDDA 3.3 V is
+squarely inside that, and 2.5 V is one of the two values ST's own internal
+VREFBUF offers.
+
+**Status: P0 has no open measurement blocking it.** It stays a proposal rather
+than a decision, but the remaining objections are the design items below, not
+missing evidence.
 
 Further open items: the WE/RE electrode buffer channels need MCU pins (free
 pins exist — 22 of 48 assigned); existing dividers are sized against a 3.3 V

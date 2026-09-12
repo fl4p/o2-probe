@@ -2087,3 +2087,90 @@ part at the moment it broke.
   once set. The answer decides the solvent.
 - `VREF_MON` will be watched over the wire throughout, with
   `tech/bench/o2p_reg_watch.py`; on 09-10 the recovery appeared as a step.
+
+---
+
+## 2026-09-12 14:00 — What the existing telemetry already settles (no bench time)
+
+Fab, on being handed a list of three measurements as prerequisites for the
+Rev B "delete the ADS1119" proposal: *"cant we answer this already from the
+data we have?"* Yes — and the reason is a property of Rev A worth recording
+here, because it turns 129 hours of ordinary telemetry into a converter
+characterisation.
+
+### Rev A wires BOTH converters to one node
+
+`/ADC_VA_MON` — a 10k/10k divider off 3V3A, Thevenin 1650 mV / 5 kOhm — is
+read by the ADS1119 on AIN2 (`hw_caps_rev_a.h:12`, `:92`) AND by the STM32 on
+PA7 / ADC1_IN7 (`hw_contract.h:53`, `:60`). Both scale x2 into the same
+register 0x0011 (`o2p_scale_va_ads`, `sampler_logic.h:119`, against
+`read_divided_rail`, `mcu_adc.c:195`), so the published numbers are directly
+comparable with no rescaling.
+
+Which one publishes depends on the VREF gate: `phase_rails` writes PA7 first
+(`main.c:319`), and `finish_electrode` overwrites it with AIN2 **only if the
+external reference converted** (`main.c:869`). So the 22:24 failure on 09-11
+is a changeover, not merely a fault — `gas_va_mv` is the ADS before it and the
+STM32 after it.
+
+**That cross-check is not usable on this board, and the reason is itself a
+finding.** Post-22:24 the AIN2 fault (~2.6 kOhm to AVDD) pulls the shared
+node up, so both converters read a corrupted node: `gas_va_mv` jumped
+3114 → 4432, i.e. the tap at 2216 mV instead of 1650, which implies roughly
+9.6 kOhm of injected path. **A defect inside the ADS1119 corrupted a node the
+STM32 also measures** — the independent-witness role PA7 exists for
+(`mcu_adc.h:10`) was defeated by sharing a net with the part it was meant to
+witness. Carry that into Rev B: an independent monitor needs an independent
+node, not just an independent converter. And the remaining post-failure window
+is unusable for noise anyway — 09-12 was a bench day, die to 87.8 C, rail
+pulled down, current injected, so its 450 mV of "noise" is Fab's hands.
+
+### The O2 channel's real in-situ noise, and the grid it is published on
+
+`tech/bench/o2p_adc_noise_from_vm.py` (farming) exports raw samples and takes
+the stddev of **adjacent differences**, which removes anything slower than the
+sample interval; plain stddev over days is dominated by drift, not noise.
+Filtered to pairs where `gas_t_die_c` moved under 0.1 K, healthy era
+2026-09-06 → 09-11 22:23, 4981 pairs on `gas_afe_mv` (AIN0, at the pin):
+
+| adjacent-pair difference | share |
+|---|---|
+| 0 mV | 71.3 % |
+| 1 mV | 28.2 % |
+| 2 mV | 0.42 % |
+| >= 3 mV | 0.06 % |
+
+sd of differences 0.610 mV → **chain noise 0.43 mV rms**, i.e. 0.013 %O2 on
+the 33.2 mV/%O2 span. The distribution is the point: a chain dithering between
+two adjacent codes 71/28 is quieter than the grid it is reported on.
+
+And the grid is coarse. `main.c:1066` stores `uv / 1000` — whole millivolts —
+while `ads1119.h:124` resolves 2500/32768 = **76 uV/LSB**. The probe throws
+away a factor of 13 of the ADS1119's resolution before transmitting. Nothing
+downstream has ever seen it.
+
+Consequence for the Rev B decision, in full in
+`docs/2026-09-12-revb-proposals-from-the-afe-failure.md` P0: a bare STM32
+12-bit conversion against a 2.5 V VREF+ is 0.610 mV/LSB — **finer than the
+millivolt the probe publishes**, and the same size as 1 K of the cell's own
+~900 ppm/K drift. Two datasheet items from DS12232 Rev 5 close the other two
+objections: `Ilkg` for PA7's `FT_a` pad is **+/-70 nA max** (Table 51, p.81),
+not the +/-1 uA I had asserted — a 14x error on my part, which demotes the
+"lower the divider impedance" item from mandatory to desirable — and
+`IDDV(ADC)`, the current VREF+ must supply, is **0.26 uA typ at 10 kSps**
+(Table 58), far above the probe's rate. Datasheet archived at
+`~/dev/ee/datasheets/ST-STM32G071-DS12232-Rev5.pdf`.
+
+### Also fixed: this log's own watcher gave a sign-blind verdict
+
+`tech/bench/o2p_reg_watch.py` reported the +57 K soak as *"thermally
+activated, i.e. contamination"* when the leak resistance had **risen**
+727 → 873 Ohm — the opposite of the ionic signature. The verdict branched on
+`rhi / rlo`, a ratio of independently-taken extrema that is >= 1 by
+construction, so the sign was never consulted. It now least-squares-fits R
+against T over the paired samples and reports signed ppm/K: falling
+resistance = ionic, rising = doped-silicon path, flat = fixed ohmic shunt, and
+too few samples or too little span returns INCONCLUSIVE rather than any
+physical verdict. Calibrated against the real trace (now +3202 ppm/K → "NOT
+ionic; suspect the die") plus a synthetic ionic case, a fixed shunt, and both
+unevaluable inputs.
