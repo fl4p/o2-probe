@@ -2434,3 +2434,45 @@ membrane heater can exceed this — the tip reached 81.85 °C in the same window
 settling, `AFE_VOUT` ≈ **979 mV** in air (100 µA × 7 kΩ below the 1679 mV
 internal zero). That single number confirms the cell, the LMP91000 and AIN0 on
 the new ADS1119 together.
+
+### 17:56 — cell #2 is identical: >610 µA. It is NOT the cells
+
+Cell #2 fitted 17:39, `SETTLE_S` ran to 0 by 17:53, and a second `diag 2:0x04`
+gain drop found `AFE_VOUT` railed at 0 across the whole 60 s window — **>610 µA,
+exactly like cell #1.**
+
+**Two different cells, the same number. The 17:45 conclusion that the 80 °C
+drying destroyed cell #1 is therefore not established** — it may still be true,
+but it is no longer needed to explain anything, and a fresh cell from storage
+reproduces the fault. The shunt is in the fixed hardware.
+
+**RE is ruled out as the current's source.** The LMP91000's reference input is
+high-impedance by design — that is what a 3-electrode potentiostat is — so it
+cannot supply 610 µA. The current arrives at WE from **CE** (a driven output) or
+from **a supply rail**:
+
+| path | drop | implied |
+|---|--:|--:|
+| WE ↔ CE | 2746 − 1681 = 1065 mV | **≤ 1.75 kΩ** |
+| WE ↔ 3V3A | 3298 − 1681 = 1617 mV | **≤ 2.65 kΩ** |
+
+**The ambiguity that remains:** those three pads carry both board copper and
+U7's pins (U7.12 WE, U7.13 RE, U7.14 CE), so an ohmmeter on the pads measures
+the board and the LMP91000 together. U7 has taken the same 81 °C, steam,
+submersion and conformal paint as everything else on this board.
+
+Also now suspicious in hindsight: at 16:27, with **no cell connected**,
+`AFE_VOUT` read 0. That was explained as a floating TIA input railing — but a
+board shunt gives the identical reading, and the two were never separated.
+
+#### Next, cell out, board unpowered
+
+1. Ohm from the **WE pad** to: **CE pad**, **RE pad**, **GND**, **3V3A**.
+   Anything in the 1–3 kΩ range is the fault and names its destination.
+2. **Clean** those pads and around U7.12/13/14 — IPA and a brush, including
+   between the pads.
+3. **Re-ohm.** Cleared ⇒ residue. Unchanged ⇒ the path is inside U7, which then
+   becomes the next part to replace.
+
+Pull cell #2 first: there is no reason to leave a good cell biased into a short,
+and it is very likely still good.
