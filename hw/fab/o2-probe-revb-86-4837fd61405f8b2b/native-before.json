@@ -1,0 +1,434 @@
+{
+  "all_copper_items": 2543,
+  "edge_primitives": [
+    [
+      "arc",
+      [
+        [
+          100.0,
+          -55.0
+        ],
+        [
+          102.0,
+          -53.0
+        ]
+      ],
+      [
+        102.001,
+        -55.001
+      ],
+      [
+        100.586,
+        -53.586
+      ]
+    ],
+    [
+      "line",
+      [
+        [
+          100.0,
+          -139.0
+        ],
+        [
+          100.0,
+          -55.0
+        ]
+      ]
+    ],
+    [
+      "line",
+      [
+        [
+          100.8,
+          -121.4
+        ],
+        [
+          100.8,
+          -136.6
+        ]
+      ]
+    ],
+    [
+      "arc",
+      [
+        [
+          100.8,
+          -121.4
+        ],
+        [
+          101.6,
+          -121.4
+        ]
+      ],
+      [
+        101.2,
+        -121.4
+      ],
+      [
+        101.2,
+        -121.0
+      ]
+    ],
+    [
+      "line",
+      [
+        [
+          101.5,
+          -117.25
+        ],
+        [
+          106.75,
+          -117.25
+        ]
+      ]
+    ],
+    [
+      "arc",
+      [
+        [
+          101.5,
+          -118.75
+        ],
+        [
+          101.5,
+          -117.25
+        ]
+      ],
+      [
+        101.5,
+        -118.0
+      ],
+      [
+        100.75,
+        -118.0
+      ]
+    ],
+    [
+      "arc",
+      [
+        [
+          101.6,
+          -136.6
+        ],
+        [
+          100.8,
+          -136.6
+        ]
+      ],
+      [
+        101.2,
+        -136.6
+      ],
+      [
+        101.2,
+        -137.0
+      ]
+    ],
+    [
+      "line",
+      [
+        [
+          101.6,
+          -136.6
+        ],
+        [
+          101.6,
+          -121.4
+        ]
+      ]
+    ],
+    [
+      "line",
+      [
+        [
+          102.0,
+          -53.0
+        ],
+        [
+          118.0,
+          -53.0
+        ]
+      ]
+    ],
+    [
+      "arc",
+      [
+        [
+          106.75,
+          -117.25
+        ],
+        [
+          106.75,
+          -118.75
+        ]
+      ],
+      [
+        106.75,
+        -118.0
+      ],
+      [
+        107.5,
+        -118.0
+      ]
+    ],
+    [
+      "line",
+      [
+        [
+          106.75,
+          -118.75
+        ],
+        [
+          101.5,
+          -118.75
+        ]
+      ]
+    ],
+    [
+      "line",
+      [
+        [
+          113.25,
+          -117.25
+        ],
+        [
+          118.5,
+          -117.25
+        ]
+      ]
+    ],
+    [
+      "arc",
+      [
+        [
+          113.25,
+          -118.75
+        ],
+        [
+          113.25,
+          -117.25
+        ]
+      ],
+      [
+        113.25,
+        -118.0
+      ],
+      [
+        112.5,
+        -118.0
+      ]
+    ],
+    [
+      "arc",
+      [
+        [
+          118.0,
+          -53.0
+        ],
+        [
+          120.0,
+          -55.0
+        ]
+      ],
+      [
+        117.999,
+        -55.001
+      ],
+      [
+        119.414,
+        -53.586
+      ]
+    ],
+    [
+      "line",
+      [
+        [
+          118.4,
+          -121.4
+        ],
+        [
+          118.4,
+          -136.6
+        ]
+      ]
+    ],
+    [
+      "arc",
+      [
+        [
+          118.4,
+          -121.4
+        ],
+        [
+          119.2,
+          -121.4
+        ]
+      ],
+      [
+        118.8,
+        -121.4
+      ],
+      [
+        118.8,
+        -121.0
+      ]
+    ],
+    [
+      "arc",
+      [
+        [
+          118.5,
+          -117.25
+        ],
+        [
+          118.5,
+          -118.75
+        ]
+      ],
+      [
+        118.5,
+        -118.0
+      ],
+      [
+        119.25,
+        -118.0
+      ]
+    ],
+    [
+      "line",
+      [
+        [
+          118.5,
+          -118.75
+        ],
+        [
+          113.25,
+          -118.75
+        ]
+      ]
+    ],
+    [
+      "arc",
+      [
+        [
+          119.2,
+          -136.6
+        ],
+        [
+          118.4,
+          -136.6
+        ]
+      ],
+      [
+        118.8,
+        -136.6
+      ],
+      [
+        118.8,
+        -137.0
+      ]
+    ],
+    [
+      "line",
+      [
+        [
+          119.2,
+          -136.6
+        ],
+        [
+          119.2,
+          -121.4
+        ]
+      ]
+    ],
+    [
+      "line",
+      [
+        [
+          120.0,
+          -55.0
+        ],
+        [
+          120.0,
+          -139.0
+        ]
+      ]
+    ],
+    [
+      "line",
+      [
+        [
+          120.0,
+          -139.0
+        ],
+        [
+          100.0,
+          -139.0
+        ]
+      ]
+    ]
+  ],
+  "edge_primitives_schema": 2,
+  "fill_comparison_y_min_mm": 55.3,
+  "filled_difference_mm2": {
+    "B.Cu:998d7996-92b5-5b24-9014-4e134624a3fa|GND": {
+      "added": 0.0,
+      "below_y55_3": 0.0,
+      "removed": 58.19700003999598
+    },
+    "B.Cu:c20dd833-d38a-5a8a-a260-f15da814c441|/HEATER_LOW": {
+      "added": 0.0,
+      "below_y55_3": 0.0,
+      "removed": 0.0
+    },
+    "F.Cu:a57c766e-0eeb-5b89-8cd9-2531207fde8e|GND": {
+      "added": 0.0,
+      "below_y55_3": 0.0,
+      "removed": 58.196999960758504
+    }
+  },
+  "footprints": 83,
+  "input_paths": [
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-86-ai6m2vmk/working-source/o2-probe/routing/revb-86/o2-probe.kicad_pcb",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-86-ai6m2vmk/working-source/o2-probe/routing/revb-current/o2-probe.kicad_pcb",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-86-ai6m2vmk/working-source/o2-probe/verify_revb_86.py",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-86-ai6m2vmk/working-source/o2-probe/routing/revb-86/o2-probe.kicad_pro",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-86-ai6m2vmk/working-source/o2-probe/routing/revb-86/o2-probe.kicad_dru",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-86-ai6m2vmk/working-source/o2-probe/routing/revb-86/o2-probe.kicad_sch",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-86-ai6m2vmk/working-source/o2-probe/routing/revb-current/o2-probe.kicad_pro",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-86-ai6m2vmk/working-source/o2-probe/routing/revb-current/o2-probe.kicad_dru",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-86-ai6m2vmk/working-source/o2-probe/routing/revb-current/o2-probe.kicad_sch"
+  ],
+  "inputs_sha256": {
+    "/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/_pcbnew.so": "a925e81911bfbf7549f21efca0468bfe50eff6bc4c2b354559ad41c1167766ae",
+    "/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/pcbnew.py": "cb758e0a7af2042b40d9ba4e758ce136fbbbb467c4fdf0347750749de402e557",
+    "/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/shapely/__init__.py": "2583d14cbf81227a49233692d894a9501d97f8ef05010c58116248858439c916",
+    "/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/shapely/lib.cpython-39-darwin.so": "103ec2e5fc4ccdd7524c9497dbd1302de659c3643a0054174ba40f2b7fecbaaf",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-86-ai6m2vmk/working-source/o2-probe/routing/revb-86/o2-probe.kicad_dru": "8937c6fe68e0b4c2df727f54283bcf4731544972dc6eeda6007c2d158d8d8a93",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-86-ai6m2vmk/working-source/o2-probe/routing/revb-86/o2-probe.kicad_pcb": "9da60f0c3bbf4bc85fe11fb920bd16b3d50b55f7edb4ab5fc0db4f19af203794",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-86-ai6m2vmk/working-source/o2-probe/routing/revb-86/o2-probe.kicad_pro": "25fbd981382c98984790c7a89c2d3c976478aebbbe724de0d0f674bdd2f18827",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-86-ai6m2vmk/working-source/o2-probe/routing/revb-86/o2-probe.kicad_sch": "9f06ced24c53ee2e52a823052d4e7d5a4581eef53be99d1e067ee78b1f6a5aba",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-86-ai6m2vmk/working-source/o2-probe/routing/revb-current/o2-probe.kicad_dru": "8937c6fe68e0b4c2df727f54283bcf4731544972dc6eeda6007c2d158d8d8a93",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-86-ai6m2vmk/working-source/o2-probe/routing/revb-current/o2-probe.kicad_pcb": "3c24db8193af09d4d9ad07b2166c7f818885211b63b3e2af6e0c7cbec900c665",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-86-ai6m2vmk/working-source/o2-probe/routing/revb-current/o2-probe.kicad_pro": "25fbd981382c98984790c7a89c2d3c976478aebbbe724de0d0f674bdd2f18827",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-86-ai6m2vmk/working-source/o2-probe/routing/revb-current/o2-probe.kicad_sch": "9f06ced24c53ee2e52a823052d4e7d5a4581eef53be99d1e067ee78b1f6a5aba",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-86-ai6m2vmk/working-source/o2-probe/verify_revb_86.py": "b54f810d5f85a36bf614401b9f17721286814d9459be5790b87896485119bd9a"
+  },
+  "modified_drawings": [
+    "42935040-3c92-56f0-85c9-ada5c91405bd",
+    "44fcae7e-d934-5b11-a976-d306df3e3d78",
+    "50cb1b95-414f-55da-86b0-24bfc55b5569",
+    "8a7edcbb-f470-5578-9193-2c238760b099",
+    "ae686e5e-e0e3-5956-a5ee-2629db626bb1",
+    "ea06dc41-11e6-594d-baab-da6250d792e7"
+  ],
+  "outline_mm": [
+    20,
+    86
+  ],
+  "schema": 1,
+  "scope": "Full native objects and zone definitions unchanged except six exact drawings; native fill below y55.3 unchanged; only GND removal allowed above that",
+  "seconds": 1.0082565829999999,
+  "status": "PASS",
+  "vias": 195
+}

@@ -1,0 +1,15 @@
+{
+  "scope": "Parent visual review of actual final package PDF rasterizations; bounded 3 mm outline change",
+  "result": "No additional shrink-related visual finding",
+  "observed": [
+    "Rounded cable end and vertical CABLE annotation retained without new clipping",
+    "Cell C/W/R mapping, four thermal slots, potting boundary and keep-open labels retained",
+    "Front/back DNP crossouts retained",
+    "Schematic source is unchanged by the PCB trim; this visual pass is not a fresh circuit qualification"
+  ],
+  "image_sha256": {
+    "assembly-back.png": "65a06a7b65412823473469c639fb0bd36e2cce4aa2aa4a6ea7088710b5c5c7d9",
+    "assembly-front.png": "69a0e683e329d4da6e676ab020c53845a8c4e4bb24de6fdce3617a80c28961ca",
+    "schematic.png": "e83d94e4da2065809ff03c1459999fd0c5f11eb853c244a1b830e7379f2d705e"
+  }
+}

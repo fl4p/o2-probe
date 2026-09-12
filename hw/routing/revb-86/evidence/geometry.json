@@ -1,0 +1,276 @@
+{
+  "scope": "Independent fixed-input native shrink measurement, not a reusable release gate.",
+  "inputs_sha256": {
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/routing/revb-current/o2-probe.kicad_pcb": "3c24db8193af09d4d9ad07b2166c7f818885211b63b3e2af6e0c7cbec900c665",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/routing/revb-86/o2-probe.kicad_pcb": "9da60f0c3bbf4bc85fe11fb920bd16b3d50b55f7edb4ab5fc0db4f19af203794",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/checks/revb-86-independent/measure_shrink.py": "3d11d6192429c19dcf73bb5fbf1e90589b20690c2eb376e80f8917d0a36e3aab",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/verify_revb_current.py": "2e600b44b2572a21a0ba59b31f44c52af5a3c8172d0176ad60d70c702a1e5404"
+  },
+  "source_sha256": "3c24db8193af09d4d9ad07b2166c7f818885211b63b3e2af6e0c7cbec900c665",
+  "candidate_sha256": "9da60f0c3bbf4bc85fe11fb920bd16b3d50b55f7edb4ab5fc0db4f19af203794",
+  "native_copper_exact": true,
+  "native_copper_items": 2543,
+  "via_count": 195,
+  "native_footprint_pad_records_exact": true,
+  "full_normalized_footprint_serialization_exact": true,
+  "all_other_normalized_board_serialization_exact": true,
+  "zone_parameters_exact": true,
+  "drawing_delta": [
+    {
+      "before": {
+        "uuid": "42935040-3c92-56f0-85c9-ada5c91405bd",
+        "layer": 25,
+        "kind": "shape",
+        "shape": 0,
+        "start": [
+          102000000,
+          50000000
+        ],
+        "end": [
+          118000000,
+          50000000
+        ],
+        "width": 50000
+      },
+      "after": {
+        "uuid": "42935040-3c92-56f0-85c9-ada5c91405bd",
+        "layer": 25,
+        "kind": "shape",
+        "shape": 0,
+        "start": [
+          102000000,
+          53000000
+        ],
+        "end": [
+          118000000,
+          53000000
+        ],
+        "width": 50000
+      }
+    },
+    {
+      "before": {
+        "uuid": "44fcae7e-d934-5b11-a976-d306df3e3d78",
+        "layer": 25,
+        "kind": "shape",
+        "shape": 0,
+        "start": [
+          120000000,
+          52000000
+        ],
+        "end": [
+          120000000,
+          139000000
+        ],
+        "width": 50000
+      },
+      "after": {
+        "uuid": "44fcae7e-d934-5b11-a976-d306df3e3d78",
+        "layer": 25,
+        "kind": "shape",
+        "shape": 0,
+        "start": [
+          120000000,
+          55000000
+        ],
+        "end": [
+          120000000,
+          139000000
+        ],
+        "width": 50000
+      }
+    },
+    {
+      "before": {
+        "uuid": "50cb1b95-414f-55da-86b0-24bfc55b5569",
+        "layer": 5,
+        "kind": "text",
+        "text": "CABLE",
+        "position": [
+          110000000,
+          51500000
+        ],
+        "angle": 0.0,
+        "size": [
+          800000,
+          800000
+        ],
+        "thickness": 120000
+      },
+      "after": {
+        "uuid": "50cb1b95-414f-55da-86b0-24bfc55b5569",
+        "layer": 5,
+        "kind": "text",
+        "text": "CABLE",
+        "position": [
+          110000000,
+          57000000
+        ],
+        "angle": 90.0,
+        "size": [
+          800000,
+          800000
+        ],
+        "thickness": 120000
+      }
+    },
+    {
+      "before": {
+        "uuid": "8a7edcbb-f470-5578-9193-2c238760b099",
+        "layer": 25,
+        "kind": "shape",
+        "shape": 2,
+        "start": [
+          118000000,
+          50000000
+        ],
+        "end": [
+          120000000,
+          52000000
+        ],
+        "width": 50000,
+        "mid": [
+          119414000,
+          50586000
+        ]
+      },
+      "after": {
+        "uuid": "8a7edcbb-f470-5578-9193-2c238760b099",
+        "layer": 25,
+        "kind": "shape",
+        "shape": 2,
+        "start": [
+          118000000,
+          53000000
+        ],
+        "end": [
+          120000000,
+          55000000
+        ],
+        "width": 50000,
+        "mid": [
+          119414000,
+          53586000
+        ]
+      }
+    },
+    {
+      "before": {
+        "uuid": "ae686e5e-e0e3-5956-a5ee-2629db626bb1",
+        "layer": 25,
+        "kind": "shape",
+        "shape": 0,
+        "start": [
+          100000000,
+          139000000
+        ],
+        "end": [
+          100000000,
+          52000000
+        ],
+        "width": 50000
+      },
+      "after": {
+        "uuid": "ae686e5e-e0e3-5956-a5ee-2629db626bb1",
+        "layer": 25,
+        "kind": "shape",
+        "shape": 0,
+        "start": [
+          100000000,
+          139000000
+        ],
+        "end": [
+          100000000,
+          55000000
+        ],
+        "width": 50000
+      }
+    },
+    {
+      "before": {
+        "uuid": "ea06dc41-11e6-594d-baab-da6250d792e7",
+        "layer": 25,
+        "kind": "shape",
+        "shape": 2,
+        "start": [
+          100000000,
+          52000000
+        ],
+        "end": [
+          102000000,
+          50000000
+        ],
+        "width": 50000,
+        "mid": [
+          100586000,
+          50586000
+        ]
+      },
+      "after": {
+        "uuid": "ea06dc41-11e6-594d-baab-da6250d792e7",
+        "layer": 25,
+        "kind": "shape",
+        "shape": 2,
+        "start": [
+          100000000,
+          55000000
+        ],
+        "end": [
+          102000000,
+          53000000
+        ],
+        "width": 50000,
+        "mid": [
+          100586000,
+          53586000
+        ]
+      }
+    }
+  ],
+  "filled_zone_differences": [
+    {
+      "zone_layer_net": [
+        "a57c766e-0eeb-5b89-8cd9-2531207fde8e",
+        "F.Cu",
+        "GND"
+      ],
+      "removed_area_mm2": 58.196999960758504,
+      "added_area_mm2": 0.0,
+      "difference_bounds_mm": [
+        100.3005,
+        50.3005,
+        119.6995,
+        55.00169
+      ],
+      "difference_below_y55_3_mm2": 0.0
+    },
+    {
+      "zone_layer_net": [
+        "998d7996-92b5-5b24-9014-4e134624a3fa",
+        "B.Cu",
+        "GND"
+      ],
+      "removed_area_mm2": 58.19700003999598,
+      "added_area_mm2": 0.0,
+      "difference_bounds_mm": [
+        100.3005,
+        50.3005,
+        119.6995,
+        55.002483
+      ],
+      "difference_below_y55_3_mm2": 0.0
+    },
+    {
+      "zone_layer_net": [
+        "c20dd833-d38a-5a8a-a260-f15da814c441",
+        "B.Cu",
+        "/HEATER_LOW"
+      ],
+      "removed_area_mm2": 0.0,
+      "added_area_mm2": 0.0,
+      "difference_bounds_mm": null,
+      "difference_below_y55_3_mm2": 0.0
+    }
+  ],
+  "seconds": 1.1172281659999999
+}

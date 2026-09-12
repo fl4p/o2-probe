@@ -1,5 +1,8 @@
 # PCB plans
 
+- [Rev B 86 mm cable-end compaction](../docs/2026-09-12-revb-86-compaction.md) — implemented;
+  3 mm shorter than the accepted 89 mm board, with all components, routing and holes retained.
+
 - [Current Rev B schematic and process adaptation](../docs/archive/2026-09-12-pcb-plans/REVB-AISLER.md) — implemented and archived;
  83-component circuit, 20 × 89 mm outline, user trace/spacing/via overrides.
 

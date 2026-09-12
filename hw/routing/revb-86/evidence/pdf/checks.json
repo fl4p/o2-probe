@@ -1,0 +1,32 @@
+[
+  {
+    "file": "o2-probe-NPTH-drl_map.pdf",
+    "sha256": "448b3958427e3b83436a3c2129785507ed6a9dc83f7a219cf3d8c68c85de340b",
+    "returncode": 0,
+    "output": "checking fab/o2-probe-revb-86-4837fd61405f8b2b/o2-probe-NPTH-drl_map.pdf\nPDF Version: 1.5\nFile is not encrypted\nFile is not linearized\nNo syntax or stream encoding errors found; the file may still contain\nerrors that qpdf cannot detect\n"
+  },
+  {
+    "file": "o2-probe-PTH-drl_map.pdf",
+    "sha256": "4877cac36dfb98602ffac134955e37540a1ed6f93b9b9b0f1fa3e13aa9aa544e",
+    "returncode": 0,
+    "output": "checking fab/o2-probe-revb-86-4837fd61405f8b2b/o2-probe-PTH-drl_map.pdf\nPDF Version: 1.5\nFile is not encrypted\nFile is not linearized\nNo syntax or stream encoding errors found; the file may still contain\nerrors that qpdf cannot detect\n"
+  },
+  {
+    "file": "o2-probe-assembly-back.pdf",
+    "sha256": "8fb7b835f7a0e8c6d4877a690f543254e4079fe93172becc19a680f4be13e40a",
+    "returncode": 0,
+    "output": "checking fab/o2-probe-revb-86-4837fd61405f8b2b/o2-probe-assembly-back.pdf\nPDF Version: 1.5\nFile is not encrypted\nFile is not linearized\nNo syntax or stream encoding errors found; the file may still contain\nerrors that qpdf cannot detect\n"
+  },
+  {
+    "file": "o2-probe-assembly-front.pdf",
+    "sha256": "155ecbed2d75c9a6c5dff4183c7f2dbfa4cd080733b3465c9fd4f3abc8fb99cb",
+    "returncode": 0,
+    "output": "checking fab/o2-probe-revb-86-4837fd61405f8b2b/o2-probe-assembly-front.pdf\nPDF Version: 1.5\nFile is not encrypted\nFile is not linearized\nNo syntax or stream encoding errors found; the file may still contain\nerrors that qpdf cannot detect\n"
+  },
+  {
+    "file": "o2-probe-schematic.pdf",
+    "sha256": "b741136e359bef002bd6d0267cd531fc597878c307c41d3723c586a03e0b813d",
+    "returncode": 0,
+    "output": "checking fab/o2-probe-revb-86-4837fd61405f8b2b/o2-probe-schematic.pdf\nPDF Version: 1.5\nFile is not encrypted\nFile is not linearized\nNo syntax or stream encoding errors found; the file may still contain\nerrors that qpdf cannot detect\n"
+  }
+]
