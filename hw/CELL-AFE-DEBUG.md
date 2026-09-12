@@ -1070,3 +1070,51 @@ A fine wire from **TP4 or C10.1 (118.3, 124.775)** to **R34.1 (107.625,
 120.8)** restores the sense tap without disturbing the live arm. That alone
 would clear ADC_RANGE and let every externally-referenced channel publish
 again.
+
+### 10:35 — RETRACTION of the open-net finding. The ADS1119's inputs are damaged
+
+**R34.1 = 2484 mV**, re-measured. The 10:15 section above is wrong and is
+retracted in full: `/VREF_TRIM` is NOT open, the via chain is fine, and no
+jumper is needed. It was written on a reported R34.1 = 34 mV; that reading did
+not stand. (Two retractions in one morning, both from building a topology
+story on a single low reading. A sub-100 mV reading on a high-impedance node
+is not evidence until the node's expected value has been confirmed at its
+source pad.)
+
+With R34.1 = 2484 mV and R37.1/R37.2 in hand, all four channels resolve
+quantitatively. Meter, powered, bottom side:
+
+| channel | node (before the 1k) | ADS pin side (after) | current | direction |
+|---|--:|--:|--:|---|
+| AIN1 `/ADC_VREF_MON` (U8.8) | R34.2 / R36.1 = **90 mV** | ≈41 mV (fw reports 35) | **49 µA IN** | sinks to GND, ≈840 Ω |
+| AIN2 `/ADC_VA_MON` (U8.5) | R37.1 = **2.590 V** | R37.2 = **2.788 V** | **198 µA OUT** | sources from AVDD, ≈2.6 kΩ |
+| AIN3 `/ADC_VIN_MON` (U8.4) | — | — | — | **correct**, 13.128 V |
+
+Working:
+
+- AIN1: I(R34) = (2484−90)/47k = 50.9 µA; I(R35) = 90/47k = 1.9 µA; the
+  difference, 49 µA, can only go into R36 → 49 mV across the 1 k → pin at
+  41 mV. `finish_vref` reports 70 mV = pin × 2 = 35 mV. Agreement within the
+  meter's resolution at this level.
+- AIN2: the pin is 198 mV ABOVE the node it is fed from, so it is a source.
+  Injecting 198 µA into the divider's Thévenin (1.65 V, 5 kΩ) predicts 2.64 V
+  at `/VA_MON`; measured 2.590 V. This also disposes of the PA7-vs-ADS
+  contradiction: **PA7 was right all along** (2594 mV), the node really is
+  pulled up, and R24/R25 are good. The ADS's own 0 mV on AIN2 is an overrange
+  artefact — 2.788 V exceeds the 2.048 V internal reference forced by
+  `diag 9:1` at 09:16.
+
+**Two adjacent inputs leaking in opposite directions — one clamped toward
+AVDD, one toward GND — cannot be an external short, contamination or a
+coating film.** Those give one polarity. This is damaged input structure
+inside the ADS1119.
+
+Everything else is exonerated by these same numbers: the 2.5 V reference and
+its buffer, `/VREF_TRIM` end to end, R24, R25, R34, R35, R36, R37, and the
+whole via chain. **U8 is replaced; nothing else is.**
+
+Open: AIN0 `/ADC_AFE_VOUT` (U8.9) not yet metered — R33.1 (106.83, 114.0) vs
+R33.2 (105.18, 114.0) makes it three of four and separates a genuinely dead
+LMP output from one being dragged by the ADS. And what damaged three inputs
+while sparing AIN3 is unexplained; all four are fed through equal 1 k series
+resistors.
