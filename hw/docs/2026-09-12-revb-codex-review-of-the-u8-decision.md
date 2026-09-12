@@ -126,3 +126,39 @@ The reviewer's own recommendation, which I endorse: **retain a precision
 conversion option until the corrected static budget and a measured comparison
 pass.** The Rev B PCB has not been updated, so keeping U8's footprint costs
 almost nothing now and buys the measurement that settles it on real hardware.
+
+## Two corrections from the Rev B session, both verified here
+
+**My R32 / U3-EN item was VOID as a Rev B suggestion, and I had the evidence in
+front of me.** I derived it from the Rev A netlist — where it is correct: Rev A's
+`/+5V_ANALOG` carries `R32.2, U3.1(IN), U3.3(EN)` with EN strapped to its own
+input behind a 10 Ohm series resistor, and `grep -c 'ref="U3"'` on that netlist
+returns 6. But `place("U2"|"U3")` in `gen_sch.py` returns **0** — both LDOs are
+gone, so Rev B has no EN pin to strap and R32 is now simply 10 Ohm from 3V3D to
+3V3A, buck output straight to the AFE. I had already read that exact line while
+verifying the buck finding and did not connect it to my own earlier suggestion.
+
+The error was one of scope, not of fact: a correct Rev A finding appended to a
+Rev B handover as a Rev B suggestion. **It remains the live bench hypothesis for
+Rev A's intermittent 3V3A**, which does have U3, and the three R32 readings are
+still the next bench step. Rev B simply cannot exhibit it.
+
+**VDDCoeff verified independently:** DS12232 §5.3.4, `VDDCoeff` = **250 typ /
+1200 max ppm/V** over 3.0 V < VDD < 3.6 V. This was never in the budget and it
+lands on precisely the rail whose ripple is the open release gate.
+
+**The Schottky item is promoted from a note to a design item.** Footnote 3 is a
+CROSS-CHANNEL effect, and the consolidation onto one converter is what creates
+it: four channels on one ADC plus an electrochemical cell on long buried leads
+means a negative excursion on `/ADC_WE_BUF` or `/ADC_RE_BUF` corrupts the
+**oxygen** reading. Correctly NOT implemented yet — adding parts to a contested
+deletion would be building on it.
+
+## If the decision is re-taken as "move VREF+ to the REF3425"
+
+Recorded because it is the likely shape of a revised decision and it has a
+consequence nobody has costed: the pin allocation is unaffected, but **every MCU
+ADC channel's full scale changes from 3.3 V to 2.5 V**, so the rail monitors lose
+over-range headroom and `CE_MON`, `VA_MON` and `VIN_MON` all need their divider
+ratios reworked. That is the item I originally listed as rejection reason 2, and
+it does not disappear when the reason for the move improves — it becomes work.
