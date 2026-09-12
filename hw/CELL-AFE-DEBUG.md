@@ -1858,6 +1858,10 @@ copper and the empty C29 footprint — then let it cool.
 | **30.93** | **39** | **789** |
 | 28.00 | 37 | 747 |
 | 26.51 | 36 | 727 |
+| 24.70 | 36 | 727 |
+| **33.29** | **44** | **894** |
+
+Monotonic above ~27 C, an 8 LSB excursion in all.
 
 **The pin rose with heat and retraced on cooling.** Contamination does the
 opposite: an ionic film conducts harder when warm, which would pull the pin
@@ -1871,6 +1875,17 @@ the board beside U8 while the reference thermometer is the SHT45 elsewhere, so
 die and chamber are not the same temperature during a transient. Extracting
 %/K from this would be false precision. A real tempco needs soak-and-hold at
 two temperatures. **It is not needed — direction alone settles the question.**
+
+**Both contamination mechanisms are excluded by this one trace**, for two
+different reasons:
+
+1. *Instantaneous ionic conduction* is thermally activated, so resistance
+   **falls** when warm. Ours rises. This is the 09-10 signature on
+   `/VREF_TRIM` (174 mV hot, 320 mV cold).
+2. *Drying out* — sustained heat driving off moisture — raises resistance, and
+   that is what the 09-10 bake achieved (302 -> 2488 mV). It would fit the
+   heating half of our trace. But **drying is irreversible and ours retraced**
+   (789 -> 747 -> 727 as it cooled). Excluded.
 
 Confound checked and dismissed: for `/VREF_TRIM`'s own drift to raise the pin
 8.3 %, the reference would have to climb 104 mV over 8.7 K, ~4800 ppm/K on a
