@@ -1625,3 +1625,41 @@ Repair 3V3A before fitting the replacement anyway, on general grounds: an
 intermittent analog rail under a fresh part is not a state to commission in.
 Rail work outstanding: U3 pin 3 (EN, 111.86/86.95) vs pin 1 (IN,
 111.86/85.05), and U3 pin 5 (114.14/85.05) vs the injection point.
+
+### 13:40 — live confirmation of BOTH defects: AIN1 tracks, AIN0 returns AIN1's sample
+
+Fab asked whether the firmware ever reported the pulled-up node. It had not
+been read — the 13:00 analysis worked only from meter values, missing a free
+cross-check. With the 3 kΩ refitted and the meter on `/ADC_VREF_MON` at
+775 mV, the registers say:
+
+    VREF_MON = 1484 mV  ->  AIN1 pin = 742 mV     (was 70 -> 35)
+    AFE_VOUT =  740 mV                             (was 34)
+
+**AIN1's converter and mux are GOOD.** VREF_MON moved 70 → 1484 with the
+pull-up, so AIN1 reads its own pin and the pin is genuinely dragged by the
+leak. A channel broken the way AIN0 is would not have tracked. This removes
+the last alternative reading of the AIN1 evidence.
+
+**AIN0 returns AIN1's sample — conclusive.** AFE_VOUT was 34 mV while AIN1 sat
+at 35; it is now **740 mV while AIN1 sits at 742**. It followed a pull-up
+applied to a *different net*, while `/AFE_VOUT` itself has not moved from
+1673 mV. This was a stated prediction (12:20, refined 13:00) before the
+resistor went back on, not a fit after the fact.
+
+Leak recomputes at the third operating point: (3300−775)/3k = 842 µA, plus
+~18 µA through R36 → ~860 µA at 775 mV → **901 Ω**, against 885 and 887
+earlier. Stable and ohmic across ~20× in current.
+
+VIN stays 0xFFFF because 1484 mV is still outside the trim band, so
+`finish_vref` keeps ADC_RANGE set and `vref_measured` false — the suppression
+path behaving exactly as designed.
+
+#### Note for the replacement: the ADS reads ~3–4 % low
+
+Meter vs ADS on the same pin, both operating points: 36 → 35, and 775 → 742.
+Same direction, same magnitude — a gain error, most plausibly the internal
+2.048 V reference. R34/R35 are 0.1 % parts, so the ×2 reconstruction is not
+the source. Not actionable while the part is being replaced, but it would bias
+O2, so **check the internal-reference gain against a meter on the new U8**
+before trusting a calibration.
