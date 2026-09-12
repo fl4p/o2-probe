@@ -2615,3 +2615,48 @@ three:
 
 If R39 is bare and the number is low, lifting U8 is the only cut left that
 separates the converter from the board.
+
+#### 18:50 — the short is R39, found by IR gradient. U8 and U7 both exonerated
+
+With C28 off and the board powered, Fab probed the net with the meter's (−)
+fixed on R39.2 (GND) throughout, so the probe offset cancels in the
+differences. Measured offset, ground to ground: **7 µV**.
+
+| node | µV vs R39.2 | less offset |
+|---|---|---|
+| R33.2 | 70 | 63 |
+| U8.9 (AIN0) | 34 | 27 |
+| **R39.1** | **15** | **8** |
+
+**R39.1 is the bottom of the gradient**, so that is where the current leaves the
+net. Had the short been U8's AIN0, U8.9 would be the lowest node; it is 19 µV
+*above* R39.1. The conclusion does not depend on knowing the routing — the
+lowest potential is the sink.
+
+The magnitudes are consistent with the 1.5 mA established independently from the
+1.5 V across R33 (trace estimates only; the Rev A `.kicad_pcb` in
+`fab/o2-probe-rev-a-source/` carries placement, not routing):
+
+| span | drop | implied R | ~length | est. copper |
+|---|---|---|---|---|
+| R33 → U8.9 | 36 µV | 24 mΩ | ~13.5 mm | ~27 mΩ |
+| U8.9 → R39.1 | 19 µV | 13 mΩ | ~5 mm | ~10 mΩ |
+
+Which also fixes the topology: the trace runs **R33 → U8 → R39**, and R39 is the
+far end.
+
+**The short itself is ~8 µV / 1.5 mA ≈ 5 mΩ — metal.** Not the ~730 Ω damaged
+silicon the old U8's AIN1 gave, not the kΩ-scale surface residue that produced
+the `/VREF_TRIM` leak and the VA_LOW scare. A solder bridge, or a part fitted
+where the design says DNP.
+
+R39 is `100k` **DNP**, at (112.400, 128.500) on B.Cu between U7 and U8, and its
+far end is GND — a designed pull-down on the AFE output that was never meant to
+be populated.
+
+**This exonerates U8, U7 and both cells.** Running total of genuinely faulty
+parts on this board stands at three: U8 (the original), U3, R36.
+
+Next: inspect R39 — fitted part, or a bridge across bare pads. Clear it, refit
+C28, and `AFE_VOUT` should read **~1679 mV with no cell**, which is the U7
+acceptance test and is already half-passed by the 1.5 V meter reading.
