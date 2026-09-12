@@ -23,6 +23,86 @@ clear the leak, which refutes a water-based film).
 
 ---
 
+## P0. DELETE THE ADS1119 — use the STM32's own ADC (Fab, 2026-09-12: "do we really need the ADS?")
+
+This subsumes P1, P2, P4 and P5, and it is the most consequential idea to come
+out of the failure. **Not yet validated** — three measurements are required
+before committing (below). Recorded as a proposal, not a decision.
+
+### The only real reason for the ADS1119 is ratiometry, and the MCU can have it
+
+The cell current is `I = (0.67 x VREF - V_AIN0) / 7 kOhm` (`sampler_logic.h:25-27`,
+TIA 7 kOhm, INT_Z 67/100). If the ADC's full-scale reference IS `/VREF_TRIM`,
+then VREF cancels: a drift of d raises both the LMP's zero and its output by
+0.67d, and the difference is unchanged. That is the documented design intent
+(`gen_sch.py:917`), and `sampler_logic.h:51-53` records that the internal-
+reference override deliberately BREAKS it.
+
+**The STM32G071CBT7 has a dedicated VREF+ pin — LQFP48 pin 5** (Rev B's own pin
+map, `gen_sch.py:428`), currently tied to `3V3D` (`gen_sch.py:1039`). Driving
+it from `/VREF_TRIM` instead gives the MCU's ADC the same ratiometric property
+the ADS was chosen for. One net change.
+
+### Resolution is not the obstacle
+
+O2 channel span: 1675 mV at 0 %O2 down to 982 mV in air = **33.2 mV per %O2**.
+(982 mV computes from 99 uA x 7 kOhm subtracted from 0.67 x 2500, and matches
+the 980 mV recorded at 22:23 on 09-11 before the failure.) With VREF+ = 2.5 V:
+
+| mode | LSB | per %O2 |
+|---|--:|--:|
+| 12-bit raw | 610 uV | **0.018 %** |
+| 16x hardware oversampling | 153 uV | 0.0046 % |
+| 256x | 38 uV | 0.0011 % |
+
+Compost work cares about tenths of a percent. Raw 12-bit is already ~10x
+finer than required.
+
+### The ADC was never the limiting error term
+
+The O2 signal's observed tempco is **~800-1000 ppm/K**, of which the AFE half
+is ~230 +/- 110 ppm/K; the cell contributes the rest and its own tempco is
+formally UNMEASURED (memory: `o2-cell-tempco-is-unmeasured`). Specifying a
+5 ppm/K reference chain to measure a ~1000 ppm/K sensor is over-engineered by
+roughly 200x. The limiting element is the cell, not the converter.
+
+### It deletes the network that failed today
+
+With VREF+ = `/VREF_TRIM`, VREF health monitoring becomes an INTERNAL
+measurement: convert the MCU's VREFINT bandgap channel and VREF_TRIM follows
+directly — the same trick `read_divided_rail()` (`mcu_adc.c:160`) already uses
+to derive VDDA.
+
+**That removes R34, R35, R36 and C29 — precisely the high-impedance divider
+whose ~800 Ohm leak caused this entire incident — and replaces it with a
+measurement that has no external node to contaminate.** It also satisfies P1
+(an independent VREF path) with zero added components, and makes P5's
+pad-clearance problem disappear along with the pads.
+
+Net BOM deletion: U8, C28, C29, C30, C31, R33, R36, R37, R38, the whole
+`/ADC_*` stub family, and the I2C traffic and its failure modes.
+
+### Required before committing — measure, do not assume
+
+1. **ADC noise against the real signal.** The ADS1119 at 20 SPS is genuinely
+   ~30x quieter per sample. Oversampling should close the gap for a
+   multi-second measurement, but that is a datasheet argument, not evidence.
+   **Bench-compare both converters on a GOOD board** before deciding.
+2. **STM32G0 ADC input leakage is far worse than the ADS's +/-5 nA typ** — up
+   to +/-1 uA over temperature. Into the 1 kOhm AFE_VOUT series that is 1 mV,
+   i.e. 0.03 %O2 of static offset, which calibration absorbs. Into anything
+   high-impedance it is fatal, so **P2 becomes mandatory rather than
+   optional** for every retained divider.
+3. **VREF+ draws switched-cap current during conversions.** Whether the Rev B
+   series voltage reference can supply it is a question for
+   `2026-09-12-revb-single-rail-supply.md`, not for this document.
+
+Further open items: the WE/RE electrode buffer channels need MCU pins (free
+pins exist — 22 of 48 assigned); existing dividers are sized against a 3.3 V
+FSR and need rescaling for 2.5 V; and the MCU's ADC sits in the digital
+domain, which is part of why 3V3A/3V3D are split at all, so grounding and
+coupling need deliberate attention rather than a net rename.
+
 ## P1. Put VREF on the MCU's own ADC — a second, independent path
 
 **Highest value of anything here.** The entire five-hour investigation existed
