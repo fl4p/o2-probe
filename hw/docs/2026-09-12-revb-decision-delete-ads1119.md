@@ -370,10 +370,43 @@ the schematic that this reasoning **does not license a clamp on an oxygen-path
 channel**: 2 uA into R33's 1 k is 0.06 %O2 on the measurement itself. Correct,
 and it is the distinction that makes footnote 3's mitigation safe to fit.
 
-**Procurement gap:** `BAT54-7-F` is on no purchase order and `audit_bom` flags
-it. Checked against stock on hand — **nothing suitable**: the five Schottkys
-held are all power rectifiers (1 A to 40 A, 40-100 V), whose reverse leakage at
-85 C is orders of magnitude outside the 1 uA gate. D8 must be bought.
+**Procurement gap:** D8 is on no purchase order and `audit_bom` flags it.
+Checked against stock on hand — **nothing suitable**: the five Schottkys held are
+all power rectifiers (1 A to 40 A, 40-100 V).
+
+> **CORRECTED 2026-09-12.** This paragraph, and my report of it, named the part
+> as `BAT54-7-F` and cited the 1 uA gate. Both were stale, and
+> [`../datasheets/PROVENANCE.md`](../datasheets/PROVENANCE.md) had already
+> recorded why before I wrote it:
+>
+> - **`BAT54-7-F` is SOT23**, so the original `BAT54-7-F` + `D_SOD-123` pairing
+>   was wrong and was already corrected to Vishay **`BAT54W-G`**, which is
+>   SOD-123. The suffix is a trap in both directions: "W" means SOT-323 at
+>   Diodes and Nexperia but **SOD-123 at Vishay**.
+> - **Fab retired the `Ir <= 1 uA at 1.2 V, 85 C` gate** the same day ("relax the
+>   gate, record the number") and **retained `BAT54W-G3-08`** for `VIN_MON`
+>   health telemetry. The gate is not a release blocker and the part is chosen.
+>   Physical leakage and the resulting threshold error remain **unqualified** —
+>   by-eye chart readings are explicitly not adopted as evidence for it.
+>
+> Priced 2026-09-12 via `../dk_query.py` (DigiKey PI v4, site DE, currency EUR
+> confirmed from `SearchLocaleUsed`, not merely requested):
+>
+> | MPN | package | stock | EUR @1 | @100 |
+> |---|---|---|---|---|
+> | **`BAT54W-G3-08`** (retained) | SOD-123 | 45 340 | 0.42 | 0.1615 |
+> | `BAT54W-G3-18` | SOD-123 | 13 476 | 0.42 | 0.1615 |
+> | `BAT54-7-F` | SOT-23-3 | 121 731 | 0.16 | 0.0598 |
+> | `BAT54W-7-F` | **SOT-323** | 0 | — | — |
+>
+> Cut tape (`CT`) is MOQ 1; the reels are MOQ 3 000 (`-G3-08`) and 10 000
+> (`-G3-18`). **Order `BAT54W-G3-08GICT-ND`.**
+>
+> One real item this left open: `gen_sch.py:1517` carries the value
+> **`BAT54W-G`**, which is a family code and **not orderable** — DigiKey lists
+> only the `G3-08` and `G3-18` packaging variants. So part of what `audit_bom`
+> flags on D8 is the value, not just the missing PO. Worth tightening to
+> `BAT54W-G3-08`.
 
 ## ES0418 fetched 2026-09-12 — open item 4 answered, and it found a bigger one
 
