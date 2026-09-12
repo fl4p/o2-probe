@@ -2293,3 +2293,42 @@ one minute.
   washed away board residue", since R36 was replaced in the same session. The
   board's recovery cannot decide it.
 - Whether U3's failure was caused by the same 22:24 event, or is independent.
+
+### 17:15 — cell reconnected after 12 h open-circuit: AFE_VOUT railed, and that is expected
+
+`SETTLE_S` reached 0 and `FAULTS` dropped to 0x8800 (SETTLING cleared,
+ADC_RANGE and HEATER_DISABLED remain), but `AFE_VOUT` is still 0.
+
+**ADC_RANGE here means the O2 conversion is PINNED — and that is itself
+evidence AIN0 is healthy.** The old chip's AIN0 fault made `AFE_VOUT` mirror
+`VREF_MON/2` (1253 now); a pinned rail at 0 is the new part converting AIN0 and
+finding a genuinely railed LMP output.
+
+Numbers, with the gain read from source rather than assumed — **TIA_GAIN 011 =
+7 kΩ** (`lmp91000.h:40-48`; the same comment records the sizing intent, ~152 µA
+at 30 % O₂ giving a 1.06 V excursion from the 1.675 V internal zero):
+
+| quantity | value |
+|---|---|
+| rail-to-zero threshold | 1679 mV / 7 kΩ = **240 µA** |
+| datasheet output in air | **0.1 ± 0.03 mA** (DS-0637 Issue 2) |
+| therefore expected VOUT in air | 1679 − 100 µA × 7 kΩ = **979 mV** |
+| measured 09-11 21:50–22:23, pre-failure | **975–981 mV** — exactly nominal |
+
+So the cell was in spec before the failure, and is now sourcing **>240 µA**,
+over 2.4× nominal.
+
+DS-0637 Note 1 names the mechanism: *"When bias is not applied to the sensor,
+it will become saturated with oxygen gas which is consumed when the bias is
+reapplied. This results in a settling time which can be as long as 15
+minutes."* That 15-minute figure is the origin of the firmware's `SETTLE_S`
+window and describes an ordinary bias interruption. **This cell sat
+open-circuit for 12 h**, so it is saturated far more deeply and has a
+correspondingly larger excess to consume; `SETTLE_S` expiring says nothing
+about the chemistry being finished.
+
+**Prediction to close on:** `AFE_VOUT` lifts off 0 once the current falls below
+240 µA and settles toward **~979 mV**. Landing there confirms the cell, the
+LMP91000 and AIN0 in a single number. Watched with
+`tech/bench/o2p_vm_watch.py` (farming `611a66a`), which reads the telemetry
+over LoRaWAN and so does not need a BLE claim.
