@@ -2332,3 +2332,64 @@ about the chemistry being finished.
 LMP91000 and AIN0 in a single number. Watched with
 `tech/bench/o2p_vm_watch.py` (farming `611a66a`), which reads the telemetry
 over LoRaWAN and so does not need a BLE claim.
+
+### 17:35 — the cell draws >610 µA: an ohmic shunt, and it was submerged in hot water
+
+`AFE_VOUT` stayed railed at 0 for 40 minutes after the cell was reconnected, so
+the "12 h open-circuit saturation is still discharging" explanation was tested
+and **failed its own prediction** — a recovering cell decays toward 100 µA, and
+`cell_ua` sat flat at its ceiling instead.
+
+**The wiring and the bias are proven good.** Fab's three cell-pad voltages,
+left to right, decode exactly to the Rev A pinout (U11.1 CE, U11.2 RE, U11.3 WE):
+
+| pad | measured | expected |
+|---|--:|--:|
+| CE | 2746 | driven, in linear range (464 mV above RE, nowhere near a rail) |
+| RE | 2282 | 2279 |
+| WE | 1681 | 1679 = 0.67 × 2506, the LMP's internal zero |
+
+**V_WE − V_RE = −601 mV** against the cell's specified −600 ± 10 mV. The AFE is
+doing everything correctly.
+
+**Gain drop, to see past the ceiling.** `diag 2:0x04` sets TIACN to 2.75 kΩ —
+the LMP's lowest internal gain — for a self-reverting 60 s window. `AFE_VOUT`
+stayed at **0 across the whole window**, so the cell current is **> 1679 mV /
+2.75 kΩ = 610 µA**, over **6× the 0.1 ± 0.03 mA** the datasheet gives for air.
+
+*Decoding caveat:* `O2P_LMP_TIA_OHM` is a compile-time **7000**
+(`sampler_logic.h:25`), so `cell_ua` under-reports by 2.75/7 = 0.393× while the
+override is active. Read `AFE_VOUT` directly, not `cell_ua`. Also note the
+override costs a settle restart — the firmware treats the config change as a
+bias disturbance and `SETTLE_S` reloads.
+
+#### Two heavy stresses on this cell, both outside its ratings
+
+1. **It was submerged in hot water** (Fab). Rated humidity is 15–90 % RH
+   non-condensing, 0–99 % short term.
+2. **It reached 81.1 °C** on the cell-side TMP117 (`gas_t_ext_c`) during the
+   09-11 22:41–23:20 hot-air session — **21 K above its −40…+60 °C maximum**,
+   and far above the 0–20 °C storage range.
+
+**Leading explanation: a water path in shunt with the cell, not cell damage.**
+600 mV / 610 µA = **984 Ω**, and an ohmic, non-decaying, bias-driven shunt is
+what water across the electrodes gives. The direction settles it: water in the
+diffusion path would *reduce* oxygen transport and make the current **fall** —
+O₂ diffuses far slower in water than in air — but the current rose 6×. So this
+is a parallel conductive path, not enhanced oxygen transport.
+
+**Therefore: dry before replacing.** Stock is 4 × SGX-OX-ROHS-MINI (InvenTree
+pk 519, all unallocated), but a cell that dries out costs nothing. Keep drying
+**below 60 °C** — it has already been to 81.1 °C once, and that excursion is
+the reason not to reach for heat again.
+
+The re-measurement is the test:
+
+- current falls toward ~100 µA ⇒ it was water; `AFE_VOUT` should settle near
+  **979 mV**, the value it held pre-failure on 09-11
+- current stays > 610 µA when properly dry ⇒ the shunt is internal, the 81.1 °C
+  excursion is back in the frame, and the cell is replaced
+
+**Open:** whether the submersion preceded or followed the hot-air session. Water
+first would mean 81 °C was applied to a wet cell, which is considerably harsher
+than either alone.
