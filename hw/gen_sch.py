@@ -1513,7 +1513,22 @@ add_passive("C31",208.28,177.8,"100n","Capacitor_SMD:C_0402_1005Metric","ADC_RE_
 #   "Single"), so the footprint, the two-pin authoritative symbol and the land
 #   pattern all stay as drawn.  BEWARE THE W SUFFIX: it means SOT-323 at Diodes
 #   and at Nexperia but SOD-123 at Vishay, which is the likeliest source of the
-#   original error.  Orderable as BAT54W-G3-08 (Mouser DE, 29.5k in stock).
+#   original error.
+#
+#   ORDERED 2026-09-12 (Fab): DigiKey DE cut tape BAT54W-G3-08GICT-ND, EUR 0.42
+#   at qty 1, 45 340 in stock at the time of the query (./dk_query.py, PI v4,
+#   currency read back from SearchLocaleUsed rather than assumed).  audit_bom
+#   will keep flagging D8 until purchase-orders.json is RE-CAPTURED from
+#   InvenTree -- that file is a read-only snapshot of parts.fabi.me
+#   /api/order/po-line/, last taken 2026-09-09, and must not be hand-edited.
+#
+#   THE value/mpn SPLIT BELOW IS DELIBERATE -- DO NOT "FIX" IT.  value carries
+#   the family ("BAT54W-G"), mpn the orderable code with its packaging suffix
+#   ("BAT54W-G3-08"), exactly as D3 does ("PMEG4010CEH" / "PMEG4010CEH,115").
+#   audit_bom reconciles purchase orders against mpn, not value, so the family
+#   name in value costs nothing.  I mis-read this as a sourcing defect on
+#   2026-09-12 and proposed collapsing the two; that would have broken the
+#   convention D3 sets without clearing any flag.
 add_passive("D8", 246.38, 175.26, "BAT54W-G", "Diode_SMD:D_SOD-123",
             "VIN_MON", "GND", lib=SCHOTTKY2, angle=180, mpn="BAT54W-G3-08",
             note="Negative-injection clamp on PA6. Pin 1 is the CATHODE and goes to VIN_MON; "
