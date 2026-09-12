@@ -2393,3 +2393,44 @@ The re-measurement is the test:
 **Open:** whether the submersion preceded or followed the hot-air session. Water
 first would mean 81 °C was applied to a wet cell, which is considerably harsher
 than either alone.
+
+### 17:45 — the 81.1 °C WAS the drying. Cell killed by drying it at 80 °C
+
+Fab: *"it already dried yesterday night, at 80°C"* and *"i will put another cell
+then"*. So the `gas_t_ext_c` peak of **81.1 °C** identified above is not an
+incidental consequence of the hot-air session — **it is the deliberate drying
+of a submerged cell**, and it is 21 K above the cell's +60 °C maximum.
+
+The water-shunt hypothesis from 17:35 is therefore **withdrawn**: the cell was
+already dried overnight, so the 984 Ω ohmic path is not standing water. The
+cause is the drying temperature.
+
+**Sequence, established:** submerged in hot water → dried overnight at 80 °C
+(rated 60 °C) → on reconnection, draws > 610 µA against a 100 µA nominal, flat,
+with wiring and bias verified correct.
+
+#### Before fitting the replacement
+
+**With the board unpowered and the old cell removed, ohm the WE pad against the
+RE and CE pads.** High/open means the shunt left with the cell. **~1 kΩ means the
+984 Ω path is board residue between the electrode pads**, and a new cell will
+read just as high. The probe has been through steam, submersion and coating and
+those three pads sit in the affected area, so this is worth ruling out rather
+than discovering through a second cell.
+
+#### Handling constraints that this failure establishes
+
+| | DS-0637 Issue 2 |
+|---|---|
+| operating | −40 to **+60 °C** |
+| **storage** | **0 to 20 °C** — worth checking where the 4 spares are kept |
+| humidity | 15–90 % RH continuous, 0–99 % short term, **non-condensing** |
+
+**Never dry a cell above 60 °C, and do not submerge it.** If the chamber needs
+drying with a cell fitted, it must be done below 60 °C. Note the probe's own
+membrane heater can exceed this — the tip reached 81.85 °C in the same window.
+
+**Acceptance test for the new cell:** after the datasheet's up-to-15-minute
+settling, `AFE_VOUT` ≈ **979 mV** in air (100 µA × 7 kΩ below the 1679 mV
+internal zero). That single number confirms the cell, the LMP91000 and AIN0 on
+the new ADS1119 together.
