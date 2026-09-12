@@ -1570,3 +1570,58 @@ supposed to be — inside the ADS1119's range but at the LMP91000's 5.25 V
 ceiling. Either the supply is set high, or R24/R25 as fitted are not ÷2 and the
 firmware's scale factor is wrong. Fitted-vs-designed divergence has precedent
 here (the VIN divider is 82k/10k, not the designed 130k/20k, reg 0x004B).
+
+### 13:15 — bench supply is 3.3 V, which closes AIN2 too. Three inputs damaged, one good
+
+With the rail confirmed at **3.3 V**, `/VA_MON` owes 1650 mV and PA7 reports
+2612. Solving with R24/R25 at their design 10k/10k:
+
+    in  through R24: (3300 - 2612)/10k = 69 uA
+    out through R25:  2612/10k         = 261 uA
+    deficit                            = 192 uA arriving from elsewhere
+
+The only other path into that node is R37's 1 kΩ, which requires
+`/ADC_VA_MON` about 192 mV higher — and Fab's morning readings were
+**R37.1 = 2.590 V, R37.2 = 2.788 V**, a 198 mV drop for **198 µA**. Two
+independent routes to the same current, one from the divider arithmetic and
+one from a direct measurement taken hours earlier.
+
+So **AIN2 sources ~195 µA from AVDD through ≈2.6 kΩ** — the same
+supply-dependent conduction as AIN1, clamping up instead of down. Forward
+check: inject 195 µA into the divider's Thévenin (1650 mV, 5 kΩ) → 2625 mV
+predicted against 2612 measured.
+
+This independently reinstates the AIN2 half of the 10:35 section, which was
+withdrawn at 11:05 for resting on possibly-shifted designators. It was right;
+it is now derived from R24/R25 and a known 3.3 V rail instead.
+
+**Also confirmed: R24 and R25 are the ÷2 they are drawn as, and the firmware's
+`O2P_HW_DIV_VA_NUM/DEN` scale is correct.** The VA anomaly was never a
+divider problem.
+
+#### Final state of U8
+
+| pin | channel | defect | symptom |
+|---|---|---|---|
+| U8.9 | AIN0 | mux does not connect | AFE_VOUT = 34 mV, the preceding AIN1 sample |
+| U8.8 | AIN1 | ≈885 Ω to GND, powered only | 24.5 kΩ source dragged to 36 mV → VREF_MON 70 → ADC_RANGE → `vref_measured` false → every ext-ref channel suppressed |
+| U8.5 | AIN2 | ≈2.6 kΩ to AVDD, powered only | `/VA_MON` lifted 1650 → 2612, VA_MV 5224, VA_LOW trips |
+| U8.4 | AIN3 | **good** | VIN 13138 mV |
+
+Every symptom chased since 2026-09-11 22:24 reduces to this one part. Board
+exonerated by balanced measurements: the 2.5 V reference and its OPA2333
+buffer, `/VREF_TRIM`, R24, R25, R33, R34, R35, R36, C28, and the LMP91000
+(output 1673 mV = 0.67 × 2500 within 2 mV).
+
+#### Cause: NOT established
+
+The "AVDD absent, DVDD present, `/ADC_VIN_MON` held near 1.75 V by a divider
+not on 3V3A, injecting into a dead rail through the input clamp" theory from
+12:20 **does not fit the damage pattern.** AIN3 is exactly the input whose
+source stays alive through a 3V3A dropout and would carry that injection
+current — and AIN3 is the only undamaged channel. Withdrawn as an explanation.
+
+Repair 3V3A before fitting the replacement anyway, on general grounds: an
+intermittent analog rail under a fresh part is not a state to commission in.
+Rail work outstanding: U3 pin 3 (EN, 111.86/86.95) vs pin 1 (IN,
+111.86/85.05), and U3 pin 5 (114.14/85.05) vs the injection point.
