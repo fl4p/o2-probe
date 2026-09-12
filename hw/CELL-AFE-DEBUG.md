@@ -2174,3 +2174,76 @@ too few samples or too little span returns INCONCLUSIVE rather than any
 physical verdict. Calibrated against the real trace (now +3202 ppm/K → "NOT
 ionic; suspect the die") plus a synthetic ionic case, a fixed shunt, and both
 unevaluable inputs.
+
+### 16:30 — U8 replaced: ALL THREE defects gone. And U3 is the second failed part
+
+**The new ADS1119 fixed the AFE completely.**
+
+| register | before | after |
+|---|--:|--:|
+| `VREF_MON` | 70 | **2466 → 2464** (pin 1233, ideal 1250) |
+| `VA_MV` | 5226 | **3246** — a real 3.3 V rail, the AIN2 injection gone |
+| `VIN_MV` | 13138 | 13119 — unchanged, AIN3 was always good |
+| `i2c_errs` | 1132 | **0** |
+| `ads_fail_count` | 141 | **0** |
+| `FAULTS_EVER` | 0x8867 (I2C_FAIL_LMP, I2C_FAIL_ADS) | **0x8801** — no I²C fault bits at all |
+
+The AIN0 signature is gone too: `AFE_VOUT` no longer tracks `VREF_MON/2` (0 against
+1233). And the pin held 1232–1233 mV across 5.4 K of cooling — **no leak, no
+tempco**. So the old U8 was genuinely damaged on AIN1 and AIN2, and the core
+diagnosis was right even though the route to it was not.
+
+**`AFE_VOUT = 0` is expected, not a symptom: Fab reports the CELL IS NOT
+CONNECTED.** With WE/RE/CE open the TIA input floats and the output rails, so
+`O2_RAW` (236 µA) is garbage from a railed stage. `T_AFE` is unavailable for the
+same reason — the LMP's die temperature is read out through that same pin.
+**AIN0 therefore remains unproven**, and the test that does not need the cell is
+`T_AFE` once the rail is stable, or a pull-up on `/ADC_AFE_VOUT`.
+
+Calibration note carried forward: the new part reads `VREF_MON` 2464 against a
+metered ~2500, i.e. **1.4 % low** (the old one was 3–4 %). Check against a meter
+before trusting an O2 calibration.
+
+#### 3V3A dropped again minutes later — and U3 is the fault
+
+    up 37s   VREF 65535   i2c_errs 262   ads_fail 37   faults_ever 0x8047
+    up 56s   VREF 65535   i2c_errs 395   ads_fail 56
+
+0x8047 = SETTLING · I2C_FAIL_LMP · I2C_FAIL_ADS · **VA_LOW** · HEATER_DISABLED,
+counters climbing ~130 per 20 s. The same signature as 09-11 22:37. **This is
+pointed at the part just fitted**: every dropout runs the ADS with DVDD up and
+AVDD at zero, which remains the leading candidate for what killed the old one.
+
+Diagnosis of U3 (TPS7A2033PDBVR), by elimination against Fab's measurements:
+
+| fact | excludes |
+|---|---|
+| kick-starting by injecting 3.3 V via 3 kΩ on OUT works, repeatedly | a short on 3V3A; and the 150 Ω shutdown discharge being active, which would clamp the injection to ~157 mV |
+| it failed to start even with **U8 removed** | a load-driven start-up failure |
+| **IN = 5 V** | a missing input; the part can regulate once started |
+| **EN = 5 V** | the "open EN joint, held off by the internal 500 kΩ pulldown" hypothesis offered at 15:xx — **withdrawn** |
+| **GND fine** | the "high-resistance ground joint starves the ~25 µA quiescent return" hypothesis offered at 16:xx — **withdrawn** |
+| **VEN abs max 6.5 V** (SBVS338H §5.1), VIN max 6.5 V | anything external over-stressing U3 |
+
+All three connections correct, part commanded on, will not regulate until the
+output is pre-charged, then latches and runs. **U3 has failed. Replace it**
+(one is on PO-0010).
+
+**Before fitting: ohm C8** (1 µF output cap, 118.00, y=86.72/88.28, top side).
+The LDO needs a minimum output capacitance for loop stability, and an open C8
+would upset the replacement too. It is not shorted — a 1.1 mA injection lifted
+the rail, which a short would have swallowed — but open is still possible and
+costs one probe.
+
+#### Still open
+
+- **The removed U8 has not been ohmed.** pin 8 (AIN1) → pin 6 (GND) and pin 5
+  (AIN2) → pin 10 (AVDD), both polarities. ~890 Ω and ~2.6 kΩ would confirm the
+  leaks were silicon; open would mean the rework washed away board residue and
+  the part was innocent. The board's recovery alone cannot separate these,
+  because R36 was replaced in the same session.
+- **R36's failure is unexplained and post-dates the injection test.** The node
+  balance during that test closed to 1.8 µA using R36 = 1 kΩ, pinning it at
+  1 kΩ ±15 %, and R36 carried only 18 µA of the 863 µA leak. So R36 was healthy
+  then and failed later — most plausibly during the hot-air rework to remove U8.
+- **AIN0 unproven** until the cell is back or `T_AFE` reads.
