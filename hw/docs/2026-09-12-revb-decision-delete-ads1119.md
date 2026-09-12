@@ -606,3 +606,73 @@ Still open, and cheap: **which silicon revision we have.** `REV_ID` 0x2000
 `DBGMCU_IDCODE`, or the marking on U6. If it is Y, all of this is moot for the
 parts on hand — and it must then become a **purchasing constraint**, because the
 next reel can be either.
+
+## ADOPTED 2026-09-12 (Fab, "do 1+4") — the ES0418 2.6.7 remedy
+
+Binding. Supersedes the four-way ranking above. **Remedies 1 and 4 only**;
+(2) wiring PA5 to `/VREF_TRIM` and (3) the internal DAC path are **NOT adopted**
+— both spend something real (a pin, or a +/-20 LSB ruler at full scale) to
+*correct* an offset that (1) makes vanish.
+
+### 1. The oxygen equation becomes differential
+
+```
+I = V_REF x (code_WE - code_AFE) / 4096 / R_TIA        V_REF = 2500 mV, COMPILE-TIME
+```
+
+- `code_WE` is the **measured** `/ADC_WE_BUF` channel (PA0, `ADC_IN0`);
+  `code_AFE` is `/ADC_AFE_VOUT` (PB1, `ADC_IN9`). **The compile-time 0.67
+  pedestal leaves the oxygen path entirely.**
+- `V_REF` stays a compile-time constant — the REF3425 at +/-0.05 % initial and
+  6 ppm/degC max. It is a pure gain term and does not need measuring.
+- Average `code_WE` over the **same N** as `code_AFE`, and place the two
+  conversions **adjacent in the sequence**, so converter offset and any slow
+  drift common-mode out instead of being sampled minutes apart.
+- This is ST's own second workaround bullet — "use the ADC for measuring a
+  difference between two DC voltages" — and it cancels `EO` **exactly on both
+  `CALFACT` branches**, plus the LMP's own internal-zero ratio error.
+- **Not** the three-conversion form rejected above: that one reads
+  `/VREF_TRIM`, which saturates. `WE_BUF` sits at 67 % of full scale.
+
+**Noise:** two conversions instead of one, so the per-sample term grows by
+sqrt(2) if independent. Against a quantization-limited "below 1 mV" and
+33.2 mV/%O2 that is not a constraint, but budget it rather than assume it.
+
+**`RE_BUF` is the retained independent check, and this is what makes (1)
+acceptable.** The objection to the differential form is that it spends `WE_BUF`
+as a known constant. It spends *one of two*: `RE_BUF` (PA1, `ADC_IN1`) stays
+**outside** the measurement at code **3727** (0.91 x FS), checkable to the LMP's
++/-0.04 % = ~1.6 LSB, on a different FT_a pin. Keep publishing both registers and
+keep the constant-check on `RE_BUF`, so a per-channel leak still breaks a known
+number instead of hiding in a signal. **Do not let this check lapse** — without
+it the differential form has no absolute anchor at all.
+
+### REV A CANNOT DO THIS, and must not be made to try
+
+`WE_BUF` does not exist on Rev A: `O2P_HW_BIAS_ADC_REACHES_ELECTRODES` is 0
+there and AIN2/AIN3 are wired to `VA_MON`/`VIN_MON`, so `code_WE` has no
+measurement behind it. The differential form is **Rev B only** and must sit
+behind the per-revision capability, with Rev A keeping the existing path. The
+bench board still runs Rev A and must keep working.
+
+### 4. Detect and reject, as a HEALTH bit and not a fault
+
+- Publish `ADC_CALFACT` per boot — already specified above; this promotes it
+  from telemetry to a checked condition.
+- Raise a bit when `CALFACT` is **0x00 or 0x7F**, which is the erratum's own
+  trigger, and treat it as a **production-test failure for that MCU**.
+- **It must NOT join `O2P_FAULTS_INVALIDATE_O2`.** With (1) in place a saturated
+  `CALFACT` no longer harms the measurement, so muting oxygen on it would
+  reintroduce exactly the failure that cost 7 h 54 min on 09-11: a true-but-
+  irrelevant fault bit blanking a good reading. Annotation only.
+- Viable as a reject criterion precisely because typ is unchanged at 1.5 LSB, so
+  affected parts should be a minority rather than the population.
+
+### One contingency, recorded rather than acted on
+
+If `DBGMCU_IDCODE` returns `REV_ID` **0x2002** (marking Y) the erratum does not
+apply to the parts on hand, and (1)'s benefit shrinks from ~0.88 %O2 to the
+ordinary `EO` of +/-4.5 LSB = 0.08 %O2. At that point keeping `WE_BUF` as a second
+independent check might be worth more than cancelling 0.08 %O2. **The decision
+stands as adopted**; this is the one measurement that could reasonably reopen
+it, and it is a five-minute SWD read.
