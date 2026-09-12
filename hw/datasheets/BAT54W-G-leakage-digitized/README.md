@@ -45,11 +45,33 @@ divider's source impedance R26‖R27 = 9.0 kΩ:
 
 ### Why 1.3314 V and not 1.2 V
 
-VIN_MON sits near 1.19 V in normal operation, but the 100 °C curve **is not
-plotted below 1.3314 V**, and the digitizer refuses to extrapolate rather than
-invent the missing end of a curve. 1.3314 V is the largest voltage at which all
-five curves exist. Leakage rises with reverse bias, so this is conservative for
-the real node — but the figure must not be quoted as "at 1.2 V".
+VIN_MON sits near 1.19 V in normal operation. 1.3314 V is the **lowest** voltage
+at which all five extracted curves exist — the low end of their common domain,
+which runs 1.3314 … 29.6936 V. (An earlier version of this file called it the
+"largest" such voltage, which is simply wrong: all five exist at 29.69 V too.
+Corrected on the Codex session's reading, 2026-09-12.)
+
+It is set by the 100 °C curve, whose extracted span starts there:
+
+| Tj | extraction starts at |
+|---|---|
+| 125 °C | 1.0198 V |
+| 25 °C, 50 °C | 1.1366 V |
+| 75 °C | 1.2146 V |
+| **100 °C** | **1.3314 V** |
+
+**That is a limit of this extraction, not a statement about the source.** An
+earlier version of this file said the 100 °C curve "is not plotted below
+1.3314 V", which claims something about Vishay's figure that the digitizer
+cannot establish: the curve may be drawn further left and merely not have been
+recovered there, for instance where it runs into the frame or another trace.
+Establishing where the printed curve truly begins needs a look at the figure,
+not at this JSON.
+
+Either way the digitizer refuses to extrapolate rather than invent the missing
+end, so 1.3314 V is the honest query point. Leakage rises with reverse bias, so
+evaluating at 1.3314 V is conservative for a node sitting at 1.19 V — but the
+figure must not be quoted as "at 1.2 V".
 
 ### Interpolation method for 85 °C
 
@@ -87,15 +109,32 @@ Its self-checks, recorded in `values.json` under `diagnostics`:
   axis title, not assumed. Vishay plots µA, Nexperia nA, onsemi sometimes mA,
   and the printed decades are identical in all three.
 
-## The decision this fed
+## The decision this fed — and what it does NOT rest on
 
-Fab, 2026-09-12: relax D8's leakage gate and record the number. The original
-`Ir ≤ 1 µA at 1.2 V, 85 °C` gate was derived from an 18 mV budget that was
-itself picked rather than required. VIN_MON is health telemetry, nothing scales
-by it, and its thresholds are 7 V and 15 V on a nominally 12 V rail.
+These are two separate things and are deliberately kept apart, because the first
+is settled and the second is not.
 
-**The error is signed.** D8's cathode is on VIN_MON, so its reverse leakage
-flows out of the node into AGND and pulls the reading *down*. A low-reading
-monitor moves toward the 7 V undervoltage trip and never toward 15 V, so the
-margin that matters is the 5 V one — not the 3 V to the upper threshold.
-0.79 V of apparent error against 5 V of margin is the accepted position.
+**Fab's decision, 2026-09-12, settled:** retain D8 as BAT54W-G, relax its
+leakage gate, and record the number. The original `Ir ≤ 1 µA at 1.2 V, 85 °C`
+gate was derived from an 18 mV budget that was itself picked rather than
+required. VIN_MON is health telemetry, nothing scales by it, and its thresholds
+are 7 V and 15 V on a nominally 12 V rail. That decision rests on *what VIN_MON
+is for*, not on any value in this directory, and it does not become unsettled if
+the digitization is later corrected.
+
+**The 0.79 V figure, provisional:** the offset referred to the rail, derived
+from the unapproved 8.662 µA above. It illustrates the margin; it is not the
+basis of the decision. If human verification revises the digitization, this
+number changes and the decision does not.
+
+**The error is signed** — this part is topology, not measurement, and holds
+whatever the leakage turns out to be. D8's cathode is on VIN_MON, so its reverse
+leakage flows out of the node into AGND and pulls the reading *down*. A
+low-reading monitor moves toward the 7 V undervoltage trip and never toward
+15 V, so the margin that matters is the 5 V one — not the 3 V to the upper
+threshold.
+
+(Separately, and not superseded by the above: describing 15 V as the "nearest"
+threshold to 12 V was correct and describing it as 5 V away was not. The Codex
+session caught that; it is a plain arithmetic error of mine, distinct from the
+signed-error argument, which is why both are recorded.)
