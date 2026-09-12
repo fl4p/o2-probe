@@ -2247,3 +2247,49 @@ costs one probe.
   1 kΩ ±15 %, and R36 carried only 18 µA of the 863 µA leak. So R36 was healthy
   then and failed later — most plausibly during the hot-air rework to remove U8.
 - **AIN0 unproven** until the cell is back or `T_AFE` reads.
+
+### 16:55 — U3 replaced: the rail is clean. Board repaired; three parts changed
+
+Read from VictoriaMetrics over LoRaWAN (the node was refusing BLE claims on its
+CTRL session budget, and the telemetry path does not need the claim):
+
+    VREF_MON  2506 mV    (target 2500)
+    VA_MV     3298 mV    (a real, regulated 3.3 V)
+    VIN_MV   13119 mV
+    i2c_errs     0       ads_fail  0
+    FAULTS  0x8801  =  SETTLING . ADC_RANGE . HEATER_DISABLED
+    FAULTS_EVER 0x8801   <- no VA_LOW and no I2C_FAIL_* since boot
+
+**The intermittency is gone with U3.** `VA_LOW` never set this boot, and the
+I²C counters have stayed at zero.
+
+**Retraction of the 16:30 calibration note.** `VREF_MON` was 2464 on Fab's
+bench injection and is **2506** on the new regulator — the reference tracks
+3V3A through R20/RV1/U4, exactly as the Rev A topology says. So the "new ADS
+reads 1.4 % low" observation was measuring the RAIL, not the converter. At 2506
+against a 2500 trim target the new part's gain is fine, which also suggests the
+old part's 3–4 % error was part of its damage rather than a board property.
+
+#### Repair summary
+
+| part | why |
+|---|---|
+| **U8** ADS1119 | AIN1 leaking ~730 Ω to ground and AIN2 ~2.6 kΩ to AVDD, both powered; AIN0 returning the preceding channel's sample. All three gone with the new part, and `i2c_errs` 1132 → 0, `ads_fail_count` 141 → 0 |
+| **U3** TPS7A2033 | commanded on with IN, EN and GND all measured correct, and would not regulate until the output was pre-charged; then latched and ran. Intermittent 3V3A since 09-11 22:37 |
+| **R36** 1 kΩ | measured faulty after the U8 removal. The 3 kΩ injection test had pinned it at 1 kΩ ±15 % earlier the same day (node balance closing to 1.8 µA), so it failed **during** the rework, not before |
+
+**Root cause, from the telemetry history: heat applied to dry the coating at
+2026-09-11 22:24.** No over-voltage in fourteen days on any channel; the die
+reached only 48 °C against a 150 °C rating; and every defect appeared in that
+one minute.
+
+#### Still open
+
+- **AIN0 unproven.** `AFE_VOUT` reads 0 with `SETTLE_S` 633 — expected while a
+  freshly reconnected cell polarises and rails the TIA. When it rises to
+  ~1650 mV, AIN0 is proven. Being watched.
+- **The removed U8 has still not been ohmed** (pin 8 → pin 6, pin 5 → pin 10).
+  It is the only way to separate "the silicon was damaged" from "the rework
+  washed away board residue", since R36 was replaced in the same session. The
+  board's recovery cannot decide it.
+- Whether U3's failure was caused by the same 22:24 event, or is independent.
