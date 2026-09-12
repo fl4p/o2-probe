@@ -1844,3 +1844,65 @@ temperature was stable throughout, so that is not itself a test.
 
 AIN0's defect (returns the preceding channel's sample, confirmed live at 13:40)
 is untouched by any of this and remains a genuine ADS fault.
+
+### 12:10 — powered temperature sweep: the leak rises with heat. Contamination EXCLUDED
+
+The test the 14:45 retraction called for, run with `tech/bench/o2p_reg_watch.py`
+(farming `ee65122`) polling the leak and the probe's own temperatures together.
+Fab heated the bottom-side row at R36/C30 — directly over `/ADC_VREF_MON`'s
+copper and the empty C29 footprint — then let it cool.
+
+| chamber °C | AIN1 pin mV | leak Ω |
+|--:|--:|--:|
+| 22.24 | 36 | 727 |
+| **30.93** | **39** | **789** |
+| 28.00 | 37 | 747 |
+| 26.51 | 36 | 727 |
+
+**The pin rose with heat and retraced on cooling.** Contamination does the
+opposite: an ionic film conducts harder when warm, which would pull the pin
+DOWN. On 2026-09-10 that is exactly what this board showed on `/VREF_TRIM` —
+174 mV hot climbing to a 320 mV plateau cold.
+
+**No tempco is quoted, deliberately.** The whole excursion is 3 LSB of the pin
+(36→39→37→36), and it is back at baseline by 26.5 °C — 4.3 K above the
+starting temperature. That is thermal lag, not curvature: the heat went into
+the board beside U8 while the reference thermometer is the SHT45 elsewhere, so
+die and chamber are not the same temperature during a transient. Extracting
+%/K from this would be false precision. A real tempco needs soak-and-hold at
+two temperatures. **It is not needed — direction alone settles the question.**
+
+Confound checked and dismissed: for `/VREF_TRIM`'s own drift to raise the pin
+8.3 %, the reference would have to climb 104 mV over 8.7 K, ~4800 ppm/K on a
+divider of 0.1 % resistors and a cermet trimpot. Not possible.
+
+What remains is either the leak's resistance rising with temperature or the
+ADS's offset drifting up (~350 µV/K — at 36 mV we are reading 1.8 % of full
+scale, and a damaged part may drift freely). **Both are inside the die.** They
+cannot be separated by these numbers and do not need to be: neither is on the
+board.
+
+**VERDICT: the fault is the part, not the board. No clean, no bake. Replace
+U8.** This agrees with AIN0 (stuck mux) and AIN2 (leak to AVDD), neither of
+which was ever cleanable, so all three defects point one way.
+
+Earlier in this session a "+975 ppm/K" figure was quoted and an argument built
+on it that a MOS channel specifically fit. That was an arithmetic error of 10×
+(8.5 % over 8.69 K is ~9800 ppm/K) and, corrected, the magnitude sits at the
+steep edge of a mux channel rather than inside it. With 3 LSB of signal the
+magnitude carries no mechanism claim at all. Withdrawn; the "damaged input
+multiplexer" picture remains an attractive single-fault story for AIN0/AIN1/
+AIN2 but is not established by the tempco.
+
+#### What is fixed and what is next
+
+- Replace U8 (ADS1119, WQFN-16). Four are on hand: 3× IRTET confirmed in
+  InvenTree plus 1× IRTER from PO-0010.
+- **Repair 3V3A first** — still intermittent, still unexplained, and not
+  something to commission a fresh part under.
+- After fitting: check the internal-reference gain against a meter before any
+  O2 calibration. The old part read 3–4 % low at two operating points and it
+  is not known whether that was the chip.
+- Rev B note, unmeasured but derivable: `/ADC_VIN_MON` is biased from the VIN
+  divider while VIN is upstream of AVDD, so that input exceeds
+  `AVDD + 0.3 V` on every power-up.
