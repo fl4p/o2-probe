@@ -17,6 +17,7 @@
 #include "die_temp.h"
 #include "mcu_adc.h"
 #include "sampler.h"
+#include "vref_policy.h"
 #include "faults.h"
 #include "gpio_diag.h"
 #include "hw_caps.h"
@@ -9173,6 +9174,74 @@ static void test_reference_and_offset_channels_track_the_hardware(void)
 }
 
 
+/* ---- what the reference IS, and what may be done with a measurement of it -
+ *
+ * The assertion that earns its place is the Rev B one: the measurement must
+ * NOT reach the scale. Scaling oxygen by a VREFINT-derived number would look
+ * like a correction and would inject an 8x-worse part's drift into every
+ * reading. A future edit that "improves" this by returning the measurement
+ * has to fail here. */
+static void test_the_oxygen_scale_ignores_the_measurement_on_rev_b(void)
+{
+#if O2P_HW_VREF_IS_ADC_REFERENCE
+    /* Ratiometry by WIRING: the scale is the constant, whatever was measured. */
+    TEST_ASSERT_EQUAL_UINT32(O2P_HW_VREF_MV, o2p_vref_scale_mv(2500u));
+    TEST_ASSERT_EQUAL_UINT32(O2P_HW_VREF_MV, o2p_vref_scale_mv(2400u));
+    TEST_ASSERT_EQUAL_UINT32(O2P_HW_VREF_MV, o2p_vref_scale_mv(0u));
+    TEST_ASSERT_TRUE(o2p_vref_scale_is_constant());
+#else
+    /* Ratiometry by ARITHMETIC: the measurement IS the scale, and a board that
+     * returned a constant here would stop cancelling reference drift. */
+    TEST_ASSERT_EQUAL_UINT32(2500u, o2p_vref_scale_mv(2500u));
+    TEST_ASSERT_EQUAL_UINT32(2400u, o2p_vref_scale_mv(2400u));
+    TEST_ASSERT_FALSE(o2p_vref_scale_is_constant());
+#endif
+}
+
+static void test_the_collapse_band_catches_a_dead_reference(void)
+{
+#if !O2P_HW_VREF_IS_ADC_REFERENCE
+    /* Rev A judges its MEASURED reference against the trim band in
+     * finish_vref(); it has no nominal constant and needs no collapse band. */
+    TEST_IGNORE_MESSAGE("collapse band is Rev B only; Rev A uses the trim band");
+#else
+    /* The failures it exists for: shorted, unpowered, grossly wrong. */
+    TEST_ASSERT_TRUE(o2p_vref_collapsed(0u));
+    TEST_ASSERT_TRUE(o2p_vref_collapsed((uint32_t)O2P_HW_VREF_MV / 2u));
+    TEST_ASSERT_TRUE(o2p_vref_collapsed((uint32_t)O2P_HW_VREF_MV * 2u));
+#endif
+}
+
+static void test_the_collapse_band_does_not_fire_on_the_measurement_error(void)
+{
+#if !O2P_HW_VREF_IS_ADC_REFERENCE
+    TEST_IGNORE_MESSAGE("collapse band is Rev B only; Rev A uses the trim band");
+#else
+    /* VREFINT's own budget - calibration, 50 ppm/degC, 1000 ppm/1000 h - is on
+     * the order of 1-2 %. A band that fired there would be reporting the
+     * instrument's error as a fault on the part being measured. */
+    uint32_t nominal = (uint32_t)O2P_HW_VREF_MV;
+    TEST_ASSERT_FALSE(o2p_vref_collapsed(nominal));
+    TEST_ASSERT_FALSE(o2p_vref_collapsed(nominal + nominal * 2u / 100u));
+    TEST_ASSERT_FALSE(o2p_vref_collapsed(nominal - nominal * 2u / 100u));
+#endif
+}
+
+static void test_the_collapse_band_edges_are_monotone(void)
+{
+#if !O2P_HW_VREF_IS_ADC_REFERENCE
+    TEST_IGNORE_MESSAGE("collapse band is Rev B only; Rev A uses the trim band");
+#else
+    /* Inside passes, one millivolt further fails, both directions. A band only
+     * ever exercised in its middle is an untested band. */
+    TEST_ASSERT_FALSE(o2p_vref_collapsed(O2P_VREF_COLLAPSE_LO_MV));
+    TEST_ASSERT_TRUE(o2p_vref_collapsed(O2P_VREF_COLLAPSE_LO_MV - 1u));
+    TEST_ASSERT_FALSE(o2p_vref_collapsed(O2P_VREF_COLLAPSE_HI_MV));
+    TEST_ASSERT_TRUE(o2p_vref_collapsed(O2P_VREF_COLLAPSE_HI_MV + 1u));
+#endif
+}
+
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -9461,6 +9530,10 @@ int main(void)
     RUN_TEST(test_out_of_range_channels_are_unavailable_not_undefined);
     RUN_TEST(test_the_oxygen_chain_exists_on_every_revision);
     RUN_TEST(test_reference_and_offset_channels_track_the_hardware);
+    RUN_TEST(test_the_oxygen_scale_ignores_the_measurement_on_rev_b);
+    RUN_TEST(test_the_collapse_band_catches_a_dead_reference);
+    RUN_TEST(test_the_collapse_band_does_not_fire_on_the_measurement_error);
+    RUN_TEST(test_the_collapse_band_edges_are_monotone);
     RUN_TEST(test_adc_offset_band_accepts_a_healthy_offset_and_rejects_a_pinned_one);
 #else
     RUN_TEST(test_debug_mailboxes_disabled);
