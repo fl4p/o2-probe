@@ -478,6 +478,27 @@ enum {
      * rather than the magic: what a reader wants to know is whether the
      * override is live, and echoing a token invites a read-modify-write to
      * re-arm it by accident. */
+    /* ADC health, read-only, rebuilt every cycle. P3 and P4 of
+     * docs/2026-09-12-revb-proposals-from-the-afe-failure.md.
+     *
+     * The 2026-09-12 incident was invisible for fourteen hours because the
+     * firmware had exactly two states for the reference: measured, or
+     * everything suppressed. This register is the missing third thing - it
+     * says WHICH degraded mode is in force, so a fallback can never be silent.
+     *
+     * bit 0  VREF sense tap outside its band this cycle
+     * bit 1  internal-reference FALLBACK engaged automatically (P3)
+     * bit 2  internal-reference override forced by hand (diag opcode 9)
+     * bit 3  stuck mux suspected: two DIFFERENT channels returned bit-identical
+     *        accumulator codes (P4). AIN0's fault returned the previous
+     *        channel's sample, and nothing noticed for fourteen hours.
+     * bit 4  offset self-check outside its band (P4). ADS1119 MUX=111 shorts
+     *        AINP/AINN to AVDD/2 (SBAS925A Table 10), so it must read ~0.
+     * bits 15..8  |offset self-check| in LSB, saturating at 255 - the evidence
+     *        behind bit 4 rather than just its verdict
+     */
+    O2P_REG_ADC_HEALTH       = 0x0050u,
+
     O2P_REG_HEATER_TEST_ARM  = 0x0060u,
     /* Duty while armed with no temperature target, 0.01 %. Clamped to the
      * configured duty maximum. */
@@ -1069,6 +1090,19 @@ enum { O2P_PARITY_NONE = 0u, O2P_PARITY_ODD = 1u, O2P_PARITY_EVEN = 2u };
  * free to leave uninitialised would make that CRC non-deterministic. Widest
  * members first, then the bytes, then explicit reserved bytes to a multiple
  * of the 4-byte alignment. */
+enum {
+    O2P_ADCH_VREF_OUT_OF_BAND = 1u << 0,
+    O2P_ADCH_REF_FALLBACK     = 1u << 1,
+    O2P_ADCH_REF_FORCED       = 1u << 2,
+    O2P_ADCH_MUX_STUCK        = 1u << 3,
+    O2P_ADCH_OFFSET_BAD       = 1u << 4,
+};
+
+/* The offset self-check band, in ADS1119 LSB. SBAS925A gives offset drift in
+ * the microvolt decade; 64 LSB at gain 1 is ~4.9 mV, far outside any healthy
+ * offset and far inside a stuck or shorted input. */
+#define O2P_ADC_OFFSET_MAX_LSB 64
+
 typedef struct {
     int32_t  cal_air_na;              /* 0 */
     uint16_t rh_setpoint_x100;        /* 4 */
@@ -1275,6 +1309,7 @@ typedef struct {
     int16_t  t_die;
     int16_t  t_afe;
     uint16_t ce_mv;
+    uint16_t adc_health;
     uint16_t faults_ever;
     uint16_t ads_fail_count;
     uint16_t we_buf_mv;

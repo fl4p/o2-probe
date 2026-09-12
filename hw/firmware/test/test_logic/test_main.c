@@ -8892,6 +8892,47 @@ static void test_debug_mailboxes_disabled(void)
 }
 #endif
 
+/* ---- P4: the stuck-mux and offset detectors, calibrated against the real
+ * 2026-09-12 failure rather than against their own design. ---- */
+
+static void test_stuck_mux_fires_when_two_channels_return_the_same_code(void)
+{
+    /* AIN0's fault returned the PREVIOUS channel's sample: VREF on AIN1 then
+     * oxygen on AIN0, bit-identical. That is the case this exists for. */
+    TEST_ASSERT_TRUE(o2p_mux_stuck_signature(true, 4u, 16384, 3u, 16384));
+}
+
+static void test_stuck_mux_is_silent_on_one_channel_repeating(void)
+{
+    /* The SAME channel giving the same code twice is a steady signal, not a
+     * stuck mux, and must never be reported as one. */
+    TEST_ASSERT_FALSE(o2p_mux_stuck_signature(true, 3u, 16384, 3u, 16384));
+}
+
+static void test_stuck_mux_is_silent_on_near_misses(void)
+{
+    /* WE_BUF and RE_BUF sit within a few mV whenever the cell is unbiased. A
+     * tolerance instead of bit-equality would fire on healthy hardware every
+     * cycle, so one LSB apart must stay quiet. */
+    TEST_ASSERT_FALSE(o2p_mux_stuck_signature(true, 5u, 16384, 6u, 16385));
+}
+
+static void test_stuck_mux_needs_a_previous_sample(void)
+{
+    TEST_ASSERT_FALSE(o2p_mux_stuck_signature(false, 4u, 16384, 3u, 16384));
+}
+
+static void test_adc_offset_band_accepts_a_healthy_offset_and_rejects_a_pinned_one(void)
+{
+    TEST_ASSERT_FALSE(o2p_adc_offset_out_of_band(0, O2P_ADC_OFFSET_MAX_LSB));
+    TEST_ASSERT_FALSE(o2p_adc_offset_out_of_band(64, O2P_ADC_OFFSET_MAX_LSB));
+    TEST_ASSERT_FALSE(o2p_adc_offset_out_of_band(-64, O2P_ADC_OFFSET_MAX_LSB));
+    TEST_ASSERT_TRUE(o2p_adc_offset_out_of_band(65, O2P_ADC_OFFSET_MAX_LSB));
+    TEST_ASSERT_TRUE(o2p_adc_offset_out_of_band(-65, O2P_ADC_OFFSET_MAX_LSB));
+    /* An input pinned to a rail, which is what three of the four ADS inputs
+     * did on 2026-09-12, is nowhere near the band. */
+    TEST_ASSERT_TRUE(o2p_adc_offset_out_of_band(32767, O2P_ADC_OFFSET_MAX_LSB));
+}
 #if !O2P_DEBUG_ENABLE
 static void test_gpio_opcode_is_compiled_out_with_the_mailbox(void)
 {
@@ -8906,6 +8947,8 @@ static void test_gpio_opcode_is_compiled_out_with_the_mailbox(void)
     TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS,
                            o2p_regmap_read(&rm, 0x0072u, 5u, out));
 }
+
+
 #endif
 
 int main(void)
@@ -9183,6 +9226,11 @@ int main(void)
     RUN_TEST(test_ads_internal_ref_opcode_sets_and_clears_the_flag);
     RUN_TEST(test_ads_internal_ref_opcode_refuses_bad_shapes_and_changes_nothing);
     RUN_TEST(test_cell_current_from_absolute_uv_matches_the_ratiometric_form);
+    RUN_TEST(test_stuck_mux_fires_when_two_channels_return_the_same_code);
+    RUN_TEST(test_stuck_mux_is_silent_on_one_channel_repeating);
+    RUN_TEST(test_stuck_mux_is_silent_on_near_misses);
+    RUN_TEST(test_stuck_mux_needs_a_previous_sample);
+    RUN_TEST(test_adc_offset_band_accepts_a_healthy_offset_and_rejects_a_pinned_one);
 #else
     RUN_TEST(test_debug_mailboxes_disabled);
     RUN_TEST(test_gpio_opcode_is_compiled_out_with_the_mailbox);

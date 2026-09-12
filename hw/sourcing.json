@@ -20,7 +20,6 @@
   "entries": {
     "Capacitor_SMD:C_0402_1005Metric|100n": {"class": "generic-stock", "rationale": "Local IC decoupling; 16 V X7R or better from stock."},
     "Capacitor_SMD:C_0603_1608Metric|10n": {"class": "generic-stock", "rationale": "Signal-path filter; value tolerance non-critical at this node."},
-    "Capacitor_SMD:C_0603_1608Metric|1u": {"class": "generic-stock", "rationale": "Rail bypass on regulated 3V3D/5V nodes."},
     "Capacitor_SMD:C_0603_1608Metric|4.7u": {"class": "generic-stock", "rationale": "Rail bypass on regulated nodes."},
     "Capacitor_SMD:C_1206_3216Metric|22u": {"class": "generic-stock", "rationale": "Bulk bypass; DC-bias derating covered by the 1206 package choice."},
     "Resistor_SMD:R_0603_1608Metric|100k": {"class": "generic-stock", "rationale": "Bias/pull network; 1% from stock."},
@@ -28,6 +27,7 @@
     "Resistor_SMD:R_0603_1608Metric|4.7k": {"class": "generic-stock", "rationale": "I2C pull-up; 1% from stock."},
     "Resistor_SMD:R_0603_1608Metric|1k": {"class": "generic-stock", "rationale": "Series/limit resistor; 1% from stock."},
     "Resistor_SMD:R_0603_1608Metric|47k": {"class": "generic-stock", "rationale": "Bias network; 1% from stock."},
+    "Resistor_SMD:R_0603_1608Metric|27k": {"class": "generic-stock", "rationale": "VA_MON divider bottom leg since the 2.5 V full scale (2026-09-12); E24, 1% from stock."},
     "Resistor_SMD:R_0603_1608Metric|47R": {"class": "generic-stock", "rationale": "Series damping; 1% from stock."},
     "Resistor_SMD:R_0603_1608Metric|10R": {"class": "generic-stock", "rationale": "RS-485 series element (R2/R3) and the +5V_ANALOG prefilter (R32); 1% from stock. R32 was an 0805 option pad for a ferrite bead; 0603 beads are as available, so the option survived the package."},
     "TestPoint:TestPoint_Pad_D1.0mm|*": {"class": "not-purchased", "rationale": "Bare copper probe pad; nothing is placed."},

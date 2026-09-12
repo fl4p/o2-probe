@@ -42,6 +42,10 @@ enum {
      * adding them cannot change which channel precedes AIN0. */
     O2P_ADS_MUX_AIN2_AGND = 5u,  /* 101 - WE_BUF */
     O2P_ADS_MUX_AIN3_AGND = 6u,  /* 110 - RE_BUF */
+    /* 111 shorts AINP and AINN to AVDD/2 internally (SBAS925A Table 10), which
+     * is the converter's own offset with no board node involved. P4 converts it
+     * once per cycle as a self-check. */
+    O2P_ADS_MUX_OFFSET    = 7u,
 };
 enum { O2P_ADS_DR_20SPS = 0u, O2P_ADS_DR_90SPS = 1u,
        O2P_ADS_DR_330SPS = 2u, O2P_ADS_DR_1000SPS = 3u };

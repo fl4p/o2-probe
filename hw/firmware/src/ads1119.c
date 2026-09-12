@@ -4,6 +4,14 @@
 #include "i2c1.h"
 #include "mcu.h"
 
+#if !O2P_HW_HAS_ADS1119
+#error "This board revision has no ADS1119 (Rev B deleted U8 on 2026-09-12). \
+Every analog channel converts on the STM32G071's own SAR instead, and the \
+port of the sampler in main.c onto mcu_adc.c has not landed yet. Building \
+this driver would drive PB1 as a GPIO - which on Rev B is the AFE_VOUT analog \
+input, the oxygen channel itself. See docs/2026-09-12-revb-decision-delete-ads1119.md."
+#endif
+
 #define ADS_ADDR O2P_HW_I2C_ADDR_ADS1119
 
 /* Last configuration actually converted with. SBAS925A 8.3.3 says the internal

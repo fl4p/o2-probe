@@ -201,3 +201,23 @@ static inline uint16_t o2p_sht_phase_faults(bool masked, bool pulse_failed,
 }
 
 #endif /* O2P_SAMPLER_LOGIC_H */
+
+/* P4a: the stuck-mux signature, as a pure predicate so it can be tested.
+ *
+ * A stuck mux returns the PREVIOUS channel's sample, so two DIFFERENT channels
+ * yielding bit-identical averages is the direct evidence. Bit-identical is
+ * deliberate: WE_BUF and RE_BUF sit within a few mV of each other whenever the
+ * cell is unbiased, so any near-miss tolerance would fire on healthy hardware.
+ * It reports evidence, never a verdict - nothing is suppressed on this bit. */
+static inline bool o2p_mux_stuck_signature(bool prev_valid, uint8_t prev_mux,
+                                           int32_t prev_code, uint8_t mux,
+                                           int32_t code)
+{
+    return prev_valid && mux != prev_mux && code == prev_code;
+}
+
+/* P4b: the ADS1119's own offset, inputs shorted to AVDD/2 by MUX=111. */
+static inline bool o2p_adc_offset_out_of_band(int32_t code, int32_t max_lsb)
+{
+    return code > max_lsb || code < -max_lsb;
+}

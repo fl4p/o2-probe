@@ -46,11 +46,42 @@ this file exists to prevent."
 #ifndef O2P_HW_BIAS_ADC_REACHES_ELECTRODES
 #error "generated caps header is missing O2P_HW_BIAS_ADC_REACHES_ELECTRODES"
 #endif
+#ifndef O2P_HW_HAS_ADS1119
+#error "generated caps header is missing O2P_HW_HAS_ADS1119"
+#endif
+/* The AIN channel names are the one EXCEPTION to "every revision answers every
+ * question", and deliberately so. Rev B has no ADS1119 at all, so there is no
+ * honest value for "which net is on AIN2" - not a net name, and emphatically
+ * not an empty string, which would compare unequal to everything and read as a
+ * channel that is merely wired somewhere else. Their ABSENCE is the answer, and
+ * a #ifdef on them is the only correct way to ask. Anything that dereferences
+ * them unconditionally fails to compile on Rev B, which is the intent. */
+#if O2P_HW_HAS_ADS1119
 #ifndef O2P_HW_ADC_AIN2_NET
 #error "generated caps header is missing O2P_HW_ADC_AIN2_NET"
 #endif
 #ifndef O2P_HW_ADC_AIN3_NET
 #error "generated caps header is missing O2P_HW_ADC_AIN3_NET"
+#endif
+#endif
+#ifndef O2P_HW_VREF_IS_ADC_REFERENCE
+#error "generated caps header is missing O2P_HW_VREF_IS_ADC_REFERENCE"
+#endif
+/* Mutually exclusive by construction, and neither may be assumed. When the
+ * reference IS the full scale there is no monitor divider to scale by; when it
+ * is not, there is no compile-time V_REF because the full scale is VDDA and
+ * VDDA is measured. Asking for the wrong one is a compile error, not a 0. */
+#if O2P_HW_VREF_IS_ADC_REFERENCE
+#ifndef O2P_HW_VREF_MV
+#error "generated caps header is missing O2P_HW_VREF_MV"
+#endif
+#else
+#ifndef O2P_HW_DIV_VREF_MON_NUM
+#error "generated caps header is missing O2P_HW_DIV_VREF_MON_NUM"
+#endif
+#endif
+#ifndef O2P_HW_AFE_VOUT_ON_MCU
+#error "generated caps header is missing O2P_HW_AFE_VOUT_ON_MCU"
 #endif
 #ifndef O2P_HW_VREF_NET_SHARED_WITH_AFE
 #error "generated caps header is missing O2P_HW_VREF_NET_SHARED_WITH_AFE"

@@ -207,6 +207,7 @@ typedef enum {
     PH_WE,         /* ADS1119 AIN2, WE_BUF */
     PH_RE,         /* ADS1119 AIN3, RE_BUF */
     PH_TAFE,       /* LMP91000 die temperature, on AIN0 in OP_MODE 111 */
+    PH_OFFSET,     /* P4: ADS1119 MUX=111, inputs shorted to AVDD/2 */
     PH_PUBLISH,
 } phase_t;
 
@@ -261,6 +262,18 @@ static struct {
     /* The debug override (diag opcode 9) as latched for THIS cycle: every
      * ADS1119 conversion on the internal 2.048 V reference, scaled by it. */
     bool     ads_internal;
+    /* P3: the sense tap faulted, so THIS cycle runs on the ADS1119's internal
+     * 2.048 V reference automatically. Distinct from ads_internal, which is a
+     * human forcing it: a fallback that cannot be told apart from a deliberate
+     * override is not a diagnosis. */
+    bool     ads_fallback;
+    /* P4 evidence, published in ADC_HEALTH rather than inferred later. */
+    bool     mux_stuck;
+    bool     offset_bad;
+    int32_t  offset_code;
+    uint8_t  prev_mux;
+    int32_t  prev_code;
+    bool     prev_valid;
 } g_cyc;
 
 static uint32_t s_cycle_start_ms;
@@ -278,6 +291,13 @@ static void cycle_begin(void)
      * cycle, so no phase averages conversions taken against two references. */
     g_cyc.ads_internal = (g_rm.ads_internal_ref != 0u);
 #endif
+    /* P3/P4 state is PER CYCLE: a fallback that engaged last cycle must not
+     * silently persist, and a stuck-mux signature must be re-earned. */
+    g_cyc.ads_fallback = false;
+    g_cyc.mux_stuck = false;
+    g_cyc.offset_bad = false;
+    g_cyc.offset_code = 0;
+    g_cyc.prev_valid = false;
     g_cyc.t_tip = O2P_I16_INVALID;
     g_cyc.t_chamber = O2P_I16_INVALID;
     g_cyc.t_ext = O2P_I16_INVALID;
@@ -633,9 +653,38 @@ static void phase_temps(o2p_snapshot_t *s)
  * per cycle in cycle_begin(), so one average never mixes references). Fab
  * 2026-09-11: "let it use the internal ref for all channels now, for
  * debugging. the external ref is down". */
+static bool ads_on_internal(void)
+{
+    /* Forced by hand, or fallen back to because the sense tap faulted. */
+    return g_cyc.ads_internal || g_cyc.ads_fallback;
+}
+
 static uint32_t ads_ext_scale_mv(void)
 {
-    return g_cyc.ads_internal ? O2P_ADS_INTERNAL_REF_MV : g_cyc.vref_mv;
+    return ads_on_internal() ? O2P_ADS_INTERNAL_REF_MV : g_cyc.vref_mv;
+}
+
+/* P4. A stuck mux returns the PREVIOUS channel's sample, so two different
+ * channels yielding bit-identical accumulator codes is a direct signature of
+ * it. On 2026-09-12 AIN0 did exactly that and the only reason anyone noticed
+ * was a coincidence - AFE_VOUT happened to equal VREF_MON/2, and the history
+ * showed them tracking to within 4 mV from the failure onward while being
+ * independent before it. Fourteen hours, caught by eye.
+ *
+ * Bit-identical is deliberately strict. Two channels CAN legitimately land on
+ * the same code, so this is evidence and not a verdict: it sets a bit in
+ * ADC_HEALTH and never suppresses a reading. A near-miss tolerance would fire
+ * on real signals - WE_BUF and RE_BUF sit within a few mV of each other by
+ * design whenever the cell is unbiased. */
+static void note_channel_code(uint8_t mux, int32_t code)
+{
+    if (o2p_mux_stuck_signature(g_cyc.prev_valid, g_cyc.prev_mux,
+                                g_cyc.prev_code, mux, code)) {
+        g_cyc.mux_stuck = true;
+    }
+    g_cyc.prev_mux = mux;
+    g_cyc.prev_code = code;
+    g_cyc.prev_valid = true;
 }
 
 /* One ADS1119 conversion into g_acc. Returns true when the phase is done. */
@@ -643,7 +692,7 @@ static bool accumulate(uint8_t mux, uint8_t dr, bool ext_ref, unsigned n)
 {
     int16_t code = 0;
     o2p_ads_status_t st = o2p_ads1119_convert(mux, dr,
-                                              ext_ref && !g_cyc.ads_internal,
+                                              ext_ref && !ads_on_internal(),
                                               &code);
     if (st != O2P_ADS_OK) {
         /* A DRDY that does not behave is a PIN failure, not a bus failure, and
@@ -694,7 +743,18 @@ static bool accumulate(uint8_t mux, uint8_t dr, bool ext_ref, unsigned n)
     }
     g_acc += code;
     g_sub++;
-    return g_sub >= n;
+    if (g_sub >= n) {
+        /* Compare per-phase AVERAGES, not raw samples: the phases use
+         * different conversion counts, so the accumulator alone is not
+         * comparable between them. The offset self-check is excluded -- it is
+         * SUPPOSED to sit near zero every cycle and would false-positive
+         * against any other channel that happened to. */
+        if (mux != O2P_ADS_MUX_OFFSET) {
+            note_channel_code(mux, g_acc / (int32_t)n);
+        }
+        return true;
+    }
+    return false;
 }
 
 static void finish_vref(o2p_snapshot_t *s)
@@ -707,8 +767,13 @@ static void finish_vref(o2p_snapshot_t *s)
     }
     int32_t code = g_acc / (int32_t)O2P_N_VREF;
     int32_t half_uv = o2p_ads1119_code_to_uv(code, O2P_ADS_INTERNAL_REF_MV);
-    int32_t measured = (half_uv / 1000) * (int32_t)O2P_HW_DIV_VREF_DEN /
-                       (int32_t)O2P_HW_DIV_VREF_NUM;
+    /* PER-REVISION, from hw_caps, NOT from hw_contract: Rev A reads a 47k/47k
+     * halved copy on ADS AIN1 and must double it, Rev B reads /VREF_TRIM
+     * undivided on PA5 and must not. Deriving this from the live schematic
+     * would have made deleting R34/R35 for Rev B silently halve the Rev A
+     * bench board's reference reading. */
+    int32_t measured = (half_uv / 1000) * (int32_t)O2P_HW_DIV_VREF_MON_DEN /
+                       (int32_t)O2P_HW_DIV_VREF_MON_NUM;
     if (measured < 0) {
         measured = 0;
     }
@@ -719,6 +784,20 @@ static void finish_vref(o2p_snapshot_t *s)
         measured > (int32_t)O2P_HW_VREF_MAX_MV + 100) {
         g_cyc.faults |= O2P_F_ADC_RANGE;
         s_vref_was_out = true;
+        /* P3. Until 2026-09-12 this branch suppressed every externally
+         * referenced channel for as long as the tap was bad - VIN, VA, WE, RE
+         * and oxygen all went to sentinel because ONE DIAGNOSTIC input leaked,
+         * while VIN was perfectly measurable the whole time (proved on the
+         * bench: diag opcode 9 returned 13138 mV immediately). A diagnostic
+         * channel must not be able to disable the measurement channels.
+         *
+         * So: switch this cycle to the internal 2.048 V reference and keep
+         * reporting, DEGRADED AND SAID SO. The oxygen channel loses its
+         * ratiometry and its absolute scale now depends on the ADS's own
+         * 2.048 V (+/-0.25 %, SBAS925 p.329) instead of cancelling - which is
+         * worse, and still enormously better than no reading at all. Every
+         * consumer can see it in ADC_HEALTH bit 1. */
+        g_cyc.ads_fallback = true;
     } else {
         if (s_vref_was_out) {
             /* The reference is back inside the trim band after being
@@ -866,7 +945,7 @@ static void finish_electrode(o2p_snapshot_t *s, bool working)
      */
     /* Under the internal-reference override (diag opcode 9) the scale is
      * 2048 mV, not VREF, so a collapsed reference no longer blanks these. */
-    if (g_acc_clipped || (!g_cyc.ads_internal && !g_cyc.vref_measured)) {
+    if (g_acc_clipped || (!ads_on_internal() && !g_cyc.vref_measured)) {
         return;
     }
     int32_t code = g_acc / (int32_t)O2P_N_CELL;
@@ -1277,6 +1356,22 @@ static void finish_o2(o2p_snapshot_t *s)
 
 static void cycle_publish(o2p_snapshot_t *s)
 {
+    /* P3/P4: say which degraded mode is in force. Built every cycle, so a
+     * fallback that clears is visible as one that cleared. */
+    {
+        uint16_t h = 0u;
+        if ((g_cyc.faults & O2P_F_ADC_RANGE) != 0u && !g_cyc.vref_measured) {
+            h |= O2P_ADCH_VREF_OUT_OF_BAND;
+        }
+        if (g_cyc.ads_fallback) { h |= O2P_ADCH_REF_FALLBACK; }
+        if (g_cyc.ads_internal) { h |= O2P_ADCH_REF_FORCED; }
+        if (g_cyc.mux_stuck)    { h |= O2P_ADCH_MUX_STUCK; }
+        if (g_cyc.offset_bad)   { h |= O2P_ADCH_OFFSET_BAD; }
+        int32_t mag = g_cyc.offset_code < 0 ? -g_cyc.offset_code : g_cyc.offset_code;
+        if (mag > 255) { mag = 255; }
+        h |= (uint16_t)((uint32_t)mag << 8);
+        s->adc_health = h;
+    }
     /* The FLAG was raised in cycle_begin(), before PH_O2 froze the oxygen
      * verdict; only the countdown is computed here. Re-raising it is kept so
      * a settle window that OPENS mid-cycle - o2p_settle_restart() is callable
@@ -1650,7 +1745,7 @@ static bool sampler_step(void)
                         restart_settling();
                     }
                 }
-                g_phase = PH_PUBLISH;
+                g_phase = PH_OFFSET; g_sub = 0; g_acc = 0; g_acc_clipped = false;
                 break;
             }
         }
@@ -1661,6 +1756,23 @@ static bool sampler_step(void)
                  * next cycle be the first sign; phase_afe() does the actual
                  * reconfiguration and settling decision. */
                 g_cyc.faults |= O2P_F_AFE_CONFIG_MISMATCH;
+            }
+            g_phase = PH_OFFSET; g_sub = 0; g_acc = 0; g_acc_clipped = false;
+        }
+        break;
+
+    /* P4, and LAST: the converter's own offset, with its inputs shorted to
+     * AVDD/2 by MUX=111 (SBAS925A Table 10). It must read near zero. Anything
+     * else is the converter itself, not the board, and it is measured here
+     * rather than assumed - the 2026-09-12 failure was diagnosed for five
+     * hours partly because nothing on the probe could say whether the ADS was
+     * healthy. One conversion per cycle, after every measurement is closed, so
+     * it cannot perturb one. */
+    case PH_OFFSET:
+        if (accumulate(O2P_ADS_MUX_OFFSET, O2P_ADS_DR_90SPS, false, 1u)) {
+            g_cyc.offset_code = g_acc;
+            if (o2p_adc_offset_out_of_band(g_acc, O2P_ADC_OFFSET_MAX_LSB)) {
+                g_cyc.offset_bad = true;
             }
             g_phase = PH_PUBLISH;
         }

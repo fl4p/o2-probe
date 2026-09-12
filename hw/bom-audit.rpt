@@ -1,14 +1,19 @@
 O2 probe procurement (BOM) audit
-schematic sha256: 8d589d640d86ada9f15d6bb6c83ee790d264c745da8a86488ad27648cb255e47
-components: 99; bom rows: 52
-sourcing: dnp=2, generic-stock=53, mpn=31, not-purchased=13
+schematic sha256: 8c3bc7bf12b678dc1b6a9b175b73e0c3fbd8e5e2582d9d9bd66fae44d8cb4d6d
+components: 83; bom rows: 51
+sourcing: dnp=4, generic-stock=39, mpn=27, not-purchased=13
 unsourced fitted components: 0
 purchase orders: purchase-orders.json captured 2026-09-09T14:55:10.072651+00:00, 264 lines
 result: FAIL
-ERROR: U15 needs 'AZ431BN-ATRG1' (qty 1) but it appears on no purchase order
-ERROR: C9 needs 'C0603C102J5GACTU' but no order has it; the orders do contain the near-identical 'C0603C221J5GACTU' -- confirm the substitution and write it back to the schematic, or reorder
+ERROR: C4 DNP mismatch: value '22u' says fitted but the dnp property says DNP
+ERROR: C8 DNP mismatch: value '1u' says fitted but the dnp property says DNP
+ERROR: sourcing entry 'Capacitor_SMD:C_1206_3216Metric|22u' matches no fitted component; a declaration that no longer describes the board must be removed, not carried
+ERROR: U1 needs 'AP63203WU-7' but no order has it; the orders do contain the near-identical 'AP63205WU-7' -- confirm the substitution and write it back to the schematic, or reorder
+ERROR: D8 needs 'BAT54-7-F' (qty 1) but it appears on no purchase order
 ERROR: C1 C7 needs 'C1206C106K3RACTU' (qty 2) but it appears on no purchase order
+ERROR: D3 needs 'PMEG4010CEH,115' (qty 1) but it appears on no purchase order
 ERROR: R26 R43 R44 needs 'RC0603FR-0791KL' but no order has it; the orders do contain the near-identical 'RC0603FR-071KL' -- confirm the substitution and write it back to the schematic, or reorder
+ERROR: U15 needs 'REF3425IDBVR' (qty 1) but it appears on no purchase order
 ERROR: U6 needs 'STM32G071CBT7' but no order has it; the orders do contain the near-identical 'STM32G071CBT6TR' -- confirm the substitution and write it back to the schematic, or reorder
+ERROR: U16 needs 'TMP302BDRLR' (qty 1) but it appears on no purchase order; the same orders carry unrelated TMP-family lines that are on no BOM row, in case one was bought in its place: TMP117MAIDRVR on PO-0001
 ERROR: D7 needs 'TPD2E2U06QDBZRQ1' (qty 1) but it appears on no purchase order
-ERROR: U2 U3 needs 'TPS7A2033PDBVR' (qty 2) but it appears on no purchase order; the same orders carry unrelated TPS-family lines that are on no BOM row, in case one was bought in its place: TPS3840DL49DBVR on PO-0010

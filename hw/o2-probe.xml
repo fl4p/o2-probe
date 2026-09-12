@@ -2,7 +2,7 @@
 <export version="E">
   <design>
     <source>/Users/fab/dev/ee/hw/o2-probe/o2-probe.kicad_sch</source>
-    <date>2026-09-11T11:32:00</date>
+    <date>2026-09-12T16:16:44</date>
     <tool>Eeschema 10.0.5</tool>
     <sheet number="1" name="/" tstamps="/">
       <title_block>
@@ -29,14 +29,14 @@
       <footprint>Capacitor_SMD:C_1206_3216Metric</footprint>
       <fields>
         <field name="MPN">C1206C106K3RACTU</field>
-        <field name="Design Note">Bulk bypass on the unregulated 7-15 V input. X7R is explicit because C7 now shares this exact value string: C7 carried 'X7R' before the consolidation and a review caught that inheriting a bare '10u 25V' would have DROPPED the dielectric from the input bypass of the analog LDO. Package and voltage rating do not imply a dielectric, and Y5V would meet both</field>
+        <field name="Design Note">Bulk bypass on the unregulated 7-15 V input. X7R is explicit because the consolidated 10u 25V value string is shared, and package plus voltage rating do not imply a dielectric -- Y5V would meet both</field>
         <field name="Footprint">Capacitor_SMD:C_1206_3216Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
       <property name="MPN" value="C1206C106K3RACTU"/>
-      <property name="Design Note" value="Bulk bypass on the unregulated 7-15 V input. X7R is explicit because C7 now shares this exact value string: C7 carried 'X7R' before the consolidation and a review caught that inheriting a bare '10u 25V' would have DROPPED the dielectric from the input bypass of the analog LDO. Package and voltage rating do not imply a dielectric, and Y5V would meet both"/>
+      <property name="Design Note" value="Bulk bypass on the unregulated 7-15 V input. X7R is explicit because the consolidated 10u 25V value string is shared, and package plus voltage rating do not imply a dielectric -- Y5V would meet both"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="cap capacitor"/>
@@ -56,13 +56,13 @@
       <value>100n</value>
       <footprint>Capacitor_SMD:C_0402_1005Metric</footprint>
       <fields>
-        <field name="Design Note">AP63205 bootstrap. Was 0603; consolidated onto the one 100n land the rest of the board uses. It only ever sees the BST-SW differential of about 5 V despite riding the switching node, so a 0402 is amply rated, and the shorter loop is marginally better for gate drive</field>
+        <field name="Design Note">AP63203 bootstrap, BST to SW. Only ever sees the BST-SW differential of about 5 V despite riding the switching node, so an 0402 is amply rated</field>
         <field name="Footprint">Capacitor_SMD:C_0402_1005Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
-      <property name="Design Note" value="AP63205 bootstrap. Was 0603; consolidated onto the one 100n land the rest of the board uses. It only ever sees the BST-SW differential of about 5 V despite riding the switching node, so a 0402 is amply rated, and the shorter loop is marginally better for gate drive"/>
+      <property name="Design Note" value="AP63203 bootstrap, BST to SW. Only ever sees the BST-SW differential of about 5 V despite riding the switching node, so an 0402 is amply rated"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="cap capacitor"/>
@@ -82,11 +82,15 @@
       <value>22u</value>
       <footprint>Capacitor_SMD:C_1206_3216Metric</footprint>
       <fields>
+        <field name="MPN">EMK316BB7226ML-T</field>
+        <field name="Design Note">Taiyo Yuden 22 uF 16 V X7R 1206, already in Fab's stock (50 pcs, checked 2026-09-12). The voltage rating matters more than the value here: used at 3.3 V this part sits at 21 % of its rating in a 1206 X7R, the gentle end of the DC-bias curve -- against the 10 V X5R 0603 also in stock, which is the heavily-derating kind and must NOT be substituted. Eq.10's worst case wants 9.1 uF EFFECTIVE; confirm against Taiyo Yuden's DC-bias data before release</field>
         <field name="Footprint">Capacitor_SMD:C_1206_3216Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
+      <property name="MPN" value="EMK316BB7226ML-T"/>
+      <property name="Design Note" value="Taiyo Yuden 22 uF 16 V X7R 1206, already in Fab's stock (50 pcs, checked 2026-09-12). The voltage rating matters more than the value here: used at 3.3 V this part sits at 21 % of its rating in a 1206 X7R, the gentle end of the DC-bias curve -- against the 10 V X5R 0603 also in stock, which is the heavily-derating kind and must NOT be substituted. Eq.10's worst case wants 9.1 uF EFFECTIVE; confirm against Taiyo Yuden's DC-bias data before release"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="cap capacitor"/>
@@ -106,65 +110,22 @@
       <value>22u</value>
       <footprint>Capacitor_SMD:C_1206_3216Metric</footprint>
       <fields>
+        <field name="MPN">EMK316BB7226ML-T</field>
+        <field name="Design Note">DNP, land kept (Fab, 2026-09-12). DS41326 Table 2's 2 x 22 uF is the recommendation for the 2 A part at full load; Eq.10 at THIS board's ~3 mA wants 1.3 uF (0.3 A PFM peak, 50 mV overshoot) to 9.1 uF (0.8 A peak), and one 22 uF covers that. The land stays because C3/C4 carry no MPN yet and DC-bias derating is therefore UNKNOWN -- a heavily-derated 22 uF could approach the 9.1 uF floor, and on Path A this capacitance is also the first thing standing between the buck's PFM bursts and the AFE, which reaches it through R32. Populate C4 and C8 before reaching for a bead in R32. Check the chosen part's DC-bias curve against 9.1 uF at 3.3 V</field>
         <field name="Footprint">Capacitor_SMD:C_1206_3216Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
+      <property name="MPN" value="EMK316BB7226ML-T"/>
+      <property name="Design Note" value="DNP, land kept (Fab, 2026-09-12). DS41326 Table 2's 2 x 22 uF is the recommendation for the 2 A part at full load; Eq.10 at THIS board's ~3 mA wants 1.3 uF (0.3 A PFM peak, 50 mV overshoot) to 9.1 uF (0.8 A peak), and one 22 uF covers that. The land stays because C3/C4 carry no MPN yet and DC-bias derating is therefore UNKNOWN -- a heavily-derated 22 uF could approach the 9.1 uF floor, and on Path A this capacitance is also the first thing standing between the buck's PFM bursts and the AFE, which reaches it through R32. Populate C4 and C8 before reaching for a bead in R32. Check the chosen part's DC-bias curve against 9.1 uF at 3.3 V"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
+      <property name="dnp"/>
       <property name="ki_keywords" value="cap capacitor"/>
       <property name="ki_fp_filters" value="C_*"/>
       <sheetpath names="/" tstamps="/"/>
       <tstamps>04499f21-3e0d-5fab-af36-b355de509af7</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
-    <comp ref="C5">
-      <value>1u</value>
-      <footprint>Capacitor_SMD:C_0603_1608Metric</footprint>
-      <fields>
-        <field name="Footprint">Capacitor_SMD:C_0603_1608Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="ki_keywords" value="cap capacitor"/>
-      <property name="ki_fp_filters" value="C_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>a11d7677-97eb-5243-a5a1-4b98ca3b9f91</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
-    <comp ref="C6">
-      <value>1u</value>
-      <footprint>Capacitor_SMD:C_0603_1608Metric</footprint>
-      <fields>
-        <field name="Footprint">Capacitor_SMD:C_0603_1608Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="ki_keywords" value="cap capacitor"/>
-      <property name="ki_fp_filters" value="C_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>dad50342-cc8c-52c0-aae6-6c4cc0131609</tstamps>
       <units>
         <unit name="A">
           <pins>
@@ -179,14 +140,14 @@
       <footprint>Capacitor_SMD:C_1206_3216Metric</footprint>
       <fields>
         <field name="MPN">C1206C106K3RACTU</field>
-        <field name="Design Note">Place directly at U3 IN/GND; include DC-bias derating in effective capacitance. Now the SAME PART as C1 (10u 25V X7R 1206). Was 10u 10V X7R 0805 -- the dielectric is carried explicitly on BOTH so the consolidation cannot silently drop it. Was also the only 0805 capacitor on the board, so C_0805_2012Metric leaves with it. Raising 10V to 25V on a 5V rail is a strict improvement in DC-bias derating, not the voltage-rating collapse the 100n audit below forbids -- that rule guards against buying a HIGH-rated position to a LOW-rated line</field>
+        <field name="Design Note">Analog-domain bulk, the C in the R32 RC. Include DC-bias derating in the effective capacitance before quoting that corner frequency</field>
         <field name="Footprint">Capacitor_SMD:C_1206_3216Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
       <property name="MPN" value="C1206C106K3RACTU"/>
-      <property name="Design Note" value="Place directly at U3 IN/GND; include DC-bias derating in effective capacitance. Now the SAME PART as C1 (10u 25V X7R 1206). Was 10u 10V X7R 0805 -- the dielectric is carried explicitly on BOTH so the consolidation cannot silently drop it. Was also the only 0805 capacitor on the board, so C_0805_2012Metric leaves with it. Raising 10V to 25V on a 5V rail is a strict improvement in DC-bias derating, not the voltage-rating collapse the 100n audit below forbids -- that rule guards against buying a HIGH-rated position to a LOW-rated line"/>
+      <property name="Design Note" value="Analog-domain bulk, the C in the R32 RC. Include DC-bias derating in the effective capacitance before quoting that corner frequency"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="cap capacitor"/>
@@ -206,13 +167,16 @@
       <value>1u</value>
       <footprint>Capacitor_SMD:C_0603_1608Metric</footprint>
       <fields>
+        <field name="Design Note">DNP, land kept (Fab, 2026-09-12). Between C7's 10 uF and the three 100 n at U4/U7/U8 this 1 uF adds little -- but 3V3A is the rail Path A leaves unfiltered in front of the AFE, so the FOOTPRINT stays fitted-able until the rail spectrum is actually measured. Populate it before reaching for a bead in R32</field>
         <field name="Footprint">Capacitor_SMD:C_0603_1608Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
+      <property name="Design Note" value="DNP, land kept (Fab, 2026-09-12). Between C7's 10 uF and the three 100 n at U4/U7/U8 this 1 uF adds little -- but 3V3A is the rail Path A leaves unfiltered in front of the AFE, so the FOOTPRINT stays fitted-able until the rail spectrum is actually measured. Populate it before reaching for a bead in R32"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
+      <property name="dnp"/>
       <property name="ki_keywords" value="cap capacitor"/>
       <property name="ki_fp_filters" value="C_*"/>
       <sheetpath names="/" tstamps="/"/>
@@ -226,43 +190,17 @@
         </unit>
       </units>
     </comp>
-    <comp ref="C9">
-      <value>1n</value>
-      <footprint>Capacitor_SMD:C_0603_1608Metric</footprint>
-      <fields>
-        <field name="MPN">C0603C102J5GACTU</field>
-        <field name="Design Note">Cathode HF decoupling, deliberately SMALL. AZ431-A Figure 15 (stability boundary vs load capacitance, VKA=VREF curve) shows two stable regions with an unstable band between them; at our ~2.5 mA cathode current (1.67 mA before R41 went 1.5k -&gt; 1k on 2026-09-05; re-read the figure if it moves again, the boundary is current-dependent) the lower stable region runs to roughly 10 nF. 1 n sits well inside it. The bulk capacitance is C10, held OFF the cathode by R31 on purpose -- DO NOT move a microfarad-scale cap onto this node, and do not raise this value, without re-reading that figure. Chart reading, not a specified number: confirm on the bench before release</field>
-        <field name="Footprint">Capacitor_SMD:C_0603_1608Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
-      <property name="MPN" value="C0603C102J5GACTU"/>
-      <property name="Design Note" value="Cathode HF decoupling, deliberately SMALL. AZ431-A Figure 15 (stability boundary vs load capacitance, VKA=VREF curve) shows two stable regions with an unstable band between them; at our ~2.5 mA cathode current (1.67 mA before R41 went 1.5k -&gt; 1k on 2026-09-05; re-read the figure if it moves again, the boundary is current-dependent) the lower stable region runs to roughly 10 nF. 1 n sits well inside it. The bulk capacitance is C10, held OFF the cathode by R31 on purpose -- DO NOT move a microfarad-scale cap onto this node, and do not raise this value, without re-reading that figure. Chart reading, not a specified number: confirm on the bench before release"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="ki_keywords" value="cap capacitor"/>
-      <property name="ki_fp_filters" value="C_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>1ef7001d-da10-572a-a20f-b324bbcd62b0</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
     <comp ref="C10">
       <value>4.7u</value>
       <footprint>Capacitor_SMD:C_0603_1608Metric</footprint>
       <fields>
+        <field name="Design Note">REF3425 output capacitor. SBAS804G gives a stable CL range of 0.1 to 10 uF, so the 4.7 uF already on this node carries over unchanged -- and the R31 that used to isolate it from the AZ431 cathode is DELETED, because that resistor existed to keep a SHUNT out of its unstable band and would now sit in series with a series reference's output, adding IR drop to the one node whose accuracy this part exists to provide</field>
         <field name="Footprint">Capacitor_SMD:C_0603_1608Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
+      <property name="Design Note" value="REF3425 output capacitor. SBAS804G gives a stable CL range of 0.1 to 10 uF, so the 4.7 uF already on this node carries over unchanged -- and the R31 that used to isolate it from the AZ431 cathode is DELETED, because that resistor existed to keep a SHUNT out of its unstable band and would now sit in series with a series reference's output, adding IR drop to the one node whose accuracy this part exists to provide"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="cap capacitor"/>
@@ -446,54 +384,6 @@
         </unit>
       </units>
     </comp>
-    <comp ref="C18">
-      <value>100n</value>
-      <footprint>Capacitor_SMD:C_0402_1005Metric</footprint>
-      <fields>
-        <field name="Footprint">Capacitor_SMD:C_0402_1005Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="ki_keywords" value="cap capacitor"/>
-      <property name="ki_fp_filters" value="C_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>6f090e0e-e359-573c-afca-e0ee68ba606e</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
-    <comp ref="C19">
-      <value>100n</value>
-      <footprint>Capacitor_SMD:C_0402_1005Metric</footprint>
-      <fields>
-        <field name="Footprint">Capacitor_SMD:C_0402_1005Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="ki_keywords" value="cap capacitor"/>
-      <property name="ki_fp_filters" value="C_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>12f809d0-de3b-50a3-ac43-d3072627d434</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
     <comp ref="C20">
       <value>100n</value>
       <footprint>Capacitor_SMD:C_0402_1005Metric</footprint>
@@ -573,48 +463,22 @@
       </units>
     </comp>
     <comp ref="C26">
-      <value>1u</value>
-      <footprint>Capacitor_SMD:C_0603_1608Metric</footprint>
+      <value>100n</value>
+      <footprint>Capacitor_SMD:C_0402_1005Metric</footprint>
       <fields>
-        <field name="Design Note">Place at MCU VREF+ pin 5</field>
-        <field name="Footprint">Capacitor_SMD:C_0603_1608Metric</field>
+        <field name="Design Note">Local decoupling AT MCU VREF+ pin 5, which since 2026-09-12 is driven from /VREF_TRIM and not 3V3D. It FOLLOWED THE PIN rather than staying on 3V3D: its only reason to exist was that pin, and with pin 5 moved its bulk would otherwise be C10, 4.7 uF at U15 on the far side of the board. DS12232 Table 63 note 4 asks for a 100 nF specifically to cut high-frequency noise at this pin. 100n not 1u because the bulk is already at C10 and the total load on the REF3425 must stay inside SBAS804G's 0.1..10 uF stable range: 4.7 + 0.1 = 4.8 uF. 3V3D loses nothing -- C12, C13, C14, C11, C3, C20 and C21 are all still on it</field>
+        <field name="Footprint">Capacitor_SMD:C_0402_1005Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
-      <property name="Design Note" value="Place at MCU VREF+ pin 5"/>
+      <property name="Design Note" value="Local decoupling AT MCU VREF+ pin 5, which since 2026-09-12 is driven from /VREF_TRIM and not 3V3D. It FOLLOWED THE PIN rather than staying on 3V3D: its only reason to exist was that pin, and with pin 5 moved its bulk would otherwise be C10, 4.7 uF at U15 on the far side of the board. DS12232 Table 63 note 4 asks for a 100 nF specifically to cut high-frequency noise at this pin. 100n not 1u because the bulk is already at C10 and the total load on the REF3425 must stay inside SBAS804G's 0.1..10 uF stable range: 4.7 + 0.1 = 4.8 uF. 3V3D loses nothing -- C12, C13, C14, C11, C3, C20 and C21 are all still on it"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="cap capacitor"/>
       <property name="ki_fp_filters" value="C_*"/>
       <sheetpath names="/" tstamps="/"/>
       <tstamps>66d66e4b-ebfd-5d23-a953-f200cee39d66</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
-    <comp ref="C27">
-      <value>100n</value>
-      <footprint>Capacitor_SMD:C_0402_1005Metric</footprint>
-      <fields>
-        <field name="Design Note">High-frequency U3 input bypass; place directly at pins 1/2</field>
-        <field name="Footprint">Capacitor_SMD:C_0402_1005Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
-      <property name="Design Note" value="High-frequency U3 input bypass; place directly at pins 1/2"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="ki_keywords" value="cap capacitor"/>
-      <property name="ki_fp_filters" value="C_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>3cb37e56-2fd8-5ebf-a302-4ea33de0e526</tstamps>
       <units>
         <unit name="A">
           <pins>
@@ -639,32 +503,6 @@
       <property name="ki_fp_filters" value="C_*"/>
       <sheetpath names="/" tstamps="/"/>
       <tstamps>bbfa246d-91e9-5640-aefc-1134094ab2a9</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
-    <comp ref="C29">
-      <value>100n</value>
-      <footprint>Capacitor_SMD:C_0402_1005Metric</footprint>
-      <fields>
-        <field name="Design Note">Measure AIN1 with ADS1119 internal reference for VREF health diagnostics</field>
-        <field name="Footprint">Capacitor_SMD:C_0402_1005Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
-      <property name="Design Note" value="Measure AIN1 with ADS1119 internal reference for VREF health diagnostics"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="ki_keywords" value="cap capacitor"/>
-      <property name="ki_fp_filters" value="C_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>3ad0031b-40a1-5fd0-a487-11274b308f46</tstamps>
       <units>
         <unit name="A">
           <pins>
@@ -826,6 +664,32 @@
         </unit>
       </units>
     </comp>
+    <comp ref="C36">
+      <value>100n</value>
+      <footprint>Capacitor_SMD:C_0402_1005Metric</footprint>
+      <fields>
+        <field name="Design Note">REF3425 INPUT capacitor, and not optional tidiness: EVERY number in SBAS804G's electrical and typical-characteristics tables is taken at CIN = 0.1 uF (sections 6.5, 6.6), and the reference had no local input cap at all -- it was living off whatever the 3V3D rail happened to present at the end of R32's neighbourhood. Place at U15 pin 4</field>
+        <field name="Footprint">Capacitor_SMD:C_0402_1005Metric</field>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
+      <property name="Design Note" value="REF3425 INPUT capacitor, and not optional tidiness: EVERY number in SBAS804G's electrical and typical-characteristics tables is taken at CIN = 0.1 uF (sections 6.5, 6.6), and the reference had no local input cap at all -- it was living off whatever the 3V3D rail happened to present at the end of R32's neighbourhood. Place at U15 pin 4"/>
+      <property name="Sheetname" value="o2-probe"/>
+      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
+      <property name="ki_keywords" value="cap capacitor"/>
+      <property name="ki_fp_filters" value="C_*"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>2375d715-c678-5e6c-a524-e766b50e4d3d</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
+            <pin num="2"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
     <comp ref="D1">
       <value>SMBJ15A-13-F</value>
       <footprint>Diode_SMD:D_SMB</footprint>
@@ -879,6 +743,34 @@
         </unit>
       </units>
     </comp>
+    <comp ref="D3">
+      <value>PMEG4010CEH</value>
+      <footprint>Diode_SMD:D_SOD-123F</footprint>
+      <fields>
+        <field name="MPN">PMEG4010CEH,115</field>
+        <field name="Design Note">Series reverse-polarity Schottky, cathode to the load. Nexperia PMEG4010CEH: 40 V VRRM against a 15 V specified input and D1's 24.4 V clamp; 1 A IF against ~90 mA of heater plus 3 mA of board. VF is 340 mV typ / 390 mV max at 100 mA (Table 7), which is the 6.4 % of heater authority this part costs. Pin 1 is the CATHODE and faces +12V_SW -- reversing it does not fail ERC, it fails the probe</field>
+        <field name="Footprint">Diode_SMD:D_SOD-123F</field>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <libsource lib="Device" part="D_Schottky" description="Schottky diode"/>
+      <property name="MPN" value="PMEG4010CEH,115"/>
+      <property name="Design Note" value="Series reverse-polarity Schottky, cathode to the load. Nexperia PMEG4010CEH: 40 V VRRM against a 15 V specified input and D1's 24.4 V clamp; 1 A IF against ~90 mA of heater plus 3 mA of board. VF is 340 mV typ / 390 mV max at 100 mA (Table 7), which is the 6.4 % of heater authority this part costs. Pin 1 is the CATHODE and faces +12V_SW -- reversing it does not fail ERC, it fails the probe"/>
+      <property name="Sheetname" value="o2-probe"/>
+      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
+      <property name="ki_keywords" value="diode Schottky"/>
+      <property name="ki_fp_filters" value="TO-???* *_Diode_* *SingleDiode* D_*"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>13589a85-a9e7-5bb3-a326-8ad22387e9e8</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
+            <pin num="2"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
     <comp ref="D7">
       <value>TPD2E2U06-Q1</value>
       <footprint>Package_TO_SOT_SMD:SOT-23</footprint>
@@ -906,25 +798,25 @@
         </unit>
       </units>
     </comp>
-    <comp ref="DZ1">
-      <value>10V ZENER</value>
+    <comp ref="D8">
+      <value>BAT54</value>
       <footprint>Diode_SMD:D_SOD-123</footprint>
       <fields>
-        <field name="MPN">BZT52C10-E3-08</field>
-        <field name="Design Note">Q1 VGS clamp, K to the PMOS source; 10V SOD-123. Was a 12V BZT52C12, whose GUARANTEED max VZ of 12.7 V at 5 mA (DS18004) exceeds the DMP3130L +/-12 V VGSS absolute maximum -- the old part never bounded VGS. Vishay doc 86342 gives BZT52C10 as 9.50/10/10.50 V at IZT 5 mA with aVZ +5..+8 mV/C. VZ rises with current, so VZ(30 uA) &lt;= VZ(5 mA) &lt;= 10.50 V; at +85 C the bound is 10.50 + 0.008*60 = 10.98 V, inside 12 V with ~1.0 V margin. Cold end: 9.50 - 0.52 = 8.98 V, still far above Q1 threshold. Clamp dissipation at 15 V in is (15-10.5)/100k = 45 uA, 0.5 mW in a 410 mW part</field>
+        <field name="MPN">BAT54-7-F</field>
+        <field name="Design Note">Negative-injection clamp on PA6; cathode to VIN_MON, anode to AGND, so it is reverse-biased at +1.2 V in normal operation and conducts only when the pin is pulled below ground. See the block comment above for the Table 50 rating, the part-class argument against the 1N4148W, and the leakage budget</field>
         <field name="Footprint">Diode_SMD:D_SOD-123</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
-      <libsource lib="Device" part="D_Zener" description="Zener diode"/>
-      <property name="MPN" value="BZT52C10-E3-08"/>
-      <property name="Design Note" value="Q1 VGS clamp, K to the PMOS source; 10V SOD-123. Was a 12V BZT52C12, whose GUARANTEED max VZ of 12.7 V at 5 mA (DS18004) exceeds the DMP3130L +/-12 V VGSS absolute maximum -- the old part never bounded VGS. Vishay doc 86342 gives BZT52C10 as 9.50/10/10.50 V at IZT 5 mA with aVZ +5..+8 mV/C. VZ rises with current, so VZ(30 uA) &lt;= VZ(5 mA) &lt;= 10.50 V; at +85 C the bound is 10.50 + 0.008*60 = 10.98 V, inside 12 V with ~1.0 V margin. Cold end: 9.50 - 0.52 = 8.98 V, still far above Q1 threshold. Clamp dissipation at 15 V in is (15-10.5)/100k = 45 uA, 0.5 mW in a 410 mW part"/>
+      <libsource lib="Device" part="D_Schottky" description="Schottky diode"/>
+      <property name="MPN" value="BAT54-7-F"/>
+      <property name="Design Note" value="Negative-injection clamp on PA6; cathode to VIN_MON, anode to AGND, so it is reverse-biased at +1.2 V in normal operation and conducts only when the pin is pulled below ground. See the block comment above for the Table 50 rating, the part-class argument against the 1N4148W, and the leakage budget"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="ki_keywords" value="diode"/>
+      <property name="ki_keywords" value="diode Schottky"/>
       <property name="ki_fp_filters" value="TO-???* *_Diode_* *SingleDiode* D_*"/>
       <sheetpath names="/" tstamps="/"/>
-      <tstamps>34d8e440-9f12-570d-a80c-ee5b47399513</tstamps>
+      <tstamps>28038a42-7046-51ed-a8be-17da87365259</tstamps>
       <units>
         <unit name="A">
           <pins>
@@ -1145,14 +1037,14 @@
       <footprint>Inductor_SMD:L_6.3x6.3_H3</footprint>
       <fields>
         <field name="MPN">SRN6028C-4R7M</field>
-        <field name="Design Note">AP63205 DS41326 Table 3 value for 5V out. Bourns 4.7uH +/-20%, Isat 3.2A, Irms 3.1A, DCR 30mOhm, 6.0x6.0x2.8mm. LAND MISMATCH: the generic L_6.3x6.3_H3 pads (1.5x2.4mm at +/-2.75) cover only ~2.4mm2 of this part's 5.8x1.6mm terminal; Bourns recommends 2.0x6.5mm pads at +/-2.25. Solderable for a first article, reduced shear strength -- see FAB-NOTES</field>
+        <field name="Design Note">DS41326 Table 2 gives 3.9 uH for the AP63203 at 3.3 V, against Table 3's 4.7 uH for the AP63205 at 5 V. 4.7 uH is KEPT DELIBERATELY: the datasheet's own inductor section recommends 2.2-10 uH and says to USE A LARGER INDUCTANCE FOR IMPROVED EFFICIENCY UNDER LIGHT LOAD, which is this board's entire operating point (~3 mA). Keeping it also avoids re-opening the L_6.3x6.3_H3 land mismatch recorded in FAB-NOTES. Bourns 4.7uH +/-20%, Isat 3.2A, Irms 3.1A, DCR 30mOhm</field>
         <field name="Footprint">Inductor_SMD:L_6.3x6.3_H3</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="L" description="Inductor"/>
       <property name="MPN" value="SRN6028C-4R7M"/>
-      <property name="Design Note" value="AP63205 DS41326 Table 3 value for 5V out. Bourns 4.7uH +/-20%, Isat 3.2A, Irms 3.1A, DCR 30mOhm, 6.0x6.0x2.8mm. LAND MISMATCH: the generic L_6.3x6.3_H3 pads (1.5x2.4mm at +/-2.75) cover only ~2.4mm2 of this part's 5.8x1.6mm terminal; Bourns recommends 2.0x6.5mm pads at +/-2.25. Solderable for a first article, reduced shear strength -- see FAB-NOTES"/>
+      <property name="Design Note" value="DS41326 Table 2 gives 3.9 uH for the AP63203 at 3.3 V, against Table 3's 4.7 uH for the AP63205 at 5 V. 4.7 uH is KEPT DELIBERATELY: the datasheet's own inductor section recommends 2.2-10 uH and says to USE A LARGER INDUCTANCE FOR IMPROVED EFFICIENCY UNDER LIGHT LOAD, which is this board's entire operating point (~3 mA). Keeping it also avoids re-opening the L_6.3x6.3_H3 land mismatch recorded in FAB-NOTES. Bourns 4.7uH +/-20%, Isat 3.2A, Irms 3.1A, DCR 30mOhm"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="inductor choke coil reactor magnetic"/>
@@ -1163,34 +1055,6 @@
         <unit name="A">
           <pins>
             <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
-    <comp ref="Q1">
-      <value>DMP3130L</value>
-      <footprint>Package_TO_SOT_SMD:SOT-23</footprint>
-      <fields>
-        <field name="MPN">DMP3130L-7</field>
-        <field name="Design Note">Reverse-polarity PMOS, drain to input, source to load. Was labelled 'DMP3010L-7', which names no orderable part: DS35716 shows the DMP3010L family as TO-252 and DS32239 as PowerDI5060-8, neither of which fits this SOT-23 land. DS31524 Rev 7-3 p.2 rates VGSS at +/-12 V ONLY, so DZ1 is mandatory, not optional</field>
-        <field name="Footprint">Package_TO_SOT_SMD:SOT-23</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Transistor_FET" part="Q_PMOS_GSD" description="P-MOSFET transistor, gate/source/drain"/>
-      <property name="MPN" value="DMP3130L-7"/>
-      <property name="Design Note" value="Reverse-polarity PMOS, drain to input, source to load. Was labelled 'DMP3010L-7', which names no orderable part: DS35716 shows the DMP3010L family as TO-252 and DS32239 as PowerDI5060-8, neither of which fits this SOT-23 land. DS31524 Rev 7-3 p.2 rates VGSS at +/-12 V ONLY, so DZ1 is mandatory, not optional"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="ki_keywords" value="transistor PMOS P-MOS P-MOSFET"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>e3c74536-2893-5e44-a9c0-902814793f5d</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="3"/>
             <pin num="2"/>
           </pins>
         </unit>
@@ -1217,30 +1081,6 @@
           <pins>
             <pin num="1"/>
             <pin num="3"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
-    <comp ref="R1">
-      <value>100k</value>
-      <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
-      <fields>
-        <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="ki_keywords" value="R res resistor"/>
-      <property name="ki_fp_filters" value="R_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>2342ea61-f470-5494-a874-057509d0c7e1</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
             <pin num="2"/>
           </pins>
         </unit>
@@ -1334,30 +1174,6 @@
       <property name="ki_fp_filters" value="R_*"/>
       <sheetpath names="/" tstamps="/"/>
       <tstamps>296ad3b2-1ac4-5397-a358-6e3be5e31fa7</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
-    <comp ref="R8">
-      <value>10k</value>
-      <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
-      <fields>
-        <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="ki_keywords" value="R res resistor"/>
-      <property name="ki_fp_filters" value="R_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>27f77aae-5744-5ee0-aa73-10748dcb112c</tstamps>
       <units>
         <unit name="A">
           <pins>
@@ -1463,54 +1279,6 @@
         </unit>
       </units>
     </comp>
-    <comp ref="R18">
-      <value>10k</value>
-      <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
-      <fields>
-        <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="ki_keywords" value="R res resistor"/>
-      <property name="ki_fp_filters" value="R_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>7dc4fe61-2b40-58ea-a0ab-5a541ff3a173</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
-    <comp ref="R19">
-      <value>10k</value>
-      <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
-      <fields>
-        <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="ki_keywords" value="R res resistor"/>
-      <property name="ki_fp_filters" value="R_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>8643cc6d-589d-5b15-a990-9a3f13403468</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
     <comp ref="R24">
       <value>47k</value>
       <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
@@ -1538,16 +1306,16 @@
       </units>
     </comp>
     <comp ref="R25">
-      <value>47k</value>
+      <value>27k</value>
       <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
       <fields>
-        <field name="Design Note">3V3A rail monitor divider bottom leg; see R24</field>
+        <field name="Design Note">3V3A rail monitor divider bottom leg; see R24. 47k -&gt; 27k on 2026-09-12 because the ADC full scale became 2.500 V when VREF+ moved to /VREF_TRIM. Ratio 27/74 = 0.3649, so 3.3 V reads 1.204 V and the CEILING RISES to 6.85 V -- BETTER than the 6.60 V this divider had against a 3.3 V full scale, so the rail keeps its over-range headroom rather than losing it. Source impedance also falls 23.5k -&gt; 17.2k, further inside Table 59's 50k. FIRMWARE follows automatically: gen_hw_contract.py derives O2P_HW_DIV_VA_NUM/DEN from these two values</field>
         <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="Design Note" value="3V3A rail monitor divider bottom leg; see R24"/>
+      <property name="Design Note" value="3V3A rail monitor divider bottom leg; see R24. 47k -&gt; 27k on 2026-09-12 because the ADC full scale became 2.500 V when VREF+ moved to /VREF_TRIM. Ratio 27/74 = 0.3649, so 3.3 V reads 1.204 V and the CEILING RISES to 6.85 V -- BETTER than the 6.60 V this divider had against a 3.3 V full scale, so the rail keeps its over-range headroom rather than losing it. Source impedance also falls 23.5k -&gt; 17.2k, further inside Table 59's 50k. FIRMWARE follows automatically: gen_hw_contract.py derives O2P_HW_DIV_VA_NUM/DEN from these two values"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="R res resistor"/>
@@ -1667,43 +1435,17 @@
         </unit>
       </units>
     </comp>
-    <comp ref="R31">
-      <value>47R</value>
-      <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
-      <fields>
-        <field name="Design Note">Isolates C10's bulk capacitance from the AZ431 cathode, which is what keeps the shunt out of its unstable band (see C9). It was originally the OPA2333's capacitive-load isolation and happens to be exactly right here -- note it would have been WRONG for a series reference like the REF33xx, which requires 0.1-10 uF ON its output pin. The 26.9 uA drawn by R34/R35 across 47R is a 1.25 mV offset that does not matter: it lands on VREF_TRIM, which is BOTH the LMP91000 bias reference and the ADS1119 external reference, so it cancels ratiometrically. Net name VREF_TRIM is retained despite there no longer being a trimmer -- firmware/src/lmp91000.h and firmware/tools/gen_hw_contract.py key off it</field>
-        <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="Design Note" value="Isolates C10's bulk capacitance from the AZ431 cathode, which is what keeps the shunt out of its unstable band (see C9). It was originally the OPA2333's capacitive-load isolation and happens to be exactly right here -- note it would have been WRONG for a series reference like the REF33xx, which requires 0.1-10 uF ON its output pin. The 26.9 uA drawn by R34/R35 across 47R is a 1.25 mV offset that does not matter: it lands on VREF_TRIM, which is BOTH the LMP91000 bias reference and the ADS1119 external reference, so it cancels ratiometrically. Net name VREF_TRIM is retained despite there no longer being a trimmer -- firmware/src/lmp91000.h and firmware/tools/gen_hw_contract.py key off it"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="ki_keywords" value="R res resistor"/>
-      <property name="ki_fp_filters" value="R_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>25f6d484-940e-5888-a146-610e8d7d562d</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
     <comp ref="R32">
       <value>10R</value>
       <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
       <fields>
-        <field name="Design Note">Fitted damped analog prefilter; the footprint may still take 0R or a characterized bead after bench validation. Was 0805 SOLELY to keep the bead option open, and it was the only 0805 resistor on the board. 0603 ferrite beads are as available as 0805 (Murata BLM18, TDK MPZ1608), so the option survives the change while R_0805_2012Metric leaves the board and 10R merges into the one 0603 line with R2/R3</field>
+        <field name="Design Note">The ONLY thing between the AFE and the buck now that the analog LDO is gone, so it is no longer a nicety. With C7 = 10 uF it is fc ~1.59 kHz, which is 0.017 dB at 100 Hz -- it is NOT a filter against PFM burst content, and nothing here claims it is. The footprint still takes a characterized bead or 0R; choose it from the measured rail spectrum, not from this value</field>
         <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="Design Note" value="Fitted damped analog prefilter; the footprint may still take 0R or a characterized bead after bench validation. Was 0805 SOLELY to keep the bead option open, and it was the only 0805 resistor on the board. 0603 ferrite beads are as available as 0805 (Murata BLM18, TDK MPZ1608), so the option survives the change while R_0805_2012Metric leaves the board and 10R merges into the one 0603 line with R2/R3"/>
+      <property name="Design Note" value="The ONLY thing between the AFE and the buck now that the analog LDO is gone, so it is no longer a nicety. With C7 = 10 uF it is fc ~1.59 kHz, which is 0.017 dB at 100 Hz -- it is NOT a filter against PFM burst content, and nothing here claims it is. The footprint still takes a characterized bead or 0R; choose it from the measured rail spectrum, not from this value"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="R res resistor"/>
@@ -1736,86 +1478,6 @@
       <property name="ki_fp_filters" value="R_*"/>
       <sheetpath names="/" tstamps="/"/>
       <tstamps>b3ad52c9-ea56-5002-ac37-6bd5766e795a</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
-    <comp ref="R34">
-      <value>47k 0.1%</value>
-      <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
-      <fields>
-        <field name="MPN">RT0603BRD0747KL</field>
-        <field name="Design Note">VREF health diagnostic divider, 1:2 into ADS1119 AIN1 measured against the chip's INTERNAL 2.048V reference, so 2.500V arrives as 1.250V. FIRMWARE: VREF_MON_MV = 2 x ADC. 0.1%/25ppm thin film is the right grade -- the ADS1119 internal reference is itself 0.2% and ~25ppm/C, so a 0.05%/10ppm part (10x the price) would be measuring behind a coarser ruler</field>
-        <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="MPN" value="RT0603BRD0747KL"/>
-      <property name="Design Note" value="VREF health diagnostic divider, 1:2 into ADS1119 AIN1 measured against the chip's INTERNAL 2.048V reference, so 2.500V arrives as 1.250V. FIRMWARE: VREF_MON_MV = 2 x ADC. 0.1%/25ppm thin film is the right grade -- the ADS1119 internal reference is itself 0.2% and ~25ppm/C, so a 0.05%/10ppm part (10x the price) would be measuring behind a coarser ruler"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="ki_keywords" value="R res resistor"/>
-      <property name="ki_fp_filters" value="R_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>9a1696f5-5c65-5f2f-a5ed-1468db88d7f2</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
-    <comp ref="R35">
-      <value>47k 0.1%</value>
-      <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
-      <fields>
-        <field name="MPN">RT0603BRD0747KL</field>
-        <field name="Design Note">VREF health diagnostic divider bottom leg; see R34. Same MPN as R34 on purpose: one stock position, and same-batch TCR tracking cancels most of the 25ppm/C in the ratio</field>
-        <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="MPN" value="RT0603BRD0747KL"/>
-      <property name="Design Note" value="VREF health diagnostic divider bottom leg; see R34. Same MPN as R34 on purpose: one stock position, and same-batch TCR tracking cancels most of the 25ppm/C in the ratio"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="ki_keywords" value="R res resistor"/>
-      <property name="ki_fp_filters" value="R_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>4595430d-0efa-58a9-a619-1013f7fe5d90</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
-    <comp ref="R36">
-      <value>1k</value>
-      <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
-      <fields>
-        <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="ki_keywords" value="R res resistor"/>
-      <property name="ki_fp_filters" value="R_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>ff8f40e3-c9d6-52fd-a92f-e38745a2921c</tstamps>
       <units>
         <unit name="A">
           <pins>
@@ -1921,32 +1583,6 @@
       <property name="ki_fp_filters" value="R_*"/>
       <sheetpath names="/" tstamps="/"/>
       <tstamps>a9bcf8e6-b482-53da-ab83-066d8f5b7601</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="2"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
-    <comp ref="R41">
-      <value>1k</value>
-      <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
-      <fields>
-        <field name="Design Note">AZ431 bias resistor, bought to the 1k stock line R33/R36/R37/R38 already carry. Nominal (5.0 - 2.5)/1k = 2.50 mA. WORST CASE, and the first version of this note got it wrong by using the A-grade 2.510 V limit on a B-grade part: U15 is AZ431*B*N, and DS36721 Rev. 6's ordering table is A = 0.4% (2.490-2.510 V), B = 0.8% (2.480-2.520 V). With the 2.520 V limit plus the datasheet's 10 mV deviation over temperature (2.530 V), R41 at +1% (1.010k) and +5V_ANALOG at 4.900 V: (4.900 - 2.530)/1.010k - 2.530/94k = 2.32 mA. BOTH ENDS CHECKED against DS36721 Rev. 6 Recommended Operating Conditions, IKA 1.0 to 100 mA: 2.32 mA clears the floor by 2.3x where 1.5k cleared it by 1.6x, and is 43x under the ceiling. The change ADDS 0.83 mA to +5V_ANALOG (2.50 against 1.67 nominal), which is 8.3 mV more drop across R32=10R; the AP63205's 4.95 V minimum leaves U3 ample headroom for 3.3 V out</field>
-        <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="Design Note" value="AZ431 bias resistor, bought to the 1k stock line R33/R36/R37/R38 already carry. Nominal (5.0 - 2.5)/1k = 2.50 mA. WORST CASE, and the first version of this note got it wrong by using the A-grade 2.510 V limit on a B-grade part: U15 is AZ431*B*N, and DS36721 Rev. 6's ordering table is A = 0.4% (2.490-2.510 V), B = 0.8% (2.480-2.520 V). With the 2.520 V limit plus the datasheet's 10 mV deviation over temperature (2.530 V), R41 at +1% (1.010k) and +5V_ANALOG at 4.900 V: (4.900 - 2.530)/1.010k - 2.530/94k = 2.32 mA. BOTH ENDS CHECKED against DS36721 Rev. 6 Recommended Operating Conditions, IKA 1.0 to 100 mA: 2.32 mA clears the floor by 2.3x where 1.5k cleared it by 1.6x, and is 43x under the ceiling. The change ADDS 0.83 mA to +5V_ANALOG (2.50 against 1.67 nominal), which is 8.3 mV more drop across R32=10R; the AP63205's 4.95 V minimum leaves U3 ample headroom for 3.3 V out"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="ki_keywords" value="R res resistor"/>
-      <property name="ki_fp_filters" value="R_*"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>36918a77-5829-517c-acd9-e792a3684589</tstamps>
       <units>
         <unit name="A">
           <pins>
@@ -2267,16 +1903,18 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
       </units>
     </comp>
     <comp ref="U1">
-      <value>AP63205WU-7</value>
+      <value>AP63203WU-7</value>
       <footprint>Package_TO_SOT_SMD:TSOT-23-6</footprint>
       <fields>
-        <field name="MPN">AP63205WU-7</field>
+        <field name="MPN">AP63203WU-7</field>
+        <field name="Design Note">REV B, 2026-09-12: was AP63205WU-7 (5 V). The 5 V rail existed for ONE reason -- AZ431 headroom (see the old note on R41) -- and the AZ431 is gone, so the intermediate rail goes with it. DS41326 covers AP63200/01/03/05 as one family; only 3.3 V and 5.0 V are FIXED options, everything else needs the adjustable AP63200 plus a divider. Pin map is unchanged and still asserted in verify()</field>
         <field name="Footprint">Package_TO_SOT_SMD:TSOT-23-6</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
-      <libsource lib="o2-probe" part="AP63205WU" description="AP63205 fixed 5 V synchronous buck, TSOT-23-6"/>
-      <property name="MPN" value="AP63205WU-7"/>
+      <libsource lib="o2-probe" part="AP63203WU" description="AP63203 fixed 3.3 V synchronous buck, TSOT-23-6"/>
+      <property name="MPN" value="AP63203WU-7"/>
+      <property name="Design Note" value="REV B, 2026-09-12: was AP63205WU-7 (5 V). The 5 V rail existed for ONE reason -- AZ431 headroom (see the old note on R41) -- and the AZ431 is gone, so the intermediate rail goes with it. DS41326 covers AP63200/01/03/05 as one family; only 3.3 V and 5.0 V are FIXED options, everything else needs the adjustable AP63200 plus a divider. Pin map is unchanged and still asserted in verify()"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <sheetpath names="/" tstamps="/"/>
@@ -2284,66 +1922,12 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
       <units>
         <unit name="A">
           <pins>
-            <pin num="1"/>
             <pin num="3"/>
-            <pin num="5"/>
             <pin num="2"/>
             <pin num="4"/>
+            <pin num="5"/>
             <pin num="6"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
-    <comp ref="U2">
-      <value>TPS7A2033PDBVR</value>
-      <footprint>Package_TO_SOT_SMD:SOT-23-5</footprint>
-      <fields>
-        <field name="MPN">TPS7A2033PDBVR</field>
-        <field name="Footprint">Package_TO_SOT_SMD:SOT-23-5</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="o2-probe" part="TPS7A2033PDBV" description="TPS7A20 3.3 V fixed low-noise LDO, SOT-23-5"/>
-      <property name="MPN" value="TPS7A2033PDBVR"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>ebac7cb7-4814-5465-aff8-e55a7f1ffaa9</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
             <pin num="1"/>
-            <pin num="3"/>
-            <pin num="5"/>
-            <pin num="2"/>
-            <pin num="4"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
-    <comp ref="U3">
-      <value>TPS7A2033PDBVR</value>
-      <footprint>Package_TO_SOT_SMD:SOT-23-5</footprint>
-      <fields>
-        <field name="MPN">TPS7A2033PDBVR</field>
-        <field name="Footprint">Package_TO_SOT_SMD:SOT-23-5</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="o2-probe" part="TPS7A2033PDBV" description="TPS7A20 3.3 V fixed low-noise LDO, SOT-23-5"/>
-      <property name="MPN" value="TPS7A2033PDBVR"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>46179f61-d056-5874-a290-b0712429097a</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="3"/>
-            <pin num="5"/>
-            <pin num="2"/>
-            <pin num="4"/>
           </pins>
         </unit>
       </units>
@@ -2519,47 +2103,6 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
         </unit>
       </units>
     </comp>
-    <comp ref="U8">
-      <value>ADS1119IRTER</value>
-      <footprint>Package_DFN_QFN:Texas_RTE0016D_WQFN-16-1EP_3x3mm_P0.5mm_EP0.8x0.8mm</footprint>
-      <fields>
-        <field name="MPN">ADS1119IRTER</field>
-        <field name="Design Note">Buy from MOUSER (595-ADS1119IRTER), which sells this reel in single units. DigiKey DOES list RTER (296-ADS1119IRTERTR-ND, EUR 3.03) but only as a full 3000-piece reel, MOQ 3000 and 0 on hand, so it is unbuyable in prototype quantity there. ADS1119IRTET is an approved alternate -- same die, same 16-WQFN 3x3 RTE package, reel quantity only (250 vs 3000) -- and is DigiKey's small-quantity option at EUR 6.29 cut tape (296-53016-1-ND), about 2x the RTER reel unit price. Use RTET only when sourcing from DigiKey</field>
-        <field name="Footprint">Package_DFN_QFN:Texas_RTE0016D_WQFN-16-1EP_3x3mm_P0.5mm_EP0.8x0.8mm</field>
-        <field name="Datasheet"/>
-        <field name="Description"/>
-      </fields>
-      <libsource lib="o2-probe" part="ADS1119" description="16-bit four-channel delta-sigma ADC, external reference, WQFN-16"/>
-      <property name="MPN" value="ADS1119IRTER"/>
-      <property name="Design Note" value="Buy from MOUSER (595-ADS1119IRTER), which sells this reel in single units. DigiKey DOES list RTER (296-ADS1119IRTERTR-ND, EUR 3.03) but only as a full 3000-piece reel, MOQ 3000 and 0 on hand, so it is unbuyable in prototype quantity there. ADS1119IRTET is an approved alternate -- same die, same 16-WQFN 3x3 RTE package, reel quantity only (250 vs 3000) -- and is DigiKey's small-quantity option at EUR 6.29 cut tape (296-53016-1-ND), about 2x the RTER reel unit price. Use RTET only when sourcing from DigiKey"/>
-      <property name="Sheetname" value="o2-probe"/>
-      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <sheetpath names="/" tstamps="/"/>
-      <tstamps>1d33b59b-ea4b-5dad-a09f-a5fcd8f0a5fa</tstamps>
-      <units>
-        <unit name="A">
-          <pins>
-            <pin num="1"/>
-            <pin num="3"/>
-            <pin num="5"/>
-            <pin num="7"/>
-            <pin num="9"/>
-            <pin num="11"/>
-            <pin num="13"/>
-            <pin num="15"/>
-            <pin num="17"/>
-            <pin num="2"/>
-            <pin num="4"/>
-            <pin num="6"/>
-            <pin num="8"/>
-            <pin num="10"/>
-            <pin num="12"/>
-            <pin num="14"/>
-            <pin num="16"/>
-          </pins>
-        </unit>
-      </units>
-    </comp>
     <comp ref="U10">
       <value>TMP117 CELL</value>
       <footprint>tmp117-probe:TMP117_WSON-6-1EP_2x2mm_TI</footprint>
@@ -2643,29 +2186,30 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
       </units>
     </comp>
     <comp ref="U15">
-      <value>AZ431BN-ATRG1</value>
-      <footprint>Package_TO_SOT_SMD:SOT-23</footprint>
+      <value>REF3425IDBVR</value>
+      <footprint>Package_TO_SOT_SMD:SOT-23-6</footprint>
       <fields>
-        <field name="MPN">AZ431BN-ATRG1</field>
-        <field name="Design Note">2.5 V reference, wired as a two-terminal shunt (REF strapped to the cathode). REPLACES the deleted R20 / RV1 / R21 trim divider: POTTING.md section 1.2 (../../../ha/farming/compostlab/o2-probe/) requires the cell to be swappable with the board potted, so no adjustable part may set the bias. AZ431-A datasheet Rev 3.4: B grade is the 0.4% bin, 2.490/2.500/2.510 V, and deviation over -40..85 C is 4.5 mV typ / 10 mV max, so the worst-case window is 2.480..2.520 V. PACKAGE PIN MAP IS NOT THE TI ONE -- N package is 1 REF, 2 CATHODE, 3 ANODE, where TI's TL431DBZ is 1 K, 2 REF, 3 A; see the symbol comment. Biased from +5V_ANALOG through R41 and NOT from 3V3A: the part needs IKA &gt;= 1.0 mA (recommended operating conditions) and 3V3A leaves only 3.234 - 2.510 = 0.724 V of headroom, about 6% margin over that minimum, where +5V_ANALOG leaves 2.5 V</field>
-        <field name="Footprint">Package_TO_SOT_SMD:SOT-23</field>
+        <field name="MPN">REF3425IDBVR</field>
+        <field name="Design Note">2.500 V series reference, REPLACING the AZ431 shunt and its R41/C9/R31 network. SBAS804G: +/-0.05% initial accuracy (max), 6 ppm/C max by the BOX method over -40..125 C -- which permits 990 ppm of TOTAL SPAN, not a 6 ppm/C local slope, so the bias contribution is ~0.9 mV and NOT the 0.3 mV a naive reading gives. 95 uA max Iq against the AZ431 network's 2.5 mA. Output +/-10 mA against this board's ~400 uA analog draw. IT IS NOT A 3-TERMINAL PART: pins are 1 GND_F, 2 GND_S, 3 EN, 4 IN, 5 OUT_S, 6 OUT_F and force/sense must BOTH be connected. EN IS TIED TO IN ON PURPOSE. Do not route it to a GPIO to make the rail gateable -- POWER-BUDGET.md invites exactly that, and dropping this rail drops the cell bias and restarts O2P_SETTLE_SECONDS = 900. Input is 3V3D and NOT +12V_SW: the board input is specified to 15 V and REF34's recommended input maximum is 12 V</field>
+        <field name="Footprint">Package_TO_SOT_SMD:SOT-23-6</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
-      <libsource lib="o2-probe" part="AZ431_SOT23" description="Shunt Regulator, SOT-23"/>
-      <property name="MPN" value="AZ431BN-ATRG1"/>
-      <property name="Design Note" value="2.5 V reference, wired as a two-terminal shunt (REF strapped to the cathode). REPLACES the deleted R20 / RV1 / R21 trim divider: POTTING.md section 1.2 (../../../ha/farming/compostlab/o2-probe/) requires the cell to be swappable with the board potted, so no adjustable part may set the bias. AZ431-A datasheet Rev 3.4: B grade is the 0.4% bin, 2.490/2.500/2.510 V, and deviation over -40..85 C is 4.5 mV typ / 10 mV max, so the worst-case window is 2.480..2.520 V. PACKAGE PIN MAP IS NOT THE TI ONE -- N package is 1 REF, 2 CATHODE, 3 ANODE, where TI's TL431DBZ is 1 K, 2 REF, 3 A; see the symbol comment. Biased from +5V_ANALOG through R41 and NOT from 3V3A: the part needs IKA &gt;= 1.0 mA (recommended operating conditions) and 3V3A leaves only 3.234 - 2.510 = 0.724 V of headroom, about 6% margin over that minimum, where +5V_ANALOG leaves 2.5 V"/>
+      <libsource lib="o2-probe" part="REF3425IDBV" description="TI REF3425 2.5 V series voltage reference, SOT-23-6 (DBV)"/>
+      <property name="MPN" value="REF3425IDBVR"/>
+      <property name="Design Note" value="2.500 V series reference, REPLACING the AZ431 shunt and its R41/C9/R31 network. SBAS804G: +/-0.05% initial accuracy (max), 6 ppm/C max by the BOX method over -40..125 C -- which permits 990 ppm of TOTAL SPAN, not a 6 ppm/C local slope, so the bias contribution is ~0.9 mV and NOT the 0.3 mV a naive reading gives. 95 uA max Iq against the AZ431 network's 2.5 mA. Output +/-10 mA against this board's ~400 uA analog draw. IT IS NOT A 3-TERMINAL PART: pins are 1 GND_F, 2 GND_S, 3 EN, 4 IN, 5 OUT_S, 6 OUT_F and force/sense must BOTH be connected. EN IS TIED TO IN ON PURPOSE. Do not route it to a GPIO to make the rail gateable -- POWER-BUDGET.md invites exactly that, and dropping this rail drops the cell bias and restarts O2P_SETTLE_SECONDS = 900. Input is 3V3D and NOT +12V_SW: the board input is specified to 15 V and REF34's recommended input maximum is 12 V"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
-      <property name="ki_keywords" value="diode device shunt regulator"/>
-      <property name="ki_fp_filters" value="SOT?23*"/>
       <sheetpath names="/" tstamps="/"/>
       <tstamps>60dfc9b3-e022-5072-a5ea-3e29c0e06217</tstamps>
       <units>
         <unit name="A">
           <pins>
+            <pin num="4"/>
             <pin num="3"/>
             <pin num="1"/>
+            <pin num="6"/>
+            <pin num="5"/>
             <pin num="2"/>
           </pins>
         </unit>
@@ -2751,6 +2295,26 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
       <pins>
         <pin num="1" name="" type="passive"/>
         <pin num="2" name="" type="passive"/>
+      </pins>
+    </libpart>
+    <libpart lib="Device" part="D_Schottky">
+      <description>Schottky diode</description>
+      <footprints>
+        <fp>TO-???*</fp>
+        <fp>*_Diode_*</fp>
+        <fp>*SingleDiode*</fp>
+        <fp>D_*</fp>
+      </footprints>
+      <fields>
+        <field name="Reference">D</field>
+        <field name="Value">D_Schottky</field>
+        <field name="Footprint"/>
+        <field name="Datasheet"/>
+        <field name="Description">Schottky diode</field>
+      </fields>
+      <pins>
+        <pin num="1" name="K" type="passive"/>
+        <pin num="2" name="A" type="passive"/>
       </pins>
     </libpart>
     <libpart lib="Device" part="D_Zener">
@@ -2843,58 +2407,14 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
         <pin num="3" name="D" type="passive"/>
       </pins>
     </libpart>
-    <libpart lib="Transistor_FET" part="Q_PMOS_GSD">
-      <description>P-MOSFET transistor, gate/source/drain</description>
-      <fields>
-        <field name="Reference">Q</field>
-        <field name="Value">Q_PMOS_GSD</field>
-        <field name="Footprint"/>
-        <field name="Datasheet"/>
-        <field name="Description">P-MOSFET transistor, gate/source/drain</field>
-      </fields>
-      <pins>
-        <pin num="1" name="G" type="input"/>
-        <pin num="2" name="S" type="passive"/>
-        <pin num="3" name="D" type="passive"/>
-      </pins>
-    </libpart>
-    <libpart lib="o2-probe" part="ADS1119">
-      <description>16-bit four-channel delta-sigma ADC, external reference, WQFN-16</description>
+    <libpart lib="o2-probe" part="AP63203WU">
+      <description>AP63203 fixed 3.3 V synchronous buck, TSOT-23-6</description>
       <fields>
         <field name="Reference">U</field>
-        <field name="Value">ADS1119</field>
+        <field name="Value">AP63203WU</field>
         <field name="Footprint"/>
         <field name="Datasheet"/>
-        <field name="Description">16-bit four-channel delta-sigma ADC, external reference, WQFN-16</field>
-      </fields>
-      <pins>
-        <pin num="1" name="RESET" type="input"/>
-        <pin num="2" name="DGND" type="power_in"/>
-        <pin num="3" name="AGND" type="power_in"/>
-        <pin num="4" name="AIN3" type="input"/>
-        <pin num="5" name="AIN2" type="input"/>
-        <pin num="6" name="REFN" type="input"/>
-        <pin num="7" name="REFP" type="input"/>
-        <pin num="8" name="AIN1" type="input"/>
-        <pin num="9" name="AIN0" type="input"/>
-        <pin num="10" name="AVDD" type="power_in"/>
-        <pin num="11" name="DVDD" type="power_in"/>
-        <pin num="12" name="DRDY" type="open_collector"/>
-        <pin num="13" name="SDA" type="bidirectional"/>
-        <pin num="14" name="SCL" type="input"/>
-        <pin num="15" name="A0" type="input"/>
-        <pin num="16" name="A1" type="input"/>
-        <pin num="17" name="EP" type="power_in"/>
-      </pins>
-    </libpart>
-    <libpart lib="o2-probe" part="AP63205WU">
-      <description>AP63205 fixed 5 V synchronous buck, TSOT-23-6</description>
-      <fields>
-        <field name="Reference">U</field>
-        <field name="Value">AP63205WU</field>
-        <field name="Footprint"/>
-        <field name="Datasheet"/>
-        <field name="Description">AP63205 fixed 5 V synchronous buck, TSOT-23-6</field>
+        <field name="Description">AP63203 fixed 3.3 V synchronous buck, TSOT-23-6</field>
       </fields>
       <pins>
         <pin num="1" name="FB" type="input"/>
@@ -2903,25 +2423,6 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
         <pin num="4" name="GND" type="power_in"/>
         <pin num="5" name="SW" type="power_out"/>
         <pin num="6" name="BST" type="passive"/>
-      </pins>
-    </libpart>
-    <libpart lib="o2-probe" part="AZ431_SOT23">
-      <description>Shunt Regulator, SOT-23</description>
-      <docs>http://www.ti.com/lit/ds/symlink/tl431.pdf</docs>
-      <footprints>
-        <fp>SOT?23*</fp>
-      </footprints>
-      <fields>
-        <field name="Reference">U</field>
-        <field name="Value">TL431DBZ</field>
-        <field name="Footprint">Package_TO_SOT_SMD:SOT-23</field>
-        <field name="Datasheet">http://www.ti.com/lit/ds/symlink/tl431.pdf</field>
-        <field name="Description">Shunt Regulator, SOT-23</field>
-      </fields>
-      <pins>
-        <pin num="1" name="REF" type="passive"/>
-        <pin num="2" name="K" type="passive"/>
-        <pin num="3" name="A" type="passive"/>
       </pins>
     </libpart>
     <libpart lib="o2-probe" part="CONN_02x03">
@@ -2986,6 +2487,24 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
         <pin num="6" name="IN-_B" type="input"/>
         <pin num="7" name="OUT_B" type="output"/>
         <pin num="8" name="V+" type="power_in"/>
+      </pins>
+    </libpart>
+    <libpart lib="o2-probe" part="REF3425IDBV">
+      <description>TI REF3425 2.5 V series voltage reference, SOT-23-6 (DBV)</description>
+      <fields>
+        <field name="Reference">U</field>
+        <field name="Value">REF3425IDBV</field>
+        <field name="Footprint"/>
+        <field name="Datasheet"/>
+        <field name="Description">TI REF3425 2.5 V series voltage reference, SOT-23-6 (DBV)</field>
+      </fields>
+      <pins>
+        <pin num="1" name="GND_F" type="power_in"/>
+        <pin num="2" name="GND_S" type="power_in"/>
+        <pin num="3" name="EN" type="input"/>
+        <pin num="4" name="IN" type="power_in"/>
+        <pin num="5" name="OUT_S" type="input"/>
+        <pin num="6" name="OUT_F" type="power_out"/>
       </pins>
     </libpart>
     <libpart lib="o2-probe" part="SGX_OX_MINI">
@@ -3053,14 +2572,14 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
         <pin num="8" name="PF0" type="bidirectional"/>
         <pin num="9" name="PF1" type="bidirectional"/>
         <pin num="10" name="PF2-NRST" type="input"/>
-        <pin num="11" name="PA0" type="bidirectional"/>
-        <pin num="12" name="PA1" type="output"/>
+        <pin num="11" name="PA0" type="input"/>
+        <pin num="12" name="PA1" type="input"/>
         <pin num="13" name="PA2" type="output"/>
         <pin num="14" name="PA3" type="input"/>
-        <pin num="15" name="PA4" type="bidirectional"/>
-        <pin num="16" name="PA5" type="bidirectional"/>
-        <pin num="17" name="PA6" type="bidirectional"/>
-        <pin num="18" name="PA7" type="bidirectional"/>
+        <pin num="15" name="PA4" type="input"/>
+        <pin num="16" name="PA5" type="input"/>
+        <pin num="17" name="PA6" type="input"/>
+        <pin num="18" name="PA7" type="input"/>
         <pin num="19" name="PB0" type="output"/>
         <pin num="20" name="PB1" type="input"/>
         <pin num="21" name="PB2" type="input"/>
@@ -3150,23 +2669,6 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
         <pin num="6" name="TRIPSET1" type="input"/>
       </pins>
     </libpart>
-    <libpart lib="o2-probe" part="TPS7A2033PDBV">
-      <description>TPS7A20 3.3 V fixed low-noise LDO, SOT-23-5</description>
-      <fields>
-        <field name="Reference">U</field>
-        <field name="Value">TPS7A2033PDBV</field>
-        <field name="Footprint"/>
-        <field name="Datasheet"/>
-        <field name="Description">TPS7A20 3.3 V fixed low-noise LDO, SOT-23-5</field>
-      </fields>
-      <pins>
-        <pin num="1" name="IN" type="power_in"/>
-        <pin num="2" name="GND" type="power_in"/>
-        <pin num="3" name="EN" type="input"/>
-        <pin num="4" name="NC" type="no_connect"/>
-        <pin num="5" name="OUT" type="power_out"/>
-      </pins>
-    </libpart>
     <libpart lib="o2-probe" part="TVS_ARRAY_2CH">
       <fields>
         <field name="Reference">D</field>
@@ -3218,162 +2720,270 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
     </library>
   </libraries>
   <nets>
-    <net code="1" name="/+5V" class="Default">
-      <node ref="C3" pin="1" pintype="passive"/>
-      <node ref="C4" pin="1" pintype="passive"/>
-      <node ref="C5" pin="1" pintype="passive"/>
-      <node ref="L1" pin="2" pinfunction="2_2" pintype="passive"/>
-      <node ref="R32" pin="1" pintype="passive"/>
-      <node ref="U1" pin="1" pinfunction="FB_1" pintype="input"/>
-      <node ref="U2" pin="1" pinfunction="IN_1" pintype="power_in"/>
-      <node ref="U2" pin="3" pinfunction="EN_3" pintype="input"/>
-    </net>
-    <net code="2" name="/+5V_ANALOG" class="Default">
-      <node ref="C27" pin="1" pintype="passive"/>
-      <node ref="C7" pin="1" pintype="passive"/>
-      <node ref="R32" pin="2" pintype="passive"/>
-      <node ref="R41" pin="1" pintype="passive"/>
-      <node ref="U3" pin="1" pinfunction="IN_1" pintype="power_in"/>
-      <node ref="U3" pin="3" pinfunction="EN_3" pintype="input"/>
-    </net>
-    <net code="3" name="/+12V_FUSED" class="Default">
+    <net code="1" name="/+12V_FUSED" class="Default">
       <node ref="D1" pin="1" pinfunction="K_1" pintype="passive"/>
+      <node ref="D3" pin="2" pinfunction="A_2" pintype="passive"/>
       <node ref="F1" pin="2" pintype="passive"/>
-      <node ref="Q1" pin="3" pinfunction="D_3" pintype="passive"/>
     </net>
-    <net code="4" name="/+12V_RAW" class="Default">
+    <net code="2" name="/+12V_RAW" class="Default">
       <node ref="F1" pin="1" pintype="passive"/>
       <node ref="J101" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
     </net>
-    <net code="5" name="/+12V_SW" class="Default">
+    <net code="3" name="/+12V_SW" class="Default">
       <node ref="C1" pin="1" pintype="passive"/>
-      <node ref="DZ1" pin="1" pinfunction="K_1" pintype="passive"/>
-      <node ref="Q1" pin="2" pinfunction="S_2" pintype="passive"/>
+      <node ref="D3" pin="1" pinfunction="K_1" pintype="passive"/>
       <node ref="R26" pin="1" pintype="passive"/>
       <node ref="RH1" pin="1" pintype="passive"/>
       <node ref="RH2" pin="1" pintype="passive"/>
       <node ref="U1" pin="2" pinfunction="EN_2" pintype="input"/>
       <node ref="U1" pin="3" pinfunction="VIN_3" pintype="power_in"/>
     </net>
-    <net code="6" name="/3V3A" class="Default">
+    <net code="4" name="/3V3A" class="Default">
       <node ref="C16" pin="1" pintype="passive"/>
-      <node ref="C18" pin="1" pintype="passive"/>
       <node ref="C25" pin="1" pintype="passive"/>
+      <node ref="C7" pin="1" pintype="passive"/>
       <node ref="C8" pin="1" pintype="passive"/>
       <node ref="R24" pin="1" pintype="passive"/>
-      <node ref="U3" pin="5" pinfunction="OUT_5" pintype="power_out"/>
+      <node ref="R32" pin="2" pintype="passive"/>
       <node ref="U4" pin="8" pinfunction="V+_8" pintype="power_in"/>
       <node ref="U7" pin="6" pinfunction="VDD_6" pintype="power_in"/>
-      <node ref="U8" pin="10" pinfunction="AVDD_10" pintype="power_in"/>
     </net>
-    <net code="7" name="/3V3D" class="Default">
+    <net code="5" name="/3V3D" class="Default">
       <node ref="C11" pin="1" pintype="passive"/>
       <node ref="C12" pin="1" pintype="passive"/>
       <node ref="C13" pin="1" pintype="passive"/>
       <node ref="C14" pin="1" pintype="passive"/>
-      <node ref="C19" pin="1" pintype="passive"/>
       <node ref="C20" pin="1" pintype="passive"/>
       <node ref="C21" pin="1" pintype="passive"/>
-      <node ref="C26" pin="1" pintype="passive"/>
+      <node ref="C3" pin="1" pintype="passive"/>
       <node ref="C35" pin="1" pintype="passive"/>
-      <node ref="C6" pin="1" pintype="passive"/>
+      <node ref="C36" pin="1" pintype="passive"/>
+      <node ref="C4" pin="1" pintype="passive"/>
       <node ref="J3" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
+      <node ref="L1" pin="2" pinfunction="2_2" pintype="passive"/>
       <node ref="R10" pin="2" pintype="passive"/>
       <node ref="R11" pin="2" pintype="passive"/>
-      <node ref="R18" pin="2" pintype="passive"/>
-      <node ref="R19" pin="2" pintype="passive"/>
-      <node ref="R8" pin="2" pintype="passive"/>
+      <node ref="R32" pin="1" pintype="passive"/>
+      <node ref="U1" pin="1" pinfunction="FB_1" pintype="input"/>
       <node ref="U10" pin="4" pinfunction="ADD0_4" pintype="input"/>
       <node ref="U10" pin="5" pinfunction="V+_5" pintype="power_in"/>
       <node ref="U12" pin="3" pinfunction="VDD_3" pintype="power_in"/>
+      <node ref="U15" pin="3" pinfunction="EN_3" pintype="input"/>
+      <node ref="U15" pin="4" pinfunction="IN_4" pintype="power_in"/>
       <node ref="U16" pin="1" pinfunction="TRIPSET0_1" pintype="input"/>
       <node ref="U16" pin="4" pinfunction="HYSTSET_4" pintype="input"/>
       <node ref="U16" pin="5" pinfunction="VS_5" pintype="power_in"/>
       <node ref="U16" pin="6" pinfunction="TRIPSET1_6" pintype="input"/>
-      <node ref="U2" pin="5" pinfunction="OUT_5" pintype="power_out"/>
       <node ref="U5" pin="8" pinfunction="VCC_8" pintype="power_in"/>
       <node ref="U6" pin="4" pinfunction="VBAT_4" pintype="power_in"/>
-      <node ref="U6" pin="5" pinfunction="VREF+_5" pintype="power_in"/>
       <node ref="U6" pin="6" pinfunction="VDD/VDDA_6" pintype="power_in"/>
-      <node ref="U8" pin="11" pinfunction="DVDD_11" pintype="power_in"/>
     </net>
-    <net code="8" name="/ADC_AFE_VOUT" class="Default">
+    <net code="6" name="/ADC_AFE_VOUT" class="Default">
       <node ref="C28" pin="1" pintype="passive"/>
       <node ref="R33" pin="2" pintype="passive"/>
       <node ref="R39" pin="1" pintype="passive"/>
-      <node ref="U8" pin="9" pinfunction="AIN0_9" pintype="input"/>
-    </net>
-    <net code="9" name="/ADC_DRDY" class="Default">
-      <node ref="R19" pin="1" pintype="passive"/>
       <node ref="U6" pin="20" pinfunction="PB1_20" pintype="input"/>
-      <node ref="U8" pin="12" pinfunction="DRDY_12" pintype="open_collector"/>
     </net>
-    <net code="10" name="/ADC_RESET" class="Default">
-      <node ref="R18" pin="1" pintype="passive"/>
-      <node ref="U8" pin="1" pinfunction="RESET_1" pintype="input"/>
-    </net>
-    <net code="11" name="/ADC_RE_BUF" class="Default">
+    <net code="7" name="/ADC_RE_BUF" class="Default">
       <node ref="C31" pin="1" pintype="passive"/>
       <node ref="R38" pin="2" pintype="passive"/>
-      <node ref="U8" pin="4" pinfunction="AIN3_4" pintype="input"/>
+      <node ref="U6" pin="12" pinfunction="PA1_12" pintype="input"/>
     </net>
-    <net code="12" name="/ADC_VREF_MON" class="Default">
-      <node ref="C29" pin="1" pintype="passive"/>
-      <node ref="R36" pin="2" pintype="passive"/>
-      <node ref="U8" pin="8" pinfunction="AIN1_8" pintype="input"/>
-    </net>
-    <net code="13" name="/ADC_WE_BUF" class="Default">
+    <net code="8" name="/ADC_WE_BUF" class="Default">
       <node ref="C30" pin="1" pintype="passive"/>
       <node ref="R37" pin="2" pintype="passive"/>
-      <node ref="U8" pin="5" pinfunction="AIN2_5" pintype="input"/>
+      <node ref="U6" pin="11" pinfunction="PA0_11" pintype="input"/>
     </net>
-    <net code="14" name="/AFE_MENB" class="Default">
+    <net code="9" name="/AFE_MENB" class="Default">
       <node ref="R17" pin="1" pintype="passive"/>
       <node ref="U6" pin="19" pinfunction="PB0_19" pintype="output"/>
       <node ref="U7" pin="2" pinfunction="MENB_2" pintype="input"/>
     </net>
-    <net code="15" name="/AFE_VOUT" class="Default">
+    <net code="10" name="/AFE_VOUT" class="Default">
       <node ref="R33" pin="1" pintype="passive"/>
       <node ref="U7" pin="8" pinfunction="VOUT_8" pintype="output"/>
     </net>
-    <net code="16" name="/BUCK_BST" class="Default">
+    <net code="11" name="/BUCK_BST" class="Default">
       <node ref="C2" pin="1" pintype="passive"/>
       <node ref="U1" pin="6" pinfunction="BST_6" pintype="passive"/>
     </net>
-    <net code="17" name="/BUCK_SW" class="Default">
+    <net code="12" name="/BUCK_SW" class="Default">
       <node ref="C2" pin="2" pintype="passive"/>
       <node ref="L1" pin="1" pinfunction="1_1" pintype="passive"/>
       <node ref="U1" pin="5" pinfunction="SW_5" pintype="power_out"/>
     </net>
-    <net code="18" name="/CELL_CE" class="Default">
+    <net code="13" name="/CELL_CE" class="Default">
       <node ref="D7" pin="1" pinfunction="IO1_1" pintype="passive"/>
       <node ref="R42" pin="2" pintype="passive"/>
       <node ref="TP3" pin="1" pinfunction="1_1" pintype="passive"/>
       <node ref="U11" pin="1" pinfunction="CE_1" pintype="passive"/>
     </net>
-    <net code="19" name="/CELL_CE_DRV" class="Default">
+    <net code="14" name="/CELL_CE_DRV" class="Default">
       <node ref="R42" pin="1" pintype="passive"/>
       <node ref="R43" pin="1" pintype="passive"/>
       <node ref="U7" pin="14" pinfunction="CE_14" pintype="output"/>
     </net>
-    <net code="20" name="/CELL_RE" class="CELL_RE,Default">
+    <net code="15" name="/CELL_RE" class="CELL_RE,Default">
       <node ref="U11" pin="2" pinfunction="RE_2" pintype="passive"/>
       <node ref="U4" pin="5" pinfunction="IN+_B_5" pintype="input"/>
       <node ref="U7" pin="13" pinfunction="RE_13" pintype="input"/>
     </net>
-    <net code="21" name="/CELL_WE" class="Default">
+    <net code="16" name="/CELL_WE" class="Default">
       <node ref="TP1" pin="1" pinfunction="1_1" pintype="passive"/>
       <node ref="U11" pin="3" pinfunction="WE_3" pintype="passive"/>
       <node ref="U4" pin="3" pinfunction="IN+_A_3" pintype="input"/>
       <node ref="U7" pin="12" pinfunction="WE_12" pintype="bidirectional"/>
     </net>
-    <net code="22" name="/CE_MON" class="Default">
+    <net code="17" name="/CE_MON" class="Default">
       <node ref="C34" pin="1" pintype="passive"/>
       <node ref="R43" pin="2" pintype="passive"/>
       <node ref="R44" pin="1" pintype="passive"/>
-      <node ref="U6" pin="15" pinfunction="PA4_15" pintype="bidirectional"/>
+      <node ref="U6" pin="15" pinfunction="PA4_15" pintype="input"/>
     </net>
-    <net code="23" name="/GND" class="Default">
+    <net code="18" name="/GUARD_REPLICA" class="Default">
+      <node ref="R40" pin="2" pintype="passive"/>
+      <node ref="TP5" pin="1" pinfunction="1_1" pintype="passive"/>
+    </net>
+    <net code="19" name="/HEATER_GATE" class="Default">
+      <node ref="Q2" pin="1" pinfunction="G_1" pintype="input"/>
+      <node ref="R28" pin="2" pintype="passive"/>
+      <node ref="R29" pin="1" pintype="passive"/>
+      <node ref="U10" pin="3" pinfunction="ALERT_3" pintype="open_collector"/>
+      <node ref="U16" pin="3" pinfunction="~{OUT}_3" pintype="open_collector"/>
+    </net>
+    <net code="20" name="/HEATER_LOW" class="Default">
+      <node ref="Q2" pin="3" pinfunction="D_3" pintype="passive"/>
+      <node ref="RH1" pin="2" pintype="passive"/>
+      <node ref="RH2" pin="2" pintype="passive"/>
+    </net>
+    <net code="21" name="/HEATER_PWM" class="Default">
+      <node ref="R28" pin="1" pintype="passive"/>
+      <node ref="U6" pin="28" pinfunction="PA8_28" pintype="output"/>
+    </net>
+    <net code="22" name="/I2C_SCL" class="Default">
+      <node ref="R10" pin="1" pintype="passive"/>
+      <node ref="U10" pin="1" pinfunction="SCL_1" pintype="input"/>
+      <node ref="U12" pin="2" pinfunction="SCL_2" pintype="input"/>
+      <node ref="U6" pin="45" pinfunction="PB6_45" pintype="bidirectional"/>
+      <node ref="U7" pin="3" pinfunction="SCL_3" pintype="input"/>
+    </net>
+    <net code="23" name="/I2C_SDA" class="Default">
+      <node ref="R11" pin="1" pintype="passive"/>
+      <node ref="U10" pin="6" pinfunction="SDA_6" pintype="bidirectional"/>
+      <node ref="U12" pin="1" pinfunction="SDA_1" pintype="bidirectional"/>
+      <node ref="U6" pin="46" pinfunction="PB7_46" pintype="bidirectional"/>
+      <node ref="U7" pin="4" pinfunction="SDA_4" pintype="bidirectional"/>
+    </net>
+    <net code="24" name="/LMP_C1" class="Default">
+      <node ref="C17" pin="1" pintype="passive"/>
+      <node ref="U7" pin="10" pinfunction="C1_10" pintype="passive"/>
+    </net>
+    <net code="25" name="/LMP_C2" class="Default">
+      <node ref="C17" pin="2" pintype="passive"/>
+      <node ref="U7" pin="9" pinfunction="C2_9" pintype="passive"/>
+    </net>
+    <net code="26" name="/NRST" class="Default">
+      <node ref="C15" pin="1" pintype="passive"/>
+      <node ref="J3" pin="3" pinfunction="Pin_3_3" pintype="passive"/>
+      <node ref="U6" pin="10" pinfunction="PF2-NRST_10" pintype="input"/>
+    </net>
+    <net code="27" name="/RE_BUF" class="Default">
+      <node ref="R38" pin="1" pintype="passive"/>
+      <node ref="R40" pin="1" pintype="passive"/>
+      <node ref="U4" pin="6" pinfunction="IN-_B_6" pintype="input"/>
+      <node ref="U4" pin="7" pinfunction="OUT_B_7" pintype="output"/>
+    </net>
+    <net code="28" name="/RS485_A" class="Default">
+      <node ref="R2" pin="1" pintype="passive"/>
+      <node ref="R4" pin="1" pintype="passive"/>
+      <node ref="U5" pin="6" pinfunction="A_6" pintype="bidirectional"/>
+    </net>
+    <net code="29" name="/RS485_A_CABLE" class="Default">
+      <node ref="D2" pin="1" pinfunction="LINE_A_1" pintype="passive"/>
+      <node ref="J103" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
+      <node ref="R2" pin="2" pintype="passive"/>
+    </net>
+    <net code="30" name="/RS485_B" class="Default">
+      <node ref="R3" pin="1" pintype="passive"/>
+      <node ref="R4" pin="2" pintype="passive"/>
+      <node ref="U5" pin="7" pinfunction="B_7" pintype="bidirectional"/>
+    </net>
+    <net code="31" name="/RS485_B_CABLE" class="Default">
+      <node ref="D2" pin="2" pinfunction="LINE_B_2" pintype="passive"/>
+      <node ref="J104" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
+      <node ref="R3" pin="2" pintype="passive"/>
+    </net>
+    <net code="32" name="/RS485_DE" class="Default">
+      <node ref="R7" pin="1" pintype="passive"/>
+      <node ref="U5" pin="3" pinfunction="DE_3" pintype="input"/>
+      <node ref="U6" pin="30" pinfunction="PC6_30" pintype="bidirectional"/>
+    </net>
+    <net code="33" name="/RS485_RE" class="Default">
+      <node ref="R45" pin="1" pintype="passive"/>
+      <node ref="U5" pin="2" pinfunction="~RE_2" pintype="input"/>
+      <node ref="U6" pin="31" pinfunction="PC7_31" pintype="bidirectional"/>
+    </net>
+    <net code="34" name="/RS485_RX" class="Default">
+      <node ref="U5" pin="1" pinfunction="R_1" pintype="output"/>
+      <node ref="U6" pin="32" pinfunction="PA10_32" pintype="input"/>
+    </net>
+    <net code="35" name="/RS485_TX" class="Default">
+      <node ref="U5" pin="4" pinfunction="D_4" pintype="input"/>
+      <node ref="U6" pin="29" pinfunction="PA9_29" pintype="output"/>
+    </net>
+    <net code="36" name="/SWCLK_BOOT0" class="Default">
+      <node ref="J3" pin="4" pinfunction="Pin_4_4" pintype="passive"/>
+      <node ref="R9" pin="1" pintype="passive"/>
+      <node ref="U6" pin="36" pinfunction="PA14-BOOT0_36" pintype="bidirectional"/>
+    </net>
+    <net code="37" name="/SWDIO" class="Default">
+      <node ref="J3" pin="2" pinfunction="Pin_2_2" pintype="passive"/>
+      <node ref="U6" pin="35" pinfunction="PA13_35" pintype="bidirectional"/>
+    </net>
+    <net code="38" name="/SWO" class="Default">
+      <node ref="J3" pin="6" pinfunction="Pin_6_6" pintype="passive"/>
+      <node ref="U6" pin="42" pinfunction="PB3_42" pintype="bidirectional"/>
+    </net>
+    <net code="39" name="/TMP_CELL_EP" class="Default">
+      <node ref="TP6" pin="1" pinfunction="1_1" pintype="passive"/>
+      <node ref="U10" pin="7" pinfunction="EP_7" pintype="passive"/>
+    </net>
+    <net code="40" name="/UART2_RX" class="Default">
+      <node ref="J106" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
+      <node ref="U6" pin="14" pinfunction="PA3_14" pintype="input"/>
+    </net>
+    <net code="41" name="/UART2_TX" class="Default">
+      <node ref="J105" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
+      <node ref="U6" pin="13" pinfunction="PA2_13" pintype="output"/>
+    </net>
+    <net code="42" name="/VA_MON" class="Default">
+      <node ref="C33" pin="1" pintype="passive"/>
+      <node ref="R24" pin="2" pintype="passive"/>
+      <node ref="R25" pin="1" pintype="passive"/>
+      <node ref="U6" pin="18" pinfunction="PA7_18" pintype="input"/>
+    </net>
+    <net code="43" name="/VIN_MON" class="Default">
+      <node ref="C32" pin="1" pintype="passive"/>
+      <node ref="D8" pin="2" pinfunction="A_2" pintype="passive"/>
+      <node ref="R26" pin="2" pintype="passive"/>
+      <node ref="R27" pin="1" pintype="passive"/>
+      <node ref="U6" pin="17" pinfunction="PA6_17" pintype="input"/>
+    </net>
+    <net code="44" name="/VREF_TRIM" class="Default">
+      <node ref="C10" pin="1" pintype="passive"/>
+      <node ref="C26" pin="1" pintype="passive"/>
+      <node ref="TP4" pin="1" pinfunction="1_1" pintype="passive"/>
+      <node ref="U15" pin="5" pinfunction="OUT_S_5" pintype="input"/>
+      <node ref="U15" pin="6" pinfunction="OUT_F_6" pintype="power_out"/>
+      <node ref="U6" pin="5" pinfunction="VREF+_5" pintype="power_in"/>
+      <node ref="U7" pin="11" pinfunction="VREF_11" pintype="input"/>
+    </net>
+    <net code="45" name="/WE_BUF" class="Default">
+      <node ref="R37" pin="1" pintype="passive"/>
+      <node ref="U4" pin="1" pinfunction="OUT_A_1" pintype="output"/>
+      <node ref="U4" pin="2" pinfunction="IN-_A_2" pintype="input"/>
+    </net>
+    <net code="46" name="GND" class="Default">
       <node ref="C1" pin="2" pintype="passive"/>
       <node ref="C10" pin="2" pintype="passive"/>
       <node ref="C11" pin="2" pintype="passive"/>
@@ -3382,15 +2992,11 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
       <node ref="C14" pin="2" pintype="passive"/>
       <node ref="C15" pin="2" pintype="passive"/>
       <node ref="C16" pin="2" pintype="passive"/>
-      <node ref="C18" pin="2" pintype="passive"/>
-      <node ref="C19" pin="2" pintype="passive"/>
       <node ref="C20" pin="2" pintype="passive"/>
       <node ref="C21" pin="2" pintype="passive"/>
       <node ref="C25" pin="2" pintype="passive"/>
       <node ref="C26" pin="2" pintype="passive"/>
-      <node ref="C27" pin="2" pintype="passive"/>
       <node ref="C28" pin="2" pintype="passive"/>
-      <node ref="C29" pin="2" pintype="passive"/>
       <node ref="C3" pin="2" pintype="passive"/>
       <node ref="C30" pin="2" pintype="passive"/>
       <node ref="C31" pin="2" pintype="passive"/>
@@ -3398,24 +3004,21 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
       <node ref="C33" pin="2" pintype="passive"/>
       <node ref="C34" pin="2" pintype="passive"/>
       <node ref="C35" pin="2" pintype="passive"/>
+      <node ref="C36" pin="2" pintype="passive"/>
       <node ref="C4" pin="2" pintype="passive"/>
-      <node ref="C5" pin="2" pintype="passive"/>
-      <node ref="C6" pin="2" pintype="passive"/>
       <node ref="C7" pin="2" pintype="passive"/>
       <node ref="C8" pin="2" pintype="passive"/>
-      <node ref="C9" pin="2" pintype="passive"/>
       <node ref="D1" pin="2" pinfunction="A_2" pintype="passive"/>
       <node ref="D2" pin="3" pinfunction="GND_3" pintype="passive"/>
       <node ref="D7" pin="3" pinfunction="GND_3" pintype="passive"/>
+      <node ref="D8" pin="1" pinfunction="K_1" pintype="passive"/>
       <node ref="J102" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
       <node ref="J3" pin="5" pinfunction="Pin_5_5" pintype="passive"/>
       <node ref="Q2" pin="2" pinfunction="S_2" pintype="passive"/>
-      <node ref="R1" pin="2" pintype="passive"/>
       <node ref="R17" pin="2" pintype="passive"/>
       <node ref="R25" pin="2" pintype="passive"/>
       <node ref="R27" pin="2" pintype="passive"/>
       <node ref="R29" pin="2" pintype="passive"/>
-      <node ref="R35" pin="2" pintype="passive"/>
       <node ref="R39" pin="2" pintype="passive"/>
       <node ref="R44" pin="2" pintype="passive"/>
       <node ref="R45" pin="2" pintype="passive"/>
@@ -3425,272 +3028,92 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
       <node ref="U1" pin="4" pinfunction="GND_4" pintype="power_in"/>
       <node ref="U10" pin="2" pinfunction="GND_2" pintype="power_in"/>
       <node ref="U12" pin="4" pinfunction="VSS_4" pintype="power_in"/>
-      <node ref="U15" pin="3" pinfunction="A_3" pintype="passive"/>
+      <node ref="U15" pin="1" pinfunction="GND_F_1" pintype="power_in"/>
+      <node ref="U15" pin="2" pinfunction="GND_S_2" pintype="power_in"/>
       <node ref="U16" pin="2" pinfunction="GND_2" pintype="power_in"/>
-      <node ref="U2" pin="2" pinfunction="GND_2" pintype="power_in"/>
-      <node ref="U3" pin="2" pinfunction="GND_2" pintype="power_in"/>
       <node ref="U4" pin="4" pinfunction="V-_4" pintype="power_in"/>
       <node ref="U5" pin="5" pinfunction="GND_5" pintype="power_in"/>
       <node ref="U6" pin="7" pinfunction="VSS/VSSA_7" pintype="power_in"/>
       <node ref="U7" pin="1" pinfunction="DGND_1" pintype="power_in"/>
       <node ref="U7" pin="15" pinfunction="DAP_15" pintype="power_in"/>
       <node ref="U7" pin="7" pinfunction="AGND_7" pintype="power_in"/>
-      <node ref="U8" pin="15" pinfunction="A0_15" pintype="input"/>
-      <node ref="U8" pin="16" pinfunction="A1_16" pintype="input"/>
-      <node ref="U8" pin="17" pinfunction="EP_17" pintype="power_in"/>
-      <node ref="U8" pin="2" pinfunction="DGND_2" pintype="power_in"/>
-      <node ref="U8" pin="3" pinfunction="AGND_3" pintype="power_in"/>
-      <node ref="U8" pin="6" pinfunction="REFN_6" pintype="input"/>
     </net>
-    <net code="24" name="/GUARD_REPLICA" class="Default">
-      <node ref="R40" pin="2" pintype="passive"/>
-      <node ref="TP5" pin="1" pinfunction="1_1" pintype="passive"/>
-    </net>
-    <net code="25" name="/HEATER_GATE" class="Default">
-      <node ref="Q2" pin="1" pinfunction="G_1" pintype="input"/>
-      <node ref="R28" pin="2" pintype="passive"/>
-      <node ref="R29" pin="1" pintype="passive"/>
-      <node ref="U10" pin="3" pinfunction="ALERT_3" pintype="open_collector"/>
-      <node ref="U16" pin="3" pinfunction="~{OUT}_3" pintype="open_collector"/>
-    </net>
-    <net code="26" name="/HEATER_LOW" class="Default">
-      <node ref="Q2" pin="3" pinfunction="D_3" pintype="passive"/>
-      <node ref="RH1" pin="2" pintype="passive"/>
-      <node ref="RH2" pin="2" pintype="passive"/>
-    </net>
-    <net code="27" name="/HEATER_PWM" class="Default">
-      <node ref="R28" pin="1" pintype="passive"/>
-      <node ref="U6" pin="28" pinfunction="PA8_28" pintype="output"/>
-    </net>
-    <net code="28" name="/I2C_SCL" class="Default">
-      <node ref="R10" pin="1" pintype="passive"/>
-      <node ref="U10" pin="1" pinfunction="SCL_1" pintype="input"/>
-      <node ref="U12" pin="2" pinfunction="SCL_2" pintype="input"/>
-      <node ref="U6" pin="45" pinfunction="PB6_45" pintype="bidirectional"/>
-      <node ref="U7" pin="3" pinfunction="SCL_3" pintype="input"/>
-      <node ref="U8" pin="14" pinfunction="SCL_14" pintype="input"/>
-    </net>
-    <net code="29" name="/I2C_SDA" class="Default">
-      <node ref="R11" pin="1" pintype="passive"/>
-      <node ref="U10" pin="6" pinfunction="SDA_6" pintype="bidirectional"/>
-      <node ref="U12" pin="1" pinfunction="SDA_1" pintype="bidirectional"/>
-      <node ref="U6" pin="46" pinfunction="PB7_46" pintype="bidirectional"/>
-      <node ref="U7" pin="4" pinfunction="SDA_4" pintype="bidirectional"/>
-      <node ref="U8" pin="13" pinfunction="SDA_13" pintype="bidirectional"/>
-    </net>
-    <net code="30" name="/LMP_C1" class="Default">
-      <node ref="C17" pin="1" pintype="passive"/>
-      <node ref="U7" pin="10" pinfunction="C1_10" pintype="passive"/>
-    </net>
-    <net code="31" name="/LMP_C2" class="Default">
-      <node ref="C17" pin="2" pintype="passive"/>
-      <node ref="U7" pin="9" pinfunction="C2_9" pintype="passive"/>
-    </net>
-    <net code="32" name="/NRST" class="Default">
-      <node ref="C15" pin="1" pintype="passive"/>
-      <node ref="J3" pin="3" pinfunction="Pin_3_3" pintype="passive"/>
-      <node ref="R8" pin="1" pintype="passive"/>
-      <node ref="U6" pin="10" pinfunction="PF2-NRST_10" pintype="input"/>
-    </net>
-    <net code="33" name="/RE_BUF" class="Default">
-      <node ref="R38" pin="1" pintype="passive"/>
-      <node ref="R40" pin="1" pintype="passive"/>
-      <node ref="U4" pin="6" pinfunction="IN-_B_6" pintype="input"/>
-      <node ref="U4" pin="7" pinfunction="OUT_B_7" pintype="output"/>
-    </net>
-    <net code="34" name="/RS485_A" class="Default">
-      <node ref="R2" pin="1" pintype="passive"/>
-      <node ref="R4" pin="1" pintype="passive"/>
-      <node ref="U5" pin="6" pinfunction="A_6" pintype="bidirectional"/>
-    </net>
-    <net code="35" name="/RS485_A_CABLE" class="Default">
-      <node ref="D2" pin="1" pinfunction="LINE_A_1" pintype="passive"/>
-      <node ref="J103" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
-      <node ref="R2" pin="2" pintype="passive"/>
-    </net>
-    <net code="36" name="/RS485_B" class="Default">
-      <node ref="R3" pin="1" pintype="passive"/>
-      <node ref="R4" pin="2" pintype="passive"/>
-      <node ref="U5" pin="7" pinfunction="B_7" pintype="bidirectional"/>
-    </net>
-    <net code="37" name="/RS485_B_CABLE" class="Default">
-      <node ref="D2" pin="2" pinfunction="LINE_B_2" pintype="passive"/>
-      <node ref="J104" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
-      <node ref="R3" pin="2" pintype="passive"/>
-    </net>
-    <net code="38" name="/RS485_DE" class="Default">
-      <node ref="R7" pin="1" pintype="passive"/>
-      <node ref="U5" pin="3" pinfunction="DE_3" pintype="input"/>
-      <node ref="U6" pin="30" pinfunction="PC6_30" pintype="bidirectional"/>
-    </net>
-    <net code="39" name="/RS485_RE" class="Default">
-      <node ref="R45" pin="1" pintype="passive"/>
-      <node ref="U5" pin="2" pinfunction="~RE_2" pintype="input"/>
-      <node ref="U6" pin="31" pinfunction="PC7_31" pintype="bidirectional"/>
-    </net>
-    <net code="40" name="/RS485_RX" class="Default">
-      <node ref="U5" pin="1" pinfunction="R_1" pintype="output"/>
-      <node ref="U6" pin="32" pinfunction="PA10_32" pintype="input"/>
-    </net>
-    <net code="41" name="/RS485_TX" class="Default">
-      <node ref="U5" pin="4" pinfunction="D_4" pintype="input"/>
-      <node ref="U6" pin="29" pinfunction="PA9_29" pintype="output"/>
-    </net>
-    <net code="42" name="/SWCLK_BOOT0" class="Default">
-      <node ref="J3" pin="4" pinfunction="Pin_4_4" pintype="passive"/>
-      <node ref="R9" pin="1" pintype="passive"/>
-      <node ref="U6" pin="36" pinfunction="PA14-BOOT0_36" pintype="bidirectional"/>
-    </net>
-    <net code="43" name="/SWDIO" class="Default">
-      <node ref="J3" pin="2" pinfunction="Pin_2_2" pintype="passive"/>
-      <node ref="U6" pin="35" pinfunction="PA13_35" pintype="bidirectional"/>
-    </net>
-    <net code="44" name="/SWO" class="Default">
-      <node ref="J3" pin="6" pinfunction="Pin_6_6" pintype="passive"/>
-      <node ref="U6" pin="42" pinfunction="PB3_42" pintype="bidirectional"/>
-    </net>
-    <net code="45" name="/TMP_CELL_EP" class="Default">
-      <node ref="TP6" pin="1" pinfunction="1_1" pintype="passive"/>
-      <node ref="U10" pin="7" pinfunction="EP_7" pintype="passive"/>
-    </net>
-    <net code="46" name="/UART2_RX" class="Default">
-      <node ref="J106" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
-      <node ref="U6" pin="14" pinfunction="PA3_14" pintype="input"/>
-    </net>
-    <net code="47" name="/UART2_TX" class="Default">
-      <node ref="J105" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
-      <node ref="U6" pin="13" pinfunction="PA2_13" pintype="output"/>
-    </net>
-    <net code="48" name="/VA_MON" class="Default">
-      <node ref="C33" pin="1" pintype="passive"/>
-      <node ref="R24" pin="2" pintype="passive"/>
-      <node ref="R25" pin="1" pintype="passive"/>
-      <node ref="U6" pin="18" pinfunction="PA7_18" pintype="bidirectional"/>
-    </net>
-    <net code="49" name="/VIN_GATE" class="Default">
-      <node ref="DZ1" pin="2" pinfunction="A_2" pintype="passive"/>
-      <node ref="Q1" pin="1" pinfunction="G_1" pintype="input"/>
-      <node ref="R1" pin="1" pintype="passive"/>
-    </net>
-    <net code="50" name="/VIN_MON" class="Default">
-      <node ref="C32" pin="1" pintype="passive"/>
-      <node ref="R26" pin="2" pintype="passive"/>
-      <node ref="R27" pin="1" pintype="passive"/>
-      <node ref="U6" pin="17" pinfunction="PA6_17" pintype="bidirectional"/>
-    </net>
-    <net code="51" name="/VREF_MON_RAW" class="Default">
-      <node ref="R34" pin="2" pintype="passive"/>
-      <node ref="R35" pin="1" pintype="passive"/>
-      <node ref="R36" pin="1" pintype="passive"/>
-    </net>
-    <net code="52" name="/VREF_SHUNT" class="Default">
-      <node ref="C9" pin="1" pintype="passive"/>
-      <node ref="R31" pin="1" pintype="passive"/>
-      <node ref="R41" pin="2" pintype="passive"/>
-      <node ref="U15" pin="1" pinfunction="REF_1" pintype="passive"/>
-      <node ref="U15" pin="2" pinfunction="K_2" pintype="passive"/>
-    </net>
-    <net code="53" name="/VREF_TRIM" class="Default">
-      <node ref="C10" pin="1" pintype="passive"/>
-      <node ref="R31" pin="2" pintype="passive"/>
-      <node ref="R34" pin="1" pintype="passive"/>
-      <node ref="TP4" pin="1" pinfunction="1_1" pintype="passive"/>
-      <node ref="U7" pin="11" pinfunction="VREF_11" pintype="input"/>
-      <node ref="U8" pin="7" pinfunction="REFP_7" pintype="input"/>
-    </net>
-    <net code="54" name="/WE_BUF" class="Default">
-      <node ref="R37" pin="1" pintype="passive"/>
-      <node ref="U4" pin="1" pinfunction="OUT_A_1" pintype="output"/>
-      <node ref="U4" pin="2" pinfunction="IN-_A_2" pintype="input"/>
-    </net>
-    <net code="55" name="unconnected-(D7-IO2-Pad2)" class="Default">
+    <net code="47" name="unconnected-(D7-IO2-Pad2)" class="Default">
       <node ref="D7" pin="2" pinfunction="IO2_2" pintype="passive+no_connect"/>
     </net>
-    <net code="56" name="unconnected-(U2-NC-Pad4)" class="Default">
-      <node ref="U2" pin="4" pinfunction="NC_4" pintype="no_connect"/>
+    <net code="48" name="unconnected-(U6-PA5-Pad16)" class="Default">
+      <node ref="U6" pin="16" pinfunction="PA5_16" pintype="input+no_connect"/>
     </net>
-    <net code="57" name="unconnected-(U3-NC-Pad4)" class="Default">
-      <node ref="U3" pin="4" pinfunction="NC_4" pintype="no_connect"/>
-    </net>
-    <net code="58" name="unconnected-(U6-PA0-Pad11)" class="Default">
-      <node ref="U6" pin="11" pinfunction="PA0_11" pintype="bidirectional+no_connect"/>
-    </net>
-    <net code="59" name="unconnected-(U6-PA1-Pad12)" class="Default">
-      <node ref="U6" pin="12" pinfunction="PA1_12" pintype="output+no_connect"/>
-    </net>
-    <net code="60" name="unconnected-(U6-PA5-Pad16)" class="Default">
-      <node ref="U6" pin="16" pinfunction="PA5_16" pintype="bidirectional+no_connect"/>
-    </net>
-    <net code="61" name="unconnected-(U6-PA11-Pad33)" class="Default">
+    <net code="49" name="unconnected-(U6-PA11-Pad33)" class="Default">
       <node ref="U6" pin="33" pinfunction="PA11_33" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="62" name="unconnected-(U6-PA12-Pad34)" class="Default">
+    <net code="50" name="unconnected-(U6-PA12-Pad34)" class="Default">
       <node ref="U6" pin="34" pinfunction="PA12_34" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="63" name="unconnected-(U6-PA15-Pad37)" class="Default">
+    <net code="51" name="unconnected-(U6-PA15-Pad37)" class="Default">
       <node ref="U6" pin="37" pinfunction="PA15_37" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="64" name="unconnected-(U6-PB2-Pad21)" class="Default">
+    <net code="52" name="unconnected-(U6-PB2-Pad21)" class="Default">
       <node ref="U6" pin="21" pinfunction="PB2_21" pintype="input+no_connect"/>
     </net>
-    <net code="65" name="unconnected-(U6-PB4-Pad43)" class="Default">
+    <net code="53" name="unconnected-(U6-PB4-Pad43)" class="Default">
       <node ref="U6" pin="43" pinfunction="PB4_43" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="66" name="unconnected-(U6-PB5-Pad44)" class="Default">
+    <net code="54" name="unconnected-(U6-PB5-Pad44)" class="Default">
       <node ref="U6" pin="44" pinfunction="PB5_44" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="67" name="unconnected-(U6-PB8-Pad47)" class="Default">
+    <net code="55" name="unconnected-(U6-PB8-Pad47)" class="Default">
       <node ref="U6" pin="47" pinfunction="PB8_47" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="68" name="unconnected-(U6-PB9-Pad48)" class="Default">
+    <net code="56" name="unconnected-(U6-PB9-Pad48)" class="Default">
       <node ref="U6" pin="48" pinfunction="PB9_48" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="69" name="unconnected-(U6-PB10-Pad22)" class="Default">
+    <net code="57" name="unconnected-(U6-PB10-Pad22)" class="Default">
       <node ref="U6" pin="22" pinfunction="PB10_22" pintype="input+no_connect"/>
     </net>
-    <net code="70" name="unconnected-(U6-PB11-Pad23)" class="Default">
+    <net code="58" name="unconnected-(U6-PB11-Pad23)" class="Default">
       <node ref="U6" pin="23" pinfunction="PB11_23" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="71" name="unconnected-(U6-PB12-Pad24)" class="Default">
+    <net code="59" name="unconnected-(U6-PB12-Pad24)" class="Default">
       <node ref="U6" pin="24" pinfunction="PB12_24" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="72" name="unconnected-(U6-PB13-Pad25)" class="Default">
+    <net code="60" name="unconnected-(U6-PB13-Pad25)" class="Default">
       <node ref="U6" pin="25" pinfunction="PB13_25" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="73" name="unconnected-(U6-PB14-Pad26)" class="Default">
+    <net code="61" name="unconnected-(U6-PB14-Pad26)" class="Default">
       <node ref="U6" pin="26" pinfunction="PB14_26" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="74" name="unconnected-(U6-PB15-Pad27)" class="Default">
+    <net code="62" name="unconnected-(U6-PB15-Pad27)" class="Default">
       <node ref="U6" pin="27" pinfunction="PB15_27" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="75" name="unconnected-(U6-PC13-Pad1)" class="Default">
+    <net code="63" name="unconnected-(U6-PC13-Pad1)" class="Default">
       <node ref="U6" pin="1" pinfunction="PC13_1" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="76" name="unconnected-(U6-PC14-Pad2)" class="Default">
+    <net code="64" name="unconnected-(U6-PC14-Pad2)" class="Default">
       <node ref="U6" pin="2" pinfunction="PC14_2" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="77" name="unconnected-(U6-PC15-Pad3)" class="Default">
+    <net code="65" name="unconnected-(U6-PC15-Pad3)" class="Default">
       <node ref="U6" pin="3" pinfunction="PC15_3" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="78" name="unconnected-(U6-PD0-Pad38)" class="Default">
+    <net code="66" name="unconnected-(U6-PD0-Pad38)" class="Default">
       <node ref="U6" pin="38" pinfunction="PD0_38" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="79" name="unconnected-(U6-PD1-Pad39)" class="Default">
+    <net code="67" name="unconnected-(U6-PD1-Pad39)" class="Default">
       <node ref="U6" pin="39" pinfunction="PD1_39" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="80" name="unconnected-(U6-PD2-Pad40)" class="Default">
+    <net code="68" name="unconnected-(U6-PD2-Pad40)" class="Default">
       <node ref="U6" pin="40" pinfunction="PD2_40" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="81" name="unconnected-(U6-PD3-Pad41)" class="Default">
+    <net code="69" name="unconnected-(U6-PD3-Pad41)" class="Default">
       <node ref="U6" pin="41" pinfunction="PD3_41" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="82" name="unconnected-(U6-PF0-Pad8)" class="Default">
+    <net code="70" name="unconnected-(U6-PF0-Pad8)" class="Default">
       <node ref="U6" pin="8" pinfunction="PF0_8" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="83" name="unconnected-(U6-PF1-Pad9)" class="Default">
+    <net code="71" name="unconnected-(U6-PF1-Pad9)" class="Default">
       <node ref="U6" pin="9" pinfunction="PF1_9" pintype="bidirectional+no_connect"/>
     </net>
-    <net code="84" name="unconnected-(U7-NC-Pad5)" class="Default">
+    <net code="72" name="unconnected-(U7-NC-Pad5)" class="Default">
       <node ref="U7" pin="5" pinfunction="NC_5" pintype="no_connect"/>
     </net>
   </nets>

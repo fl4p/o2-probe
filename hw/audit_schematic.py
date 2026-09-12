@@ -95,15 +95,20 @@ required = {
     "CELL_CE_DRV": {"U7.14", "R42.1", "R43.1"},
     "CELL_CE": {"R42.2", "U11.1", "TP3.1", "D7.1"},
     "CE_MON": {"R43.2", "R44.1", "C34.1", "U6.15"},
-    "VREF_TRIM": {"R31.2", "U7.11", "U8.7", "TP4.1", "R34.1"},
-    "ADC_VREF_MON": {"U8.8", "R36.2", "C29.1"},
-    "ADC_AFE_VOUT": {"U8.9", "R33.2", "C28.1", "R39.1"},
-    # Cell bias telemetry replaced the two rail monitors on the ADS1119, and both
-    # legs must stay matched -- see gen_sch.py verify().
-    "ADC_WE_BUF": {"U8.5", "R37.2", "C30.1"},
-    "ADC_RE_BUF": {"U8.4", "R38.2", "C31.1"},
+    # REV B 2026-09-12: VREF_TRIM is now the REF3425 output itself (force and
+    # sense both land on it), not the far side of R31.
+    # REV B 2026-09-12: the ADS1119 (U8) is DELETED and every analog channel
+    # converts on the MCU's own SAR.  U6.16 (PA5) joining this net IS the
+    # decision -- VREF_TRIM is measured DIRECTLY, with no divider, so R34/R35 and
+    # the /VREF_MON_RAW and /ADC_VREF_MON nets are gone.  An exact set, so
+    # re-adding a divider leg here fails this audit rather than passing quietly.
+    "VREF_TRIM": {"U15.5", "U15.6", "C10.1", "U7.11", "TP4.1", "U6.5", "C26.1"},
+    "ADC_AFE_VOUT": {"U6.20", "R33.2", "C28.1", "R39.1"},
+    # Cell bias telemetry, now on PA0/PA1 -- adjacent FT_a pins, matched legs.
+    "ADC_WE_BUF": {"U6.11", "R37.2", "C30.1"},
+    "ADC_RE_BUF": {"U6.12", "R38.2", "C31.1"},
     # Electrometer followers. The cell electrodes reach the ADC only through
-    # these buffers; a direct ADS1119 tap on CELL_RE is the failure this guards.
+    # these buffers; a direct ADC tap on CELL_RE is the failure this guards.
     "WE_BUF": {"U4.1", "U4.2", "R37.1"},
     "RE_BUF": {"U4.6", "U4.7", "R38.1", "R40.1"},
     "GUARD_REPLICA": {"R40.2", "TP5.1"},
@@ -125,12 +130,43 @@ required = {
     # Main-board heaters remain; the optional Rev C ring branch is absent.
     "+12V_SW": {"RH1.1", "RH2.1"},
     "HEATER_LOW": {"Q2.3", "RH1.2", "RH2.2"},
-    # AZ431 two-terminal shunt: REF (pin 1) strapped to the cathode (pin 2).
-    # If the pin-number remap in gen_sch.py ever fails to apply, the exported
-    # netlist lands the TI numbering here and this check fires.
-    "VREF_SHUNT": {"U15.1", "U15.2", "R41.2", "C9.1", "R31.1"},
-    "+5V_ANALOG": {"R32.2", "C7.1", "C27.1", "U3.1", "U3.3"},
+    # REV B 2026-09-12, Path A: no 5 V rail, no LDOs, no shunt. The buck feeds
+    # 3V3D directly; the AFE hangs off it through R32; the reference is its own
+    # part. REF3425 is KELVIN-sensed, so GND_F/GND_S and OUT_F/OUT_S must BOTH
+    # land -- a wiring slip that drops the sense leg would otherwise pass.
+    "3V3D": {"U1.1", "L1.2", "C3.1", "C4.1", "R32.1", "U15.3", "U15.4"},
+    "3V3A": {"R32.2", "C7.1", "C8.1"},
+    "BUCK_SW": {"U1.5", "L1.1", "C2.2"},
+    "BUCK_BST": {"U1.6", "C2.1"},
 }
+# EVERY pin the generator assigned must actually appear on that net in the
+# EXPORTED netlist. The table below only checks the nets someone thought to
+# list, which is why four bypass capacitors sat with their ground pins floating
+# on 2026-09-12: ERC passed (their neighbours drove the net), this audit passed
+# (no GND row), and only a pin-by-pin comparison found them.
+import importlib.util as _il, io as _io, contextlib as _cl, sys as _sys
+_spec = _il.spec_from_file_location("_gs", str(Path(__file__).with_name("gen_sch.py")))
+_gs = _il.module_from_spec(_spec)
+_argv, _sys.argv = _sys.argv, ["gen_sch.py"]
+with _cl.redirect_stdout(_io.StringIO()):
+    try:
+        _spec.loader.exec_module(_gs)
+    except SystemExit:
+        pass
+_sys.argv = _argv
+_floating = []
+for (_r, _p), _n in _gs.ASSIGNED.items():
+    if _r.startswith("#") or _n == "(NC)":
+        continue
+    # nets maps net -> {"REF.PIN"} strings, not tuples. The first version of
+    # this check compared tuples and "found" all 253 pins floating: a guard
+    # reporting its own model again. Calibrate against a KNOWN-GOOD pin before
+    # trusting a guard that suddenly fails everything.
+    if f"{_r}.{_p}" not in nets.get(_n, set()):
+        _floating.append(f"{_r}.{_p} should be on {_n}")
+errors.extend(f"not connected in the exported netlist: {_f}"
+              for _f in sorted(_floating))
+
 for name, wanted in required.items():
     actual = nets.get(name, set())
     missing = sorted(wanted - actual)
@@ -143,8 +179,13 @@ expected_mcu_pin_nets = {
     "U6.30": "RS485_DE",
     "U6.31": "RS485_RE",   # PC7, DS12232 Rev 1 Table 12 LQFP48 column
     "U6.15": "CE_MON",
-    "U6.11": "unconnected-(U6-PA0-Pad11)",
-    "U6.12": "unconnected-(U6-PA1-Pad12)",
+    "U6.11": "ADC_WE_BUF",   # PA0 / ADC_IN0, FT_a
+    "U6.12": "ADC_RE_BUF",   # PA1 / ADC_IN1, FT_a
+    # ADOPTED 2026-09-12: VREF+ is the REF3425, and PA5 went back to the pool
+    # because converting the reference against itself saturates at 4095.
+    "U6.5":  "VREF_TRIM",    # VREF+ -- the ADC full scale. NOT 3V3D.
+    "U6.16": "unconnected-(U6-PA5-Pad16)",
+    "U6.20": "ADC_AFE_VOUT", # PB1 / ADC_IN9, FT_a -- freed by deleting ADC_DRDY
 }
 for node, expected_net in expected_mcu_pin_nets.items():
     if pin_to_net.get(node) != expected_net:

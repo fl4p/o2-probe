@@ -33,9 +33,16 @@ OUT = FW / "src" / "hw_contract.h"
 # Nets the firmware actually touches. A pin appearing in MCU_NETS but not here
 # is emitted anyway (the contract is the whole map); this list only names the
 # ones board_pins.h is required to bind.
+# 2026-09-12: ADC_DRDY LEFT this set because the ADS1119 left the schematic
+# (docs/2026-09-12-revb-decision-delete-ads1119.md). The four analog channels it
+# used to carry arrive here instead, and they are REQUIRED rather than merely
+# emitted so that board_pins.h has to bind each one to a pin the schematic
+# actually assigns - the ADC channel a conversion reads is exactly the kind of
+# number that is wrong silently.
 REQUIRED_NETS = {
-    "VA_MON", "VIN_MON", "CE_MON", "AFE_MENB", "ADC_DRDY", "HEATER_PWM",
+    "VA_MON", "VIN_MON", "CE_MON", "AFE_MENB", "HEATER_PWM",
     "RS485_TX", "RS485_RX", "RS485_DE", "RS485_RE", "I2C_SCL", "I2C_SDA",
+    "ADC_WE_BUF", "ADC_RE_BUF", "ADC_AFE_VOUT", "VREF_TRIM",
 }
 
 
@@ -99,8 +106,10 @@ def build(g) -> str:
     r26, r27 = val("R26"), val("R27")
     # MCU ADC1_IN7 (PA7): 3V3A through R24 / R25.  Also moved off the ADS1119.
     r24, r25 = val("R24"), val("R25")
-    # ADS1119 AIN1: VREF_TRIM through R34 / R35.
-    r34, r35 = val("R34"), val("R35")
+    # The VREF monitor's scale factor USED to be derived here, from R34/R35.
+    # It moved to hw_caps_rev_*.h on 2026-09-12, when Rev B deleted that divider
+    # and measured /VREF_TRIM directly: a scale factor for a FABRICATED board
+    # must not follow the drawing. See O2P_HW_DIV_VREF_MON_* there.
     # MCU ADC1_IN4 (PA4): the LMP91000's CE DRIVE PIN through R43 / R44.  Not the
     # electrode -- SNAS506 6.5 bounds A1's drive at the device pin, so the pin is
     # the node whose compliance can be exceeded.  100k/100k rather than the 10k
@@ -148,13 +157,15 @@ def build(g) -> str:
     r28, r29 = val("R28"), val("R29")
 
     # --- strapping that fixes the I2C addresses ---------------------------
-    straps = {
-        "ADS1119 A0 (U8.2)": net_of("U8", 2),
-        "ADS1119 A1 (U8.3)": net_of("U8", 3),
-        "TMP117 ADD0 (U10.5)": net_of("U10", 5),
-    }
-    if straps["ADS1119 A0 (U8.2)"] != "GND" or straps["ADS1119 A1 (U8.3)"] != "GND":
-        raise SystemExit(f"ADS1119 address strapping moved: {straps}")
+    # U8, the ADS1119, left the schematic on 2026-09-12, and with it its address
+    # straps. Checked by PRESENCE rather than dropped: if a future revision puts
+    # an ADS back, its strapping must be re-checked, not inherited silently.
+    straps = {"TMP117 ADD0 (U10.5)": net_of("U10", 5)}
+    if ("U8", "2") in assigned:
+        straps["ADS1119 A0 (U8.2)"] = net_of("U8", 2)
+        straps["ADS1119 A1 (U8.3)"] = net_of("U8", 3)
+        if straps["ADS1119 A0 (U8.2)"] != "GND" or straps["ADS1119 A1 (U8.3)"] != "GND":
+            raise SystemExit(f"ADS1119 address strapping moved: {straps}")
     if straps["TMP117 ADD0 (U10.5)"] != "3V3D":
         raise SystemExit(f"TMP117 ADD0 strapping moved: {straps}")
 
@@ -188,9 +199,6 @@ def build(g) -> str:
     a("/* MCU ADC1_IN7 (PA7) <- 3V3A: R24 %g / R25 %g */" % (r24, r25))
     a(f"#define O2P_HW_DIV_VA_NUM    {r25:.0f}")
     a(f"#define O2P_HW_DIV_VA_DEN    {r24 + r25:.0f}")
-    a("/* ADS1119 AIN1 <- VREF_TRIM: R34 %g / R35 %g */" % (r34, r35))
-    a(f"#define O2P_HW_DIV_VREF_NUM  {r35:.0f}")
-    a(f"#define O2P_HW_DIV_VREF_DEN  {r34 + r35:.0f}")
     a("/* MCU ADC1_IN4 (PA4) <- CELL_CE_DRV (U7 pin 14): R43 %g / R44 %g */" % (r43, r44))
     a(f"#define O2P_HW_DIV_CE_NUM    {r44:.0f}")
     a(f"#define O2P_HW_DIV_CE_DEN    {r43 + r44:.0f}")

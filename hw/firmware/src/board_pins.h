@@ -10,14 +10,19 @@
 #ifndef O2P_BOARD_PINS_H
 #define O2P_BOARD_PINS_H
 
+#include "hw_caps.h"      /* O2P_HW_HAS_ADS1119 - the ADS block is gated on it */
 #include "hw_contract.h"
 
 /* --- LQFP-48 package pin -> port, for every pin this firmware binds -------
  * From ST DS12232 Table "Pin definitions", LQFP48 column. Kept as macros so
  * the static assertions below can compare against the generated contract.
  */
+#define O2P_LQFP48_VREFP  5   /* not a GPIO: the ADC's reference input */
+#define O2P_LQFP48_PA0   11
+#define O2P_LQFP48_PA1   12
 #define O2P_LQFP48_PA2   13
 #define O2P_LQFP48_PA3   14
+#define O2P_LQFP48_PA5   16
 #define O2P_LQFP48_PA6   17
 #define O2P_LQFP48_PA7   18
 #define O2P_LQFP48_PB0   19
@@ -121,9 +126,17 @@
 
 /* ADS1119 DRDY, open-drain, R19 (10k) pull-up. Falls when a conversion is
  * ready. There is no GPIO on the ADS1119 RESET pin - R18 holds it released and
- * recovery must go through the I2C RESET command. */
+ * recovery must go through the I2C RESET command.
+ *
+ * REV B DELETED THE ADS1119, and PB1 is now the AFE_VOUT ANALOG INPUT. Driving
+ * it as a GPIO would configure the oxygen channel's own pin, so this block is
+ * gated rather than left standing: on a board with no ADS1119 the symbols do
+ * not exist and ads1119.c refuses to compile, instead of quietly reading DRDY
+ * off an analog pin that is never going to fall. */
+#if O2P_HW_HAS_ADS1119
 #define O2P_ADC_DRDY_PORT     GPIOB
 #define O2P_ADC_DRDY_PIN      1u
+#endif
 
 /* Membrane-ring heater. PA8 is TIM1_CH1 on AF2.
  *
@@ -178,7 +191,19 @@ O2P_ASSERT_NET(RS485_RE,   O2P_LQFP48_PC7);
 O2P_ASSERT_NET(I2C_SCL,    O2P_LQFP48_PB6);
 O2P_ASSERT_NET(I2C_SDA,    O2P_LQFP48_PB7);
 O2P_ASSERT_NET(AFE_MENB,   O2P_LQFP48_PB0);
-O2P_ASSERT_NET(ADC_DRDY,   O2P_LQFP48_PB1);
+/* The four analog channels the ADS1119 used to carry (2026-09-12). The net
+ * names are asserted against the SCHEMATIC's pin map, so moving one of these
+ * channels in gen_sch.py without moving mcu_adc.c breaks the build. Structure
+ * matters here and is recorded where it is enforced: PA0/PA1 are the matched
+ * FT_a pair carrying WE/RE, PA5 is the undivided /VREF_TRIM. */
+O2P_ASSERT_NET(ADC_WE_BUF,   O2P_LQFP48_PA0);
+O2P_ASSERT_NET(ADC_RE_BUF,   O2P_LQFP48_PA1);
+/* ADOPTED 2026-09-12: /VREF_TRIM lands on VREF+ (pin 5), not on a channel. This
+ * assertion is the firmware-side lock on the architecture -- if the schematic
+ * ever puts pin 5 back on 3V3D, VDDA re-enters the oxygen derivation at
+ * 0.718 mV/mV and the build stops instead of the readings quietly drifting. */
+O2P_ASSERT_NET(VREF_TRIM,    O2P_LQFP48_VREFP);
+O2P_ASSERT_NET(ADC_AFE_VOUT, O2P_LQFP48_PB1);
 O2P_ASSERT_NET(HEATER_PWM, O2P_LQFP48_PA8);
 O2P_ASSERT_NET(VA_MON,     O2P_LQFP48_PA7);
 O2P_ASSERT_NET(VIN_MON,    O2P_LQFP48_PA6);

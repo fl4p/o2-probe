@@ -43,7 +43,26 @@ KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
   becoming the same 1206 part as C1);
   a bead is not the default because its low-frequency inductance can resonate
   near the ADS1119 256 kHz modulator frequency.
-- The O2 signal chain is SGX three-electrode cell -> LMP91000 -> ADS1119. U15,
+- **REV B 2026-09-12: the ADS1119 is DELETED.** The O2 signal chain is SGX
+  three-electrode cell -> LMP91000 -> **the STM32G071's own 12-bit SAR**.
+  `/AFE_VOUT` lands on PB1, `/WE_BUF` and `/RE_BUF` on the matched FT_a pair
+  PA0/PA1 — R34/R35/R36/C29 went with it.
+  **`VREF+` (pin 5) is driven from `/VREF_TRIM`, the REF3425 — not 3V3D**, so
+  the ADC's full scale is the 2.500 V reference and VDDA, which since Path A is
+  a *buck* output with no LDO, disappears from the oxygen derivation entirely.
+  With `VREF+` on VDDA the three conversions happen at different times on a rail
+  that moves, coupling 0.718 mV/mV at zero oxygen; this is not a reduction of
+  that term, it removes it. **PA5 returns to the pool** — converting the
+  reference against itself saturates at 4095. Reference health is `VREFINT`
+  against the 2.5 V full scale, which is a **collapse detector, not a drift
+  monitor**. `R25` is 27k (not 47k) to rescale `VA_MON`; `C26` is the 100 nF
+  local to pin 5; `D8` clamps PA6 against negative injection.
+  Binding spec: the "Final specification as adopted" section at the foot of
+  `docs/2026-09-12-revb-decision-delete-ads1119.md`.
+  **No Rev B firmware exists for this yet** — `ads1119.c` `#error`s on Rev B and
+  `o2probe_revb` is out of `default_envs` until the sampler is ported.
+  The Rev A text below describes the board on the bench and stays.
+- The Rev A O2 signal chain is SGX three-electrode cell -> LMP91000 -> ADS1119. U15,
   an **AZ431B wired as a two-terminal 2.5 V shunt** (REF strapped to the
   cathode), establishes `VREF_SHUNT`, and R31 feeds `VREF_TRIM` from it; that
   net keeps its name only because firmware keys off it, and **there is no
@@ -82,7 +101,8 @@ KiCad ERC 0 violations, and `schematic-audit.rpt` PASS.
   max IRE (SNAS518, −40..80 °C), so the OPA333's ±200 pA max at 25 °C raises the
   worst case by about 20 %, where an ADA4530-1 at 20 fA would leave it at 900 pA.
 - ADS1119 AIN2/AIN3 are wired to `WE_BUF`/`RE_BUF` for a **differential** cell-bias
-  reading. **This is specified but NOT IMPLEMENTED — nothing reads AIN2 or AIN3
+  reading (Rev A; on Rev B this is PA0/PA1, single-ended against VDDA, where the
+  -600 mV pedestal is subtracted in firmware rather than in hardware). **This is specified but NOT IMPLEMENTED — nothing reads AIN2 or AIN3
   today.** Until 2026-09-05 firmware sampled AIN3 single-ended and reported it as
   the input rail; that is fixed, and what remains is that the bias telemetry the
   next sentence describes has no code behind it.
@@ -706,6 +726,39 @@ check is not hypothetical.
   by measuring the `+5V_ANALOG` spectrum around 256 kHz, 1.1 MHz, and PFM burst
   components, plus ADS1119 mean/offset at heater 0%, intermediate, and 100%
   duty. Do not qualify this filter using RMS noise alone.
+- **REV B SUPPLY, 2026-09-12, REVISED after a codex xhigh review the same day.**
+  The recommendation is **Path A**: buck to 3.3 V, delete BOTH LDOs, and add a TI
+  **REF3425** as the REFERENCE ONLY, with the AFE supply taken off the 3.3 V rail
+  through R32/C7 (-8 parts, 91 -> 83). **The earlier variant that made a 2.500 V
+  rail both the analog supply and VREF is DEAD: SNAS506I gives the LMP91000's
+  supply range as 2.7-5.25 V**, and `faults.h:76`'s `O2P_VA_LOW_MV` = 3130 would
+  trip continuously below it. Path A needs no CE measurement, because it does not
+  lower VS. The remaining gate is a NOISE QUALIFICATION of the 3.3 V analog rail
+  under RS-485 traffic, heater duty and sampling phase, measuring MEAN ERROR as
+  well as noise. Note `gen_sch.py:808` already records that SNAS506I 6.5's
+  `0.3..VS-0.3 V` window is an open-loop-gain characterisation condition, NOT a
+  compliance ceiling - an earlier draft of this bullet got that wrong. Superseded
+  text and the full finding list are in
+  `docs/2026-09-12-revb-single-rail-supply.md` section 8. The old gate read: The
+  proposal collapses 12 V -> 5 V -> 3V3D/3V3A into one 3.3 V buck plus one
+  2.500 V LDO that is BOTH the analog supply and `VREF_TRIM` (-8 parts, no
+  firmware change). Merging them forces `V_S = V_REF`, and SNAS506 6.5
+  characterises A1 only over `300 mV <= V_CE <= V_S - 300 mV`, so the CE ceiling
+  falls from 3.00 V to 2.20 V. `REVIEW-2026-09-04-AFE-DECISIONS.md:33` records
+  the real-cell CE potential as never measured, and no `CE_MV` reading from a
+  real cell exists anywhere in this repo (searched 2026-09-12). The measurement
+  is on the MCU ADC (`CE_MON`, U6 pin 15), so the ADS1119 damage does not block
+  it, but the open `VREF_TRIM` net does. Separately: any LDO used as the
+  reference must be <= 1 % total tolerance, because the bias error is exactly
+  600 mV x that tolerance against DS-0637's +/-10 mV window - which disqualifies
+  the TPS7A20 already on the board at +/-1.5 %, and TPS7A21 and TPS7A02 with it.
+  The selected part is instead a SERIES REFERENCE carrying the analog rail: TI
+  **REF3425**, SOT-23-6, +/-0.05 % initial, 6 ppm/C max, 95 uA Iq against the
+  AZ431's 2.5 mA, 10 mA output, stable into C10's existing 4.7 uF (LCSC C187836,
+  8012 in stock 2026-09-12). Tie its EN to V_IN - gating this rail drops the cell
+  bias. Full analysis, including the shortlist, the fallback and the rejected
+  alternatives, in
+  `docs/2026-09-12-revb-single-rail-supply.md`.
 - ~~J2 may become a sealed pad field if the Micro-Fit swept envelope does not
   fit the actual tube.~~ **Closed by deletion, 2026-09-05** — the swept-envelope
   question cannot be asked of a connector that is not there. A future revision

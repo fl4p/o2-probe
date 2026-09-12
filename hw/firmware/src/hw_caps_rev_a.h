@@ -6,6 +6,16 @@
 #ifndef O2P_HW_CAPS_REV_A_H
 #define O2P_HW_CAPS_REV_A_H
 
+/* ---- Is there an ADS1119 on this revision? ----
+ *
+ * Rev B deletes U8 and converts every analog channel on the STM32G071's
+ * own SAR. When 0, the O2P_HW_ADC_AIN*_NET macros DO NOT EXIST - a
+ * #ifdef on them is a compile error rather than a silent zero, which is
+ * the point: code that reads an ADS channel on a board with no ADS
+ * should fail to build, not fail at 3 a.m. in a windrow.
+ */
+#define O2P_HW_HAS_ADS1119 1
+
 /* ---- ADS1119 single-ended inputs, as this revision actually wires them ---- */
 #define O2P_HW_ADC_AIN0_NET "/ADC_AFE_VOUT"
 #define O2P_HW_ADC_AIN1_NET "/ADC_VREF_MON"
@@ -14,7 +24,9 @@
 
 /* ---- Is the cell bias measurable on this board? ----
  *
- * 1 only when AIN2/AIN3 are NAMED as the WE/RE electrode buffers.
+ * 1 only when the two channels the firmware reads for WE and RE are
+ * NAMED as the electrode buffers - ADS AIN2/AIN3 on Rev A, MCU PA0/PA1
+ * on Rev B.
  *
  * WHAT THIS DOES NOT PROVE, because a reviewer asked and the honest
  * answer is 'less than it looks': this matches NET NAMES. It does not
@@ -31,14 +43,14 @@
  * third state, BIAS_UNKNOWN, is what it gets. Calibration stays gated
  * either way, because bias_verified_recently() refuses UNKNOWN.
  *
- * This revision: AIN2 = /ADC_VA_MON, AIN3 = /ADC_VIN_MON.
+ * This revision: WE channel = /ADC_VA_MON, RE channel = /ADC_VIN_MON.
  */
 #define O2P_HW_BIAS_ADC_REACHES_ELECTRODES 0
 
 /* ---- Reference topology, for diagnosis only ----
  *
  * AFE reference pin U7.11 -> /VREF_TRIM
- * ADS reference pin U8.7  -> /VREF_TRIM
+ * converter reference U8.7 (ADS REFP) -> /VREF_TRIM
  *
  * SHARING A NET IS NOT OBSERVABILITY. Even when these are the same
  * node, no converter on the board can see an OPEN SOLDER JOINT at
@@ -84,12 +96,49 @@
 #define O2P_HW_RS485_RE_PASSIVE_PULLDOWN 0
 
 /* ---- MCU ADC pin connectivity ---- */
+#define O2P_HW_MCU_PA0_NET "unconnected-(U6-PA0-Pad11)"
+#define O2P_HW_MCU_PA1_NET "unconnected-(U6-PA1-Pad12)"
 #define O2P_HW_MCU_PA4_NET "unconnected-(U6-PA4-Pad15)"
+#define O2P_HW_MCU_PA5_NET "unconnected-(U6-PA5-Pad16)"
 #define O2P_HW_MCU_PA6_NET "unconnected-(U6-PA6-Pad17)"
+#define O2P_HW_MCU_PB1_NET "/ADC_DRDY"
+/* The oxygen channel itself. 0 with O2P_HW_HAS_ADS1119 also 0 means this
+ * board cannot measure oxygen at all. */
+#define O2P_HW_AFE_VOUT_ON_MCU 0
+/* ---- Is the ADC's full scale the 2.500 V reference, or VDDA? ----
+ *
+ * The architecture fact, from ONE pad: the MCU's VREF+ pin.
+ * This revision: U6.5 -> /3V3D
+ *
+ * When 1, the oxygen equation has NO code_REF term and V_REF is a
+ * COMPILE-TIME CONSTANT (O2P_HW_VREF_MV):
+ *     I = V_REF x (0.67 - code_AFE / 4095) / R_TIA
+ * The three-conversion form is the VDDA-architecture equation. Porting it
+ * here would read a channel that saturates at 4095, leaving 0.06 %O2 of
+ * zero error at EG = -5 LSB that no air-point calibration removes.
+ */
+#define O2P_HW_VREF_IS_ADC_REFERENCE 0
 #define O2P_HW_CE_MON_CONNECTED 0
 #define O2P_HW_VIN_MON_ON_MCU 0
 #define O2P_HW_VIN_MON_ON_ADS 1
 #define O2P_HW_VA_MON_ON_ADS 1
+
+/* ---- VREF monitor scaling, PER REVISION ----
+ *
+ * This used to come from hw_contract.h (O2P_HW_DIV_VREF_*), derived from
+ * R34/R35 in the LIVE schematic. That was a landmine: deleting R34/R35 for
+ * Rev B on 2026-09-12 would have made the contract say 1:1 and the Rev A
+ * bench board - which really does read a 47k/47k HALVED copy on ADS AIN1 -
+ * report 1250 mV instead of 2500 and trip its own VREF gate. Same shape as
+ * the 2026-09-09 channel-map failure, so it belongs on the same side of the
+ * split: a fabricated board's scale factor is a property of the COPPER.
+ *
+ * Rev A: R34/R35, 47k/47k -> multiply the reading by 2.
+ * Rev B: /VREF_TRIM straight onto PA5, no divider -> multiply by 1.
+ */
+/* Rev A: the reference is a MEASURED channel and VDDA is the full scale. */
+#define O2P_HW_DIV_VREF_MON_NUM 47000u
+#define O2P_HW_DIV_VREF_MON_DEN 94000u
 
 /* ---- ADS1119 rail divider scaling (Rev A: R24/R25 10k/10k, R26/R27 130k/20k) ---- */
 #define O2P_HW_DIV_VA_ADS_NUM   10000u

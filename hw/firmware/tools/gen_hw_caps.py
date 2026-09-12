@@ -113,7 +113,9 @@ def load_rev_b_pads():
     # gen_sch's ASSIGNED is {(ref, pad): net} with unprefixed net names; the
     # board file prefixes with "/". Normalise onto the board spelling so one
     # derivation can read both.
-    return {k: ("/" + v if not v.startswith("/") else v)
+    # "(NC)" is gen_sch's marker for an explicit no-connect, not a net name.
+    # Prefixing it produced "/(NC)", which reads like a net called NC.
+    return {k: v if (v.startswith("/") or v == "(NC)") else "/" + v
             for k, v in mod.ASSIGNED.items()}
 
 
@@ -154,11 +156,43 @@ def _required(pads: dict, ref: str, pin, why: str) -> str:
 
 def derive(pads: dict, rev: str) -> dict:
     """The capability predicates. Mechanical, from pads alone."""
-    ain = {}
-    for pad, n in ADS_AIN_PADS.items():
-        ain[n] = _required(pads, "U8", pad, f"O2P_HW_ADC_AIN{n}_NET")
+    # DOES THIS REVISION HAVE THE ADS1119 AT ALL?
+    #
+    # Rev B deletes U8 (docs/2026-09-12-revb-decision-delete-ads1119.md) after
+    # three of its four analog inputs died on the Rev A bench board. PRESENCE is
+    # the question, so this is one of the two predicates that reads a missing
+    # part as an answer rather than as a failure - see the R45 note below for
+    # why that is safe here and not in general: the negative ("no ADS") is not a
+    # capability, it REMOVES capabilities, so a netlist that failed to load
+    # cannot manufacture a permission out of this.
+    #
+    # Everything derived from a U8 pad is now inside this branch, and _required()
+    # still guards every one of them, so a Rev A netlist that loses a U8 pad
+    # still stops the run rather than reporting a Rev-B-shaped board.
+    has_ads = any(ref == "U8" for ref, _pad in pads)
 
-    bias_ok = (ain[2] in ELECTRODE_WE_NETS) and (ain[3] in ELECTRODE_RE_NETS)
+    ain = {}
+    if has_ads:
+        for pad, n in ADS_AIN_PADS.items():
+            ain[n] = _required(pads, "U8", pad, f"O2P_HW_ADC_AIN{n}_NET")
+
+    # The MCU's own analog pins. These exist on BOTH revisions - on Rev A they
+    # read "unconnected-(U6-PA0-Pad11)" and so answer the capability questions
+    # below with an honest no - which is why they are _required() unconditionally
+    # and the ADS pads are not.
+    pa0_net = _required(pads, "U6", 11, "O2P_HW_MCU_PA0_NET")
+    pa1_net = _required(pads, "U6", 12, "O2P_HW_MCU_PA1_NET")
+    pa5_net = _required(pads, "U6", 16, "O2P_HW_MCU_PA5_NET")
+    pb1_net = _required(pads, "U6", 20, "O2P_HW_MCU_PB1_NET")
+
+    # WHICH CONVERTER CARRIES THE CELL? The predicate is unchanged in meaning -
+    # "are the electrode buffers named on the channels the firmware reads" - and
+    # only the pads it reads move with the revision.
+    if has_ads:
+        we_chan, re_chan = ain[2], ain[3]
+    else:
+        we_chan, re_chan = pa0_net, pa1_net
+    bias_ok = (we_chan in ELECTRODE_WE_NETS) and (re_chan in ELECTRODE_RE_NETS)
 
     # Does the board's VREF monitor share a NET with the AFE's reference pin?
     # Note carefully what this can and cannot tell you: sharing a net means the
@@ -167,8 +201,25 @@ def derive(pads: dict, rev: str) -> dict:
     # attached to it. That is exactly what happened on 2026-09-09 - `vref` read
     # 2490 mV while the chip's internal zero was 0 - and it is why "monitor the
     # reference harder" is not the fix. Emitted for diagnosis, not for trust.
+    vrefp_net = _required(pads, "U6", 5, "O2P_HW_VREF_IS_ADC_REFERENCE")
+    vref_is_adc_reference = vrefp_net == "/VREF_TRIM"
     afe_ref = _required(pads, "U7", 11, "O2P_HW_VREF_NET_SHARED_WITH_AFE")
-    ads_ref = _required(pads, "U8", 7, "O2P_HW_VREF_NET_SHARED_WITH_AFE")
+    # The converter's REFERENCE AUTHORITY - the node its full scale is referred
+    # to on Rev A (the ADS1119's REFP), and the node it MEASURES on Rev B, where
+    # the MCU's full scale is VDDA and the reference is cancelled arithmetically
+    # instead. Different mechanisms, same question: is the converter's notion of
+    # 2.5 V the same electrical node as the AFE's VREF pin?
+    if has_ads:
+        conv_ref = _required(pads, "U8", 7, "O2P_HW_VREF_NET_SHARED_WITH_AFE")
+        conv_ref_pad = "U8.7 (ADS REFP)"
+    else:
+        # The MCU's VREF+ pin, NOT a measured channel. An earlier version read
+        # PA5 here, which was right only while the reference was converted on a
+        # channel; once VREF+ became the reference, PA5 went to (NC) and this
+        # capability inverted to 0 while the answer was emphatically yes. Caught
+        # by reading the emitted header rather than trusting the restructure.
+        conv_ref = vrefp_net
+        conv_ref_pad = "U6.5 (VREF+)"
 
     pa4_net = _required(pads, "U6", 15, "the CE-on-MCU capability")
     pa6_net = _required(pads, "U6", 17, "the VIN-on-MCU capability")
@@ -206,6 +257,19 @@ def derive(pads: dict, rev: str) -> dict:
                    pads.get(("R45", "2")) == "/GND" and
                    re_split)
 
+    # Rev B moves these three onto the MCU. AFE_VOUT is the oxygen channel
+    # itself, so a revision that has neither it on the MCU nor an ADS1119 can
+    # measure no oxygen at all - which is a thing the firmware should be able to
+    # ask, not discover.
+    afe_vout_on_mcu = pb1_net in {"/ADC_AFE_VOUT", "/AFE_VOUT"}
+    # IS THE ADC'S FULL SCALE THE 2.500 V REFERENCE, or is it VDDA?
+    #
+    # This is the single fact the 2026-09-12 architecture turns on, and it is a
+    # property of ONE PAD: the MCU's VREF+ pin. Rev A ties it to VDDA and must
+    # therefore measure the reference on a channel and carry VDDA in every
+    # conversion; Rev B drives it from /VREF_TRIM, and VDDA disappears from the
+    # oxygen derivation entirely.
+
     ce_connected = pa4_net in {"/CE_MON", "/ADC_CE_MON"}
     vin_on_mcu = pa6_net in {"/VIN_MON", "/ADC_VIN_MON"}
     vin_on_ads = ain.get(3) in {"/ADC_VIN_MON", "/VIN_MON"}
@@ -213,11 +277,25 @@ def derive(pads: dict, rev: str) -> dict:
 
     return {
         "rev": rev,
+        "has_ads": has_ads,
         "ain": ain,
+        "pa0_net": pa0_net,
+        "pa1_net": pa1_net,
+        "pa5_net": pa5_net,
+        "pb1_net": pb1_net,
+        "we_chan": we_chan,
+        "re_chan": re_chan,
+        "conv_ref_pad": conv_ref_pad,
+        "afe_vout_on_mcu": afe_vout_on_mcu,
+        "vrefp_net": vrefp_net,
+        # The REF3425's nominal output. A constant of the PART, not of the
+        # netlist, so it is stated here rather than derived from pads.
+        "vref_mv": 2500,
+        "vref_is_adc_reference": vref_is_adc_reference,
         "bias_ok": bias_ok,
         "afe_ref_net": afe_ref,
-        "ads_ref_net": ads_ref,
-        "ref_shared": afe_ref == ads_ref,
+        "conv_ref_net": conv_ref,
+        "ref_shared": afe_ref == conv_ref,
         "pa4_net": pa4_net,
         "pa6_net": pa6_net,
         "re_net": re_net,
@@ -246,13 +324,26 @@ def emit(d: dict) -> str:
     a(f"#ifndef {guard}")
     a(f"#define {guard}")
     a("")
-    a("/* ---- ADS1119 single-ended inputs, as this revision actually wires them ---- */")
-    for n in sorted(d["ain"]):
-        a(f'#define O2P_HW_ADC_AIN{n}_NET "{d["ain"][n]}"')
+    a("/* ---- Is there an ADS1119 on this revision? ----")
+    a(" *")
+    a(" * Rev B deletes U8 and converts every analog channel on the STM32G071's")
+    a(" * own SAR. When 0, the O2P_HW_ADC_AIN*_NET macros DO NOT EXIST - a")
+    a(" * #ifdef on them is a compile error rather than a silent zero, which is")
+    a(" * the point: code that reads an ADS channel on a board with no ADS")
+    a(" * should fail to build, not fail at 3 a.m. in a windrow.")
+    a(" */")
+    a(f"#define O2P_HW_HAS_ADS1119 {1 if d['has_ads'] else 0}")
     a("")
+    if d["has_ads"]:
+        a("/* ---- ADS1119 single-ended inputs, as this revision actually wires them ---- */")
+        for n in sorted(d["ain"]):
+            a(f'#define O2P_HW_ADC_AIN{n}_NET "{d["ain"][n]}"')
+        a("")
     a("/* ---- Is the cell bias measurable on this board? ----")
     a(" *")
-    a(" * 1 only when AIN2/AIN3 are NAMED as the WE/RE electrode buffers.")
+    a(" * 1 only when the two channels the firmware reads for WE and RE are")
+    a(" * NAMED as the electrode buffers - ADS AIN2/AIN3 on Rev A, MCU PA0/PA1")
+    a(" * on Rev B.")
     a(" *")
     a(" * WHAT THIS DOES NOT PROVE, because a reviewer asked and the honest")
     a(" * answer is 'less than it looks': this matches NET NAMES. It does not")
@@ -269,14 +360,14 @@ def emit(d: dict) -> str:
     a(" * third state, BIAS_UNKNOWN, is what it gets. Calibration stays gated")
     a(" * either way, because bias_verified_recently() refuses UNKNOWN.")
     a(" *")
-    a(f" * This revision: AIN2 = {d['ain'][2]}, AIN3 = {d['ain'][3]}.")
+    a(f" * This revision: WE channel = {d['we_chan']}, RE channel = {d['re_chan']}.")
     a(" */")
     a(f"#define O2P_HW_BIAS_ADC_REACHES_ELECTRODES {1 if d['bias_ok'] else 0}")
     a("")
     a("/* ---- Reference topology, for diagnosis only ----")
     a(" *")
     a(f" * AFE reference pin U7.11 -> {d['afe_ref_net']}")
-    a(f" * ADS reference pin U8.7  -> {d['ads_ref_net']}")
+    a(f" * converter reference {d['conv_ref_pad']} -> {d['conv_ref_net']}")
     a(" *")
     a(" * SHARING A NET IS NOT OBSERVABILITY. Even when these are the same")
     a(" * node, no converter on the board can see an OPEN SOLDER JOINT at")
@@ -322,12 +413,58 @@ def emit(d: dict) -> str:
     a(f"#define O2P_HW_RS485_RE_PASSIVE_PULLDOWN {1 if d['re_pulldown'] else 0}")
     a("")
     a("/* ---- MCU ADC pin connectivity ---- */")
+    a(f'#define O2P_HW_MCU_PA0_NET "{d["pa0_net"]}"')
+    a(f'#define O2P_HW_MCU_PA1_NET "{d["pa1_net"]}"')
     a(f'#define O2P_HW_MCU_PA4_NET "{d["pa4_net"]}"')
+    a(f'#define O2P_HW_MCU_PA5_NET "{d["pa5_net"]}"')
     a(f'#define O2P_HW_MCU_PA6_NET "{d["pa6_net"]}"')
+    a(f'#define O2P_HW_MCU_PB1_NET "{d["pb1_net"]}"')
+    a("/* The oxygen channel itself. 0 with O2P_HW_HAS_ADS1119 also 0 means this")
+    a(" * board cannot measure oxygen at all. */")
+    a(f"#define O2P_HW_AFE_VOUT_ON_MCU {1 if d['afe_vout_on_mcu'] else 0}")
+    a("/* ---- Is the ADC's full scale the 2.500 V reference, or VDDA? ----")
+    a(" *")
+    a(" * The architecture fact, from ONE pad: the MCU's VREF+ pin.")
+    a(f" * This revision: U6.5 -> {d['vrefp_net']}")
+    a(" *")
+    a(" * When 1, the oxygen equation has NO code_REF term and V_REF is a")
+    a(" * COMPILE-TIME CONSTANT (O2P_HW_VREF_MV):")
+    a(" *     I = V_REF x (0.67 - code_AFE / 4095) / R_TIA")
+    a(" * The three-conversion form is the VDDA-architecture equation. Porting it")
+    a(" * here would read a channel that saturates at 4095, leaving 0.06 %O2 of")
+    a(" * zero error at EG = -5 LSB that no air-point calibration removes.")
+    a(" */")
+    a(f"#define O2P_HW_VREF_IS_ADC_REFERENCE {1 if d['vref_is_adc_reference'] else 0}")
     a(f"#define O2P_HW_CE_MON_CONNECTED {1 if d['ce_connected'] else 0}")
     a(f"#define O2P_HW_VIN_MON_ON_MCU {1 if d['vin_on_mcu'] else 0}")
     a(f"#define O2P_HW_VIN_MON_ON_ADS {1 if d['vin_on_ads'] else 0}")
     a(f"#define O2P_HW_VA_MON_ON_ADS {1 if d['va_on_ads'] else 0}")
+    a("")
+    a("/* ---- VREF monitor scaling, PER REVISION ----")
+    a(" *")
+    a(" * This used to come from hw_contract.h (O2P_HW_DIV_VREF_*), derived from")
+    a(" * R34/R35 in the LIVE schematic. That was a landmine: deleting R34/R35 for")
+    a(" * Rev B on 2026-09-12 would have made the contract say 1:1 and the Rev A")
+    a(" * bench board - which really does read a 47k/47k HALVED copy on ADS AIN1 -")
+    a(" * report 1250 mV instead of 2500 and trip its own VREF gate. Same shape as")
+    a(" * the 2026-09-09 channel-map failure, so it belongs on the same side of the")
+    a(" * split: a fabricated board's scale factor is a property of the COPPER.")
+    a(" *")
+    a(" * Rev A: R34/R35, 47k/47k -> multiply the reading by 2.")
+    a(" * Rev B: /VREF_TRIM straight onto PA5, no divider -> multiply by 1.")
+    a(" */")
+    if d["vref_is_adc_reference"]:
+        a("/* The reference IS the full scale, so there is no VREF monitor channel and")
+        a(" * O2P_HW_DIV_VREF_MON_* DO NOT EXIST. Converting /VREF_TRIM against itself")
+        a(" * saturates at 4095; reference health is VREFINT against this full scale, and")
+        a(" * that is a COLLAPSE DETECTOR, NOT A DRIFT MONITOR -- VREFINT's own tempco")
+        a(" * (50 ppm/degC) and ACoeff (1000 ppm/1000 h) are 8x and 40x worse than the")
+        a(" * REF3425 it would be watching. Do not document it as a drift monitor. */")
+        a(f"#define O2P_HW_VREF_MV {int(d['vref_mv'])}u")
+    else:
+        a("/* Rev A: the reference is a MEASURED channel and VDDA is the full scale. */")
+        a("#define O2P_HW_DIV_VREF_MON_NUM 47000u")
+        a("#define O2P_HW_DIV_VREF_MON_DEN 94000u")
     a("")
     a("/* ---- ADS1119 rail divider scaling (Rev A: R24/R25 10k/10k, R26/R27 130k/20k) ---- */")
     if rev == "A":
