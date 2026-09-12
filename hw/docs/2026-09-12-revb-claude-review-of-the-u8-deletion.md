@@ -178,3 +178,35 @@ selected. And Codex's four findings, re-verified independently.
 
 **Unverified:** whether STM32G0 errata affect the `CHSELR`/`CCRDY` handshake
 `convert()` relies on. The errata sheet is not archived.
+
+## Addendum: the PA6 Schottky, framed correctly (revB, 2026-09-12)
+
+revB re-rendered Table 50 independently and got the same three rows, so the pin
+classes now have **two independent renderings agreeing** — worth stating, since
+my own `pdftotext` reading of that table was wrong and a single render is how
+the 14x leakage error happened earlier today.
+
+Their reframing is better than the one in this document, and verified here:
+**PA0 (11), PA1 (12) and PB1 (20) are none of them in Table 50's exception list**,
+so all three new channels sit in the -5 mA group — **the consolidation adds no
+exposed pin.** And PA6 already carried `VIN_MON` before the deletion (checked
+against `git show HEAD:...gen_sch.py`, `MCU_NETS` 17:"VIN_MON"). So the Schottky
+is not a cost of deleting U8.
+
+The precise statement is a synthesis of both framings, and neither of us had it:
+
+> **The exposed pin is pre-existing; the coupling from it to oxygen is what the
+> deletion creates.** Before the deletion, an injection on PA6 could degrade the
+> other MCU-side channels — `CE_MON`, `VA_MON` — while oxygen sat on the ADS1119
+> and was immune by virtue of being on a different converter. After it, footnote
+> 3's "another analog input" includes the oxygen channel.
+
+So it is a **pre-existing Rev B design item that the deletion promotes from
+cosmetic to load-bearing.** That justifies fitting it either way, which is the
+durable version, and it is also why footnote 3 belongs in this review rather
+than only in a general layout note.
+
+**Summary of the work, if the decision is taken as revised:** R25 47k -> 27k,
+one 100 nF at `VREF+`, one Schottky on PA6, no divider, the corrected oxygen
+formula in the sampler port, and the acceptance criterion re-based on the
+application requirement.
