@@ -7,6 +7,8 @@ re-checked without guessing which document or revision was read.
 |---|---|---|---|---|
 | `BAT54W-G-vishay-86409.pdf` | Vishay **BAT54W-G** (D8) | Vishay doc 86409 | 2026-09-12 | `http://www.farnell.com/datasheets/3273859.pdf` |
 | `BAT54-diodes-DS11005-rev34-2.pdf` | Diodes **BAT54 /A /C /S** | DS11005 Rev. 34 - 2, Nov 2023 | 2026-09-12 | `https://www.diodes.com/assets/Datasheets/ds11005.pdf` |
+| `AP63203-diodes-DS41326-rev3-2.pdf` | Diodes **AP63203WU-7** (U1, buck) | DS41326 Rev. 3 - 2 | 2026-09-12 | `https://www.diodes.com/assets/Datasheets/AP63200-AP63201-AP63203-AP63205.pdf` |
+| `PMEG4010CEH-nexperia-2023-10-12.pdf` | Nexperia **PMEG4010CEH** (D3) | Product data sheet, 12 Oct 2023 | 2026-09-12 | `https://assets.nexperia.com/documents/data-sheet/PMEG4010CEH.pdf` |
 | `DS-0637-SGX-OX-ROHS-Mini-Issue2.pdf` | SGX-OX-ROHS-Mini (U11) | DS-0637 Issue 2 | — | — |
 | `DS-0637-SGX-OX-ROHS-Mini-Issue1-SUPERSEDED.pdf` | same, superseded | DS-0637 Issue 1 | — | — |
 | `tps7a20-SBVS338H.pdf` | TPS7A20 | SBVS338H | — | — |
@@ -16,7 +18,16 @@ SHA-256:
 ```
 018c2d13b5848f4017e8e4e51db965a4a9b13c719307e30928804b2ad591cb13  BAT54W-G-vishay-86409.pdf
 50b04e4e17bcf5db62164f6e5422e91546d0cace0ab2efed61660c3044b4fef0  BAT54-diodes-DS11005-rev34-2.pdf
+ef99daa3789d835bc025dfcb4c605c5c2e6d3e7223e86d40b33e6b497ea5a722  AP63203-diodes-DS41326-rev3-2.pdf
+b9130b677bcc15cb8aab672279f0ed5750e84380a6f512f717f7656401fac1f6  PMEG4010CEH-nexperia-2023-10-12.pdf
 ```
+
+The AP63203 and PMEG4010CEH documents were added for the power-layout work:
+the buck's own datasheet (loop geometry, BST/SW, thermal) and the series
+reverse-polarity Schottky's (VF at load, and the reverse-leakage figure that D1
+is there to clamp). Note the AP63203 file is the **family** datasheet covering
+AP63200/01/03/05 — check the column, since `audit_bom` currently flags that the
+purchase orders carry `AP63205WU-7` where the schematic asks for `AP63203WU-7`.
 
 ## What the two BAT54 documents establish
 
