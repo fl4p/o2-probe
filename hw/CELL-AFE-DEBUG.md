@@ -3016,3 +3016,66 @@ Budget as it stands: temperature +1.2 %, reference lever arm +1.1 % (pending the
 TP4-vs-0x0010 check), cell identity and converter reference excluded, water
 vapour negligible, **pressure unbounded**. Residual ~2.6 % with pressure the
 only remaining candidate that can reach it.
+
+#### External-vs-internal reference IS tracked, and it corrects the lever-arm claim
+
+Fab asked whether we track the external reference against the internal one. **We
+do, continuously: that is what `gas_vref_mv` / `VREF_MON_MV` (0x0010) is.** I
+missed it in a first pass over the metric list because my grep pattern did not
+include `vref`.
+
+How it is built (`main.c:656-665`, `:691-696`, `:948-955`): in normal operation
+the signal channels convert against the **external** reference on the ADS
+REFP/REFN and the code is scaled by `g_cyc.vref_mv`, the *measured* external
+reference; `VREF_MON` itself is read against the **internal** 2.048 V. So
+`gas_vref_mv` is the external/internal ratio expressed in mV — and diag opcode 9
+(`O2P_OP_ADS_INTERNAL_REF`) forces every channel onto the internal reference,
+latched per cycle in `cycle_begin()` so one average never mixes references.
+
+From VictoriaMetrics, 600 s steps:
+
+| | `gas_vref_mv` |
+|---|---|
+| 09-10 05:00–08:30 UTC (the 09-10 point) | **2494** med, 2494–2496 |
+| 09-11 06:00–12:00 | 2492 |
+| 09-12 17:00–19:00 (today's point) | **2506**, all 11 samples |
+
+A clean **+12 mV = +0.481 %** step across the rework, and today's reading has
+zero spread.
+
+**CORRECTION to the 21:0x entry above.** I gave the 2.36x lever arm as *the*
+contribution of that step, +1.13 %. That is only one of three mechanisms, and
+they differ by more than 2x:
+
+| what actually moved | gain into K | contribution |
+|---|---|---|
+| the **external** 2.5 V itself | **0x** — `INT_Z` and `V_out` move together and the difference is unchanged | 0 % |
+| the ADS **internal** 2.048 V (a new part) | **1x** — it scales every channel equally | 0.48 % |
+| the **`VREF_MON` sense path** (divider / pin leakage) | **2.36x** — only the measured value enters `INT_Z`, not `V_out` | 1.13 % |
+
+So the step's contribution is 0 %, 0.48 % or 1.13 % — **not all three, and not
+necessarily any.** A DMM at TP4 against 0x0010 in the same minute picks the row.
+
+This also repairs the previous entry's other over-claim, that the converter swap
+"cannot account for 2.6 %": it cannot, but at ±0.25 % max per part it can
+account for ~0.5 % **and** produce exactly this 0.48 % step, which is the
+middle row. That is now a live candidate rather than an excluded one.
+
+**And the third row has a specific mechanism with a specific number.** R36 is a
+1 k series filter into the ADS pin, not part of the divider ratio, so its value
+cannot shift the reconstruction — but **pin leakage through it can**. Solving for
+the leak that reads 12 mV low, with the divider's 47k||47k = 23.5 k plus R36:
+
+```
+V_tap x R_L/(R_L + 24.5k) = V_tap - 6 mV   at V_tap = 1253 mV  ->  R_L ~ 5 MOhm
+```
+
+**A ~5 MOhm leak on AIN1 accounts for the whole step** — and AIN1 is the pin that
+hard-failed at ~730 Ohm on the old U8 a day later. A 5 MOhm precursor to a 730 Ohm
+failure on the same pin is a more economical story than a coincidence.
+
+If that is what happened, **the sign flips: the 09-10 K was ~1.1 % too LOW, not
+today's too high**, which is consistent with K having risen. It cannot be
+retested — that U8 is off the board — but it is checkable in the other
+direction: TP4 should agree with 0x0010 *today*, and disagreement would mean the
+new part leaks too.
