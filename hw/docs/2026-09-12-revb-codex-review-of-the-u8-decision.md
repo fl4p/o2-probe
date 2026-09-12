@@ -162,3 +162,54 @@ ADC channel's full scale changes from 3.3 V to 2.5 V**, so the rail monitors los
 over-range headroom and `CE_MON`, `VA_MON` and `VIN_MON` all need their divider
 ratios reworked. That is the item I originally listed as rejection reason 2, and
 it does not disappear when the reason for the move improves — it becomes work.
+
+## The VREF+ trade, reduced to its actual shape (2026-09-12, after revB's costing)
+
+revB costed the move and corrected my "three divider reworks" — it is **one
+resistor**. Verified from the generator: `VA_MON` 47k/47k (R25 47k -> 27k gives a
+6.85 V ceiling, *better* than today's 6.60, with source impedance falling 23.5k
+-> 17.2k); `VIN_MON` 91k/10k keeps a 25.3 V ceiling on a 12 V input; `CE_MON`
+91k/91k needs nothing, because `CELL_CE_DRV` is an LMP91000 output on a 3.3 V
+supply and cannot exceed it — headroom above a rail an op-amp cannot drive past
+is not headroom.
+
+Their cost 1 is correct and is the sharpest thing anyone has found here.
+**There is no divider on 3V3D** — verified, its only net members are the buck
+inductor, decoupling, R32 and the I2C pull-ups. VDDA is known *only* through
+`o2p_mcu_adc_read_vdda_mv` (`mcu_adc.c:115`), whose formula
+`VDDA = TS_CAL_VDDA_MV * cal / raw` is valid precisely because FSR = VDDA. Move
+`VREF+` and that conversion returns the reference instead, so **VDDA becomes
+unmeasurable** on a board whose digital rail is a buck output and whose ripple
+is the open release gate.
+
+**But their cost 2 is overstated, and the correction matters.** With
+`VREF+` = REF3425, converting VREFINT does not lose the reference check — it
+*becomes* it. That was the original P0 mechanism. What is lost is only the
+dedicated PA5 channel, which does go degenerate at code 4095.
+
+So the trade is a symmetry, and stating it this way makes it decidable:
+
+**VREFINT gives you exactly ONE of {VDDA, the reference} for free. The other
+costs parts — and the two are not equally priced.**
+
+| `VREF+` | free from VREFINT | the other one costs | extra parts |
+|---|---|---|---|
+| **VDDA, 3.3 V (buck)** | VDDA | `/VREF_TRIM` is 2.5 V, **under** FSR -> direct on a pin | **0** |
+| **REF3425, 2.5 V** | the reference | VDDA is 3.3 V, **over** FSR -> needs a divider | **2** |
+
+Neither option gives up observability. The asymmetry is only that 2.5 V fits
+under a 3.3 V full scale for free while 3.3 V does not fit under 2.5 V.
+
+**Which reframes the whole question as: is it worth two resistors to take the
+buck's PFM ripple out of the ADC's full scale?** On the numbers — 4.63 mV RMS of
+supply variation costs 0.1 %O2, plus VREFINT's 1200 ppm/V max landing on that
+same rail — two resistors look cheap. It also buys 24 % more resolution on every
+channel (LSB 806 -> 610 uV, AFE_VOUT 0.024 -> 0.018 %O2) and makes the RE
+pedestal ratiometric: `V_RE` sits at 0.91 x full scale exactly, so 225 mV of
+headroom becomes stable-tight rather than drifting-tight.
+
+**The one objection that survives all of this** is unchanged and is not
+answerable from a datasheet: every row of DS12232 Table 60 is specified at
+`VDDA = VREF+`, and ST publishes no accuracy figure for `VREF+` < VDDA. That is
+now the single open question gating the reference architecture — not parts, not
+observability, not headroom.
