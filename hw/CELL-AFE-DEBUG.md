@@ -1005,3 +1005,68 @@ the AFE_VOUT and VA inputs joined later.
 If #1, #3 and #5 all read correctly while the ADS reports 35/0/34 mV, the board
 is fine and the ADS1119's input mux is damaged on three of four channels — and
 the part gets replaced rather than debugged further.
+
+### 10:15 — `/VREF_TRIM` is OPEN. TP4 2484 mV, R34.1 34 mV, same net
+
+Fab's meter, bottom side, powered:
+
+| point | net | reads | due |
+|---|---|--:|--:|
+| TP4 (F.Cu 119.0, 123.5) | `/VREF_TRIM` | **2484** | 2500 |
+| R34.1 (B.Cu 107.625, 120.8) | `/VREF_TRIM` | **34** | 2484 |
+| R34.2 (B.Cu 105.975, 120.8) | `/VREF_MON_RAW` | 90 | 1242 |
+
+TP4 and R34.1 are the **same net**. 2.45 V across what should be continuous
+copper is an open circuit — not a component, not contamination, not the ADS.
+
+**Retracted:** the 09:55 reading of this — "49 µA flows into the ADS stub,
+implying an ~840 Ω shunt at AIN1, so C29 is shorted or U8's input mux is
+damaged" — assumed 2484 mV at R34.1. It is 34 mV. Both ends of R34 are within
+a meter's noise of ground, so the sense divider is simply **unpowered** and
+nothing about AIN1 is implicated. Do not ohm C29 or replace U8 on that basis.
+The 0 / 90 / 34 mV spread across these three points is bench noise at the
+bottom of the range, not a signal.
+
+Net topology from the Rev A PCB (4-layer; `/VREF_TRIM` = C10.1, R22.1, R31.2,
+R34.1, TP4.1, U7.11, U8.7). The driven end is **R31.2** (OPA2333 buffer
+through the 47R). Two arms leave it:
+
+- **R34 arm (dead):** R34.1 → B.Cu → **via (107.15, 121.4)** → In1.Cu →
+  **via (109.7, 123.45)** → F.Cu run y=123.45, x=109.7→113.15 →
+  **via (113.25, 123.35)** → B.Cu → R31.2.
+- **TP4 arm (live):** R31.2 ← B.Cu ← via (113.25, 123.35) … and TP4 →
+  **via (118.5, 124.5)** → In1.Cu → (116.35, 126.65) → (116.35, 127.55) →
+  **via (114.6, 129.3)** → F.Cu → **U8.7**. C10.1 hangs off the same
+  (118.5, 124.5) via.
+
+So the break lies between R34.1 and the junction at (113.25, 123.35): three
+vias and one 3.45 mm top-side trace. Three buried vias on a board that took a
+hot-air gun for ~30 minutes is the obvious suspect; an In1.Cu break is not
+visible.
+
+**U8.7 (the ADS's REFP) reaches the live TP4 arm through the (114.6, 129.3)
+via, so it most likely still HAS the reference.** If that holds, the ADS was
+converting against a good 2.484 V the whole time and the firmware refused to
+publish only because the *sense tap* is orphaned — `finish_vref` sees 70 mV,
+raises ADC_RANGE and leaves `vref_measured` false. The probe would then be one
+wire away from working.
+
+#### Next, powered
+
+1. **Bisect: the F.Cu trace at ~(111.5, 123.45).** 2484 ⇒ break is between
+   there and R34 (via 107.15,121.4 / via 109.7,123.45 / the In1 run). ~0 ⇒
+   break is at via (113.25, 123.35) or the B.Cu run to R31.2.
+2. **U8 pin 7** — expect 2484. Confirms the ADS kept its reference.
+3. **U7 pin 11** — expect 2484. If ~0, the LMP lost its reference, its internal
+   zero collapses to ~0, and **AFE_VOUT at 34 mV is genuine**, explained by the
+   same open rather than by a second fault.
+4. **R24/R25 junction (106.83–108.38, y=130.2), `/VA_MON`** — still expect
+   1650; PA7 says 2594 and the ADS says 0 across R37 1k, and that is untouched
+   by any of this.
+
+#### Repair, once the break is located
+
+A fine wire from **TP4 or C10.1 (118.3, 124.775)** to **R34.1 (107.625,
+120.8)** restores the sense tap without disturbing the live arm. That alone
+would clear ADC_RANGE and let every externally-referenced channel publish
+again.
