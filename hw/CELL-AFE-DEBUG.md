@@ -848,3 +848,91 @@ FW 0x0015 (`d10091c`, diag opcode 9, internal-reference override —
 high-impedance VREF_TRIM and VA_MON nodes would fit the 22:24 readings — not
 established); meter 3V3A and U8 pad 11 with the board cool; if 3V3A is absent,
 the regulator and a short/film on that rail before U7/U8.
+
+## 2026-09-12 09:10–09:24 — nothing is dead; the 2.5 V shunt reference is the fault
+
+Fab metered 3V3A: **fine**. That refutes the 2026-09-11 inference above
+("3V3A is down — one fault explains both NACKs"). Keep the inference on
+record; it was the best reading of a NACKing bus, and it was wrong.
+
+Every I2C device on the board answers, over the keeper's diag mailbox
+(probe uptime 779 s, i.e. it rebooted ~09:00; FW 0x0015 `CD10091C`):
+
+| diag op | device / register | reply |
+|---|---|---|
+| `1:0x00` | LMP91000 STATUS | OK, `0x01` — ready |
+| `1:0x10` | LMP91000 TIACN | OK, `0x0C` |
+| `1:0x11` | LMP91000 REFCN | OK, `0xCD` |
+| `1:0x12` | LMP91000 MODECN | OK, `0x03` — 3-lead amperometric |
+| `3` | ADS1119 STATUS | OK, `0x70` |
+| `4` | ADS1119 CONFIG | OK, `0x65` |
+| `5:0x0000` | TMP117 #0 TEMP | OK, `0x0B30` = 22.38 °C |
+| `5:0x0100` | TMP117 #1 TEMP | OK, `0x0C08` = 24.06 °C |
+| `7` | SHT45 sample | OK, `0x6234` / `0x5325` |
+| `6` | SHT45 serial | ERR_NACK, twice — the only NACK left, and the part samples fine, so it is that command, not the device |
+
+The LMP91000 registers are the **configured** values, not reset defaults, so
+it did not merely survive — it kept its state.
+
+**The fault is `/VREF_TRIM`: 70 mV where it should be 2.500 V.** VREF_MON is
+converted on AIN1 against the ADS1119's *internal* 2.048 V reference, so that
+70 mV is a real measurement, not a reference-scaled artefact. Rev A feeds it
+`+5V` → R32 10R → `/+5V_ANALOG` → R41 1k → `/VREF_SHUNT` (U15 shunt reference,
+C9 1n) → R31 47R → `/VREF_TRIM` → U7.11, U8.7 (REFP), C10 4.7 µF, R34 47k.
+
+One collapsed node explains every symptom at once:
+
+- **ADS1119**: CONFIG `0x65` has VREF = 1 (external), so every AIN0/AIN2/AIN3
+  channel is converted against 70 mV and clips. FAULTS bit 11 ADC_RANGE is
+  exactly that.
+- **LMP91000**: REFCN `0xCD` has REF_SOURCE = 1 (external) and INT_Z = 67 %, so
+  its internal zero is 0.67 × 70 mV ≈ 47 mV. AFE_VOUT measures **34 mV**. The
+  cell is biased against a 47 mV zero — O2_RAW cannot mean anything.
+
+**The silicon is proven good by forcing the internal reference.** Diag `9:1`
+(volatile, cleared by the ~09:00 reset) was re-sent 09:16:
+
+| register | ext ref (70 mV) | internal ref 2.048 V |
+|---|--:|--:|
+| `VREF_MV` 0x0010 | 70 | 70 |
+| `VA_MV` 0x0011 | 5188 (garbage) | **0** |
+| `VIN_MV` 0x0012 | 65535 invalid | **13128** |
+| `AFE_VOUT_MV` 0x0013 | 35 | 34 |
+
+VIN 13.128 V is a correct reading through the fitted 82k/10k divider. **The
+ADS1119 converts correctly the moment it is given a valid reference.**
+
+**Second, independent fault: `/VA_MON` is at ground.** R24 47k from 3V3A,
+R25 47k to GND, C33 100n — with 3V3A good the tap must be ~1.64 V. It reads
+0 mV on the ADS (AIN2, internal ref) and 8–18 mV on the MCU's PA7. Both agree,
+so it is the node, not either ADC. A 47k-fed node shorted to ground draws
+~70 µA, which is why 3V3A meters fine. FAULTS bit 6 VA_LOW is real and is
+**not** a rail problem. This net already had one surface leak, cleaned 09-11
+09:15 (`o2-probe-afe-postmortem`).
+
+So: two high-impedance analog nodes pulled to ground, both in the region that
+got coating and then hot air, and no semiconductor implicated yet.
+
+FAULTS 0x8844 = I2C_FAIL_ADS · VA_LOW · ADC_RANGE · HEATER_DISABLED.
+`ADS_FAIL_COUNT` (0x0024) held at 141 and `I2C_ERRORS` (0x001E) moved 1132 →
+1133 over four minutes — the bus is essentially clean now; those counters are
+the history of the 22:37–23:18 outage.
+
+### Measurements that would close this (powered, board cool)
+
+1. **TP4 (`/VREF_TRIM`) to GND** — expect 2.500 V, we predict ~0.07 V.
+2. **`/+5V_ANALOG`** (C7 or C27 pad) — expect ~4.9 V. This splits the two
+   cases: 4.9 V present means U15 or C10 is shorted (~4.9 mA through R41
+   would leave the node at exactly the 70 mV seen); low means the feed
+   through R32 is gone, and 3V3A being fine argues against that, since U3
+   makes 3V3A from `/+5V_ANALOG`.
+3. **R24/R25 junction (or C33)** — expect 1.64 V, we predict ~0.
+4. **Unpowered, after C10 discharges:** `/VREF_TRIM`–GND and `/VA_MON`–GND
+   ohms. VA_MON–GND should read ~23.5 k (R25 ∥ R24+rail). Single-digit ohms on
+   either is a short; a few hundred k to a few M is a leakage film.
+
+Suspects, in order: coating/flux residue bridging the two nodes (fits both,
+and fits the timing); C10 4.7 µF shorted; U15 shunt reference failed short.
+Note that a residue film explaining `/VA_MON` at 0 mV must be **well under
+47 k**, which is a lot more than a damp film — check for a solder bridge or
+displaced part from the hot air before assuming contamination.
