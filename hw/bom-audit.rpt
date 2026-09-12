@@ -1,5 +1,5 @@
 O2 probe procurement (BOM) audit
-schematic sha256: 8c3bc7bf12b678dc1b6a9b175b73e0c3fbd8e5e2582d9d9bd66fae44d8cb4d6d
+schematic sha256: c2eeb80bbcfddaca3fe0c450baf54a70daf5125bdd85f23dfda126e262b0af8f
 components: 83; bom rows: 51
 sourcing: dnp=4, generic-stock=39, mpn=27, not-purchased=13
 unsourced fitted components: 0
@@ -9,7 +9,7 @@ ERROR: C4 DNP mismatch: value '22u' says fitted but the dnp property says DNP
 ERROR: C8 DNP mismatch: value '1u' says fitted but the dnp property says DNP
 ERROR: sourcing entry 'Capacitor_SMD:C_1206_3216Metric|22u' matches no fitted component; a declaration that no longer describes the board must be removed, not carried
 ERROR: U1 needs 'AP63203WU-7' but no order has it; the orders do contain the near-identical 'AP63205WU-7' -- confirm the substitution and write it back to the schematic, or reorder
-ERROR: D8 needs 'BAT54-7-F' (qty 1) but it appears on no purchase order
+ERROR: D8 needs 'BAT54W-G3-08' (qty 1) but it appears on no purchase order
 ERROR: C1 C7 needs 'C1206C106K3RACTU' (qty 2) but it appears on no purchase order
 ERROR: D3 needs 'PMEG4010CEH,115' (qty 1) but it appears on no purchase order
 ERROR: R26 R43 R44 needs 'RC0603FR-0791KL' but no order has it; the orders do contain the near-identical 'RC0603FR-071KL' -- confirm the substitution and write it back to the schematic, or reorder

@@ -1,45 +1,44 @@
 O2 probe MPN/package audit
-run: 2026-09-01T10:41:01+00:00
-schematic sha256: 74a76fcf39a59711491d2b88158a0d32f2ab044130fc2f42d72aab1abcf99adb
-netlist audited sha256: 39232855ec67f90526b3c21b502ebb2f528d53a390abe62774f5635857b20d97 (exported from that schematic in this run)
+run: 2026-09-12T15:28:53+00:00
+schematic sha256: cbfffb5d2824d5d6534a3107bf30e6e60617e9116ba8a05877f1d896b3e6968a
+netlist audited sha256: 989ff5983f84d7096a4e6eee149ea4c8d1d2e237e87a0621ebdc5d983b2bcfca (exported from that schematic in this run)
 map fingerprint: b970fe1c84a70dd9
-components with an MPN and fitted: 31
-verdicts: ok=29, unstated=2
-31 components declare no Manufacturer field, so an MPN collision between two manufacturers cannot be detected: D1, D2, DZ1, F1, L1, Q1, Q2, R20, R21, R22, R23, R24, R25, R26, R27, R34, R35, RH1, RH2, RV1, U1, U10, U11, U12, U2, U3, U4, U5, U6, U7, U8 (advisory; --require-manufacturer to enforce)
-probe: live, 26 distributor calls, 6/31 verdicts from cache (TTL 30 days)
+components with an MPN and fitted: 27
+verdicts: mismatch=1, ok=22, unmapped=3, unstated=1
+27 components declare no Manufacturer field, so an MPN collision between two manufacturers cannot be detected: C1, C3, C7, D1, D2, D3, D7, D8, F1, L1, Q2, R26, R42, R43, R44, RH1, RH2, U1, U10, U11, U12, U15, U16, U4, U5, U6, U7 (advisory; --require-manufacturer to enforce)
+probe: live, 2 distributor calls, 23/27 verdicts from cache (TTL 30 days)
 scope: package identity only; land geometry (pad size, centres, pin-1) is NOT checked here -- see FOOTPRINTS.md
+  C1    ok            C1206C106K3RACTU       1206/3216metric
+  C3    ok            EMK316BB7226ML-T       1206/3216metric
+  C7    ok            C1206C106K3RACTU       1206/3216metric
   D1    ok            SMBJ15A-13-F           DO-214AA, SMB
   D2    ok            SM712-02HTG            SC-59, SOT-23-3, TO-236-3
-  DZ1   ok            BZT52C10-E3-08         SOD-123
+  D3    unmapped      PMEG4010CEH,115        footprint 'Diode_SMD:D_SOD-123F' declares no expected package identity; extend FOOTPRINT_PACKAGES (this is not waivable -- a waiver would have nothing to be checked against)
+  D7    ok            TPD2E2U06QDBZRQ1       SC-59, SOT-23-3, TO-236-3
+  D8    mismatch      BAT54-7-F              'BAT54-7-F' ships as SC-59, SOT-23-3, TO-236-3 but 'Diode_SMD:D_SOD-123' needs SOD-123
   F1    ok            0ZCJ0075AF2E           1206/3216metric
   L1    ok            SRN6028C-4R7M          2424/6060metric
-  Q1    ok            DMP3130L-7             SC-59, SOT-23-3, TO-236-3
   Q2    ok            AO3400A                SOT-23-3, SOT-23-3VARIANT
-  R20   ok            TNPW06032K00BEEA       0603/1608metric
-  R21   ok            P2TC0603D1002LNTA      0603/1608metric
-  R22   ok            P2TC0603D1002LNTA      0603/1608metric
-  R23   ok            TNPU0603100KBZEN00     0603/1608metric
-  R24   ok            P2TC0603D1002LNTA      0603/1608metric
-  R25   ok            P2TC0603D1002LNTA      0603/1608metric
-  R26   ok            RC0603FR-1082KL        0603/1608metric
-  R27   ok            RC0603FR-0710KL        0603/1608metric
-  R34   ok            RT0603BRD0747KL        0603/1608metric
-  R35   ok            RT0603BRD0747KL        0603/1608metric
+  R26   ok            RC0603FR-0791KL        0603/1608metric
+  R42   ok            RC0603FR-071KL         0603/1608metric
+  R43   ok            RC0603FR-0791KL        0603/1608metric
+  R44   ok            RC0603FR-0791KL        0603/1608metric
   RH1   ok            CRCW2512280RFKEG       2512/6332metric
   RH2   ok            CRCW2512280RFKEG       2512/6332metric
-  RV1   unstated      3224W-1-202E           '3224W-1-202E' is listed but the distributor publishes no package parametric; 'Potentiometer_SMD:Potentiometer_Bourns_3224W_Vertical' needs 3224W -- verify against the part drawing and record a package_waiver
-  U1    ok            AP63205WU-7            SOT-23-6THIN, TSOT-23-6
+  U1    ok            AP63203WU-7            SOT-23-6THIN, TSOT-23-6
   U10   ok            TMP117AIDRVR           6-SON, 6-SON 2.0x2.0
   U11   unstated      SGX-OX-ROHS-Mini       'SGX-OX-ROHS-Mini' is listed but the distributor publishes no package parametric; 'o2-probe:SGX-OX-ROHS-Mini_ISS2' needs SGX-OX-ROHS-MINI -- verify against the part drawing and record a package_waiver
   U12   ok            SHT45-AD1F-R2          4-SON, 4-SON 1.5x1.5
-  U2    ok            TPS7A2033PDBVR         SC-74A, SOT-23-5, SOT-753
-  U3    ok            TPS7A2033PDBVR         SC-74A, SOT-23-5, SOT-753
+  U15   unmapped      REF3425IDBVR           footprint 'Package_TO_SOT_SMD:SOT-23-6' declares no expected package identity; extend FOOTPRINT_PACKAGES (this is not waivable -- a waiver would have nothing to be checked against)
+  U16   unmapped      TMP302BDRLR            footprint 'o2-probe:TMP302_DRL6_TI' declares no expected package identity; extend FOOTPRINT_PACKAGES (this is not waivable -- a waiver would have nothing to be checked against)
   U4    ok            OPA2333AIDGKR          8-SSOP, 8-SSOP 3.00mm wide
   U5    ok            THVD1410DR             8-SOIC, 8-SOIC 3.90mm wide
   U6    ok            STM32G071CBT7          48-QFP, 48-QFP 7.0x7.0
   U7    ok            LMP91000SDX/NOPB       14-SON, 14-SON 4.0x4.0
-  U8    ok            ADS1119IRTER           16-QFN, 16-QFN 3.0x3.0
-elapsed: 41.9s
+elapsed: 3.4s
 result: FAIL
-ERROR: RV1 unstated: '3224W-1-202E' is listed but the distributor publishes no package parametric; 'Potentiometer_SMD:Potentiometer_Bourns_3224W_Vertical' needs 3224W -- verify against the part drawing and record a package_waiver
+ERROR: D3 unmapped: footprint 'Diode_SMD:D_SOD-123F' declares no expected package identity; extend FOOTPRINT_PACKAGES (this is not waivable -- a waiver would have nothing to be checked against)
+ERROR: D8 mismatch: 'BAT54-7-F' ships as SC-59, SOT-23-3, TO-236-3 but 'Diode_SMD:D_SOD-123' needs SOD-123
 ERROR: U11 unstated: 'SGX-OX-ROHS-Mini' is listed but the distributor publishes no package parametric; 'o2-probe:SGX-OX-ROHS-Mini_ISS2' needs SGX-OX-ROHS-MINI -- verify against the part drawing and record a package_waiver
+ERROR: U15 unmapped: footprint 'Package_TO_SOT_SMD:SOT-23-6' declares no expected package identity; extend FOOTPRINT_PACKAGES (this is not waivable -- a waiver would have nothing to be checked against)
+ERROR: U16 unmapped: footprint 'o2-probe:TMP302_DRL6_TI' declares no expected package identity; extend FOOTPRINT_PACKAGES (this is not waivable -- a waiver would have nothing to be checked against)

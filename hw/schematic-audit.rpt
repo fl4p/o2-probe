@@ -1,4 +1,5 @@
 O2 probe schematic connectivity audit
 components: 83
 nets: 72
-result: PASS
+result: FAIL
+ERROR: VIN_MON has unexpected pins: D8.1

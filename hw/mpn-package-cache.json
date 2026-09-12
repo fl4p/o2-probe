@@ -56,6 +56,20 @@
       "manufacturer": "Alpha & Omega Semiconductor Inc.",
       "supplier_package": "SOT-23-3"
     },
+    "AP63203WU-7": {
+      "case": "SOT-23-6 Thin, TSOT-23-6",
+      "client": "digikey-v4",
+      "endpoint": "https://api.digikey.com/products/v4/search/keyword",
+      "fetched_at": 1789226884.114321,
+      "found": true,
+      "locale": {
+        "X-DIGIKEY-Locale-Currency": "EUR",
+        "X-DIGIKEY-Locale-Language": "en",
+        "X-DIGIKEY-Locale-Site": "DE"
+      },
+      "manufacturer": "Diodes Incorporated",
+      "supplier_package": "TSOT-23-6"
+    },
     "AP63205WU-7": {
       "case": "SOT-23-6 Thin, TSOT-23-6",
       "client": "digikey-v4",
@@ -70,6 +84,34 @@
       "manufacturer": "Diodes Incorporated",
       "supplier_package": "TSOT-23-6"
     },
+    "BAT54-7-F": {
+      "case": "TO-236-3, SC-59, SOT-23-3",
+      "client": "digikey-v4",
+      "endpoint": "https://api.digikey.com/products/v4/search/keyword",
+      "fetched_at": 1789226933.035787,
+      "found": true,
+      "locale": {
+        "X-DIGIKEY-Locale-Currency": "EUR",
+        "X-DIGIKEY-Locale-Language": "en",
+        "X-DIGIKEY-Locale-Site": "DE"
+      },
+      "manufacturer": "Diodes Incorporated",
+      "supplier_package": "SOT-23-3"
+    },
+    "BAT54W-G3-08": {
+      "case": "SOD-123",
+      "client": "digikey-v4",
+      "endpoint": "https://api.digikey.com/products/v4/search/keyword",
+      "fetched_at": 1789226879.82637,
+      "found": true,
+      "locale": {
+        "X-DIGIKEY-Locale-Currency": "EUR",
+        "X-DIGIKEY-Locale-Language": "en",
+        "X-DIGIKEY-Locale-Site": "DE"
+      },
+      "manufacturer": "Vishay General Semiconductor - Diodes Division",
+      "supplier_package": "SOD-123"
+    },
     "BZT52C10-E3-08": {
       "case": "SOD-123",
       "client": "digikey-v4",
@@ -83,6 +125,20 @@
       },
       "manufacturer": "Vishay General Semiconductor - Diodes Division",
       "supplier_package": "SOD-123"
+    },
+    "C1206C106K3RACTU": {
+      "case": "1206 (3216 Metric)",
+      "client": "digikey-v4",
+      "endpoint": "https://api.digikey.com/products/v4/search/keyword",
+      "fetched_at": 1789226873.2293062,
+      "found": true,
+      "locale": {
+        "X-DIGIKEY-Locale-Currency": "EUR",
+        "X-DIGIKEY-Locale-Language": "en",
+        "X-DIGIKEY-Locale-Site": "DE"
+      },
+      "manufacturer": "KEMET",
+      "supplier_package": ""
     },
     "CRCW2512280RFKEG": {
       "case": "2512 (6332 Metric)",
@@ -111,6 +167,20 @@
       },
       "manufacturer": "Diodes Incorporated",
       "supplier_package": "SOT-23-3"
+    },
+    "EMK316BB7226ML-T": {
+      "case": "1206 (3216 Metric)",
+      "client": "digikey-v4",
+      "endpoint": "https://api.digikey.com/products/v4/search/keyword",
+      "fetched_at": 1789226876.865504,
+      "found": true,
+      "locale": {
+        "X-DIGIKEY-Locale-Currency": "EUR",
+        "X-DIGIKEY-Locale-Language": "en",
+        "X-DIGIKEY-Locale-Site": "DE"
+      },
+      "manufacturer": "Taiyo Yuden",
+      "supplier_package": ""
     },
     "LMP91000SDX/NOPB": {
       "case": "14-WFDFN Exposed Pad",
@@ -159,6 +229,34 @@
       "client": "digikey-v4",
       "endpoint": "https://api.digikey.com/products/v4/search/keyword",
       "fetched_at": 1788259240.73188,
+      "found": true,
+      "locale": {
+        "X-DIGIKEY-Locale-Currency": "EUR",
+        "X-DIGIKEY-Locale-Language": "en",
+        "X-DIGIKEY-Locale-Site": "DE"
+      },
+      "manufacturer": "YAGEO",
+      "supplier_package": "0603"
+    },
+    "RC0603FR-071KL": {
+      "case": "0603 (1608 Metric)",
+      "client": "digikey-v4",
+      "endpoint": "https://api.digikey.com/products/v4/search/keyword",
+      "fetched_at": 1789226882.6218219,
+      "found": true,
+      "locale": {
+        "X-DIGIKEY-Locale-Currency": "EUR",
+        "X-DIGIKEY-Locale-Language": "en",
+        "X-DIGIKEY-Locale-Site": "DE"
+      },
+      "manufacturer": "YAGEO",
+      "supplier_package": "0603"
+    },
+    "RC0603FR-0791KL": {
+      "case": "0603 (1608 Metric)",
+      "client": "digikey-v4",
+      "endpoint": "https://api.digikey.com/products/v4/search/keyword",
+      "fetched_at": 1789226881.192289,
       "found": true,
       "locale": {
         "X-DIGIKEY-Locale-Currency": "EUR",
@@ -335,6 +433,20 @@
       },
       "manufacturer": "Vishay Dale",
       "supplier_package": "0603"
+    },
+    "TPD2E2U06QDBZRQ1": {
+      "case": "TO-236-3, SC-59, SOT-23-3",
+      "client": "digikey-v4",
+      "endpoint": "https://api.digikey.com/products/v4/search/keyword",
+      "fetched_at": 1789226878.2845151,
+      "found": true,
+      "locale": {
+        "X-DIGIKEY-Locale-Currency": "EUR",
+        "X-DIGIKEY-Locale-Language": "en",
+        "X-DIGIKEY-Locale-Site": "DE"
+      },
+      "manufacturer": "Texas Instruments",
+      "supplier_package": "SOT-23-3"
     },
     "TPS7A2033PDBVR": {
       "case": "SC-74A, SOT-753",

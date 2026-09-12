@@ -2,7 +2,7 @@
 <export version="E">
   <design>
     <source>/Users/fab/dev/ee/hw/o2-probe/o2-probe.kicad_sch</source>
-    <date>2026-09-12T16:16:44</date>
+    <date>2026-09-12T17:27:39</date>
     <tool>Eeschema 10.0.5</tool>
     <sheet number="1" name="/" tstamps="/">
       <title_block>
@@ -590,13 +590,13 @@
       <value>100n</value>
       <footprint>Capacitor_SMD:C_0402_1005Metric</footprint>
       <fields>
-        <field name="Design Note">VA monitor reservoir at the MCU PA7 pin; same reason as C32. Source is R24||R25 = 23.5k since the 2026-09-05 BOM pass, not the 5k this note used to say -- which makes this reservoir MORE load-bearing, not less, because it is what absorbs the ADC's sampling kick at the higher source impedance</field>
+        <field name="Design Note">VA monitor reservoir at the MCU PA7 pin; same reason as C32. Source is R24||R25 = 17.2k since R25 went 47k -&gt; 27k on 2026-09-12 (it was 23.5k after the 2026-09-05 BOM pass and 5k before that). Still far above the 5k this note originally assumed, so the conclusion is unchanged: this reservoir is MORE load-bearing, not less, because it is what absorbs the ADC's sampling kick at the higher source impedance</field>
         <field name="Footprint">Capacitor_SMD:C_0402_1005Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="C" description="Unpolarized capacitor"/>
-      <property name="Design Note" value="VA monitor reservoir at the MCU PA7 pin; same reason as C32. Source is R24||R25 = 23.5k since the 2026-09-05 BOM pass, not the 5k this note used to say -- which makes this reservoir MORE load-bearing, not less, because it is what absorbs the ADC's sampling kick at the higher source impedance"/>
+      <property name="Design Note" value="VA monitor reservoir at the MCU PA7 pin; same reason as C32. Source is R24||R25 = 17.2k since R25 went 47k -&gt; 27k on 2026-09-12 (it was 23.5k after the 2026-09-05 BOM pass and 5k before that). Still far above the 5k this note originally assumed, so the conclusion is unchanged: this reservoir is MORE load-bearing, not less, because it is what absorbs the ADC's sampling kick at the higher source impedance"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="cap capacitor"/>
@@ -799,18 +799,18 @@
       </units>
     </comp>
     <comp ref="D8">
-      <value>BAT54</value>
+      <value>BAT54W-G</value>
       <footprint>Diode_SMD:D_SOD-123</footprint>
       <fields>
-        <field name="MPN">BAT54-7-F</field>
-        <field name="Design Note">Negative-injection clamp on PA6; cathode to VIN_MON, anode to AGND, so it is reverse-biased at +1.2 V in normal operation and conducts only when the pin is pulled below ground. See the block comment above for the Table 50 rating, the part-class argument against the 1N4148W, and the leakage budget</field>
+        <field name="MPN">BAT54W-G3-08</field>
+        <field name="Design Note">Negative-injection clamp on PA6. Pin 1 is the CATHODE and goes to VIN_MON; pin 2 is the ANODE and goes to AGND. It therefore sits reverse-biased at +1.2 V in normal operation and conducts only when the pin is pulled below ground. See the block comment above for the Table 50 rating, the part-class argument against the 1N4148W, the leakage budget, and the 2026-09-12 correction of both the polarity and the package</field>
         <field name="Footprint">Diode_SMD:D_SOD-123</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="D_Schottky" description="Schottky diode"/>
-      <property name="MPN" value="BAT54-7-F"/>
-      <property name="Design Note" value="Negative-injection clamp on PA6; cathode to VIN_MON, anode to AGND, so it is reverse-biased at +1.2 V in normal operation and conducts only when the pin is pulled below ground. See the block comment above for the Table 50 rating, the part-class argument against the 1N4148W, and the leakage budget"/>
+      <property name="MPN" value="BAT54W-G3-08"/>
+      <property name="Design Note" value="Negative-injection clamp on PA6. Pin 1 is the CATHODE and goes to VIN_MON; pin 2 is the ANODE and goes to AGND. It therefore sits reverse-biased at +1.2 V in normal operation and conducts only when the pin is pulled below ground. See the block comment above for the Table 50 rating, the part-class argument against the 1N4148W, the leakage budget, and the 2026-09-12 correction of both the polarity and the package"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="diode Schottky"/>
@@ -1283,13 +1283,13 @@
       <value>47k</value>
       <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
       <fields>
-        <field name="Design Note">3V3A rail monitor divider, 1:2 into MCU PA7/ADC_IN7. FIRMWARE: VA_MON_MV = 2 x ADC. This IS the sourcing pass the old note asked for. The position was 0.1% 10k (P2TC0603D1002LNTA) only because R21/R22 once shared it, and those went with the trim and guard dividers. Nothing downstream SCALES by this reading -- it is rail health. Contrast VREF_MON, whose ratio main.c promotes into g_cyc.vref_mv and thence into the reported cell current: R34/R35 stay 0.1% for exactly that reason and this pair does not need to. 47k rather than 10k also drops the continuous draw on the analog rail feeding U4/U7/U8 from 165 uA to 35 uA. Source impedance goes 5k -&gt; 23.5k, and that is CHECKED, not assumed: ST DS12232 Table 59 (Maximum ADC RAIN) allows 50k at 12 bits and 160.5 sampling cycles, which is what mcu_adc.c already selects -- 2.1x margin, and more in practice because Table 59 is quoted at a 35 MHz ADC clock where this board runs 16 MHz. DO NOT RAISE THIS DIVIDER FURTHER: 100k legs would put the source at exactly the 50k limit. It releases the matched-pair placement adjacency the two-layer refloorplan work was holding</field>
+        <field name="Design Note">3V3A rail monitor divider top leg, into MCU PA7/ADC_IN7. NOT 1:2 any more: R25 went 47k -&gt; 27k on 2026-09-12, so the ratio is 27/74 and FIRMWARE is VA_MON_MV = ADC x 74/27 = 2.741 x ADC, derived by gen_hw_contract.py as O2P_HW_DIV_VA_NUM/DEN rather than written by hand. This IS the sourcing pass the old note asked for. The position was 0.1% 10k (P2TC0603D1002LNTA) only because R21/R22 once shared it, and those went with the trim and guard dividers. Nothing downstream SCALES by this reading -- it is rail health. The old note contrasted this pair with R34/R35, the 0.1% VREF_MON divider whose ratio main.c promoted into g_cyc.vref_mv: THAT DIVIDER IS DELETED and the reference is no longer measured at all, so the contrast no longer exists and this pair is simply the only rail divider left that needs no precision. 47k rather than 10k also drops the continuous draw on the analog rail feeding U4/U7 (U8 is deleted) from 165 uA to 35 uA. Source impedance went 5k -&gt; 23.5k on that pass and is 17.2k today with the 27k bottom leg, and that is CHECKED, not assumed: ST DS12232 Table 59 (Maximum ADC RAIN) allows 50k at 12 bits and 160.5 sampling cycles, which is what mcu_adc.c already selects -- 2.9x margin at 17.2k (it was 2.1x at 23.5k), and more in practice because Table 59 is quoted at a 35 MHz ADC clock where this board runs 16 MHz. DO NOT RAISE THIS DIVIDER FURTHER: 100k legs would put the source at exactly the 50k limit. It releases the matched-pair placement adjacency the two-layer refloorplan work was holding</field>
         <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="Design Note" value="3V3A rail monitor divider, 1:2 into MCU PA7/ADC_IN7. FIRMWARE: VA_MON_MV = 2 x ADC. This IS the sourcing pass the old note asked for. The position was 0.1% 10k (P2TC0603D1002LNTA) only because R21/R22 once shared it, and those went with the trim and guard dividers. Nothing downstream SCALES by this reading -- it is rail health. Contrast VREF_MON, whose ratio main.c promotes into g_cyc.vref_mv and thence into the reported cell current: R34/R35 stay 0.1% for exactly that reason and this pair does not need to. 47k rather than 10k also drops the continuous draw on the analog rail feeding U4/U7/U8 from 165 uA to 35 uA. Source impedance goes 5k -&gt; 23.5k, and that is CHECKED, not assumed: ST DS12232 Table 59 (Maximum ADC RAIN) allows 50k at 12 bits and 160.5 sampling cycles, which is what mcu_adc.c already selects -- 2.1x margin, and more in practice because Table 59 is quoted at a 35 MHz ADC clock where this board runs 16 MHz. DO NOT RAISE THIS DIVIDER FURTHER: 100k legs would put the source at exactly the 50k limit. It releases the matched-pair placement adjacency the two-layer refloorplan work was holding"/>
+      <property name="Design Note" value="3V3A rail monitor divider top leg, into MCU PA7/ADC_IN7. NOT 1:2 any more: R25 went 47k -&gt; 27k on 2026-09-12, so the ratio is 27/74 and FIRMWARE is VA_MON_MV = ADC x 74/27 = 2.741 x ADC, derived by gen_hw_contract.py as O2P_HW_DIV_VA_NUM/DEN rather than written by hand. This IS the sourcing pass the old note asked for. The position was 0.1% 10k (P2TC0603D1002LNTA) only because R21/R22 once shared it, and those went with the trim and guard dividers. Nothing downstream SCALES by this reading -- it is rail health. The old note contrasted this pair with R34/R35, the 0.1% VREF_MON divider whose ratio main.c promoted into g_cyc.vref_mv: THAT DIVIDER IS DELETED and the reference is no longer measured at all, so the contrast no longer exists and this pair is simply the only rail divider left that needs no precision. 47k rather than 10k also drops the continuous draw on the analog rail feeding U4/U7 (U8 is deleted) from 165 uA to 35 uA. Source impedance went 5k -&gt; 23.5k on that pass and is 17.2k today with the 27k bottom leg, and that is CHECKED, not assumed: ST DS12232 Table 59 (Maximum ADC RAIN) allows 50k at 12 bits and 160.5 sampling cycles, which is what mcu_adc.c already selects -- 2.9x margin at 17.2k (it was 2.1x at 23.5k), and more in practice because Table 59 is quoted at a 35 MHz ADC clock where this board runs 16 MHz. DO NOT RAISE THIS DIVIDER FURTHER: 100k legs would put the source at exactly the 50k limit. It releases the matched-pair placement adjacency the two-layer refloorplan work was holding"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="R res resistor"/>
@@ -1465,13 +1465,13 @@
       <value>1k</value>
       <footprint>Resistor_SMD:R_0603_1608Metric</footprint>
       <fields>
-        <field name="Design Note">ADC anti-alias/input-kickback filter; place with C28 at U8 AIN0</field>
+        <field name="Design Note">ADC anti-alias/input-kickback filter. PLACE WITH C28 AT THE MCU, pin 20 / PB1 / ADC_IN9 -- not at U8 AIN0, which is where this note said until 2026-09-12 and which no longer exists. The 100 nF must be close to the SAMPLING pin because what it sources is the charge kick of the SAR's 5 pF sample capacitor (DS12232 Table 58); placed at the far end it filters the signal but not the kick</field>
         <field name="Footprint">Resistor_SMD:R_0603_1608Metric</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="Device" part="R" description="Resistor"/>
-      <property name="Design Note" value="ADC anti-alias/input-kickback filter; place with C28 at U8 AIN0"/>
+      <property name="Design Note" value="ADC anti-alias/input-kickback filter. PLACE WITH C28 AT THE MCU, pin 20 / PB1 / ADC_IN9 -- not at U8 AIN0, which is where this note said until 2026-09-12 and which no longer exists. The 100 nF must be close to the SAMPLING pin because what it sources is the charge kick of the SAR's 5 pF sample capacitor (DS12232 Table 58); placed at the far end it filters the signal but not the kick"/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="R res resistor"/>
@@ -2964,7 +2964,7 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
     </net>
     <net code="43" name="/VIN_MON" class="Default">
       <node ref="C32" pin="1" pintype="passive"/>
-      <node ref="D8" pin="2" pinfunction="A_2" pintype="passive"/>
+      <node ref="D8" pin="1" pinfunction="K_1" pintype="passive"/>
       <node ref="R26" pin="2" pintype="passive"/>
       <node ref="R27" pin="1" pintype="passive"/>
       <node ref="U6" pin="17" pinfunction="PA6_17" pintype="input"/>
@@ -3011,7 +3011,7 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
       <node ref="D1" pin="2" pinfunction="A_2" pintype="passive"/>
       <node ref="D2" pin="3" pinfunction="GND_3" pintype="passive"/>
       <node ref="D7" pin="3" pinfunction="GND_3" pintype="passive"/>
-      <node ref="D8" pin="1" pinfunction="K_1" pintype="passive"/>
+      <node ref="D8" pin="2" pinfunction="A_2" pintype="passive"/>
       <node ref="J102" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
       <node ref="J3" pin="5" pinfunction="Pin_5_5" pintype="passive"/>
       <node ref="Q2" pin="2" pinfunction="S_2" pintype="passive"/>

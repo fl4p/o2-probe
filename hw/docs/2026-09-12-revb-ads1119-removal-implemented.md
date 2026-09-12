@@ -173,6 +173,53 @@ pio test -e native 360/360 PASSED
 pio run -e o2probe_revb   #error, by design
 ```
 
+### Correction, same day: this block is missing an audit, and that omission is exactly why D8 shipped in the wrong package
+
+The block above does not run `audit_mpn_package.py`. D8 landed with
+`mpn="BAT54-7-F"` against `Diode_SMD:D_SOD-123`, and **BAT54-7-F is SOT23**
+(Diodes DS11005 Rev 34-2, Ordering Information). Found by the Codex PCB session,
+confirmed here from the manufacturer's own document.
+
+The audit was not missing — it was **not run**. Restoring the bad MPN and running
+it takes 2.1 s and says:
+
+```
+D8  mismatch  BAT54-7-F  'BAT54-7-F' ships as SC-59, SOT-23-3, TO-236-3
+                         but 'Diode_SMD:D_SOD-123' needs SOD-123
+```
+
+The guard worked; the process did not. `audit_mpn_package.py` is the only check
+on this board that compares an MPN against its footprint using **distributor
+parametrics instead of the author's memory**, which makes it the only one that
+can catch a package error at all — and D8 was the first new MPN this change
+introduced. **Run it whenever an MPN or footprint changes**, not only on a full
+BOM pass. It is cached, so the repeat cost is seconds.
+
+After the fix it reports `D8 ok BAT54W-G3-08 SOD-123` — a third independent
+confirmation of the package, alongside the Vishay datasheet and Codex's finding.
+
+D8's **polarity** was wrong in the same landing and is a separate failure with no
+guard behind it at all: `Device:D_Schottky` pin 1 is the CATHODE, the call passed
+`("GND", "VIN_MON")`, and so the clamp was built anode-to-VIN_MON — conducting
+above ~0.3 V and pinning the supply monitor low. `verify()` asserted
+`ASSIGNED[("D8","1")] == "GND"`, i.e. **the assertion was transcribed from the
+code and certified the bug**. Both the generator assertion and the netlist audit
+now state the diode's *roles* instead, and both were calibrated by constructing
+the reversed diode and watching them fail.
+
+### Verification block to use from now on
+
+```
+python3 gen_sch.py
+kicad-cli sch erc --exit-code-violations o2-probe.kicad_sch
+kicad-cli sch export netlist -o /tmp/o2.net o2-probe.kicad_sch
+python3 audit_schematic.py /tmp/o2.net
+python3 audit_layout.py
+python3 audit_mpn_package.py          # <-- the one that was skipped
+python3 audit_bom.py
+pio run -e o2probe && pio test -e native
+```
+
 ## U8's footprint: DROPPED — the one sub-question left to me
 
 Fab left this open and recommended keeping it if board area allows, as a hedge

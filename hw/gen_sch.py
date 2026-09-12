@@ -1312,10 +1312,21 @@ net("TP2",1,"GND",stub=6.35)
 # heat was applied, and the five hours it took to see that were spent looking at
 # the 2.5 V reference THROUGH the one ADS channel that was lying about it.
 # Every analog channel now converts on the STM32G071's own SAR (see MCU_NETS).
-# VREF+ stays on VDDA: the reference's drift cancels ARITHMETICALLY because
-# /VREF_TRIM and /AFE_VOUT are converted on the same converter in the same
-# cycle, so nothing has to be wired to obtain ratiometry, and the whole error
-# budget stays inside DS12232 Table 60's specified VDDA = VREF+ condition.
+#
+# VREF+ IS DRIVEN FROM /VREF_TRIM, THE REF3425 -- NOT from VDDA.  The paragraph
+# that stood here until 2026-09-12 described the VDDA form, which was PROPOSED
+# AND REJECTED, and it must not be read as a description of this board.  It
+# argued that the reference's drift would cancel ARITHMETICALLY because
+# /VREF_TRIM and /AFE_VOUT are converted on the same converter, so no wiring was
+# needed to obtain ratiometry.  THAT ARGUMENT IS WRONG, and the reason it is
+# wrong is the whole justification for the adopted design: the two conversions
+# do not happen at the same instant, and the rail moves between them.  3V3D
+# couples into the oxygen reading at 0.718 mV/mV at zero O2, and 4.63 mV RMS of
+# rail motion is 0.1 %O2.  Arithmetic cannot cancel a quantity that changed
+# between the two samples; only wiring the ladder and the full scale to the SAME
+# node can, which is what driving VREF+ from the REF3425 does.
+# See docs/2026-09-12-revb-decision-delete-ads1119.md and
+# docs/2026-09-12-revb-cost-of-moving-vref-to-the-ref3425.md.
 # Deleted with it: R18 (already gone), R19, C18, C19, the ADC_DRDY net, and the
 # I2C traffic to U8.  Deleted separately but for the same reason: R34/R35/R36/C29
 # and the nets VREF_MON_RAW and ADC_VREF_MON, per
@@ -1342,31 +1353,52 @@ net("TP2",1,"GND",stub=6.35)
 #
 # On the MCU's SAR this gets EASIER, not harder, and that is worth stating
 # because the ADS1119 version of this note was a list of ways to clip.  Both
-# legs are now converted SINGLE-ENDED against VDDA = 3.3 V, so 1.675 V and
-# 2.275 V each sit around mid-scale with a volt of room on either side; there
-# is no differential full scale to be 96% of, and no internal-reference setting
-# that can hard-clip the pair.  The cost is that the pedestal no longer cancels
+# legs are now converted SINGLE-ENDED against the REF3425's 2.500 V full scale;
+# there is no differential full scale to be 96% of, and no internal-reference
+# setting that can hard-clip the pair.
+#
+# BUT CORRECT THE HEADROOM CLAIM THIS NOTE USED TO MAKE.  It said the two legs
+# "sit around mid-scale with a volt of room on either side", which was arithmetic
+# against a 3.3 V full scale -- i.e. against the REJECTED VDDA form.  Against
+# 2.500 V the real numbers are V_WE = 1.675 V = 0.67 x FS (code 2744) and
+# V_RE = 2.275 V = 0.91 x FS (code 3727).  V_RE has 225 mV of headroom, not a
+# volt.  That is still workable -- nothing clips, and the pedestal is fixed by
+# REFCN rather than by the signal -- but it is tight enough that it must be
+# stated honestly, and it is USEFUL: both codes are known constants, so a leg
+# that drifts off 2744 or 3727 is a per-channel leak detector for free.
+# The cost is that the pedestal no longer cancels
 # in hardware -- it is subtracted in firmware from two codes instead of arriving
 # pre-subtracted -- and that the two legs' gain errors no longer cancel either.
 # Both are absorbed by ADCAL plus the air calibration.  VREF-independence, which
 # the old wiring bought by referring the LMP ladder and the ADS FSR to the same
-# node, is now obtained arithmetically from the measured /VREF_TRIM code.
+# node, is preserved BY WIRING and not by arithmetic: the LMP91000 ladder and the
+# SAR's full scale are both /VREF_TRIM, so the ratio is fixed in copper.  There
+# is no "measured /VREF_TRIM code" any more -- PA5 is nc() and the reference is
+# never converted, because converting a reference against itself returns full
+# scale whatever the reference does.
 # R18, a 10k pull-up on the ADS1119 RESET pin, was already deleted; R19 (the
 # ADC_DRDY pull-up) and C18/C19 (U8's 3V3A and 3V3D local decoupling) go with
 # U8 itself.  C18 was U8's only claim on 3V3A here -- U4 and U7 carry their own.
 add_passive("R24",165.1,147.32,"47k","Resistor_SMD:R_0603_1608Metric","3V3A","VA_MON",
-            note="3V3A rail monitor divider, 1:2 into MCU PA7/ADC_IN7. FIRMWARE: VA_MON_MV = "
-                 "2 x ADC. This IS the sourcing pass the old note asked for. The position was "
-                 "0.1% 10k (P2TC0603D1002LNTA) only because R21/R22 once shared it, and those "
-                 "went with the trim and guard dividers. Nothing downstream SCALES by this "
-                 "reading -- it is rail health. Contrast VREF_MON, whose ratio main.c promotes "
-                 "into g_cyc.vref_mv and thence into the reported cell current: R34/R35 stay "
-                 "0.1% for exactly that reason and this pair does not need to. 47k rather than "
-                 "10k also drops the continuous draw on the analog rail feeding U4/U7/U8 from "
-                 "165 uA to 35 uA. Source impedance goes 5k -> 23.5k, and that is CHECKED, "
+            note="3V3A rail monitor divider top leg, into MCU PA7/ADC_IN7. NOT 1:2 any more: "
+                 "R25 went 47k -> 27k on 2026-09-12, so the ratio is 27/74 and FIRMWARE is "
+                 "VA_MON_MV = ADC x 74/27 = 2.741 x ADC, derived by gen_hw_contract.py as "
+                 "O2P_HW_DIV_VA_NUM/DEN rather than written by hand. This IS the sourcing pass "
+                 "the old note asked for. The position was 0.1% 10k (P2TC0603D1002LNTA) only "
+                 "because R21/R22 once shared it, and those went with the trim and guard "
+                 "dividers. Nothing downstream SCALES by this reading -- it is rail health. The "
+                 "old note contrasted this pair with R34/R35, the 0.1% VREF_MON divider whose "
+                 "ratio main.c promoted into g_cyc.vref_mv: THAT DIVIDER IS DELETED and the "
+                 "reference is no longer measured at all, so the contrast no longer exists and "
+                 "this pair is simply the only rail divider left that needs no precision. 47k "
+                 "rather than 10k also drops the continuous draw on the analog rail feeding "
+                 "U4/U7 (U8 is deleted) from 165 uA to 35 uA. Source impedance went 5k -> "
+                 "23.5k on that pass and is 17.2k today with the 27k bottom leg, and that is "
+                 "CHECKED, "
                  "not assumed: ST DS12232 Table 59 (Maximum ADC RAIN) allows 50k at 12 bits "
-                 "and 160.5 sampling cycles, which is what mcu_adc.c already selects -- 2.1x "
-                 "margin, and more in practice because Table 59 is quoted at a 35 MHz ADC "
+                 "and 160.5 sampling cycles, which is what mcu_adc.c already selects -- 2.9x "
+                 "margin at 17.2k (it was 2.1x at 23.5k), and more in practice because Table "
+                 "59 is quoted at a 35 MHz ADC "
                  "clock where this board runs 16 MHz. DO NOT RAISE THIS DIVIDER FURTHER: 100k "
                  "legs would put the source at exactly the 50k limit. It releases the "
                  "matched-pair placement adjacency the two-layer refloorplan work was holding")
@@ -1392,7 +1424,12 @@ add_passive("R27",165.1,177.8,"10k","Resistor_SMD:R_0603_1608Metric","VIN_MON","
                  "in a sourcing pass, not a spec change: RC0603FR-0710KL IS a generic 1% 0603 "
                  "10k, and that stock line already exists for R8/R18/R19/R28")
 add_passive("R33",185.42,147.32,"1k","Resistor_SMD:R_0603_1608Metric","AFE_VOUT","ADC_AFE_VOUT", wired=True,
-            note="ADC anti-alias/input-kickback filter; place with C28 at U8 AIN0")
+            note="ADC anti-alias/input-kickback filter. PLACE WITH C28 AT THE MCU, pin 20 / "
+                 "PB1 / ADC_IN9 -- not at U8 AIN0, which is where this note said until "
+                 "2026-09-12 and which no longer exists. The 100 nF must be close to the "
+                 "SAMPLING pin because what it sources is the charge kick of the SAR's 5 pF "
+                 "sample capacitor (DS12232 Table 58); placed at the far end it filters the "
+                 "signal but not the kick")
 add_passive("C28",208.28,147.32,"100n","Capacitor_SMD:C_0402_1005Metric","ADC_AFE_VOUT","GND", wired=True)
 # R39 is KEPT, against docs/archive/2026-09-09-pcb-plans/BOM-REDUCTION.md 3, which listed it for deletion.  The
 # reason it was listed was proximity to the BMP390 block, not analysis, and its
@@ -1435,30 +1472,62 @@ add_passive("C31",208.28,177.8,"100n","Capacitor_SMD:C_0402_1005Metric","ADC_RE_
 # A BAT54 at 10 uA sits near -0.1 V and keeps the pad off.
 #
 # THE LEAKAGE COST IS REAL AND IS BUDGETED, not waved past: this diode's reverse
-# leakage flows through the divider's 9.0 kOhm (R26||R27).  BAT54's 2 uA max is
-# quoted at 25 V; at the 1.2 V of reverse bias this node actually applies it is
+# leakage flows through the divider's 9.0 kOhm (R26||R27).  BAT54W-G's 2 uA max
+# is quoted at VR = 25 V (Vishay 86409 Electrical Characteristics -- identical to
+# the Diodes BAT54 headline, so the budget below did not move when the part did);
+# at the 1.2 V of reverse bias this node actually applies it is
 # far lower, but taking the catalogue maximum anyway gives 18 mV on a 1188 mV
 # reading -- 0.18 V of apparent error on a 12 V rail whose thresholds are 7 V
 # and 15 V.  Acceptable HERE because VIN_MON is health and nothing scales by it.
 # THIS REASONING DOES NOT LICENSE A CLAMP ON AN OXYGEN-PATH CHANNEL: the same
 # 2 uA on R33's 1k would be 2 mV, 0.06 %O2, on the measurement itself.
-# SELECTION GATE: Ir <= 1 uA at 1.2 V reverse, 85 C.  Confirm on the curve, not
-# on the 25 V headline number, before release.
-add_passive("D8", 246.38, 167.64, "BAT54", "Diode_SMD:D_SOD-123",
-            "GND", "VIN_MON", lib=SCHOTTKY2, angle=180, mpn="BAT54-7-F",
-            note="Negative-injection clamp on PA6; cathode to VIN_MON, anode to AGND, so it "
-                 "is reverse-biased at +1.2 V in normal operation and conducts only when the "
-                 "pin is pulled below ground. See the block comment above for the Table 50 "
-                 "rating, the part-class argument against the 1N4148W, and the leakage budget")
+# SELECTION GATE, STILL OPEN AS OF 2026-09-12: Ir <= 1 uA at 1.2 V reverse,
+# 85 C.  Confirm on the curve, not on the 25 V headline number, before release.
+# Vishay 86409 Fig. 3 plots Ir vs Vr at -40 / 25 / 125 C ONLY, so 85 C is an
+# interpolation between plotted curves and NOT a specified value.  Digitize it
+# (dsdig, not by eye) before calling this gate met; it is not met today.
+#
+# PART AND POLARITY, CORRECTED 2026-09-12 after the Codex PCB session found BOTH
+# wrong in the first landing.  Recorded because the shape of the error matters:
+#
+#   POLARITY.  SCHOTTKY2 is Device:D_Schottky, whose PIN 1 IS THE CATHODE (see
+#   its definition above, and D3's note, which says so in as many words).  The
+#   first version passed ("GND", "VIN_MON"), putting the ANODE on VIN_MON -- a
+#   diode that conducts above ~0.3 V and clamps the monitor permanently low,
+#   the precise opposite of the intent stated in its own note.  verify() then
+#   asserted ASSIGNED[("D8","1")] == "GND", so THE ASSERTION CONFIRMED THE BUG:
+#   it was written from the code, not from the design statement.  The net order
+#   below is now (VIN_MON, GND) = (K, A), and the assertion names the roles.
+#
+#   PACKAGE.  BAT54-7-F is SOT23, not SOD-123 -- Diodes DS11005 Rev 34-2,
+#   Ordering Information.  A SOT-23 single needs a THREE-pin symbol, and KiCad
+#   ships no authoritative one for that part, so keeping the MPN would have
+#   meant hand-authoring a symbol -- exactly what authoritative_symbol() exists
+#   to forbid.  Vishay BAT54W-G is the same 30 V / 200 mA single Schottky in
+#   SOD-123 (Vishay 86409: Mechanical Data "Case: SOD-123", Parts Table
+#   "Single"), so the footprint, the two-pin authoritative symbol and the land
+#   pattern all stay as drawn.  BEWARE THE W SUFFIX: it means SOT-323 at Diodes
+#   and at Nexperia but SOD-123 at Vishay, which is the likeliest source of the
+#   original error.  Orderable as BAT54W-G3-08 (Mouser DE, 29.5k in stock).
+add_passive("D8", 246.38, 167.64, "BAT54W-G", "Diode_SMD:D_SOD-123",
+            "VIN_MON", "GND", lib=SCHOTTKY2, angle=180, mpn="BAT54W-G3-08",
+            note="Negative-injection clamp on PA6. Pin 1 is the CATHODE and goes to VIN_MON; "
+                 "pin 2 is the ANODE and goes to AGND. It therefore sits reverse-biased at "
+                 "+1.2 V in normal operation and conducts only when the pin is pulled below "
+                 "ground. See the block comment above for the Table 50 rating, the part-class "
+                 "argument against the 1N4148W, the leakage budget, and the 2026-09-12 "
+                 "correction of both the polarity and the package")
 add_passive("C32",226.06,167.64,"100n","Capacitor_SMD:C_0402_1005Metric","VIN_MON","GND",
             note="VIN monitor reservoir at the MCU PA6 pin. VIN_MON lost its R38/C31 ADC filter "
                  "when AIN3 was taken for bias telemetry; source impedance is R26||R27 = 8.9k, "
                  "so the STM32G071 sampling cap needs this and the LONGEST sampling time")
 add_passive("C33",226.06,177.8,"100n","Capacitor_SMD:C_0402_1005Metric","VA_MON","GND",
             note="VA monitor reservoir at the MCU PA7 pin; same reason as C32. Source is "
-                 "R24||R25 = 23.5k since the 2026-09-05 BOM pass, not the 5k this note used to "
-                 "say -- which makes this reservoir MORE load-bearing, not less, because it is "
-                 "what absorbs the ADC's sampling kick at the higher source impedance")
+                 "R24||R25 = 17.2k since R25 went 47k -> 27k on 2026-09-12 (it was 23.5k after "
+                 "the 2026-09-05 BOM pass and 5k before that). Still far above the 5k this "
+                 "note originally assumed, so the conclusion is unchanged: this reservoir is "
+                 "MORE load-bearing, not less, because it is what absorbs the ADC's sampling "
+                 "kick at the higher source impedance")
 # R34/R35/R36/C29 -- the 47k/47k VREF health divider and its 1k/100n filter --
 # are DELETED (docs/2026-09-12-revb-decision-vref-monitor.md), and with them the
 # nets /VREF_MON_RAW and /ADC_VREF_MON.  /VREF_TRIM is 2.500 V, below VDDA, so
@@ -1991,7 +2060,18 @@ def verify() -> None:
     assert INST["R24"]["value"] == "47k" and INST["R25"]["value"] == "27k"
     # The PA6 clamp. Table 50 rates PA6 at 0 mA negative injection and it is the
     # only analog channel with a path to the external supply cable.
-    assert ASSIGNED[("D8", "1")] == "GND" and ASSIGNED[("D8", "2")] == "VIN_MON"
+    # D8 POLARITY.  Stated in terms of the diode's ROLES, not of whichever net
+    # order the add_passive() call happens to use, because the previous form of
+    # this assertion was transcribed from the code and so passed on a REVERSED
+    # clamp.  Device:D_Schottky pin 1 = K, pin 2 = A; the clamp must be reverse-
+    # biased by the +1.2 V that VIN_MON normally sits at, so K is the VIN_MON
+    # side.  If these two are ever swapped the diode conducts above ~0.3 V and
+    # pins the supply monitor low.
+    d8_k, d8_a = ASSIGNED[("D8", "1")], ASSIGNED[("D8", "2")]
+    assert (d8_k, d8_a) == ("VIN_MON", "GND"), \
+        f"D8 reversed: cathode(pin1)={d8_k} anode(pin2)={d8_a}, want K=VIN_MON A=GND"
+    assert INST["D8"]["footprint"] == "Diode_SMD:D_SOD-123", \
+        "D8 footprint must match a TWO-terminal part; BAT54-7-F is SOT23, not SOD-123"
     # VIN monitor divider. The value is pinned because firmware converts the ADC
     # reading with this exact ratio; changing one leg without the other silently
     # rescales every reported input voltage.

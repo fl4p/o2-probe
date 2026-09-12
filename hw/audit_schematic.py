@@ -124,7 +124,14 @@ required = {
     "RS485_DE": {"U5.3", "R7.1", "U6.30"},
     "RS485_RE": {"U5.2", "R45.1", "U6.31"},
     "VA_MON": {"R24.2", "R25.1", "C33.1", "U6.18"},
-    "VIN_MON": {"R26.2", "R27.1", "C32.1", "U6.17"},
+    # D8.1 is the CATHODE of the negative-injection clamp (Device:D_Schottky
+    # pin 1 = K). Naming the cathode here, on an EXACT net, is a second and
+    # independent check of D8's polarity: if the diode is flipped, D8.2 lands on
+    # VIN_MON instead and this audit reports both a missing D8.1 and an
+    # unexpected D8.2. gen_sch.py's verify() checks the same thing from the
+    # generator's model; this one checks the EXPORTED NETLIST, which is the
+    # artifact the PCB is actually built from.
+    "VIN_MON": {"R26.2", "R27.1", "C32.1", "U6.17", "D8.1"},
     "BUCK_BST": {"U1.6", "C2.1"},
     "BUCK_SW": {"U1.5", "C2.2", "L1.1"},
     # Main-board heaters remain; the optional Rev C ring branch is absent.
@@ -167,11 +174,34 @@ for (_r, _p), _n in _gs.ASSIGNED.items():
 errors.extend(f"not connected in the exported netlist: {_f}"
               for _f in sorted(_floating))
 
+# EXACT nets: both directions are checked, so an EXTRA pin is an error too.
+#
+# Added 2026-09-12 because several comments in `required` above claimed this
+# behaviour ("An exact set, so re-adding a divider leg here fails this audit
+# rather than passing quietly") while the loop below only ever computed
+# `wanted - actual`.  Extras were accepted silently, so the audit would have
+# PASSED a re-added VREF_TRIM divider leg -- the one failure the comment said it
+# existed to catch.  A guard that overstates itself is worse than no guard,
+# because the comment is what the next reader trusts instead of the code.
+#
+# Kept to the nets whose membership is genuinely closed and load-bearing: the
+# reference, the three analog channels that carry oxygen, the electrometer
+# outputs, and the two supply monitors.  Everything else stays subset-checked,
+# which is at least honest about being a floor rather than a fence.
+EXACT = {
+    "VREF_TRIM", "ADC_AFE_VOUT", "ADC_WE_BUF", "ADC_RE_BUF",
+    "VA_MON", "VIN_MON", "WE_BUF", "RE_BUF",
+}
+
 for name, wanted in required.items():
     actual = nets.get(name, set())
     missing = sorted(wanted - actual)
     if missing:
         errors.append(f"{name} missing: {', '.join(missing)}")
+    if name in EXACT:
+        extra = sorted(actual - wanted)
+        if extra:
+            errors.append(f"{name} has unexpected pins: {', '.join(extra)}")
 
 expected_mcu_pin_nets = {
     "U6.17": "VIN_MON",
