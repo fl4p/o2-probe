@@ -1304,3 +1304,88 @@ with landmarks** (grounds, and one pad at a known distinctive voltage), have
 every net appear at **two or more pads**, and state that a bottom-side view
 mirrors left-to-right against board coordinates. Fit no network model to a
 reading until the sequence has decoded itself.
+
+### 11:55 — external 3V3A restores the AFE. Fault 2 isolated: ~50 µA sinking into the AIN1 stub
+
+Fab injected an external 3.3 V onto `/3V3A`, drawing no visible current (the
+honest load is only ~1–1.5 mA, and note a shutdown TPS7A20 would have pulled
+22 mA through its internal 150 Ω OUT pulldown — so the LDO is not simply in
+shutdown, or the injection point is isolated from U3.5).
+
+**Both AFE parts came straight back:** ADS1119 STATUS 0x70 / CONFIG 0x65,
+LMP91000 STATUS 0x01 / REFCN 0xCD. So U7 and U8 survive, and **fault 1 is the
+3V3A rail alone.**
+
+With the rail held steady by the bench supply, fault 2 stands still and the
+landmarked sweep resolves it. Sequence as read (bottom side, so reversed;
+zeros at 2 and 6 decoded it):
+
+| # | pad | net | mV | due |
+|---|---|---|--:|--:|
+| 1 | C29.1 | `/ADC_VREF_MON` | 36 | 1250 |
+| 2 | C29.2 | GND | 0 | 0 |
+| 3 | R36.1 | `/VREF_MON_RAW` | 86 | 1250 |
+| 4 | R36.2 | `/ADC_VREF_MON` | 36 | 1250 |
+| 5 | R35.1 | `/VREF_MON_RAW` | 86 | 1250 |
+| 6 | R35.2 | GND | 0 | 0 |
+| 7 | R34.1 | `/VREF_TRIM` | **2500** | 2500 |
+| 8 | R34.2 | `/VREF_MON_RAW` | 86 | 1250 |
+
+Two pads agree on `/ADC_VREF_MON`, three on `/VREF_MON_RAW`, both grounds are
+0, and the reference is exactly on its trim target. **The node currents close
+to 0.4 µA:**
+
+    in  through R34: (2500 - 86)/47k = 51.4 µA
+    out through R35:  86/47k         =  1.8 µA
+    out through R36: (86 - 36)/1k    = 50.0 µA
+
+So R34, R35 and R36 are all intact at their design values, and **~50 µA sinks
+into the `/ADC_VREF_MON` stub, which sits at 36 mV — a ≈720 Ω path to ground.**
+The meter reads that pin at 36 mV and the ADS reports 35 mV, so the converter
+reads its own pin correctly: the pin really is dragged down. Only **C29 (100n)
+and U8 pin 8** live on that stub.
+
+This reproduces the 09:55 conclusion, but this time on a self-validating
+measurement (two- and three-pad agreement, ground landmarks, an exact current
+balance, and the reference at nominal) taken on a stable rail. The earlier
+version happened to be right and was not proven; the difference is the method,
+not the luck.
+
+**Reading the state with the internal reference forced (`diag 9:1`, re-set
+after the reboot): VREF_MON 70, VIN 13138 (correct), AFE_VOUT 34, VA 0.**
+Identical to the 09:10 good state, so fault 2 is stable and rail-independent.
+
+#### The non-destructive discriminator: sweep the AFE_VOUT row
+
+`/AFE_VOUT` should idle at 0.67 × 2500 ≈ 1675 mV (REFCN INT_Z 67 %, reference
+healthy), and AIN0 reads 34 mV — the same shape as AIN1. Four pads, B.Cu,
+y = 114.0, self-locating on one GND with `/ADC_AFE_VOUT` twice:
+
+| x | pad | net | healthy |
+|--:|---|---|--:|
+| 105.17 | R33.2 | `/ADC_AFE_VOUT` | 1675 |
+| 106.83 | R33.1 | `/AFE_VOUT` | 1675 |
+| 108.52 | C28.2 | GND | 0 |
+| 109.48 | C28.1 | `/ADC_AFE_VOUT` | 1675 |
+
+- `/AFE_VOUT` ≈ 1675 with `/ADC_AFE_VOUT` ≈ 34 ⇒ a second stub sinking through
+  its own 1 k. Two leaking stubs would need C28 **and** C29 both soft-shorted
+  near 700 Ω; one chip with two damaged inputs is far likelier ⇒ **replace U8.**
+- Both ≈ 34 ⇒ the LMP's output is genuinely down, AIN0 is innocent, and the
+  LMP becomes a separate question.
+
+Fallback, destructive but definitive: lift one end of C29 (116.28 / 115.32,
+y = 120.8) and re-read VREF_MON over the wire. ~2500 ⇒ C29. Still 70 ⇒ the ADS.
+**Do not ohm across C29 in place** — that measures the net, not the part; the
+same trap cost a day on 2026-09-10 when C10 was removed and the leak persisted.
+
+#### Open: the rail may not be 3.3 V
+
+Before the internal-reference override, PA7 published `VA_MV` 5224, i.e. a
+divider tap of 2612 mV. Through the ÷2 that R24/R25 are supposed to be, that
+implies **3V3A ≈ 5.2 V**. Either the bench supply is set above 3.3 V, or
+R24/R25 are not ÷2 as fitted and the firmware's scale factor is wrong — and
+fitted-vs-designed divergence has precedent here, the VIN divider being 82k/10k
+rather than the designed 130k/20k (reg 0x004B). This is also what made `/VA_MON`
+look wrong all morning. One meter touch on the rail and the R24/R25 junction
+settles it.
