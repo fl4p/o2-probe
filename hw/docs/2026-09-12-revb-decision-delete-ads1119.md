@@ -499,3 +499,77 @@ switch only when `CALFACT` says the erratum has bitten on this part.
 | 2.6.3 AWD1 misses out-of-threshold in Single mode past the first channel | only if an analog watchdog is used on a sequence; none is today |
 | 2.6.4 sampling time one cycle longer | **no** — 1.5/3.5 cycles only; we use 160.5 |
 | 2.6.5 / 2.6.6 | documentation errata, trigger latency |
+
+### RM0444 Rev 6 + DS12232 Table 62 — the DAC path is real but not exact
+
+Archived: `~/dev/ee/datasheets/ST-STM32G0x1-RM0444.pdf`, **Rev 6**, 17 180 597 B,
+byte-count verified against st.com. Reached the same way as ES0418 Rev 5.
+
+**Correction to the section above.** I wrote that the Rev 5 workaround is "free
+on the board as designed". That is right for one of the two `CALFACT` branches
+and too strong for the other. The register path exists and needs no pin:
+
+- `DAC_MCR MODE2 = 011` — "DAC is connected to on-chip peripherals", output
+  buffer **disabled**, `DACx_OUTy` disconnected from the pad (RM0444 §16.4.2,
+  and the MODE encoding). PA5 stays physically `nc`.
+- The internal destination is **not** `ADC_IN5`. `ADC_CCR` bit 24: "0: VBAT
+  channel disabled, **DAC_OUT2 connected to ADC channel 14**". So the reading is
+  taken on internal channel 14, with `VBATEN` cleared, writable only while
+  `ADSTART = 0`.
+- `ADC_CCR` bit 23 does the same for `DAC_OUT1` → **channel 12**, but that one is
+  gated on `TSEN = 0`, i.e. it costs the internal die-temperature sensor, which
+  is in use. **Channel 2 / channel 14 is the only free path** — and DAC_OUT2 is
+  on PA5. The alignment is luck, not design.
+
+**What limits it: the DAC's own error, in the same LSBs.** DS12232 Table 62,
+buffer OFF, `CL <= 50 pF, no RL` — which is exactly the on-chip-peripheral case:
+
+| | buffer OFF |
+|---|---|
+| `Offset1` at code 0x001 | ±5 LSB |
+| `Offset` at code 0x800 | ±8 LSB |
+| `INL` | ±4 LSB |
+| `Gain` | **±0.5 %** = ±20 LSB at full scale |
+| `TUE` | ±12 LSB |
+
+A DAC LSB and an ADC LSB are the same 610 uV here — both are 12-bit off the same
+`VREF+` — so these numbers land directly on the correction:
+
+- **`CALFACT` = 0x7F (the `VSSA` branch): the DAC is good.** Code 0x001 carries
+  ±5 LSB, so a 50 LSB offset is corrected to about ±5. Free, firmware only.
+- **`CALFACT` = 0x00 (the `VREF+` branch): the DAC is weak.** The reading is near
+  full scale, where the DAC's ±0.5 % gain error is **±20 LSB** and masquerades as
+  ADC offset. Correcting a 50 LSB unknown with a ±20 LSB ruler is an improvement,
+  not a fix.
+
+So the earlier "no schematic change" holds only if the part turns out to be
+0x7F, and we will not know that until a part is measured. `68e6bde` is still
+correct as committed — nothing here is a defect in it — but the remedy set needs
+ranking, and the ranking is Fab's and revB's call, not mine:
+
+1. **The differential form, `code_WE - code_AFE`** (the option above). Cancels
+   `EO` **exactly**, for both branches, with no pin and no part — it is ST's own
+   second workaround bullet, "use the ADC for measuring a difference between two
+   DC voltages". Cost: one conversion's noise, and it spends `WE_BUF` as an
+   independent check.
+2. **Wire PA5 to `/VREF_TRIM` after all.** One route, zero parts, and it gives
+   the 0x00 branch an exact reference instead of a ±20 LSB one. This also
+   **retracts a claim made above and in `gen_sch.py:1100`**: converting the
+   reference against itself does not "carry no information" — the erratum's whole
+   method is that it reads 4096 *minus the offset*, so the saturation is the
+   measurement. That reasoning was sound for the VDDA architecture and is wrong
+   for this one.
+3. **DAC2 internal** as specified above: free, sufficient for 0x7F, partial for
+   0x00.
+4. **Detect and reject.** Publish `CALFACT`, and treat 0x00/0x7F as a
+   production-test failure for that MCU. Viable precisely because typ is
+   unchanged, so affected parts should be a minority.
+
+Whatever is chosen, **PA5 must stop being advertised as free** — every remedy
+except (1) and (4) claims it, as a pin or as DAC_OUT2.
+
+Still open, and cheap: **which silicon revision we have.** `REV_ID` 0x2000
+(marking B) has the erratum, 0x2002 (marking Y) does not. One SWD read of
+`DBGMCU_IDCODE`, or the marking on U6. If it is Y, all of this is moot for the
+parts on hand — and it must then become a **purchasing constraint**, because the
+next reel can be either.
