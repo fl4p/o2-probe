@@ -1458,3 +1458,41 @@ Outstanding on the rail: U3 pin 3 (EN, 111.86/86.95) against pin 1 (IN,
 111.86/85.05) — an open EN joint lets the internal 500 kΩ pulldown shut the
 regulator off; and U3 pin 5 (114.14/85.05) against the injection point, since a
 break there would explain both the dead rail and the supply seeing no current.
+
+### 12:35 — correction to 12:20: "replace U8" is not yet earned
+
+Fab: *"are you sure?"* No. The 12:20 section states two conclusions more
+strongly than the evidence carries. The measurements in it stand; the
+attribution to silicon does not.
+
+**1. "AIN1's input leaks ≈720 Ω."** The `/ADC_VREF_MON` stub is **C29 ∥ U8.8**,
+and C29 was never excluded. The argument offered for the chip — two leaking
+stubs beats two coincidentally shorted caps — **collapsed in the same section**
+that made it: the AFE_VOUT sweep showed AIN0's stub is NOT strongly leaking.
+Only one stub leaks, so a single soft-shorted C29 explains it completely. The
+lift-C29 discriminator was proposed at 11:55 and never run.
+
+**2. "AIN0's mux does not connect."** An **open solder joint on pin 9** is
+indistinguishable from an open mux switch by this symptom: in both cases the
+sampling capacitor is never connected to anything external and retains the
+previous channel's charge. One is a reflow, the other a replacement. On a QFN
+that took 30 minutes of hot air, the joint is the likelier of the two.
+
+One datum leans against the open joint but does not settle it:
+`/AFE_VOUT` 1673 − `/ADC_AFE_VOUT` 1650 = 23 mV across R33 1 k, so ~23 µA flows
+INTO pin 9, and an open lead cannot draw current. That current could equally be
+a leaky C28 (72 kΩ at 1650 mV). Leaning is not proving.
+
+**Tests, in order, before any part is ordered:**
+
+| | test | result ⇒ conclusion |
+|---|---|---|
+| A | lift one end of C29 (116.28 / 115.32, y=120.8), re-read `VREF_MON` | ~2500 ⇒ C29 was the leak, AIN1 healthy. Still 70 ⇒ the leak is U8.8 |
+| B | reflow U8 with flux, minimum heat, re-read `AFE_VOUT` | ~1650 ⇒ it was a joint, no replacement. Still 34 ⇒ internal path broken, replace U8 |
+
+A before B, so the reflow does not disturb the cap under test. The 3V3A repair
+is independent and comes first regardless.
+
+What survives 12:20 untouched: every pad voltage, the current balances, the
+LMP91000's clean bill of health, `/VREF_TRIM` at 2500, and the exoneration of
+R33, R34, R35, R36, R24, R25 and the reference chain.
