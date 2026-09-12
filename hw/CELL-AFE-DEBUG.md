@@ -2971,3 +2971,48 @@ today's window (17:30, 18:00, 18:20) and **-0.0 µA** at 17:20, between clean
 100–102 µA readings. 237 µA is ~2.37x the air point. Flagged because a periodic
 non-physical sample will bias any mean taken over these series — the figures
 above use plateau values, not means.
+
+#### What "the 09-10 point" is, and two more candidates bounded
+
+**Definition, for the record.** The 09-10 point is the air calibration committed
+at **09-10 09:00**, `K` = **416 543 nA**, `CAL_AIR_NA` = **96 580 nA** —
+`docs/2026-09-11-o2-model-fit-vs-truth.md:431`, described at `:70` as "a fresh
+air point taken on the morning of 09-10". It is the value that sat in the
+probe's config until today, so it is the baseline the +5.1 % is measured
+against. From VictoriaMetrics at 07:00 UTC (= 09:00 CEST): cell **96.3–96.4 µA**,
+chamber **9.2 °C**, no cell-side `t_ext` sensor reporting yet.
+
+**It is not just an older reading, it is a different instrument.** That point
+predates the full analog coating (09-11 09:34), and it predates replacing U8,
+U3 and R36 and refitting C9. Any comparison across it spans a board rework.
+
+**Cell identity: CLEARED.** Fab, 2026-09-12: *"this is still cell #1"*. Both
+points are the same cell, so the commit's first and strongest candidate is out.
+
+**The new U8's reference cannot do it.** TI ADS1119 datasheet, Internal Voltage
+Reference: `Accuracy` at TA = 25 °C is **±0.15 % max (TSSOP) / ±0.25 % max
+(WQFN)**, typ ±0.04 %; drift 5 ppm/°C typ, 30 max; long-term 110 ppm/1000 h.
+Both `AFE_VOUT` and `VREF_MON` convert against that same internal reference, so
+its error scales the computed current 1:1 with no lever arm — and two parts each
+inside ±0.25 % bound the swap at **~0.5 % worst case, ~0.08 % typical**. It
+cannot account for 2.6 %.
+
+**Barometric pressure is unmeasured at both points and is not recoverable from
+our own telemetry.** `CAL_P_HPA` was the configured **930** hPa at both, the
+probe has no barometer, and the only humidity/pressure-adjacent series in
+VictoriaMetrics is `gas_rh_chamber_pct` — there is no pressure metric at all.
+Cell current is proportional to pO2, so a real synoptic difference between
+09-10 and 09-12 enters the air point directly and silently: **10 hPa is 1.1 %**,
+and the residual would be covered by 24 hPa. This is now the least constrained
+term in the budget and the cheapest to fix — a site pressure reading logged
+alongside each calibration would retire it permanently.
+
+**Water vapour is not the answer.** At 930 hPa, saturated at 9 °C gives
+pH2O ≈ 11.5 hPa and at 21.5 °C ≈ 25.6 hPa, so at comparable RH the dry-fraction
+difference is under 0.2 % — and the sign is wrong: a warmer, wetter today would
+read *lower*, not higher. `DIL_ALPHA` was 1.000 at both points.
+
+Budget as it stands: temperature +1.2 %, reference lever arm +1.1 % (pending the
+TP4-vs-0x0010 check), cell identity and converter reference excluded, water
+vapour negligible, **pressure unbounded**. Residual ~2.6 % with pressure the
+only remaining candidate that can reach it.
