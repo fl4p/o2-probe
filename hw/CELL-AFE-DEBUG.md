@@ -2742,3 +2742,26 @@ bridge.
 Withdrawn along the way: U7, the replacement U8, cell #1 and cell #2. The
 "610 µA" that condemned cell #1 and the "240 µA" that condemned U7 were the same
 arithmetic artefact of `V_out = 0`.
+
+#### 19:24 — C9 refitted, board verified clean
+
+`/ADC_AFE_VOUT` metered **1.68 V**, i.e. no drop across R33 and no short. With
+C9 back in:
+
+| | 19:24:00 |
+|---|---|
+| `AFE_VOUT` | **1679 mV** |
+| `cell_ua` | −0.03 µA |
+| `VREF_MON` | 2506 (unchanged — C9's own net is fine) |
+| `VA_MON` | 3298 |
+| `i2c_errs` / `ads_fail_count` | 0 / 0 |
+
+Refitting did not recreate the bridge. `gas_faults` 0x8801 is SETTLING +
+HEATER_DISABLED + ADC_RANGE, and **ADC_RANGE is correct with no cell** —
+`cell_ua ≈ 0` puts the dry-fraction model out of range at `main.c:1141`. It
+clears when a cell goes in.
+
+**Board repaired.** Remaining step is the second acceptance test: fit a cell,
+allow the datasheet's up-to-15-minute settling, expect **~979 mV** in air. Cell
+#1 is worth trying first — it was condemned on a 610 µA reading that this short
+manufactured.
