@@ -1663,3 +1663,72 @@ Same direction, same magnitude — a gain error, most plausibly the internal
 the source. Not actionable while the part is being replaced, but it would bias
 O2, so **check the internal-reference gain against a meter on the new U8**
 before trusting a calibration.
+
+### 14:05 — DOWNGRADE of 13:00: the unpowered 36 kΩ is confounded by temperature
+
+Fab: *"are we sure now its the ADC leaking? how can that happen?"* Not sure.
+The 13:00 section's central argument — "36 kΩ unpowered versus 885 Ω powered,
+therefore every passive cause is excluded" — **has a confound I should have
+caught: the board was powered down AND cooling at the same time.**
+
+This file already documents thermally-activated ionic leakage on this board
+(2026-09-10): `/VREF_TRIM` at 174 mV hot, climbing monotonically to a ~320 mV
+plateau cold, with the explicit note that *"silicon ESD damage doesn't halve
+its resistance in minutes with temperature; ionic contamination does."* So a
+36 kΩ reading taken while cooling is not evidence of a de-energized leak.
+
+What still stands: the leak is **ohmic and stable at ~890 Ω** across three
+operating points (720 Ω at 36 mV, 887 Ω at 765 mV, 901 Ω at 775 mV), C29 is
+excluded by removal, and both AIN0 and AIN1 behaviours are confirmed live.
+
+#### If it IS supply-dependent, the mechanism is latch-up
+
+A parasitic SCR fits every observed property and nothing else does: ohmic,
+hundreds of ohms to a few kΩ, conducts only while the supply sustains its
+holding current, vanishes on power-down, and requires a trigger. Contamination
+and a shorted junction both conduct unpowered.
+
+**And this board supplies a trigger on every power-up.** VIN is upstream of
+everything (VIN → U1 buck → +5V → R32 → +5V_ANALOG → U3 → 3V3A), but
+`/ADC_VIN_MON` is fed from the VIN divider directly — R26/R27, fitted 82k/10k,
+so ~1.42 V at 13.1 V in — through R38 1 kΩ. That input is biased to 1.4 V
+**before AVDD has risen at all**, which is 1.1 V beyond SBAS925A §6.1's
+`AVDD + 0.3 V` limit for AIN0–3/REFP/REFN.
+
+Two qualifications, stated so this is not oversold:
+
+- R38 limits the clamp current to ~700 µA, **14× under** the ±10 mA continuous
+  input-current abs-max (same table). So it is an abs-max VOLTAGE violation,
+  not an evident destruction mechanism.
+- But it is a credible latch-up trigger; it occurs on every power-up; and it
+  occurs on every 3V3A dropout, because **AIN3 is the only input that stays
+  biased when 3V3A dies** — every other input's source (the reference via the
+  OPA2333, the LMP output, the 3V3A divider) is itself 3V3A-derived. This also
+  explains why AIN3 is the one undamaged channel: it is the injector, not the
+  victim. (It rescues, in better form, the cause theory withdrawn at 13:15 —
+  under latch-up the injecting pin need not be the affected one.)
+
+**Consequence: do not fit a replacement U8 yet.** If this is latch-up, the part
+is not damaged and a new one would be commissioned into the same trigger.
+
+#### Tests, cheapest first
+
+1. **Ohm `/ADC_VREF_MON` to GND within seconds of power-off, board still warm;
+   repeat after five minutes.** ~900 Ω warm and 36 kΩ cold ⇒ thermally
+   activated contamination, and 13:00 is wrong. 36 kΩ in both ⇒ genuinely
+   supply-dependent.
+2. If supply-dependent: **bring 3V3A up BEFORE VIN**, or power with VIN absent,
+   and read `VREF_MON`. Near 2500 ⇒ latch-up from VIN-before-AVDD, U8 is fine,
+   and the defect is rail sequencing.
+3. **Warm the board while powered** and watch `VREF_MON` over the wire. A
+   strong negative tempco on the leak indicts contamination independently of
+   test 1. Using the probe's own heater for this needs Fab's explicit word
+   (standing hands-off order).
+
+#### Design note regardless of outcome
+
+`/ADC_VIN_MON` being biased from a rail that is upstream of AVDD is a
+sequencing hazard in the Rev A design, independent of whether it caused this
+failure. A series resistor large enough to hold the clamp current to a few
+tens of µA, or a divider referenced to a rail that comes up with AVDD, would
+remove it. Carry this into any Rev B review.
