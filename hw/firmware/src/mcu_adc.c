@@ -64,6 +64,25 @@ void o2p_mcu_adc_init(void)
     O2P_CE_MON_PORT->PUPDR &= ~(3u << (O2P_CE_MON_PIN * 2u));
     O2P_CE_MON_PORT->MODER |= (3u << (O2P_CE_MON_PIN * 2u));
 
+#if !O2P_HW_HAS_ADS1119
+    /* Rev B's three oxygen-path analog inputs: PA0 WE_BUF, PA1 RE_BUF, PB1
+     * AFE_VOUT. Same omission as PA6's above, and worse here: a pin left in
+     * its reset state is a digital input with a Schmitt trigger on it, so it
+     * both converts plausibly AND loads a 1 kOhm-sourced signal on the oxygen
+     * channel itself.
+     *
+     * Clearing PUPDR matters more than it looks. A pull-up left on PB1 is a
+     * resistor to 3V3D sitting on the AFE output - a bias error that TRACKS
+     * THE DIGITAL RAIL, which is precisely the coupling that deleting the
+     * ADS1119 and moving VREF+ to the REF3425 was done to eliminate. */
+    GPIOA->PUPDR &= ~(3u << (0u * 2u));        /* PA0 */
+    GPIOA->MODER |= (3u << (0u * 2u));
+    GPIOA->PUPDR &= ~(3u << (1u * 2u));        /* PA1 */
+    GPIOA->MODER |= (3u << (1u * 2u));
+    GPIOB->PUPDR &= ~(3u << (1u * 2u));        /* PB1 */
+    GPIOB->MODER |= (3u << (1u * 2u));
+#endif
+
     ADC1->CR = 0u;
     ADC1->CR = ADC_CR_ADVREGEN;
     /* tADCVREG_STUP is 20 us; 1 ms of tick granularity is the cheapest way to
@@ -201,3 +220,59 @@ bool o2p_mcu_adc_read_ce_mv(uint16_t *out_mv)
     return read_divided_rail(O2P_CE_MON_ADC_CH,
                              O2P_HW_DIV_CE_NUM, O2P_HW_DIV_CE_DEN, out_mv);
 }
+
+/* ------------------------------------------------------------------- Rev B */
+#if !O2P_HW_HAS_ADS1119
+
+/* Channel numbers from DS12232 Table 12: PA0 = ADC_IN0, PA1 = ADC_IN1, and
+ * PB1 = ADC_IN9. PB1 is the one worth double-checking against the pin TABLE
+ * rather than the pinout figure -- an earlier revision of this port had it as
+ * IN18, which converts, and converts plausibly. */
+#define O2P_ADC_CH_WE_BUF   0u
+#define O2P_ADC_CH_RE_BUF   1u
+#define O2P_ADC_CH_AFE_VOUT 9u
+
+static bool read_code(uint32_t channel, uint16_t *out_code)
+{
+    if (out_code == NULL || (ADC1->CR & ADC_CR_ADEN) == 0u) {
+        return false;
+    }
+    return convert(channel, out_code);
+}
+
+bool o2p_mcu_adc_read_we_code(uint16_t *out_code)
+{
+    return read_code(O2P_ADC_CH_WE_BUF, out_code);
+}
+
+bool o2p_mcu_adc_read_re_code(uint16_t *out_code)
+{
+    return read_code(O2P_ADC_CH_RE_BUF, out_code);
+}
+
+bool o2p_mcu_adc_read_afe_code(uint16_t *out_code)
+{
+    return read_code(O2P_ADC_CH_AFE_VOUT, out_code);
+}
+
+bool o2p_mcu_adc_calfact(uint8_t *out_calfact)
+{
+    if (out_calfact == NULL || (ADC1->CR & ADC_CR_ADEN) == 0u) {
+        return false;
+    }
+    *out_calfact = (uint8_t)(ADC1->CALFACT & ADC_CALFACT_CALFACT);
+    return true;
+}
+
+bool o2p_mcu_adc_offset_erratum_active(void)
+{
+    uint8_t calfact = 0u;
+    if (!o2p_mcu_adc_calfact(&calfact)) {
+        /* Unknown, not clear. The header says so; this returning false is the
+         * caller's cue to ask for the value when the difference matters. */
+        return false;
+    }
+    return o2p_calfact_railed(calfact);
+}
+
+#endif /* !O2P_HW_HAS_ADS1119 */

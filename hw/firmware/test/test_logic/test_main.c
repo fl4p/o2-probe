@@ -15,6 +15,7 @@
 #include "config_flash.h"
 #include "config_migrate.h"
 #include "die_temp.h"
+#include "mcu_adc.h"
 #include "faults.h"
 #include "gpio_diag.h"
 #include "hw_caps.h"
@@ -8951,6 +8952,82 @@ static void test_gpio_opcode_is_compiled_out_with_the_mailbox(void)
 
 #endif
 
+/* ---- Rev B: the bias pedestal as a per-channel leak detector -------------
+ *
+ * These constants are the LMP91000's ladder against a 12-bit full scale, not
+ * measurements, so they can be checked without hardware. The reason they earn
+ * a test is the failure they exist to catch: on 2026-09-11 three of the
+ * ADS1119's four inputs died and it took five hours to see, because every
+ * channel was only interpretable relative to the others. A leg pinned to a
+ * fixed fraction of full scale is interpretable ALONE. */
+static void test_bias_pedestal_constants_match_the_lmp_ladder(void)
+{
+    /* 0.67 and 0.91 of a 12-bit full scale, to the nearest code. If either of
+     * these ever disagrees with REFCN = 0xCD, the detector below is watching
+     * the wrong number and would report a healthy board as leaking. */
+    TEST_ASSERT_EQUAL_INT(2744, O2P_BIAS_CODE_WE);
+    TEST_ASSERT_EQUAL_INT(3727, O2P_BIAS_CODE_RE);
+    /* 4096, not 4095: the SAR's LSB is VREF/4096, which is the 610 uV/LSB
+     * used for the 2.500 V reference everywhere else in this project. This
+     * assertion caught the constants being documented against 4095, where
+     * V_RE derives to 3726 and V_WE is unchanged - a one-code disagreement
+     * that reads as rounding noise but is the wrong transfer function. */
+    TEST_ASSERT_EQUAL_INT((int)(0.67 * 4096.0 + 0.5), O2P_BIAS_CODE_WE);
+    TEST_ASSERT_EQUAL_INT((int)(0.91 * 4096.0 + 0.5), O2P_BIAS_CODE_RE);
+}
+
+static void test_bias_pedestal_accepts_healthy_legs(void)
+{
+    TEST_ASSERT_TRUE(o2p_bias_code_plausible(O2P_BIAS_CODE_WE, O2P_BIAS_CODE_WE));
+    TEST_ASSERT_TRUE(o2p_bias_code_plausible(O2P_BIAS_CODE_RE, O2P_BIAS_CODE_RE));
+    /* The whole legitimate error budget must fit inside the band, or the
+     * detector fires on good hardware: LMP91000 +/-2 % of full scale plus the
+     * 50 LSB the ES0418 2.6.7 offset erratum allows on this 2.500 V reference. */
+    int32_t worst = (int32_t)(0.02 * 4096.0) + 50;
+    TEST_ASSERT_TRUE(o2p_bias_code_plausible(O2P_BIAS_CODE_WE + worst, O2P_BIAS_CODE_WE));
+    TEST_ASSERT_TRUE(o2p_bias_code_plausible(O2P_BIAS_CODE_WE - worst, O2P_BIAS_CODE_WE));
+}
+
+static void test_bias_pedestal_rejects_a_leaking_or_open_leg(void)
+{
+    /* The target failure, constructed: a pin dragged toward a rail. */
+    TEST_ASSERT_FALSE(o2p_bias_code_plausible(0, O2P_BIAS_CODE_WE));
+    TEST_ASSERT_FALSE(o2p_bias_code_plausible(4095, O2P_BIAS_CODE_WE));
+    TEST_ASSERT_FALSE(o2p_bias_code_plausible(0, O2P_BIAS_CODE_RE));
+    /* And the two legs must not alias onto each other: WE reading RE's value
+     * is a swapped or shorted pair, and has to be caught. */
+    TEST_ASSERT_FALSE(o2p_bias_code_plausible(O2P_BIAS_CODE_RE, O2P_BIAS_CODE_WE));
+    TEST_ASSERT_FALSE(o2p_bias_code_plausible(O2P_BIAS_CODE_WE, O2P_BIAS_CODE_RE));
+}
+
+static void test_bias_pedestal_band_edges_are_exact(void)
+{
+    /* Monotonicity at the boundary: inside passes, one code further fails,
+     * both signs. A band that only ever sees the middle is untested. */
+    TEST_ASSERT_TRUE(o2p_bias_code_plausible(
+        O2P_BIAS_CODE_WE + O2P_BIAS_CODE_TOL, O2P_BIAS_CODE_WE));
+    TEST_ASSERT_FALSE(o2p_bias_code_plausible(
+        O2P_BIAS_CODE_WE + O2P_BIAS_CODE_TOL + 1, O2P_BIAS_CODE_WE));
+    TEST_ASSERT_TRUE(o2p_bias_code_plausible(
+        O2P_BIAS_CODE_WE - O2P_BIAS_CODE_TOL, O2P_BIAS_CODE_WE));
+    TEST_ASSERT_FALSE(o2p_bias_code_plausible(
+        O2P_BIAS_CODE_WE - O2P_BIAS_CODE_TOL - 1, O2P_BIAS_CODE_WE));
+}
+
+/* ---- ES0418 2.6.7: CALFACT at a rail is the erratum firing -------------- */
+static void test_calfact_rails_are_the_erratum_and_the_middle_is_not(void)
+{
+    TEST_ASSERT_TRUE(o2p_calfact_railed(0x00u));
+    TEST_ASSERT_TRUE(o2p_calfact_railed(0x7Fu));
+    /* One code inside either rail is a calibration that WORKED. Getting this
+     * boundary wrong in the permissive direction would report every part as
+     * erratum-free; in the strict direction it would condemn every part. */
+    TEST_ASSERT_FALSE(o2p_calfact_railed(0x01u));
+    TEST_ASSERT_FALSE(o2p_calfact_railed(0x7Eu));
+    TEST_ASSERT_FALSE(o2p_calfact_railed(0x40u));
+}
+
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -9230,6 +9307,11 @@ int main(void)
     RUN_TEST(test_stuck_mux_is_silent_on_one_channel_repeating);
     RUN_TEST(test_stuck_mux_is_silent_on_near_misses);
     RUN_TEST(test_stuck_mux_needs_a_previous_sample);
+    RUN_TEST(test_bias_pedestal_constants_match_the_lmp_ladder);
+    RUN_TEST(test_bias_pedestal_accepts_healthy_legs);
+    RUN_TEST(test_bias_pedestal_rejects_a_leaking_or_open_leg);
+    RUN_TEST(test_bias_pedestal_band_edges_are_exact);
+    RUN_TEST(test_calfact_rails_are_the_erratum_and_the_middle_is_not);
     RUN_TEST(test_adc_offset_band_accepts_a_healthy_offset_and_rejects_a_pinned_one);
 #else
     RUN_TEST(test_debug_mailboxes_disabled);
