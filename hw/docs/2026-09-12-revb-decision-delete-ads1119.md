@@ -8,6 +8,23 @@ whose deferred item is resolved here as **rejected**, not adopted.
 
 Every analog channel moves to the STM32G071CBT7's own ADC. U8 comes off the BOM.
 
+> **CONTESTED 2026-09-12, same day — DO NOT TREAT AS SETTLED.** A Codex review
+> at xhigh returned **VERDICT: NO**, and I verified four of its five findings
+> against the datasheets, the firmware and the working tree; all four hold. See
+> [`2026-09-12-revb-codex-review-of-the-u8-decision.md`](2026-09-12-revb-codex-review-of-the-u8-decision.md).
+> In short: the error budget below priced ONE conversion where oxygen uses
+> THREE (corrected worst case ~0.20 %O2, not 0.073 — a ~2x margin over the cell,
+> not 5-18x); `EO` should not have been removed, because DS12232 Table 60
+> footnote 2 says the DC accuracy figures are already measured AFTER internal
+> calibration; the "resolution never reached anyone" argument is FALSE, since
+> `main.c:1179` publishes `o2_raw` at 10 nA/count = 70 uV = the ADS's LSB; and
+> the supply premise changed underneath this document — **3V3D now comes
+> straight off the AP63203 buck, both TPS7A20 LDOs deleted** (`gen_sch.py:905`),
+> so the rejection of the `VREF+` move was decided against a topology that no
+> longer exists and is **overturned**. The resolution and leakage conclusions
+> survive. Recommendation: keep U8's footprint on Rev B until the corrected
+> budget and a measured comparison pass. Fab's call to re-take.
+
 > **IMPLEMENTED in the schematic the same day** by the Rev B session —
 > `docs/2026-09-12-revb-ads1119-removal-implemented.md`. 82 components (was 89),
 > ERC 0/0. The firmware sampler port is deliberately NOT done and
