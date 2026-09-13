@@ -878,7 +878,11 @@ unreachable - margin short with the tip pinned at the dew law's ceiling for
 600 s (FW 0x0019) - and the gradient floor is holding the tip.
 High byte bit 9 (FW 0x001B): the dew law is configured but has no dew point
 this cycle - humidity lost, typically during the SHT45 de-creep - so its own
-demand is withheld and only the gradient floor is regulating. Since FW 0x001A
+demand is withheld and only the gradient floor is regulating.
+High byte bit 10 (FW 0x001F): a runaway latch is in force while the tip and
+cell still read, so the dew law's demand is withheld and only the gradient
+floor runs - a false latch set by environmental heat no longer ends
+anti-condensation heat. Since FW 0x001A
 that ceiling is the lower of 79 C and the cell side plus the envelope, so on a
 bench probe the verdict usually lands a few kelvin above the cell, not at 79 C.
 

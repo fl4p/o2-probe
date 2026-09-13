@@ -6168,44 +6168,140 @@ static void test_dew_law_floor_respects_a_narrow_envelope_without_a_dew_point(vo
         "and still regulate toward it");
 }
 
-static void test_a_runaway_latch_refuses_rather_than_blinds_while_tip_and_cell_read(void)
+static void test_a_runaway_latch_never_blinds_while_tip_and_cell_read(void)
 {
-    /* Fab's "A", 2026-09-13 (codex review of 455972d, finding 1). The latch
-     * drives blind only when a temperature sensor is gone. Die under the blind
-     * gate throughout, so the only thing deciding blind vs zero is A. */
-    o2p_heater_cfg_t cfg = hcfg_default();
+    /* Fab's "A" (0x001C) and "fix the false latch issue" (0x001F). Die under
+     * the blind gate throughout, so blind vs floor vs zero is decided by the
+     * guards under test and nothing else. */
     o2p_heater_out_t out;
+    o2p_heater_state_t st;
 
+    /* DEW law, RUNAWAY the only refusal, tip and cell readable: the gradient
+     * floor keeps running. Tip 0.50 K over the cell -> 1.50 K short of the
+     * floor's 2 K -> kp 50 x 150 + ki 0.5 x 150. */
+    {
+        o2p_heater_cfg_t cfg = hcfg_default();
+        o2p_heater_ctl_reset(&st);
+        st.runaway_latched = true;
+        o2p_heater_in_t in = hin_dew();
+        in.t_die_c100 = 3000;
+        in.t_tip_c100 = (int16_t)(in.t_cell_c100 + 50);
+        in.t_chamber_c100 = (int16_t)(in.t_tip_c100 - 10);
+        o2p_heater_ctl_step(&st, &cfg, &in, 100u, &out);
+        TEST_ASSERT_UINT16_WITHIN_MESSAGE(2u, 7575u, out.duty_x100,
+            "a latch under the dew law with tip+cell readable keeps the floor");
+        TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_BLIND);
+        TEST_ASSERT_TRUE((out.block & O2P_HB_RUNAWAY) != 0u);
+        TEST_ASSERT_TRUE_MESSAGE((out.law & 0x00FFu) == O2P_HEATER_LAW_DEW &&
+                                 (out.law & O2P_HEATER_LAWF_DEW_RUNAWAY_FLOOR) != 0u,
+            "and says so in HEATER_LAW");
+    }
+    /* The same latch COMBINED with a hard refusal (no consent) refuses: the
+     * floor is the answer to a latch alone, never to a latch plus a veto. */
+    {
+        o2p_heater_cfg_t cfg = hcfg_default();
+        cfg.rh_consent = false;
+        o2p_heater_ctl_reset(&st);
+        st.runaway_latched = true;
+        o2p_heater_in_t in = hin_dew();
+        in.t_die_c100 = 3000;
+        in.t_tip_c100 = (int16_t)(in.t_cell_c100 + 50);
+        in.t_chamber_c100 = (int16_t)(in.t_tip_c100 - 10);
+        o2p_heater_ctl_step(&st, &cfg, &in, 100u, &out);
+        TEST_ASSERT_EQUAL_UINT16(0u, out.duty_x100);
+        TEST_ASSERT_EQUAL_HEX16(O2P_HEATER_LAW_REFUSED, out.law);
+    }
+    /* A STORED TIP SETPOINT latched with tip+cell readable refuses, not blind.
+     * Kills the review's surviving mutant that confined A to the dew law. */
+    {
+        o2p_heater_cfg_t cfg = hcfg_tip_auto();
+        o2p_heater_ctl_reset(&st);
+        st.runaway_latched = true;
+        o2p_heater_in_t in = hin_dew();
+        in.t_die_c100 = 3000;
+        o2p_heater_ctl_step(&st, &cfg, &in, 100u, &out);
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.duty_x100,
+            "a tip law's latch with tip+cell readable must not blind");
+        TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_BLIND);
+    }
+    /* An OPEN-LOOP OVERRIDE latched with SAFETY also refusing, tip+cell
+     * readable: still no blind. Kills the review's surviving mutant that
+     * tested `refusing == RUNAWAY` instead of the bit. */
+    {
+        o2p_heater_cfg_t cfg = hcfg_default();
+        arm_override(&cfg, 7500u);
+        o2p_heater_ctl_reset(&st);
+        st.runaway_latched = true;
+        o2p_heater_in_t in = hin_dew();
+        in.t_die_c100 = 3000;
+        in.safety_armed = false;
+        o2p_heater_ctl_step(&st, &cfg, &in, 100u, &out);
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.duty_x100,
+            "a latch plus another wet reason, sensors readable, must not blind");
+        TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_BLIND);
+    }
+    /* The wet-board rule survives for what it was written for. */
+    {
+        o2p_heater_cfg_t cfg = hcfg_default();
+        o2p_heater_ctl_reset(&st);
+        st.runaway_latched = true;
+        o2p_heater_in_t in = hin_dew();
+        in.t_die_c100 = 3000;
+        in.tip_valid = false;
+        o2p_heater_ctl_step(&st, &cfg, &in, 100u, &out);
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(O2P_HEATER_BLIND_DUTY_X100, out.duty_x100,
+            "tip unreadable: the latch may still drive blind");
+        o2p_heater_ctl_reset(&st);
+        st.runaway_latched = true;
+        in = hin_dew();
+        in.t_die_c100 = 3000;
+        in.cell_valid = false;
+        o2p_heater_ctl_step(&st, &cfg, &in, 100u, &out);
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(O2P_HEATER_BLIND_DUTY_X100, out.duty_x100,
+            "cell unreadable: the latch may still drive blind");
+    }
+}
+
+static void test_a_false_runaway_latch_keeps_the_gradient_floor(void)
+{
+    /* THE REVIEW'S P2 (codex review of c7baa57, finding 2): environmental heat
+     * - a 50 C pile over electronics at 30 C - latches RUNAWAY while the floor
+     * idles under its 5 % threshold, and release needs a fresh chamber and
+     * tip-die <= 9 K, which never comes. Under 0x001C the ring then stayed at
+     * zero indefinitely. Humidity is lost for the first 350 s and returns;
+     * the latch must still be set at the end, and the floor must still hold
+     * its gradient long after - never blind, never over the ceiling. */
     o2p_heater_state_t st;
     o2p_heater_ctl_reset(&st);
-    st.runaway_latched = true;
-    o2p_heater_in_t in = hin_dew();
-    in.t_die_c100 = 3000;
-    o2p_heater_ctl_step(&st, &cfg, &in, 100u, &out);
-    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.duty_x100,
-        "tip and cell both read: a latched runaway refuses, it does not blind");
-    TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_BLIND);
-    TEST_ASSERT_TRUE((out.block & O2P_HB_RUNAWAY) != 0u);
-    TEST_ASSERT_EQUAL_HEX16(O2P_HEATER_LAW_REFUSED, out.law);
-
-    /* The wet-board rule survives for what it was written for. */
-    o2p_heater_ctl_reset(&st);
-    st.runaway_latched = true;
-    in = hin_dew();
-    in.t_die_c100 = 3000;
-    in.tip_valid = false;
-    o2p_heater_ctl_step(&st, &cfg, &in, 100u, &out);
-    TEST_ASSERT_EQUAL_UINT16_MESSAGE(O2P_HEATER_BLIND_DUTY_X100, out.duty_x100,
-        "tip unreadable: the latch may still drive blind");
-
-    o2p_heater_ctl_reset(&st);
-    st.runaway_latched = true;
-    in = hin_dew();
-    in.t_die_c100 = 3000;
-    in.cell_valid = false;
-    o2p_heater_ctl_step(&st, &cfg, &in, 100u, &out);
-    TEST_ASSERT_EQUAL_UINT16_MESSAGE(O2P_HEATER_BLIND_DUTY_X100, out.duty_x100,
-        "cell unreadable: the latch may still drive blind");
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+    dewplant_t p = {50.0f, 50.0f, 83.2f, 150.0f, 0.03f, 45.0f, 0.0f, 50.0f, 0.0f};
+    float worst = -100.0f, least_late = 100.0f;
+    for (uint32_t t = 0u; t < 3000u; t++) {
+        o2p_heater_in_t in = dewplant_in(&p);
+        if (t < 350u) {
+            in.rh_valid = false;
+            in.chamber_valid = false;
+        }
+        in.t_die_c100 = 3000;
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+        TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_BLIND);
+        const float g = p.tip_c - dewplant_cell(&p);
+        if (g > worst) {
+            worst = g;
+        }
+        if (t >= 2000u && g < least_late) {
+            least_late = g;
+        }
+        dewplant_step(&p, out.duty_x100);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(st.runaway_latched,
+        "the stimulus must actually hold a latch, or this proves nothing");
+    TEST_ASSERT_TRUE_MESSAGE(least_late >= 1.5f,
+        "a false latch must not end the floor's anti-condensation heat");
+    TEST_ASSERT_TRUE_MESSAGE(worst <= (float)cfg.dt_max_k100 * 0.01f + 0.3f,
+        "and the floor under a latch stays under the gradient ceiling");
+    TEST_ASSERT_TRUE((out.law & O2P_HEATER_LAWF_DEW_RUNAWAY_FLOOR) != 0u);
 }
 
 static void test_a_hot_floor_cannot_reach_blind_through_the_runaway_latch(void)
@@ -8745,7 +8841,12 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    /* 0x001D: serial probation is TWO-WAY - a change confirms only when the
+    /* 0x001F: a false RUNAWAY latch keeps the gradient floor running under
+     *         the dew law instead of ending all heat (Fab's "fix the false
+     *         latch issue"); HEATER_LAW high-byte bit 10.
+     * 0x001E: the oxygen conversion's temperature term is the cell law
+     *         (T/T_cal)^0.75 on T_EXT (commit 82aa9e9).
+     * 0x001D: serial probation is TWO-WAY - a change confirms only when the
      *         master echoes the nonce published in the new probation block
      *         (0x000C NONCE, 0x000D ACK) at the new settings. A read of
      *         0x000C is ILLEGAL ADDRESS on 0x001C and earlier, which is how
@@ -8808,7 +8909,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         steps the thermal mass cannot make are rejected for a cycle.
      * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
      *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
-    TEST_ASSERT_EQUAL_HEX16(0x001Eu, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x001Fu, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_HEX16(0xC000u,
         (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
     /* The staleness cut must win the race against the watchdog's fastest
@@ -10948,7 +11049,8 @@ int main(void)
     RUN_TEST(test_dew_unreachable_dwell_pauses_while_the_dew_point_is_missing);
     RUN_TEST(test_dew_law_de_creep_runs_the_floor_under_the_gradient_ceiling);
     RUN_TEST(test_dew_law_floor_respects_a_narrow_envelope_without_a_dew_point);
-    RUN_TEST(test_a_runaway_latch_refuses_rather_than_blinds_while_tip_and_cell_read);
+    RUN_TEST(test_a_runaway_latch_never_blinds_while_tip_and_cell_read);
+    RUN_TEST(test_a_false_runaway_latch_keeps_the_gradient_floor);
     RUN_TEST(test_a_hot_floor_cannot_reach_blind_through_the_runaway_latch);
     RUN_TEST(test_dew_unreachable_pause_of_exactly_the_limit_keeps_its_evidence);
     RUN_TEST(test_dew_unreachable_verdict_survives_its_own_refusal_not_a_hand_over);

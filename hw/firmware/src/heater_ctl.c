@@ -734,7 +734,11 @@ static uint16_t blind_duty(const o2p_heater_cfg_t *cfg,
      * die 30 C, tip to 80 C, 29 K over the cell). With both sensors readable
      * there is a working loop to fall back to, so the latch now refuses: zero
      * duty, REFUSED. The wet-board rule it amends is kept for the case it was
-     * written for - a board whose temperature sensors are gone. */
+     * written for - a board whose temperature sensors are gone.
+     * FW 0x001F: under the dew law, a latch that is the ONLY refusal never
+     * reaches here - the gradient floor runs instead (see latched_floor in
+     * o2p_heater_ctl_step()). This guard is what remains for every other law
+     * and for a latch combined with another refusal. */
     if ((refusing & O2P_HB_RUNAWAY) != 0u && in->tip_valid && in->cell_valid) {
         return 0u;
     }
@@ -795,7 +799,25 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
      * hard bit refuses as before. */
     const uint16_t refusing =
         (uint16_t)(block & (hard_mask | law_wet_mask(cfg, in)));
-    if (refusing != 0u) {
+    /* A FALSE RUNAWAY LATCH MUST NOT END ANTI-CONDENSATION HEAT (FW 0x001F,
+     * Fab 2026-09-13: "fix the false latch issue"; codex review of c7baa57,
+     * finding 2). Under 0x001C a latch with tip and cell readable refused to
+     * zero duty, and release needs a FRESH chamber and tip-die <= 9 K - which
+     * a hot pile with cooler electronics never meets, so a latch set by
+     * environmental heat left the probe with no heat at all, indefinitely.
+     *
+     * So when the dew law is the configured law, RUNAWAY is the ONLY refusal,
+     * and both temperatures read, the gradient floor keeps regulating under
+     * dew_ceiling_c100() - the dew law's own demand withheld, the detector
+     * paused. On a false latch that is the ~2 K of outward gradient the probe
+     * needs. On a genuine stuck FET it changes nothing: the tip is already
+     * over its setpoint, so the floor asks for nothing, and the FET conducts
+     * regardless of any command. Every hard refusal, and every other law,
+     * still takes the refusing path below exactly as before. */
+    const bool latched_floor = refusing == O2P_HB_RUNAWAY &&
+                               dew_law_in_command(cfg, in) &&
+                               in->tip_valid && in->cell_valid;
+    if (refusing != 0u && !latched_floor) {
         /* Zero the integrator rather than freezing it. Freezing would make the
          * loop slam to whatever it had wound up to the moment an interlock
          * cleared - the opposite of what you want after a fault. Restarting
@@ -919,8 +941,9 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
                              gas_dew_point_c100(in, &td_c100);
         const float margin_f = (float)in->t_cell_c100 - td_c100;
 
-        if (!have_td) {
-            /* No margin to judge: pause, never credit, never discard. */
+        if (!have_td || latched_floor) {
+            /* No margin to judge, or a runaway latch in force so the law is
+             * not the one regulating: pause, never credit, never discard. */
             dew_detector_pause(st, now_s);
         } else {
             /* THE UNREACHABLE-MARGIN DETECTOR, ceiling-dwell form (see
@@ -1027,7 +1050,7 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
              * or session change zeroes it in pi_step() regardless. */
             st->integ = -kp * tip_room;
         }
-        if (st->dew_unreachable || !have_td) {
+        if (st->dew_unreachable || !have_td || latched_floor) {
             /* NO DEMAND, not a shutdown - whether the margin is unreachable
              * or there is no dew point to regulate against (FW 0x001B). The gradient floor below is
              * high-selected against this zero and IS achievable - it is
@@ -1087,7 +1110,9 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
         out->law = (uint16_t)(O2P_HEATER_LAW_DEW |
                               (st->dew_unreachable
                                    ? O2P_HEATER_LAWF_DEW_UNREACHABLE : 0u) |
-                              (!have_td ? O2P_HEATER_LAWF_DEW_NO_DEWPOINT : 0u));
+                              (!have_td ? O2P_HEATER_LAWF_DEW_NO_DEWPOINT : 0u) |
+                              (latched_floor
+                                   ? O2P_HEATER_LAWF_DEW_RUNAWAY_FLOOR : 0u));
     } else {
         /* Positive error means too humid, which means not enough heat. */
         const float e = (float)in->rh_x100 - (float)cfg->setpoint_x100;
@@ -1119,7 +1144,10 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
     }
 
     update_runaway(st, cfg, in, now_s, out->duty_x100);
-    if (st->runaway_latched) {
+    /* Not when the floor is running under an EXISTING latch (latched_floor):
+     * zeroing here every cycle would silently undo FW 0x001F. A latch that
+     * sets THIS cycle still zeroes it - the floor takes over next cycle. */
+    if (st->runaway_latched && !latched_floor) {
         /* Latched this very cycle: do not wait a cycle to act on it.
          * (CORRECTED 2026-09-11, codex-xhigh audit finding 9: this used to
          * OVERWRITE the mask, dropping the supply annotation on the latch

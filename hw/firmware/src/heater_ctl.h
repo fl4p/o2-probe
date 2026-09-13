@@ -847,6 +847,11 @@ enum {
  * gradient floor is regulating (FW 0x001B). Set only alongside
  * O2P_HEATER_LAW_DEW. */
 #define O2P_HEATER_LAWF_DEW_NO_DEWPOINT 0x0200u
+/* A runaway latch is in force while the tip and cell still read, so the dew
+ * law's demand is withheld and only the gradient floor runs (FW 0x001F). Set
+ * only alongside O2P_HEATER_LAW_DEW, and only when RUNAWAY is the sole
+ * refusal; HEATER_BLOCK still carries O2P_HB_RUNAWAY. */
+#define O2P_HEATER_LAWF_DEW_RUNAWAY_FLOOR 0x0400u
 
 typedef struct {
     uint16_t duty_x100;
