@@ -35,8 +35,10 @@ All four pads are **number 1** with `duplicate_pad_numbers_are_jumpers no`: one
 the lands. The **back** lands sit in the `HEATED_ISLAND_SPREADER` pour, which is
 what connects them — no track is needed (Fab: *"the fill is enough"*; a track
 tried in its place connected nothing, because it lay inside the island it was
-meant to escape). A **0.4/0.2 via at each land** ties the **front** land down to
-that pour.
+meant to escape). A **0.6/0.3 via at each land**, at (101.75, 137.0) and
+(118.25, 137.0), ties the **front** land down to that pour. (Earlier versions of
+this README said 0.4/0.2; the board has always carried 0.6/0.3 — read from the
+native file on 2026-09-13 while writing the ring verifier.)
 
 Both thermal slots were **shortened 2 mm** at the tip end (apex Y 137.0 ->
 135.0), restoring Rev A's 4.0 mm slot-to-tip bridge — the geometry the
