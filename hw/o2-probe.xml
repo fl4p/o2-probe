@@ -2,7 +2,7 @@
 <export version="E">
   <design>
     <source>/Users/fab/dev/ee/hw/o2-probe/o2-probe.kicad_sch</source>
-    <date>2026-09-13T16:51:41</date>
+    <date>2026-09-13T17:02:01</date>
     <tool>Eeschema 10.0.5</tool>
     <sheet number="1" name="/" tstamps="/">
       <title_block>
@@ -1051,6 +1051,34 @@
         <unit name="A">
           <pins>
             <pin num="1"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
+    <comp ref="J107">
+      <value>EXT SENSOR / UART PADS</value>
+      <footprint>o2-probe:SolderPads_1x06_SMD</footprint>
+      <fields>
+        <field name="Design Note">Hand-solder lands, back copper: 1=3V3D 2=GND 3=SDA 4=SCL 5=UART2_TX 6=UART2_RX. For an external TMP117 on a lead. Strap its ADD0 to SDA (0x4A) or SCL (0x4B) - NOT GND, which is 0x48 and collides with the LMP91000. No pull-ups on the lead; R10/R11 already bias the bus. 3.3 V logic only. Pads 5/6 duplicate J105/J106.</field>
+        <field name="Footprint">o2-probe:SolderPads_1x06_SMD</field>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <libsource lib="o2-probe" part="EXP_PADS_1x06" description="Six hand-solder lands: I2C + power for an external sensor, plus the UART tap"/>
+      <property name="Design Note" value="Hand-solder lands, back copper: 1=3V3D 2=GND 3=SDA 4=SCL 5=UART2_TX 6=UART2_RX. For an external TMP117 on a lead. Strap its ADD0 to SDA (0x4A) or SCL (0x4B) - NOT GND, which is 0x48 and collides with the LMP91000. No pull-ups on the lead; R10/R11 already bias the bus. 3.3 V logic only. Pads 5/6 duplicate J105/J106."/>
+      <property name="Sheetname" value="o2-probe"/>
+      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>9c5fb6a8-89d7-5594-a993-85a30a44fe72</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
+            <pin num="3"/>
+            <pin num="5"/>
+            <pin num="2"/>
+            <pin num="4"/>
+            <pin num="6"/>
           </pins>
         </unit>
       </units>
@@ -2465,6 +2493,24 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
         <pin num="6" name="Pin_6" type="passive"/>
       </pins>
     </libpart>
+    <libpart lib="o2-probe" part="EXP_PADS_1x06">
+      <description>Six hand-solder lands: I2C + power for an external sensor, plus the UART tap</description>
+      <fields>
+        <field name="Reference">J</field>
+        <field name="Value">EXP_PADS_1x06</field>
+        <field name="Footprint"/>
+        <field name="Datasheet"/>
+        <field name="Description">Six hand-solder lands: I2C + power for an external sensor, plus the UART tap</field>
+      </fields>
+      <pins>
+        <pin num="1" name="3V3D" type="passive"/>
+        <pin num="2" name="GND" type="passive"/>
+        <pin num="3" name="SDA" type="passive"/>
+        <pin num="4" name="SCL" type="passive"/>
+        <pin num="5" name="TX" type="passive"/>
+        <pin num="6" name="RX" type="passive"/>
+      </pins>
+    </libpart>
     <libpart lib="o2-probe" part="HEATED_MEMBRANE_RING">
       <description>Manual-solder metal membrane carrier and heat spreader</description>
       <fields>
@@ -2795,6 +2841,7 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
       <node ref="C35" pin="1" pintype="passive"/>
       <node ref="C36" pin="1" pintype="passive"/>
       <node ref="C4" pin="1" pintype="passive"/>
+      <node ref="J107" pin="1" pinfunction="3V3D_1" pintype="passive"/>
       <node ref="J3" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
       <node ref="L1" pin="2" pinfunction="2_2" pintype="passive"/>
       <node ref="R10" pin="2" pintype="passive"/>
@@ -2898,6 +2945,7 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
       <node ref="U6" pin="28" pinfunction="PA8_28" pintype="output"/>
     </net>
     <net code="22" name="/I2C_SCL" class="Default">
+      <node ref="J107" pin="4" pinfunction="SCL_4" pintype="passive"/>
       <node ref="R10" pin="1" pintype="passive"/>
       <node ref="U10" pin="1" pinfunction="SCL_1" pintype="input"/>
       <node ref="U12" pin="2" pinfunction="SCL_2" pintype="input"/>
@@ -2905,6 +2953,7 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
       <node ref="U7" pin="3" pinfunction="SCL_3" pintype="input"/>
     </net>
     <net code="23" name="/I2C_SDA" class="Default">
+      <node ref="J107" pin="3" pinfunction="SDA_3" pintype="passive"/>
       <node ref="R11" pin="1" pintype="passive"/>
       <node ref="U10" pin="6" pinfunction="SDA_6" pintype="bidirectional"/>
       <node ref="U12" pin="1" pinfunction="SDA_1" pintype="bidirectional"/>
@@ -2987,10 +3036,12 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
     </net>
     <net code="40" name="/UART2_RX" class="Default">
       <node ref="J106" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
+      <node ref="J107" pin="6" pinfunction="RX_6" pintype="passive"/>
       <node ref="U6" pin="14" pinfunction="PA3_14" pintype="input"/>
     </net>
     <net code="41" name="/UART2_TX" class="Default">
       <node ref="J105" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
+      <node ref="J107" pin="5" pinfunction="TX_5" pintype="passive"/>
       <node ref="U6" pin="13" pinfunction="PA2_13" pintype="output"/>
     </net>
     <net code="42" name="/VA_MON" class="Default">
@@ -3050,6 +3101,7 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
       <node ref="D7" pin="3" pinfunction="GND_3" pintype="passive"/>
       <node ref="D8" pin="2" pinfunction="A_2" pintype="passive"/>
       <node ref="J102" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
+      <node ref="J107" pin="2" pinfunction="GND_2" pintype="passive"/>
       <node ref="J3" pin="5" pinfunction="Pin_5_5" pintype="passive"/>
       <node ref="Q2" pin="2" pinfunction="S_2" pintype="passive"/>
       <node ref="R17" pin="2" pintype="passive"/>

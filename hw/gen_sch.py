@@ -116,6 +116,12 @@ HEATED_RING = symbol(
     "HEATED_MEMBRANE_RING", [("1", "HEATER_LOW", "passive")], "J",
     description="Manual-solder metal membrane carrier and heat spreader",
 )
+EXPPADS = symbol(
+    "EXP_PADS_1x06", [("1","3V3D","passive"),("2","GND","passive"),
+                      ("3","SDA","passive"),("4","SCL","passive"),
+                      ("5","TX","passive"),("6","RX","passive")], "J",
+    description="Six hand-solder lands: I2C + power for an external sensor, plus the UART tap",
+)
 CABLE4 = symbol("FARM_CABLE_4", [(str(i), f"Wire_{i}", "passive") for i in range(1,5)], "J", pitch=5.08)
 SYMS[CABLE4]["geom"] = {
     "1": (-7.62, 3.81, 0, "Wire_1", "passive"),
@@ -1188,6 +1194,34 @@ net("J105",1,"UART2_TX")
 place("J106",WIRE_LAND,251.46,127.0,value="BRIDGE RX (PA3)",footprint="o2-probe:SolderWireNoRelief_J106",
       note="Bench-bridge TTL tap, MCU side. Laptop TTL TX -> here. See J105")
 net("J106",1,"UART2_RX")
+
+# ---- J107: hand-solder lands for an EXTERNAL sensor lead (Fab, 2026-09-13)
+#
+# Six SMD lands on BACK copper at the cable end, where a flying lead can leave
+# with the cable.  Intended load is a second TMP117 on a lead; the UART pair is
+# on the same block so one soldering operation exposes the whole bench surface.
+#
+# ADDRESS, AND THIS IS THE PART THAT BITES.  The bus already carries U7
+# (LMP91000, 0x48), U10 (TMP117 CELL) and U12 (SHT45-AD1F, 0x44).  U10 ties ADD0
+# to 3V3D, which puts it at 0x49.  So an external TMP117 must NOT strap ADD0 to
+# GND - that is 0x48 and collides with the LMP91000.  Use ADD0 -> SDA (0x4A) or
+# ADD0 -> SCL (0x4B).  There is no pad for ADD0 here: it is strapped on the
+# sensor's own carrier, which is where the choice belongs.
+#
+# NO PULL-UPS HERE.  R10/R11 already bias this bus on the main board; a second
+# pair on the lead would halve the bus resistance and is a common way to make a
+# working bus marginal.  The lead adds capacitance, not resistance.
+#
+# NOT 5 V TOLERANT.  PA2/PA3 carry the UART and are 3.3 V logic only on this
+# device (see J105/J106), and the I2C pair is likewise 3V3D.
+place("J107",EXPPADS,287.02,121.92,value="EXT SENSOR / UART PADS",
+      footprint="o2-probe:SolderPads_1x06_SMD",
+      note="Hand-solder lands, back copper: 1=3V3D 2=GND 3=SDA 4=SCL 5=UART2_TX 6=UART2_RX. "
+           "For an external TMP117 on a lead. Strap its ADD0 to SDA (0x4A) or SCL (0x4B) - "
+           "NOT GND, which is 0x48 and collides with the LMP91000. No pull-ups on the lead; "
+           "R10/R11 already bias the bus. 3.3 V logic only. Pads 5/6 duplicate J105/J106.")
+for _p, _n in enumerate(("3V3D","GND","I2C_SDA","I2C_SCL","UART2_TX","UART2_RX"), 1):
+    net("J107", _p, _n)
 
 # --------------------------------------------------------------------------- AFE / ADC / cell
 place("U7",LMP,50.8,162.56,value="LMP91000SD/NOPB",footprint="Package_SON:WSON-14-1EP_4.0x4.0mm_P0.5mm_EP2.6x2.6mm",

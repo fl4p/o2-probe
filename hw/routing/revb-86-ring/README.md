@@ -31,6 +31,47 @@ after Fab: *"the pcb missed the ring pads at the tip. add them."*
 - DRC: **0 footprint errors**, and the accepted board's 12-violation baseline
   (10 courtyard overlaps + 2 track_dangling, all pre-existing and documented).
 
+### J107 — external-sensor / UART solder pads (placed, NOT routed)
+
+Six plain SMD lands on **back** copper, 1.6 x 1.2 mm on 2.6 mm pitch, at
+(110, 61.5) — the cable end, where a flying lead leaves with the cable:
+
+    1 = 3V3D   2 = GND   3 = I2C_SDA   4 = I2C_SCL   5 = UART2_TX   6 = UART2_RX
+
+Placement is clean: no clearance, courtyard or hole violations, and it clears the
+J101..J104 strain-relief NPTHs at Y 64.7 and D1/F1 at Y 69.5. It went to Y 61.5
+because Y 55..62 is the only band on this board with **zero** B.Cu copper; the
+region under the MCU, which is where these nets actually live, has 200+ segments
+in 6 mm and no room for a 16 mm pad row.
+
+**Pad 2 (GND) is connected** — it sits in `GND_PLANE_BCu`. **The other five are
+not routed.** That is the outstanding work, and it is not trivial:
+
+- `/3V3D` reaches Y 73.3 on B.Cu, so it is a short run — but the direct path
+  threads the NPTH row (holes at X 103 / 107.7 / 112.3 / 117) and then D1
+  (SMB, X 103.7..109.3 at Y 69.5) and F1 (X 100.9..104.1). A first attempt at
+  that gauntlet was removed rather than committed.
+- `/I2C_SDA` and `/I2C_SCL` exist no further north than Y 94.7..97.3, so each
+  needs roughly 33 mm, and both must cross Y 86..95, which is dense on every
+  2 mm lane of B.Cu (20-36 segments per column).
+- `/UART2_TX` and `/UART2_RX` reach Y 83.5 and 86.3 on F.Cu — about 22 mm each,
+  through the same band.
+
+B.Cu is open at Y 70..86 (X 100..102 and X 116..120 are nearly empty), so the
+corridor exists; the crossing of Y 86..95 is the part that needs authoring.
+
+### Addressing, for whatever gets soldered to J107
+
+The bus already carries U7 (LMP91000, 0x48), U10 (TMP117 CELL, ADD0 -> 3V3D, so
+**0x49**) and U12 (SHT45-AD1F, 0x44). An external TMP117 must therefore **not**
+strap ADD0 to GND — that is 0x48 and collides with the LMP91000. Use ADD0 -> SDA
+(0x4A) or ADD0 -> SCL (0x4B). No pad for ADD0 is provided: it is strapped on the
+sensor's own carrier. Do **not** add pull-ups on the lead; R10/R11 already bias
+this bus. 3.3 V logic only — PA2/PA3 are not 5 V tolerant.
+
+Pads 5/6 duplicate the existing J105/J106 bench taps, which stay where they are
+at (111.75, 97.8) and (117, 97.8). Retiring them was not asked for and was not done.
+
 ### One accepted warning
 
 `silk_over_copper`: the existing `TMP_CELL` B.Silkscreen label clips the left land.
