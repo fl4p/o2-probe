@@ -1,0 +1,56 @@
+rows 948, usable 866, dropped 82
+span T_ext 12.86..35.97 C, T_chamber 14.22..39.30, p_w/P 1.11..3.11 %, I 87.55..102.78 uA, P 924.8..926.7 hPa
+  corr all   n=866  r(T_ext,x)=+0.955  r(T_ext,T_afe)=+0.994  r(T_ext,hours)=+0.517
+  corr night n=701  r(T_ext,x)=+0.595  r(T_ext,T_afe)=+0.976  r(T_ext,hours)=-0.839
+  corr day   n=165  r(T_ext,x)=+0.906  r(T_ext,T_afe)=+0.993  r(T_ext,hours)=+0.893
+
+== tau scan, linear tempco on lagged T_ext, alpha free (all usable rows)
+  tau     0 s  rms 0.596 %  alpha +0.872  beta  +2538 ppm/K
+  tau   120 s  rms 0.595 %  alpha +0.785  beta  +2477 ppm/K
+  tau   300 s  rms 0.594 %  alpha +0.625  beta  +2375 ppm/K
+  tau   600 s  rms 0.598 %  alpha +0.359  beta  +2204 ppm/K
+  tau   900 s  rms 0.601 %  alpha +0.135  beta  +2067 ppm/K
+  tau  1200 s  rms 0.604 %  alpha -0.042  beta  +1967 ppm/K
+  tau  1800 s  rms 0.607 %  alpha -0.302  beta  +1847 ppm/K
+
+== models: in-sample, and cross-prediction (fit one half, predict the other)
+  model                     all rms  params(all)                       N->D rms D->N rms   night params / day params
+  T_ext, lin                 0.596%  alpha +0.872  beta  +2538 ppm/K      1.753%   0.707%   alpha +0.039  beta  +2988 ppm/K / alpha +0.726  beta  +2537 ppm/K
+  T_ext, T^0.75 (0 free)     0.596%  alpha +0.863                         1.697%   0.714%   alpha -0.446 / alpha +0.704
+  T_chamber, lin             0.696%  alpha -0.287  beta  +1422 ppm/K      1.905%   0.772%   alpha -4.244  beta   -623 ppm/K / alpha +0.197  beta  +1898 ppm/K
+  T_ext + T_afe, lin         0.595%  alpha +0.552  beta  +3260 ppm/K  afe   -851 ppm/K   4.352%   0.707%   alpha +1.020  beta   -161 ppm/K  afe  +4889 ppm/K / alpha +0.781  beta  +2360 ppm/K  afe   +190 ppm/K
+
+== alpha profile, T_ext linear tempco refit (all rows)
+  alpha 0.00  rms 0.611 %  beta  +1813 ppm/K
+  alpha 0.25  rms 0.604 %  beta  +2018 ppm/K
+  alpha 0.50  rms 0.599 %  beta  +2226 ppm/K
+  alpha 0.75  rms 0.597 %  beta  +2435 ppm/K
+  alpha 1.00  rms 0.597 %  beta  +2646 ppm/K
+  alpha 1.25  rms 0.599 %  beta  +2859 ppm/K
+
+== 30-min block bootstrap, T_ext linear, 400 draws
+  alpha       median   +0.862  95%   +0.403 ..   +1.485
+  beta ppm/K  median +2523.469  95% +2162.712 .. +3074.678
+  corr(alpha, beta) across draws +0.973
+
+== published vs fitted-model dry O2 (%vol), 1-h medians
+                           published  fitted_dry   T_ext  pw_pct        I   duty
+2026-09-12 18:00:00+00:00     20.725      21.048  18.460   1.324  100.215  0.000
+2026-09-12 19:00:00+00:00     20.630      21.014  16.850   1.299   99.740  0.000
+2026-09-12 20:00:00+00:00     20.530      20.981  15.635   1.256   99.190  0.000
+2026-09-12 21:00:00+00:00     20.480      20.957  15.020   1.315   98.890  0.000
+2026-09-12 22:00:00+00:00     20.460      20.952  14.520   1.316   98.780  0.000
+2026-09-12 23:00:00+00:00     20.450      20.937  14.730   1.300   98.740  1.925
+2026-09-13 00:00:00+00:00     20.440      20.932  14.820   1.306   98.700  2.040
+2026-09-13 01:00:00+00:00     20.410      20.929  14.120   1.276   98.560  2.080
+2026-09-13 02:00:00+00:00     20.390      20.932  13.690   1.250   98.490  4.030
+2026-09-13 03:00:00+00:00     20.410      20.977  13.170   1.222   98.620  4.020
+2026-09-13 04:00:00+00:00     20.410      20.977  13.095   1.210   98.610  4.400
+2026-09-13 05:00:00+00:00     20.400      20.967  13.030   1.204   98.560  3.780
+2026-09-13 06:00:00+00:00     20.390      20.933  13.965   1.245   98.490  3.255
+2026-09-13 07:00:00+00:00     20.450      20.899  15.530   1.338   98.700  2.705
+2026-09-13 08:00:00+00:00     20.840      20.924  23.040   1.792  100.340  1.190
+2026-09-13 09:00:00+00:00     21.415      20.960  33.805   2.886  102.125  0.000
+2026-09-13 10:00:00+00:00     21.330      20.923  33.490   2.270  102.360  0.000
+2026-09-13 11:00:00+00:00     21.190      20.913  30.870   1.940  102.050  0.260
+published range 18.32..21.47, sd 0.311;  fitted range 18.78..21.69, sd 0.108
