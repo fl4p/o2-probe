@@ -13,7 +13,7 @@
  *
  * So a change to any of the three is applied ON PROBATION. The new settings go
  * live immediately - they have to, that is what was asked for - but the old
- * ones are kept, and if no valid frame arrives at the new settings within
+ * ones are kept, and if the new settings are not proven BOTH WAYS within
  * O2P_SERIAL_PROBATION_MS the transport is put back the way it was.
  *
  * WHAT COUNTS AS PROOF IS A TWO-WAY EXCHANGE, since FW 0x001D. When the new
