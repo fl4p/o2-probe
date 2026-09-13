@@ -46,6 +46,11 @@ AUDIT = Path('schematic-audit.rpt')
 COMPONENTS = 85
 # Named so a gate cannot be written without restating them. Changing this list is
 # a new review, not an edit.
+# The two GUARD_REPLICA dangling endpoints are hard-coded, not taken from the gate.
+# A synthetic gate listing zero or three endpoints passed check_current_drc(), which
+# trusts its caller's set (review finding 3, 2026-09-14).
+GUARD_ENDPOINTS = ('7a4d4b0e-2f12-4bd4-b267-16bb450f841a',
+                   '89269d21-c6ed-4b39-b0a9-b4b13dbc9d4f')
 ACCEPTED_RISKS = [
     'i2c-at-minimum-clearance-from-guard-and-vref',
     'tip-ground-return-via-dependent-paths',
@@ -118,6 +123,14 @@ def check_gate(gate, inputs, reference_board):
             raise ValueError('Named document changed since review: ' + str(path))
     if gate.get('accepted_risks') != ACCEPTED_RISKS:
         raise ValueError('Accepted-risk list differs from the reviewed set')
+    record = gate.get('review_record')
+    if not isinstance(record, str) or not record.strip() or Path(record).is_absolute():
+        raise ValueError('Final review record must be a repository-relative file')
+    record_path = (HERE / record).resolve()
+    record_path.relative_to(HERE)
+    if not record_path.is_file() or gate.get('review_record_sha256') != sha256(record_path):
+        raise ValueError('Final review record missing or its content hash changed')
+    record_text = record_path.read_text()
     dangling = gate.get('reviewed_guard_endpoints')
     if not isinstance(dangling, list):
         raise ValueError('Expected exact individually reviewed guard endpoint warnings')
@@ -130,13 +143,14 @@ def check_gate(gate, inputs, reference_board):
             raise ValueError('Guard endpoint disposition needs exact UUID, board hash, net and reason')
     if len({row['uuid'] for row in dangling}) != len(dangling):
         raise ValueError('Duplicate guard endpoint disposition')
-    record = gate.get('review_record')
-    if not isinstance(record, str) or not record.strip() or Path(record).is_absolute():
-        raise ValueError('Final review record must be a repository-relative file')
-    record_path = (HERE / record).resolve()
-    record_path.relative_to(HERE)
-    if not record_path.is_file() or gate.get('review_record_sha256') != sha256(record_path):
-        raise ValueError('Final review record missing or its content hash changed')
+    if tuple(sorted(row['uuid'] for row in dangling)) != tuple(sorted(GUARD_ENDPOINTS)):
+        raise ValueError('Guard endpoint set must be exactly the two reviewed endpoints')
+    # An approving verdict, not merely a named document: the previous review record
+    # said DO NOT ISSUE and still satisfied identity checks alone (finding 3).
+    if gate.get('gate_recommendation') != 'ISSUE REVIEWED GATE':
+        raise ValueError('Gate must carry an explicit approving recommendation from its review record')
+    if 'ISSUE REVIEWED GATE' not in record_text or 'DO NOT ISSUE' in record_text:
+        raise ValueError('Named review record does not itself recommend issuing the gate')
 
 
 def main():
@@ -155,7 +169,7 @@ def main():
             'assembly_disposition': str(ASSEMBLY), 'courtyard_pairs': sorted(PAIRS),
             'risk_dispositions': str(DISPOSITIONS), 'risk_dispositions_sha256': sha256(HERE / DISPOSITIONS),
             'prior_review': str(REVIEW), 'prior_review_sha256': sha256(HERE / REVIEW),
-            'accepted_risks': ACCEPTED_RISKS,
+            'accepted_risks': ACCEPTED_RISKS, 'gate_recommendation': 'UNREVIEWED',
             'review_record': '', 'review_record_sha256': '', 'reviewed_guard_endpoints': []}, indent=2) + '\n')
         print('UNREVIEWED template only: ' + str(a.write_gate_template))
         return 0

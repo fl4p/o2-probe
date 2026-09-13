@@ -86,12 +86,31 @@ SPREADER_PADS = {('RH1', '2'), ('RH2', '2'), ('Q2', '3'), ('J5', '1')}
 # removed object are hashed, so any change to position, width, layer, lock, pad
 # shape, angle, mask or paste fails. Regenerate with --print-delta only for an
 # intended change, and treat that as a new review. UNSET fails closed.
-ADDED_SHA256 = '97e1bb62e139ca1782fd1da0669a9bcb96032ced77fe3e17fd5525c29aead4df'
-REMOVED_SHA256 = '486b9e4f919fb12b9b3499a1b065569109233d70d9441c36088a71d135182e34'
+ADDED_SHA256 = 'a2f776e3f2a4f542e3648f4c042cf750c9c8de04e2dc054988aa78c3dfab7d68'
+REMOVED_SHA256 = '06b4863fcbdba6a40dd77a492589efd984bfd4391767a428b4ac11ceaca14e6d'
+
+
+def _canon(item):
+    """Order-insensitive canonical form, preserving polygon vertex order.
+
+    KiCad reorders sibling fields on save - measured 2026-09-14: a plain
+    pcbnew save moves `(locked yes)` from before `(layers ...)` to after it on
+    both ring-land vias. An order-sensitive digest therefore rejected the
+    exporter's own refill-and-save step. Children are sorted, except under
+    `pts`, where vertex order is geometry.
+    """
+    if not isinstance(item, list):
+        return item
+    atoms = [v for v in item if isinstance(v, str)]
+    kids = [_canon(v) for v in item if isinstance(v, list)]
+    if item and item[0] == 'pts':
+        return atoms + kids
+    kids.sort(key=lambda v: json.dumps(v, separators=(',', ':')))
+    return atoms + kids
 
 
 def delta_digest(nodes):
-    canon = sorted(json.dumps(n, separators=(',', ':')) for n in nodes)
+    canon = sorted(json.dumps(_canon(n), separators=(',', ':')) for n in nodes)
     return hashlib.sha256('\n'.join(canon).encode()).hexdigest()
 
 
@@ -247,6 +266,12 @@ def verify(board_path, reference):
     if seen != SPREADER_PADS or sum(1 for r in inside if r[0] == 'J5') != 2:
         raise ValueError('Spreader pad set differs: ' + repr(sorted(seen)))
 
+    # Pinned filled areas (review finding 4, 2026-09-14): deleting 23 of 24 saved
+    # B.Cu GND fill polygons dropped that fill from 828.88 to 119.83 mm2 and still
+    # PASSed, because unfilling() strips saved fill before comparison. Areas are now
+    # pinned to 0.05 mm2, which is far tighter than any real tampering and looser
+    # than KiCad's own refill jitter.
+    PINNED_FILL = {'F.Cu:GND': 946.9103, 'B.Cu:GND': 828.8798, 'B.Cu:/HEATER_LOW': 215.1312}
     fills = {}
     for layer in (p.F_Cu, p.B_Cu):
         before, after = filled_union(a, layer), filled_union(b, layer)
@@ -260,6 +285,10 @@ def verify(board_path, reference):
                 'added_mm2': round(after[key].difference(before[key]).area, 4),
                 'removed_mm2': round(before[key].difference(after[key]).area, 4),
                 'reference_islands': islands(before[key]), 'ring_islands': islands(after[key])}
+            short = b.GetLayerName(layer) + ':' + key.split('|')[-1]
+            if short in PINNED_FILL and abs(after[key].area - PINNED_FILL[short]) > 0.05:
+                raise ValueError('Filled area of %s is %.4f mm2, pinned %.4f'
+                                 % (short, after[key].area, PINNED_FILL[short]))
 
     def point(v):
         return [round(v.x / 1e6, 3), round(-v.y / 1e6, 3)]
