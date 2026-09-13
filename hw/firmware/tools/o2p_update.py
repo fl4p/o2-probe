@@ -1775,6 +1775,13 @@ def negotiate_baud(link, bus, home_code, settle=0.2, line=None,
     if was == fast_code:
         # Already fast, but not where it must be left. Nothing to raise; the
         # only work is the restore, and the caller's finally will do it.
+        #
+        # A PREVIOUS run may have left that fast rate on probation - a tool
+        # restarted inside the 10 s window (codex review of aac0937, P1). The
+        # probe would revert under this transfer, so echo its nonce if one is
+        # pending. Best effort: none pending reads as 0 and costs one frame.
+        if probation_is_two_way(bus):
+            ack_probation(bus, attempts=1)
         print("   baud: running at %d, and it will be left at %d"
               % (fast, BAUD_CODES[home_code]))
         return restore
@@ -1918,6 +1925,39 @@ def _restore_baud(line, bus, home_code, settle):
                           "over the host lead, and the next run's rate sweep "
                           "moves it." % (line.baud, at))
                 return at
+            # BLIND RETRACTION (codex review of aac0937, P1). "Found nowhere"
+            # includes a probe that HEARS at the fast rate while its replies
+            # are lost - confirmed there because the nonce echo landed and
+            # only the echo's reply (and everything after) went missing.
+            # Every step above needs a readable reply, so none of them ever
+            # sends it the retraction. A write needs no reply: send
+            # BAUD_CODE=home at every rate this firmware knows, fastest first.
+            # At the rates the probe is not on the frame vanishes; at the one
+            # it is on, it moves to home - on probation, which the echo below
+            # confirms, and which otherwise reverts to the stored rate.
+            for baud in sorted(BAUD_CODES.values(), reverse=True):
+                try:
+                    line.set_baud(baud)
+                except LINE_ERRORS:
+                    pass
+                time.sleep(settle)
+                try:
+                    bus.write(R_BAUD_CODE, [home_code])
+                except LINE_ERRORS:
+                    pass
+                time.sleep(settle)
+            try:
+                line.set_baud(home)
+            except LINE_ERRORS:
+                pass
+            time.sleep(settle)
+            if resync(line, bus, [home], settle) == home:
+                if probation_is_two_way(bus):
+                    ack_probation(bus)
+                print("   baud: back at %d after a blind retraction - the "
+                      "probe heard the fast rate but its replies did not "
+                      "come back" % home)
+                return home
             # Found nowhere. Leave THIS end on the rate the operator asked
             # for, so every message from here on is about the settings they
             # passed rather than about one of this tool's guesses. (The other

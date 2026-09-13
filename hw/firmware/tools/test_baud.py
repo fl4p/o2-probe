@@ -74,6 +74,8 @@ class FakeProbe:
         self.acked = False
         self.probation = False
         self.nonces_issued = 0
+        self.confirmations = 0
+        self.confirmed_codes = []   # the baud code each confirmation kept
         self.baud_code = baud_code
         self.addr = PROBE_ADDR
         self.parity_code = 2
@@ -132,9 +134,14 @@ class FakeProbe:
                 if not (self.probation and self.nonce
                         and values[0] == self.nonce):
                     return bytes([0x90, 3])
-                # Confirmed: the firmware closes the question at once here;
-                # the real probe does it on its next main-loop pass.
-                self.acked = True
+                # Confirmed, and the question closed the way the firmware
+                # closes it (o2p_sp_apply): NONCE and ACK both back to 0. The
+                # first cut kept ACK at 1 here, which let a test pass with the
+                # updater's NONCE == 0 lost-reply recovery deleted (codex
+                # review of aac0937, P3).
+                self.confirmations += 1
+                self.confirmed_codes.append(self.baud_code)
+                self.acked = False
                 self.probation = False
                 self.nonce = 0
                 return struct.pack(">BHH", 16, addr, count)
@@ -183,6 +190,9 @@ class FakeLine:
         self.mute_at = None
         # Drop the reply to the first N probation ACK writes (the write lands).
         self.drop_ack_replies = 0
+        # From the first ACK served at this rate on, every reply at it is lost
+        # (the codex review of aac0937's P1 stranding case).
+        self.mute_after_ack_at = None
 
     def set_baud(self, baud):
         self.baud = baud
@@ -266,6 +276,9 @@ class FakeLine:
         out = b""
         is_ack = (pdu[:1] == b"\x10" and len(pdu) >= 3
                   and struct.unpack(">H", pdu[1:3])[0] == u.R_PROBATION_ACK)
+        if (is_ack and self.mute_after_ack_at is not None
+                and self.wire_baud() == self.mute_after_ack_at):
+            self.mute_at = self.mute_after_ack_at
         if rsp_pdu is not None:
             # Dropping the ACK of a baud WRITE specifically: that is the loss
             # the tool cannot resolve by assumption, because the probe has
@@ -627,8 +640,8 @@ def main():
     line = FakeLine(p)
     restore = case("two-way speed-up", p, line, FAST, FAST_CODE, True)
     check("two-way speed-up: the fast rate's nonce was echoed",
-          p.acked and not p.probation, "acked %r probation %r"
-          % (p.acked, p.probation))
+          p.confirmations == 1 and not p.probation,
+          "confirmations %r probation %r" % (p.confirmations, p.probation))
 
     # OLD FIRMWARE: no nonce register. The tool must not retime at all - on
     # that firmware one arriving frame confirms, so a one-way rate strands it.
@@ -649,9 +662,15 @@ def main():
     line = FakeLine(p)
     line.mute_at = FAST
     restore = negotiate(line)
-    check("one-way fast rate: the probe was never given the proof",
-          not p.acked and p.probation,
-          "acked %r probation %r" % (p.acked, p.probation))
+    # Since the blind retraction the probe is not merely left to its timer:
+    # the write reaches it at the fast rate and it comes home at once, where
+    # the echo works. What must never happen is a confirmation OF THE FAST
+    # RATE.
+    check("one-way fast rate: the fast rate was never given the proof",
+          FAST_CODE not in p.confirmed_codes,
+          "confirmed codes %r" % (p.confirmed_codes,))
+    check("one-way fast rate: the probe ends home at 9600",
+          p.baud_code == SLOW_CODE, "probe at code %d" % p.baud_code)
     check("one-way fast rate: no restore promises a verified speed-up",
           restore is None or line.baud == SLOW, "line at %d" % line.baud)
 
@@ -662,7 +681,35 @@ def main():
     line = FakeLine(p)
     line.drop_ack_replies = 1
     case("lost echo reply", p, line, FAST, FAST_CODE, True)
-    check("lost echo reply: the probe holds the proof", p.acked)
+    check("lost echo reply: the probe holds the proof", p.confirmations == 1)
+
+    # CODEX REVIEW OF aac0937, P1: the echo LANDS and every reply from it on
+    # is lost. The probe confirms the fast rate; nothing this end can read
+    # ever answers again at it. Only a blind retraction - a write that needs
+    # no reply - brings it home.
+    print("-- replies lost from the echo onward: blind retraction")
+    p = FakeProbe()
+    line = FakeLine(p)
+    line.mute_after_ack_at = FAST
+    restore = negotiate(line)
+    check("echo-then-silence: the probe did confirm the fast rate",
+          p.confirmations >= 1, "confirmations %r" % p.confirmations)
+    check("echo-then-silence: the probe ends home at 9600",
+          p.baud_code == SLOW_CODE, "probe at code %d" % p.baud_code)
+    check("echo-then-silence: this end ends at 9600", line.baud == SLOW,
+          "line at %d" % line.baud)
+
+    # CODEX REVIEW OF aac0937, P1: a tool restarted inside the 10 s window
+    # finds the probe already fast and still on probation. It must echo the
+    # pending nonce, or the probe reverts under the transfer.
+    print("-- already fast with a probation pending: the nonce is echoed")
+    p = FakeProbe(baud_code=FAST_CODE)
+    p.arm()
+    line = FakeLine(p, baud=FAST)
+    negotiate(line)
+    check("restart inside probation: the pending nonce was echoed",
+          p.confirmations == 1 and not p.probation,
+          "confirmations %r probation %r" % (p.confirmations, p.probation))
 
     # restore() runs from a finally. If it raised, it would replace whatever
     # actually went wrong with the push.
