@@ -37249,14 +37249,6 @@
 		(uuid "59109591-6a07-4fb7-8350-2c6c5a29c3ba")
 	)
 	(segment
-		(start 100 137.5)
-		(end 102.5 137.5)
-		(width 0.8)
-		(layer "B.Cu")
-		(net "/HEATER_LOW")
-		(uuid "aae9c596-1c63-4352-9682-507cba376039")
-	)
-	(segment
 		(start 114 133.06)
 		(end 114 133.459999)
 		(width 0.8)
