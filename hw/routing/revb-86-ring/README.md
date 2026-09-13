@@ -51,6 +51,19 @@ Y 61.5 is not a preference either: **Y 55..62 is the only band on this board wit
 zero B.Cu copper.** The region under the MCU, where these nets actually live, has
 200+ segments in 6 mm and cannot take a 16 mm pad row.
 
+**Silkscreen, added 2026-09-13** after Fab reported the pads as missing. They
+were not missing — they were **unmarked**: the footprint carried no B.SilkS at
+all, with Reference and Value both hidden on B.Fab, which is not fabricated. Six
+anonymous copper rectangles on the back of the board, with nothing saying which
+one is SDA, read as absent and could not have been soldered to. Now on B.SilkS:
+
+    3V3   GND   SDA   SCL   TX   RX        (at Y 59.75, each above its own pad)
+    J107 EXT I2C / UART                    (at Y 58.20)
+    a filled pin-1 dot                     (at X 101.90)
+
+0.8 mm / 0.12 mm, the board's minimum text height and thickness — 0.55/0.09 was
+tried first and DRC rejected it.
+
 **All six pads are connected.** GND sits in `GND_PLANE_BCu`; the rest are routed:
 
 | net | length | vias |
