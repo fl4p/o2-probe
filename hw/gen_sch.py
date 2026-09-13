@@ -112,6 +112,10 @@ for _lid in (CONN4, CONN6, CONN8):
     _pins = SYMS[_lid]["pins"]
     for _i, (_num, _name, _etype) in enumerate(_pins):
         SYMS[_lid]["geom"][_num] = (-7.62, (len(_pins)-1)*2.54 - _i*5.08, 0, _name, _etype)
+HEATED_RING = symbol(
+    "HEATED_MEMBRANE_RING", [("1", "HEATER_LOW", "passive")], "J",
+    description="Manual-solder metal membrane carrier and heat spreader",
+)
 CABLE4 = symbol("FARM_CABLE_4", [(str(i), f"Wire_{i}", "passive") for i in range(1,5)], "J", pitch=5.08)
 SYMS[CABLE4]["geom"] = {
     "1": (-7.62, 3.81, 0, "Wire_1", "passive"),
@@ -1586,10 +1590,31 @@ net("Q2",1,"HEATER_GATE"); net("Q2",2,"GND",stub=2.54); net("Q2",3,"HEATER_LOW",
 add_passive("R28",307.34,147.32,"10k","Resistor_SMD:R_0603_1608Metric","HEATER_PWM","HEATER_GATE",
             note="Limits TMP117 ALERT-vs-PWM contention to <0.33 mA nominal")
 add_passive("R29",307.34,160.02,"100k","Resistor_SMD:R_0603_1608Metric","HEATER_GATE","GND")
-# RH1/RH2 stay on the main board (Fab, 2026-09-04). J5 and its F3 ring
-# branch are deferred to optional Rev C (2026-09-09); see plans/REVC-HEATED-RING.md.
+# RH1/RH2 stay on the main board (Fab, 2026-09-04).
+#
+# TWO DIFFERENT PARTS HAVE WORN THE REFERENCE J5, and Rev B removed both when
+# only one was meant to go.  The deferred one (2026-09-09, plans/REVC-HEATED-RING.md)
+# is the FORK TIP: a perpendicular ring PCB carrying its own heater, fed from
+# +12V_HTR through F3, i.e. a second heater load.  That stays deferred, and the
+# guard in verify() still forbids F3 and +12V_HTR.
+#
+# The one below is the Rev A part and a different thing entirely: two castellated
+# solder lands that carry the metal membrane-carrier ring.  It adds no load - both
+# lands are ONE node on HEATER_LOW, so the ring is a spreader, not a jumper and not
+# a heater.  Removing it left RH1/RH2 dissipating into the board with no lands to
+# couple them to the thing they exist to warm; the ring they drive was measured at
+# 1.224 W and theta = 68 K/W on 2026-09-13 (commit aa6133d).  Restored on Fab's
+# instruction, 2026-09-13.
 add_passive("RH1",368.3,149.86,"280R 1W","Resistor_SMD:R_2512_6332Metric","+12V_SW","HEATER_LOW",mpn="CRCW2512280RFKEG")
 add_passive("RH2",368.3,165.1,"280R 1W","Resistor_SMD:R_2512_6332Metric","+12V_SW","HEATER_LOW",mpn="CRCW2512280RFKEG")
+place("J5",HEATED_RING,368.3,195.58,value="HEATED MEMBRANE RING",
+      footprint="o2-probe:Heater_Ring_Solder_Lands",
+      note="Manual-soldered dry-side metal membrane-carrier ring; the two castellated "
+           "lands share pad number 1 and are one HEATER_LOW node, so the ring carries "
+           "no current between them. The board must join them in copper - if the ring "
+           "is the only path, an unsoldered ring is an open heater that still reads "
+           "as fitted.")
+net("J5",1,"HEATER_LOW")
 place("U16",TMP302,327.66,198.12,value="TMP302BDRLR",footprint="o2-probe:TMP302_DRL6_TI",mpn="TMP302BDRLR",
       note="Autonomous HEATER_GATE clamp: TRIPSET1/0=11 gives 85 C; HYSTSET=VS gives nominal 10 C hysteresis. Not supply-failure safe; qualify thermal coupling and restart.")
 for p,n in {1:"3V3D",2:"GND",3:"HEATER_GATE",4:"3V3D",5:"3V3D",6:"3V3D"}.items(): net("U16",p,n)
@@ -1925,9 +1950,17 @@ def verify() -> None:
     assert not ({"R19", "C18", "C19", "R34", "R35", "R36", "C29"} & INST.keys())
     assert not ({"ADC_DRDY", "VREF_MON_RAW", "ADC_VREF_MON"} & set(ASSIGNED.values()))
     assert ASSIGNED[("U10","4")] == "3V3D"                            # TMP117 0x49
-    # J5 and its F3 feed are optional Rev C work, not a Rev B load.
-    assert not ({"J5", "F3"} & INST.keys())
+    # F3 and its +12V_HTR feed are the optional Rev C FORK-TIP branch - a second
+    # heater load - and stay out of Rev B.  J5 is NOT part of that branch: it is
+    # the membrane-ring spreader and carries no load, so it is required here.
+    # Asserted separately because bundling them is what deleted J5 in the first place.
+    assert "F3" not in INST, "F3 is the deferred Rev C ring-feed fuse; see plans/REVC-HEATED-RING.md"
     assert "+12V_HTR" not in ASSIGNED.values()
+    assert "J5" in INST, "J5 (membrane-ring lands) missing; RH1/RH2 would heat the board"
+    assert ASSIGNED[("J5", "1")] == "HEATER_LOW", \
+        f"J5 must be the HEATER_LOW spreader node, got {ASSIGNED[('J5','1')]}"
+    assert INST["J5"]["footprint"] == "o2-probe:Heater_Ring_Solder_Lands", \
+        "J5 must use the castellated ring lands, not the deferred Ring_Fork_Tip_DRAFT"
     # The heat source stays on this board (Fab, 2026-09-04).  Both elements must
     # bridge +12V_SW to HEATER_LOW, i.e. sit above Q2, never below it.
     for _rh in ("RH1", "RH2"):

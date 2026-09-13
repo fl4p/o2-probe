@@ -1,4 +1,5 @@
 mpn,value,footprint,qty_per_board,fitted,sourcing,refs
+,HEATED MEMBRANE RING,o2-probe:Heater_Ring_Solder_Lands,1,yes,unsourced,J5
 ,120R DNP,Resistor_SMD:R_0603_1608Metric,0,no,dnp,R4
 ,1u,Capacitor_SMD:C_0603_1608Metric,0,no,dnp,C8
 ,DNP 100k,Resistor_SMD:R_0603_1608Metric,0,no,dnp,R39

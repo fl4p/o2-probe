@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <export version="E">
   <design>
-    <source>/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/o2-probe.kicad_sch</source>
-    <date>2026-09-12T19:28:39</date>
+    <source>/Users/fab/dev/ee/hw/o2-probe/o2-probe.kicad_sch</source>
+    <date>2026-09-13T09:09:35</date>
     <tool>Eeschema 10.0.5</tool>
     <sheet number="1" name="/" tstamps="/">
       <title_block>
@@ -878,6 +878,29 @@
             <pin num="4"/>
             <pin num="5"/>
             <pin num="6"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
+    <comp ref="J5">
+      <value>HEATED MEMBRANE RING</value>
+      <footprint>o2-probe:Heater_Ring_Solder_Lands</footprint>
+      <fields>
+        <field name="Design Note">Manual-soldered dry-side metal membrane-carrier ring; the two castellated lands share pad number 1 and are one HEATER_LOW node, so the ring carries no current between them. The board must join them in copper - if the ring is the only path, an unsoldered ring is an open heater that still reads as fitted.</field>
+        <field name="Footprint">o2-probe:Heater_Ring_Solder_Lands</field>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <libsource lib="o2-probe" part="HEATED_MEMBRANE_RING" description="Manual-solder metal membrane carrier and heat spreader"/>
+      <property name="Design Note" value="Manual-soldered dry-side metal membrane-carrier ring; the two castellated lands share pad number 1 and are one HEATER_LOW node, so the ring carries no current between them. The board must join them in copper - if the ring is the only path, an unsoldered ring is an open heater that still reads as fitted."/>
+      <property name="Sheetname" value="o2-probe"/>
+      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>98fd2db4-2904-5088-a9dc-3826aeb90f61</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
           </pins>
         </unit>
       </units>
@@ -2442,6 +2465,19 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
         <pin num="6" name="Pin_6" type="passive"/>
       </pins>
     </libpart>
+    <libpart lib="o2-probe" part="HEATED_MEMBRANE_RING">
+      <description>Manual-solder metal membrane carrier and heat spreader</description>
+      <fields>
+        <field name="Reference">J</field>
+        <field name="Value">HEATED_MEMBRANE_RING</field>
+        <field name="Footprint"/>
+        <field name="Datasheet"/>
+        <field name="Description">Manual-solder metal membrane carrier and heat spreader</field>
+      </fields>
+      <pins>
+        <pin num="1" name="HEATER_LOW" type="passive"/>
+      </pins>
+    </libpart>
     <libpart lib="o2-probe" part="LMP91000">
       <description>Configurable potentiostat AFE, TI NHK WSON-14</description>
       <fields>
@@ -2852,6 +2888,7 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
       <node ref="U16" pin="3" pinfunction="~{OUT}_3" pintype="open_collector"/>
     </net>
     <net code="20" name="/HEATER_LOW" class="Default">
+      <node ref="J5" pin="1" pinfunction="HEATER_LOW_1" pintype="passive"/>
       <node ref="Q2" pin="3" pinfunction="D_3" pintype="passive"/>
       <node ref="RH1" pin="2" pintype="passive"/>
       <node ref="RH2" pin="2" pintype="passive"/>

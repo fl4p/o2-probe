@@ -1,12 +1,12 @@
 O2 probe MPN/package audit
-run: 2026-09-12T15:28:53+00:00
-schematic sha256: cbfffb5d2824d5d6534a3107bf30e6e60617e9116ba8a05877f1d896b3e6968a
-netlist audited sha256: 989ff5983f84d7096a4e6eee149ea4c8d1d2e237e87a0621ebdc5d983b2bcfca (exported from that schematic in this run)
+run: 2026-09-13T07:08:20+00:00
+schematic sha256: 283c49bcc593f68f9b8db9c5cba095b272c38943dc42f5c1e9b9100cce94a55a
+netlist audited sha256: 48dfaecea101f4b132b7cf2466e7da4991f0630ebdfe2f7a017cc5eb382dcc97 (exported from that schematic in this run)
 map fingerprint: b970fe1c84a70dd9
 components with an MPN and fitted: 27
-verdicts: mismatch=1, ok=22, unmapped=3, unstated=1
+verdicts: ok=23, unmapped=3, unstated=1
 27 components declare no Manufacturer field, so an MPN collision between two manufacturers cannot be detected: C1, C3, C7, D1, D2, D3, D7, D8, F1, L1, Q2, R26, R42, R43, R44, RH1, RH2, U1, U10, U11, U12, U15, U16, U4, U5, U6, U7 (advisory; --require-manufacturer to enforce)
-probe: live, 2 distributor calls, 23/27 verdicts from cache (TTL 30 days)
+probe: live, 1 distributor calls, 24/27 verdicts from cache (TTL 30 days)
 scope: package identity only; land geometry (pad size, centres, pin-1) is NOT checked here -- see FOOTPRINTS.md
   C1    ok            C1206C106K3RACTU       1206/3216metric
   C3    ok            EMK316BB7226ML-T       1206/3216metric
@@ -15,7 +15,7 @@ scope: package identity only; land geometry (pad size, centres, pin-1) is NOT ch
   D2    ok            SM712-02HTG            SC-59, SOT-23-3, TO-236-3
   D3    unmapped      PMEG4010CEH,115        footprint 'Diode_SMD:D_SOD-123F' declares no expected package identity; extend FOOTPRINT_PACKAGES (this is not waivable -- a waiver would have nothing to be checked against)
   D7    ok            TPD2E2U06QDBZRQ1       SC-59, SOT-23-3, TO-236-3
-  D8    mismatch      BAT54-7-F              'BAT54-7-F' ships as SC-59, SOT-23-3, TO-236-3 but 'Diode_SMD:D_SOD-123' needs SOD-123
+  D8    ok            BAT54W-G3-08           SOD-123
   F1    ok            0ZCJ0075AF2E           1206/3216metric
   L1    ok            SRN6028C-4R7M          2424/6060metric
   Q2    ok            AO3400A                SOT-23-3, SOT-23-3VARIANT
@@ -35,10 +35,9 @@ scope: package identity only; land geometry (pad size, centres, pin-1) is NOT ch
   U5    ok            THVD1410DR             8-SOIC, 8-SOIC 3.90mm wide
   U6    ok            STM32G071CBT7          48-QFP, 48-QFP 7.0x7.0
   U7    ok            LMP91000SDX/NOPB       14-SON, 14-SON 4.0x4.0
-elapsed: 3.4s
+elapsed: 4.6s
 result: FAIL
 ERROR: D3 unmapped: footprint 'Diode_SMD:D_SOD-123F' declares no expected package identity; extend FOOTPRINT_PACKAGES (this is not waivable -- a waiver would have nothing to be checked against)
-ERROR: D8 mismatch: 'BAT54-7-F' ships as SC-59, SOT-23-3, TO-236-3 but 'Diode_SMD:D_SOD-123' needs SOD-123
 ERROR: U11 unstated: 'SGX-OX-ROHS-Mini' is listed but the distributor publishes no package parametric; 'o2-probe:SGX-OX-ROHS-Mini_ISS2' needs SGX-OX-ROHS-MINI -- verify against the part drawing and record a package_waiver
 ERROR: U15 unmapped: footprint 'Package_TO_SOT_SMD:SOT-23-6' declares no expected package identity; extend FOOTPRINT_PACKAGES (this is not waivable -- a waiver would have nothing to be checked against)
 ERROR: U16 unmapped: footprint 'o2-probe:TMP302_DRL6_TI' declares no expected package identity; extend FOOTPRINT_PACKAGES (this is not waivable -- a waiver would have nothing to be checked against)
