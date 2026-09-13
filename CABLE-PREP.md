@@ -100,6 +100,17 @@ It answers every concern the earlier versions had to argue around:
 Conrad (1216154), Reichelt and Amazon.de (B0FL2DRBL4). Spare blade cassette:
 **EM-Set Sensor Mini, Art.-Nr. 29310**, UVP €67,00.
 
+**Amazon.de B00DF8YYDI** (read 2026-09-13; its URL slug says "Sensor Special",
+but the only variant is "3,2-4,4 mm Ø / Sensor mini", titled *Jokari Sensor
+Mini Auto Cable Stripper (3.2-4.4mm)*): €68,74, **4,5 of 5 stars, n = 20**.
+German verified reviews are 4–5 stars, e.g. *"das Abmanteln funktioniert
+einwandfrei"*. The one 1-star review (Italy, 2022) reports receiving an item
+that did not match the photo, which is a fulfilment complaint and says nothing
+about the tool. One 4-star review (Japan, 2019) raises two points worth
+keeping: the blades wear, so they are a consumable, and *the cut cannot be
+adjusted*. It also says that on Japanese VVF cable the tool felt close to
+nicking the cores. This is the reason for the magnified PP core check below.
+
 **Datasheet slip, so it does not mislead a later reader:** the English half of
 the 20310 datasheet says *"The Wire Stripper Sensor Special is tightly
 focussed…"* and names the spare part *"EM-Set Sensor Special – 29310"*. The
