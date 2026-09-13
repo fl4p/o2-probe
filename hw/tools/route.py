@@ -35,6 +35,25 @@ class Grid:
 
 def layer_idx(name): return LAYERS.index(name)
 
+def _arc_points(p0, pm, p1, step=0.05):
+    """Points along the circular arc from p0 through pm to p1."""
+    (x1,y1),(x2,y2),(x3,y3) = p0, pm, p1
+    d = 2*(x1*(y2-y3) + x2*(y3-y1) + x3*(y1-y2))
+    if abs(d) < 1e-12:
+        return [p0, pm, p1]
+    ux = ((x1*x1+y1*y1)*(y2-y3) + (x2*x2+y2*y2)*(y3-y1) + (x3*x3+y3*y3)*(y1-y2)) / d
+    uy = ((x1*x1+y1*y1)*(x3-x2) + (x2*x2+y2*y2)*(x1-x3) + (x3*x3+y3*y3)*(x2-x1)) / d
+    r = math.hypot(x1-ux, y1-uy)
+    a0 = math.atan2(y1-uy, x1-ux); am = math.atan2(y2-uy, x2-ux); a1 = math.atan2(y3-uy, x3-ux)
+    tau = 2*math.pi
+    # sweep the way round that passes through the mid point
+    if (am-a0) % tau <= (a1-a0) % tau:
+        sweep = (a1-a0) % tau
+    else:
+        sweep = -((a0-a1) % tau)
+    n = max(2, int(abs(sweep)*r/step) + 1)
+    return [(ux + r*math.cos(a0 + sweep*k/n), uy + r*math.sin(a0 + sweep*k/n)) for k in range(n+1)]
+
 def build(bd, region, net, track_w, clr, edge_clr, hole_clr, exclude_ref=None,
           via_d=0.4, via_drill=0.2, h2h=0.25):
     """Obstacles for routing `net`; same-net copper becomes the target mask."""
@@ -89,12 +108,15 @@ def build(bd, region, net, track_w, clr, edge_clr, hole_clr, exclude_ref=None,
             for li in (0,1):
                 g.capsule(g.block[li], pts[k], pts[k+1], edge_clr+mh)
                 vg.capsule(vg.block[li], pts[k], pts[k+1], edge_clr+vh)
-        if len(pts)==3:   # arc: chord approximation through the mid point
+        if len(pts)==3:   # arc (start, mid, end): sample the true circle
+            # Two chords through the mid point under-block the arc's bulge; on
+            # the thermal-slot apex that let a route sit inside the 0.3 mm
+            # copper-edge clearance (copper_edge_clearance x4 at (101.2, 134.6)).
+            ap = _arc_points(*pts)
             for li in (0,1):
-                g.capsule(g.block[li], pts[0], pts[1], edge_clr+mh)
-                g.capsule(g.block[li], pts[1], pts[2], edge_clr+mh)
-                vg.capsule(vg.block[li], pts[0], pts[1], edge_clr+vh)
-                vg.capsule(vg.block[li], pts[1], pts[2], edge_clr+vh)
+                for a_, b_ in zip(ap[:-1], ap[1:]):
+                    g.capsule(g.block[li], a_, b_, edge_clr+mh)
+                    vg.capsule(vg.block[li], a_, b_, edge_clr+vh)
     return g, tgt, vg
 
 def astar(g, tgt, start_cells, via_cost=8.0, vg=None):

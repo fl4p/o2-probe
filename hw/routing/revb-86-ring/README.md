@@ -1,13 +1,22 @@
-# revb-86-ring — ring lands + external-sensor pads (WORK IN PROGRESS, DO NOT FAB)
+# revb-86-ring — ring lands + external-sensor pads (DRC-CLEAN, NOT YET REVIEWED FOR FAB)
 
 Derived from the accepted [`routing/revb-86`](../revb-86) board on 2026-09-13,
 after Fab: *"the pcb missed the ring pads at the tip. add them."* The accepted
-board and its fabrication package are unchanged; this candidate is not fabricable
-while the one item under **Blocked** stands.
+board and its fabrication package are unchanged.
 
-Current DRC: **12 violations — exactly the accepted board's baseline** (10
-courtyard overlaps + 2 `track_dangling`, all pre-existing and individually
-documented there), **0 footprint errors**, and one unconnected item (below).
+**State, 2026-09-13 (after the tip re-route below):** full native DRC with
+`--schematic-parity` reports **12 violations — exactly the accepted board's
+baseline** (the same 10 courtyard pairs and the same 2 GUARD_REPLICA
+`track_dangling`, all individually documented in `revb-86`), **0 unconnected
+items** and **0 schematic-parity issues**. `HEATED_ISLAND_SPREADER` fills as
+**one** island holding both ring lands, RH1, RH2 and Q2.
+
+**Not yet orderable.** `make_fab_revb_86.py` exports only behind a review gate
+(`review-gate.json`, `status: REVIEWED`, with an independent review record and
+matching input hashes), and its verifier `verify_revb_86.py` accepts only the
+3 mm head trim against the 89 mm board. This board changes copper, so it needs a
+ring-specific verifier/exporter and an independent review before a package can
+exist. Nobody has reviewed it; do not write that gate by hand.
 
 ## J5 — the membrane-ring lands
 
@@ -81,10 +90,10 @@ attempts had already failed, one with seven shorts.
 (Y 86..95) has exactly **one** corridor: whichever I2C net routes first takes it,
 and the second is then fenced off its own target by 2.84 mm near
 (116.10, 93.90). Rip-up-and-retry found no alternative corridor at all. The fix
-was not to force a second lane but to let SCL join its net further south — I2C
-runs all the way to U10/U12 at the tip. At 100 kHz with R10/R11 biasing the bus
-the extra length costs a few pF; if this bus is ever run fast, re-examine this
-first.
+was not to force a second lane but to let SCL join its net further south. At
+100 kHz with R10/R11 biasing the bus the extra length costs a few pF; if this bus
+is ever run fast, re-examine this first. (The J107 routes end at their net well
+north of the tip and are untouched by the tip re-route below.)
 
 ### Addressing, for whatever gets soldered to J107
 
@@ -115,27 +124,72 @@ missed by 0.034 mm, (111.0, 138.3) still clipped, (110.5, 138.5) hit the board
 edge. (111.3, 138.2) clears everything, and sits beside TP6, the testpoint it
 names.
 
-## Blocked: three `/I2C_SDA` segments, and that is the whole of it
+## The split spreader — fixed 2026-09-13
 
-`HEATED_ISLAND_SPREADER` fills as **two islands** that no copper joins, so the
-left ring land does not reach the drive at Q2/RH1/RH2. This is the one
-unconnected item in DRC, and it is a zone-to-zone item — not a land, which is how
-we know the front-land vias work.
+`HEATED_ISLAND_SPREADER` used to fill as two islands, with the left ring land
+alone in an orphan strip (X 100.30..106.42) and RH1, RH2, Q2 and the right land
+in the other. The left land carries no heater current either way, so this was
+not a broken circuit — but that land exists to conduct heat into the left half
+of the ring, and it was not doing so.
 
-Pinned by experiment rather than by reading the map: delete these three
-`/I2C_SDA` B.Cu segments, refill, and the pour merges to **one** island.
+### What was believed, and what measurement changed
 
-    (104.70, 137.20) -> (106.50, 138.50)
-    (106.50, 138.50) -> (110.60, 138.50)
-    (110.60, 137.95) -> (110.60, 138.50)
+This section previously said *"three `/I2C_SDA` segments, and that is the whole
+of it"*, with a bounded SDA-only re-route as the fix. Both halves were wrong:
 
-That run climbs to Y 138.5 — within 0.5 mm of the tip edge — to carry SDA across
-to U10, the tip TMP117 at (110, 136.525). It is a wall across the island, and
-0.5 mm of board cannot pass a pour.
+- **It was four B.Cu segments**, not three: the run from the via at
+  (104.2, 136.55) to (104.7, 137.2) belongs to the same wall. Measured with
+  pcbnew's own `ZONE_FILLER`, deleting exactly these four, and nothing else,
+  refills the pour as one island; the vias at both ends are not implicated:
 
-**That is the real cost of having deleted J5.** Removing it did not only remove
-two pads, it freed the tip corridor, and the router filled it with the I2C pair.
-The remaining task is a bounded re-route of `/I2C_SDA` between X 104.7 and U10,
-out of the B.Cu tip strip, with that strip a keepout for signal nets so the pour
-stays whole. U10 and U16 both live there and both need I2C, so the corridor is
-contested on F.Cu too — authored constraint, not a longer router run.
+      (104.20, 136.55) -> (104.70, 137.20)
+      (104.70, 137.20) -> (106.50, 138.50)
+      (106.50, 138.50) -> (110.60, 138.50)
+      (110.60, 138.50) -> (110.60, 137.95)
+
+  The mechanism is geometric: the B.Cu band along the front edge,
+  Y ~136.6..138.70, is the **only** copper joining the left land to the body
+  (the GND, HEATER_PWM and SDA verticals on the left all stop above it), and
+  that run lay along it. The zone's `min_thickness` is 0.09 mm; the run at
+  Y 138.5 left 0.025 mm.
+
+- **SDA could not be moved alone.** U10's SDA pad (pad 6, south row of the DFN)
+  sits in a sealed F.Cu pocket: the 3V3D bus and via to the north, the F.Cu
+  front-band run of `/I2C_SCL` (the U12 <-> U10 hop) to the south, the board
+  edge below. With no B.Cu allowed in the band, a flood fill from that pad
+  reached 438 cells and no exit.
+
+### What was done
+
+Routed by [`tools/drive_tip_i2c.py`](../../tools/drive_tip_i2c.py) and written
+by `tools/emit_tip.py`, with DRC and a pcbnew refill after every step:
+
+1. **Removed** the four B.Cu SDA segments above, the U10-end SDA via
+   (110.6, 137.95) with its F.Cu stub, and the 33 F.Cu segments of SCL's
+   front-band U12 <-> U10 hop (38 segments, 1 via).
+2. **`/I2C_SCL`, U12 pad 2 -> SCL copper north of the tip**, 11.7 mm on F.Cu,
+   F.Cu below Y 137.0 refused so it cannot re-enter the band. It leaves pad 2
+   from the pad's east end: U12's footprint carries a no-track keepout under
+   the SHT45, and a stub from the pad centre crossed it (`items_not_allowed`,
+   caught by DRC on the first attempt; the router now reads keepouts).
+3. **`/I2C_SDA`, U10 pad 6 -> the via at (104.2, 136.55)**, 7.1 mm on F.Cu
+   along Y ~138.0..138.1 plus a 0.7 mm B.Cu hop at Y 136.45, one new via. No new
+   B.Cu below Y 136.5.
+4. **A GND link from C20.2**, 6.3 mm, 3 vias. Step 2's SCL leg, the existing SCL
+   run down to U10.1 and the 3V3D track together enclose an F.Cu GND pocket
+   holding **C20.2 and U10.2** (Q2's source is not in it). DRC reported it as a
+   GND F.Cu <-> B.Cu unconnected item. No straight two-via jumper fits — 620
+   positions across both SCL walls, best margin -0.079 mm against RH1.2 and the
+   0.8 mm HEATER_LOW run — so the router found a bent one: C20.2 north on F.Cu,
+   B.Cu west under both SCL legs, F.Cu past HEATER_PWM, and a via onto the
+   existing B.Cu GND vertical at X 102.25.
+5. **Re-ended** the existing SDA segment (102.7, 134.95) -> (104.2, 136.45) onto
+   its via centre at (104.2, 136.55); it had always been 0.1 mm short, and DRC
+   only reported `track_not_centered_on_via` once the neighbouring run was gone.
+
+Two dead ends are recorded because they are the evidence for the final shape:
+joining SCL further east (X >= 107) or keeping it east of X 104 found no path at
+all, and routing SDA before SCL left SCL with no path.
+
+The J5 Design Note's "height capped at 2.0 by `/I2C_SDA` reaching Y 136.45 under
+the left land" still holds: that is the SDA segment in step 5, which stays.
