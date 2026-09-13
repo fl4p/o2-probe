@@ -44,21 +44,31 @@ because Y 55..62 is the only band on this board with **zero** B.Cu copper; the
 region under the MCU, which is where these nets actually live, has 200+ segments
 in 6 mm and no room for a 16 mm pad row.
 
-**Pad 2 (GND) is connected** — it sits in `GND_PLANE_BCu`. **The other five are
-not routed.** That is the outstanding work, and it is not trivial:
+**All six pads are connected** (2026-09-13). GND sits in `GND_PLANE_BCu`; the
+other five are routed:
 
-- `/3V3D` reaches Y 73.3 on B.Cu, so it is a short run — but the direct path
-  threads the NPTH row (holes at X 103 / 107.7 / 112.3 / 117) and then D1
-  (SMB, X 103.7..109.3 at Y 69.5) and F1 (X 100.9..104.1). A first attempt at
-  that gauntlet was removed rather than committed.
-- `/I2C_SDA` and `/I2C_SCL` exist no further north than Y 94.7..97.3, so each
-  needs roughly 33 mm, and both must cross Y 86..95, which is dense on every
-  2 mm lane of B.Cu (20-36 segments per column).
-- `/UART2_TX` and `/UART2_RX` reach Y 83.5 and 86.3 on F.Cu — about 22 mm each,
-  through the same band.
+| net | length | vias |
+|---|---|---|
+| `/3V3D` | 16.2 mm | 1 |
+| `/I2C_SDA` | 47.6 mm | 2 |
+| `/I2C_SCL` | 60.0 mm | 3 |
+| `/UART2_TX` | 22.9 mm | 1 |
+| `/UART2_RX` | 25.5 mm | 3 |
 
-B.Cu is open at Y 70..86 (X 100..102 and X 116..120 are nearly empty), so the
-corridor exists; the crossing of Y 86..95 is the part that needs authoring.
+Routed by `tools/` (see `tools/README-router.md`), not by hand — two hand
+attempts had already failed, one of them with seven shorts. DRC afterwards is
+back to the accepted board's 12-violation baseline with **0 footprint errors**
+and the only unconnected item the standing spreader-island split.
+
+**`/I2C_SCL` takes 60 mm and that is not waste.** The band under the MCU
+(Y 86..95) has exactly **one** corridor: whichever I2C net is routed first gets
+it, and the second is then fenced off its own target by 2.84 mm near
+(116.10, 93.90). Rip-up-and-retry found no alternative corridor at all. The fix
+was not to force a second lane through but to let SCL reach its net further
+south — I2C runs all the way to U10/U12 at the tip, so there is copper to join
+at the other end. At 100 kHz and with R10/R11 already biasing the bus, the added
+length costs a few pF and nothing else; if this bus is ever run fast, this is
+the first thing to re-examine.
 
 ### Addressing, for whatever gets soldered to J107
 
