@@ -18506,7 +18506,7 @@
 		)
 	)
 	(gr_text "TMP_CELL"
-		(at 104.5 138.2 0)
+		(at 111.3 138.2 0)
 		(layer "B.SilkS")
 		(uuid "a5879816-2168-5d10-8f9e-ac4a02c99e15")
 		(effects
