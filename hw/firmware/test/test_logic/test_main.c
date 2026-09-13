@@ -6665,6 +6665,39 @@ static void test_a_false_runaway_latch_releases_while_the_floor_runs(void)
     TEST_ASSERT_TRUE_MESSAGE(released <= 600, "and within a few release windows");
 }
 
+static void test_heater_law_drops_the_runaway_floor_bit_on_the_release_cycle(void)
+{
+    /* Codex review of a75c1f4, finding 5 (FW 0x0023): the law word is built
+     * before update_runaway() runs, so on the cycle a latch RELEASES the
+     * RUNAWAY_FLOOR bit still claimed a latch was in force. Same plant as the
+     * release test; the assertion is on the exact release cycle. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    st.runaway_latched = true;
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+    dewplant_t p = {36.0f, 36.0f, 20.0f, 150.0f, 0.03f, 30.0f, 0.0f, 36.0f, 0.0f};
+    bool saw_release = false;
+    for (uint32_t t = 0u; t < 3000u && !saw_release; t++) {
+        o2p_heater_in_t in = dewplant_in(&p);
+        in.t_die_c100 = 3000;
+        const bool was_latched = st.runaway_latched;
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+        if (was_latched && !st.runaway_latched) {
+            saw_release = true;
+            TEST_ASSERT_EQUAL_UINT16_MESSAGE(
+                0u, out.law & O2P_HEATER_LAWF_DEW_RUNAWAY_FLOOR,
+                "the release cycle must not still claim a latch is in force");
+            TEST_ASSERT_EQUAL_HEX16((uint16_t)O2P_HEATER_LAW_DEW,
+                                    (uint16_t)(out.law & 0x00FFu));
+            TEST_ASSERT_TRUE_MESSAGE(out.duty_x100 > 0u,
+                "and the floor's duty for that cycle still stands");
+        }
+        dewplant_step(&p, out.duty_x100);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(saw_release, "the latch must release, or this proves nothing");
+}
+
 static void test_a_real_runaway_signature_holds_the_latch_under_the_floor(void)
 {
     /* The monotonic side: the same latch and the same floor duty, but the tip
@@ -9021,7 +9054,10 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    /* 0x0021: a runaway latch can release while the gradient floor runs above
+    /* 0x0023: HEATER_LAW no longer publishes the RUNAWAY_FLOOR bit on the
+     *         cycle a latch releases (Fab's "fix it"). 0x0022 is the peer
+     *         session's probation fixes.
+     * 0x0021: a runaway latch can release while the gradient floor runs above
      *         the idle duty - release judged on the thermal signature alone
      *         (Fab's "let the latch release").
      * 0x0020: a short cell-reading dropout (under 60 s, after a valid cell
@@ -9095,7 +9131,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         steps the thermal mass cannot make are rejected for a cycle.
      * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
      *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
-    TEST_ASSERT_EQUAL_HEX16(0x0021u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x0023u, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_HEX16(0xC000u,
         (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
     /* The staleness cut must win the race against the watchdog's fastest
@@ -11242,6 +11278,7 @@ int main(void)
     RUN_TEST(test_a_flickering_cell_cannot_reach_blind);
     RUN_TEST(test_a_sustained_cell_loss_still_allows_blind_after_the_limit);
     RUN_TEST(test_a_false_runaway_latch_releases_while_the_floor_runs);
+    RUN_TEST(test_heater_law_drops_the_runaway_floor_bit_on_the_release_cycle);
     RUN_TEST(test_a_real_runaway_signature_holds_the_latch_under_the_floor);
     RUN_TEST(test_a_hot_floor_cannot_reach_blind_through_the_runaway_latch);
     RUN_TEST(test_dew_unreachable_pause_of_exactly_the_limit_keeps_its_evidence);

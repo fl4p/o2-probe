@@ -1220,5 +1220,14 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
         /* And HEATER_LAW must not keep naming the law this latch just
          * overruled (codex review of d7be806, finding 7). */
         out->law = O2P_HEATER_LAW_REFUSED;
+    } else if (latched_floor && !st->runaway_latched) {
+        /* The mirror case (FW 0x0023, Fab 2026-09-13 "fix it"; codex review of
+         * a75c1f4, finding 5): the latch RELEASED in the call above, after the
+         * law word was built. The duty stands - the floor computed it, and it
+         * is what the ring got - but the flag would publish "a latch is in
+         * force" for one cycle after it was gone. HEATER_BLOCK's RUNAWAY bit
+         * has the same one-cycle staleness and predates this; left alone
+         * deliberately rather than widened in silence. */
+        out->law = (uint16_t)(out->law & ~O2P_HEATER_LAWF_DEW_RUNAWAY_FLOOR);
     }
 }
