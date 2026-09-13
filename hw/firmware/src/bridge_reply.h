@@ -28,16 +28,21 @@ typedef struct {
     uint32_t bus_baud;   /* only meaningful when set_bus_baud */
 } o2p_bridge_action_t;
 
-/* The bus rates the bridge will accept, and why only these three: they are
- * exactly the probe's O2P_REG_BAUD_CODE enum (0/1/2 = 9600/19200/38400). A
- * bridge that could be moved to a rate no probe can be moved to would be a
- * bridge that can talk to nothing, recoverable only over the host lead. The
- * cable's own limit is far higher -- the THVD1410 is rated to 500 kbps -- so
- * the binding constraint here is the other end, not the wire. */
+/* The bus rates the bridge will accept, and why only these: they are exactly
+ * the probe's O2P_REG_BAUD_CODE enum. A bridge that could be moved to a rate
+ * no probe can be moved to would be a bridge that can talk to nothing,
+ * recoverable only over the host lead. The cable's own limit is far higher --
+ * the THVD1410 is rated to 500 kbps -- so the binding constraint here is the
+ * other end, not the wire.
+ *
+ * These are keyed by POSITION, not by the probe's code: check_update_tool.py
+ * compares the SET of values against o2p_update.py's BAUD_CODES, so the order
+ * is free but the membership is not. 57600 added 2026-09-13 with code 4. */
 #define O2P_BRIDGE_BAUD_1 9600u
 #define O2P_BRIDGE_BAUD_2 19200u
 #define O2P_BRIDGE_BAUD_3 38400u
 #define O2P_BRIDGE_BAUD_4 115200u
+#define O2P_BRIDGE_BAUD_5 57600u
 
 /* Build the bridge's own answer to `req`, which the caller has already found
  * to be addressed to `addr`.

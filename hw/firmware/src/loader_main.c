@@ -116,6 +116,7 @@ static void apply_serial(uint8_t addr, uint8_t baud_code, uint8_t parity_code,
      * one that cannot reach it. Adding a rate to regmap.h without adding it
      * here strands a re-rated probe at its next reset into service mode. */
     case O2P_BAUD_115200: *baud = 115200u; break;
+    case O2P_BAUD_57600: *baud = 57600u; break;
     default:             *baud = 9600u;  break;
     }
     if (parity_code <= O2P_PARITY_EVEN) {

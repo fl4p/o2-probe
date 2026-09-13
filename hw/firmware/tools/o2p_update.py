@@ -88,7 +88,12 @@ R_PROBATION_ACK = 0x000D
 # tool asks for max(), so a firmware that gains a faster code speeds this tool
 # up as soon as the two are re-synced - and check_update_tool.py fails the
 # build if they are not.
-BAUD_CODES = {0: 9600, 1: 19200, 2: 38400, 3: 115200}
+#
+# KEYED BY CODE, ORDERED BY NOTHING. Code 4 is 57600, slower than code 3's
+# 115200, because a code is stored in the probe's flash and renumbering one
+# would silently re-point every stored config. fastest_code() therefore picks
+# by BAUD_CODES[c] and never by max(c); see its docstring.
+BAUD_CODES = {0: 9600, 1: 19200, 2: 38400, 3: 115200, 4: 57600}
 
 CMD_BEGIN = 0xB001
 CMD_COMMIT = 0xB002
@@ -1195,12 +1200,13 @@ LINE_ERRORS = (ModbusException, IOError, OSError)
 def fastest_code(max_baud=None):
     """The code with the highest RATE, which is not the highest code.
 
-    `max(BAUD_CODES)` would be the highest key, and the two coincide only
-    because the current table happens to be ordered. A firmware that appends
-    `O2P_BAUD_4800 = 3` - the exact addition src/modbus_rtu.c's transmit
-    backstop already warns about - would make this tool "speed up" to half the
-    bus rate, and check_update_tool.py could not see it: both sides would
-    agree, and agreeing on 4800 is the bug.
+    `max(BAUD_CODES)` would be the highest key. The two coincided only while
+    the table happened to be ordered, and SINCE 2026-09-13 THEY NO LONGER DO:
+    code 4 is 57600, appended below code 3's 115200 because a code lives in
+    the probe's flash and renumbering one re-points every stored config. A
+    tool keying on max(code) now picks 57600 and calls it the fastest, and
+    check_update_tool.py cannot see it - both sides agree, and the agreement
+    is the bug.
 
     `max_baud` caps the choice (2026-09-13: 115200 fails on probe 3's reply
     path, so a bench run asks for a slower rate to find the fastest that

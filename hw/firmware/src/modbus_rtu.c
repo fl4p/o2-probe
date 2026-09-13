@@ -65,6 +65,7 @@ static uint32_t baud_from_code(uint8_t code)
     case O2P_BAUD_19200: return 19200u;
     case O2P_BAUD_38400: return 38400u;
     case O2P_BAUD_115200: return 115200u;
+    case O2P_BAUD_57600: return 57600u;
     default:             return 9600u;
     }
 }

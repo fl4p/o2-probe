@@ -352,6 +352,45 @@ static void test_partly_illegal_multiwrite_commits_nothing(void)
     TEST_ASSERT_EQUAL_UINT8(O2P_BAUD_9600, rm.cfg.baud_code);
 }
 
+static void test_baud_code_4_is_57600_and_5_is_still_refused(void)
+{
+    /* 57600 was appended as code 4 on 2026-09-13 (Fab: "try 57600"). Two
+     * things must hold and they are easy to get half-right: the new code has
+     * to be ACCEPTED, and the first code past it has to still be REFUSED.
+     * Bumping O2P_BAUD_MAX_CODE without meaning to open the range is exactly
+     * how a probe ends up accepting a code no switch in the firmware maps,
+     * which baud_from_code()'s default arm would silently serve as 9600. */
+    uint8_t req[32], rsp[O2P_MB_MAX_ADU];
+
+    const uint8_t ok4[] = {0x03, 0x06, 0x00, 0x31, 0x00, 0x04};
+    size_t n = framed(req, ok4, sizeof(ok4));
+    size_t len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_UINT(8, len);              /* echo, not an exception */
+    TEST_ASSERT_EQUAL_UINT8(O2P_BAUD_57600, rm.cfg.baud_code);
+    TEST_ASSERT_TRUE(rm.serial_reconfig_pending);
+
+    /* And the far tail: one past the top is still illegal, and must leave the
+     * accepted value alone rather than half-applying. */
+    const uint8_t bad5[] = {0x03, 0x06, 0x00, 0x31, 0x00, 0x05};
+    n = framed(req, bad5, sizeof(bad5));
+    len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    TEST_ASSERT_EQUAL_UINT(5, len);
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE, rsp[2]);
+    TEST_ASSERT_EQUAL_UINT8(O2P_BAUD_57600, rm.cfg.baud_code);
+}
+
+static void test_the_baud_enum_is_keyed_by_code_not_by_rate(void)
+{
+    /* The property every master and tool must not assume away: code order is
+     * NOT rate order any more. If someone "tidies" the enum into ascending
+     * rate, this fails - and so would every probe already carrying a stored
+     * BAUD_CODE of 3 or 4. */
+    TEST_ASSERT_EQUAL_UINT8(4u, O2P_BAUD_57600);
+    TEST_ASSERT_EQUAL_UINT8(3u, O2P_BAUD_115200);
+    TEST_ASSERT_TRUE(O2P_BAUD_57600 > O2P_BAUD_115200);
+    TEST_ASSERT_EQUAL_UINT8(O2P_BAUD_57600, O2P_BAUD_MAX_CODE);
+}
+
 static void test_commit_and_cal_need_their_magic(void)
 {
     uint8_t req[16], rsp[O2P_MB_MAX_ADU];
@@ -9054,7 +9093,15 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    /* 0x0023: HEATER_LAW no longer publishes the RUNAWAY_FLOOR bit on the
+    /* 0x0024: the RS-485 baud enum gains 57600 as CODE 4 (Fab's "try 57600").
+     *         A master may now write BAUD_CODE = 4, which 0x0023 and earlier
+     *         reject as out of range - and, crucially, the enum is no longer
+     *         ordered by rate: code 4 is SLOWER than code 3's 115200. It was
+     *         appended rather than inserted because a code is stored in flash
+     *         and echoed by a master, so renumbering 115200 would silently
+     *         re-point every stored config. Any master picking "the fastest
+     *         rate" by max(code) is wrong from this version on.
+     * 0x0023: HEATER_LAW no longer publishes the RUNAWAY_FLOOR bit on the
      *         cycle a latch releases (Fab's "fix it"). 0x0022 is the peer
      *         session's probation fixes.
      * 0x0021: a runaway latch can release while the gradient floor runs above
@@ -9131,7 +9178,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         steps the thermal mass cannot make are rejected for a cycle.
      * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
      *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
-    TEST_ASSERT_EQUAL_HEX16(0x0023u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x0024u, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_HEX16(0xC000u,
         (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
     /* The staleness cut must win the race against the watchdog's fastest
@@ -11127,6 +11174,8 @@ int main(void)
     RUN_TEST(test_broadcast_never_replies);
     RUN_TEST(test_write_rejects_illegal_slave_address);
     RUN_TEST(test_partly_illegal_multiwrite_commits_nothing);
+    RUN_TEST(test_baud_code_4_is_57600_and_5_is_still_refused);
+    RUN_TEST(test_the_baud_enum_is_keyed_by_code_not_by_rate);
     RUN_TEST(test_commit_and_cal_need_their_magic);
     RUN_TEST(test_measurement_registers_are_not_writable);
     RUN_TEST(test_air_calibration_round_trips);
