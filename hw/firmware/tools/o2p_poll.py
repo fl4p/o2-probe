@@ -303,7 +303,8 @@ def decode_heater_law(v):
     if v == U16_INVALID:
         return None
     name = HEATER_LAW_NAMES.get(v & 0xFF, "LAW%d" % (v & 0xFF))
-    return name + ("+UNREACHABLE" if v & 0x0100 else "")
+    return (name + ("+UNREACHABLE" if v & 0x0100 else "")
+            + ("+NO_DEWPOINT" if v & 0x0200 else ""))
 
 
 def poll(bus, want_diag):

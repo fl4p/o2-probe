@@ -399,10 +399,15 @@ enum {
  * the cell invalid the RH law runs exactly as before; the mode tag restarts
  * the integrator on every hand-over.
  *
- * Its sensors, per the per-law blind rule: RH and chamber temperature are its
- * control quantity (the dew point), and the tip is its only bound - so NO_RH,
- * NO_CHAMBER and NO_TIP blind it; SAFETY annotates (the tip clamp is 80.00
- * here unconditionally, the "annotate and regulate (keep <=80 C)" ruling).
+ * Its sensors, per the per-law blind rule, REVISED FW 0x001B: only NO_TIP
+ * blinds it. The tip is the bound, and an unevaluable cap is not a cap. NO_RH
+ * and NO_CHAMBER - humidity lost, as in every SHT45 de-creep - now ANNOTATE:
+ * the dew point is unavailable, so the law withholds its own demand, and the
+ * gradient floor, which needs only the tip and the cell, keeps regulating
+ * under dew_ceiling_c100(). Before, they blinded it into the 50 % fallback,
+ * which ignores the gradient ceiling: the review modelled a de-creep with the
+ * die under 40 C taking the tip 36.6 K over the cell. HEATER_LAW reports the
+ * state as O2P_HEATER_LAWF_DEW_NO_DEWPOINT. SAFETY annotates, as before.
  *
  * The Magnus fit is stated to ~60 C; a bath or pile at 75 C is extrapolation
  * (psychro.h). All four numbers are compile-time: PROVISIONAL gains for an
@@ -566,11 +571,17 @@ enum {
  * that retreat clear the verdict and re-climb every ~80 min in the review's
  * model. The retry is long because each one costs a climb and a dwell.
  *
- * REFUSALS. The SHT45 de-creep refuses the dew law every 8 h by default
- * (regmap.c). Evidence does not survive a refusal; the VERDICT does, as long as
- * the dew law is still the configured law, because dropping it there would
- * re-climb to the ceiling after every de-creep. A different law in command
- * drops both.
+ * PAUSES, NOT RESETS (FW 0x001B, Fab 2026-09-13 "yes" to the codex review of
+ * 9eb3a34/496dd2e). 0x0019 discarded the evidence on every refused cycle, and
+ * the review showed the opposite failure that bought: one NO_TIP glitch every
+ * 500 s kept a 75 C probe at >= 78 C for 21 562 s of 6 h with no verdict. Now
+ * a refused cycle - and a cycle with no dew point, see below - only PAUSES
+ * the evidence: those seconds are never credited, and nothing already counted
+ * is lost. A pause longer than O2P_HEATER_DEW_UNREACH_PAUSE_MAX_S, or another
+ * law taking command, discards it. The 0x0018 hazard pausing could revive -
+ * blind heat credited as the law's own climb - is closed by the same change,
+ * because losing only humidity no longer drives the blind fallback at all.
+ * The verdict survives a pause; a different law in command drops it.
  *
  * All PROVISIONAL. 1 K of band because the law parks at 79.00 C through its
  * min(); 600 s is four tau, long enough for the margin to have answered; the
@@ -580,6 +591,12 @@ enum {
 #define O2P_HEATER_DEW_UNREACH_CLEAR_HYST_K100 100
 #define O2P_HEATER_DEW_UNREACH_CLEAR_HOLD_S    600u
 #define O2P_HEATER_DEW_UNREACH_RETRY_S         21600u   /* 6 h */
+/* A PAUSE in the detector's evidence longer than this is treated as a
+ * different situation and the evidence is discarded; shorter ones only stop
+ * the clock (FW 0x001B, codex review of 9eb3a34/496dd2e finding 2). Equal to
+ * the dwell on purpose: a pause as long as a whole dwell has had time to
+ * change the plant, one shorter than it has not. */
+#define O2P_HEATER_DEW_UNREACH_PAUSE_MAX_S     600u
 
 /* How long main.c bridges the last accepted cell-side reading. Its glitch
  * filter withholds up to five 1 Hz readings after a >3 K jump; without a
@@ -760,6 +777,10 @@ typedef struct {
     uint16_t dew_clear_s;
     uint32_t dew_prev_s;
     uint32_t dew_retry_at_s;
+    /* The evidence is paused (a refused or dew-point-less cycle) since
+     * dew_pause_since_s; see O2P_HEATER_DEW_UNREACH_PAUSE_MAX_S. */
+    bool     dew_paused;
+    uint32_t dew_pause_since_s;
     bool     dt_clamped;       /* hysteresis latches */
     bool     tip_clamped;
     /* Which loop produced the current integrator, so that switching between
@@ -818,6 +839,11 @@ enum {
  * the tip instead. See O2P_HEATER_DEW_UNREACH_DWELL_S. Set only alongside
  * O2P_HEATER_LAW_DEW. */
 #define O2P_HEATER_LAWF_DEW_UNREACHABLE 0x0100u
+/* The dew law is configured but has no dew point this cycle - humidity lost,
+ * typically the SHT45 de-creep - so its own demand is withheld and only the
+ * gradient floor is regulating (FW 0x001B). Set only alongside
+ * O2P_HEATER_LAW_DEW. */
+#define O2P_HEATER_LAWF_DEW_NO_DEWPOINT 0x0200u
 
 typedef struct {
     uint16_t duty_x100;

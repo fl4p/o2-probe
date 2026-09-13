@@ -283,7 +283,8 @@ Present from firmware version 0x0018.
 `HEATER_LAW` says which control law produced `HEATER_DUTY` - low byte
 RH / OPEN / TIP / TIP_AUTO / DEW, or BLIND / REFUSED when no law is in command -
 and in the high byte whether the dew law has declared its margin unreachable
-and handed the tip to the gradient floor. `HEATER_BLOCK` could not carry this.
+and handed the tip to the gradient floor, or has no dew point this cycle and
+is running the floor alone. `HEATER_BLOCK` could not carry this.
 A separate block, so the eight-register primary read is unchanged. Full
 encoding in `firmware/FIRMWARE.md`.
 

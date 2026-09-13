@@ -21,6 +21,8 @@ void o2p_heater_ctl_reset(o2p_heater_state_t *st)
     st->dew_clear_s = 0u;
     st->dew_prev_s = 0u;
     st->dew_retry_at_s = 0u;
+    st->dew_paused = false;
+    st->dew_pause_since_s = 0u;
     st->runaway_evidence_s = 0u;
     st->runaway_clear_s = 0u;
     st->zero_duty_timing = false;
@@ -657,6 +659,19 @@ static int32_t dew_ceiling_c100(const o2p_heater_cfg_t *cfg,
     return ceiling;
 }
 
+/* PAUSE the unreachable-margin detector's evidence: the seconds from here on
+ * are not observation and are never credited, but nothing already counted is
+ * discarded. The pause's start is kept so a long one can be told from a glitch
+ * when evidence resumes (O2P_HEATER_DEW_UNREACH_PAUSE_MAX_S). */
+static void dew_detector_pause(o2p_heater_state_t *st, uint32_t now_s)
+{
+    if (!st->dew_paused) {
+        st->dew_paused = true;
+        st->dew_pause_since_s = now_s;
+    }
+    st->dew_prev_valid = false;
+}
+
 /* The gas dew point, in 0.01 C, from the SHT45's RH at the chamber
  * temperature. False if the Magnus form cannot take the humidity; the caller
  * owns validity of the two readings. */
@@ -682,12 +697,15 @@ static uint16_t law_wet_mask(const o2p_heater_cfg_t *cfg,
          * blind membership here. */
         wet |= O2P_HB_SAFETY;
     } else if (dew_law_in_command(cfg, in)) {
-        /* The dew-margin law: RH and chamber temperature ARE its control
-         * quantity (the dew point), and the tip is its only bound - an
-         * unevaluable 80 C cap is not a cap, and this is the law that runs
-         * the tip up against it. SAFETY annotates: the 80.00 C clamp is
-         * unconditional here (interlocks()). */
-        wet |= O2P_HB_NO_RH | O2P_HB_NO_CHAMBER | O2P_HB_NO_TIP;
+        /* The dew-margin law: the tip is its bound, and an unevaluable cap is
+         * not a cap, so NO_TIP blinds it. SINCE FW 0x001B NO_RH and
+         * NO_CHAMBER do NOT: with only humidity lost the law has no dew point
+         * and withholds its own demand, while the gradient floor - tip and
+         * cell only - keeps regulating under dew_ceiling_c100(). Blinding here
+         * sent every SHT45 de-creep into the 50 % fallback, which ignores the
+         * gradient ceiling (codex review of 496dd2e, finding 1). SAFETY
+         * annotates: the 80.00 C clamp is unconditional here (interlocks()). */
+        wet |= O2P_HB_NO_TIP;
     } else {
         /* The RH law: its own sensor's absence blinds it. */
         wet |= O2P_HB_NO_RH | O2P_HB_SAFETY;
@@ -770,21 +788,23 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
          * plant nobody has measured. */
         st->integ = 0.0f;
         st->integ_floor = 0.0f;
-        /* The unreachable-margin detector's EVIDENCE never survives a refused
-         * cycle: the tip may be moving under the blind fallback, and a dwell
-         * or recovery hold that straddled it would credit seconds the law was
-         * not regulating (codex review of d7be806, finding 2). The VERDICT
-         * survives while the dew law is still the configured law - the SHT45
-         * de-creep refuses it every 8 h, and dropping the verdict there would
-         * re-climb to the ceiling after every de-creep. See
-         * O2P_HEATER_DEW_UNREACH_DWELL_S. */
-        st->dew_prev_valid = false;
-        st->dew_pinned = false;
-        st->dew_recovered = false;
-        st->dew_dwell_s = 0u;
-        st->dew_clear_s = 0u;
-        if (!dew_law_in_command(cfg, in)) {
+        /* A refused cycle PAUSES the unreachable-margin detector while the
+         * dew law is still the configured law: its seconds are not credited,
+         * nothing already counted is lost, and the verdict survives. 0x0019
+         * discarded the evidence here instead, and frequent refusals then
+         * held a probe at the ceiling indefinitely (codex review of
+         * 9eb3a34, finding 2). See O2P_HEATER_DEW_UNREACH_PAUSE_MAX_S. A
+         * different law configured drops the evidence and the verdict. */
+        if (dew_law_in_command(cfg, in)) {
+            dew_detector_pause(st, now_s);
+        } else {
+            st->dew_prev_valid = false;
+            st->dew_pinned = false;
+            st->dew_recovered = false;
+            st->dew_dwell_s = 0u;
+            st->dew_clear_s = 0u;
             st->dew_unreachable = false;
+            st->dew_paused = false;
         }
         const uint16_t duty = blind_duty(cfg, in, refusing);
         out->duty_x100 = duty;
@@ -818,6 +838,7 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
         st->dew_dwell_s = 0u;
         st->dew_clear_s = 0u;
         st->dew_unreachable = false;
+        st->dew_paused = false;
     }
 
     if (cfg->test_override && cfg->test_tip_sp_valid) {
@@ -873,80 +894,104 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
          * are NO_RH/NO_CHAMBER, an unevaluable Magnus input is NO_RH
          * (interlocks()), and all three are in this law's wet mask, which
          * returned above. So is the tip, for the same reason via NO_TIP. */
+        /* NO DEW POINT IS NOT A REFUSAL (FW 0x001B). NO_RH and NO_CHAMBER no
+         * longer blind this law (law_wet_mask), so the dew point can be
+         * missing here - the SHT45 de-creep, or a humidity the Magnus form
+         * cannot take. Then the law withholds its demand, the detector
+         * pauses, and the gradient floor below regulates alone. */
         float td_c100 = 0.0f;
-        (void)gas_dew_point_c100(in, &td_c100);
+        const bool have_td = in->rh_valid && in->chamber_valid &&
+                             gas_dew_point_c100(in, &td_c100);
         const float margin_f = (float)in->t_cell_c100 - td_c100;
 
-        /* THE UNREACHABLE-MARGIN DETECTOR, ceiling-dwell form (see
-         * O2P_HEATER_DEW_UNREACH_DWELL_S). Evaluated BEFORE the demand,
-         * because its whole job is to decide whether this law makes one. */
-        int32_t margin_i = (int32_t)(margin_f +
-                                     (margin_f < 0.0f ? -0.5f : 0.5f));
-        if (margin_i > 32767) {
-            margin_i = 32767;
-        } else if (margin_i < -32768) {
-            margin_i = -32768;
-        }
-        /* Observed seconds since the previous dew-law cycle. The clock is
-         * invalid after any refusal or other law, and a gap longer than the
-         * caller's cadence contract is not observation: both discard the
-         * evidence, exactly as the runaway detector does. */
-        uint32_t since = 0u;
-        if (st->dew_prev_valid) {
-            since = (uint32_t)(now_s - st->dew_prev_s);
-            if (since > O2P_HEATER_RUNAWAY_MAX_GAP_S) {
-                since = 0u;
-                st->dew_pinned = false;
-                st->dew_recovered = false;
-                st->dew_dwell_s = 0u;
-                st->dew_clear_s = 0u;
-            }
-        }
-        st->dew_prev_s = now_s;
-        st->dew_prev_valid = true;
-
-        if (st->dew_unreachable) {
-            const bool recovered =
-                margin_i >= (int32_t)O2P_HEATER_DEW_MARGIN_K100 +
-                                (int32_t)O2P_HEATER_DEW_UNREACH_CLEAR_HYST_K100;
-            if (!recovered) {
-                st->dew_clear_s = 0u;
-            } else if (st->dew_recovered &&
-                       st->dew_clear_s < O2P_HEATER_DEW_UNREACH_CLEAR_HOLD_S) {
-                st->dew_clear_s = (uint16_t)(st->dew_clear_s + since);
-            }
-            st->dew_recovered = recovered;
-            /* The retry compares the unsigned DIFFERENCE, so a wrap of now_s
-             * neither strands nor prematurely releases it - valid while the
-             * interval is under 2^31 s, which 6 h is. */
-            if (st->dew_clear_s >= O2P_HEATER_DEW_UNREACH_CLEAR_HOLD_S ||
-                (uint32_t)(now_s - st->dew_retry_at_s) < 0x80000000u) {
-                st->dew_unreachable = false;
-                st->dew_pinned = false;
-                st->dew_recovered = false;
-                st->dew_dwell_s = 0u;
-                st->dew_clear_s = 0u;
-            }
+        if (!have_td) {
+            /* No margin to judge: pause, never credit, never discard. */
+            dew_detector_pause(st, now_s);
         } else {
-            const bool pinned =
-                margin_i < (int32_t)O2P_HEATER_DEW_MARGIN_K100 &&
-                (int32_t)in->t_tip_c100 >=
-                    dew_ceiling_c100(cfg, in) -
-                    (int32_t)O2P_HEATER_DEW_UNREACH_BAND_K100;
-            if (!pinned) {
-                st->dew_dwell_s = 0u;
-            } else if (st->dew_pinned &&
-                       st->dew_dwell_s < O2P_HEATER_DEW_UNREACH_DWELL_S) {
-                st->dew_dwell_s = (uint16_t)(st->dew_dwell_s + since);
+            /* THE UNREACHABLE-MARGIN DETECTOR, ceiling-dwell form (see
+             * O2P_HEATER_DEW_UNREACH_DWELL_S). Evaluated BEFORE the demand,
+             * because its whole job is to decide whether this law makes one. */
+            int32_t margin_i = (int32_t)(margin_f +
+                                         (margin_f < 0.0f ? -0.5f : 0.5f));
+            if (margin_i > 32767) {
+                margin_i = 32767;
+            } else if (margin_i < -32768) {
+                margin_i = -32768;
             }
-            st->dew_pinned = pinned;
-            if (st->dew_dwell_s >= O2P_HEATER_DEW_UNREACH_DWELL_S) {
-                st->dew_unreachable = true;
-                st->dew_retry_at_s = now_s + O2P_HEATER_DEW_UNREACH_RETRY_S;
-                st->dew_pinned = false;
-                st->dew_recovered = false;
-                st->dew_dwell_s = 0u;
-                st->dew_clear_s = 0u;
+            /* Evidence resumes after a pause: a short one only stopped the
+             * clock (dew_prev_valid is false, so its seconds are not credited);
+             * one longer than the dwell discards what was counted before it. */
+            if (st->dew_paused) {
+                if ((uint32_t)(now_s - st->dew_pause_since_s) >
+                    O2P_HEATER_DEW_UNREACH_PAUSE_MAX_S) {
+                    st->dew_pinned = false;
+                    st->dew_recovered = false;
+                    st->dew_dwell_s = 0u;
+                    st->dew_clear_s = 0u;
+                }
+                st->dew_paused = false;
+            }
+            /* Observed seconds since the previous dew-law cycle. The clock is
+             * invalid after any refusal or other law, and a gap longer than the
+             * caller's cadence contract is not observation: both discard the
+             * evidence, exactly as the runaway detector does. */
+            uint32_t since = 0u;
+            if (st->dew_prev_valid) {
+                since = (uint32_t)(now_s - st->dew_prev_s);
+                if (since > O2P_HEATER_RUNAWAY_MAX_GAP_S) {
+                    since = 0u;
+                    st->dew_pinned = false;
+                    st->dew_recovered = false;
+                    st->dew_dwell_s = 0u;
+                    st->dew_clear_s = 0u;
+                }
+            }
+            st->dew_prev_s = now_s;
+            st->dew_prev_valid = true;
+
+            if (st->dew_unreachable) {
+                const bool recovered =
+                    margin_i >= (int32_t)O2P_HEATER_DEW_MARGIN_K100 +
+                                    (int32_t)O2P_HEATER_DEW_UNREACH_CLEAR_HYST_K100;
+                if (!recovered) {
+                    st->dew_clear_s = 0u;
+                } else if (st->dew_recovered &&
+                           st->dew_clear_s < O2P_HEATER_DEW_UNREACH_CLEAR_HOLD_S) {
+                    st->dew_clear_s = (uint16_t)(st->dew_clear_s + since);
+                }
+                st->dew_recovered = recovered;
+                /* The retry compares the unsigned DIFFERENCE, so a wrap of now_s
+                 * neither strands nor prematurely releases it - valid while the
+                 * interval is under 2^31 s, which 6 h is. */
+                if (st->dew_clear_s >= O2P_HEATER_DEW_UNREACH_CLEAR_HOLD_S ||
+                    (uint32_t)(now_s - st->dew_retry_at_s) < 0x80000000u) {
+                    st->dew_unreachable = false;
+                    st->dew_pinned = false;
+                    st->dew_recovered = false;
+                    st->dew_dwell_s = 0u;
+                    st->dew_clear_s = 0u;
+                }
+            } else {
+                const bool pinned =
+                    margin_i < (int32_t)O2P_HEATER_DEW_MARGIN_K100 &&
+                    (int32_t)in->t_tip_c100 >=
+                        dew_ceiling_c100(cfg, in) -
+                        (int32_t)O2P_HEATER_DEW_UNREACH_BAND_K100;
+                if (!pinned) {
+                    st->dew_dwell_s = 0u;
+                } else if (st->dew_pinned &&
+                           st->dew_dwell_s < O2P_HEATER_DEW_UNREACH_DWELL_S) {
+                    st->dew_dwell_s = (uint16_t)(st->dew_dwell_s + since);
+                }
+                st->dew_pinned = pinned;
+                if (st->dew_dwell_s >= O2P_HEATER_DEW_UNREACH_DWELL_S) {
+                    st->dew_unreachable = true;
+                    st->dew_retry_at_s = now_s + O2P_HEATER_DEW_UNREACH_RETRY_S;
+                    st->dew_pinned = false;
+                    st->dew_recovered = false;
+                    st->dew_dwell_s = 0u;
+                    st->dew_clear_s = 0u;
+                }
             }
         }
 
@@ -967,8 +1012,9 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
              * or session change zeroes it in pi_step() regardless. */
             st->integ = -kp * tip_room;
         }
-        if (st->dew_unreachable) {
-            /* NO DEMAND, not a shutdown. The gradient floor below is
+        if (st->dew_unreachable || !have_td) {
+            /* NO DEMAND, not a shutdown - whether the margin is unreachable
+             * or there is no dew point to regulate against (FW 0x001B). The gradient floor below is
              * high-selected against this zero and IS achievable - it is
              * tip-referenced, so the dew point chasing the tip cannot defeat
              * it - which keeps the outward gradient that actually stops
@@ -1025,7 +1071,8 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
         }
         out->law = (uint16_t)(O2P_HEATER_LAW_DEW |
                               (st->dew_unreachable
-                                   ? O2P_HEATER_LAWF_DEW_UNREACHABLE : 0u));
+                                   ? O2P_HEATER_LAWF_DEW_UNREACHABLE : 0u) |
+                              (!have_td ? O2P_HEATER_LAWF_DEW_NO_DEWPOINT : 0u));
     } else {
         /* Positive error means too humid, which means not enough heat. */
         const float e = (float)in->rh_x100 - (float)cfg->setpoint_x100;
