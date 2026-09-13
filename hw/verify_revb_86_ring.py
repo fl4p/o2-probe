@@ -27,6 +27,7 @@ so that is a review question, not a rule.
 """
 import argparse
 import copy
+import hashlib
 import json
 import time
 from collections import Counter
@@ -71,12 +72,39 @@ LAND_VIAS = {(101.75, 137.0), (118.25, 137.0)}
 NEW_FOOTPRINTS = {
     'J5': ('o2-probe:Heater_Ring_Lands', (110.0, 137.65), 0.0, 'B.Cu', sorted(
         [('1', '/HEATER_LOW', x, 137.65, 2.8, 2.0, lay) for x in (101.75, 118.25)
-         for lay in (('F.Cu', 'F.Mask', 'F.Paste'), ('B.Cu', 'B.Mask', 'B.Paste'))])),
+         for lay in (('F.Cu', 'F.Mask'), ('B.Cu', 'B.Mask'))])),
     'J107': ('o2-probe:SolderPads_1x06_SMD', (110.0, 61.5), 0.0, 'B.Cu', sorted(
-        [(str(i + 1), net, 103.5 + 2.6 * i, 61.5, 1.6, 1.2, ('B.Cu', 'B.Mask', 'B.Paste'))
+        [(str(i + 1), net, 103.5 + 2.6 * i, 61.5, 1.6, 1.2, ('B.Cu', 'B.Mask'))
          for i, net in enumerate(('/3V3D', 'GND', '/I2C_SDA', '/I2C_SCL', '/UART2_TX', '/UART2_RX'))])),
 }
 SPREADER_PADS = {('RH1', '2'), ('RH2', '2'), ('Q2', '3'), ('J5', '1')}
+
+# Exact delta pin (review finding 2, 2026-09-13). The (type, net) counts above
+# let an added track move anywhere on its net and still PASS - demonstrated by
+# moving an added SCL segment to (110,110)-(110,112), and by rotating a J5 pad or
+# changing its mask margin. The complete native records of every added and every
+# removed object are hashed, so any change to position, width, layer, lock, pad
+# shape, angle, mask or paste fails. Regenerate with --print-delta only for an
+# intended change, and treat that as a new review. UNSET fails closed.
+ADDED_SHA256 = 'UNSET'
+REMOVED_SHA256 = 'UNSET'
+
+
+def delta_digest(nodes):
+    canon = sorted(json.dumps(n, separators=(',', ':')) for n in nodes)
+    return hashlib.sha256('\n'.join(canon).encode()).hexdigest()
+
+
+def delta(board_path, reference):
+    old, _ = records(parse(reference))
+    actual, _ = records(parse(board_path))
+    removed = [k for k in old if k not in actual]
+    added = [k for k in actual if k not in old]
+    return {'added': len(added), 'removed': len(removed),
+            'added_sha256': delta_digest([actual[k] for k in added]),
+            'removed_sha256': delta_digest([old[k] for k in removed]),
+            'added_by_type_net': sorted(map(list, Counter(kind_net(actual[k]) for k in added).items())),
+            'removed_by_type_net': sorted(map(list, Counter(kind_net(old[k]) for k in removed).items()))}
 
 
 def unquote(token):
@@ -141,6 +169,13 @@ def verify(board_path, reference):
     land_vias = {floats(child(actual[k], 'at')) for k in added if kind_net(actual[k]) == ('via', '/HEATER_LOW')}
     if land_vias != LAND_VIAS:
         raise ValueError('HEATER_LOW land via positions differ: ' + repr(sorted(land_vias)))
+
+    if ADDED_SHA256 == 'UNSET' or REMOVED_SHA256 == 'UNSET':
+        raise ValueError('Delta digests are unset: run --print-delta on the intended board, pin, and re-review')
+    if delta_digest([actual[k] for k in added]) != ADDED_SHA256:
+        raise ValueError('Added objects differ from the pinned records (geometry, width, layer, lock or pad detail)')
+    if delta_digest([old[k] for k in removed]) != REMOVED_SHA256:
+        raise ValueError('Removed objects differ from the pinned records')
 
     wanted = copy.deepcopy(old)
     for uid, (kind, owner, fields) in CHANGES.items():
@@ -290,6 +325,13 @@ if __name__ == '__main__':
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('board', type=Path)
     ap.add_argument('--reference', type=Path, required=True)
-    ap.add_argument('--out', type=Path, required=True)
+    ap.add_argument('--out', type=Path)
+    ap.add_argument('--print-delta', action='store_true',
+                    help='print the added/removed record digests to pin; needs no KiCad, verifies nothing')
     a = ap.parse_args()
+    if a.print_delta:
+        print(json.dumps(delta(a.board, a.reference), indent=2))
+        raise SystemExit(0)
+    if a.out is None:
+        ap.error('--out is required unless --print-delta')
     raise SystemExit(run(a.board, a.reference, a.out))

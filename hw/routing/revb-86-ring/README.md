@@ -1,4 +1,4 @@
-# revb-86-ring — ring lands + external-sensor pads (DRC-CLEAN, NOT YET REVIEWED FOR FAB)
+# revb-86-ring — ring lands + external-sensor pads (DO NOT FAB — see BLOCKER below)
 
 Derived from the accepted [`routing/revb-86`](../revb-86) board on 2026-09-13,
 after Fab: *"the pcb missed the ring pads at the tip. add them."* The accepted
@@ -125,6 +125,40 @@ label still had to clear TP6's own silk circle at (108.3, 137.0) — (110.5, 138
 missed by 0.034 mm, (111.0, 138.3) still clipped, (110.5, 138.5) hit the board
 edge. (111.3, 138.2) clears everything, and sits beside TP6, the testpoint it
 names.
+
+## BLOCKER: J107's I2C cannot clear the analog nets (measured 2026-09-13)
+
+The independent review found J107's SCL run hugging `/GUARD_REPLICA`. Confirmed
+and re-measured (`docs/2026-09-13-revb-86-ring-codex-review.md`):
+
+| new J107 copper | runs beside | gap on this board | gap on accepted revb-86 |
+|---|---|---|---|
+| SCL, B.Cu X 101.1..101.2, Y 100..113.85 | `/GUARD_REPLICA` at X 101.5 | **0.100 mm** over ~9 mm | 0.625 mm |
+| SDA, F.Cu X 118.35..118.95, Y 96.6..102.4 | `/VREF_TRIM` | **0.100 mm** over ~6 mm | not adjacent |
+
+0.100 mm is the board minimum, so DRC is silent. A 100 kHz clock running
+parallel to the working-electrode guard and to the ADC reference is an analog
+defect that clearance rules do not catch.
+
+**It is not a routing mistake, and no reroute fixes it.** Flood-fill
+reachability with every sensitive net (`/CELL_*`, `/GUARD_REPLICA`, `/LMP_*`,
+`/TMP_CELL*`, `/VREF*`, `/AFE_VOUT`) inflated by only **0.1 mm** beyond ordinary
+clearance, ripping the **entire** J107 I2C route and allowing a join **anywhere**
+on the bus:
+
+    /I2C_SCL  target reachable: False   closest approach 3.29 mm
+    /I2C_SDA  target reachable: False   closest approach 3.02 mm
+
+Leave-one-out names the wall: SCL is blocked by the `/CELL_*` nets, SDA by
+`/VREF_TRIM`. On 20 mm of two-layer board the analog section spans the width,
+and the only corridor to the MCU's I2C is the one already taken at minimum
+clearance. `/AFE_MENB` was excluded from the sensitive set after checking the
+netlist — it is the LMP91000 module-enable input, a static digital line.
+
+So this is a design decision, not a DRC fix: **J107's SDA/SCL pads cost 0.100 mm
+of separation between I2C and the analog front end.** J107's 3V3D, GND, TX and RX
+pads have no sensitive-net proximity at all (nearest approach > 0.8 mm) and are
+unaffected either way. Until that decision is made, this board is not fabricable.
 
 ## The split spreader — fixed 2026-09-13
 

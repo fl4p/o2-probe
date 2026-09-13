@@ -55,7 +55,9 @@ def _arc_points(p0, pm, p1, step=0.05):
     return [(ux + r*math.cos(a0 + sweep*k/n), uy + r*math.sin(a0 + sweep*k/n)) for k in range(n+1)]
 
 def build(bd, region, net, track_w, clr, edge_clr, hole_clr, exclude_ref=None,
-          via_d=0.4, via_drill=0.2, h2h=0.25):
+          via_d=0.4, via_drill=0.2, h2h=0.30):
+    # h2h: hole-to-hole spacing. 0.30 mm is the project's rule; the original
+    # 0.25 default was flagged by the 2026-09-13 review (no violation resulted).
     """Obstacles for routing `net`; same-net copper becomes the target mask."""
     g = Grid(*region)
     vg = Grid(*region)          # where a VIA centre may sit
