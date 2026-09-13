@@ -36,8 +36,15 @@ WHAT IT DOES NOT FIX, stated because the number looks authoritative and is not:
     ~0.60; the fuller 2026-09-07 sweep gives alpha = 0.402 +/- 0.046 and that
     is what register 0x0045 now carries. Prefer the probe's own DIL_ALPHA so
     the backfill and the firmware agree; none of the three is validated.
-  * TEMPERATURE. tempco is 0 in firmware by design, and section 11 could not
-    identify one. Nothing here supplies it.
+  * TEMPERATURE. Until FW 0x001E the firmware applied no temperature term
+    (TEMPCO_PPM_K 0) and this tool matched it by default. Since 0x001E the
+    firmware ALWAYS applies the capillary law (T/T_cal)^0.75 on the cell-side
+    T_EXT (o2.c o2p_cell_t_law_gain, docs/2026-09-13-outdoor-tempco-dilution-
+    fit.md), with TEMPCO_PPM_K as a residual on top. --cell-law reproduces
+    that: T_EXT where gas_t_ext_c has a sample, else the chamber, referenced
+    to --tempco-ref (default the median of the same temperature). It is off by
+    default so an old invocation reproduces its old numbers; pass it to match
+    0x001E. --tempco then means the residual, as the register does.
 """
 import argparse, json, math, sys, urllib.request
 
@@ -52,6 +59,10 @@ K_NA_DEFAULT  = 425557.0   # recovered from the pre-2026-09-06 published pairs
 SRC   = ("gas_cell_ua", "gas_rh_chamber_pct", "gas_t_chamber_c")
 # Fetched to EXCLUDE, not to compute with. See --drop-settling.
 GATE  = ("gas_settle_s", "gas_faults")
+# The cell-side TMP117, for --cell-law. Optional per timestamp: where it has no
+# sample the chamber stands in, exactly as the firmware falls back.
+EXT   = ("gas_t_ext_c",)
+CELL_T_EXPONENT = 0.75   # o2.h O2P_CELL_T_EXPONENT
 O2P_F_SETTLING = 0x0001
 
 def es(t):             # Magnus/Sonntag, hPa
@@ -82,10 +93,16 @@ def main():
                         "jointly fitted value on this cell is +0.220 %%/K - "
                         "read the warning this tool prints before using it.")
     a.add_argument("--tempco-ref", type=float, default=None,
-                   help="reference temperature in C for --tempco. Default: the "
-                        "MEDIAN chamber temperature of the data, which removes "
-                        "temperature-driven variation without moving the mean - "
-                        "the absolute scale stays owned by K.")
+                   help="reference temperature in C for --tempco and "
+                        "--cell-law. Default: the MEDIAN of the temperature "
+                        "they are applied on, which removes temperature-driven "
+                        "variation without moving the mean - the absolute "
+                        "scale stays owned by K.")
+    a.add_argument("--cell-law", action="store_true",
+                   help="apply the FW 0x001E cell law (T/T_ref)^0.75 on "
+                        "gas_t_ext_c where it has a sample, else the chamber - "
+                        "what the firmware does since 0x001E. --tempco is then "
+                        "the residual on top, on the same temperature.")
     a.add_argument("--drop-settling", action="store_true",
                    help="omit every sample taken while the cell was settling: "
                         "SETTLE_S != 0 or the SETTLING fault bit set. The cell "
@@ -149,7 +166,8 @@ def main():
 "values off the result.\n", file=sys.stderr)
 
     series = {}
-    for name in SRC + (GATE if o.drop_settling else ()):
+    extra = (GATE if o.drop_settling else ()) + (EXT if o.cell_law else ())
+    for name in SRC + extra:
         for d in fetch(o.url, '{__name__="%s"}' % name):
             lbl = {k: v for k, v in d["metric"].items() if k != "__name__"}
             key = tuple(sorted(lbl.items()))
@@ -186,10 +204,19 @@ def main():
         # correction is zero-mean by construction - the absolute scale stays
         # owned by K rather than being silently re-scaled by an unmeasured
         # coefficient.
+        # The temperature the correction is applied on: with --cell-law, T_EXT
+        # where it has a plausible sample at this timestamp, else the chamber
+        # (the firmware's own fallback); without it, the chamber as before.
+        # The dilution term below stays on the chamber in both cases.
+        ext = m.get(EXT[0], {}) if o.cell_law else {}
+
+        def t_cell(t):
+            v = ext.get(t)
+            return v if (v is not None and -40.0 < v < 80.0) else m[SRC[2]][t]
+
         t_ref = o.tempco_ref
         if t_ref is None:
-            temps = sorted(m[SRC[2]][t] for t in ts
-                           if -40.0 < m[SRC[2]][t] < 80.0)
+            temps = sorted(t_cell(t) for t in ts if -40.0 < t_cell(t) < 80.0)
             t_ref = temps[len(temps) // 2] if temps else 0.0
 
         out_t, out_v = [], []
@@ -205,8 +232,12 @@ def main():
             # TEMPCO on the CURRENT, before the cell law, because that is where
             # the coefficient was fitted - a %/K on the signal, not on the
             # derived fraction. Guarded so a bad pair cannot produce a negative
-            # or infinite current.
-            s_corr = s / (1.0 + o.tempco / 100.0 * (tc - t_ref))
+            # or infinite current. --cell-law divides by the FW 0x001E law
+            # first, as o2.c does, with --tempco as the residual on top.
+            tk = t_cell(t)
+            law = (((tk + 273.15) / (t_ref + 273.15)) ** CELL_T_EXPONENT
+                   if o.cell_law else 1.0)
+            s_corr = s / law / (1.0 + o.tempco / 100.0 * (tk - t_ref))
             if not (math.isfinite(s_corr) and s_corr > 0.0):
                 continue
             c_wet = 1.0 - math.exp(-s_corr * 1000.0 / o.k)

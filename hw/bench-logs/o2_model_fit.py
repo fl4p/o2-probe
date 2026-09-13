@@ -123,11 +123,40 @@ def mark_steady(rows, max_drift):
     return out
 
 
-def published(I_na, t_c, rh, K, alpha, tempco):
-    """o2.c o2p_dry_fraction_from_current(), in percent. P_cal == P_meas on Rev A."""
+# FW 0x001E: the conversion applies (T_cell/T_cal)^0.75 before the linear
+# TEMPCO residual, and both use the cell-side T_EXT (else chamber) instead of
+# the chamber (o2.c o2p_cell_t_law_gain, sampler_logic.h o2p_cell_temperature).
+CELL_LAW_FW = 0x001E
+CELL_T_EXPONENT = 0.75
+
+
+def cell_t_terms(r):
+    """(law, T for the linear residual) for one row, as the image that produced
+    it computed them - decided per row from the probe's own gas_fw_version, so a
+    window spanning a flash is modelled as what actually ran.
+
+    T_cal is not in telemetry. The law is referenced to T_REF_C instead, and
+    the constant factor (T_REF/T_cal)^0.75 lands in the recovered K: K from a
+    0x001E window is therefore K at T_REF_C, not at the air point. A row with
+    no gas_fw_version is treated as pre-0x001E and SAYS nothing about which
+    image ran; recovery residual is what exposes a wrong guess."""
+    fw = r.get("fw_version")
+    if fw is None or int(fw) < CELL_LAW_FW:
+        return 1.0, r["t_chamber_c"]
+    t = r.get("t_ext_c")
+    if t is None:
+        t = r["t_chamber_c"]       # the firmware's own fallback
+    law = ((t + 273.15) / (T_REF_C + 273.15)) ** CELL_T_EXPONENT
+    return law, t
+
+
+def published(I_na, t_c, rh, K, alpha, tempco, law=1.0, t_res=None):
+    """o2.c o2p_dry_fraction_from_current(), in percent. P_cal == P_meas on Rev A.
+    law / t_res come from cell_t_terms(); the defaults are the pre-0x001E image."""
     f = (P_HPA - rh / 100.0 * p_sat_hpa(t_c)) / P_HPA
     f_eff = 1.0 - alpha * (1.0 - f)
-    s = I_na / (1.0 + tempco * (t_c - T_REF_C))
+    t_res = t_c if t_res is None else t_res
+    s = I_na / law / (1.0 + tempco * (t_res - T_REF_C))
     return (1.0 - math.exp(-s / K)) / f_eff * 100.0
 
 
@@ -138,12 +167,16 @@ def fit(rows, target, free, p0, bounds):
     T = np.array([r["t_chamber_c"] for r in rows])
     H = np.array([r["rh_chamber_pct"] for r in rows])
     y = np.array(target, dtype=float)
+    # What the image that produced each row did with temperature (cell_t_terms).
+    # The dilution term stays on the chamber in every era: p_w is the SHT45's.
+    law, T_res = (np.array(v) for v in zip(*(cell_t_terms(r) for r in rows)))
 
     def model(p):
         K, alpha, tc = free(p)
         pw = H / 100.0 * 6.112 * np.exp(17.62 * T / (243.12 + T))
         f_eff = 1.0 - alpha * (1.0 - (P_HPA - pw) / P_HPA)
-        return (1.0 - np.exp(-(I / (1.0 + tc * (T - T_REF_C))) / K)) / f_eff * 100.0
+        s = I / law / (1.0 + tc * (T_res - T_REF_C))
+        return (1.0 - np.exp(-s / K)) / f_eff * 100.0
 
     sol = least_squares(lambda p: model(p) - y, p0, bounds=bounds)
     # A parameter sitting on its bound is not a measurement; the caller must

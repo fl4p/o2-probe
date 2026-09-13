@@ -26,7 +26,11 @@ DAY = dt.date(2026, 9, 4)
 # Stored air point (2026-09-04) and the firmware's own constants, so the
 # derived curve is the same arithmetic the probe does, not an approximation:
 #   K = cal_air_na / O2P_LN_AIR ;  C = 1 - exp(-S/K)      (o2.c:47-61)
-# tempco_ppm_per_k defaults to 0 - no sourced figure (DS-0637's curve, Issues 1 and 2, is undigitised).
+# No temperature term, which is what the 2026-09-04 image ran (tempco_ppm_per_k 0).
+# NOT what FW 0x001E and later do: they apply (T/T_cal)^0.75 on T_EXT
+# (o2.c o2p_cell_t_law_gain), so this derived curve is only valid for this
+# day's capture. DS-0637's chart has since been digitised (overlay review
+# pending), docs/2026-09-13-outdoor-tempco-dilution-fit.md.
 CAL_AIR_NA = 100026.0
 LN_AIR = 0.23503902
 
