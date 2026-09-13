@@ -5877,6 +5877,7 @@ static void test_dew_law_de_creep_runs_the_floor_under_the_gradient_ceiling(void
     o2p_heater_out_t out;
     dewplant_t p = {22.0f, 22.0f, 83.2f, 150.0f, 0.03f, 21.0f, 0.0f, 22.0f, 0.0f};
     float worst_gradient = -100.0f;
+    float least_late_gradient = 100.0f;
     for (uint32_t t = 0u; t < 350u; t++) {
         o2p_heater_in_t in = dewplant_in(&p);
         in.rh_valid = false;
@@ -5890,12 +5891,158 @@ static void test_dew_law_de_creep_runs_the_floor_under_the_gradient_ceiling(void
         if (g > worst_gradient) {
             worst_gradient = g;
         }
+        if (t >= 200u && g < least_late_gradient) {
+            least_late_gradient = g;
+        }
         dewplant_step(&p, out.duty_x100);
     }
     TEST_ASSERT_TRUE_MESSAGE(worst_gradient <= (float)cfg.dt_max_k100 * 0.01f + 0.3f,
         "the tip must stay under the gradient ceiling through the de-creep");
-    TEST_ASSERT_TRUE_MESSAGE(worst_gradient >= 1.5f,
-        "and the floor must actually have heated - a dead ring would also pass");
+    /* SUSTAINED, not a brief climb (codex review of 455972d, finding 3: a floor
+     * that stopped after 11 s left the ring off for 339 of 350 s and passed a
+     * max-only check). The last 150 s must still hold the 2 K gradient. */
+    TEST_ASSERT_TRUE_MESSAGE(least_late_gradient >= 1.5f,
+        "the floor must keep regulating through the whole de-creep");
+}
+
+static void test_dew_law_floor_respects_a_narrow_envelope_without_a_dew_point(void)
+{
+    /* Codex review of 455972d, finding 3: removing the gradient ceiling from
+     * the floor only when the dew point is missing survived the suite, because
+     * a 4 K envelope never clamps a 2 K floor. A legal 1 K envelope does: the
+     * floor must hold ~1 K, not its own 2 K, through a de-creep. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.dt_max_k100 = 100u;
+    o2p_heater_out_t out;
+    dewplant_t p = {22.0f, 22.0f, 83.2f, 150.0f, 0.03f, 21.0f, 0.0f, 22.0f, 0.0f};
+    float worst = -100.0f, least_late = 100.0f;
+    for (uint32_t t = 0u; t < 350u; t++) {
+        o2p_heater_in_t in = dewplant_in(&p);
+        in.rh_valid = false;
+        in.chamber_valid = false;
+        in.t_die_c100 = 3000;
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+        const float g = p.tip_c - dewplant_cell(&p);
+        if (g > worst) {
+            worst = g;
+        }
+        if (t >= 200u && g < least_late) {
+            least_late = g;
+        }
+        dewplant_step(&p, out.duty_x100);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(worst <= 1.0f + 0.3f,
+        "the floor without a dew point must obey a 1 K gradient ceiling");
+    TEST_ASSERT_TRUE_MESSAGE(least_late >= 0.6f,
+        "and still regulate toward it");
+}
+
+static void test_a_runaway_latch_refuses_rather_than_blinds_while_tip_and_cell_read(void)
+{
+    /* Fab's "A", 2026-09-13 (codex review of 455972d, finding 1). The latch
+     * drives blind only when a temperature sensor is gone. Die under the blind
+     * gate throughout, so the only thing deciding blind vs zero is A. */
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    st.runaway_latched = true;
+    o2p_heater_in_t in = hin_dew();
+    in.t_die_c100 = 3000;
+    o2p_heater_ctl_step(&st, &cfg, &in, 100u, &out);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.duty_x100,
+        "tip and cell both read: a latched runaway refuses, it does not blind");
+    TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_BLIND);
+    TEST_ASSERT_TRUE((out.block & O2P_HB_RUNAWAY) != 0u);
+    TEST_ASSERT_EQUAL_HEX16(O2P_HEATER_LAW_REFUSED, out.law);
+
+    /* The wet-board rule survives for what it was written for. */
+    o2p_heater_ctl_reset(&st);
+    st.runaway_latched = true;
+    in = hin_dew();
+    in.t_die_c100 = 3000;
+    in.tip_valid = false;
+    o2p_heater_ctl_step(&st, &cfg, &in, 100u, &out);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(O2P_HEATER_BLIND_DUTY_X100, out.duty_x100,
+        "tip unreadable: the latch may still drive blind");
+
+    o2p_heater_ctl_reset(&st);
+    st.runaway_latched = true;
+    in = hin_dew();
+    in.t_die_c100 = 3000;
+    in.cell_valid = false;
+    o2p_heater_ctl_step(&st, &cfg, &in, 100u, &out);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(O2P_HEATER_BLIND_DUTY_X100, out.duty_x100,
+        "cell unreadable: the latch may still drive blind");
+}
+
+static void test_a_hot_floor_cannot_reach_blind_through_the_runaway_latch(void)
+{
+    /* The review's exact route (codex review of 455972d, finding 1): 50 C
+     * ambient, die fixed at 30 C, 3 % coupling, humidity lost for 350 s. The
+     * floor holds the tip at a few percent - under RUNAWAY's idle threshold -
+     * with the tip far over the die; 0x001B latched at 72 s and drove blind
+     * 50 % to an 80 C tip. Now the latch may fire, but never blind. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+    dewplant_t p = {50.0f, 50.0f, 83.2f, 150.0f, 0.03f, 45.0f, 0.0f, 50.0f, 0.0f};
+    float worst_gradient = -100.0f;
+    for (uint32_t t = 0u; t < 350u; t++) {
+        o2p_heater_in_t in = dewplant_in(&p);
+        in.rh_valid = false;
+        in.chamber_valid = false;
+        in.t_die_c100 = 3000;
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.block & O2P_HB_BLIND,
+            "no blind drive while tip and cell both read");
+        const float g = p.tip_c - dewplant_cell(&p);
+        if (g > worst_gradient) {
+            worst_gradient = g;
+        }
+        dewplant_step(&p, out.duty_x100);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(worst_gradient <= (float)cfg.dt_max_k100 * 0.01f + 0.3f,
+        "and the tip stays under the gradient ceiling");
+}
+
+static void test_dew_unreachable_pause_of_exactly_the_limit_keeps_its_evidence(void)
+{
+    /* Codex review of 455972d, finding 3: `>=` in place of `>` on the pause
+     * limit survived the suite. A pause of exactly O2P_HEATER_DEW_UNREACH_PAUSE_MAX_S
+     * keeps the 400 counted seconds; the 601 s case is
+     * test_dew_unreachable_pause_longer_than_the_dwell_resets_it. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+    dewplant_t p = dewplant_hot_pile(77.5f);
+
+    uint32_t t = 0u;
+    for (; t <= 400u; t++) {
+        o2p_heater_in_t in = dewplant_in(&p);
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+    }
+    const uint32_t refused_from = t;
+    for (; t < refused_from + O2P_HEATER_DEW_UNREACH_PAUSE_MAX_S; t++) {
+        o2p_heater_in_t in = dewplant_in(&p);
+        in.tip_valid = false;
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+    }
+    const uint32_t back = t;
+    for (; t < back + 200u; t++) {
+        o2p_heater_in_t in = dewplant_in(&p);
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+        TEST_ASSERT_FALSE(st.dew_unreachable);
+    }
+    o2p_heater_in_t in = dewplant_in(&p);
+    o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+    TEST_ASSERT_TRUE_MESSAGE(st.dew_unreachable,
+        "a pause of exactly the limit must keep the 400 s counted before it");
 }
 
 static void test_dew_unreachable_verdict_survives_its_own_refusal_not_a_hand_over(void)
@@ -8369,7 +8516,10 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    /* 0x001B: humidity loss no longer blinds the dew law (the gradient
+    /* 0x001C: a RUNAWAY latch drives blind only when the tip or cell cannot
+     *         be read; with both readable it refuses (Fab's "A" on the
+     *         codex xhigh review of 455972d).
+     * 0x001B: humidity loss no longer blinds the dew law (the gradient
      *         floor regulates; HEATER_LAW high-byte bit 9) and the
      *         unreachable dwell pauses across refusals instead of
      *         resetting (Fab's "yes" to the codex review of
@@ -8424,7 +8574,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         steps the thermal mass cannot make are rejected for a cycle.
      * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
      *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
-    TEST_ASSERT_EQUAL_HEX16(0x001Bu, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x001Cu, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_HEX16(0xC000u,
         (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
     /* The staleness cut must win the race against the watchdog's fastest
@@ -10558,6 +10708,10 @@ int main(void)
     RUN_TEST(test_dew_unreachable_survives_periodic_refusals);
     RUN_TEST(test_dew_unreachable_dwell_pauses_while_the_dew_point_is_missing);
     RUN_TEST(test_dew_law_de_creep_runs_the_floor_under_the_gradient_ceiling);
+    RUN_TEST(test_dew_law_floor_respects_a_narrow_envelope_without_a_dew_point);
+    RUN_TEST(test_a_runaway_latch_refuses_rather_than_blinds_while_tip_and_cell_read);
+    RUN_TEST(test_a_hot_floor_cannot_reach_blind_through_the_runaway_latch);
+    RUN_TEST(test_dew_unreachable_pause_of_exactly_the_limit_keeps_its_evidence);
     RUN_TEST(test_dew_unreachable_verdict_survives_its_own_refusal_not_a_hand_over);
     RUN_TEST(test_dew_unreachable_recovery_needs_hysteresis_and_hold);
     RUN_TEST(test_dew_unreachable_retry_across_the_uptime_wrap);

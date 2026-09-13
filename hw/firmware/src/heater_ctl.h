@@ -116,6 +116,9 @@ enum {
  * from VALID readings - a measured overtemperature is never overridden), and a
  * die reading that is missing or at/above O2P_HEATER_BLIND_DIE_MAX_C100: the
  * MCU's own sensor, off the I2C bus, and the one thermal witness left.
+ * And, since FW 0x001C (Fab's "A", 2026-09-13): a RUNAWAY latch while the tip
+ * AND the cell both read - blind is for a board whose sensors are gone, not
+ * for a working loop whose runaway detector fired.
  *
  * OVERRIDES, LAW-AWARE (Fab's rulings 2026-09-11 - "fix that control loop
  * bullshit", "unattended loop: annotate and regulate (keep <=80 C)", and the

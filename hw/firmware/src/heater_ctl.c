@@ -626,7 +626,10 @@ static bool tip_law_in_command(const o2p_heater_cfg_t *cfg)
  * ("heat is exactly what a wet board needs"): the alternative - a hard
  * RUNAWAY that zeroed the blind path - is the state where a sensor verdict
  * is what leaves a wet board cold, which is the one situation the fallback
- * exists to prevent. */
+ * exists to prevent.
+ * AMENDED FW 0x001C, Fab's "A" (2026-09-13): the latch drives blind only when
+ * the tip or the cell cannot be read. With both readable it refuses to zero
+ * duty - see blind_duty(). */
 /* The dew-margin law (FW 0x0013) holds the autonomous humidity-side slot -
  * no override, no stored tip setpoint - whenever the cell-side reading is
  * valid. See O2P_HEATER_DEW_MARGIN_K100. */
@@ -721,6 +724,18 @@ static uint16_t blind_duty(const o2p_heater_cfg_t *cfg,
 {
     const uint16_t wet = law_wet_mask(cfg, in);
     if ((refusing & hard_mask) != 0u || (refusing & wet) == 0u) {
+        return 0u;
+    }
+    /* FAB'S "A", 2026-09-13 (codex review of 455972d, finding 1): a RUNAWAY
+     * latch may drive blind ONLY when the tip or the cell cannot be read. The
+     * review showed the gradient floor holding a hot tip at ~2.5 % duty - under
+     * RUNAWAY's idle threshold - latching the detector, and the latch then
+     * driving 50 % open loop past the gradient ceiling (model: 50 C ambient,
+     * die 30 C, tip to 80 C, 29 K over the cell). With both sensors readable
+     * there is a working loop to fall back to, so the latch now refuses: zero
+     * duty, REFUSED. The wet-board rule it amends is kept for the case it was
+     * written for - a board whose temperature sensors are gone. */
+    if ((refusing & O2P_HB_RUNAWAY) != 0u && in->tip_valid && in->cell_valid) {
         return 0u;
     }
     /* THE DISCRIMINATOR (Fab's order 2026-09-11: "nope, no stand-down. 50
