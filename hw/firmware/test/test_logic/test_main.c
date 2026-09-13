@@ -6737,6 +6737,139 @@ static void test_heater_law_drops_the_runaway_floor_bit_on_the_release_cycle(voi
     TEST_ASSERT_TRUE_MESSAGE(saw_release, "the latch must release, or this proves nothing");
 }
 
+/* ---- The four mutants the codex xhigh review of a75c1f4 left ALIVE, and
+ * which the review of 5e163a1 confirmed the 0x0021/0x0023 tests still do not
+ * kill. Each names the exact edit to latched_floor or to the floor that these
+ * assertions catch and the existing ones do not; the numbers are the floor's
+ * own arithmetic, kp 50 x e + ki 0.5 x e on a c100 error, which is where the
+ * neighbouring fixture's 7575 comes from too. */
+
+static void test_the_floor_runs_under_a_latch_with_NO_HUMIDITY(void)
+{
+    /* MUTANT: add `&& in->rh_valid` to latched_floor. It survives because every
+     * existing latch-plus-floor fixture has humidity: the thermal test loses it
+     * only for the first 350 s and does not assert a minimum gradient until
+     * t >= 2000, long after it is back.
+     *
+     * That is the wrong way round for the hazard. Humidity is exactly what is
+     * missing during an SHT45 de-creep and on a wet-board failure, and FW
+     * 0x001B's whole point is that losing it must NOT end anti-condensation
+     * heat. Under the mutant this returns 0 % and REFUSED - the condensation
+     * case, with the ring off. */
+    o2p_heater_out_t out;
+    o2p_heater_state_t st;
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_ctl_reset(&st);
+    st.runaway_latched = true;
+    o2p_heater_in_t in = hin_dew();
+    in.rh_valid = false;
+    in.chamber_valid = false;
+    in.t_die_c100 = 3000;
+    in.t_tip_c100 = (int16_t)(in.t_cell_c100 + 50);
+    o2p_heater_ctl_step(&st, &cfg, &in, 100u, &out);
+
+    TEST_ASSERT_UINT16_WITHIN_MESSAGE(2u, 7575u, out.duty_x100,
+        "a latch with no humidity must still run the gradient floor");
+    TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_BLIND);
+    TEST_ASSERT_TRUE_MESSAGE((out.law & 0x00FFu) == O2P_HEATER_LAW_DEW,
+        "and must not read REFUSED");
+    TEST_ASSERT_TRUE((out.law & O2P_HEATER_LAWF_DEW_RUNAWAY_FLOOR) != 0u);
+}
+
+static void test_the_floor_runs_under_a_latch_WITH_AN_UNREACHABLE_MARGIN(void)
+{
+    /* MUTANT: add `&& !st->dew_unreachable` to latched_floor. Survives because
+     * no fixture seeds BOTH latches at once, yet that pair is the ordinary
+     * outcome of a wet enclosure: the margin is judged unreachable, and
+     * environmental heat latches RUNAWAY. Under the mutant the probe that most
+     * needs the 2 K of outward gradient is the one that gets 0 % and REFUSED. */
+    o2p_heater_out_t out;
+    o2p_heater_state_t st;
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_ctl_reset(&st);
+    st.runaway_latched = true;
+    st.dew_unreachable = true;
+    o2p_heater_in_t in = hin_dew();
+    in.t_die_c100 = 3000;
+    in.t_tip_c100 = (int16_t)(in.t_cell_c100 + 50);
+    in.t_chamber_c100 = (int16_t)(in.t_tip_c100 - 10);
+    o2p_heater_ctl_step(&st, &cfg, &in, 100u, &out);
+
+    TEST_ASSERT_UINT16_WITHIN_MESSAGE(2u, 7575u, out.duty_x100,
+        "an unreachable margin must not end the floor under a latch either");
+    TEST_ASSERT_TRUE_MESSAGE((out.law & 0x00FFu) == O2P_HEATER_LAW_DEW,
+        "and must not read REFUSED");
+    TEST_ASSERT_TRUE((out.law & O2P_HEATER_LAWF_DEW_RUNAWAY_FLOOR) != 0u);
+}
+
+static void test_a_latch_withholds_the_DEW_DEMAND_not_just_the_floors_share(void)
+{
+    /* MUTANT: remove latched_floor from the dew-demand withholding at the
+     * `st->dew_unreachable || !have_td || latched_floor` gate. It survives
+     * every existing fixture because they are all floor-DOMINATED: the floor
+     * asks for more than the dew law would, so max() hides an unintended dew
+     * demand completely.
+     *
+     * So this fixture is built the other way round - the floor satisfied
+     * exactly, asking for nothing - which is the only arrangement where the
+     * dew law's demand is visible at all. Tip 52.00 C sits exactly at
+     * cell 50.00 + the floor's 2.00 K, so e_floor is 0. Chamber 51.90 C at
+     * 90.56 %RH puts the gas dew point at 49.899 C (computed from the same
+     * Magnus form the firmware uses), so the cell is 0.101 K short of margin
+     * and the dew law WOULD ask for ~10 % if the latch did not withhold it.
+     * Under the mutant that demand appears - still labelled RUNAWAY_FLOOR,
+     * which is what makes it hard to see on a live probe. */
+    o2p_heater_out_t out;
+    o2p_heater_state_t st;
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_ctl_reset(&st);
+    st.runaway_latched = true;
+    o2p_heater_in_t in = hin_dew();
+    in.t_die_c100 = 3000;
+    in.t_cell_c100 = 5000;
+    in.t_tip_c100 = 5200;      /* exactly cell + O2P_HEATER_FLOOR_DELTA_K100 */
+    in.t_chamber_c100 = 5190;
+    in.rh_x100 = 9056u;        /* Td = 49.899 C, margin 0.101 K: short */
+    o2p_heater_ctl_step(&st, &cfg, &in, 100u, &out);
+
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.duty_x100,
+        "a latch withholds the dew law's own demand, not merely its share of "
+        "a max() the floor happens to win");
+    TEST_ASSERT_TRUE((out.block & O2P_HB_RUNAWAY) != 0u);
+}
+
+static void test_the_floor_under_a_latch_respects_a_TIGHT_gradient_ceiling(void)
+{
+    /* MUTANT: skip the floor's ceiling clamp while latched. Survives because
+     * every existing release fixture runs at the shipped DT_MAX_K of 4 K,
+     * which can never constrain a floor that asks for only 2 K - the clamp is
+     * dead code at that envelope, so removing it changes nothing they measure.
+     *
+     * At a 0.50 K envelope it is load-bearing: the floor's setpoint is
+     * min(cell + 2.00 K, cell + DT_MAX_K) = cell + 0.50 K. With the tip at the
+     * cell that is an error of 50 c100 -> kp 50 x 50 + ki 0.5 x 50 = 2525.
+     * Unclamped it would be 200 c100 -> 10100, clamped by max_duty to 100 %:
+     * four times the duty, and a gradient the configured envelope forbids.
+     * DT_MAX_K is the operator's kelvin bound on a cell rated to 60 C, so a
+     * floor that outruns it while latched is precisely the hazard. */
+    o2p_heater_out_t out;
+    o2p_heater_state_t st;
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.dt_max_k100 = 50u;     /* 0.50 K, well inside the floor's own 2 K */
+    o2p_heater_ctl_reset(&st);
+    st.runaway_latched = true;
+    o2p_heater_in_t in = hin_dew();
+    in.t_die_c100 = 3000;
+    in.t_tip_c100 = in.t_cell_c100;
+    in.t_chamber_c100 = (int16_t)(in.t_tip_c100 - 10);
+    o2p_heater_ctl_step(&st, &cfg, &in, 100u, &out);
+
+    TEST_ASSERT_UINT16_WITHIN_MESSAGE(2u, 2525u, out.duty_x100,
+        "the floor under a latch must obey DT_MAX_K, not the floor's own 2 K");
+    TEST_ASSERT_TRUE_MESSAGE(out.duty_x100 < 5000u,
+        "and must not reach the blind duty through an unclamped setpoint");
+}
+
 static void test_a_real_runaway_signature_holds_the_latch_under_the_floor(void)
 {
     /* The monotonic side: the same latch and the same floor duty, but the tip
@@ -11328,6 +11461,10 @@ int main(void)
     RUN_TEST(test_a_sustained_cell_loss_still_allows_blind_after_the_limit);
     RUN_TEST(test_a_false_runaway_latch_releases_while_the_floor_runs);
     RUN_TEST(test_heater_law_drops_the_runaway_floor_bit_on_the_release_cycle);
+    RUN_TEST(test_the_floor_runs_under_a_latch_with_NO_HUMIDITY);
+    RUN_TEST(test_the_floor_runs_under_a_latch_WITH_AN_UNREACHABLE_MARGIN);
+    RUN_TEST(test_a_latch_withholds_the_DEW_DEMAND_not_just_the_floors_share);
+    RUN_TEST(test_the_floor_under_a_latch_respects_a_TIGHT_gradient_ceiling);
     RUN_TEST(test_a_real_runaway_signature_holds_the_latch_under_the_floor);
     RUN_TEST(test_a_hot_floor_cannot_reach_blind_through_the_runaway_latch);
     RUN_TEST(test_dew_unreachable_pause_of_exactly_the_limit_keeps_its_evidence);
