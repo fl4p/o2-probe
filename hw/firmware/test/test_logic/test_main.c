@@ -822,6 +822,124 @@ static void test_absurd_tempco_cannot_produce_a_number(void)
                       o2p_fraction_from_current(&cal, 70000, 4500, &c));
 }
 
+/* FW 0x001E: the conversion's temperature term is (T/T_cal)^0.75. */
+static void test_cell_t_law_gain_values(void)
+{
+    TEST_ASSERT_EQUAL_FLOAT(1.0f, o2p_cell_t_law_gain(2000, 2000));
+    /* The 2026-09-13 outdoor span, 12.86 -> 35.97 C: 1.0600 (+2522 ppm/K). */
+    TEST_ASSERT_FLOAT_WITHIN(1e-4f, 1.0600f, o2p_cell_t_law_gain(3597, 1286));
+    /* Monotonic and positive across -40..+100 C. */
+    float prev = 0.0f;
+    for (int16_t t = -4000; t <= 10000; t += 250) {
+        float g = o2p_cell_t_law_gain(t, 2000);
+        TEST_ASSERT_TRUE(g > prev);
+        prev = g;
+    }
+    /* The sentinel is NaN, never a substituted 1.0. */
+    TEST_ASSERT_TRUE(isnan(o2p_cell_t_law_gain(O2P_I16_INVALID, 2000)));
+    TEST_ASSERT_TRUE(isnan(o2p_cell_t_law_gain(2000, O2P_I16_INVALID)));
+}
+
+static void test_conversion_follows_the_cell_t_law(void)
+{
+    /* Calibrated in dry air at 20 C, the current the law predicts at every
+     * other temperature converts back to air - and a current that did NOT
+     * rise with temperature reads LOWER as the cell warms, monotonically. */
+    o2p_cal_t cal = { .dil_alpha = 1.0f };
+    TEST_ASSERT_TRUE(cal_air_dry(&cal, 100000, 2000));
+    float prev = 1e9f;
+    for (int16_t t = -2000; t <= 8000; t += 500) {
+        float c = 0.0f;
+        int32_t na = (int32_t)lroundf(100000.0f * o2p_cell_t_law_gain(t, 2000));
+        TEST_ASSERT_EQUAL(O2P_OK, o2p_fraction_from_current(&cal, na, t, &c));
+        TEST_ASSERT_FLOAT_WITHIN(0.0002f, O2P_C_AIR, c);
+        float fixed = 0.0f;
+        (void)o2p_fraction_from_current(&cal, 100000, t, &fixed);
+        TEST_ASSERT_TRUE(fixed < prev);
+        prev = fixed;
+    }
+    /* No temperature at all is refused, not converted at the cal point. */
+    float c = 12345.0f;
+    TEST_ASSERT_EQUAL(O2P_UNEVALUABLE,
+                      o2p_fraction_from_current(&cal, 100000, O2P_I16_INVALID, &c));
+    TEST_ASSERT_EQUAL_FLOAT(12345.0f, c);
+}
+
+/* Known-bad calibration from PRODUCER output, not a hand-made fixture: the
+ * 30-min telemetry medians of probe 3 on the 2026-09-13 outdoor run
+ * (bench-logs/2026-09-13-outdoor-fit, dry-basis truth 20.946 %vol).
+ *   05:00 UTC  cell 98.54 uA  T_EXT 12.96 C  chamber 17.50 C  RH 55.55 %
+ *   10:00 UTC  cell 102.42 uA T_EXT 34.61 C  chamber 37.33 C  RH 36.86 %
+ * Calibrated at 05:00, the 10:00 point must come back to air under the law on
+ * T_EXT. The firmware before 0x001E (no temperature term in force) must fail
+ * it by more than 0.5 %vol, and the chamber sensor must do worse than T_EXT. */
+static void test_outdoor_day_closes_on_t_ext_and_fails_without_it(void)
+{
+    const float p = 925.0f;   /* Open-Meteo regional proxy, 924.8-926.7 hPa */
+    o2p_gas_t g_cal = gas_at(17.50f, 55.55f, p);
+    o2p_gas_t g_day = gas_at(37.33f, 36.86f, p);
+
+    o2p_cal_t ext = { .dil_alpha = 1.0f };
+    TEST_ASSERT_TRUE(o2p_calibrate_air(&ext, 98540, 1296, &g_cal));
+    float c_ext = 0.0f;
+    TEST_ASSERT_EQUAL(O2P_OK,
+                      o2p_dry_fraction_from_current(&ext, 102420, 3461, &g_day, &c_ext));
+    TEST_ASSERT_FLOAT_WITHIN(0.0010f, O2P_C_AIR, c_ext);
+
+    /* Before 0x001E: TEMPCO 0, so no temperature term at all. Reproduced by
+     * converting at the calibration temperature. */
+    float c_none = 0.0f;
+    TEST_ASSERT_EQUAL(O2P_OK,
+                      o2p_dry_fraction_from_current(&ext, 102420, 1296, &g_day, &c_none));
+    TEST_ASSERT_TRUE(c_none - O2P_C_AIR > 0.0050f);
+
+    /* The same law on the chamber sensor, calibrated on the chamber too. */
+    o2p_cal_t ch = { .dil_alpha = 1.0f };
+    TEST_ASSERT_TRUE(o2p_calibrate_air(&ch, 98540, 1750, &g_cal));
+    float c_ch = 0.0f;
+    TEST_ASSERT_EQUAL(O2P_OK,
+                      o2p_dry_fraction_from_current(&ch, 102420, 3733, &g_day, &c_ch));
+    TEST_ASSERT_TRUE(fabsf(c_ext - O2P_C_AIR) < fabsf(c_ch - O2P_C_AIR));
+}
+
+static void test_cell_temperature_prefers_t_ext(void)
+{
+    TEST_ASSERT_EQUAL_INT16(1296, o2p_cell_temperature(true, 1296, true, 1750, true, 1760));
+    TEST_ASSERT_EQUAL_INT16(1750, o2p_cell_temperature(false, 1296, true, 1750, true, 1760));
+    TEST_ASSERT_EQUAL_INT16(1760, o2p_cell_temperature(false, 1296, false, 1750, true, 1760));
+    TEST_ASSERT_EQUAL_INT16(O2P_I16_INVALID,
+                            o2p_cell_temperature(false, 1296, false, 1750, false, 1760));
+    /* A live flag on a sentinel value is not a reading. */
+    TEST_ASSERT_EQUAL_INT16(1750,
+                            o2p_cell_temperature(true, O2P_I16_INVALID, true, 1750, true, 1760));
+}
+
+static void test_cell_bridge_ages_out_and_needs_freshness(void)
+{
+    o2p_cell_bridge_t b = { 0 };
+    int16_t out = 777;
+    TEST_ASSERT_FALSE(o2p_cell_bridge_get(&b, 100u, 10u, &out));
+    TEST_ASSERT_EQUAL_INT16(777, out);
+
+    /* Accepted but not fresh (frozen conversion engine): not noted. */
+    o2p_cell_bridge_note(&b, true, false, 2000, 100u);
+    TEST_ASSERT_FALSE(o2p_cell_bridge_get(&b, 100u, 10u, &out));
+    /* The sentinel is never noted either. */
+    o2p_cell_bridge_note(&b, true, true, O2P_I16_INVALID, 100u);
+    TEST_ASSERT_FALSE(o2p_cell_bridge_get(&b, 100u, 10u, &out));
+
+    o2p_cell_bridge_note(&b, true, true, 2000, 100u);
+    TEST_ASSERT_TRUE(o2p_cell_bridge_get(&b, 110u, 10u, &out));
+    TEST_ASSERT_EQUAL_INT16(2000, out);
+    /* A withheld (glitch-filtered) cycle does not refresh the age. */
+    o2p_cell_bridge_note(&b, false, true, 2500, 105u);
+    out = 777;
+    TEST_ASSERT_FALSE(o2p_cell_bridge_get(&b, 111u, 10u, &out));
+    TEST_ASSERT_EQUAL_INT16(777, out);
+    /* Far tail: still lapsed, no wrap back to valid. */
+    TEST_ASSERT_FALSE(o2p_cell_bridge_get(&b, 100u + 0x7FFFFFFFu, 10u, &out));
+}
+
 static void test_written_calibration_must_also_be_plausible(void)
 {
     /* The automatic air-point routine has always range-checked its input, but
@@ -1224,13 +1342,14 @@ static void test_bench_humidity_step_no_longer_moves_the_channel(void)
     o2p_gas_t g2 = gas_at(25.0f, 63.9f, TEST_P_HPA);
 
     o2p_cal_t cal = { .dil_alpha = 1.0f };
-    /* The cell's own temperature coefficient, ~+0.2 %/K, which section 1
-     * identifies as the rest of the observed step. It is a shipped default of
-     * ZERO in the firmware because no sourced figure exists (DS-0637 Issue 1
-     * and Issue 2 both carry a chart; neither is digitised), so this test also
-     * shows what that costs: with it, the corrected channel is flat; without
-     * it, what remains is the tempco and not the humidity. */
-    cal.tempco_per_k = 0.002f;
+    /* The cell's own temperature dependence, which section 1 identifies as
+     * the rest of the observed step. Until FW 0x001E this test planted a
+     * linear +0.2 %/K here, because the firmware shipped ZERO and had no
+     * other term. Since 0x001E the conversion always applies the capillary
+     * law (T/T_cal)^0.75 (~+0.25 %/K at 24 C), so the residual register stays
+     * at its default: planting 0.002 on top would double-count. With the law
+     * alone the 09-06 step still closes. */
+    cal.tempco_per_k = 0.0f;
     TEST_ASSERT_TRUE(o2p_calibrate_air(&cal, 100200, 2340, &g1));
 
     float wet1 = 0.0f, wet2 = 0.0f;
@@ -3701,7 +3820,13 @@ static void test_v2_migration_falls_back_to_defaults_when_it_cannot_be_trusted(v
 /* The physical cell, as a test oracle: what current does an SGX cell actually
  * produce in fully aerated air at this temperature, humidity and TOTAL
  * PRESSURE, given a K taken at p_cal? The (p_act / p_cal) factor is the term
- * the firmware has to undo. */
+ * the firmware has to undo.
+ *
+ * Since FW 0x001E the oracle also carries the cell's temperature law, written
+ * out here rather than through o2p_cell_t_law_gain(): the cell does not read
+ * the same current at 60 C as at its 25 C air point, and an oracle that
+ * pretended it did made every hot readout in the pressure tests read low by
+ * the law's 8.7 % instead of testing pressure. */
 static int32_t cell_na_in_air(const o2p_cal_t *cal, float t_c, float rh,
                               float p_act, float p_cal)
 {
@@ -3710,7 +3835,9 @@ static int32_t cell_na_in_air(const o2p_cal_t *cal, float t_c, float rh,
     TEST_ASSERT_EQUAL(O2P_OK, o2p_vapour_pressure_hpa(&g, &pw));
     float c_wet = O2P_C_AIR * (p_act - pw) / p_act;
     float k = (float)cal->cal_air_na / logf(1.0f / (1.0f - cal->air_frac));
-    float s = k * logf(1.0f / (1.0f - c_wet)) * (p_act / p_cal);
+    float t_law = powf((t_c + 273.15f) /
+                       ((float)cal->cal_temp_c100 * 0.01f + 273.15f), 0.75f);
+    float s = k * logf(1.0f / (1.0f - c_wet)) * (p_act / p_cal) * t_law;
     return (int32_t)(s + 0.5f);
 }
 
@@ -8681,7 +8808,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         steps the thermal mass cannot make are rejected for a cycle.
      * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
      *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
-    TEST_ASSERT_EQUAL_HEX16(0x001Du, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x001Eu, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_HEX16(0xC000u,
         (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
     /* The staleness cut must win the race against the watchdog's fastest
@@ -10685,6 +10812,11 @@ int main(void)
     RUN_TEST(test_overrange_is_not_clamped_into_plausibility);
     RUN_TEST(test_monotonic_across_the_whole_range);
     RUN_TEST(test_absurd_tempco_cannot_produce_a_number);
+    RUN_TEST(test_cell_t_law_gain_values);
+    RUN_TEST(test_conversion_follows_the_cell_t_law);
+    RUN_TEST(test_outdoor_day_closes_on_t_ext_and_fails_without_it);
+    RUN_TEST(test_cell_temperature_prefers_t_ext);
+    RUN_TEST(test_cell_bridge_ages_out_and_needs_freshness);
     RUN_TEST(test_implausible_air_point_is_rejected);
     RUN_TEST(test_written_calibration_must_also_be_plausible);
     RUN_TEST(test_uncalibrated_invalidates_comp_but_not_raw);

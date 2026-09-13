@@ -1184,8 +1184,18 @@ static void finish_o2(o2p_snapshot_t *s)
         s->o2_raw = o2p_encode_raw_ua_x100(cell_na);
     }
 
-    int16_t t_gas = o2p_gas_temperature(g_cyc.chamber_ok, g_cyc.t_chamber,
-                                        g_cyc.tip_ok, g_cyc.t_tip);
+    /* The CELL temperature (FW 0x001E): the cell-side T_EXT, bridged across
+     * its glitch filter, else chamber-else-tip. See o2p_cell_temperature(). */
+    static o2p_cell_bridge_t s_o2_cell;
+    o2p_cell_bridge_note(&s_o2_cell, g_cyc.ext_ok, g_cyc.ext_fresh,
+                         g_cyc.t_ext, g_uptime_s);
+    int16_t t_ext_bridged = O2P_I16_INVALID;
+    const bool ext_live = o2p_cell_bridge_get(&s_o2_cell, g_uptime_s,
+                                              O2P_O2_CELL_MAX_AGE_S,
+                                              &t_ext_bridged);
+    const int16_t t_cell = o2p_cell_temperature(ext_live, t_ext_bridged,
+                                                g_cyc.chamber_ok, g_cyc.t_chamber,
+                                                g_cyc.tip_ok, g_cyc.t_tip);
 
     o2p_cal_t cal = g_cal;
     if (cal.cal_air_na <= 0) {
@@ -1204,10 +1214,11 @@ static void finish_o2(o2p_snapshot_t *s)
     o2p_gas_t gas = fresh;
     (void)o2p_gas_cache_apply(&g_gas_cache, &gas, g_uptime_s);
 
-    /* A non-zero temperature coefficient with no temperature is not a
-     * compensated reading. Rather than silently applying a zero correction
-     * and presenting the result as compensated, refuse it. */
-    if (cal.tempco_per_k != 0.0f && t_gas == O2P_I16_INVALID) {
+    /* No temperature is not a compensated reading. Since FW 0x001E the cell
+     * law always applies, so this no longer depends on TEMPCO_PPM_K being
+     * non-zero: rather than converting at the calibration temperature and
+     * presenting the result as compensated, refuse it. */
+    if (t_cell == O2P_I16_INVALID) {
         g_cyc.faults |= O2P_F_I2C_FAIL_TMP;
         s->o2_comp = O2P_U16_INVALID;
     } else {
@@ -1218,8 +1229,7 @@ static void finish_o2(o2p_snapshot_t *s)
          * would publish the uncorrected reading under the corrected name. */
         float c = 0.0f;
         o2p_status_t st = o2p_dry_fraction_from_current(
-            &cal, cell_na,
-            (t_gas != O2P_I16_INVALID) ? t_gas : cal.cal_temp_c100, &gas, &c);
+            &cal, cell_na, t_cell, &gas, &c);
         if (st == O2P_RANGE) {
             g_cyc.faults |= O2P_F_ADC_RANGE;
         }
@@ -1317,10 +1327,21 @@ static void finish_o2(o2p_snapshot_t *s)
         const bool bias_evidence =
             bias_measurable ? bias_measured : air_current_plausible_unverified;
 
-        if (settled && t_gas != O2P_I16_INVALID &&
+        /* THE REFERENCE MUST BE THE SENSOR THE CONVERSION USES (FW 0x001E).
+         * cal_temp_c100 is what every later (T/T_cal)^0.75 is taken against.
+         * On a probe with a T_EXT sensor the conversion runs on T_EXT, so an
+         * air point stored on the chamber fallback would carry the chamber's
+         * offset from the cell into every reading for life - ~0.7 K at the
+         * 2026-09-12 air point, 0.18 % of K. Refused rather than stored; a
+         * probe with no T_EXT fitted calibrates on the fallback it converts
+         * on, which is consistent. */
+        const bool cal_temp_ok = (t_cell != O2P_I16_INVALID) &&
+                                 (!o2p_tmp117_ext_present() || ext_live);
+
+        if (settled && cal_temp_ok &&
             bias_evidence &&
             o2p_o2_valid(g_cyc.faults) &&
-            o2p_calibrate_air(&g_cal, cell_na, t_gas, &fresh)) {
+            o2p_calibrate_air(&g_cal, cell_na, t_cell, &fresh)) {
             g_rm.cfg.cal_air_na = g_cal.cal_air_na;
             g_rm.cfg.cal_temp_c100 = g_cal.cal_temp_c100;
             /* Stored WITH the point, like every other term it depends on: a
@@ -1532,18 +1553,17 @@ static void cycle_publish(o2p_snapshot_t *s)
          * refreshing on every read held a constant margin forever - a warm
          * frozen cell reading would have kept a drowning cell cold (Codex
          * review of 4fe6b36, finding 1; the tip ceiling only bounds the
-         * opposite failure). */
+         * opposite failure). The rule lives in o2p_cell_bridge_*()
+         * (sampler_logic.h), shared with the oxygen path since FW 0x001E;
+         * this instance keeps its own age bound and, as before, its last
+         * value when the bridge has lapsed. */
+        static o2p_cell_bridge_t s_heater_cell;
         static int16_t s_heater_cell_c100;
-        static uint32_t s_heater_cell_taken_s;
-        static bool s_heater_have_cell;
-        if (g_cyc.ext_ok && g_cyc.ext_fresh) {
-            s_heater_cell_c100 = g_cyc.t_ext;
-            s_heater_cell_taken_s = g_uptime_s;
-            s_heater_have_cell = true;
-        }
-        const bool heater_cell_ok = s_heater_have_cell &&
-            (uint32_t)(g_uptime_s - s_heater_cell_taken_s) <=
-                O2P_HEATER_CELL_MAX_AGE_S;
+        o2p_cell_bridge_note(&s_heater_cell, g_cyc.ext_ok, g_cyc.ext_fresh,
+                             g_cyc.t_ext, g_uptime_s);
+        const bool heater_cell_ok = o2p_cell_bridge_get(
+            &s_heater_cell, g_uptime_s, O2P_HEATER_CELL_MAX_AGE_S,
+            &s_heater_cell_c100);
 
         const o2p_heater_in_t hin = {
             .drive_possible   = o2p_heater_compiled_in(),

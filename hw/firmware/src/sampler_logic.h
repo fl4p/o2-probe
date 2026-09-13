@@ -82,6 +82,78 @@ static inline int16_t o2p_gas_temperature(bool chamber_ok, int16_t t_chamber,
     return O2P_I16_INVALID;
 }
 
+/* The last cell-side (T_EXT) reading that was both ACCEPTED by the ext glitch
+ * filter and FRESH (ext Data_Ready seen recently, phase_temps), bridged for a
+ * bounded age. One rule for both consumers - the dew-margin heater law
+ * (FW 0x0013) and the oxygen temperature law (FW 0x001E) - so the two cannot
+ * drift apart. The age runs from the last fresh accepted reading, not from the
+ * last I2C answer: a frozen conversion engine still answers, and refreshing on
+ * every read held a constant temperature forever (Codex review of 4fe6b36,
+ * finding 1). */
+typedef struct {
+    int16_t  c100;
+    uint32_t taken_s;
+    bool     have;
+} o2p_cell_bridge_t;
+
+static inline void o2p_cell_bridge_note(o2p_cell_bridge_t *b, bool ext_ok,
+                                        bool ext_fresh, int16_t t_ext_c100,
+                                        uint32_t now_s)
+{
+    if (ext_ok && ext_fresh && t_ext_c100 != O2P_I16_INVALID) {
+        b->c100 = t_ext_c100;
+        b->taken_s = now_s;
+        b->have = true;
+    }
+}
+
+/* True, and *out_c100 written, only while a fresh accepted reading is at most
+ * max_age_s old. Nothing is written otherwise. */
+static inline bool o2p_cell_bridge_get(const o2p_cell_bridge_t *b,
+                                       uint32_t now_s, uint32_t max_age_s,
+                                       int16_t *out_c100)
+{
+    if (!b->have || (uint32_t)(now_s - b->taken_s) > max_age_s) {
+        return false;
+    }
+    *out_c100 = b->c100;
+    return true;
+}
+
+/* How long the OXYGEN path bridges T_EXT. The glitch filter withholds up to
+ * five 1 Hz readings after a >3 K jump; without a bridge each withheld cycle
+ * would hand the conversion to the chamber sensor, which on the 2026-09-13
+ * outdoor run sat up to ~4 K above T_EXT in sun - a ~1 % step in the
+ * published number and back. 10 s covers the filter and no more. */
+#define O2P_O2_CELL_MAX_AGE_S 10u
+
+/* The temperature the OXYGEN conversion and the air point use (FW 0x001E):
+ * the cell-side TMP117 (T_EXT, on the cell enclosure) when a bridged reading
+ * exists, else o2p_gas_temperature() above.
+ *
+ * Why T_EXT and not the chamber: every other temperature is a BOARD node on
+ * the ring heater's copper, and the cell is on flying leads. Measured on the
+ * 2026-09-13 outdoor run (13-36 C, ~850 rows, heater cycling overnight): the
+ * capillary law on T_EXT fits the cell current to 0.19 % rms and predicts the
+ * day from the night with no offset; the same fit on the chamber is worse
+ * (0.70 against 0.60 % rms before glitch clipping) and lands on a negative
+ * dilution alpha. docs/2026-09-13-outdoor-tempco-dilution-fit.md.
+ *
+ * The fallback is a board node and therefore biased whenever the heater runs;
+ * it is kept because a biased temperature beats none for a correction that
+ * degrades gracefully. finish_o2() refuses to take an AIR POINT on it when
+ * the probe has a T_EXT sensor, so the stored reference and the running
+ * measurement are always the same sensor. */
+static inline int16_t o2p_cell_temperature(bool ext_ok, int16_t t_ext,
+                                           bool chamber_ok, int16_t t_chamber,
+                                           bool tip_ok, int16_t t_tip)
+{
+    if (ext_ok && t_ext != O2P_I16_INVALID) {
+        return t_ext;
+    }
+    return o2p_gas_temperature(chamber_ok, t_chamber, tip_ok, t_tip);
+}
+
 /* Encode a cell current into the O2_RAW register's uA*100 units, or its
  * sentinel when it will not fit. 10 nA per count. */
 static inline int16_t o2p_encode_raw_ua_x100(int32_t cell_na)

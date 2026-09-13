@@ -134,8 +134,16 @@ typedef struct {
     /* Air-point calibration: cell current in air, in nanoamps. Zero or
      * negative means "never calibrated" and the caller must set CAL_DEFAULT. */
     int32_t cal_air_na;
-    /* Fractional change in cell output per kelvin, referenced to cal_temp_c.
-     * DS-0637 Issue 1 (07-Apr-2025) and Issue 2 (28-May-2026) BOTH carry a
+    /* RESIDUAL fractional change in cell output per kelvin, referenced to
+     * cal_temp_c, applied ON TOP OF the capillary law (T/T_cal)^0.75 that the
+     * conversion always applies since FW 0x001E (o2p_cell_t_law_gain()). 0 -
+     * the default - means "the law alone". A value fitted as a whole
+     * linear tempco before 0x001E (e.g. the 2859 ppm/K of 09-06) must NOT be
+     * carried into this register: the law already supplies ~+2500 ppm/K near
+     * 20 C and the two would double-count.
+     *
+     * History, kept because it is why the law exists: DS-0637 Issue 1
+     * (07-Apr-2025) and Issue 2 (28-May-2026) BOTH carry a
      * "%20 C Output vs Temperature" chart (mean, +/-3 sigma, -40..60 C) on
      * PDF p.2 - a raster image, which text extraction misses (codex review
      * 2026-09-11). Only as a chart: eyeballed at ~+0.2 %/K and visibly
@@ -356,6 +364,38 @@ static inline bool o2p_cal_temp_plausible(int16_t c100)
 }
 
 #define O2P_TEMPCO_DEFAULT 0.0f
+
+/* The cell's temperature law, applied by every conversion since FW 0x001E:
+ * output at fixed fraction and pressure scales as T_K^0.75.
+ *
+ * WHY THIS FORM. The cell law S = K*ln(1/(1-C)) is the capillary (Stefan)
+ * diffusion law, so the limiting current follows continuum diffusion:
+ * D ~ T^1.75/P against a molar density ~ P/T gives I ~ T^0.75, i.e.
+ * +2560 ppm/K at 20 C falling to +2140 at 77 C, with no fitted constant
+ * (O2-CORRECTION-MODEL-BUDGET.md s5; docs/2026-09-11-o2-model-fit-vs-truth.md
+ * s9.3). NOT Knudsen, which would give T^-0.5 and the wrong sign.
+ *
+ * WHAT SUPPORTS IT (2026-09-13 outdoor run, 13-36 C on T_EXT,
+ * docs/2026-09-13-outdoor-tempco-dilution-fit.md): with alpha 1 and only K
+ * fitted it matches the cell to 0.19 % rms and carries K from the night to
+ * the day with no offset (0.26 / 0.18 % rms out of sample), where a fitted
+ * linear tempco was off by 0.35-1.5 %. DS-0637's digitised mean (Issue 1 and
+ * 2, overlay-review-required, not human-verified) gives +2235 ppm/K over the
+ * same span against the law's +2522; that run cannot separate the two - the
+ * difference trades against alpha. The law is preferred because it needs no
+ * digitisation and does not stop at the chart's 60 C.
+ *
+ * WHAT IT DOES NOT COVER: the AFE's own drift (R_TIA tracks T_AFE, not the
+ * cell) and anything above 36 C measured on T_EXT. TEMPCO_PPM_K is the
+ * residual register for a per-probe correction beyond the law. */
+#define O2P_CELL_T_EXPONENT 0.75f
+
+/* (T_K / T_cal_K)^O2P_CELL_T_EXPONENT for two 0.01 C readings. NaN - never a
+ * substituted 1.0 - when either temperature is at or below absolute zero,
+ * which includes the O2P_I16_INVALID sentinel (-327.68 C); the conversion's
+ * gain guard refuses a NaN, so a missing temperature cannot publish as an
+ * uncorrected number under the corrected name. */
+float o2p_cell_t_law_gain(int16_t t_c100, int16_t t_cal_c100);
 
 /* Dilution efficacy, see o2p_cal_t::dil_alpha. 1.0 is the full gas-law
  * correction - the behaviour before 2026-09-07 - and is the default because a

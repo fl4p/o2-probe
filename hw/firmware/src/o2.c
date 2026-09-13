@@ -203,12 +203,16 @@ static o2p_status_t fraction_from_current_at_p(const o2p_cal_t *cal,
      * before anything else touches the signal. */
     float s = (float)(cell_na - cal->zero_na);
 
-    /* Temperature correction, referenced to the calibration temperature.
+    /* Temperature correction, referenced to the calibration temperature: the
+     * cell's own law (T/T_cal)^0.75, always, times the stored linear RESIDUAL
+     * TEMPCO_PPM_K on top of it (default 0 - see o2p_cell_t_law_gain()).
      * Guard the denominator: a tempco register written badly enough to drive
      * it through zero must not produce an infinity that later compares as a
-     * plausible fraction. */
+     * plausible fraction, and a temperature sentinel makes the law NaN, which
+     * the same guard refuses. */
     float dt = ((float)temp_c100 - (float)cal->cal_temp_c100) * 0.01f;
-    float gain = 1.0f + cal->tempco_per_k * dt;
+    float gain = o2p_cell_t_law_gain(temp_c100, cal->cal_temp_c100) *
+                 (1.0f + cal->tempco_per_k * dt);
     /* SIGN AND FINITENESS ONLY. The magnitude of this gain is owned by the
      * bound on the stored coefficient (O2P_TEMPCO_ABS_MAX_PPM_K, enforced in
      * o2p_config_valid), not here - and deliberately so.
@@ -343,6 +347,19 @@ o2p_status_t o2p_dry_fraction_from_current(const o2p_cal_t *cal,
         return O2P_RANGE;
     }
     return O2P_OK;
+}
+
+float o2p_cell_t_law_gain(int16_t t_c100, int16_t t_cal_c100)
+{
+    float tk = (float)t_c100 * 0.01f + 273.15f;
+    float tk_cal = (float)t_cal_c100 * 0.01f + 273.15f;
+    if (!(tk > 0.0f) || !(tk_cal > 0.0f)) {
+        return NAN;
+    }
+    /* exp(a*ln x) rather than powf(): logf/expf are already linked for the
+     * cell law, and powf alone cost 1254 B of flash (plus its log2 table) on
+     * a 53 kB part at 91.7 %. Identical to powf here to float precision. */
+    return expf(O2P_CELL_T_EXPONENT * logf(tk / tk_cal));
 }
 
 uint16_t o2p_encode_percent(o2p_status_t st, float c)
