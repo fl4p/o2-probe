@@ -12,6 +12,7 @@ void o2p_heater_ctl_reset(o2p_heater_state_t *st)
     st->integ = 0.0f;
     st->integ_floor = 0.0f;
     st->runaway_latched = false;
+    st->runaway_peak_k100 = -32768;
     st->runaway_evidence_s = 0u;
     st->runaway_clear_s = 0u;
     st->zero_duty_timing = false;
@@ -353,9 +354,17 @@ static void update_runaway(o2p_heater_state_t *st,
      * and each below its threshold by the hysteresis, so it starts false and
      * any missing or marginal reference keeps it false. */
     bool cleared = true;
+    /* HOW FAR OVER the latching threshold this sample sits, in 0.01 K, taken
+     * over whichever references are valid. This is the quantity the decay
+     * discriminator watches - see O2P_HEATER_RUNAWAY_DECAY_K100. INT32_MIN
+     * means no reference produced one. */
+    int32_t excess = INT32_MIN;
     if (in->chamber_valid) {
         int32_t dt = (int32_t)in->t_tip_c100 - (int32_t)in->t_chamber_c100;
         int32_t on = (int32_t)cfg->dt_max_k100 + O2P_HEATER_RUNAWAY_MARGIN_K100;
+        if (dt - on > excess) {
+            excess = dt - on;
+        }
         if (dt > on) {
             hot = true;
         }
@@ -378,6 +387,9 @@ static void update_runaway(o2p_heater_state_t *st,
      * zeroing the duty, and only for excursions large enough to trip it. */
     if (in->die_valid) {
         int32_t dd = (int32_t)in->t_tip_c100 - (int32_t)in->t_die_c100;
+        if (dd - O2P_HEATER_RUNAWAY_DIE_K100 > excess) {
+            excess = dd - O2P_HEATER_RUNAWAY_DIE_K100;
+        }
         if (dd > O2P_HEATER_RUNAWAY_DIE_K100) {
             hot = true;
         }
@@ -389,11 +401,22 @@ static void update_runaway(o2p_heater_state_t *st,
         cleared = false;
     }
 
+    /* Clamp into the int16 the state carries. Only the COMPARISON matters,
+     * and it is against a 1.00 K band, so saturating an excess of hundreds of
+     * kelvin changes nothing a probe could ever experience. */
+    int32_t peak_in = excess;
+    if (peak_in > 32767) {
+        peak_in = 32767;
+    } else if (peak_in < -32768) {
+        peak_in = -32768;
+    }
+
     if (!st->zero_duty_timing) {
         st->zero_duty_timing = true;
         st->zero_duty_since_s = now_s;
         st->runaway_evidence_s = 0u;
         st->runaway_clear_s = 0u;
+        st->runaway_peak_k100 = (int16_t)peak_in;
         return;
     }
     /* Unsigned subtraction, so a wrap of now_s is harmless. */
@@ -404,6 +427,7 @@ static void update_runaway(o2p_heater_state_t *st,
          * situation, so it is discarded rather than extended. */
         st->runaway_evidence_s = 0u;
         st->runaway_clear_s = 0u;
+        st->runaway_peak_k100 = (int16_t)peak_in;
         return;
     }
 
@@ -428,8 +452,31 @@ static void update_runaway(o2p_heater_state_t *st,
 
     if (!hot) {
         st->runaway_evidence_s = 0u;
+        st->runaway_peak_k100 = (int16_t)peak_in;
         return;
     }
+
+    /* THE DECAY DISCRIMINATOR (O2P_HEATER_RUNAWAY_DECAY_K100). The tests
+     * above are on a level, and a level cannot tell heat the firmware
+     * commanded and then stopped commanding - which decays from its peak with
+     * tau = 150 s - from a FET stuck on, which holds its peak. So: evidence
+     * accumulates only while the excess has NOT fallen materially below the
+     * highest value this window has seen.
+     *
+     * Re-basing the peak on the way down is the part that matters. Without
+     * it, one hot excursion would leave a high-water mark that suppressed the
+     * detector for as long as the window survived; with it, the peak tracks
+     * the decay down and a FET that sticks on at any point is measured
+     * against where the plant actually is. */
+    if (peak_in > (int32_t)st->runaway_peak_k100) {
+        st->runaway_peak_k100 = (int16_t)peak_in;
+    } else if ((int32_t)st->runaway_peak_k100 - peak_in
+                   > O2P_HEATER_RUNAWAY_DECAY_K100) {
+        st->runaway_evidence_s = 0u;
+        st->runaway_peak_k100 = (int16_t)peak_in;
+        return;
+    }
+
     if (st->runaway_evidence_s < O2P_HEATER_RUNAWAY_WINDOW_S) {
         st->runaway_evidence_s = (uint16_t)(st->runaway_evidence_s + since);
     }

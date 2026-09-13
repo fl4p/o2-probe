@@ -2501,6 +2501,136 @@ static void test_runaway_die_path_does_not_false_positive_at_rest(void)
     TEST_ASSERT_FALSE(st.runaway_latched);
 }
 
+/* ---- the decay discriminator, FW 0x0017 ---------------------------------
+ *
+ * THE BENCH EVENT THESE REPRODUCE, 2026-09-13. With the gradient floor newly
+ * in command the dew law drove the tip 17.5 -> 40.7 C at 100 % duty, the
+ * demand then collapsed, and the latch set during the cool-down with the FET
+ * plainly innocent. Fab: "this is not a runaway situation."
+ *
+ * tau = 150 s measured (docs/2026-09-12-thermal-relaxation-theta-and-ambient
+ * .md) against a 60 s evidence window, so a level-only detector was GUARANTEED
+ * to latch on any commanded excursion past the threshold. */
+#define COOLDOWN_TAU_S 150.0f
+#define COOLDOWN_DIE_C100 1950          /* the die sat near 19.5 C throughout */
+#define COOLDOWN_START_K100 2116.0f     /* tip 40.66 C over that die */
+
+/* Place the probe `t` seconds into a free cool-down from the measured peak.
+ * The chamber tracks the tip 0.1 K behind, which is what it actually does on
+ * this board, so the chamber-referenced path stays dead and any latch is the
+ * die path's. */
+static void cooldown_at(o2p_heater_in_t *in, float t)
+{
+    const float over = COOLDOWN_START_K100 * expf(-t / COOLDOWN_TAU_S);
+    in->t_die_c100 = COOLDOWN_DIE_C100;
+    in->t_tip_c100 = (int16_t)(COOLDOWN_DIE_C100 + (int)(over + 0.5f));
+    in->t_chamber_c100 = (int16_t)(in->t_tip_c100 - 10);
+}
+
+static void test_runaway_does_not_latch_on_a_commanded_cool_down(void)
+{
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;              /* the demand collapsed */
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    /* CALIBRATE THE TEST AGAINST THE OLD FAILURE FIRST (guard checklist 7):
+     * unless the excess really is over the threshold for longer than a whole
+     * window, this test would pass on the broken detector too and prove
+     * nothing. At t = 60 s the tip is still 14+ K over the die. */
+    cooldown_at(&in, 60.0f);
+    TEST_ASSERT_TRUE_MESSAGE(
+        (int32_t)in.t_tip_c100 - (int32_t)in.t_die_c100
+            > O2P_HEATER_RUNAWAY_DIE_K100,
+        "the stimulus must still be 'hot' after a full window, or the old "
+        "detector would not have latched either and this test is vacuous");
+
+    for (unsigned t = 0u; t <= 900u; t++) {
+        cooldown_at(&in, (float)t);
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+        TEST_ASSERT_FALSE_MESSAGE(st.runaway_latched,
+            "heat the firmware commanded and then stopped commanding decays; "
+            "that is not uncommanded heat");
+    }
+    TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_RUNAWAY);
+}
+
+static void test_runaway_still_latches_when_the_decay_stops(void)
+{
+    /* The other side of the same discriminator, and the reason it is not
+     * simply a longer window: a FET that sticks on partway through a
+     * cool-down stops the decay, and the excess then holds. Once it holds for
+     * a full window the latch must set - otherwise the fix has blinded the
+     * detector rather than sharpened it. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+
+    /* The decay is stopped at 90 s, NOT later: by 300 s the excess has fallen
+     * to 2.9 K, under the 10 K threshold, and there would be nothing left to
+     * latch on - the test would pass for the wrong reason. At 90 s it has
+     * already shed 9.5 K (so the discriminator was demonstrably active) and
+     * still stands 11.6 K over the die. */
+    unsigned t = 0u;
+    for (; t < 90u; t++) {                   /* decaying: no evidence */
+        cooldown_at(&in, (float)t);
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+    }
+    TEST_ASSERT_FALSE(st.runaway_latched);
+
+    /* The decay stops here, still well over the threshold. */
+    cooldown_at(&in, 90.0f);
+    TEST_ASSERT_TRUE((int32_t)in.t_tip_c100 - (int32_t)in.t_die_c100
+                     > O2P_HEATER_RUNAWAY_DIE_K100);
+    for (unsigned i = 0u; i <= O2P_HEATER_RUNAWAY_WINDOW_S + 2u; i++, t++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(st.runaway_latched,
+        "an excess that stops falling IS uncommanded heat and must latch");
+}
+
+static void test_runaway_decay_band_rejects_die_dither_not_a_real_decay(void)
+{
+    /* The band has to sit between two measured quantities: above the die's
+     * adjacent-count dither (0.288 K per count, die_temp.h) and below what a
+     * genuine cool-down sheds in one window. Both edges asserted, so moving
+     * the constant into either quantity fails here rather than in the field. */
+    TEST_ASSERT_TRUE_MESSAGE(O2P_HEATER_RUNAWAY_DECAY_K100 > 29,
+        "the band must reject one die count of dither");
+
+    o2p_heater_in_t a = hin_healthy(), b = hin_healthy();
+    cooldown_at(&a, 0.0f);
+    cooldown_at(&b, (float)O2P_HEATER_RUNAWAY_WINDOW_S);
+    const int32_t shed = ((int32_t)a.t_tip_c100 - (int32_t)a.t_die_c100)
+                       - ((int32_t)b.t_tip_c100 - (int32_t)b.t_die_c100);
+    TEST_ASSERT_TRUE_MESSAGE(shed > 4 * O2P_HEATER_RUNAWAY_DECAY_K100,
+        "one window of real decay must clear the band by a wide margin");
+
+    /* And dither alone, on an otherwise held excess, must not stop the latch:
+     * the peak re-bases upward, so a sample that dips one count and recovers
+     * is inside the band. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.max_duty_x100 = 0u;
+    o2p_heater_in_t in = hin_healthy();
+    o2p_heater_out_t out;
+    in.t_tip_c100 = 5000;
+    in.t_chamber_c100 = 4990;
+    in.t_die_c100 = (int16_t)(in.t_tip_c100 - 2800);
+    for (unsigned i = 0u; i <= O2P_HEATER_RUNAWAY_WINDOW_S + 2u; i++) {
+        in.t_die_c100 = (int16_t)(in.t_tip_c100 - 2800 + (i & 1 ? 29 : 0));
+        o2p_heater_ctl_step(&st, &cfg, &in, i, &out);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(st.runaway_latched,
+        "one count of die dither must not hold the detector off a stuck FET");
+}
+
 static void test_runaway_references_are_independent(void)
 {
     /* Two references exist so that losing one does not disable the other.
@@ -7451,7 +7581,12 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    /* 0x0016: the GRADIENT FLOOR, high-selected against the dew-margin law
+    /* 0x0017: the runaway detector's DECAY DISCRIMINATOR (Fab's order,
+     *         2026-09-13, "fix the runaway latch now"). No register and no
+     *         bit changes; what changes is when O2P_HB_RUNAWAY appears, and
+     *         a master that treats it as a hardware verdict needs to know
+     *         this build stopped raising it on a cool-down.
+     * 0x0016: the GRADIENT FLOOR, high-selected against the dew-margin law
      *         (Fab's order, 2026-09-13, "lets do it then"). The autonomous
      *         humidity-side slot now drives max(dew, floor), the floor being
      *         a PI loop holding the tip 2.00 K above the cell-side TMP117,
@@ -7483,7 +7618,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         steps the thermal mass cannot make are rejected for a cycle.
      * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
      *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
-    TEST_ASSERT_EQUAL_HEX16(0x0016u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x0017u, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_HEX16(0xC000u,
         (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
     /* The staleness cut must win the race against the watchdog's fastest
@@ -9573,6 +9708,9 @@ int main(void)
     RUN_TEST(test_die_runaway_threshold_brackets_the_measured_evidence);
     RUN_TEST(test_runaway_sees_a_stuck_fet_through_the_die);
     RUN_TEST(test_runaway_die_path_does_not_false_positive_at_rest);
+    RUN_TEST(test_runaway_does_not_latch_on_a_commanded_cool_down);
+    RUN_TEST(test_runaway_still_latches_when_the_decay_stops);
+    RUN_TEST(test_runaway_decay_band_rejects_die_dither_not_a_real_decay);
     RUN_TEST(test_runaway_references_are_independent);
     RUN_TEST(test_runaway_without_any_reference_is_unevaluable_not_ok);
     RUN_TEST(test_persistent_tip_setpoint_needs_its_own_consent);

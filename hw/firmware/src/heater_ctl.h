@@ -286,6 +286,55 @@ enum {
  * of the FET conducting, and latched-until-reset disabled the heater. */
 #define O2P_HEATER_RUNAWAY_RELEASE_HYST_K100 100
 
+/* THE DECAY DISCRIMINATOR, FW 0x0017 (Fab 2026-09-13, watching the latch trip
+ * on a probe that had just been driven hard: "this is not a runaway
+ * situation", "fix the runaway latch now").
+ *
+ * THE DEFECT IT FIXES, which was structural rather than a bad threshold. The
+ * tests above are on a LEVEL - tip minus die over 10.00 K - and the evidence
+ * window is O2P_HEATER_RUNAWAY_WINDOW_S, 60 s. The plant's measured time
+ * constant is tau = 150 s (docs/2026-09-12-thermal-relaxation-...). A tip
+ * that the firmware itself drove to 22 K over the die therefore needs many
+ * hundreds of seconds to fall back under 10 K, and the detector starts
+ * counting the moment commanded duty drops under the idle threshold. So ANY
+ * commanded excursion past the threshold latched on the way DOWN - reliably,
+ * within 60 s, on a probe doing exactly what it was told. Measured 2026-09-13:
+ * the dew law ran the tip 17.5 -> 40.7 C at 100 % duty, demand collapsed, and
+ * the latch set during the cool-down with the FET plainly innocent.
+ *
+ * A longer window is NOT the fix. It would trade one wrong answer for
+ * another: a stuck FET would heat unwatched for as long as the window, and a
+ * cool-down that merely lingers near the threshold would still latch. The
+ * window length cannot separate these because it is not what distinguishes
+ * them.
+ *
+ * WHAT DOES DISTINGUISH THEM is the DIRECTION of the excess. Heat the
+ * firmware commanded and then stopped commanding decays: the excess falls
+ * monotonically from its peak, by tau's arithmetic several kelvin per window.
+ * A FET stuck on keeps delivering power, so the excess climbs to its
+ * asymptote and STAYS there. So: evidence accumulates only while the excess
+ * has not fallen materially below the peak it reached in this window.
+ *
+ * WHY PEAK-REFERENCED rather than a per-sample derivative: the die is
+ * converted without temporal averaging at 0.288 K per count (die_temp.h), so
+ * a one-second difference is dominated by dither - a decay near the threshold
+ * is only ~0.07 K/s. Against the PEAK over a 60 s window the same decay is
+ * several kelvin, which is far outside that dither.
+ *
+ * 1.00 K, the same size as the release hysteresis and for the same reason:
+ * comfortably above the die's adjacent-count dither (3.47 counts) and far
+ * below the ~3-7 K a genuine cool-down sheds in one window.
+ *
+ * WHAT IS GIVEN UP, stated plainly (guard checklist 1 and 2): a FET that
+ * sticks on DURING a cool-down is not seen until the decay stops, because
+ * until then the excess is still falling. That is bounded - the excess stops
+ * falling as soon as the stuck power balances the loss - and it is the right
+ * trade against a detector that cannot be used at all because it fires on
+ * every legitimate excursion. The detector remains MONOTONIC in the fault:
+ * the more power a stuck FET delivers, the higher and flatter the excess, and
+ * the sooner it latches. */
+#define O2P_HEATER_RUNAWAY_DECAY_K100 100
+
 /* Conservative default gains. Error is in 0.01 %RH, output in 0.01 % duty.
  *
  * kp = 2.00 means a 10 %RH error asks for 20 % duty; ki = 0.10 means the same
@@ -597,6 +646,14 @@ typedef struct {
      * runaway_evidence_s, and reset by any hot or hysteresis-band sample, any
      * gap longer than O2P_HEATER_RUNAWAY_MAX_GAP_S, and any lost reference. */
     uint16_t runaway_clear_s;
+    /* The highest "how far over the latching threshold" this evidence window
+     * has seen, in 0.01 K, or INT16_MIN when the window holds no sample yet.
+     * Evidence stops accumulating once the excess falls
+     * O2P_HEATER_RUNAWAY_DECAY_K100 below it, which is what tells commanded
+     * heat decaying from a peak apart from a FET stuck at one. Re-based on
+     * every reset so a long decay does not leave a stale high-water mark that
+     * suppresses the detector forever. */
+    int16_t  runaway_peak_k100;
     bool     dt_clamped;       /* hysteresis latches */
     bool     tip_clamped;
     /* Which loop produced the current integrator, so that switching between
