@@ -159,6 +159,33 @@ def bridge_problems(tool):
                    "cannot reach"
                    % (sorted(accepts), sorted(codes)))
 
+    # AND THE DECLARATIONS AGAINST THE BRANCH THAT ACTUALLY ACCEPTS THEM. Every
+    # check above this line reads #defines. That is why none of them said
+    # anything when 5e163a1 declared O2P_BRIDGE_BAUD_5, static-asserted it in
+    # bridge_main.c and listed it for the updater, while write_regs() went on
+    # testing _1.._4 and answered exception 03 to a write of 57600: the
+    # declared set and the tool agreed perfectly, and the accepting branch -
+    # the only thing a master meets - was never in the comparison.
+    # write_regs() now iterates O2P_BRIDGE_BAUD_LIST, so checking that the LIST
+    # names every declared macro is what makes the scrape above mean what it
+    # has always claimed to mean.
+    m_list = re.search(r"#define O2P_BRIDGE_BAUD_LIST((?:.*\\\n)*.*)", rep)
+    if not m_list:
+        out.append("src/bridge_reply.h no longer defines O2P_BRIDGE_BAUD_LIST "
+                   "- that macro is what write_regs() iterates, and without it "
+                   "the rates the bridge declares and the rates it accepts can "
+                   "drift apart again with every check here still passing")
+    else:
+        declared_n = set(re.findall(r"#define O2P_BRIDGE_BAUD_(\d+)\s+\d+u", rep))
+        listed_n = set(re.findall(r"O2P_BRIDGE_BAUD_(\d+)", m_list.group(1)))
+        missing = declared_n - listed_n
+        if missing:
+            out.append("src/bridge_reply.h declares %s but O2P_BRIDGE_BAUD_LIST "
+                       "omits it - the bridge would advertise a rate its own "
+                       "write path answers with exception 03"
+                       % ", ".join(sorted("O2P_BRIDGE_BAUD_%s" % i
+                                          for i in missing)))
+
     # The SWD mailbox: a literal address and a literal layout at both ends,
     # with a debugger in between that will happily read whatever is at the
     # address it is given and report success.

@@ -187,9 +187,14 @@ static void test_the_bus_rate_can_be_moved_to_each_supported_value(void)
 {
     /* Sized from the array rather than a literal 3: this loop silently stopped
      * covering the newest rate when O2P_BRIDGE_BAUD_4 was added, so the one
-     * test that proves a rate is reachable did not test it. */
-    const uint32_t bauds[] = {O2P_BRIDGE_BAUD_1, O2P_BRIDGE_BAUD_2,
-                              O2P_BRIDGE_BAUD_3, O2P_BRIDGE_BAUD_4};
+     * test that proves a rate is reachable did not test it.
+     *
+     * And now taken from O2P_BRIDGE_BAUD_LIST rather than re-listed here,
+     * because sizing from the array fixed only half of that: the array was
+     * still hand-written, so when O2P_BRIDGE_BAUD_5 arrived this loop again
+     * covered every rate except the new one - while write_regs() had stopped
+     * accepting it. Both now iterate the same list. */
+    const uint32_t bauds[] = {O2P_BRIDGE_BAUD_LIST};
     for (unsigned i = 0; i < sizeof(bauds) / sizeof(bauds[0]); i++) {
         const size_t len = write_reg(6u, (uint16_t)(bauds[i] / 100u));
         /* FC16 answers with the address and count it applied, so the master
@@ -212,8 +217,14 @@ static void test_an_unsupported_rate_is_refused_and_commands_nothing(void)
      * value that is not a rate at all. Both must leave the cable where it is:
      * the bridge is the only thing on the bus that stays reachable after a bad
      * move, and only because it did not make one. */
-    const uint16_t bad[6] = {0u, 1u, 24u, 48u, 576u, 0xFFFFu};
-    for (unsigned i = 0; i < 6u; i++) {
+    /* 576 (57600) WAS IN THIS LIST until 2026-09-13, which is how the suite
+     * came to assert the defect: 5e163a1 made 57600 a legal probe rate and
+     * declared O2P_BRIDGE_BAUD_5, and this test went on requiring the bridge
+     * to refuse it - so the coverage that should have caught write_regs()
+     * still checking only _1.._4 instead pinned the bug in place. A rate that
+     * becomes legal has to leave the refusal list in the same commit. */
+    const uint16_t bad[5] = {0u, 1u, 24u, 48u, 0xFFFFu};
+    for (unsigned i = 0; i < 5u; i++) {
         const size_t len = write_reg(6u, bad[i]);
         assert_exception(len, O2P_MB_FC_WRITE_MULTIPLE,
                          O2P_MB_EX_ILLEGAL_VALUE);

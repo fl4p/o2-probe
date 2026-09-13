@@ -44,6 +44,26 @@ typedef struct {
 #define O2P_BRIDGE_BAUD_4 115200u
 #define O2P_BRIDGE_BAUD_5 57600u
 
+/* THE LIST THE ACCEPTING BRANCH ITERATES. write_regs() and test_bridge.c both
+ * read THIS, so a rate declared above but missing here cannot be accepted, and
+ * nothing can be accepted that is not declared: the set check_update_tool.py
+ * scrapes from the #defines and the set the firmware actually takes are the
+ * same set by construction, not by anyone remembering.
+ *
+ * It exists because the hand-written list drifted TWICE, in both directions.
+ * O2P_BRIDGE_BAUD_4 was added and test_bridge.c's loop kept covering three
+ * rates, so the one test that proves a rate is reachable did not test the new
+ * one (fixed then by sizing the loop from the array - which left the array
+ * itself hand-written). O2P_BRIDGE_BAUD_5 was added 2026-09-13 and write_regs()
+ * kept checking four: the bridge declared 57600 here, static-asserted it in
+ * bridge_main.c, advertised it to the updater, and answered exception 03 to
+ * anyone who wrote it. check_update_tool.py compared these DECLARATIONS against
+ * the tool and reported agreement the whole time - a guard that could not see
+ * the branch it was guarding. Found by the codex xhigh review of 5e163a1. */
+#define O2P_BRIDGE_BAUD_LIST                                 \
+    O2P_BRIDGE_BAUD_1, O2P_BRIDGE_BAUD_2, O2P_BRIDGE_BAUD_3, \
+    O2P_BRIDGE_BAUD_4, O2P_BRIDGE_BAUD_5
+
 /* Build the bridge's own answer to `req`, which the caller has already found
  * to be addressed to `addr`.
  *

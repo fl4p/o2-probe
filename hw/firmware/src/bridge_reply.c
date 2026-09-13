@@ -68,8 +68,21 @@ static size_t write_regs(uint8_t addr, const uint8_t *req, size_t n,
 
     const uint16_t val = (uint16_t)((req[7] << 8) | req[8]);
     const uint32_t baud = (uint32_t)val * 100u;
-    if (baud != O2P_BRIDGE_BAUD_1 && baud != O2P_BRIDGE_BAUD_2 &&
-        baud != O2P_BRIDGE_BAUD_3 && baud != O2P_BRIDGE_BAUD_4) {
+    /* ITERATED, not spelled out. Written as a chain of != this branch fell one
+     * rate behind the header on 2026-09-13: O2P_BRIDGE_BAUD_5 was declared,
+     * static-asserted in bridge_main.c and handed to the updater, while a
+     * master writing 576 got exception 03 from here - the bridge advertising a
+     * rate it refused. O2P_BRIDGE_BAUD_LIST is now the single list the header,
+     * this branch and test_bridge.c all read. */
+    static const uint32_t legal[] = {O2P_BRIDGE_BAUD_LIST};
+    bool legal_rate = false;
+    for (unsigned i = 0u; i < sizeof(legal) / sizeof(legal[0]); i++) {
+        if (baud == legal[i]) {
+            legal_rate = true;
+            break;
+        }
+    }
+    if (!legal_rate) {
         return exception(rsp, addr, fc, O2P_MB_EX_ILLEGAL_VALUE);
     }
 
