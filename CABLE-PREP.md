@@ -34,7 +34,7 @@ Lif9Y11Y 4x0,25, article 7038890**.
 
 | | |
 |---|---|
-| **outer diameter, measured** | **3,65 mm** (Fab, 2026-09-13; method and number of points not recorded) |
+| **outer diameter, measured** | **3,65 mm** (Fab, 2026-09-13, caliper (Messschieber); number of points and jaw pressure not recorded) |
 | outer diameter, catalogue | 3,8 mm (automation24 technical-data table) |
 | jacket | PUR, black, halogen-free, flame-retardant |
 | cores | 4 x 0,25 mm², **unshielded**, PP insulation |
@@ -190,10 +190,13 @@ published.
 
 ## 8. Open
 
-- **Record how 3,65 mm was measured**: instrument, number of points, and
-  whether the jaws compressed the jacket. The tool choice has margin either way,
-  but `CABLE-SOURCING.md` §5 sizes the **cable gland** on this same figure, and a
-  gland has much less tolerance than this tool.
+- **3,65 mm was measured with a caliper**, but the number of points and the jaw
+  pressure were not recorded. Caliper jaws can flatten a soft PUR jacket, and a
+  jacket is rarely perfectly round, so treat 3,65 mm as a possible under-read.
+  For the **cable gland** (`CABLE-SOURCING.md` §5), repeat the reading at three
+  points along the cable, and at two orientations 90° apart at each point, with
+  the lightest jaw contact that still holds. Record the minimum and the maximum.
+  The Sensor Mini's 3,20–4,40 mm range tolerates any plausible error.
 - Validate the Sensor Mini on the 20 cm offcut (§3), including a magnified check
   of the PP core insulation, and record the result here.
 - Jacket wall thickness for 7038890 is still unpublished. It no longer matters
