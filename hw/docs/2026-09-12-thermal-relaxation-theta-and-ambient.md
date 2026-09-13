@@ -270,5 +270,24 @@ probe 3 is a probe state change and waits for Fab's word.
 - ~~The dew law's 79 °C tip ceiling against the cell's 60 °C rating.~~ CLOSED
   2026-09-13, Fab: *"ignore the rating, we will use it out of spec."* The
   ceiling stands as written; the cell is knowingly operated past its rating.
-- Installing FW 0x0016 on probe 3 — built and tested, not flashed, waiting on
-  Fab's word.
+- ~~Installing FW 0x0016 on probe 3.~~ DONE 2026-09-13 on Fab's "flash it":
+  46 056 B, CRC `1EAF8F3B`, 111 s, installed and verified through the keeper.
+  **The calibration survived, measured rather than argued** — `CONFIG_CRC`
+  bit-identical at 0xD1AA and CAL_AIR_NA still 101 327 nA across the install,
+  with every other per-probe constant unmoved (`tech/bench/o2p_flash.py` in
+  farming does the before/after comparison).
+  Two things that install taught, both since fixed:
+  - the image was stamped `8AA6133D` — a DIRTY tree at `aa6133d`, i.e. no
+    reproducible provenance. A clean rebuild differs by exactly 12 bytes, the
+    build id at three sites.
+  - `--expect-build-id` could never have verified it: bit 30 is set at runtime
+    by `regmap.c` on an `O2P_DEBUG_ENABLE=1` image and never stamped by the
+    builder, so the bare equality in `o2p_update.py` failed on every image this
+    probe can run (fixed in `c295364`).
+- **FW 0x0016 is superseded by 0x0017** (`8bb8802`, the runaway latch firing on
+  its own cool-down — seen live as `HEATER_BLOCK = RUNAWAY | BLIND` minutes
+  after this install). Whatever is flashed next should be 0x0017 or later,
+  built clean.
+- The gradient floor and the dew law are **dormant while a stored tip setpoint
+  is armed** — the precedence chain puts the setpoint first. Returning 0x0049
+  to its sentinel is what puts the combined law in command.
