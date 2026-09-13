@@ -335,6 +335,53 @@ while the law drives is still credited as its own climb. New read-only register
 **HEATER_LAW (0x0008)** publishes the law in command and the unreachable flag,
 because no existing register could tell that fallback from "both satisfied".
 
+## 2026-09-13: the 0x0018 detector failed review; rebuilt as a ceiling-dwell test (FW 0x0019)
+
+The codex xhigh review of `d7be806` ran 25 min with network, executed the
+committed controller against throwaway thermal models, and returned eight
+findings. Each was re-checked against the code before it was believed
+(`~/codex-reviews/o2p-heater-law-0x0018/final.md`). **0x0018 was never
+flashed and is superseded.**
+
+**The criterion was the wrong kind of test.** "5 K of tip rise must buy 0.5 K
+of margin" requires ≥ 10 % cell coupling, and this document measured
+**3–11 %**. Model at 9 %: it gave up after 43 s and left the cell 0.2 K under
+its dew point for 6 h, where the plain law reached a 4 K margin at a 73.7 °C
+tip. The same form never fired when the tip could not climb 5 K (a 75 °C pile
+held 79 °C for 6 h), credited slow outside heat as its own climb, and could
+clear itself on its own retreat and re-climb every ~80 min. Plus code bugs:
+detector state survived refused and blind cycles, a met target could flag,
+HEATER_LAW read DEW on a runaway-latch cycle, and the CLI, poller and doc
+checker did not know the register.
+
+**Fab chose option A: give up only at the ceiling.** FW 0x0019 (`9eb3a34`)
+declares the margin unreachable when it is short **and** the tip has sat within
+1 K of the dew law's ceiling for 600 observed seconds. At the ceiling no more
+heat is possible whatever put the tip there, so there is no attribution
+question left to get wrong. Recovery needs the margin 1 K over target held
+600 s, or the 6 h retry. Evidence is discarded across refused cycles; the
+verdict survives the dew law's own refusals, because the SHT45 de-creep refuses
+it every 8 h by default.
+
+**Stated limits.** It bounds the *time* at the ceiling, not the climb there.
+A plant that cannot reach the ceiling at full duty — a well-coupled buried
+probe — never trips it and keeps driving: power, not the cell.
+
+**Verification.** The 0x0018 tests passed teleported inputs and missed the
+physics, so the new ones run through a first-order plant (θ·P 83.2 K,
+τ 150 s). The wet-gas test's first run exposed its own assumption: the PI
+overshoots into the ceiling band, falls out and settles, and the dwell rightly
+restarts. Mutation-calibrated: a never-firing detector fails 6 tests, an
+always-firing one fails 15. 391 host tests pass; cross build 87.1 % of the slot.
+
+**Handoff.** A peer session holds Fab's instruction for a cell-referenced
+gradient ceiling (min(79 °C, T_cell + DT_MAX)). Both sides agreed that the
+ceiling lives in one function, `dew_ceiling_c100()`, which the law, the
+gradient floor and this detector all call. If the detector had kept its own
+79 °C copy, a cell + 4 K ceiling would have made it silently dormant. That
+change lands as 0x001A; one combined codex review covers 0x0019 + 0x001A before
+any install.
+
 ## Method notes
 
 - **The cuts were genuinely free**: duty read exactly 0.00 in all 181
@@ -380,10 +427,14 @@ because no existing register could tell that fallback from "both satisfied".
 - ~~The gradient floor and the dew law are dormant while a stored tip setpoint
   is armed.~~ DONE 2026-09-13: setpoint returned to the sentinel on Fab's word,
   `CONFIG_CRC` 0xE25C; the combined law is in command.
-- **FW 0x0018** (`d7be806`, unreachable-margin detector + HEATER_LAW): built,
-  codex xhigh review running, **not flashed**.
-- Slow external heating while the dew law drives is credited as its own climb
-  (FW 0x0018 known limit).
+- ~~FW 0x0018 (`d7be806`).~~ SUPERSEDED 2026-09-13 — failed codex xhigh review,
+  never flashed; replaced by 0x0019 (`9eb3a34`), see the section above.
+- ~~Slow external heating credited as the dew law's own climb.~~ GONE with the
+  climb test: 0x0019 asks no attribution question.
+- **FW 0x001A** (peer session): cell-referenced gradient ceiling in
+  `dew_ceiling_c100()`, then one combined codex review, then install.
+- 0x0019's accepted limits: bounds time at the ceiling, not the climb; a plant
+  that cannot reach the ceiling at full duty keeps driving.
 - The keeper's `verify rc=1` on an install `BUILD_ID` proves succeeded.
 - A commissioning bake to dry the enclosure before burial — proposed, not
   specified.
