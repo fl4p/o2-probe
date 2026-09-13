@@ -364,6 +364,83 @@ enum {
 #define O2P_HEATER_DEW_TIP_CEIL_C100  7900
 #define O2P_HEATER_DEW_KP_X100        500u
 #define O2P_HEATER_DEW_KI_X100        5u
+
+/* THE GRADIENT FLOOR, high-selected against the dew-margin law (FW 0x0016;
+ * Fab 2026-09-13, "should we combine +2k and the 4k dew margin?" then "lets
+ * do it then").
+ *
+ * WHAT IT IS. A second regulator running ALONGSIDE the dew law in the same
+ * autonomous slot, on error = (T_cell + delta) - T_tip, whose duty is
+ * high-selected against the dew law's:
+ *
+ *     duty = max(dew_duty, floor_duty)
+ *
+ * A high-select, not a mode switch and not a precedence rule. Both are LOWER
+ * bounds on how hard the ring must drive, so the binding one wins and the
+ * other is simply not binding. Neither can turn the other down.
+ *
+ * WHY A SECOND LAW AT ALL - THE FAILURE MODE IT COVERS. The dew law's own
+ * header states its blind spot: "Liquid water on its surface makes [the
+ * SHT45] unresponsive to air RH ... and nothing here can detect that - a
+ * successful read and a Magnus-valid input are not evidence of it." The
+ * dangerous direction is a wetted-then-drying element reading LOW RH: the
+ * computed dew point drops, the margin looks generous, and the dew law asks
+ * for NO DUTY while the membrane condenses. No interlock fires, because
+ * every reading is valid; the law is simply being lied to. A buried probe in
+ * saturated pore gas is exactly the environment that produces that.
+ *
+ * The floor's whole value is that its sensor chain is DISJOINT from the one
+ * that can lie: two TMP117s, no humidity, no Magnus form, no wettable
+ * sensing surface. It cannot chase a real dew point - it has no humidity
+ * input - and it cannot be fooled by a wrong one either.
+ *
+ * WHY IT IS A GRADIENT AND NOT "+2 K OVER AMBIENT". Fab asked for a constant
+ * +2 K over ambient, and THIS BOARD HAS NO AMBIENT SENSOR. T_EXT, the
+ * cell-side TMP117, is simultaneously the closest thing to ambient and the
+ * dew law's reference SURFACE, so "cell minus ambient" taken from it is
+ * identically zero. What two sensors can state is a GRADIENT: hold the tip
+ * delta above the cell side, i.e. always be pumping heat outward past the
+ * membrane. Measured 2026-09-12/13
+ * (docs/2026-09-12-thermal-relaxation-theta-and-ambient.md): the cell is
+ * ~11 % coupled to the tip in still bench air, so a 2 K gradient lifts the
+ * cell only ~0.22 K over true ambient there; the same night's bath data has
+ * the cell gaining ~0.4 K per K of tip. So READ THIS AS "the heat never
+ * stops flowing outward", NOT as a 2 K dew margin. It is a floor under the
+ * dew law, not a substitute for it.
+ *
+ * WHAT IT COSTS, stated rather than discovered later. In a pile hotter than
+ * the probe the cell is heated from OUTSIDE, the tip lags, and the floor
+ * demands duty to get back ahead of it - so this runs continuously in a
+ * self-heating windrow rather than only when the gas is wet. It is bounded
+ * by the same 79.00 C ceiling and by HEATER_MAX_DUTY, and in saturated pore
+ * gas the dew law was going to be the binding one anyway; but a power budget
+ * for a buried probe cannot be taken from the dew law alone.
+ *
+ * MONOTONICITY, restated honestly (guard checklist 2). The dew law alone is
+ * monotonic in margin. THE COMBINED LAW IS NOT monotonic in cell
+ * temperature, and that is structural rather than an oversight: a cell ABOVE
+ * the tip is the floor's own worst case (no outward heat flow) and the dew
+ * law's best case (margin to spare). Each law stays monotonic in ITS OWN
+ * error, and max() is monotonic in each argument - that is the guarantee
+ * which survives the combination, and the one the tests pin down.
+ *
+ * COMPILE-TIME ON PURPOSE. delta and the gains are constants, not holding
+ * registers, so this change does not touch the flash record's layout. A
+ * CONFIG_LAYOUT_VERSION bump is what runs a record through config_migrate.c,
+ * and that is the only path on which an air point has ever been lost. Fab,
+ * 2026-09-13: "we can't loose our calibration every re-flash." Keeping the
+ * law out of the record keeps that promise.
+ *
+ * GAINS. The error is in 0.01 K like the dew law's, but THE PLANT IS NOT THE
+ * SAME - this one controls the tip directly, the fast node, where the dew
+ * law controls the cell across a lag. So it takes the tip loop's gains
+ * (O2P_HEATER_TEST_*_DEFAULT, bench-verified holding +/-0.04 K on
+ * 2026-09-12) rather than the dew law's deliberately slow pair. PROVISIONAL,
+ * like every other number about this plant. */
+#define O2P_HEATER_FLOOR_DELTA_K100   200
+#define O2P_HEATER_FLOOR_KP_X100      5000u
+#define O2P_HEATER_FLOOR_KI_X100      50u
+
 /* How long main.c bridges the last accepted cell-side reading. Its glitch
  * filter withholds up to five 1 Hz readings after a >3 K jump; without a
  * bridge each of those would hand the loop to the RH law and back, restarting
@@ -497,6 +574,15 @@ typedef struct {
 
 typedef struct {
     float    integ;            /* integrator, carried in duty units */
+    /* The GRADIENT FLOOR's own integrator (O2P_HEATER_FLOOR_DELTA_K100).
+     *
+     * Separate from `integ` because the floor runs CONCURRENTLY with the dew
+     * law rather than instead of it, so the mode tag - which exists to stop
+     * one law inheriting another's wind-up - cannot arbitrate between them:
+     * both are live in the same cycle. Zeroed whenever the floor is not in
+     * command, which is every path except the dew law's, so re-entry is the
+     * same bumpless proportional-only restart a mode change gives. */
+    float    integ_floor;
     bool     runaway_latched;
     bool     zero_duty_timing;
     uint32_t zero_duty_since_s;

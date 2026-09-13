@@ -10,6 +10,7 @@ void o2p_heater_ctl_reset(o2p_heater_state_t *st)
         return;
     }
     st->integ = 0.0f;
+    st->integ_floor = 0.0f;
     st->runaway_latched = false;
     st->runaway_evidence_s = 0u;
     st->runaway_clear_s = 0u;
@@ -448,6 +449,53 @@ static void update_runaway(o2p_heater_state_t *st,
  * `mode` zeroes the integrator whenever the controlled quantity changes: an
  * integral wound up in 0.01 %RH has no meaning in 0.01 K, and carrying it
  * across would slam the output on the first cycle after a mode switch. */
+/* The arithmetic half of pi_step(), on a CALLER-SUPPLIED integrator.
+ *
+ * Split out 2026-09-13 for the gradient floor (O2P_HEATER_FLOOR_DELTA_K100),
+ * which runs concurrently with the dew law and therefore needs an integrator
+ * of its own: the mode tag arbitrates between laws that take turns, and these
+ * two do not. Nothing about the anti-windup changed - pi_step() below is this
+ * function plus the mode/session reset it always did, so the existing callers
+ * are byte-for-byte the same law.
+ *
+ * Anti-windup is per-integrator and against THIS loop's own limit, which is
+ * what makes the high-select safe: a loser with a positive error is a loop
+ * asking for more duty than it is getting, and it stops integrating at
+ * max_duty exactly as if it were alone. A loser with a NEGATIVE error - the
+ * ordinary case, because the winner's extra duty overshoots the loser's
+ * target - unwinds toward zero on its own. */
+static uint16_t pi_core(float *integ, float e, float kp, float ki,
+                        float max_duty)
+{
+    /* An integrator is the accumulated INTEGRAL ACTION, so with no integral
+     * gain there is none to hold; see pi_step() for the full argument. */
+    if (ki == 0.0f) {
+        *integ = 0.0f;
+    }
+
+    const float p = kp * e;
+
+    float u = p + *integ;
+    const bool at_top = (u >= max_duty);
+    const bool at_bottom = (u <= 0.0f);
+    if ((!at_top && !at_bottom) || (at_top && e < 0.0f) || (at_bottom && e > 0.0f)) {
+        *integ += ki * e;   /* dt = 1 s by construction of the caller */
+        if (*integ > max_duty) {
+            *integ = max_duty;
+        } else if (*integ < -max_duty) {
+            *integ = -max_duty;
+        }
+        u = p + *integ;
+    }
+
+    if (u < 0.0f) {
+        u = 0.0f;
+    } else if (u > max_duty) {
+        u = max_duty;
+    }
+    return (uint16_t)(u + 0.5f);
+}
+
 static uint16_t pi_step(o2p_heater_state_t *st, uint8_t mode, uint8_t session,
                         float e, float kp, float ki, float max_duty)
 {
@@ -461,46 +509,22 @@ static uint16_t pi_step(o2p_heater_state_t *st, uint8_t mode, uint8_t session,
         st->last_session = session;
     }
 
-    /* An integrator is the accumulated INTEGRAL ACTION, so with no integral
-     * gain there is none to hold. Without this, writing ki = 0 leaves whatever
-     * was already wound up contributing forever: with kp = 0 too, p is zero,
-     * nothing further accumulates, and the output stays parked at the stale
-     * integral - so "I set both gains to zero" produces sustained duty rather
-     * than none. Found by review 2026-09-08. Clearing here rather than
-     * refusing a zero gain keeps P-only tuning (ki = 0, kp > 0) legal, which
-     * is a reasonable thing to want on an unmeasured plant. */
-    if (ki == 0.0f) {
-        st->integ = 0.0f;
-    }
-
-    const float p = kp * e;
-
-    /* Conditional integration. Integrate only when the output is off its
-     * limits, or when the error would drive it back inside them - the textbook
-     * anti-windup that costs nothing and is trivially testable. Computing the
-     * tentative output from the OLD integrator first is what makes the
-     * decision meaningful. */
-    float u = p + st->integ;
-    const bool at_top = (u >= max_duty);
-    const bool at_bottom = (u <= 0.0f);
-    if ((!at_top && !at_bottom) || (at_top && e < 0.0f) || (at_bottom && e > 0.0f)) {
-        st->integ += ki * e;   /* dt = 1 s by construction of the caller */
-        /* Bound the integrator itself as well, so a long excursion cannot
-         * park it somewhere it takes minutes to unwind from. */
-        if (st->integ > max_duty) {
-            st->integ = max_duty;
-        } else if (st->integ < -max_duty) {
-            st->integ = -max_duty;
-        }
-        u = p + st->integ;
-    }
-
-    if (u < 0.0f) {
-        u = 0.0f;
-    } else if (u > max_duty) {
-        u = max_duty;
-    }
-    return (uint16_t)(u + 0.5f);
+    /* WHY ki == 0 CLEARS THE INTEGRATOR, and why conditional integration is
+     * written the way it is in pi_core(): an integrator is the accumulated
+     * INTEGRAL ACTION, so with no integral gain there is none to hold.
+     * Without that, writing ki = 0 leaves whatever was already wound up
+     * contributing forever: with kp = 0 too, p is zero, nothing further
+     * accumulates, and the output stays parked at the stale integral - so "I
+     * set both gains to zero" produces sustained duty rather than none. Found
+     * by review 2026-09-08. Clearing rather than refusing a zero gain keeps
+     * P-only tuning (ki = 0, kp > 0) legal, which is a reasonable thing to
+     * want on an unmeasured plant.
+     *
+     * The anti-windup is the textbook conditional integration: integrate only
+     * when the output is off its limits, or when the error would drive it
+     * back inside them, with the tentative output computed from the OLD
+     * integrator so the decision is meaningful. */
+    return pi_core(&st->integ, e, kp, ki, max_duty);
 }
 
 /* THE HARD MASK, unchanged by the 2026-09-11 rulings: the off switches, the
@@ -665,6 +689,7 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
          * from proportional-only is bumpless and slow, which is correct for a
          * plant nobody has measured. */
         st->integ = 0.0f;
+        st->integ_floor = 0.0f;
         const uint16_t duty = blind_duty(cfg, in, refusing);
         out->duty_x100 = duty;
         out->block = (uint16_t)((block | supply_note) |
@@ -675,6 +700,15 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
 
     const float max_duty = (float)cfg->max_duty_x100;
     uint16_t duty;
+
+    /* The gradient floor is in command only alongside the dew law, so its
+     * integrator is cleared on every other path - the same bumpless
+     * proportional-only re-entry the mode tag gives the laws that take turns.
+     * It cannot use the mode tag itself: it does not take a turn, it runs
+     * concurrently. See O2P_HEATER_FLOOR_DELTA_K100. */
+    if (!dew_law_in_command(cfg, in)) {
+        st->integ_floor = 0.0f;
+    }
 
     if (cfg->test_override && cfg->test_tip_sp_valid) {
         /* Tip-temperature loop. Positive error means too cold, which means
@@ -748,6 +782,41 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
         duty = pi_step(st, O2P_HEATER_MODE_DEW, cfg->session, e, kp,
                        (float)O2P_HEATER_DEW_KI_X100 * 0.01f,
                        max_duty);
+
+        /* THE GRADIENT FLOOR, HIGH-SELECTED (O2P_HEATER_FLOOR_DELTA_K100).
+         *
+         * Runs every cycle the dew law does, on its own integrator, and the
+         * larger of the two demands is what the ring gets. Both are lower
+         * bounds, so max() is the only combination that respects both: a
+         * min(), or a precedence rule, would let one law turn the other
+         * DOWN, and the whole reason this one exists is that the dew law can
+         * be lied to into asking for nothing.
+         *
+         * THE SAME CEILING BINDS IT. The floor's setpoint is clamped to
+         * O2P_HEATER_DEW_TIP_CEIL_C100 rather than allowed to ask for
+         * cell + delta unconditionally: in a pile near the ceiling that sum
+         * is above it, and a floor that drove through the ceiling would make
+         * the 80.00 C clamp the control mechanism again - the argument at
+         * O2P_HEATER_TIP_LIMIT_C100. Clamping the SETPOINT (rather than
+         * back-calculating as the dew law must) is enough here because this
+         * law's controlled quantity IS the tip: above the clamped setpoint
+         * its own error is already negative, so it unwinds instead of
+         * winding up. */
+        int32_t floor_sp_c100 = (int32_t)in->t_cell_c100 +
+                                (int32_t)O2P_HEATER_FLOOR_DELTA_K100;
+        if (floor_sp_c100 > (int32_t)O2P_HEATER_DEW_TIP_CEIL_C100) {
+            floor_sp_c100 = (int32_t)O2P_HEATER_DEW_TIP_CEIL_C100;
+        }
+        const float e_floor = (float)(floor_sp_c100 -
+                                      (int32_t)in->t_tip_c100);
+        const uint16_t floor_duty =
+            pi_core(&st->integ_floor, e_floor,
+                    (float)O2P_HEATER_FLOOR_KP_X100 * 0.01f,
+                    (float)O2P_HEATER_FLOOR_KI_X100 * 0.01f,
+                    max_duty);
+        if (floor_duty > duty) {
+            duty = floor_duty;
+        }
     } else {
         /* Positive error means too humid, which means not enough heat. */
         const float e = (float)in->rh_x100 - (float)cfg->setpoint_x100;

@@ -4668,8 +4668,19 @@ static void test_dew_law_idles_with_margin_to_spare(void)
     o2p_heater_in_t in = hin_dew();
     o2p_heater_out_t out;
 
-    /* Td = 52.95 C; the cell 5 K above it has a kelvin more than the target. */
-    in.t_cell_c100 = 5795;
+    /* BOTH laws must be idle for the duty to be zero, since FW 0x0016
+     * high-selects the gradient floor against this one. The original wording
+     * of this test - cell 57.95 C over hin_dew()'s 55.00 C tip - had the CELL
+     * three kelvin HOTTER THAN THE TIP, which is unreachable on a board whose
+     * only heat source is the ring, and which the floor correctly reads as
+     * "no heat is flowing outward" and answers with full duty.
+     *
+     * So the gas is dried to 70 %RH instead of moved: at chamber 54.00 C that
+     * is Td = 46.83 C, the cell at 51.00 C keeps 4.17 K of margin (0.17 K to
+     * spare), and the tip at 55.00 C is 4 K above the cell - twice the floor's
+     * 2 K gradient. Neither law has anything to ask for. */
+    in.rh_x100 = 7000u;
+    in.t_cell_c100 = 5100;
     TEST_ASSERT_EQUAL_UINT16(0u, dew_step_fresh(&cfg, &in, &out));
     TEST_ASSERT_EQUAL_UINT16(O2P_HB_TIP_DISARMED | O2P_HB_IDLE, out.block);
 }
@@ -4902,11 +4913,22 @@ static void test_dew_law_duty_is_monotonic_in_margin(void)
     /* Guard checklist 2: as the cell gets colder (or the gas wetter) the
      * duty must never fall, out to the far tail. Fresh state per point so
      * the integrator does not blur the static map. Tip 70 C over a 69 C
-     * chamber: 9 K of ceiling room, no DT_LIMIT. */
+     * chamber: 9 K of ceiling room, no DT_LIMIT.
+     *
+     * SCOPED TO THE DEW LAW, deliberately, since FW 0x0016. The COMBINED law
+     * is not monotonic in cell temperature and cannot be: a cell above the
+     * tip is the dew law's best case and the gradient floor's worst one, so
+     * max() steps up again at the hot end. That is stated at
+     * O2P_HEATER_FLOOR_DELTA_K100, and what survives the combination is that
+     * each law is monotonic in its OWN error and max() is monotonic in each
+     * argument. This sweep therefore starts where the floor is already
+     * satisfied - cell 68.00 C is exactly 2 K under the 70.00 C tip - so
+     * every point below it is the dew law alone. The floor's own monotonicity
+     * is test_gradient_floor_duty_is_monotonic_in_its_gradient(). */
     o2p_heater_cfg_t cfg = hcfg_default();
     o2p_heater_out_t out;
     uint16_t prev = 0u;
-    for (int16_t cell = 7000; cell >= -4000; cell = (int16_t)(cell - 250)) {
+    for (int16_t cell = 6800; cell >= -4000; cell = (int16_t)(cell - 250)) {
         o2p_heater_in_t in = hin_dew();
         in.t_tip_c100 = 7000;
         in.t_chamber_c100 = 6900;
@@ -4921,12 +4943,201 @@ static void test_dew_law_duty_is_monotonic_in_margin(void)
     for (uint16_t rh = 100u; rh <= 10000u; rh = (uint16_t)(rh + 100u)) {
         o2p_heater_in_t in = hin_dew();
         in.rh_x100 = rh;
-        in.t_cell_c100 = 5400;
+        /* 52.50 C, not 54.00: 2.50 K under hin_dew()'s 55.00 C tip, so the
+         * gradient floor is satisfied at every point and the sweep measures
+         * the dew law's response to humidity alone. */
+        in.t_cell_c100 = 5250;
         const uint16_t d = dew_step_fresh(&cfg, &in, &out);
         TEST_ASSERT_TRUE_MESSAGE(d >= prev, "duty fell as the gas got wetter");
         prev = d;
     }
     TEST_ASSERT_TRUE(prev > 0u);
+}
+
+/* ------------------------------------ the gradient floor (FW 0x0016), which
+ * is high-selected against the dew-margin law rather than replacing it. See
+ * O2P_HEATER_FLOOR_DELTA_K100. */
+
+/* The dew law with NOTHING to ask for, so any duty seen came from the floor.
+ * 70 %RH over a 54.00 C chamber is Td = 46.83 C; the cell at 51.00 C holds
+ * 4.17 K of margin. The tip is the caller's to place. */
+static o2p_heater_in_t hin_floor(void)
+{
+    o2p_heater_in_t in = hin_dew();
+    in.rh_x100 = 7000u;
+    in.t_cell_c100 = 5100;
+    return in;
+}
+
+static void test_gradient_floor_heats_when_the_dew_law_would_not(void)
+{
+    /* THE FAILURE THIS LAW EXISTS FOR. Every reading is valid and the dew
+     * law is satisfied - which is exactly what a wetted-then-drying SHT45
+     * reporting a falsely low humidity looks like from inside the firmware.
+     * Nothing raises a bit; the law is simply being lied to. The floor does
+     * not consult humidity at all, so it still sees a tip that is not ahead
+     * of the cell, and still drives. */
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_floor();
+    o2p_heater_out_t out;
+
+    in.t_tip_c100 = 5150;   /* only 0.50 K ahead of the cell: 1.50 K short */
+    TEST_ASSERT_TRUE_MESSAGE(dew_step_fresh(&cfg, &in, &out) > 0u,
+        "a tip that is not ahead of the cell must be driven, whatever the RH says");
+    /* No refusal, no blind, no IDLE - the loop is regulating. */
+    TEST_ASSERT_EQUAL_UINT16(O2P_HB_TIP_DISARMED, out.block);
+
+    /* kp 50 x 150 = 7500, plus one second of integral (ki 0.5 x 150 = 75). */
+    TEST_ASSERT_UINT16_WITHIN(2u, 7575u, dew_step_fresh(&cfg, &in, &out));
+
+    /* The same probe with the gradient already established asks for nothing. */
+    in.t_tip_c100 = 5400;   /* 3 K ahead of the cell */
+    TEST_ASSERT_EQUAL_UINT16(0u, dew_step_fresh(&cfg, &in, &out));
+    TEST_ASSERT_EQUAL_UINT16(O2P_HB_TIP_DISARMED | O2P_HB_IDLE, out.block);
+}
+
+static void test_the_high_select_takes_whichever_law_asks_for_more(void)
+{
+    /* Both directions, because a max() that silently became a precedence
+     * rule would still pass one of them. */
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+
+    /* Floor binding, dew law idle: Td 46.83 C against a cell at 51.00 C. */
+    o2p_heater_in_t floor_binds = hin_floor();
+    floor_binds.t_tip_c100 = 5150;
+    const uint16_t d_floor = dew_step_fresh(&cfg, &floor_binds, &out);
+
+    /* Dew law binding, floor satisfied: saturated gas, Td 53.68 C, the cell
+     * 5.68 K short of its 4 K margin, and the tip 4 K clear of the cell. */
+    o2p_heater_in_t dew_binds = hin_dew();
+    dew_binds.rh_x100 = 10000u;
+    dew_binds.t_cell_c100 = 4800;
+    dew_binds.t_tip_c100 = 5400;
+    const uint16_t d_dew = dew_step_fresh(&cfg, &dew_binds, &out);
+
+    TEST_ASSERT_TRUE(d_floor > 0u);
+    TEST_ASSERT_TRUE(d_dew > 0u);
+
+    /* And a probe in BOTH conditions gets the larger demand, not the sum and
+     * not the law that happens to be written first. */
+    o2p_heater_in_t both = dew_binds;
+    both.t_tip_c100 = 4850;   /* 0.50 K ahead of the cell: the floor bites too */
+    const uint16_t d_both = dew_step_fresh(&cfg, &both, &out);
+    TEST_ASSERT_TRUE_MESSAGE(d_both >= d_dew,
+        "the high-select must never come out below either law on its own");
+    TEST_ASSERT_TRUE_MESSAGE(d_both <= 10000u, "and never above max_duty");
+}
+
+static void test_gradient_floor_respects_the_79c_ceiling(void)
+{
+    /* A pile hot enough that cell + 2 K is over the ceiling. The floor must
+     * hold the tip AT the ceiling rather than drive through it and make the
+     * 80.00 C clamp the control mechanism. */
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_floor();
+    o2p_heater_out_t out;
+
+    in.t_cell_c100 = 7800;      /* cell + delta = 80.00 C, above the ceiling */
+    in.t_tip_c100 = 7900;       /* exactly at it */
+    in.t_chamber_c100 = 7850;
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, dew_step_fresh(&cfg, &in, &out),
+        "the floor must not ask for duty once the tip is at the ceiling");
+    TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_TIP_LIMIT);
+
+    /* Half a kelvin under the ceiling it drives again, from the CLAMPED
+     * setpoint: kp 50 x 50 = 2500 plus ki 0.5 x 50 = 25, not the 50 x 250
+     * an unclamped cell + 2 K would have asked for. */
+    in.t_tip_c100 = 7850;
+    in.t_chamber_c100 = 7800;
+    TEST_ASSERT_UINT16_WITHIN(2u, 2525u, dew_step_fresh(&cfg, &in, &out));
+}
+
+static void test_gradient_floor_duty_is_monotonic_in_its_gradient(void)
+{
+    /* Guard checklist 2 for the floor's own error, out to both tails: as the
+     * tip falls behind the cell the duty must never fall. Fresh state per
+     * point, and a dew law with nothing to ask for throughout. */
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+    uint16_t prev = 0u;
+    for (int16_t tip = 5400; tip >= 4000; tip = (int16_t)(tip - 25)) {
+        o2p_heater_in_t in = hin_floor();
+        in.t_tip_c100 = tip;
+        in.t_chamber_c100 = (int16_t)(tip - 100);   /* keep dT inside 4 K */
+        const uint16_t d = dew_step_fresh(&cfg, &in, &out);
+        TEST_ASSERT_TRUE_MESSAGE(d >= prev, "duty fell as the tip fell behind");
+        prev = d;
+    }
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(10000u, prev,
+        "the far tail must saturate at max_duty, not wrap or taper");
+}
+
+static void test_gradient_floor_runs_only_beside_the_dew_law(void)
+{
+    /* It is a floor under the AUTONOMOUS humidity-side law, not a fifth law
+     * that outranks an operator or a stored setpoint. Every other path must
+     * be exactly what it was before FW 0x0016. */
+    o2p_heater_out_t out;
+    o2p_heater_in_t in = hin_floor();
+    in.t_tip_c100 = 5150;       /* the floor would want ~76 % duty */
+    in.t_chamber_c100 = 5100;
+
+    /* No cell reading: the RH law is in command, and 70 %RH is under its
+     * 85 % setpoint, so a probe that would have been floored idles instead. */
+    o2p_heater_cfg_t rh_cfg = hcfg_default();
+    o2p_heater_in_t no_cell = in;
+    no_cell.cell_valid = false;
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, dew_step_fresh(&rh_cfg, &no_cell, &out),
+        "the floor must not run under the RH law - it has no cell reference");
+
+    /* A stored tip setpoint: the configured law wins, at its own setpoint. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t tip_cfg = hcfg_tip_auto();
+    o2p_heater_ctl_step(&st, &tip_cfg, &in, 0u, &out);
+    TEST_ASSERT_EQUAL_UINT8(O2P_HEATER_MODE_TIP_AUTO, st.last_mode);
+    TEST_ASSERT_EQUAL_FLOAT(0.0f, st.integ_floor);
+
+    /* An armed open-loop override: the operator's duty, not the floor's. */
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t ov = hcfg_default();
+    arm_override(&ov, 1234u);
+    o2p_heater_ctl_step(&st, &ov, &in, 0u, &out);
+    TEST_ASSERT_EQUAL_UINT16(1234u, out.duty_x100);
+    TEST_ASSERT_EQUAL_FLOAT(0.0f, st.integ_floor);
+}
+
+static void test_gradient_floor_integrator_is_its_own_and_is_shed_on_exit(void)
+{
+    /* The two laws run in the SAME cycle, so the mode tag cannot arbitrate
+     * between them and the floor needs an integrator of its own. Two things
+     * to prove: the dew law's integral does not absorb the floor's, and
+     * leaving the autonomous slot sheds the floor's rather than parking it
+     * for whoever arrives next. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_floor();
+    o2p_heater_out_t out;
+
+    /* 0.50 K short, which matters: at kp 50 anything beyond 2.00 K of
+     * shortfall saturates the PROPORTIONAL term on its own, and conditional
+     * anti-windup then correctly refuses to integrate at all. A test that
+     * asked for a big error would have been testing the clamp. */
+    in.t_tip_c100 = 5250;
+    in.t_chamber_c100 = 5200;
+    for (uint32_t t = 0u; t < 20u; t++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(st.integ_floor > 0.0f,
+        "the floor's integrator must accumulate while it is short");
+    TEST_ASSERT_EQUAL_UINT8(O2P_HEATER_MODE_DEW, st.last_mode);
+
+    /* Hand the slot to a stored tip setpoint and the floor's integral goes. */
+    o2p_heater_cfg_t tip_cfg = hcfg_tip_auto();
+    o2p_heater_ctl_step(&st, &tip_cfg, &in, 20u, &out);
+    TEST_ASSERT_EQUAL_FLOAT(0.0f, st.integ_floor);
 }
 
 static void test_the_bench_override_outranks_a_stored_setpoint(void)
@@ -7240,7 +7451,15 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    /* 0x0015: diag opcode 9, O2P_OP_ADS_INTERNAL_REF - a volatile debug flag
+    /* 0x0016: the GRADIENT FLOOR, high-selected against the dew-margin law
+     *         (Fab's order, 2026-09-13, "lets do it then"). The autonomous
+     *         humidity-side slot now drives max(dew, floor), the floor being
+     *         a PI loop holding the tip 2.00 K above the cell-side TMP117,
+     *         clamped to the same 79 C ceiling. No new register, no
+     *         HEATER_BLOCK bit and NO CONFIG LAYOUT BUMP - the constants are
+     *         compile-time - but the duty a given set of readings produces
+     *         changes, which is the contract a master reasons about.
+     * 0x0015: diag opcode 9, O2P_OP_ADS_INTERNAL_REF - a volatile debug flag
      *         putting every ADS1119 conversion on the internal 2.048 V
      *         reference (Fab's order, 2026-09-11, "the external ref is
      *         down"). Opcode 9 is ERR_OPCODE on 0x0014 and earlier.
@@ -7264,7 +7483,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         steps the thermal mass cannot make are rejected for a cycle.
      * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
      *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
-    TEST_ASSERT_EQUAL_HEX16(0x0015u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x0016u, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_HEX16(0xC000u,
         (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
     /* The staleness cut must win the race against the watchdog's fastest
@@ -9375,6 +9594,12 @@ int main(void)
     RUN_TEST(test_dew_law_needs_rh_consent);
     RUN_TEST(test_dew_law_yields_to_a_stored_tip_setpoint);
     RUN_TEST(test_dew_law_duty_is_monotonic_in_margin);
+    RUN_TEST(test_gradient_floor_heats_when_the_dew_law_would_not);
+    RUN_TEST(test_the_high_select_takes_whichever_law_asks_for_more);
+    RUN_TEST(test_gradient_floor_respects_the_79c_ceiling);
+    RUN_TEST(test_gradient_floor_duty_is_monotonic_in_its_gradient);
+    RUN_TEST(test_gradient_floor_runs_only_beside_the_dew_law);
+    RUN_TEST(test_gradient_floor_integrator_is_its_own_and_is_shed_on_exit);
     RUN_TEST(test_the_bench_override_outranks_a_stored_setpoint);
     RUN_TEST(test_a_v7_record_does_not_arm_a_temperature_loop);
     RUN_TEST(test_tip_setpoint_and_consent_are_bounded_on_the_wire);

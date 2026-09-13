@@ -162,6 +162,88 @@ water off" (2 K, cheap, achievable) and "hold the RH the plan specified"
 (3–4 K, cost unknown until buried θ is measured). That is Fab's call, and it
 should be made with PLAN.md's reasoning in front of it rather than around it.
 
+## Outcome: the two laws were combined, not chosen between (FW 0x0016)
+
+Fab, 2026-09-13: *"should we combine +2k and the 4k dew margin?"* then *"lets
+do it then"*, and on the cell's rating, *"ignore the rating, we will use it out
+of spec"* - so the 79 C ceiling against the 60 C cell stops being an open
+question and becomes a deliberate out-of-spec operating point.
+
+**They were mutually exclusive before this.** `heater_ctl.c` selected one law
+per cycle - override > stored tip setpoint > dew > RH - so arming a +2 K
+setpoint would have SWITCHED THE DEW LAW OFF rather than adding to it. That is
+what the bench probe has been doing all night at its 17.50 C setpoint.
+
+Now the autonomous slot drives **`max(dew_duty, floor_duty)`**. Both laws are
+lower bounds on how hard the ring must drive, so the binding one wins and
+neither can turn the other down. Each keeps its own integrator, because the two
+run in the SAME cycle and the mode tag can only arbitrate between laws that
+take turns.
+
+### The floor is a gradient, not "+2 K over ambient"
+
+Worth stating plainly, because the request and the implementation are not the
+same sentence. **This board has no ambient sensor.** T_EXT is simultaneously
+the closest thing to ambient and the dew law's reference surface, so
+"cell minus ambient" taken from it is identically zero. What two sensors can
+state is a gradient: hold the tip 2.00 K above the cell side, i.e. never stop
+pumping heat outward past the membrane.
+
+What that buys, using this document's own numbers: at the measured **11 %
+coupling** a 2 K gradient lifts the cell only ~0.22 K over true ambient in
+still bench air; the bath data (cell gains ~0.4 K per K of tip) would make it
+~0.8 K. **So the floor is not a 2 K dew margin and must not be quoted as one.**
+It is a guarantee that heat never stops flowing outward.
+
+### What it actually covers
+
+The dew law's failure mode, from its own header: an SHT45 wetted and then
+drying reads a falsely LOW humidity, so the computed dew point drops, the
+margin looks generous, and **the law asks for zero duty while the membrane
+condenses**. No interlock fires - every reading is valid. The law is being
+lied to, and nothing inside it can tell.
+
+The floor's value is that its sensor chain is DISJOINT from the one that can
+lie: two TMP117s, no humidity, no Magnus form, no wettable sensing surface.
+
+### The cost, and the monotonicity that had to be given up
+
+**It runs continuously in a self-heating pile**, not only in wet gas: a pile
+hotter than the probe heats the cell from outside, the tip lags, and the floor
+demands duty to get back ahead. Bounded by the same 79 C ceiling and by
+HEATER_MAX_DUTY - and in saturated pore gas the dew law was going to bind
+anyway - but a buried power budget cannot be taken from the dew law alone.
+
+**The combined law is not monotonic in cell temperature**, and cannot be: a
+cell above the tip is the dew law's best case and the floor's worst. The
+guarantee that survives is that each law is monotonic in its own error and
+max() is monotonic in each argument; the test that asserted the old, stronger
+property was rescoped to the dew law and the floor got its own.
+
+### The calibration is not at risk from this reflash
+
+Fab, 2026-09-13: *"we can't loose our calibration every re-flash."* Checked
+rather than assumed:
+
+- Config lives in flash pages 62-63, OUTSIDE the run and staging slots
+  (`flash_map.h`), and `update_target.c` refuses any page outside staging. An
+  OTA install cannot reach it.
+- The only path that has ever discarded an air point is
+  `config_migrate.c`, entered when `CONFIG_LAYOUT_VERSION` changes - and since
+  v5 even that carries the air point forward.
+
+So this change was built with **compile-time constants rather than holding
+registers**. It bumps FW_VERSION 0x0015 -> 0x0016 and does NOT touch the
+record layout, so K = 437977 survives the install. Cost: **+164 bytes of flash**
+(86.1 % of the 52 KiB slot) and +4 bytes of RAM.
+
+The old standing note "the O2 config is lost on every reflash" was retired the
+same day as superseded: it generalised a single 2026-09-08 event into a
+property of all reflashes, and the flash map does not support that.
+
+**Not flashed.** The image builds and all 376 host tests pass; installing it on
+probe 3 is a probe state change and waits for Fab's word.
+
 ## Method notes
 
 - **The cuts were genuinely free**: duty read exactly 0.00 in all 181
@@ -185,5 +267,8 @@ should be made with PLAN.md's reasoning in front of it rather than around it.
 
 - **Buried θ** — the one number that decides the thermal design.
 - Whether τ's downward trend (167 → 152 → 147 s) is real or fit noise.
-- The dew law's 79 °C tip ceiling against the cell's 60 °C rating still stands
-  as a separate open item; see the heater standing-order memory.
+- ~~The dew law's 79 °C tip ceiling against the cell's 60 °C rating.~~ CLOSED
+  2026-09-13, Fab: *"ignore the rating, we will use it out of spec."* The
+  ceiling stands as written; the cell is knowingly operated past its rating.
+- Installing FW 0x0016 on probe 3 — built and tested, not flashed, waiting on
+  Fab's word.
