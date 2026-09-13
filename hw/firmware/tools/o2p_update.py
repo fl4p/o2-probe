@@ -827,6 +827,21 @@ class ModbusException(Exception):
 # check_update_tool.py's REGS, which covers update.h; these come from regmap.h.
 R_BUILD_ID_HI = 0x0028
 R_BUILD_ID_LO = 0x0029
+# Bit 31 is stamped by tools/pio_build_id.py when the tree was dirty.
+#
+# BIT 30 IS NOT STAMPED BY ANYONE AT BUILD TIME. src/regmap.c sets it at
+# RUNTIME on an O2P_DEBUG_ENABLE=1 image (O2P_BUILD_ID_FLAG_DEBUG, faf52d8),
+# so the value a probe PUBLISHES is not the value the builder computed, and
+# --expect-build-id must mask it out of both sides.
+#
+# Without that mask the option was unusable on the probe image: env:o2probe
+# defines -DO2P_DEBUG_ENABLE=1 (platformio.ini:92), so EVERY default build
+# publishes bit 30, the equality never held, and a successful install was
+# reported as "!! running BUILD_ID ..., expected ..." with ok=False. Found
+# 2026-09-13 while wiring o2p_flash.py to pass the expectation; the option
+# had no test covering a debug image, which is the only kind the probe runs.
+BUILD_ID_DIRTY = 0x80000000
+BUILD_ID_DEBUG = 0x40000000
 # UPD_INSTALLS saturates rather than wrapping (review 2026-09-10), so at the
 # ceiling it can no longer show that an install happened.
 INSTALLS_MAX = 0xFFFF
@@ -919,13 +934,15 @@ def verify_install(bus, installs_before, expect_build_id=None, timeout=180.0,
         installed = False
         ok = False
 
-    dirty = bool(build_id & 0x80000000)
+    dirty = bool(build_id & BUILD_ID_DIRTY)
     if expect_build_id is None:
         print("   running BUILD_ID %08X (NOT compared - pass "
               "--expect-build-id)" % build_id)
-    elif build_id == expect_build_id:
-        print("   running BUILD_ID %08X, as expected%s"
-              % (build_id, " - a DIRTY-tree stamp, which names the commit and "
+    elif (build_id & ~BUILD_ID_DEBUG) == (expect_build_id & ~BUILD_ID_DEBUG):
+        print("   running BUILD_ID %08X, as expected%s%s"
+              % (build_id,
+                 " (debug build)" if build_id & BUILD_ID_DEBUG else "",
+                 " - a DIRTY-tree stamp, which names the commit and "
                  "not the exact binary" if dirty else ""))
     else:
         print("!! running BUILD_ID %08X, expected %08X"

@@ -219,6 +219,28 @@ rc, _ = run("installed", new_build_id=NEW_ID | 0x80000000,
             expect_build_id=NEW_ID | 0x80000000)
 check("a dirty-stamped image that installed is verified (and said to be dirty)",
       rc == 0, rc)
+
+# THE DEBUG BIT, and why this case had to exist. Bit 30 is set by regmap.c at
+# RUNTIME on an O2P_DEBUG_ENABLE=1 image and is never stamped by
+# pio_build_id.py, so the value a probe PUBLISHES differs from the builder's
+# by that bit alone. env:o2probe defines -DO2P_DEBUG_ENABLE=1
+# (platformio.ini:92), so this is not an exotic configuration - it is the only
+# kind of image the probe has ever run. Until 2026-09-13 the comparison was a
+# bare equality, so --expect-build-id reported EVERY successful install of a
+# probe image as a failure. This suite missed it because every case above uses
+# a build id with bit 30 clear, i.e. an image that does not exist.
+rc, _ = run("installed", new_build_id=NEW_ID | 0x40000000,
+            expect_build_id=NEW_ID)
+check("a DEBUG image matches the builder's stamp (bit 30 is runtime-set, not "
+      "part of the identity) -> 0", rc == 0, rc)
+rc, _ = run("installed", new_build_id=NEW_ID | 0xC0000000,
+            expect_build_id=NEW_ID | 0x80000000)
+check("debug and dirty together still match a dirty stamp -> 0", rc == 0, rc)
+rc, _ = run("installed", new_build_id=(NEW_ID ^ 1) | 0x40000000,
+            expect_build_id=NEW_ID)
+check("known-bad calibration: masking bit 30 must NOT mask a real sha "
+      "difference -> 1", rc == 1, rc)
+
 rc, _ = run("installed", reboot_s=400.0, verify_timeout=180.0)
 check("a reboot longer than --verify-timeout -> 2, not a guess", rc == 2, rc)
 rc, _ = run("installed", reboot_s=170.0, verify_timeout=180.0,
