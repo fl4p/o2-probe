@@ -1192,7 +1192,7 @@ READBACK_ATTEMPTS = 3
 LINE_ERRORS = (ModbusException, IOError, OSError)
 
 
-def fastest_code():
+def fastest_code(max_baud=None):
     """The code with the highest RATE, which is not the highest code.
 
     `max(BAUD_CODES)` would be the highest key, and the two coincide only
@@ -1201,8 +1201,16 @@ def fastest_code():
     backstop already warns about - would make this tool "speed up" to half the
     bus rate, and check_update_tool.py could not see it: both sides would
     agree, and agreeing on 4800 is the bug.
+
+    `max_baud` caps the choice (2026-09-13: 115200 fails on probe 3's reply
+    path, so a bench run asks for a slower rate to find the fastest that
+    works). Below every rate it falls back to the slowest one.
     """
-    return max(BAUD_CODES, key=lambda c: BAUD_CODES[c])
+    codes = [c for c in BAUD_CODES
+             if max_baud is None or BAUD_CODES[c] <= max_baud]
+    if not codes:
+        codes = [min(BAUD_CODES, key=lambda c: BAUD_CODES[c])]
+    return max(codes, key=lambda c: BAUD_CODES[c])
 
 
 def code_for_baud(baud):
@@ -1704,7 +1712,7 @@ def find_probe(line, bus, settle=0.2):
 
 
 def negotiate_baud(link, bus, home_code, settle=0.2, line=None,
-                   why_not=None, assume_no_bridge=True):
+                   why_not=None, assume_no_bridge=True, max_baud=None):
     """Move the probe to the fastest rate it offers, for this transfer only.
 
     `home_code` is where the probe must be LEFT: normally the rate the cable
@@ -1758,7 +1766,7 @@ def negotiate_baud(link, bus, home_code, settle=0.2, line=None,
         return None
     retime = line.set_baud
 
-    fast_code = fastest_code()
+    fast_code = fastest_code(max_baud)
     fast = BAUD_CODES[fast_code]
 
     was = probe_baud_code(bus)

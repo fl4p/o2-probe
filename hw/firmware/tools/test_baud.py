@@ -632,6 +632,23 @@ def main():
     finally:
         u.BAUD_CODES = saved
 
+    # -- a capped speed-up (2026-09-13: 115200 fails on probe 3's replies) --
+    print("-- max_baud caps the rate asked for")
+    p = FakeProbe()
+    line = FakeLine(p)
+    restore = u.negotiate_baud(line, u.Bus(line, PROBE_ADDR), SLOW_CODE,
+                               settle=0.0, max_baud=38400)
+    check("max_baud 38400: line at 38400", line.baud == 38400,
+          "line at %d" % line.baud)
+    check("max_baud 38400: probe at code 2", p.baud_code == 2,
+          "probe at code %d" % p.baud_code)
+    check("max_baud 38400: restore offered, and puts it back",
+          restore is not None and restore() == SLOW and p.baud_code == SLOW_CODE)
+    check("fastest_code(None) is still the fastest rate",
+          u.fastest_code() == FAST_CODE)
+    check("fastest_code below every rate falls back to the slowest",
+          u.BAUD_CODES[u.fastest_code(1200)] == SLOW)
+
     # -- the two-way probation (FW 0x001D) --------------------------------
     # The speed-up proves the new rate BOTH ways: this end hears the probe,
     # and the probe learns it was heard by the echo of its nonce.
