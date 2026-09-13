@@ -864,8 +864,10 @@ Low byte: 0 RH, 1 OPEN (bench override, open loop), 2 TIP (bench override,
 tip loop), 3 TIP_AUTO (stored tip setpoint), 4 DEW (dew margin, high-selected
 with the 2 K gradient floor), 5 BLIND (the fallback, not a law), 6 REFUSED (no
 law, no drive). High byte bit 8: the dew law has declared its margin
-unreachable - margin short with the tip pinned at the 79 C ceiling for 600 s
-(FW 0x0019) - and the gradient floor is holding the tip.
+unreachable - margin short with the tip pinned at the dew law's ceiling for
+600 s (FW 0x0019) - and the gradient floor is holding the tip. Since FW 0x001A
+that ceiling is the lower of 79 C and the cell side plus the envelope, so on a
+bench probe the verdict usually lands a few kelvin above the cell, not at 79 C.
 
 ### Diagnostic block — `0x0010`, 32 registers, read-only
 
@@ -2070,7 +2072,9 @@ Regulating humidity rather than a fixed temperature rise is the whole design.
 ~3.1-3.7 K at 40-65 °C — design the thermal path for a 0-4 K ΔT range, not a
 fixed 2 K."* A fixed offset that is right at 40 °C is wrong at 65 °C, and the
 pile spans both. `DT_MAX_K` (`0x0034`, default 4.00 K) is that envelope as a
-clamp, not as a setpoint.
+clamp, not as a setpoint. It bounds the tip against the chamber (the
+`DT_LIMIT` interlock, inert on Rev A) and, for the dew law and its gradient
+floor, against the cell side - see **The gradient ceiling** below.
 
 Heating dries the chamber at constant absolute humidity, so the loop is
 positive-acting: measured RH above setpoint asks for more duty. A sign error
@@ -2533,6 +2537,22 @@ guarantees, since the cell side gains only ~0.4 K per K of tip — so the
 80.00 °C clamp stays a backstop. Above the cell's 60 °C rating the margin
 still wins, per the answer. Constants and reasoning: `heater_ctl.h`
 `O2P_HEATER_DEW_*`.
+
+**The gradient ceiling.** Introduced in FW 0x001A, on Fab's "fix it, flash it"
+of 2026-09-13.
+The 79.00 °C in the error above is now `min(79.00 °C, T_cell + DT_MAX_K)`,
+one function (`dew_ceiling_c100()`) shared by the dew law's error, the
+gradient floor's setpoint clamp and the unreachable-margin detector. Why:
+that morning, with the tip setpoint disarmed, this law ran probe 3's tip
+22 → 69 °C at 100 % duty in a wet enclosure with the cell fitted; nothing
+bounded it in kelvin short of 79 °C, and how far 1.2 W gets depends on θ, which
+is 68 K/W in still air and unmeasured buried. A gradient is bounded whatever
+the plant. The envelope register already existed and is stored, so the
+bound is tunable without a reflash and the record layout is unchanged. The
+trade: a margin that needs a steeper tip-to-cell gradient than the envelope
+is unreachable by construction, and after the 600 s dwell the floor holds its
+2 K. Pinned by `test_dew_gradient_ceiling_bounds_the_wet_enclosure_excursion`,
+which first reproduces the excursion with the envelope out of reach.
 
 **When it is in command.** The RH law's slot (no override, stored tip
 setpoint at the sentinel, RH consent `0x0048`) **and** a cell-side reading no

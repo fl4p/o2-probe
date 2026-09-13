@@ -4831,11 +4831,31 @@ static uint16_t dew_step_fresh(const o2p_heater_cfg_t *cfg,
     return out->duty_x100;
 }
 
+/* The shipped config with the FW 0x001A GRADIENT CEILING moved out of reach.
+ *
+ * Since 0x001A the dew law's ceiling is min(79 C, T_cell + DT_MAX_K), and at
+ * the shipped 4 K the margin term can only bind inside a narrow window: the
+ * floor holds the tip at least 2 K ahead of the cell, so the tip has at most
+ * 2 K of room before the gradient ceiling takes the min(). hin_dew() itself
+ * sits at 4.05 K. The tests that use THIS helper are about the dew law's own
+ * arithmetic - sign, sensor, hand-over, the 79 C ceiling, integral shedding,
+ * monotonicity in margin - and a 600 K envelope lets them keep measuring
+ * that. 600 K and not 100: the margin sweep runs the cell down to -40 C under
+ * a 70 C tip, where cell + 100 K is a 60 C ceiling and the envelope bites.
+ * The gradient ceiling's own behaviour is pinned at the SHIPPED 4 K in the
+ * 0x001A tests below, including a known-bad run with this helper. */
+static o2p_heater_cfg_t hcfg_dew(void)
+{
+    o2p_heater_cfg_t c = hcfg_default();
+    c.dt_max_k100 = 60000u;
+    return c;
+}
+
 static void test_dew_law_heats_a_cell_short_of_margin(void)
 {
     o2p_heater_state_t st;
     o2p_heater_ctl_reset(&st);
-    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_cfg_t cfg = hcfg_dew();
     o2p_heater_in_t in = hin_dew();
     o2p_heater_out_t out;
 
@@ -4875,7 +4895,7 @@ static void test_dew_law_reads_the_cell_not_the_tip_or_the_rh_setpoint(void)
      * the RH law idles; and the tip at 57 C sits 7.5 K above the dew point, so
      * a tip-referenced margin looks comfortable. Only the cell - 2 K below
      * Td = 49.47 C - says the membrane is condensing. */
-    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_cfg_t cfg = hcfg_dew();   /* the tip is 9.5 K ahead of the cell */
     o2p_heater_in_t in = hin_dew();
     o2p_heater_out_t out;
     in.rh_x100 = 8000u;
@@ -4911,7 +4931,7 @@ static void test_dew_law_hand_over_restarts_the_integrator(void)
     /* An integral wound up in 0.01 %RH is meaningless in 0.01 K of margin. */
     o2p_heater_state_t st;
     o2p_heater_ctl_reset(&st);
-    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_cfg_t cfg = hcfg_dew();
     o2p_heater_in_t in = hin_dew();
     o2p_heater_out_t out;
 
@@ -4933,7 +4953,7 @@ static void test_dew_law_regulates_through_safety(void)
     /* The steam-bath configuration: therm thresholds lost, tip valid. Under
      * the RH law SAFETY blinds, and the die gate then closes the blind path -
      * which is why the heater sat at zero. The dew law regulates instead. */
-    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_cfg_t cfg = hcfg_dew();
     o2p_heater_in_t in = hin_dew();
     o2p_heater_out_t out;
     in.safety_armed = false;
@@ -4969,8 +4989,9 @@ static void test_dew_law_clamps_the_tip_at_80c_even_with_safety_armed(void)
 static void test_dew_law_holds_the_tip_under_its_79c_ceiling(void)
 {
     /* Margin still short, tip between the ceiling and the clamp: the ceiling
-     * wins the min(), so the regulator backs off before the clamp is needed. */
-    o2p_heater_cfg_t cfg = hcfg_default();
+     * wins the min(), so the regulator backs off before the clamp is needed.
+     * The 79 C ceiling specifically, so the gradient ceiling is out of reach. */
+    o2p_heater_cfg_t cfg = hcfg_dew();
     o2p_heater_in_t in = hin_dew();
     o2p_heater_out_t out;
 
@@ -4996,7 +5017,7 @@ static void test_dew_law_ceiling_sheds_accumulated_integral(void)
      * duty at 79.50 C with the ceiling error negative. */
     o2p_heater_state_t st;
     o2p_heater_ctl_reset(&st);
-    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_cfg_t cfg = hcfg_dew();
     o2p_heater_in_t in = hin_dew();
     o2p_heater_out_t out;
 
@@ -5108,8 +5129,17 @@ static void test_dew_law_duty_is_monotonic_in_margin(void)
      * argument. This sweep therefore starts where the floor is already
      * satisfied - cell 68.00 C is exactly 2 K under the 70.00 C tip - so
      * every point below it is the dew law alone. The floor's own monotonicity
-     * is test_gradient_floor_duty_is_monotonic_in_its_gradient(). */
-    o2p_heater_cfg_t cfg = hcfg_default();
+     * is test_gradient_floor_duty_is_monotonic_in_its_gradient().
+     *
+     * AND SINCE FW 0x001A, NOT MONOTONIC IN CELL TEMPERATURE EVEN ALONE, by
+     * construction: a colder cell is a LOWER gradient ceiling, so under the
+     * shipped 4 K envelope the duty falls as the cell falls behind the tip.
+     * That is the bound working - the tip is already DT_MAX_K ahead - and the
+     * trade is stated at O2P_HEATER_DEW_MARGIN_K100. So the cell sweep runs
+     * with the envelope out of reach, and the humidity sweep below runs at
+     * the SHIPPED config: at a fixed gradient, wetter gas must never get less
+     * duty, which is the monotonicity the envelope does preserve. */
+    o2p_heater_cfg_t cfg = hcfg_dew();
     o2p_heater_out_t out;
     uint16_t prev = 0u;
     for (int16_t cell = 6800; cell >= -4000; cell = (int16_t)(cell - 250)) {
@@ -5123,6 +5153,7 @@ static void test_dew_law_duty_is_monotonic_in_margin(void)
     }
     TEST_ASSERT_TRUE(prev > 0u);
 
+    cfg = hcfg_default();
     prev = 0u;
     for (uint16_t rh = 100u; rh <= 10000u; rh = (uint16_t)(rh + 100u)) {
         o2p_heater_in_t in = hin_dew();
@@ -5183,8 +5214,9 @@ static void test_gradient_floor_heats_when_the_dew_law_would_not(void)
 static void test_the_high_select_takes_whichever_law_asks_for_more(void)
 {
     /* Both directions, because a max() that silently became a precedence
-     * rule would still pass one of them. */
-    o2p_heater_cfg_t cfg = hcfg_default();
+     * rule would still pass one of them. The dew-binding case has the tip
+     * 6 K ahead of the cell, so the 0x001A envelope is moved out of reach. */
+    o2p_heater_cfg_t cfg = hcfg_dew();
     o2p_heater_out_t out;
 
     /* Floor binding, dew law idle: Td 46.83 C against a cell at 51.00 C. */
@@ -5433,8 +5465,13 @@ static void test_dew_unreachable_after_a_dwell_at_the_ceiling_in_wet_gas(void)
          * entry into it: the PI loop overshoots into the band on its way up,
          * falls back out and settles, and the dwell rightly restarts. Found
          * by this test's first run - verdict 600 s after the settle (t 366),
-         * not after the first crossing (t 119). */
-        if (in.t_tip_c100 >= 7800) {
+         * not after the first crossing (t 119).
+         *
+         * FW 0x001A: the band is under the EFFECTIVE ceiling, which at the
+         * shipped 4 K envelope is the cell plus DT_MAX_K (~54 C here), not
+         * 79 C. It moves with the cell, so it is recomputed every cycle. */
+        if ((int32_t)in.t_tip_c100 >= (int32_t)in.t_cell_c100 +
+                                          (int32_t)cfg.dt_max_k100 - 100) {
             if (pin_since < 0) {
                 pin_since = (int64_t)t;
             }
@@ -5456,8 +5493,8 @@ static void test_dew_unreachable_after_a_dwell_at_the_ceiling_in_wet_gas(void)
         "the verdict lands after exactly DWELL_S observed seconds at the ceiling");
     TEST_ASSERT_EQUAL_HEX16(O2P_HEATER_LAW_DEW | O2P_HEATER_LAWF_DEW_UNREACHABLE,
                             out.law);
-    /* The floor asks nothing with the tip 25 K over a 51 C cell, so the ring
-     * stops: the fallback, with nothing for the fallback to do. */
+    /* The floor asks nothing with the tip 4 K over the cell - twice its 2 K -
+     * so the ring stops: the fallback, with nothing for the fallback to do. */
     TEST_ASSERT_EQUAL_UINT16(0u, out.duty_x100);
 }
 
@@ -5466,7 +5503,14 @@ static void test_dew_not_unreachable_at_low_coupling_when_the_margin_is_reachabl
     /* THE 0x0018 FAILURE, as a regression test (codex review of d7be806,
      * finding 1). Dry gas, cell coupling 3 % and 9 % - inside the measured
      * range - and a 4 K margin reachable below the ceiling. The plain law gets
-     * there; the detector must not stop it. */
+     * there; the detector must not stop it.
+     *
+     * FW 0x001A: these margins need a 16 K and a 36 K tip-to-cell gradient,
+     * which the shipped 4 K envelope refuses by design - at 4 K the same
+     * plants are bounded and correctly declared unreachable, which is
+     * test_dew_gradient_ceiling_bounds_the_wet_enclosure_excursion's
+     * territory. This test is about the DETECTOR not firing on a reachable
+     * margin, so it moves the envelope out of reach. */
     static const struct { float k; float td; } cases[] = {
         {0.03f, 21.5f},    /* needs tip ~41.7 C */
         {0.09f, 24.5f},    /* needs tip ~63.9 C */
@@ -5474,7 +5518,7 @@ static void test_dew_not_unreachable_at_low_coupling_when_the_margin_is_reachabl
     for (unsigned c = 0u; c < sizeof cases / sizeof cases[0]; c++) {
         o2p_heater_state_t st;
         o2p_heater_ctl_reset(&st);
-        o2p_heater_cfg_t cfg = hcfg_default();
+        o2p_heater_cfg_t cfg = hcfg_dew();
         o2p_heater_out_t out;
         dewplant_t p = {25.0f, 25.0f, 83.2f, 150.0f, cases[c].k, cases[c].td,
                         0.0f, 25.0f, 2.0f};
@@ -5525,14 +5569,19 @@ static void test_dew_not_unreachable_when_the_ceiling_is_out_of_reach(void)
 {
     /* THE ACCEPTED LIMIT, pinned so a change to it is deliberate. A plant that
      * cannot reach the ceiling at full duty - theta so low that 1.2 W buys
-     * 4.9 K - never trips the detector and keeps driving. That costs power, not
-     * the cell, and it is the trade option A made. */
+     * 3.0 K - never trips the detector and keeps driving. That costs power, not
+     * the cell, and it is the trade option A made.
+     *
+     * FW 0x001A: the effective ceiling here is cell + 4 K, so the unreachable
+     * plant is now one that cannot open a 4 K gradient: 3.0 K of rise at 3 %
+     * coupling is 2.9 K of gradient. (The 0x0019 figure, 4.9 K, now reaches
+     * the envelope and is declared unreachable - which is the bound working.) */
     o2p_heater_state_t st;
     o2p_heater_ctl_reset(&st);
     o2p_heater_cfg_t cfg = hcfg_default();
     o2p_heater_out_t out;
     dewplant_t p = dewplant_wet_enclosure();
-    p.rise_full_k = 4.9f;
+    p.rise_full_k = 3.0f;
     for (uint32_t t = 0u; t <= 6000u; t++) {
         o2p_heater_in_t in = dewplant_in(&p);
         o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
@@ -5540,6 +5589,138 @@ static void test_dew_not_unreachable_when_the_ceiling_is_out_of_reach(void)
         dewplant_step(&p, out.duty_x100);
     }
     TEST_ASSERT_EQUAL_UINT16(10000u, out.duty_x100);
+}
+
+/* ---------------------------- the gradient ceiling (FW 0x001A), at the SHIPPED
+ * 4 K envelope. See O2P_HEATER_DEW_MARGIN_K100 for the law and its trade. */
+
+static void test_dew_ceiling_is_the_cell_plus_dt_max(void)
+{
+    /* hin_dew()'s cell at 50.95 C is ~6 K short of margin, so the margin term
+     * wants heat and anything that stops it is the ceiling. */
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_dew();
+    o2p_heater_out_t out;
+
+    in.t_tip_c100 = 5495;          /* exactly cell + 4.00 K */
+    in.t_chamber_c100 = 5395;
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, dew_step_fresh(&cfg, &in, &out),
+        "a tip DT_MAX_K ahead of the cell gets no duty, however short the margin");
+    TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_TIP_LIMIT);
+    TEST_ASSERT_EQUAL_UINT16(O2P_HB_TIP_DISARMED | O2P_HB_IDLE, out.block);
+
+    /* Half a kelvin under it: the room is the min(), kp 5 x 50 = 250 plus one
+     * second of integral, 2.5. The floor (cell + 2 K) is satisfied. */
+    in.t_tip_c100 = 5445;
+    in.t_chamber_c100 = 5345;
+    TEST_ASSERT_UINT16_WITHIN(2u, 253u, dew_step_fresh(&cfg, &in, &out));
+
+    /* DT_MAX_K is the live knob: the same probe at 4.50 K has that half
+     * kelvin of room back. */
+    in.t_tip_c100 = 5495;
+    in.t_chamber_c100 = 5395;
+    cfg.dt_max_k100 = 450u;
+    TEST_ASSERT_UINT16_WITHIN(2u, 253u, dew_step_fresh(&cfg, &in, &out));
+
+    /* Guard checklist 2: a wider envelope never gets LESS duty, out to the
+     * tail where the margin term binds instead. Below 1.00 K the DT_LIMIT
+     * interlock refuses outright (tip - chamber is 1 K), which is zero too. */
+    uint16_t prev = 0u;
+    for (uint16_t dt = 0u; dt <= 10000u; dt = (uint16_t)(dt + 50u)) {
+        cfg.dt_max_k100 = dt;
+        const uint16_t d = dew_step_fresh(&cfg, &in, &out);
+        TEST_ASSERT_TRUE_MESSAGE(d >= prev, "duty fell as the envelope widened");
+        prev = d;
+    }
+    TEST_ASSERT_TRUE(prev > 0u);
+}
+
+static void test_dew_gradient_ceiling_bounds_the_wet_enclosure_excursion(void)
+{
+    /* THE EVENT THIS BUILD EXISTS FOR, 2026-09-13 on probe 3 under 0x0017:
+     * the dew law took command in a wet enclosure and ran the tip 22 -> 69 C
+     * at full duty with the cell fitted. Modelled on the measured plant -
+     * 83.2 K of rise at full duty, tau 150 s, the dew point riding the tip at
+     * 0.92, the cell coupled 3 % - from a 22 C room. */
+    const dewplant_t wet = {22.0f, 22.0f, 83.2f, 150.0f, 0.03f, 17.9f, 0.92f,
+                            22.0f, 2.0f};
+
+    /* KNOWN-BAD FIRST (guard checklist 7): with the envelope out of reach the
+     * same plant must reproduce the excursion, or the bound below proves
+     * nothing. */
+    {
+        o2p_heater_state_t st;
+        o2p_heater_ctl_reset(&st);
+        o2p_heater_cfg_t cfg = hcfg_dew();
+        o2p_heater_out_t out;
+        dewplant_t p = wet;
+        float max_tip = p.tip_c;
+        for (uint32_t t = 0u; t <= 3000u; t++) {
+            o2p_heater_in_t in = dewplant_in(&p);
+            o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+            dewplant_step(&p, out.duty_x100);
+            if (p.tip_c > max_tip) {
+                max_tip = p.tip_c;
+            }
+        }
+        TEST_ASSERT_TRUE_MESSAGE(max_tip > 70.0f,
+            "without the envelope the modelled plant must run away as probe 3 did");
+    }
+
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+    dewplant_t p = wet;
+    float max_gradient = 0.0f;
+    float max_tip = p.tip_c;
+    int64_t fired = -1;
+    for (uint32_t t = 0u; t <= 6000u; t++) {
+        o2p_heater_in_t in = dewplant_in(&p);
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+        TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_TIP_LIMIT);
+        if (st.dew_unreachable && fired < 0) {
+            fired = (int64_t)t;
+        }
+        dewplant_step(&p, out.duty_x100);
+        const float g = p.tip_c - dewplant_cell(&p);
+        if (g > max_gradient) {
+            max_gradient = g;
+        }
+        if (p.tip_c > max_tip) {
+            max_tip = p.tip_c;
+        }
+    }
+    /* A quarter kelvin of overshoot over the 4.00 K envelope, no more. */
+    TEST_ASSERT_TRUE_MESSAGE(max_gradient <= 4.25f,
+        "the tip must never run more than DT_MAX_K (+0.25 K) ahead of the cell");
+    TEST_ASSERT_TRUE_MESSAGE(max_tip < 27.0f,
+        "a 4 K envelope at 3 % coupling bounds the tip ~4.1 K over the room");
+    /* The margin is not reachable inside the envelope, so the detector gives
+     * the law up after its dwell at the (gradient) ceiling, and the floor holds
+     * its 2 K: heat still flows outward, at a fraction of the power. */
+    TEST_ASSERT_TRUE_MESSAGE(fired >= 0, "pinned at the envelope, the margin must be declared unreachable");
+    TEST_ASSERT_FLOAT_WITHIN(0.30f, 2.0f, p.tip_c - dewplant_cell(&p));
+}
+
+static void test_gradient_floor_is_clamped_by_a_narrow_envelope(void)
+{
+    /* A DT_MAX_K under the floor's own 2 K: the envelope binds the floor too.
+     * hin_floor()'s dew law is satisfied, so any duty is the floor's. */
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_in_t in = hin_floor();
+    o2p_heater_out_t out;
+    cfg.dt_max_k100 = 100u;
+
+    in.t_tip_c100 = 5150;          /* 0.50 K ahead of a 51.00 C cell */
+    in.t_chamber_c100 = 5100;      /* tip - chamber 0.50 K, under DT_LIMIT */
+    /* Setpoint clamped to cell + 1.00 K = 52.00 C: kp 50 x 50 = 2500 plus
+     * ki 0.5 x 50 = 25 - not the 50 x 150 an unclamped cell + 2 K asks. */
+    TEST_ASSERT_UINT16_WITHIN(2u, 2525u, dew_step_fresh(&cfg, &in, &out));
+
+    in.t_tip_c100 = 5200;          /* at the clamped setpoint */
+    in.t_chamber_c100 = 5150;
+    TEST_ASSERT_EQUAL_UINT16(0u, dew_step_fresh(&cfg, &in, &out));
 }
 
 static void test_dew_unreachable_dwell_restarts_after_a_refusal(void)
@@ -8044,7 +8225,12 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    /* 0x0019: the unreachable-margin detector rebuilt as a CEILING-DWELL
+    /* 0x001A: the dew law's ceiling is min(79 C, T_cell + DT_MAX_K) - a
+     *         GRADIENT ceiling (Fab's order, 2026-09-13, "fix it, flash it").
+     *         No register or bit changes; DT_MAX_K now also bounds the dew
+     *         law and the floor against the cell, so the duty a given set of
+     *         readings produces changes, and so does when UNREACHABLE lands.
+     * 0x0019: the unreachable-margin detector rebuilt as a CEILING-DWELL
      *         test (Fab's option A after the codex xhigh review of the
      *         never-flashed 0x0018). HEATER_LAW's address and encoding are
      *         unchanged; when UNREACHABLE appears is not.
@@ -8089,7 +8275,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         steps the thermal mass cannot make are rejected for a cycle.
      * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
      *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
-    TEST_ASSERT_EQUAL_HEX16(0x0019u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x001Au, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_HEX16(0xC000u,
         (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
     /* The staleness cut must win the race against the watchdog's fastest
@@ -10215,6 +10401,9 @@ int main(void)
     RUN_TEST(test_dew_not_unreachable_when_the_margin_is_met_at_the_ceiling);
     RUN_TEST(test_dew_unreachable_when_outside_heat_pins_the_tip_short_of_margin);
     RUN_TEST(test_dew_not_unreachable_when_the_ceiling_is_out_of_reach);
+    RUN_TEST(test_dew_ceiling_is_the_cell_plus_dt_max);
+    RUN_TEST(test_dew_gradient_ceiling_bounds_the_wet_enclosure_excursion);
+    RUN_TEST(test_gradient_floor_is_clamped_by_a_narrow_envelope);
     RUN_TEST(test_dew_unreachable_dwell_restarts_after_a_refusal);
     RUN_TEST(test_dew_unreachable_verdict_survives_its_own_refusal_not_a_hand_over);
     RUN_TEST(test_dew_unreachable_recovery_needs_hysteresis_and_hold);

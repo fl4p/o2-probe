@@ -638,14 +638,23 @@ static bool dew_law_in_command(const o2p_heater_cfg_t *cfg,
  * means "the ceiling" means the same number: the law's tip_room, the gradient
  * floor's setpoint clamp, and the unreachable-margin detector's `pinned` test
  * (O2P_HEATER_DEW_UNREACH_DWELL_S). If these ever disagree the detector watches
- * a ceiling the law never reaches and goes silently dormant. Constant for now;
- * a cell-referenced ceiling belongs HERE, not in any one caller. */
+ * a ceiling the law never reaches and goes silently dormant.
+ *
+ * FW 0x001A: the LOWER of the absolute 79.00 C ceiling and the cell-side
+ * reading plus DT_MAX_K - the gradient ceiling, see
+ * O2P_HEATER_DEW_TIP_CEIL_C100. Every caller runs inside the dew law, which
+ * is in command only with the cell valid, so t_cell_c100 is a measurement
+ * here and never a default. */
 static int32_t dew_ceiling_c100(const o2p_heater_cfg_t *cfg,
                                 const o2p_heater_in_t *in)
 {
-    (void)cfg;
-    (void)in;
-    return (int32_t)O2P_HEATER_DEW_TIP_CEIL_C100;
+    int32_t ceiling = (int32_t)O2P_HEATER_DEW_TIP_CEIL_C100;
+    const int32_t gradient = (int32_t)in->t_cell_c100 +
+                             (int32_t)cfg->dt_max_k100;
+    if (gradient < ceiling) {
+        ceiling = gradient;
+    }
+    return ceiling;
 }
 
 /* The gas dew point, in 0.01 C, from the SHT45's RH at the chamber

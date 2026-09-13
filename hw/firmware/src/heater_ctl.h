@@ -408,7 +408,40 @@ enum {
  * (psychro.h). All four numbers are compile-time: PROVISIONAL gains for an
  * unmeasured plant. Error in 0.01 K, output in 0.01 % duty: kp = 5 asks 20 %
  * for a 4 K shortfall, ki = 0.05 integrates 0.2 %/s at that error (Ti 100 s,
- * slow on purpose - the cell side lags the tip). */
+ * slow on purpose - the cell side lags the tip).
+ *
+ * THE GRADIENT CEILING, FW 0x001A (Fab 2026-09-13, "fix it, flash it", on the
+ * proposal "never let the tip run more than a few K above the cell"). The
+ * ceiling above is now min(79.00 C, T_cell + DT_MAX_K), everywhere the law
+ * means "the ceiling" (dew_ceiling_c100() in heater_ctl.c).
+ *
+ * WHAT IT FIXES, measured on probe 3 that morning under FW 0x0017: with the
+ * tip setpoint disarmed the dew law took command in a wet enclosure and ran
+ * the tip 22 -> 69 C at 100 % duty with the cell fitted, while the cell sat
+ * at 24 C and the gas dew point climbed to 28 C with the heat. Nothing about
+ * the law was bounded in kelvin except the 79 C ceiling, and how far 1.2 W
+ * gets toward it depends on theta - 68 K/W in still bench air, unknown and
+ * probably far lower buried. A duty cap is the wrong bound for the same
+ * reason (Fab: "no more 10% caps"). A GRADIENT is bounded whatever the
+ * plant: the heater cannot hold the tip more than DT_MAX_K ahead of the cell
+ * for more power than that gradient conducts.
+ *
+ * WHY DT_MAX_K and not a new constant. It is already the stored 0-4 K design
+ * envelope (PLAN.md: "design the thermal path for a 0-4 K dT range"), but on
+ * Rev A it is enforced against the chamber, which shares the tip's copper, so
+ * the DT_LIMIT interlock can never raise. The cell-side TMP117 is the sensor
+ * that envelope was written for. Using the register keeps the bound tunable
+ * without a reflash, and adds nothing to the flash record - no layout bump,
+ * no migration, the air point survives the install.
+ *
+ * WHAT IS GIVEN UP, stated. Authority. Where the cell gains k K per K of tip,
+ * a 4 K gradient buys at most ~4k/(1-k) K of cell warming, so a margin that
+ * needs a steeper gradient is now UNREACHABLE by construction - the law holds
+ * the tip at T_cell + DT_MAX_K, and after O2P_HEATER_DEW_UNREACH_DWELL_S at
+ * that ceiling the detector withholds its demand and the floor holds the
+ * 2 K gradient. Raising DT_MAX_K buys authority back, one register write, at
+ * the cost of the excursion this bounds. A DT_MAX_K under the floor's 2 K
+ * clamps the floor too: the envelope is the envelope. */
 #define O2P_HEATER_DEW_MARGIN_K100    400
 #define O2P_HEATER_DEW_TIP_CEIL_C100  7900
 #define O2P_HEATER_DEW_KP_X100        500u
@@ -558,7 +591,8 @@ enum {
 
 typedef struct {
     uint16_t setpoint_x100;    /* target chamber RH, 0.01 %RH */
-    uint16_t dt_max_k100;      /* tip-above-chamber clamp, 0.01 K */
+    uint16_t dt_max_k100;      /* tip-above-chamber clamp, and (FW 0x001A) the
+                                  dew law's tip-above-cell ceiling, 0.01 K */
     uint16_t max_duty_x100;    /* output clamp, 0.01 %; zero disables */
     uint16_t kp_x100;
     uint16_t ki_x100;          /* per second */
