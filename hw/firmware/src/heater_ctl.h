@@ -607,6 +607,20 @@ enum {
  * the integrator twice. 10 s covers that and no more: the cell side moves
  * slowly, and past it the RH law takes over. */
 #define O2P_HEATER_CELL_MAX_AGE_S     10u
+/* A SHORT CELL DROPOUT IS NOT A DEAD CELL (FW 0x0020, Fab 2026-09-13 "fix it";
+ * codex reviews of 455972d/c7baa57/a75c1f4, finding 1). Once a valid cell
+ * reading has been seen, the reading going missing for less than this many
+ * seconds - past O2P_HEATER_CELL_MAX_AGE_S's bridge, a stalled conversion's
+ * grace, a run of rejected glitches - neither reaches the blind fallback nor
+ * hands the dew law over. Before, every dropout did both: the review's flicker
+ * schedule (13 s valid, 11 s missing) alternated refusal with blind 50 % and
+ * took the tip 17 K over the cell, and one missing cycle every 500 s kept a hot
+ * probe at the ceiling for hours by resetting the unreachable dwell.
+ * A cell missing for LONGER than this is treated as gone, and the wet-board
+ * blind fallback applies as before - die-gated, for a board whose sensors died.
+ * A probe that never produced a cell reading (no T_EXT fitted) is unaffected.
+ * PROVISIONAL: 60 s is several bridge windows and far under tau. */
+#define O2P_HEATER_CELL_LOSS_BLIND_S  60u
 
 
 typedef struct {
@@ -784,6 +798,12 @@ typedef struct {
      * dew_pause_since_s; see O2P_HEATER_DEW_UNREACH_PAUSE_MAX_S. */
     bool     dew_paused;
     uint32_t dew_pause_since_s;
+    /* The cell reading's dropout clock (O2P_HEATER_CELL_LOSS_BLIND_S): a
+     * valid reading has been seen at least once, it is currently missing, and
+     * since when. */
+    bool     cell_seen;
+    bool     cell_lost;
+    uint32_t cell_lost_since_s;
     bool     dt_clamped;       /* hysteresis latches */
     bool     tip_clamped;
     /* Which loop produced the current integrator, so that switching between

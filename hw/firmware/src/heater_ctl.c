@@ -29,6 +29,9 @@ void o2p_heater_ctl_reset(o2p_heater_state_t *st)
     st->zero_duty_since_s = 0u;
     st->dt_clamped = false;
     st->tip_clamped = false;
+    st->cell_seen = false;
+    st->cell_lost = false;
+    st->cell_lost_since_s = 0u;
     st->last_mode = O2P_HEATER_MODE_RH;
 }
 
@@ -45,6 +48,7 @@ void o2p_heater_ctl_reset(o2p_heater_state_t *st)
 static bool tip_law_in_command(const o2p_heater_cfg_t *cfg);
 static bool dew_law_in_command(const o2p_heater_cfg_t *cfg,
                                const o2p_heater_in_t *in);
+static bool dew_law_configured(const o2p_heater_cfg_t *cfg);
 static bool gas_dew_point_c100(const o2p_heater_in_t *in, float *out_c100);
 static int32_t dew_ceiling_c100(const o2p_heater_cfg_t *cfg,
                                 const o2p_heater_in_t *in);
@@ -639,6 +643,15 @@ static bool dew_law_in_command(const o2p_heater_cfg_t *cfg,
     return !cfg->test_override && !cfg->tip_sp_valid && in->cell_valid;
 }
 
+/* The dew law is the CONFIGURED law - no override, no stored tip setpoint -
+ * whether or not the cell reading happens to be valid this cycle. A short cell
+ * dropout leaves this true; that is what lets it pause the unreachable-margin
+ * detector instead of handing the dew law over (O2P_HEATER_CELL_LOSS_BLIND_S). */
+static bool dew_law_configured(const o2p_heater_cfg_t *cfg)
+{
+    return !cfg->test_override && !cfg->tip_sp_valid;
+}
+
 /* THE DEW LAW'S TIP CEILING, in 0.01 C - one function so that everything that
  * means "the ceiling" means the same number: the law's tip_room, the gradient
  * floor's setpoint clamp, and the unreachable-margin detector's `pinned` test
@@ -720,10 +733,18 @@ static uint16_t law_wet_mask(const o2p_heater_cfg_t *cfg,
  * reasons are at O2P_HEATER_BLIND_DUTY_X100 in heater_ctl.h. */
 static uint16_t blind_duty(const o2p_heater_cfg_t *cfg,
                            const o2p_heater_in_t *in,
-                           uint16_t refusing)
+                           uint16_t refusing,
+                           bool cell_dropout)
 {
     const uint16_t wet = law_wet_mask(cfg, in);
     if ((refusing & hard_mask) != 0u || (refusing & wet) == 0u) {
+        return 0u;
+    }
+    /* A SHORT cell dropout never drives blind (FW 0x0020): the reading will be
+     * back within seconds, and blind 50 % in the meantime took the tip 17 K
+     * over the cell in the review's flicker model. See
+     * O2P_HEATER_CELL_LOSS_BLIND_S. A sustained loss falls through as before. */
+    if (cell_dropout) {
         return 0u;
     }
     /* FAB'S "A", 2026-09-13 (codex review of 455972d, finding 1): a RUNAWAY
@@ -797,6 +818,18 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
      * tip law outright (no control sensor, no loop - the founding
      * sensorless case, blind), NO_RH still refuses the RH law, and every
      * hard bit refuses as before. */
+    /* The cell reading's dropout clock (O2P_HEATER_CELL_LOSS_BLIND_S). */
+    if (in->cell_valid) {
+        st->cell_seen = true;
+        st->cell_lost = false;
+    } else if (st->cell_seen && !st->cell_lost) {
+        st->cell_lost = true;
+        st->cell_lost_since_s = now_s;
+    }
+    const bool cell_dropout =
+        st->cell_seen && st->cell_lost && dew_law_configured(cfg) &&
+        (uint32_t)(now_s - st->cell_lost_since_s) < O2P_HEATER_CELL_LOSS_BLIND_S;
+
     const uint16_t refusing =
         (uint16_t)(block & (hard_mask | law_wet_mask(cfg, in)));
     /* A FALSE RUNAWAY LATCH MUST NOT END ANTI-CONDENSATION HEAT (FW 0x001F,
@@ -831,8 +864,10 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
          * discarded the evidence here instead, and frequent refusals then
          * held a probe at the ceiling indefinitely (codex review of
          * 9eb3a34, finding 2). See O2P_HEATER_DEW_UNREACH_PAUSE_MAX_S. A
-         * different law configured drops the evidence and the verdict. */
-        if (dew_law_in_command(cfg, in)) {
+         * different law configured drops the evidence and the verdict.
+         * Since FW 0x0020 "configured" does not need the cell this cycle: a
+         * cell dropout pauses too, rather than counting as a hand-over. */
+        if (dew_law_configured(cfg)) {
             dew_detector_pause(st, now_s);
         } else {
             st->dew_prev_valid = false;
@@ -843,7 +878,7 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
             st->dew_unreachable = false;
             st->dew_paused = false;
         }
-        const uint16_t duty = blind_duty(cfg, in, refusing);
+        const uint16_t duty = blind_duty(cfg, in, refusing, cell_dropout);
         out->duty_x100 = duty;
         out->block = (uint16_t)((block | supply_note) |
                                 ((duty != 0u) ? O2P_HB_BLIND : 0u));
@@ -866,16 +901,27 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
      * concurrently. See O2P_HEATER_FLOOR_DELTA_K100. */
     if (!dew_law_in_command(cfg, in)) {
         st->integ_floor = 0.0f;
-        /* The unreachable verdict belongs to the dew law, and so does its
-         * evidence. Another law in command moves the tip for reasons this
-         * detector cannot interpret, so neither survives the hand-over. */
-        st->dew_prev_valid = false;
-        st->dew_pinned = false;
-        st->dew_recovered = false;
-        st->dew_dwell_s = 0u;
-        st->dew_clear_s = 0u;
-        st->dew_unreachable = false;
-        st->dew_paused = false;
+        if (dew_law_configured(cfg)) {
+            /* Still the configured law, only without a cell reading this
+             * cycle (FW 0x0020): PAUSE, like any other cycle the law cannot
+             * judge. Treating it as a hand-over reset the dwell, and one
+             * missing cycle every 500 s held a hot probe at the ceiling for
+             * hours (codex review of 9eb3a34+496dd2e, finding 2). A long
+             * outage still discards the evidence on resume through the pause
+             * limit; the verdict survives. */
+            dew_detector_pause(st, now_s);
+        } else {
+            /* The unreachable verdict belongs to the dew law, and so does its
+             * evidence. Another law CONFIGURED moves the tip for reasons this
+             * detector cannot interpret, so neither survives the hand-over. */
+            st->dew_prev_valid = false;
+            st->dew_pinned = false;
+            st->dew_recovered = false;
+            st->dew_dwell_s = 0u;
+            st->dew_clear_s = 0u;
+            st->dew_unreachable = false;
+            st->dew_paused = false;
+        }
     }
 
     if (cfg->test_override && cfg->test_tip_sp_valid) {

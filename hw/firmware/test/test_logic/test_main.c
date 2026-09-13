@@ -6407,7 +6407,11 @@ static void test_dew_unreachable_verdict_survives_its_own_refusal_not_a_hand_ove
         o2p_heater_in_t in = dewplant_in(&p);
         in.cell_valid = false;
         o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
-        TEST_ASSERT_FALSE(st.dew_unreachable);
+        /* REVISED FW 0x0020: a missing cell reading is a PAUSE while the dew
+         * law is still the configured law, not a hand-over - the verdict
+         * survives. Only a different law configured drops it (below). */
+        TEST_ASSERT_TRUE_MESSAGE(st.dew_unreachable,
+            "a cell dropout must not drop the verdict");
     }
     {
         o2p_heater_state_t st;
@@ -6511,6 +6515,118 @@ static void test_heater_law_is_refused_on_the_runaway_latch_cycle(void)
         }
     }
     TEST_FAIL_MESSAGE("the stimulus never latched the runaway detector");
+}
+
+static void test_dew_unreachable_survives_periodic_cell_dropouts(void)
+{
+    /* The review's P1 counterexample (codex review of 9eb3a34+496dd2e,
+     * finding 2, re-confirmed through a75c1f4): one missing cell cycle every
+     * 500 s reset the dwell like a law hand-over and held a hot probe at the
+     * ceiling for 21 562 s of 6 h. Since FW 0x0020 a dropout pauses the dwell,
+     * so the verdict must land once 600 s are credited. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+    dewplant_t p = dewplant_hot_pile(77.5f);
+    int64_t fired = -1;
+    for (uint32_t t = 0u; t <= 3600u && fired < 0; t++) {
+        o2p_heater_in_t in = dewplant_in(&p);
+        in.cell_valid = (t % 500u) != 499u;
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+        if (st.dew_unreachable) {
+            fired = (int64_t)t;
+        }
+    }
+    TEST_ASSERT_TRUE_MESSAGE(fired >= 0, "periodic cell dropouts must not defeat the dwell");
+    TEST_ASSERT_TRUE_MESSAGE(fired <= 700, "600 credited seconds plus the paused ones");
+}
+
+static void test_dew_unreachable_survives_a_cell_dropout_during_a_refusal(void)
+{
+    /* A cell dropout can coincide with a REFUSAL - here humidity is lost too,
+     * so the RH law that takes the cycle refuses on NO_RH, and the die above
+     * the blind gate keeps it at zero. That cycle goes through the refusing
+     * path, whose own pause-or-clear decision must also treat a configured dew
+     * law without a cell as a pause (FW 0x0020). Found by mutation: reverting
+     * that path alone to dew_law_in_command() survived every other test. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+    dewplant_t p = dewplant_hot_pile(77.5f);
+    uint32_t t = dewplant_until_unreachable(&st, &cfg, &p, 0u, &out) + 1u;
+    for (unsigned i = 0u; i < 8u; i++, t++) {
+        o2p_heater_in_t in = dewplant_in(&p);
+        in.cell_valid = false;
+        in.rh_valid = false;
+        in.chamber_valid = false;
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+        TEST_ASSERT_EQUAL_HEX16(O2P_HEATER_LAW_REFUSED, out.law);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(st.dew_unreachable,
+        "a cell dropout during a refusal must not drop the verdict");
+}
+
+static void test_a_flickering_cell_cannot_reach_blind(void)
+{
+    /* The review's exact flicker schedule (codex review of 455972d, finding 2;
+     * unchanged through a75c1f4): humidity lost for 350 s at 22 C ambient, die
+     * 30 C (blind gate open), and the cell reading 13 s present / 11 s missing.
+     * It alternated refusal with blind 50 % - 143 blind seconds, tip 17 K over
+     * the cell. A dropout under O2P_HEATER_CELL_LOSS_BLIND_S must never blind. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+    dewplant_t p = {22.0f, 22.0f, 83.2f, 150.0f, 0.03f, 21.0f, 0.0f, 22.0f, 0.0f};
+    float worst = -100.0f;
+    for (uint32_t t = 0u; t < 350u; t++) {
+        o2p_heater_in_t in = dewplant_in(&p);
+        in.rh_valid = false;
+        in.chamber_valid = false;
+        in.t_die_c100 = 3000;
+        in.cell_valid = (t % 24u) < 13u;
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.block & O2P_HB_BLIND,
+            "a short cell dropout must never drive the blind fallback");
+        const float g = p.tip_c - dewplant_cell(&p);
+        if (g > worst) {
+            worst = g;
+        }
+        dewplant_step(&p, out.duty_x100);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(worst <= (float)cfg.dt_max_k100 * 0.01f + 0.3f,
+        "and the tip stays under the gradient ceiling through the flicker");
+}
+
+static void test_a_sustained_cell_loss_still_allows_blind_after_the_limit(void)
+{
+    /* The wet-board rule survives for a cell that is really gone: once missing
+     * for O2P_HEATER_CELL_LOSS_BLIND_S the blind fallback applies again, die
+     * gated as ever. Humidity lost too, so the RH law's own blind path is the
+     * one under test; exact boundary both sides. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+    o2p_heater_in_t in = hin_dew();
+    in.t_die_c100 = 3000;
+    for (uint32_t t = 0u; t < 10u; t++) {          /* the cell has been seen */
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+    }
+    in.cell_valid = false;
+    in.rh_valid = false;
+    in.chamber_valid = false;
+    const uint32_t lost = 10u;
+    for (uint32_t t = lost; t < lost + O2P_HEATER_CELL_LOSS_BLIND_S; t++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.block & O2P_HB_BLIND,
+            "under the limit it is a dropout, not a dead cell");
+    }
+    o2p_heater_ctl_step(&st, &cfg, &in, lost + O2P_HEATER_CELL_LOSS_BLIND_S, &out);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(O2P_HEATER_BLIND_DUTY_X100, out.duty_x100,
+        "at the limit the cell counts as gone and the wet-board rule applies");
 }
 
 static void test_heater_law_names_blind_and_refused_not_the_configured_law(void)
@@ -8841,7 +8957,10 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    /* 0x001F: a false RUNAWAY latch keeps the gradient floor running under
+    /* 0x0020: a short cell-reading dropout (under 60 s, after a valid cell
+     *         has been seen) neither reaches blind nor hands the dew law
+     *         over - the unreachable detector pauses (Fab's "fix it").
+     * 0x001F: a false RUNAWAY latch keeps the gradient floor running under
      *         the dew law instead of ending all heat (Fab's "fix the false
      *         latch issue"); HEATER_LAW high-byte bit 10.
      * 0x001E: the oxygen conversion's temperature term is the cell law
@@ -8909,7 +9028,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         steps the thermal mass cannot make are rejected for a cycle.
      * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
      *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
-    TEST_ASSERT_EQUAL_HEX16(0x001Fu, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x0020u, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_HEX16(0xC000u,
         (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
     /* The staleness cut must win the race against the watchdog's fastest
@@ -11051,6 +11170,10 @@ int main(void)
     RUN_TEST(test_dew_law_floor_respects_a_narrow_envelope_without_a_dew_point);
     RUN_TEST(test_a_runaway_latch_never_blinds_while_tip_and_cell_read);
     RUN_TEST(test_a_false_runaway_latch_keeps_the_gradient_floor);
+    RUN_TEST(test_dew_unreachable_survives_periodic_cell_dropouts);
+    RUN_TEST(test_dew_unreachable_survives_a_cell_dropout_during_a_refusal);
+    RUN_TEST(test_a_flickering_cell_cannot_reach_blind);
+    RUN_TEST(test_a_sustained_cell_loss_still_allows_blind_after_the_limit);
     RUN_TEST(test_a_hot_floor_cannot_reach_blind_through_the_runaway_latch);
     RUN_TEST(test_dew_unreachable_pause_of_exactly_the_limit_keeps_its_evidence);
     RUN_TEST(test_dew_unreachable_verdict_survives_its_own_refusal_not_a_hand_over);
