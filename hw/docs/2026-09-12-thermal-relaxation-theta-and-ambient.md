@@ -244,6 +244,97 @@ property of all reflashes, and the flash map does not support that.
 **Not flashed.** The image builds and all 376 host tests pass; installing it on
 probe 3 is a probe state change and waits for Fab's word.
 
+## 2026-09-13 morning: the combined law's first run, and what it broke
+
+All readings through the keeper on probe 3, enclosure fitted, room air.
+
+### Handing over to the combined law
+
+Fab: *"disarm the setpoint, let the new law run"*. `TIP_SETPOINT` to the
+sentinel, `TIP_CONSENT` 0, committed: `CONFIG_CRC` 0xD1AA → **0xE25C**,
+`HEATER_BLOCK` 0x8000. Both laws were visible in the first minute: duty jumped
+to **83.83 %** — the gradient floor, seeing 0.1 K of tip-over-cell where it
+wants 2 K — and then fell to 5.31 % as the dew law took over.
+
+### Then the dew law ran away in a wet enclosure
+
+| read | T_TIP | T_CHAMBER | RH | T_EXT | duty |
+|---|---|---|---|---|---|
+| handover | 17.51 | 17.40 | 66.23 % | 17.53 | 0.06 % |
+| +~2 min | 24.40 | 24.66 | 65.87 % | 17.53 | 33.33 % |
+| +~5 min | **40.66** | 41.43 | **62.57 %** | **18.12** | **100.00 %** |
+
+Heating the chamber 24.66 → 41.43 °C at fixed absolute humidity should have
+dropped RH to ~25 %; it fell to 62.6 %. So water was being driven off the
+enclosure's surfaces faster than the heat diluted it, and **the gas dew point
+rose with the tip: 17.85 → 32.83 °C** (Magnus on chamber T and RH).
+
+- tip +16.26 K, dew point +14.98 K: **dTd/dT_tip ≈ 0.92**
+- cell +0.59 K for 23.2 K of tip since handover: **coupling ≈ 0.026**
+
+The actuator moved the disturbance ~35× harder than the controlled quantity.
+That loop cannot converge — not a tuning fault, a sign-of-authority fault — and
+by its own documented design it would have held the tip at the 79 °C ceiling
+indefinitely. **Correction:** the FW 0x0018 header comment and commit message
+quote "tip 24.66 → 41.43 °C, ratio 0.89"; those are the *chamber* values. The
+tip ratio is 0.92. Nothing in the logic depends on the figure.
+
+`DEW_MARGIN` (0x0014) read a comfortable **8.52 K** throughout, because it is
+*tip*-referenced — the exact blindness `DEW-MARGIN-IS-BLIND.md` documents, and
+the reason the dew law controls the *cell* side instead.
+
+### The excursion dried the enclosure
+
+After it, the gas dew point was **10.24 °C** against ~21.5 °C ambient (later
+13.88 °C). The accidental excursion was a flush, and it worked — **in room air,
+which is a sink**. Fab asked whether to flush on a timer like the SHT45's
+de-creep. Answer given, not implemented: no. A flush ends with a saturated
+interior cooling toward pile temperature, and the first surface under the dew
+point catches the water; buried in saturated pore gas there is no sink. Drying
+belongs in a **commissioning bake before burial**. What was built instead is
+below.
+
+### An uncommitted cap is lost on reflash
+
+Fab capped `HEATER_MAX_DUTY` at 10 % live during the climb (`CONFIG_CRC`
+0x246E) and did not commit it; the next install rebooted into the stored record
+and it came back **100 %**, `CONFIG_CRC` 0xE25C. That is not config loss — the
+calibration was untouched (CAL_AIR_NA 101 327 nA, DIL_ALPHA 1000, TEMPCO 0) —
+it is live state that was never persisted. Fab then: *"no more 10% cap, that's
+useless in the pile."* The cap stays off.
+
+### The runaway latch fired on its own cool-down
+
+With the cap applied the ring read **exactly 10.00 %, flat**: `HEATER_BLOCK`
+0x2100 = **RUNAWAY | BLIND**, the 50 % blind fallback clamped by the cap. Fab:
+*"this is not a runaway situation."* Correct — the tip-minus-die test was a
+*level* (> 10 K) over a *60 s* window against **τ = 150 s**, so any commanded
+excursion past the threshold latched on the way down. Fixed in **FW 0x0017**
+(`8bb8802`) with a decay discriminator: commanded heat decays from its peak, a
+stuck FET holds one. The existing 376 tests all passed against the broken
+detector; the new ones fail with the discriminator removed.
+
+Installed 0x0017, clean build `dd7b689` (`BUILD_ID` 0x4DD7B689, bit 30 the
+runtime debug flag). The keeper reported **`verify rc=1`** for an install that
+`BUILD_ID` proves succeeded — a false failure, likely the link dropping across
+the reboot; not chased. After it: `HEATER_BLOCK` **0xC000** (IDLE |
+TIP_DISARMED, no refusal), cell margin **11.32 K**, tip − T_EXT **3.11 K**,
+duty **0.00 %** — the combined law in command with both halves satisfied, for
+the first time.
+
+### FW 0x0018: detect the regime instead of fighting it
+
+`d7be806`, built and tested (388 pass), **not flashed**, codex xhigh review
+running. When a 5 K tip climb buys under 0.5 K of cell-side margin, the dew law
+withholds its demand and the gradient floor holds the tip; it clears when the
+margin meets its 4 K target or after 6 h. A single-cycle tip step over 3 K is a
+discontinuity, not a climb — the suite caught the detector reading a synthetic
+55 → 79.5 °C jump as "no authority", the same heat-we-did-not-deliver error as
+the runaway latch. **Known limit, put to the reviewer:** slow external heating
+while the law drives is still credited as its own climb. New read-only register
+**HEATER_LAW (0x0008)** publishes the law in command and the unreachable flag,
+because no existing register could tell that fallback from "both satisfied".
+
 ## Method notes
 
 - **The cuts were genuinely free**: duty read exactly 0.00 in all 181
@@ -284,10 +375,15 @@ probe 3 is a probe state change and waits for Fab's word.
     by `regmap.c` on an `O2P_DEBUG_ENABLE=1` image and never stamped by the
     builder, so the bare equality in `o2p_update.py` failed on every image this
     probe can run (fixed in `c295364`).
-- **FW 0x0016 is superseded by 0x0017** (`8bb8802`, the runaway latch firing on
-  its own cool-down — seen live as `HEATER_BLOCK = RUNAWAY | BLIND` minutes
-  after this install). Whatever is flashed next should be 0x0017 or later,
-  built clean.
-- The gradient floor and the dew law are **dormant while a stored tip setpoint
-  is armed** — the precedence chain puts the setpoint first. Returning 0x0049
-  to its sentinel is what puts the combined law in command.
+- ~~FW 0x0016 is superseded by 0x0017.~~ DONE 2026-09-13: 0x0017 installed
+  clean (`dd7b689`, `BUILD_ID` 0x4DD7B689) — see the morning section above.
+- ~~The gradient floor and the dew law are dormant while a stored tip setpoint
+  is armed.~~ DONE 2026-09-13: setpoint returned to the sentinel on Fab's word,
+  `CONFIG_CRC` 0xE25C; the combined law is in command.
+- **FW 0x0018** (`d7be806`, unreachable-margin detector + HEATER_LAW): built,
+  codex xhigh review running, **not flashed**.
+- Slow external heating while the dew law drives is credited as its own climb
+  (FW 0x0018 known limit).
+- The keeper's `verify rc=1` on an install `BUILD_ID` proves succeeded.
+- A commissioning bake to dry the enclosure before burial — proposed, not
+  specified.
