@@ -382,6 +382,71 @@ gradient floor and this detector all call. If the detector had kept its own
 change lands as 0x001A; one combined codex review covers 0x0019 + 0x001A before
 any install.
 
+## 2026-09-13 midday: 0x0019 and 0x001A installed, keeper verify fixed, combined review
+
+**Installs** (both verified by `tech/bench/o2p_flash.py` witnesses, calibration
+untouched: `CONFIG_CRC` 0xE25C, CAL_AIR_NA 101 327 nA throughout):
+
+| FW | commit | BUILD_ID on probe | by |
+|---|---|---|---|
+| 0x0019 | `9eb3a34` (image from clean worktree at `eccbe14`) | `0x4ECCBE14` | this session, Fab: *"flash, then review"* |
+| 0x001A | `496dd2e` — cell-referenced gradient ceiling | `0x4496DD2E` | peer session, on Fab's *"fix it, flash it"* |
+
+Both installs ran under the `o2-probe-bench` lock, handed over explicitly.
+HEATER_LAW (0x0008) gave its first hardware reading straight after 0x0019:
+**0x0004, DEW**. On 0x001A the 2 K floor held the tip at T_EXT + 2.01 K at 0 %
+duty.
+
+**The keeper's false `verify rc=1` — cause found and fixed.** It appeared on the
+0x0017, 0x0019 and 0x001A installs, each of which BUILD_ID proved good. The
+keeper log gave the cause: `running BUILD_ID 4496DD2E, expected 0496DD2E`. The
+farmgw copy of `o2p_update.py` (2026-09-11 17:49) predated `c295364` and
+compared BUILD_ID with bit 30 unmasked, so every debug build failed the check.
+On Fab's *"update farmgw"*: the diff against the repo was exactly the
+`c295364` hunks, the committed file was deployed with its md5 verified
+(`a319164…`, old copy kept as `o2p_update.py.pre-c295364`), and the keeper was
+restarted via `keeper-restart.sh` under the lock. The new serve process started
+after the deploy, so it loaded the fix. **Unproven end to end until the next
+install.** `~/blepush/o2probe-tol/o2p_update.py`, the deliberately tolerant
+variant, was left alone.
+
+**Combined codex xhigh review of `9eb3a34` + `496dd2e`**
+(`~/codex-reviews/o2p-heater-law-0x0019/final.md`). It ran on committed code
+only, 397 host tests, with the controllers driven through a first-order plant.
+Headline findings; F1 and F5 re-verified against the code:
+
+1. **P1 (`496dd2e`) — blind heating bypasses the gradient ceiling.** The
+   refusing path returns through `blind_duty()`, which never consults
+   `dew_ceiling_c100()`. During an SHT45 de-creep mask with the die under 40 °C,
+   the 50 % fallback took the tip to ~59.8 °C over a ~23 °C cell (36.6 K of
+   gradient) in the model.
+2. **P1 (`9eb3a34`) — evidence resets allow unlimited time at the ceiling.** A
+   refusal discards the dwell, so refusals more often than every 600 s (e.g.
+   one NO_TIP glitch per 500 s) keep a 75 °C probe at ≥ 78 °C for 21 562 s of
+   6 h with no verdict. The 8 h de-creep on its own does not do this.
+3. **P2 (`9eb3a34`) — the 1 K band can still give up slightly early:** it flags
+   at 3.95 K of margin where 4.00 K was reachable.
+4. **P2 (`496dd2e`) — raising DT_MAX_K does not revisit an existing verdict.**
+5. **P2 (`496dd2e`) — "buy authority back by raising DT_MAX_K" exceeds the
+   register.** Config validation rejects anything above 4.00 K, and the bench
+   probe is already at 4.00 K; the test showing 4.5 K and the 600 K fixture
+   bypass validation.
+6. **P2 — tooling:** the poller's PRIMARY / DIAG / HLAW reads are not bracketed,
+   so one CSV row can mix cycles; appending to an old CSV leaves `heater_law`
+   without a header.
+
+**Survived:** one shared ceiling function with no arithmetic defect; 0x0018's
+F2, F4, F5 and F7 fixed; no band flicker in 280 uninterrupted wet runs; retries
+re-arm correctly; first-sample and wrap handling correct; DT_MAX_K = 0 means
+DT_LIMIT and zero duty.
+
+**The design fact 0x001A makes explicit.** A gradient G warms the cell by
+kG/(1−k): at 3–11 % coupling the 4 K ceiling buys **0.12–0.49 K** and the 2 K
+floor **0.06–0.25 K**. The 4 K margin is therefore unreachable in essentially
+all near-saturated gas, and the probe lives on the floor. The floor does **not**
+guarantee a non-condensing cell: the wet model starting at 1 K margin settled
+at **−0.83 K**.
+
 ## Method notes
 
 - **The cuts were genuinely free**: duty read exactly 0.00 in all 181
@@ -431,10 +496,16 @@ any install.
   never flashed; replaced by 0x0019 (`9eb3a34`), see the section above.
 - ~~Slow external heating credited as the dew law's own climb.~~ GONE with the
   climb test: 0x0019 asks no attribution question.
-- **FW 0x001A** (peer session): cell-referenced gradient ceiling in
-  `dew_ceiling_c100()`, then one combined codex review, then install.
+- ~~FW 0x001A.~~ INSTALLED 2026-09-13 (`496dd2e`, BUILD_ID 0x4496DD2E); combined
+  review done, see the midday section.
+- **Review P1s open:** blind fallback bypasses the gradient ceiling (`496dd2e`);
+  frequent refusals defeat the dwell (`9eb3a34`).
+- The floor keeps heat flowing outward but does not keep a near-saturated cell
+  above its dew point at 3–11 % coupling; DT_MAX_K is capped at 4 K by config
+  validation. A design decision for Fab.
 - 0x0019's accepted limits: bounds time at the ceiling, not the climb; a plant
   that cannot reach the ceiling at full duty keeps driving.
-- The keeper's `verify rc=1` on an install `BUILD_ID` proves succeeded.
+- ~~The keeper's false `verify rc=1`.~~ CAUSE: stale farmgw `o2p_update.py` without
+  `c295364`; deployed and keeper restarted 2026-09-13 12:27. Confirm on the next install.
 - A commissioning bake to dry the enclosure before burial — proposed, not
   specified.
