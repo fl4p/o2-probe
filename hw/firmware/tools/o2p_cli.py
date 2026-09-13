@@ -56,6 +56,9 @@ REGISTERS = {
     "O2_COMP": 0x0000, "O2_RAW": 0x0001, "T_TIP": 0x0002, "T_CHAMBER": 0x0003,
     "RH_CHAMBER": 0x0004, "HEATER_DUTY": 0x0005, "FAULTS": 0x0006, "SETTLE_S": 0x0007,
 
+    # Heater-law block (0x0008, FW 0x0018+): the law in command + flags
+    "HEATER_LAW": 0x0008,
+
     # Diagnostic block (0x0010)
     "VREF_MON_MV": 0x0010, "VA_MON_MV": 0x0011, "VIN_MON_MV": 0x0012,
     "AFE_VOUT_MV": 0x0013, "DEW_MARGIN": 0x0014, "PRESSURE_HPA": 0x0015,

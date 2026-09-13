@@ -33,7 +33,7 @@ DOCS = ["FIRMWARE.md", os.path.join("..", "DESIGN.md")]
 # contract on every debug build, and o2p_cli.py drives them by literal address.
 # PEEKW was the first block past 0x00FF, which the per-line address check below
 # used to ignore outright.
-BLOCKS = ("PRIMARY", "DIAG", "CONFIG", "UPDATE", "UPDDATA",
+BLOCKS = ("PRIMARY", "HLAW", "DIAG", "CONFIG", "UPDATE", "UPDDATA",
           "PEEK", "DMBOX", "CRASH", "PEEKW", "EXEC", "POKE", "POKEW")
 
 

@@ -848,6 +848,25 @@ fault, not like anoxia.
 convention as an open release gate, and the bench air-versus-nitrogen pair is
 what settles it. Firmware that took an absolute value would hide the answer.
 
+### Heater-law block — `0x0008`, 1 register, read-only
+
+This block arrived with firmware version 0x0018.
+It says which control law produced `HEATER_DUTY` this cycle,
+because `HEATER_BLOCK` cannot say: its bit 15 is identical for the RH and dew
+laws and is omitted on refusing and blind cycles. A separate block rather than
+a ninth primary register, so the primary read is byte-for-byte unchanged.
+
+| Reg | Name | Type | Scale | Invalid |
+|---|---|---|---|---|
+| 8 | `HEATER_LAW` | u16 | law in command (low byte) and flags (high byte) | `0xFFFF` until the heater has been stepped |
+
+Low byte: 0 RH, 1 OPEN (bench override, open loop), 2 TIP (bench override,
+tip loop), 3 TIP_AUTO (stored tip setpoint), 4 DEW (dew margin, high-selected
+with the 2 K gradient floor), 5 BLIND (the fallback, not a law), 6 REFUSED (no
+law, no drive). High byte bit 8: the dew law has declared its margin
+unreachable - margin short with the tip pinned at the 79 C ceiling for 600 s
+(FW 0x0019) - and the gradient floor is holding the tip.
+
 ### Diagnostic block — `0x0010`, 32 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,

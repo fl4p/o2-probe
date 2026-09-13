@@ -277,6 +277,16 @@ an air-point calibration is never bridged, because a permanent constant gets a
 humidity measured in its own cycle or none at all. Full argument, bench evidence
 and test vectors: `O2-HUMIDITY-CORRECTION.md`.
 
+### Heater-law block, `0x0008`, 1 register, read-only
+
+Present from firmware version 0x0018.
+`HEATER_LAW` says which control law produced `HEATER_DUTY` - low byte
+RH / OPEN / TIP / TIP_AUTO / DEW, or BLIND / REFUSED when no law is in command -
+and in the high byte whether the dew law has declared its margin unreachable
+and handed the tip to the gradient floor. `HEATER_BLOCK` could not carry this.
+A separate block, so the eight-register primary read is unchanged. Full
+encoding in `firmware/FIRMWARE.md`.
+
 ### Diagnostic block, `0x0010`, 32 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,

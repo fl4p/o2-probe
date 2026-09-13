@@ -104,6 +104,11 @@ CSV_COLUMNS = [
     "mb_crc_errs", "mb_frame_errs", "i2c_errs", "settle_restarts",
     "faults_ever", "faults_ever_named", "ads_fail_count", "exp_data",
     "t_ext_c",
+    # HEATER_LAW (0x0008, FW 0x0018+): the law that produced heater_duty_pct,
+    # and whether the dew law has handed the tip to the gradient floor. Kept
+    # in THIS list on purpose - DictWriter(extrasaction="ignore") drops any
+    # key missing here without a word, which is how t_afe_c was lost once.
+    "heater_law",
 ]
 
 
@@ -285,12 +290,45 @@ def utc_stamp(when=None):
             + ".%03dZ" % int((when % 1.0) * 1000))
 
 
+HEATER_LAW_ADDR = 0x0008
+HEATER_LAW_NAMES = {0: "RH", 1: "OPEN", 2: "TIP", 3: "TIP_AUTO", 4: "DEW",
+                    5: "BLIND", 6: "REFUSED"}
+
+
+def decode_heater_law(v):
+    """HEATER_LAW as "DEW", "DEW+UNREACHABLE", ..., or None for 0xFFFF.
+
+    0xFFFF is "the heater has not been stepped", not a law, so it is None
+    rather than a name - the same rule as every other invalid sentinel here."""
+    if v == U16_INVALID:
+        return None
+    name = HEATER_LAW_NAMES.get(v & 0xFF, "LAW%d" % (v & 0xFF))
+    return name + ("+UNREACHABLE" if v & 0x0100 else "")
+
+
 def poll(bus, want_diag):
     row = decode_primary(bus.read(PRIMARY_BASE, PRIMARY_COUNT))
     if want_diag:
         row.update(decode_diag(bus.read(DIAG_BASE, DIAG_COUNT)))
+        # HEATER_LAW exists from FW 0x0018. On older firmware the address is
+        # ILLEGAL, so it is read only when the image says it has it, and on
+        # its own: one refused read must not cost the whole row. A failed read
+        # is recorded as EMPTY with the reason in `detail`, never as a law.
+        row["heater_law"] = None
+        try:
+            fw = int(row.get("fw") or "0", 16)
+        except ValueError:
+            fw = 0
+        if fw >= 0x0018:
+            try:
+                row["heater_law"] = decode_heater_law(
+                    bus.read(HEATER_LAW_ADDR, 1)[0])
+            except Exception as exc:        # noqa: BLE001 - any bus failure
+                row["heater_law"] = None
+                row["heater_law_error"] = str(exc)[:80]
     row["status"] = "ok"
-    row["detail"] = ""
+    row["detail"] = ("heater_law read failed: %s" % row["heater_law_error"]
+                     if row.get("heater_law_error") else "")
     return row
 
 
