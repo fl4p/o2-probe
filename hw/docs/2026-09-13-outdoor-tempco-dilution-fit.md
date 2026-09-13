@@ -131,6 +131,35 @@ with α = 1 cross-predict equally well. The 12 % slope difference between them i
 by α, the same collinearity as §Results. The ±3σ traces used as g(T) do worse (0.28–0.63 %
 out of sample), which says the vendor's own spread is wider than this cell's behaviour here.
 
+## FW 0x001E and its review (added 2026-09-13 afternoon)
+
+Implemented as `82aa9e9` (law on T_EXT, fallback chamber-else-tip), flashed
+14:3x CEST through the keeper: BUILD_ID 0x4B6AD5BD (b6ad5bd), every per-probe
+constant and CONFIG_CRC 0xE25C unchanged (`bench-logs/2026-09-13-outdoor-fit/flash-0x001E.log`).
+
+Codex xhigh review, `~/codex-reviews/o2p-cell-t-law-82aa9e9/review.log`
+(access proven: live VM query, sgxsensortech.com title visible in the attached
+Chrome). Findings, each checked against source:
+
+1. **P1** — an old *whole* tempco (e.g. 2859 ppm/K) still in a record now
+   double-counts on top of the law, 1.157× at 75 °C (true 5.00 → ~4.34 %vol).
+   Nothing detects it; layout version 8 is unchanged, so no migration runs.
+   **Probe 3 holds 0 — not affected.** Needs a decision: persisted model
+   version / migration that zeroes TEMPCO, or accept documented risk.
+2. **P2** — `tmp117.c:269` clears ext presence after 3 failed reads, so a
+   disconnected T_EXT lets an air point store a chamber reference that the
+   conversion later measures against T_EXT. Verified. Needs the calibration's
+   sensor identity persisted (layout change).
+3. **P2** — the T_EXT ↔ board fallback moves the published number without
+   provenance (4 K ≈ −0.05 %vol at 5 %vol; 30 K ≈ −0.32). Design choice:
+   refuse O2_COMP instead of falling back on a probe with T_EXT, or publish
+   provenance somewhere.
+4. **P2, fixed** in the follow-up commit — the fallback admitted a stale tip.
+
+Survived: gain/sentinel arithmetic, float range, the heater refactor being
+behaviour-identical, bridge expiry (note: frozen reading usable ~12 s, not
+10), the two changed tests not being mutes.
+
 Consequence for the firmware change: the physics law and the vendor mean are
 **equivalent on this evidence**. The law is the one with no digitisation behind it that
 still needs human verification, and it extends past 60 °C, where the vendor chart
