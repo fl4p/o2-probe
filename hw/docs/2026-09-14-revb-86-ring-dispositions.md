@@ -58,9 +58,8 @@ implemented** — treat it as owed work, not as a control already in place.
 
 **What would refute this disposition.** A built board showing O2 or VREF noise
 correlated with I2C traffic — visible as steps in `gas_*` at poll boundaries, or
-as AFE_VOUT moving with bus activity. If that appears, the fix is a layer count
-or a J107 without I2C, not a reroute; this page records that a reroute was
-already proven impossible.
+as AFE_VOUT moving with bus activity. If that appears, the fix is the pad
+relocation in 1b, a layer count, or a J107 without I2C.
 
 ## 1b. There IS a fourth option: move the two I2C pads off the cable-end row
 
