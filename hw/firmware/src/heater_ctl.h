@@ -490,6 +490,93 @@ enum {
 #define O2P_HEATER_FLOOR_KP_X100      5000u
 #define O2P_HEATER_FLOOR_KI_X100      50u
 
+/* THE UNREACHABLE-MARGIN DETECTOR, FW 0x0018 (Fab 2026-09-13, after watching
+ * the dew law pin at full duty in a wet enclosure: "build the
+ * unreachable-margin detector").
+ *
+ * THE REGIME IT CATCHES, measured on the bench that evening. With liquid
+ * water inside the enclosure, heating drives vapour off the surfaces as fast
+ * as it dilutes it, so the GAS DEW POINT RISES WITH THE TIP:
+ *
+ *     tip   24.66 -> 41.43 C   (+16.77 K)
+ *     Td    17.85 -> 32.83 C   (+14.98 K)      dTd/dTtip = 0.89
+ *
+ * while the cell side gained 0.59 K for that same 22.5 K of tip - a coupling
+ * of 0.026. The actuator therefore moved the DISTURBANCE thirty times harder
+ * than it moved the CONTROLLED QUANTITY. That loop has no authority: it is
+ * not mistuned, it is pushing on the wrong end of a lever. It ran to 100 %
+ * duty and would have sat at the 79 C ceiling indefinitely, cooking a cell
+ * that is already out of spec and burning 1.2 W, without ever closing the
+ * error by a kelvin.
+ *
+ * WHAT IS TESTED, and why it is not the dew-point slope. The obvious test is
+ * dTd/dTtip, but that needs two noisy derived quantities and a ratio. The
+ * cheaper and more general statement is: A LARGE MOVE OF THE ACTUATOR THAT
+ * PRODUCED NO IMPROVEMENT IN THE CONTROLLED QUANTITY IS NO AUTHORITY -
+ * whatever the mechanism. So the detector holds a reference (tip, margin)
+ * and declares the margin unreachable when the tip has risen
+ * O2P_HEATER_DEW_UNREACH_RISE_K100 from it while the margin has gained less
+ * than O2P_HEATER_DEW_UNREACH_GAIN_K100. Progress, or a tip that fell back,
+ * re-bases the reference: the question is always "over the stretch we have
+ * just climbed, did we gain?"
+ *
+ * WHAT IT DOES ABOUT IT. It zeroes the dew law's demand - nothing else. The
+ * gradient floor is high-selected alongside it and IS achievable, because it
+ * is tip-referenced and therefore immune to the dew point chasing the tip. So
+ * the probe keeps a 2 K outward gradient, which is the condensation
+ * protection that matters, and stops paying for a margin it cannot buy. This
+ * is a FALLBACK, never a shutdown: duty does not go to zero.
+ *
+ * WHY NOT A TIMED "FLUSH" INSTEAD (Fab asked): because a flush ends with a
+ * saturated interior cooling toward pile temperature, and the first surface
+ * under the dew point catches the water - the exact event the design exists
+ * to prevent. On a bench the room is a sink at 40 %RH and it works, which is
+ * why the accidental excursion that night cleaned the enclosure out. Buried
+ * in saturated pore gas there is no sink, so a flush pumps vapour out and
+ * watches it return, condensing on every down-stroke. A continuous small
+ * margin has no down-stroke. The drying belongs in a commissioning bake
+ * before burial, not in the control law.
+ *
+ * HOW IT RECOVERS. Two ways, and the asymmetry is deliberate. A margin that
+ * reaches its target clears it immediately - the environment changed and the
+ * law has its authority back. Otherwise it retries after
+ * O2P_HEATER_DEW_UNREACH_RETRY_S. The retry is LONG on purpose: re-testing
+ * costs one excursion toward the ceiling, and in a permanently wet pile a
+ * short retry is just the cooking this detector exists to stop, on a timer.
+ * Staying in floor-only mode is SAFE - the gradient is maintained - so the
+ * default errs toward not retrying.
+ *
+ * "Margin improved, therefore retry" is NOT usable as the trigger, and the
+ * reason is worth recording: backing off cools the enclosure, which lets it
+ * re-absorb water, which lowers Td and RAISES the margin. Our own retreat
+ * looks exactly like the environment improving, so that signal would
+ * oscillate. Only the absolute target, or the clock, can be trusted here.
+ *
+ * 5.00 K of rise is well above any single-cycle move of this plant and small
+ * enough to conclude inside a couple of minutes at full duty. 0.50 K of gain
+ * is comfortably above the TMP117 and Magnus noise on the margin while being
+ * far below the 4 K the law is trying to win. Both PROVISIONAL, like every
+ * other number about this plant. */
+/* A single-cycle tip move larger than this is a DISCONTINUITY, not a climb,
+ * and discontinuities are not evidence about a control loop's authority.
+ *
+ * Found by test 2026-09-13: test_dew_law_ceiling_sheds_accumulated_integral
+ * steps the tip 55.00 -> 79.50 C between two cycles to probe the ceiling
+ * back-calculation. The detector read that as "24.5 K of tip bought no
+ * margin" and withheld the dew demand, which is the right rule applied to
+ * evidence it should never have accepted: this plant has tau = 150 s, so
+ * 24.5 K in one second is impossible, and main.c already rejects tip steps
+ * over 3 K as glitches. So a jump re-bases the reference instead of
+ * concluding from it.
+ *
+ * 3.00 K matches that glitch threshold deliberately. A real climb under full
+ * duty moves ~0.1-0.5 K/s, two orders inside it, so nothing physical is
+ * discarded. */
+#define O2P_HEATER_DEW_UNREACH_STEP_K100 300
+#define O2P_HEATER_DEW_UNREACH_RISE_K100 500
+#define O2P_HEATER_DEW_UNREACH_GAIN_K100 50
+#define O2P_HEATER_DEW_UNREACH_RETRY_S   21600u   /* 6 h */
+
 /* How long main.c bridges the last accepted cell-side reading. Its glitch
  * filter withholds up to five 1 Hz readings after a >3 K jump; without a
  * bridge each of those would hand the loop to the RH law and back, restarting
@@ -654,6 +741,18 @@ typedef struct {
      * every reset so a long decay does not leave a stale high-water mark that
      * suppresses the detector forever. */
     int16_t  runaway_peak_k100;
+    /* The unreachable-margin detector's reference point and verdict; see
+     * O2P_HEATER_DEW_UNREACH_RISE_K100. `dew_ref_valid` is false before the
+     * first sample of a stretch, so a fresh state cannot conclude anything
+     * from a reference it never took. */
+    bool     dew_ref_valid;
+    bool     dew_unreachable;
+    int16_t  dew_tip_ref_c100;
+    /* Last cycle's tip, so a single-cycle jump can be told from a
+     * climb. See O2P_HEATER_DEW_UNREACH_STEP_K100. */
+    int16_t  dew_tip_prev_c100;
+    int16_t  dew_margin_ref_k100;
+    uint32_t dew_retry_at_s;
     bool     dt_clamped;       /* hysteresis latches */
     bool     tip_clamped;
     /* Which loop produced the current integrator, so that switching between
@@ -682,9 +781,41 @@ enum {
     O2P_HEATER_MODE_DEW = 4u,
 };
 
+/* WHICH LAW PRODUCED THIS DUTY, published as HEATER_LAW (0x0008).
+ *
+ * HEATER_BLOCK cannot answer this and was never able to. Its bit 15
+ * (TIP_DISARMED) says only "no stored tip setpoint", which is identical for
+ * the RH law and the dew law; and the annotations are added only on the path
+ * where a loop actually regulated, so on a refusing or blind cycle the bit is
+ * ABSENT whatever the configuration holds. A bench tool read that absence as
+ * "a tip setpoint is in command" twice on 2026-09-13 and reported the
+ * opposite of the truth both times. heater_ctl.h:78-87 anticipated exactly
+ * this - "a future 'why' needs a mode field in a spare diag register" - and
+ * the u16's last two bits went to IDLE and TIP_DISARMED, so there was none.
+ *
+ * Low byte: the law. High byte: flags about it. */
+enum {
+    O2P_HEATER_LAW_RH       = 0u,  /* the shipped humidity loop */
+    O2P_HEATER_LAW_OPEN     = 1u,  /* bench override, open-loop duty */
+    O2P_HEATER_LAW_TIP      = 2u,  /* bench override, tip-temperature loop */
+    O2P_HEATER_LAW_TIP_AUTO = 3u,  /* the stored absolute tip setpoint */
+    O2P_HEATER_LAW_DEW      = 4u,  /* dew margin, high-selected with the floor */
+    /* Not laws - the two ways there is no law in command. Distinct values
+     * because "driving open-loop because everything refused" and "not driving
+     * at all" are different situations and an operator must not have to infer
+     * which from the duty. */
+    O2P_HEATER_LAW_BLIND    = 5u,
+    O2P_HEATER_LAW_REFUSED  = 6u,
+};
+/* The dew law has given up on its margin and the gradient floor is holding
+ * the tip instead. See O2P_HEATER_DEW_UNREACH_RISE_K100. Set only alongside
+ * O2P_HEATER_LAW_DEW. */
+#define O2P_HEATER_LAWF_DEW_UNREACHABLE 0x0100u
+
 typedef struct {
     uint16_t duty_x100;
     uint16_t block;            /* O2P_HB_* ; zero means the loop is driving */
+    uint16_t law;              /* O2P_HEATER_LAW_* | O2P_HEATER_LAWF_* */
 } o2p_heater_out_t;
 
 void o2p_heater_ctl_reset(o2p_heater_state_t *st);

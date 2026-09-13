@@ -266,6 +266,7 @@ void o2p_snapshot_reset(o2p_snapshot_t *s)
     s->re_buf_mv = O2P_U16_INVALID;
     s->cell_bias_mv = O2P_I16_INVALID;
     s->heater_block = O2P_U16_INVALID;
+    s->heater_law = O2P_U16_INVALID;
     s->sampler_timing_ms = O2P_U16_INVALID;
     /* 0xFFFF, not 0. Zero is a perfectly possible real reading for every one
      * of these - 0 mV on a collapsed rail, an all-zero LMP91000 register image
@@ -755,6 +756,13 @@ uint8_t o2p_regmap_read(void *ctx, uint16_t addr, uint16_t count, uint16_t *out)
         for (uint16_t i = 0; i < count; i++) {
             out[i] = read_primary(s, (uint16_t)(addr + i));
         }
+        return 0u;
+    }
+    /* One register, so no per-address switch - and so no default arm that
+     * could answer a future neighbour with this value (the read_diag
+     * failure). Growing the block means adding a real reader. */
+    if (in_block(addr, count, O2P_REG_HLAW_BASE, O2P_REG_HLAW_COUNT)) {
+        out[0] = s->heater_law;
         return 0u;
     }
     if (in_block(addr, count, O2P_REG_DIAG_BASE, O2P_REG_DIAG_COUNT)) {

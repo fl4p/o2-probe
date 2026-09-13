@@ -13,6 +13,12 @@ void o2p_heater_ctl_reset(o2p_heater_state_t *st)
     st->integ_floor = 0.0f;
     st->runaway_latched = false;
     st->runaway_peak_k100 = -32768;
+    st->dew_ref_valid = false;
+    st->dew_unreachable = false;
+    st->dew_tip_ref_c100 = 0;
+    st->dew_tip_prev_c100 = 0;
+    st->dew_margin_ref_k100 = 0;
+    st->dew_retry_at_s = 0u;
     st->runaway_evidence_s = 0u;
     st->runaway_clear_s = 0u;
     st->zero_duty_timing = false;
@@ -741,6 +747,11 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
         out->duty_x100 = duty;
         out->block = (uint16_t)((block | supply_note) |
                                 ((duty != 0u) ? O2P_HB_BLIND : 0u));
+        /* NOT the configured law: the blind fallback is a constant duty and
+         * a refusal is no duty at all. Reporting either as the law in
+         * command is what let a flat duty sitting on HEATER_MAX_DUTY be read
+         * as a regulator settling. */
+        out->law = (duty != 0u) ? O2P_HEATER_LAW_BLIND : O2P_HEATER_LAW_REFUSED;
         update_runaway(st, cfg, in, now_s, duty);
         return;
     }
@@ -755,6 +766,11 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
      * concurrently. See O2P_HEATER_FLOOR_DELTA_K100. */
     if (!dew_law_in_command(cfg, in)) {
         st->integ_floor = 0.0f;
+        /* The unreachable verdict belongs to the dew law, and so does its
+         * reference point. Another law in command means the tip is being
+         * moved for reasons this detector cannot interpret. */
+        st->dew_ref_valid = false;
+        st->dew_unreachable = false;
     }
 
     if (cfg->test_override && cfg->test_tip_sp_valid) {
@@ -769,6 +785,7 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
                        (float)cfg->test_kp_x100 * 0.01f,
                        (float)cfg->test_ki_x100 * 0.01f,
                        max_duty);
+        out->law = O2P_HEATER_LAW_TIP;
     } else if (cfg->test_override) {
         /* Open loop. The integrator is zeroed through the mode switch, so
          * disarming hands the next loop the same bumpless proportional-only
@@ -781,6 +798,7 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
         if (duty > cfg->max_duty_x100) {
             duty = cfg->max_duty_x100;
         }
+        out->law = O2P_HEATER_LAW_OPEN;
     } else if (cfg->tip_sp_valid) {
         /* PERSISTENT tip-temperature loop. Same control law and same sign
          * convention as the override's, sharing the override's volatile gains
@@ -796,6 +814,7 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
                        (float)cfg->test_kp_x100 * 0.01f,
                        (float)cfg->test_ki_x100 * 0.01f,
                        max_duty);
+        out->law = O2P_HEATER_LAW_TIP_AUTO;
     } else if (dew_law_in_command(cfg, in)) {
         /* THE DEW-MARGIN LAW (FW 0x0013; see O2P_HEATER_DEW_MARGIN_K100).
          * Positive error means the cell side is short of margin - more duty.
@@ -809,8 +828,74 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
          * returned above. So is the tip, for the same reason via NO_TIP. */
         float td_c100 = 0.0f;
         (void)gas_dew_point_c100(in, &td_c100);
+        const float margin_f = (float)in->t_cell_c100 - td_c100;
+
+        /* THE UNREACHABLE-MARGIN DETECTOR (see
+         * O2P_HEATER_DEW_UNREACH_RISE_K100). Evaluated BEFORE the demand,
+         * because its whole job is to decide whether this law gets to make
+         * one at all. */
+        int32_t margin_i = (int32_t)(margin_f +
+                                     (margin_f < 0.0f ? -0.5f : 0.5f));
+        if (margin_i > 32767) {
+            margin_i = 32767;
+        } else if (margin_i < -32768) {
+            margin_i = -32768;
+        }
+
+        if (st->dew_unreachable) {
+            /* Two exits, and no third. The margin reaching its target means
+             * the environment changed and the law has authority again;
+             * otherwise the clock. "The margin improved" is deliberately NOT
+             * an exit - backing off cools the enclosure, which lets it
+             * re-absorb water, which lowers Td and raises the margin, so our
+             * own retreat is indistinguishable from a real improvement and
+             * the loop would oscillate on it.
+             *
+             * The comparison is written on the unsigned DIFFERENCE so a wrap
+             * of now_s cannot strand the retry for 49 days. */
+            if (margin_i >= O2P_HEATER_DEW_MARGIN_K100 ||
+                (uint32_t)(now_s - st->dew_retry_at_s) < 0x80000000u) {
+                st->dew_unreachable = false;
+                st->dew_ref_valid = false;
+            }
+        }
+        /* A jump between two cycles is a discontinuity, and the reference
+         * is re-based across it rather than measured from - see
+         * O2P_HEATER_DEW_UNREACH_STEP_K100. Computed before the reference is
+         * taken so the first cycle of a stretch cannot look like a jump. */
+        const int32_t step = (int32_t)in->t_tip_c100 -
+                             (int32_t)st->dew_tip_prev_c100;
+        const bool discontinuity =
+            st->dew_ref_valid &&
+            (step > O2P_HEATER_DEW_UNREACH_STEP_K100 ||
+             step < -O2P_HEATER_DEW_UNREACH_STEP_K100);
+        st->dew_tip_prev_c100 = in->t_tip_c100;
+
+        if (!st->dew_ref_valid) {
+            st->dew_ref_valid = true;
+            st->dew_tip_ref_c100 = in->t_tip_c100;
+            st->dew_margin_ref_k100 = (int16_t)margin_i;
+        } else if (discontinuity) {
+            st->dew_tip_ref_c100 = in->t_tip_c100;
+            st->dew_margin_ref_k100 = (int16_t)margin_i;
+        } else if (!st->dew_unreachable) {
+            const int32_t rise = (int32_t)in->t_tip_c100 -
+                                 (int32_t)st->dew_tip_ref_c100;
+            const int32_t gain = margin_i - (int32_t)st->dew_margin_ref_k100;
+            if (rise < 0 || gain >= O2P_HEATER_DEW_UNREACH_GAIN_K100) {
+                /* Progress, or the tip fell back: this stretch is over and
+                 * the next one is measured from here. The question is always
+                 * "over the stretch just climbed, did we gain?" */
+                st->dew_tip_ref_c100 = in->t_tip_c100;
+                st->dew_margin_ref_k100 = (int16_t)margin_i;
+            } else if (rise >= O2P_HEATER_DEW_UNREACH_RISE_K100) {
+                st->dew_unreachable = true;
+                st->dew_retry_at_s = now_s + O2P_HEATER_DEW_UNREACH_RETRY_S;
+            }
+        }
+
         const float margin_short = (float)O2P_HEATER_DEW_MARGIN_K100 -
-                                   ((float)in->t_cell_c100 - td_c100);
+                                   margin_f;
         const float tip_room = (float)((int32_t)O2P_HEATER_DEW_TIP_CEIL_C100 -
                                        (int32_t)in->t_tip_c100);
         const float e = (margin_short < tip_room) ? margin_short : tip_room;
@@ -826,9 +911,25 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
              * or session change zeroes it in pi_step() regardless. */
             st->integ = -kp * tip_room;
         }
-        duty = pi_step(st, O2P_HEATER_MODE_DEW, cfg->session, e, kp,
-                       (float)O2P_HEATER_DEW_KI_X100 * 0.01f,
-                       max_duty);
+        if (st->dew_unreachable) {
+            /* NO DEMAND, not a shutdown. The gradient floor below is
+             * high-selected against this zero and IS achievable - it is
+             * tip-referenced, so the dew point chasing the tip cannot defeat
+             * it - which keeps the outward gradient that actually stops
+             * condensation while we stop paying for a margin we cannot buy.
+             *
+             * The integrator is zeroed rather than frozen, and last_mode set
+             * by hand since pi_step() is not the one doing it, so a return to
+             * authority restarts proportional-only and bumpless. */
+            st->integ = 0.0f;
+            st->last_mode = O2P_HEATER_MODE_DEW;
+            st->last_session = cfg->session;
+            duty = 0u;
+        } else {
+            duty = pi_step(st, O2P_HEATER_MODE_DEW, cfg->session, e, kp,
+                           (float)O2P_HEATER_DEW_KI_X100 * 0.01f,
+                           max_duty);
+        }
 
         /* THE GRADIENT FLOOR, HIGH-SELECTED (O2P_HEATER_FLOOR_DELTA_K100).
          *
@@ -864,6 +965,9 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
         if (floor_duty > duty) {
             duty = floor_duty;
         }
+        out->law = (uint16_t)(O2P_HEATER_LAW_DEW |
+                              (st->dew_unreachable
+                                   ? O2P_HEATER_LAWF_DEW_UNREACHABLE : 0u));
     } else {
         /* Positive error means too humid, which means not enough heat. */
         const float e = (float)in->rh_x100 - (float)cfg->setpoint_x100;
@@ -871,6 +975,7 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
                        (float)cfg->kp_x100 * 0.01f,
                        (float)cfg->ki_x100 * 0.01f,
                        max_duty);
+        out->law = O2P_HEATER_LAW_RH;
     }
 
     out->duty_x100 = duty;

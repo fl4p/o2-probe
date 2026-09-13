@@ -234,6 +234,10 @@ static struct {
     bool     chamber_ok;
     bool     rh_ok;
     uint16_t heater_block;
+    /* HEATER_LAW (0x0008). 0xFFFF on a cycle the heater was not stepped - the
+     * memset at cycle start zeroes this, so it is set explicitly below rather
+     * than left at a zero that would read as O2P_HEATER_LAW_RH. */
+    uint16_t heater_law;
     /* The fault word AS IT STOOD when the oxygen conversion finished.
      *
      * PH_WE and PH_RE run AFTER PH_O2 and share the cycle-wide fault word, and
@@ -1579,10 +1583,13 @@ static void cycle_publish(o2p_snapshot_t *s)
             .cell_valid       = heater_cell_ok,
             .t_cell_c100      = s_heater_cell_c100,
         };
-        o2p_heater_out_t hout = {0u, 0u};
+        /* law defaults to REFUSED, not 0: zero is O2P_HEATER_LAW_RH, and a
+         * step that returned without writing it must not publish a law. */
+        o2p_heater_out_t hout = {0u, 0u, O2P_HEATER_LAW_REFUSED};
         o2p_heater_ctl_step(&g_heat, &hcfg, &hin, g_uptime_s, &hout);
         o2p_heater_apply(hout.duty_x100, g_rm.cfg.heater_pwm_hz);
         g_cyc.heater_block = hout.block;   /* kept for the fault word below */
+        g_cyc.heater_law = hout.law;
         if (g_heat.runaway_latched) {
             g_cyc.faults |= O2P_F_HEATER_RUNAWAY;
         }
@@ -1600,6 +1607,7 @@ static void cycle_publish(o2p_snapshot_t *s)
     }
     s->heater_duty = o2p_heater_duty_x100();
     s->heater_block = g_cyc.heater_block;
+    s->heater_law = g_cyc.heater_law;
     /* The staleness cut runs on the heater's own tick, not the sampler's,
      * and it drives the gate low WITHOUT passing through heater_ctl - so
      * fold its latch in here. Until 0x0010 the bit existed in the contract

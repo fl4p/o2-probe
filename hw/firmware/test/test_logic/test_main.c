@@ -244,6 +244,60 @@ static void test_read_across_block_gap_is_refused(void)
     TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS, rsp[2]);
 }
 
+static void test_heater_law_block_is_one_read_only_register_at_0x0008(void)
+{
+    uint8_t req[16], rsp[O2P_MB_MAX_ADU];
+
+    /* Before the heater has ever been stepped the register must say so, not
+     * publish 0 - which is O2P_HEATER_LAW_RH, a real law. */
+    {
+        const uint8_t body[] = {0x03, 0x03, 0x00, 0x08, 0x00, 0x01};
+        size_t n = framed(req, body, sizeof(body));
+        size_t len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+        TEST_ASSERT_EQUAL_UINT(3 + 2 + 2, len);
+        TEST_ASSERT_EQUAL_HEX16_MESSAGE(0xFFFFu, (rsp[3] << 8) | rsp[4],
+            "an unstepped heater must publish the invalid sentinel");
+    }
+
+    o2p_snapshot_t *s = o2p_regmap_staging(&rm);
+    s->heater_law = (uint16_t)(O2P_HEATER_LAW_DEW | O2P_HEATER_LAWF_DEW_UNREACHABLE);
+    o2p_regmap_publish(&rm);
+    {
+        const uint8_t body[] = {0x03, 0x03, 0x00, 0x08, 0x00, 0x01};
+        size_t n = framed(req, body, sizeof(body));
+        size_t len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+        TEST_ASSERT_EQUAL_UINT(3 + 2 + 2, len);
+        TEST_ASSERT_EQUAL_HEX16(0x0104u, (rsp[3] << 8) | rsp[4]);
+    }
+
+    /* Additive, not an extension: the primary block keeps its length, so a
+     * read running from it into 0x0008 still crosses a block boundary... */
+    {
+        const uint8_t body[] = {0x03, 0x03, 0x00, 0x07, 0x00, 0x02};
+        size_t n = framed(req, body, sizeof(body));
+        size_t len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+        TEST_ASSERT_EQUAL_UINT(5, len);
+        TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS, rsp[2]);
+    }
+    /* ...and a read running past it lands in the 0x0009 gap. */
+    {
+        const uint8_t body[] = {0x03, 0x03, 0x00, 0x08, 0x00, 0x02};
+        size_t n = framed(req, body, sizeof(body));
+        size_t len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+        TEST_ASSERT_EQUAL_UINT(5, len);
+        TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS, rsp[2]);
+    }
+    /* It reports on the firmware's decision; nothing may write it. */
+    {
+        const uint8_t body[] = {0x03, 0x06, 0x00, 0x08, 0x00, 0x04};
+        size_t n = framed(req, body, sizeof(body));
+        size_t len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+        TEST_ASSERT_EQUAL_UINT(5, len);
+        TEST_ASSERT_TRUE_MESSAGE((rsp[1] & 0x80u) != 0u,
+            "a write to HEATER_LAW must be an exception");
+    }
+}
+
 static void test_unknown_function_is_exception_01(void)
 {
     uint8_t req[16], rsp[O2P_MB_MAX_ADU];
@@ -1785,7 +1839,7 @@ static void test_loop_reaches_setpoint_in_steady_state(void)
     o2p_heater_ctl_reset(&st);
     o2p_heater_cfg_t cfg = hcfg_default();
     o2p_heater_in_t in = hin_healthy();
-    o2p_heater_out_t out = {0u, 0u};
+    o2p_heater_out_t out = {0u, 0u, O2P_HEATER_LAW_REFUSED};
 
     for (unsigned i = 0; i < 2000u; i++) {
         in.rh_x100 = fake_plant_rh(out.duty_x100);
@@ -5270,6 +5324,284 @@ static void test_gradient_floor_integrator_is_its_own_and_is_shed_on_exit(void)
     TEST_ASSERT_EQUAL_FLOAT(0.0f, st.integ_floor);
 }
 
+/* ---------------------------- the unreachable-margin detector (FW 0x0018)
+ *
+ * THE BENCH EVENT, 2026-09-13: in a wet enclosure the gas dew point rose with
+ * the tip (tip +16.77 K, Td +14.98 K) while the cell gained 0.59 K for 22.5 K
+ * of tip. The dew law ran to 100 % and would have held the 79 C ceiling. */
+
+/* A wet enclosure at tip temperature `tip_c`: the chamber tracks the tip 1 K
+ * behind (what it does on this board), RH stays at 95 % so the dew point rides
+ * up with the chamber, and the cell sits still at 50 C. The margin therefore
+ * gets WORSE as the tip climbs - the regime the detector exists for. */
+static o2p_heater_in_t hin_wet_at(float tip_c)
+{
+    o2p_heater_in_t in = hin_dew();
+    in.t_tip_c100 = (int16_t)(tip_c * 100.0f + 0.5f);
+    in.t_chamber_c100 = (int16_t)(in.t_tip_c100 - 100);
+    in.rh_x100 = 9500u;
+    in.t_cell_c100 = 5000;
+    return in;
+}
+
+/* A DRY enclosure: the gas dew point is held at `td_c` whatever the chamber
+ * does - RH is solved from Magnus for it, which is what fixed absolute
+ * humidity means - and the cell gains 0.4 K per K of tip, the bath coupling. */
+static o2p_heater_in_t hin_dry_at(float tip_c, float td_c)
+{
+    const float a = 17.62f, b = 243.12f;
+    o2p_heater_in_t in = hin_dew();
+    in.t_tip_c100 = (int16_t)(tip_c * 100.0f + 0.5f);
+    in.t_chamber_c100 = (int16_t)(in.t_tip_c100 - 100);
+    const float tc = (float)in.t_chamber_c100 * 0.01f;
+    const float rh = 100.0f * expf(a * td_c / (b + td_c) - a * tc / (b + tc));
+    in.rh_x100 = (uint16_t)(rh * 100.0f + 0.5f);
+    in.t_cell_c100 = (int16_t)((50.0f + 0.4f * (tip_c - 55.0f)) * 100.0f + 0.5f);
+    return in;
+}
+
+/* Climb the wet enclosure 0.25 K/s from 55 C until the detector fires, and
+ * return the second it fired at. Fails the test if it never does. */
+static uint32_t wet_climb_until_unreachable(o2p_heater_state_t *st,
+                                            const o2p_heater_cfg_t *cfg,
+                                            o2p_heater_out_t *out)
+{
+    for (uint32_t t = 0u; t <= 60u; t++) {
+        o2p_heater_in_t in = hin_wet_at(55.0f + 0.25f * (float)t);
+        o2p_heater_ctl_step(st, cfg, &in, t, out);
+        if (st->dew_unreachable) {
+            return t;
+        }
+    }
+    TEST_FAIL_MESSAGE("a wet enclosure climbing 15 K never tripped the detector");
+    return 0u;
+}
+
+static void test_dew_margin_unreachable_when_the_dew_point_chases_the_tip(void)
+{
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+
+    /* CALIBRATE FIRST (guard checklist 7): this input must be one the dew law
+     * WANTS to drive hard, or "the demand was withheld" proves nothing. */
+    o2p_heater_in_t probe = hin_wet_at(60.0f);
+    TEST_ASSERT_TRUE_MESSAGE(dew_step_fresh(&cfg, &probe, &out) > 0u,
+        "the stimulus must be one the dew law would drive against");
+
+    const uint32_t fired = wet_climb_until_unreachable(&st, &cfg, &out);
+    /* 5.00 K at 0.25 K/s from a reference taken at t = 0 is t = 20 - not
+     * sooner (that would be a hair trigger) and not later. */
+    TEST_ASSERT_EQUAL_UINT32(20u, fired);
+    TEST_ASSERT_EQUAL_HEX16(O2P_HEATER_LAW_DEW | O2P_HEATER_LAWF_DEW_UNREACHABLE,
+                            out.law);
+    /* The dew law's demand is gone; what remains is the floor's, and with the
+     * tip 10 K over a 50 C cell the floor has nothing to ask for either. */
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.duty_x100,
+        "an unreachable margin must stop the dew law pinning the ring");
+}
+
+static void test_dew_margin_is_not_unreachable_when_heating_buys_margin(void)
+{
+    /* The other side: a DRY enclosure, where the same climb buys 2 K of margin
+     * per 5 K of tip. The detector must never fire, or it would disarm the law
+     * in exactly the situation it works in. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+
+    for (uint32_t t = 0u; t <= 40u; t++) {
+        o2p_heater_in_t in = hin_dry_at(55.0f + 0.25f * (float)t, 49.0f);
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+        TEST_ASSERT_FALSE_MESSAGE(st.dew_unreachable,
+            "heating that improves the margin is authority, not its absence");
+        TEST_ASSERT_EQUAL_HEX16(O2P_HEATER_LAW_DEW, out.law);
+    }
+}
+
+static void test_dew_margin_unreachable_ignores_a_single_cycle_tip_jump(void)
+{
+    /* A DISCONTINUITY IS NOT EVIDENCE ABOUT AUTHORITY, and this is the case
+     * that found the rule: test_dew_law_ceiling_sheds_accumulated_integral
+     * steps the tip 55.00 -> 79.50 C between two cycles to probe the ceiling
+     * back-calculation, and the detector read it as "24.5 K of tip bought no
+     * margin" and withheld the dew demand. The plant's tau is 150 s, so that
+     * move is physically impossible, and main.c already rejects tip steps
+     * over 3 K as glitches. See O2P_HEATER_DEW_UNREACH_STEP_K100. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+
+    for (uint32_t t = 0u; t < 5u; t++) {
+        o2p_heater_in_t in = hin_wet_at(55.0f);
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+    }
+    TEST_ASSERT_FALSE(st.dew_unreachable);
+
+    /* +15 K in one cycle, with the margin getting WORSE - so without the
+     * guard this is exactly the unreachable signature and the detector fires. */
+    o2p_heater_in_t jump = hin_wet_at(70.0f);
+    o2p_heater_ctl_step(&st, &cfg, &jump, 5u, &out);
+    TEST_ASSERT_FALSE_MESSAGE(st.dew_unreachable,
+        "a single-cycle tip jump is a discontinuity, not a climb");
+
+    /* And the guard must not have BLINDED the detector (guard checklist 2):
+     * a real climb from the new reference still has to fire. */
+    bool fired = false;
+    uint32_t t = 6u;
+    for (unsigned i = 1u; i <= 40u && !fired; i++, t++) {
+        o2p_heater_in_t in = hin_wet_at(70.0f + 0.25f * (float)i);
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+        fired = st.dew_unreachable;
+    }
+    TEST_ASSERT_TRUE_MESSAGE(fired,
+        "rejecting jumps must not stop the detector seeing a real climb");
+}
+
+static void test_dew_margin_unreachable_clears_when_the_target_is_met(void)
+{
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+    const uint32_t fired = wet_climb_until_unreachable(&st, &cfg, &out);
+
+    /* The environment dries out: the cell now stands 4.5 K over the gas dew
+     * point. The target is the one margin signal that cannot be our own
+     * retreat, so it clears at once. */
+    o2p_heater_in_t in = hin_wet_at(60.0f);
+    float td;
+    TEST_ASSERT_TRUE(o2p_dewpoint_c((float)in.t_chamber_c100 * 0.01f,
+                                    (float)in.rh_x100 * 0.01f, &td));
+    in.t_cell_c100 = (int16_t)((td + 4.5f) * 100.0f + 0.5f);
+    o2p_heater_ctl_step(&st, &cfg, &in, fired + 1u, &out);
+    TEST_ASSERT_FALSE(st.dew_unreachable);
+    TEST_ASSERT_EQUAL_HEX16(O2P_HEATER_LAW_DEW, out.law);
+}
+
+static void test_dew_margin_unreachable_retries_only_after_its_interval(void)
+{
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+    const uint32_t fired = wet_climb_until_unreachable(&st, &cfg, &out);
+    o2p_heater_in_t in = hin_wet_at(60.0f);   /* still wet, still short */
+
+    /* One second before the retry: still in floor-only mode. A short retry in
+     * a permanently wet pile is the cooking this detector exists to stop. */
+    o2p_heater_ctl_step(&st, &cfg, &in,
+                        fired + O2P_HEATER_DEW_UNREACH_RETRY_S - 1u, &out);
+    TEST_ASSERT_TRUE(st.dew_unreachable);
+
+    o2p_heater_ctl_step(&st, &cfg, &in,
+                        fired + O2P_HEATER_DEW_UNREACH_RETRY_S, &out);
+    TEST_ASSERT_FALSE_MESSAGE(st.dew_unreachable,
+        "the retry must come due, or a probe that dries out slowly never "
+        "gets its margin law back");
+}
+
+static void test_dew_margin_retry_survives_the_uptime_wrap(void)
+{
+    /* The retry deadline is now_s + 6 h, which wraps when the verdict lands in
+     * the last 6 h before 2^32 s. A signed or naive comparison then reads the
+     * wrapped deadline as long past and releases on the next cycle. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+    const uint32_t base = 0xFFFFFF00u;
+
+    uint32_t fired = 0u;
+    for (uint32_t t = 0u; t <= 60u; t++) {
+        o2p_heater_in_t in = hin_wet_at(55.0f + 0.25f * (float)t);
+        o2p_heater_ctl_step(&st, &cfg, &in, base + t, &out);
+        if (st.dew_unreachable) {
+            fired = base + t;
+            break;
+        }
+    }
+    TEST_ASSERT_TRUE(st.dew_unreachable);
+    TEST_ASSERT_TRUE_MESSAGE(fired + O2P_HEATER_DEW_UNREACH_RETRY_S < fired,
+        "the stimulus must actually wrap the deadline, or this proves nothing");
+
+    o2p_heater_in_t in = hin_wet_at(60.0f);
+    o2p_heater_ctl_step(&st, &cfg, &in, fired + 1u, &out);
+    TEST_ASSERT_TRUE_MESSAGE(st.dew_unreachable,
+        "a wrapped deadline must not read as already expired");
+}
+
+static void test_dew_margin_verdict_is_shed_when_the_dew_law_hands_over(void)
+{
+    /* The verdict and its reference describe the DEW law's authority. Another
+     * law in command moves the tip for reasons the detector cannot interpret,
+     * so neither may survive the hand-over and greet the dew law on return. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+    (void)wet_climb_until_unreachable(&st, &cfg, &out);
+
+    o2p_heater_in_t in = hin_wet_at(60.0f);
+    in.cell_valid = false;                       /* the RH law takes the slot */
+    o2p_heater_ctl_step(&st, &cfg, &in, 100u, &out);
+    TEST_ASSERT_FALSE(st.dew_unreachable);
+    TEST_ASSERT_FALSE(st.dew_ref_valid);
+    TEST_ASSERT_EQUAL_HEX16(O2P_HEATER_LAW_RH, out.law);
+}
+
+static void test_dew_margin_ignores_a_rise_our_power_cannot_explain(void)
+{
+    /* THE FALSE POSITIVE THIS GUARDS, found by the suite on the first build:
+     * a detector that credits ANY tip rise to the heater reads heat arriving
+     * from OUTSIDE - a probe pushed into a hot pile - as "we climbed and bought
+     * nothing", and disarms the dew law for six hours in exactly the pile it
+     * was buried for. Same family as the runaway latch that fired on its own
+     * cool-down: attributing heat the firmware did not deliver.
+     *
+     * So only the rise the delivered energy could explain is credited. A 20 K
+     * step in one second, while the law drives at a moderate duty, is almost
+     * entirely not ours and must not trip it. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+
+    o2p_heater_in_t in = hin_wet_at(55.0f);
+    for (uint32_t t = 0u; t < 30u; t++) {       /* driving, tip held */
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(out.duty_x100 > 0u,
+        "the law must be driving, or 'our power' is trivially zero");
+
+    in = hin_wet_at(75.0f);                     /* external step: +20 K in 1 s */
+    o2p_heater_ctl_step(&st, &cfg, &in, 30u, &out);
+    o2p_heater_ctl_step(&st, &cfg, &in, 31u, &out);
+    TEST_ASSERT_FALSE_MESSAGE(st.dew_unreachable,
+        "a rise the delivered energy cannot account for is not our authority "
+        "failing - it is somebody else's heat");
+}
+
+static void test_heater_law_names_blind_and_refused_not_the_configured_law(void)
+{
+    /* The distinction HEATER_BLOCK could not carry: a refusal and a blind
+     * drive are not the configured law, whatever the configuration says. */
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+
+    o2p_heater_in_t in = hin_dew();
+    in.tip_valid = false;                        /* the dew law's bound is gone */
+    (void)dew_step_fresh(&cfg, &in, &out);       /* die 57 C: blind gate closed */
+    TEST_ASSERT_EQUAL_HEX16(O2P_HEATER_LAW_REFUSED, out.law);
+
+    in.t_die_c100 = 3000;                        /* die under the gate */
+    TEST_ASSERT_TRUE(dew_step_fresh(&cfg, &in, &out) > 0u);
+    TEST_ASSERT_EQUAL_HEX16(O2P_HEATER_LAW_BLIND, out.law);
+}
+
 static void test_the_bench_override_outranks_a_stored_setpoint(void)
 {
     /* Precedence. An armed override means an operator is at the bench NOW,
@@ -7581,7 +7913,11 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    /* 0x0017: the runaway detector's DECAY DISCRIMINATOR (Fab's order,
+    /* 0x0018: the dew law's UNREACHABLE-MARGIN detector (Fab's order,
+     *         2026-09-13, "build the unreachable-margin detector") and a new
+     *         read-only block 0x0008 HEATER_LAW. A read of 0x0008 is
+     *         ILLEGAL ADDRESS on 0x0017 and earlier.
+     * 0x0017: the runaway detector's DECAY DISCRIMINATOR (Fab's order,
      *         2026-09-13, "fix the runaway latch now"). No register and no
      *         bit changes; what changes is when O2P_HB_RUNAWAY appears, and
      *         a master that treats it as a hardware verdict needs to know
@@ -7618,7 +7954,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         steps the thermal mass cannot make are rejected for a cycle.
      * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
      *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
-    TEST_ASSERT_EQUAL_HEX16(0x0017u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x0018u, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_HEX16(0xC000u,
         (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
     /* The staleness cut must win the race against the watchdog's fastest
@@ -9609,6 +9945,7 @@ int main(void)
     RUN_TEST(test_16bit_value_is_not_truncated_into_a_byte_field);
     RUN_TEST(test_config_struct_has_no_implicit_padding);
     RUN_TEST(test_read_across_block_gap_is_refused);
+    RUN_TEST(test_heater_law_block_is_one_read_only_register_at_0x0008);
     RUN_TEST(test_unknown_function_is_exception_01);
     RUN_TEST(test_broadcast_never_replies);
     RUN_TEST(test_write_rejects_illegal_slave_address);
@@ -9738,6 +10075,15 @@ int main(void)
     RUN_TEST(test_gradient_floor_duty_is_monotonic_in_its_gradient);
     RUN_TEST(test_gradient_floor_runs_only_beside_the_dew_law);
     RUN_TEST(test_gradient_floor_integrator_is_its_own_and_is_shed_on_exit);
+    RUN_TEST(test_dew_margin_unreachable_when_the_dew_point_chases_the_tip);
+    RUN_TEST(test_dew_margin_unreachable_ignores_a_single_cycle_tip_jump);
+    RUN_TEST(test_dew_margin_is_not_unreachable_when_heating_buys_margin);
+    RUN_TEST(test_dew_margin_unreachable_clears_when_the_target_is_met);
+    RUN_TEST(test_dew_margin_unreachable_retries_only_after_its_interval);
+    RUN_TEST(test_dew_margin_retry_survives_the_uptime_wrap);
+    RUN_TEST(test_dew_margin_verdict_is_shed_when_the_dew_law_hands_over);
+    RUN_TEST(test_dew_margin_ignores_a_rise_our_power_cannot_explain);
+    RUN_TEST(test_heater_law_names_blind_and_refused_not_the_configured_law);
     RUN_TEST(test_the_bench_override_outranks_a_stored_setpoint);
     RUN_TEST(test_a_v7_record_does_not_arm_a_temperature_loop);
     RUN_TEST(test_tip_setpoint_and_consent_are_bounded_on_the_wire);

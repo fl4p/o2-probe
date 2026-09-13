@@ -45,6 +45,34 @@ enum {
 #define O2P_REG_PRIMARY_BASE  0x0000u
 #define O2P_REG_PRIMARY_COUNT 8u
 
+/* ---- Heater-law block: 0x0008, 1 register, read-only, FW 0x0018 ----
+ *
+ * HEATER_LAW: which control law produced HEATER_DUTY this cycle (low byte,
+ * O2P_HEATER_LAW_* in heater_ctl.h) plus flags about it (high byte,
+ * O2P_HEATER_LAWF_*). 0xFFFF before the heater has been stepped.
+ *
+ * WHY A NEW BLOCK. HEATER_BLOCK cannot answer "which law": its bit 15 is
+ * identical for the RH and dew laws, and the annotations are omitted on the
+ * refusing/blind path, so a bench tool read that absence as "a stored tip
+ * setpoint is in command" twice on 2026-09-13 - the opposite of the truth.
+ * The dew law's unreachable-margin fallback made it acute: a probe holding the
+ * gradient floor because its margin is unreachable looks, on every existing
+ * register, exactly like a probe with both laws satisfied. The u16 had no
+ * free bit (heater_ctl.h, O2P_HB_IDLE), FAULTS has none (faults.h), and the
+ * diagnostic block runs solid to 0x002F against the config block at 0x0030.
+ *
+ * WHY HERE. 0x0008-0x000F is the only gap next to the measurement registers;
+ * the other gaps sit between debug and updater blocks. Deliberately a
+ * SEPARATE block rather than PRIMARY_COUNT 8 -> 9: the primary block is what
+ * the node polls and the LoRaWAN codec decodes, and growing it is a contract
+ * change for every master. A separate block is purely additive - a read of
+ * 0x0000 count 8 is byte-for-byte what it was. */
+enum {
+    O2P_REG_HEATER_LAW   = 0x0008u, /* u16  O2P_HEATER_LAW_* | _LAWF_*  0xFFFF invalid */
+};
+#define O2P_REG_HLAW_BASE  0x0008u
+#define O2P_REG_HLAW_COUNT 1u
+
 /* O2_COMP IS DRY BASIS - oxygen as a fraction of the water-free gas.
  *
  * A number whose basis is undocumented is worse than either choice, so:
@@ -1051,7 +1079,7 @@ enum {
  *
  * For "which build is this", read BUILD_ID (0x0028/0x0029) - this number is
  * hand-maintained and says nothing about the binary. */
-#define O2P_FW_VERSION 0x0017u  /* v0.23 - runaway detector gains a DECAY DISCRIMINATOR (Fab 2026-09-13: "this is not a runaway situation", "fix the runaway latch now"). The tip-minus-die test is on a LEVEL with a 60 s window against a plant whose tau is 150 s, so any commanded excursion past 10 K latched on the way DOWN - measured that day: the dew law drove the tip 17.5 -> 40.7 C, demand collapsed, the latch set during the cool-down with the FET innocent. Evidence now accumulates only while the excess has not fallen 1.00 K below its peak in this window: commanded heat decays from a peak, a stuck FET holds one. v0.22 - gradient floor high-selected against the dew-margin law (Fab 2026-09-13: "should we combine +2k and the 4k dew margin?" / "lets do it then"): duty = max(dew, floor), floor = PI on (T_cell + 2.00 K) - T_tip with its own integrator, clamped to the same 79 C ceiling. Covers a valid-but-lying SHT45, whose low RH makes the dew law ask for nothing while the membrane condenses; the floor's chain is two TMP117s and no humidity. Compile-time constants only - NO config layout bump, so no migration and no lost air point. v0.21 - diag opcode 9 O2P_OP_ADS_INTERNAL_REF: volatile debug flag, every ADS1119 conversion on the internal 2.048 V reference (Fab 2026-09-11: "let it use the internal ref for all channels now, for debugging. the external ref is down"); v0.20 - VIN_DIV_X1000 at 0x004B, config block 27 -> 28 registers, no layout bump (Fab 2026-09-11: "this calibration constants belongs in the stm non-volatile storage"); v0.19 - dew-margin heater law (Fab 2026-09-11, steam bath: "fix it so it keeps a reasonable dew-margin"): cell-side TMP117 minus gas dew point held at 4 K, tip ceiling 79 C / clamp 80 C, RH law as fallback without a cell reading; v0.18 - poke mailbox 0x0198 + wide poke 0x01B0 (Fab 2026-09-11: "the equivalent write command of the peek" - SRAM .data/.bss writes only, flash/peripherals/SHARED/stack refused); v0.17 - supply veto removed (Fab 2026-09-11: <1 W, blind already heated through it; O2P_HB_SUPPLY now annotation-only); v0.16 was compost-readiness: fresh RH consent, HB IDLE/TIP_DISARMED, stale cut 2 s + STALE bit, tip glitch reject, VREF settle on recovery */
+#define O2P_FW_VERSION 0x0018u  /* v0.24 - unreachable-margin detector and HEATER_LAW (Fab 2026-09-13: "build the unreachable-margin detector"). In a wet enclosure the gas dew point rose with the tip (dTd/dTtip 0.89 against a cell coupling of 0.026), so the dew law ran to full duty and would have held the 79 C ceiling indefinitely without closing its error. When a 5 K tip climb buys under 0.5 K of cell-side margin the dew law now withholds its demand and the high-selected gradient floor holds the tip instead; it clears when the margin reaches target or after 6 h. New read-only block 0x0008 HEATER_LAW publishes the law in command and the unreachable flag, because no existing register could tell that fallback from both laws satisfied. v0.23 - runaway detector gains a DECAY DISCRIMINATOR (Fab 2026-09-13: "this is not a runaway situation", "fix the runaway latch now"). The tip-minus-die test is on a LEVEL with a 60 s window against a plant whose tau is 150 s, so any commanded excursion past 10 K latched on the way DOWN - measured that day: the dew law drove the tip 17.5 -> 40.7 C, demand collapsed, the latch set during the cool-down with the FET innocent. Evidence now accumulates only while the excess has not fallen 1.00 K below its peak in this window: commanded heat decays from a peak, a stuck FET holds one. v0.22 - gradient floor high-selected against the dew-margin law (Fab 2026-09-13: "should we combine +2k and the 4k dew margin?" / "lets do it then"): duty = max(dew, floor), floor = PI on (T_cell + 2.00 K) - T_tip with its own integrator, clamped to the same 79 C ceiling. Covers a valid-but-lying SHT45, whose low RH makes the dew law ask for nothing while the membrane condenses; the floor's chain is two TMP117s and no humidity. Compile-time constants only - NO config layout bump, so no migration and no lost air point. v0.21 - diag opcode 9 O2P_OP_ADS_INTERNAL_REF: volatile debug flag, every ADS1119 conversion on the internal 2.048 V reference (Fab 2026-09-11: "let it use the internal ref for all channels now, for debugging. the external ref is down"); v0.20 - VIN_DIV_X1000 at 0x004B, config block 27 -> 28 registers, no layout bump (Fab 2026-09-11: "this calibration constants belongs in the stm non-volatile storage"); v0.19 - dew-margin heater law (Fab 2026-09-11, steam bath: "fix it so it keeps a reasonable dew-margin"): cell-side TMP117 minus gas dew point held at 4 K, tip ceiling 79 C / clamp 80 C, RH law as fallback without a cell reading; v0.18 - poke mailbox 0x0198 + wide poke 0x01B0 (Fab 2026-09-11: "the equivalent write command of the peek" - SRAM .data/.bss writes only, flash/peripherals/SHARED/stack refused); v0.17 - supply veto removed (Fab 2026-09-11: <1 W, blind already heated through it; O2P_HB_SUPPLY now annotation-only); v0.16 was compost-readiness: fresh RH consent, HB IDLE/TIP_DISARMED, stale cut 2 s + STALE bit, tip glitch reject, VREF settle on recovery */
 
 /* Overridden by tools/pio_build_id.py on every target build. The default is
  * reached only by the host test build, and means "no stamp", never a commit. */
@@ -1316,6 +1344,7 @@ typedef struct {
     uint16_t re_buf_mv;
     int16_t  cell_bias_mv;
     uint16_t heater_block;
+    uint16_t heater_law;       /* HEATER_LAW, 0x0008 */
     uint16_t sampler_timing_ms;
 } o2p_snapshot_t;
 
