@@ -6629,6 +6629,70 @@ static void test_a_sustained_cell_loss_still_allows_blind_after_the_limit(void)
         "at the limit the cell counts as gone and the wet-board rule applies");
 }
 
+static void test_a_false_runaway_latch_releases_while_the_floor_runs(void)
+{
+    /* Codex review of a75c1f4, finding 3 (FW 0x0021, Fab: "let the latch
+     * release"). A latch whose thermal signature has gone - tip only ~8 K over
+     * a 30 C die, chamber fresh - while the gradient floor needs ~10 % duty
+     * to hold its 2 K (a well-coupled plant: 20 K rise at full duty). Under
+     * 0x0020 every cycle above RUNAWAY's 5 % idle threshold wiped the release
+     * evidence, and the latch never cleared. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    st.runaway_latched = true;
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+    dewplant_t p = {36.0f, 36.0f, 20.0f, 150.0f, 0.03f, 30.0f, 0.0f, 36.0f, 0.0f};
+    uint16_t max_duty_while_latched = 0u;
+    int64_t released = -1;
+    for (uint32_t t = 0u; t < 3000u; t++) {
+        o2p_heater_in_t in = dewplant_in(&p);
+        in.t_die_c100 = 3000;
+        const bool was_latched = st.runaway_latched;
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+        if (was_latched && out.duty_x100 > max_duty_while_latched) {
+            max_duty_while_latched = out.duty_x100;
+        }
+        if (was_latched && !st.runaway_latched && released < 0) {
+            released = (int64_t)t;
+        }
+        dewplant_step(&p, out.duty_x100);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(max_duty_while_latched > O2P_HEATER_RUNAWAY_IDLE_DUTY_X100,
+        "the floor must have run above the idle threshold, or this proves nothing");
+    TEST_ASSERT_TRUE_MESSAGE(released >= 0,
+        "a latch whose signature has gone must release while the floor runs");
+    TEST_ASSERT_TRUE_MESSAGE(released <= 600, "and within a few release windows");
+}
+
+static void test_a_real_runaway_signature_holds_the_latch_under_the_floor(void)
+{
+    /* The monotonic side: the same latch and the same floor duty, but the tip
+     * held ~22 K over the die (50 C pile, die 30 C). The signature has NOT
+     * gone, so running the release path under floor duty must never release
+     * it - that is what separates this fix from simply ignoring the latch. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    st.runaway_latched = true;
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+    dewplant_t p = {50.0f, 50.0f, 20.0f, 150.0f, 0.03f, 44.0f, 0.0f, 50.0f, 0.0f};
+    uint16_t max_duty = 0u;
+    for (uint32_t t = 0u; t < 3000u; t++) {
+        o2p_heater_in_t in = dewplant_in(&p);
+        in.t_die_c100 = 3000;
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+        if (out.duty_x100 > max_duty) {
+            max_duty = out.duty_x100;
+        }
+        TEST_ASSERT_TRUE_MESSAGE(st.runaway_latched,
+            "a tip 22 K over the die is still the signature: no release");
+        dewplant_step(&p, out.duty_x100);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(max_duty > O2P_HEATER_RUNAWAY_IDLE_DUTY_X100,
+        "the release path must have been exercised under floor duty");
+}
+
 static void test_heater_law_names_blind_and_refused_not_the_configured_law(void)
 {
     /* The distinction HEATER_BLOCK could not carry: a refusal and a blind
@@ -8957,7 +9021,10 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    /* 0x0020: a short cell-reading dropout (under 60 s, after a valid cell
+    /* 0x0021: a runaway latch can release while the gradient floor runs above
+     *         the idle duty - release judged on the thermal signature alone
+     *         (Fab's "let the latch release").
+     * 0x0020: a short cell-reading dropout (under 60 s, after a valid cell
      *         has been seen) neither reaches blind nor hands the dew law
      *         over - the unreachable detector pauses (Fab's "fix it").
      * 0x001F: a false RUNAWAY latch keeps the gradient floor running under
@@ -9028,7 +9095,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         steps the thermal mass cannot make are rejected for a cycle.
      * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
      *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
-    TEST_ASSERT_EQUAL_HEX16(0x0020u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x0021u, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_HEX16(0xC000u,
         (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
     /* The staleness cut must win the race against the watchdog's fastest
@@ -11174,6 +11241,8 @@ int main(void)
     RUN_TEST(test_dew_unreachable_survives_a_cell_dropout_during_a_refusal);
     RUN_TEST(test_a_flickering_cell_cannot_reach_blind);
     RUN_TEST(test_a_sustained_cell_loss_still_allows_blind_after_the_limit);
+    RUN_TEST(test_a_false_runaway_latch_releases_while_the_floor_runs);
+    RUN_TEST(test_a_real_runaway_signature_holds_the_latch_under_the_floor);
     RUN_TEST(test_a_hot_floor_cannot_reach_blind_through_the_runaway_latch);
     RUN_TEST(test_dew_unreachable_pause_of_exactly_the_limit_keeps_its_evidence);
     RUN_TEST(test_dew_unreachable_verdict_survives_its_own_refusal_not_a_hand_over);

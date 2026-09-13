@@ -284,7 +284,8 @@ static void update_runaway(o2p_heater_state_t *st,
                            const o2p_heater_cfg_t *cfg,
                            const o2p_heater_in_t *in,
                            uint32_t now_s,
-                           uint16_t duty_x100)
+                           uint16_t duty_x100,
+                           bool release_under_floor)
 {
     if (!in->drive_possible) {
         return;
@@ -338,8 +339,22 @@ static void update_runaway(o2p_heater_state_t *st,
         return;
     }
     /* Commanded heat is not runaway - but "commanded" has to mean a duty that
-     * could actually explain the excess, not merely a nonzero one. */
-    if (duty_x100 > O2P_HEATER_RUNAWAY_IDLE_DUTY_X100) {
+     * could actually explain the excess, not merely a nonzero one.
+     *
+     * EXCEPT WHILE A LATCH IS RELEASING UNDER THE GRADIENT FLOOR (FW 0x0021,
+     * Fab 2026-09-13: "let the latch release"; codex review of a75c1f4,
+     * finding 3). Since 0x001F a latch no longer ends heat - the floor keeps
+     * regulating - and the floor routinely commands more than this idle
+     * threshold. This early return then wiped the RELEASE evidence every such
+     * cycle, so a false latch stayed set long after its thermal signature had
+     * gone (review model: 0x001C released at 644 s, 0x001F never in 7200 s).
+     * Release is judged on the signature alone - every reference valid, each
+     * clear by the hysteresis, a fresh chamber, a full window - and a floor
+     * holding ~2 K over the cell cannot fake that; a stuck FET keeps the tip
+     * hot and the latch set. Only the release path runs past here: the latched
+     * branch below returns before any new-latch evidence is accumulated. */
+    if (duty_x100 > O2P_HEATER_RUNAWAY_IDLE_DUTY_X100 &&
+        !(st->runaway_latched && release_under_floor)) {
         st->zero_duty_timing = false;
         st->runaway_evidence_s = 0u;
         st->runaway_clear_s = 0u;
@@ -887,7 +902,7 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
          * command is what let a flat duty sitting on HEATER_MAX_DUTY be read
          * as a regulator settling. */
         out->law = (duty != 0u) ? O2P_HEATER_LAW_BLIND : O2P_HEATER_LAW_REFUSED;
-        update_runaway(st, cfg, in, now_s, duty);
+        update_runaway(st, cfg, in, now_s, duty, false);
         return;
     }
 
@@ -1189,7 +1204,7 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
         out->block |= O2P_HB_TIP_DISARMED;
     }
 
-    update_runaway(st, cfg, in, now_s, out->duty_x100);
+    update_runaway(st, cfg, in, now_s, out->duty_x100, latched_floor);
     /* Not when the floor is running under an EXISTING latch (latched_floor):
      * zeroing here every cycle would silently undo FW 0x001F. A latch that
      * sets THIS cycle still zeroes it - the floor takes over next cycle. */
