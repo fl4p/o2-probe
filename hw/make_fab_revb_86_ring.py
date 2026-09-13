@@ -37,8 +37,20 @@ HERE = Path(__file__).resolve().parent
 CANDIDATE = Path('routing/revb-86-ring')
 REFERENCE = Path('routing/revb-86/o2-probe.kicad_pcb')
 ASSEMBLY = Path('docs/2026-09-12-current-assembly-review.md')
+# Accepted-risk dispositions for this revision, incl. Fab's 2026-09-14 decision to
+# accept J107's I2C at minimum clearance from the AFE. The gate must name and hash
+# it, so a package cannot exist without the accepted risk travelling with it.
+DISPOSITIONS = Path('docs/2026-09-14-revb-86-ring-dispositions.md')
+REVIEW = Path('docs/2026-09-13-revb-86-ring-codex-review.md')
 AUDIT = Path('schematic-audit.rpt')
 COMPONENTS = 85
+# Named so a gate cannot be written without restating them. Changing this list is
+# a new review, not an edit.
+ACCEPTED_RISKS = [
+    'i2c-at-minimum-clearance-from-guard-and-vref',
+    'tip-ground-return-via-dependent-paths',
+    'spreader-thermal-corridor-unmeasured',
+]
 
 CODE = ['make_fab_revb_86_ring.py', 'verify_revb_86_ring.py', 'inspect_revb_86_ring_fab.py',
         'make_fab_revb_86.py', 'verify_revb_86.py', 'make_fab_revb_current.py',
@@ -68,7 +80,8 @@ def source_inventory(reference_board):
     reference_board = reference_board.resolve()
     if reference_board != (HERE / REFERENCE).resolve():
         raise ValueError('Reference must be the accepted ' + str(REFERENCE))
-    paths = [HERE / x for x in CODE] + [HERE / ASSEMBLY, HERE / AUDIT, reference_board]
+    paths = [HERE / x for x in CODE] + [HERE / ASSEMBLY, HERE / DISPOSITIONS, HERE / REVIEW,
+                                        HERE / AUDIT, reference_board]
     paths += [reference_board.with_suffix(ext) for ext in ('.kicad_pro', '.kicad_dru', '.kicad_sch')]
     paths += [HERE / CANDIDATE / ('o2-probe.' + ext) for ext in ('kicad_pcb', 'kicad_pro', 'kicad_dru', 'kicad_sch')]
     paths += [HERE / x for x in ('o2-probe.xml', 'o2-probe.kicad_sch', 'sym-lib-table', 'fp-lib-table')]
@@ -98,6 +111,13 @@ def check_gate(gate, inputs, reference_board):
         raise ValueError('Reviewed input/code/library hashes changed')
     if gate.get('assembly_disposition') != str(ASSEMBLY) or gate.get('courtyard_pairs') != [list(x) for x in sorted(PAIRS)]:
         raise ValueError('Ten current assembly dispositions are not explicit')
+    if gate.get('risk_dispositions') != str(DISPOSITIONS) or gate.get('prior_review') != str(REVIEW):
+        raise ValueError('Risk dispositions and the prior review record must be named explicitly')
+    for field, path in (('risk_dispositions_sha256', DISPOSITIONS), ('prior_review_sha256', REVIEW)):
+        if gate.get(field) != sha256(HERE / path):
+            raise ValueError('Named document changed since review: ' + str(path))
+    if gate.get('accepted_risks') != ACCEPTED_RISKS:
+        raise ValueError('Accepted-risk list differs from the reviewed set')
     dangling = gate.get('reviewed_guard_endpoints')
     if not isinstance(dangling, list):
         raise ValueError('Expected exact individually reviewed guard endpoint warnings')
@@ -133,6 +153,9 @@ def main():
         a.write_gate_template.write_text(json.dumps({'schema': 1, 'status': 'UNREVIEWED',
             'reference_board': str(a.reference_board.resolve().relative_to(HERE)), 'inputs_sha256': inputs,
             'assembly_disposition': str(ASSEMBLY), 'courtyard_pairs': sorted(PAIRS),
+            'risk_dispositions': str(DISPOSITIONS), 'risk_dispositions_sha256': sha256(HERE / DISPOSITIONS),
+            'prior_review': str(REVIEW), 'prior_review_sha256': sha256(HERE / REVIEW),
+            'accepted_risks': ACCEPTED_RISKS,
             'review_record': '', 'review_record_sha256': '', 'reviewed_guard_endpoints': []}, indent=2) + '\n')
         print('UNREVIEWED template only: ' + str(a.write_gate_template))
         return 0

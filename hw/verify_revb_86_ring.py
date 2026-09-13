@@ -86,8 +86,8 @@ SPREADER_PADS = {('RH1', '2'), ('RH2', '2'), ('Q2', '3'), ('J5', '1')}
 # removed object are hashed, so any change to position, width, layer, lock, pad
 # shape, angle, mask or paste fails. Regenerate with --print-delta only for an
 # intended change, and treat that as a new review. UNSET fails closed.
-ADDED_SHA256 = 'UNSET'
-REMOVED_SHA256 = 'UNSET'
+ADDED_SHA256 = '97e1bb62e139ca1782fd1da0669a9bcb96032ced77fe3e17fd5525c29aead4df'
+REMOVED_SHA256 = '486b9e4f919fb12b9b3499a1b065569109233d70d9441c36088a71d135182e34'
 
 
 def delta_digest(nodes):
