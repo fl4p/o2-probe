@@ -1335,14 +1335,28 @@ def bridge_status(link, probe_addr):
     return False, None, None
 
 
-def retimable_line(link, probe_addr):
+def retimable_line(link, probe_addr, assume_no_bridge=True):
     """(line, why_not): the end of the cable that must follow the probe.
 
     `line` is an object with `set_baud` and `.baud`, or None - in which case
     `why_not` is the sentence to print. Nothing here changes anything; it only
     establishes which of the three situations we are in.
+
+    THE BRIDGE PROBE IS OFF BY DEFAULT since 2026-09-13 (Fab: "there's no
+    bridge, fix the keeper", then "there will be no more bridge"). With
+    `assume_no_bridge` (the default) the slave-250 probe is skipped and the
+    direct-line branch taken. The probe cost more than it could answer: on
+    the farmgw BLE keeper its first BLE write timed out after 20 s again and
+    again (keeper.log, seven times on 2026-09-11 and again at 12:20 on
+    2026-09-13), which reads as "unknowable" and held every push at 9600
+    baud. Pass False to probe for a legacy bench bridge. If a bridge were
+    ever in the path anyway, what remains is the bounded failure
+    bridge_status() documents: the probe's 10 s serial probation puts it back.
     """
-    is_bridge, version, bus_baud = bridge_status(link, probe_addr)
+    if assume_no_bridge:
+        is_bridge, version, bus_baud = False, None, None
+    else:
+        is_bridge, version, bus_baud = bridge_status(link, probe_addr)
 
     if is_bridge is None:
         return None, ("could not rule out a bridge in the path")
@@ -1697,6 +1711,7 @@ def negotiate_baud(link, bus, home_code, settle=0.2, line=None,
 
     print("   baud: asking for %d -> %d for the transfer (not committed; any "
           "reset puts it back)" % (BAUD_CODES[was], fast))
+    t_ask = time.monotonic()
 
     try:
         bus.write(R_BAUD_CODE, [fast_code])
@@ -1734,7 +1749,8 @@ def negotiate_baud(link, bus, home_code, settle=0.2, line=None,
         else:
             time.sleep(settle)
         if confirm_baud(bus, fast_code):
-            print("   baud: %d confirmed over %d frames" % (fast, VERIFY_FRAMES))
+            print("   baud: %d confirmed over %d frames, %.2f s after asking"
+                  % (fast, VERIFY_FRAMES, time.monotonic() - t_ask))
             return restore
     except BaseException:
         restore()
@@ -1955,8 +1971,66 @@ def resume_point(bus, image_len, crc, block_bytes):
     return (next_seq, received)
 
 
-def _push_lookahead(bus, image, block_bytes, retries, seq, sent):
+def _stat(stats, key, value):
+    stats.setdefault(key, []).append(value)
+
+
+def _pctl(values, q):
+    s = sorted(values)
+    return s[min(len(s) - 1, int(q * (len(s) - 1) + 0.5))]
+
+
+def xfer_report(stats, nbytes, elapsed, baud=None):
+    """The staging run's instrumentation, as printable lines.
+
+    Fab, 2026-09-13: "instrument the tools". Until then a push reported one
+    number, "sent in N s", and every argument about where the time went -
+    BLE, the node's service cadence, the bus, the probe's flash - was an
+    inference from that total. These are the host-side measurements that
+    separate them, per block:
+
+      att_write_ms  one bus_send(): the ATT write(s) and their confirmations
+      reply_ms      from that block's write completing to its reply frame
+                    ARRIVING (the link's notification timestamp), which
+                    includes any time it sat queued behind the block ahead
+      cycle_ms      reply to reply: the rate-setting number
+      exchange_ms   one-at-a-time links: the whole exchange
+
+    Human lines first, then exactly ONE machine line starting "XFER " of
+    key=value pairs, which the keeper lifts onto /status.
+    """
+    rate = nbytes / elapsed if elapsed > 0 else 0.0
+    lines = ["   rate: %d B in %.2f s = %.2f kB/s (%.1f kbit/s)%s"
+             % (nbytes, elapsed, rate / 1000.0, rate * 8 / 1000.0,
+                "" if not baud else ", bus at %d baud" % baud)]
+    kv = [("bytes", "%d" % nbytes), ("s", "%.3f" % elapsed),
+          ("Bps", "%.0f" % rate)]
+    if baud:
+        kv.append(("baud", "%d" % baud))
+    for key in ("att_write_ms", "reply_ms", "cycle_ms", "exchange_ms"):
+        vals = stats.get(key) or []
+        if not vals:
+            continue
+        p50, p95, mx = _pctl(vals, 0.5), _pctl(vals, 0.95), max(vals)
+        lines.append("   %-13s n=%-4d p50 %7.1f  p95 %7.1f  max %7.1f ms"
+                     % (key, len(vals), p50, p95, mx))
+        base = key[:-3]
+        kv += [(base + "_n", "%d" % len(vals)),
+               (base + "_p50_ms", "%.1f" % p50),
+               (base + "_p95_ms", "%.1f" % p95),
+               (base + "_max_ms", "%.1f" % mx)]
+    for key in ("retries", "resent"):
+        if stats.get(key):
+            lines.append("   %s: %d" % (key, stats[key]))
+            kv.append((key, "%d" % stats[key]))
+    lines.append("XFER " + " ".join("%s=%s" % p for p in kv))
+    return lines
+
+
+def _push_lookahead(bus, image, block_bytes, retries, seq, sent, stats=None):
     """push()'s staging loop for a link whose bus queue is two deep.
+
+    `stats`, when given, collects the per-block timings xfer_report() prints.
 
     THE NODE'S CONTRACT (bleota.cpp bus_service): one exchange at a time
     on the wire, a second request may sit queued behind it, a third is
@@ -1997,6 +2071,10 @@ def _push_lookahead(bus, image, block_bytes, retries, seq, sent):
         return (pdu + b"".join(struct.pack(">H", v) for v in regs),
                 len(regs))
 
+    if stats is None:
+        stats = {}
+    sent_at = {}          # block -> when its write completed (monotonic)
+    last_rx = None        # the previous successful reply's arrival
     pending = []          # written, reply not yet collected (at most 2)
     base = 0              # first block not yet collected successfully
     tries = {}
@@ -2004,16 +2082,26 @@ def _push_lookahead(bus, image, block_bytes, retries, seq, sent):
         while len(pending) < 2 and base + len(pending) < n_blocks:
             nxt = base + len(pending)
             pdu, _ = block_pdu(nxt)
+            t_w = time.monotonic()
             link.bus_send(bus._adu(pdu))
+            t_done = time.monotonic()
+            _stat(stats, "att_write_ms", (t_done - t_w) * 1000.0)
+            sent_at[nxt] = t_done
             pending.append(nxt)
         blk = pending[0]
         try:
             rsp = link.bus_collect()
+            # The notification's own arrival time when the link records
+            # one; otherwise now, which is late by however long the host
+            # took to come back and collect.
+            t_rx = getattr(link, "last_reply_at", None) or time.monotonic()
             bus._check(rsp)
             _, nregs = block_pdu(blk)
             bus._check_fc16(rsp, R_DATA, nregs)
         except (IOError, ModbusException) as e:
             tries[blk] = tries.get(blk, 0) + 1
+            stats["retries"] = stats.get("retries", 0) + 1
+            last_rx = None        # a resync is not a cycle
             if tries[blk] > retries:
                 raise SystemExit("!! block %d failed: %s" % (seq + blk, e))
             # Whatever was queued behind the failure was dropped by the
@@ -2035,8 +2123,13 @@ def _push_lookahead(bus, image, block_bytes, retries, seq, sent):
                 base = blk + 1
             else:
                 print("   retrying block %d (%s)" % (seq + blk, e))
+                stats["resent"] = stats.get("resent", 0) + 1
                 base = blk              # resend from the failed block
             continue
+        _stat(stats, "reply_ms", (t_rx - sent_at.get(blk, t_rx)) * 1000.0)
+        if last_rx is not None:
+            _stat(stats, "cycle_ms", (t_rx - last_rx) * 1000.0)
+        last_rx = t_rx
         pending.pop(0)
         base += 1
         done = sent + base * block_bytes
@@ -2123,6 +2216,8 @@ def push(bus, image, block_bytes, retries, no_resume=False):
         seq, sent = start
 
     t0 = time.time()
+    sent0 = sent
+    stats = {}
     # getattr twice: test harnesses fake the whole probe with no .link, and
     # the serial loop below never looked at one.
     if getattr(getattr(bus, "link", None), "bus_queue_depth", 1) >= 2:
@@ -2131,7 +2226,7 @@ def push(bus, image, block_bytes, retries, no_resume=False):
         # on the wire. Anything else falls back to the one-at-a-time loop
         # below, unchanged.
         seq, sent = _push_lookahead(bus, image, block_bytes, retries,
-                                    seq, sent)
+                                    seq, sent, stats=stats)
     else:
         while sent < len(image):
             chunk = image[sent:sent + block_bytes]
@@ -2139,9 +2234,13 @@ def push(bus, image, block_bytes, retries, no_resume=False):
                             for i in range(0, len(chunk), 2)]
             for attempt in range(retries + 1):
                 try:
+                    t_x = time.monotonic()
                     bus.write(R_DATA, regs)
+                    _stat(stats, "exchange_ms",
+                          (time.monotonic() - t_x) * 1000.0)
                     break
                 except (IOError, ModbusException) as e:
+                    stats["retries"] = stats.get("retries", 0) + 1
                     if attempt == retries:
                         raise SystemExit("!! block %d failed: %s" % (seq, e))
                     # Resynchronise rather than guess: the probe knows which
@@ -2156,11 +2255,18 @@ def push(bus, image, block_bytes, retries, no_resume=False):
             if seq % 10 == 0 or sent == len(image):
                 print("   %d/%d bytes" % (sent, len(image)), end="\r",
                       flush=True)
-    print("\n   sent in %.1f s" % (time.time() - t0))
+    elapsed = time.time() - t0
+    print("\n   sent in %.1f s" % elapsed)
+    for line in xfer_report(stats, min(sent, len(image)) - sent0, elapsed,
+                            getattr(getattr(bus, "link", None), "baud",
+                                    None)):
+        print(line)
 
+    t_commit = time.monotonic()
     bus.write(R_CMD, [CMD_COMMIT])
     wait_for(bus, STATES.index("STAGED"), 30.0, "the image verify")
-    print("staged and verified")
+    print("staged and verified (commit + verify %.2f s)"
+          % (time.monotonic() - t_commit))
 
 
 def main():

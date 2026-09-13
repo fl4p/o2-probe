@@ -162,6 +162,34 @@ def main():
               for s in node.landed),
           "every landed block is the right bytes")
 
+    # -- instrumentation (2026-09-13, Fab: "instrument the tools") -------
+    # Its own node/bus names: the ADU check below reads the happy path's
+    # `node`, and rebinding it here made that check compare a failure run.
+    i_node = Node()
+    i_bus = U.Bus(FakeLink(i_node), ADDR)
+    stats = {}
+    U._push_lookahead(i_bus, IMG, BB, 2, 0, 0, stats=stats)
+    check(len(stats.get("att_write_ms", [])) == n_expect and
+          len(stats.get("reply_ms", [])) == n_expect and
+          len(stats.get("cycle_ms", [])) == n_expect - 1,
+          "a clean run times every write and reply, and n-1 cycles "
+          "(%s)" % dict((k, len(v)) for k, v in stats.items()))
+    lines = U.xfer_report(stats, len(IMG), 2.0, baud=115200)
+    xfer = [ln for ln in lines if ln.startswith("XFER ")]
+    check(len(xfer) == 1 and ("Bps=%.0f" % (len(IMG) / 2.0)) in xfer[0]
+          and "baud=115200" in xfer[0]
+          and ("reply_n=%d" % n_expect) in xfer[0],
+          "exactly one machine-readable XFER line with rate, baud and "
+          "counts (%r)" % xfer)
+    i_node = Node()
+    i_bus = U.Bus(FakeLink(i_node, fail_at={2: "silent"}), ADDR)
+    stats = {}
+    U._push_lookahead(i_bus, IMG, BB, 2, 0, 0, stats=stats)
+    check(stats.get("retries") == 1 and stats.get("resent") == 1,
+          "a mid-run silence is counted as one retry and one resend "
+          "(%s)" % dict((k, v) for k, v in stats.items()
+                        if not isinstance(v, list)))
+
     # -- the ADUs are byte-identical to the serial loop's ----------------
     serial_adus = []
     s = 0

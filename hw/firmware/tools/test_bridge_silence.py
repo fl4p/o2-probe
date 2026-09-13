@@ -168,6 +168,29 @@ def main():
           "direct line verdict is the transport's own limit, not a phantom "
           "unknowable bridge (%r)" % why_not)
 
+    # 2026-09-13 (Fab: "there's no bridge, fix the keeper", "there will be no
+    # more bridge"): by DEFAULT the slave-250 probe does not run - not one
+    # exchange - and a link that can be retimed is the direct line.
+    class Retimable(FakeLink):
+        baud = 9600
+
+        def set_baud(self, rate):
+            self.baud = rate
+
+    def must_not_exchange(nth, adu):
+        raise AssertionError("the bridge probe ran")
+    link = Retimable(must_not_exchange)
+    line, why_not = U.retimable_line(link, 3)
+    check(line is link and why_not is None and not link.exchanges,
+          "default -> the direct line, with zero exchanges "
+          "(%r, %r, %d exchanges)" % (line, why_not, len(link.exchanges)))
+    # ...and asking for the legacy probe explicitly still runs it in full.
+    link = Retimable(silent)
+    line, why_not = U.retimable_line(link, 3, assume_no_bridge=False)
+    check(line is link and len(link.exchanges) == U.BRIDGE_PROBES,
+          "assume_no_bridge=False still probes %d times before taking the "
+          "direct line (got %d)" % (U.BRIDGE_PROBES, len(link.exchanges)))
+
     print("test_bridge_silence: %s" % ("PASS" if ok[0] == 0 else "FAIL"))
     return ok[0]
 
