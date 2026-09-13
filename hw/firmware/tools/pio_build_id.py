@@ -62,7 +62,29 @@ if build_id > 0x0FFFFFFF:
 
 # --quiet exits 1 on any tracked change; --exit-code is implied. Untracked
 # files are deliberately NOT counted: they cannot be in the image.
-dirty = _git(["diff", "--quiet", "HEAD", "--"]).returncode != 0
+#
+# SCOPED TO THE BUILD INPUTS, 2026-09-13. This used to diff the WHOLE
+# REPOSITORY, and ~/dev/ee is a monorepo that several agent sessions and
+# several unrelated projects share - pv/ee, vibe, crypto, .idea, submodule
+# gitlinks. It is essentially never clean, so every image was stamped dirty
+# whatever the firmware's own state, and a guard that is permanently red
+# trains everyone to wave it through. Measured 2026-09-13: the firmware
+# sources all committed at 8bb8802, seventeen unrelated paths dirty, and the
+# image refused by o2p_flash.py for a tree state it did not have.
+#
+# The scope below is the same argument the untracked-file line above makes:
+# a file that cannot be in the image must not be evidence about the image.
+# The inputs are this PlatformIO project and ../gen_sch.py, which
+# pio_hw_contract.py regenerates src/hw_contract.h from (its docstring calls
+# it "the declared source of truth"). Nothing else is compiled or generated
+# into these bits.
+#
+# Deliberately NOT widened to the whole o2-probe directory: the KiCad files,
+# the docs and the audit reports beside it churn constantly and are not build
+# inputs either. If a future build starts consuming one, add it HERE - this
+# list IS the claim about what the SHA covers.
+_INPUTS = [".", "../gen_sch.py"]
+dirty = _git(["diff", "--quiet", "HEAD", "--"] + _INPUTS).returncode != 0
 if dirty:
     build_id |= 0x80000000
 
