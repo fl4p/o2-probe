@@ -1609,13 +1609,16 @@ add_passive("RH1",368.3,149.86,"280R 1W","Resistor_SMD:R_2512_6332Metric","+12V_
 add_passive("RH2",368.3,165.1,"280R 1W","Resistor_SMD:R_2512_6332Metric","+12V_SW","HEATER_LOW",mpn="CRCW2512280RFKEG")
 place("J5",HEATED_RING,368.3,195.58,value="HEATED MEMBRANE RING",
       footprint="o2-probe:Heater_Ring_Lands",
-      note="Manual-soldered dry-side metal membrane-carrier ring. TWO PLAIN SMD LANDS "
-           "on back copper at the front edge - no drills, no plated slots, no "
-           "castellations (Fab, 2026-09-13): the ring is soldered flat, so none of that "
-           "tooling bought anything. Both lands are pad number 1, i.e. ONE HEATER_LOW "
-           "node, so the ring is a heat spreader and never a conductor between them. "
-           "They sit inside the HEATED_ISLAND_SPREADER pour, which is what connects "
-           "them - no track is required, and one added in its place connected nothing.")
+      note="Manual-soldered dry-side metal membrane-carrier ring. TWO RING LANDS at the "
+           "front edge, each present on FRONT AND BACK copper (Fab, 2026-09-13), 2.8 x 2.0 "
+           "mm - no drills, no plated slots, no castellations: the ring is soldered flat, "
+           "so none of that tooling bought anything. All four pads are number 1, i.e. ONE "
+           "HEATER_LOW node, so the ring is a heat spreader and never a conductor. The "
+           "back lands sit inside the HEATED_ISLAND_SPREADER pour, which is what connects "
+           "them - no track is required, and one added in its place connected nothing; a "
+           "via at each land ties the front land down to that pour. Width is 2x the first "
+           "attempt; HEIGHT IS CAPPED AT 2.0 by /I2C_SDA reaching Y 136.45 under the left "
+           "land, not by choice.")
 net("J5",1,"HEATER_LOW")
 place("U16",TMP302,327.66,198.12,value="TMP302BDRLR",footprint="o2-probe:TMP302_DRL6_TI",mpn="TMP302BDRLR",
       note="Autonomous HEATER_GATE clamp: TRIPSET1/0=11 gives 85 C; HYSTSET=VS gives nominal 10 C hysteresis. Not supply-failure safe; qualify thermal coupling and restart.")

@@ -2,7 +2,7 @@
 <export version="E">
   <design>
     <source>/Users/fab/dev/ee/hw/o2-probe/o2-probe.kicad_sch</source>
-    <date>2026-09-13T10:09:06</date>
+    <date>2026-09-13T16:51:41</date>
     <tool>Eeschema 10.0.5</tool>
     <sheet number="1" name="/" tstamps="/">
       <title_block>
@@ -886,13 +886,13 @@
       <value>HEATED MEMBRANE RING</value>
       <footprint>o2-probe:Heater_Ring_Lands</footprint>
       <fields>
-        <field name="Design Note">Manual-soldered dry-side metal membrane-carrier ring. TWO PLAIN SMD LANDS on back copper at the front edge - no drills, no plated slots, no castellations (Fab, 2026-09-13): the ring is soldered flat, so none of that tooling bought anything. Both lands are pad number 1, i.e. ONE HEATER_LOW node, so the ring is a heat spreader and never a conductor between them. They sit inside the HEATED_ISLAND_SPREADER pour, which is what connects them - no track is required, and one added in its place connected nothing.</field>
+        <field name="Design Note">Manual-soldered dry-side metal membrane-carrier ring. TWO RING LANDS at the front edge, each present on FRONT AND BACK copper (Fab, 2026-09-13), 2.8 x 2.0 mm - no drills, no plated slots, no castellations: the ring is soldered flat, so none of that tooling bought anything. All four pads are number 1, i.e. ONE HEATER_LOW node, so the ring is a heat spreader and never a conductor. The back lands sit inside the HEATED_ISLAND_SPREADER pour, which is what connects them - no track is required, and one added in its place connected nothing; a via at each land ties the front land down to that pour. Width is 2x the first attempt; HEIGHT IS CAPPED AT 2.0 by /I2C_SDA reaching Y 136.45 under the left land, not by choice.</field>
         <field name="Footprint">o2-probe:Heater_Ring_Lands</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="o2-probe" part="HEATED_MEMBRANE_RING" description="Manual-solder metal membrane carrier and heat spreader"/>
-      <property name="Design Note" value="Manual-soldered dry-side metal membrane-carrier ring. TWO PLAIN SMD LANDS on back copper at the front edge - no drills, no plated slots, no castellations (Fab, 2026-09-13): the ring is soldered flat, so none of that tooling bought anything. Both lands are pad number 1, i.e. ONE HEATER_LOW node, so the ring is a heat spreader and never a conductor between them. They sit inside the HEATED_ISLAND_SPREADER pour, which is what connects them - no track is required, and one added in its place connected nothing."/>
+      <property name="Design Note" value="Manual-soldered dry-side metal membrane-carrier ring. TWO RING LANDS at the front edge, each present on FRONT AND BACK copper (Fab, 2026-09-13), 2.8 x 2.0 mm - no drills, no plated slots, no castellations: the ring is soldered flat, so none of that tooling bought anything. All four pads are number 1, i.e. ONE HEATER_LOW node, so the ring is a heat spreader and never a conductor. The back lands sit inside the HEATED_ISLAND_SPREADER pour, which is what connects them - no track is required, and one added in its place connected nothing; a via at each land ties the front land down to that pour. Width is 2x the first attempt; HEIGHT IS CAPPED AT 2.0 by /I2C_SDA reaching Y 136.45 under the left land, not by choice."/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <sheetpath names="/" tstamps="/"/>

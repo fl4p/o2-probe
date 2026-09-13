@@ -5,19 +5,26 @@ after Fab: *"the pcb missed the ring pads at the tip. add them."*
 
 ## Done and verified
 
-- **J5 placed at (110, 137.9)** — two **plain SMD lands on back copper**, 1.4 x 1.5 mm
-  at X 101.1 and X 118.9, hard against the front edge (0.35 mm to it, rule is 0.30).
-  **No drills, no plated slots, no castellations** (Fab, 2026-09-13): the ring is
-  soldered flat, so none of that tooling bought anything, and it drops the 1.00 mm
-  castellation tool and its two routed slots from the fab data entirely.
-- **B.Cu on purpose.** That is the layer `HEATED_ISLAND_SPREADER` pours on, so the
-  lands tie into `/HEATER_LOW` with no copper added at all — Fab, 2026-09-13:
-  *"it doesnt need that 0.8mm track, the fill is enough."* Confirmed: a provisional
-  0.8 mm track was tried and removed, and refilling with and without it gives the
-  same result, because it lay *inside* the island it was meant to escape.
-- Both lands are **pad number 1**, and KiCad records
-  `duplicate_pad_numbers_are_jumpers no` — one node, not a net-tie. The ring is a
-  heat spreader and never a conductor between them.
+- **J5: two ring lands, 2.8 x 2.0 mm, on FRONT AND BACK copper** (Fab, 2026-09-13),
+  centred X 101.75 / 118.25 at Y 137.65, so each spans Y 136.65..138.65 — 0.35 mm
+  off the front edge, where the rule is 0.30. Plain SMD rectangles: no drills, no
+  plated slots, no castellations.
+  **Width is 2x the first attempt; height stopped at 2.0 and that is a measurement,
+  not a preference** — `/I2C_SDA` on B.Cu reaches Y 136.45 under the left land, so
+  anything taller shorts to it. Land area is 2.7x what it was.
+- All four pads are **number 1** with `duplicate_pad_numbers_are_jumpers no`: one
+  `/HEATER_LOW` node, so the ring is a heat spreader and never a conductor.
+- The **back** lands sit in the `HEATED_ISLAND_SPREADER` pour, which is what connects
+  them — no track needed (Fab: *"the fill is enough"*; a track tried in its place
+  connected nothing, because it lay inside the island it was meant to escape). A
+  **0.6/0.3 via at each land** (X 101.75 / 118.25, Y 137.0) ties the **front** land
+  down to that pour.
+- **C35 moved up 1.1 mm**, (117, 136.5) -> (117, 135.4), to clear the enlarged right
+  land. Its two feeds were repaired rather than left dangling: `/3V3D` now approaches
+  from below the land, (116.48, 137.5) -> (116.48, 136.45) -> (117, 136.0); the GND
+  stub that used to reach its old pad is pulled back to X 116.3 and the F.Cu GND
+  plane connects the pad. Note C35 is U16's supply bypass and is now 1.1 mm further
+  from it — still short, but worth knowing if TMP302 behaviour is ever suspect.
 - **Both thermal slots shortened 2 mm** at the tip end (apex Y 137.0 -> 135.0),
   restoring Rev A's 4.0 mm slot-to-tip bridge and the geometry the theta = 68 K/W
   measurement (aa6133d) was taken on.
@@ -27,11 +34,11 @@ after Fab: *"the pcb missed the ring pads at the tip. add them."*
 ### One accepted warning
 
 `silk_over_copper`: the existing `TMP_CELL` B.Silkscreen label clips the left land.
-Cosmetic, and it is a warning rather than an error, but it means silk ink under a
-hand-soldered joint. Four positions for the label and two land widths were tried;
-each traded it for a `silk_overlap` against R28 or a `silk_edge_clearance`. Left as
-the least-bad of those, with the label in its original position rather than moving
-an existing marking to suit a new part. **Worth one minute in the editor before fab.**
+Cosmetic, a warning not an error, but it means silk ink under a hand-soldered joint,
+and the larger land makes the overlap bigger. Four label positions and two land widths
+were tried earlier; each traded it for a `silk_overlap` against R28 or a
+`silk_edge_clearance`. Left for a minute in the editor rather than moving an existing
+marking to suit a new part.
 
 ## Blocked: three I2C_SDA segments, and that is the whole of it
 

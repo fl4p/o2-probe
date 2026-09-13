@@ -2,11 +2,11 @@
 	(version 20240108)
 	(generator "pcbnew")
 	(layer "B.Cu")
-	(descr "Two plain SMD lands at the front edge for the dry-side heated membrane carrier ring. No drills, no castellations, no plated slots: the ring is hand-soldered flat onto back copper. Both lands are pad number 1 - one HEATER_LOW node - so the ring is a heat spreader and never a conductor between them. They sit inside the HEATED_ISLAND_SPREADER pour, which is what connects them; no track is required.")
+	(descr "Two ring lands at the front edge for the dry-side heated membrane carrier ring, each present on FRONT AND BACK copper. Plain SMD rectangles - no drills, no castellations, no plated slots. All four pads are number 1: one HEATER_LOW node, so the ring is a heat spreader and never a conductor. The back lands sit in the HEATED_ISLAND_SPREADER pour; a via at each land ties the front land down to it.")
 	(tags "heater ring hand solder membrane smd land")
 	(property "Reference" "J5"
-		(at 0 2.4 0)
-		(layer "B.SilkS")
+		(at 0 2.9 0)
+		(layer "B.Fab")
 		(hide yes)
 		(effects
 			(font
@@ -17,7 +17,7 @@
 		)
 	)
 	(property "Value" "HEATED MEMBRANE RING"
-		(at 0 3.6 0)
+		(at 0 4.1 0)
 		(layer "B.Fab")
 		(hide yes)
 		(effects
@@ -51,8 +51,8 @@
 	(attr smd exclude_from_pos_files)
 	(duplicate_pad_numbers_are_jumpers no)
 	(fp_rect
-		(start -9 -0.75)
-		(end -7 0.75)
+		(start -9.75 -1.1)
+		(end -6.75 1.1)
 		(stroke
 			(width 0.05)
 			(type default)
@@ -61,8 +61,8 @@
 		(layer "B.CrtYd")
 		)
 	(fp_rect
-		(start 7 -0.75)
-		(end 9 0.75)
+		(start 6.75 -1.1)
+		(end 9.75 1.1)
 		(stroke
 			(width 0.05)
 			(type default)
@@ -71,13 +71,23 @@
 		(layer "B.CrtYd")
 		)
 	(pad "1" smd rect
-		(at -8.9 0)
-		(size 1.4 1.5)
+		(at -8.25 0)
+		(size 2.8 2)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		)
+	(pad "1" smd rect
+		(at -8.25 0)
+		(size 2.8 2)
 		(layers "B.Cu" "B.Mask" "B.Paste")
 		)
 	(pad "1" smd rect
-		(at 8.9 0)
-		(size 1.4 1.5)
+		(at 8.25 0)
+		(size 2.8 2)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		)
+	(pad "1" smd rect
+		(at 8.25 0)
+		(size 2.8 2)
 		(layers "B.Cu" "B.Mask" "B.Paste")
 		)
 	(embedded_fonts no)
