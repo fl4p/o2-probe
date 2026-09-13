@@ -16,9 +16,9 @@ Research date 2026-09-04; independently reviewed and corrected 2026-09-05
 (`review/CODEX-REVIEW-2026-09-04.md`). Method: `online-research` skill,
 decision-grade tier.
 
-**Opening the cable is a separate decision** — its 3,8 mm OD is below the
-working range of every common jacket stripper. See
-[`CABLE-PREP.md`](CABLE-PREP.md).
+**Opening the cable is a separate decision.** The delivered cable measures
+3,65 mm (catalogue 3,8 mm), which is below the working range of the common
+jacket strippers. See [`CABLE-PREP.md`](CABLE-PREP.md).
 
 ---
 
@@ -339,7 +339,7 @@ explicitly "dauerhaft, robust und bei korrekter Ausführung wasserdicht":
   size up — roughly 19/6 for the outer sleeve — and keep the adhesive lining and
   the 25 cm length, which are the parts that do the work.
   **This caution is void for the cable actually ordered.** It was written
-  against §3's ROBUST 215 C. LAPP 7038890 is 3,8 mm — the TrueFlex geometry —
+  against §3's ROBUST 215 C. LAPP 7038890 is 3,8 mm catalogue, 3,65 mm measured —
   so SRH2 8/2 is correctly sized as published, and sizing up would be a mistake.
 - **Truebner's FAQ and their own guide read as if they disagree**, and the
   reconciliation matters. The FAQ says "Keinesfalls darf die Kontaktstelle im
