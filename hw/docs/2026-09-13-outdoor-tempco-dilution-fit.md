@@ -197,3 +197,27 @@ Consequence for the firmware change: the physics law and the vendor mean are
 still needs human verification, and it extends past 60 °C, where the vendor chart
 ends. Separating them needs an excursion where p_w stays flat while T moves ≥ 20 K, or
 an isothermal humidity step.
+
+## Backfill to VM: `gas_o2_tlaw_pct` (2026-09-13 ~15:00 CEST)
+
+New series, additive: `gas_pct_vol` and the old `gas_o2_dry_pct` (16 695 samples,
+no temperature term) are untouched. Computed from `gas_cell_ua` with the 0x001E
+constants:
+
+```
+o2p_backfill_dry.py --write --cell-law --drop-settling --k 449513.4 --alpha 1.0 \
+  --p-hpa 930 --tempco-ref 37.71 --start 2026-09-12T18:40 --metric gas_o2_tlaw_pct
+```
+
+- **941 samples**, 09-12 18:40 UTC → 09-13 12:5x (68 settling samples dropped).
+  The window starts after the C9 repair: K belongs to this cell and board, and
+  earlier rows have no T_EXT.
+- **Producer check:** over the 12 samples after the 12:36 UTC air point, where
+  0x001E publishes the same computation, the difference to `gas_pct_vol` is
+  −0.006…+0.003 %vol (median −0.002). Before that point it runs +0.58 %vol median,
+  because the probe still used the 09-12 point.
+- Hourly medians **20.96–21.14 %vol**. The nine samples outside 20.7–21.4 are the
+  spikes listed in "What the run contains" (seven at 03:42–04:29, two in the evening).
+- **Scale caveat:** K from the 37.71 °C point is applied backwards over 18 h. The
+  two-point check above is exactly the doubt: this series inherits whatever makes the
+  09-12 point disagree by 0.26 %vol.

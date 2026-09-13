@@ -46,7 +46,7 @@ WHAT IT DOES NOT FIX, stated because the number looks authoritative and is not:
     default so an old invocation reproduces its old numbers; pass it to match
     0x001E. --tempco then means the residual, as the register does.
 """
-import argparse, json, math, sys, urllib.request
+import argparse, datetime, json, math, sys, urllib.parse, urllib.request
 
 # Defaults describe the PRE-RECALIBRATION era and are kept only so an old
 # invocation reproduces its old numbers. Both are now overridable, because
@@ -114,6 +114,14 @@ def main():
     a.add_argument("--alpha", type=float, default=None,
                    help="alias for --response, named as the probe names it "
                         "(DIL_ALPHA, register 0x0045)")
+    a.add_argument("--start", default=None,
+                   help="drop samples before this UTC ISO time. A K is only "
+                        "valid for the cell and board it was measured on, and "
+                        "the median --tempco-ref is taken inside the window.")
+    a.add_argument("--end", default=None, help="drop samples after this UTC ISO time")
+    a.add_argument("--dump", default=None,
+                   help="also write the import lines to this file, so a dry "
+                        "run can be checked before anything is imported")
     a.add_argument("--write", action="store_true")
     a.add_argument("--dry-run", action="store_true")
     o = a.parse_args()
@@ -165,8 +173,18 @@ def main():
 "Use it knowingly, keep it in its own metric, and do not read absolute\n"
 "values off the result.\n", file=sys.stderr)
 
+    def utc_ms(s):
+        if s is None:
+            return None
+        t = datetime.datetime.fromisoformat(s)
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=datetime.timezone.utc)
+        return int(t.timestamp() * 1000)
+    t0, t1 = utc_ms(o.start), utc_ms(o.end)
+    dump = open(o.dump, "w") if o.dump else None
+
     series = {}
-    extra = (GATE if o.drop_settling else ()) + (EXT if o.cell_law else ())
+    extra =(GATE if o.drop_settling else ()) + (EXT if o.cell_law else ())
     for name in SRC + extra:
         for d in fetch(o.url, '{__name__="%s"}' % name):
             lbl = {k: v for k, v in d["metric"].items() if k != "__name__"}
@@ -179,6 +197,7 @@ def main():
             print("skip %s: missing %s" % (dict(key), set(SRC) - set(m)), file=sys.stderr)
             continue
         ts = sorted(set(m[SRC[0]]) & set(m[SRC[1]]) & set(m[SRC[2]]))
+        ts = [t for t in ts if (t0 is None or t >= t0) and (t1 is None or t <= t1)]
 
         # THE WARM-UP GATE. Dropped BEFORE the tempco reference is computed, so
         # a long settling stretch cannot drag the reference temperature either.
@@ -262,6 +281,8 @@ def main():
         print("%-16s %6d samples  %.3f..%.3f %%vol"
               % (lbl.get("device"), len(out_v), min(out_v), max(out_v)))
         total += len(out_v)
+        if dump:
+            dump.write(line + "\n")
         if o.write:
             req = urllib.request.Request(o.url + "/api/v1/import",
                                          data=line.encode(), method="POST")
