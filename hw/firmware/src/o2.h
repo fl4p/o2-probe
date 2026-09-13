@@ -377,9 +377,10 @@ static inline bool o2p_cal_temp_plausible(int16_t c100)
  *
  * WHAT SUPPORTS IT (2026-09-13 outdoor run, 13-36 C on T_EXT,
  * docs/2026-09-13-outdoor-tempco-dilution-fit.md): with alpha 1 and only K
- * fitted it matches the cell to 0.19 % rms and carries K from the night to
- * the day with no offset (0.26 / 0.18 % rms out of sample), where a fitted
- * linear tempco was off by 0.35-1.5 %. DS-0637's digitised mean (Issue 1 and
+ * fitted it matches the cell to 0.19 % rms of ln(current) - percent of
+ * current, not %vol - and carries K from the night to the day with no offset
+ * (0.26 / 0.18 % rms out of sample), where a fitted linear tempco was off by
+ * 0.35-1.5 %. DS-0637's digitised mean (Issue 1 and
  * 2, overlay-review-required, not human-verified) gives +2235 ppm/K over the
  * same span against the law's +2522; that run cannot separate the two - the
  * difference trades against alpha. The law is preferred because it needs no

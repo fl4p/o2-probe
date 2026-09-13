@@ -134,10 +134,13 @@ static inline bool o2p_cell_bridge_get(const o2p_cell_bridge_t *b,
  * Why T_EXT and not the chamber: every other temperature is a BOARD node on
  * the ring heater's copper, and the cell is on flying leads. Measured on the
  * 2026-09-13 outdoor run (13-36 C, ~850 rows, heater cycling overnight): the
- * capillary law on T_EXT fits the cell current to 0.19 % rms and predicts the
- * day from the night with no offset; the same fit on the chamber is worse
- * (0.70 against 0.60 % rms before glitch clipping) and lands on a negative
- * dilution alpha. docs/2026-09-13-outdoor-tempco-dilution-fit.md.
+ * capillary law on T_EXT fits the cell current to 0.19 % rms of ln(current)
+ * (percent of current, NOT %vol) and predicts the day from the night with no
+ * offset. A fitted LINEAR tempco on the chamber - not the same law - did worse
+ * than the same linear fit on T_EXT (0.70 against 0.60 % rms, before glitch
+ * clipping) and landed on a negative dilution alpha.
+ * docs/2026-09-13-outdoor-tempco-dilution-fit.md. The run is 13-36 C with
+ * the heater near idle: it does NOT validate the 40-75 C heated pile case.
  *
  * The fallback is a board node and therefore biased whenever the heater runs;
  * it is kept because a biased temperature beats none for a correction that

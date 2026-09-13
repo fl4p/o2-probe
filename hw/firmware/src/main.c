@@ -1193,9 +1193,15 @@ static void finish_o2(o2p_snapshot_t *s)
     const bool ext_live = o2p_cell_bridge_get(&s_o2_cell, g_uptime_s,
                                               O2P_O2_CELL_MAX_AGE_S,
                                               &t_ext_bridged);
+    /* The tip only counts when FRESH, as the heater already requires
+     * (tip_valid below): a TMP117 whose conversion engine froze still answers
+     * TEMP, and with T_EXT lapsed and the chamber masked an arbitrarily old
+     * tip would otherwise reach the law as a compensated number (Codex review
+     * of 82aa9e9, finding 4). */
     const int16_t t_cell = o2p_cell_temperature(ext_live, t_ext_bridged,
                                                 g_cyc.chamber_ok, g_cyc.t_chamber,
-                                                g_cyc.tip_ok, g_cyc.t_tip);
+                                                g_cyc.tip_ok && g_cyc.tip_fresh,
+                                                g_cyc.t_tip);
 
     o2p_cal_t cal = g_cal;
     if (cal.cal_air_na <= 0) {
