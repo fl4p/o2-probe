@@ -160,6 +160,38 @@ Survived: gain/sentinel arithmetic, float range, the heater refactor being
 behaviour-identical, bridge expiry (note: frozen reading usable ~12 s, not
 10), the two changed tests not being mutes.
 
+### Air point on 0x001E, and what the old point said first
+
+Taken 14:3x CEST, outdoors in open air, heater near idle (duty 0–3 %), after
+the post-flash settle (`bench-logs/2026-09-13-outdoor-fit/cal-air-0x001E.log`):
+cell 103.00 µA, 120 s spread 0.11 %, T_EXT creeping 36.7 → 37.4 °C
+(~0.05 K/min). Stored: CAL_AIR_NA **102 966 nA**, CAL_TEMP **37.71 °C** (T_EXT —
+chamber read 39.14), CAL_AIR_FRAC 0.20472, CONFIG_CRC 0xAB3D, K **449 513 nA**,
+O2_COMP 20.95 %vol right after. 0x001E's gate stored the cell-side reference,
+as designed.
+
+**The minutes between flash and recalibration are a free two-point check**, and it
+does not come out in the law's favour. Same cell current (~103.0 µA), same
+temperature (~37–38 °C T_EXT), same RH (~30 %):
+
+| image, air point | published | vs 20.946 |
+|---|--:|--:|
+| 0x001A (no temperature term), 09-12 point @ 21.54 °C | 21.47–21.51 %vol | **+0.55** |
+| 0x001E (law), same 09-12 point | 20.69–20.70 %vol | **−0.26** |
+| 0x001E, new point @ 37.71 °C | 20.95–20.97 %vol | (by construction) |
+
+Hand arithmetic reproduces the middle row (20.68). Read as a slope from the 09-12
+evening point to now, the effective dependence is ~**+1700 ppm/K** over 16 K, while
+the law applies +2520 and the DS-0637 mean +2235. The morning fit said +2600 for
+13–36 °C on the same probe. Candidates, none tested: the 09-12 point was taken
+1.5 h after the C9 repair on a board that had just been reworked and cooled; its
+CAL_TEMP is the chamber (the T_EXT reference would make the gap slightly *larger*);
+T_EXT on the sun-heated housing leads the electrolyte, so the 37 °C side
+overstates the cell's temperature; the pressure day-to-day is unknown (Open-Meteo
+says ~0.2 %). **One two-point comparison across a day, sun-loaded, not an
+isothermal measurement** — enough to say the law is not yet shown to be right to
+better than ~1 % at 37 °C, not enough to replace it.
+
 Consequence for the firmware change: the physics law and the vendor mean are
 **equivalent on this evidence**. The law is the one with no digitisation behind it that
 still needs human verification, and it extends past 60 °C, where the vendor chart
