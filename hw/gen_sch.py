@@ -1608,12 +1608,14 @@ add_passive("R29",307.34,160.02,"100k","Resistor_SMD:R_0603_1608Metric","HEATER_
 add_passive("RH1",368.3,149.86,"280R 1W","Resistor_SMD:R_2512_6332Metric","+12V_SW","HEATER_LOW",mpn="CRCW2512280RFKEG")
 add_passive("RH2",368.3,165.1,"280R 1W","Resistor_SMD:R_2512_6332Metric","+12V_SW","HEATER_LOW",mpn="CRCW2512280RFKEG")
 place("J5",HEATED_RING,368.3,195.58,value="HEATED MEMBRANE RING",
-      footprint="o2-probe:Heater_Ring_Solder_Lands",
-      note="Manual-soldered dry-side metal membrane-carrier ring; the two castellated "
-           "lands share pad number 1 and are one HEATER_LOW node, so the ring carries "
-           "no current between them. The board must join them in copper - if the ring "
-           "is the only path, an unsoldered ring is an open heater that still reads "
-           "as fitted.")
+      footprint="o2-probe:Heater_Ring_Lands",
+      note="Manual-soldered dry-side metal membrane-carrier ring. TWO PLAIN SMD LANDS "
+           "on back copper at the front edge - no drills, no plated slots, no "
+           "castellations (Fab, 2026-09-13): the ring is soldered flat, so none of that "
+           "tooling bought anything. Both lands are pad number 1, i.e. ONE HEATER_LOW "
+           "node, so the ring is a heat spreader and never a conductor between them. "
+           "They sit inside the HEATED_ISLAND_SPREADER pour, which is what connects "
+           "them - no track is required, and one added in its place connected nothing.")
 net("J5",1,"HEATER_LOW")
 place("U16",TMP302,327.66,198.12,value="TMP302BDRLR",footprint="o2-probe:TMP302_DRL6_TI",mpn="TMP302BDRLR",
       note="Autonomous HEATER_GATE clamp: TRIPSET1/0=11 gives 85 C; HYSTSET=VS gives nominal 10 C hysteresis. Not supply-failure safe; qualify thermal coupling and restart.")
@@ -1959,8 +1961,9 @@ def verify() -> None:
     assert "J5" in INST, "J5 (membrane-ring lands) missing; RH1/RH2 would heat the board"
     assert ASSIGNED[("J5", "1")] == "HEATER_LOW", \
         f"J5 must be the HEATER_LOW spreader node, got {ASSIGNED[('J5','1')]}"
-    assert INST["J5"]["footprint"] == "o2-probe:Heater_Ring_Solder_Lands", \
-        "J5 must use the castellated ring lands, not the deferred Ring_Fork_Tip_DRAFT"
+    assert INST["J5"]["footprint"] == "o2-probe:Heater_Ring_Lands", \
+        ("J5 must use the plain SMD ring lands. Heater_Ring_Solder_Lands is the "
+         "superseded castellated form and Ring_Fork_Tip_DRAFT the deferred Rev C fork.")
     # The heat source stays on this board (Fab, 2026-09-04).  Both elements must
     # bridge +12V_SW to HEATER_LOW, i.e. sit above Q2, never below it.
     for _rh in ("RH1", "RH2"):

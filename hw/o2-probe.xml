@@ -2,7 +2,7 @@
 <export version="E">
   <design>
     <source>/Users/fab/dev/ee/hw/o2-probe/o2-probe.kicad_sch</source>
-    <date>2026-09-13T09:09:35</date>
+    <date>2026-09-13T10:09:06</date>
     <tool>Eeschema 10.0.5</tool>
     <sheet number="1" name="/" tstamps="/">
       <title_block>
@@ -884,15 +884,15 @@
     </comp>
     <comp ref="J5">
       <value>HEATED MEMBRANE RING</value>
-      <footprint>o2-probe:Heater_Ring_Solder_Lands</footprint>
+      <footprint>o2-probe:Heater_Ring_Lands</footprint>
       <fields>
-        <field name="Design Note">Manual-soldered dry-side metal membrane-carrier ring; the two castellated lands share pad number 1 and are one HEATER_LOW node, so the ring carries no current between them. The board must join them in copper - if the ring is the only path, an unsoldered ring is an open heater that still reads as fitted.</field>
-        <field name="Footprint">o2-probe:Heater_Ring_Solder_Lands</field>
+        <field name="Design Note">Manual-soldered dry-side metal membrane-carrier ring. TWO PLAIN SMD LANDS on back copper at the front edge - no drills, no plated slots, no castellations (Fab, 2026-09-13): the ring is soldered flat, so none of that tooling bought anything. Both lands are pad number 1, i.e. ONE HEATER_LOW node, so the ring is a heat spreader and never a conductor between them. They sit inside the HEATED_ISLAND_SPREADER pour, which is what connects them - no track is required, and one added in its place connected nothing.</field>
+        <field name="Footprint">o2-probe:Heater_Ring_Lands</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="o2-probe" part="HEATED_MEMBRANE_RING" description="Manual-solder metal membrane carrier and heat spreader"/>
-      <property name="Design Note" value="Manual-soldered dry-side metal membrane-carrier ring; the two castellated lands share pad number 1 and are one HEATER_LOW node, so the ring carries no current between them. The board must join them in copper - if the ring is the only path, an unsoldered ring is an open heater that still reads as fitted."/>
+      <property name="Design Note" value="Manual-soldered dry-side metal membrane-carrier ring. TWO PLAIN SMD LANDS on back copper at the front edge - no drills, no plated slots, no castellations (Fab, 2026-09-13): the ring is soldered flat, so none of that tooling bought anything. Both lands are pad number 1, i.e. ONE HEATER_LOW node, so the ring is a heat spreader and never a conductor between them. They sit inside the HEATED_ISLAND_SPREADER pour, which is what connects them - no track is required, and one added in its place connected nothing."/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <sheetpath names="/" tstamps="/"/>

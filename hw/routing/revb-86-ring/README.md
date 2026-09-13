@@ -5,25 +5,33 @@ after Fab: *"the pcb missed the ring pads at the tip. add them."*
 
 ## Done and verified
 
-- **J5 placed** at (110, 137.5), footprint `o2-probe:Heater_Ring_Solder_Lands`,
-  copied from `routing/rev-a` rather than redrawn. Both castellated lands are
-  pad number 1, one node on `/HEATER_LOW`, so the ring is a spreader and never
-  carries current between the lands.
+- **J5 placed at (110, 137.9)** — two **plain SMD lands on back copper**, 1.4 x 1.5 mm
+  at X 101.1 and X 118.9, hard against the front edge (0.35 mm to it, rule is 0.30).
+  **No drills, no plated slots, no castellations** (Fab, 2026-09-13): the ring is
+  soldered flat, so none of that tooling bought anything, and it drops the 1.00 mm
+  castellation tool and its two routed slots from the fab data entirely.
+- **B.Cu on purpose.** That is the layer `HEATED_ISLAND_SPREADER` pours on, so the
+  lands tie into `/HEATER_LOW` with no copper added at all — Fab, 2026-09-13:
+  *"it doesnt need that 0.8mm track, the fill is enough."* Confirmed: a provisional
+  0.8 mm track was tried and removed, and refilling with and without it gives the
+  same result, because it lay *inside* the island it was meant to escape.
+- Both lands are **pad number 1**, and KiCad records
+  `duplicate_pad_numbers_are_jumpers no` — one node, not a net-tie. The ring is a
+  heat spreader and never a conductor between them.
 - **Both thermal slots shortened 2 mm** at the tip end (apex Y 137.0 -> 135.0),
-  restoring Rev A's 4.0 mm slot-to-tip bridge. Rev B had tightened it to 2.0 mm,
-  which is 1 mm less than the 3 mm lands need. Fab chose this over lengthening
-  the board or shrinking the lands, 2026-09-13. It returns the tip to the
-  geometry the theta = 68 K/W measurement (aa6133d) was actually taken on.
-- **No join track.** Fab, 2026-09-13: *"it doesnt need that 0.8mm track, the
-  fill is enough."* Correct, and measured: `HEATED_ISLAND_SPREADER` is a
-  `/HEATER_LOW` pour over the whole tip island, so it reaches both lands by
-  itself. A provisional 0.8 mm track was tried and removed - it changed nothing,
-  because it lay *inside* the same island it was supposed to escape.
-- DRC is back to the accepted board's exact baseline of 12 violations
-  (10 courtyard overlaps + 2 track_dangling, all pre-existing and documented),
-  0 footprint errors. Verified against a control: the unmodified board put
-  through the same zone refill reports 0 unconnected pads, so the one remaining
-  unconnected item is mine and not a refill artifact.
+  restoring Rev A's 4.0 mm slot-to-tip bridge and the geometry the theta = 68 K/W
+  measurement (aa6133d) was taken on.
+- DRC: **0 footprint errors**, and the accepted board's 12-violation baseline
+  (10 courtyard overlaps + 2 track_dangling, all pre-existing and documented).
+
+### One accepted warning
+
+`silk_over_copper`: the existing `TMP_CELL` B.Silkscreen label clips the left land.
+Cosmetic, and it is a warning rather than an error, but it means silk ink under a
+hand-soldered joint. Four positions for the label and two land widths were tried;
+each traded it for a `silk_overlap` against R28 or a `silk_edge_clearance`. Left as
+the least-bad of those, with the label in its original position rather than moving
+an existing marking to suit a new part. **Worth one minute in the editor before fab.**
 
 ## Blocked: three I2C_SDA segments, and that is the whole of it
 

@@ -5016,8 +5016,8 @@
 		(uuid "98fd2db4-2904-5088-a9dc-3826aeb90f61")
 		(property "Reference" "J5" (at 363.22 185.42 0) (effects (font (size 1.0 1.0))))
 		(property "Value" "HEATED MEMBRANE RING" (at 373.38 187.96 0) (effects (font (size 1.0 1.0)) (justify right)))
-		(property "Footprint" "o2-probe:Heater_Ring_Solder_Lands" (at 368.3 195.58 0) (effects (font (size 1.27 1.27)) hide))
-		(property "Design Note" "Manual-soldered dry-side metal membrane-carrier ring; the two castellated lands share pad number 1 and are one HEATER_LOW node, so the ring carries no current between them. The board must join them in copper - if the ring is the only path, an unsoldered ring is an open heater that still reads as fitted." (at 368.3 195.58 0) (effects (font (size 1.27 1.27)) hide))
+		(property "Footprint" "o2-probe:Heater_Ring_Lands" (at 368.3 195.58 0) (effects (font (size 1.27 1.27)) hide))
+		(property "Design Note" "Manual-soldered dry-side metal membrane-carrier ring. TWO PLAIN SMD LANDS on back copper at the front edge - no drills, no plated slots, no castellations (Fab, 2026-09-13): the ring is soldered flat, so none of that tooling bought anything. Both lands are pad number 1, i.e. ONE HEATER_LOW node, so the ring is a heat spreader and never a conductor between them. They sit inside the HEATED_ISLAND_SPREADER pour, which is what connects them - no track is required, and one added in its place connected nothing." (at 368.3 195.58 0) (effects (font (size 1.27 1.27)) hide))
 		(pin "1" (uuid "bb18c145-b8a0-5c8b-ad5b-08817dbf3f6b"))
 		(instances
 			(project "o2-probe" (path "/b44d674b-6a5d-5766-ad6a-7746f68babf9" (reference "J5") (unit 1)))
