@@ -746,11 +746,21 @@ to cut its supply, that is a dig.
 So a change to any of the three is applied **on probation** (`src/serial_probation.h`):
 
 - The new settings go live immediately — that is what was asked for.
-- If no valid frame arrives at them within **10 s**, the transport is put back.
-- Proof is exactly one well-formed frame addressed to the probe's **own unicast
-  address**. Not a broadcast, which every device on the cable hears and which
-  therefore proves nothing about this one; not the 253 alias, which is answered
-  at any address and so would "confirm" a `SLAVE_ADDR` change nobody can reach.
+- If they are not **proven both ways** within **10 s**, the transport is put back.
+- Proof is a **two-way exchange**, since firmware version 0x001D.
+  When the new settings go live the probe publishes a fresh nonce in
+  `PROBATION_NONCE` (`0x000C`) and keeps them only once the master writes that
+  value back to `PROBATION_ACK` (`0x000D`), which it can do only if it read the
+  nonce, i.e. only if the probe's replies reach it. The echo must arrive at the
+  probe's **own unicast address**: a broadcast proves nothing about this probe,
+  and the 253 alias is answered at any address.
+- Until then, one frame *arriving* at the new settings was the proof, and on
+  2026-09-13 that stranded probe 3. A retime to 115200 over the BLE keeper
+  delivered the master's confirmation read while every reply was lost; the
+  probe confirmed, the master put its end back to 9600, and the probe answered
+  nothing until it was power-cycled. A link that works in one direction is the
+  link this mechanism exists to undo. `tools/o2p_update.py` therefore refuses
+  to retime a probe whose nonce register answers exception 02.
 - It reverts to the settings **in flash**, not to the ones the config held a
   moment earlier. A master that raises the baud for a transfer and then puts it
   back performs *two* changes, and under a previous-value rule the second one's
@@ -871,6 +881,22 @@ this cycle - humidity lost, typically during the SHT45 de-creep - so its own
 demand is withheld and only the gradient floor is regulating. Since FW 0x001A
 that ceiling is the lower of 79 C and the cell side plus the envelope, so on a
 bench probe the verdict usually lands a few kelvin above the cell, not at 79 C.
+
+### Probation block — `0x000C`, 2 registers
+
+This block arrived with firmware version 0x001D.
+It carries the two-way proof a serial-settings change needs before the probe
+keeps it; see *Reachability is on probation*.
+
+| Reg | Name | Access | Meaning |
+|---|---|---|---|
+| 12 | `PROBATION_NONCE` | R | nonce of the running probation; 0 when none is running |
+| 13 | `PROBATION_ACK` | W | write the nonce back at the new settings; reads 1 while the proof is held |
+
+A write of any other value, or any write while no probation is running, is
+refused with exception 03 and confirms nothing; the nonce register itself is
+read-only. Reading the acknowledgement back is how a master resolves an echo
+whose reply was lost.
 
 ### Diagnostic block — `0x0010`, 32 registers, read-only
 

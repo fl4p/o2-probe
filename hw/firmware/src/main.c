@@ -128,7 +128,7 @@ static void remember_stored_serial(void)
 static void serial_probation_service(void)
 {
     o2p_sp_outcome_t out = o2p_sp_service(&g_serial_probation, o2p_millis(),
-                                          o2p_modbus_frames_ok());
+                                          g_rm.probation_acked);
     if (o2p_sp_apply(&g_serial_probation, out, &g_rm)) {
         o2p_modbus_reconfigure(&g_rm.cfg);
     }
@@ -2197,13 +2197,18 @@ int main(void)
         if (!o2p_modbus_tx_busy()) {
             if (g_rm.serial_reconfig_pending) {
                 g_rm.serial_reconfig_pending = false;
-                /* Armed BEFORE the switch. The frame mark has to be taken
-                 * while the old settings are still live, or a frame that
-                 * arrived in the gap would be counted as proof of settings it
-                 * was never sent at. */
-                o2p_sp_arm(&g_serial_probation, o2p_millis(),
-                           o2p_modbus_frames_ok(), g_stored_addr,
-                           g_stored_baud, g_stored_parity);
+                /* Armed BEFORE the switch, and the nonce published before
+                 * it too: from the switch on, the only way to read it is at
+                 * the new settings, which is what makes the ACK two-way
+                 * proof (serial_probation.h). An ACK from a previous
+                 * probation is cleared here as well as by the write that
+                 * asked for this change. */
+                const uint16_t nonce = o2p_sp_make_nonce(o2p_millis(),
+                                                         o2p_modbus_frames_ok());
+                g_rm.probation_acked = false;
+                o2p_sp_arm(&g_serial_probation, o2p_millis(), nonce,
+                           g_stored_addr, g_stored_baud, g_stored_parity);
+                g_rm.probation_nonce = g_serial_probation.nonce;
                 o2p_modbus_reconfigure(&g_rm.cfg);
             }
             /* Before the commit, so a confirmation reached on this pass can

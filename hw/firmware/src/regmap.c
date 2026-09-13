@@ -765,6 +765,17 @@ uint8_t o2p_regmap_read(void *ctx, uint16_t addr, uint16_t count, uint16_t *out)
         out[0] = s->heater_law;
         return 0u;
     }
+    /* Serial probation (FW 0x001D, serial_probation.h): the nonce the master
+     * must echo, 0 when no probation is running, and whether it has been
+     * echoed - the answer a master needs after an ACK whose reply was lost. */
+    if (in_block(addr, count, O2P_REG_PROB_BASE, O2P_REG_PROB_COUNT)) {
+        for (uint16_t i = 0; i < count; i++) {
+            out[i] = ((uint16_t)(addr + i) == O2P_REG_PROBATION_NONCE)
+                         ? rm->probation_nonce
+                         : (rm->probation_acked ? 1u : 0u);
+        }
+        return 0u;
+    }
     if (in_block(addr, count, O2P_REG_DIAG_BASE, O2P_REG_DIAG_COUNT)) {
         for (uint16_t i = 0; i < count; i++) {
             out[i] = read_diag(rm, s, (uint16_t)(addr + i));
@@ -1554,6 +1565,21 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
          in_block(addr, count, O2P_REG_UPDDATA_BASE, O2P_REG_UPDDATA_COUNT))) {
         return o2p_update_write(rm->upd, addr, count, in);
     }
+    /* THE PROBATION ACK (FW 0x001D, serial_probation.h). Only ACK is
+     * writable, and only with the nonce of a probation that is RUNNING: a
+     * write while none is (nonce 0), or of any other value, is refused with
+     * exception 03 and confirms nothing. The nonce register is read-only. */
+    if (in_block(addr, count, O2P_REG_PROB_BASE, O2P_REG_PROB_COUNT)) {
+        if (addr != O2P_REG_PROBATION_ACK || count != 1u) {
+            return O2P_MB_EX_ILLEGAL_ADDRESS;
+        }
+        if (!rm->serial_probation || rm->probation_nonce == 0u ||
+            in[0] != rm->probation_nonce) {
+            return O2P_MB_EX_ILLEGAL_VALUE;
+        }
+        rm->probation_acked = true;
+        return 0u;
+    }
     /* The heater bench override. Handled here rather than through the config
      * machinery below because it deliberately has no flash-backed home: it
      * must not be reachable by COMMIT, must not appear in the config CRC, and
@@ -2106,6 +2132,11 @@ uint8_t o2p_regmap_write(void *ctx, uint16_t addr, uint16_t count, const uint16_
          * this same frame is gated by it. The write and the commit are decided
          * in one pass; the switch happens a main loop later. */
         rm->serial_probation = true;
+        /* No nonce until the switch publishes one (main.c): an ACK between
+         * this write and the switch would be an ACK of settings nobody has
+         * reached yet, or of a stale nonce from the last probation. */
+        rm->probation_nonce = 0u;
+        rm->probation_acked = false;
         /* Applied by the transport once the reply has physically left the
          * wire. Changing address or baud here would abandon the master
          * mid-frame and make the probe unreachable at both settings. */

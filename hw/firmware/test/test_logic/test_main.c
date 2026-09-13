@@ -392,31 +392,32 @@ static void test_a_serial_change_arms_probation_and_keeps_the_old_settings(void)
      * the rate the master had just left. */
 }
 
-static void test_probation_confirms_on_one_frame_and_decides_once(void)
+static void test_probation_confirms_only_on_the_ack_and_decides_once(void)
 {
     o2p_serial_probation_t p = {0};
-    o2p_sp_arm(&p, 1000u, 7u, 3u, O2P_BAUD_9600, O2P_PARITY_EVEN);
-    TEST_ASSERT_EQUAL_INT(O2P_SP_WAIT, o2p_sp_service(&p, 1100u, 7u));
-    /* One frame at the new settings is the whole proof. */
-    TEST_ASSERT_EQUAL_INT(O2P_SP_CONFIRMED, o2p_sp_service(&p, 1200u, 8u));
+    o2p_sp_arm(&p, 1000u, 0x4D2Bu, 3u, O2P_BAUD_9600, O2P_PARITY_EVEN);
+    TEST_ASSERT_EQUAL_HEX16(0x4D2Bu, p.nonce);
+    TEST_ASSERT_EQUAL_INT(O2P_SP_WAIT, o2p_sp_service(&p, 1100u, false));
+    /* The echoed nonce is the whole proof (FW 0x001D). */
+    TEST_ASSERT_EQUAL_INT(O2P_SP_CONFIRMED, o2p_sp_service(&p, 1200u, true));
     /* And it is reported once: a caller may act on the edge without tracking
      * it, and a second CONFIRMED would re-run a commit that already ran. */
-    TEST_ASSERT_EQUAL_INT(O2P_SP_WAIT, o2p_sp_service(&p, 1300u, 9u));
+    TEST_ASSERT_EQUAL_INT(O2P_SP_WAIT, o2p_sp_service(&p, 1300u, true));
 }
 
-static void test_probation_reverts_when_no_frame_arrives(void)
+static void test_probation_reverts_when_no_ack_arrives(void)
 {
     o2p_serial_probation_t p = {0};
-    o2p_sp_arm(&p, 1000u, 7u, 3u, O2P_BAUD_9600, O2P_PARITY_EVEN);
+    o2p_sp_arm(&p, 1000u, 0x4D2Bu, 3u, O2P_BAUD_9600, O2P_PARITY_EVEN);
     /* One millisecond short is still waiting: the boundary is the whole
      * mechanism, and a guard that fires early would revert a link that was
      * about to answer. */
     TEST_ASSERT_EQUAL_INT(O2P_SP_WAIT,
-                          o2p_sp_service(&p, 1000u + O2P_SERIAL_PROBATION_MS - 1u, 7u));
+                          o2p_sp_service(&p, 1000u + O2P_SERIAL_PROBATION_MS - 1u, false));
     TEST_ASSERT_EQUAL_INT(O2P_SP_REVERT,
-                          o2p_sp_service(&p, 1000u + O2P_SERIAL_PROBATION_MS, 7u));
+                          o2p_sp_service(&p, 1000u + O2P_SERIAL_PROBATION_MS, false));
     TEST_ASSERT_EQUAL_UINT8(O2P_BAUD_9600, p.prev_baud_code);
-    TEST_ASSERT_EQUAL_INT(O2P_SP_WAIT, o2p_sp_service(&p, 99999u, 7u));
+    TEST_ASSERT_EQUAL_INT(O2P_SP_WAIT, o2p_sp_service(&p, 99999u, false));
 }
 
 static void test_probation_survives_a_millisecond_wrap(void)
@@ -425,21 +426,121 @@ static void test_probation_survives_a_millisecond_wrap(void)
      * makes the deadline unreachable here and the probe never comes back. */
     o2p_serial_probation_t p = {0};
     uint32_t t0 = 0xFFFFFF9Bu;                     /* 100 ms left */
-    o2p_sp_arm(&p, t0, 7u, 3u, O2P_BAUD_9600, O2P_PARITY_EVEN);
-    TEST_ASSERT_EQUAL_INT(O2P_SP_WAIT, o2p_sp_service(&p, 50u, 7u));
+    o2p_sp_arm(&p, t0, 0x4D2Bu, 3u, O2P_BAUD_9600, O2P_PARITY_EVEN);
+    TEST_ASSERT_EQUAL_INT(O2P_SP_WAIT, o2p_sp_service(&p, 50u, false));
     TEST_ASSERT_EQUAL_INT(O2P_SP_REVERT,
-                          o2p_sp_service(&p, (uint32_t)(t0 + O2P_SERIAL_PROBATION_MS), 7u));
+                          o2p_sp_service(&p, (uint32_t)(t0 + O2P_SERIAL_PROBATION_MS), false));
 }
 
-static void test_probation_survives_a_frame_counter_wrap(void)
+static void test_a_one_way_link_is_never_proven(void)
 {
-    /* The counter is compared for INEQUALITY. Armed at 0xFFFFFFFF, the next
-     * frame takes it to 0 - which is "less than" the mark, and a magnitude
-     * comparison would read the arrival as silence and revert a link that is
-     * demonstrably working. */
+    /* THE 2026-09-13 13:09 REGRESSION, probe 3. A retime to 115200: the
+     * master's confirmation reads reached the probe - valid unicast frames at
+     * the new settings, which is all the old rule asked - and every reply was
+     * lost. The old probation confirmed on the first of them and the probe sat
+     * at 115200 with the cable back at 9600 until it was power-cycled.
+     *
+     * Now frames are not evidence at all. However many are SERVED, only the
+     * echoed nonce confirms, so a master that cannot hear the probe never
+     * supplies one and the timer brings the probe home. */
+    uint8_t req[16], rsp[O2P_MB_MAX_ADU];
+    write_baud_38400();
+    TEST_ASSERT_TRUE(rm.serial_probation);
+    rm.probation_nonce = 0x4D2Bu;            /* main.c's switch publishes it */
+
     o2p_serial_probation_t p = {0};
-    o2p_sp_arm(&p, 1000u, 0xFFFFFFFFu, 3u, O2P_BAUD_9600, O2P_PARITY_EVEN);
-    TEST_ASSERT_EQUAL_INT(O2P_SP_CONFIRMED, o2p_sp_service(&p, 1100u, 0u));
+    o2p_sp_arm(&p, 1000u, rm.probation_nonce, 3u, O2P_BAUD_9600,
+               O2P_PARITY_EVEN);
+    for (unsigned i = 0; i < 20u; i++) {
+        /* A read of BAUD_CODE, exactly what the updater sends to confirm. */
+        const uint8_t body[] = {0x03, 0x03, 0x00, 0x31, 0x00, 0x01};
+        size_t n = framed(req, body, sizeof(body));
+        TEST_ASSERT_EQUAL_UINT(3 + 2 + 2, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
+        TEST_ASSERT_EQUAL_INT_MESSAGE(O2P_SP_WAIT,
+            o2p_sp_service(&p, 1000u + i * 100u, rm.probation_acked),
+            "a served frame must not confirm a probation");
+    }
+    TEST_ASSERT_EQUAL_INT(O2P_SP_REVERT,
+                          o2p_sp_service(&p, 1000u + O2P_SERIAL_PROBATION_MS,
+                                         rm.probation_acked));
+}
+
+static void test_probation_block_publishes_the_nonce_and_takes_only_its_echo(void)
+{
+    uint16_t v[2];
+    uint16_t w;
+
+    /* The write that asks for a change raises the probation but publishes no
+     * nonce: until main.c switches the transport there is nothing to prove,
+     * and an ACK then would prove settings nobody has reached. */
+    write_baud_38400();
+    TEST_ASSERT_TRUE(rm.serial_probation);
+    TEST_ASSERT_EQUAL_UINT8(0u, o2p_regmap_read(&rm, O2P_REG_PROB_BASE, 2, v));
+    TEST_ASSERT_EQUAL_HEX16(0u, v[0]);
+    TEST_ASSERT_EQUAL_HEX16(0u, v[1]);
+    w = 0u;
+    TEST_ASSERT_EQUAL_UINT8(O2P_MB_EX_ILLEGAL_VALUE,
+                            o2p_regmap_write(&rm, O2P_REG_PROBATION_ACK, 1, &w));
+
+    rm.probation_nonce = 0x4D2Bu;            /* main.c's switch */
+    TEST_ASSERT_EQUAL_UINT8(0u, o2p_regmap_read(&rm, O2P_REG_PROBATION_NONCE, 1, v));
+    TEST_ASSERT_EQUAL_HEX16(0x4D2Bu, v[0]);
+
+    /* A wrong value is refused and proves nothing. */
+    w = 0x4D2Au;
+    TEST_ASSERT_EQUAL_UINT8(O2P_MB_EX_ILLEGAL_VALUE,
+                            o2p_regmap_write(&rm, O2P_REG_PROBATION_ACK, 1, &w));
+    TEST_ASSERT_FALSE(rm.probation_acked);
+    /* The nonce register itself is not writable. */
+    w = 0x4D2Bu;
+    TEST_ASSERT_EQUAL_UINT8(O2P_MB_EX_ILLEGAL_ADDRESS,
+                            o2p_regmap_write(&rm, O2P_REG_PROBATION_NONCE, 1, &w));
+    TEST_ASSERT_FALSE(rm.probation_acked);
+    /* The echo is accepted, and ACK then reads 1 - the answer a master needs
+     * after a lost reply. */
+    TEST_ASSERT_EQUAL_UINT8(0u, o2p_regmap_write(&rm, O2P_REG_PROBATION_ACK, 1, &w));
+    TEST_ASSERT_TRUE(rm.probation_acked);
+    TEST_ASSERT_EQUAL_UINT8(0u, o2p_regmap_read(&rm, O2P_REG_PROBATION_ACK, 1, v));
+    TEST_ASSERT_EQUAL_HEX16(1u, v[0]);
+
+    /* Resolving the probation closes the question on BOTH outcomes. */
+    o2p_serial_probation_t p = {0};
+    o2p_sp_arm(&p, 1000u, 0x4D2Bu, 3u, O2P_BAUD_9600, O2P_PARITY_EVEN);
+    TEST_ASSERT_EQUAL_INT(O2P_SP_CONFIRMED,
+                          o2p_sp_service(&p, 1100u, rm.probation_acked));
+    TEST_ASSERT_FALSE(o2p_sp_apply(&p, O2P_SP_CONFIRMED, &rm));
+    TEST_ASSERT_EQUAL_HEX16(0u, rm.probation_nonce);
+    TEST_ASSERT_FALSE(rm.probation_acked);
+    /* With no probation running, even the old nonce is refused. */
+    TEST_ASSERT_EQUAL_UINT8(O2P_MB_EX_ILLEGAL_VALUE,
+                            o2p_regmap_write(&rm, O2P_REG_PROBATION_ACK, 1, &w));
+
+    rm.serial_probation = true;
+    rm.probation_nonce = 0x1111u;
+    rm.probation_acked = true;
+    TEST_ASSERT_TRUE(o2p_sp_apply(&p, O2P_SP_REVERT, &rm));
+    TEST_ASSERT_EQUAL_HEX16(0u, rm.probation_nonce);
+    TEST_ASSERT_FALSE(rm.probation_acked);
+}
+
+static void test_probation_nonce_is_never_zero_and_moves(void)
+{
+    /* 0 reads as "no probation", so it can never be a nonce - including the
+     * inputs that would hash to it, which arm() and make_nonce() both catch. */
+    uint16_t prev = 0u;
+    unsigned moved = 0u;
+    for (uint32_t ms = 0u; ms < 5000u; ms += 7u) {
+        const uint16_t n = o2p_sp_make_nonce(ms, ms / 3u);
+        TEST_ASSERT_NOT_EQUAL(0u, n);
+        if (n != prev) {
+            moved++;
+        }
+        prev = n;
+    }
+    TEST_ASSERT_TRUE(moved > 700u);
+    o2p_serial_probation_t p = {0};
+    o2p_sp_arm(&p, 1000u, 0u, 3u, O2P_BAUD_9600, O2P_PARITY_EVEN);
+    TEST_ASSERT_NOT_EQUAL(0u, p.nonce);
 }
 
 static void test_a_second_change_keeps_the_first_fallback(void)
@@ -450,17 +551,18 @@ static void test_a_second_change_keeps_the_first_fallback(void)
      * second of two bad writes the fallback for the first. An unproven
      * setting is not a fallback, it is a second guess. */
     o2p_serial_probation_t p = {0};
-    o2p_sp_arm(&p, 1000u, 7u, 3u, O2P_BAUD_9600, O2P_PARITY_EVEN);
-    o2p_sp_arm(&p, 3000u, 7u, 9u, O2P_BAUD_38400, O2P_PARITY_NONE);
+    o2p_sp_arm(&p, 1000u, 0x1111u, 3u, O2P_BAUD_9600, O2P_PARITY_EVEN);
+    o2p_sp_arm(&p, 3000u, 0x2222u, 9u, O2P_BAUD_38400, O2P_PARITY_NONE);
     TEST_ASSERT_EQUAL_UINT8(3u, p.prev_slave_addr);
     TEST_ASSERT_EQUAL_UINT8(O2P_BAUD_9600, p.prev_baud_code);
     TEST_ASSERT_EQUAL_UINT8(O2P_PARITY_EVEN, p.prev_parity_code);
-    /* The deadline and the mark DO move: what is being judged is the newest
+    /* The deadline and the nonce DO move: what is being judged is the newest
      * setting, and the second write restarts its clock. */
+    TEST_ASSERT_EQUAL_HEX16(0x2222u, p.nonce);
     TEST_ASSERT_EQUAL_INT(O2P_SP_WAIT,
-                          o2p_sp_service(&p, 1000u + O2P_SERIAL_PROBATION_MS, 7u));
+                          o2p_sp_service(&p, 1000u + O2P_SERIAL_PROBATION_MS, false));
     TEST_ASSERT_EQUAL_INT(O2P_SP_REVERT,
-                          o2p_sp_service(&p, 3000u + O2P_SERIAL_PROBATION_MS, 7u));
+                          o2p_sp_service(&p, 3000u + O2P_SERIAL_PROBATION_MS, false));
 }
 
 static void test_a_commit_riding_a_serial_change_waits_for_it(void)
@@ -8516,7 +8618,12 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    /* 0x001C: a RUNAWAY latch drives blind only when the tip or cell cannot
+    /* 0x001D: serial probation is TWO-WAY - a change confirms only when the
+     *         master echoes the nonce published in the new probation block
+     *         (0x000C NONCE, 0x000D ACK) at the new settings. A read of
+     *         0x000C is ILLEGAL ADDRESS on 0x001C and earlier, which is how
+     *         the updater tells old firmware apart and declines to retime.
+     * 0x001C: a RUNAWAY latch drives blind only when the tip or cell cannot
      *         be read; with both readable it refuses (Fab's "A" on the
      *         codex xhigh review of 455972d).
      * 0x001B: humidity loss no longer blinds the dew law (the gradient
@@ -8574,7 +8681,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         steps the thermal mass cannot make are rejected for a cycle.
      * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
      *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
-    TEST_ASSERT_EQUAL_HEX16(0x001Cu, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x001Du, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_HEX16(0xC000u,
         (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
     /* The staleness cut must win the race against the watchdog's fastest
@@ -10800,10 +10907,12 @@ int main(void)
     RUN_TEST(test_the_config_choice_survives_a_sequence_wrap);
     RUN_TEST(test_a_store_never_overwrites_the_live_record);
     RUN_TEST(test_a_serial_change_arms_probation_and_keeps_the_old_settings);
-    RUN_TEST(test_probation_confirms_on_one_frame_and_decides_once);
-    RUN_TEST(test_probation_reverts_when_no_frame_arrives);
+    RUN_TEST(test_probation_confirms_only_on_the_ack_and_decides_once);
+    RUN_TEST(test_probation_reverts_when_no_ack_arrives);
     RUN_TEST(test_probation_survives_a_millisecond_wrap);
-    RUN_TEST(test_probation_survives_a_frame_counter_wrap);
+    RUN_TEST(test_a_one_way_link_is_never_proven);
+    RUN_TEST(test_probation_block_publishes_the_nonce_and_takes_only_its_echo);
+    RUN_TEST(test_probation_nonce_is_never_zero_and_moves);
     RUN_TEST(test_a_second_change_keeps_the_first_fallback);
     RUN_TEST(test_a_commit_riding_a_serial_change_waits_for_it);
     RUN_TEST(test_a_commit_with_no_serial_change_is_not_delayed);

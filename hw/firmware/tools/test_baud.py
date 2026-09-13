@@ -53,8 +53,11 @@ sys.path.insert(0, HERE)
 import o2p_update as u                                        # noqa: E402
 
 PROBE_ADDR = 3
-SLOW, FAST = 9600, 38400
-SLOW_CODE, FAST_CODE = 0, 2
+# FAST is the fastest rate the tool knows. It read 38400/code 2 here long
+# after 115200 (code 3) joined BAUD_CODES on 2026-09-09, and this whole file
+# failed 30 checks unnoticed until 2026-09-13.
+SLOW, FAST = 9600, 115200
+SLOW_CODE, FAST_CODE = 0, 3
 
 
 class FakeProbe:
@@ -62,7 +65,15 @@ class FakeProbe:
 
     def __init__(self, baud_code=SLOW_CODE, refuse=False, deaf_at=None,
                  drop_write_acks=0, drop_writes=0, drop_reads=0,
-                 silent=False):
+                 silent=False, two_way=True):
+        # FW 0x001D's probation: a nonce published at each switch, confirmed
+        # only by its echo. two_way=False is the older firmware, which has no
+        # such register and confirms on any frame arriving.
+        self.two_way = two_way
+        self.nonce = 0
+        self.acked = False
+        self.probation = False
+        self.nonces_issued = 0
         self.baud_code = baud_code
         self.addr = PROBE_ADDR
         self.parity_code = 2
@@ -77,6 +88,13 @@ class FakeProbe:
         self.drop_reads = drop_reads
         self.silent = silent            # never answers anything
         self.writes = []
+
+    def arm(self):
+        """A switch went live: publish a fresh nonce, forget any old proof."""
+        self.nonces_issued += 1
+        self.nonce = 0x1230 + self.nonces_issued
+        self.acked = False
+        self.probation = True
 
     def frame(self, pdu):
         """Serve one PDU. Returns a response PDU, or None for silence."""
@@ -98,6 +116,10 @@ class FakeProbe:
                     regs.append(self.parity_code)
                 elif a == u.R_STATUS:
                     regs.append(0)
+                elif a in (u.R_PROBATION_NONCE, u.R_PROBATION_ACK) \
+                        and self.two_way:
+                    regs.append(self.nonce if a == u.R_PROBATION_NONCE
+                                else (1 if self.acked else 0))
                 else:
                     return bytes([0x83, 2])
             return (bytes([3, 2 * count])
@@ -106,6 +128,16 @@ class FakeProbe:
             addr, count = struct.unpack(">HH", pdu[1:5])
             values = [struct.unpack(">H", pdu[6 + 2 * i:8 + 2 * i])[0]
                       for i in range(count)]
+            if addr == u.R_PROBATION_ACK and count == 1 and self.two_way:
+                if not (self.probation and self.nonce
+                        and values[0] == self.nonce):
+                    return bytes([0x90, 3])
+                # Confirmed: the firmware closes the question at once here;
+                # the real probe does it on its next main-loop pass.
+                self.acked = True
+                self.probation = False
+                self.nonce = 0
+                return struct.pack(">BHH", 16, addr, count)
             if addr != u.R_BAUD_CODE or count != 1:
                 return bytes([0x90, 2])
             if self.refuse:
@@ -146,6 +178,11 @@ class FakeLine:
         self.bridge_garbage = bridge_garbage  # answers, but not as a bridge
         self.bridge_short = bridge_short      # answers with a fragment
         self.retimes = []
+        # A rate at which the probe HEARS but its replies never arrive: the
+        # one-way link of 2026-09-13 13:09 on probe 3.
+        self.mute_at = None
+        # Drop the reply to the first N probation ACK writes (the write lands).
+        self.drop_ack_replies = 0
 
     def set_baud(self, baud):
         self.baud = baud
@@ -227,17 +264,25 @@ class FakeLine:
             pending = self.probe.pending_code
             del self.probe.pending_code
         out = b""
+        is_ack = (pdu[:1] == b"\x10" and len(pdu) >= 3
+                  and struct.unpack(">H", pdu[1:3])[0] == u.R_PROBATION_ACK)
         if rsp_pdu is not None:
             # Dropping the ACK of a baud WRITE specifically: that is the loss
             # the tool cannot resolve by assumption, because the probe has
             # already acted on the frame it is not confirming.
-            if self.probe.drop_write_acks > 0 and rsp_pdu[0] == 16:
+            if self.mute_at is not None and self.wire_baud() == self.mute_at:
+                pass                   # heard, served, the reply lost
+            elif is_ack and self.drop_ack_replies > 0:
+                self.drop_ack_replies -= 1
+            elif self.probe.drop_write_acks > 0 and rsp_pdu[0] == 16:
                 self.probe.drop_write_acks -= 1
             else:
                 rsp = bytes([addr]) + rsp_pdu
                 out = rsp + struct.pack("<H", u.crc16(rsp))
         if pending is not None:
             self.probe.baud_code = pending
+            if self.probe.two_way:
+                self.probe.arm()
         return out
 
     def close(self):
@@ -261,8 +306,13 @@ def check(name, cond, detail=""):
 
 
 def negotiate(link, home_code=SLOW_CODE):
+    # The bridge probe is off by default since 2026-09-13 ("there will be no
+    # more bridge"). A fake line that MODELS a bridge asks for the legacy
+    # probe, so those cases still test what they were written to test.
+    models_bridge = any(getattr(link, k, False)
+                        for k in ("bridge", "bridge_garbage", "bridge_short"))
     return u.negotiate_baud(link, u.Bus(link, PROBE_ADDR), home_code,
-                            settle=0.0)
+                            settle=0.0, assume_no_bridge=not models_bridge)
 
 
 def case(name, probe, link, want_line, want_code, want_restore,
@@ -568,6 +618,51 @@ def main():
               u.fastest_code() == 2, "picked %d" % u.fastest_code())
     finally:
         u.BAUD_CODES = saved
+
+    # -- the two-way probation (FW 0x001D) --------------------------------
+    # The speed-up proves the new rate BOTH ways: this end hears the probe,
+    # and the probe learns it was heard by the echo of its nonce.
+    print("-- two-way probation: a clean speed-up echoes the nonce")
+    p = FakeProbe()
+    line = FakeLine(p)
+    restore = case("two-way speed-up", p, line, FAST, FAST_CODE, True)
+    check("two-way speed-up: the fast rate's nonce was echoed",
+          p.acked and not p.probation, "acked %r probation %r"
+          % (p.acked, p.probation))
+
+    # OLD FIRMWARE: no nonce register. The tool must not retime at all - on
+    # that firmware one arriving frame confirms, so a one-way rate strands it.
+    print("-- old firmware: no speed-up")
+    p = FakeProbe(two_way=False)
+    line = FakeLine(p)
+    case("one-way firmware refused", p, line, SLOW, SLOW_CODE, False)
+    check("one-way firmware: no baud write went out", p.writes == [],
+          "wrote %r" % (p.writes,))
+
+    # THE 13:09 LINK: at the fast rate the probe hears and its replies are
+    # lost. The tool must never echo the nonce - it never read it - so on the
+    # real firmware the probe reverts by itself in 10 s. The fake has no
+    # timer, so the assertion is on the proof, which is the thing that was
+    # wrong on 2026-09-13.
+    print("-- a one-way fast rate is never proven")
+    p = FakeProbe()
+    line = FakeLine(p)
+    line.mute_at = FAST
+    restore = negotiate(line)
+    check("one-way fast rate: the probe was never given the proof",
+          not p.acked and p.probation,
+          "acked %r probation %r" % (p.acked, p.probation))
+    check("one-way fast rate: no restore promises a verified speed-up",
+          restore is None or line.baud == SLOW, "line at %d" % line.baud)
+
+    # The echo's REPLY is lost, but the write landed: resolved by asking, and
+    # the speed-up still counts.
+    print("-- a lost echo reply is resolved by asking")
+    p = FakeProbe()
+    line = FakeLine(p)
+    line.drop_ack_replies = 1
+    case("lost echo reply", p, line, FAST, FAST_CODE, True)
+    check("lost echo reply: the probe holds the proof", p.acked)
 
     # restore() runs from a finally. If it raised, it would replace whatever
     # actually went wrong with the push.

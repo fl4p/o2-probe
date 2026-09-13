@@ -288,6 +288,14 @@ is running the floor alone. `HEATER_BLOCK` could not carry this.
 A separate block, so the eight-register primary read is unchanged. Full
 encoding in `firmware/FIRMWARE.md`.
 
+### Probation block, `0x000C`, 2 registers
+
+Present from firmware version 0x001D.
+`PROBATION_NONCE` and `PROBATION_ACK` carry the two-way proof a serial-settings
+change needs before the probe keeps it: the probe publishes a nonce at the new
+settings and keeps them only when the master echoes it. Full description in
+`firmware/FIRMWARE.md`.
+
 ### Diagnostic block, `0x0010`, 32 registers, read-only
 
 `VREF_MON_MV`, `VA_MON_MV`, `VIN_MON_MV`, `AFE_VOUT_MV`, `DEW_MARGIN` (i16,

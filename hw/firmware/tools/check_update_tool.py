@@ -236,7 +236,12 @@ def config_problems(tool):
 
     for tool_name, hdr_name in (("R_SLAVE_ADDR", "O2P_REG_SLAVE_ADDR"),
                                 ("R_BAUD_CODE", "O2P_REG_BAUD_CODE"),
-                                ("R_PARITY_CODE", "O2P_REG_PARITY_CODE")):
+                                ("R_PARITY_CODE", "O2P_REG_PARITY_CODE"),
+                                # The two-way probation proof (FW 0x001D). A
+                                # drifted ACK address would make every retime
+                                # revert after 10 s - safe, but silently slow.
+                                ("R_PROBATION_NONCE", "O2P_REG_PROBATION_NONCE"),
+                                ("R_PROBATION_ACK", "O2P_REG_PROBATION_ACK")):
         h = re.search(r"%s\s*=\s*(0x[0-9A-Fa-f]+)u" % hdr_name, src)
         t = re.search(r"^%s = (0x[0-9A-Fa-f]+)$" % tool_name, tool, re.M)
         if not h:

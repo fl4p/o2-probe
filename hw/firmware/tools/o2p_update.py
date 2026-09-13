@@ -78,6 +78,11 @@ R_DATA = 0x0080
 R_SLAVE_ADDR = 0x0030
 R_BAUD_CODE = 0x0031
 R_PARITY_CODE = 0x0032
+# The two-way probation proof, FW 0x001D (src/serial_probation.h). The probe
+# publishes a nonce when a new rate goes live and keeps that rate only once
+# the nonce is written back AT it - so a one-way link can no longer confirm.
+R_PROBATION_NONCE = 0x000C
+R_PROBATION_ACK = 0x000D
 
 # BAUD_CODE value -> real rate, from the O2P_BAUD_* enum in src/regmap.h. The
 # tool asks for max(), so a firmware that gains a faster code speeds this tool
@@ -1423,6 +1428,70 @@ def bridge_in_the_path(link, probe_addr):
     return False                          # silent every time: a direct line
 
 
+def probation_is_two_way(bus):
+    """True if the probe's serial probation needs a two-way proof, False if it
+    is firmware that confirms a new rate on one frame ARRIVING, None if the
+    probe will not say.
+
+    WHY THE TOOL REFUSES TO RETIME THE SECOND KIND. 2026-09-13 13:09, probe 3
+    on FW 0x001A, through the farmgw BLE keeper: the probe took the 115200
+    write, this tool's first confirmation read reached it - which is all that
+    firmware asks - and its reply never came back. The tool put its end back
+    to 9600, the probe had already confirmed 115200, and it answered nothing
+    until it was power-cycled. On such firmware a speed-up can strand a probe
+    whenever the new rate works in one direction only, and nothing this end
+    can do afterwards undoes it. The register exists from FW 0x001D; exception
+    02 on it is the old firmware saying so.
+    """
+    try:
+        bus.read(R_PROBATION_NONCE, 1)
+    except ModbusException:
+        return False
+    except (IOError, OSError):
+        return None
+    return True
+
+
+def ack_probation(bus, attempts=VERIFY_ATTEMPTS, settle=0.05,
+                  sleep=time.sleep):
+    """Echo the probe's probation nonce at the current rate. True if the
+    probe now holds the proof.
+
+    The nonce is readable only at the settings under probation, so reading it
+    at all is the half of the proof this end supplies; writing it back is the
+    other. A lost REPLY to the write is resolved by asking: ACK reads 1 while
+    the proof is held, and NONCE reads 0 once the probe has confirmed and
+    closed the question. A nonce of 0 before any write means the switch has
+    not been published yet - settle and ask again.
+    """
+    for _ in range(attempts):
+        try:
+            nonce = bus.read(R_PROBATION_NONCE, 1)[0]
+        except (ModbusException, IOError, OSError):
+            sleep(settle)
+            continue
+        if nonce == 0:
+            sleep(settle)
+            continue
+        try:
+            bus.write(R_PROBATION_ACK, [nonce])
+            return True
+        except ModbusException:
+            # Refused: a stale nonce (a newer probation replaced it) or no
+            # probation at all. Ask again from the top.
+            sleep(settle)
+            continue
+        except (IOError, OSError):
+            try:
+                n, acked = bus.read(R_PROBATION_NONCE, 2)
+            except (ModbusException, IOError, OSError):
+                sleep(settle)
+                continue
+            if acked == 1 or n == 0:
+                return True
+    return False
+
+
 def confirm_baud(bus, want_code):
     """Prove the link at the current rate, by CONTENT and repeatedly.
 
@@ -1635,7 +1704,7 @@ def find_probe(line, bus, settle=0.2):
 
 
 def negotiate_baud(link, bus, home_code, settle=0.2, line=None,
-                   why_not=None):
+                   why_not=None, assume_no_bridge=True):
     """Move the probe to the fastest rate it offers, for this transfer only.
 
     `home_code` is where the probe must be LEFT: normally the rate the cable
@@ -1682,7 +1751,8 @@ def negotiate_baud(link, bus, home_code, settle=0.2, line=None,
     # decides whether any of the rest may happen at all. Through a bench bridge
     # it is the bridge's bus port, not this process's serial handle.
     if line is None and why_not is None:
-        line, why_not = retimable_line(link, bus.addr)
+        line, why_not = retimable_line(link, bus.addr,
+                                       assume_no_bridge=assume_no_bridge)
     if line is None:
         print("   baud: left as built - %s" % why_not)
         return None
@@ -1708,6 +1778,17 @@ def negotiate_baud(link, bus, home_code, settle=0.2, line=None,
         print("   baud: running at %d, and it will be left at %d"
               % (fast, BAUD_CODES[home_code]))
         return restore
+
+    two_way = probation_is_two_way(bus)
+    if not two_way:
+        print("   baud: staying at %d - %s" % (
+            BAUD_CODES[was],
+            "this probe firmware confirms a new rate on one frame arriving, "
+            "so a rate that works one way only strands it (probe 3, "
+            "2026-09-13); a speed-up needs FW 0x001D's two-way probation"
+            if two_way is False else
+            "the probe did not answer the probation-nonce read"))
+        return restore if was != home_code else None
 
     print("   baud: asking for %d -> %d for the transfer (not committed; any "
           "reset puts it back)" % (BAUD_CODES[was], fast))
@@ -1748,8 +1829,14 @@ def negotiate_baud(link, bus, home_code, settle=0.2, line=None,
             print("   baud: this end would not follow (%s)" % e)
         else:
             time.sleep(settle)
-        if confirm_baud(bus, fast_code):
-            print("   baud: %d confirmed over %d frames, %.2f s after asking"
+        # BOTH halves, in this order: this end hears the probe at the new
+        # rate (confirm_baud), and the probe learns that it was heard (the
+        # nonce echo). Without the second the probe reverts in 10 s by
+        # itself, which is the safe failure - the transfer then fails loudly
+        # instead of the probe going quiet at a rate nobody is on.
+        if confirm_baud(bus, fast_code) and ack_probation(bus):
+            print("   baud: %d confirmed both ways (%d frames and the probation "
+                  "nonce), %.2f s after asking"
                   % (fast, VERIFY_FRAMES, time.monotonic() - t_ask))
             return restore
     except BaseException:
@@ -1782,6 +1869,14 @@ def _restore_baud(line, bus, home_code, settle):
             for attempt in range(RESTORE_ATTEMPTS):
                 del attempt
                 if line.baud == home and confirm_baud(bus, home_code):
+                    # Best effort: a retraction is a serial change too, and
+                    # on FW 0x001D it is on probation like any other. Its
+                    # revert target is the stored rate, which is normally
+                    # home anyway, so a missing echo costs nothing - but
+                    # echoing closes the question instead of leaving a 10 s
+                    # timer running under the next command.
+                    if probation_is_two_way(bus):
+                        ack_probation(bus)
                     print("   baud: back at %d" % home)
                     return home
                 # Find the probe first: writing the retraction at a rate it
