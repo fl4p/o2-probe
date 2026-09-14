@@ -66,11 +66,16 @@ CHANGES = {
 # plots on neither layer. Allowed as exactly that one field, and disclosed.
 C12_PROPERTY = ('KiLib_Generator', 'B.SilkS', 'B.Fab')
 
-REMOVED = Counter({('segment', '/3V3D'): 1, ('segment', '/I2C_SCL'): 33, ('segment', '/I2C_SDA'): 5,
+# 2026-09-14: Fab placed J108 and routed it in pcbnew. KiCad reissues uuids on
+# save, and these inventories are uuid-keyed, so 17 /3V3D segments appear here as
+# removed-and-re-added although their geometry is untouched - checked segment by
+# segment against the previous board. The real change on that net is two
+# segments nudged aside to clear the new SDA run, +2.21 mm.
+REMOVED = Counter({('segment', '/3V3D'): 19, ('segment', '/I2C_SCL'): 33, ('segment', '/I2C_SDA'): 5,
                    ('segment', '/UART2_RX'): 2, ('segment', 'GND'): 1, ('via', '/I2C_SDA'): 1})
-ADDED = Counter({('segment', '/3V3D'): 12, ('segment', '/I2C_SCL'): 29, ('segment', '/I2C_SDA'): 12,
+ADDED = Counter({('segment', '/3V3D'): 32, ('segment', '/I2C_SCL'): 29, ('segment', '/I2C_SDA'): 19,
                  ('segment', '/UART2_RX'): 24, ('segment', '/UART2_TX'): 18, ('segment', 'GND'): 4,
-                 ('via', '/3V3D'): 1, ('via', '/HEATER_LOW'): 2, ('via', '/I2C_SCL'): 1, ('via', '/I2C_SDA'): 1,
+                 ('via', '/3V3D'): 1, ('via', '/HEATER_LOW'): 2, ('via', '/I2C_SCL'): 1, ('via', '/I2C_SDA'): 3,
                  ('via', '/UART2_RX'): 4, ('via', '/UART2_TX'): 1, ('via', 'GND'): 3})
 LAND_VIAS = {(101.75, 137.0), (118.25, 137.0)}
 
@@ -88,8 +93,12 @@ NEW_FOOTPRINTS = {
         [(str(i + 1), net, 103.5 + 2.6 * i, 61.5, 1.6, 1.2, ('B.Cu', 'B.Mask'))
          for i, net in enumerate(('/3V3D', 'GND', None, None, '/UART2_TX', '/UART2_RX'))
          if net is not None])),
-    'J108': ('o2-probe:SolderPad_SMD_I2C_SDA', (104.1, 125.95), 0.0, 'B.Cu',
-             [('1', '/I2C_SDA', 104.1, 125.95, 1.6, 1.2, ('B.Cu', 'B.Mask'))]),
+    # Fab placed J108 himself on 2026-09-14, next to J109 rather than at the tip:
+    # (104.10, 125.95) -> (118.82, 101.97), 1.97 mm from the SCL land. That is the
+    # adjacency he asked for in the first place, and it is only reachable because
+    # the lands are separate parts.
+    'J108': ('o2-probe:SolderPad_SMD_I2C_SDA', (118.82, 101.97), 0.0, 'B.Cu',
+             [('1', '/I2C_SDA', 118.82, 101.97, 1.6, 1.2, ('B.Cu', 'B.Mask'))]),
     'J109': ('o2-probe:SolderPad_SMD_I2C_SCL', (118.85, 100.0), 0.0, 'B.Cu',
              [('1', '/I2C_SCL', 118.85, 100.0, 1.6, 1.2, ('B.Cu', 'B.Mask'))]),
 }
@@ -120,8 +129,8 @@ REPLACED_LAYERS = ('B.Cu', 'B.Mask')
 # removed object are hashed, so any change to position, width, layer, lock, pad
 # shape, angle, mask or paste fails. Regenerate with --print-delta only for an
 # intended change, and treat that as a new review. UNSET fails closed.
-ADDED_SHA256 = 'cd8f6d9a36a112ff8b418851b524e446a23b900dc08262d7ae140e421b839997'
-REMOVED_SHA256 = 'ce2d047cf2df5868f46cbee9fb1b83b6af49c99598d0676e4f6f4a38c8031f6f'
+ADDED_SHA256 = '167029b0f13b2f8dfd60ff39089acec2fc990ce267fa8ddc21ba4f29fddc0f3a'
+REMOVED_SHA256 = '3d9f4ed0e3588cb6d80d6a01c2f1a72e71471c68887ca440fe0b5b13f88faebe'
 
 
 def _canon(item):
@@ -343,7 +352,10 @@ def verify(board_path, reference):
     # are gone, and the front ground pour closed over all three - F.Cu GND
     # 972.5760 -> 982.1839 mm2, while the 2.4 mm of new B.Cu tail into J106 costs
     # the back pour 0.17 mm2: B.Cu GND 875.1727 -> 875.0074.
-    PINNED_FILL = {'F.Cu:GND': 982.1839, 'B.Cu:GND': 875.0074, 'B.Cu:/HEATER_LOW': 215.1312}
+    # Repinned once more after Fab placed J108 beside J109 and routed it: the new
+    # SDA run and the two /3V3D segments it displaces cost the front pour 1.06 mm2
+    # (982.1839 -> 981.1283) and the back pour 4.61 mm2 (875.0074 -> 870.3926).
+    PINNED_FILL = {'F.Cu:GND': 981.1283, 'B.Cu:GND': 870.3926, 'B.Cu:/HEATER_LOW': 215.1312}
     fills = {}
     for layer in (p.F_Cu, p.B_Cu):
         before, after = filled_union(a, layer), filled_union(b, layer)

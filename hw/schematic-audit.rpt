@@ -5,4 +5,4 @@ result: PASS
 input o2-probe.kicad_sch: be905f669d037cb928022fda270b592adca21754adc69200c78c7a002d1daf04
 input gen_sch.py: 65cec9d782ea4ce73b07375d40fa7ec910c76b2ddf86ff360eed66d2ce320d3f
 input audit_schematic.py: a9ec52c451eebe7a573e38742430ac4fd977c0b8905deba5e3fc66ee4c4bc588
-export o2-probe.xml: 8671395992f7a063dac2a6754b195ab71e3e8220eb4a48f22e093e84f66a5770
+export o2-probe.xml: b49845ea4242cbf8d220f1145cb57b09b118366e9c0cb15323bd06accac2084b

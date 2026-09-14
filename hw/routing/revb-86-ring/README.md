@@ -13,7 +13,7 @@ items** and **0 schematic-parity issues**. `HEATED_ISLAND_SPREADER` fills as
 
 **Not yet orderable.** The ring-specific toolchain now exists —
 `verify_revb_86_ring.py` (PASS), `inspect_revb_86_ring_fab.py` (PASS: 87 parts,
-214 PTH, 8 NPTH) and the gated `make_fab_revb_86_ring.py` — and the schematic
+216 PTH, 8 NPTH) and the gated `make_fab_revb_86_ring.py` — and the schematic
 audit is a PASS over the live inputs (87 components, 72 nets). What does not
 exist is a gate: the only two independent reviews on record are of *earlier*
 states of this board, and the second one ended **DO NOT ISSUE**. The J107
@@ -65,7 +65,7 @@ below), and was then split out into two single-land parts so each land can be
 placed on its own:
 
     J107  1 = 3V3D   2 = GND   5 = UART2_TX   6 = UART2_RX     row, Y 61.5
-    J108  1 = I2C_SDA  at (104.10, 125.95)
+    J108  1 = I2C_SDA  at (118.82, 101.97)
     J109  1 = I2C_SCL  at (118.85, 100.00)
 
 They are separate components because a pad inside a placed footprint cannot be
@@ -105,7 +105,7 @@ tried first and DRC rejected it.
 | net | length | vias |
 |---|---|---|
 | `/3V3D` | 16.2 mm | 1 |
-| `/I2C_SDA` | 0 mm — the land sits on existing bus copper | 0 |
+| `/I2C_SDA` | 5.3 mm | 2 |
 | `/I2C_SCL` | 7.5 mm | 1 |
 | `/UART2_TX` | 22.9 mm | 1 |
 | `/UART2_RX` | 25.5 mm | 3 |
@@ -125,6 +125,40 @@ first routing to 47.6 and 60.0 mm hugging the analog nets, and it is why the
 answer in the end was to move the pads rather than to keep re-routing. The four
 remaining row pads are unaffected: 3V3D, GND, TX and RX come nowhere near a
 sensitive net (nearest approach > 0.8 mm).
+
+### J108 placed by hand, 2026-09-14 — the two I2C lands are adjacent after all
+
+Fab moved J108 himself once it was its own part: **(104.10, 125.95) →
+(118.82, 101.97)**, which puts it **1.97 mm** from J109. That is the adjacency he
+asked for on 2026-09-14 (*"move sda and scl pads next to each other. and not on
+the tip please"*) and could not have while both lands were pads of J107. He
+routed it too: **5.32 mm of new track and 2 vias**, plus two `/3V3D` segments
+nudged aside to clear the run.
+
+Measured on the result, not assumed:
+
+| quantity | value |
+|---|---|
+| J108 land → nearest sensitive net | 0.545 mm (`/CE_MON`) |
+| J109 land → nearest sensitive net | 1.657 mm (`/CE_MON`) |
+| new SDA copper → nearest sensitive net | **0.235 mm** (`/CE_MON`, B.Cu, at (117.09, 103.01)) |
+| length of that approach | ~0.6 mm — a corner graze, not a parallel run |
+| GND pour | no orphaned island on either layer |
+
+**State the cost, since this is the number the whole relocation was about.** At
+the tip site J108's land stood 1.551 mm off the nearest analog net and needed no
+track at all. Here the land is at 0.545 mm and its route grazes `/CE_MON` at
+0.235 mm. Both are legal — the rule is 0.100 mm — and both are far better than
+the 0.100 mm the original J107 route ran at for ~9 mm. But 0.235 mm is below the
+0.50 mm `SENS_EXTRA` margin `tools/reroute_net.py` enforces on its own routes, so
+this is a hand placement the router would not have produced. `/CE_MON` is a
+91k/91k divider off `/CELL_CE_DRV` into U6 pin 15; the coupling is an ADC input
+behind tens of k, and the approach is a corner, not a run.
+
+The tip-site clearances are still on record in the table above and in
+`docs/2026-09-14-revb-86-ring-dispositions.md` section 1, so the trade is
+reversible: J108 is a footprint, and moving it back costs one drag and a
+re-route.
 
 ### Addressing, for whatever gets soldered to these lands
 

@@ -70,12 +70,21 @@ They are now. Every number above is measured against the widened set.
 ### What this costs, stated plainly
 
 **J107 is no longer one block — it is no longer even one part.** Its 3V3D, GND
-and UART lands stay in the row at the cable end as J107; the I2C pair is 64.5 mm
-and 38.5 mm up the board, 21 mm apart from each other, and since later on
-2026-09-14 they are two separate components, **J108** (SDA) and **J109** (SCL).
-A lead for an external TMP117 therefore lands its power pair and its signal pair
-in three places, inside the potting, instead of leaving with the cable. Part
-count 85 -> 87.
+and UART lands stay in the row at the cable end as J107; the I2C pair is up the
+board, and since later on 2026-09-14 they are two separate components, **J108**
+(SDA) and **J109** (SCL). A lead for an external TMP117 therefore lands its power
+pair and its signal pair in two places, inside the potting, instead of leaving
+with the cable. Part count 85 -> 87.
+
+**The I2C pair ended up adjacent after all.** Fab placed J108 himself once it was
+its own part: (104.10, 125.95) -> **(118.82, 101.97)**, 1.97 mm from J109, and
+routed it — 5.32 mm and 2 vias. That is the adjacency this document earlier
+recorded as unreachable *with the lands as pads of one footprint*, and it is
+reachable now for exactly that reason. The cost is measured and on record in
+`routing/revb-86-ring/README.md`: the new SDA run passes 0.235 mm from
+`/CE_MON` over ~0.6 mm, against 1.551 mm at the tip site it left. Legal against
+the 0.100 mm rule, tighter than the 0.50 mm margin the router holds itself to,
+and a corner rather than a parallel run.
 
 The split is what makes the lands placeable. Pads inside a footprint cannot be
 dragged in pcbnew except in Pad Edit Mode, and a footprint edited that way no
