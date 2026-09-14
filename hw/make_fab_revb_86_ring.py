@@ -37,9 +37,8 @@ HERE = Path(__file__).resolve().parent
 CANDIDATE = Path('routing/revb-86-ring')
 REFERENCE = Path('routing/revb-86/o2-probe.kicad_pcb')
 ASSEMBLY = Path('docs/2026-09-12-current-assembly-review.md')
-# Accepted-risk dispositions for this revision, incl. Fab's 2026-09-14 decision to
-# accept J107's I2C at minimum clearance from the AFE. The gate must name and hash
-# it, so a package cannot exist without the accepted risk travelling with it.
+# Accepted-risk dispositions for this revision. The gate must name and hash them,
+# so a package cannot exist without the accepted risks travelling with it.
 DISPOSITIONS = Path('docs/2026-09-14-revb-86-ring-dispositions.md')
 REVIEW = Path('docs/2026-09-13-revb-86-ring-codex-review.md')
 AUDIT = Path('schematic-audit.rpt')
@@ -51,8 +50,12 @@ COMPONENTS = 85
 # trusts its caller's set (review finding 3, 2026-09-14).
 GUARD_ENDPOINTS = ('7a4d4b0e-2f12-4bd4-b267-16bb450f841a',
                    '89269d21-c6ed-4b39-b0a9-b4b13dbc9d4f')
+# 'i2c-at-minimum-clearance-from-guard-and-vref' was REMOVED on 2026-09-14: the
+# risk was not accepted, it was fixed. J107's SDA/SCL lands moved to the bus side
+# of the AFE, and the nearest analog copper is now 1.551 mm (SDA, /CELL_CE) and
+# 1.657 mm (SCL, /CE_MON) instead of 0.100 mm. Do not re-add it without the
+# measurement that would justify it.
 ACCEPTED_RISKS = [
-    'i2c-at-minimum-clearance-from-guard-and-vref',
     'tip-ground-return-via-dependent-paths',
     'spreader-thermal-corridor-unmeasured',
 ]

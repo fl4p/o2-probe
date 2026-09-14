@@ -1197,9 +1197,19 @@ net("J106",1,"UART2_RX")
 
 # ---- J107: hand-solder lands for an EXTERNAL sensor lead (Fab, 2026-09-13)
 #
-# Six SMD lands on BACK copper at the cable end, where a flying lead can leave
-# with the cable.  Intended load is a second TMP117 on a lead; the UART pair is
-# on the same block so one soldering operation exposes the whole bench surface.
+# Six SMD lands on BACK copper.  Intended load is a second TMP117 on a lead; the
+# UART pair is on the same block so one soldering operation exposes the bench
+# surface.
+#
+# THE I2C PAIR IS NOT IN THE ROW (2026-09-14).  Pads 1, 2, 5 and 6 sit at the
+# cable end where a flying lead can leave with the cable; pads 3 (SDA) and 4
+# (SCL) are 64.5 mm and 38.5 mm up the board.  Routed from the row they ran at
+# the board minimum 0.100 mm from /GUARD_REPLICA and /VREF_TRIM for ~9 mm and
+# ~6 mm, and no route from the row keeps any real distance from the analog nets
+# - measured by flood fill, not assumed.  Moved, the nearest analog copper is
+# 1.551 mm (SDA) and 1.657 mm (SCL).  No site on the board holds a whole
+# four-land block clear of the AFE, so the lead lands in more than one place:
+# docs/2026-09-14-revb-86-ring-dispositions.md section 1.
 #
 # ADDRESS, AND THIS IS THE PART THAT BITES.  The bus already carries U7
 # (LMP91000, 0x48), U10 (TMP117 CELL) and U12 (SHT45-AD1F, 0x44).  U10 ties ADD0
@@ -1215,9 +1225,12 @@ net("J106",1,"UART2_RX")
 # NOT 5 V TOLERANT.  PA2/PA3 carry the UART and are 3.3 V logic only on this
 # device (see J105/J106), and the I2C pair is likewise 3V3D.
 place("J107",EXPPADS,287.02,121.92,value="EXT SENSOR / UART PADS",
-      footprint="o2-probe:SolderPads_1x06_SMD",
-      note="Hand-solder lands, back copper: 1=3V3D 2=GND 3=SDA 4=SCL 5=UART2_TX 6=UART2_RX. "
-           "For an external TMP117 on a lead. Strap its ADD0 to SDA (0x4A) or SCL (0x4B) - "
+      footprint="o2-probe:SolderPads_1x06_SMD_SplitI2C",
+      note="Hand-solder lands, back copper: 1=3V3D 2=GND 5=UART2_TX 6=UART2_RX in the row at "
+           "the cable end; 3=SDA and 4=SCL are NOT in the row - they sit 64.5 mm and 38.5 mm up "
+           "the board at (104.10, 125.95) and (118.85, 100.00), labelled SDA/SCL on B.SilkS. "
+           "A lead for an external TMP117 therefore lands power at the cable end and I2C "
+           "mid-board. Strap its ADD0 to SDA (0x4A) or SCL (0x4B) - "
            "NOT GND, which is 0x48 and collides with the LMP91000. No pull-ups on the lead; "
            "R10/R11 already bias the bus. 3.3 V logic only. Pads 5/6 duplicate J105/J106.")
 for _p, _n in enumerate(("3V3D","GND","I2C_SDA","I2C_SCL","UART2_TX","UART2_RX"), 1):

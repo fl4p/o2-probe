@@ -2,7 +2,7 @@
 <export version="E">
   <design>
     <source>/Users/fab/dev/ee/hw/o2-probe/o2-probe.kicad_sch</source>
-    <date>2026-09-13T18:53:04</date>
+    <date>2026-09-14T10:26:21</date>
     <tool>Eeschema 10.0.5</tool>
     <sheet number="1" name="/" tstamps="/">
       <title_block>
@@ -1057,15 +1057,15 @@
     </comp>
     <comp ref="J107">
       <value>EXT SENSOR / UART PADS</value>
-      <footprint>o2-probe:SolderPads_1x06_SMD</footprint>
+      <footprint>o2-probe:SolderPads_1x06_SMD_SplitI2C</footprint>
       <fields>
-        <field name="Design Note">Hand-solder lands, back copper: 1=3V3D 2=GND 3=SDA 4=SCL 5=UART2_TX 6=UART2_RX. For an external TMP117 on a lead. Strap its ADD0 to SDA (0x4A) or SCL (0x4B) - NOT GND, which is 0x48 and collides with the LMP91000. No pull-ups on the lead; R10/R11 already bias the bus. 3.3 V logic only. Pads 5/6 duplicate J105/J106.</field>
-        <field name="Footprint">o2-probe:SolderPads_1x06_SMD</field>
+        <field name="Design Note">Hand-solder lands, back copper: 1=3V3D 2=GND 5=UART2_TX 6=UART2_RX in the row at the cable end; 3=SDA and 4=SCL are NOT in the row - they sit 64.5 mm and 38.5 mm up the board at (104.10, 125.95) and (118.85, 100.00), labelled SDA/SCL on B.SilkS. A lead for an external TMP117 therefore lands power at the cable end and I2C mid-board. Strap its ADD0 to SDA (0x4A) or SCL (0x4B) - NOT GND, which is 0x48 and collides with the LMP91000. No pull-ups on the lead; R10/R11 already bias the bus. 3.3 V logic only. Pads 5/6 duplicate J105/J106.</field>
+        <field name="Footprint">o2-probe:SolderPads_1x06_SMD_SplitI2C</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="o2-probe" part="EXP_PADS_1x06" description="Six hand-solder lands: I2C + power for an external sensor, plus the UART tap"/>
-      <property name="Design Note" value="Hand-solder lands, back copper: 1=3V3D 2=GND 3=SDA 4=SCL 5=UART2_TX 6=UART2_RX. For an external TMP117 on a lead. Strap its ADD0 to SDA (0x4A) or SCL (0x4B) - NOT GND, which is 0x48 and collides with the LMP91000. No pull-ups on the lead; R10/R11 already bias the bus. 3.3 V logic only. Pads 5/6 duplicate J105/J106."/>
+      <property name="Design Note" value="Hand-solder lands, back copper: 1=3V3D 2=GND 5=UART2_TX 6=UART2_RX in the row at the cable end; 3=SDA and 4=SCL are NOT in the row - they sit 64.5 mm and 38.5 mm up the board at (104.10, 125.95) and (118.85, 100.00), labelled SDA/SCL on B.SilkS. A lead for an external TMP117 therefore lands power at the cable end and I2C mid-board. Strap its ADD0 to SDA (0x4A) or SCL (0x4B) - NOT GND, which is 0x48 and collides with the LMP91000. No pull-ups on the lead; R10/R11 already bias the bus. 3.3 V logic only. Pads 5/6 duplicate J105/J106."/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <sheetpath names="/" tstamps="/"/>

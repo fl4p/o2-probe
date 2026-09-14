@@ -40,8 +40,15 @@ VIA_D, VIA_DR = 0.4, 0.2
 # (confirmed from the netlist before use). Matching it through a blanket 'AFE_'
 # prefix walled the MCU's I2C copper off from both board edges (2026-09-13).
 # Override with SENSITIVE_RE for a different policy.
+# ADC_* and the *_MON dividers were added 2026-09-14: CE_MON is a 91k/91k tap
+# off /CELL_CE_DRV into U6 pin 15, VA_MON a 47k/27k tap off /3V3A into pin 18,
+# VIN_MON an 82k/10k tap into pin 17, and ADC_WE_BUF / ADC_RE_BUF /
+# ADC_AFE_VOUT are the buffered cell measurements. All are ADC inputs behind
+# tens of k of source impedance; leaving them out of this set let a candidate
+# I2C land sit 0.119 mm from /CE_MON and 0.150 mm from /3V3A.
 SENSITIVE = re.compile(os.environ.get('SENSITIVE_RE',
-                                      r'^/(CELL_|GUARD|LMP_|TMP_CELL|VREF|AFE_VOUT|BIAS)'))
+                                      r'^/(CELL_|GUARD|LMP_|TMP_CELL|VREF|AFE_VOUT|BIAS'
+                                      r'|ADC_|CE_MON|VA_MON|VIN_MON)'))
 SENS_EXTRA = float(os.environ.get('SENS_EXTRA', '0.5'))
 VIA_COST = float(os.environ.get('VIA_COST', '40'))
 FRONT_LIMIT = float(os.environ.get('FRONT_LIMIT', '136.5'))
@@ -233,7 +240,14 @@ def cmd_emit(a):
             best = (d, q)
     for p in bd['pads']:
         if p['net'] == a.net:
-            d = ((p['at'][0] - lx[1]) ** 2 + (p['at'][1] - lx[2]) ** 2) ** 0.5
+            # Distance to the pad RECTANGLE, not to its centre: a route that
+            # legitimately ends on a long fine-pitch pad (U6's 0.3 x 1.475 mm
+            # QFP pins) stops at the pad edge, which is 0.74 mm from the centre
+            # and was rejected as 'not within 0.35 mm of surviving copper'.
+            # The end is still snapped to the centre, which is what KiCad wants.
+            dx = max(abs(p['at'][0] - lx[1]) - p['w'] / 2, 0.0)
+            dy = max(abs(p['at'][1] - lx[2]) - p['h'] / 2, 0.0)
+            d = (dx * dx + dy * dy) ** 0.5
             if best is None or d < best[0]:
                 best = (d, p['at'])
     for v in bd['vias']:

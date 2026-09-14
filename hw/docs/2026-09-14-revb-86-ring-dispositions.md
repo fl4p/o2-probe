@@ -5,92 +5,86 @@ Dispositions for the findings of the 2026-09-13 independent review
 fixed**. Each says what was measured, who decided, and what would refute it.
 None of these is a qualification: no board has been built.
 
-## 1. I2C runs at minimum clearance past the analog front end — DISPOSITION WITHDRAWN 2026-09-14
+## 1. I2C at minimum clearance past the analog front end — FIXED, not accepted
 
-**Measured.** J107's flying-lead I2C pads are routed at the board minimum
-0.100 mm from two analog nets:
+**Closed 2026-09-14 by moving the pads.** Fab, asked to choose between keeping
+J107's I2C lands at the cable end at 0.100 mm from `/GUARD_REPLICA` and
+`/VREF_TRIM` and relocating them: *"i dont care where the pads are"*. They moved.
 
-| new J107 copper | beside | gap | parallel length | gap on accepted revb-86 |
+### What was wrong
+
+| J107 copper, as accepted | beside | gap | parallel length | gap on accepted revb-86 |
 |---|---|---|---|---|
 | SCL, B.Cu, X 101.1..101.2, Y 100.0..113.85 | `/GUARD_REPLICA` (X 101.5, 0.25 mm wide) | 0.100 mm | ~9 mm | 0.625 mm |
 | SDA, F.Cu, X 118.35..118.95, Y 96.6..102.4 | `/VREF_TRIM` (0.15 mm wide) | 0.100 mm | ~6 mm | not adjacent |
 
-DRC is silent because 0.100 mm *is* the rule. The concern is coupling, which no
-clearance rule expresses.
+0.100 mm *is* the board rule, so DRC was silent. The concern was coupling, which
+no clearance rule expresses.
 
-> **WITHDRAWN.** This section claimed the coupling was unavoidable. A second
-> independent review disproved that, and the claim below is scoped wrongly: it was
-> measured **with J107's pads where they are**, then written as if it held for any
-> placement. Fab's 2026-09-14 acceptance was given on the strength of an
-> impossibility that does not hold, so the acceptance does not stand on this text.
-> See **1b** for what is actually true and what the real choice is.
+**The earlier impossibility claim was wrong in scope, and is withdrawn.** It was
+measured with J107's pads held where they were, then written as if it held for
+any placement. A second independent review disproved it by relocating individual
+pads. Fab's 2026-09-14 acceptance had rested on that claim, so the acceptance
+does not stand — and it is now moot.
 
-**Not fixable by routing WITH J107'S PADS FIXED — measured, not assumed.** Flood-fill reachability over
-the whole board, with every sensitive net (`/CELL_*`, `/GUARD_REPLICA`,
-`/LMP_*`, `/TMP_CELL*`, `/VREF*`, `/AFE_VOUT`) inflated by only **0.1 mm** beyond
-ordinary clearance, ripping the **entire** J107 I2C route and permitting a join
-**anywhere** on the bus:
+### What was done
 
-    /I2C_SCL   target reachable: False   closest approach 3.29 mm
-    /I2C_SDA   target reachable: False   closest approach 3.02 mm
+`tools/relocate_j107_i2c.py` moves pads 3 and 4 to the bus side of the AFE and
+deletes the legs that fed them; `tools/reroute_net.py` (SENS_EXTRA=0.3) routes
+the one new track.
 
-Leave-one-out identifies the wall: SCL is blocked by the `/CELL_*` nets, SDA by
-`/VREF_TRIM`. On 20 mm of two-layer board the AFE spans the width; the only
-corridor to the MCU's I2C is the one already taken, at minimum clearance. The
-alternatives were therefore to drop the pads or to accept the coupling.
+| pad | from | to | new copper |
+|---|---|---|---|
+| 3 `/I2C_SDA` | (108.70, 61.50) | **(104.10, 125.95)** | none — the land sits on existing B.Cu SDA copper |
+| 4 `/I2C_SCL` | (111.30, 61.50) | **(118.85, 100.00)** | 7.54 mm B.Cu + 1 via to U6 pin 45 |
 
-**Decision, now superseded.** Fab, 2026-09-14, presented with three options (drop
-SDA/SCL, accept, drop J107 entirely): accept the coupling. That choice was made
-without the fourth option in **1b**, which was not known at the time.
+**107.68 mm of track and 5 vias removed, 7.54 mm and 1 via added.** The freed
+copper went back to the pour: F.Cu GND 946.91 → 972.58 mm², B.Cu GND 828.88 →
+875.17 mm².
 
-**What this costs, stated plainly.** `/GUARD_REPLICA` is a driven guard and
-`/VREF_TRIM` a buffered reference with C10/C26 bypass, so both are low-impedance
-victims rather than high-impedance ones — but `/VREF_TRIM` is the ADC reference,
-and the cell-side TMP117 (U10, 0x49) is read over this same bus, so I2C traffic
-does occur close in time to conversions. Coupling has **not** been measured or
-simulated; any capacitance figure in this repo would be invented. It is an
-accepted risk, not a quantified one.
+Measured clearances of the new lands, against every other net's copper on B.Cu:
 
-**Standing mitigation, to be enforced in firmware.** Keep the bus quiet during
-an ADC conversion: no I2C transaction may overlap a `/VREF_TRIM`-referenced
-conversion. This is a firmware rule, not a board property, and it is **not yet
-implemented** — treat it as owed work, not as a control already in place.
+| land | nearest copper of any net | nearest analog / ADC net |
+|---|---|---|
+| SDA (104.10, 125.95) | `/HEATER_PWM` 0.250 mm | `/CELL_CE` **1.551 mm** |
+| SCL (118.85, 100.00) | `/AFE_MENB` 0.279 mm | `/CE_MON` **1.657 mm** |
 
-**What would refute this disposition.** A built board showing O2 or VREF noise
-correlated with I2C traffic — visible as steps in `gas_*` at poll boundaries, or
-as AFE_VOUT moving with bus activity. If that appears, the fix is the pad
-relocation in 1b, a layer count, or a J107 without I2C.
+Against 0.100 mm before: **15x** on the quantity that mattered. The two nearest
+neighbours that remain are digital — `/HEATER_PWM` is the MCU's gate drive and
+`/AFE_MENB` the LMP91000 module-enable, a static line.
 
-## 1b. There IS a fourth option: move the two I2C pads off the cable-end row
+DRC after the change is identical to the accepted baseline: **12 warnings, 0
+errors, 0 unconnected, 0 parity.** No firmware quiet-bus rule is owed any more;
+the one proposed under the withdrawn disposition is not needed and was never
+implemented.
 
-The second independent review (2026-09-14) found, without using this repo's
-router, that relocating **individual J107 pads** gives far better clearance:
+### The sensitive-net set was too narrow, and that is part of this finding
 
-| net | relocated pad centre (B.Cu) | joins bus at | new track | min gap to sensitive copper |
-|---|---|---|---|---|
-| SDA | (108.650, 106.200) | (110.650, 107.450) | 2.358 mm | **3.513 mm** |
-| SCL | (113.800, 95.025) | (115.250, 95.800) | 1.644 mm | **3.700 mm** |
+The reviewer's own counterexample placed SCL 0.119 mm from `/CE_MON` and SDA
+0.150 mm from `/3V3A`. `/CE_MON` is a 91k/91k tap off `/CELL_CE_DRV` into U6 pin
+15; `/VA_MON` and `/VIN_MON` are the same shape; `/ADC_WE_BUF`, `/ADC_RE_BUF`
+and `/ADC_AFE_VOUT` are the buffered cell measurements. All are ADC inputs behind
+tens of k of source impedance, and none of them was in `reroute_net.SENSITIVE`.
+They are now. Every number above is measured against the widened set.
 
-Same 1.6 x 1.2 mm pads, same 0.15 mm track, **no new vias**, spreader still one
-island. That is a ~35x improvement on the 0.100 mm this board currently has, and
-it makes the coupling risk go away rather than accepting it.
+### What this costs, stated plainly
 
-**What it costs, verified here.** Those two positions are **33.5 mm and 44.7 mm
-away from the J107 row at Y 61.5**, in the dense middle of the board: the band
-Y 93..108 carries **417** B.Cu segments against **6** in Y 55..62, and the
-nearest neighbours are R11, R32, C33 and C7. So J107 stops being one six-pad
-connector at the cable end. The I2C pair becomes two isolated lands mid-board,
-which a flying lead can only reach by running back along the assembly rather
-than leaving with the cable — the thing the connector was for
-(Fab: *"add a smd solderpad connector: 3.3V, GND, SDC, SCL for an external
-tmp117"*).
+**J107 is no longer one block.** Its 3V3D, GND and UART lands stay in the row at
+the cable end; the I2C pair is 64.5 mm and 38.5 mm up the board, and the two
+lands are 21 mm apart from each other. A lead for an external TMP117 therefore
+lands its power pair and its signal pair in three places, inside the potting,
+instead of leaving with the cable.
 
-**Status: open. Fab's call, not decided here.** The trade is *pads where the
-cable leaves, at 0.100 mm from the guard and the ADC reference* versus *3.5 mm
-of clearance with the I2C pads in the middle of the board*. Until that is
-decided, no gate may issue: `ACCEPTED_RISKS` still names
-`i2c-at-minimum-clearance-from-guard-and-vref`, and that risk is no longer
-supported by an impossibility argument.
+That is forced, not chosen. A search over the whole board for a site holding a
+complete four-land block (3V3D, GND, SDA, SCL as 1.6 x 1.2 lands, every land
+0.30 mm from all copper and 2.00 mm from every analog net, inside the outline and
+clear of the slots and of every back courtyard) found **zero** sites, at any
+pitch and either orientation; a three-land group exists only at x 116.4,
+Y 120.5..125.7, which still splits the lead. The board is 20 x 86 mm and the AFE
+spans its width.
+
+The pads are labelled `SDA` and `SCL` on B.SilkS where they are, and J107's
+Design Note says so in the schematic, so nobody has to infer it from the board.
 
 ## 2. New tip ground-return dependencies — ACCEPTED, with the numbers
 

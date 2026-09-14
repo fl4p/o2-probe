@@ -62,9 +62,9 @@ C12_PROPERTY = ('KiLib_Generator', 'B.SilkS', 'B.Fab')
 
 REMOVED = Counter({('segment', '/3V3D'): 1, ('segment', '/I2C_SCL'): 33, ('segment', '/I2C_SDA'): 5,
                    ('segment', 'GND'): 1, ('via', '/I2C_SDA'): 1})
-ADDED = Counter({('segment', '/3V3D'): 12, ('segment', '/I2C_SCL'): 50, ('segment', '/I2C_SDA'): 72,
+ADDED = Counter({('segment', '/3V3D'): 12, ('segment', '/I2C_SCL'): 29, ('segment', '/I2C_SDA'): 12,
                  ('segment', '/UART2_RX'): 20, ('segment', '/UART2_TX'): 18, ('segment', 'GND'): 4,
-                 ('via', '/3V3D'): 1, ('via', '/HEATER_LOW'): 2, ('via', '/I2C_SCL'): 3, ('via', '/I2C_SDA'): 3,
+                 ('via', '/3V3D'): 1, ('via', '/HEATER_LOW'): 2, ('via', '/I2C_SCL'): 1, ('via', '/I2C_SDA'): 1,
                  ('via', '/UART2_RX'): 3, ('via', '/UART2_TX'): 1, ('via', 'GND'): 3})
 LAND_VIAS = {(101.75, 137.0), (118.25, 137.0)}
 
@@ -73,9 +73,15 @@ NEW_FOOTPRINTS = {
     'J5': ('o2-probe:Heater_Ring_Lands', (110.0, 137.65), 0.0, 'B.Cu', sorted(
         [('1', '/HEATER_LOW', x, 137.65, 2.8, 2.0, lay) for x in (101.75, 118.25)
          for lay in (('F.Cu', 'F.Mask'), ('B.Cu', 'B.Mask'))])),
-    'J107': ('o2-probe:SolderPads_1x06_SMD', (110.0, 61.5), 0.0, 'B.Cu', sorted(
+    # J107's I2C pair is NOT in the row: pads 3 and 4 were moved to the bus side
+    # of the AFE on 2026-09-14 (tools/relocate_j107_i2c.py). Pinned where they
+    # are, so a drift back towards the guard or the ADC reference fails here.
+    'J107': ('o2-probe:SolderPads_1x06_SMD_SplitI2C', (110.0, 61.5), 0.0, 'B.Cu', sorted(
         [(str(i + 1), net, 103.5 + 2.6 * i, 61.5, 1.6, 1.2, ('B.Cu', 'B.Mask'))
-         for i, net in enumerate(('/3V3D', 'GND', '/I2C_SDA', '/I2C_SCL', '/UART2_TX', '/UART2_RX'))])),
+         for i, net in enumerate(('/3V3D', 'GND', None, None, '/UART2_TX', '/UART2_RX'))
+         if net is not None]
+        + [('3', '/I2C_SDA', 104.1, 125.95, 1.6, 1.2, ('B.Cu', 'B.Mask')),
+           ('4', '/I2C_SCL', 118.85, 100.0, 1.6, 1.2, ('B.Cu', 'B.Mask'))])),
 }
 SPREADER_PADS = {('RH1', '2'), ('RH2', '2'), ('Q2', '3'), ('J5', '1')}
 
@@ -86,7 +92,7 @@ SPREADER_PADS = {('RH1', '2'), ('RH2', '2'), ('Q2', '3'), ('J5', '1')}
 # removed object are hashed, so any change to position, width, layer, lock, pad
 # shape, angle, mask or paste fails. Regenerate with --print-delta only for an
 # intended change, and treat that as a new review. UNSET fails closed.
-ADDED_SHA256 = 'a2f776e3f2a4f542e3648f4c042cf750c9c8de04e2dc054988aa78c3dfab7d68'
+ADDED_SHA256 = 'eff67a361c97a61971b630ea369a51386970f8190510267db84d8b120b6d87dd'
 REMOVED_SHA256 = '06b4863fcbdba6a40dd77a492589efd984bfd4391767a428b4ac11ceaca14e6d'
 
 
@@ -271,7 +277,9 @@ def verify(board_path, reference):
     # PASSed, because unfilling() strips saved fill before comparison. Areas are now
     # pinned to 0.05 mm2, which is far tighter than any real tampering and looser
     # than KiCad's own refill jitter.
-    PINNED_FILL = {'F.Cu:GND': 946.9103, 'B.Cu:GND': 828.8798, 'B.Cu:/HEATER_LOW': 215.1312}
+    # Repinned 2026-09-14 after J107's I2C relocation: removing 107.68 mm of
+    # track and 5 vias returned 25.7 mm2 of F.Cu and 46.3 mm2 of B.Cu to GND.
+    PINNED_FILL = {'F.Cu:GND': 972.5760, 'B.Cu:GND': 875.1727, 'B.Cu:/HEATER_LOW': 215.1312}
     fills = {}
     for layer in (p.F_Cu, p.B_Cu):
         before, after = filled_union(a, layer), filled_union(b, layer)

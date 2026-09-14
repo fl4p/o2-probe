@@ -1,22 +1,26 @@
-# revb-86-ring — ring lands + external-sensor pads (DO NOT FAB — see BLOCKER below)
+# revb-86-ring — ring lands + external-sensor pads (DO NOT FAB — no review gate)
 
 Derived from the accepted [`routing/revb-86`](../revb-86) board on 2026-09-13,
 after Fab: *"the pcb missed the ring pads at the tip. add them."* The accepted
 board and its fabrication package are unchanged.
 
-**State, 2026-09-13 (after the tip re-route below):** full native DRC with
+**State, 2026-09-14 (after the tip re-route and the J107 I2C relocation below):** full native DRC with
 `--schematic-parity` reports **12 violations — exactly the accepted board's
 baseline** (the same 10 courtyard pairs and the same 2 GUARD_REPLICA
 `track_dangling`, all individually documented in `revb-86`), **0 unconnected
 items** and **0 schematic-parity issues**. `HEATED_ISLAND_SPREADER` fills as
 **one** island holding both ring lands, RH1, RH2 and Q2.
 
-**Not yet orderable.** `make_fab_revb_86.py` exports only behind a review gate
-(`review-gate.json`, `status: REVIEWED`, with an independent review record and
-matching input hashes), and its verifier `verify_revb_86.py` accepts only the
-3 mm head trim against the 89 mm board. This board changes copper, so it needs a
-ring-specific verifier/exporter and an independent review before a package can
-exist. Nobody has reviewed it; do not write that gate by hand.
+**Not yet orderable.** The ring-specific toolchain now exists —
+`verify_revb_86_ring.py` (PASS), `inspect_revb_86_ring_fab.py` (PASS: 85 parts,
+215 PTH, 8 NPTH) and the gated `make_fab_revb_86_ring.py` — and the schematic
+audit is a PASS over the live inputs (85 components, 72 nets). What does not
+exist is a gate: the only two independent reviews on record are of *earlier*
+states of this board, and the second one ended **DO NOT ISSUE**. The J107
+relocation below answers its remaining blocker, so the next step is a fresh
+independent review of the board as it now stands. Do not write that gate by
+hand; `make_fab_revb_86_ring.py` refuses a record that does not itself say
+`ISSUE REVIEWED GATE`.
 
 ## J5 — the membrane-ring lands
 
@@ -53,10 +57,15 @@ but worth knowing if TMP302 behaviour is ever suspect.
 
 ## J107 — external-sensor / UART solder pads (placed and routed)
 
-Six plain SMD lands on **back** copper, 1.6 x 1.2 mm on 2.6 mm pitch, at
-(110, 61.5) — the cable end, where a flying lead leaves with the cable:
+Six plain SMD lands on **back** copper, 1.6 x 1.2 mm. **Four of them are the
+row** at (110, 61.5) — the cable end, where a flying lead leaves with the cable —
+on 2.6 mm pitch; **pads 3 and 4 are not in the row.** They were moved up the
+board on 2026-09-14 to get the I2C away from the analog front end, and the
+section on that is below.
 
-    1 = 3V3D   2 = GND   3 = I2C_SDA   4 = I2C_SCL   5 = UART2_TX   6 = UART2_RX
+    1 = 3V3D   2 = GND   5 = UART2_TX   6 = UART2_RX     row, Y 61.5
+    3 = I2C_SDA  at (104.10, 125.95)
+    4 = I2C_SCL  at (118.85, 100.00)
 
 Y 61.5 is not a preference either: **Y 55..62 is the only band on this board with
 zero B.Cu copper.** The region under the MCU, where these nets actually live, has
@@ -68,9 +77,11 @@ all, with Reference and Value both hidden on B.Fab, which is not fabricated. Six
 anonymous copper rectangles on the back of the board, with nothing saying which
 one is SDA, read as absent and could not have been soldered to. Now on B.SilkS:
 
-    3V3   GND   SDA   SCL   TX   RX        (at Y 59.75, each above its own pad)
-    J107 EXT I2C / UART                    (at Y 58.20)
+    3V3   GND   TX   RX                    (at Y 59.75, each above its own pad)
+    J107 EXT SENSOR / UART                 (at Y 58.20)
     a filled pin-1 dot                     (at X 101.90)
+    SDA                                    (at (104.10, 124.55), beside its land)
+    SCL                                    (at (118.60, 101.95), beside its land)
 
 0.8 mm / 0.12 mm, the board's minimum text height and thickness — 0.55/0.09 was
 tried first and DRC rejected it.
@@ -80,22 +91,26 @@ tried first and DRC rejected it.
 | net | length | vias |
 |---|---|---|
 | `/3V3D` | 16.2 mm | 1 |
-| `/I2C_SDA` | 47.6 mm | 2 |
-| `/I2C_SCL` | 60.0 mm | 3 |
+| `/I2C_SDA` | 0 mm — the land sits on existing bus copper | 0 |
+| `/I2C_SCL` | 7.5 mm | 1 |
 | `/UART2_TX` | 22.9 mm | 1 |
 | `/UART2_RX` | 25.5 mm | 3 |
+
+(The I2C rows are after the 2026-09-14 relocation. Routed from the row they cost
+47.6 mm / 2 vias and 60.0 mm / 3 vias, and ran at the board minimum past the
+guard and the ADC reference.)
 
 Routed by [`tools/`](../../tools/README-router.md), not by hand — two hand
 attempts had already failed, one with seven shorts.
 
-**`/I2C_SCL` takes 60 mm and that is not waste.** The band under the MCU
-(Y 86..95) has exactly **one** corridor: whichever I2C net routes first takes it,
-and the second is then fenced off its own target by 2.84 mm near
-(116.10, 93.90). Rip-up-and-retry found no alternative corridor at all. The fix
-was not to force a second lane but to let SCL join its net further south. At
-100 kHz with R10/R11 biasing the bus the extra length costs a few pF; if this bus
-is ever run fast, re-examine this first. (The J107 routes end at their net well
-north of the tip and are untouched by the tip re-route below.)
+**Why the row could not keep the I2C: one corridor.** The band under the MCU
+(Y 86..95) has exactly **one**: whichever I2C net routes first takes it, and the
+second is then fenced off its own target by 2.84 mm near (116.10, 93.90).
+Rip-up-and-retry found no alternative corridor at all. That is what pushed the
+first routing to 47.6 and 60.0 mm hugging the analog nets, and it is why the
+answer in the end was to move the pads rather than to keep re-routing. The four
+remaining row pads are unaffected: 3V3D, GND, TX and RX come nowhere near a
+sensitive net (nearest approach > 0.8 mm).
 
 ### Addressing, for whatever gets soldered to J107
 
@@ -126,39 +141,92 @@ missed by 0.034 mm, (111.0, 138.3) still clipped, (110.5, 138.5) hit the board
 edge. (111.3, 138.2) clears everything, and sits beside TP6, the testpoint it
 names.
 
-## BLOCKER: J107's I2C cannot clear the analog nets (measured 2026-09-13)
+## J107's I2C lands moved off the analog front end — fixed 2026-09-14
 
-The independent review found J107's SCL run hugging `/GUARD_REPLICA`. Confirmed
-and re-measured (`docs/2026-09-13-revb-86-ring-codex-review.md`):
+As first routed, J107's SDA and SCL left the cable-end row and ran the length of
+the AFE to reach the bus:
 
-| new J107 copper | runs beside | gap on this board | gap on accepted revb-86 |
+| J107 copper, as first routed | runs beside | gap | gap on accepted revb-86 |
 |---|---|---|---|
 | SCL, B.Cu X 101.1..101.2, Y 100..113.85 | `/GUARD_REPLICA` at X 101.5 | **0.100 mm** over ~9 mm | 0.625 mm |
 | SDA, F.Cu X 118.35..118.95, Y 96.6..102.4 | `/VREF_TRIM` | **0.100 mm** over ~6 mm | not adjacent |
 
-0.100 mm is the board minimum, so DRC is silent. A 100 kHz clock running
+0.100 mm is the board minimum, so DRC was silent. A 100 kHz clock running
 parallel to the working-electrode guard and to the ADC reference is an analog
 defect that clearance rules do not catch.
 
-**It is not a routing mistake, and no reroute fixes it.** Flood-fill
-reachability with every sensitive net (`/CELL_*`, `/GUARD_REPLICA`, `/LMP_*`,
-`/TMP_CELL*`, `/VREF*`, `/AFE_VOUT`) inflated by only **0.1 mm** beyond ordinary
-clearance, ripping the **entire** J107 I2C route and allowing a join **anywhere**
-on the bus:
+**No reroute fixes it with the row's pads held fixed.** Flood-fill reachability
+with every sensitive net inflated by only 0.1 mm beyond ordinary clearance,
+ripping the entire J107 I2C route and allowing a join anywhere on the bus:
 
     /I2C_SCL  target reachable: False   closest approach 3.29 mm
     /I2C_SDA  target reachable: False   closest approach 3.02 mm
 
-Leave-one-out names the wall: SCL is blocked by the `/CELL_*` nets, SDA by
-`/VREF_TRIM`. On 20 mm of two-layer board the analog section spans the width,
-and the only corridor to the MCU's I2C is the one already taken at minimum
-clearance. `/AFE_MENB` was excluded from the sensitive set after checking the
-netlist — it is the LMP91000 module-enable input, a static digital line.
+**That claim is true only of the row, and was once written as if it were
+general.** A second independent review relocated individual pads and got a route
+with 3.5 mm of clearance, which is what forced the question to Fab. His answer,
+2026-09-14: *"i dont care where the pads are"*.
 
-So this is a design decision, not a DRC fix: **J107's SDA/SCL pads cost 0.100 mm
-of separation between I2C and the analog front end.** J107's 3V3D, GND, TX and RX
-pads have no sensitive-net proximity at all (nearest approach > 0.8 mm) and are
-unaffected either way. Until that decision is made, this board is not fabricable.
+### Where they went, and why there
+
+`tools/relocate_j107_i2c.py` moves pads 3 and 4 to the bus side of the AFE and
+deletes the 90 segments and 5 vias that fed them; `tools/reroute_net.py` with
+`SENS_EXTRA=0.3` routes the single new track.
+
+| pad | from | to | new copper |
+|---|---|---|---|
+| 3 `/I2C_SDA` | (108.70, 61.50) | **(104.10, 125.95)** | none — the land sits on existing B.Cu SDA copper |
+| 4 `/I2C_SCL` | (111.30, 61.50) | **(118.85, 100.00)** | 7.54 mm B.Cu + 1 via into U6 pin 45 |
+
+107.68 mm of track and 5 vias out, 7.54 mm and 1 via in. The pour took the space
+back: F.Cu GND 946.91 → 972.58 mm², B.Cu GND 828.88 → 875.17 mm².
+
+Measured against every other net's copper on B.Cu:
+
+| land | nearest copper of any net | nearest analog / ADC net |
+|---|---|---|
+| SDA (104.10, 125.95) | `/HEATER_PWM` 0.250 mm | `/CELL_CE` **1.551 mm** |
+| SCL (118.85, 100.00) | `/AFE_MENB` 0.279 mm | `/CE_MON` **1.657 mm** |
+
+15x on the quantity that mattered. What remains adjacent is digital:
+`/HEATER_PWM` is the MCU's gate drive, `/AFE_MENB` the LMP91000 module-enable, a
+static line (checked in the netlist, which is also why it is not in the sensitive
+set).
+
+The sites were not guessed. Candidate lands were screened on four measured
+conditions — 0.25 mm from all copper, 1.00 mm from every analog/ADC net, inside
+the outline and clear of the slots, clear of every back courtyard — and then
+scored by a Dijkstra cost map of the *actual* routed length to the net, because
+straight-line distance to the nearest copper is misleading here: the best
+straight-line site for SCL, 3.9 mm from its bus, costs 22.9 mm of track once the
+walls are taken into account.
+
+### The sensitive-net set was too narrow
+
+The reviewer's own counterexample put SCL 0.119 mm from `/CE_MON` and SDA
+0.150 mm from `/3V3A`. `/CE_MON` is a 91k/91k tap off `/CELL_CE_DRV` into U6 pin
+15; `/VA_MON` and `/VIN_MON` are the same shape; `/ADC_WE_BUF`, `/ADC_RE_BUF`,
+`/ADC_AFE_VOUT` are the buffered cell measurements. All are ADC inputs behind
+tens of k of source impedance, and none was in `reroute_net.SENSITIVE`. They are
+now, and every number above is measured against the widened set.
+
+### What it costs
+
+**J107 is no longer one block.** 3V3D, GND and the UART pair stay in the row at
+the cable end; the I2C lands are 64.5 mm and 38.5 mm up the board and 21 mm from
+each other. A lead for an external TMP117 lands power and signal in different
+places inside the potting rather than leaving with the cable.
+
+Forced, not chosen: a search of the whole board for a site holding a complete
+four-land block (3V3D, GND, SDA, SCL as 1.6 x 1.2 lands, each 0.30 mm from all
+copper and 2.00 mm from every analog net, inside the outline, clear of the slots
+and of every back courtyard) found **zero** sites at any pitch or orientation. A
+three-land group exists only at X 116.4, Y 120.5..125.7, which still splits the
+lead. The board is 20 x 86 mm and the AFE spans its width.
+
+Both lands carry `SDA` / `SCL` legends on B.SilkS where they are, and J107's
+Design Note says it in the schematic. DRC after the move is unchanged from the
+accepted baseline: 12 warnings, 0 errors, 0 unconnected, 0 parity.
 
 ## The split spreader — fixed 2026-09-13
 
