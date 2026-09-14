@@ -10752,12 +10752,12 @@
 			)
 		)
 	)
-	(footprint "o2-probe:SolderPads_1x06_SMD_SplitI2C"
+	(footprint "o2-probe:SolderPads_1x04_SMD_PwrUart"
 		(layer "B.Cu")
 		(uuid "1860a879-d3af-43f9-855b-7f98be254530")
 		(at 110 61.5)
-		(descr "Six plain SMD solder lands for hand-soldered flying leads, 1.6 x 1.2 mm, no drills, no castellations, no paste. Four sit in a row on 2.6 mm pitch at the cable end (1=3V3D 2=GND 5=TX 6=RX); pads 3 (SDA) and 4 (SCL) are placed away from the row, clear of the analog front end. Pad 1 is marked on B.Fab.")
-		(tags "solder pad lead expansion i2c uart smd")
+		(descr "Four plain SMD solder lands in a row on 2.6 mm pitch for hand-soldered flying leads, 1.6 x 1.2 mm, no drills, no castellations, no paste (1=3V3D 2=GND 5=TX 6=RX). The I2C pair that used to sit between them is now J108 and J109. Pad 1 is marked on B.Fab.")
+		(tags "solder pad lead expansion uart smd")
 		(property "Reference" "J107"
 			(at 0 2.6 0)
 			(layer "B.Fab")
@@ -10806,7 +10806,7 @@
 				)
 			)
 		)
-		(property "Design Note" "Hand-solder lands, back copper: 1=3V3D 2=GND 5=UART2_TX 6=UART2_RX in the row at the cable end; 3=SDA and 4=SCL are NOT in the row - they sit 64.5 mm and 38.5 mm up the board at (104.10, 125.95) and (118.85, 100.00), labelled SDA/SCL on B.SilkS. A lead for an external TMP117 therefore lands power at the cable end and I2C mid-board. Strap its ADD0 to SDA (0x4A) or SCL (0x4B) - NOT GND, which is 0x48 and collides with the LMP91000. No pull-ups on the lead; R10/R11 already bias the bus. 3.3 V logic only. Pads 5/6 duplicate J105/J106."
+		(property "Design Note" "Hand-solder lands, back copper, in a row at the cable end: 1=3V3D 2=GND 5=UART2_TX 6=UART2_RX. The I2C pair is NOT here - SDA is J108 and SCL is J109, separate single lands placed up the board clear of the analog front end. A lead for an external TMP117 therefore lands power at the cable end and I2C mid-board. Strap its ADD0 to SDA (0x4A) or SCL (0x4B) - NOT GND, which is 0x48 and collides with the LMP91000. No pull-ups on the lead; R10/R11 already bias the bus. 3.3 V logic only. Pads 5/6 duplicate J105/J106."
 			(at 0 5 0)
 			(layer "B.Fab")
 			(hide yes)
@@ -10847,18 +10847,6 @@
 			(at -6.5 -1.75 0)
 			(layer "B.SilkS")
 			(uuid "cc2bcfae-5e1d-4294-8f5b-6297c430105a")
-			(effects
-				(font
-					(size 0.8 0.8)
-					(thickness 0.12)
-				)
-				(justify mirror)
-			)
-		)
-		(fp_text user "SDA"
-			(at -5.9 63.05 0)
-			(layer "B.SilkS")
-			(uuid "8a8bca37-023d-4a20-be2d-24124485d582")
 			(effects
 				(font
 					(size 0.8 0.8)
@@ -10915,18 +10903,6 @@
 				(justify mirror)
 			)
 		)
-		(fp_text user "SCL"
-			(at 8.6 40.45 0)
-			(layer "B.SilkS")
-			(uuid "3f0a9477-8e53-481f-9da0-ef44eb4de741")
-			(effects
-				(font
-					(size 0.8 0.8)
-					(thickness 0.12)
-				)
-				(justify mirror)
-			)
-		)
 		(fp_text user "1"
 			(at -6.5 -1.6 0)
 			(layer "B.Fab")
@@ -10953,20 +10929,6 @@
 			(net "GND")
 			(uuid "3157512a-c722-4777-a205-5c978e221c14")
 		)
-		(pad "3" smd rect
-			(at -5.9 64.45)
-			(size 1.6 1.2)
-			(layers "B.Cu" "B.Mask")
-			(net "/I2C_SDA")
-			(uuid "e3bf81e8-2ebc-4617-b78c-23d318f448ec")
-		)
-		(pad "4" smd rect
-			(at 8.85 38.5)
-			(size 1.6 1.2)
-			(layers "B.Cu" "B.Mask")
-			(net "/I2C_SCL")
-			(uuid "d0b44e84-19c1-4d3b-98ba-ee968ffd9c01")
-		)
 		(pad "5" smd rect
 			(at 3.9 0)
 			(size 1.6 1.2)
@@ -10980,6 +10942,208 @@
 			(layers "B.Cu" "B.Mask")
 			(net "/UART2_RX")
 			(uuid "3e6a67e9-34cc-433e-99b4-b3843b1cdb3d")
+		)
+		(embedded_fonts no)
+	)
+	(footprint "o2-probe:SolderPad_SMD_I2C_SCL"
+		(layer "B.Cu")
+		(uuid "e917be96-811b-5a74-b85e-51463e6b7b9b")
+		(at 118.85 100)
+		(descr "One plain SMD solder land, 1.6 x 1.2 mm, no drill, no paste: /I2C_SCL to a flying lead. Placed clear of the analog front end; its power pair is J107.")
+		(tags "solder pad lead expansion i2c smd")
+		(property "Reference" "J109"
+			(at 0 2.6 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "6c7eaf2e-59b7-507e-aca5-47c9e53e096e")
+			(effects
+				(font
+					(size 0.8 0.8)
+					(thickness 0.12)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Value" "EXT SENSOR SCL"
+			(at 0 3.8 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "f2d50ffa-a22c-5b6b-8a1b-15e7954b11c9")
+			(effects
+				(font
+					(size 0.8 0.8)
+					(thickness 0.12)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Datasheet" ""
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "6d8469b0-84c1-599f-ad8e-bef1bf3585b7")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "f9f27610-b14a-52c2-a783-b3dc290a4554")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Design Note" "Single hand-solder land, back copper, carrying /I2C_SCL to a flying lead. Its power pair is J107 at the cable end and SDA is J108; the three are one connector in three pieces. Placed clear of the analog front end - routed from J107's row this net ran ~6 mm at the board minimum 0.100 mm from /VREF_TRIM. No pull-up here; R10/R11 already bias the bus. 3.3 V logic only."
+			(at 0 5 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "9db4ff45-194e-5243-99f5-53679f1df30d")
+			(effects
+				(font
+					(size 0.8 0.8)
+					(thickness 0.12)
+				)
+				(justify mirror)
+			)
+		)
+		(attr smd exclude_from_pos_files)
+		(duplicate_pad_numbers_are_jumpers no)
+		(fp_rect
+			(start -0.8 -0.6)
+			(end 0.8 0.6)
+			(stroke
+				(width 0.05)
+				(type default)
+			)
+			(fill no)
+			(layer "B.CrtYd")
+			(uuid "66908209-6f5d-5cc8-8d05-cd98d74b669a")
+		)
+		(fp_text user "SCL"
+			(at -0.25 1.95 0)
+			(layer "B.SilkS")
+			(uuid "1f3764eb-4877-5136-a0e3-b841bf0a7fb4")
+			(effects
+				(font
+					(size 0.8 0.8)
+					(thickness 0.12)
+				)
+				(justify mirror)
+			)
+		)
+		(pad "1" smd rect
+			(at 0 0)
+			(size 1.6 1.2)
+			(layers "B.Cu" "B.Mask")
+			(net "/I2C_SCL")
+			(uuid "4f51eca2-043a-5977-895d-35ffb7ea62ae")
+		)
+		(embedded_fonts no)
+	)
+	(footprint "o2-probe:SolderPad_SMD_I2C_SDA"
+		(layer "B.Cu")
+		(uuid "e3e72b57-01ff-53ed-93c1-4fdfe4a7ed3f")
+		(at 104.1 125.95)
+		(descr "One plain SMD solder land, 1.6 x 1.2 mm, no drill, no paste: /I2C_SDA to a flying lead. Placed clear of the analog front end; its power pair is J107.")
+		(tags "solder pad lead expansion i2c smd")
+		(property "Reference" "J108"
+			(at 0 2.6 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "90879773-aa92-5b1e-91f7-f0c65151b885")
+			(effects
+				(font
+					(size 0.8 0.8)
+					(thickness 0.12)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Value" "EXT SENSOR SDA"
+			(at 0 3.8 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "b0c6ce89-464d-5ea5-9859-a18d93a1a737")
+			(effects
+				(font
+					(size 0.8 0.8)
+					(thickness 0.12)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Datasheet" ""
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "6c14c09c-10ee-55cf-b8bc-cdb8a7f78216")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "6caadb17-4ec1-556e-98a4-4d7238eb0182")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Design Note" "Single hand-solder land, back copper, carrying /I2C_SDA to a flying lead. Its power pair is J107 at the cable end and SCL is J109; the three are one connector in three pieces. Placed clear of the analog front end - routed from J107's row this net ran ~9 mm at the board minimum 0.100 mm from /GUARD_REPLICA. No pull-up here; R10/R11 already bias the bus. 3.3 V logic only."
+			(at 0 5 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "145ac272-f9d7-5ad7-ad30-30b84fbb16e1")
+			(effects
+				(font
+					(size 0.8 0.8)
+					(thickness 0.12)
+				)
+				(justify mirror)
+			)
+		)
+		(attr smd exclude_from_pos_files)
+		(duplicate_pad_numbers_are_jumpers no)
+		(fp_rect
+			(start -0.8 -0.6)
+			(end 0.8 0.6)
+			(stroke
+				(width 0.05)
+				(type default)
+			)
+			(fill no)
+			(layer "B.CrtYd")
+			(uuid "ccc51d05-3736-5ba1-bc6d-fab7bd9369ba")
+		)
+		(fp_text user "SDA"
+			(at 0 -1.4 0)
+			(layer "B.SilkS")
+			(uuid "c650c0ca-ab47-5289-862a-d937040202e4")
+			(effects
+				(font
+					(size 0.8 0.8)
+					(thickness 0.12)
+				)
+				(justify mirror)
+			)
+		)
+		(pad "1" smd rect
+			(at 0 0)
+			(size 1.6 1.2)
+			(layers "B.Cu" "B.Mask")
+			(net "/I2C_SDA")
+			(uuid "3b58fb37-fa1a-5a1a-9dd1-aea1a3023b4d")
 		)
 		(embedded_fonts no)
 	)

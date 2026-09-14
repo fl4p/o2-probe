@@ -12,9 +12,9 @@ items** and **0 schematic-parity issues**. `HEATED_ISLAND_SPREADER` fills as
 **one** island holding both ring lands, RH1, RH2 and Q2.
 
 **Not yet orderable.** The ring-specific toolchain now exists —
-`verify_revb_86_ring.py` (PASS), `inspect_revb_86_ring_fab.py` (PASS: 85 parts,
+`verify_revb_86_ring.py` (PASS), `inspect_revb_86_ring_fab.py` (PASS: 87 parts,
 215 PTH, 8 NPTH) and the gated `make_fab_revb_86_ring.py` — and the schematic
-audit is a PASS over the live inputs (85 components, 72 nets). What does not
+audit is a PASS over the live inputs (87 components, 72 nets). What does not
 exist is a gate: the only two independent reviews on record are of *earlier*
 states of this board, and the second one ended **DO NOT ISSUE**. The J107
 relocation below answers its remaining blocker, so the next step is a fresh
@@ -55,17 +55,31 @@ reached its old pad is pulled back to X 116.3 with the F.Cu plane connecting the
 pad. C35 is U16's supply bypass and is now 1.1 mm further from it — still short,
 but worth knowing if TMP302 behaviour is ever suspect.
 
-## J107 — external-sensor / UART solder pads (placed and routed)
+## J107 / J108 / J109 — external-sensor solder lands (placed and routed)
 
-Six plain SMD lands on **back** copper, 1.6 x 1.2 mm. **Four of them are the
-row** at (110, 61.5) — the cable end, where a flying lead leaves with the cable —
-on 2.6 mm pitch; **pads 3 and 4 are not in the row.** They were moved up the
-board on 2026-09-14 to get the I2C away from the analog front end, and the
-section on that is below.
+Six plain SMD lands on **back** copper, 1.6 x 1.2 mm — and **three parts**, not
+one. J107 is the four-land **row** at (110, 61.5), the cable end, where a flying
+lead leaves with the cable, on 2.6 mm pitch. The I2C pair moved up the board on
+2026-09-14 to get it away from the analog front end (the section on that is
+below), and was then split out into two single-land parts so each land can be
+placed on its own:
 
-    1 = 3V3D   2 = GND   5 = UART2_TX   6 = UART2_RX     row, Y 61.5
-    3 = I2C_SDA  at (104.10, 125.95)
-    4 = I2C_SCL  at (118.85, 100.00)
+    J107  1 = 3V3D   2 = GND   5 = UART2_TX   6 = UART2_RX     row, Y 61.5
+    J108  1 = I2C_SDA  at (104.10, 125.95)
+    J109  1 = I2C_SCL  at (118.85, 100.00)
+
+They are separate components because a pad inside a placed footprint cannot be
+dragged in pcbnew without Pad Edit Mode, and a board whose footprint no longer
+matches its library fails DRC with `lib_footprint_mismatch`. Fab, 2026-09-14,
+after trying it: *"the copy it opened still had SDA/SCL pads grouped, i could not
+move them separately"*. As their own parts they drag with a plain click, and the
+schematic, netlist and verifier all name them. Nothing moved when they were
+split: J108 and J109 sit exactly where J107's pads 3 and 4 were, with the same
+silk offsets, so DRC is unchanged at the accepted 12/0/0/0 baseline. Each land
+carries a courtyard the size of its own pad — 1.6 x 1.2 mm and no larger,
+because at pad-plus-0.15 the SDA land's courtyard collides with RH1's (RH1 is
+0.725 mm from that land's centre), and a footprint with no courtyard at all is a
+`missing_courtyard` **error**.
 
 Y 61.5 is not a preference either: **Y 55..62 is the only band on this board with
 zero B.Cu copper.** The region under the MCU, where these nets actually live, has
@@ -80,13 +94,13 @@ one is SDA, read as absent and could not have been soldered to. Now on B.SilkS:
     3V3   GND   TX   RX                    (at Y 59.75, each above its own pad)
     J107 EXT SENSOR / UART                 (at Y 58.20)
     a filled pin-1 dot                     (at X 101.90)
-    SDA                                    (at (104.10, 124.55), beside its land)
-    SCL                                    (at (118.60, 101.95), beside its land)
+    SDA                                    (at (104.10, 124.55), beside J108)
+    SCL                                    (at (118.60, 101.95), beside J109)
 
 0.8 mm / 0.12 mm, the board's minimum text height and thickness — 0.55/0.09 was
 tried first and DRC rejected it.
 
-**All six pads are connected.** GND sits in `GND_PLANE_BCu`; the rest are routed:
+**All six lands are connected.** GND sits in `GND_PLANE_BCu`; the rest are routed:
 
 | net | length | vias |
 |---|---|---|
@@ -112,7 +126,7 @@ answer in the end was to move the pads rather than to keep re-routing. The four
 remaining row pads are unaffected: 3V3D, GND, TX and RX come nowhere near a
 sensitive net (nearest approach > 0.8 mm).
 
-### Addressing, for whatever gets soldered to J107
+### Addressing, for whatever gets soldered to these lands
 
 The bus already carries U7 (LMP91000, 0x48), U10 (TMP117 CELL, ADD0 -> 3V3D, so
 **0x49**) and U12 (SHT45-AD1F, 0x44). An external TMP117 must **not** strap ADD0

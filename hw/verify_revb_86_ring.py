@@ -3,7 +3,7 @@
 
 Every difference from routing/revb-86 must be one of the ring revision's pinned
 changes; anything else fails. The revision (2026-09-13) adds the membrane-ring
-lands J5, the external-sensor / UART pads J107 and their routes, shortens both
+lands J5, the external-sensor lands J107 / J108 / J109 and their routes, shortens both
 thermal slots 2 mm at the tip, moves C35 and the TMP_CELL label clear of the
 right/left land, and re-routes the tip ends of I2C_SCL / I2C_SDA plus one GND link
 so HEATED_ISLAND_SPREADER fills as one island.
@@ -15,9 +15,11 @@ Checked exactly:
   changes (six slot outline objects, the TMP_CELL text, C35's position and two
   segment endpoints) and one hidden C12 property whose layer is B.SilkS -> B.Fab
 - removed objects: only tracks/vias, counted per (type, net)
-- added objects: footprints J5 and J107 plus tracks/vias counted per (type, net);
+- added objects: footprints J5, J107, J108 and J109 plus tracks/vias counted per
+  (type, net);
   the two HEATER_LOW land vias pinned by position, size, drill and lock
-- J5 / J107 native placement and every pad (number, net, position, size, layers)
+- J5 / J107 / J108 / J109 native placement and every pad (number, net, position,
+  size, layers)
 - HEATED_ISLAND_SPREADER filled as ONE island containing every HEATER_LOW pad on
   B.Cu, including both back ring lands
 
@@ -73,15 +75,19 @@ NEW_FOOTPRINTS = {
     'J5': ('o2-probe:Heater_Ring_Lands', (110.0, 137.65), 0.0, 'B.Cu', sorted(
         [('1', '/HEATER_LOW', x, 137.65, 2.8, 2.0, lay) for x in (101.75, 118.25)
          for lay in (('F.Cu', 'F.Mask'), ('B.Cu', 'B.Mask'))])),
-    # J107's I2C pair is NOT in the row: pads 3 and 4 were moved to the bus side
-    # of the AFE on 2026-09-14 (tools/relocate_j107_i2c.py). Pinned where they
-    # are, so a drift back towards the guard or the ADC reference fails here.
-    'J107': ('o2-probe:SolderPads_1x06_SMD_SplitI2C', (110.0, 61.5), 0.0, 'B.Cu', sorted(
+    # J107's I2C pair is NOT in the row, and since 2026-09-14 is not even the same
+    # part: the lands were moved to the bus side of the AFE
+    # (tools/relocate_j107_i2c.py) and then split out as J108 and J109
+    # (tools/split_j107_i2c.py) so each can be placed on its own. Pinned where
+    # they are, so a drift back towards the guard or the ADC reference fails here.
+    'J107': ('o2-probe:SolderPads_1x04_SMD_PwrUart', (110.0, 61.5), 0.0, 'B.Cu', sorted(
         [(str(i + 1), net, 103.5 + 2.6 * i, 61.5, 1.6, 1.2, ('B.Cu', 'B.Mask'))
          for i, net in enumerate(('/3V3D', 'GND', None, None, '/UART2_TX', '/UART2_RX'))
-         if net is not None]
-        + [('3', '/I2C_SDA', 104.1, 125.95, 1.6, 1.2, ('B.Cu', 'B.Mask')),
-           ('4', '/I2C_SCL', 118.85, 100.0, 1.6, 1.2, ('B.Cu', 'B.Mask'))])),
+         if net is not None])),
+    'J108': ('o2-probe:SolderPad_SMD_I2C_SDA', (104.1, 125.95), 0.0, 'B.Cu',
+             [('1', '/I2C_SDA', 104.1, 125.95, 1.6, 1.2, ('B.Cu', 'B.Mask'))]),
+    'J109': ('o2-probe:SolderPad_SMD_I2C_SCL', (118.85, 100.0), 0.0, 'B.Cu',
+             [('1', '/I2C_SCL', 118.85, 100.0, 1.6, 1.2, ('B.Cu', 'B.Mask'))]),
 }
 SPREADER_PADS = {('RH1', '2'), ('RH2', '2'), ('Q2', '3'), ('J5', '1')}
 
@@ -92,7 +98,7 @@ SPREADER_PADS = {('RH1', '2'), ('RH2', '2'), ('Q2', '3'), ('J5', '1')}
 # removed object are hashed, so any change to position, width, layer, lock, pad
 # shape, angle, mask or paste fails. Regenerate with --print-delta only for an
 # intended change, and treat that as a new review. UNSET fails closed.
-ADDED_SHA256 = 'eff67a361c97a61971b630ea369a51386970f8190510267db84d8b120b6d87dd'
+ADDED_SHA256 = 'b58484096761b3741d9e5acae9dd9d1882f693f7aea6d76475c753a8441e5789'
 REMOVED_SHA256 = '06b4863fcbdba6a40dd77a492589efd984bfd4391767a428b4ac11ceaca14e6d'
 
 
@@ -236,8 +242,8 @@ def verify(board_path, reference):
 
     b = p.LoadBoard(str(board_path))
     a = p.LoadBoard(str(reference))
-    if len(list(b.GetFootprints())) != 85 or b.GetCopperLayerCount() != 2:
-        raise ValueError('Expected 85 footprints and two copper layers')
+    if len(list(b.GetFootprints())) != 87 or b.GetCopperLayerCount() != 2:
+        raise ValueError('Expected 87 footprints and two copper layers')
     for ref, (fpid, pos, angle, layer, pads) in NEW_FOOTPRINTS.items():
         f = b.FindFootprintByReference(ref)
         if (f is None or f.GetFPID().GetUniStringLibId() != fpid
@@ -311,7 +317,7 @@ def verify(board_path, reference):
             edges.append(['arc', ends, point(q.GetCenter()), point(q.GetArcMid())])
         else:
             raise ValueError('Unsupported native contour primitive')
-    return {'footprints': 85, 'vias': sum(isinstance(t, p.PCB_VIA) for t in b.GetTracks()),
+    return {'footprints': 87, 'vias': sum(isinstance(t, p.PCB_VIA) for t in b.GetTracks()),
             'all_copper_items': len(list(b.GetTracks())), 'pinned_changes': sorted(CHANGES),
             'c12_hidden_property_layer': list(C12_PROPERTY), 'removed_copper': len(removed),
             'added_objects': len(added), 'spreader_islands': 1, 'spreader_pads': sorted(inside),

@@ -116,11 +116,17 @@ HEATED_RING = symbol(
     "HEATED_MEMBRANE_RING", [("1", "HEATER_LOW", "passive")], "J",
     description="Manual-solder metal membrane carrier and heat spreader",
 )
-EXPPADS = symbol(
-    "EXP_PADS_1x06", [("1","3V3D","passive"),("2","GND","passive"),
-                      ("3","SDA","passive"),("4","SCL","passive"),
+# J107 used to be one six-land block.  The I2C pair is now two separate
+# single-land parts (J108, J109) so each can be placed on its own - see the
+# J107 comment below and docs/2026-09-14-revb-86-ring-dispositions.md section 1.
+EXPPADS4 = symbol(
+    "EXP_PADS_1x04", [("1","3V3D","passive"),("2","GND","passive"),
                       ("5","TX","passive"),("6","RX","passive")], "J",
-    description="Six hand-solder lands: I2C + power for an external sensor, plus the UART tap",
+    description="Four hand-solder lands at the cable end: power pair plus the UART tap",
+)
+I2C_LAND = symbol(
+    "I2C_SOLDER_LAND", [("1","Pin_1","passive")], "J",
+    description="One hand-solder land carrying a single I2C signal to a flying lead",
 )
 CABLE4 = symbol("FARM_CABLE_4", [(str(i), f"Wire_{i}", "passive") for i in range(1,5)], "J", pitch=5.08)
 SYMS[CABLE4]["geom"] = {
@@ -1201,15 +1207,19 @@ net("J106",1,"UART2_RX")
 # UART pair is on the same block so one soldering operation exposes the bench
 # surface.
 #
-# THE I2C PAIR IS NOT IN THE ROW (2026-09-14).  Pads 1, 2, 5 and 6 sit at the
-# cable end where a flying lead can leave with the cable; pads 3 (SDA) and 4
-# (SCL) are 64.5 mm and 38.5 mm up the board.  Routed from the row they ran at
-# the board minimum 0.100 mm from /GUARD_REPLICA and /VREF_TRIM for ~9 mm and
-# ~6 mm, and no route from the row keeps any real distance from the analog nets
-# - measured by flood fill, not assumed.  Moved, the nearest analog copper is
-# 1.551 mm (SDA) and 1.657 mm (SCL).  No site on the board holds a whole
-# four-land block clear of the AFE, so the lead lands in more than one place:
-# docs/2026-09-14-revb-86-ring-dispositions.md section 1.
+# THE I2C PAIR IS NOT IN THE ROW, AND IS NOT EVEN THE SAME PART (2026-09-14).
+# J107 is four lands at the cable end, where a flying lead can leave with the
+# cable.  SDA and SCL are J108 and J109: separate single-land parts, each placed
+# on its own.  Routed from the row they ran at the board minimum 0.100 mm from
+# /GUARD_REPLICA and /VREF_TRIM for ~9 mm and ~6 mm, and no route from the row
+# keeps any real distance from the analog nets - measured by flood fill, not
+# assumed.  Moved, the nearest analog copper is 1.551 mm (SDA) and 1.657 mm
+# (SCL).  No site on the board holds a whole four-land block clear of the AFE,
+# so the lead lands in more than one place:
+# docs/2026-09-14-revb-86-ring-dispositions.md section 1.  They are three parts
+# rather than one six-pad footprint so each land can be placed independently -
+# pads inside one footprint cannot be moved without Pad Edit Mode, and a board
+# whose footprint no longer matches its library fails DRC.
 #
 # ADDRESS, AND THIS IS THE PART THAT BITES.  The bus already carries U7
 # (LMP91000, 0x48), U10 (TMP117 CELL) and U12 (SHT45-AD1F, 0x44).  U10 ties ADD0
@@ -1224,17 +1234,19 @@ net("J106",1,"UART2_RX")
 #
 # NOT 5 V TOLERANT.  PA2/PA3 carry the UART and are 3.3 V logic only on this
 # device (see J105/J106), and the I2C pair is likewise 3V3D.
-place("J107",EXPPADS,287.02,121.92,value="EXT SENSOR / UART PADS",
-      footprint="o2-probe:SolderPads_1x06_SMD_SplitI2C",
-      note="Hand-solder lands, back copper: 1=3V3D 2=GND 5=UART2_TX 6=UART2_RX in the row at "
-           "the cable end; 3=SDA and 4=SCL are NOT in the row - they sit 64.5 mm and 38.5 mm up "
-           "the board at (104.10, 125.95) and (118.85, 100.00), labelled SDA/SCL on B.SilkS. "
-           "A lead for an external TMP117 therefore lands power at the cable end and I2C "
-           "mid-board. Strap its ADD0 to SDA (0x4A) or SCL (0x4B) - "
-           "NOT GND, which is 0x48 and collides with the LMP91000. No pull-ups on the lead; "
-           "R10/R11 already bias the bus. 3.3 V logic only. Pads 5/6 duplicate J105/J106.")
-for _p, _n in enumerate(("3V3D","GND","I2C_SDA","I2C_SCL","UART2_TX","UART2_RX"), 1):
+place("J107",EXPPADS4,287.02,121.92,value="EXT SENSOR / UART PADS",
+      footprint="o2-probe:SolderPads_1x04_SMD_PwrUart",
+      note="Hand-solder lands, back copper, in a row at the cable end: 1=3V3D 2=GND 5=UART2_TX 6=UART2_RX. The I2C pair is NOT here - SDA is J108 and SCL is J109, separate single lands placed up the board clear of the analog front end. A lead for an external TMP117 therefore lands power at the cable end and I2C mid-board. Strap its ADD0 to SDA (0x4A) or SCL (0x4B) - NOT GND, which is 0x48 and collides with the LMP91000. No pull-ups on the lead; R10/R11 already bias the bus. 3.3 V logic only. Pads 5/6 duplicate J105/J106.")
+for _p, _n in (("1","3V3D"), ("2","GND"), ("5","UART2_TX"), ("6","UART2_RX")):
     net("J107", _p, _n)
+place("J108",I2C_LAND,287.02,132.08,value="EXT SENSOR SDA",
+      footprint="o2-probe:SolderPad_SMD_I2C_SDA",
+      note="Single hand-solder land, back copper, carrying /I2C_SDA to a flying lead. Its power pair is J107 at the cable end and SCL is J109; the three are one connector in three pieces. Placed clear of the analog front end - routed from J107's row this net ran ~9 mm at the board minimum 0.100 mm from /GUARD_REPLICA. No pull-up here; R10/R11 already bias the bus. 3.3 V logic only.")
+net("J108",1,"I2C_SDA")
+place("J109",I2C_LAND,287.02,142.24,value="EXT SENSOR SCL",
+      footprint="o2-probe:SolderPad_SMD_I2C_SCL",
+      note="Single hand-solder land, back copper, carrying /I2C_SCL to a flying lead. Its power pair is J107 at the cable end and SDA is J108; the three are one connector in three pieces. Placed clear of the analog front end - routed from J107's row this net ran ~6 mm at the board minimum 0.100 mm from /VREF_TRIM. No pull-up here; R10/R11 already bias the bus. 3.3 V logic only.")
+net("J109",1,"I2C_SCL")
 
 # --------------------------------------------------------------------------- AFE / ADC / cell
 place("U7",LMP,50.8,162.56,value="LMP91000SD/NOPB",footprint="Package_SON:WSON-14-1EP_4.0x4.0mm_P0.5mm_EP2.6x2.6mm",

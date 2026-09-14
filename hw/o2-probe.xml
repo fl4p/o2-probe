@@ -2,7 +2,7 @@
 <export version="E">
   <design>
     <source>/Users/fab/dev/ee/hw/o2-probe/o2-probe.kicad_sch</source>
-    <date>2026-09-14T10:26:21</date>
+    <date>2026-09-14T12:50:48</date>
     <tool>Eeschema 10.0.5</tool>
     <sheet number="1" name="/" tstamps="/">
       <title_block>
@@ -1057,15 +1057,15 @@
     </comp>
     <comp ref="J107">
       <value>EXT SENSOR / UART PADS</value>
-      <footprint>o2-probe:SolderPads_1x06_SMD_SplitI2C</footprint>
+      <footprint>o2-probe:SolderPads_1x04_SMD_PwrUart</footprint>
       <fields>
-        <field name="Design Note">Hand-solder lands, back copper: 1=3V3D 2=GND 5=UART2_TX 6=UART2_RX in the row at the cable end; 3=SDA and 4=SCL are NOT in the row - they sit 64.5 mm and 38.5 mm up the board at (104.10, 125.95) and (118.85, 100.00), labelled SDA/SCL on B.SilkS. A lead for an external TMP117 therefore lands power at the cable end and I2C mid-board. Strap its ADD0 to SDA (0x4A) or SCL (0x4B) - NOT GND, which is 0x48 and collides with the LMP91000. No pull-ups on the lead; R10/R11 already bias the bus. 3.3 V logic only. Pads 5/6 duplicate J105/J106.</field>
-        <field name="Footprint">o2-probe:SolderPads_1x06_SMD_SplitI2C</field>
+        <field name="Design Note">Hand-solder lands, back copper, in a row at the cable end: 1=3V3D 2=GND 5=UART2_TX 6=UART2_RX. The I2C pair is NOT here - SDA is J108 and SCL is J109, separate single lands placed up the board clear of the analog front end. A lead for an external TMP117 therefore lands power at the cable end and I2C mid-board. Strap its ADD0 to SDA (0x4A) or SCL (0x4B) - NOT GND, which is 0x48 and collides with the LMP91000. No pull-ups on the lead; R10/R11 already bias the bus. 3.3 V logic only. Pads 5/6 duplicate J105/J106.</field>
+        <field name="Footprint">o2-probe:SolderPads_1x04_SMD_PwrUart</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
-      <libsource lib="o2-probe" part="EXP_PADS_1x06" description="Six hand-solder lands: I2C + power for an external sensor, plus the UART tap"/>
-      <property name="Design Note" value="Hand-solder lands, back copper: 1=3V3D 2=GND 5=UART2_TX 6=UART2_RX in the row at the cable end; 3=SDA and 4=SCL are NOT in the row - they sit 64.5 mm and 38.5 mm up the board at (104.10, 125.95) and (118.85, 100.00), labelled SDA/SCL on B.SilkS. A lead for an external TMP117 therefore lands power at the cable end and I2C mid-board. Strap its ADD0 to SDA (0x4A) or SCL (0x4B) - NOT GND, which is 0x48 and collides with the LMP91000. No pull-ups on the lead; R10/R11 already bias the bus. 3.3 V logic only. Pads 5/6 duplicate J105/J106."/>
+      <libsource lib="o2-probe" part="EXP_PADS_1x04" description="Four hand-solder lands at the cable end: power pair plus the UART tap"/>
+      <property name="Design Note" value="Hand-solder lands, back copper, in a row at the cable end: 1=3V3D 2=GND 5=UART2_TX 6=UART2_RX. The I2C pair is NOT here - SDA is J108 and SCL is J109, separate single lands placed up the board clear of the analog front end. A lead for an external TMP117 therefore lands power at the cable end and I2C mid-board. Strap its ADD0 to SDA (0x4A) or SCL (0x4B) - NOT GND, which is 0x48 and collides with the LMP91000. No pull-ups on the lead; R10/R11 already bias the bus. 3.3 V logic only. Pads 5/6 duplicate J105/J106."/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <sheetpath names="/" tstamps="/"/>
@@ -1074,11 +1074,55 @@
         <unit name="A">
           <pins>
             <pin num="1"/>
-            <pin num="3"/>
             <pin num="5"/>
             <pin num="2"/>
-            <pin num="4"/>
             <pin num="6"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
+    <comp ref="J108">
+      <value>EXT SENSOR SDA</value>
+      <footprint>o2-probe:SolderPad_SMD_I2C_SDA</footprint>
+      <fields>
+        <field name="Design Note">Single hand-solder land, back copper, carrying /I2C_SDA to a flying lead. Its power pair is J107 at the cable end and SCL is J109; the three are one connector in three pieces. Placed clear of the analog front end - routed from J107's row this net ran ~9 mm at the board minimum 0.100 mm from /GUARD_REPLICA. No pull-up here; R10/R11 already bias the bus. 3.3 V logic only.</field>
+        <field name="Footprint">o2-probe:SolderPad_SMD_I2C_SDA</field>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <libsource lib="o2-probe" part="I2C_SOLDER_LAND" description="One hand-solder land carrying a single I2C signal to a flying lead"/>
+      <property name="Design Note" value="Single hand-solder land, back copper, carrying /I2C_SDA to a flying lead. Its power pair is J107 at the cable end and SCL is J109; the three are one connector in three pieces. Placed clear of the analog front end - routed from J107's row this net ran ~9 mm at the board minimum 0.100 mm from /GUARD_REPLICA. No pull-up here; R10/R11 already bias the bus. 3.3 V logic only."/>
+      <property name="Sheetname" value="o2-probe"/>
+      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>cf6262ae-9d33-5bfb-a31d-c64008d83611</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
+    <comp ref="J109">
+      <value>EXT SENSOR SCL</value>
+      <footprint>o2-probe:SolderPad_SMD_I2C_SCL</footprint>
+      <fields>
+        <field name="Design Note">Single hand-solder land, back copper, carrying /I2C_SCL to a flying lead. Its power pair is J107 at the cable end and SDA is J108; the three are one connector in three pieces. Placed clear of the analog front end - routed from J107's row this net ran ~6 mm at the board minimum 0.100 mm from /VREF_TRIM. No pull-up here; R10/R11 already bias the bus. 3.3 V logic only.</field>
+        <field name="Footprint">o2-probe:SolderPad_SMD_I2C_SCL</field>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <libsource lib="o2-probe" part="I2C_SOLDER_LAND" description="One hand-solder land carrying a single I2C signal to a flying lead"/>
+      <property name="Design Note" value="Single hand-solder land, back copper, carrying /I2C_SCL to a flying lead. Its power pair is J107 at the cable end and SDA is J108; the three are one connector in three pieces. Placed clear of the analog front end - routed from J107's row this net ran ~6 mm at the board minimum 0.100 mm from /VREF_TRIM. No pull-up here; R10/R11 already bias the bus. 3.3 V logic only."/>
+      <property name="Sheetname" value="o2-probe"/>
+      <property name="Sheetfile" value="o2-probe.kicad_sch"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>995925c8-9eb6-5af3-a2c6-56dfac34fca0</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
           </pins>
         </unit>
       </units>
@@ -2493,20 +2537,18 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
         <pin num="6" name="Pin_6" type="passive"/>
       </pins>
     </libpart>
-    <libpart lib="o2-probe" part="EXP_PADS_1x06">
-      <description>Six hand-solder lands: I2C + power for an external sensor, plus the UART tap</description>
+    <libpart lib="o2-probe" part="EXP_PADS_1x04">
+      <description>Four hand-solder lands at the cable end: power pair plus the UART tap</description>
       <fields>
         <field name="Reference">J</field>
-        <field name="Value">EXP_PADS_1x06</field>
+        <field name="Value">EXP_PADS_1x04</field>
         <field name="Footprint"/>
         <field name="Datasheet"/>
-        <field name="Description">Six hand-solder lands: I2C + power for an external sensor, plus the UART tap</field>
+        <field name="Description">Four hand-solder lands at the cable end: power pair plus the UART tap</field>
       </fields>
       <pins>
         <pin num="1" name="3V3D" type="passive"/>
         <pin num="2" name="GND" type="passive"/>
-        <pin num="3" name="SDA" type="passive"/>
-        <pin num="4" name="SCL" type="passive"/>
         <pin num="5" name="TX" type="passive"/>
         <pin num="6" name="RX" type="passive"/>
       </pins>
@@ -2522,6 +2564,19 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
       </fields>
       <pins>
         <pin num="1" name="HEATER_LOW" type="passive"/>
+      </pins>
+    </libpart>
+    <libpart lib="o2-probe" part="I2C_SOLDER_LAND">
+      <description>One hand-solder land carrying a single I2C signal to a flying lead</description>
+      <fields>
+        <field name="Reference">J</field>
+        <field name="Value">I2C_SOLDER_LAND</field>
+        <field name="Footprint"/>
+        <field name="Datasheet"/>
+        <field name="Description">One hand-solder land carrying a single I2C signal to a flying lead</field>
+      </fields>
+      <pins>
+        <pin num="1" name="Pin_1" type="passive"/>
       </pins>
     </libpart>
     <libpart lib="o2-probe" part="LMP91000">
@@ -2945,7 +3000,7 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
       <node ref="U6" pin="28" pinfunction="PA8_28" pintype="output"/>
     </net>
     <net code="22" name="/I2C_SCL" class="Default">
-      <node ref="J107" pin="4" pinfunction="SCL_4" pintype="passive"/>
+      <node ref="J109" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
       <node ref="R10" pin="1" pintype="passive"/>
       <node ref="U10" pin="1" pinfunction="SCL_1" pintype="input"/>
       <node ref="U12" pin="2" pinfunction="SCL_2" pintype="input"/>
@@ -2953,7 +3008,7 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
       <node ref="U7" pin="3" pinfunction="SCL_3" pintype="input"/>
     </net>
     <net code="23" name="/I2C_SDA" class="Default">
-      <node ref="J107" pin="3" pinfunction="SDA_3" pintype="passive"/>
+      <node ref="J108" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
       <node ref="R11" pin="1" pintype="passive"/>
       <node ref="U10" pin="6" pinfunction="SDA_6" pintype="bidirectional"/>
       <node ref="U12" pin="1" pinfunction="SDA_1" pintype="bidirectional"/>

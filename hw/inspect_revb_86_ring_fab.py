@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Native 85-footprint witness and exact drill inventory for the Rev B 86 mm ring board.
+"""Native 87-footprint witness and exact drill inventory for the Rev B 86 mm ring board.
 
 A clone of inspect_revb_current_fab.py for routing/revb-86-ring. Each difference
 is deliberate:
 
-- 85 footprints: J5 (membrane-ring lands) and J107 (external-sensor / UART
-  pads) are added. J5 is therefore required, not retired.
+- 87 footprints: J5 (membrane-ring lands), J107 (external-sensor / UART
+  pads) and the two single I2C lands J108 / J109 are added. J5 is therefore
+  required, not retired.
 - The witness is taken from the CANDIDATE board. The 86 mm trim changed no drill,
   so the 86 mm exporter could witness the reference board; this revision adds
   and removes vias, so only the board being exported can witness its drills.
@@ -23,7 +24,7 @@ import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-COMPONENTS = 85
+COMPONENTS = 87
 RETIRED = {'RV1', 'F3', 'U8'}
 REQUIRED = {'U16', 'C35', 'U15', 'C36', 'D3', 'J5', 'J107'}
 

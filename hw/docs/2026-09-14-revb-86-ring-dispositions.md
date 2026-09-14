@@ -69,11 +69,24 @@ They are now. Every number above is measured against the widened set.
 
 ### What this costs, stated plainly
 
-**J107 is no longer one block.** Its 3V3D, GND and UART lands stay in the row at
-the cable end; the I2C pair is 64.5 mm and 38.5 mm up the board, and the two
-lands are 21 mm apart from each other. A lead for an external TMP117 therefore
-lands its power pair and its signal pair in three places, inside the potting,
-instead of leaving with the cable.
+**J107 is no longer one block — it is no longer even one part.** Its 3V3D, GND
+and UART lands stay in the row at the cable end as J107; the I2C pair is 64.5 mm
+and 38.5 mm up the board, 21 mm apart from each other, and since later on
+2026-09-14 they are two separate components, **J108** (SDA) and **J109** (SCL).
+A lead for an external TMP117 therefore lands its power pair and its signal pair
+in three places, inside the potting, instead of leaving with the cable. Part
+count 85 -> 87.
+
+The split is what makes the lands placeable. Pads inside a footprint cannot be
+dragged in pcbnew except in Pad Edit Mode, and a footprint edited that way no
+longer matches its library — `lib_footprint_mismatch`. Fab asked to ungroup them
+so he could place them himself, tried it, and reported the pads still moved
+together; three parts is the only real ungroup. `tools/split_j107_i2c.py` does
+it deterministically and moves no copper: J108 and J109 land exactly where pads
+3 and 4 were, keeping the measured silk offsets, so DRC stays at the accepted
+12 / 0 / 0 / 0. Each gets a courtyard the size of its own pad and no larger —
+at pad-plus-0.15 the SDA land collides with RH1's courtyard, and a footprint
+with none at all is a `missing_courtyard` error.
 
 That is forced, not chosen. A search over the whole board for a site holding a
 complete four-land block (3V3D, GND, SDA, SCL as 1.6 x 1.2 lands, every land
@@ -83,8 +96,9 @@ pitch and either orientation; a three-land group exists only at x 116.4,
 Y 120.5..125.7, which still splits the lead. The board is 20 x 86 mm and the AFE
 spans its width.
 
-The pads are labelled `SDA` and `SCL` on B.SilkS where they are, and J107's
-Design Note says so in the schematic, so nobody has to infer it from the board.
+The lands are labelled `SDA` and `SCL` on B.SilkS where they are, and the Design
+Notes on J107, J108 and J109 each name the other two, so nobody has to infer the
+split from the board.
 
 ## 2. New tip ground-return dependencies — ACCEPTED, with the numbers
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export the exact reviewed 85-part / 86 mm Rev B ring board; never regenerate or reroute.
+"""Export the exact reviewed 87-part / 86 mm Rev B ring board; never regenerate or reroute.
 
 A sibling of make_fab_revb_86.py for routing/revb-86-ring, the accepted 86 mm
 board plus the membrane-ring lands (J5), the external-sensor / UART pads (J107)
@@ -42,7 +42,7 @@ ASSEMBLY = Path('docs/2026-09-12-current-assembly-review.md')
 DISPOSITIONS = Path('docs/2026-09-14-revb-86-ring-dispositions.md')
 REVIEW = Path('docs/2026-09-13-revb-86-ring-codex-review.md')
 AUDIT = Path('schematic-audit.rpt')
-COMPONENTS = 85
+COMPONENTS = 87
 # Named so a gate cannot be written without restating them. Changing this list is
 # a new review, not an edit.
 # The two GUARD_REPLICA dangling endpoints are hard-coded, not taken from the gate.

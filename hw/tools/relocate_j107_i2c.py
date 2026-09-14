@@ -30,6 +30,12 @@ An external TMP117 on a lead therefore lands its power pair and its signal pair
 in two places.  No site exists for a whole four-land block on the bus side - the
 search is in the README - so this is forced, not chosen.
 
+SUPERSEDED IN PART, later the same day: `tools/split_j107_i2c.py` takes the two
+relocated lands out of J107 altogether and makes them J108 and J109, so each can
+be dragged on its own.  This script still records why they moved and where to;
+run it first, then the split.  It leaves the board in the six-pad
+`SolderPads_1x06_SMD_SplitI2C` state, which no longer has a library file.
+
 This script does the deterministic part: the library footprint, the placed
 footprint, and the deletion of the old legs.  The new SCL track is routed by
 `tools/reroute_net.py` (SENS_EXTRA=0.3) and written by its `emit`; see the

@@ -1,9 +1,9 @@
-(footprint "SolderPads_1x06_SMD_SplitI2C"
+(footprint "SolderPads_1x04_SMD_PwrUart"
 	(version 20240108)
 	(generator "pcbnew")
 	(layer "B.Cu")
-	(descr "Six plain SMD solder lands for hand-soldered flying leads, 1.6 x 1.2 mm, no drills, no castellations, no paste. Four sit in a row on 2.6 mm pitch at the cable end (1=3V3D 2=GND 5=TX 6=RX); pads 3 (SDA) and 4 (SCL) are placed away from the row, clear of the analog front end. Pad 1 is marked on B.Fab.")
-	(tags "solder pad lead expansion i2c uart smd")
+	(descr "Four plain SMD solder lands in a row on 2.6 mm pitch for hand-soldered flying leads, 1.6 x 1.2 mm, no drills, no castellations, no paste (1=3V3D 2=GND 5=TX 6=RX). The I2C pair that used to sit between them is now J108 and J109. Pad 1 is marked on B.Fab.")
+	(tags "solder pad lead expansion uart smd")
 	(attr smd exclude_from_pos_files)
 	(duplicate_pad_numbers_are_jumpers no)
 	(fp_rect (start -7.9 -1.0) (end 7.9 1.0)
@@ -38,16 +38,6 @@
 		(layer "B.SilkS")
 		(effects (font (size 0.8 0.8) (thickness 0.12)) (justify mirror))
 	)
-	(fp_text user "SDA"
-		(at -5.9 63.05 0)
-		(layer "B.SilkS")
-		(effects (font (size 0.8 0.8) (thickness 0.12)) (justify mirror))
-	)
-	(fp_text user "SCL"
-		(at 8.6 40.45 0)
-		(layer "B.SilkS")
-		(effects (font (size 0.8 0.8) (thickness 0.12)) (justify mirror))
-	)
 	(fp_circle
 		(center -8.1 0)
 		(end -7.85 0)
@@ -59,7 +49,5 @@
 	(pad "2" smd rect (at -3.9 0) (size 1.6 1.2) (layers "B.Cu" "B.Mask"))
 	(pad "5" smd rect (at 3.9 0) (size 1.6 1.2) (layers "B.Cu" "B.Mask"))
 	(pad "6" smd rect (at 6.5 0) (size 1.6 1.2) (layers "B.Cu" "B.Mask"))
-	(pad "3" smd rect (at -5.9 64.45) (size 1.6 1.2) (layers "B.Cu" "B.Mask"))
-	(pad "4" smd rect (at 8.85 38.5) (size 1.6 1.2) (layers "B.Cu" "B.Mask"))
 	(embedded_fonts no)
 )
