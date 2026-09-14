@@ -4,7 +4,7 @@ Derived from the accepted [`routing/revb-86`](../revb-86) board on 2026-09-13,
 after Fab: *"the pcb missed the ring pads at the tip. add them."* The accepted
 board and its fabrication package are unchanged.
 
-**State, 2026-09-14 (after the tip re-route and the J107 I2C relocation below):** full native DRC with
+**State, 2026-09-14 (after the tip re-route, the J107 I2C relocation and the SMD UART taps below):** full native DRC with
 `--schematic-parity` reports **12 violations — exactly the accepted board's
 baseline** (the same 10 courtyard pairs and the same 2 GUARD_REPLICA
 `track_dangling`, all individually documented in `revb-86`), **0 unconnected
@@ -13,7 +13,7 @@ items** and **0 schematic-parity issues**. `HEATED_ISLAND_SPREADER` fills as
 
 **Not yet orderable.** The ring-specific toolchain now exists —
 `verify_revb_86_ring.py` (PASS), `inspect_revb_86_ring_fab.py` (PASS: 87 parts,
-215 PTH, 8 NPTH) and the gated `make_fab_revb_86_ring.py` — and the schematic
+214 PTH, 8 NPTH) and the gated `make_fab_revb_86_ring.py` — and the schematic
 audit is a PASS over the live inputs (87 components, 72 nets). What does not
 exist is a gate: the only two independent reviews on record are of *earlier*
 states of this board, and the second one ended **DO NOT ISSUE**. The J107
@@ -138,6 +138,57 @@ own carrier. Do **not** add pull-ups on the lead; R10/R11 already bias this bus.
 Pads 5/6 duplicate the existing J105/J106 bench taps at (111.75, 97.8) and
 (117, 97.8), which stay where they are. Retiring them was not asked for and was
 not done.
+
+## J105 / J106 — the UART bench taps are SMD lands now
+
+Fab, 2026-09-14: *"replace the uart 2 pin headers with solder pads (smd)"*. Both
+taps were `SolderWireNoRelief_*`: a 1.85 × 1.85 mm roundrect on **every** copper
+layer over an **0.85 mm plated hole**. They are now the same 1.85 × 1.85 mm
+roundrect as plain SMD lands on **back** copper only — same position, same net,
+no drill:
+
+    J105  /UART2_TX  (111.75, 97.80)   legend TX at (111.75, 96.10)
+    J106  /UART2_RX  (117.00, 97.80)   legend RX at (117.00, 96.10)
+
+Back copper is not a choice — both footprints were already placed on B.Cu, so
+the back was the only face with an open mask. The front annulus was doing
+nothing except holding a hole through the front ground pour, which has now
+closed over it (F.Cu GND 972.58 → 982.18 mm²). The board drops from 215 to
+**214 plated holes**.
+
+**The legends are new.** These lands had no silkscreen at all — the same state
+that made J107 read as *missing* on 2026-09-13. An unmarked copper rectangle on
+the back of a board cannot be soldered to by anyone who does not already know
+what it is.
+
+**What this broke, and how it was fixed.** `/UART2_TX` reaches J105 on B.Cu and
+was unaffected. `/UART2_RX` reached J106 on **F.Cu** and was using the pad's own
+plated hole as its layer change, so with the hole gone its last stretch had to
+move to the back: two accepted F.Cu segments deleted, 2.42 mm of new track and
+one 0.4/0.2 via at **(117.40, 96.75)** — **0.125 mm clear of the land's edge**,
+beside the joint and never in it. A route that stopped at the pad boundary put
+the via *inside* the land; that was rejected, not accepted. Deleting accepted
+copper is why `tools/smd_uart_taps.py` names those two segments explicitly:
+`tools/reroute_net.py` refuses to rip copper that exists on the accepted board,
+and it is right to.
+
+    python3 tools/smd_uart_taps.py routing/revb-86-ring/o2-probe.kicad_pcb
+    VIA_COST=40 python3 tools/reroute_net.py route <board> --net /UART2_RX \
+        --rip 0,0,0,0 --reference routing/revb-86/o2-probe.kicad_pcb \
+        --source 117.0,97.8 --target 117.4,94.4,119.6,96.6 --out rx.pkl
+    python3 tools/reroute_net.py emit <board> --net /UART2_RX --pkl rx.pkl
+    <kicad-python> tools/smd_uart_taps.py <board> --sync-library
+    <kicad-python> tools/refill_zones.py <board>
+
+The library copies are written **from the board** by `--sync-library`. A
+hand-written `.kicad_mod` did not match what pcbnew holds — property angles, the
+flip convention for a back-side part and the uuids are pcbnew's to decide — and
+DRC said so with `lib_footprint_mismatch` on both taps.
+
+The verifier pins this as a **wholesale footprint replacement**: not a field
+edit but the complete new record, hashed, with named checks beside it for
+position, angle, net, SMD-with-no-drill and back-copper-only, so a drift reads
+as a sentence and not just a digest mismatch.
 
 ## Silk over the ring land — fixed
 

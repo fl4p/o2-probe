@@ -3,7 +3,8 @@
 
 Every difference from routing/revb-86 must be one of the ring revision's pinned
 changes; anything else fails. The revision (2026-09-13) adds the membrane-ring
-lands J5, the external-sensor lands J107 / J108 / J109 and their routes, shortens both
+lands J5, the external-sensor lands J107 / J108 / J109 and their routes, turns the
+UART bench taps J105 / J106 into undrilled SMD lands, shortens both
 thermal slots 2 mm at the tip, moves C35 and the TMP_CELL label clear of the
 right/left land, and re-routes the tip ends of I2C_SCL / I2C_SDA plus one GND link
 so HEATED_ISLAND_SPREADER fills as one island.
@@ -13,7 +14,10 @@ Checked exactly:
   metadata, setup and layers identical; zone definitions identical
 - every object present on both boards identical, except ten pinned field
   changes (six slot outline objects, the TMP_CELL text, C35's position and two
-  segment endpoints) and one hidden C12 property whose layer is B.SilkS -> B.Fab
+  segment endpoints), one hidden C12 property whose layer is B.SilkS -> B.Fab,
+  and the two wholesale footprint replacements J105 / J106, each pinned by the
+  complete new record plus named checks (position, angle, net, SMD, no drill,
+  back copper only)
 - removed objects: only tracks/vias, counted per (type, net)
 - added objects: footprints J5, J107, J108 and J109 plus tracks/vias counted per
   (type, net);
@@ -63,11 +67,11 @@ CHANGES = {
 C12_PROPERTY = ('KiLib_Generator', 'B.SilkS', 'B.Fab')
 
 REMOVED = Counter({('segment', '/3V3D'): 1, ('segment', '/I2C_SCL'): 33, ('segment', '/I2C_SDA'): 5,
-                   ('segment', 'GND'): 1, ('via', '/I2C_SDA'): 1})
+                   ('segment', '/UART2_RX'): 2, ('segment', 'GND'): 1, ('via', '/I2C_SDA'): 1})
 ADDED = Counter({('segment', '/3V3D'): 12, ('segment', '/I2C_SCL'): 29, ('segment', '/I2C_SDA'): 12,
-                 ('segment', '/UART2_RX'): 20, ('segment', '/UART2_TX'): 18, ('segment', 'GND'): 4,
+                 ('segment', '/UART2_RX'): 24, ('segment', '/UART2_TX'): 18, ('segment', 'GND'): 4,
                  ('via', '/3V3D'): 1, ('via', '/HEATER_LOW'): 2, ('via', '/I2C_SCL'): 1, ('via', '/I2C_SDA'): 1,
-                 ('via', '/UART2_RX'): 3, ('via', '/UART2_TX'): 1, ('via', 'GND'): 3})
+                 ('via', '/UART2_RX'): 4, ('via', '/UART2_TX'): 1, ('via', 'GND'): 3})
 LAND_VIAS = {(101.75, 137.0), (118.25, 137.0)}
 
 # (fpid, (x, y), angle, layer, sorted pads: (number, net, x, y, sx, sy, layers))
@@ -91,6 +95,24 @@ NEW_FOOTPRINTS = {
 }
 SPREADER_PADS = {('RH1', '2'), ('RH2', '2'), ('Q2', '3'), ('J5', '1')}
 
+# Footprints this revision replaces WHOLESALE. CHANGES above pins one field at a
+# time; the two UART bench taps change footprint id, pad type, drill, layer set,
+# attributes, graphics and 3D model in one step (2026-09-14, Fab: "replace the
+# uart 2 pin headers with solder pads (smd)"), so what is pinned is the complete
+# new record, hashed. The named checks beside it say what the hash is standing
+# for - position, angle, net, SMD with no drill, back copper only - so a drift
+# reads as a sentence and not just a digest mismatch. UNSET fails closed.
+#
+# ref -> (old fpid, new fpid, net, sha256 of the new footprint record)
+REPLACED_FOOTPRINTS = {
+    'J105': ('o2-probe:SolderWireNoRelief_J105', 'o2-probe:SolderPad_SMD_J105', '/UART2_TX',
+             '41d2f926280d068575516e78e827561efe8cfda7dad2cc36c4e0d5ad94f4ff05'),
+    'J106': ('o2-probe:SolderWireNoRelief_J106', 'o2-probe:SolderPad_SMD_J106', '/UART2_RX',
+             '58bb2b6e87a2ee18af395db60b7e903dd93ac7c7f63977d35be1047983857ef1'),
+}
+REPLACED_LAND = (1.85, 1.85)            # unchanged copper outline; only the hole goes
+REPLACED_LAYERS = ('B.Cu', 'B.Mask')
+
 # Exact delta pin (review finding 2, 2026-09-13). The (type, net) counts above
 # let an added track move anywhere on its net and still PASS - demonstrated by
 # moving an added SCL segment to (110,110)-(110,112), and by rotating a J5 pad or
@@ -98,8 +120,8 @@ SPREADER_PADS = {('RH1', '2'), ('RH2', '2'), ('Q2', '3'), ('J5', '1')}
 # removed object are hashed, so any change to position, width, layer, lock, pad
 # shape, angle, mask or paste fails. Regenerate with --print-delta only for an
 # intended change, and treat that as a new review. UNSET fails closed.
-ADDED_SHA256 = 'b58484096761b3741d9e5acae9dd9d1882f693f7aea6d76475c753a8441e5789'
-REMOVED_SHA256 = '06b4863fcbdba6a40dd77a492589efd984bfd4391767a428b4ac11ceaca14e6d'
+ADDED_SHA256 = 'cd8f6d9a36a112ff8b418851b524e446a23b900dc08262d7ae140e421b839997'
+REMOVED_SHA256 = 'ce2d047cf2df5868f46cbee9fb1b83b6af49c99598d0676e4f6f4a38c8031f6f'
 
 
 def _canon(item):
@@ -229,6 +251,37 @@ def verify(board_path, reference):
             if floats(q) != before:
                 raise ValueError('Pinned field %s of %s is not the accepted value' % (name, uid))
             q[1:] = [format(x, '.12g') for x in after]
+    for ref, (old_fpid, new_fpid, net, digest) in REPLACED_FOOTPRINTS.items():
+        keys = [k for k in old if old[k][0] == 'footprint' and reference_of(old[k]) == ref]
+        if len(keys) != 1 or keys[0] not in actual:
+            raise ValueError('Replaced footprint %s is not one object on both boards' % ref)
+        key = keys[0]
+        was, now = old[key], actual[key]
+        if unquote(was[1]) != old_fpid or unquote(now[1]) != new_fpid:
+            raise ValueError('%s is not %s -> %s' % (ref, old_fpid, new_fpid))
+        if floats(child(was, 'at')) != floats(child(now, 'at')):
+            raise ValueError('%s moved or rotated; the replacement may not move it' % ref)
+        pads = [x for x in now if isinstance(x, list) and x and x[0] == 'pad']
+        if len(pads) != 1:
+            raise ValueError('%s must have exactly one land' % ref)
+        pad = pads[0]
+        if pad[2] != 'smd':
+            raise ValueError('%s land is still %s, not smd' % (ref, pad[2]))
+        if [x for x in pad if isinstance(x, list) and x and x[0] == 'drill']:
+            raise ValueError('%s land still carries a drill' % ref)
+        if floats(child(pad, 'size')) != REPLACED_LAND:
+            raise ValueError('%s land outline changed' % ref)
+        layers = tuple(unquote(x) for x in child(pad, 'layers')[1:])
+        if layers != REPLACED_LAYERS:
+            raise ValueError('%s land is on %r, not the back only' % (ref, layers))
+        if unquote(child(pad, 'net')[1]) != net:
+            raise ValueError('%s land is not on %s' % (ref, net))
+        if digest == 'UNSET':
+            raise ValueError('Replacement digest for %s is unset: pin it and re-review' % ref)
+        if delta_digest([now]) != digest:
+            raise ValueError('%s replacement differs from the pinned record' % ref)
+        wanted[key] = now
+
     c12 = [k for k in old if old[k][0] == 'footprint' and reference_of(old[k]) == 'C12']
     if len(c12) != 1:
         raise ValueError('Expected one C12 footprint')
@@ -285,7 +338,12 @@ def verify(board_path, reference):
     # than KiCad's own refill jitter.
     # Repinned 2026-09-14 after J107's I2C relocation: removing 107.68 mm of
     # track and 5 vias returned 25.7 mm2 of F.Cu and 46.3 mm2 of B.Cu to GND.
-    PINNED_FILL = {'F.Cu:GND': 972.5760, 'B.Cu:GND': 875.1727, 'B.Cu:/HEATER_LOW': 215.1312}
+    # Repinned again the same day after J105/J106 became SMD lands: their front
+    # annuli and the F.Cu tail that used to reach J106 through its own plated hole
+    # are gone, and the front ground pour closed over all three - F.Cu GND
+    # 972.5760 -> 982.1839 mm2, while the 2.4 mm of new B.Cu tail into J106 costs
+    # the back pour 0.17 mm2: B.Cu GND 875.1727 -> 875.0074.
+    PINNED_FILL = {'F.Cu:GND': 982.1839, 'B.Cu:GND': 875.0074, 'B.Cu:/HEATER_LOW': 215.1312}
     fills = {}
     for layer in (p.F_Cu, p.B_Cu):
         before, after = filled_union(a, layer), filled_union(b, layer)

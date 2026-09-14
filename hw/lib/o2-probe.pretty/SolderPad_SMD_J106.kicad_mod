@@ -1,15 +1,15 @@
-(footprint "SolderWireNoRelief_J106"
+(footprint "SolderPad_SMD_J106"
 	(version 20260206)
 	(generator "pcbnew")
 	(generator_version "10.0")
 	(layer "F.Cu")
-	(descr "Soldered wire connection without an unplaced remote relief hole")
-	(tags "connector wire 0.25sqmm")
+	(descr "Plain SMD solder land for a hand-soldered bench wire, 1.85 x 1.85 mm roundrect, no drill, no paste. Back copper. Was a plated-through wire land.")
+	(tags "solder pad wire uart bench smd")
 	(property "Reference" "J106"
 		(at 0 -2.12 180)
 		(layer "F.Fab")
 		(hide yes)
-		(uuid "453e0615-bdb7-4f88-83c9-b2e54cb7ae57")
+		(uuid "074ce1cd-884c-4d66-9d8e-87684bfd280a")
 		(effects
 			(font
 				(size 1 1)
@@ -21,7 +21,7 @@
 		(at 0 12.5 180)
 		(layer "F.Fab")
 		(hide yes)
-		(uuid "d722c21a-c03a-4390-b361-06ac772d2f5f")
+		(uuid "a9e3a260-fae5-4fd7-be7c-d60ba78da6e2")
 		(effects
 			(font
 				(size 1 1)
@@ -33,7 +33,7 @@
 		(at 0 0 180)
 		(layer "F.Fab")
 		(hide yes)
-		(uuid "c1de6f36-0b03-45b7-8552-d7d5648a9542")
+		(uuid "44aa6985-5a14-4ea9-8d9e-36191f760d2b")
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -44,7 +44,7 @@
 		(at 0 0 180)
 		(layer "F.Fab")
 		(hide yes)
-		(uuid "044ec198-d47c-4be0-b897-fab25ae4cc4d")
+		(uuid "a2d435e8-c205-4c5b-a089-a8b800913299")
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -55,7 +55,7 @@
 		(at 0 0 180)
 		(layer "F.SilkS")
 		(hide yes)
-		(uuid "0de81f78-9131-5d26-a307-786d2824578c")
+		(uuid "cec69dd9-82a2-45e4-b7dc-763712293c8e")
 		(effects
 			(font
 				(size 1 1)
@@ -63,11 +63,11 @@
 			)
 		)
 	)
-	(property "Design Note" "Bench-bridge TTL tap, MCU side. Laptop TTL TX -> here. See J105"
+	(property "Design Note" "Bench-bridge TTL tap, MCU side. Laptop TTL TX -> here. SMD land on BACK copper since 2026-09-14 - it was a 0.85 mm plated hole, which is also how this net used to change layers, so its tail is routed on B.Cu now. 3.3 V logic ONLY: PA2/PA3 are not 5 V tolerant on this device (bridge_main.c:23). Duplicated at J107 pad 6."
 		(at 0 0 180)
 		(layer "F.SilkS")
 		(hide yes)
-		(uuid "33493c16-5080-59de-aac3-ceeb655004f8")
+		(uuid "f56049ea-962c-40f1-8374-3e860083cd21")
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -79,7 +79,7 @@
 		(at 0 0 180)
 		(layer "F.SilkS")
 		(hide yes)
-		(uuid "ebbc6fb8-031e-5012-a0cf-6c6435772c59")
+		(uuid "6d0c5c39-ac8e-4afe-9b52-2155c8c2526c")
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -88,7 +88,7 @@
 		)
 	)
 	(property ki_fp_filters "Connector*:*_1x??_*")
-	(attr exclude_from_pos_files)
+	(attr smd exclude_from_pos_files)
 	(duplicate_pad_numbers_are_jumpers no)
 	(fp_rect
 		(start -1.6 1.42)
@@ -99,23 +99,23 @@
 		)
 		(fill no)
 		(layer "F.CrtYd")
-		(uuid "0fbba212-81ae-5849-bc8c-a21410fa796e")
+		(uuid "caea15e7-f473-4661-aa99-e1a2474a635c")
 	)
-	(fp_circle
-		(center 0 0)
-		(end 0.85 0)
-		(stroke
-			(width 0.1)
-			(type solid)
+	(fp_text user "RX"
+		(at 0 1.7 180)
+		(layer "F.SilkS")
+		(uuid "d07ba6c1-4167-4fdb-a44b-652713b4634d")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.12)
+			)
 		)
-		(fill no)
-		(layer "F.Fab")
-		(uuid "ad4fd44d-5648-5004-905a-a6b06d5f2ad3")
 	)
 	(fp_text user "${REFERENCE}"
 		(at 0 0 180)
 		(layer "F.Fab")
-		(uuid "a130f80e-e845-5091-81ec-b33c56979c72")
+		(uuid "6b2c317d-8bd8-4665-8713-36a8a417d9ab")
 		(effects
 			(font
 				(size 0.42 0.42)
@@ -123,25 +123,12 @@
 			)
 		)
 	)
-	(pad "1" thru_hole roundrect
+	(pad "1" smd roundrect
 		(at 0 0 180)
 		(size 1.85 1.85)
-		(drill 0.85)
-		(layers "*.Cu" "*.Mask")
-		(remove_unused_layers no)
+		(layers "F.Cu" "F.Mask")
 		(roundrect_rratio 0.135135)
-		(uuid "516ec055-3d3a-5161-9746-0d9727d58ac3")
+		(uuid "0d200a0b-b62a-4b20-b508-1d3ba3230de5")
 	)
 	(embedded_fonts no)
-	(model "${KICAD10_3DMODEL_DIR}/Connector_Wire.3dshapes/SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm.step"
-		(offset
-			(xyz 0 0 0)
-		)
-		(scale
-			(xyz 1 1 1)
-		)
-		(rotate
-			(xyz 0 0 0)
-		)
-	)
 )

@@ -2777,7 +2777,7 @@
 						)
 					)
 				)
-				(property "ki_fp_filters" "o2-probe:SolderWireNoRelief_J105 o2-probe:SolderWireNoRelief_J106 o2-probe:SolderWire_RaisedRelief_1x01"
+				(property "ki_fp_filters" "o2-probe:SolderPad_SMD_J105 o2-probe:SolderPad_SMD_J106 o2-probe:SolderWire_RaisedRelief_1x01"
 					(at 0 0 0)
 					(show_name no)
 					(do_not_autoplace no)
@@ -5016,8 +5016,8 @@
 		(uuid "1764d32f-90af-51d2-ad75-83a85aeaa754")
 		(property "Reference" "J105" (at 246.38 110.49 0) (effects (font (size 1.0 1.0))))
 		(property "Value" "BRIDGE TX (PA2)" (at 256.54 113.03 0) (effects (font (size 1.0 1.0)) (justify right)))
-		(property "Footprint" "o2-probe:SolderWireNoRelief_J105" (at 251.46 116.84 0) (effects (font (size 1.27 1.27)) hide))
-		(property "Design Note" "Bench-bridge TTL tap, MCU side. Laptop TTL RX <- here. 3.3 V logic ONLY: PA2/PA3 are not 5 V tolerant on this device (bridge_main.c:23)" (at 251.46 116.84 0) (effects (font (size 1.27 1.27)) hide))
+		(property "Footprint" "o2-probe:SolderPad_SMD_J105" (at 251.46 116.84 0) (effects (font (size 1.27 1.27)) hide))
+		(property "Design Note" "Bench-bridge TTL tap, MCU side. Laptop TTL RX <- here. SMD land on BACK copper since 2026-09-14 - it was a 0.85 mm plated hole; the wire now solders flat. 3.3 V logic ONLY: PA2/PA3 are not 5 V tolerant on this device (bridge_main.c:23). Duplicated at J107 pad 5." (at 251.46 116.84 0) (effects (font (size 1.27 1.27)) hide))
 		(pin "1" (uuid "a14a0cd8-8bfb-57cb-a0c4-4860efd88155"))
 		(instances
 			(project "o2-probe" (path "/b44d674b-6a5d-5766-ad6a-7746f68babf9" (reference "J105") (unit 1)))
@@ -5034,8 +5034,8 @@
 		(uuid "1bcbaf5f-5711-5898-ab15-2dc343bee72e")
 		(property "Reference" "J106" (at 246.38 120.65 0) (effects (font (size 1.0 1.0))))
 		(property "Value" "BRIDGE RX (PA3)" (at 256.54 123.19 0) (effects (font (size 1.0 1.0)) (justify right)))
-		(property "Footprint" "o2-probe:SolderWireNoRelief_J106" (at 251.46 127 0) (effects (font (size 1.27 1.27)) hide))
-		(property "Design Note" "Bench-bridge TTL tap, MCU side. Laptop TTL TX -> here. See J105" (at 251.46 127 0) (effects (font (size 1.27 1.27)) hide))
+		(property "Footprint" "o2-probe:SolderPad_SMD_J106" (at 251.46 127 0) (effects (font (size 1.27 1.27)) hide))
+		(property "Design Note" "Bench-bridge TTL tap, MCU side. Laptop TTL TX -> here. SMD land on BACK copper since 2026-09-14 - it was a 0.85 mm plated hole, which is also how this net used to change layers, so its tail is routed on B.Cu now. 3.3 V logic ONLY: PA2/PA3 are not 5 V tolerant on this device (bridge_main.c:23). Duplicated at J107 pad 6." (at 251.46 127 0) (effects (font (size 1.27 1.27)) hide))
 		(pin "1" (uuid "9dc1ecb5-2121-576f-a327-1807775ad7cd"))
 		(instances
 			(project "o2-probe" (path "/b44d674b-6a5d-5766-ad6a-7746f68babf9" (reference "J106") (unit 1)))

@@ -2773,7 +2773,7 @@
 					)
 				)
 			)
-			(property "ki_fp_filters" "o2-probe:SolderWireNoRelief_J105 o2-probe:SolderWireNoRelief_J106 o2-probe:SolderWire_RaisedRelief_1x01"
+			(property "ki_fp_filters" "o2-probe:SolderPad_SMD_J105 o2-probe:SolderPad_SMD_J106 o2-probe:SolderWire_RaisedRelief_1x01"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)

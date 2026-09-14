@@ -305,7 +305,7 @@ SYMS[WIRE_LAND]["name"] = "WIRE_LAND"
 SYMS[WIRE_LAND]["source_block"] = SYMS[WIRE_LAND]["source_block"].replace(
     '(symbol "Conn_01x01_', '(symbol "WIRE_LAND_').replace(
     '"Connector*:*_1x??_*"',
-    '"o2-probe:SolderWireNoRelief_J105 o2-probe:SolderWireNoRelief_J106 o2-probe:SolderWire_RaisedRelief_1x01"')
+    '"o2-probe:SolderPad_SMD_J105 o2-probe:SolderPad_SMD_J106 o2-probe:SolderWire_RaisedRelief_1x01"')
 # Diodes/BCD AZ431-A in the N (SOT-23) package is pinned 1 REF, 2 CATHODE,
 # 3 ANODE -- AZ431-A datasheet Rev 3.4, "Pin Configuration", N Package figure.
 # NO KiCad TL431 variant carries that map: TL431DBZ is 1 K / 2 REF / 3 A, and
@@ -1193,12 +1193,19 @@ for p,n in enumerate(("3V3D","SWDIO","NRST","SWCLK_BOOT0","GND","SWO"),1): net("
 # 0.20 A separately-fused EXP_3V3 that fed it.  J2 was DNP on every board ever
 # built, so no built board ever had either.  Fab approved the deletion on
 # 2026-09-05 against docs/archive/2026-09-09-pcb-plans/BOM-REDUCTION.md 3.
-place("J105",WIRE_LAND,251.46,116.84,value="BRIDGE TX (PA2)",footprint="o2-probe:SolderWireNoRelief_J105",
-      note="Bench-bridge TTL tap, MCU side. Laptop TTL RX <- here. 3.3 V logic ONLY: "
-           "PA2/PA3 are not 5 V tolerant on this device (bridge_main.c:23)")
+# THEY ARE SMD LANDS, NOT PLATED HOLES (2026-09-14).  Fab: "replace the uart 2
+# pin headers with solder pads (smd)".  Each was a 1.85 mm roundrect on every
+# copper layer over an 0.85 mm plated hole; each is now the same 1.85 mm
+# roundrect as a plain SMD land on BACK copper, where the only open mask already
+# was, with a TX / RX legend on B.SilkS.  Two of the board's plated holes go
+# away with them.  /UART2_RX had been changing layers THROUGH that hole, so its
+# last 2.4 mm is re-routed onto B.Cu with a via 0.125 mm clear of the land -
+# beside the joint, never in it.  tools/smd_uart_taps.py.
+place("J105",WIRE_LAND,251.46,116.84,value="BRIDGE TX (PA2)",footprint="o2-probe:SolderPad_SMD_J105",
+      note="Bench-bridge TTL tap, MCU side. Laptop TTL RX <- here. SMD land on BACK copper since 2026-09-14 - it was a 0.85 mm plated hole; the wire now solders flat. 3.3 V logic ONLY: PA2/PA3 are not 5 V tolerant on this device (bridge_main.c:23). Duplicated at J107 pad 5.")
 net("J105",1,"UART2_TX")
-place("J106",WIRE_LAND,251.46,127.0,value="BRIDGE RX (PA3)",footprint="o2-probe:SolderWireNoRelief_J106",
-      note="Bench-bridge TTL tap, MCU side. Laptop TTL TX -> here. See J105")
+place("J106",WIRE_LAND,251.46,127.0,value="BRIDGE RX (PA3)",footprint="o2-probe:SolderPad_SMD_J106",
+      note="Bench-bridge TTL tap, MCU side. Laptop TTL TX -> here. SMD land on BACK copper since 2026-09-14 - it was a 0.85 mm plated hole, which is also how this net used to change layers, so its tail is routed on B.Cu now. 3.3 V logic ONLY: PA2/PA3 are not 5 V tolerant on this device (bridge_main.c:23). Duplicated at J107 pad 6.")
 net("J106",1,"UART2_RX")
 
 # ---- J107: hand-solder lands for an EXTERNAL sensor lead (Fab, 2026-09-13)

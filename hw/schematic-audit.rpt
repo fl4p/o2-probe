@@ -2,7 +2,7 @@ O2 probe schematic connectivity audit
 components: 87
 nets: 72
 result: PASS
-input o2-probe.kicad_sch: 3176ee04f0d1d3578ee1dcf3f8ad7783e57ac62de2e839c90d2e69390497a46c
-input gen_sch.py: efe303decc34692a5ac7f449332980a1a359f5766a1252384f37792011c8984d
+input o2-probe.kicad_sch: be905f669d037cb928022fda270b592adca21754adc69200c78c7a002d1daf04
+input gen_sch.py: 65cec9d782ea4ce73b07375d40fa7ec910c76b2ddf86ff360eed66d2ce320d3f
 input audit_schematic.py: a9ec52c451eebe7a573e38742430ac4fd977c0b8905deba5e3fc66ee4c4bc588
-export o2-probe.xml: 39c95c3150c1ad891b413da6595b7a53558c71dbcce36079fa991905c6d73745
+export o2-probe.xml: 8671395992f7a063dac2a6754b195ab71e3e8220eb4a48f22e093e84f66a5770

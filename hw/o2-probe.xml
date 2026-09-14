@@ -2,7 +2,7 @@
 <export version="E">
   <design>
     <source>/Users/fab/dev/ee/hw/o2-probe/o2-probe.kicad_sch</source>
-    <date>2026-09-14T12:50:48</date>
+    <date>2026-09-14T13:04:34</date>
     <tool>Eeschema 10.0.5</tool>
     <sheet number="1" name="/" tstamps="/">
       <title_block>
@@ -969,7 +969,7 @@
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="connector"/>
-      <property name="ki_fp_filters" value="o2-probe:SolderWireNoRelief_J105 o2-probe:SolderWireNoRelief_J106 o2-probe:SolderWire_RaisedRelief_1x01"/>
+      <property name="ki_fp_filters" value="o2-probe:SolderPad_SMD_J105 o2-probe:SolderPad_SMD_J106 o2-probe:SolderWire_RaisedRelief_1x01"/>
       <sheetpath names="/" tstamps="/"/>
       <tstamps>bb7d2da7-8dad-537a-a4c3-476780fd5c58</tstamps>
       <units>
@@ -994,7 +994,7 @@
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="connector"/>
-      <property name="ki_fp_filters" value="o2-probe:SolderWireNoRelief_J105 o2-probe:SolderWireNoRelief_J106 o2-probe:SolderWire_RaisedRelief_1x01"/>
+      <property name="ki_fp_filters" value="o2-probe:SolderPad_SMD_J105 o2-probe:SolderPad_SMD_J106 o2-probe:SolderWire_RaisedRelief_1x01"/>
       <sheetpath names="/" tstamps="/"/>
       <tstamps>205ab876-94eb-5cc9-acab-d8d79253c4e8</tstamps>
       <units>
@@ -1007,19 +1007,19 @@
     </comp>
     <comp ref="J105">
       <value>BRIDGE TX (PA2)</value>
-      <footprint>o2-probe:SolderWireNoRelief_J105</footprint>
+      <footprint>o2-probe:SolderPad_SMD_J105</footprint>
       <fields>
-        <field name="Design Note">Bench-bridge TTL tap, MCU side. Laptop TTL RX &lt;- here. 3.3 V logic ONLY: PA2/PA3 are not 5 V tolerant on this device (bridge_main.c:23)</field>
-        <field name="Footprint">o2-probe:SolderWireNoRelief_J105</field>
+        <field name="Design Note">Bench-bridge TTL tap, MCU side. Laptop TTL RX &lt;- here. SMD land on BACK copper since 2026-09-14 - it was a 0.85 mm plated hole; the wire now solders flat. 3.3 V logic ONLY: PA2/PA3 are not 5 V tolerant on this device (bridge_main.c:23). Duplicated at J107 pad 5.</field>
+        <field name="Footprint">o2-probe:SolderPad_SMD_J105</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="o2-probe" part="WIRE_LAND" description="Generic connector, single row, 01x01, script generated (kicad-library-utils/schlib/autogen/connector/)"/>
-      <property name="Design Note" value="Bench-bridge TTL tap, MCU side. Laptop TTL RX &lt;- here. 3.3 V logic ONLY: PA2/PA3 are not 5 V tolerant on this device (bridge_main.c:23)"/>
+      <property name="Design Note" value="Bench-bridge TTL tap, MCU side. Laptop TTL RX &lt;- here. SMD land on BACK copper since 2026-09-14 - it was a 0.85 mm plated hole; the wire now solders flat. 3.3 V logic ONLY: PA2/PA3 are not 5 V tolerant on this device (bridge_main.c:23). Duplicated at J107 pad 5."/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="connector"/>
-      <property name="ki_fp_filters" value="o2-probe:SolderWireNoRelief_J105 o2-probe:SolderWireNoRelief_J106 o2-probe:SolderWire_RaisedRelief_1x01"/>
+      <property name="ki_fp_filters" value="o2-probe:SolderPad_SMD_J105 o2-probe:SolderPad_SMD_J106 o2-probe:SolderWire_RaisedRelief_1x01"/>
       <sheetpath names="/" tstamps="/"/>
       <tstamps>1764d32f-90af-51d2-ad75-83a85aeaa754</tstamps>
       <units>
@@ -1032,19 +1032,19 @@
     </comp>
     <comp ref="J106">
       <value>BRIDGE RX (PA3)</value>
-      <footprint>o2-probe:SolderWireNoRelief_J106</footprint>
+      <footprint>o2-probe:SolderPad_SMD_J106</footprint>
       <fields>
-        <field name="Design Note">Bench-bridge TTL tap, MCU side. Laptop TTL TX -&gt; here. See J105</field>
-        <field name="Footprint">o2-probe:SolderWireNoRelief_J106</field>
+        <field name="Design Note">Bench-bridge TTL tap, MCU side. Laptop TTL TX -&gt; here. SMD land on BACK copper since 2026-09-14 - it was a 0.85 mm plated hole, which is also how this net used to change layers, so its tail is routed on B.Cu now. 3.3 V logic ONLY: PA2/PA3 are not 5 V tolerant on this device (bridge_main.c:23). Duplicated at J107 pad 6.</field>
+        <field name="Footprint">o2-probe:SolderPad_SMD_J106</field>
         <field name="Datasheet"/>
         <field name="Description"/>
       </fields>
       <libsource lib="o2-probe" part="WIRE_LAND" description="Generic connector, single row, 01x01, script generated (kicad-library-utils/schlib/autogen/connector/)"/>
-      <property name="Design Note" value="Bench-bridge TTL tap, MCU side. Laptop TTL TX -&gt; here. See J105"/>
+      <property name="Design Note" value="Bench-bridge TTL tap, MCU side. Laptop TTL TX -&gt; here. SMD land on BACK copper since 2026-09-14 - it was a 0.85 mm plated hole, which is also how this net used to change layers, so its tail is routed on B.Cu now. 3.3 V logic ONLY: PA2/PA3 are not 5 V tolerant on this device (bridge_main.c:23). Duplicated at J107 pad 6."/>
       <property name="Sheetname" value="o2-probe"/>
       <property name="Sheetfile" value="o2-probe.kicad_sch"/>
       <property name="ki_keywords" value="connector"/>
-      <property name="ki_fp_filters" value="o2-probe:SolderWireNoRelief_J105 o2-probe:SolderWireNoRelief_J106 o2-probe:SolderWire_RaisedRelief_1x01"/>
+      <property name="ki_fp_filters" value="o2-probe:SolderPad_SMD_J105 o2-probe:SolderPad_SMD_J106 o2-probe:SolderWire_RaisedRelief_1x01"/>
       <sheetpath names="/" tstamps="/"/>
       <tstamps>1bcbaf5f-5711-5898-ab15-2dc343bee72e</tstamps>
       <units>
@@ -2823,8 +2823,8 @@ WHY NOT A WEAKER PULL-DOWN: the 129k ceiling above means no resistor can better 
     <libpart lib="o2-probe" part="WIRE_LAND">
       <description>Generic connector, single row, 01x01, script generated (kicad-library-utils/schlib/autogen/connector/)</description>
       <footprints>
-        <fp>o2-probe:SolderWireNoRelief_J105</fp>
-        <fp>o2-probe:SolderWireNoRelief_J106</fp>
+        <fp>o2-probe:SolderPad_SMD_J105</fp>
+        <fp>o2-probe:SolderPad_SMD_J106</fp>
         <fp>o2-probe:SolderWire_RaisedRelief_1x01</fp>
       </footprints>
       <fields>
