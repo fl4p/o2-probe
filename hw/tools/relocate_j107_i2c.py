@@ -132,7 +132,9 @@ def _block(text, start):
 def edit_footprint(text):
     i = text.find('(footprint "o2-probe:%s"' % OLD_FP)
     if i < 0:
-        sys.exit('J107 footprint %s not found (already relocated?)' % OLD_FP)
+        i = text.find('(footprint "o2-probe:%s"' % NEW_FP)
+    if i < 0:
+        sys.exit('J107 footprint not found as %s or %s' % (OLD_FP, NEW_FP))
     fp, end = _block(text, i)
     new = fp.replace('(footprint "o2-probe:%s"' % OLD_FP,
                      '(footprint "o2-probe:%s"' % NEW_FP, 1)
@@ -141,10 +143,11 @@ def edit_footprint(text):
                  new, count=1)
     # the row loses its SDA / SCL legends; each moved land gains its own
     for lbl in ('SDA', 'SCL'):
-        m = re.search(r'\n\t\t\(fp_text user "%s"\n.*?\n\t\t\)' % lbl, new, re.S)
-        if not m:
-            sys.exit('row legend %s not found' % lbl)
-        new = new[:m.start()] + new[m.end():]
+        while True:
+            m = re.search(r'\n\t\t\(fp_text user "%s"\n.*?\n\t\t\)' % lbl, new, re.S)
+            if not m:
+                break
+            new = new[:m.start()] + new[m.end():]
     new = new.replace('"J107 EXT I2C / UART"', '"J107 EXT SENSOR / UART"', 1)
     add = []
     for num in sorted(MOVED):

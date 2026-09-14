@@ -33,7 +33,11 @@ import board
 import route
 from route import build, astar, path_of, simplify
 
-W, CLR, EDGE, HOLE = 0.15, 0.1, 0.3, 0.25
+# HOLE is 0.30, not 0.25: the board's 'milled NPTH copper clearance' rule is
+# 0.30 mm. At 0.25 the router put an /I2C_SDA run 0.275 mm from U11's 3 x 6 mm
+# NPTH cell slot at (110, 129.3) - a real DRC error, measured 2026-09-14. The
+# same gap once bit h2h, which was 0.25 against the same 0.30 rule.
+W, CLR, EDGE, HOLE = 0.15, 0.1, 0.3, 0.30
 VIA_D, VIA_DR = 0.4, 0.2
 # Analog nets a new route must keep away from. /AFE_MENB is deliberately NOT in
 # the default set: it is the LMP91000 module-enable input, a static digital line
@@ -225,6 +229,12 @@ def cmd_emit(a):
     pl = job['path']
     sx, sy = job['source']
     pl[0][0] = (pl[0][0][0], round(sx, 4), round(sy, 4))
+    # Mirror of the closing-via fix: when the route leaves the source with an
+    # immediate layer change, the first run is a single point carrying the via,
+    # and the NEXT run must start there too. Leaving it on the grid point 0.1 mm
+    # away reads as `track_not_centered_on_via` (measured at (102.10, 115.55)).
+    if len(pl) > 1 and len(pl[0]) == 1:
+        pl[1][0] = (pl[1][0][0], round(sx, 4), round(sy, 4))
     lx = pl[-1][-1]
     best = None
     for s in bd['segs']:
@@ -255,9 +265,38 @@ def cmd_emit(a):
             d = ((v['at'][0] - lx[1]) ** 2 + (v['at'][1] - lx[2]) ** 2) ** 0.5
             if best is None or d < best[0]:
                 best = (d, v['at'])
+    # Prefer landing on a NODE - a segment endpoint, a via centre or a pad centre -
+    # over a projection into the middle of a segment. The route's last point carries
+    # the closing via, and a via 0.035 mm off the corner where two tracks meet reads
+    # as `track_not_centered_on_via` twice (measured 2026-09-14 at (104.10, 131.90)).
+    node = None
+    for s in bd['segs']:
+        if s['net'] != a.net or s in rs:
+            continue
+        for q in (s['a'], s['b']):
+            d = ((q[0] - lx[1]) ** 2 + (q[1] - lx[2]) ** 2) ** 0.5
+            if node is None or d < node[0]:
+                node = (d, q)
+    for v in bd['vias']:
+        if v['net'] == a.net and v not in rv:
+            d = ((v['at'][0] - lx[1]) ** 2 + (v['at'][1] - lx[2]) ** 2) ** 0.5
+            if node is None or d < node[0]:
+                node = (d, v['at'])
+    for p in bd['pads']:
+        if p['net'] == a.net:
+            d = ((p['at'][0] - lx[1]) ** 2 + (p['at'][1] - lx[2]) ** 2) ** 0.5
+            if node is None or d < node[0]:
+                node = (d, p['at'])
+    if node is not None and node[0] <= 0.35:
+        best = node
     if best is None or best[0] > 0.35:
         sys.exit('route end is not within 0.35 mm of surviving copper')
     pl[-1][-1] = (lx[0], round(best[1][0], 4), round(best[1][1], 4))
+    # The closing via sits at the END of the run BEFORE the last one. Snapping only
+    # the last point left the via 0.05 mm off the node it was meant to land on, which
+    # is the same two `track_not_centered_on_via` warnings by another route.
+    if len(pl) > 1 and len(pl[-1]) == 1:
+        pl[-2][-1] = (pl[-2][-1][0], round(best[1][0], 4), round(best[1][1], 4))
     add = []
     for run in pl:
         for k in range(len(run) - 1):

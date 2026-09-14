@@ -39,7 +39,11 @@ from route import build, astar, path_of, simplify
 
 PCB = sys.argv[1]
 REGION = (99.5, 100.0, 120.5, 139.5)
-W, CLR, EDGE, HOLE = 0.15, 0.1, 0.3, 0.25
+# HOLE is 0.30, not 0.25: the board's 'milled NPTH copper clearance' rule is
+# 0.30 mm. At 0.25 the router put an /I2C_SDA run 0.275 mm from U11's 3 x 6 mm
+# NPTH cell slot at (110, 129.3) - a real DRC error, measured 2026-09-14. The
+# same gap once bit h2h, which was 0.25 against the same 0.30 rule.
+W, CLR, EDGE, HOLE = 0.15, 0.1, 0.3, 0.30
 VIA_D, VIA_DR = 0.4, 0.2
 VIA_COST = float(os.environ.get("VIA_COST", "40"))
 FRONT_LIMIT = float(os.environ.get("FRONT_LIMIT", "136.50"))
