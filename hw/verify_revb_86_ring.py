@@ -46,16 +46,45 @@ PROTECTED = {'/CELL_RE', '/CELL_WE', '/GUARD_REPLICA', '/HEATER_LOW', '/HEATER_G
 
 # uuid -> (object type, expected layer or net or reference, {field: (before, after)})
 CHANGES = {
-    '42ac7ba1-2d8f-5742-b9e2-9c37a33cdd71': ('gr_line', 'Edge.Cuts', {'end': ((100.8, 136.6), (100.8, 134.6))}),
-    '826fb8e5-68d2-5b9d-8011-b8689e3de374': ('gr_arc', 'Edge.Cuts', {'start': ((101.6, 136.6), (101.6, 134.6)),
-                                                                     'mid': ((101.2, 137), (101.2, 135)),
-                                                                     'end': ((100.8, 136.6), (100.8, 134.6))}),
-    '382a52b4-f2a3-57b7-ae91-549ae3cc41c4': ('gr_line', 'Edge.Cuts', {'start': ((101.6, 136.6), (101.6, 134.6))}),
-    '18318814-42c6-5733-80e9-5695c30bd779': ('gr_line', 'Edge.Cuts', {'end': ((118.4, 136.6), (118.4, 134.6))}),
-    '7e81c88a-a270-5856-8a2f-65865eda73a3': ('gr_arc', 'Edge.Cuts', {'start': ((119.2, 136.6), (119.2, 134.6)),
-                                                                     'mid': ((118.8, 137), (118.8, 135)),
-                                                                     'end': ((118.4, 136.6), (118.4, 134.6))}),
-    'f9a48ad8-9dfb-512d-ae28-f18979bb171c': ('gr_line', 'Edge.Cuts', {'start': ((119.2, 136.6), (119.2, 134.6))}),
+    # The two side thermal slots. These entries carried only the 2 mm shortening
+    # (y 136.6 -> 134.6) until 2026-09-16, when tools/widen_thermal_slots.py also
+    # widened them 0.80 -> 0.81 mm: AISLER nibbles every non-plated slot under
+    # 1.8 mm and states 0.8 mm as the minimum width, so at exactly 0.80 these sat
+    # on the floor with no allowance for nibbling tolerance.
+    #
+    # They grew OUTWARD ONLY -- read the pairs below and the inboard walls are
+    # still x = 101.6 and 118.4 to the micrometre. So the 16.80 mm thermal island
+    # and every clearance on it are untouched, and the whole 10 um comes off the
+    # outer FR-4 rails (0.80 -> 0.79 mm), which carry no copper. Symmetric
+    # widening was tried first and put two short /I2C_SCL F.Cu segments at
+    # (101.95, 134.9) and (101.95, 134.8) at 0.2975 mm from the left slot's top
+    # cap against a 0.300 mm rule; that copper had 0.0025 mm of margin to begin
+    # with.
+    #
+    # Y extents stay 121.0..135.0 -- the cap centres moved in by 5 um rather than
+    # the apexes moving out -- so the 4.0 mm slot-to-tip bridge that theta =
+    # 68 K/W (aa6133d) was measured on is unchanged. The two end caps at y=121
+    # join the table here for the first time: the shortening never moved them.
+    '42ac7ba1-2d8f-5742-b9e2-9c37a33cdd71': ('gr_line', 'Edge.Cuts', {'start': ((100.8, 121.4), (100.79, 121.405)),
+                                                                      'end': ((100.8, 136.6), (100.79, 134.595))}),
+    '826fb8e5-68d2-5b9d-8011-b8689e3de374': ('gr_arc', 'Edge.Cuts', {'start': ((101.6, 136.6), (101.6, 134.595)),
+                                                                     'mid': ((101.2, 137), (101.195, 135)),
+                                                                     'end': ((100.8, 136.6), (100.79, 134.595))}),
+    '382a52b4-f2a3-57b7-ae91-549ae3cc41c4': ('gr_line', 'Edge.Cuts', {'start': ((101.6, 136.6), (101.6, 134.595)),
+                                                                      'end': ((101.6, 121.4), (101.6, 121.405))}),
+    'fc3c2def-8e7c-59d9-9699-dc0a5922f1bf': ('gr_arc', 'Edge.Cuts', {'start': ((100.8, 121.4), (100.79, 121.405)),
+                                                                     'mid': ((101.2, 121), (101.195, 121)),
+                                                                     'end': ((101.6, 121.4), (101.6, 121.405))}),
+    '18318814-42c6-5733-80e9-5695c30bd779': ('gr_line', 'Edge.Cuts', {'start': ((118.4, 121.4), (118.4, 121.405)),
+                                                                      'end': ((118.4, 136.6), (118.4, 134.595))}),
+    '7e81c88a-a270-5856-8a2f-65865eda73a3': ('gr_arc', 'Edge.Cuts', {'start': ((119.2, 136.6), (119.21, 134.595)),
+                                                                     'mid': ((118.8, 137), (118.805, 135)),
+                                                                     'end': ((118.4, 136.6), (118.4, 134.595))}),
+    'f9a48ad8-9dfb-512d-ae28-f18979bb171c': ('gr_line', 'Edge.Cuts', {'start': ((119.2, 136.6), (119.21, 134.595)),
+                                                                      'end': ((119.2, 121.4), (119.21, 121.405))}),
+    '120616ce-a72a-51c2-b22c-b08c0d1bc5d8': ('gr_arc', 'Edge.Cuts', {'start': ((118.4, 121.4), (118.4, 121.405)),
+                                                                     'mid': ((118.8, 121), (118.805, 121)),
+                                                                     'end': ((119.2, 121.4), (119.21, 121.405))}),
     'a5879816-2168-5d10-8f9e-ac4a02c99e15': ('gr_text', 'B.SilkS', {'at': ((104.5, 138.2, 0), (111.3, 138.2, 0))}),
     '9560ae0a-763f-49c1-a818-523f0591496d': ('segment', 'GND', {'start': ((116.75, 135.77), (116.3, 135.785))}),
     'f75872a2-2396-416d-a67b-432ac5b85ef0': ('segment', '/I2C_SDA', {'end': ((104.2, 136.45), (104.2, 136.55))}),
@@ -355,7 +384,14 @@ def verify(board_path, reference):
     # Repinned once more after Fab placed J108 beside J109 and routed it: the new
     # SDA run and the two /3V3D segments it displaces cost the front pour 1.06 mm2
     # (982.1839 -> 981.1283) and the back pour 4.61 mm2 (875.0074 -> 870.3926).
-    PINNED_FILL = {'F.Cu:GND': 981.1283, 'B.Cu:GND': 870.3926, 'B.Cu:/HEATER_LOW': 215.1312}
+    # Repinned 2026-09-16 for the 0.80 -> 0.81 mm thermal-slot widening. The
+    # slots grew outward only, so the loss is all at the outer rails and at the
+    # top caps where the heater spreader meets them: F.Cu GND 981.1283 ->
+    # 980.8474 (-0.2809 mm2) and B.Cu /HEATER_LOW 215.1312 -> 214.8497
+    # (-0.2815 mm2). B.Cu GND moves +0.0016 mm2, inside the 0.05 tolerance, and
+    # is repinned only to keep the number honest. Island counts are unchanged at
+    # 16 / 23 / 1, so nothing was orphaned.
+    PINNED_FILL = {'F.Cu:GND': 980.8474, 'B.Cu:GND': 870.3942, 'B.Cu:/HEATER_LOW': 214.8497}
     fills = {}
     for layer in (p.F_Cu, p.B_Cu):
         before, after = filled_union(a, layer), filled_union(b, layer)

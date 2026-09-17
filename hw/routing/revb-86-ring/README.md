@@ -48,6 +48,23 @@ Both thermal slots were **shortened 2 mm** at the tip end (apex Y 137.0 ->
 135.0), restoring Rev A's 4.0 mm slot-to-tip bridge — the geometry the
 theta = 68 K/W measurement (`aa6133d`) was actually taken on.
 
+**2026-09-16: both slots widened 0.80 -> 0.81 mm** (`tools/widen_thermal_slots.py`).
+AISLER mills nothing under 1.8 mm and nibbles the rest, with a stated minimum
+non-plated slot width of **0.8 mm** — at exactly 0.80 these sat on the floor with
+nothing left for nibbling tolerance. They grew **outward only**: the inboard
+walls stay at X 101.60 and 118.40, so the 16.80 mm thermal island and every
+clearance on it are untouched, and the 10 um comes off the outer FR-4 rails,
+0.80 -> **0.79 mm**, which carry no copper. Symmetric widening was tried first
+and put two short `/I2C_SCL` F.Cu segments at (101.95, 134.9) and (101.95,
+134.8) at 0.2975 mm from the left slot's top cap against a 0.300 mm rule — that
+copper had 0.0025 mm of margin to begin with. Y extents are unchanged at
+121.0..135.0 (the cap centres moved in by 5 um instead of the apexes moving
+out), so the 4.0 mm slot-to-tip bridge above still holds. Measured cost: F.Cu
+GND 981.1283 -> 980.8474 mm2 and B.Cu `/HEATER_LOW` 215.1312 -> 214.8497 mm2,
+island counts unchanged at 16 / 23 / 1. DRC unchanged at 12 violations, 0
+errors, 0 unconnected, 0 schematic-parity. **The thermal path is not re-measured
+— theta = 68 K/W is still the `aa6133d` number, taken at 0.80 mm.**
+
 **C35 moved up 1.1 mm**, (117, 136.5) -> (117, 135.4), to clear the enlarged
 right land. Moving a part on a routed board orphans its copper, so both feeds
 were repaired: `/3V3D` now approaches from below the land, and the GND stub that
