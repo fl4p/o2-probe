@@ -893,4 +893,53 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
                          uint32_t now_s,
                          o2p_heater_out_t *out);
 
+/* THE PUBLISHED DUTY IS A 60 s TRAILING MEAN (FW 0x0025, Fab 2026-09-17).
+ *
+ * WHY. The loop decides once a second, and until 0x0025 HEATER_DUTY (0x0005)
+ * carried only the last decision. Its readers sample it sparsely - the farm
+ * node every 60 s for LoRaWAN, the web app every 5 s - so Grafana plotted a
+ * 1-in-60 snapshot of a duty that moves every second and aliased (seen live:
+ * 0 / 8.5 / 0 / 1.9 %). The instantaneous duty moved to HEATER_DUTY_NOW
+ * (0x0009) for the readers that need it: the web app's heater badge, which
+ * takes duty > 0 as the witness that the ring is driven, and tip-loop tuning.
+ *
+ * WHY TIME, NOT "SINCE THE LAST READ". Several masters share the register (the
+ * node, the keeper, o2p_cli.py). A read-reset mean would make each one's value
+ * depend on when the others last read. This window depends on the clock only.
+ *
+ * DEFINITION. main.c notes the duty the hardware layer holds -
+ * o2p_heater_duty_x100(), after o2p_heater_service() has had its chance to
+ * stale-cut it - once per elapsed second of uptime. The published value is
+ * the arithmetic mean of the last O2P_DUTY_MEAN_WINDOW_S such samples, rounded
+ * half up, in the same u16 0.01 % format.
+ *  - It is the APPLIED duty, not the controller's request: a refused, stale-cut
+ *    or pin-integrity-forced-off second counts as the zero the ring got.
+ *  - A second in which no decision arrived (a slow cycle, a blocking SHT45
+ *    pulse) is sampled as whatever the ring held through it. Time-weighted,
+ *    not decision-weighted: a duty held for 3 s counts three times.
+ *  - Fewer than 60 samples since boot: the mean of those that exist - the
+ *    window is SHORTER, never padded with zeros the probe did not measure.
+ *  - No sample at all (the first second of uptime): the instantaneous duty,
+ *    because it is the only evidence there is. The window never produces a
+ *    number it has not seen.
+ *  - Samples above 10000 are clamped to 10000 on the way in, so the mean is
+ *    always 0..10000.
+ * The window restarts only at boot; nothing a master does resets it. */
+#define O2P_DUTY_MEAN_WINDOW_S 60u
+
+typedef struct {
+    uint16_t ring[O2P_DUTY_MEAN_WINDOW_S];
+    uint8_t  head;     /* index the next sample is written to */
+    uint8_t  n;        /* samples held, 0..O2P_DUTY_MEAN_WINDOW_S */
+} o2p_duty_mean_t;
+
+void o2p_duty_mean_reset(o2p_duty_mean_t *m);
+
+/* One call per elapsed second of uptime, with the duty applied at that second. */
+void o2p_duty_mean_note(o2p_duty_mean_t *m, uint16_t applied_x100);
+
+/* The trailing mean, 0..10000. `now_x100` is returned (clamped) only when the
+ * window holds no sample yet. */
+uint16_t o2p_duty_mean_x100(const o2p_duty_mean_t *m, uint16_t now_x100);
+
 #endif /* O2P_HEATER_CTL_H */

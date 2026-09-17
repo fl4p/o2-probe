@@ -230,7 +230,7 @@ pile produces; a mistyped `AT+COMMAND` must look like a fault, not like anoxia.
 | 2 | `T_TIP` | i16, 0.01 C (TMP117) | `0x8000` |
 | 3 | `T_CHAMBER` | i16, 0.01 C (SHT45) | `0x8000` |
 | 4 | `RH_CHAMBER` | u16, 0.01 %RH | `0xFFFF` |
-| 5 | `HEATER_DUTY` | u16, 0.01 % (always 0 in v0) | - |
+| 5 | `HEATER_DUTY` | u16, 0.01 %, 60 s trailing mean of the applied duty since FW v0.36; the instantaneous duty moved to the heater-law block | - |
 | 6 | `FAULTS` | u16 bitfield (`firmware/src/faults.h`) | - |
 | 7 | `SETTLE_S` | u16 seconds remaining, 0 = settled | - |
 
@@ -277,7 +277,7 @@ an air-point calibration is never bridged, because a permanent constant gets a
 humidity measured in its own cycle or none at all. Full argument, bench evidence
 and test vectors: `O2-HUMIDITY-CORRECTION.md`.
 
-### Heater-law block, `0x0008`, 1 register, read-only
+### Heater-law block, `0x0008`, 2 registers, read-only
 
 Present from firmware version 0x0018.
 `HEATER_LAW` says which control law produced `HEATER_DUTY` - low byte
@@ -285,8 +285,11 @@ RH / OPEN / TIP / TIP_AUTO / DEW, or BLIND / REFUSED when no law is in command -
 and in the high byte whether the dew law has declared its margin unreachable
 and handed the tip to the gradient floor, or has no dew point this cycle and
 is running the floor alone. `HEATER_BLOCK` could not carry this.
-A separate block, so the eight-register primary read is unchanged. Full
-encoding in `firmware/FIRMWARE.md`.
+A separate block, so the eight-register primary read is unchanged.
+Since firmware v0.36 the block also carries `HEATER_DUTY_NOW` at 0x0009, the
+instantaneous applied duty, because `HEATER_DUTY` became a 60 s trailing mean so
+a reader polling every minute stops aliasing a 1 Hz decision. Full encoding in
+`firmware/FIRMWARE.md`.
 
 ### Probation block, `0x000C`, 2 registers
 

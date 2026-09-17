@@ -58,6 +58,9 @@ REGISTERS = {
 
     # Heater-law block (0x0008, FW 0x0018+): the law in command + flags
     "HEATER_LAW": 0x0008,
+    # FW 0x0025+: instantaneous applied duty; HEATER_DUTY (0x0005) became its
+    # 60 s trailing mean.
+    "HEATER_DUTY_NOW": 0x0009,
 
     # Diagnostic block (0x0010)
     "VREF_MON_MV": 0x0010, "VA_MON_MV": 0x0011, "VIN_MON_MV": 0x0012,
@@ -215,7 +218,7 @@ def format_reg(name, val):
         return "%.2f C" % (signed / 100.0)
     if name in ("RH_CHAMBER",):
         return "%.2f %%RH" % (val / 100.0)
-    if name in ("HEATER_DUTY",):
+    if name in ("HEATER_DUTY", "HEATER_DUTY_NOW"):
         return "%.2f %%" % (val / 100.0)
     if name in ("HEATER_BLOCK",):
         active = [HB_BITS[i] for i in range(len(HB_BITS)) if val & (1 << i)]

@@ -57,7 +57,7 @@ PANELS = [
      [("rh_pct", "chamber", "tab:green")],
      None),
     ("heater duty (%)",
-     [("heater_duty_pct", "applied (0x0005)", "tab:blue"),
+     [("heater_duty_pct", "applied (0x0005; 60 s mean on FW 0x0025+)", "tab:blue"),
       ("cmd_duty_pct", "commanded", "tab:orange")],
      None),
     ("VIN (mV)",

@@ -244,23 +244,42 @@ static void test_read_across_block_gap_is_refused(void)
     TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS, rsp[2]);
 }
 
-static void test_heater_law_block_is_one_read_only_register_at_0x0008(void)
+static uint16_t hlaw_read1(uint16_t addr, uint8_t *ex)
 {
     uint8_t req[16], rsp[O2P_MB_MAX_ADU];
+    const uint8_t body[] = {0x03, 0x03, (uint8_t)(addr >> 8), (uint8_t)addr,
+                            0x00, 0x01};
+    size_t n = framed(req, body, sizeof(body));
+    size_t len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+    if (len == 5u) {
+        *ex = rsp[2];
+        return 0u;
+    }
+    *ex = 0u;
+    TEST_ASSERT_EQUAL_UINT(3 + 2 + 2, len);
+    return (uint16_t)((rsp[3] << 8) | rsp[4]);
+}
+
+static void test_heater_law_block_is_two_read_only_registers_at_0x0008(void)
+{
+    uint8_t req[16], rsp[O2P_MB_MAX_ADU];
+    uint8_t ex = 0u;
 
     /* Before the heater has ever been stepped the register must say so, not
-     * publish 0 - which is O2P_HEATER_LAW_RH, a real law. */
-    {
-        const uint8_t body[] = {0x03, 0x03, 0x00, 0x08, 0x00, 0x01};
-        size_t n = framed(req, body, sizeof(body));
-        size_t len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
-        TEST_ASSERT_EQUAL_UINT(3 + 2 + 2, len);
-        TEST_ASSERT_EQUAL_HEX16_MESSAGE(0xFFFFu, (rsp[3] << 8) | rsp[4],
-            "an unstepped heater must publish the invalid sentinel");
-    }
+     * publish 0 - which is O2P_HEATER_LAW_RH, a real law. The same for the
+     * instantaneous duty: 0 would be a confident "not driving" nobody
+     * measured. */
+    TEST_ASSERT_EQUAL_HEX16_MESSAGE(0xFFFFu, hlaw_read1(0x0008u, &ex),
+        "an unstepped heater must publish the invalid sentinel");
+    TEST_ASSERT_EQUAL_UINT8(0u, ex);
+    TEST_ASSERT_EQUAL_HEX16_MESSAGE(0xFFFFu, hlaw_read1(0x0009u, &ex),
+        "HEATER_DUTY_NOW before the first publish must be the sentinel");
+    TEST_ASSERT_EQUAL_UINT8(0u, ex);
 
     o2p_snapshot_t *s = o2p_regmap_staging(&rm);
     s->heater_law = (uint16_t)(O2P_HEATER_LAW_DEW | O2P_HEATER_LAWF_DEW_UNREACHABLE);
+    s->heater_duty_now = 1234u;
+    s->heater_duty = 567u;
     o2p_regmap_publish(&rm);
     {
         const uint8_t body[] = {0x03, 0x03, 0x00, 0x08, 0x00, 0x01};
@@ -269,6 +288,21 @@ static void test_heater_law_block_is_one_read_only_register_at_0x0008(void)
         TEST_ASSERT_EQUAL_UINT(3 + 2 + 2, len);
         TEST_ASSERT_EQUAL_HEX16(0x0104u, (rsp[3] << 8) | rsp[4]);
     }
+    /* Both registers in one read, each carrying its OWN field: a reader that
+     * answered 0x0009 with the law, or 0x0005's mean, would pass a test that
+     * only looked at one of them. */
+    {
+        const uint8_t body[] = {0x03, 0x03, 0x00, 0x08, 0x00, 0x02};
+        size_t n = framed(req, body, sizeof(body));
+        size_t len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
+        TEST_ASSERT_EQUAL_UINT(3 + 4 + 2, len);
+        TEST_ASSERT_EQUAL_HEX16(0x0104u, (rsp[3] << 8) | rsp[4]);
+        TEST_ASSERT_EQUAL_UINT16(1234u, (uint16_t)((rsp[5] << 8) | rsp[6]));
+    }
+    TEST_ASSERT_EQUAL_UINT16(1234u, hlaw_read1(0x0009u, &ex));
+    TEST_ASSERT_EQUAL_UINT8(0u, ex);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(567u, hlaw_read1(0x0005u, &ex),
+        "HEATER_DUTY (0x0005) publishes the mean field, not the instant");
 
     /* Additive, not an extension: the primary block keeps its length, so a
      * read running from it into 0x0008 still crosses a block boundary... */
@@ -279,23 +313,203 @@ static void test_heater_law_block_is_one_read_only_register_at_0x0008(void)
         TEST_ASSERT_EQUAL_UINT(5, len);
         TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS, rsp[2]);
     }
-    /* ...and a read running past it lands in the 0x0009 gap. */
+    /* ...and a read running past it lands in the 0x000A gap. */
     {
-        const uint8_t body[] = {0x03, 0x03, 0x00, 0x08, 0x00, 0x02};
+        const uint8_t body[] = {0x03, 0x03, 0x00, 0x08, 0x00, 0x03};
         size_t n = framed(req, body, sizeof(body));
         size_t len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
         TEST_ASSERT_EQUAL_UINT(5, len);
         TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS, rsp[2]);
     }
-    /* It reports on the firmware's decision; nothing may write it. */
-    {
-        const uint8_t body[] = {0x03, 0x06, 0x00, 0x08, 0x00, 0x04};
+    (void)hlaw_read1(0x000Au, &ex);
+    TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS, ex);
+    /* They report on the firmware's decision; nothing may write them. */
+    for (uint8_t a = 0x08; a <= 0x09; a++) {
+        const uint8_t body[] = {0x03, 0x06, 0x00, a, 0x00, 0x04};
         size_t n = framed(req, body, sizeof(body));
         size_t len = o2p_mb_dispatch(req, n, 3, &handlers, rsp);
         TEST_ASSERT_EQUAL_UINT(5, len);
         TEST_ASSERT_TRUE_MESSAGE((rsp[1] & 0x80u) != 0u,
-            "a write to HEATER_LAW must be an exception");
+            "a write to the heater-law block must be an exception");
     }
+    TEST_ASSERT_EQUAL_UINT16(1234u, hlaw_read1(0x0009u, &ex));
+}
+
+/* ---- HEATER_DUTY's 60 s trailing mean (FW 0x0025) ---- */
+
+/* The reference the implementation is held to, written the obvious slow way:
+ * keep EVERY sample, average the last min(n, 60), round half up, clamp. */
+static uint16_t duty_mean_reference(const uint16_t *hist, unsigned n,
+                                    uint16_t now_x100)
+{
+    if (n == 0u) {
+        return (now_x100 > 10000u) ? 10000u : now_x100;
+    }
+    unsigned w = (n < 60u) ? n : 60u;
+    uint64_t sum = 0u;
+    for (unsigned i = n - w; i < n; i++) {
+        sum += (hist[i] > 10000u) ? 10000u : hist[i];
+    }
+    return (uint16_t)((sum + w / 2u) / w);
+}
+
+static void test_duty_mean_window_is_exactly_sixty_seconds(void)
+{
+    o2p_duty_mean_t m;
+    o2p_duty_mean_reset(&m);
+    TEST_ASSERT_EQUAL_UINT16(60u, O2P_DUTY_MEAN_WINDOW_S);
+    for (unsigned i = 0; i < 60u; i++) {
+        o2p_duty_mean_note(&m, 10000u);
+    }
+    TEST_ASSERT_EQUAL_UINT16(10000u, o2p_duty_mean_x100(&m, 0u));
+    /* Heater off: the mean walks down one sixtieth per second and reaches
+     * EXACTLY zero on the 60th - not before (a 59 s window) and not after
+     * (61 s, or a running sum that never forgets). */
+    const uint16_t expect[] = {9833u, 9667u, 9500u};
+    for (unsigned k = 0; k < 3u; k++) {
+        o2p_duty_mean_note(&m, 0u);
+        TEST_ASSERT_EQUAL_UINT16(expect[k], o2p_duty_mean_x100(&m, 0u));
+    }
+    for (unsigned k = 3; k < 58u; k++) {
+        o2p_duty_mean_note(&m, 0u);
+    }
+    TEST_ASSERT_EQUAL_UINT16(333u, o2p_duty_mean_x100(&m, 0u));   /* 2/60 */
+    o2p_duty_mean_note(&m, 0u);
+    TEST_ASSERT_EQUAL_UINT16(167u, o2p_duty_mean_x100(&m, 0u));   /* 1/60 */
+    o2p_duty_mean_note(&m, 0u);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, o2p_duty_mean_x100(&m, 10000u),
+        "60 s after the heater stopped the mean must be exactly 0");
+    /* Far tail: hours of zeros stay zero, and the argument never leaks in. */
+    for (unsigned k = 0; k < 7200u; k++) {
+        o2p_duty_mean_note(&m, 0u);
+    }
+    TEST_ASSERT_EQUAL_UINT16(0u, o2p_duty_mean_x100(&m, 10000u));
+}
+
+static void test_duty_mean_does_not_alias_a_one_hz_duty(void)
+{
+    /* The failure that motivated it: a 1 Hz duty alternating 0 / 17.00 %
+     * read by a master that samples every 60 s saw either 0 or 17 %
+     * depending on phase. The mean reads 8.50 % at every phase. */
+    o2p_duty_mean_t m;
+    o2p_duty_mean_reset(&m);
+    for (unsigned sec = 0; sec < 600u; sec++) {
+        o2p_duty_mean_note(&m, (sec & 1u) ? 1700u : 0u);
+        if (sec >= 59u) {
+            TEST_ASSERT_EQUAL_UINT16(850u, o2p_duty_mean_x100(&m, 1700u));
+        }
+    }
+}
+
+static void test_duty_mean_short_window_is_not_zero_padded(void)
+{
+    /* Under 60 s of uptime the mean covers the seconds that EXIST. Padding
+     * with zeros would publish a heater at 100 % from boot as 1.67 %. */
+    o2p_duty_mean_t m;
+    o2p_duty_mean_reset(&m);
+    o2p_duty_mean_note(&m, 10000u);
+    TEST_ASSERT_EQUAL_UINT16(10000u, o2p_duty_mean_x100(&m, 0u));
+    o2p_duty_mean_note(&m, 0u);
+    TEST_ASSERT_EQUAL_UINT16(5000u, o2p_duty_mean_x100(&m, 0u));
+    o2p_duty_mean_note(&m, 0u);
+    TEST_ASSERT_EQUAL_UINT16(3333u, o2p_duty_mean_x100(&m, 0u));
+}
+
+static void test_duty_mean_with_no_sample_reports_the_instant_not_zero(void)
+{
+    /* An empty window has measured nothing; zero would be a confident "off".
+     * The instantaneous duty is the only evidence, so that is what it
+     * publishes - clamped like every sample. */
+    o2p_duty_mean_t m;
+    o2p_duty_mean_reset(&m);
+    TEST_ASSERT_EQUAL_UINT16(4321u, o2p_duty_mean_x100(&m, 4321u));
+    TEST_ASSERT_EQUAL_UINT16(10000u, o2p_duty_mean_x100(&m, 0xFFFFu));
+    TEST_ASSERT_EQUAL_UINT16(0u, o2p_duty_mean_x100(&m, 0u));
+    TEST_ASSERT_EQUAL_UINT16(0u, o2p_duty_mean_x100(NULL, 0u));
+    /* Once there is a sample the argument is ignored. */
+    o2p_duty_mean_note(&m, 0u);
+    TEST_ASSERT_EQUAL_UINT16(0u, o2p_duty_mean_x100(&m, 9999u));
+}
+
+static void test_duty_mean_is_bounded_and_matches_the_reference(void)
+{
+    o2p_duty_mean_t m;
+    o2p_duty_mean_reset(&m);
+    /* Out-of-range samples (a caller bug) clamp; the mean never leaves
+     * 0..10000, even from a window of nothing but 0xFFFF. */
+    for (unsigned i = 0; i < 200u; i++) {
+        o2p_duty_mean_note(&m, 0xFFFFu);
+        TEST_ASSERT_EQUAL_UINT16(10000u, o2p_duty_mean_x100(&m, 0u));
+    }
+
+    /* Random sequences against the slow reference, including the ring's
+     * wrap many times over and every window length on the way in. */
+    static uint16_t hist[5000];
+    uint32_t x = 0x2545F491u;
+    for (unsigned run = 0; run < 4u; run++) {
+        o2p_duty_mean_reset(&m);
+        for (unsigned i = 0; i < 5000u; i++) {
+            x ^= x << 13; x ^= x >> 17; x ^= x << 5;
+            uint16_t d;
+            switch (run) {
+            case 0:  d = (uint16_t)(x % 10001u); break;        /* in range */
+            case 1:  d = (uint16_t)x; break;                   /* anything */
+            case 2:  d = ((x >> 7) & 1u) ? 10000u : 0u; break; /* bang-bang */
+            default: d = (uint16_t)((x % 3u) == 0u ? (x % 300u) : 0u); break;
+            }
+            hist[i] = d;
+            o2p_duty_mean_note(&m, d);
+            const uint16_t got = o2p_duty_mean_x100(&m, 7777u);
+            const uint16_t want = duty_mean_reference(hist, i + 1u, 7777u);
+            if (got != want) {
+                char msg[96];
+                snprintf(msg, sizeof(msg), "run %u sample %u: got %u want %u",
+                         run, i, got, want);
+                TEST_FAIL_MESSAGE(msg);
+            }
+            TEST_ASSERT_TRUE(got <= 10000u);
+        }
+    }
+}
+
+static void test_duty_mean_does_not_depend_on_reads(void)
+{
+    /* Several masters share the register. Reading must not reset or advance
+     * the window: the same notes give the same mean however often, or
+     * whether, anyone read in between. */
+    o2p_duty_mean_t a, b;
+    o2p_duty_mean_reset(&a);
+    o2p_duty_mean_reset(&b);
+    for (unsigned sec = 0; sec < 300u; sec++) {
+        const uint16_t d = (uint16_t)((sec * 37u) % 10001u);
+        o2p_duty_mean_note(&a, d);
+        o2p_duty_mean_note(&b, d);
+        for (unsigned r = 0; r < (sec % 5u); r++) {
+            (void)o2p_duty_mean_x100(&a, d);
+        }
+        TEST_ASSERT_EQUAL_UINT16(o2p_duty_mean_x100(&b, 0u),
+                                 o2p_duty_mean_x100(&a, 0u));
+    }
+}
+
+static void test_duty_mean_survives_a_corrupted_head(void)
+{
+    /* RAM is not a proof. A head past the ring must not index out of it. */
+    struct {
+        o2p_duty_mean_t m;
+        uint8_t canary[1024];
+    } w;
+    memset(w.canary, 0xA5, sizeof(w.canary));
+    o2p_duty_mean_reset(&w.m);
+    w.m.head = 200u;
+    w.m.n = 250u;
+    o2p_duty_mean_note(&w.m, 10000u);
+    for (size_t i = 0; i < sizeof(w.canary); i++) {
+        TEST_ASSERT_EQUAL_HEX8_MESSAGE(0xA5u, w.canary[i],
+            "a corrupted head wrote past the ring");
+    }
+    TEST_ASSERT_TRUE(o2p_duty_mean_x100(&w.m, 0u) <= 10000u);
+    TEST_ASSERT_TRUE(w.m.head < O2P_DUTY_MEAN_WINDOW_S);
 }
 
 static void test_unknown_function_is_exception_01(void)
@@ -9226,7 +9440,11 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
     /* FW_VERSION's own rule is that it is bumped whenever the wire contract
      * changes. It sat at 0x0002 describing a 26-register block while the block
      * was 28, which left a master no way to tell the two apart before reading. */
-    /* 0x0024: the RS-485 baud enum gains 57600 as CODE 4 (Fab's "try 57600").
+    /* 0x0025: HEATER_DUTY (0x0005) is the 60 s trailing mean of the applied
+     *         duty; the instantaneous duty is HEATER_DUTY_NOW (0x0009), the
+     *         heater-law block grows 1 -> 2. A read of 0x0008 count 2 is
+     *         ILLEGAL ADDRESS on 0x0024 and earlier.
+     * 0x0024: the RS-485 baud enum gains 57600 as CODE 4 (Fab's "try 57600").
      *         A master may now write BAUD_CODE = 4, which 0x0023 and earlier
      *         reject as out of range - and, crucially, the enum is no longer
      *         ordered by rate: code 4 is SLOWER than code 3's 115200. It was
@@ -9311,7 +9529,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         steps the thermal mass cannot make are rejected for a cycle.
      * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
      *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
-    TEST_ASSERT_EQUAL_HEX16(0x0024u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x0025u, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_HEX16(0xC000u,
         (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
     /* The staleness cut must win the race against the watchdog's fastest
@@ -11302,7 +11520,14 @@ int main(void)
     RUN_TEST(test_16bit_value_is_not_truncated_into_a_byte_field);
     RUN_TEST(test_config_struct_has_no_implicit_padding);
     RUN_TEST(test_read_across_block_gap_is_refused);
-    RUN_TEST(test_heater_law_block_is_one_read_only_register_at_0x0008);
+    RUN_TEST(test_heater_law_block_is_two_read_only_registers_at_0x0008);
+    RUN_TEST(test_duty_mean_window_is_exactly_sixty_seconds);
+    RUN_TEST(test_duty_mean_does_not_alias_a_one_hz_duty);
+    RUN_TEST(test_duty_mean_short_window_is_not_zero_padded);
+    RUN_TEST(test_duty_mean_with_no_sample_reports_the_instant_not_zero);
+    RUN_TEST(test_duty_mean_is_bounded_and_matches_the_reference);
+    RUN_TEST(test_duty_mean_does_not_depend_on_reads);
+    RUN_TEST(test_duty_mean_survives_a_corrupted_head);
     RUN_TEST(test_unknown_function_is_exception_01);
     RUN_TEST(test_broadcast_never_replies);
     RUN_TEST(test_write_rejects_illegal_slave_address);

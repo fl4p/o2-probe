@@ -1231,3 +1231,60 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
         out->law = (uint16_t)(out->law & ~O2P_HEATER_LAWF_DEW_RUNAWAY_FLOOR);
     }
 }
+
+/* ---- 60 s trailing mean of the applied duty (FW 0x0025) ----
+ * Definition and rationale: heater_ctl.h, O2P_DUTY_MEAN_WINDOW_S. The sum is
+ * recomputed from the ring on every read rather than kept running: 60 adds a
+ * second is nothing, and there is no second copy of the truth to drift. */
+static uint16_t duty_clamp(uint16_t x100)
+{
+    return (x100 > 10000u) ? 10000u : x100;
+}
+
+void o2p_duty_mean_reset(o2p_duty_mean_t *m)
+{
+    if (m == NULL) {
+        return;
+    }
+    for (unsigned i = 0u; i < O2P_DUTY_MEAN_WINDOW_S; i++) {
+        m->ring[i] = 0u;
+    }
+    m->head = 0u;
+    m->n = 0u;
+}
+
+void o2p_duty_mean_note(o2p_duty_mean_t *m, uint16_t applied_x100)
+{
+    if (m == NULL) {
+        return;
+    }
+    if (m->head >= O2P_DUTY_MEAN_WINDOW_S) {
+        m->head = 0u;   /* never index past the ring, whatever the RAM holds */
+    }
+    m->ring[m->head] = duty_clamp(applied_x100);
+    m->head = (uint8_t)((m->head + 1u) % O2P_DUTY_MEAN_WINDOW_S);
+    if (m->n < O2P_DUTY_MEAN_WINDOW_S) {
+        m->n++;
+    }
+}
+
+uint16_t o2p_duty_mean_x100(const o2p_duty_mean_t *m, uint16_t now_x100)
+{
+    if (m == NULL || m->n == 0u) {
+        return duty_clamp(now_x100);
+    }
+    const unsigned n = (m->n > O2P_DUTY_MEAN_WINDOW_S) ? O2P_DUTY_MEAN_WINDOW_S
+                                                       : m->n;
+    /* The n samples held are the n slots before head. Walking them by age
+     * rather than summing slots 0..n-1 matters only while the ring is still
+     * filling from a head that is not 0 - which reset() rules out - but it
+     * keeps the read honest if that invariant is ever broken. */
+    uint32_t sum = 0u;
+    for (unsigned k = 1u; k <= n; k++) {
+        unsigned idx = ((unsigned)m->head + O2P_DUTY_MEAN_WINDOW_S * 2u - k)
+                       % O2P_DUTY_MEAN_WINDOW_S;
+        sum += m->ring[idx];
+    }
+    uint32_t mean = (sum + n / 2u) / n;
+    return (uint16_t)((mean > 10000u) ? 10000u : mean);
+}

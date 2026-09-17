@@ -850,18 +850,32 @@ fault, not like anoxia.
 | 2 | `T_TIP` | i16 | 0.01 °C (TMP117) | `0x8000` |
 | 3 | `T_CHAMBER` | i16 | 0.01 °C (SHT45) | `0x8000` |
 | 4 | `RH_CHAMBER` | u16 | 0.01 %RH | `0xFFFF` |
-| 5 | `HEATER_DUTY` | u16 | 0.01 %, the duty actually applied | — |
+| 5 | `HEATER_DUTY` | u16 | 0.01 %, **60 s trailing mean** of the duty actually applied (FW v0.36; the last 1 Hz decision before) | — |
 | 6 | `FAULTS` | u16 | bitfield | — |
 | 7 | `SETTLE_S` | u16 | seconds remaining, 0 = settled | — |
+
+**`HEATER_DUTY` is a 60 s trailing mean since FW v0.36 (`FW_VERSION` 0x25).** The loop decides once a
+second, and until 0x0025 this register carried only the last decision; the farm
+node reads it every 60 s, so the telemetry was a 1-in-60 snapshot that aliased
+(seen live: 0 / 8.5 / 0 / 1.9 %). The format is unchanged. Definition: once per
+elapsed second of uptime the firmware samples the duty the hardware layer holds
+(`o2p_heater_duty_x100()`, after the stale cut has had its chance), and publishes
+the mean of the last 60 samples, rounded half up, clamped to 0..10000. Refused,
+stale-cut and forced-off seconds count as the zeros the ring got; a slow cycle
+counts as the duty held through it. Under 60 s of uptime the mean covers the
+seconds that exist — shorter, never zero-padded; before the first second it is
+the instantaneous duty. The window is time-based and nothing a master does
+resets it, because several masters share the register. The instantaneous duty
+is `HEATER_DUTY_NOW` (`0x0009`) in the heater-law block.
 
 `O2_RAW` is **signed** on purpose: `SCHEMATIC-REVIEW.md` M4 leaves the SGX sign
 convention as an open release gate, and the bench air-versus-nitrogen pair is
 what settles it. Firmware that took an absolute value would hide the answer.
 
-### Heater-law block — `0x0008`, 1 register, read-only
+### Heater-law block — `0x0008`, 2 registers, read-only
 
 This block arrived with firmware version 0x0018.
-It says which control law produced `HEATER_DUTY` this cycle,
+`HEATER_LAW` says which control law produced this cycle's duty,
 because `HEATER_BLOCK` cannot say: its bit 15 is identical for the RH and dew
 laws and is omitted on refusing and blind cycles. A separate block rather than
 a ninth primary register, so the primary read is byte-for-byte unchanged.
@@ -869,6 +883,13 @@ a ninth primary register, so the primary read is byte-for-byte unchanged.
 | Reg | Name | Type | Scale | Invalid |
 |---|---|---|---|---|
 | 8 | `HEATER_LAW` | u16 | law in command (low byte) and flags (high byte) | `0xFFFF` until the heater has been stepped |
+| 9 | `HEATER_DUTY_NOW` | u16 | 0.01 %, the duty applied at this cycle's publish (FW v0.36) | `0xFFFF` before the first cycle publishes |
+
+`HEATER_DUTY_NOW` (`0x0009`) is what `HEATER_DUTY` (`0x0005`) meant before FW v0.36. Read it
+when the question is "is the ring driven right now" or a tip-loop step response;
+`HEATER_BLOCK` is instantaneous too, and pairing it with the 60 s mean would call a
+real block "operating" for up to a minute. A read of `0x0008` count 2 is exception
+02 on 0x0024 and earlier.
 
 Low byte: 0 RH, 1 OPEN (bench override, open loop), 2 TIP (bench override,
 tip loop), 3 TIP_AUTO (stored tip setpoint), 4 DEW (dew margin, high-selected
@@ -1288,7 +1309,7 @@ latch it mid-run; the latch is never cleared by this mode.
 2. Write `0x0062` = setpoint in 0.01 °C, e.g. `7800` for 78.00 °C. The maximum
    accepted is 79.00 °C, a kelvin below the absolute clamp.
 3. Write `0x0060` = `0x8EA7`.
-4. Watch `T_TIP` (`0x0002`) and `HEATER_DUTY` (`0x0005`). Duty should ride high,
+4. Watch `T_TIP` (`0x0002`) and `HEATER_DUTY_NOW` (`0x0009`; `HEATER_DUTY` `0x0005` is its 60 s mean since FW v0.36). Duty should ride high,
    then taper as the tip approaches the setpoint and settle at whatever holds
    it. `T_TIP` reaching 80.00 °C means the loop failed — the clamp is a
    backstop here, not the mechanism.
@@ -1303,7 +1324,7 @@ offset below setpoint → raise `0x0064`. Overshoot or hunting → lower both.
 The tip then runs to the 80.00 °C clamp and oscillates down to 75.00 °C. Use
 this to measure what the ring can do, not to hold a temperature.
 
-If `HEATER_DUTY` stays zero, read `HEATER_BLOCK` in the diagnostic block for
+If `HEATER_DUTY_NOW` stays zero, read `HEATER_BLOCK` in the diagnostic block for
 the reason — it reports every interlock at once rather than the first.
 
 ### Debug blocks — debug builds only
@@ -2278,7 +2299,8 @@ The checklist every guard in this repository has to answer, for this loop.
    together. A loop running earlier could command heat into a supply already
    known to be sagging. `o2p_heater_apply()` re-checks pin integrity itself
    rather than trusting its caller.
-4. **Source of truth.** The duty published in `0x0005` is read back from
+4. **Source of truth.** The duty published in `0x0009`, and averaged into
+   `0x0005`, is read back from
    `o2p_heater_duty_x100()` — what the hardware layer actually applied — not
    the controller's request. If `heater.c` refuses a command, the register
    shows the refusal.
@@ -2296,7 +2318,7 @@ The checklist every guard in this repository has to answer, for this loop.
      probe on `HEATER_LOW` (the RH1/RH2–Q2 junction, reachable at the
      2512 pads); second channel on `HEATER_GATE` at R28.
    - Enable the heater and command a mid duty. Confirm `HEATER_LOW` switches
-     and `HEATER_DUTY` `0x0005` reads back what you asked for.
+     and `HEATER_DUTY_NOW` `0x0009` reads back what you asked for.
    - Write `TLOW` then `THIGH` on the TMP117 (`0x0003`, `0x0002`) to a limit
      **below** the present tip temperature, over the same I²C bus.
    - **Expect: `HEATER_GATE` pulled low by the open-drain ALERT within one

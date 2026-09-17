@@ -267,6 +267,7 @@ void o2p_snapshot_reset(o2p_snapshot_t *s)
     s->cell_bias_mv = O2P_I16_INVALID;
     s->heater_block = O2P_U16_INVALID;
     s->heater_law = O2P_U16_INVALID;
+    s->heater_duty_now = O2P_U16_INVALID;
     s->sampler_timing_ms = O2P_U16_INVALID;
     /* 0xFFFF, not 0. Zero is a perfectly possible real reading for every one
      * of these - 0 mV on a collapsed rail, an all-zero LMP91000 register image
@@ -758,11 +759,20 @@ uint8_t o2p_regmap_read(void *ctx, uint16_t addr, uint16_t count, uint16_t *out)
         }
         return 0u;
     }
-    /* One register, so no per-address switch - and so no default arm that
-     * could answer a future neighbour with this value (the read_diag
-     * failure). Growing the block means adding a real reader. */
+    /* Two registers since FW 0x0025. Named per address, with no default arm
+     * that could answer a future neighbour with one of these values (the
+     * read_diag failure). Growing the block means adding a real reader. */
     if (in_block(addr, count, O2P_REG_HLAW_BASE, O2P_REG_HLAW_COUNT)) {
-        out[0] = s->heater_law;
+        for (uint16_t i = 0; i < count; i++) {
+            const uint16_t a = (uint16_t)(addr + i);
+            if (a == O2P_REG_HEATER_LAW) {
+                out[i] = s->heater_law;
+            } else if (a == O2P_REG_HEATER_DUTY_NOW) {
+                out[i] = s->heater_duty_now;
+            } else {
+                return O2P_MB_EX_ILLEGAL_ADDRESS;
+            }
+        }
         return 0u;
     }
     /* Serial probation (FW 0x001D, serial_probation.h): the nonce the master

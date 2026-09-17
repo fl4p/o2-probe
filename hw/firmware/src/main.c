@@ -79,6 +79,9 @@ _Static_assert(O2P_HEATER_TIP_RELEASE_C100 < O2P_HEATER_TIP_LIMIT_C100,
 #define O2P_TIP_HYST_K100  500
 
 static o2p_heater_state_t g_heat;
+/* The applied duty, one sample per second of uptime, for HEATER_DUTY's 60 s
+ * trailing mean (FW 0x0025; definition in heater_ctl.h). */
+static o2p_duty_mean_t g_duty_mean;
 
 /* Oversampling per channel. The monitors run at 90 SPS (11 ms) because they
  * only need to be right to a few millivolts; oxygen runs at 20 SPS for the
@@ -1631,7 +1634,14 @@ static void cycle_publish(o2p_snapshot_t *s)
             g_cyc.faults |= O2P_F_HEATER_DISABLED;
         }
     }
-    s->heater_duty = o2p_heater_duty_x100();
+    /* HEATER_DUTY_NOW is what the hardware layer holds this instant - the
+     * register 0x0005 carried until FW 0x0025. HEATER_DUTY is now the 60 s
+     * trailing mean of that same readback, sampled once per second in the
+     * main loop, so a sparse reader stops aliasing a 1 Hz decision
+     * (heater_ctl.h, O2P_DUTY_MEAN_WINDOW_S). Both come from
+     * o2p_heater_duty_x100(): what was applied, not what was asked for. */
+    s->heater_duty_now = o2p_heater_duty_x100();
+    s->heater_duty = o2p_duty_mean_x100(&g_duty_mean, s->heater_duty_now);
     s->heater_block = g_cyc.heater_block;
     s->heater_law = g_cyc.heater_law;
     /* The staleness cut runs on the heater's own tick, not the sampler's,
@@ -2141,6 +2151,7 @@ int main(void)
     o2p_heater_init();
     o2p_heater_force_off();
     o2p_heater_ctl_reset(&g_heat);
+    o2p_duty_mean_reset(&g_duty_mean);
 
     o2p_regmap_init(&g_rm);
 
@@ -2205,6 +2216,11 @@ int main(void)
         if (o2p_elapsed(last_second_ms, 1000u)) {
             last_second_ms += 1000u;
             g_uptime_s++;
+            /* AFTER o2p_heater_service() above, so a second the stale cut
+             * turned off is sampled as the zero the ring got. A pass that
+             * catches up several seconds samples the duty held through them,
+             * which is what they were. */
+            o2p_duty_mean_note(&g_duty_mean, o2p_heater_duty_x100());
         }
 
         if (g_phase == PH_IDLE) {

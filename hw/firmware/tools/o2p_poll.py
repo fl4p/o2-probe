@@ -109,6 +109,10 @@ CSV_COLUMNS = [
     # in THIS list on purpose - DictWriter(extrasaction="ignore") drops any
     # key missing here without a word, which is how t_afe_c was lost once.
     "heater_law",
+    # HEATER_DUTY_NOW (0x0009, FW 0x0025+): the instantaneous applied duty.
+    # heater_duty_pct (0x0005) is a 60 s trailing mean from that firmware on;
+    # a step-response fit wants THIS column. Empty on older firmware.
+    "heater_duty_now_pct",
 ]
 
 
@@ -208,6 +212,8 @@ def decode_primary(r):
         "t_tip_c": scaled(i16(r[2]), 100.0),
         "t_chamber_c": scaled(i16(r[3]), 100.0),
         "rh_pct": scaled(u16(r[4]), 100.0),
+        # 60 s trailing mean of the applied duty from FW 0x0025; the last
+        # 1 Hz decision before that. Instantaneous: heater_duty_now_pct.
         "heater_duty_pct": r[5] / 100.0,
         "faults": faults,
         "faults_named": "|".join(named),
@@ -317,14 +323,19 @@ def poll(bus, want_diag):
         # its own: one refused read must not cost the whole row. A failed read
         # is recorded as EMPTY with the reason in `detail`, never as a law.
         row["heater_law"] = None
+        row["heater_duty_now_pct"] = None
         try:
             fw = int(row.get("fw") or "0", 16)
         except ValueError:
             fw = 0
         if fw >= 0x0018:
             try:
-                row["heater_law"] = decode_heater_law(
-                    bus.read(HEATER_LAW_ADDR, 1)[0])
+                # FW 0x0025 grew the block to 2: HEATER_DUTY_NOW at 0x0009.
+                # Count 2 is ILLEGAL ADDRESS on older images, so gate it.
+                hl = bus.read(HEATER_LAW_ADDR, 2 if fw >= 0x0025 else 1)
+                row["heater_law"] = decode_heater_law(hl[0])
+                if len(hl) > 1 and hl[1] != U16_INVALID:
+                    row["heater_duty_now_pct"] = hl[1] / 100.0
             except Exception as exc:        # noqa: BLE001 - any bus failure
                 row["heater_law"] = None
                 row["heater_law_error"] = str(exc)[:80]
@@ -354,7 +365,10 @@ def show(row):
     print("  tip / chamber %s / %s"
           % (fmt(row["t_tip_c"], " C"), fmt(row["t_chamber_c"], " C")))
     print("  humidity      %s" % fmt(row["rh_pct"], " %RH"))
-    print("  heater duty   %s" % fmt(row["heater_duty_pct"], " %"))
+    print("  heater duty   %s (60 s mean on FW 0x0025+)"
+          % fmt(row["heater_duty_pct"], " %"))
+    if row.get("heater_duty_now_pct") is not None:
+        print("  duty now      %s" % fmt(row["heater_duty_now_pct"], " %"))
     print("  settling      %s" % ("settled" if row["settle_s"] == 0
                                   else "%d s remaining" % row["settle_s"]))
     print("  faults        0x%04X%s"
