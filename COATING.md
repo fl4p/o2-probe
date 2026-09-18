@@ -90,6 +90,68 @@ first-party one wins: **DCA is not excluded by §3.1.** It is still not the pick
 here (an alkyd defence coating brings nothing PUC does not, and the conflict
 itself is a reason to ask before putting it near an O₂ cell), but the silicone
 claim was wrong and is withdrawn.
+
+**Settled, 2026-09-18 — DCA is a modified alkyd, and the conflict was a dating
+artefact.** The 2026-09-07 correction above was left resting on a single vendor
+page against a single brochure, and `de.farnell.com` still sells the part today
+as *"SCC3, **Silikonharz**"*, so it was reopened and closed properly. Every
+source splits cleanly by date:
+
+| Says **alkyd** | Says **silicone** |
+|---|---|
+| MacDermid Alpha product page — *"a unique, modified alkyd coating"*, twice (read live 2026-09-18) | Electrolube TDS **Revision 2, Jan 2014** (PDF created 2014-01-24) — *"Modified Silicone Conformal Coating (SCC3)"* |
+| Current TDS, **Issue 09 March 2024** — *"Modified Alkyd Conformal Coating (Scc3)"* | `de.farnell.com` catalogue title *"SCC3, Silikonharz"* |
+| electrolube.us product page | ulbrich-group.com product page |
+| Electrolube DCT thinner bulletin — the whole family (DCA, DCABL, DCB) as *"Modified Alkyd"* | a 2014 Electrolube YouTube description |
+| Silmid, dge-europe, henchman, oritech, ams-electronics, simpex | |
+
+Everything dated 2014 or earlier says silicone. **The live Farnell DE and Ulbrich
+pages still say silicone too**, so "everything current says alkyd" would be
+circular — the honest statement is that both *first-party* sources (MacDermid's
+product page and the 2024 TDS) say alkyd, and the dissenting pages are
+distributor copy of unknown vintage, one of which still links the Jan-2014 TDS. The property tables either side of
+the change are near-identical (same NATO stock numbers, same −70…+200 °C, CTE,
+Dk, DF, IR; only dielectric strength moved 90 → 130 kV/mm), so this reads as
+MacDermid correcting a long-standing wrong description rather than a
+reformulation.
+
+**Independent check — the SDS composition sections, which no marketing copy
+touches.** Four were read, none contains a siloxane, silicone or silane:
+
+| SDS | Section 3 ingredients |
+|---|---|
+| Current EN, aerosol (`farnell.com/datasheets/4548082.pdf`) | **extract of the 3 largest of 7 classified ingredients:** dimethyl**ether** 30-60 % (propellant), xylene 10-30 %, cyclohexane 10-30 %. The rest are ethylbenzene, a C7 hydrocarbon cut, propan-2-ol and toluene — all solvents, none a siloxane |
+| SCC3 aerosol (`2880244.pdf`) | xylene, cyclohexane, ethylbenzene |
+| SCC3, Rapid `87-1209s` | xylene, ethylbenzene, isothiazolinone biocide (the mould resistance) |
+| **Oldest found**, bulk DCA01L, pre-CLP R-phrase era | xylene 30-60 %, 2-butoxyethanol 1-5 % |
+
+Note dimethyl**ether** (CH₃-O-CH₃, CAS 115-10-6) is the propellant and is *not*
+a siloxane — do not read "dimethyl" as polydimethylsiloxane. The oldest sheet
+shows no silicone either. That is weaker than "never silicone-based" — four
+sheets cannot establish what two decades of revisions declared — but there is no
+positive evidence of a silicone formulation at any date, only of a silicone
+*description*.
+
+**Read the limit of this honestly:** an SDS Section 3 lists only *classified*
+ingredients, so a non-hazardous resin — alkyd or PDMS alike — need not appear at
+all. The SDS therefore cannot prove absence of silicone; it can only show that
+no silicone was ever declared, across two decades of revisions. Combined with the
+manufacturer's current and repeated first-party statement, **DCA is an alkyd and
+§3.1 does not exclude it.**
+
+**It stays excluded anyway, under §3.2, and the reason is stronger than for an
+acrylic.** An alkyd is an ester-based resin and ester linkages hydrolyse under
+alkali; this probe sits in an ammonia-rich condensing pile. (That mechanism is
+chemistry reasoning, not a datasheet claim — but note the TDS makes *no* alkali
+claim in either direction, where PUC's states acid and alkali resistance in its
+headline.) DCA's solvent resistance is also conditional on a 2–24 h cure at
+90–120 °C, and its CTI is >300 V where `POTTING.md` §3.2 wanted >600 V — though that is a
+*certification* ceiling rather than a measured failure, and **PUC's own CTI is
+"not stated" in §5**, so it cannot be applied as a hard coating gate without
+disqualifying the recommended product too.
+With PUC available there is no reason to accept even the residual siloxane
+probability next to an SGX cell, where the cost of being wrong is cumulative and
+irreversible.
 Note that the last two appear on **Sensirion's compatible list** — Sensirion is
 answering "will this harm the SHT4x", not "will this harm your O₂ cell". Their
 list is not a substitute for this section.
@@ -245,7 +307,8 @@ Reading of the table:
   hand-built prototypes.** It is also the honest counterweight to §1: the vendor's
   own harsh-environment recommendation is not PUC.
 - **PUC is the right prototype answer**: the same alkali/solvent resistance
-  argument, applicable with a brush, reworkable, and orderable in Germany today.
+  argument, applicable with a brush, and reworkable. (An earlier draft added
+  "orderable in Germany today" — **that is now false**; see §8.2.)
 - **1B51NSLU's edge is narrow but real** — Sensirion has actually tested it
   against an SHT4x, and its MVTR is the best liquid figure in the survey. Its Tg
   of 14 °C means it is a rubber at service temperature (fine for a rubber,
@@ -336,7 +399,7 @@ assumption this document is currently making):
 
 | Item | Code | Pack | Where |
 |---|---|---|---|
-| Electrolube PUC, aerosol | `PUC400` | 400 ml | **Ordered from [dpv-elektronik.de](https://www.dpv-elektronik.de/Produkte/Chemie/Schutzlacke/PUC-Polyurethanschutzlack--400-ml-Spruehdose.html?language=de)** (2026-09-16); candidates were RS DE 7682312, Farnell, Ulbrich |
+| Electrolube PUC, aerosol | `PUC400` | 400 ml | Order code **1898441** on both `nl.farnell.com` (€51,29 excl. BTW) and `uk.farnell.com` (£35,09 ex VAT) — 152 in stock, 72 incoming, same figure on both, so it is one stock pool. Verified live 2026-09-18. See §8.2: **most German-facing channels for this part are dead** |
 | Electrolube PUC, bulk | `PUC05L` | 5 L | Farnell / Ulbrich — **too much for 3 boards; buy the aerosol** |
 | PU thinners (only if spraying bulk) | `PTH05L` | 5 L | — |
 | Coating removal gel (rework) | `CCRG01L` | 1 L | — |
@@ -346,6 +409,152 @@ assumption this document is currently making):
 One 400 ml aerosol covers ~5 m² at 25 µm. Three probes at ~20×107 mm both sides
 is under 0.005 m². Coverage is not a constraint; shelf life (36 months) and
 getting an even film by hand are.
+
+**The order code is now verified.** An earlier draft of this section carried
+1898441 from a search snippet and said so ("Check it in the basket"). The live
+`uk.farnell.com` product page was read on 2026-09-18 and the code, the EAN
+(5028356102020) and the `EPUC400` alias all match. Manufacturer lead time is 18
+weeks, so the 152 units on the shelf are the whole story — this is not a part to
+re-decide slowly.
+
+### 8.1 `de.farnell.com` has no polyurethane coating at all — measured 2026-09-18
+
+Worth writing down because it is the reason every Farnell link that comes up in
+a search for this board is an acrylic, and the next session will otherwise
+re-evaluate the same three products.
+
+All 233 products in *Chemikalien & Betriebsausstattung → Farben & Lacke* were
+enumerated (10 pages). Five urethane entries exist and four are dead:
+
+| Product | Farnell DE | status |
+|---|---|---|
+| MG Chemicals 4223F-1L / -55ML / -312G | 2889790 / 3255891 / 2889765 | **Wird nicht mehr hergestellt** (all three) |
+| Kontakt Chemie Urethan 71, 200 ml | 801069 | **nicht mehr auf Lager** |
+| Kontakt Chemie Urethan 71, 400 ml | 837167 | *"Verfügbarkeitsinformationen können nicht abgerufen werden"* |
+
+`PUC400`, `EPUC400` and `humiseal` each return **zero results** on the German
+site. The PU family is simply not carried there; the UK site carries it fine.
+**Buy PUC on `uk.farnell.com`, not `de.farnell.com`.**
+
+What the German site *does* stock, all evaluated and all rejected above:
+`AFA200` (§3.2 acrylic), `HPA200H` (§3.2, the best of the acrylics — MIL-I-46058C,
+mould-resistant, still no alkali claim, and still *above* its Tg at 75 °C
+so the film is soft in service — §3.2),
+`APL400H` (§3.2 acrylic), `DCA200H` (§3.2 — a modified alkyd, settled 2026-09-18 in §3.1;
+Farnell's *"Silikonharz"* listing is stale copy, but the alkyd is excluded on
+alkaline-service grounds regardless), Ambersil 1666251 (acrylic, and **−40…+60 °C**, disqualifying on its own),
+Dow 1-2577 and 3140 (§3.1 silicone). `BLV15ML` is a Bloc'lube screw-marking
+lacquer, not a conformal coating.
+
+### 8.2 Getting PUC into Germany is the actual constraint — 2026-09-18
+
+Three of the German-facing channels named in earlier drafts of §8 are dead.
+Checked, and corrected here rather than left to be rediscovered:
+
+| Channel | Status |
+|---|---|
+| dpv-elektronik.de | trade account; **may never be onboarded** (Fab, 2026-09-18) |
+| RS Austria `7682312` | **does not deliver to Germany** (Fab, 2026-09-18) |
+| RS Germany | `PUC400`, `EPUC400` → **zero results**. The "RS DE 7682312" in an earlier draft was an *Austrian* code and the claim was wrong |
+| ivh-ullrich.de | **no stock, delivery time unknown** (Fab, 2026-09-18) |
+| `de.farnell.com` | zero results — §8.1 |
+| `at.farnell.com` | zero results |
+| `nl.farnell.com` | stocks it (1898441, €51,29 excl. BTW, 152 units) but **ships to NL only** (Fab, 2026-09-18) |
+| Bürklin | carries **no Electrolube at all** |
+| PK Elektronik | no Electrolube; also B2B-only since 2023-01-01 |
+| **Ulbrich GmbH (DE)** | **carries PUC** — enquiry-only, *"Dieses Produkt anfragen!"*, no webshop, no published price. https://www.ulbrich-gmbh.de/electrolube-puc-polyurethan-schutzlack |
+| **`uk.farnell.com`** | **in stock**, code 1898441, £35,09 ex VAT, 152 units |
+| **Rapid Electronics (UK)** | **in stock**, code 59-2126, £33,70 ex VAT, 10 units, same-day despatch |
+
+**The finding is that PUC has no German webshop channel with stock**, bounded to
+the channels actually checked (listed above; not an exhaustive market survey).
+Every German route found is a trade-account enquiry (dpv, Ulbrich) or out of stock
+(ivh-ullrich). Stock exists at `nl.farnell.com`, `uk.farnell.com`, Rapid and RS
+Austria — note `at.farnell.com` is a *different* storefront and returns zero — but
+only the two British ones are both in stock and not already known to refuse a
+German address.
+
+**Unresolved, and to be settled at checkout rather than assumed:** whether either
+UK source will ship a flammable aerosol (UN1950) to a German address. That is a
+customs export *and* a dangerous-goods consignment, which is the combination
+couriers most often refuse. Note also that `de.farnell.com` not listing the part
+at all — while NL and UK do — is consistent with a country-level restriction on
+this item rather than a catalogue accident.
+
+**Ulbrich is the route with no border problem**, since a German distributor
+shipping domestically faces neither the customs nor the cross-border hazmat
+question. It costs a day and an email rather than a click.
+
+*Detail worth keeping, from Ulbrich's PUC page:* PUC **"enthält kein Isocyanat"**.
+That bears directly on §4 — the pot's void mechanism is isocyanate reacting with
+residual moisture to make CO₂, so an isocyanate-free coating under a PU pour is
+one fewer gas source at the interface.
+
+**Fallback that is unambiguously deliverable today:** Kontakt Chemie
+**Urethan 71**, 400 ml — **Conrad `886409`, €20,99 incl. MwSt., plus shipping, 64
+in stock**, sold to private customers, no onboarding of any kind. Conrad's own
+text: *"Lufttrocknender Einkomponenten-**Polyurethan-Alkydharzlack**"*,
+−40…+120 °C, *"durch die chemische Vernetzung während der Trockenzeit schützt er
+auch bei feuchten oder aggressiven Umgebungsbedingungen"*.
+
+Its own TDS (CRC *Technisches Merkblatt*, Ref. 20750) rather than the shop copy:
+
+| | Urethan 71 | PUC (for comparison) |
+|---|---|---|
+| chemistry | 1-part **polyurethane-alkyd**, air-drying | modified PU, 1-part |
+| cure mechanism | **thermoset — chemically crosslinks**, does *not* redissolve | solvent-release |
+| touch dry | ~120 min | — |
+| **full cure** | ***"mehrere Tage"* at room temperature; 24 h @ 60 °C reaches only 90 % crosslink** | 24 h @ 20 °C or 90 min @ 65–80 °C |
+| range | −40…+120 °C (*adhesion*) | −55…+130 °C |
+| alkali | **no claim** | *"resistant to acids and alkalis"* |
+| thinner | acetone | PTH |
+
+**Credit where it is due, and it matters for §4:** Urethan 71 is a *thermoset*.
+CRC's own English page says *"because it is a thermoset material, it is more
+difficult to solder through the URETHAN 71 film."* A crosslinked film does not
+redissolve in its own solvent, which addresses one of the three §3.2 objections
+to the acrylics in §8.1. Read the limit: non-redissolution is not resistance to
+swelling or adhesion loss, and no solvent attack by a UR5604 overpour has
+actually been demonstrated on any of these films. A point in its favour, **not**
+a demonstrated superiority over AFA / HPA / APL / Ambersil.
+
+**Three reasons it is still not the answer:**
+
+1. **The alkyd fraction.** The §3.1 saponification argument against DCA has to be
+   applied here too, and it lands softer rather than not at all: a
+   urethane-*modified*, crosslinked alkyd is the classic middle case — better
+   hydrolytic resistance than a straight alkyd like DCA, worse than a true PU
+   like PUC. Weaker than PUC, stronger than DCA. It is not equivalent to either.
+2. **Cure is measured in days.** §7 requires a *fully* cured film before the pour
+   (uncrosslinked residue outgassing into curing PU is the §4 void mechanism) and
+   before the SHT45 and cell go in. "Touch dry in 2 h" is not that. Budget
+   **24 h @ 60 °C**, or several days at bench temperature — but note the TDS
+   separates solvent evaporation from subsequent crosslinking and does **not**
+   say the residual uncrosslinked fraction is volatile. "24 h @ 60 °C is enough"
+   therefore cannot be asserted from this sheet; it needs its own acceptance
+   basis before it satisfies §7's full-cure gate.
+3. **No alkali claim, and +120 °C is an adhesion range**, not a
+   chemical-resistance rating. The alkali claim is the entire reason PUC was
+   picked in §1.
+
+**Verdict: a good bench coating, not a probe coating.** Use it on boards being
+handled and debugged; do not put it on an article that gets potted and buried.
+
+**One high-value use while PUC is in transit:** run a **Urethan-71 / UR5604 peel
+coupon**. It does not substitute for coupon 1 (§7), which tests the PUC/UR5604
+interface specifically — but it is a cheap rehearsal of the §4
+experiment: it exercises the dam, cure and pour process and yields one real
+coating/pot interface to pull apart. **Its result is specific to Urethan 71** —
+it cannot be generalised to "urethane-family coatings bond to UR5604", and it
+does not resolve the PUC interface. Process de-risking, not an answer.
+
+**Access note (2026-09-18):** `de.farnell.com` and `uk.farnell.com` both return
+403 to curl with a Chrome UA, to curl with full `Sec-Fetch-*` headers, and to
+headless Chromium with a plain-Chrome UA. A headed scratch-profile Chrome over
+CDP got exactly one page through (DCA200H) and 403'd on the rest. Every figure
+in §8, §8.1 and §8.2 — and the MacDermid page that settled §3.1 — was read at
+rung 5 through the Playwright MCP **browser extension** driving Fab's own Chrome,
+token supplied by him. Nothing in these sections is inferred from a blocked page.
 
 ---
 
@@ -369,6 +578,42 @@ getting an even film by hand are.
    displaces PUC.
 6. **Update `POTTING.md` §8** — the sequence there coats the gas zone only and
    does not mention masking, cure-before-pour, or the cleanliness gate.
+7. **Evaluate Peters ELPEGUARD SL 9407 FLZ against 2K301P for Rev B**
+   (found 2026-09-18; TDS `peters.de/wp-content/uploads/2025/03/sl9407flz_301492d_vtm_001.pdf`,
+   read). §5 named 2K301P as "the production answer", and this may beat it on the
+   one axis §5 could not source:
+
+   > *"beste Beständigkeitsklasse **GX** gegen Schadgase nach ISA 71.04-2013"*
+
+   GX is the most severe corrosive-gas class in that standard — an actual
+   measured rating where PUC offers only the headline phrase "resistant to acids
+   and alkalis" that §9 item 2 exists to chase. Also: 2-pack **polyurethane**
+   resin (UR), −65…+130 °C, **no Tg between −50 and +150 °C**, CTI ≥600 (the
+   `POTTING.md` §3.2 bar), ~95 % solids on the /730 grade, surface resistance
+   ≥1×10¹³ Ω, and condensation resistance ≥2×10⁹ Ω measured *under 12 V bias at
+   40 °C and 100 % RH* — a closer analogue than most published figures, though
+   **not** this probe's service exposure (5…75 °C with NH₃ and H₂S, coated and
+   potted). Useful qualification evidence, not service proof. Peters is in Kempen, so a domestic supply route avoids §8.2's cross-border
+   problem entirely — but note this is a **2-pack liquid, not an aerosol**; the
+   400 ml spray can Bürklin stocks is the acrylate SL 1307, not this.
+
+   Three caveats, all real. **The TDS is explicitly provisional** — it is headed
+   *"Vorläufiges Technisches Merkblatt der Reihe ELPEGUARD® SL 9407 FLZ"* — so
+   these figures are the vendor's own preliminary data. **Pot life ~20 min**
+   (2-pack; mix ratios are on page 3 — /730 is **100:78 by weight**, /45 is
+   **100:56** — though brushing is a listed application method and 20 min is workable by hand
+   on a 20×107 mm board, unlike 2K301P's 10–15 min meter-mix spray), and Peters
+   sells B2B via sample request / distributors such as Bürklin. **Not sourced and
+   not priced for this part — do not put it in a plan until someone has a quote.**
+
+   **Do not buy the wrong Peters.** Bürklin stocks `SL 1307 FLZ/S` (12L715,
+   €39,15 incl. MwSt. plus shipping, 79 units, and B2B-only —
+   *"nicht verkäuflich an Endverbraucher"*) — a 400 ml spray can, in stock, and the one you land on
+   searching for a German Peters coating. It is **not** the polyurethane: the
+   family TDS states *"Basis: **Acrylatharze (AR)**"*, so it is excluded by §3.2
+   like every other acrylic in §8.1, its CTI ≥600 notwithstanding. **SL 9407 FLZ
+   is the polyurethane; SL 1307 FLZ is an acrylate.** Only the 9407 series
+   carries the GX rating.
 
 ---
 
