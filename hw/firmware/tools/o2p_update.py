@@ -2412,6 +2412,18 @@ def _push_lookahead(bus, image, block_bytes, retries, seq, sent, stats=None):
                 base = blk + 1
             else:
                 print("   retrying block %d (%s)" % (seq + blk, e))
+                # DRAIN BEFORE THE RESEND, for the same reason read()'s retry
+                # does. A wrong-function-code reply PROVES the stream is
+                # offset, and re-asking into an offset stream just consumes
+                # one stale frame and inherits the rest: measured 2026-09-19
+                # on a LoRaWAN push that failed block 0 three times, each
+                # attempt answered by an FC03 left over from the status reads
+                # that preceded it. _drain()'s own docstring describes exactly
+                # this case - "a recovered read was still followed by a write
+                # that got the read's answer" - and the write path was the one
+                # place it was never wired in. A drain repeats no command; it
+                # only discards replies nobody is waiting for any more.
+                bus._drain()
                 stats["resent"] = stats.get("resent", 0) + 1
                 base = blk              # resend from the failed block
             continue
