@@ -526,3 +526,32 @@ development board carrying an LDO and a USB-UART bridge is milliamps, and for in
 reporting the radio's per-uplink energy usually dominates both. **Measure the actual node
 board before optimising this probe further** - the answer may change whether the probe
 should be polled at all, which is the first-order question above.
+
+## Update 2026-09-19 — the heater now idles in dry air (FW 0x0027)
+
+Written when the dry-air idle gate landed; the numbers above are unchanged, this is
+about which row of the heater table a probe *sits in* when it is not in a pile.
+
+Point 1 above ("the heater is the entire question") was still true as written, but
+incomplete in one direction: since FW 0x0016 the **gradient floor** demands
+`T_tip = T_cell + 2.00 K` on every dew-law cycle and has no humidity input by design, so
+a probe on the bench or in transit held that gradient continuously. On this plant that
+is a large fraction of full duty, i.e. the 3.8 d / 2.4 d row, for heat nobody needed.
+
+FW 0x0027 withholds the floor's demand while **RH < 90 % and the cell-side dew margin is
+at least 6.00 K** — roughly "22 °C room air at 65 %RH or drier". The dew law asks for
+nothing in that regime already, so the probe lands on the 0 % row: **233 d on LiFePO4,
+146 d on SLA**, the as-built floor of 2.87 mA.
+
+Three things this does *not* change, stated so nobody reads a season into it:
+
+- **In the pile nothing changes.** Pore gas is saturated, the margin is small or
+  negative, and both laws run exactly as before. The buried-probe budget is still the
+  dew-margin policy's, not this gate's.
+- **It is not free of risk.** The floor exists because a wetted-then-drying SHT45 reads
+  low RH; the margin condition blocks the common form of that lie (warming the gas
+  raises Td in step) but not all of it. The gate is therefore bounded, not latched:
+  120 s of floor every 1800 s regardless of humidity — about 6 % of the floor's demand,
+  which is why the saving is "the 0 % row plus a premium", not literally zero.
+- **Duty-cycling the MCU is still not implemented.** The 28.6 µA column remains
+  hypothetical (`main.c:3`, "No sleep modes").

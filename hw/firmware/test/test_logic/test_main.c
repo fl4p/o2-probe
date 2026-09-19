@@ -5686,6 +5686,30 @@ static o2p_heater_in_t hin_floor(void)
     return in;
 }
 
+/* ONE STEP OF THE FLOOR'S OWN ARITHMETIC, with the FW 0x0027 dry-air idle gate
+ * held open by its own bounding re-assert window (O2P_HEATER_DRY_ASSERT_S).
+ *
+ * Why these tests need it. hin_floor() reads 70 %RH, and several of them place
+ * the cell well above the chamber, which is exactly the "dry" the gate exists
+ * to catch - so measured through dew_step_fresh() they would now be measuring
+ * the GATE, and the floor's gains, clamps and monotonicity would go untested.
+ * The re-assert window is the real state in which the floor runs whatever the
+ * humidity says; entering it costs no fiction. The window itself, and the
+ * gating it bounds, are tested separately below.
+ *
+ * st.dry_assert_s stays 0 here because a fresh state has no previous cycle to
+ * measure an interval from, so a single step never spends the window. */
+static uint16_t floor_step_fresh(const o2p_heater_cfg_t *cfg,
+                                 const o2p_heater_in_t *in,
+                                 o2p_heater_out_t *out)
+{
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    st.dry_asserting = true;
+    o2p_heater_ctl_step(&st, cfg, in, 0u, out);
+    return out->duty_x100;
+}
+
 static void test_gradient_floor_heats_when_the_dew_law_would_not(void)
 {
     /* THE FAILURE THIS LAW EXISTS FOR. Every reading is valid and the dew
@@ -5759,7 +5783,7 @@ static void test_gradient_floor_respects_the_79c_ceiling(void)
     in.t_cell_c100 = 7800;      /* cell + delta = 80.00 C, above the ceiling */
     in.t_tip_c100 = 7900;       /* exactly at it */
     in.t_chamber_c100 = 7850;
-    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, dew_step_fresh(&cfg, &in, &out),
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, floor_step_fresh(&cfg, &in, &out),
         "the floor must not ask for duty once the tip is at the ceiling");
     TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_TIP_LIMIT);
 
@@ -5768,7 +5792,7 @@ static void test_gradient_floor_respects_the_79c_ceiling(void)
      * an unclamped cell + 2 K would have asked for. */
     in.t_tip_c100 = 7850;
     in.t_chamber_c100 = 7800;
-    TEST_ASSERT_UINT16_WITHIN(2u, 2525u, dew_step_fresh(&cfg, &in, &out));
+    TEST_ASSERT_UINT16_WITHIN(2u, 2525u, floor_step_fresh(&cfg, &in, &out));
 }
 
 static void test_gradient_floor_duty_is_monotonic_in_its_gradient(void)
@@ -5783,7 +5807,7 @@ static void test_gradient_floor_duty_is_monotonic_in_its_gradient(void)
         o2p_heater_in_t in = hin_floor();
         in.t_tip_c100 = tip;
         in.t_chamber_c100 = (int16_t)(tip - 100);   /* keep dT inside 4 K */
-        const uint16_t d = dew_step_fresh(&cfg, &in, &out);
+        const uint16_t d = floor_step_fresh(&cfg, &in, &out);
         TEST_ASSERT_TRUE_MESSAGE(d >= prev, "duty fell as the tip fell behind");
         prev = d;
     }
@@ -5835,6 +5859,9 @@ static void test_gradient_floor_integrator_is_its_own_and_is_shed_on_exit(void)
      * for whoever arrives next. */
     o2p_heater_state_t st;
     o2p_heater_ctl_reset(&st);
+    /* The floor's arithmetic, so the dry gate is held open as in
+     * floor_step_fresh(); 20 s never spends O2P_HEATER_DRY_ASSERT_S. */
+    st.dry_asserting = true;
     o2p_heater_cfg_t cfg = hcfg_default();
     o2p_heater_in_t in = hin_floor();
     o2p_heater_out_t out;
@@ -5856,6 +5883,208 @@ static void test_gradient_floor_integrator_is_its_own_and_is_shed_on_exit(void)
     o2p_heater_cfg_t tip_cfg = hcfg_tip_auto();
     o2p_heater_ctl_step(&st, &tip_cfg, &in, 20u, &out);
     TEST_ASSERT_EQUAL_FLOAT(0.0f, st.integ_floor);
+}
+
+/* ------------------------------ the DRY-AIR IDLE GATE (FW 0x0027), which
+ * takes the gradient floor's demand away while the gas reads dry, so a probe
+ * out of the pile stops paying for heat. See O2P_HEATER_DRY_RH_X100. */
+
+/* A PROBE OUT OF THE PILE. 50 %RH over a 40.00 C chamber is Td = 27.6 C, so
+ * the 51.00 C cell holds ~23 K of margin: both of the gate's conditions, with
+ * room to spare. The tip is 0.50 K ahead of the cell, which leaves the floor
+ * 1.50 K short and asking for ~76 % duty whenever it is not gated.
+ * hcfg_dew()'s wide envelope keeps DT_LIMIT out of a test that is not about
+ * tip-minus-chamber. */
+static o2p_heater_in_t hin_dry_bench(void)
+{
+    o2p_heater_in_t in = hin_dew();
+    in.rh_x100 = 5000u;
+    in.t_chamber_c100 = 4000;
+    in.t_cell_c100 = 5100;
+    in.t_tip_c100 = 5150;
+    return in;
+}
+
+static void test_dry_air_gates_the_gradient_floor(void)
+{
+    /* The energy-saving state this was asked for (Fab 2026-09-19). Before
+     * 0x0027 this probe drove the ring at ~76 % for as long as it was powered,
+     * which is 3.8 days of the 10 Ah battery at 100 % and 28 d at 12 %
+     * (POWER-BUDGET.md) - all of it to hold a 2 K gradient in room air. */
+    o2p_heater_cfg_t cfg = hcfg_dew();
+    o2p_heater_in_t in = hin_dry_bench();
+    o2p_heater_out_t out;
+
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, dew_step_fresh(&cfg, &in, &out),
+        "dry gas with a margin to spare must cost nothing");
+    TEST_ASSERT_EQUAL_HEX16(O2P_HEATER_LAW_DEW | O2P_HEATER_LAWF_DEW_DRY_IDLE,
+                            out.law);
+    /* Idleness, not a fault: the register must say so without raising one. */
+    TEST_ASSERT_EQUAL_UINT16(O2P_HB_TIP_DISARMED | O2P_HB_IDLE, out.block);
+
+    /* The identical probe with the gate's own re-assert window open is the
+     * floor at full voice, so the gate is the only difference between them. */
+    TEST_ASSERT_TRUE_MESSAGE(floor_step_fresh(&cfg, &in, &out) > 7000u,
+        "and the floor is what is being withheld, not something already idle");
+    TEST_ASSERT_EQUAL_UINT16(0u, out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE);
+}
+
+static void test_the_dry_gate_needs_both_dryness_and_margin(void)
+{
+    /* TWO conditions, and the margin is the load-bearing one. Heating the
+     * chamber lowers its relative humidity at constant absolute humidity -
+     * the whole design of this loop - so a gate on RH alone switches the
+     * floor off by its own success; measured against the wet-enclosure plant
+     * below, an RH-only form dropped the gradient from 2.00 K to 0.40 K. */
+    o2p_heater_cfg_t cfg = hcfg_dew();
+    o2p_heater_out_t out;
+
+    /* Wet gas, generous margin (a hot cell in cooler saturated air): no gate. */
+    o2p_heater_in_t humid = hin_dry_bench();
+    humid.rh_x100 = 9600u;
+    TEST_ASSERT_TRUE_MESSAGE(dew_step_fresh(&cfg, &humid, &out) > 0u,
+        "over 90 %RH the floor must run whatever the margin says");
+    TEST_ASSERT_EQUAL_UINT16(0u, out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE);
+
+    /* A dry READING with a thin margin - the wetted-SHT45 and warmed-chamber
+     * signature - is the case the margin condition exists to catch. 70 %RH
+     * over a 53.00 C chamber is Td = 45.9 C, 5.1 K under the cell: dry by RH,
+     * not dry by margin, and still satisfying the dew law's own 4 K. */
+    o2p_heater_in_t thin = hin_dry_bench();
+    thin.t_chamber_c100 = 5300;
+    thin.rh_x100 = 7000u;
+    TEST_ASSERT_TRUE_MESSAGE(dew_step_fresh(&cfg, &thin, &out) > 0u,
+        "a thin margin must keep the floor even when the RH reads dry");
+    TEST_ASSERT_EQUAL_UINT16(0u, out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE);
+}
+
+static void test_the_dry_gate_never_engages_on_an_unevaluable_humidity(void)
+{
+    /* Guard checklist 1: no reading is not a dry reading. An SHT45 de-creep,
+     * a lost chamber, a humidity the Magnus form cannot take - each of them
+     * leaves the floor running, the same direction NO_DEWPOINT takes. */
+    o2p_heater_cfg_t cfg = hcfg_dew();
+    o2p_heater_out_t out;
+
+    o2p_heater_in_t no_rh = hin_dry_bench();
+    no_rh.rh_valid = false;
+    TEST_ASSERT_TRUE_MESSAGE(dew_step_fresh(&cfg, &no_rh, &out) > 0u,
+        "a missing humidity must never be read as dry air");
+    TEST_ASSERT_EQUAL_HEX16(O2P_HEATER_LAW_DEW | O2P_HEATER_LAWF_DEW_NO_DEWPOINT,
+                            out.law);
+
+    o2p_heater_in_t bad_rh = hin_dry_bench();
+    bad_rh.rh_x100 = 0u;        /* Magnus cannot take it */
+    TEST_ASSERT_TRUE_MESSAGE(dew_step_fresh(&cfg, &bad_rh, &out) > 0u,
+        "an unevaluable humidity must never be read as dry air");
+    TEST_ASSERT_EQUAL_UINT16(0u, out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE);
+}
+
+static void test_the_dry_gate_hysteresis_holds_at_both_thresholds(void)
+{
+    /* Neither condition may chatter: once gated it takes 95 %RH, or the
+     * margin falling to 5 K, to put the floor back. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_dew();
+    o2p_heater_out_t out;
+    o2p_heater_in_t in = hin_dry_bench();
+
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_TRUE(st.dry_idle);
+
+    /* Between the two RH thresholds: still gated. */
+    in.rh_x100 = 9200u;
+    o2p_heater_ctl_step(&st, &cfg, &in, 1u, &out);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.duty_x100,
+        "92 %RH must not release a gate that engaged at 50 %");
+
+    /* Past the release threshold: the floor comes back. */
+    in.rh_x100 = 9600u;
+    o2p_heater_ctl_step(&st, &cfg, &in, 2u, &out);
+    TEST_ASSERT_TRUE(out.duty_x100 > 0u);
+    TEST_ASSERT_FALSE(st.dry_idle);
+
+    /* Now the margin's own hysteresis, on the same shape. 70 %RH over a
+     * 52.50 C chamber is Td = 45.4 C: 5.6 K of margin, between the 6 K entry
+     * and the 5 K release, so a gate already engaged holds and one that is
+     * not does not engage. */
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_in_t band = hin_dry_bench();
+    band.t_chamber_c100 = 5250;
+    band.rh_x100 = 7000u;
+    o2p_heater_ctl_step(&st, &cfg, &band, 10u, &out);
+    TEST_ASSERT_FALSE_MESSAGE(st.dry_idle,
+        "5.6 K of margin is under the 6 K entry, so nothing may engage");
+
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_ctl_step(&st, &cfg, &in, 20u, &out);   /* 96 %RH: not gated */
+    in.rh_x100 = 5000u;
+    o2p_heater_ctl_step(&st, &cfg, &in, 21u, &out);   /* engages */
+    TEST_ASSERT_TRUE(st.dry_idle);
+    o2p_heater_ctl_step(&st, &cfg, &band, 22u, &out);
+    TEST_ASSERT_TRUE_MESSAGE(st.dry_idle,
+        "5.6 K is above the 5 K release, so an engaged gate must hold");
+}
+
+static void test_the_dry_gate_reasserts_the_floor_periodically(void)
+{
+    /* THE BOUND ON WHAT THIS COSTS. The gate cannot tell a dry probe from a
+     * lied-to one - a wetted-then-drying SHT45 reads low - so it is not a
+     * latch: every O2P_HEATER_DRY_IDLE_MAX_S the floor runs again for
+     * O2P_HEATER_DRY_ASSERT_S whatever the humidity says. A lying sensor buys
+     * a bounded duty cycle of outward heat, not none.
+     *
+     * One hour at 1 Hz on unchanging dry inputs, counting the seconds the ring
+     * was driven: exactly one window, and it is the window's own length. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_dew();
+    o2p_heater_in_t in = hin_dry_bench();
+    o2p_heater_out_t out;
+
+    uint32_t driven = 0u, first = 0u, flagged = 0u;
+    for (uint32_t t = 0u; t < 3600u; t++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+        if (out.duty_x100 > 0u) {
+            if (driven == 0u) {
+                first = t;
+            }
+            driven++;
+        }
+        if ((out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE) != 0u) {
+            flagged++;
+        }
+    }
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE(O2P_HEATER_DRY_ASSERT_S, driven,
+        "the premium must be exactly one assert window per idle period");
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE(O2P_HEATER_DRY_IDLE_MAX_S, first,
+        "and it must arrive after the idle period, not before");
+    /* The flag is absent for exactly the window, so an operator can tell
+     * "idling" from "idling, but paying its periodic premium". */
+    TEST_ASSERT_EQUAL_UINT32(3600u - O2P_HEATER_DRY_ASSERT_S, flagged);
+}
+
+static void test_the_dry_gate_is_monotonic_in_wetness(void)
+{
+    /* Guard checklist 2 across the boundary the gate adds. As the gas gets
+     * wetter at a fixed geometry the duty must never fall: the gate opens
+     * (floor returns), then the dew law overtakes it. A gate that had been
+     * written on the margin alone, or with the thresholds crossed, would show
+     * up here as a duty that dropped on the way to saturation. */
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+    uint16_t prev = 0u;
+    for (uint16_t rh = 3000u; rh <= 10000u; rh = (uint16_t)(rh + 100u)) {
+        o2p_heater_in_t in = hin_dry_bench();
+        in.t_chamber_c100 = 5000;   /* tip - chamber 1.50 K, inside 4 K */
+        in.rh_x100 = rh;
+        const uint16_t d = dew_step_fresh(&cfg, &in, &out);
+        TEST_ASSERT_TRUE_MESSAGE(d >= prev, "duty fell as the gas got wetter");
+        prev = d;
+    }
+    TEST_ASSERT_TRUE_MESSAGE(prev > 0u,
+        "saturated gas must not leave the probe idle");
 }
 
 /* ------------- the unreachable-margin detector, ceiling-dwell form (0x0019)
@@ -6218,11 +6447,11 @@ static void test_gradient_floor_is_clamped_by_a_narrow_envelope(void)
     in.t_chamber_c100 = 5100;      /* tip - chamber 0.50 K, under DT_LIMIT */
     /* Setpoint clamped to cell + 1.00 K = 52.00 C: kp 50 x 50 = 2500 plus
      * ki 0.5 x 50 = 25 - not the 50 x 150 an unclamped cell + 2 K asks. */
-    TEST_ASSERT_UINT16_WITHIN(2u, 2525u, dew_step_fresh(&cfg, &in, &out));
+    TEST_ASSERT_UINT16_WITHIN(2u, 2525u, floor_step_fresh(&cfg, &in, &out));
 
     in.t_tip_c100 = 5200;          /* at the clamped setpoint */
     in.t_chamber_c100 = 5150;
-    TEST_ASSERT_EQUAL_UINT16(0u, dew_step_fresh(&cfg, &in, &out));
+    TEST_ASSERT_EQUAL_UINT16(0u, floor_step_fresh(&cfg, &in, &out));
 }
 
 static void test_dew_unreachable_dwell_pauses_across_a_short_refusal(void)
@@ -6561,6 +6790,38 @@ static void test_a_false_runaway_latch_keeps_the_gradient_floor(void)
     TEST_ASSERT_TRUE_MESSAGE(worst <= (float)cfg.dt_max_k100 * 0.01f + 0.3f,
         "and the floor under a latch stays under the gradient ceiling");
     TEST_ASSERT_TRUE((out.law & O2P_HEATER_LAWF_DEW_RUNAWAY_FLOOR) != 0u);
+}
+
+static void test_a_runaway_latch_outranks_the_dry_gate(void)
+{
+    /* Under a latch the floor is the ONLY regulator left (FW 0x001F), so the
+     * gate must not be the thing that ends its heat - that is a safety path,
+     * not a power question. Same false-latch stimulus as the 0x001F test,
+     * with the gas reading dry: Td 30 C against a ~50 C cell is ~34 %RH and
+     * ~20 K of margin, which would gate the floor on any unlatched cycle. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+    dewplant_t p = {50.0f, 50.0f, 83.2f, 150.0f, 0.03f, 30.0f, 0.0f, 50.0f, 0.0f};
+    float least_late = 100.0f;
+    for (uint32_t t = 0u; t < 3000u; t++) {
+        o2p_heater_in_t in = dewplant_in(&p);
+        in.t_die_c100 = 3000;
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+        if (t >= 2000u) {
+            const float g = p.tip_c - dewplant_cell(&p);
+            if (g < least_late) {
+                least_late = g;
+            }
+        }
+        dewplant_step(&p, out.duty_x100);
+    }
+    TEST_ASSERT_TRUE_MESSAGE(st.runaway_latched,
+        "the stimulus must actually hold a latch, or this proves nothing");
+    TEST_ASSERT_TRUE_MESSAGE(least_late >= 1.5f,
+        "the dry gate must never take the floor away under a runaway latch");
+    TEST_ASSERT_EQUAL_UINT16(0u, out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE);
 }
 
 static void test_a_hot_floor_cannot_reach_blind_through_the_runaway_latch(void)
@@ -9583,6 +9844,12 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         regulates cell-side T_EXT to 4 K above the gas dew point
      *         whenever T_EXT is valid (Fab's order, 2026-09-11); no new
      *         register, HEATER_BLOCK bits unchanged, the law is new.
+     * 0x0027: the gradient floor's DRY-AIR IDLE GATE (Fab's order,
+     *         2026-09-19). HEATER_LAW gains high-byte bit 11, DRY_IDLE:
+     *         the floor's demand is withheld because the gas reads dry, so
+     *         a reader can tell the designed energy-saving zero from every
+     *         other zero. New published bit, so the version moves; no
+     *         register moves and no format changes.
      * 0x0026: the tip protection LADDER moves +10 K so 90.00 C is a legal
      *         setpoint (Fab's order, 2026-09-19). Setpoint 80->90, firmware
      *         clamp 82->92 (release 77->87), TMP117 therm cutoff 85->95, and
@@ -9602,7 +9869,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         steps the thermal mass cannot make are rejected for a cycle.
      * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
      *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
-    TEST_ASSERT_EQUAL_HEX16(0x0026u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x0027u, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_HEX16(0xC000u,
         (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
     /* The staleness cut must win the race against the watchdog's fastest
@@ -11737,6 +12004,13 @@ int main(void)
     RUN_TEST(test_gradient_floor_duty_is_monotonic_in_its_gradient);
     RUN_TEST(test_gradient_floor_runs_only_beside_the_dew_law);
     RUN_TEST(test_gradient_floor_integrator_is_its_own_and_is_shed_on_exit);
+    RUN_TEST(test_dry_air_gates_the_gradient_floor);
+    RUN_TEST(test_the_dry_gate_needs_both_dryness_and_margin);
+    RUN_TEST(test_the_dry_gate_never_engages_on_an_unevaluable_humidity);
+    RUN_TEST(test_the_dry_gate_hysteresis_holds_at_both_thresholds);
+    RUN_TEST(test_the_dry_gate_reasserts_the_floor_periodically);
+    RUN_TEST(test_the_dry_gate_is_monotonic_in_wetness);
+    RUN_TEST(test_a_runaway_latch_outranks_the_dry_gate);
     RUN_TEST(test_dew_unreachable_after_a_dwell_at_the_ceiling_in_wet_gas);
     RUN_TEST(test_dew_not_unreachable_at_low_coupling_when_the_margin_is_reachable);
     RUN_TEST(test_dew_not_unreachable_when_the_margin_is_met_at_the_ceiling);

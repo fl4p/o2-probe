@@ -23,6 +23,16 @@ void o2p_heater_ctl_reset(o2p_heater_state_t *st)
     st->dew_retry_at_s = 0u;
     st->dew_paused = false;
     st->dew_pause_since_s = 0u;
+    /* The dry-air idle gate starts with the floor RUNNING: a reset is the one
+     * moment nothing is known about the gas, and this struct is initialised
+     * field by field, so a field missing here is not zero but whatever the
+     * caller's stack held. */
+    st->dry_idle = false;
+    st->dry_asserting = false;
+    st->dry_prev_valid = false;
+    st->dry_assert_s = 0u;
+    st->dry_idle_since_s = 0u;
+    st->dry_prev_s = 0u;
     st->runaway_evidence_s = 0u;
     st->runaway_clear_s = 0u;
     st->zero_duty_timing = false;
@@ -732,6 +742,94 @@ static bool gas_dew_point_c100(const o2p_heater_in_t *in, float *out_c100)
     return true;
 }
 
+/* THE DRY-AIR IDLE GATE (FW 0x0027; see O2P_HEATER_DRY_RH_X100). Returns true
+ * when the gradient floor's demand is to be WITHHELD this cycle because the
+ * gas reads dry - the energy-saving state for a probe out of the pile.
+ *
+ * Called once per dew-law cycle and nowhere else, because the floor runs
+ * nowhere else; it owns the state it reads, so a caller that skips it (a
+ * runaway latch, another law) leaves an idle clock running toward its next
+ * re-assert, which is the safe direction.
+ *
+ * `have_td` carries the caller's "there IS a dew point this cycle" and
+ * `margin_f` its cell-side margin in 0.01 K, read only when have_td is true -
+ * the gate engages only on a positive, evaluable dryness, never on a missing
+ * reading. */
+static bool dry_idle_gate(o2p_heater_state_t *st, const o2p_heater_in_t *in,
+                          uint32_t now_s, bool have_td, float margin_f)
+{
+    /* Observed seconds since the previous dew-law cycle, by the unreachable
+     * detector's rules: a gap longer than the caller's cadence contract is not
+     * observation. Only the ASSERT window spends these - the idle clock is
+     * elapsed time, so unobserved seconds still push toward re-asserting. */
+    uint32_t since = 0u;
+    if (st->dry_prev_valid) {
+        since = (uint32_t)(now_s - st->dry_prev_s);
+        if (since > O2P_HEATER_RUNAWAY_MAX_GAP_S) {
+            since = 0u;
+        }
+    }
+    st->dry_prev_s = now_s;
+    st->dry_prev_valid = true;
+
+    /* Hysteresis on the humid side of BOTH conditions: once gated it takes
+     * O2P_HEATER_DRY_RH_EXIT_X100, or the margin falling to
+     * O2P_HEATER_DRY_MARGIN_EXIT_K100, to put the floor back - so a probe
+     * sitting at a threshold does not chatter the floor's integrator on and
+     * off. Both must hold to gate; either failing runs the floor. */
+    const bool engaged = st->dry_idle || st->dry_asserting;
+    const uint32_t rh_threshold = engaged
+                                      ? (uint32_t)O2P_HEATER_DRY_RH_EXIT_X100
+                                      : (uint32_t)O2P_HEATER_DRY_RH_X100;
+    const float margin_threshold =
+        engaged ? (float)O2P_HEATER_DRY_MARGIN_EXIT_K100
+                : (float)O2P_HEATER_DRY_MARGIN_K100;
+    const bool dry = have_td && in->rh_valid && in->chamber_valid &&
+                     (uint32_t)in->rh_x100 < rh_threshold &&
+                     margin_f >= margin_threshold;
+
+    if (!dry) {
+        st->dry_idle = false;
+        st->dry_asserting = false;
+        st->dry_assert_s = 0u;
+        return false;
+    }
+
+    if (st->dry_asserting) {
+        /* The bounding premium: the floor runs whatever the humidity says.
+         * Credited only with observed intervals, so a sampling gap cannot end
+         * the window early. `since` is bounded by the gap rule, so the u16
+         * cannot wrap before the comparison stops it. */
+        if (st->dry_assert_s < O2P_HEATER_DRY_ASSERT_S) {
+            st->dry_assert_s = (uint16_t)(st->dry_assert_s + since);
+        }
+        if (st->dry_assert_s >= O2P_HEATER_DRY_ASSERT_S) {
+            st->dry_asserting = false;
+            st->dry_assert_s = 0u;
+            st->dry_idle = true;
+            st->dry_idle_since_s = now_s;
+            return true;
+        }
+        return false;
+    }
+
+    if (!st->dry_idle) {
+        st->dry_idle = true;
+        st->dry_idle_since_s = now_s;
+        return true;
+    }
+
+    /* The unsigned DIFFERENCE, so a wrap of now_s neither strands the gate nor
+     * fires the window early - valid while the interval is under 2^31 s. */
+    if ((uint32_t)(now_s - st->dry_idle_since_s) >= O2P_HEATER_DRY_IDLE_MAX_S) {
+        st->dry_idle = false;
+        st->dry_asserting = true;
+        st->dry_assert_s = 0u;
+        return false;
+    }
+    return true;
+}
+
 static uint16_t law_wet_mask(const o2p_heater_cfg_t *cfg,
                              const o2p_heater_in_t *in)
 {
@@ -931,6 +1029,11 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
      * concurrently. See O2P_HEATER_FLOOR_DELTA_K100. */
     if (!dew_law_in_command(cfg, in)) {
         st->integ_floor = 0.0f;
+        /* The dry gate's observed-interval clock is invalid across any cycle
+         * the floor did not run, exactly as the detector's is: an unobserved
+         * gap must never be credited to the re-assert window. The GATE itself
+         * survives below or does not, on the same rule the verdict follows. */
+        st->dry_prev_valid = false;
         if (dew_law_configured(cfg)) {
             /* Still the configured law, only without a cell reading this
              * cycle (FW 0x0020): PAUSE, like any other cycle the law cannot
@@ -951,6 +1054,13 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
             st->dew_clear_s = 0u;
             st->dew_unreachable = false;
             st->dew_paused = false;
+            /* The gate belongs to the floor, and the floor belongs to the dew
+             * law: another law CONFIGURED means the tip is being moved for
+             * reasons this gate cannot interpret, so it starts again from
+             * "floor running" when the dew law comes back. */
+            st->dry_idle = false;
+            st->dry_asserting = false;
+            st->dry_assert_s = 0u;
         }
     }
 
@@ -1168,27 +1278,44 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
          * law's controlled quantity IS the tip: above the clamped setpoint
          * its own error is already negative, so it unwinds instead of
          * winding up. */
-        int32_t floor_sp_c100 = (int32_t)in->t_cell_c100 +
-                                (int32_t)O2P_HEATER_FLOOR_DELTA_K100;
-        if (floor_sp_c100 > dew_ceiling_c100(cfg, in)) {
-            floor_sp_c100 = dew_ceiling_c100(cfg, in);
-        }
-        const float e_floor = (float)(floor_sp_c100 -
-                                      (int32_t)in->t_tip_c100);
-        const uint16_t floor_duty =
-            pi_core(&st->integ_floor, e_floor,
-                    (float)O2P_HEATER_FLOOR_KP_X100 * 0.01f,
-                    (float)O2P_HEATER_FLOOR_KI_X100 * 0.01f,
-                    max_duty);
-        if (floor_duty > duty) {
-            duty = floor_duty;
+        /* THE DRY-AIR IDLE GATE (FW 0x0027, O2P_HEATER_DRY_RH_X100) takes the
+         * floor's demand away while the gas reads dry, which is the only
+         * cycle-by-cycle way a probe out of the pile stops paying for heat -
+         * the dew law is already asking for nothing there. NEVER under a
+         * runaway latch: the floor is then the only regulator there is
+         * (FW 0x001F), and that is not a power question. */
+        const bool dry_gated = !latched_floor &&
+                               dry_idle_gate(st, in, now_s, have_td, margin_f);
+        if (dry_gated) {
+            /* Zeroed, not frozen, for the same reason the dew law's is: a
+             * return to authority restarts from the proportional term rather
+             * than an integral wound up in another regime. */
+            st->integ_floor = 0.0f;
+        } else {
+            int32_t floor_sp_c100 = (int32_t)in->t_cell_c100 +
+                                    (int32_t)O2P_HEATER_FLOOR_DELTA_K100;
+            if (floor_sp_c100 > dew_ceiling_c100(cfg, in)) {
+                floor_sp_c100 = dew_ceiling_c100(cfg, in);
+            }
+            const float e_floor = (float)(floor_sp_c100 -
+                                          (int32_t)in->t_tip_c100);
+            const uint16_t floor_duty =
+                pi_core(&st->integ_floor, e_floor,
+                        (float)O2P_HEATER_FLOOR_KP_X100 * 0.01f,
+                        (float)O2P_HEATER_FLOOR_KI_X100 * 0.01f,
+                        max_duty);
+            if (floor_duty > duty) {
+                duty = floor_duty;
+            }
         }
         out->law = (uint16_t)(O2P_HEATER_LAW_DEW |
                               (st->dew_unreachable
                                    ? O2P_HEATER_LAWF_DEW_UNREACHABLE : 0u) |
                               (!have_td ? O2P_HEATER_LAWF_DEW_NO_DEWPOINT : 0u) |
                               (latched_floor
-                                   ? O2P_HEATER_LAWF_DEW_RUNAWAY_FLOOR : 0u));
+                                   ? O2P_HEATER_LAWF_DEW_RUNAWAY_FLOOR : 0u) |
+                              (dry_gated
+                                   ? O2P_HEATER_LAWF_DEW_DRY_IDLE : 0u));
     } else {
         /* Positive error means too humid, which means not enough heat. */
         const float e = (float)in->rh_x100 - (float)cfg->setpoint_x100;
