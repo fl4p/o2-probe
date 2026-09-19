@@ -160,8 +160,23 @@ static uint16_t interlocks(o2p_heater_state_t *st,
              dew_law_in_command(cfg, in))
                 ? (int32_t)O2P_HEATER_TIP_LIMIT_ANNOTATED_C100
                 : (int32_t)O2P_HEATER_TIP_LIMIT_C100;
+        /* THE RELEASE MUST FOLLOW THE LIMIT IN FORCE, not the normal one.
+         *
+         * Until 2026-09-19 this read the fixed O2P_HEATER_TIP_RELEASE_C100,
+         * which was 5 K under the NORMAL limit and therefore also under the
+         * annotated one - so the pairing held by coincidence. Raising the
+         * ladder +10 K put the shared release (87.00) ABOVE the annotated
+         * limit (80.00) and inverted the hysteresis: at a steady 85 C the
+         * clamp latched (85 >= 80), released on the next cycle (85 < 87) and
+         * latched again, and on the cleared cycles heat was commandable above
+         * the 80 C bound the annotated state promises. The ladder assertion
+         * did not catch it because it compares the release against the normal
+         * limit only. Found by the codex review of this change, 2026-09-19.
+         *
+         * One hysteresis, applied to whichever limit was selected above. */
+        const int32_t tip_release = tip_limit - O2P_HEATER_TIP_HYST_K100;
         if (st->tip_clamped) {
-            if (in->t_tip_c100 < O2P_HEATER_TIP_RELEASE_C100) {
+            if (in->t_tip_c100 < tip_release) {
                 st->tip_clamped = false;
             }
         } else if (in->t_tip_c100 >= tip_limit) {

@@ -715,7 +715,83 @@ class Bus:
             raise
         return self._check(rsp)
 
+    # How many times a READ may be re-asked when the reply is the wrong shape.
+    # READS ONLY, and the asymmetry is the point: a read is idempotent, a
+    # write is not, so nothing here may be lifted into write().
+    SHAPE_RETRIES = 3
+
     def read(self, addr, count):
+        """Read holding registers, re-asking on a MISSHAPEN reply.
+
+        WHY THE RETRY EXISTS. `o2p_lorawan_link.exchange()` re-sends while it
+        waits, and there is no transaction id in Modbus RTU, so a duplicate
+        reply to request N-1 can land after request N went out and past the
+        drain. It passes the address and function-code filters and is caught
+        only by the shape checks below. Before 2026-09-19 that raised straight
+        out of here, and over LoRaWAN it was not rare: it killed two 38-minute
+        firmware pushes in a row inside show_status(), before a single block
+        had been transferred, plus a register read the same afternoon.
+        Re-asking is the whole fix.
+
+        WHAT IT DOES NOT FIX, stated so nobody reads more into it: a stale
+        reply of the RIGHT shape is still indistinguishable from the real one
+        here. Callers that need certainty must corroborate - read twice and
+        require agreement - which is a decision only the caller can make,
+        because it doubles the exchanges.
+        """
+        last = None
+        for attempt in range(self.SHAPE_RETRIES):
+            try:
+                return self._read_once(addr, count)
+            except IOError as exc:
+                if "reply is function" not in str(exc) \
+                        and "declares" not in str(exc) \
+                        and "reply is " not in str(exc):
+                    raise
+                last = exc
+                if self.verbose:
+                    print("   misshapen reply to 0x%04X x%u (%d/%d): %s"
+                          % (addr, count, attempt + 1, self.SHAPE_RETRIES,
+                             exc))
+                # A misshapen reply PROVES the stream is offset, so drop what
+                # is queued before re-asking. Without this the retry consumes
+                # one stale frame and the NEXT exchange inherits the rest -
+                # which is how a recovered read was still followed by a write
+                # that got the read's answer.
+                self._drain()
+                time.sleep(0.4)
+        raise last
+
+    _drain_warned = False
+
+    def _drain(self):
+        """Drop queued uplinks, walking the link's DELEGATION CHAIN to find it.
+
+        THE FIRST VERSION OF THIS WAS A NO-OP AND SAID NOTHING, which is worse
+        than not having written it: it looked only at `self.link.uplink`, and
+        the link in a real push is an o2p_ctrl.GuardedLink wrapper whose own
+        docstring says "Delegation is explicit rather than __getattr__". So the
+        attribute was absent, the best-effort `except` swallowed it, and a
+        misshapen-reply retry re-asked into the same offset stream three times
+        and gave up - measured 2026-09-19, twice, on a 460-block push.
+        A guard that cannot find what it guards must SAY SO, once.
+        """
+        node = self.link
+        for _ in range(4):                 # bounded: wrappers are shallow
+            up = getattr(node, "uplink", None)
+            if up is not None and hasattr(up, "drain"):
+                up.drain()
+                return True
+            node = getattr(node, "link", None)
+            if node is None:
+                break
+        if not Bus._drain_warned:
+            Bus._drain_warned = True
+            print("   !! no uplink queue reachable from this link: a stale "
+                  "reply cannot be drained, only re-asked past")
+        return False
+
+    def _read_once(self, addr, count):
         rsp = self._txn(struct.pack(">BHH", 3, addr, count), 5 + 2 * count)
         # Check the SHAPE, not just the CRC. A reply one register short still
         # passes CRC and address, and slicing it blind unpacks the two CRC
@@ -732,10 +808,37 @@ class Bus:
                           % (len(rsp), 5 + 2 * count, rsp.hex()))
         return list(struct.unpack(">%dH" % count, rsp[3:3 + 2 * count]))
 
-    def write(self, addr, values):
+    def write(self, addr, values, idempotent=False):
+        """Write holding registers.
+
+        `idempotent` may ONLY be set by a caller that knows a duplicate of
+        this exact command changes nothing - o2p_lorawan_link.exchange() lists
+        which those are (ABORT, STATUS and BEGIN; COMMIT explicitly is not).
+        It permits ONE class of retry: a reply whose FUNCTION CODE is not
+        FC16, which is definitively an answer to somebody else's question
+        rather than a refusal of ours, so re-asking cannot mask a real
+        rejection. Every other failure, including an exception reply, is
+        raised as before.
+
+        Default False, and it stays False: a blanket write retry would turn a
+        stale reply into a silently repeated non-idempotent command, which is
+        a worse failure than the one it fixes.
+        """
         pdu = struct.pack(">BHHB", 16, addr, len(values), 2 * len(values))
         pdu += b"".join(struct.pack(">H", v) for v in values)
-        return self._check_fc16(self._txn(pdu, 8), addr, len(values))
+        attempts = self.SHAPE_RETRIES if idempotent else 1
+        last = None
+        for attempt in range(attempts):
+            rsp = self._txn(pdu, 8)
+            if rsp[1] == 16 or not idempotent:
+                return self._check_fc16(rsp, addr, len(values))
+            last = IOError("reply is function %d, not FC16" % rsp[1])
+            if self.verbose:
+                print("   stale reply to the write at 0x%04X (%d/%d): %s"
+                      % (addr, attempt + 1, attempts, rsp.hex()))
+            self._drain()
+            time.sleep(0.4)
+        raise last
 
     def _check_fc16(self, rsp, addr, nvalues):
         """The reply checks for an FC16 write, shared by write() and the
@@ -1088,8 +1191,45 @@ def boot_and_verify(bus, args, image=None):
 
 
 def status(bus):
-    v = bus.read(R_STATUS, 1)[0]
-    return (v >> 8) & 0x7F, v & 0xFF, bool(v & LOADER_BIT)
+    """Read the update state machine's status word.
+
+    CORROBORATED, because this single register decides whether the pusher
+    believes an erase has finished, and a stale reply of the right SHAPE is
+    accepted by Bus.read - its retry only catches a misshapen one.
+
+    THE ALIASING THAT FORCED THIS, measured 2026-09-19: the probe's FAULTS
+    register reads 0x0200 whenever TEMP_OVER is set, i.e. on every run with
+    the tip over 60 C. Decoded here that is st=(0x0200>>8)&0x7F = 2 = READY
+    and err = 0 = NONE - a perfect, plausible "ready, no error". A stale
+    FAULTS frame landing on a status poll therefore told a 460-block push
+    that the staging-slot erase was complete while it was still running; the
+    tool sent blocks into a probe that could not answer and every one of them
+    timed out. A hot probe made it systematic rather than unlucky.
+
+    Two agreeing reads do not make a stale frame impossible, but the same
+    wrong value has to arrive twice with a fresh exchange in between.
+    """
+    # A DISCRIMINATOR, NOT JUST AGREEMENT. Two equal reads were the first
+    # attempt and the codex review of 2026-09-19 was right to reject them:
+    # repeated transmissions produce repeated stale replies, so agreement
+    # proves the stream is CONSISTENT, not that it is answering THIS request.
+    # Feeding the real function two stale 0x0200 frames returned
+    # (2, 0, False) - "READY, NONE" - which is the exact aliasing this was
+    # written to catch.
+    #
+    # So interleave a register that reads DIFFERENTLY. If the stream is offset
+    # by one, the second status read returns the probe register's answer and
+    # the mismatch is visible; if it is aligned, both status reads agree AND
+    # the probe read looks like itself. A stale frame now has to imitate two
+    # different registers in the right order to get through.
+    for _ in range(3):
+        first = bus.read(R_STATUS, 1)[0]
+        probe = bus.read(R_RECV_HI, 2)          # a different width and address
+        second = bus.read(R_STATUS, 1)[0]
+        if first == second and len(probe) == 2:
+            return (first >> 8) & 0x7F, first & 0xFF, bool(first & LOADER_BIT)
+    raise IOError("status could not be read against an interleaved probe - "
+                  "the reply stream is offset (last 0x%04X)" % first)
 
 
 def show_status(bus):
@@ -2356,9 +2496,13 @@ def push(bus, image, block_bytes, retries, no_resume=False):
         # Length, CRC and BEGIN in one frame - the form that also fits a
         # 40-byte `A8` downlink. The probe applies the command after the
         # numbers.
+        # idempotent=True: o2p_lorawan_link.exchange() names BEGIN as one of
+        # the commands a duplicate cannot harm, and over LoRaWAN this write
+        # is a prime target for a stale read reply - it killed a 460-block
+        # push on 2026-09-19 after the read path had already recovered three.
         bus.write(R_CMD, [CMD_BEGIN,
                           len(image) >> 16, len(image) & 0xFFFF,
-                          crc >> 16, crc & 0xFFFF])
+                          crc >> 16, crc & 0xFFFF], idempotent=True)
         wait_for(bus, STATES.index("READY"), 10.0, "the staging-slot erase")
         seq, sent = 0, 0
     else:

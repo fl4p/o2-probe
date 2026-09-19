@@ -192,8 +192,34 @@ enum {
  * firmware continues to back off first and the hardware cutoff remains the
  * backstop for the case where firmware is the thing that failed. Two
  * mechanisms at the same threshold would be one mechanism. */
-#define O2P_HEATER_TIP_LIMIT_C100  8200
-#define O2P_HEATER_TIP_RELEASE_C100 7700
+/* The tip limit programmed into the TMP117's therm-mode alert, in 0.01 C.
+ *
+ * IT LIVES HERE, NOT IN main.c, since 2026-09-19. main.c is the only
+ * translation unit that programs it, but it is not the only one that has to
+ * REASON about it: the ladder assertions compare it against the two constants
+ * below, and the host tests - which cannot include main.c - had copied the
+ * number as a bare `8500` in two places. When the ladder moved +10 K those
+ * copies silently became assertions about a threshold that no longer existed,
+ * and both tests failed for the right reason by luck rather than design.
+ * A protection threshold with two definitions is a protection threshold that
+ * can disagree with itself. */
+#define O2P_TIP_LIMIT_C100 9500
+
+/* 92.00 C / 87.00 C release, raised from 82.00/77.00 on 2026-09-19 (Fab:
+ * "pump up the heater so the tip gets to 90 C", then "raise and push"). Same
+ * +2 K over the highest commandable setpoint and the same 5 K hysteresis as
+ * before; the TMP117 cutoff moved with it and is still 3 K above. The ladder
+ * is asserted in main.c and this shift keeps every rung of it. */
+#define O2P_HEATER_TIP_LIMIT_C100  9200
+/* ONE hysteresis for every tip clamp. heater_ctl.c derives each clamp's
+ * release as (limit in force - this), so the annotated 80.00 C clamp gets its
+ * own correctly ordered release instead of borrowing the normal clamp's - see
+ * the note at the release site. O2P_HEATER_TIP_RELEASE_C100 remains as the
+ * normal clamp's release for the ladder assertions and the tests that pin it,
+ * and is DERIVED so the two can no longer drift apart. */
+#define O2P_HEATER_TIP_HYST_K100   500
+#define O2P_HEATER_TIP_RELEASE_C100 \
+    (O2P_HEATER_TIP_LIMIT_C100 - O2P_HEATER_TIP_HYST_K100)
 /* 80.00 C: the tip clamp while SAFETY is in the annotated state - a tip law
  * in command, its sensor valid, and the hardware therm backstop known down.
  * Fab's order 2026-09-11: "unattended loop: annotate and regulate (keep

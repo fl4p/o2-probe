@@ -2267,8 +2267,11 @@ static void test_dt_clamp_binds_and_has_hysteresis(void)
 static void test_tip_limit_is_below_the_hardware_alert(void)
 {
     /* Firmware must back off before the TMP117's therm-mode alert fires, or
-     * the two mechanisms are one mechanism. 8500 is what main.c programs. */
-    TEST_ASSERT_TRUE(O2P_HEATER_TIP_LIMIT_C100 < 8500);
+     * the two mechanisms are one mechanism. O2P_TIP_LIMIT_C100 is what main.c
+     * programs; it moved to heater_ctl.h on 2026-09-19 precisely so this
+     * assertion compares against the real threshold instead of a copy that
+     * cannot notice when the real one moves. */
+    TEST_ASSERT_TRUE(O2P_HEATER_TIP_LIMIT_C100 < O2P_TIP_LIMIT_C100);
     TEST_ASSERT_TRUE(O2P_HEATER_TIP_RELEASE_C100 < O2P_HEATER_TIP_LIMIT_C100);
 }
 
@@ -3203,7 +3206,10 @@ static void test_runaway_without_any_reference_is_unevaluable_not_ok(void)
     o2p_heater_in_t in = hin_healthy();
     in.chamber_valid = false;
     in.die_valid = false;
-    in.t_tip_c100 = 9000;                       /* alarmingly hot, unprovable */
+    /* Alarmingly hot and unprovable: 8 K ABOVE THE CLAMP, expressed against
+     * the constant so the case survives the ladder moving. A literal here
+     * silently became a below-the-clamp temperature when it moved +10 K. */
+    in.t_tip_c100 = (int16_t)(O2P_HEATER_TIP_LIMIT_C100 + 800);
     o2p_heater_out_t out;
     for (unsigned i = 0; i < 600u; i++) {
         o2p_heater_ctl_step(&st, &cfg, &in, i, &out);
@@ -7217,8 +7223,12 @@ static void test_tip_setpoint_and_consent_are_bounded_on_the_wire(void)
 {
     uint8_t req[16], rsp[O2P_MB_MAX_ADU];
 
-    /* Above the 80.00 C bound. */
-    const uint8_t hot[] = {0x03, 0x06, 0x00, 0x49, 0x1F, 0x90};   /* 81.44 C */
+    /* Above the commandable bound, built from the constant rather than
+     * spelled as wire bytes: an over-bound setpoint has to stay over the
+     * bound when the bound moves. */
+    const uint16_t hot_sp = (uint16_t)(O2P_HEATER_TEST_SP_MAX_C100 + 144);
+    const uint8_t hot[] = {0x03, 0x06, 0x00, 0x49,
+                           (uint8_t)(hot_sp >> 8), (uint8_t)(hot_sp & 0xFFu)};
     size_t n = framed(req, hot, sizeof(hot));
     o2p_mb_dispatch(req, n, 3, &handlers, rsp);
     TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE, rsp[2]);
@@ -7861,7 +7871,8 @@ static void test_a_rejected_setpoint_frame_changes_no_register(void)
     TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&r, O2P_REG_HTEST_BASE, 5u, ok));
 
     /* Disarm plus an illegal setpoint in one frame: all-or-nothing. */
-    uint16_t bad[5] = { 0u, 3000u, 9000u, 111u, 22u };
+    uint16_t bad[5] = { 0u, 3000u,
+                        (uint16_t)(O2P_HEATER_TEST_SP_MAX_C100 + 1), 111u, 22u };
     TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_VALUE,
         o2p_regmap_write(&r, O2P_REG_HTEST_BASE, 5u, bad));
     TEST_ASSERT_TRUE(r.heater_test_armed);
@@ -8085,16 +8096,71 @@ static void test_consent_is_never_carried_across_a_migration(void)
         "one flipped bit in the magic must not read as consent");
 }
 
+/* The annotated clamp needs its OWN release, and the +10 K ladder shift of
+ * 2026-09-19 is what proved it: a SHARED release sat 7 K ABOVE the annotated
+ * limit and inverted its hysteresis, so a steady 85 C chattered the clamp and
+ * let heat be commanded above the 80.00 C bound the annotated state promises.
+ * The ladder assertion could not see it - it compares the release against the
+ * NORMAL limit. Codex review of the 0x0026 change. */
+static void test_every_tip_clamp_has_a_release_below_its_own_limit(void)
+{
+    TEST_ASSERT_TRUE_MESSAGE(
+        O2P_HEATER_TIP_HYST_K100 > 0,
+        "a clamp with no hysteresis chatters at 1 Hz");
+    TEST_ASSERT_TRUE_MESSAGE(
+        O2P_HEATER_TIP_LIMIT_ANNOTATED_C100 - O2P_HEATER_TIP_HYST_K100
+            < O2P_HEATER_TIP_LIMIT_ANNOTATED_C100,
+        "the annotated clamp's release must sit below the annotated limit");
+    /* The specific inversion, stated as the thing it must never become: the
+     * normal clamp's release above the annotated limit. */
+    TEST_ASSERT_TRUE_MESSAGE(
+        O2P_HEATER_TIP_RELEASE_C100 > O2P_HEATER_TIP_LIMIT_ANNOTATED_C100,
+        "this is the condition that made a SHARED release wrong - if it ever "
+        "goes false again a shared release would be harmless, but the "
+        "per-limit derivation in heater_ctl.c is what must stay");
+}
+
+/* Behavioural counterpart: hold a tip between the annotated limit and the
+ * normal clamp's release and prove the clamp STAYS latched. Under the shared
+ * release this alternated latched/cleared every cycle. */
+static void test_the_annotated_clamp_does_not_chatter_between_the_limits(void)
+{
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_dew();
+    o2p_heater_in_t in = hin_dew();
+    o2p_heater_out_t out;
+
+    /* 85.00 C: above the 80.00 annotated limit, below the 87.00 release the
+     * normal clamp uses. The dew law is in command, so the annotated limit
+     * is the one in force. */
+    in.t_tip_c100 = 8500;
+    in.t_chamber_c100 = 8400;
+    in.t_cell_c100 = 5000;
+    for (unsigned i = 0; i < 10u; i++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, i, &out);
+        TEST_ASSERT_TRUE_MESSAGE((out.block & O2P_HB_TIP_LIMIT) != 0u,
+            "the annotated clamp must stay latched at 85 C, not chatter");
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.duty_x100,
+            "no heat may be commanded above the annotated 80 C bound");
+    }
+
+    /* Below its own release it lets go. */
+    in.t_tip_c100 = 7400;
+    o2p_heater_ctl_step(&st, &cfg, &in, 20u, &out);
+    TEST_ASSERT_EQUAL_UINT16(0u, out.block & O2P_HB_TIP_LIMIT);
+}
+
 static void test_the_tip_thresholds_form_a_ladder(void)
 {
     /* Host copy of the assert in main.c. main.c is not host-buildable, and
      * this ordering is the whole protection argument: setpoint < firmware
-     * clamp < hardware cutoff. The 85.00 C figure is the TMP117 therm-mode
-     * threshold main.c programs (O2P_TIP_LIMIT_C100). */
+     * clamp < hardware cutoff. O2P_TIP_LIMIT_C100 is the TMP117 therm-mode
+     * threshold main.c programs, shared from heater_ctl.h since 2026-09-19. */
     TEST_ASSERT_TRUE_MESSAGE(
         O2P_HEATER_TEST_SP_MAX_C100 < O2P_HEATER_TIP_LIMIT_C100,
         "the clamp must sit above every commandable setpoint");
-    TEST_ASSERT_TRUE_MESSAGE(O2P_HEATER_TIP_LIMIT_C100 < 8500,
+    TEST_ASSERT_TRUE_MESSAGE(O2P_HEATER_TIP_LIMIT_C100 < O2P_TIP_LIMIT_C100,
         "firmware must back off before the hardware cutoff");
     TEST_ASSERT_TRUE(O2P_HEATER_TIP_RELEASE_C100 < O2P_HEATER_TIP_LIMIT_C100);
 
@@ -9517,6 +9583,13 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         regulates cell-side T_EXT to 4 K above the gas dew point
      *         whenever T_EXT is valid (Fab's order, 2026-09-11); no new
      *         register, HEATER_BLOCK bits unchanged, the law is new.
+     * 0x0026: the tip protection LADDER moves +10 K so 90.00 C is a legal
+     *         setpoint (Fab's order, 2026-09-19). Setpoint 80->90, firmware
+     *         clamp 82->92 (release 77->87), TMP117 therm cutoff 85->95, and
+     *         O2P_TIP_LIMIT_C100 moves from main.c to heater_ctl.h so the
+     *         ladder has one definition rather than three copies. No wire
+     *         FORMAT change - 0x0049 simply accepts a wider range - but the
+     *         bound is part of the wire contract, so the version moves.
      * 0x0012: poke mailbox 0x0198 and wide poke 0x01B0 - the WRITE
      *         counterpart of the peek (Fab's order, 2026-09-11); SRAM
      *         .data/.bss writes only, flash/peripherals/SHARED refused.
@@ -9529,7 +9602,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         steps the thermal mass cannot make are rejected for a cycle.
      * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
      *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
-    TEST_ASSERT_EQUAL_HEX16(0x0025u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x0026u, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_HEX16(0xC000u,
         (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
     /* The staleness cut must win the race against the watchdog's fastest
@@ -11712,6 +11785,8 @@ int main(void)
     RUN_TEST(test_a_rejected_heater_test_frame_changes_nothing);
     RUN_TEST(test_the_heater_test_block_is_not_part_of_the_config);
     RUN_TEST(test_the_heater_test_block_does_not_shadow_the_updater);
+    RUN_TEST(test_every_tip_clamp_has_a_release_below_its_own_limit);
+    RUN_TEST(test_the_annotated_clamp_does_not_chatter_between_the_limits);
     RUN_TEST(test_the_tip_thresholds_form_a_ladder);
     RUN_TEST(test_zeroing_the_gains_stops_the_heater);
     RUN_TEST(test_p_only_tuning_stays_legal);

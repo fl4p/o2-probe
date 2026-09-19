@@ -58,9 +58,24 @@
  * extrapolation - flagged, NOT discarded (PLAN.md:211-228). */
 #define O2P_TEMP_OVER_C100 6000
 
-/* The absolute tip limit programmed into the TMP117's therm-mode alert. Above
- * the ~75 C the pile reaches, so it is a fault limit and not a thermostat. */
-#define O2P_TIP_LIMIT_C100 8500
+/* The absolute tip limit programmed into the TMP117's therm-mode alert is
+ * O2P_TIP_LIMIT_C100, now defined in heater_ctl.h beside the two firmware
+ * thresholds it forms a ladder with - see the note there. It is above the
+ * ~75 C the pile reaches, so it is a fault limit and not a thermostat.
+ *
+ * 95.00 C since 2026-09-19, raised from 85.00 (Fab: "pump up the heater so
+ * the tip gets to 90 C", then "raise and push"). The whole ladder moved
+ * +10 K together - setpoint 80->90, firmware clamp 82->92, this cutoff
+ * 85->95 - so every separation below is unchanged and the assertions still
+ * hold. Raising only the setpoint would have collapsed the ladder, which is
+ * the failure these assertions exist to catch.
+ *
+ * WHAT THIS COSTS, stated because a protection threshold should never move
+ * silently: the cell's datasheet maximum is 60 C, so a 90 C tip is 30 K over
+ * it, and O2P_TEMP_OVER_C100 (60.00) will stand in FAULTS throughout. That is
+ * Fab's call and he has made it; it is not a limit this firmware can decide
+ * to respect on his behalf. Q2 and the 2512 resistors are unaffected - 1.34 W
+ * into a 1 W part pair is the same dissipation it always was. */
 /* The three tip thresholds are defined in three different files and only this
  * one sees all of them, so the ordering that makes them a LADDER is asserted
  * here: a commandable setpoint below the firmware clamp below the hardware
