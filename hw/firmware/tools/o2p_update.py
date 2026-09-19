@@ -2392,7 +2392,9 @@ def _push_lookahead(bus, image, block_bytes, retries, seq, sent, stats=None):
             stats["retries"] = stats.get("retries", 0) + 1
             last_rx = None        # a resync is not a cycle
             if tries[blk] > retries:
-                raise SystemExit("!! block %d failed: %s" % (seq + blk, e))
+                raise SystemExit("!! block %d failed: %s\n   %s"
+                                 % (seq + blk, e,
+                                    block_reject_reason(bus, seq + blk)))
             # Whatever was queued behind the failure was dropped by the
             # node (its BUS FLUSH contract); nothing pending is written as
             # far as the probe is concerned. The resync read is a plain
@@ -2477,6 +2479,52 @@ def read_block_max(bus, attempts=BLOCK_MAX_ATTEMPTS,
                      "attempts: %s" % (attempts, last))
 
 
+def block_reject_reason(bus, seq):
+    """Why the loader refused a block, in ITS words rather than Modbus's.
+
+    update.c returns O2P_MB_EX_ILLEGAL_VALUE (3) for FIVE different reasons -
+    ERR_STATE, ERR_LENGTH, ERR_SEQUENCE, ERR_ALIGN, ERR_NOIMAGE - and keeps
+    the specific one in the low byte of R_STATUS precisely so "a master that
+    missed a response can still find out what went wrong" (update.h:114).
+    This tool threw that away and reported the exception number alone, which
+    is the same number for all five. Measured 2026-09-19: a LoRaWAN push died
+    on "block 6: Modbus exception 3 (illegal value)" and the log could not
+    distinguish "block 6 landed during the session loss, resume from NEXT_SEQ"
+    from "the loader left RECEIVING, restart from 0" - opposite actions.
+
+    Fail-soft on purpose. This runs on a path where the link is ALREADY
+    misbehaving, so the diagnostic read is the least likely thing to succeed,
+    and it must never replace the original failure with its own. An
+    unreadable status is reported as unknown, never as clean: silence here
+    means the reason is unavailable, not that there was no reason.
+    """
+    try:
+        st_raw = bus.read(R_STATUS, 1)[0]
+    except Exception as e:                 # noqa: BLE001 - diagnostic only
+        return "loader status unreadable (%s), so the reason is UNKNOWN" % e
+    state, err = (st_raw >> 8) & 0x7F, st_raw & 0xFF
+    loader = " (bootloader answering)" if st_raw & 0x8000 else ""
+    txt = "loader state %s, error %s%s" % (
+        STATES[state] if state < len(STATES) else state,
+        ERRORS[err] if err < len(ERRORS) else err, loader)
+
+    # NEXT_SEQ only means something for a sequence complaint, and quoting it
+    # otherwise invites resuming from it after a STATE error, where the whole
+    # transfer is gone.
+    if err == ERRORS.index("SEQUENCE"):
+        try:
+            nxt = bus.read(R_NEXT_SEQ, 1)[0]
+        except Exception as e:             # noqa: BLE001
+            return txt + "; NEXT_SEQ unreadable (%s)" % e
+        txt += "; it wants block %d, this was block %d" % (nxt, seq)
+        txt += (" -- resume from %d" % nxt if nxt <= seq
+                else " -- it is AHEAD, so the block landed and the reply was lost")
+    elif err in (ERRORS.index("STATE"), ERRORS.index("NONE")):
+        txt += ("; NOT a sequence fault, so do NOT resume from NEXT_SEQ - "
+                "the staged image is gone and the transfer restarts at 0")
+    return txt
+
+
 def push(bus, image, block_bytes, retries, no_resume=False):
     if block_bytes % ALIGN or block_bytes < ALIGN:
         raise SystemExit("!! block size must be a multiple of %d bytes" % ALIGN)
@@ -2547,7 +2595,9 @@ def push(bus, image, block_bytes, retries, no_resume=False):
                 except (IOError, ModbusException) as e:
                     stats["retries"] = stats.get("retries", 0) + 1
                     if attempt == retries:
-                        raise SystemExit("!! block %d failed: %s" % (seq, e))
+                        raise SystemExit("!! block %d failed: %s\n   %s"
+                                         % (seq, e,
+                                            block_reject_reason(bus, seq)))
                     # Resynchronise rather than guess: the probe knows which
                     # block it wants next, and a lost REPLY looks exactly
                     # like a lost request from here.
