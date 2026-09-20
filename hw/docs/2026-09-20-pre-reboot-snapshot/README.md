@@ -13,7 +13,7 @@ calibration comes back different, that is visible rather than inferred later.
 | register | value | why it is here |
 |---|---|---|
 | `gas_fw_version` | 37 = **0x0025** | the knee model is NOT live; 0x0028 is the target |
-| `gas_build_id` | 1227967052 = **0x49301C0C** | becomes **0x02B7ED0A** if the flash lands - this is the readback that proves it |
+| `gas_build_id` | 1227967052 = **0x49314A4C** | becomes **0x02B7ED0A** if the flash lands - this is the readback that proves it |
 | `gas_hw_rev` | 10 | Rev A |
 | `gas_cal_state` | **6** | the air point in force |
 | `gas_cal_result` | 0 | last calibration outcome |
