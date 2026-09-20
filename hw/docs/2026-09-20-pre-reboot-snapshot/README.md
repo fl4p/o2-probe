@@ -13,7 +13,7 @@ calibration comes back different, that is visible rather than inferred later.
 | register | value | why it is here |
 |---|---|---|
 | `gas_fw_version` | 37 = **0x0025** | the knee model is NOT live; 0x0028 is the target |
-| `gas_build_id` | 1227967052 = **0x49314A4C** | becomes **0x02B7ED0A** if the flash lands - this is the readback that proves it |
+| `gas_build_id` | 1227967052 = **0x49314A4C** | see the correction below - the acceptance value I wrote here was wrong |
 | `gas_hw_rev` | 10 | Rev A |
 | `gas_cal_state` | **6** | the air point in force |
 | `gas_cal_result` | 0 | last calibration outcome |
@@ -44,3 +44,60 @@ CMD_BEGIN on the resume path, so it sent a block write to a loader that never
 got BEGIN in that session. After a power cycle the next push starts from BEGIN
 anyway. If writes are answered then, it was the resume path; if they are still
 not answered, it is the probe's reply path and no transport change fixes it.
+
+
+---
+
+## CORRECTED 2026-09-20 17:xx, after the flash landed
+
+**The flash landed. Probe 3 reads `gas_fw_version` = 40 = 0x0028 and
+`gas_build_id` = 1119350026 = 0x42B7ED0A. The knee model is live.**
+
+**The acceptance value above was wrong and it was my error.** I wrote
+"becomes 0x02B7ED0A" by taking the commit prefix `2b7ed0a` and padding it,
+without checking how `regmap.c` composes the word it actually publishes.
+farming-77 caught it. `regmap.h:214-231` and `regmap.h:1140-1141`:
+
+| bits | meaning |
+|---|---|
+| 31 | working tree was dirty at build time (`O2P_BUILD_ID_FLAG_DIRTY`) |
+| 30 | debug build (`O2P_BUILD_ID_FLAG_DEBUG`) |
+| 29..28 | reserved |
+| 27..0 | 7-hex-digit commit prefix |
+
+Decoding both images with that:
+
+| | raw | dirty | debug | commit |
+|---|---|---|---|---|
+| before | 0x49314A4C | 0 | **1** | 9314a4c |
+| after | 0x42B7ED0A | 0 | **1** | **2b7ed0a** |
+
+So the running image IS commit 2b7ed0a, from a CLEAN tree. The only difference
+from what I expected is bit 30.
+
+**The right test is to mask, not to match**, because it survives someone
+building with debug off:
+
+    (gas_build_id & 0x0FFFFFFF) == 0x2B7ED0A
+
+**The debug bit is not disqualifying, and saying otherwise would invalidate my
+own baselines.** `platformio.ini:92` carries `-DO2P_DEBUG_ENABLE=1` in the
+DEFAULT environment ("Enabled by default for bench bring-up and
+characterization"); a separate env sets it to 0. It gates the Modbus peek/poke
+mailbox, GPIO diagnostics and crash breadcrumbs - diagnostic surface, not the
+measurement path. And the pre-flash image has bit 30 set too, which means every
+number in the oven-soak and in-pile analyses was measured on a debug build. A
+standard that rejects this image rejects the evidence the model was fitted
+from.
+
+**The premise of this snapshot did not happen as stated.** I took it expecting
+the node reboot to power-cycle the probe. `node_uptime_s` shows **zero resets**
+across the whole operation - 84157 at 16:20:51 through 85748 at 16:47:22,
+continuous - while `gas_probe_uptime_s` reset once, 85299 -> 23 between
+16:40:55 and 16:45:15. So the probe was restarted by its own INSTALL, not by
+the node's rail going away. The caveat farming-77 raised stands and I am not
+claiming past it: a software `esp_restart()` folds elapsed time into the RTC
+clock (`main.cpp:2701`) and would look identical to no reboot at all.
+
+The snapshot was still worth taking - the bench-air comparison it sets up is
+unaffected, and that is the test that matters next.
