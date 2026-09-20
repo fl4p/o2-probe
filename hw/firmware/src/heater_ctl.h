@@ -726,15 +726,27 @@ enum {
  * O2P_HEATER_DRY_RH_X100 blocks nothing underground. The whole of the gate's
  * protection there rested on the margin.
  *
- * AND THE TWO ARE NOT INDEPENDENT EVIDENCE. The margin is T_EXT minus the GAS
- * dew point, and that dew point is Magnus on the SAME chamber RH: depressed RH
- * puts the dew point too low, which puts the margin too HIGH. They fail
- * together and for one reason. At 12:01:00 on 09-17, probe already in the pile
- * at T_EXT 51.15 C, the probe read RH 58.90 % and margin 8.56 K - BOTH gate
- * conditions satisfied, on the one sample of 76 where the margin cleared 6.00 K.
- * The gate would have withheld the floor inside the windrow. (This is the codex
- * review's finding 2, which the burial data turns from a hypothetical into an
- * observation.)
+ * WHAT I FIRST WROTE HERE WAS WRONG, and it is left visible rather than
+ * overwritten. I claimed the two conditions were common-mode: that a depressed
+ * RH puts the computed dew point too low and so the margin too HIGH, and that
+ * they therefore fail together for one reason. THE ARITHMETIC REFUTES IT
+ * (codex review of 9329c7c). Dew point is a function of vapour pressure, not
+ * of temperature: warming a gas at constant vapour pressure leaves Td exactly
+ * where it was, because RH falls by precisely the factor Magnus then undoes -
+ * a saturated gas at 40.00 C reads 59.68 % at 50.00 C and 36.85 % at 60.00 C,
+ * and Td computes as 40.00 C in all three. So heating collapses the RH READING
+ * and does NOT corrupt the margin. Corrupting the margin needs a BIASED
+ * sensor - a wetted, de-creeping SHT45 - which is the case the floor exists
+ * for and which no reading here can detect.
+ *
+ * WHAT THE BURIAL DOES ESTABLISH is narrower and still sufficient. At 12:01:00
+ * on 09-17, probe in the pile at T_EXT 51.15 C, it read RH 58.90 % and a margin
+ * of 8.56 K: both gate conditions satisfied, on the one sample of 76 where the
+ * margin cleared 6.00 K. The gate would have engaged INSIDE THE WINDROW. It
+ * does NOT establish that condensation was imminent at that instant - the cell
+ * really was ~9 K above the measured gas dew point - only that the gate would
+ * have withheld the floor, which is the backstop against exactly the lying
+ * sensor the margin cannot see, in the one environment where it matters most.
  *
  * So gate additionally on ABSOLUTE CELL TEMPERATURE, which no humidity error
  * can move: a pile is 50..77 C and a bench or a transit box is ~20 C. This is
@@ -751,7 +763,23 @@ enum {
  * 35.00 C with release at 37.00: far above any bench (probe 3 sat at 20.6..21.6
  * C through the 2026-09-20 acceptance run) and far below any pile, including
  * the 48.61 C the probe read on its way in. Hysteresis in the same direction as
- * the other two - once gated it takes the EXIT number to put the floor back. */
+ * the other two - once gated it takes the EXIT number to put the floor back.
+ *
+ * WHAT THIS DOES NOT BUY, stated because the numbers above invite the opposite
+ * reading (codex review finding 1). This is a lockout for the HOT case only.
+ * Below 35.00 C it adds no protection whatever against a biased humidity
+ * sensor: a cell at 21.00 C in a 22.00 C chamber reporting 45 % RH shows an
+ * apparent margin of +11.49 K while an actual 98 % RH puts the cell 0.67 K
+ * BELOW the dew point, and all three conditions pass. The same holds at 5/6 C.
+ * A cool wet heap, a cooling pile and a damp transit box are therefore still
+ * inside the hole. The 13.4 K between the hottest bench sample and the 35.00 C
+ * entry, and the 13.6 K between it and the coolest in-pile reading, are gaps
+ * between OBSERVED SAMPLES on one probe - they are not an established minimum
+ * condensing temperature, and no such minimum is known for this deployment.
+ * "Cool" is not evidence of "cannot condense"; it is only evidence of "not in
+ * a working windrow", which is all this term claims. An explicit storage mode,
+ * or a dryness criterion that does not come from the humidity sensor, is what
+ * would close the rest. Fab's call. */
 #define O2P_HEATER_DRY_MAX_CELL_C100      3500
 #define O2P_HEATER_DRY_MAX_CELL_EXIT_C100 3700
 

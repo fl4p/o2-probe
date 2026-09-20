@@ -6056,6 +6056,15 @@ static void test_the_dry_gate_needs_both_dryness_and_margin(void)
     /* Wet gas, generous margin (a hot cell in cooler saturated air): no gate,
      * however long it runs. */
     o2p_heater_in_t humid = hin_dry_bench();
+    /* RE-DERIVED for the bench fixture (codex review of 9329c7c, finding 2).
+     * Raising RH alone at the fixture's own 22.00 C chamber drives the margin
+     * to -0.33 K, so the MARGIN refused entry and this case stopped testing
+     * the RH condition at all - deleting that check would no longer have
+     * failed it. A 15.00 C chamber at 96 %RH is Td 14.37, which is 6.63 K
+     * under the 21.00 C cell: comfortably OVER the 6.00 K entry, so only the
+     * RH term can refuse. Literally the comment's "hot cell in cooler
+     * saturated air". */
+    humid.t_chamber_c100 = 1500;
     humid.rh_x100 = 9600u;
     o2p_heater_ctl_reset(&st);
     for (uint32_t t = 0u; t < 2u * O2P_HEATER_DRY_ASSERT_S; t++) {
@@ -6071,8 +6080,18 @@ static void test_the_dry_gate_needs_both_dryness_and_margin(void)
      * over a 53.00 C chamber is Td = 45.9 C, 5.1 K under the cell: dry by RH,
      * not dry by margin, and still satisfying the dew law's own 4 K. */
     o2p_heater_in_t thin = hin_dry_bench();
-    thin.t_chamber_c100 = 5300;
-    thin.rh_x100 = 7000u;
+    /* RE-DERIVED likewise. The old 53.00 C chamber was paired with the old
+     * fixture's 51.00 C cell; against the 21.00 C bench cell it is a -24.9 K
+     * margin, which is not "thin" and lets the DEW LAW satisfy the duty
+     * assertion below instead of the floor. 41.63 %RH over a 40.00 C chamber
+     * is Td 24.50, exactly 5.50 K under a 30.00 C cell: dry by RH, inside the
+     * 6.00 K entry, and still clear of the dew law's own 4.00 K target, so any
+     * duty here is the FLOOR's. Cell kept under the 35.00 C pile lockout so
+     * that term is not what refuses. */
+    thin.t_chamber_c100 = 4000;
+    thin.t_cell_c100    = 3000;
+    thin.t_tip_c100     = 3050;
+    thin.rh_x100        = 4163u;
     o2p_heater_ctl_reset(&st);
     for (uint32_t t = 0u; t < 2u * O2P_HEATER_DRY_ASSERT_S; t++) {
         o2p_heater_ctl_step(&st, &cfg, &thin, t, &out);
@@ -10169,9 +10188,11 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         register, HEATER_BLOCK bits unchanged, the law is new.
      * 0x002A: the dry-air idle gate gains a PILE LOCKOUT (Fab's order,
      *         2026-09-20). NO register moves and no format changes, but the
-     *         gate's MEANING narrows: DRY_IDLE can no longer be published by a
-     *         probe whose cell is at or above 35.00 C, so a reader that saw
-     *         the flag in a warm environment on 0x0029 will not see it here.
+     *         gate's MEANING narrows: a probe whose cell is at or above
+     *         35.00 C can no longer ENTER the gate, and one already in it is
+     *         put back at 37.00 C. Between those two numbers an engaged gate
+     *         still publishes DRY_IDLE - the exclusion is unconditional only
+     *         at 37.00 C and above, which the hysteresis test pins at 36.00.
      *         Measured against the 2026-09-17 burial, where the old pair of
      *         conditions was satisfied INSIDE the pile.
      * 0x0029: four fixes to the dry-air idle gate from the codex review of
