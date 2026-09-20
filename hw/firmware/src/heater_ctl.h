@@ -718,6 +718,19 @@ enum {
 
 /* THE PILE LOCKOUT, FW 0x002A - the one gate input humidity cannot fake.
  *
+ * NOR IS THERE A THERMAL-COUPLING DETECTOR, proposed the same day and
+ * withdrawn. The idea was that wet compost conducts heat away and still air
+ * does not, so the duty needed to hold a gradient would betray the
+ * environment. The numbers that motivated it were MIS-PAIRED - the pile's
+ * tip-minus-CHAMBER against the bench's chamber-minus-CELL. Paired correctly
+ * there is almost nothing in it: the floor holds its 2.00 K gradient at 1.91 %
+ * duty in a 77 C windrow (09-17 15:45) and 2.23 % on a 21 C bench, because the
+ * tip-to-cell path is INTERNAL to the probe and does not run through the
+ * medium. tip-minus-chamber is 0.30 K in the pile against ~0.08 on the bench,
+ * a factor of three and confounded by Rev A bonding the chamber to the tip's
+ * copper. There is also no in-pile data with the heater GATED to calibrate
+ * against, because the gate has never run underground.
+ *
  * MEASURED, probe 3 buried 24.2 h in the windrow, 2026-09-17/18 (VM, 26 h
  * window from 12:00): chamber RH ran 38.96..91.26 % and was UNDER 90 % for 238
  * of 270 samples. The SHT45 is on the tip's copper, the pile holds the probe at
@@ -764,6 +777,22 @@ enum {
  * C through the 2026-09-20 acceptance run) and far below any pile, including
  * the 48.61 C the probe read on its way in. Hysteresis in the same direction as
  * the other two - once gated it takes the EXIT number to put the floor back.
+ *
+ * WHY THERE IS NO SEPARATE DEW-POINT CEILING, asked and answered 2026-09-20
+ * ("can't it auto-detect that?"). The obvious repair for the RH term's
+ * inertness underground is to gate on ABSOLUTE humidity instead: dew point
+ * does not move with temperature, the buried probe read Td 40.15..74.70 C over
+ * 258 samples while the bench reads ~9.5 C, and that looks like a clean
+ * discriminator. It is - and it is ALREADY IMPLIED. Entry needs
+ * margin >= O2P_HEATER_DRY_MARGIN_K100, i.e. cell >= Td + 6.00 K, and this
+ * lockout needs cell < 35.00 C; together they force Td < 29.00 C. The engaged
+ * state is the same one kelvin wider (margin > 5.00, cell < 37.00, so
+ * Td < 32.00). A ceiling at 30.00 C could therefore never fire, and a pile's
+ * 40..74 C dew point is excluded by the pair already. The margin condition IS
+ * an absolute-humidity test - it asks how far the CELL sits above the gas dew
+ * point - and the lockout is what bounds the cell. Written down because the
+ * redundancy is not obvious, and a future reader looking at the RH term's
+ * failure will reach for exactly this and reinvent dead code.
  *
  * WHAT THIS DOES NOT BUY, stated because the numbers above invite the opposite
  * reading (codex review finding 1). This is a lockout for the HOT case only.
