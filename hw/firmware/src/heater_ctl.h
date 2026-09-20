@@ -723,12 +723,23 @@ enum {
  * does not, so the duty needed to hold a gradient would betray the
  * environment. The numbers that motivated it were MIS-PAIRED - the pile's
  * tip-minus-CHAMBER against the bench's chamber-minus-CELL. Paired correctly
- * there is almost nothing in it: the floor holds its 2.00 K gradient at 1.91 %
- * duty in a 77 C windrow (09-17 15:45) and 2.23 % on a 21 C bench, because the
- * tip-to-cell path is INTERNAL to the probe and does not run through the
- * medium. tip-minus-chamber is 0.30 K in the pile against ~0.08 on the bench,
- * a factor of three and confounded by Rev A bonding the chamber to the tip's
- * copper. There is also no in-pile data with the heater GATED to calibrate
+ * there is little in it: 1.91 % duty held the 2.00 K gradient in the pile at
+ * 09-17 15:45 against 2.23 % on a 21 C bench. THE EXPLANATION I ATTACHED TO
+ * THAT IS ITSELF UNSUPPORTED (same review, finding 4) and is kept only as a
+ * hypothesis: two operating points 14 % apart, neither with a settled trace,
+ * no supply or power normalisation, and duty is the MAX of two laws - so which
+ * law spent it is not established sample by sample, and near a hot cell the
+ * floor's +2 K target approaches the 79 C ceiling. An internal tip-to-cell
+ * path also does not remove parallel paths into the medium. tip-minus-chamber
+ * is 0.30 K in the pile against ~0.08 on the bench, a factor of three,
+ * confounded by Rev A bonding the chamber to the tip's copper.
+ *
+ * WHAT WOULD SETTLE IT, if anyone wants the detector: a known heater PULSE
+ * from a matched starting temperature, with the tip and cell RISE AND DECAY
+ * recorded, repeated in still air and in wet compost across several
+ * temperatures, moistures and contact conditions. Both TMP117s support that;
+ * neither measures the medium directly. It is a candidate measurement, not a
+ * discriminator, until the separation beats drift and repeatability. There is also no in-pile data with the heater GATED to calibrate
  * against, because the gate has never run underground.
  *
  * MEASURED, probe 3 buried 24.2 h in the windrow, 2026-09-17/18 (VM, 26 h
@@ -774,8 +785,15 @@ enum {
  * other unevaluable input here.
  *
  * 35.00 C with release at 37.00: far above any bench (probe 3 sat at 20.6..21.6
- * C through the 2026-09-20 acceptance run) and far below any pile, including
- * the 48.61 C the probe read on its way in. Hysteresis in the same direction as
+ * C through the 2026-09-20 acceptance run) and below the 48.61 C this probe
+ * read on its way into a WORKING windrow. Not "below any pile" - that phrasing
+ * was in the first draft and is wrong (same review, finding 1). A curing or
+ * cooling heap sits near ambient, and ambient here is a Black Forest autumn:
+ * the DWD 1991-2020 normals for the nearest comparable station, Villingen-
+ * Schwenningen at 719 m, are 8.1 / 3.2 / -0.1 C for October / November /
+ * December. A cool wet outer layer, a cooling windrow and a finished heap are
+ * all under 35.00 C and all capable of condensing. This term separates a
+ * probe from a HOT pile; it does not separate it from compost. Hysteresis in the same direction as
  * the other two - once gated it takes the EXIT number to put the floor back.
  *
  * WHY THERE IS NO SEPARATE DEW-POINT CEILING, asked and answered 2026-09-20
@@ -785,10 +803,25 @@ enum {
  * 258 samples while the bench reads ~9.5 C, and that looks like a clean
  * discriminator. It is - and it is ALREADY IMPLIED. Entry needs
  * margin >= O2P_HEATER_DRY_MARGIN_K100, i.e. cell >= Td + 6.00 K, and this
- * lockout needs cell < 35.00 C; together they force Td < 29.00 C. The engaged
- * state is the same one kelvin wider (margin > 5.00, cell < 37.00, so
- * Td < 32.00). A ceiling at 30.00 C could therefore never fire, and a pile's
- * 40..74 C dew point is excluded by the pair already. The margin condition IS
+ * lockout needs cell < 35.00 C; together they force Td < 29.00 C.
+ *
+ * THAT IS TRUE ONLY OF A CEILING CHECKED ON ENTRY, and the first version of
+ * this note got the rest wrong (codex review of a8d0716, finding 2). Retention
+ * relaxes BOTH numbers - margin > 5.00 against cell < 37.00 - so an engaged
+ * gate is bounded at Td < 32.00 C. The permitted band therefore widens by
+ * THREE kelvin, not the one I wrote, and a 30.00 C ceiling applied on every
+ * cycle IS reachable inside it: enter at cell 34.00 C over a 36.00 C chamber
+ * at 59.97 %RH (Td 27.00, margin 7.00), then warm to cell 36.00 C over 38.00 C
+ * at 65.86 %RH (Td 30.50, margin 5.50) - every retention condition still
+ * passes, and a universal ceiling would release the gate where the present
+ * code holds it.
+ *
+ * So: redundant as an ENTRY test, live as a RETENTION test. It is still not
+ * implemented, because the state it would catch has a positive condensation
+ * margin by its own arithmetic (5.50 K) and the case for spending a condition
+ * on it is unmade - but "dead code" was too strong and the distinction is the
+ * whole point. A pile's 40..74 C dew point is excluded by the existing pair
+ * either way. The margin condition IS
  * an absolute-humidity test - it asks how far the CELL sits above the gas dew
  * point - and the lockout is what bounds the cell. Written down because the
  * redundancy is not obvious, and a future reader looking at the RH term's

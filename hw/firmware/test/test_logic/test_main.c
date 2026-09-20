@@ -5750,6 +5750,11 @@ static void test_dew_law_duty_is_monotonic_in_margin(void)
          * the dew law's response to humidity alone. */
         in.t_cell_c100 = 5250;
         const uint16_t d = dew_step_fresh(&cfg, &in, &out);
+        /* NOTE: this sweep does NOT prove the RH term exists - at 21/22 C the
+         * margin reaches its 5.00 K release at 68.79 %RH, long before the
+         * 95 %RH one, so a margin-only build passes here too (codex review of
+         * a8d0716, finding 3). test_the_dry_gate_needs_both_dryness_and_margin
+         * is what pins RH; this one pins monotonicity. */
         TEST_ASSERT_TRUE_MESSAGE(d >= prev, "duty fell as the gas got wetter");
         prev = d;
     }
@@ -6307,7 +6312,13 @@ static void test_the_dry_gate_never_engages_at_pile_temperature(void)
      * Over the 26 h burial RH was under 90 % for 238 of 270 samples.
      *
      * Known-bad calibration for this test: delete the cool_ok term and it
-     * fails, because without it these inputs gate. */
+     * fails, because without it these inputs gate.
+     *
+     * The margin these fixture numbers actually produce is 8.6027 K, not the
+     * 8.56 K the telemetry recorded - the chamber here is 53.00 C against the
+     * burial's 50.58 C, so this is a RECONSTRUCTION of that moment and not a
+     * replay of it. It is the same counterexample either way; the quoted
+     * figure is the probe's, the computed one is this fixture's. */
     o2p_heater_cfg_t cfg = hcfg_default();
     o2p_heater_out_t out;
     o2p_heater_state_t st;
@@ -6368,7 +6379,17 @@ static void test_the_pile_lockout_has_hysteresis_and_releases_hot(void)
 
 static void test_the_pile_lockout_refuses_an_unevaluable_cell(void)
 {
-    /* Guard checklist item 1. No cell reading is not "cool enough". */
+    /* Guard checklist item 1. No cell reading is not "cool enough".
+     *
+     * HONEST LIMIT, stated because this test LOOKS like calibration of the
+     * cell_valid term and is not (codex review of a8d0716, finding 3): it
+     * passes with cool_ok deleted entirely. cell_valid false stops the dew law
+     * being in command at all (heater_ctl.c's dew_law_in_command), so the gate
+     * is never called and cannot publish DRY_IDLE whatever this term says.
+     * What is asserted here is the PUBLIC behaviour - no idle flag without a
+     * cell - which is worth pinning. The validity term inside the gate is
+     * belt-and-braces for a caller that reaches it another way, and no test
+     * here can distinguish it. */
     o2p_heater_cfg_t cfg = hcfg_default();
     o2p_heater_out_t out;
     o2p_heater_state_t st;
