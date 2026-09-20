@@ -2,6 +2,7 @@
 
 #include "psychro.h"
 
+#include <math.h>
 #include <stddef.h>
 
 void o2p_heater_ctl_reset(o2p_heater_state_t *st)
@@ -782,11 +783,23 @@ static bool dry_idle_gate(o2p_heater_state_t *st, const o2p_heater_in_t *in,
 {
     /* Credit the interval the floor just spent driving, by the unreachable
      * detector's rules: a gap longer than the caller's cadence contract is
-     * not observation. Saturating, so the debt cannot wrap. */
+     * not observation. Saturating, so the debt cannot wrap.
+     *
+     * Then cap what a SINGLE interval may claim at
+     * O2P_HEATER_DRY_CREDIT_MAX_S, because a command does not outlive the
+     * actuator's staleness cut: heater.c drops drive O2P_HEATER_STALE_MS
+     * after the apply() that set it, so at a 3..5 s cadence - inside the
+     * detector's gap contract, and reachable whenever the 1 Hz cycle slips -
+     * the floor heats for 2 s and this credited the whole interval. The debt
+     * would then be paid in wall-clock the ring never saw (codex review
+     * 2026-09-20, P1 #1). Under-crediting is the safe direction: it runs the
+     * floor longer, costing energy, never condensation. */
     if (floor_ran_last_cycle) {
         uint32_t since = (uint32_t)(now_s - st->dry_prev_s);
         if (since > O2P_HEATER_RUNAWAY_MAX_GAP_S) {
             since = 0u;
+        } else if (since > O2P_HEATER_DRY_CREDIT_MAX_S) {
+            since = O2P_HEATER_DRY_CREDIT_MAX_S;
         }
         if (st->dry_floor_run_s < O2P_HEATER_DRY_ASSERT_S) {
             const uint32_t run = (uint32_t)st->dry_floor_run_s + since;
@@ -808,9 +821,17 @@ static bool dry_idle_gate(o2p_heater_state_t *st, const o2p_heater_in_t *in,
     const float margin_threshold =
         st->dry_idle ? (float)O2P_HEATER_DRY_MARGIN_EXIT_K100
                      : (float)O2P_HEATER_DRY_MARGIN_K100;
+    /* STRICT on the way out, so the documented contract holds at the exact
+     * threshold: entering needs margin >= 6.00 K, but an engaged gate
+     * releases AT 5.00 K rather than below it (codex review 2026-09-20, #5).
+     * isfinite() because an unevaluable margin must never read as dry - a
+     * +INF margin satisfies any >= and was the one row of the guard
+     * checklist's item 1 that this conjunction did not already cover. */
+    const bool margin_ok = isfinite(margin_f) &&
+                           (st->dry_idle ? (margin_f > margin_threshold)
+                                         : (margin_f >= margin_threshold));
     const bool dry = have_td && in->rh_valid && in->chamber_valid &&
-                     (uint32_t)in->rh_x100 < rh_threshold &&
-                     margin_f >= margin_threshold;
+                     (uint32_t)in->rh_x100 < rh_threshold && margin_ok;
 
     bool gate;
     if (st->dry_idle) {

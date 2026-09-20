@@ -6268,14 +6268,37 @@ static void test_the_dry_gate_is_monotonic_in_wetness(void)
     o2p_heater_cfg_t cfg = hcfg_default();
     o2p_heater_out_t out;
     uint16_t prev = 0u;
+    bool saw_gate = false;
     for (uint16_t rh = 3000u; rh <= 10000u; rh = (uint16_t)(rh + 100u)) {
-        o2p_heater_in_t in = hin_dry_bench();
-        in.t_chamber_c100 = 5000;   /* tip - chamber 1.50 K, inside 4 K */
+        /* SETTLED, not fresh. dew_step_fresh() resets and takes one step, so
+         * the debt is unpaid at every point and the gate cannot engage
+         * anywhere in this sweep: the test passed against a build with the
+         * gate deleted, which is exactly the known-bad calibration the guard
+         * checklist asks for (codex review 2026-09-20, #4). Pay the debt at
+         * this geometry in dry gas first, then present the wet sample. */
+        o2p_heater_in_t settle = hin_dry_bench();
+        settle.t_chamber_c100 = 5000;   /* tip - chamber 1.50 K, inside 4 K */
+        settle.rh_x100 = 3000u;
+        o2p_heater_state_t st;
+        o2p_heater_ctl_reset(&st);
+        const uint32_t engaged = dry_settle(&st, &cfg, &settle, &out, 0u);
+        TEST_ASSERT_TRUE_MESSAGE((out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE) != 0u,
+            "the sweep must start from an ENGAGED gate or it proves nothing");
+
+        o2p_heater_in_t in = settle;
         in.rh_x100 = rh;
-        const uint16_t d = dew_step_fresh(&cfg, &in, &out);
+        o2p_heater_ctl_step(&st, &cfg, &in, engaged + 1u, &out);
+        const uint16_t d = out.duty_x100;
+        if ((out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE) != 0u) {
+            saw_gate = true;
+            TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, d,
+                "a gated cycle must not spend");
+        }
         TEST_ASSERT_TRUE_MESSAGE(d >= prev, "duty fell as the gas got wetter");
         prev = d;
     }
+    TEST_ASSERT_TRUE_MESSAGE(saw_gate,
+        "the gate never held anywhere in the sweep - this tests nothing");
     TEST_ASSERT_TRUE_MESSAGE(prev > 0u,
         "saturated gas must not leave the probe idle");
 }

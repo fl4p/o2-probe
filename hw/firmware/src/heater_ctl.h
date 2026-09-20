@@ -679,6 +679,15 @@ enum {
 #define O2P_HEATER_DRY_IDLE_MAX_S       1800u
 #define O2P_HEATER_DRY_ASSERT_S         120u
 
+/* The most one interval may credit to the re-assert debt. The floor's drive
+ * does not outlive the actuator's staleness cut - heater.c stops driving
+ * O2P_HEATER_STALE_MS (2 s) after the apply() that commanded it - so an
+ * interval longer than that heated for 2 s whatever the clock says. Kept as
+ * its own constant rather than including heater.h, which is the hardware
+ * half: this file is the portable, host-tested one. Track O2P_HEATER_STALE_MS
+ * if it moves. */
+#define O2P_HEATER_DRY_CREDIT_MAX_S     2u
+
 /* THE UNREACHABLE-MARGIN DETECTOR - CEILING-DWELL FORM, FW 0x0019 (Fab
  * 2026-09-13: "build the unreachable-margin detector", then option A after the
  * codex xhigh review of the 0x0018 form).
