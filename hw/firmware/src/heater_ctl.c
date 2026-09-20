@@ -830,8 +830,17 @@ static bool dry_idle_gate(o2p_heater_state_t *st, const o2p_heater_in_t *in,
     const bool margin_ok = isfinite(margin_f) &&
                            (st->dry_idle ? (margin_f > margin_threshold)
                                          : (margin_f >= margin_threshold));
+    /* THE PILE LOCKOUT. Absolute cell temperature, because it is the only gate
+     * input a humidity error cannot move - see heater_ctl.h. An invalid cell
+     * reading refuses the gate; the margin already needed one. */
+    const int32_t cell_threshold =
+        st->dry_idle ? (int32_t)O2P_HEATER_DRY_MAX_CELL_EXIT_C100
+                     : (int32_t)O2P_HEATER_DRY_MAX_CELL_C100;
+    const bool cool_ok = in->cell_valid &&
+                         (int32_t)in->t_cell_c100 < cell_threshold;
     const bool dry = have_td && in->rh_valid && in->chamber_valid &&
-                     (uint32_t)in->rh_x100 < rh_threshold && margin_ok;
+                     (uint32_t)in->rh_x100 < rh_threshold && margin_ok &&
+                     cool_ok;
 
     bool gate;
     if (st->dry_idle) {

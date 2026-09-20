@@ -716,6 +716,45 @@ enum {
  * if it moves. */
 #define O2P_HEATER_DRY_CREDIT_MAX_S     2u
 
+/* THE PILE LOCKOUT, FW 0x002A - the one gate input humidity cannot fake.
+ *
+ * MEASURED, probe 3 buried 24.2 h in the windrow, 2026-09-17/18 (VM, 26 h
+ * window from 12:00): chamber RH ran 38.96..91.26 % and was UNDER 90 % for 238
+ * of 270 samples. The SHT45 is on the tip's copper, the pile holds the probe at
+ * 50..77 C, and heating collapses RELATIVE humidity while the gas stays
+ * saturated - so a buried probe reads "dry" 88 % of the time and
+ * O2P_HEATER_DRY_RH_X100 blocks nothing underground. The whole of the gate's
+ * protection there rested on the margin.
+ *
+ * AND THE TWO ARE NOT INDEPENDENT EVIDENCE. The margin is T_EXT minus the GAS
+ * dew point, and that dew point is Magnus on the SAME chamber RH: depressed RH
+ * puts the dew point too low, which puts the margin too HIGH. They fail
+ * together and for one reason. At 12:01:00 on 09-17, probe already in the pile
+ * at T_EXT 51.15 C, the probe read RH 58.90 % and margin 8.56 K - BOTH gate
+ * conditions satisfied, on the one sample of 76 where the margin cleared 6.00 K.
+ * The gate would have withheld the floor inside the windrow. (This is the codex
+ * review's finding 2, which the burial data turns from a hypothetical into an
+ * observation.)
+ *
+ * So gate additionally on ABSOLUTE CELL TEMPERATURE, which no humidity error
+ * can move: a pile is 50..77 C and a bench or a transit box is ~20 C. This is
+ * also the honest encoding of what was actually asked for - "when probe is not
+ * inside the pile" (Fab 2026-09-19) - rather than inferring location from a
+ * sensor the heater warms.
+ *
+ * T_EXT and not the chamber: the chamber shares the tip's copper on Rev A and
+ * so carries the heater's own rise, while the cell is coupled at the measured
+ * 3..11 %. It costs nothing to require, because the margin already needs a
+ * valid cell reading. An INVALID cell reading refuses the gate, like every
+ * other unevaluable input here.
+ *
+ * 35.00 C with release at 37.00: far above any bench (probe 3 sat at 20.6..21.6
+ * C through the 2026-09-20 acceptance run) and far below any pile, including
+ * the 48.61 C the probe read on its way in. Hysteresis in the same direction as
+ * the other two - once gated it takes the EXIT number to put the floor back. */
+#define O2P_HEATER_DRY_MAX_CELL_C100      3500
+#define O2P_HEATER_DRY_MAX_CELL_EXIT_C100 3700
+
 /* THE UNREACHABLE-MARGIN DETECTOR - CEILING-DWELL FORM, FW 0x0019 (Fab
  * 2026-09-13: "build the unreachable-margin detector", then option A after the
  * codex xhigh review of the 0x0018 form).

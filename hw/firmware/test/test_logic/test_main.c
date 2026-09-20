@@ -5980,11 +5980,19 @@ static void test_gradient_floor_integrator_is_its_own_and_is_shed_on_exit(void)
  * tip-minus-chamber. */
 static o2p_heater_in_t hin_dry_bench(void)
 {
+    /* REAL BENCH NUMBERS since FW 0x002A. This fixture used to sit at a cell
+     * of 51.00 C - a PILE temperature, in a thing called hin_dry_bench - and
+     * the pile lockout refuses it, correctly. Probe 3 measured 20.6..21.6 C
+     * cell through the 2026-09-20 acceptance run at 43..48 % RH, so these are
+     * the conditions the gate is actually meant to engage in. The tip is kept
+     * 0.50 K over the cell, short of the floor's 2.00 K, so the floor still
+     * DEMANDS drive and a gated cycle is visibly the gate and not a satisfied
+     * law. */
     o2p_heater_in_t in = hin_dew();
-    in.rh_x100 = 5000u;
-    in.t_chamber_c100 = 4000;
-    in.t_cell_c100 = 5100;
-    in.t_tip_c100 = 5150;
+    in.rh_x100 = 4500u;
+    in.t_chamber_c100 = 2200;
+    in.t_cell_c100 = 2100;
+    in.t_tip_c100 = 2150;
     return in;
 }
 
@@ -6115,6 +6123,14 @@ static void test_the_dry_gate_hysteresis_holds_at_both_thresholds(void)
     o2p_heater_cfg_t cfg = hcfg_dew();
     o2p_heater_out_t out;
     o2p_heater_in_t in = hin_dry_bench();
+    /* ISOLATE THE RH BAND. At the bench fixture's own geometry 92 %RH puts the
+     * gas dew point within 0.3 K of the cell, so the MARGIN condition releases
+     * the gate before the RH band is ever exercised - correct physics, wrong
+     * test. Lift the cell 8 K clear of the chamber so the margin stays well
+     * over its 5.00 K exit across this whole sweep and only RH moves. Still
+     * under the pile lockout's 35.00 C. */
+    in.t_cell_c100 = 3000;
+    in.t_tip_c100  = 3050;
 
     uint32_t t = dry_settle(&st, &cfg, &in, &out, 0u) + 1u;
     TEST_ASSERT_TRUE(st.dry_idle);
@@ -6136,8 +6152,12 @@ static void test_the_dry_gate_hysteresis_holds_at_both_thresholds(void)
      * release, so a gate already engaged holds and one that is not does not
      * engage - even given all the floor-time it could ask for. */
     o2p_heater_in_t band = hin_dry_bench();
-    band.t_chamber_c100 = 5250;
-    band.rh_x100 = 7000u;
+    /* 66.20 %RH at the fixture's 22.00 C chamber puts the gas dew point at
+     * 15.40 C, which is 5.60 K under the 21.00 C cell - between the 6.00 K
+     * entry and the 5.00 K release. Recomputed for the bench geometry: the old
+     * numbers (chamber 52.50, 70 %RH) built the same band against a 51.00 C
+     * cell, which is a pile temperature the lockout now refuses. */
+    band.rh_x100 = 6620u;
     o2p_heater_ctl_reset(&st);
     for (uint32_t i = 0u; i < 2u * O2P_HEATER_DRY_ASSERT_S; i++) {
         o2p_heater_ctl_step(&st, &cfg, &band, i, &out);
@@ -6146,7 +6166,7 @@ static void test_the_dry_gate_hysteresis_holds_at_both_thresholds(void)
     }
 
     o2p_heater_ctl_reset(&st);
-    in = hin_dry_bench();                    /* 50 %RH again, not the 96 % above */
+    in = hin_dry_bench();                    /* 45 %RH again, not the 96 % above */
     t = dry_settle(&st, &cfg, &in, &out, 0u) + 1u;   /* engaged at 50 %RH */
     TEST_ASSERT_TRUE(st.dry_idle);
     o2p_heater_ctl_step(&st, &cfg, &band, t, &out);
@@ -6258,6 +6278,93 @@ static void test_a_refused_cycle_is_not_floor_time(void)
         "a refused cycle must not be credited as floor time");
 }
 
+static void test_the_dry_gate_never_engages_at_pile_temperature(void)
+{
+    /* THE MEASURED CASE, not a constructed one. Probe 3, buried in the windrow,
+     * 2026-09-17 12:01:00: T_EXT 51.15 C, chamber RH 58.90 %, cell-side margin
+     * 8.56 K. Both of the original conditions were satisfied INSIDE THE PILE -
+     * the SHT45 is on the tip's copper, the pile holds the probe at 50..77 C,
+     * and heating collapses relative humidity while the gas stays saturated.
+     * Over the 26 h burial RH was under 90 % for 238 of 270 samples.
+     *
+     * Known-bad calibration for this test: delete the cool_ok term and it
+     * fails, because without it these inputs gate. */
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+
+    o2p_heater_in_t pile = hin_dry_bench();
+    pile.rh_x100      = 5890u;   /* the reading, depressed by the heater */
+    pile.t_cell_c100  = 5115;    /* 51.15 C - in the pile */
+    pile.t_chamber_c100 = 5300;
+    pile.t_tip_c100   = 5350;
+
+    /* Four times the debt, so this is not "the premium had not been paid". */
+    for (uint32_t t = 0u; t < 4u * O2P_HEATER_DRY_ASSERT_S; t++) {
+        o2p_heater_ctl_step(&st, &cfg, &pile, t, &out);
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(
+            0u, (uint16_t)(out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE),
+            "the gate engaged on a probe that was in the pile");
+    }
+}
+
+static void test_the_pile_lockout_has_hysteresis_and_releases_hot(void)
+{
+    /* Enter below 35.00 C, and once engaged it takes 37.00 C to release - the
+     * same direction as the other two conditions. Also the boundary itself:
+     * exactly 35.00 must NOT admit the gate. */
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+
+    o2p_heater_in_t in = hin_dry_bench();
+    in.t_cell_c100 = O2P_HEATER_DRY_MAX_CELL_C100;          /* exactly 35.00 */
+    for (uint32_t t = 0u; t < 3u * O2P_HEATER_DRY_ASSERT_S; t++)
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(
+        0u, (uint16_t)(out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE),
+        "exactly 35.00 C must not admit the gate");
+
+    /* A degree cooler and it engages. */
+    o2p_heater_ctl_reset(&st);
+    in.t_cell_c100 = (int16_t)(O2P_HEATER_DRY_MAX_CELL_C100 - 100);
+    const uint32_t engaged = dry_settle(&st, &cfg, &in, &out, 0u);
+
+    /* Warming past the ENTRY number does not release it - that is hysteresis. */
+    in.t_cell_c100 = (int16_t)(O2P_HEATER_DRY_MAX_CELL_C100 + 100);  /* 36.00 */
+    o2p_heater_ctl_step(&st, &cfg, &in, engaged + 1u, &out);
+    TEST_ASSERT_TRUE_MESSAGE(
+        (out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE) != 0u,
+        "36.00 C is inside the band and must not chatter the floor");
+
+    /* The exit number does. */
+    in.t_cell_c100 = O2P_HEATER_DRY_MAX_CELL_EXIT_C100;              /* 37.00 */
+    o2p_heater_ctl_step(&st, &cfg, &in, engaged + 2u, &out);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(
+        0u, (uint16_t)(out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE),
+        "the gate must release at the exit temperature");
+}
+
+static void test_the_pile_lockout_refuses_an_unevaluable_cell(void)
+{
+    /* Guard checklist item 1. No cell reading is not "cool enough". */
+    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_out_t out;
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+
+    o2p_heater_in_t no_cell = hin_dry_bench();
+    no_cell.cell_valid = false;
+    for (uint32_t t = 0u; t < 3u * O2P_HEATER_DRY_ASSERT_S; t++) {
+        o2p_heater_ctl_step(&st, &cfg, &no_cell, t, &out);
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(
+            0u, (uint16_t)(out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE),
+            "an unevaluable cell reading must not admit the gate");
+    }
+}
+
 static void test_the_dry_gate_is_monotonic_in_wetness(void)
 {
     /* Guard checklist 2 across the boundary the gate adds. As the gas gets
@@ -6277,7 +6384,7 @@ static void test_the_dry_gate_is_monotonic_in_wetness(void)
          * checklist asks for (codex review 2026-09-20, #4). Pay the debt at
          * this geometry in dry gas first, then present the wet sample. */
         o2p_heater_in_t settle = hin_dry_bench();
-        settle.t_chamber_c100 = 5000;   /* tip - chamber 1.50 K, inside 4 K */
+        settle.t_chamber_c100 = 2200;   /* bench geometry, inside DT_MAX_K */
         settle.rh_x100 = 3000u;
         o2p_heater_state_t st;
         o2p_heater_ctl_reset(&st);
@@ -10060,6 +10167,13 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         regulates cell-side T_EXT to 4 K above the gas dew point
      *         whenever T_EXT is valid (Fab's order, 2026-09-11); no new
      *         register, HEATER_BLOCK bits unchanged, the law is new.
+     * 0x002A: the dry-air idle gate gains a PILE LOCKOUT (Fab's order,
+     *         2026-09-20). NO register moves and no format changes, but the
+     *         gate's MEANING narrows: DRY_IDLE can no longer be published by a
+     *         probe whose cell is at or above 35.00 C, so a reader that saw
+     *         the flag in a warm environment on 0x0029 will not see it here.
+     *         Measured against the 2026-09-17 burial, where the old pair of
+     *         conditions was satisfied INSIDE the pile.
      * 0x0029: four fixes to the dry-air idle gate from the codex review of
      *         0a5587a/7a06286 (Fab's order, 2026-09-20). NO register moves,
      *         no bit is added and no format changes - the version moves
@@ -10103,7 +10217,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         steps the thermal mass cannot make are rejected for a cycle.
      * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
      *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
-    TEST_ASSERT_EQUAL_HEX16(0x0029u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x002Au, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_HEX16(0xC000u,
         (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
     /* The staleness cut must win the race against the watchdog's fastest
@@ -12245,6 +12359,9 @@ int main(void)
     RUN_TEST(test_the_dry_gate_reasserts_the_floor_periodically);
     RUN_TEST(test_a_flickering_humidity_cannot_cancel_the_premium);
     RUN_TEST(test_a_refused_cycle_is_not_floor_time);
+    RUN_TEST(test_the_dry_gate_never_engages_at_pile_temperature);
+    RUN_TEST(test_the_pile_lockout_has_hysteresis_and_releases_hot);
+    RUN_TEST(test_the_pile_lockout_refuses_an_unevaluable_cell);
     RUN_TEST(test_the_dry_gate_is_monotonic_in_wetness);
     RUN_TEST(test_a_runaway_latch_outranks_the_dry_gate);
     RUN_TEST(test_dew_unreachable_after_a_dwell_at_the_ceiling_in_wet_gas);
