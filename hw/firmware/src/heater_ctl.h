@@ -671,6 +671,34 @@ enum {
  * before (FW 0x001F). Left for Fab's call, because the fix is in the runaway
  * detector and that detector has been rebuilt twice already.
  *
+ * THE GATE FEEDS BACK INTO ITS OWN RH INPUT, measured on probe 3 the evening
+ * it first ran (2026-09-20, probe in bench air, VictoriaMetrics). The SHT45
+ * sits in the chamber, and on Rev A the chamber shares the tip's copper - so
+ * for five hours before the gate existed T_chamber - T_cell held 1.89..2.10 K,
+ * which is the floor's own 2.00 K setpoint read back through that copper. The
+ * moment the gate engaged it collapsed to 0.08 K and then -0.03 K, and the
+ * chamber RH, flat at 43.7 % all afternoon, rose 43.67 -> 48.03 % as the
+ * copper cooled: about +1.6 points of RH per kelvin at this humidity.
+ *
+ * So gating RAISES the humidity the gate reads, by roughly 3 points for the
+ * ~2 K the chamber loses. That is the SAFE direction - it pushes toward the
+ * exit threshold, i.e. toward heating - but two consequences follow and
+ * neither was designed:
+ *
+ *   1. The exit band must be WIDER than the self-induced rise or the gate
+ *      limit-cycles: engage, cool, read wetter, release, warm, read drier,
+ *      engage. 9000 -> 9500 is 5 points against a measured ~3, so it holds -
+ *      by 2 points, and by luck rather than by calculation. Anyone narrowing
+ *      this band must re-measure that slope first.
+ *   2. The energy saving SHRINKS exactly where the ambient is damp, because a
+ *      probe sitting near 88 % RH gates, cools, reads past 95 % and puts the
+ *      floor back. That is the right behaviour and it is not a free lunch.
+ *
+ * It also moves the published oxygen a little: the O2 conversion's temperature
+ * term is the cell law on T_EXT (FW 0x001E), the cell is coupled to the tip at
+ * the measured 3..11 %, and the tip now idles. Small against the knee's own
+ * corrections, but it is a step at the moment of gating, not a drift.
+ *
  * All four numbers PROVISIONAL, like every other number about this plant. */
 #define O2P_HEATER_DRY_RH_X100          9000u
 #define O2P_HEATER_DRY_RH_EXIT_X100     9500u
