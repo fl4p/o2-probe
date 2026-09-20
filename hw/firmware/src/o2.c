@@ -349,6 +349,46 @@ o2p_status_t o2p_dry_fraction_from_current(const o2p_cal_t *cal,
     return O2P_OK;
 }
 
+float o2p_cell_t_lnf(int16_t t_c100)
+{
+    /* The measured curve of o2.h, in logs: piecewise linear in ln(T/T_R1),
+     * which is a piecewise POWER law and is the "fitted table" that
+     * OVEN-SOAK-TEST.md section 8 asks for - as opposed to a residual in
+     * TEMPCO_PPM_K, which would double-count against the law still in force
+     * below the knee.
+     *
+     * Total by construction: every representable temperature above absolute
+     * zero returns a finite value. The sentinel is rejected by the caller on
+     * the kelvin test, so "unevaluable" is encoded in exactly one place. */
+    const float tk_ref = (float)O2P_CELL_T_REF_C100 * 0.01f + 273.15f;
+    const float x = logf(((float)t_c100 * 0.01f + 273.15f) / tk_ref);
+
+    if (t_c100 <= O2P_CELL_T_KNEE_C100) {
+        /* The capillary law, unchanged, over the span that measured it. This
+         * segment also carries everything BELOW R1: the outdoor fit runs down
+         * to 13 C and there is no reason to clamp inside its own support. */
+        return O2P_CELL_T_EXPONENT * x;
+    }
+
+    const float x_knee = logf(((float)O2P_CELL_T_KNEE_C100 * 0.01f + 273.15f) / tk_ref);
+    const float lnf_knee = O2P_CELL_T_EXPONENT * x_knee;
+    const float x_mid = logf(((float)O2P_CELL_T_MID_C100 * 0.01f + 273.15f) / tk_ref);
+
+    if (t_c100 <= O2P_CELL_T_MID_C100) {
+        return lnf_knee + (x - x_knee) *
+               (O2P_CELL_T_MID_LNF - lnf_knee) / (x_mid - x_knee);
+    }
+
+    const float x_top = logf(((float)O2P_CELL_T_TOP_C100 * 0.01f + 273.15f) / tk_ref);
+
+    if (t_c100 >= O2P_CELL_T_TOP_C100) {
+        /* HELD, not extrapolated. See o2.h. */
+        return O2P_CELL_T_TOP_LNF;
+    }
+    return O2P_CELL_T_MID_LNF + (x - x_mid) *
+           (O2P_CELL_T_TOP_LNF - O2P_CELL_T_MID_LNF) / (x_top - x_mid);
+}
+
 float o2p_cell_t_law_gain(int16_t t_c100, int16_t t_cal_c100)
 {
     float tk = (float)t_c100 * 0.01f + 273.15f;
@@ -356,10 +396,21 @@ float o2p_cell_t_law_gain(int16_t t_c100, int16_t t_cal_c100)
     if (!(tk > 0.0f) || !(tk_cal > 0.0f)) {
         return NAN;
     }
-    /* exp(a*ln x) rather than powf(): logf/expf are already linked for the
+    /* THE GAIN IS A RATIO OF THE MEASURED CURVE AT TWO TEMPERATURES, not one
+     * power of their ratio, because the curve is no longer a single power law
+     * (FW 0x0027):
+     *
+     *     gain = f(T) / f(T_cal) = exp( lnf(T) - lnf(T_cal) )
+     *
+     * identical to the old (T/T_cal)^0.75 whenever both temperatures sit below
+     * the knee, and exactly 1.0 at T == T_cal for any curve - the property the
+     * conversion depends on, preserved by construction rather than by
+     * arithmetic luck.
+     *
+     * exp(a*ln x) rather than powf(): logf/expf are already linked for the
      * cell law, and powf alone cost 1254 B of flash (plus its log2 table) on
      * a 53 kB part at 91.7 %. Identical to powf here to float precision. */
-    return expf(O2P_CELL_T_EXPONENT * logf(tk / tk_cal));
+    return expf(o2p_cell_t_lnf(t_c100) - o2p_cell_t_lnf(t_cal_c100));
 }
 
 uint16_t o2p_encode_percent(o2p_status_t st, float c)

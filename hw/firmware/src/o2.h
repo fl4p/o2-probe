@@ -391,6 +391,67 @@ static inline bool o2p_cal_temp_plausible(int16_t c100)
  * residual register for a per-probe correction beyond the law. */
 #define O2P_CELL_T_EXPONENT 0.75f
 
+/* THE LAW HAS A KNEE (FW 0x0028, oven soak 2026-09-19).
+ *
+ * O2P_CELL_T_EXPONENT above is the law as flashed until 0x0026, and the block
+ * above it remains an accurate account of what supports it BELOW 36 C - that
+ * is the whole span the 2026-09-13 outdoor fit covers, and it is kept.
+ *
+ * The 2026-09-19 oven soak measured two SETTLED points against an overnight
+ * ambient baseline, in air, where the dry-basis fraction is a known constant
+ * (docs/2026-09-19-oven-soak-run.md, sections 8, 14, 17 and 18). Expressed as
+ * the dry-basis current relative to that baseline, f(T) = I_dry(T)/I_dry(R1):
+ *
+ *   R1  20.91 C   f = 1.00000   104 samples, scatter 0.07 %
+ *   D2  41.37 C   f = 1.03940   30 samples, 50 min, scatter 0.07 %
+ *   top 75.81 C   f = 1.03927   14 samples
+ *
+ * and the 0.75 law predicts f(41.37) = 1.05220. So the current rises LESS than
+ * the law over 21-41 C, and between 41 C and 76 C it does not rise at all.
+ * The local exponent implied by those points is +0.75 to 36 C (the outdoor
+ * fit), +0.065 from 36 to 41.37 C, and -0.001 from 41.37 to 75.81 C.
+ *
+ * THE SHAPE IS A KNEE, NOT A DRIFT. This matters for how it is read: an
+ * earlier pass at this data described a smoothly falling exponent, which was
+ * an artefact of quoting CHORD exponents from R1 rather than local ones. The
+ * cell tracks the capillary law to about 36 C and then stops.
+ *
+ * WHAT IS MEASURED AND WHAT IS NOT:
+ *   - the 21-41 C chord and the 41-76 C chord are measured, on settled holds;
+ *   - the KNEE POSITION is not. Nothing was measured between 36 and 41.37 C,
+ *     and nothing between 41.37 and 75.81 C. 36 C is where the outdoor fit's
+ *     support ENDS, not where a break was observed. The tip heater cannot
+ *     reach a 55-60 C cell (it would need a 117-142 C tip, run log section
+ *     20), so only an oven run can place the knee.
+ *   - f(75.81) is the one value here that depends on the dilution response:
+ *     1.016 / 1.039 / 1.061 at alpha 0.402 / 0.715 / 1.000. 0.715 is used, the
+ *     value this run measured on its own isothermal drying window. f(41.37) is
+ *     alpha-independent to 0.013 because R1 and D2 held similar water.
+ *   - PROVENANCE IS MIXED, and it should not be smoothed over: the sub-36 C
+ *     segment comes from the 2026-09-13 outdoor fit, which assumed alpha = 1,
+ *     while the anchors above it are alpha-robust or taken at 0.715. The
+ *     segments meet at 36 C by construction, not because two experiments
+ *     agreed there.
+ *
+ * ABOVE THE TOP ANCHOR THE GAIN IS HELD FLAT, not extrapolated. Beyond 75.81 C
+ * nothing has been measured at all, and the quantity being extrapolated sits
+ * in an exponent. Holding f constant is the conservative choice: it stops the
+ * correction growing into a region where the only evidence - the 2026-09-11
+ * cooling pass - suggests the current FALLS. */
+#define O2P_CELL_T_KNEE_C100     3600   /* where the outdoor fit's support ends */
+#define O2P_CELL_T_MID_C100      4137   /* D2, 2026-09-19 */
+#define O2P_CELL_T_TOP_C100      7581   /* top hold, 2026-09-19 */
+#define O2P_CELL_T_MID_LNF       0.038644f  /* ln 1.03940, measured */
+#define O2P_CELL_T_TOP_LNF       0.038514f  /* ln 1.03927, measured at alpha 0.715 */
+/* The temperature f() is referenced to: R1, the 2026-09-18/19 overnight
+ * baseline. Carried explicitly so CAL_TEMP can be re-measured at any time
+ * without touching these constants - the conversion needs f(T)/f(T_cal), and
+ * both ends are evaluated through the same function. */
+#define O2P_CELL_T_REF_C100      2091
+
+/* ln f(T) = ln(I_dry(T) / I_dry(R1)), the measured curve above. */
+float o2p_cell_t_lnf(int16_t t_c100);
+
 /* (T_K / T_cal_K)^O2P_CELL_T_EXPONENT for two 0.01 C readings. NaN - never a
  * substituted 1.0 - when either temperature is at or below absolute zero,
  * which includes the O2P_I16_INVALID sentinel (-327.68 C); the conversion's

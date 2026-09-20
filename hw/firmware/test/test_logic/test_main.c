@@ -1081,13 +1081,53 @@ static void test_cell_t_law_gain_values(void)
     TEST_ASSERT_EQUAL_FLOAT(1.0f, o2p_cell_t_law_gain(2000, 2000));
     /* The 2026-09-13 outdoor span, 12.86 -> 35.97 C: 1.0600 (+2522 ppm/K). */
     TEST_ASSERT_FLOAT_WITHIN(1e-4f, 1.0600f, o2p_cell_t_law_gain(3597, 1286));
-    /* Monotonic and positive across -40..+100 C. */
+    /* THE LAW IS NO LONGER MONOTONIC, AND THAT IS THE POINT (FW 0x0028).
+     * It rises as the capillary law up to the 36 C knee and on to the soak's
+     * 41.37 C anchor, then runs essentially FLAT to the 75.81 C anchor, then
+     * is HELD. Asserting "increasing everywhere" would now be asserting the
+     * extrapolation this change exists to remove, so the shape is pinned
+     * segment by segment instead of loosened to nothing. */
     float prev = 0.0f;
-    for (int16_t t = -4000; t <= 10000; t += 250) {
+    for (int16_t t = -4000; t <= O2P_CELL_T_MID_C100; t += 250) {
         float g = o2p_cell_t_law_gain(t, 2000);
-        TEST_ASSERT_TRUE(g > prev);
+        TEST_ASSERT_TRUE(g > prev);          /* strictly rising below the anchor */
         prev = g;
     }
+    /* Above the anchor it is flat to within 0.05 %, never falling away. */
+    const float g_mid = o2p_cell_t_law_gain(O2P_CELL_T_MID_C100, 2000);
+    for (int16_t t = O2P_CELL_T_MID_C100; t <= 10000; t += 250) {
+        float g = o2p_cell_t_law_gain(t, 2000);
+        TEST_ASSERT_TRUE(g > 0.0f);
+        TEST_ASSERT_FLOAT_WITHIN(0.0005f * g_mid, g_mid, g);
+    }
+    /* HELD above the top anchor, not extrapolated: every temperature above it
+     * returns the SAME gain, bit for bit. A power law cannot do this, so this
+     * assertion fails the moment someone reinstates one. */
+    const float g_top = o2p_cell_t_law_gain(O2P_CELL_T_TOP_C100, 2000);
+    TEST_ASSERT_EQUAL_FLOAT(g_top, o2p_cell_t_law_gain(8000, 2000));
+    TEST_ASSERT_EQUAL_FLOAT(g_top, o2p_cell_t_law_gain(12000, 2000));
+    /* Continuous at both joints - a segmented law's characteristic bug is a
+     * step at a boundary, which no averaged measurement would ever show. */
+    /* The knee's bound is looser than the other two on purpose: the SLOPE
+     * changes from 0.75 to about 0.065 here, so straddling it by 0.02 K costs
+     * ~2.6e-5 of legitimate kink. That is what a knee IS. The bound still
+     * catches the failure this assertion is for - a STEP from a mis-set
+     * lnf_knee, which is 1e-3 and up, two decades clear. */
+    TEST_ASSERT_FLOAT_WITHIN(1e-4f, o2p_cell_t_law_gain(O2P_CELL_T_KNEE_C100 - 1, 2000),
+                             o2p_cell_t_law_gain(O2P_CELL_T_KNEE_C100 + 1, 2000));
+    TEST_ASSERT_FLOAT_WITHIN(2e-5f, o2p_cell_t_law_gain(O2P_CELL_T_MID_C100 - 1, 2000),
+                             o2p_cell_t_law_gain(O2P_CELL_T_MID_C100 + 1, 2000));
+    TEST_ASSERT_FLOAT_WITHIN(2e-5f, o2p_cell_t_law_gain(O2P_CELL_T_TOP_C100 - 1, 2000),
+                             o2p_cell_t_law_gain(O2P_CELL_T_TOP_C100 + 1, 2000));
+    /* Below the knee the outdoor fit is untouched: the 0.75 law exactly.
+     * The tolerance is 1e-4 and not tighter because the kelvin sums are built
+     * differently here than in o2.c (literals against (float)c100 * 0.01f),
+     * which is worth ~3e-5 of float noise on its own. It still discriminates
+     * by a wide margin: at 36 C the OLD extrapolating law and this one differ
+     * by 0 (they agree here by construction), and one degree above the knee
+     * they already differ by ~1e-3, ten times this bound. */
+    TEST_ASSERT_FLOAT_WITHIN(1e-4f, powf(309.15f / 294.06f, 0.75f),
+                             o2p_cell_t_law_gain(3600, 2091));
     /* The sentinel is NaN, never a substituted 1.0. */
     TEST_ASSERT_TRUE(isnan(o2p_cell_t_law_gain(O2P_I16_INVALID, 2000)));
     TEST_ASSERT_TRUE(isnan(o2p_cell_t_law_gain(2000, O2P_I16_INVALID)));
@@ -1108,7 +1148,15 @@ static void test_conversion_follows_the_cell_t_law(void)
         TEST_ASSERT_FLOAT_WITHIN(0.0002f, O2P_C_AIR, c);
         float fixed = 0.0f;
         (void)o2p_fraction_from_current(&cal, 100000, t, &fixed);
-        TEST_ASSERT_TRUE(fixed < prev);
+        /* A current that does NOT rise with temperature reads lower as the
+         * cell warms - STRICTLY so while the law is still climbing, and
+         * merely never higher once it flattens past the soak's anchor
+         * (FW 0x0028). The flat stretch is the measurement, not a gap. */
+        if (t <= O2P_CELL_T_MID_C100) {
+            TEST_ASSERT_TRUE(fixed < prev);
+        } else {
+            TEST_ASSERT_TRUE(fixed <= prev * 1.0001f);
+        }
         prev = fixed;
     }
     /* No temperature at all is refused, not converted at the cal point. */
@@ -4086,6 +4134,43 @@ static void test_v2_migration_falls_back_to_defaults_when_it_cannot_be_trusted(v
  * the same current at 60 C as at its 25 C air point, and an oracle that
  * pretended it did made every hot readout in the pressure tests read low by
  * the law's 8.7 % instead of testing pressure. */
+/* The cell's temperature law, written out a SECOND time rather than called.
+ * o2p_cell_t_law_gain() is one of the things these tests exist to catch, so an
+ * oracle that called it would reproduce any interpolation bug faithfully and
+ * pass. The measured CONSTANTS are shared - this is not a re-measurement of
+ * the soak - but the arithmetic is independent, and it is written as one
+ * bracket-and-lerp rather than o2.c's cascade of early returns so that an
+ * off-by-one in the segment boundaries shows up as a disagreement.
+ *
+ * Since FW 0x0028 the law has a KNEE: 0.75 up to 36 C, where the 2026-09-13
+ * outdoor fit's support ends, then straight in ln T through the two anchors
+ * the 2026-09-19 oven soak measured, then HELD above the top one. */
+static float oracle_cell_t_lnf(float t_c)
+{
+    const float tk_ref = (float)O2P_CELL_T_REF_C100 * 0.01f + 273.15f;
+    const float t_knee = (float)O2P_CELL_T_KNEE_C100 * 0.01f;
+    const float t_mid  = (float)O2P_CELL_T_MID_C100 * 0.01f;
+    const float t_top  = (float)O2P_CELL_T_TOP_C100 * 0.01f;
+    const float x      = logf((t_c + 273.15f) / tk_ref);
+    const float x_knee = logf((t_knee + 273.15f) / tk_ref);
+    const float x_mid  = logf((t_mid + 273.15f) / tk_ref);
+    const float x_top  = logf((t_top + 273.15f) / tk_ref);
+    const float lnf_knee = O2P_CELL_T_EXPONENT * x_knee;
+
+    if (t_c <= t_knee) {
+        return O2P_CELL_T_EXPONENT * x;     /* the capillary law, as measured */
+    }
+    if (t_c >= t_top) {
+        return O2P_CELL_T_TOP_LNF;          /* HELD - there is no evidence up there */
+    }
+    const bool lower = (t_c <= t_mid);
+    const float xa = lower ? x_knee : x_mid;
+    const float xb = lower ? x_mid : x_top;
+    const float ya = lower ? lnf_knee : O2P_CELL_T_MID_LNF;
+    const float yb = lower ? O2P_CELL_T_MID_LNF : O2P_CELL_T_TOP_LNF;
+    return ya + (x - xa) * (yb - ya) / (xb - xa);
+}
+
 static int32_t cell_na_in_air(const o2p_cal_t *cal, float t_c, float rh,
                               float p_act, float p_cal)
 {
@@ -4094,8 +4179,8 @@ static int32_t cell_na_in_air(const o2p_cal_t *cal, float t_c, float rh,
     TEST_ASSERT_EQUAL(O2P_OK, o2p_vapour_pressure_hpa(&g, &pw));
     float c_wet = O2P_C_AIR * (p_act - pw) / p_act;
     float k = (float)cal->cal_air_na / logf(1.0f / (1.0f - cal->air_frac));
-    float t_law = powf((t_c + 273.15f) /
-                       ((float)cal->cal_temp_c100 * 0.01f + 273.15f), 0.75f);
+    float t_law = expf(oracle_cell_t_lnf(t_c) -
+                       oracle_cell_t_lnf((float)cal->cal_temp_c100 * 0.01f));
     float s = k * logf(1.0f / (1.0f - c_wet)) * (p_act / p_cal) * t_law;
     return (int32_t)(s + 0.5f);
 }
@@ -9952,6 +10037,14 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         regulates cell-side T_EXT to 4 K above the gas dew point
      *         whenever T_EXT is valid (Fab's order, 2026-09-11); no new
      *         register, HEATER_BLOCK bits unchanged, the law is new.
+     * 0x0028: the cell temperature law gains a KNEE at 36.00 C (Fab's
+     *         order, 2026-09-20). NO register moves, no bit is added and no
+     *         format changes - but O2_PCT_VOL's MEANING does: above 36 C the
+     *         same cell current now converts to a different number, by up to
+     *         +9 % at the 66-77 C a buried probe actually sees. That is a
+     *         contract change for anything holding readings from before it,
+     *         which is why the version moves for a pure conversion change.
+     *         Below 36 C the published value is bit-for-bit unchanged.
      * 0x0027: the gradient floor's DRY-AIR IDLE GATE (Fab's order,
      *         2026-09-19). HEATER_LAW gains high-byte bit 11, DRY_IDLE:
      *         the floor's demand is withheld because the gas reads dry, so
@@ -9977,7 +10070,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         steps the thermal mass cannot make are rejected for a cycle.
      * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
      *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
-    TEST_ASSERT_EQUAL_HEX16(0x0027u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x0028u, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_HEX16(0xC000u,
         (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
     /* The staleness cut must win the race against the watchdog's fastest
