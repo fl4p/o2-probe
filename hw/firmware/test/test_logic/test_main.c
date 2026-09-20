@@ -10060,6 +10060,16 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         regulates cell-side T_EXT to 4 K above the gas dew point
      *         whenever T_EXT is valid (Fab's order, 2026-09-11); no new
      *         register, HEATER_BLOCK bits unchanged, the law is new.
+     * 0x0029: four fixes to the dry-air idle gate from the codex review of
+     *         0a5587a/7a06286 (Fab's order, 2026-09-20). NO register moves,
+     *         no bit is added and no format changes - the version moves
+     *         because the GATE'S BEHAVIOUR does: a single interval may now
+     *         credit at most O2P_HEATER_DRY_CREDIT_MAX_S toward the 120 s
+     *         re-assert debt, so a master watching DRY_IDLE at a cadence
+     *         slower than 1 Hz sees the floor run longer before the gate
+     *         engages than 0x0028 would have shown it. An engaged gate also
+     *         releases AT a 5.00 K margin rather than below it, and a
+     *         non-finite margin can no longer read as dry.
      * 0x0028: the cell temperature law gains a KNEE at 36.00 C (Fab's
      *         order, 2026-09-20). NO register moves, no bit is added and no
      *         format changes - but O2_PCT_VOL's MEANING does: above 36 C the
@@ -10093,7 +10103,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         steps the thermal mass cannot make are rejected for a cycle.
      * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
      *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
-    TEST_ASSERT_EQUAL_HEX16(0x0028u, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x0029u, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_HEX16(0xC000u,
         (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
     /* The staleness cut must win the race against the watchdog's fastest
