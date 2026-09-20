@@ -63,8 +63,20 @@ def load_law(path):
     src = open(path).read()
     out = {}
     for name, cast in want.items():
-        m = re.search(r"^#define\s+%s\s+([-0-9.eE]+)f?\s" % name, src, re.M)
+        # The literal must be the WHOLE value: anchored to a comment or the
+        # end of line. A pattern that stopped at the first literal read 3600
+        # out of "#define O2P_CELL_T_KNEE_C100 3600 + 100" while the firmware
+        # compiled 3700 - a silent disagreement with the thing this tool
+        # exists to track. Anything that is not a plain literal now refuses.
+        m = re.search(r"^#define[ \t]+%s[ \t]+"
+                      r"([-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?)[fFuU]*"
+                      r"[ \t]*(?:/\*|//|$)" % name, src, re.M)
         if not m:
+            if re.search(r"^#define[ \t]+%s\b" % name, src, re.M):
+                sys.exit("o2.h defines %s as something other than a plain "
+                         "numeric literal. Refusing to guess it: this tool's "
+                         "whole claim is that its constants ARE the "
+                         "firmware's." % name)
             sys.exit("o2.h has no %s - this tool describes the KNEE model; "
                      "the firmware in this tree does not have it yet." % name)
         out[name] = cast(m.group(1))
@@ -135,8 +147,11 @@ def build_rows(series, p_at, t_source):
             why = "faults 0x%04X" % int(vals["gas_faults"])
         elif not (0.0 < vals["gas_rh_chamber_pct"] <= 100.0):
             why = "RH out of range"
-        elif not (vals["gas_cell_ua"] > 0):
-            why = "non-positive current"
+        elif not (vals["gas_cell_ua"] > 0) or \
+                not math.isfinite(vals["gas_cell_ua"]):
+            why = "non-positive or non-finite current"
+        elif not all(math.isfinite(vals[k]) for k in NEED):
+            why = "non-finite field"
         if why:
             drop[why] = drop.get(why, 0) + 1
             continue
@@ -156,37 +171,88 @@ def build_rows(series, p_at, t_source):
 
 
 def stamp(t):
-    return datetime.datetime.fromtimestamp(t / 1000).strftime("%Y-%m-%dT%H:%M")
+    return datetime.datetime.fromtimestamp(t / 1000)
 
 
-def at_least(t, spec):
-    """Compare a row against a local time spec, on as much of it as is given.
+def resolve_spec(spec, dates):
+    """Turn one window bound into an absolute local datetime, or refuse.
 
-    A bare HH:MM matched every day in the export and silently built an anchor
-    out of two different days 24 h apart - 12 % scatter presented as an
-    absolute scale. Specs are now compared on the same number of characters
-    they carry, counted from the RIGHT-hand end of the date, so a full
-    2026-09-17T10:40 means that minute and nothing else."""
+    The first version of this compared STRING SLICES of "%Y-%m-%dT%H:%M".
+    Full bounds worked; every shorter form failed silently and differently -
+    "09-17T10:40" was compared against "2026-09-17T" and selected nothing,
+    a bare "23:59..00:01" selected nothing, a two-character spec compared
+    MINUTES, and a bare "HH:MM" still matched every day in the export, which
+    is the exact bug the date-awareness was added to kill. It survived only
+    because the anchor-scatter guard happened to reject the contaminated
+    window - luck, not protection.
+
+    So: parse, resolve against the dates actually present, and REFUSE what is
+    ambiguous or unrecognised rather than quietly selecting the wrong rows.
+    """
+    spec = spec.strip()
+    try:
+        return datetime.datetime.strptime(spec, "%Y-%m-%dT%H:%M:%S"), 1
+    except ValueError:
+        pass
+    for fmt in ("%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M"):
+        try:
+            return datetime.datetime.strptime(spec, fmt), 60
+        except ValueError:
+            pass
+    for fmt in ("%m-%dT%H:%M", "%m-%d %H:%M"):
+        try:
+            partial = datetime.datetime.strptime(spec, fmt)
+        except ValueError:
+            continue
+        years = {d.year for d in dates if (d.month, d.day) ==
+                 (partial.month, partial.day)}
+        if len(years) != 1:
+            sys.exit("'%s' matches %d years in this export - give the full "
+                     "YYYY-MM-DDTHH:MM." % (spec, len(years)))
+        return partial.replace(year=years.pop()), 60
+    try:
+        partial = datetime.datetime.strptime(spec, "%H:%M")
+    except ValueError:
+        sys.exit("cannot read '%s' as a time. Use YYYY-MM-DDTHH:MM (or a "
+                 "bare HH:MM only when the export covers one day)." % spec)
+    days = {d.date() for d in dates}
+    if len(days) != 1:
+        sys.exit("'%s' is a bare time and this export covers %d days (%s). "
+                 "It would match one instant PER DAY. Give the full "
+                 "YYYY-MM-DDTHH:MM." % (spec, len(days),
+                                        ", ".join(str(d) for d in sorted(days))))
+    return datetime.datetime.combine(days.pop(), partial.time()), 60
+
+
+def make_window(spec, dates):
+    """(lo, hi) absolute bounds for a START..END spec, or (None, None)."""
     if not spec:
-        return True
-    full = stamp(t)
-    return full[len(full) - len(spec):] >= spec if len(spec) <= 5 \
-        else full[:len(spec)] >= spec
+        return None, None
+    if ".." not in spec:
+        sys.exit("window '%s' needs START..END" % spec)
+    lo_s, hi_s = spec.split("..", 1)
+    lo = resolve_spec(lo_s, dates)[0] if lo_s.strip() else None
+    hi = upper_bound(hi_s, dates) if hi_s.strip() else None
+    if lo and hi and hi < lo:
+        sys.exit("window '%s' ends before it starts. A window that crosses "
+                 "midnight must be written with both dates." % spec)
+    return lo, hi
 
 
-def at_most(t, spec):
-    if not spec:
-        return True
-    full = stamp(t)
-    return full[len(full) - len(spec):] <= spec if len(spec) <= 5 \
-        else full[:len(spec)] <= spec
+def upper_bound(spec, dates):
+    """An END bound covers its own RESOLUTION, not just its first instant.
+
+    "--to 11:01" reads as "through 11:01", so a sample at 11:01:24 is inside
+    it. Comparing against 11:01:00 silently dropped the last minute of every
+    window - it moved the committed 24 h pile result by one sample the first
+    time this was tightened. Seconds-resolution specs bound to the second."""
+    when, res = resolve_spec(spec, dates)
+    return when + datetime.timedelta(seconds=res - 1, microseconds=999999)
 
 
-def in_window(t, spec):
-    if not spec:
-        return True
-    lo, hi = spec.split("..")
-    return at_least(t, lo) and at_most(t, hi)
+def within(t, lo, hi):
+    d = stamp(t)
+    return (lo is None or d >= lo) and (hi is None or d <= hi)
 
 
 def main():
@@ -241,13 +307,16 @@ def main():
     for why, k in sorted(drop.items(), key=lambda kv: -kv[1]):
         print("  dropped %4d: %s" % (k, why))
 
-    anchor = [r for r in rows if in_window(r["t"], a.anchor)]
+    dates = [stamp(r["t"]) for r in rows]
+    a_lo, a_hi = make_window(a.anchor, dates)
+    anchor = [r for r in rows if within(r["t"], a_lo, a_hi)]
     if len(anchor) < 5:
         sys.exit("UNEVALUABLE: anchor window has %d usable samples, need 5"
                  % len(anchor))
 
-    span = [r for r in rows
-            if at_least(r["t"], a.t_from) and at_most(r["t"], a.t_to)]
+    s_lo = resolve_spec(a.t_from, dates)[0] if a.t_from else None
+    s_hi = upper_bound(a.t_to, dates) if a.t_to else None
+    span = [r for r in rows if within(r["t"], s_lo, s_hi)]
     if not span:
         sys.exit("UNEVALUABLE: no usable samples in the requested span")
 
@@ -265,8 +334,15 @@ def main():
     anchor_t = float(np.mean([r["t_ext"] for r in anchor]))
     scat = float(np.std([r["I"] for r in anchor]) / np.mean([r["I"] for r in anchor]))
     print("  anchor: %d samples, %s .. %s, %.2f C, I %.3f uA, scatter %.2f %%"
-          % (len(anchor), stamp(anchor[0]["t"]), stamp(anchor[-1]["t"]),
+          % (len(anchor), stamp(anchor[0]["t"]).strftime("%Y-%m-%dT%H:%M"),
+             stamp(anchor[-1]["t"]).strftime("%Y-%m-%dT%H:%M"),
              anchor_t, float(np.mean([r["I"] for r in anchor])), 100 * scat))
+    # NaN fails EVERY comparison, so "scatter > limit" silently passes an
+    # anchor built from nonfinite currents. Unevaluable is not OK.
+    if not math.isfinite(scat):
+        sys.exit("UNEVALUABLE: anchor scatter is not finite - the window "
+                 "contains data this tool cannot judge. Refusing to set an "
+                 "absolute scale from it.")
     if 100 * scat > a.max_anchor_scatter:
         sys.exit("UNEVALUABLE: anchor scatter %.2f %% exceeds %.2f %%. The "
                  "absolute scale rests entirely on this window - a spread "

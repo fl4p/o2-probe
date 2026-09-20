@@ -51,8 +51,23 @@ cell-side temperature** - see section 4.
 
 The window guard earned itself immediately: a bare `HH:MM` anchor matched BOTH
 days, built the air anchor out of two windows 24 h apart, and reported 12.28 %
-scatter as an absolute scale. Specs are now date-aware and an anchor scatter
-over `--max-anchor-scatter` (1 %) is a refusal, not a printed number.
+scatter as an absolute scale. An anchor scatter over `--max-anchor-scatter`
+(1 %) is now a refusal rather than a printed number.
+
+The first "date-aware" fix for the window itself was WRONG and a reviewer
+caught it. It compared string slices of `%Y-%m-%dT%H:%M`: full bounds worked,
+but every shorter form failed silently and differently - `09-17T10:40` was
+compared against `2026-09-17T` and selected nothing, `23:59..00:01` selected
+nothing, a two-character spec compared MINUTES, and a bare `HH:MM` still
+matched every day, which is the exact bug the change was for. It only looked
+like it worked because the scatter guard happened to reject the contaminated
+window. Bounds are now resolved to absolute datetimes, ambiguity is refused by
+name, and an END bound covers its own resolution (`--to 11:01` includes
+11:01:24, which tightening had silently dropped). Two more from the same
+review: the `o2.h` regex stopped at the first literal, so `3600 + 100` read as
+3600 while the firmware compiled 3700, and the scatter guard failed OPEN on
+nonfinite data because `NaN > limit` is false. All four refuse now, each
+verified against its own known-bad.
 
 ## 3. The result
 
@@ -76,9 +91,13 @@ IS the 0.75 law - and diverge monotonically with temperature to **+9.4 % in the
 small hours**. **The correction is not a detail at the bottom of the range; the
 pile lives where it is largest.**
 
-The windrow went anaerobic overnight: the corrected oxygen fell below 1 %vol
-between roughly 02:00 and 04:00 on 09-18 at 76 C, and swung between ~2 and
-~16 %vol several times through the night. The swings are real in the sense that
+The windrow went deeply anaerobic overnight and swung between ~2 and ~16 %vol
+several times. CORRECTED 2026-09-20 after review: the first draft said the
+oxygen "fell below 1 %vol between roughly 02:00 and 04:00", which the
+committed CSV does not support. TWO retained samples are below 1 %vol, at
+02:06 and 03:37, the lower being 0.827 %vol. That is sub-1 % OBSERVATIONS,
+not a continuous sub-1 % condition across two hours - the uplinks are too
+sparse there to claim the second. The +9.4 % correction figure is unaffected. The swings are real in the sense that
 all four curves show them, but nothing here establishes their CAUSE.
 
 `FAULTS` carried TEMP_OVER (0x0200) from 12:54 onward, whose own comment in
@@ -138,7 +157,37 @@ does mean the overnight curve does not rest on the reconstruction.
   make the middle measured rather than interpolated - and this figure is the
   argument for running it, since 55-60 C is exactly where the probe works.
 
-## 6. Version collision, confirmed
+## 6. The probe is 1.2 K from going SILENT on oxygen, and that is not the knee
+
+Found while an independent reviewer was attacking the knee model; it is
+pre-existing and nothing in FW 0x0028 causes or fixes it, but the knee is what
+makes the high band worth reading, so it belongs here.
+
+`o2.c:23` refuses the dry-basis correction when the GAS temperature exceeds
+`O2P_VAPOUR_T_MAX_C`, which is 80.0 C (`o2.h:101`). The refusal is not a high
+reading and not a fault bit - `faults.h:193-202` says the word has no spare
+bit, so the channel publishes its SENTINEL, "no oxygen number this cycle".
+TEMP_OVER accompanies it but TEMP_OVER is already set at 60 C, so it does not
+discriminate.
+
+Measured against that ceiling:
+
+| | |
+|---|---|
+| hottest chamber reading of this deployment | **78.81 C**, 09-18 07:45 |
+| second | 78.71 C, 09-18 07:41 |
+| headroom to the refusal | **1.19 K** |
+| 7-day maximum across all bench and pile work | 79.41 C, **0.59 K** |
+
+So a windrow 1.2 K hotter than the one this probe sat in stops producing
+oxygen numbers at its hottest hours, silently, with no bit that says why - and
+those are exactly the hours a compost operator most wants the number. This is
+a finding, not a fix: changing the ceiling means extending the Magnus fit past
+where psychro.c vouches for it, which is a measurement question and not a
+constant to nudge. It is written down here so the next hot deployment is not
+diagnosed from scratch.
+
+## 7. Version collision, confirmed
 
 `O2P_FW_VERSION` in this tree is already `0x0027`, taken by another session's
 dry-air idle gate. The knee model must be `0x0028`.
