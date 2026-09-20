@@ -529,29 +529,43 @@ should be polled at all, which is the first-order question above.
 
 ## Update 2026-09-19 — the heater now idles in dry air (FW 0x0027)
 
-Written when the dry-air idle gate landed; the numbers above are unchanged, this is
-about which row of the heater table a probe *sits in* when it is not in a pile.
+Written when the dry-air idle gate landed, and corrected the same day against the codex
+review of `0a5587a` (findings 3 and 4), which caught two of the numbers below being
+stated stronger than the evidence. The device table above is unchanged; this is about
+which row of the heater table a probe *sits in* when it is not in a pile.
 
-Point 1 above ("the heater is the entire question") was still true as written, but
-incomplete in one direction: since FW 0x0016 the **gradient floor** demands
-`T_tip = T_cell + 2.00 K` on every dew-law cycle and has no humidity input by design, so
-a probe on the bench or in transit held that gradient continuously. On this plant that
-is a large fraction of full duty, i.e. the 3.8 d / 2.4 d row, for heat nobody needed.
+Point 1 above ("the heater is the entire question") was true as written but incomplete in
+one direction: since FW 0x0016 the **gradient floor** demands `T_tip = T_cell + 2.00 K` on
+every dew-law cycle and has no humidity input by design, so a probe on the bench or in
+transit held that gradient continuously.
+
+**What that costs is a steady-state number, not a step.** The PI asks for ~76 % on a
+1.50 K step, and an earlier draft of this section read that off a test and turned it into
+a battery figure. Holding the gradient is what actually consumes: with the measured
+θ ≈ 68 K/W and τ ≈ 150 s (`docs/2026-09-12-thermal-relaxation-theta-and-ambient.md`),
+scaled to 12 V, full duty is ~70 K of rise, and a 2 K gradient at 3–11 % cell coupling
+needs **≈ 3 % steady duty** — about **80–84 days**, against 233 with the heater off.
+Real, worth removing, and not the 3.8-day row.
 
 FW 0x0027 withholds the floor's demand while **RH < 90 % and the cell-side dew margin is
-at least 6.00 K** — roughly "22 °C room air at 65 %RH or drier". The dew law asks for
-nothing in that regime already, so the probe lands on the 0 % row: **233 d on LiFePO4,
-146 d on SLA**, the as-built floor of 2.87 mA.
+at least 6.00 K** — roughly "22 °C room air at 69 %RH or drier". The dew law asks for
+nothing in that regime already, so the probe drops toward the 0 % row.
 
-Three things this does *not* change, stated so nobody reads a season into it:
+**Not to the 0 % row, though.** The gate is bounded rather than latched: each idle period
+ends after 1800 s and the next cannot begin until the floor has driven 120 observed
+seconds. That is 6.25 % of the *time* but **≈ 14 % of the continuous floor's energy**,
+because each premium reheats an assembly that has cooled — the gradient is back within
+~30 s of the window opening and has decayed to ~0.27 K about 300 s into the next idle
+period. Modelled on the same plant: **≈ 184 days**, not 233. All of these are bench-model
+numbers, not a measured potted-probe battery life.
 
-- **In the pile nothing changes.** Pore gas is saturated, the margin is small or
-  negative, and both laws run exactly as before. The buried-probe budget is still the
-  dew-margin policy's, not this gate's.
-- **It is not free of risk.** The floor exists because a wetted-then-drying SHT45 reads
-  low RH; the margin condition blocks the common form of that lie (warming the gas
-  raises Td in step) but not all of it. The gate is therefore bounded, not latched:
-  120 s of floor every 1800 s regardless of humidity — about 6 % of the floor's demand,
-  which is why the saving is "the 0 % row plus a premium", not literally zero.
+Two things this does *not* change, stated so nobody reads a season into it:
+
+- **In a pile the gate should not engage at all**, because saturated pore gas leaves the
+  margin small or negative and the RH near 100 %. That is a statement about the
+  thresholds, not a guarantee: both conditions are computed from the same SHT45, so a
+  wetted element reading low RH can gate the floor in wet gas. The premium bounds that
+  exposure; it does not close it. The buried-probe budget is still the dew-margin
+  policy's, not this gate's.
 - **Duty-cycling the MCU is still not implemented.** The 28.6 µA column remains
   hypothetical (`main.c:3`, "No sleep modes").

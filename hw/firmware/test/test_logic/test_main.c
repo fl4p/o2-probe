@@ -5686,26 +5686,24 @@ static o2p_heater_in_t hin_floor(void)
     return in;
 }
 
-/* ONE STEP OF THE FLOOR'S OWN ARITHMETIC, with the FW 0x0027 dry-air idle gate
- * held open by its own bounding re-assert window (O2P_HEATER_DRY_ASSERT_S).
+/* ONE STEP OF THE FLOOR'S OWN ARITHMETIC, from a FRESH state - which is
+ * exactly a state that still owes the FW 0x0027 dry gate its
+ * O2P_HEATER_DRY_ASSERT_S of floor, so the gate cannot engage on the first
+ * cycle whatever the humidity reads.
  *
- * Why these tests need it. hin_floor() reads 70 %RH, and several of them place
- * the cell well above the chamber, which is exactly the "dry" the gate exists
- * to catch - so measured through dew_step_fresh() they would now be measuring
+ * Why these tests need saying out loud. hin_floor() reads 70 %RH and several
+ * of them place the cell well above the chamber, which is the "dry" the gate
+ * exists to catch; measured after the debt was paid they would be measuring
  * the GATE, and the floor's gains, clamps and monotonicity would go untested.
- * The re-assert window is the real state in which the floor runs whatever the
- * humidity says; entering it costs no fiction. The window itself, and the
- * gating it bounds, are tested separately below.
- *
- * st.dry_assert_s stays 0 here because a fresh state has no previous cycle to
- * measure an interval from, so a single step never spends the window. */
+ * The debt is real state, not a fiction the test installs - that it starts
+ * unpaid out of reset is the deliberate "prove the gradient before saving
+ * anything" behaviour, and it is tested on its own below. */
 static uint16_t floor_step_fresh(const o2p_heater_cfg_t *cfg,
                                  const o2p_heater_in_t *in,
                                  o2p_heater_out_t *out)
 {
     o2p_heater_state_t st;
     o2p_heater_ctl_reset(&st);
-    st.dry_asserting = true;
     o2p_heater_ctl_step(&st, cfg, in, 0u, out);
     return out->duty_x100;
 }
@@ -5859,9 +5857,9 @@ static void test_gradient_floor_integrator_is_its_own_and_is_shed_on_exit(void)
      * for whoever arrives next. */
     o2p_heater_state_t st;
     o2p_heater_ctl_reset(&st);
-    /* The floor's arithmetic, so the dry gate is held open as in
-     * floor_step_fresh(); 20 s never spends O2P_HEATER_DRY_ASSERT_S. */
-    st.dry_asserting = true;
+    /* 20 steps never pay the dry gate's O2P_HEATER_DRY_ASSERT_S debt, so the
+     * floor runs throughout and this measures the floor (see
+     * floor_step_fresh()). */
     o2p_heater_cfg_t cfg = hcfg_default();
     o2p_heater_in_t in = hin_floor();
     o2p_heater_out_t out;
@@ -5905,46 +5903,75 @@ static o2p_heater_in_t hin_dry_bench(void)
     return in;
 }
 
+/* Drive the gate at 1 Hz from a fresh state until it first engages, and
+ * return the step at which it did. A fresh state OWES O2P_HEATER_DRY_ASSERT_S
+ * of floor, so this is also the assertion that the debt is paid first. */
+static uint32_t dry_settle(o2p_heater_state_t *st, const o2p_heater_cfg_t *cfg,
+                           const o2p_heater_in_t *in, o2p_heater_out_t *out,
+                           uint32_t t0)
+{
+    for (uint32_t i = 0u; i < 4u * O2P_HEATER_DRY_ASSERT_S; i++) {
+        o2p_heater_ctl_step(st, cfg, in, t0 + i, out);
+        if ((out->law & O2P_HEATER_LAWF_DEW_DRY_IDLE) != 0u) {
+            return t0 + i;
+        }
+    }
+    TEST_FAIL_MESSAGE("the gate never engaged on dry inputs");
+    return 0u;
+}
+
 static void test_dry_air_gates_the_gradient_floor(void)
 {
     /* The energy-saving state this was asked for (Fab 2026-09-19). Before
-     * 0x0027 this probe drove the ring at ~76 % for as long as it was powered,
-     * which is 3.8 days of the 10 Ah battery at 100 % and 28 d at 12 %
-     * (POWER-BUDGET.md) - all of it to hold a 2 K gradient in room air. */
+     * 0x0027 this probe drove the ring for as long as it was powered - ~3 %
+     * steady duty on the measured plant, ~80 d of the 10 Ah battery against
+     * 233 d idle (POWER-BUDGET.md) - all of it to hold a 2 K gradient in room
+     * air that cannot condense. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
     o2p_heater_cfg_t cfg = hcfg_dew();
     o2p_heater_in_t in = hin_dry_bench();
     o2p_heater_out_t out;
 
-    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, dew_step_fresh(&cfg, &in, &out),
-        "dry gas with a margin to spare must cost nothing");
+    /* The debt is paid first, at the floor's full voice, and only then does
+     * the gate engage: a probe proves its gradient before it saves anything. */
+    TEST_ASSERT_TRUE_MESSAGE(floor_step_fresh(&cfg, &in, &out) > 7000u,
+        "a fresh state owes the floor, so the first cycle must drive");
+    const uint32_t engaged = dry_settle(&st, &cfg, &in, &out, 0u);
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE(O2P_HEATER_DRY_ASSERT_S, engaged,
+        "the gate may not engage before the debt is paid");
+
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.duty_x100,
+        "dry gas with a margin to spare must then cost nothing");
     TEST_ASSERT_EQUAL_HEX16(O2P_HEATER_LAW_DEW | O2P_HEATER_LAWF_DEW_DRY_IDLE,
                             out.law);
     /* Idleness, not a fault: the register must say so without raising one. */
     TEST_ASSERT_EQUAL_UINT16(O2P_HB_TIP_DISARMED | O2P_HB_IDLE, out.block);
-
-    /* The identical probe with the gate's own re-assert window open is the
-     * floor at full voice, so the gate is the only difference between them. */
-    TEST_ASSERT_TRUE_MESSAGE(floor_step_fresh(&cfg, &in, &out) > 7000u,
-        "and the floor is what is being withheld, not something already idle");
-    TEST_ASSERT_EQUAL_UINT16(0u, out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE);
 }
 
 static void test_the_dry_gate_needs_both_dryness_and_margin(void)
 {
-    /* TWO conditions, and the margin is the load-bearing one. Heating the
-     * chamber lowers its relative humidity at constant absolute humidity -
-     * the whole design of this loop - so a gate on RH alone switches the
-     * floor off by its own success; measured against the wet-enclosure plant
-     * below, an RH-only form dropped the gradient from 2.00 K to 0.40 K. */
+    /* TWO conditions. RH alone cannot be the test: heating the chamber lowers
+     * its relative humidity at constant absolute humidity, so in an assembly
+     * with a finite wet source an RH-only gate switches the floor off by its
+     * own success - simulated on the wet-enclosure plant below, it left a
+     * 0.40 K peak gradient where this form holds ~2 K. */
+    o2p_heater_state_t st;
     o2p_heater_cfg_t cfg = hcfg_dew();
     o2p_heater_out_t out;
 
-    /* Wet gas, generous margin (a hot cell in cooler saturated air): no gate. */
+    /* Wet gas, generous margin (a hot cell in cooler saturated air): no gate,
+     * however long it runs. */
     o2p_heater_in_t humid = hin_dry_bench();
     humid.rh_x100 = 9600u;
-    TEST_ASSERT_TRUE_MESSAGE(dew_step_fresh(&cfg, &humid, &out) > 0u,
-        "over 90 %RH the floor must run whatever the margin says");
-    TEST_ASSERT_EQUAL_UINT16(0u, out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE);
+    o2p_heater_ctl_reset(&st);
+    for (uint32_t t = 0u; t < 2u * O2P_HEATER_DRY_ASSERT_S; t++) {
+        o2p_heater_ctl_step(&st, &cfg, &humid, t, &out);
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u,
+            out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE,
+            "over 90 %RH the floor must run whatever the margin says");
+    }
+    TEST_ASSERT_TRUE(out.duty_x100 > 0u);
 
     /* A dry READING with a thin margin - the wetted-SHT45 and warmed-chamber
      * signature - is the case the margin condition exists to catch. 70 %RH
@@ -5953,9 +5980,14 @@ static void test_the_dry_gate_needs_both_dryness_and_margin(void)
     o2p_heater_in_t thin = hin_dry_bench();
     thin.t_chamber_c100 = 5300;
     thin.rh_x100 = 7000u;
-    TEST_ASSERT_TRUE_MESSAGE(dew_step_fresh(&cfg, &thin, &out) > 0u,
-        "a thin margin must keep the floor even when the RH reads dry");
-    TEST_ASSERT_EQUAL_UINT16(0u, out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE);
+    o2p_heater_ctl_reset(&st);
+    for (uint32_t t = 0u; t < 2u * O2P_HEATER_DRY_ASSERT_S; t++) {
+        o2p_heater_ctl_step(&st, &cfg, &thin, t, &out);
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u,
+            out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE,
+            "a thin margin must keep the floor even when the RH reads dry");
+    }
+    TEST_ASSERT_TRUE(out.duty_x100 > 0u);
 }
 
 static void test_the_dry_gate_never_engages_on_an_unevaluable_humidity(void)
@@ -5963,21 +5995,30 @@ static void test_the_dry_gate_never_engages_on_an_unevaluable_humidity(void)
     /* Guard checklist 1: no reading is not a dry reading. An SHT45 de-creep,
      * a lost chamber, a humidity the Magnus form cannot take - each of them
      * leaves the floor running, the same direction NO_DEWPOINT takes. */
+    o2p_heater_state_t st;
     o2p_heater_cfg_t cfg = hcfg_dew();
     o2p_heater_out_t out;
 
     o2p_heater_in_t no_rh = hin_dry_bench();
     no_rh.rh_valid = false;
-    TEST_ASSERT_TRUE_MESSAGE(dew_step_fresh(&cfg, &no_rh, &out) > 0u,
-        "a missing humidity must never be read as dry air");
-    TEST_ASSERT_EQUAL_HEX16(O2P_HEATER_LAW_DEW | O2P_HEATER_LAWF_DEW_NO_DEWPOINT,
-                            out.law);
+    o2p_heater_ctl_reset(&st);
+    for (uint32_t t = 0u; t < 2u * O2P_HEATER_DRY_ASSERT_S; t++) {
+        o2p_heater_ctl_step(&st, &cfg, &no_rh, t, &out);
+        TEST_ASSERT_EQUAL_HEX16_MESSAGE(
+            O2P_HEATER_LAW_DEW | O2P_HEATER_LAWF_DEW_NO_DEWPOINT, out.law,
+            "a missing humidity must never be read as dry air");
+    }
+    TEST_ASSERT_TRUE(out.duty_x100 > 0u);
 
     o2p_heater_in_t bad_rh = hin_dry_bench();
     bad_rh.rh_x100 = 0u;        /* Magnus cannot take it */
-    TEST_ASSERT_TRUE_MESSAGE(dew_step_fresh(&cfg, &bad_rh, &out) > 0u,
-        "an unevaluable humidity must never be read as dry air");
-    TEST_ASSERT_EQUAL_UINT16(0u, out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE);
+    o2p_heater_ctl_reset(&st);
+    for (uint32_t t = 0u; t < 2u * O2P_HEATER_DRY_ASSERT_S; t++) {
+        o2p_heater_ctl_step(&st, &cfg, &bad_rh, t, &out);
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u,
+            out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE,
+            "an unevaluable humidity must never be read as dry air");
+    }
 }
 
 static void test_the_dry_gate_hysteresis_holds_at_both_thresholds(void)
@@ -5990,39 +6031,40 @@ static void test_the_dry_gate_hysteresis_holds_at_both_thresholds(void)
     o2p_heater_out_t out;
     o2p_heater_in_t in = hin_dry_bench();
 
-    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    uint32_t t = dry_settle(&st, &cfg, &in, &out, 0u) + 1u;
     TEST_ASSERT_TRUE(st.dry_idle);
 
     /* Between the two RH thresholds: still gated. */
     in.rh_x100 = 9200u;
-    o2p_heater_ctl_step(&st, &cfg, &in, 1u, &out);
+    o2p_heater_ctl_step(&st, &cfg, &in, t++, &out);
     TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.duty_x100,
         "92 %RH must not release a gate that engaged at 50 %");
 
     /* Past the release threshold: the floor comes back. */
     in.rh_x100 = 9600u;
-    o2p_heater_ctl_step(&st, &cfg, &in, 2u, &out);
+    o2p_heater_ctl_step(&st, &cfg, &in, t++, &out);
     TEST_ASSERT_TRUE(out.duty_x100 > 0u);
     TEST_ASSERT_FALSE(st.dry_idle);
 
-    /* Now the margin's own hysteresis, on the same shape. 70 %RH over a
-     * 52.50 C chamber is Td = 45.4 C: 5.6 K of margin, between the 6 K entry
-     * and the 5 K release, so a gate already engaged holds and one that is
-     * not does not engage. */
-    o2p_heater_ctl_reset(&st);
+    /* Now the margin's own hysteresis. 70 %RH over a 52.50 C chamber is
+     * Td = 45.4 C: 5.6 K of margin, between the 6 K entry and the 5 K
+     * release, so a gate already engaged holds and one that is not does not
+     * engage - even given all the floor-time it could ask for. */
     o2p_heater_in_t band = hin_dry_bench();
     band.t_chamber_c100 = 5250;
     band.rh_x100 = 7000u;
-    o2p_heater_ctl_step(&st, &cfg, &band, 10u, &out);
-    TEST_ASSERT_FALSE_MESSAGE(st.dry_idle,
-        "5.6 K of margin is under the 6 K entry, so nothing may engage");
+    o2p_heater_ctl_reset(&st);
+    for (uint32_t i = 0u; i < 2u * O2P_HEATER_DRY_ASSERT_S; i++) {
+        o2p_heater_ctl_step(&st, &cfg, &band, i, &out);
+        TEST_ASSERT_FALSE_MESSAGE(st.dry_idle,
+            "5.6 K of margin is under the 6 K entry, so nothing may engage");
+    }
 
     o2p_heater_ctl_reset(&st);
-    o2p_heater_ctl_step(&st, &cfg, &in, 20u, &out);   /* 96 %RH: not gated */
-    in.rh_x100 = 5000u;
-    o2p_heater_ctl_step(&st, &cfg, &in, 21u, &out);   /* engages */
+    in = hin_dry_bench();                    /* 50 %RH again, not the 96 % above */
+    t = dry_settle(&st, &cfg, &in, &out, 0u) + 1u;   /* engaged at 50 %RH */
     TEST_ASSERT_TRUE(st.dry_idle);
-    o2p_heater_ctl_step(&st, &cfg, &band, 22u, &out);
+    o2p_heater_ctl_step(&st, &cfg, &band, t, &out);
     TEST_ASSERT_TRUE_MESSAGE(st.dry_idle,
         "5.6 K is above the 5 K release, so an engaged gate must hold");
 }
@@ -6031,38 +6073,104 @@ static void test_the_dry_gate_reasserts_the_floor_periodically(void)
 {
     /* THE BOUND ON WHAT THIS COSTS. The gate cannot tell a dry probe from a
      * lied-to one - a wetted-then-drying SHT45 reads low - so it is not a
-     * latch: every O2P_HEATER_DRY_IDLE_MAX_S the floor runs again for
-     * O2P_HEATER_DRY_ASSERT_S whatever the humidity says. A lying sensor buys
-     * a bounded duty cycle of outward heat, not none.
+     * latch: each idle period ends after O2P_HEATER_DRY_IDLE_MAX_S, and the
+     * next cannot begin until the floor has driven O2P_HEATER_DRY_ASSERT_S
+     * observed seconds. A lying sensor buys a bounded duty cycle of outward
+     * heat, not none.
      *
-     * One hour at 1 Hz on unchanging dry inputs, counting the seconds the ring
-     * was driven: exactly one window, and it is the window's own length. */
+     * Two hours at 1 Hz on unchanging dry inputs, counting the seconds the
+     * ring was driven: the opening debt, then one premium per idle period. */
     o2p_heater_state_t st;
     o2p_heater_ctl_reset(&st);
     o2p_heater_cfg_t cfg = hcfg_dew();
     o2p_heater_in_t in = hin_dry_bench();
     o2p_heater_out_t out;
 
-    uint32_t driven = 0u, first = 0u, flagged = 0u;
-    for (uint32_t t = 0u; t < 3600u; t++) {
+    const uint32_t period = O2P_HEATER_DRY_IDLE_MAX_S + O2P_HEATER_DRY_ASSERT_S;
+    uint32_t driven = 0u, flagged = 0u;
+    for (uint32_t t = 0u; t < 2u * period; t++) {
         o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
         if (out.duty_x100 > 0u) {
-            if (driven == 0u) {
-                first = t;
-            }
             driven++;
         }
         if ((out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE) != 0u) {
             flagged++;
         }
     }
-    TEST_ASSERT_EQUAL_UINT32_MESSAGE(O2P_HEATER_DRY_ASSERT_S, driven,
-        "the premium must be exactly one assert window per idle period");
-    TEST_ASSERT_EQUAL_UINT32_MESSAGE(O2P_HEATER_DRY_IDLE_MAX_S, first,
-        "and it must arrive after the idle period, not before");
-    /* The flag is absent for exactly the window, so an operator can tell
-     * "idling" from "idling, but paying its periodic premium". */
-    TEST_ASSERT_EQUAL_UINT32(3600u - O2P_HEATER_DRY_ASSERT_S, flagged);
+    /* Two full periods start inside the run, each paying exactly the debt. */
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE(2u * O2P_HEATER_DRY_ASSERT_S, driven,
+        "the premium must be exactly one debt per idle period");
+    TEST_ASSERT_EQUAL_UINT32(2u * period - driven, flagged);
+}
+
+static void test_a_flickering_humidity_cannot_cancel_the_premium(void)
+{
+    /* CODEX REVIEW OF 0a5587a, FINDING 1 - the first form kept an "asserting"
+     * flag and cleared it on any cycle the gas did not read dry, so ONE
+     * invalid humidity sample during the window erased it and started a fresh
+     * 1800 s idle. The reviewer's schedule, a bad sample every 1799 s, bought
+     * four driven seconds in two hours where the header promised 480.
+     *
+     * The premium is a debt now: seconds the floor runs for ANY reason pay it,
+     * so a wet or unevaluable excursion settles it instead of cancelling it. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_dew();
+    o2p_heater_out_t out;
+
+    uint32_t driven = 0u;
+    for (uint32_t t = 0u; t < 7200u; t++) {
+        o2p_heater_in_t in = hin_dry_bench();
+        if (t % 1799u == 0u && t != 0u) {
+            in.rh_valid = false;     /* the one bad sample */
+        }
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+        if (out.duty_x100 > 0u) {
+            driven++;
+        }
+    }
+    /* Four idle periods fit in two hours; even losing one to the flicker, the
+     * floor must have driven its debt most of those times. The old form
+     * managed 4 seconds in this exact schedule. */
+    TEST_ASSERT_TRUE_MESSAGE(driven >= 3u * O2P_HEATER_DRY_ASSERT_S,
+        "a flickering humidity must not be able to cancel the premium");
+}
+
+static void test_a_refused_cycle_is_not_floor_time(void)
+{
+    /* CODEX REVIEW OF 0a5587a, FINDING 2 - the gate's clock was cleared past
+     * the refusal path, so a refused cycle shorter than the 5 s gap rule was
+     * credited to the premium as if the floor had been driving through it: a
+     * tip glitch every fifth cycle "completed" a 120 s debt in 24 driven
+     * seconds. The clock is cleared at the top of every step now, so only a
+     * cycle whose floor actually ran can pay.
+     *
+     * Every fifth cycle loses the tip, which REFUSES (NO_TIP is in the dew
+     * law's wet mask) with the die cool enough that blind heat is not the
+     * answer either. The debt must still take 120 DRIVEN seconds. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_dew();
+    o2p_heater_out_t out;
+
+    uint32_t driven = 0u, engaged_at = 0u;
+    for (uint32_t t = 0u; t < 4u * O2P_HEATER_DRY_ASSERT_S; t++) {
+        o2p_heater_in_t in = hin_dry_bench();
+        if (t % 5u == 4u) {
+            in.tip_valid = false;
+        }
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+        if ((out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE) != 0u) {
+            engaged_at = t;
+            break;
+        }
+        if (out.duty_x100 > 0u) {
+            driven++;
+        }
+    }
+    TEST_ASSERT_TRUE_MESSAGE(engaged_at > 0u, "the gate never engaged");
+    TEST_ASSERT_TRUE_MESSAGE(driven >= O2P_HEATER_DRY_ASSERT_S,
+        "a refused cycle must not be credited as floor time");
 }
 
 static void test_the_dry_gate_is_monotonic_in_wetness(void)
@@ -12009,6 +12117,8 @@ int main(void)
     RUN_TEST(test_the_dry_gate_never_engages_on_an_unevaluable_humidity);
     RUN_TEST(test_the_dry_gate_hysteresis_holds_at_both_thresholds);
     RUN_TEST(test_the_dry_gate_reasserts_the_floor_periodically);
+    RUN_TEST(test_a_flickering_humidity_cannot_cancel_the_premium);
+    RUN_TEST(test_a_refused_cycle_is_not_floor_time);
     RUN_TEST(test_the_dry_gate_is_monotonic_in_wetness);
     RUN_TEST(test_a_runaway_latch_outranks_the_dry_gate);
     RUN_TEST(test_dew_unreachable_after_a_dwell_at_the_ceiling_in_wet_gas);

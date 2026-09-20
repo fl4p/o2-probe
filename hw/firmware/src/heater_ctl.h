@@ -583,14 +583,27 @@ enum {
  * RH under 90 %, and RH ALONE CANNOT BE THE TEST: heating the chamber lowers
  * its relative humidity at constant absolute humidity - that is the whole
  * design (heater_ctl.h:20) - so a floor gated on RH switches itself off by
- * its own success. Measured against the test suite's wet-enclosure plant (the
- * 2026-09-13 bench regime, Td riding the tip at 0.92): an RH-only gate read
- * "dry" as soon as the ring had warmed the chamber a little, and the outward
- * gradient collapsed from 2.00 K to 0.40 K in the one environment that was
- * actually wet. So the gate ALSO requires O2P_HEATER_DRY_MARGIN_K100 of
- * cell-side dew margin - the same quantity the dew law regulates, which
- * cannot be talked up by warming the gas, because warming the gas raises Td
- * in step. Both conditions must hold; either one failing runs the floor.
+ * its own success. Simulated against the test suite's wet-enclosure plant
+ * (the 2026-09-13 bench regime, Td riding the tip at 0.92): an RH-only gate
+ * read "dry" as soon as the ring had warmed the chamber a little, and the
+ * outward gradient fell to a 0.40 K peak - 0.05 K mean over the last 1200 s -
+ * where this form holds ~2 K. So the gate ALSO requires
+ * O2P_HEATER_DRY_MARGIN_K100 of cell-side dew margin, the same quantity the
+ * dew law regulates.
+ *
+ * WHY THAT HELPS, STATED NARROWLY (codex review of 0a5587a, finding 3). It is
+ * NOT that warming gas always raises its dew point: at fixed vapour pressure
+ * Td does not move, and dTd/dTtip = 0.92 describes that wet enclosure, not a
+ * law. What the margin condition buys is that in an assembly with a finite
+ * wet source - a pile, a damp chamber, a probe that came out of the ground -
+ * the evaporating water tracks the heat, so RH falls while the margin does
+ * not, and the margin is the one of the two that notices. It buys nothing
+ * against a WRONG humidity: both conditions are computed from the same SHT45,
+ * so they are not independent evidence, and a wetted element reading 60 %
+ * where the gas is at 84 % gates the floor with the membrane 1 K under its
+ * dew point (the review's constructed case, reproduced against this
+ * controller). That is the hole the re-assert debt below bounds and does not
+ * close. Both conditions must hold; either one failing runs the floor.
  *
  * WHY THE MARGIN THRESHOLD SITS ABOVE THE DEW LAW'S TARGET. At
  * O2P_HEATER_DEW_MARGIN_K100 the dew law is still asking for duty, so gating
@@ -600,13 +613,28 @@ enum {
  * monotonic in the direction that matters: as the gas gets wetter the gate
  * opens, and duty can only rise.
  *
- * HOW IT IS BOUNDED. The gate is not a latch. After
- * O2P_HEATER_DRY_IDLE_MAX_S of continuous idling the floor is re-asserted for
- * O2P_HEATER_DRY_ASSERT_S no matter what the humidity says, then the gate may
- * re-engage. A lying sensor therefore cannot hold the outward gradient off
- * indefinitely: it buys a bounded duty cycle of heat (120 s in 1800 s, ~6 %
- * of the floor's demand) rather than none. This is exposure bounding, NOT
- * detection - nothing here can tell a dry probe from a lied-to one.
+ * HOW IT IS BOUNDED, AS A DEBT. The gate is not a latch. Each idle period
+ * ends after O2P_HEATER_DRY_IDLE_MAX_S, and the next one may not begin until
+ * the floor has driven for O2P_HEATER_DRY_ASSERT_S OBSERVED seconds. It is a
+ * debt rather than a window because a window can be cancelled: the first form
+ * cleared an in-flight window whenever the gas stopped reading dry, and one
+ * invalid humidity sample every 1799 s then bought four driven seconds in two
+ * hours (codex review of 0a5587a, finding 1). Seconds the floor runs for ANY
+ * reason pay the debt, so a wet excursion now settles it instead of erasing
+ * it, and out of reset the debt is unpaid - a probe drives its gradient for
+ * 120 s before it is ever allowed to idle.
+ *
+ * WHAT THAT PREMIUM ACTUALLY BUYS, measured on the repo's own plant model
+ * (theta 68 K/W, tau 150 s) rather than asserted: the floor's proportional
+ * term asks for 100 % at the start of the window, so the 2 K gradient is back
+ * within ~30 s and holds for the rest of it - NOT a ramp, despite the
+ * integrator being zeroed. It then decays to ~0.27 K about 300 s into the
+ * next idle period and to nothing well before the window after that. So the
+ * probe spends 6.25 % of its time driving and ~14 % of the continuous
+ * floor's ENERGY (the reheat is not free), and the membrane sees a gradient
+ * that is real but intermittent. This is exposure bounding, NOT detection -
+ * nothing here can tell a dry probe from a lied-to one, and no clearance of
+ * existing condensate is claimed.
  *
  * FAIL-SAFE DIRECTION (guard checklist 1). Only a POSITIVE, evaluable "this
  * gas is dry" engages the gate: rh and chamber valid AND a Magnus-evaluable
@@ -633,6 +661,15 @@ enum {
  * or negative and NOTHING here changes: the floor runs and the dew law runs.
  * The gate can never turn the dew law's demand down either - duty =
  * max(dew, floor), and only the floor's argument is gated.
+ *
+ * KNOWN INTERACTION, NOT FIXED HERE (codex review of 0a5587a, finding 5).
+ * Zero duty is also what the RUNAWAY detector's 5 % idle threshold wants to
+ * see before it calls environmental heat uncommanded, so on a plant where the
+ * ungated floor would have sat just above that threshold, gating can latch
+ * RUNAWAY where the parent did not. The consequence is a loss of the SAVING,
+ * not of heat: under a latch this gate never runs and the floor regulates as
+ * before (FW 0x001F). Left for Fab's call, because the fix is in the runaway
+ * detector and that detector has been rebuilt twice already.
  *
  * All four numbers PROVISIONAL, like every other number about this plant. */
 #define O2P_HEATER_DRY_RH_X100          9000u
@@ -917,14 +954,15 @@ typedef struct {
     uint32_t cell_lost_since_s;
     /* The DRY-AIR IDLE GATE on the gradient floor
      * (O2P_HEATER_DRY_IDLE_MAX_S): whether the floor is currently gated off
-     * and since when (elapsed, not observed), whether the bounding re-assert
-     * window is running and how many OBSERVED seconds it has counted, and the
-     * previous dew-law cycle's clock for that counting - invalid across any
-     * refusal or other law, so a gap is never credited to the window. */
+     * and since when (ELAPSED, not observed), the DEBT - how many observed
+     * seconds the floor has driven since the last idle period began, which
+     * must reach O2P_HEATER_DRY_ASSERT_S before the gate may engage again -
+     * and the previous cycle's clock for counting it. dry_prev_valid is true
+     * only after a cycle whose floor actually ran: it is cleared at the top
+     * of every step, so no refused or handed-over interval is ever credited. */
     bool     dry_idle;
-    bool     dry_asserting;
     bool     dry_prev_valid;
-    uint16_t dry_assert_s;
+    uint16_t dry_floor_run_s;
     uint32_t dry_idle_since_s;
     uint32_t dry_prev_s;
     bool     dt_clamped;       /* hysteresis latches */
@@ -998,7 +1036,7 @@ enum {
 /* The gas reads dry and the gradient floor's demand is gated off to save
  * power (FW 0x0027; O2P_HEATER_DRY_RH_X100). Set only alongside
  * O2P_HEATER_LAW_DEW, and only on a cycle the floor actually contributed
- * nothing - it is absent during the bounding re-assert window, which is how
+ * nothing - it is absent while the floor pays its periodic debt, which is how
  * an operator tells "idling" from "idling, but paying its periodic premium".
  * Duty zero with this bit set is the designed energy-saving state, not a
  * fault; HEATER_BLOCK carries the usual O2P_HB_IDLE beside it. */
