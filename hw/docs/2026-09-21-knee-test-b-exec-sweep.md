@@ -118,11 +118,25 @@ address and the ELF agree without either being told the other.
 3. `PEEK_OK` was 0; regmap.h says **NONE is 0 and OK is 1**. A successful peek
    was reported as a refusal, and the same assumption would have turned "never
    triggered" into "fine".
-4. `--resend-s 75` against a node uplinking every **~128 s** (14 in 30 min,
-   DR3): every exchange queued a second request and the link ran permanently
-   one reply behind, answering each question with the previous question's
-   answer - the failure `o2p_lorawan_cmd.py`'s own docstring records from
-   2026-09-19/20. 200 s works.
+4. `--resend-s 75` produced one stale reply - an FC3 answer returned as the
+   reply to an FC16 - the "permanently one exchange behind" failure
+   `o2p_lorawan_cmd.py`'s own docstring records from 2026-09-19/20. 200 s
+   works.
+
+   **AND THE CADENCE I SIZED IT AGAINST WAS MY OWN INTERFERENCE.** I measured
+   14 uplinks in 30 min, called it ~128 s and DR3, and wrote that into a
+   commit message. Measured cleanly after the bus was released, the node
+   polls every **60 s** - DR5 - nine samples in nine minutes, every gap 60 s.
+   The 30-minute window I sampled was full of my own CTRL bus claims, which
+   take the node's scheduled poll off the RS-485 pair, so the number measured
+   how much telemetry I was suppressing and not the node's rate. 75 s is
+   still marginal against a 60 s cadence - a resend fires just as the reply
+   lands - so the fix was right and the reason recorded for it was wrong.
+
+   The general form: **never measure a cadence from a window you were
+   perturbing.** The suppressed gaps here were 556 and 665 s against a 60 s
+   normal, i.e. an order of magnitude, and it still read as a plausible data
+   rate rather than as an artefact.
 
 ## WHAT THIS DOES NOT ESTABLISH
 
