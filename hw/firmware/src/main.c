@@ -1526,6 +1526,12 @@ static void cycle_publish(o2p_snapshot_t *s)
                                 O2P_HEATER_TIP_CONSENT_MAGIC),
             .tip_sp_valid    = (g_rm.cfg.tip_setpoint_c100 != O2P_I16_INVALID),
             .tip_sp_c100     = g_rm.cfg.tip_setpoint_c100,
+            /* Storage mode, register 0x004C. From the CONFIG for the same
+             * reason the tip loop is: a probe on a shelf stays on a shelf
+             * across a reset, and a gate that forgot its permission on every
+             * brown-out would spend the floor's energy anyway. */
+            .storage_mode    = (g_rm.cfg.heater_storage ==
+                                O2P_HEATER_STORAGE_MAGIC),
         };
         /* CHAMBER TEMPERATURE FOR THE dT CLAMP, bridged across the scheduled
          * SHT45 de-creep mask.

@@ -102,6 +102,18 @@ Direction is safe — it pushes toward the exit threshold, toward heating — bu
   cell 0.34 K BELOW the dew point. The 1800 s cap bounds that exposure and does
   not refute it. Sound as a storage energy policy; an explicit storage mode is
   the honest form. Fab's call.
+
+  **ANSWERED 2026-09-21, FW 0x002B.** That mode is now register 0x004C,
+  HEATER_STORAGE, and the gate does nothing without it. Everything measured on
+  this page still describes what the gate DOES - it was measured with the gate
+  free to engage, which is what permission now grants - but it no longer
+  describes what a probe does by default. **A probe with no permission heats as
+  it did before FW 0x0027.** The energy saving is opt-in.
+
+  Note what this does NOT change: the gate's conditions are exactly as unable
+  to detect a lying sensor as they were. Nothing was made smarter. The
+  authority to trade the floor away was simply moved to somebody who can see
+  where the probe is.
 - **The energy figures are modelled, not measured.** ~14 % of the continuous
   floor's energy, ~184 d, from the bench thermal model (theta 68 K/W, tau 150 s)
   — not a battery observation on a potted probe.
@@ -109,4 +121,11 @@ Direction is safe — it pushes toward the exit threshold, toward heating — bu
   published by the firmware but the node codec does not decode that register, so
   every conclusion here is inferred from duty and the gate's inputs rather than
   read from the flag. Decoding it would make this directly observable.
+- **The pile lockout added in FW 0x002A is a HOT-pile discriminator only.**
+  The v0.41 version note claimed 35.00 C sits "far below any pile"; that was
+  wrong and is retracted. A curing or cooling heap sits near ambient, and the
+  DWD 1991-2020 normals for Villingen-Schwenningen (719 m) are 8.1 / 3.2 /
+  -0.1 C for Oct / Nov / Dec. The sub-35 C hole is what FW 0x002B's storage
+  mode closes, and it closes it by asking rather than by inferring.
+
 - Everything is one probe, one plant, room air. Nothing here is a pile.

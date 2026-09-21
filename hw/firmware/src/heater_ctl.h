@@ -561,6 +561,15 @@ enum {
  * "is there an energy saving mode, when probe is not inside the pile and RH is
  * <90%, so heater stays off most of the time?" then "do it").
  *
+ * IT DOES NOTHING WITHOUT PERMISSION (FW 0x002B). Everything below describes
+ * a gate that has been ENABLED by O2P_REG_HEATER_STORAGE; a probe nobody has
+ * said anything about heats exactly as it did before FW 0x0027, and that is
+ * the default, the migration result, and the state after any corrupt record.
+ * The reason is at the top of cfg.storage_mode: none of the conditions below
+ * can tell dry gas from a wetted SHT45 reading low, the 0x002A cell lockout
+ * separates the probe from a HOT pile only, and below 35.00 C the hole is
+ * open and measured. The saving is real and it is OPT-IN.
+ *
  * WHAT IT DOES. While the gas is DRY the floor withholds its demand, so a
  * probe out of the pile in ordinary air draws nothing for heat. The dew law
  * was already free in that regime - at RH under 90 % the cell-side margin is
@@ -1023,6 +1032,27 @@ typedef struct {
     bool     tip_consent;
     bool     tip_sp_valid;
     int16_t  tip_sp_c100;
+    /* STORAGE MODE: the dry-air idle gate may withhold the gradient floor
+     * only while this is true. False is the default, the migration result,
+     * and the state of every probe nobody has said anything about.
+     *
+     * WHY THE GATE NEEDS PERMISSION AT ALL. Its conditions are a sound ENERGY
+     * policy and were never a condensation safeguard: nothing in them can tell
+     * dry gas from a wetted SHT45 reading low, which is the exact fault the
+     * gradient floor exists to survive. FW 0x002A added an absolute-cell
+     * lockout and that separates the probe from a HOT pile only - below
+     * 35.00 C the hole is open and measured, a 21.00 C cell in a 22.00 C
+     * chamber reporting 45 % RH showing +11.49 K of apparent margin while an
+     * actual 98 % puts the cell 0.67 K UNDER the dew point. A curing heap sits
+     * near ambient and ambient here is a Black Forest autumn, so no
+     * temperature test can close it.
+     *
+     * With this false the probe heats exactly as it did before FW 0x0027: the
+     * floor holds T_cell + 2.00 K whatever the humidity reads, which costs
+     * ~3 % steady duty and is the price of a backstop that does not depend on
+     * the sensor it is backing up. With it true, that is traded away
+     * knowingly, by somebody who can see where the probe is. */
+    bool     storage_mode;
     /* No gains of its own: it uses test_kp_x100/test_ki_x100 above. The flash
      * record had six spare bytes and the setpoint plus its consent took four;
      * see O2P_REG_HEATER_TIP_CONSENT for why the target and the authorisation

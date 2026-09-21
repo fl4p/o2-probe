@@ -206,6 +206,13 @@ static void carry_v6_body(o2p_config_t *out, const o2p_config_v6_t *v)
      * acquire a history of exceptions. */
     out->heater_rh_consent = 0u;
     out->heater_tip_consent = 0u;
+    /* NOR IS STORAGE MODE, for the same reason and with a sharper edge: this
+     * one does not arm a heater, it DISARMS one. A probe upgraded while it
+     * happened to be on a shelf must not come back with the gradient floor
+     * still gated, because the next thing that happens to a probe on a shelf
+     * is that somebody buries it. An upgrade lands in FIELD mode and the
+     * operator says so again if it is still true. */
+    out->heater_storage = 0u;
 }
 
 /* The record wrapper is the same shape in every version - magic, layout

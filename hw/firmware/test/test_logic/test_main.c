@@ -1415,15 +1415,16 @@ static void test_config_block_read_covers_the_gains(void)
     /* The block grew from 16 to 18 registers with the gains, to 20 with
      * ASSUMED_P_HPA and CAL_AIR_FRAC, to 21 with CAL_P_HPA, to 22 with
      * DIL_ALPHA, to 24 with the CAL_ZERO_NA pair and to 25 with
-     * HEATER_RH_CONSENT, to 27 with TIP_SETPOINT and HEATER_TIP_CONSENT, and
-     * to 28 with VIN_DIV_X1000. A read of all 28 must succeed; 29 must not, or
-     * the boundary rule has quietly stopped being enforced. */
+     * HEATER_RH_CONSENT, to 27 with TIP_SETPOINT and HEATER_TIP_CONSENT, to
+     * 28 with VIN_DIV_X1000 and to 29 with HEATER_STORAGE. A read of all 29
+     * must succeed; 30 must not, or the boundary rule has quietly stopped
+     * being enforced. */
     uint8_t req[16], rsp[O2P_MB_MAX_ADU];
-    const uint8_t all[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x1C};
+    const uint8_t all[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x1D};
     size_t n = framed(req, all, sizeof(all));
-    TEST_ASSERT_EQUAL_UINT(3 + 56 + 2, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
+    TEST_ASSERT_EQUAL_UINT(3 + 58 + 2, o2p_mb_dispatch(req, n, 3, &handlers, rsp));
 
-    const uint8_t over[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x1D};
+    const uint8_t over[] = {0x03, 0x03, 0x00, 0x30, 0x00, 0x1E};
     n = framed(req, over, sizeof(over));
     o2p_mb_dispatch(req, n, 3, &handlers, rsp);
     TEST_ASSERT_EQUAL_HEX8(O2P_MB_EX_ILLEGAL_ADDRESS, rsp[2]);
@@ -5983,6 +5984,31 @@ static void test_gradient_floor_integrator_is_its_own_and_is_shed_on_exit(void)
  * 1.50 K short and asking for ~76 % duty whenever it is not gated.
  * hcfg_dew()'s wide envelope keeps DT_LIMIT out of a test that is not about
  * tip-minus-chamber. */
+/* THE GATE NEEDS PERMISSION SINCE FW 0x002B, so every test in this section
+ * grants it - INCLUDING the ones that assert the gate does NOT engage.
+ *
+ * That is the point worth stating. A pile-lockout test run without storage
+ * mode would still pass, because the permission is missing rather than because
+ * the cell is hot, and it would go on passing with the lockout deleted. A test
+ * that cannot tell which reason produced its result is not testing either of
+ * them. The refusal WITHOUT permission gets its own test below instead, where
+ * it is the thing under examination rather than a side effect.
+ */
+static o2p_heater_cfg_t hcfg_storage(void)
+{
+    o2p_heater_cfg_t c = hcfg_dew();
+    c.storage_mode = true;
+    return c;
+}
+
+static o2p_heater_cfg_t hcfg_storage_default(void)
+{
+    o2p_heater_cfg_t c = hcfg_default();
+    c.storage_mode = true;
+    return c;
+}
+
+
 static o2p_heater_in_t hin_dry_bench(void)
 {
     /* REAL BENCH NUMBERS since FW 0x002A. This fixture used to sit at a cell
@@ -6027,7 +6053,7 @@ static void test_dry_air_gates_the_gradient_floor(void)
      * air that cannot condense. */
     o2p_heater_state_t st;
     o2p_heater_ctl_reset(&st);
-    o2p_heater_cfg_t cfg = hcfg_dew();
+    o2p_heater_cfg_t cfg = hcfg_storage();
     o2p_heater_in_t in = hin_dry_bench();
     o2p_heater_out_t out;
 
@@ -6055,7 +6081,7 @@ static void test_the_dry_gate_needs_both_dryness_and_margin(void)
      * own success - simulated on the wet-enclosure plant below, it left a
      * 0.40 K peak gradient where this form holds ~2 K. */
     o2p_heater_state_t st;
-    o2p_heater_cfg_t cfg = hcfg_dew();
+    o2p_heater_cfg_t cfg = hcfg_storage();
     o2p_heater_out_t out;
 
     /* Wet gas, generous margin (a hot cell in cooler saturated air): no gate,
@@ -6113,7 +6139,7 @@ static void test_the_dry_gate_never_engages_on_an_unevaluable_humidity(void)
      * a lost chamber, a humidity the Magnus form cannot take - each of them
      * leaves the floor running, the same direction NO_DEWPOINT takes. */
     o2p_heater_state_t st;
-    o2p_heater_cfg_t cfg = hcfg_dew();
+    o2p_heater_cfg_t cfg = hcfg_storage();
     o2p_heater_out_t out;
 
     o2p_heater_in_t no_rh = hin_dry_bench();
@@ -6144,7 +6170,7 @@ static void test_the_dry_gate_hysteresis_holds_at_both_thresholds(void)
      * margin falling to 5 K, to put the floor back. */
     o2p_heater_state_t st;
     o2p_heater_ctl_reset(&st);
-    o2p_heater_cfg_t cfg = hcfg_dew();
+    o2p_heater_cfg_t cfg = hcfg_storage();
     o2p_heater_out_t out;
     o2p_heater_in_t in = hin_dry_bench();
     /* ISOLATE THE RH BAND. At the bench fixture's own geometry 92 %RH puts the
@@ -6211,7 +6237,7 @@ static void test_the_dry_gate_reasserts_the_floor_periodically(void)
      * ring was driven: the opening debt, then one premium per idle period. */
     o2p_heater_state_t st;
     o2p_heater_ctl_reset(&st);
-    o2p_heater_cfg_t cfg = hcfg_dew();
+    o2p_heater_cfg_t cfg = hcfg_storage();
     o2p_heater_in_t in = hin_dry_bench();
     o2p_heater_out_t out;
 
@@ -6244,7 +6270,7 @@ static void test_a_flickering_humidity_cannot_cancel_the_premium(void)
      * so a wet or unevaluable excursion settles it instead of cancelling it. */
     o2p_heater_state_t st;
     o2p_heater_ctl_reset(&st);
-    o2p_heater_cfg_t cfg = hcfg_dew();
+    o2p_heater_cfg_t cfg = hcfg_storage();
     o2p_heater_out_t out;
 
     uint32_t driven = 0u;
@@ -6279,7 +6305,7 @@ static void test_a_refused_cycle_is_not_floor_time(void)
      * answer either. The debt must still take 120 DRIVEN seconds. */
     o2p_heater_state_t st;
     o2p_heater_ctl_reset(&st);
-    o2p_heater_cfg_t cfg = hcfg_dew();
+    o2p_heater_cfg_t cfg = hcfg_storage();
     o2p_heater_out_t out;
 
     uint32_t driven = 0u, engaged_at = 0u;
@@ -6319,7 +6345,7 @@ static void test_the_dry_gate_never_engages_at_pile_temperature(void)
      * burial's 50.58 C, so this is a RECONSTRUCTION of that moment and not a
      * replay of it. It is the same counterexample either way; the quoted
      * figure is the probe's, the computed one is this fixture's. */
-    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_cfg_t cfg = hcfg_storage_default();
     o2p_heater_out_t out;
     o2p_heater_state_t st;
     o2p_heater_ctl_reset(&st);
@@ -6344,7 +6370,7 @@ static void test_the_pile_lockout_has_hysteresis_and_releases_hot(void)
     /* Enter below 35.00 C, and once engaged it takes 37.00 C to release - the
      * same direction as the other two conditions. Also the boundary itself:
      * exactly 35.00 must NOT admit the gate. */
-    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_cfg_t cfg = hcfg_storage_default();
     o2p_heater_out_t out;
     o2p_heater_state_t st;
     o2p_heater_ctl_reset(&st);
@@ -6390,7 +6416,7 @@ static void test_the_pile_lockout_refuses_an_unevaluable_cell(void)
      * cell - which is worth pinning. The validity term inside the gate is
      * belt-and-braces for a caller that reaches it another way, and no test
      * here can distinguish it. */
-    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_cfg_t cfg = hcfg_storage_default();
     o2p_heater_out_t out;
     o2p_heater_state_t st;
     o2p_heater_ctl_reset(&st);
@@ -6405,6 +6431,87 @@ static void test_the_pile_lockout_refuses_an_unevaluable_cell(void)
     }
 }
 
+/* ---- STORAGE MODE, FW 0x002B: the gate needs permission --------------------
+ *
+ * The gate is a sound ENERGY policy and was never a condensation safeguard.
+ * Nothing in its conditions can tell dry gas from a wetted SHT45 reading low,
+ * which is the exact fault the gradient floor exists to survive, and the
+ * absolute-cell lockout of 0x002A separates the probe from a HOT pile only.
+ * Below 35.00 C the hole is open and measured. So the operator says where the
+ * probe is, and the probe does not guess.
+ */
+static void test_the_dry_gate_refuses_without_storage_permission(void)
+{
+    /* THE SAME INPUTS dry_settle() gates on, for four times the debt. The
+     * only difference from test_dry_air_gates_the_gradient_floor is the
+     * permission - which is what makes this a calibration of that flag and
+     * not of the conditions. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_dew();          /* storage_mode FALSE */
+    o2p_heater_in_t in = hin_dry_bench();
+    o2p_heater_out_t out;
+
+    TEST_ASSERT_FALSE(cfg.storage_mode);
+    for (uint32_t t = 0u; t < 4u * O2P_HEATER_DRY_ASSERT_S; t++) {
+        o2p_heater_ctl_step(&st, &cfg, &in, t, &out);
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(
+            0u, (uint16_t)(out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE),
+            "the gate engaged on a probe nobody said was in storage");
+    }
+    /* AND THE FLOOR IS ACTUALLY RUNNING, not merely ungated. Without this the
+     * test would pass against a build where the floor had stopped for some
+     * other reason entirely, which is the whole point of the change: a probe
+     * without permission heats exactly as it did before 0x0027. */
+    TEST_ASSERT_TRUE_MESSAGE(out.duty_x100 > 0u,
+        "no permission must mean the floor RUNS, not merely that it is not gated");
+
+    /* Grant it, and the identical inputs gate. The two halves together are
+     * what pin the flag rather than the conditions. */
+    cfg.storage_mode = true;
+    o2p_heater_ctl_reset(&st);
+    (void)dry_settle(&st, &cfg, &in, &out, 0u);
+}
+
+static void test_clearing_storage_mode_puts_the_floor_back_and_resets_the_debt(void)
+{
+    /* Withdrawing permission from an ENGAGED gate. The probe comes off the
+     * shelf and into a windrow, and what matters is that the floor returns on
+     * the next cycle rather than at the end of the 1800 s idle period. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_storage();
+    o2p_heater_in_t in = hin_dry_bench();
+    o2p_heater_out_t out;
+
+    const uint32_t t_gate = dry_settle(&st, &cfg, &in, &out, 0u);
+    TEST_ASSERT_EQUAL_UINT16(0u, out.duty_x100);
+
+    cfg.storage_mode = false;
+    o2p_heater_ctl_step(&st, &cfg, &in, t_gate + 1u, &out);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(
+        0u, (uint16_t)(out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE),
+        "clearing storage mode must clear the flag on the very next cycle");
+    TEST_ASSERT_TRUE_MESSAGE(out.duty_x100 > 0u,
+        "and the floor must actually be driving again");
+
+    /* AND THE DEBT IS FRESH. Re-granting permission must not resume a gate
+     * that was part-way through anything: the next engagement owes a full
+     * O2P_HEATER_DRY_ASSERT_S of observed floor, because a probe that has just
+     * been somewhere else is in the same position as a probe that has just
+     * booted - nothing is known about the gas.
+     *
+     * Asserted as a TIME from the re-grant, which is what would break if the
+     * debt had been carried: with the debt already paid the gate would engage
+     * on the first or second cycle instead of after the assert window. */
+    const uint32_t t_regrant = t_gate + 2u;
+    cfg.storage_mode = true;
+    const uint32_t t_again = dry_settle(&st, &cfg, &in, &out, t_regrant);
+    TEST_ASSERT_TRUE_MESSAGE(
+        t_again - t_regrant >= O2P_HEATER_DRY_ASSERT_S,
+        "re-granting permission must owe a full debt, not resume a paid one");
+}
+
 static void test_the_dry_gate_is_monotonic_in_wetness(void)
 {
     /* Guard checklist 2 across the boundary the gate adds. As the gas gets
@@ -6412,7 +6519,7 @@ static void test_the_dry_gate_is_monotonic_in_wetness(void)
      * (floor returns), then the dew law overtakes it. A gate that had been
      * written on the margin alone, or with the thresholds crossed, would show
      * up here as a duty that dropped on the way to saturation. */
-    o2p_heater_cfg_t cfg = hcfg_default();
+    o2p_heater_cfg_t cfg = hcfg_storage_default();
     o2p_heater_out_t out;
     uint16_t prev = 0u;
     bool saw_gate = false;
@@ -7839,6 +7946,12 @@ static void test_a_v7_record_does_not_arm_a_temperature_loop(void)
     /* Neither consent is ever carried. */
     TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.heater_rh_consent,
         "consent must never survive a migration");
+    /* NOR DOES STORAGE MODE, and this one does not arm a heater - it DISARMS
+     * one. A probe upgraded while it happened to be on a shelf must not come
+     * back with the gradient floor still gated, because the next thing that
+     * happens to a probe on a shelf is that somebody buries it. */
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0u, out.heater_storage,
+        "an upgrade must land in FIELD mode, whatever the old record said");
     /* The calibration survives: nothing about its meaning changed in v8. */
     TEST_ASSERT_EQUAL_INT32(123456, out.cal_air_na);
 }
@@ -9854,6 +9967,61 @@ static void test_the_rev_a_divider_scaling(void)
  * Rev A board (netlist R26/R27 130k/20k, x7.5) fitted with 82k/10k (x9.2). On
  * 2026-09-11 Fab metered 13.11 V at its input terminals while VIN_MON_MV
  * published 10710 mV - a 1428 mV tap. */
+/* STORAGE MODE, register 0x004C. The authorisation the dry-air idle gate needs.
+ *
+ * Its default is the safety argument: a probe nobody has said anything about
+ * is in the FIELD, and heats as it always did. See O2P_REG_HEATER_STORAGE. */
+static void test_storage_mode_is_commanded_and_defaults_to_field(void)
+{
+    o2p_regmap_t r;
+    o2p_regmap_init(&r);
+
+    uint16_t v = 0xAAAAu;
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&r, O2P_REG_HEATER_STORAGE, 1u, &v));
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, v,
+        "a fresh probe is in the FIELD - the gate is off until told otherwise");
+
+    /* Only the magic enables it. A write of 1 is the shape of a mistake - a
+     * caller treating it as a boolean - and is refused rather than quietly
+     * disarming the gradient floor. */
+    uint16_t bad[] = {1u, 2u, 0x005Bu, 0x5A5Au, 0xFFFFu};
+    for (size_t i = 0u; i < sizeof(bad) / sizeof(bad[0]); i++) {
+        TEST_ASSERT_EQUAL_HEX8_MESSAGE(O2P_MB_EX_ILLEGAL_VALUE,
+            o2p_regmap_write(&r, O2P_REG_HEATER_STORAGE, 1u, &bad[i]),
+            "only the magic may enable storage mode");
+        TEST_ASSERT_EQUAL_UINT16(0u, r.cfg.heater_storage);
+    }
+
+    uint16_t on = (uint16_t)O2P_HEATER_STORAGE_MAGIC;
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&r, O2P_REG_HEATER_STORAGE, 1u, &on));
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_read(&r, O2P_REG_HEATER_STORAGE, 1u, &v));
+    TEST_ASSERT_EQUAL_UINT16(O2P_HEATER_STORAGE_MAGIC, v);
+    TEST_ASSERT_EQUAL_HEX8(O2P_HEATER_STORAGE_MAGIC, r.cfg.heater_storage);
+
+    /* And it can be taken away. */
+    uint16_t off = 0u;
+    TEST_ASSERT_EQUAL_HEX8(0u, o2p_regmap_write(&r, O2P_REG_HEATER_STORAGE, 1u, &off));
+    TEST_ASSERT_EQUAL_UINT16(0u, r.cfg.heater_storage);
+
+    /* THE LAST SPARE BYTE, and no layout bump. If this ever fails the record
+     * has grown, the CRC has moved, and every probe needs a migration - which
+     * is the thing this field was placed to avoid. */
+    TEST_ASSERT_EQUAL_UINT(48u, sizeof(o2p_config_t));
+
+    /* A RECORD HOLDING NEITHER VALUE IS NOT "field mode", it is a record that
+     * is not what it claims to be - and the air point beside it is then just
+     * as suspect. Refused whole, per the guard checklist's first row:
+     * unevaluable input must not read as OK. */
+    o2p_config_t cfg;
+    o2p_config_defaults(&cfg);
+    TEST_ASSERT_TRUE(o2p_config_valid(&cfg));
+    cfg.heater_storage = 0x01u;
+    TEST_ASSERT_FALSE_MESSAGE(o2p_config_valid(&cfg),
+        "a corrupt storage byte must refuse the record, not read as field");
+    cfg.heater_storage = O2P_HEATER_STORAGE_MAGIC;
+    TEST_ASSERT_TRUE(o2p_config_valid(&cfg));
+}
+
 static void test_the_vin_divider_ratio_belongs_to_the_board(void)
 {
 #if !O2P_HW_HAS_ADS1119
@@ -9925,8 +10093,12 @@ static void test_the_vin_divider_ratio_belongs_to_the_board(void)
         TEST_ASSERT_EQUAL_UINT16(9200u, o2p_cfg_vin_div_x1000(&r.cfg));
     }
 
-    /* The block now ends at 0x004B and reads whole. */
-    TEST_ASSERT_EQUAL_HEX16(O2P_REG_VIN_DIV_X1000,
+    /* The block ended at 0x004B when this test was written; since FW 0x002B
+     * HEATER_STORAGE (0x004C) is its last register. Asserted as "one past
+     * VIN_DIV" rather than re-pinning the end, because what this test is about
+     * is that the divider is INSIDE the block and the block reads whole - not
+     * where the block happens to stop this month. */
+    TEST_ASSERT_EQUAL_HEX16(O2P_REG_VIN_DIV_X1000 + 1u,
         O2P_REG_CONFIG_BASE + O2P_REG_CONFIG_COUNT - 1u);
     uint16_t blk[O2P_REG_CONFIG_COUNT];
     TEST_ASSERT_EQUAL_HEX8(0u,
@@ -10207,6 +10379,18 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         regulates cell-side T_EXT to 4 K above the gas dew point
      *         whenever T_EXT is valid (Fab's order, 2026-09-11); no new
      *         register, HEATER_BLOCK bits unchanged, the law is new.
+     * 0x002B: the dry-air idle gate needs EXPLICIT PERMISSION - the config
+     *         block grows to 29 registers with HEATER_STORAGE (0x004C), a
+     *         BYTE magic 0x5A in the record's last spare byte at offset 47,
+     *         so no layout version bump and no migration (Fab's order,
+     *         2026-09-21). THIS IS A WIRE CHANGE AND A BEHAVIOUR CHANGE: a
+     *         probe with no permission - the default, and the result of every
+     *         migration - heats exactly as it did before 0x0027, so the
+     *         energy saving is opt-in. The gate was a sound energy policy and
+     *         never a condensation safeguard; 0x002A's lockout separates the
+     *         probe from a HOT pile only, and below 35.00 C the measured hole
+     *         stays open. A record holding neither 0 nor the magic is refused
+     *         whole rather than read as field mode.
      * 0x002A: the dry-air idle gate gains a PILE LOCKOUT (Fab's order,
      *         2026-09-20). NO register moves and no format changes, but the
      *         gate's MEANING narrows: a probe whose cell is at or above
@@ -10259,7 +10443,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         steps the thermal mass cannot make are rejected for a cycle.
      * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
      *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
-    TEST_ASSERT_EQUAL_HEX16(0x002Au, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x002Bu, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_HEX16(0xC000u,
         (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
     /* The staleness cut must win the race against the watchdog's fastest
@@ -10270,7 +10454,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
 #if O2P_DEBUG_ENABLE
     TEST_ASSERT_EQUAL_UINT16(4u, O2P_PEEK_ERR_PARITY);
 #endif
-    TEST_ASSERT_EQUAL_UINT16(28u, O2P_REG_CONFIG_COUNT);
+    TEST_ASSERT_EQUAL_UINT16(29u, O2P_REG_CONFIG_COUNT);
 #if O2P_DEBUG_ENABLE
     /* 0x000D: the wide peek block appeared at 0x0100, 65 registers, where
      *         every address previously answered exception 02.
@@ -12405,6 +12589,8 @@ int main(void)
     RUN_TEST(test_the_pile_lockout_has_hysteresis_and_releases_hot);
     RUN_TEST(test_the_pile_lockout_refuses_an_unevaluable_cell);
     RUN_TEST(test_the_dry_gate_is_monotonic_in_wetness);
+    RUN_TEST(test_the_dry_gate_refuses_without_storage_permission);
+    RUN_TEST(test_clearing_storage_mode_puts_the_floor_back_and_resets_the_debt);
     RUN_TEST(test_a_runaway_latch_outranks_the_dry_gate);
     RUN_TEST(test_dew_unreachable_after_a_dwell_at_the_ceiling_in_wet_gas);
     RUN_TEST(test_dew_not_unreachable_at_low_coupling_when_the_margin_is_reachable);
@@ -12511,6 +12697,7 @@ int main(void)
     RUN_TEST(test_a_written_air_point_resets_its_provenance);
     RUN_TEST(test_the_unverified_air_window_is_the_datasheet_population);
     RUN_TEST(test_the_rev_a_divider_scaling);
+    RUN_TEST(test_storage_mode_is_commanded_and_defaults_to_field);
     RUN_TEST(test_the_vin_divider_ratio_belongs_to_the_board);
     RUN_TEST(test_a_vin_ratio_is_stored_without_a_layout_bump);
     RUN_TEST(test_the_wire_version_tracks_the_wire_contract);

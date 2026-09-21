@@ -777,10 +777,32 @@ static bool gas_dew_point_c100(const o2p_heater_in_t *in, float *out_c100)
  * cell-side margin in 0.01 K, read only when have_td is true - the gate
  * engages only on a positive, evaluable dryness, never on a missing
  * reading. */
-static bool dry_idle_gate(o2p_heater_state_t *st, const o2p_heater_in_t *in,
+static bool dry_idle_gate(o2p_heater_state_t *st, const o2p_heater_cfg_t *cfg,
+                          const o2p_heater_in_t *in,
                           uint32_t now_s, bool have_td, float margin_f,
                           bool floor_ran_last_cycle)
 {
+    /* NO PERMISSION, NO GATE, and the state is wound back rather than frozen.
+     *
+     * Returning early with dry_idle still set would leave a probe that was
+     * gating when storage mode was cleared holding a stale "engaged" flag in
+     * HEATER_LAW, and would leave the debt half-paid for whenever permission
+     * came back - so clearing the flag would not actually put the floor back
+     * on the next cycle's terms. Cleared here, the next engagement starts from
+     * a full O2P_HEATER_DRY_ASSERT_S of observed floor, which is what a fresh
+     * state owes and for the same reason: nothing is known about the gas.
+     *
+     * dry_prev_valid is left FALSE, so the first cycle after permission
+     * returns credits nothing. Under-crediting runs the floor longer, which
+     * costs energy and never condensation. */
+    if (!cfg->storage_mode) {
+        st->dry_idle = false;
+        st->dry_floor_run_s = 0u;
+        st->dry_prev_s = now_s;
+        st->dry_prev_valid = false;
+        return false;
+    }
+
     /* Credit the interval the floor just spent driving, by the unreachable
      * detector's rules: a gap longer than the caller's cadence contract is
      * not observation. Saturating, so the debt cannot wrap.
@@ -1329,8 +1351,8 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
          * runaway latch: the floor is then the only regulator there is
          * (FW 0x001F), and that is not a power question. */
         const bool dry_gated = !latched_floor &&
-                               dry_idle_gate(st, in, now_s, have_td, margin_f,
-                                             floor_ran_last_cycle);
+                               dry_idle_gate(st, cfg, in, now_s, have_td,
+                                             margin_f, floor_ran_last_cycle);
         if (dry_gated) {
             /* Zeroed, not frozen, for the same reason the dew law's is: a
              * return to authority restarts from the proportional term rather

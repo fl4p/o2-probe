@@ -84,6 +84,10 @@ void o2p_config_defaults(o2p_config_t *cfg)
      * zero a memset would leave: 0 is a legal setpoint meaning "hold 0.00 C". */
     cfg->tip_setpoint_c100 = O2P_I16_INVALID;
     cfg->heater_tip_consent = 0u;
+    /* FIELD, not storage: the dry-air idle gate is off until somebody says
+     * the probe is on a shelf. The memset already left it zero; stated because
+     * the default IS the safety argument - see O2P_REG_HEATER_STORAGE. */
+    cfg->heater_storage = 0u;
     /* The netlist divider. The memset already left it; stated because WHY it
      * is zero - every record written before 0x004B existed means exactly this -
      * is what let the field skip a layout bump (regmap.h). */
@@ -126,6 +130,15 @@ bool o2p_config_valid(const o2p_config_t *cfg)
     /* Same argument for the temperature loop's consent. */
     if (cfg->heater_tip_consent != 0u &&
         cfg->heater_tip_consent != O2P_HEATER_TIP_CONSENT_MAGIC) {
+        return false;
+    }
+    /* And for storage mode, which authorises the gate that stops the heater.
+     * A record holding anything but zero or the magic is refused outright
+     * rather than read as field mode: a value that is neither is evidence the
+     * record is not what it claims to be, and the rest of it - the air point,
+     * the setpoints - is then equally suspect. */
+    if (cfg->heater_storage != 0u &&
+        cfg->heater_storage != O2P_HEATER_STORAGE_MAGIC) {
         return false;
     }
     /* A stored setpoint must be inside the same envelope a written one is, or
@@ -714,6 +727,7 @@ static uint16_t read_config(const o2p_regmap_t *rm, uint16_t a)
     case O2P_REG_HEATER_RH_CONSENT: return c->heater_rh_consent;
     case O2P_REG_TIP_SETPOINT:      return (uint16_t)c->tip_setpoint_c100;
     case O2P_REG_HEATER_TIP_CONSENT: return c->heater_tip_consent;
+    case O2P_REG_HEATER_STORAGE:     return c->heater_storage;
     case O2P_REG_HEATER_PWM_HZ:   return c->heater_pwm_hz;
     case O2P_REG_HEATER_KP:       return c->heater_kp_x100;
     case O2P_REG_HEATER_KI:       return c->heater_ki_x100;
@@ -919,6 +933,16 @@ static uint8_t apply_config_word(o2p_config_t *c, uint16_t a, uint16_t v,
             return O2P_MB_EX_ILLEGAL_VALUE;
         }
         c->heater_tip_consent = v;
+        break;
+    case O2P_REG_HEATER_STORAGE:
+        /* The magic enables the gate, zero disables it, and nothing else is
+         * accepted - a write of 1 is a mistake, not a request. Stored in a
+         * BYTE, so the u16 the wire carries must fit one, which the equality
+         * test already guarantees. */
+        if (v != 0u && v != (uint16_t)O2P_HEATER_STORAGE_MAGIC) {
+            return O2P_MB_EX_ILLEGAL_VALUE;
+        }
+        c->heater_storage = (uint8_t)v;
         break;
     case O2P_REG_TIP_SETPOINT:
         /* Identical bounds to the volatile 0x0062, deliberately: an operator
