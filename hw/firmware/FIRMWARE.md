@@ -1076,7 +1076,7 @@ then two that exist because supervision here is *sampled*, not continuous:
   a commit. `FW_VERSION` is now bumped only when the wire contract changes, and
   is `0x000A` for this 27-register block.
 
-### Config block — `0x0030`, 28 registers, read/write, flash-backed
+### Config block — `0x0030`, 29 registers, read/write, flash-backed
 
 - `CAL_ZERO_NA_HI` `0x0046`, `CAL_ZERO_NA_LO` `0x0047` — cell dark current,
   i32 nanoamps, **signed**. Subtracted from every measured current *and* from
@@ -1086,6 +1086,19 @@ then two that exist because supervision here is *sampled*, not continuous:
   2 % relative at the air point but about 8 % at 5 %vol — where compost
   control acts. `0` is both a legitimate measured zero and the never-measured
   default; `CAL_STATE` bit 1 is what separates them.
+- `HEATER_STORAGE` `0x004C` (FW `0x002B`) — **permission for the dry-air idle
+  gate**, and the last byte of the config record. Only the magic `0x5A` lets
+  the gate withhold the gradient floor; `0` — the default, and the result of
+  every layout migration — forbids it, and the probe heats exactly as it did
+  before FW `0x0027`. Anything else is refused on the wire, and a stored record
+  holding neither value is rejected **whole** rather than read as field mode.
+  It is commanded rather than inferred because the gate's own conditions cannot
+  tell dry gas from a wetted SHT45 reading low, and the `35.00 °C` cell lockout
+  added in `0x002A` separates the probe from a **hot** pile only — a curing heap
+  sits near ambient. **No layout bump:** it takes v8's last reserved byte at
+  offset 47, so the CRC does not move and no migration runs. That also means a
+  same-layout reflash KEEPS the flag — `config_migrate.c` is only on the path
+  when `layout_version` differs, so the operator clears this, not the installer.
 - `VIN_DIV_X1000` `0x004B` (FW `0x0014`) — the board's **own** input-rail
   divider ratio × 1000, flash-backed (write, then `COMMIT`). `0` = the generated
   netlist divider (Rev A R26/R27 130k/20k = ×7.5, Rev B 91k/10k = ×10.1);
