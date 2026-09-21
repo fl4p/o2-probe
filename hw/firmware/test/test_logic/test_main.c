@@ -2365,7 +2365,7 @@ static void test_loop_reaches_setpoint_in_steady_state(void)
     o2p_heater_ctl_reset(&st);
     o2p_heater_cfg_t cfg = hcfg_default();
     o2p_heater_in_t in = hin_healthy();
-    o2p_heater_out_t out = {0u, 0u, O2P_HEATER_LAW_REFUSED};
+    o2p_heater_out_t out = {0u, 0u, O2P_HEATER_LAW_REFUSED, false};
 
     for (unsigned i = 0; i < 2000u; i++) {
         in.rh_x100 = fake_plant_rh(out.duty_x100);
@@ -6440,6 +6440,117 @@ static void test_the_pile_lockout_refuses_an_unevaluable_cell(void)
  * Below 35.00 C the hole is open and measured. So the operator says where the
  * probe is, and the probe does not guess.
  */
+/* ---- AUTO-EXIT FROM STORAGE MODE (FW 0x002C) ------------------------------
+ *
+ * The probe cannot tell it is on a shelf - two auto-detectors were rejected
+ * for trying - but it CAN tell it has been in a pile, and that direction is
+ * safe: a false positive costs the floor's duty, never condensation.
+ */
+static void test_a_hot_cell_asks_to_leave_storage_mode(void)
+{
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_storage();
+    o2p_heater_in_t in = hin_dry_bench();
+    o2p_heater_out_t out;
+
+    /* The bench does not ask. */
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_FALSE_MESSAGE(out.storage_exit,
+        "a 21 C bench probe must not ask to leave storage mode");
+
+    /* A windrow does. 51.15 C is the measured T_EXT from the 2026-09-17
+     * burial, at the sample where the gate's other conditions were satisfied
+     * INSIDE the pile - the exact case that motivated all of this. */
+    in.t_cell_c100 = 5115;
+    o2p_heater_ctl_step(&st, &cfg, &in, 1u, &out);
+    TEST_ASSERT_TRUE_MESSAGE(out.storage_exit,
+        "a 51.15 C cell is a pile and must withdraw permission");
+}
+
+static void test_the_pile_test_is_OR_not_AND(void)
+{
+    /* THE CASE FAB'S FIRST FORMULATION WOULD HAVE MISSED, and the reason the
+     * conditions are OR-ed: ">50 C AND RH high" cannot fire in a pile.
+     *
+     * Above 37.00 C the pile lockout has already released the gate, so the
+     * floor runs, so the heater collapses the RH the SHT45 reports - measured
+     * under 90 % for 238 of 270 samples inside the windrow. This fixture is
+     * that state: hot cell, DRY-reading humidity. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_storage();
+    o2p_heater_in_t in = hin_dry_bench();
+    o2p_heater_out_t out;
+
+    in.t_cell_c100 = 5115;
+    in.rh_x100 = 5890u;         /* 58.90 %, the measured in-pile reading */
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_TRUE_MESSAGE(out.storage_exit,
+        "hot AND dry-reading is the REAL pile case; an AND would miss it");
+
+    /* And the humid half fires on its own, for a probe that reads wet despite
+     * the heater - a cool damp burial, which temperature alone cannot see. */
+    o2p_heater_in_t wet = hin_dry_bench();
+    wet.rh_x100 = 9600u;
+    o2p_heater_ctl_step(&st, &cfg, &wet, 1u, &out);
+    TEST_ASSERT_TRUE_MESSAGE(out.storage_exit,
+        "96 % RH asks to leave even at bench temperature");
+
+    /* Neither, and it stays. 95.00 is the threshold, so just under must not
+     * fire - the ordinary damp room is what the gate exists to sit out. */
+    o2p_heater_in_t damp = hin_dry_bench();
+    damp.rh_x100 = 9499u;
+    o2p_heater_ctl_step(&st, &cfg, &damp, 2u, &out);
+    TEST_ASSERT_FALSE_MESSAGE(out.storage_exit,
+        "94.99 % is a damp room, not a pile");
+}
+
+static void test_the_pile_test_survives_a_refused_cycle(void)
+{
+    /* A pile hot enough to refuse the cycle is exactly the probe this is for,
+     * so the test must run BEFORE the refusal path returns - the same lesson
+     * the permission wind-back had to learn twice. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_storage();
+    o2p_heater_in_t in = hin_dry_bench();
+    o2p_heater_out_t out;
+
+    in.t_cell_c100 = 6000;
+    in.tip_valid = false;          /* refused: no tip */
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_TRUE_MESSAGE(out.storage_exit,
+        "a refused cycle must still report the pile it is sitting in");
+
+    /* AND AN UNEVALUABLE READING ASSERTS NOTHING. Guard checklist item 1:
+     * missing data must not read as either answer. */
+    o2p_heater_in_t blind_in = hin_dry_bench();
+    blind_in.cell_valid = false;
+    blind_in.rh_valid = false;
+    o2p_heater_ctl_step(&st, &cfg, &blind_in, 1u, &out);
+    TEST_ASSERT_FALSE_MESSAGE(out.storage_exit,
+        "no cell and no humidity is not evidence of a pile");
+}
+
+static void test_no_permission_means_nothing_to_withdraw(void)
+{
+    /* The request is raised only while permission is actually granted, so the
+     * caller needs no state: the first cycle clears the flag and every cycle
+     * after asserts nothing. Without this a 1 Hz loop would ask the flash to
+     * be rewritten every second for as long as the probe stayed hot. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_dew();      /* storage_mode FALSE */
+    o2p_heater_in_t in = hin_dry_bench();
+    o2p_heater_out_t out;
+
+    in.t_cell_c100 = 7700;                  /* as hot as the pile ever got */
+    o2p_heater_ctl_step(&st, &cfg, &in, 0u, &out);
+    TEST_ASSERT_FALSE_MESSAGE(out.storage_exit,
+        "with no permission there is nothing to withdraw, so do not ask");
+}
+
 static void test_the_dry_gate_refuses_without_storage_permission(void)
 {
     /* THE SAME INPUTS dry_settle() gates on, for four times the debt. The
@@ -10500,7 +10611,7 @@ static void test_the_wire_version_tracks_the_wire_contract(void)
      *         steps the thermal mass cannot make are rejected for a cycle.
      * 0x000F: a busy diagnostic mailbox refuses with exception 06 instead of
      *         03-plus-ERR_BUSY, and a peek can answer ERR_PARITY (4). */
-    TEST_ASSERT_EQUAL_HEX16(0x002Bu, O2P_FW_VERSION);
+    TEST_ASSERT_EQUAL_HEX16(0x002Cu, O2P_FW_VERSION);
     TEST_ASSERT_EQUAL_HEX16(0xC000u,
         (uint16_t)(O2P_HB_IDLE | O2P_HB_TIP_DISARMED));
     /* The staleness cut must win the race against the watchdog's fastest
@@ -12646,6 +12757,10 @@ int main(void)
     RUN_TEST(test_the_pile_lockout_has_hysteresis_and_releases_hot);
     RUN_TEST(test_the_pile_lockout_refuses_an_unevaluable_cell);
     RUN_TEST(test_the_dry_gate_is_monotonic_in_wetness);
+    RUN_TEST(test_a_hot_cell_asks_to_leave_storage_mode);
+    RUN_TEST(test_the_pile_test_is_OR_not_AND);
+    RUN_TEST(test_the_pile_test_survives_a_refused_cycle);
+    RUN_TEST(test_no_permission_means_nothing_to_withdraw);
     RUN_TEST(test_the_dry_gate_refuses_without_storage_permission);
     RUN_TEST(test_withdrawing_permission_on_a_REFUSED_cycle_still_resets_the_gate);
     RUN_TEST(test_clearing_storage_mode_puts_the_floor_back_and_resets_the_debt);

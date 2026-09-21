@@ -77,7 +77,7 @@ static o2p_heater_out_t step(const o2p_heater_cfg_t *c, const o2p_heater_in_t *i
 {
     o2p_heater_state_t st;
     o2p_heater_ctl_reset(&st);
-    o2p_heater_out_t out = {0u, 0u, O2P_HEATER_LAW_REFUSED};
+    o2p_heater_out_t out = {0u, 0u, O2P_HEATER_LAW_REFUSED, false};
     o2p_heater_ctl_step(&st, c, in, 100u, &out);
     return out;
 }
@@ -199,7 +199,7 @@ static void test_a_latched_runaway_heats_blind(void)
     o2p_heater_state_t st;
     o2p_heater_ctl_reset(&st);
     st.runaway_latched = true;
-    o2p_heater_out_t out = {0u, 0u, O2P_HEATER_LAW_REFUSED};
+    o2p_heater_out_t out = {0u, 0u, O2P_HEATER_LAW_REFUSED, false};
     o2p_heater_ctl_step(&st, &c, &in, 100u, &out);
     TEST_ASSERT_EQUAL_UINT16(O2P_HEATER_BLIND_DUTY_X100, out.duty_x100);
     TEST_ASSERT_EQUAL_UINT16(O2P_HB_RUNAWAY | O2P_HB_BLIND, out.block);

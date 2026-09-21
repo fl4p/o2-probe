@@ -866,6 +866,40 @@ enum {
 #define O2P_HEATER_DRY_MAX_CELL_C100      3500
 #define O2P_HEATER_DRY_MAX_CELL_EXIT_C100 3700
 
+/* ---- AUTO-EXIT FROM STORAGE MODE (FW 0x002C) --------------------------------
+ *
+ * Storage mode never expires on its own (regmap.h, O2P_REG_HEATER_STORAGE), so
+ * a probe left permissioned and then buried keeps the gate available - and
+ * below 35.00 C the gate can engage in a COOL pile against a lying humidity
+ * sensor. That is the documented hole. This closes it from the other side: the
+ * probe cannot tell it is on a shelf, but it CAN tell it has been in a pile,
+ * and once it has, permission is withdrawn until a human grants it again.
+ *
+ * WHY AUTO-EXIT IS SOUND WHERE AUTO-ENTER WAS NOT, and two auto-detectors were
+ * rejected before this one shipped: the failure directions are opposite. A
+ * false positive here withdraws permission the probe did not need to withdraw
+ * and costs the floor's ~3 % duty - energy, never condensation. A false
+ * negative leaves storage mode exactly as it already was. Nothing this test
+ * gets wrong is worse than not having it.
+ *
+ * TEMPERATURE IS THE PRIMARY SIGNAL AND HUMIDITY IS A BONUS, which is the
+ * reverse of how it was first proposed (Fab 2026-09-21: ">50 C, RH high"), and
+ * the burial of 2026-09-17 is why. Chamber RH ran 38.96..91.26 % inside the
+ * windrow and was UNDER 90 % for 238 of 270 samples: the SHT45 sits on the
+ * tip's copper and the heater collapses RELATIVE humidity while the gas stays
+ * saturated. Worse, it is structural rather than unlucky - above 37.00 C the
+ * pile lockout has already released the gate, so the floor is running, so the
+ * heater IS collapsing the reading at exactly the temperatures this test cares
+ * about. An AND of hot and humid would therefore almost never fire.
+ *
+ * So the two conditions are OR-ed. Either is enough, and either being wrong
+ * costs only duty. */
+#define O2P_HEATER_STORAGE_EXIT_CELL_C100 5000   /* 50.00 C, well over any bench */
+/* The humid half, and it fires only when the gas reads wet DESPITE the heater.
+ * Deliberately above the gate's own 90.00 % entry threshold so this cannot
+ * trip on the ordinary damp-room case the gate is designed to sit out. */
+#define O2P_HEATER_STORAGE_EXIT_RH_X100   9500u
+
 /* THE UNREACHABLE-MARGIN DETECTOR - CEILING-DWELL FORM, FW 0x0019 (Fab
  * 2026-09-13: "build the unreachable-margin detector", then option A after the
  * codex xhigh review of the 0x0018 form).
@@ -1254,6 +1288,15 @@ typedef struct {
     uint16_t duty_x100;
     uint16_t block;            /* O2P_HB_* ; zero means the loop is driving */
     uint16_t law;              /* O2P_HEATER_LAW_* | O2P_HEATER_LAWF_* */
+    /* THE PROBE HAS SEEN A PILE: withdraw storage permission (FW 0x002C).
+     *
+     * A REQUEST, not an action. This file is portable and owns no flash; the
+     * caller clears heater_storage and commits it - see the note at
+     * O2P_HEATER_STORAGE_EXIT_CELL_C100 for why the test is OR-ed and why a
+     * false positive is cheap. Raised on every cycle the condition holds, not
+     * only on the edge, so a caller that misses one cycle still acts; clearing
+     * an already-clear flag is a no-op and must stay one. */
+    bool     storage_exit;
 } o2p_heater_out_t;
 
 void o2p_heater_ctl_reset(o2p_heater_state_t *st);

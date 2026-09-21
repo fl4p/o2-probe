@@ -1011,6 +1011,31 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
         st->dry_prev_s = now_s;
         st->dry_prev_valid = false;
     }
+
+    /* HAS THIS PROBE BEEN IN A PILE? If so, ask the caller to withdraw storage
+     * permission (FW 0x002C). Set HERE, before every early return, for the
+     * same reason the wind-back above is: the refusal and blind paths return
+     * without reaching the laws, and a probe in a pile hot enough to refuse a
+     * cycle is exactly the probe this test is for.
+     *
+     * OR, NOT AND. See O2P_HEATER_STORAGE_EXIT_CELL_C100: above 37.00 C the
+     * pile lockout has already released the gate, so the floor is running and
+     * the heater is collapsing the RH the sensor reads - measured under 90 %
+     * for 238 of 270 samples inside the windrow. Requiring both would build a
+     * detector that cannot fire in the place it is meant to detect.
+     *
+     * THE CELL, not the chamber: it is the one input a humidity fault cannot
+     * move, and on Rev A the chamber carries the heater's own rise. An
+     * unevaluable reading asserts nothing rather than defaulting either way.
+     *
+     * Only while permission is actually granted, so the request means "take
+     * away what is currently given" and the caller needs no state of its own. */
+    out->storage_exit =
+        cfg->storage_mode &&
+        ((in->cell_valid &&
+          (int32_t)in->t_cell_c100 >= (int32_t)O2P_HEATER_STORAGE_EXIT_CELL_C100) ||
+         (in->rh_valid &&
+          (uint32_t)in->rh_x100 >= (uint32_t)O2P_HEATER_STORAGE_EXIT_RH_X100));
     st->dry_prev_valid = false;
 
     uint16_t block = interlocks(st, cfg, in);

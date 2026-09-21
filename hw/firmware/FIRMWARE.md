@@ -1087,7 +1087,13 @@ then two that exist because supervision here is *sampled*, not continuous:
   control acts. `0` is both a legitimate measured zero and the never-measured
   default; `CAL_STATE` bit 1 is what separates them.
 - `HEATER_STORAGE` `0x004C` (FW `0x002B`) — **permission for the dry-air idle
-  gate**, and the last byte of the config record. Only the magic `0x5A` lets
+  gate**, and the last byte of the config record. **Since FW `0x002C` the probe
+  clears this itself once it has been in a pile** — cell ≥ 50.00 °C **OR**
+  chamber RH ≥ 95.00 %, whichever comes first, written to flash so a human must
+  grant it again. OR and not AND: above 37.00 °C the pile lockout has already
+  released the gate, so the floor is running and the heater has collapsed the
+  RH the sensor reports (measured under 90 % for 238 of 270 samples in the
+  2026-09-17 windrow), and an AND could not fire where it is needed. Only the magic `0x5A` lets
   the gate withhold the gradient floor; `0` — the default, and the result of
   every layout migration — forbids it, and the probe heats exactly as it did
   before FW `0x0027`. Anything else is refused on the wire, and a stored record

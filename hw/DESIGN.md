@@ -402,7 +402,10 @@ The cell's dilution efficacy `DIL_ALPHA` sits at `0x0045`.
 × 1000, `0` = the generated netlist divider (FW `0x0014`; see FIRMWARE.md).
 
 `HEATER_STORAGE` sits at `0x004C`: permission for the dry-air idle gate, magic
-`0x5A`, default `0` = field (FW `0x002B`; see FIRMWARE.md). With it clear the
+`0x5A`, default `0` = field (FW `0x002B`; see FIRMWARE.md). The probe withdraws
+it by itself once it has been in a pile — cell ≥ 50.00 °C or RH ≥ 95.00 % (FW
+`0x002C`). Auto-EXIT is sound where auto-enter was not: a false positive costs
+the floor's duty, never condensation. With it clear the
 gradient floor runs regardless of humidity, which is the pre-`0x0027` behaviour
 and the safe default; the gate is opt-in because nothing in its conditions can
 distinguish dry gas from a lying humidity sensor.

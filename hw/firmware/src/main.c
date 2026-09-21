@@ -1635,11 +1635,30 @@ static void cycle_publish(o2p_snapshot_t *s)
         };
         /* law defaults to REFUSED, not 0: zero is O2P_HEATER_LAW_RH, and a
          * step that returned without writing it must not publish a law. */
-        o2p_heater_out_t hout = {0u, 0u, O2P_HEATER_LAW_REFUSED};
+        o2p_heater_out_t hout = {0u, 0u, O2P_HEATER_LAW_REFUSED, false};
         o2p_heater_ctl_step(&g_heat, &hcfg, &hin, g_uptime_s, &hout);
         o2p_heater_apply(hout.duty_x100, g_rm.cfg.heater_pwm_hz);
         g_cyc.heater_block = hout.block;   /* kept for the fault word below */
         g_cyc.heater_law = hout.law;
+        /* THE PROBE HAS SEEN A PILE, so take storage permission away and put
+         * it in flash (FW 0x002C). heater_ctl.c owns the test and no flash;
+         * this owns the flash and no test.
+         *
+         * IDEMPOTENT BY CONSTRUCTION: hout.storage_exit is raised only while
+         * heater_storage actually holds the magic, so the first cycle clears
+         * it and every cycle after asserts nothing. That matters more than it
+         * looks - this runs at 1 Hz, and a condition that stayed true while
+         * the value stayed set would ask the flash to be rewritten every
+         * second for as long as the probe was hot.
+         *
+         * Through request_commit() rather than straight to flash, for the
+         * reason the calibration path uses it: the gate serialises a commit
+         * against whatever else is mid-flight, and a write that races a
+         * serial-settings change is how a record ends up neither. */
+        if (hout.storage_exit) {
+            g_rm.cfg.heater_storage = 0u;
+            o2p_regmap_request_commit(&g_rm);
+        }
         if (g_heat.runaway_latched) {
             g_cyc.faults |= O2P_F_HEATER_RUNAWAY;
         }
