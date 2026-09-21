@@ -2,8 +2,21 @@
 
 2026-09-21, ~20:44 CEST. Fab: "do 4", on the item "DIL_ALPHA is still unwritten".
 
-Probe 3 (`dev_eui 34b7dafffe5b84e0`), FW 0x0028, on the bench at ambient
-(T_EXT 20.96 C, chamber RH ~51 %). Keeper is down and the node is out of
+Probe 3 (`dev_eui 34b7dafffe5b84e0`), **FW 0x002C** (commit 9c5e15c,
+`gas_build_id` 0x49C5E15C), on the bench at ambient (T_EXT 20.96 C, chamber
+RH ~51 %).
+
+CORRECTION, same evening. This file first said FW 0x0028, which was the
+version I had last read and not the one the write landed on: a peer reflashed
+the probe at 19:42, about an hour before. `gas_fw_version` shows 0x0029 at
+15:27, 0x002B at 16:42 and 0x002C from 19:42, so 0x0028 was not live at any
+point today. The register work is unaffected and the argument below still
+holds - `o2.c` and `o2.h` are byte-identical from 2b7ed0a through 9c5e15c, so
+the cell temperature law that makes 0.715 the consistent choice is the same
+code in both - but the provenance line was wrong and a register write is
+exactly the kind of claim that has to name the right image. Found by the
+provenance guard in `o2p_exec_sweep.py`, which refused to run against an ELF
+whose bytes did not match the probe's flash. Keeper is down and the node is out of
 farmgw's BLE range, so the whole exchange went over the LoRaWAN CTRL path:
 `tech/chirpstack/o2p_lorawan_cmd.py --server farmgw:8080 --resend-s 75`.
 
