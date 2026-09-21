@@ -530,13 +530,36 @@ enum {
      * make. Two auto-detection mechanisms were designed for this and both were
      * rejected on their own evidence rather than shipped.
      *
+     * "OPEN AND MEASURED" ABOVE IS HALF MEASURED. The 21.00 C cell, 22.00 C
+     * chamber and 45 % reported RH are real bench numbers from the 2026-09-20
+     * acceptance run; the 98 % ACTUAL humidity is a constructed lying-sensor
+     * case, not a second instrument reading taken beside them (same review,
+     * finding 5). The arithmetic on those numbers is exact and the fault mode
+     * is the one the gradient floor was built for, but nobody has measured an
+     * SHT45 lying by 53 points on this probe.
+     *
      * So the probe is told. A human knows whether it is on a shelf or in a
      * windrow, and that knowledge does not have to be reconstructed from a
      * humidity sensor the heater warms.
      *
-     * DEFAULT IS FIELD, AND SO IS EVERY MIGRATION. config_migrate.c never
-     * carries this, exactly like heater_rh_consent and heater_tip_consent: an
-     * upgrade always lands with the gate off, whatever the old record said. */
+     * DEFAULT IS FIELD, AND SO IS EVERY LAYOUT MIGRATION. config_migrate.c
+     * never carries this, exactly like heater_rh_consent and
+     * heater_tip_consent.
+     *
+     * BUT "EVERY MIGRATION" IS NOT "EVERY UPGRADE", and an earlier version of
+     * this note said the latter (codex review of 4798a13, finding 5).
+     * config_flash.c sends a record through config_migrate.c only when its
+     * layout_version DIFFERS from the current one. This field was placed in
+     * the record's last spare byte precisely so no layout bump was needed, so
+     * a v8 record is loaded directly and STORAGE MODE SURVIVES an ordinary
+     * same-layout firmware upgrade. That is the same persistence a reset gets,
+     * and at the record level an upgrade and a reset are indistinguishable
+     * without a bump.
+     *
+     * So the operator clears this, not the installer. A probe put in storage
+     * mode, reflashed and then buried is still gated, and the only thing
+     * standing between it and a lying humidity sensor is the 35.00 C cell
+     * lockout, which discriminates a HOT pile only. */
     O2P_REG_HEATER_STORAGE    = 0x004Cu,
 };
 #define O2P_REG_CONFIG_BASE  0x0030u

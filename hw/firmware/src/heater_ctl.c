@@ -796,10 +796,9 @@ static bool dry_idle_gate(o2p_heater_state_t *st, const o2p_heater_cfg_t *cfg,
      * returns credits nothing. Under-crediting runs the floor longer, which
      * costs energy and never condensation. */
     if (!cfg->storage_mode) {
-        st->dry_idle = false;
-        st->dry_floor_run_s = 0u;
-        st->dry_prev_s = now_s;
-        st->dry_prev_valid = false;
+        /* The state was already wound back at the top of
+         * o2p_heater_ctl_step(), which is the ONE place that owns it - see the
+         * note there. This is only the refusal. */
         return false;
     }
 
@@ -990,6 +989,28 @@ void o2p_heater_ctl_step(o2p_heater_state_t *st,
      * seconds instead of 120. Only dry_idle_gate() sets it, and only on a
      * cycle whose floor actually ran. */
     const bool floor_ran_last_cycle = st->dry_prev_valid;
+
+    /* AND SO IS THE PERMISSION WIND-BACK, FOR EXACTLY THE SAME REASON, and
+     * this is the second time that reason has had to be learned here (codex
+     * review of 4798a13, finding 1).
+     *
+     * FW 0x002B put the wind-back inside dry_idle_gate(), which the refusal
+     * and blind paths never reach - they return above. So withdrawing
+     * permission during a REFUSED cycle left dry_idle set and the debt paid,
+     * and a regrant one second later re-engaged the gate immediately. The
+     * guarantee the commit message made - that a probe which has just been
+     * somewhere else owes a full assert window, like one that has just
+     * booted - did not hold across the one path where the probe is least
+     * observable. Reachable: a tip glitch refuses the cycle, and tip glitches
+     * are why cell_dropout exists.
+     *
+     * Here it runs on EVERY cycle, before anything can return. */
+    if (!cfg->storage_mode) {
+        st->dry_idle = false;
+        st->dry_floor_run_s = 0u;   /* a fresh debt whenever permission returns */
+        st->dry_prev_s = now_s;
+        st->dry_prev_valid = false;
+    }
     st->dry_prev_valid = false;
 
     uint16_t block = interlocks(st, cfg, in);

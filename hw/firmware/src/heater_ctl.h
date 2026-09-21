@@ -570,6 +570,18 @@ enum {
  * separates the probe from a HOT pile only, and below 35.00 C the hole is
  * open and measured. The saving is real and it is OPT-IN.
  *
+ * IT IS NOT MONOTONIC IN CELL TEMPERATURE, and that is worth stating because
+ * the gate's own design note elsewhere claims monotonicity in WETNESS and the
+ * two are easy to conflate. The dew point depends on vapour pressure, so a
+ * hotter cell at the same gas raises the apparent margin and can cross the
+ * gate's entry threshold: measured on the controller at chamber 22.00 C, RH
+ * 60 %, tip 21.00 C, a cell of 19.50 C runs 55.25 % duty and a cell of
+ * 21.00 C runs 0 % (codex review of 4798a13, finding 4). Duty falls as the
+ * cell warms. That is the gate doing what it was built to do - a cell further
+ * above the dew point is further from condensing - and it is inherited from
+ * FW 0x0027 rather than introduced by permission. It is recorded here so that
+ * "wetter gas can only raise duty" is not read as "nothing can lower it".
+ *
  * WHAT IT DOES. While the gas is DRY the floor withholds its demand, so a
  * probe out of the pile in ordinary air draws nothing for heat. The dew law
  * was already free in that regime - at RH under 90 % the cell-side margin is

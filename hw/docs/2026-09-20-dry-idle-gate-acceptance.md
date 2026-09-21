@@ -125,7 +125,20 @@ Direction is safe — it pushes toward the exit threshold, toward heating — bu
   The v0.41 version note claimed 35.00 C sits "far below any pile"; that was
   wrong and is retracted. A curing or cooling heap sits near ambient, and the
   DWD 1991-2020 normals for Villingen-Schwenningen (719 m) are 8.1 / 3.2 /
-  -0.1 C for Oct / Nov / Dec. The sub-35 C hole is what FW 0x002B's storage
-  mode closes, and it closes it by asking rather than by inferring.
+  -0.1 C for Oct / Nov / Dec. (The normals were checked against DWD's own
+  1991-2020 table, station 5229, on 2026-09-21.)
+
+  FW 0x002B's storage mode closes the sub-35 C hole **by default** - which is
+  not the same as closing it. A probe left in storage mode and then buried
+  keeps the original vulnerability, because permission persists across a reset
+  AND across an ordinary same-layout reflash (the field was fitted into the v8
+  record specifically to avoid a layout bump, so config_migrate.c is not on
+  that path). What protects such a probe is only the 35.00 C cell lockout, and
+  that discriminates a HOT pile. The 1800 s cap bounds how long any single
+  idle period lasts; it does not establish freedom from condensation.
+
+  So the honest statement is: the gate is now opt-in, and the residual risk is
+  an operator who opts in and forgets. That is a smaller and much more visible
+  surface than an inference nobody could audit, and it is not zero.
 
 - Everything is one probe, one plant, room air. Nothing here is a pile.

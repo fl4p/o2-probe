@@ -6473,6 +6473,63 @@ static void test_the_dry_gate_refuses_without_storage_permission(void)
     (void)dry_settle(&st, &cfg, &in, &out, 0u);
 }
 
+static void test_withdrawing_permission_on_a_REFUSED_cycle_still_resets_the_gate(void)
+{
+    /* THE PATH THAT BYPASSED THE WIND-BACK (codex review of 4798a13, #1).
+     *
+     * FW 0x002B put the reset inside dry_idle_gate(). The refusal and blind
+     * paths return before that call, so permission withdrawn during a refused
+     * cycle left dry_idle set and the debt paid, and a regrant one second
+     * later re-engaged the gate at once - skipping the assert window the
+     * commit message promised. A tip glitch is enough to refuse a cycle,
+     * and tip glitches are the reason cell_dropout exists.
+     *
+     * The guarantee under test is the one written into heater_ctl.c: a probe
+     * that has just been somewhere else owes a FULL debt, exactly like one
+     * that has just booted. */
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    o2p_heater_cfg_t cfg = hcfg_storage();
+    o2p_heater_in_t in = hin_dry_bench();
+    o2p_heater_out_t out;
+
+    const uint32_t t_gate = dry_settle(&st, &cfg, &in, &out, 0u);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.duty_x100,
+        "precondition: the gate is engaged and spending nothing");
+
+    /* Withdraw permission on a cycle the law REFUSES - the tip is gone, so
+     * step() takes the blind/refused path and returns early. */
+    o2p_heater_in_t blind = in;
+    blind.tip_valid = false;
+    cfg.storage_mode = false;
+    o2p_heater_ctl_step(&st, &cfg, &blind, t_gate + 1u, &out);
+
+    /* Tip back, permission back, one second later. The gate must NOT be
+     * engaged on this cycle: the debt is owed again from scratch. */
+    cfg.storage_mode = true;
+    o2p_heater_ctl_step(&st, &cfg, &in, t_gate + 2u, &out);
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(
+        0u, (uint16_t)(out.law & O2P_HEATER_LAWF_DEW_DRY_IDLE),
+        "a refused cycle must not carry an engaged gate across a permission "
+        "withdrawal");
+    TEST_ASSERT_TRUE_MESSAGE(out.duty_x100 > 0u,
+        "and the floor must be driving again, not merely ungated");
+
+    /* AND THE DEBT IS GENUINELY FRESH, not merely one cycle late.
+     *
+     * MEASURED FROM t_gate + 2, THE CYCLE THE FLOOR RESUMED ON, not from the
+     * next one. The debt is credited at the START of a cycle for the interval
+     * just elapsed, so the second spent driving at t_gate + 2 is credited at
+     * t_gate + 3 and counts. Measuring from t_gate + 3 reads 119 and looks
+     * like an off-by-one in the firmware; it is an off-by-one in the
+     * reference point, and it was mine. */
+    const uint32_t t_resumed = t_gate + 2u;
+    const uint32_t t_again = dry_settle(&st, &cfg, &in, &out, t_gate + 3u);
+    TEST_ASSERT_GREATER_OR_EQUAL_UINT32_MESSAGE(
+        (uint32_t)O2P_HEATER_DRY_ASSERT_S, t_again - t_resumed,
+        "re-engagement after a refused-cycle withdrawal owes a full window");
+}
+
 static void test_clearing_storage_mode_puts_the_floor_back_and_resets_the_debt(void)
 {
     /* Withdrawing permission from an ENGAGED gate. The probe comes off the
@@ -12590,6 +12647,7 @@ int main(void)
     RUN_TEST(test_the_pile_lockout_refuses_an_unevaluable_cell);
     RUN_TEST(test_the_dry_gate_is_monotonic_in_wetness);
     RUN_TEST(test_the_dry_gate_refuses_without_storage_permission);
+    RUN_TEST(test_withdrawing_permission_on_a_REFUSED_cycle_still_resets_the_gate);
     RUN_TEST(test_clearing_storage_mode_puts_the_floor_back_and_resets_the_debt);
     RUN_TEST(test_a_runaway_latch_outranks_the_dry_gate);
     RUN_TEST(test_dew_unreachable_after_a_dwell_at_the_ceiling_in_wet_gas);

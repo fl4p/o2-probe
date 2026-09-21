@@ -210,8 +210,14 @@ static void carry_v6_body(o2p_config_t *out, const o2p_config_v6_t *v)
      * one does not arm a heater, it DISARMS one. A probe upgraded while it
      * happened to be on a shelf must not come back with the gradient floor
      * still gated, because the next thing that happens to a probe on a shelf
-     * is that somebody buries it. An upgrade lands in FIELD mode and the
-     * operator says so again if it is still true. */
+     * is that somebody buries it. A LAYOUT MIGRATION lands in FIELD mode and
+     * the operator says so again if it is still true.
+     *
+     * THIS FUNCTION IS NOT ON THE PATH OF AN ORDINARY UPGRADE. config_flash.c
+     * calls it only for a record whose layout_version differs from the current
+     * one, and storage mode was deliberately fitted into the existing v8
+     * layout so that no bump was needed. A v8-to-v8 reflash therefore keeps
+     * the flag. See O2P_REG_HEATER_STORAGE. */
     out->heater_storage = 0u;
 }
 
