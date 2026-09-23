@@ -85,6 +85,12 @@
   <div class="note" style="margin-left:0" id="noteZ">Slides a plane along the
     probe axis.</div>
 
+  <h2>Explode <span class="val" id="explodev">off</span></h2>
+  <input type="range" id="explode" min="0" step="0.5" value="0" autocomplete="off">
+  <div class="note" style="margin-left:0" id="noteExplode">Spreads the parts
+    along the probe axis in stacking order. A viewing aid only: an exploded
+    part is NOT at its assembly position.</div>
+
   <h2>Body opacity <span class="val" id="opav">100%</span></h2>
   <input type="range" id="opa" min="8" max="100" step="1" value="100" autocomplete="off">
 
@@ -283,6 +289,7 @@ const loadSTL = url => new Promise((res, rej) => loader.load(url, res, undefined
   }
   // The body scene knows what its two ends ARE; a generic scene only knows how
   // far the geometry runs, and says that rather than inventing landmarks.
+  wireExplode(bb);
   document.getElementById('noteZ').textContent = (m0 && m0.joint !== undefined)
     ? `Slides a plane along the probe axis: ${bb.min.z.toFixed(0)} is the cable `
       + `end, 0 the head joint, +${bb.max.z.toFixed(1)} the membrane face.`
@@ -340,6 +347,8 @@ async function rebuild(auto) {
       geom.applyMatrix4(m4); geom.computeVertexNormals();
       mesh.geometry.dispose(); mesh.geometry = geom;
     }
+    // The stacking order is read off the geometry, so re-read it off the new one.
+    applyExplode();
     // A REBUILD THAT RENDERED NOTHING IS NOT A REBUILD. The first version said
     // "Rebuilt 14:57" after all five renders had failed, because it only looked
     // at whether the fetch came back. Report what the server actually managed.
@@ -431,6 +440,44 @@ function wireCut(plane, sliderId, labelId, flipId, axis, offAt) {
   sl.oninput = apply; fl.onchange = apply; apply();
 }
 // wireCut is called once the geometry is loaded -- see calibrateCuts().
+
+// EXPLODE. Parts slide apart along Z (the probe axis) by mesh.position only --
+// the geometry, and so every coordinate the cuts and the model agree on, is
+// untouched, and the slider at 0 is exactly the assembled scene.
+//
+// NO DIMENSION IS WRITTEN HERE, same rule as the placement: the order comes
+// from each part's bounding-box centre in Z as loaded, the part with the
+// largest bounding box (the body) stays put as the anchor, and every other part
+// moves by (its rank - the anchor's rank) x the slider. Parts at the same
+// height (an O-ring in its groove) get neighbouring ranks, which is what pulls
+// them out where they can be seen. The slider's range is read off the scene.
+//
+// The cuts stay in WORLD space, so a cut on an exploded view slices the parts
+// where they are drawn, not where they sit in the assembly.
+const explode = document.getElementById('explode');
+const explodev = document.getElementById('explodev');
+function applyExplode() {
+  const gap = +explode.value;
+  explodev.textContent = gap > 0 ? gap.toFixed(1) + ' mm / step' : 'off';
+  const info = state.parts.map(({ mesh }) => {
+    mesh.geometry.computeBoundingBox();
+    const b = mesh.geometry.boundingBox, s = b.getSize(new THREE.Vector3());
+    return { mesh, z: b.getCenter(new THREE.Vector3()).z, vol: s.x * s.y * s.z };
+  });
+  if (!info.length) return;
+  const anchor = info.reduce((a, b) => (b.vol > a.vol ? b : a));
+  const order = [...info].sort((a, b) => a.z - b.z);
+  const a0 = order.indexOf(anchor);
+  order.forEach((it, i) => { it.mesh.position.z = (i - a0) * gap; });
+}
+function wireExplode(bb) {
+  // Full right spreads each step by half the assembled length.
+  const len = bb.max.z - bb.min.z;
+  explode.max = Math.max(1, Math.round(len / 2)).toString();
+  explode.value = 0;          // Chrome restores range inputs; force the default
+  explode.oninput = applyExplode;
+  applyExplode();
+}
 const opa = document.getElementById('opa'), opav = document.getElementById('opav');
 opa.oninput = () => {
   const a = +opa.value / 100; opav.textContent = opa.value + '%';
