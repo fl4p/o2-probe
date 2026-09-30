@@ -1018,7 +1018,7 @@ geometry: a modelled squeeze, a gauged groove, a slicer report. What it establis
 narrowly:
 
 - the clamped-bed geometry seals at all, as a system — groove, land, bolt circle
-  and the eight-screw clamp together, at room temperature and roughly 0.1 bar of
+  and the six-screw clamp together, at room temperature and roughly 0.1 bar of
   head;
 - the ASA parts are themselves watertight through the wall at these wall
   thicknesses and this layer height, over 12 h. Print porosity would have shown as
@@ -1054,7 +1054,7 @@ the gauge is what turns that from a yes/no into the squeeze number that tests
 # 2026-09-30: the retainer deformed at its screws, and it was 15 % infill
 
 **Fab, 2026-09-30:** *"it has already deformed"*, and then, asked where: *"the disc
-deformed along the screws"*. Local, at each of the eight holes — bearing crush, not a
+deformed along the screws"*. Local, at each of the six holes — bearing crush, not a
 dished disc and not warp.
 
 **The part was never solid.** `profiles/process_asa_seal.json` carries
@@ -1079,7 +1079,7 @@ plane, and a screw head presses across them.
 
 | part | sparse-infill band | what is there |
 |---|---|---|
-| `monobody-r5` | z 126.44–132.68, 53 layers of 1113 | the head — where the eight screws land |
+| `monobody-r5` | z 126.44–132.68, 53 layers of 1113 | the head — where the six screws land |
 | `cap-r1` | z 0.80–2.48, 15 layers | printing gland-face-down, the **sealing end** |
 | `retainer-r6` | z 0.80–1.28, 2.12–2.72 | the crush plane, and the groove rim |
 

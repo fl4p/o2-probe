@@ -79,12 +79,18 @@ eq() {   # eq <key> <want> <why>
     echo "  $1 = $v"
 }
 
-pct() {  # pct <key> <min> <why> -- a '15%' field, compared as a number
+pct() {  # pct <key> <min> <max> <why> -- a '15%' field, compared as a number
     local v n; v=$(field "$1")
     [[ "$v" =~ ^[0-9]+(\.[0-9]+)?%$ ]] || fail "$1 = '$v' is not a percentage -- cannot verify it"
     n="${v%\%}"
-    awk -v v="$n" -v lo="$2" 'BEGIN{exit !(v+0 >= lo+0)}' \
-        || fail "$1 = $v, wanted >= $2% -- $3"
+    # DOMAIN FIRST. The regex only proves the SHAPE: a codex review fed this
+    # helper '101%' and a 12-digit percentage and both passed, because a lower
+    # bound cannot reject an impossible value. An out-of-domain number is
+    # unevaluable, and unevaluable is a failure here, never a pass.
+    awk -v v="$n" 'BEGIN{exit !(v+0 >= 0 && v+0 <= 100)}' \
+        || fail "$1 = $v is not a possible density (0-100%) -- the profile is malformed"
+    awk -v v="$n" -v lo="$2" -v hi="$3" 'BEGIN{exit !(v+0 >= lo+0 && v+0 <= hi+0)}' \
+        || fail "$1 = $v, wanted $2-$3% -- $4"
     echo "  $1 = $v"
 }
 
@@ -99,7 +105,7 @@ num filament_flow_ratio 1.00 1.02 "0.95 is deliberate under-extrusion; 85-90% al
 
 # INFILL, and it is TWO checks because the setting and the plate are different
 # claims. Added 2026-09-30 after a retainer DEFORMED IN SERVICE, locally at each
-# of its eight screws, on a plate that satisfied every other line of this file.
+# of its six screws, on a plate that satisfied every other line of this file.
 #
 # The recipe row in ~/dev/ee/p1p/doc/gastight-and-watertight.md is >=25%, and the
 # shared profile has been shipping 15% -- under its own floor -- on every part
@@ -124,8 +130,8 @@ num filament_flow_ratio 1.00 1.02 "0.95 is deliberate under-extrusion; 85-90% al
 case "$part" in
     # EVERY part here is either bolted through, clamped against a cord, or
     # carries the bosses the clamp is torqued into:
-    #   retainer/carrier  the two halves of the membrane clamp, eight screws
-    #   monobody          the head those eight screws thread into. NEARLY FREE:
+    #   retainer/carrier  the two halves of the membrane clamp, six screws
+    #   monobody          the head those six screws thread into. NEARLY FREE:
     #                     its tube wall is walls-only (4 x 0.60 = 2.40), so the
     #                     r5 plate had sparse infill in 53 layers of 1113, all
     #                     at the head. 100% there is minutes, and it does NOT
@@ -139,6 +145,25 @@ case "$part" in
         # leave the header saying 100% while the part still contains crosshatch,
         # so assert the ABSENCE of the feature too. Independent of the key above
         # and the one that actually describes the defect.
+        # FAIL CLOSED ON THE READER ITSELF. A grep that finds nothing and a grep
+        # that cannot read the file are the same exit status, and "no sparse
+        # infill" is exactly what a broken read looks like. So first PROVE the
+        # feature stream exists and that solid infill was actually generated;
+        # only then is an absence meaningful. Without this the check passes an
+        # empty file, a truncated upload, or a future Orca that renames features.
+        nfeat=$(grep -ca '^; FEATURE: ' "$g" || true)
+        [[ "$nfeat" =~ ^[0-9]+$ && "$nfeat" -gt 0 ]] \
+            || fail "no '; FEATURE:' lines in $g at all -- the feature stream is unreadable, so absence of sparse infill proves nothing (rule 12a: the Bambu spelling is '; FEATURE: ', with the leading space)"
+        grep -qa '^; FEATURE: Internal solid infill' "$g" \
+            || fail "no 'Internal solid infill' anywhere on this plate -- at 100 % the sparse regions should have BECOME solid, so its absence means the density did not take effect"
+        # WHAT THIS CANNOT SEE, stated because a review found it: a MODIFIER
+        # region set to 0 % emits no sparse-infill moves at all (Orca skips
+        # nonsolid fill at density <= 0, Fill.cpp:901), so a region that is
+        # MORE hollow satisfies both checks while the header still reads 100 %.
+        # Neither assertion here reads the 3mf's per-object settings, so this
+        # guard is not monotonic against deliberate per-object hollowing. It
+        # catches the profile-level default that actually bit us; it is not a
+        # proof that the interior is full.
         if grep -qa '^; FEATURE: Sparse infill' "$g"; then
             zs=$(awk '/^; Z_HEIGHT: /{z=$3} /^; FEATURE: Sparse infill/{print z}' "$g" \
                  | sort -n | uniq | tr '\n' ' ')
@@ -151,7 +176,14 @@ case "$part" in
     # softer than the part answers a question nobody asked -- the same argument
     # this file already makes for their walls and layers.
     *)
-        pct sparse_infill_density 25 "the doc floor for a non-clamped part"
+        # THE COUPONS AND THE DAM ARE NOW BLOCKED ON THE DEFAULT PATH, and that
+        # is a deliberate, stated consequence rather than an oversight: their
+        # print.sh override is {} so they inherit the shared 15 %, which is under
+        # this floor. All three plates in the archive passed the OLD guard and
+        # fail this one. They need their own override before they slice again.
+        # Said out loud here because a guard that silently blocks a command is
+        # indistinguishable from a broken slicer.
+        pct sparse_infill_density 25 50 "the doc band for a non-clamped part; the shared profile's 15 % is under it, so this part needs its own override in print.sh before it will slice"
         ;;
 esac
 # BRIM. Adhesion area is the product of brim width AND the brim actually being

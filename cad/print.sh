@@ -124,7 +124,7 @@ part_process_overrides() {
         # sparse infill appears in ONE band, z 126.44 .. 132.68, 53 layers of
         # 1113. The tube wall is 4 x 0.60 = 2.40 mm and is WALLS ONLY -- there
         # is no infill in the gas shell at all, so the density key cannot touch
-        # it. The band is the head, where the eight retainer screws land: the
+        # it. The band is the head, where the six retainer screws land: the
         # bosses the retainer is torqued against were 15 % crosshatch. The
         # retainer deformed along its screws; this is the other side of that
         # joint and it was built the same way.
@@ -140,7 +140,21 @@ part_process_overrides() {
         # with nothing, so a fused outer brim is free. An INNER brim is not: it
         # would print inside the bore, against the underside of the very rails
         # being measured, and come off badly if at all.
-        fit-coupon) echo '{"brim_object_gap":"0","brim_type":"outer_only","brim_width":"4"}' ;;
+        fit-coupon) echo '{"brim_object_gap":"0","brim_type":"outer_only","brim_width":"4","sparse_infill_density":"100%"}' ;;
+        # THE COUPONS AND THE DAM GET 100 % TOO, and not to satisfy the guard.
+        # A coupon exists to measure how a feature behaves IN THE PROCESS THE
+        # PART IS PRINTED IN -- this file already makes that argument for their
+        # walls and layers. The parts are now 100 %, so a coupon at 15 % measures
+        # a boss that no longer exists, and fastener-coupon in particular is the
+        # M2 boss coupon: it is the one part on this list that tests the very
+        # bearing load the retainer failed under. Added 2026-09-30 with the
+        # density change, because a codex review pointed out that the new >= 25 %
+        # floor otherwise BLOCKS these three commands outright: their override
+        # was {}, so they inherited the shared 15 % and would fail their own
+        # guard. A guard that silently blocks a command is indistinguishable
+        # from a broken slicer.
+        fastener-coupon) echo '{"sparse_infill_density":"100%"}' ;;
+        dam)      echo '{"sparse_infill_density":"100%"}' ;;
         # Small flat part, no seal surface, no tower: a modest outer brim is all
         # it wants. Printed in ASA because it sits in a heated chamber right
         # beside the hotend -- the designer's own note says ABS/ASA/PC.
