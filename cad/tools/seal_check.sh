@@ -79,6 +79,15 @@ eq() {   # eq <key> <want> <why>
     echo "  $1 = $v"
 }
 
+pct() {  # pct <key> <min> <why> -- a '15%' field, compared as a number
+    local v n; v=$(field "$1")
+    [[ "$v" =~ ^[0-9]+(\.[0-9]+)?%$ ]] || fail "$1 = '$v' is not a percentage -- cannot verify it"
+    n="${v%\%}"
+    awk -v v="$n" -v lo="$2" 'BEGIN{exit !(v+0 >= lo+0)}' \
+        || fail "$1 = $v, wanted >= $2% -- $3"
+    echo "  $1 = $v"
+}
+
 echo "seal-check $g"
 num layer_height 0.10 0.15 "0.2 mm cost ~31x leakage and +/-90% scatter"
 num wall_loops 4 8 "the 2.4 mm wall is exactly 4 x 0.60; fewer loops leaves it unsealed"
@@ -87,6 +96,64 @@ num inner_wall_line_width 0.60 0.70 ">=0.64 sealed in test, 0.40 never did"
 num top_shell_layers 5 99 "closures leak, walls do not"
 num bottom_shell_layers 5 99 "closures leak, walls do not"
 num filament_flow_ratio 1.00 1.02 "0.95 is deliberate under-extrusion; 85-90% always leaked"
+
+# INFILL, and it is TWO checks because the setting and the plate are different
+# claims. Added 2026-09-30 after a retainer DEFORMED IN SERVICE, locally at each
+# of its eight screws, on a plate that satisfied every other line of this file.
+#
+# The recipe row in ~/dev/ee/p1p/doc/gastight-and-watertight.md is >=25%, and the
+# shared profile has been shipping 15% -- under its own floor -- on every part
+# this script has ever passed, because sparse_infill_density is in the SHARED
+# process profile and no per-part override ever mentioned it. Nothing here read
+# it, so nothing caught it.
+#
+# A CLAMPED PART WANTS 100%, NOT 25%. The >=25%/<=50% band in that doc is about
+# leakage through a WALL. A bolted part is loaded through its MIDDLE, where top
+# and bottom shells say nothing: the measured failure was five consecutive
+# layers, 0.6 mm, whose only structure between the screw-head bearing face and
+# the sealing land was 15% crosshatch. wall_loops does not help -- walls stiffen
+# a part in its own plane, and a screw head presses across them.
+# NOT CHECKED, deliberately: skin_infill_density and skeleton_infill_density.
+# Those two belong to Orca's LOCKED infill patterns (locked zigzag / crosszag)
+# and are inert while sparse_infill_pattern is crosshatch, as it is here. They
+# read 15% on every plate in the archive and mean nothing there, so asserting
+# them would fail a correct plate for a value that never reached the plastic --
+# and a guard that cries on an irrelevant field gets waived, taking the real
+# check with it. If the pattern is ever changed to a locked one they become
+# live and belong in this block.
+case "$part" in
+    # EVERY part here is either bolted through, clamped against a cord, or
+    # carries the bosses the clamp is torqued into:
+    #   retainer/carrier  the two halves of the membrane clamp, eight screws
+    #   monobody          the head those eight screws thread into. NEARLY FREE:
+    #                     its tube wall is walls-only (4 x 0.60 = 2.40), so the
+    #                     r5 plate had sparse infill in 53 layers of 1113, all
+    #                     at the head. 100% there is minutes, and it does NOT
+    #                     add the shrinkage load the <=50% ceiling bounds.
+    #   cap/cap-fit       prints gland-face-DOWN, so its sparse band (z 0.80 to
+    #                     2.48 on cap-r1) sits behind the SEALING END.
+    monobody|cap|cap-fit|carrier|retainer)
+        eq sparse_infill_density 100% "a clamped or bolted part is loaded through its middle, and a crosshatch middle crushes under the screw heads -- measured 2026-09-30"
+        # SOURCE OF TRUTH: the setting is intent, the feature list is the plate.
+        # A modifier region, a per-object override or a future profile edit can
+        # leave the header saying 100% while the part still contains crosshatch,
+        # so assert the ABSENCE of the feature too. Independent of the key above
+        # and the one that actually describes the defect.
+        if grep -qa '^; FEATURE: Sparse infill' "$g"; then
+            zs=$(awk '/^; Z_HEIGHT: /{z=$3} /^; FEATURE: Sparse infill/{print z}' "$g" \
+                 | sort -n | uniq | tr '\n' ' ')
+            fail "this plate contains sparse infill at z: $zs -- on a clamped part every one of those layers is a crush plane, whatever the density key says"
+        fi
+        echo "  no 'Sparse infill' feature on the plate"
+        ;;
+    # The coupons are not clamped and not sealing walls, so they keep the doc
+    # band rather than 100%. They are still floored, because a coupon sliced
+    # softer than the part answers a question nobody asked -- the same argument
+    # this file already makes for their walls and layers.
+    *)
+        pct sparse_infill_density 25 "the doc floor for a non-clamped part"
+        ;;
+esac
 # BRIM. Adhesion area is the product of brim width AND the brim actually being
 # attached. Bambu ships brim_object_gap = 0.1 so brims snap off by hand, which on
 # 2026-09-05 left a 146.6 mm tower standing on its own 219 mm2 end face with
@@ -117,7 +184,32 @@ case "$part" in
     monobody)
         num brim_width 6 99 "h/d 4.58 in ASA is a warp and tip candidate"
         eq  brim_object_gap 0 "a brim with a gap is not holding the part down"
-        eq  brim_type outer_only "the bore at z=0 is the O-ring seal bore -- an inner brim FILLS it and the cap will not go on"
+        # THE BRIM RULE IS NOW A CHOICE BETWEEN TWO REAL COSTS, and the evidence
+        # decided it. outer_only is still correct about the bore: an inner brim
+        # at this width does not ring the O27.55 mouth, it fills it, and the cap
+        # cannot enter a plugged bore. But the SCORE on four-hour prints is:
+        #
+        #   with an inner brim     monobody-r2, 2026-09-06  -- PRINTED
+        #   without                monobody-r3, 2026-09-09  -- fell overnight
+        #   without                monobody-r4, 2026-09-09  -- tilted out of its
+        #                          own brim at layer 880, stopped at 887, on a
+        #                          freshly cleaned plate with the machine newly
+        #                          calibrated for its room. PHOTOGRAPHED: brim
+        #                          flat on the plate, tube leaning out of it.
+        #
+        # A plugged bore is work with a knife and the reamer the bore needs
+        # anyway. A fallen tower is four hours and 34 cm3. So the inner brim is
+        # allowed HERE, by name, with the reason attached -- and the rule is not
+        # deleted, because it is still the thing that will tell the next person
+        # why their cap will not go on.
+        if [ "${MONOBODY_INNER_BRIM_WAIVER:-0}" = 1 ]; then
+            echo "  WAIVED brim_type: inner brim allowed on the monobody -- 0 for 2"
+            echo "         on towers without one (r3, r4). The z=0 bore WILL be"
+            echo "         plugged by a one-layer disc: cut it out and ream to H7"
+            echo "         BEFORE fitting a cap, or the cap will not go on."
+        else
+            eq  brim_type outer_only "the bore at z=0 is the O-ring seal bore -- an inner brim FILLS it and the cap will not go on. Set MONOBODY_INNER_BRIM_WAIVER=1 to allow it deliberately; see the note above for what that costs"
+        fi
         ;;
     carrier|retainer)
         num brim_width 3 99 "some brim, but it must stay removable"
@@ -215,7 +307,31 @@ echo "  nozzle at first extrusion = ${eff}C"
 # that the named settings produce the intended part. The 2026-09-06 monobody
 # proves that is not enough: its header was correct by the rules in force, and
 # the bore was still plugged. This asks where the extruder actually went.
-python3 "$(dirname "$0")/bore_clear.py" "$g" --part "$part" \
-    || fail "something is printed inside the cable-end seal bore (see above)"
+# The same waiver reaches here, and it has to: bore_clear.py is the gate that
+# actually catches an inner brim, so waiving brim_type alone would fail here
+# instead and look like a different problem. What it measures stays TRUE -- the
+# bore really is plugged -- so this does not pretend otherwise, it records that
+# the plug is now deliberate and names the work that clears it.
+#
+# A REAL LIMIT OF THIS GATE, found in the 2026-09-09 Codex review and not fixed
+# here: it samples straight G1 moves at their ENDPOINTS only, so a chord that
+# crosses the bore with both ends outside it passes. It is sound against a brim
+# (which fills the region with endpoints) and unsound against a travel-shaped
+# path. Do not read a pass as proof of an empty bore.
+if [ "${MONOBODY_INNER_BRIM_WAIVER:-0}" = 1 ] && [ "$part" = monobody ]; then
+    python3 "$(dirname "$0")/bore_clear.py" "$g" --part "$part" || {
+        echo "  WAIVED bore-clear: the O-ring bore IS obstructed, deliberately."
+        echo "         POST-PROCESSING IS NOW MANDATORY, not optional:"
+        echo "           1. cut out the one-layer brim disc across the bore;"
+        echo "           2. deburr the 20 deg lead-in lip at the mouth (O27.55 --"
+        echo "              a O25.7 reamer cannot reach residue stuck to it);"
+        echo "           3. ream the parallel bore to O25.7 H7."
+        echo "         Skip these and the cap spigot will not enter. This is the"
+        echo "         trade accepted for a tower that stays standing."
+    }
+else
+    python3 "$(dirname "$0")/bore_clear.py" "$g" --part "$part" \
+        || fail "something is printed inside the cable-end seal bore (see above)"
+fi
 
 echo "seal-check OK"

@@ -647,6 +647,13 @@ cure.**
 | `157712596230` | O-Ring 17,0 × 2,0 mm **EPDM-Peroxidvernetzt FDA Konform** 70 Shore, 1 Posten = 20 St., €2.50 | **the bed ring.** Cure DECLARED; compound, lot and test report NOT |
 | `168191533567` | O-Ring 17,5 × 2,5 mm EPDM 70 ±5 Shore A schwarz, 1 Posten = 20 St., €2.50 | trial stock for the OLD 2.5 bed — see the caveats below |
 
+**Both lots ARRIVED 2026-09-11** (Fab: *"the 17x2 and 17x2.5 o-rings arrived"*).
+He reported the second as "17x2.5"; the order was for 17,**5** × 2,5, and which
+ID is actually in the bag is **not yet read off the label**. The retainer printed
+2026-09-09 (`R4 30.2`, exports built 20:57, PROVENANCE `O-ring 17 x 2`) carries
+the 1.44 groove and so takes **only the 17 × 2.0**. A 2.5 cord overfills that
+groove by roughly a third, so it cannot be used there even for practice.
+
 Neither carries a compound number, so **neither is a release part**. They are
 bench rings. The documented equivalents at o-ring-stocks, all material
 `127019011`, are `ORS116734` (17 × 2.5, €0.13), `ORS116732` (17 × 1.5, €0.22)
@@ -708,6 +715,32 @@ less centred is the one that survives the error this machine actually makes.**
 0.15 mm of print error against 0.181 mm of room is not margin to be casual with:
 **measure the assembled gap.** The bed has not set squeeze by geometry since the
 seat was deleted, so that measurement was already owed.
+
+### 2026-09-11: the print error is now in the model, and the groove is one layer shallower
+
+Fab: *"i'd make the groove for the membrane o-ring 100 or 200um less"*. The
+argument above used the measured overcut to **choose between** two depths, but
+the model still quoted squeeze at the drawn depth. 1.44 drawn and cut 0.15 deep
+is a gap of about 1.59, which is **19 %**, not 26.7 %. `face_print_overcut()` in
+`membrane_cartridge_common.scad` now carries the overcut: 0.15 groove-up, 0.07
+groove-down, from the two 2026-09-06 retainers. The drawn depth is solved for
+the printed gap.
+
+| | drawn | expected printed gap | nominal squeeze | gap may err |
+|---|---|---|---|---|
+| R4/R5 (before) | 1.44 | ~1.59 | ~19 % | — |
+| **next retainer** | **1.32** (11 layers) | **1.47** | **25.2 %** | +0.151 / −0.049 |
+| two layers shallower | 1.20 | ~1.35 | ~31 % | over the 30 % ceiling |
+
+Those figures are the model's own echo, all asserts passing, sorted cord band.
+Worst-corner fill is 84.7 %. The tighter end is now the **ceiling**
+(compression set, the slow failure), not the floor (a leak).
+
+**How narrowly to read it.** The 0.15 is one retainer per orientation, measured
+on the old 2.5-cord bed at 1.80/1.88 drawn, not on this groove, and the gauge
+was not recorded. If the printer cuts this groove only ~0.07 deep, the gap is
+~1.39 and squeeze ~29 %, at the ceiling. **Gauge the first 1.32 retainer's
+groove before assembling it.** That measurement replaces the 0.15.
 
 ### Consequences elsewhere
 
@@ -971,3 +1004,124 @@ transition. If the bonded head is ever printed this way up it needs its own answ
 
 **Still open:** 8 `Overhang wall` entries remain at model z 6.10, inside the head above
 the neck. Not investigated.
+
+# 2026-09-12: the printed bed holds water — 12 h submerged, no leak
+
+**Fab, 2026-09-12:** *"the parts we printed yesterday passed a 12h under-water leak
+test with the designated o-rings"* — the retainer and membrane carrier printed
+2026-09-11, assembled to the `mono-r2` unibody with the rings they were drawn for
+(17 × 2.0 peroxide EPDM on the membrane bed, 22 × 2.0 on the carrier spigot),
+submerged for 12 h, dry inside.
+
+This is the first **wet** evidence for this joint. Everything before it was
+geometry: a modelled squeeze, a gauged groove, a slicer report. What it establishes,
+narrowly:
+
+- the clamped-bed geometry seals at all, as a system — groove, land, bolt circle
+  and the eight-screw clamp together, at room temperature and roughly 0.1 bar of
+  head;
+- the ASA parts are themselves watertight through the wall at these wall
+  thicknesses and this layer height, over 12 h. Print porosity would have shown as
+  a slow wick regardless of the rings;
+- the `onhand-22x2` family dimensions on both the carrier spigot (Ø25.8) and the
+  retainer bolt circle (Ø30.2) mate to `mono-r2` as drawn.
+
+What it does **not** establish, and none of these are pedantry:
+
+- **that the identification is read, not remembered.** Fab names the tested
+  retainer as `R6 30.2`, the 1.32 groove, the last one printed -- but hedged:
+  *"i think the last one you printed"*. `R5` and `R6` differ only in groove depth
+  and in the scribed mark. Read the mark off the part before this identification
+  is load-bearing for anything.
+- **gas tightness.** Water at 0.1 bar is a far weaker test than O₂ diffusion
+  through a squeezed EPDM cord over months buried. It rules out a gross leak path;
+  it does not measure permeation, and it does not qualify the membrane bed for the
+  probe's actual job.
+- **the squeeze number.** The groove was never gauged on the printed part, so the
+  0.15 mm groove-up print overcut in `face_print_overcut()` is still carried on one
+  sample measured on the *old* 2.5-cord bed. A seal that works does not tell you
+  where in the 15–35 % band it is working, and a bed at 31 % behaves very
+  differently on the tenth assembly than one at 25 %.
+- **temperature.** Composting windrows run 60–70 °C; this was a bench-temperature
+  test. ASA creep and EPDM compression set both live above it.
+
+**Next, in order:** read the mark off the retainer that was in the water to confirm
+it is `R6`, then gauge its groove depth. A confirmed R6 pass is the first evidence
+that the 1.32 bed -- the whole point of the 2026-09-11 model change -- seals, and
+the gauge is what turns that from a yes/no into the squeeze number that tests
+`face_print_overcut()`. `R5` at 1.44 is then the spare, not the proven part.
+
+# 2026-09-30: the retainer deformed at its screws, and it was 15 % infill
+
+**Fab, 2026-09-30:** *"it has already deformed"*, and then, asked where: *"the disc
+deformed along the screws"*. Local, at each of the eight holes — bearing crush, not a
+dished disc and not warp.
+
+**The part was never solid.** `profiles/process_asa_seal.json` carries
+`sparse_infill_density: 15%`, crosshatch, and no per-part override in `print.sh` had
+ever mentioned it. Read off the R6 plate that printed, layer by layer:
+
+| z | what the layer contains |
+|---|---|
+| 0.20 | bottom surface |
+| 0.32–0.68 | internal solid infill |
+| **0.80–1.28** | **sparse infill only — 5 layers, 0.6 mm, no solid** |
+| 1.40–1.88 | internal solid (the groove floor's shell) |
+| 2.00 | top surface = the groove floor |
+| 2.12–2.72 | sparse again (the groove rim) |
+
+The screws bear on the bottom face; the cord pushes back on the groove land. The load
+path between them runs through 0.6 mm of 15 % crosshatch. That is the crush plane by
+construction, and `wall_loops = 4` is no answer to it — walls stiffen a disc in its own
+plane, and a screw head presses across them.
+
+**It is not only this part.** Same read on the other two archived plates:
+
+| part | sparse-infill band | what is there |
+|---|---|---|
+| `monobody-r5` | z 126.44–132.68, 53 layers of 1113 | the head — where the eight screws land |
+| `cap-r1` | z 0.80–2.48, 15 layers | printing gland-face-down, the **sealing end** |
+| `retainer-r6` | z 0.80–1.28, 2.12–2.72 | the crush plane, and the groove rim |
+
+The monobody's tube wall is 4 × 0.60 = 2.40 mm and is **walls only**: there is no infill
+in the gas shell at all, so this was never a gas-tightness defect. It is a joint defect,
+and both halves of the joint had it.
+
+**Fixed: 100 % infill on retainer, carrier, cap, cap-fit and monobody**, per part in
+`print.sh`, with the band measurement in each comment. Re-sliced and measured, so the
+cost is no longer a guess:
+
+| part | 15 % → 100 % | Δ |
+|---|---|---|
+| retainer | 10m 50s → 11m 24s, 2.67 → 2.93 cm³ | +34 s |
+| cap | 43m 23s → 45m 24s | +2m 01s |
+| monobody | 3h 59m 42s → 4h 00m 21s, 34.54 → 35.10 cm³ | **+39 s** |
+
+The monobody is the cheapest in relative terms, which is why the ≤ 50 % shrinkage ceiling
+in `~/dev/ee/p1p/doc/gastight-and-watertight.md` does not argue against it here: that
+ceiling bounds parts with a real infill volume, and this tower has 53 layers of it.
+
+**And the guard now reads it.** Nothing checked infill density before — not
+`seal_check.sh`, not zoe's `slice-check.sh`, not `tools/`. The recipe had a row and no
+enforcement, which is why 15 % shipped for weeks under its own ≥ 25 % floor.
+`tools/seal_check.sh` now makes two independent assertions on a clamped part: the
+header's `sparse_infill_density` is `100%`, **and** the plate contains no
+`; FEATURE: Sparse infill` at all. The second exists because the first is intent — a
+modifier region or a per-object override could leave the header honest and the part
+hollow. Both were calibrated against constructed failures before being trusted: the real
+R6 plate fails on the density, and an R6 plate with its header edited to `100%` fails on
+the feature list, naming every z.
+
+## What is NOT fixed by this, and should not be read as fixed
+
+- **Bearing area.** 100 % infill removes the void; it does not enlarge the area an M2
+  head presses on. A washer under each screw is the cheap fix and needs no reprint; a
+  counterbored boss is the geometric one. Neither is done.
+- **Creep.** ASA under a standing load moves whatever the infill. Torque to the squeeze
+  the cord needs — ~25 % on a 2.0 mm cord is a light load — not to feel.
+- **R6's groove depth is now unmeasurable in the ordinary way.** If the screw lands sank,
+  the groove floor sank with them, so a depth gauge on R6 reads a deformed part. Measure
+  between screws, or treat R6 as spent and gauge the first solid print.
+- **The 12 h leak pass still stands as a leak result and nothing more.** It was taken on
+  the part with this void in it. A leak test does not test a clamp; that is the lesson
+  written into the p1p doc.

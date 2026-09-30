@@ -79,16 +79,72 @@ part_process_overrides() {
         # 581 mm2 of brim BESIDE the part instead of attaching it -- is the "0"
         # below. The tower also lost 12.2 mm of height (146.6 -> 134.4) when the
         # head's neck went.
-        monobody) echo '{"brim_object_gap":"0","brim_type":"outer_only","brim_width":"16"}' ;;
+        # internal_bridge_speed 50, ADDED 2026-09-09. It is not a duplicate of
+        # bridge_speed: `Bridge` and `Internal Bridge` are different features on
+        # different keys, and internal_bridge_speed defaults to a RELATIVE
+        # "150%" -- of bridge_speed -- so this plate was running its internal
+        # bridge at 75 mm/s, FASTER than the 50 the same plate declares for
+        # bridging. Read off the sliced g-code, not assumed.
+        #
+        # It matters here because it is not a token feature: 348 mm of bridged
+        # path, longest unsupported strand 11.51 mm, at model z +4.44 -- the
+        # roof over the board cavity, immediately under the well floor the
+        # carrier spigot bottoms into. A sag there thins the well floor.
+        #
+        # AND THE "no gain" ARGUMENT BELOW DOES NOT COVER IT. That was written
+        # about bridge_speed on a 1119-layer tower, where slowing every bridge
+        # would add hours. This is one layer: 348 mm at 50 instead of 75 mm/s
+        # costs 2.3 SECONDS. Absolute, not a percentage, so it cannot drift with
+        # whatever bridge_speed becomes.
+        # INNER BRIM RESTORED 2026-09-09, on Fab's instruction, after TWO towers fell
+        # over. This reverses c68c815's outer_only, and it does so knowing exactly
+        # what that costs -- the whole argument below is still true: an inner brim
+        # at this width does not ring the O27.55 mouth, it FILLS it with a welded
+        # one-layer disc, and the cap spigot cannot enter a plugged bore.
+        #
+        # THAT IS A POST-PROCESSING COST. A FALLEN TOWER IS NOT.
+        # monobody-r2 (2026-09-06) printed successfully WITH that disc in the bore.
+        # Every monobody since, without it, has failed: r3 fell overnight, and r4
+        # -- the identical plate on a freshly cleaned bed with the machine newly
+        # calibrated for its new room -- tilted out of its own brim at layer 880
+        # and was stopped at 887. Photographed: the brim stayed flat on the plate
+        # and the tube leaned out of it. That is the inner edge of a 2.23 mm
+        # annulus peeling, not a snap and not a levelling fault.
+        #
+        # So the trade is settled by evidence rather than by preference: one
+        # sacrificial disc to cut and ream out, against 0 for 2 on four-hour prints.
+        # The bore is reamed to H7 after printing ANYWAY -- tools/bore_clear.py is
+        # what refuses this, and it encodes the manufacturing method as if it were
+        # the finished-part requirement. It is waived per-part here, deliberately
+        # and visibly, not disabled.
+        #
+        # 100 % INFILL, 2026-09-30, and it is NEARLY FREE here -- which is the
+        # point, because 100 % on a 133 mm ASA tower would otherwise be exactly
+        # the shrinkage load that toppled r3/r4/r5. Measured on the r5 plate:
+        # sparse infill appears in ONE band, z 126.44 .. 132.68, 53 layers of
+        # 1113. The tube wall is 4 x 0.60 = 2.40 mm and is WALLS ONLY -- there
+        # is no infill in the gas shell at all, so the density key cannot touch
+        # it. The band is the head, where the eight retainer screws land: the
+        # bosses the retainer is torqued against were 15 % crosshatch. The
+        # retainer deformed along its screws; this is the other side of that
+        # joint and it was built the same way.
+        monobody) echo '{"brim_object_gap":"0","brim_type":"outer_and_inner","brim_width":"16","internal_bridge_speed":"50","sparse_infill_density":"100%"}' ;;
         # The carrier prints wet-face-DOWN, so its z=0 IS the membrane sealing
         # land: any fused brim scars the surface the seal is made on. Stay
         # outside and keep the gap.
-        carrier)  echo '{"brim_object_gap":"0.1","brim_type":"outer_only"}' ;;
+        # 100 % infill for the same reason as the retainer below: it is the other
+        # half of the same clamped joint, bolted through and loaded across its
+        # web by the ring it carries.
+        carrier)  echo '{"brim_object_gap":"0.1","brim_type":"outer_only","sparse_infill_density":"100%"}' ;;
         # FIT COUPON. z=0 is a plain ring face plus its label flange and mates
         # with nothing, so a fused outer brim is free. An INNER brim is not: it
         # would print inside the bore, against the underside of the very rails
         # being measured, and come off badly if at all.
         fit-coupon) echo '{"brim_object_gap":"0","brim_type":"outer_only","brim_width":"4"}' ;;
+        # Small flat part, no seal surface, no tower: a modest outer brim is all
+        # it wants. Printed in ASA because it sits in a heated chamber right
+        # beside the hotend -- the designer's own note says ABS/ASA/PC.
+        wiper)    echo '{"brim_object_gap":"0","brim_type":"outer_only","brim_width":"4"}' ;;
         # RETAINER, GROOVE-UP -- Fab's decision 2026-09-06 after four plates
         # (GLAND-ON-THE-BED.md). Printed groove-up, z=0 is the flat BACK of the
         # part -- a full annulus r 7.60-18.78, 11.18 mm wide -- not the seal
@@ -138,7 +194,18 @@ part_process_overrides() {
         # over a 3.25 mm groove is. Kept at 25 because it is strictly better
         # than 50 here, NOT because it works. If the flip is abandoned for a
         # top-surface sealing face there is no bridge at all and this is moot.
-        retainer) echo '{"brim_object_gap":"0.1","brim_type":"outer_only","bridge_speed":["25","25"]}' ;;
+        #
+        # 100 % INFILL, 2026-09-30, because the part DEFORMED in service (Fab).
+        # The shared profile is 15 % crosshatch, and on the R6 plate that left
+        # FIVE consecutive layers -- z 0.80 to 1.28, 0.6 mm -- whose only
+        # structure between the bolted bottom shell and the groove-floor top
+        # shell was that crosshatch. Eight screws and a squeezed cord load the
+        # retainer in exactly that plane, so it is the crush layer by
+        # construction. 15 % is also under the >=25 % floor in
+        # ~/dev/ee/p1p/doc/gastight-and-watertight.md, which this profile has
+        # been violating on every sealing part. The part is 27 layers and ~10
+        # min: solid costs nothing worth weighing against a clamp that creeps.
+        retainer) echo '{"brim_object_gap":"0.1","brim_type":"outer_only","bridge_speed":["25","25"],"sparse_infill_density":"100%"}' ;;
         # THE GLAND'S SEAL NOTCH IS A BRIDGE, and it was missed. The cap prints
         # gland face DOWN, so that notch is a void from the bed up to
         # gland_notch_depth and its roof bridges 1.8 mm of air -- the SAME
@@ -161,7 +228,13 @@ part_process_overrides() {
         # is unprintable, so the roof had nothing to land on. The pocket moved
         # to the cap's INNER face and the overhang is gone from the plate
         # entirely. These overrides stay for the seat roof.
-        cap|cap-fit) echo '{"bridge_speed":["25","25"],"internal_bridge_speed":"25"}' ;;
+        #
+        # 100 % INFILL, 2026-09-30. The cap plate carries 15 % crosshatch in one
+        # band, z 0.80 .. 2.48 (15 layers) -- which, printing gland-face-DOWN, is
+        # the SEALING END. The gland notch roof and the cap-end seat roof both
+        # land on it. Same reasoning as the retainer: a sealing face backed by
+        # crosshatch has nothing to bear against. Small part, negligible cost.
+        cap|cap-fit) echo '{"bridge_speed":["25","25"],"internal_bridge_speed":"25","sparse_infill_density":"100%"}' ;;
         *)        echo '{}' ;;
     esac
 }
@@ -349,6 +422,17 @@ part_stl() {
         # to see the same plate: split one per plate, plate-to-plate
         # variation lands directly in the answer and there is no answer left.
         fit-coupon) echo exports/body-fit-coupon.stl ;;
+        # NOT A PROBE PART. The Scrubbler (MakerWorld 467118) -- the A1-nub
+        # nozzle wiper the stock X/P wiper is being replaced with, because the
+        # stock one is measurably ineffective on ASA (doc/levelling-faults.md in
+        # ~/dev/ee/p1p). It lives here only because this script owns the ASA
+        # slicing chain; it is a MACHINE part, not an o2-probe part, so it gets
+        # no seal gates and none of the per-part seal overrides.
+        #
+        # NEEDS A PURCHASED PART TO WORK: the A1 silicone wiper pad
+        # (Heatbed Nozzle Wiper - A1 mini, ~EUR 0.89 roboter-bausatz / 6.99
+        # Bambu EU). The print alone does nothing.
+        wiper)    echo "${WIPER_STL:-$HOME/Downloads/scrubbler.stl}" ;;
         *)        die "unknown part '$1' (monobody | cap | dam | carrier | retainer | fastener-coupon | fit-coupon)" ;;
     esac
 }
@@ -472,8 +556,33 @@ case "${1:-}" in
     slice)  shift; cmd_slice "$@" ;;
     upload) shift; [[ $# -eq 1 ]] || die "upload takes one part"
             "$P1P/p1p-upload" "print/$1/o2probe-$1.gcode.3mf" ;;
-    start)  shift; [[ $# -eq 1 ]] || die "start takes one part"
-            "$P1P/p1p-start" "o2probe-$1.gcode.3mf"
+    start)  shift; [[ $# -ge 1 ]] || die "start takes one part"
+            # EXTRA FLAGS ARE FORWARDED to p1p-start (--no-level, --rewipe N,
+            # --no-verify). They used to be rejected by `[[ $# -eq 1 ]]`, which
+            # made --no-level unreachable through this wrapper -- and that flag
+            # is the fix for the failure mode that cost four starts on
+            # 2026-09-09: the machine PURGES BEFORE IT LEVELS (M109 S250 purge,
+            # S270 wipe, S140, then G29), and the nozzle tip IS the levelling
+            # probe, so residue the wipe fails to remove becomes a Z measurement
+            # error and the job aborts in stage 14 or 1.
+            #
+            # Fab's framing, and it is the right one: the residue does not
+            # matter for the PRINT -- it lands in the brim, which is sacrificial
+            # -- it only kills the MEASUREMENT. So level separately with a cold,
+            # clean nozzle (`p1p-calibrate 2 --plate-clear`) and then start with
+            # --no-level, and the purge residue becomes harmless.
+            #
+            # The cost is real and is p1p-start's own warning: with G29 skipped,
+            # a mis-seated plate is not caught. Watch the first layer.
+            part="$1"; shift
+            # PASS THE SUBTASK NAME EXPLICITLY, or the first flag is eaten as one.
+            # p1p-start is `<remote> [subtask_name] [flags...]` with
+            # `NAME="${2:-...}"; shift 2`, so `p1p-start x.3mf --no-level` sets
+            # NAME=--no-level and the flag never reaches the parser. Seen live
+            # 2026-09-09: telemetry read `subtask_name --no-level` and the job
+            # levelled anyway. Naming it here keeps the default spelling
+            # (${SRC%%.*}) and puts every flag past the positional slots.
+            "$P1P/p1p-start" "o2probe-$part.gcode.3mf" "o2probe-$part" "$@"
             # Lift-off has happened by here, so the watcher can arm on a job it
             # has seen running. Detached, so the terminal comes back: a 4 h
             # print should not hold a shell hostage to get a notification out of
@@ -483,9 +592,9 @@ case "${1:-}" in
             # built on it fails with "command not found", leaving no process and
             # a log that looks exactly like a watcher that started and died.
             if [[ ${NOTIFY:-1} != 0 ]]; then
-                mkdir -p "print/$1"
-                log="print/$1/watch.log"
-                nohup "${BASH_SOURCE[0]}" watch "$1" >"$log" 2>&1 &
+                mkdir -p "print/$part"
+                log="print/$part/watch.log"
+                nohup "${BASH_SOURCE[0]}" watch "$part" >"$log" 2>&1 &
                 echo "  watching for the verdict in the background (pid $!, log $log)"
                 echo "  a notification will pop on finish OR failure. NOTIFY=0 to skip."
             fi ;;

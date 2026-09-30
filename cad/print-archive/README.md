@@ -23,6 +23,31 @@ record of a print whether or not `cad/exports/` was up to date that day.
 | `T2 25.5` | `monobody-r2.gcode.3mf` | `print/monobody-r2` | 2026-09-06 16:05, ASA; first collar tube, **brim fused in the seal bore** |
 | (none) | `carrier-22x2-seat.gcode.3mf` | -- | 2026-09-05 18:44 uploaded, **outcome unrecorded**; cut for `onhand-22x2` and still carrying the Ø26.5 membrane seat |
 | `M1 26.8` | `carrier-r1.gcode.3mf` | `print/carrier-r1` | 2026-09-08 17:52, ASA; P1P reported FINISH at 100% after 17 min. FIRST carrier for the sourced Ø24 x 1.5 |
+| `R3 31.2` | `retainer-r3.gcode.3mf` | `print/retainer-r3` | 2026-09-08 22:31, ASA; P1P reported FINISH at 100%, 28/28 layers, 10 min. FIRST retainer with the 17 x 2.0 membrane bed (`6a0a7ba`), and the mate for `M1 26.8` |
+| `T3 25.5` | `monobody-r3.gcode.3mf` | `print/monobody-r3` | 2026-09-09 uploaded, 1113 layers, 4h 06m est. FIRST monobody in the sourced-ring family (head OD 40, bolt circle Ø31.2) -- mates `M1 26.8` + `R3 31.2`. Cable end unchanged: Ø25.7 collar, 22 x 2. **FELL OVER.** The machine still reported FINISH/100%/1113 layers -- it kept extruding after the part detached. FAILURE HEIGHT: no telemetry, no camera (p1p-stream's ring buffer is 55 min of RAM and this was a 4 h print, so it had aged out). Fab observed it fell at the SAME height as r4, i.e. around layer 880 / z 106 mm. That observation is the only record there is |
+| (none) | -- | -- | 2026-09-09 10:36, ASA; RE-RUN OF THE r3 PLATE, byte-identical, on a freshly cleaned bed with the machine newly calibrated for its new room. **TILTED OUT OF ITS OWN BRIM at layer 880**, stopped at 887. Photographed: brim flat on the plate, tube leaning out of it. Not archived separately -- same bytes as r3. This is the run that ruled out bed surface, vibration compensation and the room, and left the missing inner brim as the cause |
+| `T5 25.5` | `monobody-r5.gcode.3mf` | -- | 2026-09-09 uploaded. **INNER BRIM RESTORED** (`outer_and_inner`, width 16): 1913 brim extrusion points inside the O27.55 mouth, reaching r 0.23, against NOTHING under r 16.23 on r3/r4. Both seal gates waived by name via `MONOBODY_INNER_BRIM_WAIVER=1`. **THE BORE IS PLUGGED ON PURPOSE** -- cut the disc out, deburr the 20 deg lip, ream to O25.7 H7 BEFORE fitting a cap. **PRINTED 2026-09-09 20:0x, ABORTED BY HAND at layer 949/1113 (z 113.96, 84%)** -- 69 layers further than r3/r4, so the inner brim did buy something. CAUSE, from Fab at the machine: **the enclosure front was not closed, so the chamber ran too cold for a 134 mm ASA tower.** That is consistent with the plate's own bridge/overhang report, which lists NOTHING between z 104.12 and z 128.24: there was no overhanging geometry at the failure height, so this was never a support problem. Warping load grows with height, which is why all three failures cluster near the same z and why more brim delayed rather than prevented it |
+| `R4 30.2` | `print/retainer/o2probe-retainer.gcode.3mf` (not archived) | -- | 2026-09-09 ~21:45, ASA; P1P reported FINISH, 28/28 layers. `onhand-22x2` family (Ø37.4, bolt circle Ø30.2), 17 x 2.0 bed at 1.44. Exports built 20:57 with `RING=onhand-22x2`; packed mesh measured Ø37.400 / Z 3.44. Mate for `T2 25.5` (mono-r2, head OD 38) |
+| `M2 25.8` | `print/carrier/o2probe-carrier.gcode.3mf` (not archived) | -- | 2026-09-09, ASA, after R4; `onhand-22x2` spigot Ø25.8, packed mesh Ø37.400 / Z 8.30. Mate for `T2 25.5` + `R4 30.2`. **Fab asked for BOTH to be reprinted on 2026-09-11** -- the next attempts are `R5 30.2` / `M3 25.8`, same geometry unless a change is recorded here |
+| `R5 30.2` | same plate as `R4`, re-uploaded (not archived; overwritten by the `R6` slice) | -- | 2026-09-11 18:44 lift-off, FINISH 18:54, 28/28 layers. Geometry identical to `R4`: bed drawn 1.44 |
+| `M3 25.8` | same plate as `M2`, re-uploaded (not archived) | -- | 2026-09-11. Two starts ABORTED in prep before it printed: 18:56 in stage 14 (tip cleaning) with `0300_0B00_0001_0004` + `0300_0D00_0001_000B`, print_error `0x03004000` Z homing failed; 19:05 got past the wipe and died 11 s into auto bed levelling with `0300_0B00_0001_0004`, print_error `0x03004002`, a white strand hanging off the toolhead on camera. Third start after Fab cleared it: lift-off 19:29, FINISH 19:46:57, 68/68 layers, no HMS. The 2026-09-11 20:01 re-export of the carrier is geometrically IDENTICAL to what printed (6552 triangles, volume 3677.444, area 3217.967, same z levels), so `M3` is current |
+| `R6 30.2` | `retainer-r6.gcode.3mf` | -- | 2026-09-11 sliced + uploaded (279 872 B); lift-off 20:39, **FINISH 100% at 20:48**, 27 layers on the plate against `R5`'s 28 -- that layer-count difference is what proved by content that the new plate was the one loaded. **Bed drawn 1.32, one layer shallower**, on Fab's ask, with the measured 0.15 groove-up overcut now inside the model (`face_print_overcut()`): expected printed gap 1.47, 25.2 % nominal. Packed mesh measured Ø37.400, h 3.32, groove floor 2.00 above the outer face (web 2.0). Overhang report: `Internal Bridge` only, at z 1.52/1.64/2.84, the first top-shell layers over sparse infill five layers under the groove floor and the top face. None on a sealing surface. **Gauge the groove on this part**: it tests the 0.15 mm overcut. NOT done before it went into the 2026-09-12 leak test, which it passed (see the note under this table) -- so do it when the assembly comes apart. |
+
+**`R6 30.2` + `M3 25.8` passed a 12 h under-water leak test on 2026-09-12** (Fab),
+assembled to `T2 25.5` with 17 x 2.0 and 22 x 2.0 rings. The retainer is identified
+as R6 -- the 1.32 groove, the last one printed -- by Fab's recall, hedged (*"i think
+the last one you printed"*), NOT by reading the mark off the part. R5 and R6 are
+indistinguishable in the hand except by that mark, so confirm it when the assembly
+comes apart. See `PRINTING-HEAD-END.md`, 2026-09-12, for what the pass does and does
+not establish.
+
+**There is no `R2`, and the gap is deliberate.** A retainer was sliced for a
+17 x 2.5 bed on 2026-09-08 and uploaded, but it never printed: six consecutive
+starts aborted (Z-axis HMS, PLA under the levelling pad), and before the machine
+was fixed the bed itself was superseded -- the 2.5 on hand turned out not to be
+EPDM. The run number is spent, so the next retainer is R4, not R3-again. Run
+numbers count ATTEMPTS ON THE MACHINE, not successes; reusing one would make two
+different plates share a mark.
 
 ## The mark on the part
 
@@ -50,6 +75,22 @@ membrane sealing land -- the part prints wet-face-DOWN, so that surface IS the
 seal -- the top face bears against the head under the six screws, and the spigot
 carries the O-ring groove. The rim seals nothing, bears nothing, and stays
 readable with the probe assembled.
+
+Where it goes on a **retainer**: the flat OUTER face, in the 3.6 mm annulus
+between the Ø31.2 bolt circle and the Ø38.4 rim. That is the face that was DOWN
+on the plate -- the retainer prints groove-up -- so it is the smooth one, and it
+is the face pointing out of the assembled probe. Not the groove face: the groove
+IS the membrane bed now. The rim would do but it is only 3.44 mm tall.
+
+And the diameter on a retainer is the BOLT CIRCLE, not a fit diameter, because
+that is what decides whether it lands on a head. It moves with the radial ring
+even though the retainer has nothing to do with that seal -- the ring sets the
+head OD (38 -> 40) and the bolt circle follows (Ø30.2 -> Ø31.2). So a retainer
+for the sourced ring measures Ø38.4 across and one for `onhand-22x2` measures
+Ø37.4, and in the hand that is one millimetre. `R3` was confirmed as the
+Ø38.4 part by measuring the mesh packed inside its own `.3mf` and rendering the
+retainer both ways -- not by trusting the filename. Do that check, not that
+assumption: `print.sh slice` names the file after the part, never after the ring.
 
 **A tube and a cap fit when their numbers differ by 0.3**, because
 `spigot_od = cable_bore_d - carrier_fit` and `carrier_fit` is 0.3. So `T2 25.5`
