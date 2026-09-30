@@ -617,6 +617,14 @@ face_disc_ledge = 1.0;      // membrane rim outboard of the groove
 // overruns it. So the target that looks less centred is the one that survives
 // the error this machine actually makes. MEASURE THE ASSEMBLED GAP ANYWAY --
 // 0.15 of print error against 0.181 of room is not margin to be casual with.
+//
+// SUPERSEDED IN ITS NUMBERS 2026-09-11, not in its target. The table above
+// quotes the DRAWN depth as if it were the gap, and then argues the print error
+// against it. face_print_overcut() now carries that error inside the model, so
+// the same 0.26 target solves to 1.32 drawn (11 layers), which the printer
+// should cut to about 1.47: 25.2% nominal, where 1.44 drawn printed would have
+// been about 1.59 and 19%. Fab asked for 0.1-0.2 mm shallower; one layer is
+// 0.12. Two layers (1.20 drawn, about 1.35 printed) is 31%, over the ceiling.
 face_squeeze_target = 0.26;
 
 // --- derived ---------------------------------------------------------------
@@ -745,9 +753,28 @@ function face_depth_datum() = face_groove_up ? 0 : face_first_layer_h;
 // the stop is the membrane.
 function face_seat_offset() =
     face_seat_depth >= membrane_t ? face_seat_depth - membrane_t : 0;
+// HOW MUCH DEEPER THE PRINTER CUTS THE BED THAN IT IS DRAWN. Fab, 2026-09-11:
+// "i'd make the groove for the membrane o-ring 100 or 200um less". The evidence
+// was already in this file and had not been applied: both printed retainers of
+// 2026-09-06 gauged 1.95, against 1.80 drawn groove-up and 1.88 groove-down
+// (o2_probe_head_end.scad, face_floor). So the drawn depth is solved for the
+// PRINTED gap, and every squeeze, fill and tolerance figure below is quoted at
+// drawn + overcut, which is what the ring actually sees.
+//
+// HOW NARROWLY TO READ IT: one retainer per orientation, measured on the old
+// 2.5-cord bed at 1.80/1.88 deep, not on this 1.44 one, and the gauge is not
+// recorded. It is the best number there is, not a calibration. MEASURE THE
+// ASSEMBLED GAP on the first retainer cut this way. If it comes out at the drawn
+// depth rather than drawn + 0.15, this constant is wrong and squeeze sits above
+// the ceiling.
+//
+// A FUNCTION, like face_depth_datum(), so it follows face_groove_up lazily and
+// cannot be hoisted.
+function face_print_overcut() = face_groove_up ? 0.15 : 0.07;
 function face_groove_depth(window_d) =
     face_depth_datum()
     + round((face_cord_fitted(window_d)*(1 - face_squeeze_target)
+             - face_print_overcut()
              - face_seat_offset() - face_depth_datum()) / face_layer_h)
       * face_layer_h;
 // What the ring is actually squeezed to.
@@ -759,7 +786,7 @@ function face_groove_depth(window_d) =
 // 2.04 and squeezes 16.9% -- BELOW the 20% floor, reported as comfortably inside
 // it. 0.18 mm is 7.4 squeeze points on this cord; the whole budget is 15.
 function face_gap(window_d) =
-    face_groove_depth(window_d) + face_seat_offset();
+    face_groove_depth(window_d) + face_print_overcut() + face_seat_offset();
 function face_groove_w() = face_groove_w_factor * face_ring_cord;
 function face_groove_od(window_d) = face_groove_id(window_d) + 2*face_groove_w();
 function face_disc_d(window_d) = face_groove_od(window_d) + 2*face_disc_ledge;
