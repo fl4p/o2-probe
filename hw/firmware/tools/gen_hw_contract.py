@@ -88,6 +88,18 @@ def build(g) -> str:
     def net_of(ref, pin):
         return assigned[(ref, str(pin))]
 
+    def pin_named(ref, name):
+        """Pad number of `ref`'s pin called `name`, from the generator's symbol.
+
+        Strap checks resolve pins by NAME. A hand-typed pad number was wrong
+        here until 2026-10-22: "TMP117 ADD0 (U10.5)" read pad 5, which is V+,
+        so the check tested V+ == 3V3D and could never fail (ADD0 is pad 4).
+        """
+        pads = [num for num, pname, _t in g.SYMS[inst[ref]["lib_id"]]["pins"] if pname == name]
+        if len(pads) != 1:
+            raise SystemExit(f"{ref} has {len(pads)} pins named {name!r}; expected exactly one")
+        return pads[0]
+
     # --- pin map ----------------------------------------------------------
     mcu = dict(g.MCU_NETS)
     by_net = {}
@@ -160,17 +172,19 @@ def build(g) -> str:
     # U8, the ADS1119, left the schematic on 2026-09-12, and with it its address
     # straps. Checked by PRESENCE rather than dropped: if a future revision puts
     # an ADS back, its strapping must be re-checked, not inherited silently.
-    straps = {"TMP117 ADD0 (U10.5)": net_of("U10", 5)}
-    if ("U8", "2") in assigned:
-        straps["ADS1119 A0 (U8.2)"] = net_of("U8", 2)
-        straps["ADS1119 A1 (U8.3)"] = net_of("U8", 3)
-        if straps["ADS1119 A0 (U8.2)"] != "GND" or straps["ADS1119 A1 (U8.3)"] != "GND":
+    add0 = pin_named("U10", "ADD0")
+    straps = {f"TMP117 ADD0 (U10.{add0})": net_of("U10", add0)}
+    if "U8" in inst:
+        a0, a1 = pin_named("U8", "A0"), pin_named("U8", "A1")
+        straps[f"ADS1119 A0 (U8.{a0})"] = net_of("U8", a0)
+        straps[f"ADS1119 A1 (U8.{a1})"] = net_of("U8", a1)
+        if net_of("U8", a0) != "GND" or net_of("U8", a1) != "GND":
             raise SystemExit(f"ADS1119 address strapping moved: {straps}")
-    if straps["TMP117 ADD0 (U10.5)"] != "3V3D":
+    if net_of("U10", add0) != "3V3D":
         raise SystemExit(f"TMP117 ADD0 strapping moved: {straps}")
 
     # --- the heater gate is a wired-OR with the TMP117 ALERT --------------
-    if net_of("Q2", 1) != "HEATER_GATE" or net_of("U10", 3) != "HEATER_GATE":
+    if net_of("Q2", 1) != "HEATER_GATE" or net_of("U10", pin_named("U10", "ALERT")) != "HEATER_GATE":
         raise SystemExit("TMP117 ALERT is no longer wired to the heater gate")
 
     L = []
