@@ -472,10 +472,11 @@ enum {
  * a 4 K gradient buys at most ~4k/(1-k) K of cell warming, so a margin that
  * needs a steeper gradient is now UNREACHABLE by construction - the law holds
  * the tip at T_cell + DT_MAX_K, and after O2P_HEATER_DEW_UNREACH_DWELL_S at
- * that ceiling the detector withholds its demand and the floor holds the
- * 2 K gradient. Raising DT_MAX_K buys authority back, one register write, at
- * the cost of the excursion this bounds. A DT_MAX_K under the floor's 2 K
- * clamps the floor too: the envelope is the envelope. */
+ * that ceiling the detector withholds its demand and the floor holds its
+ * gradient (2 K until FW 0x002D, 4 K since - O2P_HEATER_FLOOR_DELTA_K100).
+ * Raising DT_MAX_K buys authority back, one register write, at the cost of
+ * the excursion this bounds. A DT_MAX_K under the floor's delta clamps the
+ * floor too: the envelope is the envelope. */
 #define O2P_HEATER_DEW_MARGIN_K100    400
 #define O2P_HEATER_DEW_TIP_CEIL_C100  7900
 #define O2P_HEATER_DEW_KP_X100        500u
@@ -552,8 +553,28 @@ enum {
  * law controls the cell across a lag. So it takes the tip loop's gains
  * (O2P_HEATER_TEST_*_DEFAULT, bench-verified holding +/-0.04 K on
  * 2026-09-12) rather than the dew law's deliberately slow pair. PROVISIONAL,
- * like every other number about this plant. */
-#define O2P_HEATER_FLOOR_DELTA_K100   200
+ * like every other number about this plant.
+ *
+ * 4.00 K SINCE FW 0x002D, was 2.00 K (Fab 2026-10-28: "4k floor", asked as
+ * "can we change this knob so heat roughly doubles?"). Measured on probe 3
+ * in the curing pile, 10-14..10-28: the dew law sat DEW_UNREACHABLE (HEATER_LAW
+ * 0x0104 read back 10-28) and this floor alone held the tip at T_cell + 2 K
+ * for 1.8..2.6 % duty. Conducted heat is linear in the gradient, so 4 K is
+ * EXPECTED to cost ~4.5..5 % - not measured until it runs.
+ *
+ * WHAT IT DOES NOT BUY, stated: margin. At the measured 3..11 % cell coupling
+ * the extra 2 K of tip lifts the cell ~0.06..0.25 K, against a 4 K margin
+ * target the dew law already cannot reach. Read it as more heat flowing
+ * outward, not as a drier cell.
+ *
+ * WITH THE STORED DT_MAX_K AT 4.00 K THE FLOOR NOW SITS ON THE CEILING:
+ * dew_ceiling_c100() is min(79.00 C, T_cell + DT_MAX_K), so the floor's
+ * clamp below is exactly active and the dew law's 6-hourly unreachable
+ * retry has no headroom above it - the ~10 min, ~4.4 % retry pulses that
+ * 10-24..10-27 telemetry showed stop adding heat. Raising DT_MAX_K gives
+ * the dew law that room back; LOWERING it under 4 K clamps this floor, as
+ * it always did for any DT_MAX_K under the delta. */
+#define O2P_HEATER_FLOOR_DELTA_K100   400
 #define O2P_HEATER_FLOOR_KP_X100      5000u
 #define O2P_HEATER_FLOOR_KI_X100      50u
 
@@ -587,7 +608,8 @@ enum {
  * was already free in that regime - at RH under 90 % the cell-side margin is
  * far past O2P_HEATER_DEW_MARGIN_K100 and its error is negative, so pi_core()
  * clamps it to zero - and the floor, which has no humidity input by design,
- * was the one paying: it demands T_cell + 2.00 K whatever the gas is doing.
+ * was the one paying: it demands T_cell + O2P_HEATER_FLOOR_DELTA_K100 (2.00 K
+ * when this was written, 4.00 K since FW 0x002D) whatever the gas is doing.
  * POWER-BUDGET.md, 2026-09-07: the heater is 90-98 % of the battery budget at
  * any duty over a few percent (233 d at 0 %, 28 d at 12 %), so this gate is
  * the whole difference between a bench/transport probe lasting a season and
@@ -647,7 +669,8 @@ enum {
  *
  * WHAT THAT PREMIUM ACTUALLY BUYS, measured on the repo's own plant model
  * (theta 68 K/W, tau 150 s) rather than asserted: the floor's proportional
- * term asks for 100 % at the start of the window, so the 2 K gradient is back
+ * term asks for 100 % at the start of the window, so the 2 K gradient (the
+ * delta this was computed at, before FW 0x002D made it 4 K) is back
  * within ~30 s and holds for the rest of it - NOT a ramp, despite the
  * integrator being zeroed. It then decays to ~0.27 K about 300 s into the
  * next idle period and to nothing well before the window after that. So the
@@ -1094,8 +1117,10 @@ typedef struct {
      * temperature test can close it.
      *
      * With this false the probe heats exactly as it did before FW 0x0027: the
-     * floor holds T_cell + 2.00 K whatever the humidity reads, which costs
-     * ~3 % steady duty and is the price of a backstop that does not depend on
+     * floor holds T_cell + O2P_HEATER_FLOOR_DELTA_K100 whatever the humidity
+     * reads, which cost ~3 % steady duty at the 2.00 K of FW 0x002B (~4.5..5 %
+     * expected at the 4.00 K of 0x002D, unmeasured) and is the price of a
+     * backstop that does not depend on
      * the sensor it is backing up. With it true, that is traded away
      * knowingly, by somebody who can see where the probe is. */
     bool     storage_mode;

@@ -893,7 +893,7 @@ real block "operating" for up to a minute. A read of `0x0008` count 2 is excepti
 
 Low byte: 0 RH, 1 OPEN (bench override, open loop), 2 TIP (bench override,
 tip loop), 3 TIP_AUTO (stored tip setpoint), 4 DEW (dew margin, high-selected
-with the 2 K gradient floor), 5 BLIND (the fallback, not a law), 6 REFUSED (no
+with the gradient floor - 2 K until FW 0x002D, 4 K since), 5 BLIND (the fallback, not a law), 6 REFUSED (no
 law, no drive). High byte bit 8: the dew law has declared its margin
 unreachable - margin short with the tip pinned at the dew law's ceiling for
 600 s (FW 0x0019) - and the gradient floor is holding the tip.
@@ -2625,7 +2625,9 @@ the plant. The envelope register already existed and is stored, so the
 bound is tunable without a reflash and the record layout is unchanged. The
 trade: a margin that needs a steeper tip-to-cell gradient than the envelope
 is unreachable by construction, and after the 600 s dwell the floor holds its
-2 K. Pinned by `test_dew_gradient_ceiling_bounds_the_wet_enclosure_excursion`,
+gradient (2 K until FW 0x002D, 4 K since). Since 0x002D the floor equals the
+ceiling whenever `DT_MAX_K` is the stored 4.00 K, so the dew law has no room
+above the floor until `DT_MAX_K` is raised. Pinned by `test_dew_gradient_ceiling_bounds_the_wet_enclosure_excursion`,
 which first reproduces the excursion with the envelope out of reach.
 
 **When it is in command.** The RH law's slot (no override, stored tip
