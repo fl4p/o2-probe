@@ -5937,11 +5937,20 @@ static void test_gradient_floor_duty_is_monotonic_in_its_gradient(void)
     o2p_heater_cfg_t cfg = hcfg_default();
     o2p_heater_out_t out;
     uint16_t prev = 0u;
-    for (int16_t tip = 5400; tip >= 4000; tip = (int16_t)(tip - 25)) {
+    /* Starts 1 K PAST cell + delta (codex review of 4e816dc, finding 2: a
+     * fixed 54.00 C start began the sweep already 1 K short once the delta
+     * became 4 K, skipping the turn-on). The first point must be zero. */
+    const int16_t tip0 = (int16_t)(hin_floor().t_cell_c100 +
+                                   O2P_HEATER_FLOOR_DELTA_K100 + 100);
+    for (int16_t tip = tip0; tip >= 4000; tip = (int16_t)(tip - 25)) {
         o2p_heater_in_t in = hin_floor();
         in.t_tip_c100 = tip;
         in.t_chamber_c100 = (int16_t)(tip - 100);   /* keep dT inside 4 K */
         const uint16_t d = floor_step_fresh(&cfg, &in, &out);
+        if (tip == tip0) {
+            TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, d,
+                "the sweep must start where the floor asks for nothing");
+        }
         TEST_ASSERT_TRUE_MESSAGE(d >= prev, "duty fell as the tip fell behind");
         prev = d;
     }
@@ -6923,6 +6932,46 @@ static void test_dew_unreachable_after_a_dwell_at_the_ceiling_in_wet_gas(void)
     TEST_ASSERT_EQUAL_INT32_MESSAGE((int32_t)cfg.dt_max_k100,
         (int32_t)O2P_HEATER_FLOOR_DELTA_K100,
         "this reading needs the floor's delta equal to the shipped envelope");
+}
+
+static void test_an_unreachable_verdict_withholds_the_dew_demand_over_a_satisfied_floor(void)
+{
+    /* Codex review of 4e816dc, finding 1. Since FW 0x002D the dwell test's
+     * end state is floor-dominated - the floor's setpoint is the shipped
+     * ceiling - so max() hides whether the verdict actually withholds the dew
+     * law's demand (heater_ctl.c, the `st->dew_unreachable || ...` gate).
+     * This fixture is built the other way round: the floor satisfied exactly
+     * (tip = cell + delta) and a 6 K envelope, so the dew law has 2 K of room
+     * and its demand is the only thing that can show. Chamber 51.90 C at
+     * 90.56 %RH is Td 49.899 C: the 50.00 C cell is 3.90 K short of margin,
+     * error min(3.90, 2.00) K -> kp 5 x 200 + one second of ki 0.05 x 200. */
+    o2p_heater_cfg_t cfg = hcfg_default();
+    cfg.dt_max_k100 = (uint16_t)(O2P_HEATER_FLOOR_DELTA_K100 + 200);
+    o2p_heater_in_t in = hin_dew();
+    in.t_cell_c100 = 5000;
+    in.t_tip_c100 = (int16_t)(5000 + O2P_HEATER_FLOOR_DELTA_K100);
+    in.t_chamber_c100 = 5190;
+    in.rh_x100 = 9056u;
+    o2p_heater_out_t out;
+
+    /* Known-bad first (guard checklist 7): without the verdict the same input
+     * draws the dew law's demand, or the zero below proves nothing. */
+    TEST_ASSERT_UINT16_WITHIN_MESSAGE(2u, 1010u, dew_step_fresh(&cfg, &in, &out),
+        "no verdict: the dew law must ask for its own demand here");
+
+    o2p_heater_state_t st;
+    o2p_heater_ctl_reset(&st);
+    st.dew_unreachable = true;
+    st.dew_retry_at_s = 100u + O2P_HEATER_DEW_UNREACH_RETRY_S;   /* not due */
+    st.integ = 5000.0f;                                          /* stale wind-up */
+    o2p_heater_ctl_step(&st, &cfg, &in, 100u, &out);
+    TEST_ASSERT_TRUE_MESSAGE(st.dew_unreachable, "the verdict must still stand");
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0u, out.duty_x100,
+        "an unreachable verdict withholds the dew demand; the floor is satisfied");
+    TEST_ASSERT_EQUAL_FLOAT_MESSAGE(0.0f, st.integ,
+        "and the dew integral is cleared, not parked");
+    TEST_ASSERT_EQUAL_HEX16(O2P_HEATER_LAW_DEW | O2P_HEATER_LAWF_DEW_UNREACHABLE,
+                            out.law);
 }
 
 static void test_dew_not_unreachable_at_low_coupling_when_the_margin_is_reachable(void)
@@ -12852,6 +12901,7 @@ int main(void)
     RUN_TEST(test_clearing_storage_mode_puts_the_floor_back_and_resets_the_debt);
     RUN_TEST(test_a_runaway_latch_outranks_the_dry_gate);
     RUN_TEST(test_dew_unreachable_after_a_dwell_at_the_ceiling_in_wet_gas);
+    RUN_TEST(test_an_unreachable_verdict_withholds_the_dew_demand_over_a_satisfied_floor);
     RUN_TEST(test_dew_not_unreachable_at_low_coupling_when_the_margin_is_reachable);
     RUN_TEST(test_dew_not_unreachable_when_the_margin_is_met_at_the_ceiling);
     RUN_TEST(test_dew_unreachable_when_outside_heat_pins_the_tip_short_of_margin);

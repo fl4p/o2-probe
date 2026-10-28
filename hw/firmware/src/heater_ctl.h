@@ -557,10 +557,13 @@ enum {
  *
  * 4.00 K SINCE FW 0x002D, was 2.00 K (Fab 2026-10-28: "4k floor", asked as
  * "can we change this knob so heat roughly doubles?"). Measured on probe 3
- * in the curing pile, 10-14..10-28: the dew law sat DEW_UNREACHABLE (HEATER_LAW
- * 0x0104 read back 10-28) and this floor alone held the tip at T_cell + 2 K
- * for 1.8..2.6 % duty. Conducted heat is linear in the gradient, so 4 K is
- * EXPECTED to cost ~4.5..5 % - not measured until it runs.
+ * in the pile, 10-14..10-28 (cell 13.9..57.1 C): the dew law sat
+ * DEW_UNREACHABLE (HEATER_LAW 0x0104 read back 10-28) and this floor alone
+ * held the tip at T_cell + 2 K - median 2.3 % duty over the floor-only
+ * samples, typically 1.8..2.6 % (a representative range, not a bound; the
+ * dew law's ~10 min retries reached ~4.4 %). Conducted heat is linear in
+ * the gradient, so 4 K is EXPECTED to cost ~4.5..5 % - not measured until
+ * it runs.
  *
  * WHAT IT DOES NOT BUY, stated: margin. At the measured 3..11 % cell coupling
  * the extra 2 K of tip lifts the cell ~0.06..0.25 K, against a 4 K margin
