@@ -1151,6 +1151,20 @@ def boot_and_verify(bus, args, image=None):
             print("!! NOT sending BOOT: installing now would not install this "
                   "image")
             return 1
+        # With an image to compare, ONLY a positive identification may BOOT.
+        # None means the slot could not be read, and an unevaluable check is
+        # not permission. Until 2026-10-30 None fell through to BOOT; that was
+        # latent while LEN and CRC were two reads (a stale reply mismatched and
+        # gave False), and became live when they became one 4-register read
+        # that a wrong-shaped stale reply fails outright (codex review of
+        # 1b2d6b0, finding 1: replayed in memory, the parent refused BOOT and
+        # 1b2d6b0 sent it). Without an image (None by design) BOOT is still
+        # allowed, as before: the caller asked to install whatever is staged.
+        if image is not None and staged_ok is not True:
+            print("!! NOT sending BOOT: the staged slot could not be read, so "
+                  "nothing shows it holds this image. Read 0x0050 and "
+                  "0x0055..0x0058 (one frame) and decide by hand.")
+            return 2
     stay = getattr(args, "stay", False)
     try:
         bus.write(R_CMD, [CMD_STAY if stay else CMD_BOOT])
@@ -2533,6 +2547,30 @@ def block_reject_reason(bus, seq):
     return txt
 
 
+def _phase(name):
+    """Run $O2P_PHASE_HOOK `name` and wait for it, at a transfer boundary.
+
+    Two boundaries, both reached on every path including a zero-block resume:
+    "blocks" just before the first data block (after BEGIN and the erase wait,
+    or after a resume decision), and "commit" just before COMMIT. A caller
+    that must change the link between phases - the LoRaWAN push switches the
+    device to Class A for the 99-byte blocks and back to Class C for the
+    small frames (farming tech/chirpstack/o2p_lorawan_push_phased.sh) - gets a
+    synchronous barrier instead of keying on log lines, which a fresh push
+    and a fully-received resume both defeated (codex review of 2e324ae,
+    findings 2 and 3). A hook that fails stops the push: carrying on in the
+    wrong mode is how the transfers it exists for failed. Unset: no-op.
+    """
+    hook = os.environ.get("O2P_PHASE_HOOK")
+    if not hook:
+        return
+    print("   phase %s: running %s" % (name, hook), flush=True)
+    rc = subprocess.run([hook, name]).returncode
+    if rc != 0:
+        raise SystemExit("!! phase hook %s %s exited %d; stopping the push"
+                         % (hook, name, rc))
+
+
 def push(bus, image, block_bytes, retries, no_resume=False):
     if block_bytes % ALIGN or block_bytes < ALIGN:
         raise SystemExit("!! block size must be a multiple of %d bytes" % ALIGN)
@@ -2576,6 +2614,7 @@ def push(bus, image, block_bytes, retries, no_resume=False):
     else:
         seq, sent = start
 
+    _phase("blocks")
     t0 = time.time()
     sent0 = sent
     stats = {}
@@ -2625,6 +2664,7 @@ def push(bus, image, block_bytes, retries, no_resume=False):
                                     None)):
         print(line)
 
+    _phase("commit")
     t_commit = time.monotonic()
     bus.write(R_CMD, [CMD_COMMIT])
     wait_for(bus, STATES.index("STAGED"), 30.0, "the image verify")
