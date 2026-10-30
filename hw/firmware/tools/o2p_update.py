@@ -1107,9 +1107,17 @@ def staged_is_image(bus, image):
     want_len, want_crc = len(p), binascii.crc32(p) & 0xFFFFFFFF
     try:
         st, _err, _loader = status(bus)
-        len_hi, len_lo = bus.read(R_LEN_HI, 2)
-        crc_hi, crc_lo = bus.read(R_CRC_HI, 2)
-    except (NoReply, IOError, ModbusException) as exc:
+        # LEN and CRC in ONE frame (0x0055..0x0058), as resume_point() reads
+        # them. Two 2-register reads have the same reply shape, so on a link
+        # running one behind the LEN reply answers the CRC read and nothing can
+        # tell. Measured 2026-10-30 over LoRaWAN, probe 3: "the staged slot
+        # declares 48560 bytes, CRC 0000BDB0" - 0xBDB0 is 48560, the LEN
+        # registers again - and BOOT was refused for a correctly staged image
+        # (a single 4-register read then returned 0000 BDB0 683D 5F73). One
+        # frame does not make a stale reply impossible, but a stale one must
+        # now carry this image's length AND CRC to pass.
+        len_hi, len_lo, crc_hi, crc_lo = bus.read(R_LEN_HI, 4)
+    except (NoReply, IOError, ModbusException, ValueError) as exc:
         print("   could not read the staged slot before BOOT (%s)" % exc)
         return None
     got_len, got_crc = (len_hi << 16) | len_lo, (crc_hi << 16) | crc_lo
