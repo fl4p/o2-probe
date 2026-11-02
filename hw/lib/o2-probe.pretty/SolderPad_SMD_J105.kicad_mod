@@ -1,0 +1,134 @@
+(footprint "SolderPad_SMD_J105"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "Plain SMD solder land for a hand-soldered bench wire, 1.85 x 1.85 mm roundrect, no drill, no paste. Back copper. Was a plated-through wire land.")
+	(tags "solder pad wire uart bench smd")
+	(property "Reference" "J105"
+		(at 0 -2.12 270)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "6c4888a1-c8a7-4488-9810-53f7d3f352bf")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "BRIDGE TX (PA2)"
+		(at 0 12.5 270)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "4660e265-2041-4ec5-85c0-c7439642340d")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 270)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "4cee79ca-bea9-47ee-9e81-a6b2eabfeaf7")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 270)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "ffb504ea-f714-4578-b462-c4fb2d7fd8f7")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(property "KiLib_Generator" "connector/wire"
+		(at 0 0 270)
+		(layer "F.SilkS")
+		(hide yes)
+		(uuid "f9ef8190-7d11-43a8-a9d0-60f191470a05")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Design Note" "Bench-bridge TTL tap, MCU side. Laptop TTL RX <- here. SMD land on BACK copper since 2026-09-14 - it was a 0.85 mm plated hole; the wire now solders flat. 3.3 V logic ONLY: PA2/PA3 are not 5 V tolerant on this device (bridge_main.c:23). Duplicated at J107 pad 5."
+		(at 0 0 270)
+		(layer "F.SilkS")
+		(hide yes)
+		(uuid "3a297c19-109b-4bee-bedb-e526c4e18cff")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "ki_keywords" "connector"
+		(at 0 0 270)
+		(layer "F.SilkS")
+		(hide yes)
+		(uuid "e18a84e3-baaa-4d25-a131-3d89375aa4e2")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property ki_fp_filters "Connector*:*_1x??_*")
+	(attr smd exclude_from_pos_files)
+	(duplicate_pad_numbers_are_jumpers no)
+	(fp_rect
+		(start -1.6 1.42)
+		(end 1.6 -1.42)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+		(uuid "672e40f6-f7b0-4dbd-8c58-80e7b5bae5db")
+	)
+	(fp_text user "TX"
+		(at 1.7 0 270)
+		(layer "F.SilkS")
+		(uuid "2d9d813c-03fa-4720-9836-c6bf8db14db5")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.12)
+			)
+		)
+	)
+	(fp_text user "${REFERENCE}"
+		(at 0 0 270)
+		(layer "F.Fab")
+		(uuid "10649978-3671-4049-b75a-782105672262")
+		(effects
+			(font
+				(size 0.42 0.42)
+				(thickness 0.06)
+			)
+		)
+	)
+	(pad "1" smd roundrect
+		(at 0 0 270)
+		(size 1.85 1.85)
+		(layers "F.Cu" "F.Mask")
+		(roundrect_rratio 0.135135)
+		(uuid "41847beb-9ba4-4e53-96bd-0712b4eef647")
+	)
+	(embedded_fonts no)
+)

@@ -1,0 +1,61 @@
+{
+  "status": "PASS_CALIBRATION",
+  "tests": [
+    {
+      "case": "real_frozen_86_positive",
+      "status": "PASS",
+      "seconds": 1.0198548330000001,
+      "exception": null
+    },
+    {
+      "case": "native_outline_mutation",
+      "status": "UNVERIFIED",
+      "seconds": 0.228025417,
+      "exception": "ValueError(\"Unexpected full native object changes: ['42935040-3c92-56f0-85c9-ada5c91405bd']\")"
+    },
+    {
+      "case": "native_copper_mutation",
+      "status": "UNVERIFIED",
+      "seconds": 0.23947545800000003,
+      "exception": "ValueError(\"Unexpected full native object changes: ['003dbb84-9083-4da4-acb5-32168eecbe60']\")"
+    },
+    {
+      "case": "native_pad_mutation",
+      "status": "UNVERIFIED",
+      "seconds": 0.3462543330000001,
+      "exception": "ValueError(\"Unexpected full native object changes: ['0a644cd0-5668-4f92-86b2-1edcdf8234c5']\")"
+    },
+    {
+      "case": "native_hole_mutation",
+      "status": "UNVERIFIED",
+      "seconds": 0.35951116699999996,
+      "exception": "ValueError(\"Unexpected full native object changes: ['07b6c993-473c-4110-b087-74b7d7228613']\")"
+    },
+    {
+      "case": "native_DNP_mutation",
+      "status": "UNVERIFIED",
+      "seconds": 0.2318915829999999,
+      "exception": "ValueError(\"Unexpected full native object changes: ['0a644cd0-5668-4f92-86b2-1edcdf8234c5']\")"
+    },
+    {
+      "case": "native_outline_far_mutation",
+      "status": "UNVERIFIED",
+      "seconds": 0.246489167,
+      "exception": "ValueError(\"Unexpected full native object changes: ['42935040-3c92-56f0-85c9-ada5c91405bd']\")"
+    },
+    {
+      "case": "valid_before_missing_input",
+      "status": "PASS",
+      "seconds": 0.695708292,
+      "exception": null
+    },
+    {
+      "case": "same_output_missing_board",
+      "status": "UNVERIFIED",
+      "seconds": 0.0005168329999998278,
+      "exception": "FileNotFoundError(2, 'No such file or directory')"
+    }
+  ],
+  "producer_sha256": "b54f810d5f85a36bf614401b9f17721286814d9459be5790b87896485119bd9a",
+  "calibration_sha256": "387f7ddd50a634961f5d1ddfb82f1387980a7ded6a13c65f91863c07ed3941df"
+}

@@ -1,0 +1,945 @@
+- generic [ref=f1e1]:
+  - paragraph:
+    - link "Jump to content" [ref=f1e2] [cursor=pointer]:
+      - /url: "#main"
+  - region "Official website of the United States government" [ref=f1e4]:
+    - generic [ref=f1e7]:
+      - paragraph [ref=f1e11]:
+        - generic [ref=f1e12]: An official website of the United States government
+      - button "Here's how you know" [ref=f1e13] [cursor=pointer]
+  - banner [ref=f1e15]:
+    - generic "Site label for NIST Chemistry WebBook" [ref=f1e16]:
+      - link "National Institute of Standards and Technology" [ref=f1e18] [cursor=pointer]:
+        - /url: https://www.nist.gov/
+      - heading "NIST Chemistry WebBook, SRD 69" [level=1] [ref=f1e19]
+    - navigation "Main menu":
+      - menubar [ref=f1e20]:
+        - menuitem [ref=f1e21]:
+          - link "Home" [ref=f1e22] [cursor=pointer]:
+            - /url: /chemistry/
+        - menuitem [ref=f1e26]:
+          - link "Search ▼" [ref=f1e27] [cursor=pointer]:
+            - /url: "#"
+          - menu [aria-hidden] [ref=f1e28]:
+            - menuitem [ref=f1e29]:
+              - link [ref=f1e30] [cursor=pointer]:
+                - /url: /chemistry/name-ser/
+                - text: Name
+            - menuitem [ref=f1e31]:
+              - link [ref=f1e32] [cursor=pointer]:
+                - /url: /chemistry/form-ser/
+                - text: Formula
+            - menuitem [ref=f1e33]:
+              - link [ref=f1e34] [cursor=pointer]:
+                - /url: /chemistry/inchi-ser/
+                - text: IUPAC identifier
+            - menuitem [ref=f1e35]:
+              - link [ref=f1e36] [cursor=pointer]:
+                - /url: /chemistry/cas-ser/
+                - text: CAS number
+            - menuitem [ref=f1e37]:
+              - link [ref=f1e38] [cursor=pointer]:
+                - /url: /chemistry/#Search
+                - text: More options
+        - menuitem [ref=f1e39]:
+          - link "NIST Data ▼" [ref=f1e40] [cursor=pointer]:
+            - /url: "#"
+          - menu [aria-hidden] [ref=f1e41]:
+            - menuitem [ref=f1e42]:
+              - link [ref=f1e43] [cursor=pointer]:
+                - /url: https://www.nist.gov/srd/
+                - text: SRD Program
+            - menuitem [ref=f1e44]:
+              - link [ref=f1e45] [cursor=pointer]:
+                - /url: https://data.nist.gov/sdp/
+                - text: Science Data Portal
+            - menuitem [ref=f1e46]:
+              - link [ref=f1e47] [cursor=pointer]:
+                - /url: https://www.nist.gov/mml/mdd
+                - text: Material Data Division
+        - menuitem [ref=f1e48]:
+          - link "About ▼" [ref=f1e49] [cursor=pointer]:
+            - /url: "#"
+          - menu [aria-hidden] [ref=f1e50]:
+            - menuitem [ref=f1e51]:
+              - link [ref=f1e52] [cursor=pointer]:
+                - /url: /chemistry/faq/
+                - text: FAQ
+            - menuitem [ref=f1e53]:
+              - link [ref=f1e54] [cursor=pointer]:
+                - /url: /chemistry/#CreditsControl
+                - text: Credits
+            - menuitem [ref=f1e55]:
+              - link [ref=f1e56] [cursor=pointer]:
+                - /url: /chemistry/#Documentation
+                - text: More documentation
+  - main [ref=f1e57]:
+    - heading "Water" [level=1] [ref=f1e58]
+    - list [ref=f1e59]:
+      - listitem [ref=f1e60]:
+        - strong [ref=f1e61]:
+          - link "Formula" [ref=f1e62] [cursor=pointer]:
+            - /url: http://goldbook.iupac.org/E02063.html
+          - text: ":"
+        - text: H
+        - subscript [ref=f1e63]: "2"
+        - text: O
+      - listitem [ref=f1e64]:
+        - strong [ref=f1e65]:
+          - link "Molecular weight" [ref=f1e66] [cursor=pointer]:
+            - /url: http://goldbook.iupac.org/R05271.html
+          - text: ":"
+        - text: "18.0153"
+      - listitem [ref=f1e67]:
+        - generic [ref=f1e68]:
+          - generic [ref=f1e69]:
+            - strong [ref=f1e70]: "IUPAC Standard InChI:"
+            - text: InChI=1S/H2O/h1H2
+            - button "Copy" [ref=f1e71] [cursor=pointer]
+          - link [ref=f1e76] [cursor=pointer]:
+            - /url: http://www.inchi-trust.org
+            - img "InChI version 1.06" [ref=f1e77]
+      - listitem [ref=f1e78]:
+        - strong [ref=f1e79]: "IUPAC Standard InChIKey:"
+        - text: XLYOFNOQVPJJNP-UHFFFAOYSA-N
+        - button "Copy" [ref=f1e80] [cursor=pointer]
+      - listitem [ref=f1e84]:
+        - strong [ref=f1e85]: "CAS Registry Number:"
+        - text: 7732-18-5
+      - listitem [ref=f1e86]:
+        - strong [ref=f1e87]: "Chemical structure:"
+        - img "H2O" [ref=f1e88]
+        - text: This structure is also available as a
+        - link "2d Mol file" [ref=f1e89] [cursor=pointer]:
+          - /url: /cgi/cbook.cgi?Str2File=C7732185
+        - text: or as a
+        - link "computed" [ref=f1e90] [cursor=pointer]:
+          - /url: /chemistry/3d-structs/
+        - link "3d SD file" [ref=f1e91] [cursor=pointer]:
+          - /url: /cgi/cbook.cgi?Str3File=C7732185
+        - link "View 3d structure" [ref=f1e92] [cursor=pointer]:
+          - /url: /cgi/cbook.cgi?Str3View=C7732185&Type=JSmol
+        - text: (requires JavaScript / HTML 5)
+      - listitem [ref=f1e93]:
+        - strong [ref=f1e94]: "Isotopologues:"
+        - list [ref=f1e95]:
+          - listitem [ref=f1e96]:
+            - link "Deuterium oxide" [ref=f1e97] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=B6010117&Mask=4
+          - listitem [ref=f1e98]:
+            - link "Water-t" [ref=f1e99] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C13670172&Mask=4
+          - listitem [ref=f1e100]:
+            - link [ref=f1e101] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C14314422&Mask=4
+              - text: Water-
+              - superscript [ref=f1e102]: "18"
+              - text: O
+          - listitem [ref=f1e103]:
+            - link "Water-d" [ref=f1e104] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C14940637&Mask=4
+          - listitem [ref=f1e105]:
+            - link [ref=f1e106] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C14940659&Mask=4
+              - text: Water-t
+              - subscript [ref=f1e107]: "2"
+          - listitem [ref=f1e108]:
+            - link "Deuterium oxide" [ref=f1e109] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7789200&Mask=4
+      - listitem [ref=f1e110]:
+        - strong [ref=f1e111]: "Other names:"
+        - text: Water vapor; Distilled water; Ice; H2O; Dihydrogen oxide; steam; Tritiotope
+      - listitem [ref=f1e112]:
+        - strong [ref=f1e113]:
+          - link "Permanent link" [ref=f1e114] [cursor=pointer]:
+            - /url: /cgi/inchi/InChI%3D1S/H2O/h1H2
+        - text: for this species. Use this link for bookmarking this species for future reference.
+      - listitem [ref=f1e115]:
+        - strong [ref=f1e116]: "Information on this page:"
+        - list [ref=f1e117]:
+          - listitem [ref=f1e118]:
+            - link "Phase change data" [ref=f1e119] [cursor=pointer]:
+              - /url: "#Thermo-Phase"
+          - listitem [ref=f1e120]:
+            - link "References" [ref=f1e121] [cursor=pointer]:
+              - /url: "#Refs"
+          - listitem [ref=f1e122]:
+            - link "Notes" [ref=f1e123] [cursor=pointer]:
+              - /url: "#Notes"
+      - listitem [ref=f1e124]:
+        - strong [ref=f1e125]: "Other data available:"
+        - list [ref=f1e126]:
+          - listitem [ref=f1e127]:
+            - link "Gas phase thermochemistry data" [ref=f1e128] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=1#Thermo-Gas
+          - listitem [ref=f1e129]:
+            - link "Condensed phase thermochemistry data" [ref=f1e130] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=2#Thermo-Condensed
+          - listitem [ref=f1e131]:
+            - text: "Reaction thermochemistry data:"
+            - link "reactions 1 to 50" [ref=f1e132] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8#Thermo-React
+            - text: ","
+            - link "reactions 51 to 100" [ref=f1e133] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=50#Thermo-React
+            - text: ","
+            - link "reactions 101 to 150" [ref=f1e134] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=100#Thermo-React
+            - text: ","
+            - link "reactions 151 to 200" [ref=f1e135] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=150#Thermo-React
+            - text: ","
+            - link "reactions 201 to 250" [ref=f1e136] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=200#Thermo-React
+            - text: ","
+            - link "reactions 251 to 300" [ref=f1e137] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=250#Thermo-React
+            - text: ","
+            - link "reactions 301 to 350" [ref=f1e138] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=300#Thermo-React
+            - text: ","
+            - link "reactions 351 to 400" [ref=f1e139] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=350#Thermo-React
+            - text: ","
+            - link "reactions 401 to 450" [ref=f1e140] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=400#Thermo-React
+            - text: ","
+            - link "reactions 451 to 500" [ref=f1e141] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=450#Thermo-React
+            - text: ","
+            - link "reactions 501 to 550" [ref=f1e142] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=500#Thermo-React
+            - text: ","
+            - link "reactions 551 to 600" [ref=f1e143] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=550#Thermo-React
+            - text: ","
+            - link "reactions 601 to 650" [ref=f1e144] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=600#Thermo-React
+            - text: ","
+            - link "reactions 651 to 700" [ref=f1e145] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=650#Thermo-React
+            - text: ","
+            - link "reactions 701 to 750" [ref=f1e146] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=700#Thermo-React
+            - text: ","
+            - link "reactions 751 to 800" [ref=f1e147] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=750#Thermo-React
+            - text: ","
+            - link "reactions 801 to 850" [ref=f1e148] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=800#Thermo-React
+            - text: ","
+            - link "reactions 851 to 900" [ref=f1e149] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=850#Thermo-React
+            - text: ","
+            - link "reactions 901 to 950" [ref=f1e150] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=900#Thermo-React
+            - text: ","
+            - link "reactions 951 to 1000" [ref=f1e151] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=950#Thermo-React
+            - text: ","
+            - link "reactions 1001 to 1050" [ref=f1e152] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=1000#Thermo-React
+            - text: ","
+            - link "reactions 1051 to 1100" [ref=f1e153] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=1050#Thermo-React
+            - text: ","
+            - link "reactions 1101 to 1150" [ref=f1e154] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=1100#Thermo-React
+            - text: ","
+            - link "reactions 1151 to 1200" [ref=f1e155] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=1150#Thermo-React
+            - text: ","
+            - link "reactions 1201 to 1250" [ref=f1e156] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=1200#Thermo-React
+            - text: ","
+            - link "reactions 1251 to 1300" [ref=f1e157] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=1250#Thermo-React
+            - text: ","
+            - link "reactions 1301 to 1350" [ref=f1e158] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=1300#Thermo-React
+            - text: ","
+            - link "reactions 1351 to 1360" [ref=f1e159] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=8&StartReac=1350#Thermo-React
+          - listitem [ref=f1e160]:
+            - link "Gas phase ion energetics data" [ref=f1e161] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=20#Ion-Energetics
+          - listitem [ref=f1e162]:
+            - link "Ion clustering data" [ref=f1e163] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=40#Ion-Cluster
+          - listitem [ref=f1e164]:
+            - link "IR Spectrum" [ref=f1e165] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=80#IR-Spec
+          - listitem [ref=f1e166]:
+            - link "Mass spectrum (electron ionization)" [ref=f1e167] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=200#Mass-Spec
+          - listitem [ref=f1e168]:
+            - link "Vibrational and/or electronic energy levels" [ref=f1e169] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=800#Electronic-Spec
+          - listitem [ref=f1e170]:
+            - link "Gas Chromatography" [ref=f1e171] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Mask=2000#Gas-Chrom
+          - listitem [ref=f1e172]:
+            - link "Fluid Properties" [ref=f1e173] [cursor=pointer]:
+              - /url: /cgi/fluid.cgi?ID=C7732185&Action=Page
+      - listitem [ref=f1e174]:
+        - strong [ref=f1e175]: "Data at other public NIST sites:"
+        - list [ref=f1e176]:
+          - listitem [ref=f1e177]:
+            - link "Microwave spectra (on physics lab web site)" [ref=f1e178] [cursor=pointer]:
+              - /url: https://physics.nist.gov/cgi-bin/MolSpec/mole.pl?prefix=tri&molecule=H2O&type=fancy&clear=1
+          - listitem [ref=f1e179]:
+            - link "Electron-Impact Ionization Cross Sections (on physics web site)" [ref=f1e180] [cursor=pointer]:
+              - /url: https://physics.nist.gov/cgi-bin/Ionization/table.pl?ionization=H2O
+          - listitem [ref=f1e181]:
+            - link "Gas Phase Kinetics Database" [ref=f1e182] [cursor=pointer]:
+              - /url: https://kinetics.nist.gov/kinetics/rpSearch?cas=7732185
+          - listitem [ref=f1e183]:
+            - 'link "Reference simulation: SPC/E Water" [ref=f1e184] [cursor=pointer]':
+              - /url: http://www.cstl.nist.gov/srs/SPCE_WATER/index.htm
+          - listitem [ref=f1e185]:
+            - link "X-ray Photoelectron Spectroscopy Database, version 5.0" [ref=f1e186] [cursor=pointer]:
+              - /url: https://srdata.nist.gov/xps/SpectralByCompdDd/1778
+      - listitem [ref=f1e187]:
+        - strong [ref=f1e188]: "Options:"
+        - list [ref=f1e189]:
+          - listitem [ref=f1e190]:
+            - link "Switch to calorie-based units" [ref=f1e191] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Units=CAL&Mask=4
+    - heading "Data at NIST subscription sites:" [level=2] [ref=f1e192]
+    - list [ref=f1e193]:
+      - listitem [ref=f1e194]:
+        - link "NIST / TRC Web Thermo Tables, \"lite\" edition (thermophysical and thermochemical data)" [ref=f1e195] [cursor=pointer]:
+          - /url: https://wtt-lite.nist.gov/wtt-lite/index.html?cmp=water
+      - listitem [ref=f1e196]:
+        - link "NIST / TRC Web Thermo Tables, professional edition (thermophysical and thermochemical data)" [ref=f1e197] [cursor=pointer]:
+          - /url: https://wtt-pro.nist.gov/wtt-pro/index.html?cmp=water
+    - paragraph [ref=f1e198]:
+      - text: NIST subscription sites provide data under the
+      - link "NIST Standard Reference Data Program" [ref=f1e199] [cursor=pointer]:
+        - /url: https://www.nist.gov/srd/
+      - text: ", but require an annual fee to access. The purpose of the fee is to recover costs associated with the development of data collections included in such sites. Your institution may already be a subscriber. Follow the links above to find out more about the data in these sites and their terms of usage."
+    - separator [ref=f1e200]
+    - heading "Phase change data" [level=2] [ref=f1e201]
+    - paragraph [ref=f1e202]:
+      - strong [ref=f1e203]: "Go To:"
+      - link "Top" [ref=f1e204] [cursor=pointer]:
+        - /url: "#Top"
+      - text: ","
+      - link "References" [ref=f1e205] [cursor=pointer]:
+        - /url: "#Refs"
+      - text: ","
+      - link "Notes" [ref=f1e206] [cursor=pointer]:
+        - /url: "#Notes"
+    - paragraph [ref=f1e207]:
+      - strong [ref=f1e208]:
+        - text: Data compilation
+        - link "copyright" [ref=f1e209] [cursor=pointer]:
+          - /url: "#copyright"
+        - text: by the U.S. Secretary of Commerce on behalf of the U.S.A. All rights reserved.
+    - paragraph [ref=f1e210]:
+      - strong [ref=f1e211]: "Data compiled as indicated in comments:"
+      - emphasis [ref=f1e212]:
+        - link "TRC" [ref=f1e213] [cursor=pointer]:
+          - /url: /cgi/cbook.cgi?Contrib=TRC
+      - text: "- Thermodynamics Research Center, NIST Boulder Laboratories, Chris Muzny director"
+    - table "One dimensional data" [ref=f1e214]:
+      - rowgroup [ref=f1e215]:
+        - row [ref=f1e216]:
+          - columnheader "Quantity" [ref=f1e217]
+          - columnheader "Value" [ref=f1e218]
+          - columnheader "Units" [ref=f1e219]
+          - columnheader "Method" [ref=f1e220]
+          - columnheader "Reference" [ref=f1e221]
+          - columnheader "Comment" [ref=f1e222]
+        - row [ref=f1e223]:
+          - cell [ref=f1e224]:
+            - text: T
+            - subscript [ref=f1e225]: boil
+          - cell "373.17 ± 0.04" [ref=f1e226]
+          - cell "K" [ref=f1e227]
+          - cell [ref=f1e228]:
+            - link "AVG" [ref=f1e229] [cursor=pointer]:
+              - /url: /chemistry/site-cal.html#AVG
+          - cell "N/A" [ref=f1e230]
+          - cell [ref=f1e231]:
+            - text: Average of 7 values;
+            - link "Individual data points" [ref=f1e232] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Type=TBOIL
+        - row [ref=f1e233]:
+          - columnheader "Quantity" [ref=f1e234]
+          - columnheader "Value" [ref=f1e235]
+          - columnheader "Units" [ref=f1e236]
+          - columnheader "Method" [ref=f1e237]
+          - columnheader "Reference" [ref=f1e238]
+          - columnheader "Comment" [ref=f1e239]
+        - row [ref=f1e240]:
+          - cell [ref=f1e241]:
+            - text: P
+            - subscript [ref=f1e242]: triple
+          - cell "0.0061" [ref=f1e243]
+          - cell "bar" [ref=f1e244]
+          - cell "N/A" [ref=f1e245]
+          - cell [ref=f1e246]:
+            - link "Sato, Watanabe, et al., 1991" [ref=f1e247] [cursor=pointer]:
+              - /url: "#ref-1"
+          - cell [ref=f1e248]:
+            - text: Uncertainty assigned by TRC = 1.×10
+            - superscript [ref=f1e249]: "-7"
+            - text: bar;
+            - emphasis [ref=f1e250]: TRC
+        - row [ref=f1e251]:
+          - columnheader "Quantity" [ref=f1e252]
+          - columnheader "Value" [ref=f1e253]
+          - columnheader "Units" [ref=f1e254]
+          - columnheader "Method" [ref=f1e255]
+          - columnheader "Reference" [ref=f1e256]
+          - columnheader "Comment" [ref=f1e257]
+        - row [ref=f1e258]:
+          - cell [ref=f1e259]:
+            - text: T
+            - subscript [ref=f1e260]: c
+          - cell "647. ± 2." [ref=f1e261]
+          - cell "K" [ref=f1e262]
+          - cell [ref=f1e263]:
+            - link "AVG" [ref=f1e264] [cursor=pointer]:
+              - /url: /chemistry/site-cal.html#AVG
+          - cell "N/A" [ref=f1e265]
+          - cell [ref=f1e266]:
+            - text: Average of 7 values;
+            - link "Individual data points" [ref=f1e267] [cursor=pointer]:
+              - /url: /cgi/cbook.cgi?ID=C7732185&Type=TC
+        - row [ref=f1e268]:
+          - columnheader "Quantity" [ref=f1e269]
+          - columnheader "Value" [ref=f1e270]
+          - columnheader "Units" [ref=f1e271]
+          - columnheader "Method" [ref=f1e272]
+          - columnheader "Reference" [ref=f1e273]
+          - columnheader "Comment" [ref=f1e274]
+        - row [ref=f1e275]:
+          - cell [ref=f1e276]:
+            - text: P
+            - subscript [ref=f1e277]: c
+          - cell "220.64" [ref=f1e278]
+          - cell "bar" [ref=f1e279]
+          - cell "N/A" [ref=f1e280]
+          - cell [ref=f1e281]:
+            - link "Sato, Watanabe, et al., 1991" [ref=f1e282] [cursor=pointer]:
+              - /url: "#ref-1"
+          - cell [ref=f1e283]:
+            - text: Uncertainty assigned by TRC = 0.05 bar;
+            - emphasis [ref=f1e284]: TRC
+        - row [ref=f1e285]:
+          - cell [ref=f1e286]:
+            - text: P
+            - subscript [ref=f1e287]: c
+          - cell "220.60" [ref=f1e288]
+          - cell "bar" [ref=f1e289]
+          - cell "N/A" [ref=f1e290]
+          - cell [ref=f1e291]:
+            - link "Brunner, 1990" [ref=f1e292] [cursor=pointer]:
+              - /url: "#ref-2"
+          - cell [ref=f1e293]:
+            - text: Uncertainty assigned by TRC = 0.12 bar;
+            - emphasis [ref=f1e294]: TRC
+        - row [ref=f1e295]:
+          - cell [ref=f1e296]:
+            - text: P
+            - subscript [ref=f1e297]: c
+          - cell "220.46" [ref=f1e298]
+          - cell "bar" [ref=f1e299]
+          - cell "N/A" [ref=f1e300]
+          - cell [ref=f1e301]:
+            - link "Morita, Sato, et al., 1989" [ref=f1e302] [cursor=pointer]:
+              - /url: "#ref-3"
+          - cell [ref=f1e303]:
+            - text: Uncertainty assigned by TRC = 0.25 bar; based on analysis of their obs. PVT and vapor pressure data some other data from literature;
+            - emphasis [ref=f1e304]: TRC
+        - row [ref=f1e305]:
+          - cell [ref=f1e306]:
+            - text: P
+            - subscript [ref=f1e307]: c
+          - cell "220.64" [ref=f1e308]
+          - cell "bar" [ref=f1e309]
+          - cell "N/A" [ref=f1e310]
+          - cell [ref=f1e311]:
+            - link "Aleksandrov, 1986" [ref=f1e312] [cursor=pointer]:
+              - /url: "#ref-4"
+          - cell [ref=f1e313]:
+            - text: Uncertainty assigned by TRC = 0.30 bar;
+            - emphasis [ref=f1e314]: TRC
+        - row [ref=f1e315]:
+          - cell [ref=f1e316]:
+            - text: P
+            - subscript [ref=f1e317]: c
+          - cell "220.64" [ref=f1e318]
+          - cell "bar" [ref=f1e319]
+          - cell "N/A" [ref=f1e320]
+          - cell [ref=f1e321]:
+            - link "Sifner, 1985" [ref=f1e322] [cursor=pointer]:
+              - /url: "#ref-5"
+          - cell [ref=f1e323]:
+            - text: Uncertainty assigned by TRC = 0.0001 bar;
+            - emphasis [ref=f1e324]: TRC
+        - row [ref=f1e325]:
+          - columnheader "Quantity" [ref=f1e326]
+          - columnheader "Value" [ref=f1e327]
+          - columnheader "Units" [ref=f1e328]
+          - columnheader "Method" [ref=f1e329]
+          - columnheader "Reference" [ref=f1e330]
+          - columnheader "Comment" [ref=f1e331]
+        - row [ref=f1e332]:
+          - cell [ref=f1e333]:
+            - text: ρ
+            - subscript [ref=f1e334]: c
+          - cell "17.9" [ref=f1e335]
+          - cell "mol/l" [ref=f1e336]
+          - cell "N/A" [ref=f1e337]
+          - cell [ref=f1e338]:
+            - link "Sato, Watanabe, et al., 1991" [ref=f1e339] [cursor=pointer]:
+              - /url: "#ref-1"
+          - cell [ref=f1e340]:
+            - text: Uncertainty assigned by TRC = 0.2 mol/l;
+            - emphasis [ref=f1e341]: TRC
+        - row [ref=f1e342]:
+          - cell [ref=f1e343]:
+            - text: ρ
+            - subscript [ref=f1e344]: c
+          - cell "17.91" [ref=f1e345]
+          - cell "mol/l" [ref=f1e346]
+          - cell "N/A" [ref=f1e347]
+          - cell [ref=f1e348]:
+            - link "Morita, Sato, et al., 1989" [ref=f1e349] [cursor=pointer]:
+              - /url: "#ref-3"
+          - cell [ref=f1e350]:
+            - text: Uncertainty assigned by TRC = 0.083 mol/l; based on analysis of obs. PVT and vapor pressure data;
+            - emphasis [ref=f1e351]: TRC
+        - row [ref=f1e352]:
+          - cell [ref=f1e353]:
+            - text: ρ
+            - subscript [ref=f1e354]: c
+          - cell "17.9" [ref=f1e355]
+          - cell "mol/l" [ref=f1e356]
+          - cell "N/A" [ref=f1e357]
+          - cell [ref=f1e358]:
+            - link "Aleksandrov, 1986" [ref=f1e359] [cursor=pointer]:
+              - /url: "#ref-4"
+          - cell [ref=f1e360]:
+            - text: Uncertainty assigned by TRC = 0.2 mol/l;
+            - emphasis [ref=f1e361]: TRC
+        - row [ref=f1e362]:
+          - cell [ref=f1e363]:
+            - text: ρ
+            - subscript [ref=f1e364]: c
+          - cell "17.9" [ref=f1e365]
+          - cell "mol/l" [ref=f1e366]
+          - cell "N/A" [ref=f1e367]
+          - cell [ref=f1e368]:
+            - link "Sifner, 1985" [ref=f1e369] [cursor=pointer]:
+              - /url: "#ref-5"
+          - cell [ref=f1e370]:
+            - text: Uncertainty assigned by TRC = 0.2 mol/l;
+            - emphasis [ref=f1e371]: TRC
+    - heading "Antoine Equation Parameters" [level=3] [ref=f1e372]
+    - paragraph [ref=f1e373]:
+      - text: log
+      - subscript [ref=f1e374]: "10"
+      - text: (P) = A − (B / (T + C)) P = vapor pressure (bar) T = temperature (K)
+    - paragraph [ref=f1e375]:
+      - link "View plot" [ref=f1e376] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?ID=C7732185&Mask=4&Type=ANTOINE&Plot=on#ANTOINE
+      - text: Requires a JavaScript / HTML 5 canvas capable browser.
+    - table "Antoine Equation Parameters" [ref=f1e377]:
+      - rowgroup [ref=f1e378]:
+        - row [ref=f1e379]:
+          - columnheader "Temperature (K)" [ref=f1e380]
+          - columnheader "A" [ref=f1e381]
+          - columnheader "B" [ref=f1e382]
+          - columnheader "C" [ref=f1e383]
+          - columnheader "Reference" [ref=f1e384]
+          - columnheader "Comment" [ref=f1e385]
+        - row [ref=f1e386]:
+          - cell "379. to 573." [ref=f1e387]
+          - cell "3.55959" [ref=f1e388]
+          - cell "643.748" [ref=f1e389]
+          - cell "-198.043" [ref=f1e390]
+          - cell [ref=f1e391]:
+            - link "Liu and Lindsay, 1970" [ref=f1e392] [cursor=pointer]:
+              - /url: "#ref-6"
+          - cell "Coefficents calculated by NIST from author's data." [ref=f1e393]
+        - row [ref=f1e394]:
+          - cell "273. to 303." [ref=f1e395]
+          - cell "5.40221" [ref=f1e396]
+          - cell "1838.675" [ref=f1e397]
+          - cell "-31.737" [ref=f1e398]
+          - cell [ref=f1e399]:
+            - link "Bridgeman and Aldrich, 1964" [ref=f1e400] [cursor=pointer]:
+              - /url: "#ref-7"
+          - cell "Coefficents calculated by NIST from author's data." [ref=f1e401]
+        - row [ref=f1e402]:
+          - cell "304. to 333." [ref=f1e403]
+          - cell "5.20389" [ref=f1e404]
+          - cell "1733.926" [ref=f1e405]
+          - cell "-39.485" [ref=f1e406]
+          - cell [ref=f1e407]:
+            - link "Bridgeman and Aldrich, 1964" [ref=f1e408] [cursor=pointer]:
+              - /url: "#ref-7"
+          - cell "Coefficents calculated by NIST from author's data." [ref=f1e409]
+        - row [ref=f1e410]:
+          - cell "334. to 363." [ref=f1e411]
+          - cell "5.0768" [ref=f1e412]
+          - cell "1659.793" [ref=f1e413]
+          - cell "-45.854" [ref=f1e414]
+          - cell [ref=f1e415]:
+            - link "Bridgeman and Aldrich, 1964" [ref=f1e416] [cursor=pointer]:
+              - /url: "#ref-7"
+          - cell "Coefficents calculated by NIST from author's data." [ref=f1e417]
+        - row [ref=f1e418]:
+          - cell "344. to 373." [ref=f1e419]
+          - cell "5.08354" [ref=f1e420]
+          - cell "1663.125" [ref=f1e421]
+          - cell "-45.622" [ref=f1e422]
+          - cell [ref=f1e423]:
+            - link "Bridgeman and Aldrich, 1964" [ref=f1e424] [cursor=pointer]:
+              - /url: "#ref-7"
+          - cell "Coefficents calculated by NIST from author's data." [ref=f1e425]
+        - row [ref=f1e426]:
+          - cell "293. to 343." [ref=f1e427]
+          - cell "6.20963" [ref=f1e428]
+          - cell "2354.731" [ref=f1e429]
+          - cell "7.559" [ref=f1e430]
+          - cell [ref=f1e431]:
+            - link "Gubkov, Fermor, et al., 1964" [ref=f1e432] [cursor=pointer]:
+              - /url: "#ref-8"
+          - cell "Coefficents calculated by NIST from author's data." [ref=f1e433]
+        - row [ref=f1e434]:
+          - cell "255.9 to 373." [ref=f1e435]
+          - cell "4.6543" [ref=f1e436]
+          - cell "1435.264" [ref=f1e437]
+          - cell "-64.848" [ref=f1e438]
+          - cell [ref=f1e439]:
+            - link "Stull, 1947" [ref=f1e440] [cursor=pointer]:
+              - /url: "#ref-9"
+          - cell "Coefficents calculated by NIST from author's data." [ref=f1e441]
+    - generic [ref=f1e442]:
+      - paragraph [ref=f1e443]: "In addition to the Thermodynamics Research Center (TRC) data available from this site, much more physical and chemical property data is available from the following TRC products:"
+      - list [ref=f1e444]:
+        - listitem [ref=f1e445]:
+          - link "SRD 103a – Thermo Data Engine (TDE) for pure compounds." [ref=f1e446] [cursor=pointer]:
+            - /url: https://www.nist.gov/srd/nist-standard-reference-database-103a
+        - listitem [ref=f1e447]:
+          - link "SRD 103b – Thermo Data Engine (TDE) for pure compounds, binary mixtures and chemical reactions" [ref=f1e448] [cursor=pointer]:
+            - /url: https://www.nist.gov/srd/nist-standard-reference-database-103b
+        - listitem [ref=f1e449]:
+          - link "SRD 202 – Web Thermo Tables (WTT), \"lite\" edition" [ref=f1e450] [cursor=pointer]:
+            - /url: https://www.nist.gov/srd/nist-standard-reference-subscription-database-2
+        - listitem [ref=f1e451]:
+          - link "SRD 203 – Web Thermo Tables (WTT), professional edition" [ref=f1e452] [cursor=pointer]:
+            - /url: https://www.nist.gov/srd/nist-standard-reference-subscription-database-3
+        - listitem [ref=f1e453]:
+          - link "SRD 147 – Ionic Liquids Database" [ref=f1e454] [cursor=pointer]:
+            - /url: https://ilthermo.boulder.nist.gov/
+        - listitem [ref=f1e455]:
+          - link "SRD 156 – Clathrate Hydrate Physical Property Database" [ref=f1e456] [cursor=pointer]:
+            - /url: https://gashydrates.nist.gov/
+    - separator [ref=f1e457]
+    - heading "References" [level=2] [ref=f1e458]
+    - paragraph [ref=f1e459]:
+      - strong [ref=f1e460]: "Go To:"
+      - link "Top" [ref=f1e461] [cursor=pointer]:
+        - /url: "#Top"
+      - text: ","
+      - link "Phase change data" [ref=f1e462] [cursor=pointer]:
+        - /url: "#Thermo-Phase"
+      - text: ","
+      - link "Notes" [ref=f1e463] [cursor=pointer]:
+        - /url: "#Notes"
+    - paragraph [ref=f1e464]:
+      - strong [ref=f1e465]:
+        - text: Data compilation
+        - link "copyright" [ref=f1e466] [cursor=pointer]:
+          - /url: "#copyright"
+        - text: by the U.S. Secretary of Commerce on behalf of the U.S.A. All rights reserved.
+    - paragraph [ref=f1e467]:
+      - strong [ref=f1e469]: Sato, Watanabe, et al., 1991
+      - generic "ctx_ver=Z39.88-2004&rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&rft.au=Sato%2C+H.&rft.au=Watanabe%2C+K.&rft.au=Levelt+Sengers%2C+J.M.H.&rft.au=Gallagher%2C+J.S.&rft.au=Hill%2C+P.G.&rft.au=Straub%2C+J.&rft.au=Wagner%2C+W.&rft.atitle=Sixteen+Thousand+Evaluated+Experimental+Thermodynamic+Property+Data+for+Water+and+Steam&rft.date=1991&rft.pages=1023&rft.stitle=J.+Phys.+Chem.+Ref.+Data&rft.volume=20"
+      - link "Sato, H." [ref=f1e470] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Author=Sato%2C+H.&Mask=4
+      - text: ;
+      - link "Watanabe, K." [ref=f1e471] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Author=Watanabe%2C+K.&Mask=4
+      - text: ;
+      - link "Levelt Sengers, J.M.H." [ref=f1e472] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Author=Levelt+Sengers%2C+J.M.H.&Mask=4
+      - text: ;
+      - link "Gallagher, J.S." [ref=f1e473] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Author=Gallagher%2C+J.S.&Mask=4
+      - text: ;
+      - link "Hill, P.G." [ref=f1e474] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Author=Hill%2C+P.G.&Mask=4
+      - text: ;
+      - link "Straub, J." [ref=f1e475] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Author=Straub%2C+J.&Mask=4
+      - text: ;
+      - link "Wagner, W." [ref=f1e476] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Author=Wagner%2C+W.&Mask=4
+      - text: ","
+      - emphasis [ref=f1e477]: Sixteen Thousand Evaluated Experimental Thermodynamic Property Data for Water and Steam
+      - text: ","
+      - strong [ref=f1e478]: J. Phys. Chem. Ref. Data
+      - text: ", 1991, 20, 1023. ["
+      - link "all data" [ref=f1e479] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Source=1991SAT%2FWAT1023&Mask=4
+      - text: "]"
+    - paragraph [ref=f1e480]:
+      - strong [ref=f1e482]: Brunner, 1990
+      - generic "ctx_ver=Z39.88-2004&rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&rft.au=Brunner%2C+E.&rft.atitle=Fluid+Mixtures+at+High+Pressures.+9.+Phase+Separation+and+Critical+Phenomena+in+23+(n-Alkane+%2B+Water)+Mixtures.&rft.date=1990&rft.pages=335&rft.stitle=J.+Chem.+Thermodyn.&rft.volume=22"
+      - link "Brunner, E." [ref=f1e483] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Author=Brunner%2C+E.&Mask=4
+      - text: ","
+      - emphasis [ref=f1e484]: Fluid Mixtures at High Pressures. 9. Phase Separation and Critical Phenomena in 23 (n-Alkane + Water) Mixtures.
+      - text: ","
+      - strong [ref=f1e485]: J. Chem. Thermodyn.
+      - text: ", 1990, 22, 335. ["
+      - link "all data" [ref=f1e486] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Source=1990BRU335&Mask=4
+      - text: "]"
+    - paragraph [ref=f1e487]:
+      - strong [ref=f1e489]: Morita, Sato, et al., 1989
+      - generic "ctx_ver=Z39.88-2004&rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&rft.au=Morita%2C+T.&rft.au=Sato%2C+H.&rft.au=Uematsu%2C+M.&rft.au=Watanabe%2C+K.&rft.atitle=PVT+Properties+and+Vapor-Pressures+of+Ordinary+Water+Substance+in+the+Critical+Region&rft.date=1989&rft.pages=436&rft.stitle=Physica+A%3A+(Amsterdam)&rft.volume=156"
+      - link "Morita, T." [ref=f1e490] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Author=Morita%2C+T.&Mask=4
+      - text: ;
+      - link "Sato, H." [ref=f1e491] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Author=Sato%2C+H.&Mask=4
+      - text: ;
+      - link "Uematsu, M." [ref=f1e492] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Author=Uematsu%2C+M.&Mask=4
+      - text: ;
+      - link "Watanabe, K." [ref=f1e493] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Author=Watanabe%2C+K.&Mask=4
+      - text: ","
+      - emphasis [ref=f1e494]: PVT Properties and Vapor-Pressures of Ordinary Water Substance in the Critical Region
+      - text: ","
+      - strong [ref=f1e495]: "Physica A: (Amsterdam)"
+      - text: ", 1989, 156, 436. ["
+      - link "all data" [ref=f1e496] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Source=1989MOR%2FSAT436&Mask=4
+      - text: "]"
+    - paragraph [ref=f1e497]:
+      - strong [ref=f1e499]: Aleksandrov, 1986
+      - generic "ctx_ver=Z39.88-2004&rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&rft.au=Aleksandrov%2C+A.A.&rft.atitle=Critical+Parameters+of+Ordinary+and+Heavy+Water&rft.date=1986&rft.pages=74&rft.stitle=Teploenergetika&rft.volume=No.+1"
+      - link "Aleksandrov, A.A." [ref=f1e500] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Author=Aleksandrov%2C+A.A.&Mask=4
+      - text: ","
+      - emphasis [ref=f1e501]: Critical Parameters of Ordinary and Heavy Water
+      - text: ","
+      - strong [ref=f1e502]: Teploenergetika
+      - text: ", 1986, No. 1, 74. ["
+      - link "all data" [ref=f1e503] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Source=1986ALE74&Mask=4
+      - text: "]"
+    - paragraph [ref=f1e504]:
+      - strong [ref=f1e506]: Sifner, 1985
+      - generic "ctx_ver=Z39.88-2004&rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&rft.au=Sifner%2C+O.&rft.atitle=Recommended+Values+of+Critical+Parameters+of+Ordinary+and+Heavy+Water&rft.date=1985&rft.pages=199&rft.stitle=Chem.+Listy&rft.volume=79"
+      - link "Sifner, O." [ref=f1e507] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Author=Sifner%2C+O.&Mask=4
+      - text: ","
+      - emphasis [ref=f1e508]: Recommended Values of Critical Parameters of Ordinary and Heavy Water
+      - text: ","
+      - strong [ref=f1e509]: Chem. Listy
+      - text: ", 1985, 79, 199. ["
+      - link "all data" [ref=f1e510] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Source=1985SIF199&Mask=4
+      - text: "]"
+    - paragraph [ref=f1e511]:
+      - strong [ref=f1e513]: Liu and Lindsay, 1970
+      - generic "ctx_ver=Z39.88-2004&rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&rft.au=Liu%2C+C.-T.&rft.au=Lindsay%2C+W.T.%2C+Jr.&rft_id=info%3Adoi%2F10.1021%2Fje60047a015&rft.atitle=Vapor+Pressure+of+D_2O+from+106+to+300+%BAC&rft.date=1970&rft.pages=510-513&rft.stitle=J.+Chem.+Eng.+Data&rft.volume=15&rft.issue=4"
+      - link "Liu, C.-T." [ref=f1e514] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Author=Liu%2C+C.-T.&Mask=4
+      - text: ;
+      - link "Lindsay, W.T., Jr." [ref=f1e515] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Author=Lindsay%2C+W.T.%2C+Jr.&Mask=4
+      - text: ","
+      - emphasis [ref=f1e516]:
+        - text: Vapor Pressure of D
+        - subscript [ref=f1e517]: "2"
+        - text: O from 106 to 300 ºC
+      - text: ","
+      - strong [ref=f1e518]: J. Chem. Eng. Data
+      - text: ", 1970, 15, 4, 510-513,"
+      - link "https://doi.org/10.1021/je60047a015" [ref=f1e519] [cursor=pointer]:
+        - /url: https://dx.doi.org/10.1021/je60047a015
+      - text: . [
+      - link "all data" [ref=f1e520] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Source=1970LIU%2FLIN510-513&Mask=4
+      - text: "]"
+    - paragraph [ref=f1e521]:
+      - strong [ref=f1e523]: Bridgeman and Aldrich, 1964
+      - generic "ctx_ver=Z39.88-2004&rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&rft.au=Bridgeman%2C+O.C.&rft.au=Aldrich%2C+E.W.&rft_id=info%3Adoi%2F10.1115%2F1.3687121&rft.atitle=Vapor+Pressure+Tables+for+Water&rft.date=1964&rft.pages=279-286&rft.stitle=J.+Heat+Transfer&rft.volume=86&rft.issue=2"
+      - link "Bridgeman, O.C." [ref=f1e524] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Author=Bridgeman%2C+O.C.&Mask=4
+      - text: ;
+      - link "Aldrich, E.W." [ref=f1e525] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Author=Aldrich%2C+E.W.&Mask=4
+      - text: ","
+      - emphasis [ref=f1e526]: Vapor Pressure Tables for Water
+      - text: ","
+      - strong [ref=f1e527]: J. Heat Transfer
+      - text: ", 1964, 86, 2, 279-286,"
+      - link "https://doi.org/10.1115/1.3687121" [ref=f1e528] [cursor=pointer]:
+        - /url: https://dx.doi.org/10.1115/1.3687121
+      - text: . [
+      - link "all data" [ref=f1e529] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Source=1964BRI%2FALD279-286&Mask=4
+      - text: "]"
+    - paragraph [ref=f1e530]:
+      - strong [ref=f1e532]: Gubkov, Fermor, et al., 1964
+      - generic "ctx_ver=Z39.88-2004&rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&rft.au=Gubkov%2C+A.N.&rft.au=Fermor%2C+N.A.&rft.au=Smirnov%2C+N.I.&rft.atitle=Vapor+Pressure+of+Mono-Poly+Systems&rft.date=1964&rft.pages=2204-2210&rft.stitle=Zh.+Prikl.+Khim.+(Leningrad)&rft.volume=37"
+      - link "Gubkov, A.N." [ref=f1e533] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Author=Gubkov%2C+A.N.&Mask=4
+      - text: ;
+      - link "Fermor, N.A." [ref=f1e534] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Author=Fermor%2C+N.A.&Mask=4
+      - text: ;
+      - link "Smirnov, N.I." [ref=f1e535] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Author=Smirnov%2C+N.I.&Mask=4
+      - text: ","
+      - emphasis [ref=f1e536]: Vapor Pressure of Mono-Poly Systems
+      - text: ","
+      - strong [ref=f1e537]: Zh. Prikl. Khim. (Leningrad)
+      - text: ", 1964, 37, 2204-2210. ["
+      - link "all data" [ref=f1e538] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Source=1964GUB%2FFER2204-2210&Mask=4
+      - text: "]"
+    - paragraph [ref=f1e539]:
+      - strong [ref=f1e541]: Stull, 1947
+      - generic "ctx_ver=Z39.88-2004&rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&rft.au=Stull%2C+Daniel+R.&rft_id=info%3Adoi%2F10.1021%2Fie50448a022&rft.atitle=Vapor+Pressure+of+Pure+Substances.+Organic+and+Inorganic+Compounds&rft.date=1947&rft.pages=517-540&rft.stitle=Ind.+Eng.+Chem.&rft.volume=39&rft.issue=4"
+      - link "Stull, Daniel R." [ref=f1e542] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Author=Stull%2C+Daniel+R.&Mask=4
+      - text: ","
+      - emphasis [ref=f1e543]: Vapor Pressure of Pure Substances. Organic and Inorganic Compounds
+      - text: ","
+      - strong [ref=f1e544]: Ind. Eng. Chem.
+      - text: ", 1947, 39, 4, 517-540,"
+      - link "https://doi.org/10.1021/ie50448a022" [ref=f1e545] [cursor=pointer]:
+        - /url: https://dx.doi.org/10.1021/ie50448a022
+      - text: . [
+      - link "all data" [ref=f1e546] [cursor=pointer]:
+        - /url: /cgi/cbook.cgi?Source=1947STU517-540&Mask=4
+      - text: "]"
+    - separator [ref=f1e547]
+    - heading "Notes" [level=2] [ref=f1e548]
+    - paragraph [ref=f1e549]:
+      - strong [ref=f1e550]: "Go To:"
+      - link "Top" [ref=f1e551] [cursor=pointer]:
+        - /url: "#Top"
+      - text: ","
+      - link "Phase change data" [ref=f1e552] [cursor=pointer]:
+        - /url: "#Thermo-Phase"
+      - text: ","
+      - link "References" [ref=f1e553] [cursor=pointer]:
+        - /url: "#Refs"
+    - list [ref=f1e554]:
+      - listitem [ref=f1e555]:
+        - text: "Symbols used in this document:"
+        - table [ref=f1e556]:
+          - rowgroup [ref=f1e557]:
+            - row [ref=f1e558]:
+              - cell [ref=f1e559]:
+                - text: P
+                - subscript [ref=f1e560]: c
+              - cell "Critical pressure" [ref=f1e561]
+            - row [ref=f1e562]:
+              - cell [ref=f1e563]:
+                - text: P
+                - subscript [ref=f1e564]: triple
+              - cell "Triple point pressure" [ref=f1e565]
+            - row [ref=f1e566]:
+              - cell [ref=f1e567]:
+                - text: T
+                - subscript [ref=f1e568]: boil
+              - cell "Boiling point" [ref=f1e569]
+            - row [ref=f1e570]:
+              - cell [ref=f1e571]:
+                - text: T
+                - subscript [ref=f1e572]: c
+              - cell "Critical temperature" [ref=f1e573]
+            - row [ref=f1e574]:
+              - cell [ref=f1e575]:
+                - text: ρ
+                - subscript [ref=f1e576]: c
+              - cell "Critical density" [ref=f1e577]
+      - listitem [ref=f1e578]:
+        - text: "Data from NIST Standard Reference Database 69:"
+        - emphasis [ref=f1e579]: NIST Chemistry WebBook
+      - listitem [ref=f1e580]: The National Institute of Standards and Technology (NIST) uses its best efforts to deliver a high quality copy of the Database and to verify that the data contained therein have been selected on the basis of sound scientific judgment. However, NIST makes no warranties to that effect, and NIST shall not be liable for any damage that may result from errors or omissions in the Database.
+      - listitem [ref=f1e581]:
+        - link "Customer support" [ref=f1e582] [cursor=pointer]:
+          - /url: mailto:data@nist.gov
+        - text: for NIST Standard Reference Data products.
+    - separator [ref=f1e583]
+    - paragraph [ref=f1e584]:
+      - text: ©
+      - emphasis [ref=f1e585]: 2026 by the U.S. Secretary of Commerce on behalf of the United States of America. All rights reserved.
+    - paragraph [ref=f1e586]:
+      - text: Copyright for NIST Standard Reference Data is governed by the
+      - link "Standard Reference Data Act" [ref=f1e587] [cursor=pointer]:
+        - /url: https://www.nist.gov/srd/public-law
+      - text: .
+  - contentinfo [ref=f1e588]:
+    - list [ref=f1e590]:
+      - listitem [ref=f1e591]:
+        - link "Site Privacy" [ref=f1e592] [cursor=pointer]:
+          - /url: https://www.nist.gov/privacy-policy
+        - text: "|"
+      - listitem [ref=f1e593]:
+        - link "Accessibility" [ref=f1e594] [cursor=pointer]:
+          - /url: https://www.nist.gov/oism/accessibility
+        - text: "|"
+      - listitem [ref=f1e595]:
+        - link "Privacy Program" [ref=f1e596] [cursor=pointer]:
+          - /url: https://www.nist.gov/privacy
+        - text: "|"
+      - listitem [ref=f1e597]:
+        - link "Copyrights" [ref=f1e598] [cursor=pointer]:
+          - /url: https://www.nist.gov/oism/copyrights
+        - text: "(Note: This site is covered by copyright.) |"
+      - listitem [ref=f1e599]:
+        - link "Vulnerability Disclosure" [ref=f1e600] [cursor=pointer]:
+          - /url: https://www.commerce.gov/vulnerability-disclosure-policy
+        - text: "|"
+      - listitem [ref=f1e601]:
+        - link "No Fear Act Policy" [ref=f1e602] [cursor=pointer]:
+          - /url: https://www.nist.gov/no-fear-act-policy
+        - text: "|"
+      - listitem [ref=f1e603]:
+        - link "FOIA" [ref=f1e604] [cursor=pointer]:
+          - /url: https://www.nist.gov/office-director/freedom-information-act
+        - text: "|"
+      - listitem [ref=f1e605]:
+        - link "Environmental Policy" [ref=f1e606] [cursor=pointer]:
+          - /url: https://www.nist.gov/environmental-policy-statement
+        - text: "|"
+      - listitem [ref=f1e607]:
+        - link "Scientific Integrity" [ref=f1e608] [cursor=pointer]:
+          - /url: https://www.nist.gov/summary-report-scientific-integrity
+        - text: "|"
+      - listitem [ref=f1e609]:
+        - link "Information Quality Standards" [ref=f1e610] [cursor=pointer]:
+          - /url: https://www.nist.gov/nist-information-quality-standards
+        - text: "|"
+      - listitem [ref=f1e611]:
+        - link "Commerce.gov" [ref=f1e612] [cursor=pointer]:
+          - /url: https://www.commerce.gov/
+        - text: "|"
+      - listitem [ref=f1e613]:
+        - link "Science.gov" [ref=f1e614] [cursor=pointer]:
+          - /url: https://www.science.gov/
+        - text: "|"
+      - listitem [ref=f1e615]:
+        - link "USA.gov" [ref=f1e616] [cursor=pointer]:
+          - /url: https://www.usa.gov/
+        - text: "|"
+      - listitem [ref=f1e617]:
+        - link "Vote.gov" [ref=f1e618] [cursor=pointer]:
+          - /url: https://vote.gov/

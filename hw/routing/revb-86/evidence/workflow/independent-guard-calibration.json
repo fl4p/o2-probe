@@ -1,0 +1,26 @@
+{
+  "scope": "independent rerun of the two actual reproduced guard failures against the fixed producer",
+  "cases": [
+    {
+      "case": "actual_export",
+      "accepted": true,
+      "seconds": 0.03345287500269478
+    },
+    {
+      "case": "independently_reversed_arc",
+      "rejected": true,
+      "reason": "86 mm Gerber contour differs from exact verified native primitives",
+      "seconds": 0.003841500001726672
+    },
+    {
+      "case": "independently_inch_scaled_edge",
+      "rejected": true,
+      "reason": "Gerber must have one unambiguous metric unit declaration: o2-probe-Edge_Cuts.gbr",
+      "seconds": 0.0037642079987563193
+    }
+  ],
+  "sha256": {
+    "verify_revb_86.py": "b54f810d5f85a36bf614401b9f17721286814d9459be5790b87896485119bd9a",
+    "make_fab_revb_86.py": "d4e8ade0a7f3c887c024b53fe8f7b9d324d98e0efe0298304c2ba1db2e026320"
+  }
+}

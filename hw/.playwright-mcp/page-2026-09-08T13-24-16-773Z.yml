@@ -1,0 +1,1805 @@
+- generic [ref=f25e2]:
+  - banner [ref=f25e3]:
+    - generic [ref=f25e11]:
+      - text: Join
+      - link "PromCon EU 2026" [ref=f25e12] [cursor=pointer]:
+        - /url: https://promcon.io/2026-munich/
+      - text: ", the Prometheus users conference, on October 7–8, 2026 in Munich."
+    - generic [ref=f25e19]:
+      - link [ref=f25e20] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f25e21]:
+          - img "Prometheus logo" [ref=f25e22]
+          - paragraph [ref=f25e23]: Prometheus
+      - generic [ref=f25e24]:
+        - generic [ref=f25e25]:
+          - link "Docs" [ref=f25e26] [cursor=pointer]:
+            - /url: /docs/introduction/overview/
+          - link "Download" [ref=f25e27] [cursor=pointer]:
+            - /url: /download/
+          - link "Community" [ref=f25e28] [cursor=pointer]:
+            - /url: /community/
+          - link "Support & Training" [ref=f25e29] [cursor=pointer]:
+            - /url: /support-training/
+          - link "Blog" [ref=f25e30] [cursor=pointer]:
+            - /url: /blog/
+        - generic [ref=f25e31]:
+          - generic [ref=f25e33]:
+            - textbox "Search / Ask AI" [ref=f25e38]
+            - paragraph [ref=f25e40]: Ctrl + K
+          - button "Switch to light theme" [ref=f25e41] [cursor=pointer]
+          - link [ref=f25e45] [cursor=pointer]:
+            - /url: https://github.com/prometheus
+            - img "GitHub Logo" [ref=f25e47]
+  - main [ref=f25e48]:
+    - generic [ref=f25e50]:
+      - navigation [ref=f25e51]:
+        - generic [ref=f25e55]:
+          - link "Introduction" [ref=f25e56] [cursor=pointer]:
+            - /url: "#required-for-focus"
+          - generic [ref=f25e68]:
+            - link [ref=f25e69] [cursor=pointer]:
+              - /url: /docs/introduction/overview/
+              - generic [ref=f25e70]: Overview
+            - link [ref=f25e71] [cursor=pointer]:
+              - /url: /docs/introduction/first_steps/
+              - generic [ref=f25e72]: First steps
+            - link [ref=f25e73] [cursor=pointer]:
+              - /url: /docs/introduction/comparison/
+              - generic [ref=f25e74]: Comparison to alternatives
+            - link [ref=f25e75] [cursor=pointer]:
+              - /url: /docs/introduction/faq/
+              - generic [ref=f25e76]: FAQ
+            - link [ref=f25e77] [cursor=pointer]:
+              - /url: /docs/introduction/roadmap/
+              - generic [ref=f25e78]: Roadmap
+            - link [ref=f25e79] [cursor=pointer]:
+              - /url: /docs/introduction/design-doc/
+              - generic [ref=f25e80]: Design documents
+            - link [ref=f25e81] [cursor=pointer]:
+              - /url: /docs/introduction/media/
+              - generic [ref=f25e82]: Media
+            - link [ref=f25e83] [cursor=pointer]:
+              - /url: /docs/introduction/glossary/
+              - generic [ref=f25e84]: Glossary
+            - link [ref=f25e85] [cursor=pointer]:
+              - /url: /docs/introduction/release-cycle/
+              - generic [ref=f25e86]: Long-term support
+          - link "Concepts" [ref=f25e87] [cursor=pointer]:
+            - /url: "#required-for-focus"
+          - generic [ref=f25e96]:
+            - link [ref=f25e97] [cursor=pointer]:
+              - /url: /docs/concepts/data_model/
+              - generic [ref=f25e98]: Data model
+            - link [ref=f25e99] [cursor=pointer]:
+              - /url: /docs/concepts/metric_types/
+              - generic [ref=f25e100]: Metric types
+            - link [ref=f25e101] [cursor=pointer]:
+              - /url: /docs/concepts/jobs_instances/
+              - generic [ref=f25e102]: Jobs and instances
+          - link "Prometheus Server" [ref=f25e103] [cursor=pointer]:
+            - /url: "#required-for-focus"
+          - generic [ref=f25e114]:
+            - textbox "Select version" [ref=f25e121] [cursor=pointer]: 3.14 (latest)
+            - link "Getting started" [ref=f25e122] [cursor=pointer]:
+              - /url: /docs/prometheus/latest/getting_started/
+            - link "Installation" [ref=f25e124] [cursor=pointer]:
+              - /url: /docs/prometheus/latest/installation/
+            - link "Configuration" [ref=f25e126] [cursor=pointer]:
+              - /url: "#required-for-focus"
+            - generic [ref=f25e132]:
+              - link [ref=f25e133] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/configuration/configuration/
+                - generic [ref=f25e134]: Configuration
+              - link [ref=f25e135] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/configuration/recording_rules/
+                - generic [ref=f25e136]: Recording rules
+              - link [ref=f25e137] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/configuration/alerting_rules/
+                - generic [ref=f25e138]: Alerting rules
+              - link [ref=f25e139] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/configuration/template_examples/
+                - generic [ref=f25e140]: Template examples
+              - link [ref=f25e141] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/configuration/template_reference/
+                - generic [ref=f25e142]: Template reference
+              - link [ref=f25e143] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/configuration/promtool/
+                - generic [ref=f25e144]: HTTP configuration for promtool
+              - link [ref=f25e145] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/configuration/unit_testing_rules/
+                - generic [ref=f25e146]: Unit testing for rules
+              - link [ref=f25e147] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/configuration/https/
+                - generic [ref=f25e148]: HTTPS and authentication
+            - link "Agent Mode" [ref=f25e149] [cursor=pointer]:
+              - /url: /docs/prometheus/latest/prometheus_agent/
+            - link "Querying" [ref=f25e151] [cursor=pointer]:
+              - /url: "#required-for-focus"
+            - generic [ref=f25e158]:
+              - link "Basics" [ref=f25e159] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/querying/basics/
+              - link "Operators" [ref=f25e161] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/querying/operators/
+              - link "Functions" [ref=f25e163] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/querying/functions/
+              - link "Examples" [ref=f25e165] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/querying/examples/
+              - link "HTTP API" [ref=f25e167] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/querying/api/
+              - link "Remote Read API" [ref=f25e169] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/querying/remote_read_api/
+            - link "Storage" [ref=f25e171] [cursor=pointer]:
+              - /url: /docs/prometheus/latest/storage/
+            - link "Federation" [ref=f25e173] [cursor=pointer]:
+              - /url: /docs/prometheus/latest/federation/
+            - link "HTTP SD" [ref=f25e175] [cursor=pointer]:
+              - /url: /docs/prometheus/latest/http_sd/
+            - link "Management API" [ref=f25e177] [cursor=pointer]:
+              - /url: /docs/prometheus/latest/management_api/
+            - link "Command Line" [ref=f25e179] [cursor=pointer]:
+              - /url: "#required-for-focus"
+            - generic [ref=f25e185]:
+              - link [ref=f25e186] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/command-line/prometheus/
+                - generic [ref=f25e187]: prometheus
+              - link [ref=f25e188] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/command-line/promtool/
+                - generic [ref=f25e189]: promtool
+            - link "Migration" [ref=f25e190] [cursor=pointer]:
+              - /url: /docs/prometheus/latest/migration/
+            - link "API stability" [ref=f25e192] [cursor=pointer]:
+              - /url: /docs/prometheus/latest/stability/
+            - link "Feature flags" [ref=f25e194] [cursor=pointer]:
+              - /url: /docs/prometheus/latest/feature_flags/
+          - link "Visualization" [ref=f25e196] [cursor=pointer]:
+            - /url: "#required-for-focus"
+          - generic [ref=f25e205]:
+            - link [ref=f25e206] [cursor=pointer]:
+              - /url: /docs/visualization/browser/
+              - generic [ref=f25e207]: Expression browser
+            - link [ref=f25e208] [cursor=pointer]:
+              - /url: /docs/visualization/grafana/
+              - generic [ref=f25e209]: Grafana
+            - link [ref=f25e210] [cursor=pointer]:
+              - /url: /docs/visualization/perses/
+              - generic [ref=f25e211]: Perses
+            - link [ref=f25e212] [cursor=pointer]:
+              - /url: /docs/visualization/consoles/
+              - generic [ref=f25e213]: Console templates
+          - link "Instrumenting" [ref=f25e214] [cursor=pointer]:
+            - /url: "#required-for-focus"
+          - generic [ref=f25e225]:
+            - link [ref=f25e226] [cursor=pointer]:
+              - /url: /docs/instrumenting/clientlibs/
+              - generic [ref=f25e227]: Client libraries
+            - link [ref=f25e228] [cursor=pointer]:
+              - /url: /docs/instrumenting/writing_clientlibs/
+              - generic [ref=f25e229]: Writing client libraries
+            - link [ref=f25e230] [cursor=pointer]:
+              - /url: /docs/instrumenting/pushing/
+              - generic [ref=f25e231]: Pushing metrics
+            - link [ref=f25e232] [cursor=pointer]:
+              - /url: /docs/instrumenting/exporters/
+              - generic [ref=f25e233]: Exporters and integrations
+            - link [ref=f25e234] [cursor=pointer]:
+              - /url: /docs/instrumenting/writing_exporters/
+              - generic [ref=f25e235]: Writing exporters
+            - link [ref=f25e236] [cursor=pointer]:
+              - /url: /docs/instrumenting/exposition_formats/
+              - generic [ref=f25e237]: Exposition formats
+            - link [ref=f25e238] [cursor=pointer]:
+              - /url: /docs/instrumenting/escaping_schemes/
+              - generic [ref=f25e239]: UTF-8 escaping schemes
+            - link [ref=f25e240] [cursor=pointer]:
+              - /url: /docs/instrumenting/content_negotiation/
+              - generic [ref=f25e241]: Content negotiation
+          - link "Operating" [ref=f25e242] [cursor=pointer]:
+            - /url: "#required-for-focus"
+          - generic [ref=f25e252]:
+            - link [ref=f25e253] [cursor=pointer]:
+              - /url: /docs/operating/security/
+              - generic [ref=f25e254]: Security
+            - link [ref=f25e255] [cursor=pointer]:
+              - /url: /docs/operating/integrations/
+              - generic [ref=f25e256]: Integrations
+          - link "Alertmanager" [ref=f25e257] [cursor=pointer]:
+            - /url: "#required-for-focus"
+          - generic [ref=f25e267]:
+            - textbox [ref=f25e274] [cursor=pointer]: 0.34 (latest)
+            - link [ref=f25e275] [cursor=pointer]:
+              - /url: /docs/alerting/latest/overview/
+              - generic [ref=f25e276]: Alerting overview
+            - link [ref=f25e277] [cursor=pointer]:
+              - /url: /docs/alerting/latest/alertmanager/
+              - generic [ref=f25e278]: Alertmanager
+            - link [ref=f25e279] [cursor=pointer]:
+              - /url: /docs/alerting/latest/configuration/
+              - generic [ref=f25e280]: Configuration
+            - link [ref=f25e281] [cursor=pointer]:
+              - /url: /docs/alerting/latest/high_availability/
+              - generic [ref=f25e282]: High Availability
+            - link [ref=f25e283] [cursor=pointer]:
+              - /url: /docs/alerting/latest/integrations/
+              - generic [ref=f25e284]: Notification Integrations
+            - link [ref=f25e285] [cursor=pointer]:
+              - /url: /docs/alerting/latest/alerts_api/
+              - generic [ref=f25e286]: Alerts API
+            - link [ref=f25e287] [cursor=pointer]:
+              - /url: /docs/alerting/latest/notifications/
+              - generic [ref=f25e288]: Notification template reference
+            - link [ref=f25e289] [cursor=pointer]:
+              - /url: /docs/alerting/latest/notification_examples/
+              - generic [ref=f25e290]: Notification template examples
+            - link [ref=f25e291] [cursor=pointer]:
+              - /url: /docs/alerting/latest/management_api/
+              - generic [ref=f25e292]: Management API
+            - link [ref=f25e293] [cursor=pointer]:
+              - /url: /docs/alerting/latest/https/
+              - generic [ref=f25e294]: HTTPS and authentication
+          - link "Best practices" [ref=f25e295] [cursor=pointer]:
+            - /url: "#required-for-focus"
+          - generic [ref=f25e304]:
+            - link [ref=f25e305] [cursor=pointer]:
+              - /url: /docs/practices/naming/
+              - generic [ref=f25e306]: Metric and label naming
+            - link [ref=f25e307] [cursor=pointer]:
+              - /url: /docs/practices/consoles/
+              - generic [ref=f25e308]: Consoles and dashboards
+            - link [ref=f25e309] [cursor=pointer]:
+              - /url: /docs/practices/instrumentation/
+              - generic [ref=f25e310]: Instrumentation
+            - link [ref=f25e311] [cursor=pointer]:
+              - /url: /docs/practices/histograms/
+              - generic [ref=f25e312]: Histograms and summaries
+            - link [ref=f25e313] [cursor=pointer]:
+              - /url: /docs/practices/alerting/
+              - generic [ref=f25e314]: Alerting
+            - link [ref=f25e315] [cursor=pointer]:
+              - /url: /docs/practices/rules/
+              - generic [ref=f25e316]: Recording rules
+            - link [ref=f25e317] [cursor=pointer]:
+              - /url: /docs/practices/pushing/
+              - generic [ref=f25e318]: When to use the Pushgateway
+            - link [ref=f25e319] [cursor=pointer]:
+              - /url: /docs/practices/remote_write/
+              - generic [ref=f25e320]: Remote write tuning
+            - link [ref=f25e321] [cursor=pointer]:
+              - /url: /docs/practices/the_zen/
+              - generic [ref=f25e322]: The Zen of Prometheus
+          - link "Guides" [ref=f25e323] [cursor=pointer]:
+            - /url: "#required-for-focus"
+          - generic [ref=f25e332]:
+            - link [ref=f25e333] [cursor=pointer]:
+              - /url: /docs/guides/basic-auth/
+              - generic [ref=f25e334]: Basic auth
+            - link [ref=f25e335] [cursor=pointer]:
+              - /url: /docs/guides/cadvisor/
+              - generic [ref=f25e336]: Monitoring Docker container metrics using cAdvisor
+            - link [ref=f25e337] [cursor=pointer]:
+              - /url: /docs/guides/contributing/
+              - generic [ref=f25e338]: Contributing
+            - link [ref=f25e339] [cursor=pointer]:
+              - /url: /docs/guides/file-sd/
+              - generic [ref=f25e340]: Use file-based service discovery to discover scrape targets
+            - link [ref=f25e341] [cursor=pointer]:
+              - /url: /docs/guides/go-application/
+              - generic [ref=f25e342]: Instrumenting a Go application
+            - link [ref=f25e343] [cursor=pointer]:
+              - /url: /docs/guides/multi-target-exporter/
+              - generic [ref=f25e344]: Understanding and using the multi-target exporter pattern
+            - link [ref=f25e345] [cursor=pointer]:
+              - /url: /docs/guides/node-exporter/
+              - generic [ref=f25e346]: Monitoring Linux host metrics with the Node Exporter
+            - link [ref=f25e347] [cursor=pointer]:
+              - /url: /docs/guides/opentelemetry/
+              - generic [ref=f25e348]: OpenTelemetry
+            - link [ref=f25e349] [cursor=pointer]:
+              - /url: /docs/guides/utf8/
+              - generic [ref=f25e350]: UTF-8 in Prometheus
+            - link [ref=f25e351] [cursor=pointer]:
+              - /url: /docs/guides/dockerswarm/
+              - generic [ref=f25e352]: Docker Swarm
+            - link [ref=f25e353] [cursor=pointer]:
+              - /url: /docs/guides/open_metrics_2_0_migration/
+              - generic [ref=f25e354]: OpenMetrics 2.0 Migration Guide for Client Libraries
+            - link [ref=f25e355] [cursor=pointer]:
+              - /url: /docs/guides/query-log/
+              - generic [ref=f25e356]: Query log
+            - link [ref=f25e357] [cursor=pointer]:
+              - /url: /docs/guides/tls-encryption/
+              - generic [ref=f25e358]: TLS encryption
+          - link "Tutorials" [ref=f25e359] [cursor=pointer]:
+            - /url: "#required-for-focus"
+          - generic [ref=f25e369]:
+            - link [ref=f25e370] [cursor=pointer]:
+              - /url: /docs/tutorials/getting_started/
+              - generic [ref=f25e371]: Getting started with Prometheus
+            - link [ref=f25e372] [cursor=pointer]:
+              - /url: /docs/tutorials/understanding_metric_types/
+              - generic [ref=f25e373]: Understanding metric types
+            - link [ref=f25e374] [cursor=pointer]:
+              - /url: /docs/tutorials/instrumenting_http_server_in_go/
+              - generic [ref=f25e375]: Instrumenting HTTP server written in Go
+            - link [ref=f25e376] [cursor=pointer]:
+              - /url: /docs/tutorials/visualizing_metrics_using_grafana/
+              - generic [ref=f25e377]: Visualizing metrics using Grafana
+            - link [ref=f25e378] [cursor=pointer]:
+              - /url: /docs/tutorials/alerting_based_on_metrics/
+              - generic [ref=f25e379]: Alerting based on metrics
+          - link "Specifications" [ref=f25e380] [cursor=pointer]:
+            - /url: "#required-for-focus"
+          - generic [ref=f25e390]:
+            - link [ref=f25e391] [cursor=pointer]:
+              - /url: /docs/specs/native_histograms/
+              - generic [ref=f25e392]: Native Histograms
+            - link [ref=f25e393] [cursor=pointer]:
+              - /url: "#required-for-focus"
+              - generic [ref=f25e394]: OpenMetrics
+            - generic [ref=f25e399]:
+              - link [ref=f25e400] [cursor=pointer]:
+                - /url: /docs/specs/om/open_metrics_spec/
+                - generic [ref=f25e401]: "1.0"
+              - link [ref=f25e402] [cursor=pointer]:
+                - /url: /docs/specs/om/open_metrics_spec_2_0/
+                - generic [ref=f25e403]: "2.0"
+            - link [ref=f25e404] [cursor=pointer]:
+              - /url: "#required-for-focus"
+              - generic [ref=f25e405]: Remote Write
+            - generic [ref=f25e410]:
+              - link [ref=f25e411] [cursor=pointer]:
+                - /url: /docs/specs/prw/remote_write_spec/
+                - generic [ref=f25e412]: "1.0"
+              - link [ref=f25e413] [cursor=pointer]:
+                - /url: /docs/specs/prw/remote_write_spec_2_0/
+                - generic [ref=f25e414]: "2.0"
+      - generic [ref=f25e415]:
+        - generic [ref=f25e416]:
+          - heading "Query functions" [level=1] [ref=f25e417]
+          - generic [ref=f25e418]:
+            - paragraph [ref=f25e419]:
+              - text: Some functions have default arguments, e.g.
+              - code [ref=f25e420]: year(v=vector(time()) instant-vector)
+              - text: . This means that there is one argument
+              - code [ref=f25e421]: v
+              - text: which is an instant vector, which if not provided it will default to the value of the expression
+              - code [ref=f25e422]: vector(time())
+              - text: .
+            - heading [level=2] [ref=f25e423]:
+              - code [ref=f25e424]: abs()
+              - link [ref=f25e425] [cursor=pointer]:
+                - /url: "#abs"
+            - paragraph [ref=f25e430]:
+              - code [ref=f25e431]: abs(v instant-vector)
+              - text: returns a vector containing all float samples in the input vector converted to their absolute value. Histogram samples in the input vector are ignored silently.
+            - heading [level=2] [ref=f25e432]:
+              - code [ref=f25e433]: absent()
+              - link [ref=f25e434] [cursor=pointer]:
+                - /url: "#absent"
+            - paragraph [ref=f25e439]:
+              - code [ref=f25e440]: absent(v instant-vector)
+              - text: returns an empty vector if the vector passed to it has any elements (float samples or histogram samples) and a 1-element vector with the value 1 if the vector passed to it has no elements.
+            - paragraph [ref=f25e441]: This is useful for alerting on when no time series exist for a given metric name and label combination.
+            - code [ref=f25e443]: "absent(nonexistent{job=\"myjob\"}) # => {job=\"myjob\"} absent(nonexistent{job=\"myjob\",instance=~\".*\"}) # => {job=\"myjob\"} absent(sum(nonexistent{job=\"myjob\"})) # => {}"
+            - paragraph [ref=f25e444]:
+              - text: In the first two examples,
+              - code [ref=f25e445]: absent()
+              - text: tries to be smart about deriving labels of the 1-element output vector from the input vector.
+            - heading [level=2] [ref=f25e446]:
+              - code [ref=f25e447]: absent_over_time()
+              - link [ref=f25e448] [cursor=pointer]:
+                - /url: "#absent_over_time"
+            - paragraph [ref=f25e453]:
+              - code [ref=f25e454]: absent_over_time(v range-vector)
+              - text: returns an empty vector if the range vector passed to it has any elements (float samples or histogram samples) and a 1-element vector with the value 1 if the range vector passed to it has no elements.
+            - paragraph [ref=f25e455]: This is useful for alerting on when no time series exist for a given metric name and label combination for a certain amount of time.
+            - code [ref=f25e457]: "absent_over_time(nonexistent{job=\"myjob\"}[1h]) # => {job=\"myjob\"} absent_over_time(nonexistent{job=\"myjob\",instance=~\".*\"}[1h]) # => {job=\"myjob\"} absent_over_time(sum(nonexistent{job=\"myjob\"})[1h:]) # => {}"
+            - paragraph [ref=f25e458]:
+              - text: In the first two examples,
+              - code [ref=f25e459]: absent_over_time()
+              - text: tries to be smart about deriving labels of the 1-element output vector from the input vector.
+            - heading [level=2] [ref=f25e460]:
+              - code [ref=f25e461]: ceil()
+              - link [ref=f25e462] [cursor=pointer]:
+                - /url: "#ceil"
+            - paragraph [ref=f25e467]:
+              - code [ref=f25e468]: ceil(v instant-vector)
+              - text: returns a vector containing all float samples in the input vector rounded up to the nearest integer value greater than or equal to their original value. Histogram samples in the input vector are ignored silently.
+            - list [ref=f25e469]:
+              - listitem [ref=f25e470]:
+                - code [ref=f25e471]: ceil(+Inf) = +Inf
+              - listitem [ref=f25e472]:
+                - code [ref=f25e473]: ceil(±0) = ±0
+              - listitem [ref=f25e474]:
+                - code [ref=f25e475]: ceil(1.49) = 2.0
+              - listitem [ref=f25e476]:
+                - code [ref=f25e477]: ceil(1.78) = 2.0
+            - heading [level=2] [ref=f25e478]:
+              - code [ref=f25e479]: changes()
+              - link [ref=f25e480] [cursor=pointer]:
+                - /url: "#changes"
+            - paragraph [ref=f25e485]:
+              - text: For each input time series,
+              - code [ref=f25e486]: changes(v range-vector)
+              - text: returns the number of times its value has changed within the provided time range as an instant vector. A float sample followed by a histogram sample, or vice versa, counts as a change. A counter histogram sample followed by a gauge histogram sample with otherwise exactly the same values, or vice versa, does not count as a change.
+            - heading [level=2] [ref=f25e487]:
+              - code [ref=f25e488]: clamp()
+              - link [ref=f25e489] [cursor=pointer]:
+                - /url: "#clamp"
+            - paragraph [ref=f25e494]:
+              - code [ref=f25e495]: clamp(v instant-vector, min scalar, max scalar)
+              - text: clamps the values of all float samples in
+              - code [ref=f25e496]: v
+              - text: to have a lower limit of
+              - code [ref=f25e497]: min
+              - text: and an upper limit of
+              - code [ref=f25e498]: max
+              - text: . Histogram samples in the input vector are ignored silently.
+            - paragraph [ref=f25e499]: "Special cases:"
+            - list [ref=f25e500]:
+              - listitem [ref=f25e501]:
+                - text: Return an empty vector if
+                - code [ref=f25e502]: min > max
+              - listitem [ref=f25e503]:
+                - text: Float samples are clamped to
+                - code [ref=f25e504]: NaN
+                - text: if
+                - code [ref=f25e505]: min
+                - text: or
+                - code [ref=f25e506]: max
+                - text: is
+                - code [ref=f25e507]: NaN
+            - heading [level=2] [ref=f25e508]:
+              - code [ref=f25e509]: clamp_max()
+              - link [ref=f25e510] [cursor=pointer]:
+                - /url: "#clamp_max"
+            - paragraph [ref=f25e515]:
+              - code [ref=f25e516]: clamp_max(v instant-vector, max scalar)
+              - text: clamps the values of all float samples in
+              - code [ref=f25e517]: v
+              - text: to have an upper limit of
+              - code [ref=f25e518]: max
+              - text: . Histogram samples in the input vector are ignored silently.
+            - heading [level=2] [ref=f25e519]:
+              - code [ref=f25e520]: clamp_min()
+              - link [ref=f25e521] [cursor=pointer]:
+                - /url: "#clamp_min"
+            - paragraph [ref=f25e526]:
+              - code [ref=f25e527]: clamp_min(v instant-vector, min scalar)
+              - text: clamps the values of all float samples in
+              - code [ref=f25e528]: v
+              - text: to have a lower limit of
+              - code [ref=f25e529]: min
+              - text: . Histogram samples in the input vector are ignored silently.
+            - heading [level=2] [ref=f25e530]:
+              - code [ref=f25e531]: day_of_month()
+              - link [ref=f25e532] [cursor=pointer]:
+                - /url: "#day_of_month"
+            - paragraph [ref=f25e537]:
+              - code [ref=f25e538]: day_of_month(v=vector(time()) instant-vector)
+              - text: interprets float samples in
+              - code [ref=f25e539]: v
+              - text: as timestamps (number of seconds since January 1, 1970 UTC) and returns the day of the month (in UTC) for each of those timestamps. Returned values are from 1 to 31. Histogram samples in the input vector are ignored silently.
+            - heading [level=2] [ref=f25e540]:
+              - code [ref=f25e541]: day_of_week()
+              - link [ref=f25e542] [cursor=pointer]:
+                - /url: "#day_of_week"
+            - paragraph [ref=f25e547]:
+              - code [ref=f25e548]: day_of_week(v=vector(time()) instant-vector)
+              - text: interprets float samples in
+              - code [ref=f25e549]: v
+              - text: as timestamps (number of seconds since January 1, 1970 UTC) and returns the day of the week (in UTC) for each of those timestamps. Returned values are from 0 to 6, where 0 means Sunday etc. Histogram samples in the input vector are ignored silently.
+            - heading [level=2] [ref=f25e550]:
+              - code [ref=f25e551]: day_of_year()
+              - link [ref=f25e552] [cursor=pointer]:
+                - /url: "#day_of_year"
+            - paragraph [ref=f25e557]:
+              - code [ref=f25e558]: day_of_year(v=vector(time()) instant-vector)
+              - text: interprets float samples in
+              - code [ref=f25e559]: v
+              - text: as timestamps (number of seconds since January 1, 1970 UTC) and returns the day of the year (in UTC) for each of those timestamps. Returned values are from 1 to 365 for non-leap years, and 1 to 366 in leap years. Histogram samples in the input vector are ignored silently.
+            - heading [level=2] [ref=f25e560]:
+              - code [ref=f25e561]: days_in_month()
+              - link [ref=f25e562] [cursor=pointer]:
+                - /url: "#days_in_month"
+            - paragraph [ref=f25e567]:
+              - code [ref=f25e568]: days_in_month(v=vector(time()) instant-vector)
+              - text: interprets float samples in
+              - code [ref=f25e569]: v
+              - text: as timestamps (number of seconds since January 1, 1970 UTC) and returns the number of days in the month of each of those timestamps (in UTC). Returned values are from 28 to 31. Histogram samples in the input vector are ignored silently.
+            - heading [level=2] [ref=f25e570]:
+              - code [ref=f25e571]: delta()
+              - link [ref=f25e572] [cursor=pointer]:
+                - /url: "#delta"
+            - paragraph [ref=f25e577]:
+              - code [ref=f25e578]: delta(v range-vector)
+              - text: calculates the difference between the first and last value of each time series element in a range vector
+              - code [ref=f25e579]: v
+              - text: ", returning an instant vector with the given deltas and equivalent labels. The delta is extrapolated to cover the full time range as specified in the range vector selector, so that it is possible to get a non-integer result even if the sample values are all integers."
+            - paragraph [ref=f25e580]: "The following example expression returns the difference in CPU temperature between now and 2 hours ago:"
+            - code [ref=f25e582]: "delta(cpu_temp_celsius{host=\"zeus\"}[2h])"
+            - paragraph [ref=f25e583]:
+              - code [ref=f25e584]: delta
+              - text: acts on histogram samples by calculating a new histogram where each component (sum and count of observations, buckets) is the difference between the respective component in the first and last native histogram in
+              - code [ref=f25e585]: v
+              - text: . However, each element in
+              - code [ref=f25e586]: v
+              - text: that contains a mix of float samples and histogram samples within the range will be omitted from the result vector, flagged by a warn-level annotation.
+            - paragraph [ref=f25e587]:
+              - code [ref=f25e588]: delta
+              - text: should only be used with gauges (for both floats and histograms).
+            - heading [level=2] [ref=f25e589]:
+              - code [ref=f25e590]: deriv()
+              - link [ref=f25e591] [cursor=pointer]:
+                - /url: "#deriv"
+            - paragraph [ref=f25e596]:
+              - code [ref=f25e597]: deriv(v range-vector)
+              - text: calculates the per-second derivative of each float time series in the range vector
+              - code [ref=f25e598]: v
+              - text: ", using"
+              - link "simple linear regression" [ref=f25e599] [cursor=pointer]:
+                - /url: https://en.wikipedia.org/wiki/Simple_linear_regression
+              - text: . The range vector must have at least two float samples in order to perform the calculation. When
+              - code [ref=f25e605]: +Inf
+              - text: or
+              - code [ref=f25e606]: "-Inf"
+              - text: are found in the range vector, the slope and offset value calculated will be
+              - code [ref=f25e607]: NaN
+              - text: .
+            - paragraph [ref=f25e608]:
+              - code [ref=f25e609]: deriv
+              - text: should only be used with gauges and only works for float samples. Elements in the range vector that contain only histogram samples are ignored entirely. For elements that contain a mix of float and histogram samples, only the float samples are used as input, which is flagged by an info-level annotation.
+            - heading [level=2] [ref=f25e610]:
+              - code [ref=f25e611]: end()
+              - link [ref=f25e612] [cursor=pointer]:
+                - /url: "#end"
+            - paragraph [ref=f25e617]:
+              - strong [ref=f25e618]:
+                - text: This function has to be enabled via the
+                - link "feature flag" [ref=f25e619] [cursor=pointer]:
+                  - /url: /docs/prometheus/latest/feature_flags/#experimental-promql-functions
+                - code [ref=f25e620]: "--enable-feature=promql-experimental-functions"
+                - text: .
+            - paragraph [ref=f25e621]:
+              - code [ref=f25e622]: end()
+              - text: returns the end timestamp of the current query range evaluation as the number of seconds since January 1, 1970 UTC. For instant queries, this is equal to the evaluation timestamp.
+            - heading [level=2] [ref=f25e623]:
+              - code [ref=f25e624]: double_exponential_smoothing()
+              - link [ref=f25e625] [cursor=pointer]:
+                - /url: "#double_exponential_smoothing"
+            - paragraph [ref=f25e630]:
+              - strong [ref=f25e631]:
+                - text: This function has to be enabled via the
+                - link "feature flag" [ref=f25e632] [cursor=pointer]:
+                  - /url: /docs/prometheus/latest/feature_flags/#experimental-promql-functions
+                - code [ref=f25e633]: "--enable-feature=promql-experimental-functions"
+                - text: .
+            - paragraph [ref=f25e634]:
+              - code [ref=f25e635]: double_exponential_smoothing(v range-vector, sf scalar, tf scalar)
+              - text: produces a smoothed value for each float time series in the range in
+              - code [ref=f25e636]: v
+              - text: . The lower the smoothing factor
+              - code [ref=f25e637]: sf
+              - text: ", the more importance is given to old data. The higher the trend factor"
+              - code [ref=f25e638]: tf
+              - text: ", the more trends in the data is considered. Both"
+              - code [ref=f25e639]: sf
+              - text: and
+              - code [ref=f25e640]: tf
+              - text: must be between 0 and 1. For additional details, refer to
+              - link "NIST Engineering Statistics Handbook" [ref=f25e641] [cursor=pointer]:
+                - /url: https://www.itl.nist.gov/div898/handbook/pmc/section4/pmc433.htm
+              - text: . In Prometheus V2 this function was called
+              - code [ref=f25e647]: holt_winters
+              - text: . This caused confusion since the Holt-Winters method usually refers to triple exponential smoothing. Double exponential smoothing as implemented here is also referred to as "Holt Linear".
+            - paragraph [ref=f25e648]:
+              - code [ref=f25e649]: double_exponential_smoothing
+              - text: should only be used with gauges and only works for float samples. Elements in the range vector that contain only histogram samples are ignored entirely. For elements that contain a mix of float and histogram samples, only the float samples are used as input, which is flagged by an info-level annotation.
+            - heading [level=2] [ref=f25e650]:
+              - code [ref=f25e651]: exp()
+              - link [ref=f25e652] [cursor=pointer]:
+                - /url: "#exp"
+            - paragraph [ref=f25e657]:
+              - code [ref=f25e658]: exp(v instant-vector)
+              - text: calculates the exponential function for all float samples in
+              - code [ref=f25e659]: v
+              - text: ". Histogram samples are ignored silently. Special cases are:"
+            - list [ref=f25e660]:
+              - listitem [ref=f25e661]:
+                - code [ref=f25e662]: Exp(+Inf) = +Inf
+              - listitem [ref=f25e663]:
+                - code [ref=f25e664]: Exp(NaN) = NaN
+            - heading [level=2] [ref=f25e665]:
+              - code [ref=f25e666]: floor()
+              - link [ref=f25e667] [cursor=pointer]:
+                - /url: "#floor"
+            - paragraph [ref=f25e672]:
+              - code [ref=f25e673]: floor(v instant-vector)
+              - text: returns a vector containing all float samples in the input vector rounded down to the nearest integer value smaller than or equal to their original value. Histogram samples in the input vector are ignored silently.
+            - list [ref=f25e674]:
+              - listitem [ref=f25e675]:
+                - code [ref=f25e676]: floor(+Inf) = +Inf
+              - listitem [ref=f25e677]:
+                - code [ref=f25e678]: floor(±0) = ±0
+              - listitem [ref=f25e679]:
+                - code [ref=f25e680]: floor(1.49) = 1.0
+              - listitem [ref=f25e681]:
+                - code [ref=f25e682]: floor(1.78) = 1.0
+            - heading [level=2] [ref=f25e683]:
+              - code [ref=f25e684]: histogram_avg()
+              - link [ref=f25e685] [cursor=pointer]:
+                - /url: "#histogram_avg"
+            - paragraph [ref=f25e690]:
+              - code [ref=f25e691]: histogram_avg(v instant-vector)
+              - text: returns the arithmetic average of observed values stored in each native histogram sample in
+              - code [ref=f25e692]: v
+              - text: . Float samples are ignored and do not show up in the returned vector.
+            - paragraph [ref=f25e693]:
+              - text: Use
+              - code [ref=f25e694]: histogram_avg
+              - text: "as demonstrated below to compute the average request duration over a 5-minute window from a native histogram:"
+            - code [ref=f25e696]: histogram_avg(rate(http_request_duration_seconds[5m]))
+            - paragraph [ref=f25e697]: "Which is equivalent to the following query:"
+            - code [ref=f25e699]: histogram_sum(rate(http_request_duration_seconds[5m])) / histogram_count(rate(http_request_duration_seconds[5m]))
+            - heading [level=2] [ref=f25e700]:
+              - code [ref=f25e701]: histogram_count()
+              - text: and
+              - code [ref=f25e702]: histogram_sum()
+              - link [ref=f25e703] [cursor=pointer]:
+                - /url: "#histogram_count-and-histogram_sum"
+            - paragraph [ref=f25e708]:
+              - code [ref=f25e709]: histogram_count(v instant-vector)
+              - text: returns the count of observations stored in each native histogram sample in
+              - code [ref=f25e710]: v
+              - text: . Float samples are ignored and do not show up in the returned vector.
+            - paragraph [ref=f25e711]:
+              - text: Similarly,
+              - code [ref=f25e712]: histogram_sum(v instant-vector)
+              - text: returns the sum of observations stored in each native histogram sample.
+            - paragraph [ref=f25e713]:
+              - text: Use
+              - code [ref=f25e714]: histogram_count
+              - text: "in the following way to calculate a rate of observations (in this case corresponding to “requests per second”) from a series of histogram samples:"
+            - code [ref=f25e716]: histogram_count(rate(http_request_duration_seconds[10m]))
+            - heading [level=2] [ref=f25e717]:
+              - code [ref=f25e718]: histogram_fraction()
+              - link [ref=f25e719] [cursor=pointer]:
+                - /url: "#histogram_fraction"
+            - paragraph [ref=f25e724]:
+              - code [ref=f25e725]: histogram_fraction(lower scalar, upper scalar, b instant-vector)
+              - text: returns the estimated fraction of observations between the provided lower and upper values for each classic or native histogram contained in
+              - code [ref=f25e726]: b
+              - text: . Float samples in
+              - code [ref=f25e727]: b
+              - text: are considered the counts of observations in each bucket of one or more classic histograms, while native histogram samples in
+              - code [ref=f25e728]: b
+              - text: are treated each individually as a separate histogram. This works in the same way as for
+              - code [ref=f25e729]: histogram_quantile()
+              - text: . (See there for more details.)
+            - paragraph [ref=f25e730]:
+              - text: If the provided lower and upper values do not coincide with bucket boundaries, the calculated fraction is an estimate, using the same interpolation method as for
+              - code [ref=f25e731]: histogram_quantile()
+              - text: . (See there for more details.) Especially with classic histograms, it is easy to accidentally pick lower or upper values that are very far away from any bucket boundary, leading to large margins of error. Rather than using
+              - code [ref=f25e732]: histogram_fraction()
+              - text: with classic histograms, it is often a more robust approach to directly act on the bucket series when calculating fractions. See the
+              - link "calculation of the Apdex score" [ref=f25e733] [cursor=pointer]:
+                - /url: /docs/practices/histograms/#apdex-score
+              - text: as a typical example.
+            - paragraph [ref=f25e734]: "For example, the following expression calculates the fraction of HTTP requests over the last hour that took 200ms or less:"
+            - code [ref=f25e736]: histogram_fraction(0, 0.2, rate(http_request_duration_seconds[1h]))
+            - paragraph [ref=f25e737]: The error of the estimation depends on the resolution of the underlying native histogram and how closely the provided boundaries are aligned with the bucket boundaries in the histogram.
+            - paragraph [ref=f25e738]:
+              - code [ref=f25e739]: +Inf
+              - text: and
+              - code [ref=f25e740]: "-Inf"
+              - text: are valid boundary values. For example, if the histogram in the expression above included negative observations (which shouldn't be the case for request durations), the appropriate lower boundary to include all observations less than or equal 0.2 would be
+              - code [ref=f25e741]: "-Inf"
+              - text: rather than
+              - code [ref=f25e742]: "0"
+              - text: .
+            - paragraph [ref=f25e743]: Whether the provided boundaries are inclusive or exclusive is only relevant if the provided boundaries are precisely aligned with bucket boundaries in the underlying native histogram. In this case, the behavior depends on the schema definition of the histogram. (The usual standard exponential schemas all feature inclusive upper boundaries and exclusive lower boundaries for positive values, and vice versa for negative values.) Without a precise alignment of boundaries, the function uses interpolation to estimate the fraction. With the resulting uncertainty, it becomes irrelevant if the boundaries are inclusive or exclusive.
+            - paragraph [ref=f25e744]:
+              - text: "Special case for native histograms with standard exponential buckets:"
+              - code [ref=f25e745]: NaN
+              - text: observations are considered outside of any buckets in this case.
+              - code [ref=f25e746]: histogram_fraction(-Inf, +Inf, b)
+              - text: effectively returns the fraction of non-
+              - code [ref=f25e747]: NaN
+              - text: observations and may therefore be less than 1.
+            - heading [level=2] [ref=f25e748]:
+              - code [ref=f25e749]: histogram_quantile()
+              - link [ref=f25e750] [cursor=pointer]:
+                - /url: "#histogram_quantile"
+            - paragraph [ref=f25e755]:
+              - code [ref=f25e756]: histogram_quantile(φ scalar, b instant-vector)
+              - text: calculates the φ-quantile (0 ≤ φ ≤ 1) from a
+              - link "classic histogram" [ref=f25e757] [cursor=pointer]:
+                - /url: /docs/concepts/metric_types/#histogram
+              - text: or from a native histogram. (See
+              - link "histograms and summaries" [ref=f25e758] [cursor=pointer]:
+                - /url: /docs/practices/histograms/
+              - text: for a detailed explanation of φ-quantiles and the usage of the (classic) histogram metric type in general.)
+            - paragraph [ref=f25e759]:
+              - text: The float samples in
+              - code [ref=f25e760]: b
+              - text: are considered the counts of observations in each bucket of one or more classic histograms. Each float sample must have a label
+              - code [ref=f25e761]: le
+              - text: where the label value denotes the inclusive upper bound of the bucket. (Float samples without such a label are silently ignored.) The other labels and the metric name are used to identify the buckets belonging to each classic histogram. The
+              - link "histogram metric type" [ref=f25e762] [cursor=pointer]:
+                - /url: /docs/concepts/metric_types/#histogram
+              - text: automatically provides time series with the
+              - code [ref=f25e763]: _bucket
+              - text: suffix and the appropriate labels.
+            - paragraph [ref=f25e764]:
+              - text: The (native) histogram samples in
+              - code [ref=f25e765]: b
+              - text: are treated each individually as a separate histogram to calculate the quantile from.
+            - paragraph [ref=f25e766]:
+              - text: As long as no naming collisions arise,
+              - code [ref=f25e767]: b
+              - text: may contain a mix of classic and native histograms.
+            - paragraph [ref=f25e768]:
+              - text: Use the
+              - code [ref=f25e769]: rate()
+              - text: function to specify the time window for the quantile calculation.
+            - paragraph [ref=f25e770]:
+              - text: "Example: A histogram metric is called"
+              - code [ref=f25e771]: http_request_duration_seconds
+              - text: (and therefore the metric name for the buckets of a classic histogram is
+              - code [ref=f25e772]: http_request_duration_seconds_bucket
+              - text: ). To calculate the 90th percentile of request durations over the last 10m, use the following expression in case
+              - code [ref=f25e773]: http_request_duration_seconds
+              - text: "is a classic histogram:"
+            - code [ref=f25e775]: histogram_quantile(0.9, rate(http_request_duration_seconds_bucket[10m]))
+            - paragraph [ref=f25e776]: "For a native histogram, use the following expression instead:"
+            - code [ref=f25e778]: histogram_quantile(0.9, rate(http_request_duration_seconds[10m]))
+            - paragraph [ref=f25e779]:
+              - text: The quantile is calculated for each label combination in
+              - code [ref=f25e780]: http_request_duration_seconds
+              - text: . To aggregate, use the
+              - code [ref=f25e781]: sum()
+              - text: aggregator around the
+              - code [ref=f25e782]: rate()
+              - text: function. Since the
+              - code [ref=f25e783]: le
+              - text: label is required by
+              - code [ref=f25e784]: histogram_quantile()
+              - text: to deal with classic histograms, it has to be included in the
+              - code [ref=f25e785]: by
+              - text: clause. The following expression aggregates the 90th percentile by
+              - code [ref=f25e786]: job
+              - text: "for classic histograms:"
+            - code [ref=f25e788]: histogram_quantile(0.9, sum by (job, le) (rate(http_request_duration_seconds_bucket[10m])))
+            - paragraph [ref=f25e789]: "When aggregating native histograms, the expression simplifies to:"
+            - code [ref=f25e791]: histogram_quantile(0.9, sum by (job) (rate(http_request_duration_seconds[10m])))
+            - paragraph [ref=f25e792]:
+              - text: To aggregate all classic histograms, specify only the
+              - code [ref=f25e793]: le
+              - text: "label:"
+            - code [ref=f25e795]: histogram_quantile(0.9, sum by (le) (rate(http_request_duration_seconds_bucket[10m])))
+            - paragraph [ref=f25e796]:
+              - text: With native histograms, aggregating everything works as usual without any
+              - code [ref=f25e797]: by
+              - text: "clause:"
+            - code [ref=f25e799]: histogram_quantile(0.9, sum(rate(http_request_duration_seconds[10m])))
+            - paragraph [ref=f25e800]:
+              - text: In the (common) case that a quantile value does not coincide with a bucket boundary, the
+              - code [ref=f25e801]: histogram_quantile()
+              - text: function interpolates the quantile value within the bucket the quantile value falls into. For classic histograms, for native histograms with custom bucket boundaries, and for the zero bucket of other native histograms, it assumes a uniform distribution of observations within the bucket (also called
+              - emphasis [ref=f25e802]: linear interpolation
+              - text: ). For the non-zero-buckets of native histograms with a standard exponential bucketing schema, the interpolation is done under the assumption that the samples within the bucket are distributed in a way that they would uniformly populate the buckets in a hypothetical histogram with higher resolution. (This is also called
+              - emphasis [ref=f25e803]: exponential interpolation
+              - text: . See the
+              - link "native histogram specification" [ref=f25e804] [cursor=pointer]:
+                - /url: /docs/specs/native_histograms/#interpolation-within-a-bucket
+              - text: for more details.)
+            - paragraph [ref=f25e805]:
+              - text: If
+              - code [ref=f25e806]: b
+              - text: has 0 observations,
+              - code [ref=f25e807]: NaN
+              - text: is returned. For φ < 0,
+              - code [ref=f25e808]: "-Inf"
+              - text: is returned. For φ > 1,
+              - code [ref=f25e809]: +Inf
+              - text: is returned. For φ =
+              - code [ref=f25e810]: NaN
+              - text: ","
+              - code [ref=f25e811]: NaN
+              - text: is returned.
+            - paragraph [ref=f25e812]: "Special cases for classic histograms:"
+            - list [ref=f25e813]:
+              - listitem [ref=f25e814]:
+                - text: If
+                - code [ref=f25e815]: b
+                - text: contains fewer than two buckets,
+                - code [ref=f25e816]: NaN
+                - text: is returned.
+              - listitem [ref=f25e817]:
+                - text: The highest bucket must have an upper bound of
+                - code [ref=f25e818]: +Inf
+                - text: . (Otherwise,
+                - code [ref=f25e819]: NaN
+                - text: is returned.)
+              - listitem [ref=f25e820]: If a quantile is located in the highest bucket, the upper bound of the second highest bucket is returned.
+              - listitem [ref=f25e821]: The lower limit of the lowest bucket is assumed to be 0 if the upper bound of that bucket is greater than 0. In that case, the usual linear interpolation is applied within that bucket. Otherwise, the upper bound of the lowest bucket is returned for quantiles located in the lowest bucket.
+            - paragraph [ref=f25e822]: "Special cases for native histograms:"
+            - list [ref=f25e823]:
+              - listitem [ref=f25e824]:
+                - text: If a native histogram with standard exponential buckets has
+                - code [ref=f25e825]: NaN
+                - text: observations and the quantile falls into one of the existing exponential buckets, the result is skewed towards higher values due to
+                - code [ref=f25e826]: NaN
+                - text: observations treated as
+                - code [ref=f25e827]: +Inf
+                - text: . This is flagged with an info level annotation.
+              - listitem [ref=f25e828]:
+                - text: If a native histogram with standard exponential buckets has
+                - code [ref=f25e829]: NaN
+                - text: observations and the quantile falls above all of the existing exponential buckets,
+                - code [ref=f25e830]: NaN
+                - text: is returned. This is flagged with an info level annotation.
+              - listitem [ref=f25e831]: A zero bucket with finite width is assumed to contain no negative observations if the histogram has observations in positive buckets, but none in negative buckets.
+              - listitem [ref=f25e832]: A zero bucket with finite width is assumed to contain no positive observations if the histogram has observations in negative buckets, but none in positive buckets.
+            - paragraph [ref=f25e833]:
+              - text: You can use
+              - code [ref=f25e834]: histogram_quantile(0, v instant-vector)
+              - text: to get the estimated minimum value stored in a histogram.
+            - paragraph [ref=f25e835]:
+              - text: You can use
+              - code [ref=f25e836]: histogram_quantile(1, v instant-vector)
+              - text: to get the estimated maximum value stored in a histogram.
+            - paragraph [ref=f25e837]: "Buckets of classic histograms are cumulative. Therefore, the following should always be the case:"
+            - list [ref=f25e838]:
+              - listitem [ref=f25e839]: The counts in the buckets are monotonically increasing (strictly non-decreasing).
+              - listitem [ref=f25e840]: A lack of observations between the upper limits of two consecutive buckets results in equal counts in those two buckets.
+            - paragraph [ref=f25e841]:
+              - text: However, floating point precision issues (e.g. small discrepancies introduced by computing of buckets with
+              - code [ref=f25e842]: sum(rate(...))
+              - text: ) or invalid data might violate these assumptions. In that case,
+              - code [ref=f25e843]: histogram_quantile
+              - text: would be unable to return meaningful results. To mitigate the issue,
+              - code [ref=f25e844]: histogram_quantile
+              - text: assumes that tiny relative differences between consecutive buckets are happening because of floating point precision errors and ignores them. (The threshold to ignore a difference between two buckets is a trillionth (1e-12) of the sum of both buckets.) Furthermore, if there are non-monotonic bucket counts even after this adjustment, they are increased to the value of the previous buckets to enforce monotonicity. The latter is evidence for an actual issue with the input data and is therefore flagged by an info-level annotation reading
+              - code [ref=f25e845]: input to histogram_quantile needed to be fixed for monotonicity
+              - text: . If you encounter this annotation, you should find and remove the source of the invalid data.
+            - heading [level=2] [ref=f25e846]:
+              - code [ref=f25e847]: histogram_quantiles()
+              - link [ref=f25e848] [cursor=pointer]:
+                - /url: "#histogram_quantiles"
+            - paragraph [ref=f25e853]:
+              - strong [ref=f25e854]:
+                - text: This function has to be enabled via the
+                - link "feature flag" [ref=f25e855] [cursor=pointer]:
+                  - /url: /docs/prometheus/latest/feature_flags/#experimental-promql-functions
+                - code [ref=f25e856]: "--enable-feature=promql-experimental-functions"
+                - text: .
+            - paragraph [ref=f25e857]:
+              - code [ref=f25e858]: histogram_quantiles(v instant-vector, quantile_label string, φ_1 scalar, φ_2 scalar, ...)
+              - text: calculates multiple (between 1 and 10) φ-quantiles (0 ≤ φ ≤ 1) from a
+              - link "classic histogram" [ref=f25e859] [cursor=pointer]:
+                - /url: /docs/concepts/metric_types/#histogram
+              - text: or from a native histogram. Quantile calculation works the same way as in
+              - code [ref=f25e860]: histogram_quantile()
+              - text: . The second argument (a string) specifies the label name that is used to identify different quantiles in the query result.
+            - code [ref=f25e862]: "histogram_quantiles(sum(rate(foo[1m])), \"quantile\", 0.9, 0.99) # => {quantile=\"0.9\"} 123 {quantile=\"0.99\"} 128"
+            - heading [level=2] [ref=f25e863]:
+              - code [ref=f25e864]: histogram_stddev()
+              - text: and
+              - code [ref=f25e865]: histogram_stdvar()
+              - link [ref=f25e866] [cursor=pointer]:
+                - /url: "#histogram_stddev-and-histogram_stdvar"
+            - paragraph [ref=f25e871]:
+              - code [ref=f25e872]: histogram_stddev(v instant-vector)
+              - text: returns the estimated standard deviation of observations for each native histogram sample in
+              - code [ref=f25e873]: v
+              - text: . For this estimation, all observations in a bucket are assumed to have the value of the mean of the bucket boundaries. For the zero bucket and for buckets with custom boundaries, the arithmetic mean is used. For the usual exponential buckets, the geometric mean is used. Float samples are ignored and do not show up in the returned vector.
+            - paragraph [ref=f25e874]:
+              - text: Similarly,
+              - code [ref=f25e875]: histogram_stdvar(v instant-vector)
+              - text: returns the estimated variance of observations for each native histogram sample in
+              - code [ref=f25e876]: v
+              - text: .
+            - heading [level=2] [ref=f25e877]:
+              - code [ref=f25e878]: hour()
+              - link [ref=f25e879] [cursor=pointer]:
+                - /url: "#hour"
+            - paragraph [ref=f25e884]:
+              - code [ref=f25e885]: hour(v=vector(time()) instant-vector)
+              - text: interprets float samples in
+              - code [ref=f25e886]: v
+              - text: as timestamps (number of seconds since January 1, 1970 UTC) and returns the hour of the day (in UTC) for each of those timestamps. Returned values are from 0 to 23. Histogram samples in the input vector are ignored silently.
+            - heading [level=2] [ref=f25e887]:
+              - code [ref=f25e888]: idelta()
+              - link [ref=f25e889] [cursor=pointer]:
+                - /url: "#idelta"
+            - paragraph [ref=f25e894]:
+              - code [ref=f25e895]: idelta(v range-vector)
+              - text: calculates the difference between the last two samples in the range vector
+              - code [ref=f25e896]: v
+              - text: ", returning an instant vector with the given deltas and equivalent labels. Both samples must be either float samples or histogram samples. Elements in"
+              - code [ref=f25e897]: v
+              - text: where one of the last two samples is a float sample and the other is a histogram sample will be omitted from the result vector, flagged by a warn-level annotation.
+            - paragraph [ref=f25e898]:
+              - code [ref=f25e899]: idelta
+              - text: should only be used with gauges (for both floats and histograms).
+            - heading [level=2] [ref=f25e900]:
+              - code [ref=f25e901]: increase()
+              - link [ref=f25e902] [cursor=pointer]:
+                - /url: "#increase"
+            - paragraph [ref=f25e907]:
+              - code [ref=f25e908]: increase(v range-vector)
+              - text: calculates the increase in the time series in the range vector. Breaks in monotonicity (such as counter resets due to target restarts) are automatically adjusted for. The increase is extrapolated to cover the full time range as specified in the range vector selector, so that it is possible to get a non-integer result even if a counter increases only by integer increments.
+            - paragraph [ref=f25e909]: "The following example expression returns the number of HTTP requests as measured over the last 5 minutes, per time series in the range vector:"
+            - code [ref=f25e911]: "increase(http_requests_total{job=\"api-server\"}[5m])"
+            - paragraph [ref=f25e912]:
+              - code [ref=f25e913]: increase
+              - text: acts on histogram samples by calculating a new histogram where each component (sum and count of observations, buckets) is the increase between the respective component in the first and last native histogram in
+              - code [ref=f25e914]: v
+              - text: . However, each element in
+              - code [ref=f25e915]: v
+              - text: that contains a mix of float samples and histogram samples within the range, will be omitted from the result vector, flagged by a warn-level annotation.
+            - paragraph [ref=f25e916]:
+              - code [ref=f25e917]: increase
+              - text: should only be used with counters (for both floats and histograms). It is syntactic sugar for
+              - code [ref=f25e918]: rate(v)
+              - text: multiplied by the number of seconds under the specified time range window, and should be used primarily for human readability. Use
+              - code [ref=f25e919]: rate
+              - text: in recording rules so that increases are tracked consistently on a per-second basis.
+            - heading [level=2] [ref=f25e920]:
+              - code [ref=f25e921]: info()
+              - link [ref=f25e922] [cursor=pointer]:
+                - /url: "#info"
+            - paragraph [ref=f25e927]:
+              - emphasis [ref=f25e928]:
+                - text: The
+                - code [ref=f25e929]: info
+                - text: function is an experiment to improve UX around including labels from
+                - link "info metrics" [ref=f25e930] [cursor=pointer]:
+                  - /url: https://grafana.com/blog/2021/08/04/how-to-use-promql-joins-for-more-effective-queries-of-prometheus-metrics-at-scale/#info-metrics
+                - text: . The behavior of this function may change in future versions of Prometheus, including its removal from PromQL.
+                - code [ref=f25e936]: info
+                - text: has to be enabled via the
+                - link "feature flag" [ref=f25e937] [cursor=pointer]:
+                  - /url: /docs/prometheus/latest/feature_flags/#experimental-promql-functions
+                - code [ref=f25e938]: "--enable-feature=promql-experimental-functions"
+                - text: .
+            - paragraph [ref=f25e939]:
+              - code [ref=f25e940]: info(v instant-vector, [data-label-selector instant-vector])
+              - text: finds, for each time series in
+              - code [ref=f25e941]: v
+              - text: ", all info series with matching"
+              - emphasis [ref=f25e942]: identifying
+              - text: labels (more on this later), and adds the union of their
+              - emphasis [ref=f25e943]: data
+              - text: (i.e., non-identifying) labels to the time series. The second argument
+              - code [ref=f25e944]: data-label-selector
+              - text: is optional. It is not a real instant vector, but uses a subset of its syntax. It must start and end with curly braces (
+              - code [ref=f25e945]: "{ ... }"
+              - text: ) and may only contain label matchers. The label matchers are used to constrain which info series to consider and which data labels to add to
+              - code [ref=f25e946]: v
+              - text: .
+            - paragraph [ref=f25e947]:
+              - text: If there is no matching info series for a given time series in
+              - code [ref=f25e948]: v
+              - text: "at a particular timestamp (e.g. because the info series has gone stale), the behavior depends on the data label matchers: If the"
+              - code [ref=f25e949]: data-label-selector
+              - text: contains any matcher that does not match the empty string (e.g.
+              - code [ref=f25e950]: "{data=~\".+\"}"
+              - text: ), then that time series is dropped from the result at that timestamp, because the required enrichment is unavailable. If all matchers match the empty string (e.g.
+              - code [ref=f25e951]: "{data=~\".*\"}"
+              - text: ), or if no
+              - code [ref=f25e952]: data-label-selector
+              - text: is provided, the time series is returned without enrichment.
+            - paragraph [ref=f25e953]:
+              - text: Identifying labels of an info series are the subset of labels that uniquely identify the info series. The remaining labels are considered
+              - emphasis [ref=f25e954]: data labels
+              - text: (also called non-identifying). (Note that Prometheus's concept of time series identity always includes
+              - emphasis [ref=f25e955]: all
+              - text: the labels. For the sake of the
+              - code [ref=f25e956]: info
+              - text: function, we “logically” define info series identity in a different way than in the conventional Prometheus view.) The identifying labels of an info series are used to join it to regular (non-info) series, i.e. those series that have the same labels as the identifying labels of the info series. The data labels, which are the ones added to the regular series by the
+              - code [ref=f25e957]: info
+              - text: function, effectively encode metadata key value pairs. (This implies that a change in the data labels in the conventional Prometheus view constitutes the end of one info series and the beginning of a new info series, while the “logical” view of the
+              - code [ref=f25e958]: info
+              - text: function is that the same info series continues to exist, just with different “data”.)
+            - paragraph [ref=f25e959]: "The conventional approach of adding data labels is sometimes called a “join query”, as illustrated by the following example:"
+            - code [ref=f25e961]: rate(http_server_request_duration_seconds_count[2m]) * on (job, instance) group_left (k8s_cluster_name) target_info
+            - paragraph [ref=f25e962]:
+              - text: The core of the query is the expression
+              - code [ref=f25e963]: rate(http_server_request_duration_seconds_count[2m])
+              - text: . But to add data labels from an info metric, the user has to use elaborate (and not very obvious) syntax to specify which info metric to use (
+              - code [ref=f25e964]: target_info
+              - text: ), what the identifying labels are (
+              - code [ref=f25e965]: on (job, instance)
+              - text: ), and which data labels to add (
+              - code [ref=f25e966]: group_left (k8s_cluster_name)
+              - text: ).
+            - paragraph [ref=f25e967]:
+              - text: "This query is not only verbose and hard to write, it might also run into an “identity crisis”: If any of the data labels of"
+              - code [ref=f25e968]: target_info
+              - text: changes, Prometheus sees that as a change of series (as alluded to above, Prometheus just has no native concept of non-identifying labels). If the old
+              - code [ref=f25e969]: target_info
+              - text: series is not properly marked as stale (which can happen with certain ingestion paths), the query above will fail for up to 5m (the lookback delta) because it will find a conflicting match with both the old and the new version of
+              - code [ref=f25e970]: target_info
+              - text: .
+            - paragraph [ref=f25e971]:
+              - text: The
+              - code [ref=f25e972]: info
+              - text: function not only resolves this conflict in favor of the newer series, it also simplifies the syntax because it knows about the available info series and what their identifying labels are. The example query looks like this with the
+              - code [ref=f25e973]: info
+              - text: "function:"
+            - code [ref=f25e975]: "info( rate(http_server_request_duration_seconds_count[2m]), {k8s_cluster_name=~\".+\"} )"
+            - paragraph [ref=f25e976]:
+              - text: The common case of adding
+              - emphasis [ref=f25e977]: all
+              - text: data labels can be achieved by omitting the 2nd argument of the
+              - code [ref=f25e978]: info
+              - text: "function entirely, simplifying the example even more:"
+            - code [ref=f25e980]: info(rate(http_server_request_duration_seconds_count[2m]))
+            - paragraph [ref=f25e981]:
+              - text: While
+              - code [ref=f25e982]: info
+              - text: normally automatically finds all matching info series, it's possible to restrict them by providing a
+              - code [ref=f25e983]: __name__
+              - text: label matcher, e.g.
+              - code [ref=f25e984]: "{__name__=\"target_info\"}"
+              - text: .
+            - paragraph [ref=f25e985]:
+              - text: Note that if there are any time series in
+              - code [ref=f25e986]: v
+              - text: that match the
+              - code [ref=f25e987]: data-label-selector
+              - text: (or the default
+              - code [ref=f25e988]: target_info
+              - text: if that argument is not specified), they will be treated as info series and will be returned unchanged.
+            - heading "Limitations" [level=3] [ref=f25e989]:
+              - text: Limitations
+              - link [ref=f25e990] [cursor=pointer]:
+                - /url: "#limitations"
+            - paragraph [ref=f25e995]:
+              - text: In its current iteration,
+              - code [ref=f25e996]: info
+              - text: defaults to considering only info series with the name
+              - code [ref=f25e997]: target_info
+              - text: . It also assumes that the identifying info series labels are
+              - code [ref=f25e998]: instance
+              - text: and
+              - code [ref=f25e999]: job
+              - text: .
+              - code [ref=f25e1000]: info
+              - text: does support other info series names however, through
+              - code [ref=f25e1001]: __name__
+              - text: label matchers. E.g., one can explicitly say to consider both
+              - code [ref=f25e1002]: target_info
+              - text: and
+              - code [ref=f25e1003]: build_info
+              - text: "as follows:"
+              - code [ref=f25e1004]: "{__name__=~\"(target|build)_info\"}"
+              - text: . However, the identifying labels always have to be
+              - code [ref=f25e1005]: instance
+              - text: and
+              - code [ref=f25e1006]: job
+              - text: .
+            - paragraph [ref=f25e1007]:
+              - text: When only negated
+              - code [ref=f25e1008]: __name__
+              - text: matchers are provided (e.g.
+              - code [ref=f25e1009]: "{__name__!=\"target_info\"}"
+              - text: ),
+              - code [ref=f25e1010]: info
+              - text: considers all metrics matching
+              - code [ref=f25e1011]: .+_info
+              - text: and then applies the negated matchers as filters. This is because negated matchers alone cannot positively identify which info metrics to consider.
+            - paragraph [ref=f25e1012]:
+              - text: These limitations are partially defeating the purpose of the
+              - code [ref=f25e1013]: info
+              - text: function. At the current stage, this is an experiment to find out how useful the approach turns out to be in practice. A final version of the
+              - code [ref=f25e1014]: info
+              - text: function will indeed consider all matching info series and with their appropriate identifying labels.
+            - heading [level=2] [ref=f25e1015]:
+              - code [ref=f25e1016]: irate()
+              - link [ref=f25e1017] [cursor=pointer]:
+                - /url: "#irate"
+            - paragraph [ref=f25e1022]:
+              - code [ref=f25e1023]: irate(v range-vector)
+              - text: calculates the per-second instant rate of increase of the time series in the range vector. This is based on the last two data points. Breaks in monotonicity (such as counter resets due to target restarts) are automatically adjusted for. Both samples must be either float samples or histogram samples. Elements in
+              - code [ref=f25e1024]: v
+              - text: where one of the last two samples is a float sample and the other is a histogram sample will be omitted from the result vector, flagged by a warn-level annotation.
+            - paragraph [ref=f25e1025]:
+              - code [ref=f25e1026]: irate
+              - text: should only be used with counters (for both floats and histograms).
+            - paragraph [ref=f25e1027]: "The following example expression returns the per-second rate of HTTP requests looking up to 5 minutes back for the two most recent data points, per time series in the range vector:"
+            - code [ref=f25e1029]: "irate(http_requests_total{job=\"api-server\"}[5m])"
+            - paragraph [ref=f25e1030]:
+              - code [ref=f25e1031]: irate
+              - text: should only be used when graphing volatile, fast-moving counters. Use
+              - code [ref=f25e1032]: rate
+              - text: for alerts and slow-moving counters, as brief changes in the rate can reset the
+              - code [ref=f25e1033]: FOR
+              - text: clause and graphs consisting entirely of rare spikes are hard to read.
+            - paragraph [ref=f25e1034]:
+              - text: Note that when combining
+              - code [ref=f25e1035]: irate()
+              - text: with an
+              - link "aggregation operator" [ref=f25e1036] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/querying/operators/#aggregation-operators
+              - text: (e.g.
+              - code [ref=f25e1037]: sum()
+              - text: ) or a function aggregating over time (any function ending in
+              - code [ref=f25e1038]: _over_time
+              - text: ), always take an
+              - code [ref=f25e1039]: irate()
+              - text: first, then aggregate. Otherwise
+              - code [ref=f25e1040]: irate()
+              - text: cannot detect counter resets when your target restarts.
+            - heading [level=2] [ref=f25e1041]:
+              - code [ref=f25e1042]: label_join()
+              - link [ref=f25e1043] [cursor=pointer]:
+                - /url: "#label_join"
+            - paragraph [ref=f25e1048]:
+              - text: For each timeseries in
+              - code [ref=f25e1049]: v
+              - text: ","
+              - code [ref=f25e1050]: label_join(v instant-vector, dst_label string, separator string, src_label_1 string, src_label_2 string, ...)
+              - text: joins all the values of all the
+              - code [ref=f25e1051]: src_labels
+              - text: using
+              - code [ref=f25e1052]: separator
+              - text: and returns the timeseries with the label
+              - code [ref=f25e1053]: dst_label
+              - text: containing the joined value. There can be any number of
+              - code [ref=f25e1054]: src_labels
+              - text: in this function.
+            - paragraph [ref=f25e1055]:
+              - code [ref=f25e1056]: label_join
+              - text: acts on float and histogram samples in the same way.
+            - paragraph [ref=f25e1057]:
+              - text: This example will return a vector with each time series having a
+              - code [ref=f25e1058]: foo
+              - text: label with the value
+              - code [ref=f25e1059]: a,b,c
+              - text: "added to it:"
+            - code [ref=f25e1061]: "label_join(up{job=\"api-server\",src1=\"a\",src2=\"b\",src3=\"c\"}, \"foo\", \",\", \"src1\", \"src2\", \"src3\")"
+            - heading [level=2] [ref=f25e1062]:
+              - code [ref=f25e1063]: label_replace()
+              - link [ref=f25e1064] [cursor=pointer]:
+                - /url: "#label_replace"
+            - paragraph [ref=f25e1069]:
+              - text: For each timeseries in
+              - code [ref=f25e1070]: v
+              - text: ","
+              - code [ref=f25e1071]: label_replace(v instant-vector, dst_label string, replacement string, src_label string, regex string)
+              - text: matches the
+              - link "regular expression" [ref=f25e1072] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/querying/basics/#regular-expressions
+              - code [ref=f25e1073]: regex
+              - text: against the value of the label
+              - code [ref=f25e1074]: src_label
+              - text: . If it matches, the value of the label
+              - code [ref=f25e1075]: dst_label
+              - text: in the returned timeseries will be the expansion of
+              - code [ref=f25e1076]: replacement
+              - text: ", together with the original labels in the input. Capturing groups in the regular expression can be referenced with"
+              - code [ref=f25e1077]: $1
+              - text: ","
+              - code [ref=f25e1078]: $2
+              - text: ", etc. Named capturing groups in the regular expression can be referenced with"
+              - code [ref=f25e1079]: $name
+              - text: (where
+              - code [ref=f25e1080]: name
+              - text: is the capturing group name). If the regular expression doesn't match then the timeseries is returned unchanged.
+            - paragraph [ref=f25e1081]:
+              - code [ref=f25e1082]: label_replace
+              - text: acts on float and histogram samples in the same way.
+            - paragraph [ref=f25e1083]:
+              - text: This example will return timeseries with the values
+              - code [ref=f25e1084]: a:c
+              - text: at label
+              - code [ref=f25e1085]: service
+              - text: and
+              - code [ref=f25e1086]: a
+              - text: at label
+              - code [ref=f25e1087]: foo
+              - text: ":"
+            - code [ref=f25e1089]: "label_replace(up{job=\"api-server\",service=\"a:c\"}, \"foo\", \"$1\", \"service\", \"(.*):.*\")"
+            - paragraph [ref=f25e1090]: "This second example has the same effect than the first example, and illustrates use of named capturing groups:"
+            - code [ref=f25e1092]: "label_replace(up{job=\"api-server\",service=\"a:c\"}, \"foo\", \"$name\", \"service\", \"(?P<name>.*):(?P<version>.*)\")"
+            - heading [level=2] [ref=f25e1093]:
+              - code [ref=f25e1094]: max_of()
+              - link [ref=f25e1095] [cursor=pointer]:
+                - /url: "#max_of"
+            - paragraph [ref=f25e1100]:
+              - strong [ref=f25e1101]:
+                - text: This function has to be enabled via the
+                - link "feature flag" [ref=f25e1102] [cursor=pointer]:
+                  - /url: /docs/prometheus/latest/feature_flags/#experimental-promql-functions
+                - code [ref=f25e1103]: "--enable-feature=promql-experimental-functions"
+                - text: .
+            - paragraph [ref=f25e1104]:
+              - code [ref=f25e1105]: max_of(a scalar, b scalar)
+              - text: returns the larger of the two scalar values
+              - code [ref=f25e1106]: a
+              - text: and
+              - code [ref=f25e1107]: b
+              - text: .
+            - heading [level=2] [ref=f25e1108]:
+              - code [ref=f25e1109]: min_of()
+              - link [ref=f25e1110] [cursor=pointer]:
+                - /url: "#min_of"
+            - paragraph [ref=f25e1115]:
+              - strong [ref=f25e1116]:
+                - text: This function has to be enabled via the
+                - link "feature flag" [ref=f25e1117] [cursor=pointer]:
+                  - /url: /docs/prometheus/latest/feature_flags/#experimental-promql-functions
+                - code [ref=f25e1118]: "--enable-feature=promql-experimental-functions"
+                - text: .
+            - paragraph [ref=f25e1119]:
+              - code [ref=f25e1120]: min_of(a scalar, b scalar)
+              - text: returns the smaller of the two scalar values
+              - code [ref=f25e1121]: a
+              - text: and
+              - code [ref=f25e1122]: b
+              - text: .
+            - heading [level=2] [ref=f25e1123]:
+              - code [ref=f25e1124]: ln()
+              - link [ref=f25e1125] [cursor=pointer]:
+                - /url: "#ln"
+            - paragraph [ref=f25e1130]:
+              - code [ref=f25e1131]: ln(v instant-vector)
+              - text: calculates the natural logarithm for all float samples in
+              - code [ref=f25e1132]: v
+              - text: ". Histogram samples in the input vector are ignored silently. Special cases are:"
+            - list [ref=f25e1133]:
+              - listitem [ref=f25e1134]:
+                - code [ref=f25e1135]: ln(+Inf) = +Inf
+              - listitem [ref=f25e1136]:
+                - code [ref=f25e1137]: ln(0) = -Inf
+              - listitem [ref=f25e1138]:
+                - code [ref=f25e1139]: ln(x < 0) = NaN
+              - listitem [ref=f25e1140]:
+                - code [ref=f25e1141]: ln(NaN) = NaN
+            - heading [level=2] [ref=f25e1142]:
+              - code [ref=f25e1143]: log2()
+              - link [ref=f25e1144] [cursor=pointer]:
+                - /url: "#log2"
+            - paragraph [ref=f25e1149]:
+              - code [ref=f25e1150]: log2(v instant-vector)
+              - text: calculates the binary logarithm for all float samples in
+              - code [ref=f25e1151]: v
+              - text: . Histogram samples in the input vector are ignored silently. The special cases are equivalent to those in
+              - code [ref=f25e1152]: ln
+              - text: .
+            - heading [level=2] [ref=f25e1153]:
+              - code [ref=f25e1154]: log10()
+              - link [ref=f25e1155] [cursor=pointer]:
+                - /url: "#log10"
+            - paragraph [ref=f25e1160]:
+              - code [ref=f25e1161]: log10(v instant-vector)
+              - text: calculates the decimal logarithm for all float samples in
+              - code [ref=f25e1162]: v
+              - text: . Histogram samples in the input vector are ignored silently. The special cases are equivalent to those in
+              - code [ref=f25e1163]: ln
+              - text: .
+            - heading [level=2] [ref=f25e1164]:
+              - code [ref=f25e1165]: minute()
+              - link [ref=f25e1166] [cursor=pointer]:
+                - /url: "#minute"
+            - paragraph [ref=f25e1171]:
+              - code [ref=f25e1172]: minute(v=vector(time()) instant-vector)
+              - text: interprets float samples in
+              - code [ref=f25e1173]: v
+              - text: as timestamps (number of seconds since January 1, 1970 UTC) and returns the minute of the hour (in UTC) for each of those timestamps. Returned values are from 0 to 59. Histogram samples in the input vector are ignored silently.
+            - heading [level=2] [ref=f25e1174]:
+              - code [ref=f25e1175]: month()
+              - link [ref=f25e1176] [cursor=pointer]:
+                - /url: "#month"
+            - paragraph [ref=f25e1181]:
+              - code [ref=f25e1182]: month(v=vector(time()) instant-vector)
+              - text: interprets float samples in
+              - code [ref=f25e1183]: v
+              - text: as timestamps (number of seconds since January 1, 1970 UTC) and returns the month of the year (in UTC) for each of those timestamps. Returned values are from 1 to 12, where 1 means January etc. Histogram samples in the input vector are ignored silently.
+            - heading [level=2] [ref=f25e1184]:
+              - code [ref=f25e1185]: predict_linear()
+              - link [ref=f25e1186] [cursor=pointer]:
+                - /url: "#predict_linear"
+            - paragraph [ref=f25e1191]:
+              - code [ref=f25e1192]: predict_linear(v range-vector, t scalar)
+              - text: predicts the value of time series
+              - code [ref=f25e1193]: t
+              - text: seconds from now, based on the range vector
+              - code [ref=f25e1194]: v
+              - text: ", using"
+              - link "simple linear regression" [ref=f25e1195] [cursor=pointer]:
+                - /url: https://en.wikipedia.org/wiki/Simple_linear_regression
+              - text: . The range vector must have at least two float samples in order to perform the calculation. When
+              - code [ref=f25e1201]: +Inf
+              - text: or
+              - code [ref=f25e1202]: "-Inf"
+              - text: are found in the range vector, the predicted value will be
+              - code [ref=f25e1203]: NaN
+              - text: .
+            - paragraph [ref=f25e1204]:
+              - code [ref=f25e1205]: predict_linear
+              - text: should only be used with gauges and only works for float samples. Elements in the range vector that contain only histogram samples are ignored entirely. For elements that contain a mix of float and histogram samples, only the float samples are used as input, which is flagged by an info-level annotation.
+            - heading [level=2] [ref=f25e1206]:
+              - code [ref=f25e1207]: range()
+              - link [ref=f25e1208] [cursor=pointer]:
+                - /url: "#range"
+            - paragraph [ref=f25e1213]:
+              - strong [ref=f25e1214]:
+                - text: This function has to be enabled via the
+                - link "feature flag" [ref=f25e1215] [cursor=pointer]:
+                  - /url: /docs/prometheus/latest/feature_flags/#experimental-promql-functions
+                - code [ref=f25e1216]: "--enable-feature=promql-experimental-functions"
+                - text: .
+            - paragraph [ref=f25e1217]:
+              - code [ref=f25e1218]: range()
+              - text: returns the range duration of the current query range evaluation in seconds and is equivalent to
+              - code [ref=f25e1219]: end() - start()
+              - text: . For instant queries, this returns
+              - code [ref=f25e1220]: "0"
+              - text: .
+            - heading [level=2] [ref=f25e1221]:
+              - code [ref=f25e1222]: rate()
+              - link [ref=f25e1223] [cursor=pointer]:
+                - /url: "#rate"
+            - paragraph [ref=f25e1228]:
+              - code [ref=f25e1229]: rate(v range-vector)
+              - text: calculates the per-second average rate of increase of the time series in the range vector. Breaks in monotonicity (such as counter resets due to target restarts) are automatically adjusted for. Also, the calculation extrapolates to the ends of the time range, allowing for missed scrapes or imperfect alignment of scrape cycles with the range's time period.
+            - paragraph [ref=f25e1230]: "The following example expression returns the per-second average rate of HTTP requests over the last 5 minutes, per time series in the range vector:"
+            - code [ref=f25e1232]: "rate(http_requests_total{job=\"api-server\"}[5m])"
+            - paragraph [ref=f25e1233]:
+              - code [ref=f25e1234]: rate
+              - text: acts on native histograms by calculating a new histogram where each component (sum and count of observations, buckets) is the rate of increase between the respective component in the first and last native histogram in
+              - code [ref=f25e1235]: v
+              - text: . However, each element in
+              - code [ref=f25e1236]: v
+              - text: that contains a mix of float and native histogram samples within the range, will be omitted from the result vector, flagged by a warn-level annotation.
+            - paragraph [ref=f25e1237]:
+              - code [ref=f25e1238]: rate
+              - text: should only be used with counters (for both floats and histograms). It is best suited for alerting, and for graphing of slow-moving counters.
+            - paragraph [ref=f25e1239]:
+              - text: Note that when combining
+              - code [ref=f25e1240]: rate()
+              - text: with an aggregation operator (e.g.
+              - code [ref=f25e1241]: sum()
+              - text: ) or a function aggregating over time (any function ending in
+              - code [ref=f25e1242]: _over_time
+              - text: ), always take a
+              - code [ref=f25e1243]: rate()
+              - text: first, then aggregate. Otherwise
+              - code [ref=f25e1244]: rate()
+              - text: cannot detect counter resets when your target restarts.
+            - heading [level=2] [ref=f25e1245]:
+              - code [ref=f25e1246]: resets()
+              - link [ref=f25e1247] [cursor=pointer]:
+                - /url: "#resets"
+            - paragraph [ref=f25e1252]:
+              - text: For each input time series,
+              - code [ref=f25e1253]: resets(v range-vector)
+              - text: "returns the number of counter resets within the provided time range as an instant vector. Any decrease in the value between two consecutive float samples is interpreted as a counter reset. A reset in a native histogram is detected in a more complex way: Any decrease in any bucket, including the zero bucket, or in the count of observation constitutes a counter reset, but also the disappearance of any previously populated bucket, a decrease of the zero-bucket width, or any schema change that is not a compatible decrease of resolution."
+            - paragraph [ref=f25e1254]:
+              - code [ref=f25e1255]: resets
+              - text: should only be used with counters (for both floats and histograms).
+            - paragraph [ref=f25e1256]:
+              - text: A float sample followed by a histogram sample, or vice versa, counts as a reset. A counter histogram sample followed by a gauge histogram sample, or vice versa, also counts as a reset (but note that
+              - code [ref=f25e1257]: resets
+              - text: should not be used on gauges in the first place, see above).
+            - heading [level=2] [ref=f25e1258]:
+              - code [ref=f25e1259]: round()
+              - link [ref=f25e1260] [cursor=pointer]:
+                - /url: "#round"
+            - paragraph [ref=f25e1265]:
+              - code [ref=f25e1266]: round(v instant-vector, to_nearest=1 scalar)
+              - text: rounds the sample values of all elements in
+              - code [ref=f25e1267]: v
+              - text: to the nearest integer. Ties are resolved by rounding up. The optional
+              - code [ref=f25e1268]: to_nearest
+              - text: argument allows specifying the nearest multiple to which the sample values should be rounded. This multiple may also be a fraction. Histogram samples in the input vector are ignored silently.
+            - heading [level=2] [ref=f25e1269]:
+              - code [ref=f25e1270]: scalar()
+              - link [ref=f25e1271] [cursor=pointer]:
+                - /url: "#scalar"
+            - paragraph [ref=f25e1276]:
+              - text: Given an input vector that contains only one element with a float sample,
+              - code [ref=f25e1277]: scalar(v instant-vector)
+              - text: returns the sample value of that float sample as a scalar. If the input vector does not have exactly one element with a float sample,
+              - code [ref=f25e1278]: scalar
+              - text: will return
+              - code [ref=f25e1279]: NaN
+              - text: . Histogram samples in the input vector are ignored silently.
+            - heading [level=2] [ref=f25e1280]:
+              - code [ref=f25e1281]: sgn()
+              - link [ref=f25e1282] [cursor=pointer]:
+                - /url: "#sgn"
+            - paragraph [ref=f25e1287]:
+              - code [ref=f25e1288]: sgn(v instant-vector)
+              - text: "returns a vector with all float sample values converted to their sign, defined as this: 1 if v is positive, -1 if v is negative and 0 if v is equal to zero. Histogram samples in the input vector are ignored silently."
+            - heading [level=2] [ref=f25e1289]:
+              - code [ref=f25e1290]: sort()
+              - link [ref=f25e1291] [cursor=pointer]:
+                - /url: "#sort"
+            - paragraph [ref=f25e1296]:
+              - code [ref=f25e1297]: sort(v instant-vector)
+              - text: returns vector elements sorted by their float sample values, in ascending order. Histogram samples in the input vector are ignored silently.
+            - paragraph [ref=f25e1298]:
+              - text: Please note that
+              - code [ref=f25e1299]: sort
+              - text: only affects the results of instant queries, as range query results always have a fixed output ordering.
+            - heading [level=2] [ref=f25e1300]:
+              - code [ref=f25e1301]: sort_desc()
+              - link [ref=f25e1302] [cursor=pointer]:
+                - /url: "#sort_desc"
+            - paragraph [ref=f25e1307]:
+              - text: Same as
+              - code [ref=f25e1308]: sort
+              - text: ", but sorts in descending order."
+            - heading [level=2] [ref=f25e1309]:
+              - code [ref=f25e1310]: sort_by_label()
+              - link [ref=f25e1311] [cursor=pointer]:
+                - /url: "#sort_by_label"
+            - paragraph [ref=f25e1316]:
+              - strong [ref=f25e1317]:
+                - text: This function has to be enabled via the
+                - link "feature flag" [ref=f25e1318] [cursor=pointer]:
+                  - /url: /docs/prometheus/latest/feature_flags/#experimental-promql-functions
+                - code [ref=f25e1319]: "--enable-feature=promql-experimental-functions"
+                - text: .
+            - paragraph [ref=f25e1320]:
+              - code [ref=f25e1321]: sort_by_label(v instant-vector, label string, ...)
+              - text: returns vector elements sorted by the values of the given labels in ascending order. In case these label values are equal, elements are sorted by their full label sets.
+              - code [ref=f25e1322]: sort_by_label
+              - text: acts on float and histogram samples in the same way.
+            - paragraph [ref=f25e1323]:
+              - text: Please note that
+              - code [ref=f25e1324]: sort_by_label
+              - text: only affects the results of instant queries, as range query results always have a fixed output ordering.
+            - paragraph [ref=f25e1325]:
+              - code [ref=f25e1326]: sort_by_label
+              - text: uses
+              - link "natural sort order" [ref=f25e1327] [cursor=pointer]:
+                - /url: https://en.wikipedia.org/wiki/Natural_sort_order
+              - text: .
+            - heading [level=2] [ref=f25e1333]:
+              - code [ref=f25e1334]: sort_by_label_desc()
+              - link [ref=f25e1335] [cursor=pointer]:
+                - /url: "#sort_by_label_desc"
+            - paragraph [ref=f25e1340]:
+              - strong [ref=f25e1341]:
+                - text: This function has to be enabled via the
+                - link "feature flag" [ref=f25e1342] [cursor=pointer]:
+                  - /url: /docs/prometheus/latest/feature_flags/#experimental-promql-functions
+                - code [ref=f25e1343]: "--enable-feature=promql-experimental-functions"
+                - text: .
+            - paragraph [ref=f25e1344]:
+              - text: Same as
+              - code [ref=f25e1345]: sort_by_label
+              - text: ", but sorts in descending order."
+            - heading [level=2] [ref=f25e1346]:
+              - code [ref=f25e1347]: sqrt()
+              - link [ref=f25e1348] [cursor=pointer]:
+                - /url: "#sqrt"
+            - paragraph [ref=f25e1353]:
+              - code [ref=f25e1354]: sqrt(v instant-vector)
+              - text: calculates the square root of all float samples in
+              - code [ref=f25e1355]: v
+              - text: . Histogram samples in the input vector are ignored silently.
+            - heading [level=2] [ref=f25e1356]:
+              - code [ref=f25e1357]: start()
+              - link [ref=f25e1358] [cursor=pointer]:
+                - /url: "#start"
+            - paragraph [ref=f25e1363]:
+              - strong [ref=f25e1364]:
+                - text: This function has to be enabled via the
+                - link "feature flag" [ref=f25e1365] [cursor=pointer]:
+                  - /url: /docs/prometheus/latest/feature_flags/#experimental-promql-functions
+                - code [ref=f25e1366]: "--enable-feature=promql-experimental-functions"
+                - text: .
+            - paragraph [ref=f25e1367]:
+              - code [ref=f25e1368]: start()
+              - text: returns the start timestamp of the current query range evaluation as the number of seconds since January 1, 1970 UTC. For instant queries, this is equal to the evaluation timestamp.
+            - heading [level=2] [ref=f25e1369]:
+              - code [ref=f25e1370]: start_timestamp()
+              - link [ref=f25e1371] [cursor=pointer]:
+                - /url: "#start_timestamp"
+            - paragraph [ref=f25e1376]:
+              - code [ref=f25e1377]: start_timestamp(v instant-vector)
+              - text: returns the start timestamp of each of the samples of the given vector as the number of seconds since January 1, 1970 UTC. It acts on float and histogram samples in the same way.
+            - paragraph [ref=f25e1378]:
+              - text: This function only works when used directly on an instant vector and when
+              - code [ref=f25e1379]: use-start-timestamps
+              - text: feature flag is enabled. Otherwise, if it's used on an expression or if
+              - code [ref=f25e1380]: use-start-timestamps
+              - text: is disabled, it returns empty results.
+            - heading [level=2] [ref=f25e1381]:
+              - code [ref=f25e1382]: step()
+              - link [ref=f25e1383] [cursor=pointer]:
+                - /url: "#step"
+            - paragraph [ref=f25e1388]:
+              - strong [ref=f25e1389]:
+                - text: This function has to be enabled via the
+                - link "feature flag" [ref=f25e1390] [cursor=pointer]:
+                  - /url: /docs/prometheus/latest/feature_flags/#experimental-promql-functions
+                - code [ref=f25e1391]: "--enable-feature=promql-experimental-functions"
+                - text: .
+            - paragraph [ref=f25e1392]:
+              - code [ref=f25e1393]: step()
+              - text: returns the query resolution step as the number of seconds. For instant queries, this returns
+              - code [ref=f25e1394]: "0"
+              - text: .
+            - heading [level=2] [ref=f25e1395]:
+              - code [ref=f25e1396]: time()
+              - link [ref=f25e1397] [cursor=pointer]:
+                - /url: "#time"
+            - paragraph [ref=f25e1402]:
+              - code [ref=f25e1403]: time()
+              - text: returns the number of seconds since January 1, 1970 UTC. Note that this does not actually return the current time, but the time at which the expression is to be evaluated.
+            - heading [level=2] [ref=f25e1404]:
+              - code [ref=f25e1405]: timestamp()
+              - link [ref=f25e1406] [cursor=pointer]:
+                - /url: "#timestamp"
+            - paragraph [ref=f25e1411]:
+              - code [ref=f25e1412]: timestamp(v instant-vector)
+              - text: returns the timestamp of each of the samples of the given vector as the number of seconds since January 1, 1970 UTC. It acts on float and histogram samples in the same way.
+            - heading [level=2] [ref=f25e1413]:
+              - code [ref=f25e1414]: vector()
+              - link [ref=f25e1415] [cursor=pointer]:
+                - /url: "#vector"
+            - paragraph [ref=f25e1420]:
+              - code [ref=f25e1421]: vector(s scalar)
+              - text: converts the scalar
+              - code [ref=f25e1422]: s
+              - text: to a float sample and returns it as a single-element instant vector with no labels.
+            - heading [level=2] [ref=f25e1423]:
+              - code [ref=f25e1424]: year()
+              - link [ref=f25e1425] [cursor=pointer]:
+                - /url: "#year"
+            - paragraph [ref=f25e1430]:
+              - code [ref=f25e1431]: year(v=vector(time()) instant-vector)
+              - text: returns the year for each of the given times in UTC. Histogram samples in the input vector are ignored silently.
+            - heading [level=2] [ref=f25e1432]:
+              - code [ref=f25e1433]: <aggregation>_over_time()
+              - link [ref=f25e1434] [cursor=pointer]:
+                - /url: "#aggregation_over_time"
+            - paragraph [ref=f25e1439]: "The following functions allow aggregating each series of a given range vector over time and return an instant vector with per-series aggregation results:"
+            - list [ref=f25e1440]:
+              - listitem [ref=f25e1441]:
+                - code [ref=f25e1442]: avg_over_time(range-vector)
+                - text: ": the average value of all float or histogram samples in the specified interval (see details below)."
+              - listitem [ref=f25e1443]:
+                - code [ref=f25e1444]: min_over_time(range-vector)
+                - text: ": the minimum value of all float samples in the specified interval."
+              - listitem [ref=f25e1445]:
+                - code [ref=f25e1446]: max_over_time(range-vector)
+                - text: ": the maximum value of all float samples in the specified interval."
+              - listitem [ref=f25e1447]:
+                - code [ref=f25e1448]: sum_over_time(range-vector)
+                - text: ": the sum of all float or histogram samples in the specified interval (see details below)."
+              - listitem [ref=f25e1449]:
+                - code [ref=f25e1450]: count_over_time(range-vector)
+                - text: ": the count of all samples in the specified interval."
+              - listitem [ref=f25e1451]:
+                - code [ref=f25e1452]: quantile_over_time(scalar, range-vector)
+                - text: ": the φ-quantile (0 ≤ φ ≤ 1) of all float samples in the specified interval."
+              - listitem [ref=f25e1453]:
+                - code [ref=f25e1454]: stddev_over_time(range-vector)
+                - text: ": the population standard deviation of all float samples in the specified interval."
+              - listitem [ref=f25e1455]:
+                - code [ref=f25e1456]: stdvar_over_time(range-vector)
+                - text: ": the population variance of all float samples in the specified interval."
+              - listitem [ref=f25e1457]:
+                - code [ref=f25e1458]: last_over_time(range-vector)
+                - text: ": the most recent sample in the specified interval."
+              - listitem [ref=f25e1459]:
+                - code [ref=f25e1460]: first_over_time(range-vector)
+                - text: ": the oldest sample in the specified interval."
+              - listitem [ref=f25e1461]:
+                - code [ref=f25e1462]: present_over_time(range-vector)
+                - text: ": the value 1 for any series in the specified interval."
+            - paragraph [ref=f25e1463]:
+              - text: If the
+              - link "feature flag" [ref=f25e1464] [cursor=pointer]:
+                - /url: /docs/prometheus/latest/feature_flags/#experimental-promql-functions
+              - code [ref=f25e1465]: "--enable-feature=promql-experimental-functions"
+              - text: "is set, the following additional functions are available:"
+            - list [ref=f25e1466]:
+              - listitem [ref=f25e1467]:
+                - code [ref=f25e1468]: mad_over_time(range-vector)
+                - text: ": the median absolute deviation of all float samples in the specified interval."
+              - listitem [ref=f25e1469]:
+                - code [ref=f25e1470]: ts_of_min_over_time(range-vector)
+                - text: ": the timestamp of the last float sample that has the minimum value of all float samples in the specified interval."
+              - listitem [ref=f25e1471]:
+                - code [ref=f25e1472]: ts_of_max_over_time(range-vector)
+                - text: ": the timestamp of the last float sample that has the maximum value of all float samples in the specified interval."
+              - listitem [ref=f25e1473]:
+                - code [ref=f25e1474]: ts_of_last_over_time(range-vector)
+                - text: ": the timestamp of last sample in the specified interval."
+              - listitem [ref=f25e1475]:
+                - code [ref=f25e1476]: ts_of_first_over_time(range-vector)
+                - text: ": the timestamp of earliest sample in the specified interval."
+            - paragraph [ref=f25e1477]: Note that all values in the specified interval have the same weight in the aggregation even if the values are not equally spaced throughout the interval.
+            - paragraph [ref=f25e1478]: "These functions act on histograms in the following way:"
+            - list [ref=f25e1479]:
+              - listitem [ref=f25e1480]:
+                - code [ref=f25e1481]: count_over_time
+                - text: ","
+                - code [ref=f25e1482]: first_over_time
+                - text: ","
+                - code [ref=f25e1483]: last_over_time
+                - text: ", and"
+                - code [ref=f25e1484]: present_over_time()
+                - text: act on float and histogram samples in the same way.
+              - listitem [ref=f25e1485]:
+                - code [ref=f25e1486]: avg_over_time()
+                - text: and
+                - code [ref=f25e1487]: sum_over_time()
+                - text: act on histogram samples in a way that corresponds to the respective aggregation operators. If a series contains a mix of float samples and histogram samples within the range, the corresponding result is removed entirely from the output vector. Such a removal is flagged by a warn-level annotation.
+              - listitem [ref=f25e1488]: "All other functions ignore histogram samples in the following way: Input ranges containing only histogram samples are silently removed from the output. For ranges with a mix of histogram and float samples, only the float samples are processed and the omission of the histogram samples is flagged by an info-level annotation."
+            - paragraph [ref=f25e1489]:
+              - code [ref=f25e1490]: first_over_time(m[1m])
+              - text: differs from
+              - code [ref=f25e1491]: m offset 1m
+              - text: in that the former will select the first sample of
+              - code [ref=f25e1492]: m
+              - emphasis [ref=f25e1493]: within
+              - text: the 1m range, where
+              - code [ref=f25e1494]: m offset 1m
+              - text: will select the most recent sample within the lookback interval
+              - emphasis [ref=f25e1495]: outside and prior to
+              - text: the 1m offset. This is particularly useful with
+              - code [ref=f25e1496]: first_over_time(m[step()])
+              - text: in range queries to ensure that the sample selected is within the range step.
+            - heading "Trigonometric Functions" [level=2] [ref=f25e1497]:
+              - text: Trigonometric Functions
+              - link [ref=f25e1498] [cursor=pointer]:
+                - /url: "#trigonometric-functions"
+            - paragraph [ref=f25e1503]: The trigonometric functions work in radians. They ignore histogram samples in the input vector.
+            - list [ref=f25e1504]:
+              - listitem [ref=f25e1505]:
+                - code [ref=f25e1506]: acos(v instant-vector)
+                - text: ": calculates the arccosine of all float samples in"
+                - code [ref=f25e1507]: v
+                - text: (
+                - link "special cases" [ref=f25e1508] [cursor=pointer]:
+                  - /url: https://pkg.go.dev/math#Acos
+                - text: ).
+              - listitem [ref=f25e1514]:
+                - code [ref=f25e1515]: acosh(v instant-vector)
+                - text: ": calculates the inverse hyperbolic cosine of all float samples in"
+                - code [ref=f25e1516]: v
+                - text: (
+                - link "special cases" [ref=f25e1517] [cursor=pointer]:
+                  - /url: https://pkg.go.dev/math#Acosh
+                - text: ).
+              - listitem [ref=f25e1523]:
+                - code [ref=f25e1524]: asin(v instant-vector)
+                - text: ": calculates the arcsine of all float samples in"
+                - code [ref=f25e1525]: v
+                - text: (
+                - link "special cases" [ref=f25e1526] [cursor=pointer]:
+                  - /url: https://pkg.go.dev/math#Asin
+                - text: ).
+              - listitem [ref=f25e1532]:
+                - code [ref=f25e1533]: asinh(v instant-vector)
+                - text: ": calculates the inverse hyperbolic sine of all float samples in"
+                - code [ref=f25e1534]: v
+                - text: (
+                - link "special cases" [ref=f25e1535] [cursor=pointer]:
+                  - /url: https://pkg.go.dev/math#Asinh
+                - text: ).
+              - listitem [ref=f25e1541]:
+                - code [ref=f25e1542]: atan(v instant-vector)
+                - text: ": calculates the arctangent of all float samples in"
+                - code [ref=f25e1543]: v
+                - text: (
+                - link "special cases" [ref=f25e1544] [cursor=pointer]:
+                  - /url: https://pkg.go.dev/math#Atan
+                - text: ).
+              - listitem [ref=f25e1550]:
+                - code [ref=f25e1551]: atanh(v instant-vector)
+                - text: ": calculates the inverse hyperbolic tangent of all float samples in"
+                - code [ref=f25e1552]: v
+                - text: (
+                - link "special cases" [ref=f25e1553] [cursor=pointer]:
+                  - /url: https://pkg.go.dev/math#Atanh
+                - text: ).
+              - listitem [ref=f25e1559]:
+                - code [ref=f25e1560]: cos(v instant-vector)
+                - text: ": calculates the cosine of all float samples in"
+                - code [ref=f25e1561]: v
+                - text: (
+                - link "special cases" [ref=f25e1562] [cursor=pointer]:
+                  - /url: https://pkg.go.dev/math#Cos
+                - text: ).
+              - listitem [ref=f25e1568]:
+                - code [ref=f25e1569]: cosh(v instant-vector)
+                - text: ": calculates the hyperbolic cosine of all float samples in"
+                - code [ref=f25e1570]: v
+                - text: (
+                - link "special cases" [ref=f25e1571] [cursor=pointer]:
+                  - /url: https://pkg.go.dev/math#Cosh
+                - text: ).
+              - listitem [ref=f25e1577]:
+                - code [ref=f25e1578]: sin(v instant-vector)
+                - text: ": calculates the sine of all float samples in"
+                - code [ref=f25e1579]: v
+                - text: (
+                - link "special cases" [ref=f25e1580] [cursor=pointer]:
+                  - /url: https://pkg.go.dev/math#Sin
+                - text: ).
+              - listitem [ref=f25e1586]:
+                - code [ref=f25e1587]: sinh(v instant-vector)
+                - text: ": calculates the hyperbolic sine of all float samples in"
+                - code [ref=f25e1588]: v
+                - text: (
+                - link "special cases" [ref=f25e1589] [cursor=pointer]:
+                  - /url: https://pkg.go.dev/math#Sinh
+                - text: ).
+              - listitem [ref=f25e1595]:
+                - code [ref=f25e1596]: tan(v instant-vector)
+                - text: ": calculates the tangent of all float samples in"
+                - code [ref=f25e1597]: v
+                - text: (
+                - link "special cases" [ref=f25e1598] [cursor=pointer]:
+                  - /url: https://pkg.go.dev/math#Tan
+                - text: ).
+              - listitem [ref=f25e1604]:
+                - code [ref=f25e1605]: tanh(v instant-vector)
+                - text: ": calculates the hyperbolic tangent of all float samples in"
+                - code [ref=f25e1606]: v
+                - text: (
+                - link "special cases" [ref=f25e1607] [cursor=pointer]:
+                  - /url: https://pkg.go.dev/math#Tanh
+                - text: ).
+            - paragraph [ref=f25e1613]: "The following are useful for converting between degrees and radians:"
+            - list [ref=f25e1614]:
+              - listitem [ref=f25e1615]:
+                - code [ref=f25e1616]: deg(v instant-vector)
+                - text: ": converts radians to degrees for all float samples in"
+                - code [ref=f25e1617]: v
+                - text: .
+              - listitem [ref=f25e1618]:
+                - code [ref=f25e1619]: pi()
+                - text: ": returns pi."
+              - listitem [ref=f25e1620]:
+                - code [ref=f25e1621]: rad(v instant-vector)
+                - text: ": converts degrees to radians for all float samples in"
+                - code [ref=f25e1622]: v
+                - text: .
+        - separator [ref=f25e1623]
+        - navigation "pagination" [ref=f25e1624]:
+          - link [ref=f25e1626] [cursor=pointer]:
+            - /url: /docs/prometheus/latest/querying/operators/
+            - generic [ref=f25e1633]:
+              - paragraph [ref=f25e1634]: Previous
+              - paragraph [ref=f25e1635]: Operators
+          - generic [ref=f25e1636]:
+            - link [ref=f25e1637] [cursor=pointer]:
+              - /url: https://github.com/prometheus/prometheus/blob/main/docs/querying/functions.md
+              - paragraph [ref=f25e1644]: Edit this page
+            - link [ref=f25e1645] [cursor=pointer]:
+              - /url: https://github.com/prometheus/prometheus/issues/new?title=docs%3A%20Issue%20with%20%22Query%20functions%22&body=**Page%3A**%20https%3A%2F%2Fprometheus.io%2Fdocs%2Fprometheus%2Flatest%2Fquerying%2Ffunctions%2F%0A%0A**Describe%20the%20issue%3A**%0A%0A
+              - paragraph [ref=f25e1656]: Report an issue
+          - link [ref=f25e1658] [cursor=pointer]:
+            - /url: /docs/prometheus/latest/querying/examples/
+            - generic [ref=f25e1661]:
+              - paragraph [ref=f25e1662]: Next
+              - paragraph [ref=f25e1663]: Examples
+      - paragraph [ref=f25e1673]: On this page
+  - contentinfo [ref=f25e1675]:
+    - generic [ref=f25e1677]:
+      - paragraph [ref=f25e1678]:
+        - text: © Prometheus Authors 2014-2026 | All components are available under the
+        - link "Apache 2 License" [ref=f25e1679] [cursor=pointer]:
+          - /url: http://www.apache.org/licenses/LICENSE-2.0
+        - text: "on"
+        - link "GitHub" [ref=f25e1680] [cursor=pointer]:
+          - /url: https://github.com/prometheus
+        - text: .
+      - paragraph [ref=f25e1681]:
+        - text: © 2026 The Linux Foundation. All rights reserved. The Linux Foundation has registered trademarks and uses trademarks. For a list of trademarks of The Linux Foundation, please see our
+        - link "Trademark Usage" [ref=f25e1682] [cursor=pointer]:
+          - /url: https://www.linuxfoundation.org/trademark-usage
+        - text: page.

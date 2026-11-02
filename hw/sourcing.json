@@ -1,0 +1,39 @@
+{
+  "_comment": [
+    "Declared sourcing classes for components that carry no exact MPN.",
+    "audit_bom.py resolves every non-DNP component to either an MPN in the",
+    "schematic or exactly one entry here. Anything resolving to neither is a",
+    "FAIL, not a silent omission: the Rev A basket was transcribed by hand and",
+    "the parts carrying a value family instead of an MPN were never ordered.",
+    "Keys are '<footprint>|<value>', matched exactly. A '*' value is permitted",
+    "only for the not-purchased class, where the whole footprint is a land",
+    "pattern rather than a procurable item.",
+    "generic-stock may NOT be declared for a value carrying a load-bearing",
+    "specification (tolerance, dielectric, voltage, shielding, trip current).",
+    "Buying those to a family name is the defect this audit exists to catch."
+  ],
+  "classes": {
+    "generic-stock": "Bought to value + package from generic reel stock; no further specification is load-bearing at this circuit position.",
+    "not-purchased": "Land pattern with no procurable item: bare test pad or solder-wire pigtail.",
+    "custom": "Procured outside distributor channels; frozen by a named FAB-READINESS.md gate rather than by an MPN."
+  },
+  "entries": {
+    "Capacitor_SMD:C_0402_1005Metric|100n": {"class": "generic-stock", "rationale": "Local IC decoupling; 16 V X7R or better from stock."},
+    "Capacitor_SMD:C_0603_1608Metric|10n": {"class": "generic-stock", "rationale": "Signal-path filter; value tolerance non-critical at this node."},
+    "Capacitor_SMD:C_0603_1608Metric|4.7u": {"class": "generic-stock", "rationale": "Rail bypass on regulated nodes."},
+    "Resistor_SMD:R_0603_1608Metric|100k": {"class": "generic-stock", "rationale": "Bias/pull network; 1% from stock."},
+    "Resistor_SMD:R_0603_1608Metric|10k": {"class": "generic-stock", "rationale": "Bias/pull network; 1% from stock."},
+    "Resistor_SMD:R_0603_1608Metric|4.7k": {"class": "generic-stock", "rationale": "I2C pull-up; 1% from stock."},
+    "Resistor_SMD:R_0603_1608Metric|1k": {"class": "generic-stock", "rationale": "Series/limit resistor; 1% from stock."},
+    "Resistor_SMD:R_0603_1608Metric|47k": {"class": "generic-stock", "rationale": "Bias network; 1% from stock."},
+    "Resistor_SMD:R_0603_1608Metric|27k": {"class": "generic-stock", "rationale": "VA_MON divider bottom leg since the 2.5 V full scale (2026-09-12); E24, 1% from stock."},
+    "Resistor_SMD:R_0603_1608Metric|47R": {"class": "generic-stock", "rationale": "Series damping; 1% from stock."},
+    "Resistor_SMD:R_0603_1608Metric|10R": {"class": "generic-stock", "rationale": "RS-485 series element (R2/R3) and the 3V3A prefilter (R32); 1% from stock. R32 was an 0805 option pad for a ferrite bead; 0603 beads are as available, so the option survived the package."},
+    "TestPoint:TestPoint_Pad_D1.0mm|*": {"class": "not-purchased", "rationale": "Bare copper probe pad; nothing is placed."},
+    "Connector_Wire:SolderWire-0.25sqmm_1x01_D0.65mm_OD1.7mm_Relief|*": {"class": "not-purchased", "rationale": "Solder-wire pigtail land; the J1 cable is a separate assembly item."},
+    "o2-probe:SolderWire_RaisedRelief_1x01|*": {"class": "not-purchased", "rationale": "J103/J104 solder-wire lands; unchanged plated/relief holes with wire-envelope graphics on the assembly layer. The cable is a separate assembly item."},
+    "o2-probe:SolderWireNoRelief_J105|*": {"class": "not-purchased", "rationale": "Accepted J105 bare solder-wire land; there is no connector body to purchase."},
+    "Connector:Tag-Connect_TC2030-IDC-NL_2x03_P1.27mm_Vertical|*": {"class": "not-purchased", "rationale": "J3 is bare programming pads and alignment holes; no connector body is placed. The reusable TC2030 cable/holding fixture is a separate programming tool."},
+    "o2-probe:SolderWireNoRelief_J106|*": {"class": "not-purchased", "rationale": "Accepted J106 bare solder-wire land; there is no connector body to purchase."}
+  }
+}

@@ -1,0 +1,3327 @@
+2026-09-06T15:59:44Z  addr 3
+  O2 (dry)      21.05 %vol
+  cell current  100.57 uA
+  tip / chamber 26.30 C / 26.19 C
+  humidity      73.03 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 966 mV
+  dew margin    5.36 K
+  die temp      29.14 C
+  uptime        2495 s   seq 2495   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 159  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T15:59:49Z  addr 3
+  O2 (dry)      21.02 %vol
+  cell current  100.43 uA
+  tip / chamber 26.30 C / 26.15 C
+  humidity      73.03 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.36 K
+  die temp      28.85 C
+  uptime        2500 s   seq 2500   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 160  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T15:59:54Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.46 uA
+  tip / chamber 26.30 C / 26.17 C
+  humidity      73.03 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.34 K
+  die temp      29.43 C
+  uptime        2505 s   seq 2505   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 161  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:00:00Z  addr 3
+  O2 (dry)      21.04 %vol
+  cell current  100.52 uA
+  tip / chamber 26.29 C / 26.18 C
+  humidity      73.00 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 966 mV
+  dew margin    5.35 K
+  die temp      29.14 C
+  uptime        2511 s   seq 2511   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 162  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:00:05Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.48 uA
+  tip / chamber 26.30 C / 26.16 C
+  humidity      73.03 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.35 K
+  die temp      29.72 C
+  uptime        2516 s   seq 2516   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 163  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:00:10Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.50 uA
+  tip / chamber 26.30 C / 26.19 C
+  humidity      73.04 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3286 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.32 K
+  die temp      28.56 C
+  uptime        2521 s   seq 2521   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 164  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:00:16Z  addr 3
+  O2 (dry)      21.04 %vol
+  cell current  100.53 uA
+  tip / chamber 26.30 C / 26.16 C
+  humidity      73.03 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.33 K
+  die temp      28.56 C
+  uptime        2527 s   seq 2527   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 165  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:00:21Z  addr 3
+  O2 (dry)      21.04 %vol
+  cell current  100.53 uA
+  tip / chamber 26.30 C / 26.19 C
+  humidity      73.04 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.32 K
+  die temp      28.85 C
+  uptime        2532 s   seq 2532   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 166  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:00:26Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.49 uA
+  tip / chamber 26.30 C / 26.18 C
+  humidity      73.06 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.33 K
+  die temp      28.85 C
+  uptime        2537 s   seq 2537   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 167  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:00:32Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.47 uA
+  tip / chamber 26.30 C / 26.18 C
+  humidity      73.04 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 966 mV
+  dew margin    5.34 K
+  die temp      28.85 C
+  uptime        2543 s   seq 2543   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 168  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:00:37Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.49 uA
+  tip / chamber 26.30 C / 26.16 C
+  humidity      73.04 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.35 K
+  die temp      28.85 C
+  uptime        2548 s   seq 2548   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 169  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:00:42Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.47 uA
+  tip / chamber 26.30 C / 26.16 C
+  humidity      73.05 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.35 K
+  die temp      29.14 C
+  uptime        2553 s   seq 2553   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 170  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:00:48Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.50 uA
+  tip / chamber 26.29 C / 26.18 C
+  humidity      73.06 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.35 K
+  die temp      28.56 C
+  uptime        2559 s   seq 2559   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 171  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:00:53Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.47 uA
+  tip / chamber 26.29 C / 26.18 C
+  humidity      73.08 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.31 K
+  die temp      28.85 C
+  uptime        2564 s   seq 2564   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 172  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:00:58Z  addr 3
+  O2 (dry)      21.04 %vol
+  cell current  100.51 uA
+  tip / chamber 26.30 C / 26.17 C
+  humidity      73.07 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3286 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.33 K
+  die temp      29.14 C
+  uptime        2569 s   seq 2569   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 173  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:01:04Z  addr 3
+  O2 (dry)      21.04 %vol
+  cell current  100.52 uA
+  tip / chamber 26.30 C / 26.17 C
+  humidity      73.07 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.33 K
+  die temp      29.72 C
+  uptime        2575 s   seq 2575   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 174  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:01:09Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.50 uA
+  tip / chamber 26.29 C / 26.16 C
+  humidity      73.09 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.33 K
+  die temp      28.85 C
+  uptime        2580 s   seq 2580   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 175  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:01:14Z  addr 3
+  O2 (dry)      21.04 %vol
+  cell current  100.54 uA
+  tip / chamber 26.30 C / 26.16 C
+  humidity      73.08 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.34 K
+  die temp      28.85 C
+  uptime        2585 s   seq 2585   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 176  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:01:20Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.46 uA
+  tip / chamber 26.30 C / 26.16 C
+  humidity      73.11 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.33 K
+  die temp      29.14 C
+  uptime        2591 s   seq 2591   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 177  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:01:25Z  addr 3
+  O2 (dry)      21.05 %vol
+  cell current  100.57 uA
+  tip / chamber 26.30 C / 26.16 C
+  humidity      73.09 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3286 mV  VIN 11960 mV  AFE 966 mV
+  dew margin    5.34 K
+  die temp      28.28 C
+  uptime        2596 s   seq 2596   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 178  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:01:30Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.46 uA
+  tip / chamber 26.30 C / 26.17 C
+  humidity      73.10 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.33 K
+  die temp      29.43 C
+  uptime        2601 s   seq 2601   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 179  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:01:36Z  addr 3
+  O2 (dry)      21.04 %vol
+  cell current  100.51 uA
+  tip / chamber 26.29 C / 26.17 C
+  humidity      73.12 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.31 K
+  die temp      28.85 C
+  uptime        2607 s   seq 2607   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 180  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:01:41Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.48 uA
+  tip / chamber 26.29 C / 26.17 C
+  humidity      73.12 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.31 K
+  die temp      28.85 C
+  uptime        2612 s   seq 2612   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 181  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:01:46Z  addr 3
+  O2 (dry)      21.04 %vol
+  cell current  100.54 uA
+  tip / chamber 26.30 C / 26.17 C
+  humidity      73.12 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.32 K
+  die temp      28.85 C
+  uptime        2617 s   seq 2617   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 182  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:01:52Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.50 uA
+  tip / chamber 26.30 C / 26.17 C
+  humidity      73.11 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.32 K
+  die temp      28.85 C
+  uptime        2623 s   seq 2623   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 183  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:01:57Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.46 uA
+  tip / chamber 26.29 C / 26.17 C
+  humidity      73.12 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.31 K
+  die temp      29.43 C
+  uptime        2628 s   seq 2628   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 184  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:02:02Z  addr 3
+  O2 (dry)      21.04 %vol
+  cell current  100.51 uA
+  tip / chamber 26.29 C / 26.15 C
+  humidity      73.11 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3286 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.33 K
+  die temp      29.14 C
+  uptime        2633 s   seq 2633   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 185  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:02:08Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.50 uA
+  tip / chamber 26.29 C / 26.16 C
+  humidity      73.10 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.33 K
+  die temp      28.85 C
+  uptime        2639 s   seq 2639   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 186  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:02:13Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.47 uA
+  tip / chamber 26.30 C / 26.16 C
+  humidity      73.12 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.33 K
+  die temp      29.43 C
+  uptime        2644 s   seq 2644   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 187  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:02:18Z  addr 3
+  O2 (dry)      21.05 %vol
+  cell current  100.57 uA
+  tip / chamber 26.29 C / 26.15 C
+  humidity      73.11 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 966 mV
+  dew margin    5.33 K
+  die temp      28.85 C
+  uptime        2649 s   seq 2649   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 188  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:02:24Z  addr 3
+  O2 (dry)      21.02 %vol
+  cell current  100.42 uA
+  tip / chamber 26.29 C / 26.16 C
+  humidity      73.11 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.32 K
+  die temp      29.14 C
+  uptime        2655 s   seq 2655   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 189  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:02:29Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.50 uA
+  tip / chamber 26.29 C / 26.16 C
+  humidity      73.11 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.32 K
+  die temp      28.56 C
+  uptime        2660 s   seq 2660   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 190  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:02:34Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.50 uA
+  tip / chamber 26.29 C / 26.16 C
+  humidity      73.12 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.32 K
+  die temp      28.85 C
+  uptime        2665 s   seq 2665   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 191  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:02:40Z  addr 3
+  O2 (dry)      21.04 %vol
+  cell current  100.51 uA
+  tip / chamber 26.30 C / 26.16 C
+  humidity      73.10 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.34 K
+  die temp      29.14 C
+  uptime        2671 s   seq 2671   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 192  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:02:45Z  addr 3
+  O2 (dry)      21.02 %vol
+  cell current  100.45 uA
+  tip / chamber 26.30 C / 26.17 C
+  humidity      73.09 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.33 K
+  die temp      29.14 C
+  uptime        2676 s   seq 2676   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 193  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:02:50Z  addr 3
+  O2 (dry)      21.04 %vol
+  cell current  100.54 uA
+  tip / chamber 26.29 C / 26.18 C
+  humidity      73.06 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.32 K
+  die temp      28.85 C
+  uptime        2681 s   seq 2681   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 194  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:02:56Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.50 uA
+  tip / chamber 26.29 C / 26.17 C
+  humidity      73.03 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.33 K
+  die temp      28.56 C
+  uptime        2687 s   seq 2687   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 195  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:03:01Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.49 uA
+  tip / chamber 26.30 C / 26.16 C
+  humidity      73.01 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.36 K
+  die temp      28.85 C
+  uptime        2692 s   seq 2692   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 196  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:03:06Z  addr 3
+  O2 (dry)      21.04 %vol
+  cell current  100.54 uA
+  tip / chamber 26.28 C / 26.16 C
+  humidity      73.01 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.34 K
+  die temp      28.85 C
+  uptime        2697 s   seq 2697   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 197  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:03:11Z  addr 3
+  O2 (dry)      21.05 %vol
+  cell current  100.59 uA
+  tip / chamber 26.28 C / 26.15 C
+  humidity      72.96 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3286 mV  VIN 11960 mV  AFE 966 mV
+  dew margin    5.36 K
+  die temp      28.85 C
+  uptime        2703 s   seq 2703   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 198  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:03:17Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.49 uA
+  tip / chamber 26.28 C / 26.16 C
+  humidity      72.98 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.34 K
+  die temp      28.56 C
+  uptime        2708 s   seq 2708   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 199  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:03:22Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.46 uA
+  tip / chamber 26.29 C / 26.15 C
+  humidity      72.93 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3292 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.37 K
+  die temp      28.56 C
+  uptime        2713 s   seq 2713   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 200  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:03:27Z  addr 3
+  O2 (dry)      21.04 %vol
+  cell current  100.54 uA
+  tip / chamber 26.29 C / 26.16 C
+  humidity      72.92 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.37 K
+  die temp      28.85 C
+  uptime        2719 s   seq 2719   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 201  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:03:33Z  addr 3
+  O2 (dry)      21.02 %vol
+  cell current  100.45 uA
+  tip / chamber 26.28 C / 26.16 C
+  humidity      72.93 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.35 K
+  die temp      28.56 C
+  uptime        2724 s   seq 2724   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 202  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:03:38Z  addr 3
+  O2 (dry)      21.04 %vol
+  cell current  100.52 uA
+  tip / chamber 26.28 C / 26.15 C
+  humidity      72.87 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.38 K
+  die temp      28.56 C
+  uptime        2729 s   seq 2729   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 203  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:03:43Z  addr 3
+  O2 (dry)      21.04 %vol
+  cell current  100.52 uA
+  tip / chamber 26.28 C / 26.16 C
+  humidity      72.87 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.37 K
+  die temp      29.14 C
+  uptime        2735 s   seq 2735   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 204  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:03:49Z  addr 3
+  O2 (dry)      21.04 %vol
+  cell current  100.52 uA
+  tip / chamber 26.28 C / 26.16 C
+  humidity      72.84 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.37 K
+  die temp      28.85 C
+  uptime        2740 s   seq 2740   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 205  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:03:54Z  addr 3
+  O2 (dry)      21.02 %vol
+  cell current  100.40 uA
+  tip / chamber 26.28 C / 26.14 C
+  humidity      72.81 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    5.40 K
+  die temp      28.28 C
+  uptime        2745 s   seq 2745   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 206  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:03:59Z  addr 3
+  O2 (dry)      21.04 %vol
+  cell current  100.55 uA
+  tip / chamber 26.28 C / 26.17 C
+  humidity      72.81 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.37 K
+  die temp      29.43 C
+  uptime        2751 s   seq 2751   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 207  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:04:05Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.47 uA
+  tip / chamber 26.28 C / 26.16 C
+  humidity      72.77 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.39 K
+  die temp      29.14 C
+  uptime        2756 s   seq 2756   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 208  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:04:10Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.48 uA
+  tip / chamber 26.28 C / 26.16 C
+  humidity      72.78 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.39 K
+  die temp      29.14 C
+  uptime        2761 s   seq 2761   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 209  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:04:15Z  addr 3
+  O2 (dry)      21.04 %vol
+  cell current  100.52 uA
+  tip / chamber 26.28 C / 26.14 C
+  humidity      72.72 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.42 K
+  die temp      29.14 C
+  uptime        2767 s   seq 2767   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 210  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:04:21Z  addr 3
+  O2 (dry)      21.05 %vol
+  cell current  100.57 uA
+  tip / chamber 26.28 C / 26.16 C
+  humidity      72.69 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 966 mV
+  dew margin    5.41 K
+  die temp      28.56 C
+  uptime        2772 s   seq 2772   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 211  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:04:26Z  addr 3
+  O2 (dry)      21.02 %vol
+  cell current  100.43 uA
+  tip / chamber 26.28 C / 26.16 C
+  humidity      72.68 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.41 K
+  die temp      28.85 C
+  uptime        2777 s   seq 2777   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 212  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:04:31Z  addr 3
+  O2 (dry)      21.02 %vol
+  cell current  100.42 uA
+  tip / chamber 26.28 C / 26.14 C
+  humidity      72.69 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.43 K
+  die temp      28.85 C
+  uptime        2783 s   seq 2783   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 213  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:04:37Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.46 uA
+  tip / chamber 26.28 C / 26.15 C
+  humidity      72.65 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.43 K
+  die temp      28.56 C
+  uptime        2788 s   seq 2788   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 214  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:04:42Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.47 uA
+  tip / chamber 26.29 C / 26.16 C
+  humidity      72.69 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    5.42 K
+  die temp      28.56 C
+  uptime        2793 s   seq 2793   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 215  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:04:47Z  addr 3
+  O2 (dry)      21.02 %vol
+  cell current  100.40 uA
+  tip / chamber 26.32 C / 26.20 C
+  humidity      72.82 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    5.40 K
+  die temp      28.85 C
+  uptime        2799 s   seq 2799   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 216  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:04:53Z  addr 3
+  O2 (dry)      21.01 %vol
+  cell current  100.38 uA
+  tip / chamber 26.38 C / 26.26 C
+  humidity      73.02 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3296 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    5.34 K
+  die temp      28.56 C
+  uptime        2804 s   seq 2804   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 217  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:04:58Z  addr 3
+  O2 (dry)      21.01 %vol
+  cell current  100.37 uA
+  tip / chamber 26.45 C / 26.30 C
+  humidity      73.24 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    5.32 K
+  die temp      28.56 C
+  uptime        2809 s   seq 2809   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 218  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:05:03Z  addr 3
+  O2 (dry)      21.00 %vol
+  cell current  100.29 uA
+  tip / chamber 26.53 C / 26.42 C
+  humidity      73.62 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    5.20 K
+  die temp      29.43 C
+  uptime        2815 s   seq 2815   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 219  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:05:09Z  addr 3
+  O2 (dry)      21.00 %vol
+  cell current  100.34 uA
+  tip / chamber 26.63 C / 26.46 C
+  humidity      73.91 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    5.20 K
+  die temp      28.85 C
+  uptime        2820 s   seq 2820   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 220  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:05:14Z  addr 3
+  O2 (dry)      21.00 %vol
+  cell current  100.30 uA
+  tip / chamber 26.74 C / 26.59 C
+  humidity      74.20 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    5.12 K
+  die temp      28.85 C
+  uptime        2825 s   seq 2825   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 221  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:05:19Z  addr 3
+  O2 (dry)      20.99 %vol
+  cell current  100.26 uA
+  tip / chamber 26.85 C / 26.70 C
+  humidity      74.47 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3286 mV  VIN 11960 mV  AFE 969 mV
+  dew margin    5.07 K
+  die temp      28.85 C
+  uptime        2831 s   seq 2831   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 222  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:05:25Z  addr 3
+  O2 (dry)      20.98 %vol
+  cell current  100.21 uA
+  tip / chamber 26.99 C / 26.83 C
+  humidity      74.72 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 969 mV
+  dew margin    5.02 K
+  die temp      29.14 C
+  uptime        2836 s   seq 2836   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 223  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:05:30Z  addr 3
+  O2 (dry)      20.99 %vol
+  cell current  100.25 uA
+  tip / chamber 27.11 C / 26.96 C
+  humidity      74.87 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 969 mV
+  dew margin    4.98 K
+  die temp      28.85 C
+  uptime        2841 s   seq 2841   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 224  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:05:35Z  addr 3
+  O2 (dry)      20.97 %vol
+  cell current  100.15 uA
+  tip / chamber 27.27 C / 27.09 C
+  humidity      74.96 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 969 mV
+  dew margin    5.00 K
+  die temp      29.14 C
+  uptime        2847 s   seq 2847   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 225  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:05:41Z  addr 3
+  O2 (dry)      20.98 %vol
+  cell current  100.21 uA
+  tip / chamber 27.41 C / 27.23 C
+  humidity      74.91 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 969 mV
+  dew margin    5.02 K
+  die temp      29.43 C
+  uptime        2852 s   seq 2852   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 226  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:05:46Z  addr 3
+  O2 (dry)      20.97 %vol
+  cell current  100.13 uA
+  tip / chamber 27.54 C / 27.36 C
+  humidity      74.89 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 970 mV
+  dew margin    5.02 K
+  die temp      29.72 C
+  uptime        2857 s   seq 2857   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 227  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:05:51Z  addr 3
+  O2 (dry)      20.94 %vol
+  cell current  100.00 uA
+  tip / chamber 27.72 C / 27.54 C
+  humidity      74.88 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3286 mV  VIN 11950 mV  AFE 969 mV
+  dew margin    5.03 K
+  die temp      29.14 C
+  uptime        2863 s   seq 2863   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 228  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:05:57Z  addr 3
+  O2 (dry)      20.95 %vol
+  cell current  100.04 uA
+  tip / chamber 27.85 C / 27.69 C
+  humidity      74.79 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3288 mV  VIN 11950 mV  AFE 969 mV
+  dew margin    5.04 K
+  die temp      29.72 C
+  uptime        2868 s   seq 2868   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 229  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:06:02Z  addr 3
+  O2 (dry)      20.95 %vol
+  cell current  100.05 uA
+  tip / chamber 28.01 C / 27.83 C
+  humidity      74.76 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3288 mV  VIN 11950 mV  AFE 969 mV
+  dew margin    5.07 K
+  die temp      29.14 C
+  uptime        2873 s   seq 2873   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 230  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:06:07Z  addr 3
+  O2 (dry)      20.93 %vol
+  cell current  99.94 uA
+  tip / chamber 28.18 C / 28.03 C
+  humidity      74.74 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3290 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    5.05 K
+  die temp      29.43 C
+  uptime        2879 s   seq 2879   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 231  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:06:13Z  addr 3
+  O2 (dry)      20.94 %vol
+  cell current  99.96 uA
+  tip / chamber 28.33 C / 28.14 C
+  humidity      74.71 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3290 mV  VIN 11950 mV  AFE 969 mV
+  dew margin    5.10 K
+  die temp      29.72 C
+  uptime        2884 s   seq 2884   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 232  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:06:18Z  addr 3
+  O2 (dry)      20.93 %vol
+  cell current  99.94 uA
+  tip / chamber 28.46 C / 28.30 C
+  humidity      74.68 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3286 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    5.08 K
+  die temp      29.72 C
+  uptime        2889 s   seq 2889   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 233  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:06:23Z  addr 3
+  O2 (dry)      20.91 %vol
+  cell current  99.85 uA
+  tip / chamber 28.65 C / 28.49 C
+  humidity      74.68 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3288 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    5.09 K
+  die temp      30.00 C
+  uptime        2895 s   seq 2895   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 234  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:06:29Z  addr 3
+  O2 (dry)      20.92 %vol
+  cell current  99.90 uA
+  tip / chamber 28.78 C / 28.63 C
+  humidity      74.68 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3288 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    5.09 K
+  die temp      30.28 C
+  uptime        2900 s   seq 2900   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 235  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:06:34Z  addr 3
+  O2 (dry)      20.92 %vol
+  cell current  99.87 uA
+  tip / chamber 28.94 C / 28.77 C
+  humidity      74.68 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3290 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    5.11 K
+  die temp      30.00 C
+  uptime        2905 s   seq 2905   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 236  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:06:39Z  addr 3
+  O2 (dry)      20.93 %vol
+  cell current  99.91 uA
+  tip / chamber 29.10 C / 28.90 C
+  humidity      74.65 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3288 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    5.15 K
+  die temp      30.00 C
+  uptime        2911 s   seq 2911   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 237  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:06:45Z  addr 3
+  O2 (dry)      20.92 %vol
+  cell current  99.87 uA
+  tip / chamber 29.24 C / 29.07 C
+  humidity      74.69 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3288 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    5.12 K
+  die temp      30.28 C
+  uptime        2916 s   seq 2916   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 238  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:06:50Z  addr 3
+  O2 (dry)      20.91 %vol
+  cell current  99.83 uA
+  tip / chamber 29.36 C / 29.22 C
+  humidity      74.72 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3290 mV  VIN 11950 mV  AFE 969 mV
+  dew margin    5.10 K
+  die temp      30.00 C
+  uptime        2922 s   seq 2922   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:06:55Z  addr 3
+  O2 (dry)      20.92 %vol
+  cell current  99.89 uA
+  tip / chamber 29.53 C / 29.36 C
+  humidity      74.74 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3288 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    5.12 K
+  die temp      30.00 C
+  uptime        2927 s   seq 2927   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:07:01Z  addr 3
+  O2 (dry)      20.92 %vol
+  cell current  99.88 uA
+  tip / chamber 29.65 C / 29.50 C
+  humidity      74.76 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3288 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    5.10 K
+  die temp      30.57 C
+  uptime        2932 s   seq 2932   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:07:06Z  addr 3
+  O2 (dry)      20.93 %vol
+  cell current  99.91 uA
+  tip / chamber 29.78 C / 29.62 C
+  humidity      74.80 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3288 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    5.09 K
+  die temp      30.28 C
+  uptime        2938 s   seq 2938   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:07:11Z  addr 3
+  O2 (dry)      20.93 %vol
+  cell current  99.94 uA
+  tip / chamber 29.92 C / 29.77 C
+  humidity      74.88 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3288 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    5.08 K
+  die temp      30.28 C
+  uptime        2943 s   seq 2943   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:07:17Z  addr 3
+  O2 (dry)      20.92 %vol
+  cell current  99.88 uA
+  tip / chamber 30.03 C / 29.90 C
+  humidity      74.93 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3288 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    5.06 K
+  die temp      30.00 C
+  uptime        2948 s   seq 2948   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:07:22Z  addr 3
+  O2 (dry)      20.91 %vol
+  cell current  99.82 uA
+  tip / chamber 30.15 C / 30.01 C
+  humidity      75.01 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3296 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    5.01 K
+  die temp      30.57 C
+  uptime        2954 s   seq 2954   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:07:27Z  addr 3
+  O2 (dry)      20.91 %vol
+  cell current  99.82 uA
+  tip / chamber 30.28 C / 30.15 C
+  humidity      75.16 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3288 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    5.01 K
+  die temp      30.57 C
+  uptime        2959 s   seq 2959   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:07:33Z  addr 3
+  O2 (dry)      20.90 %vol
+  cell current  99.78 uA
+  tip / chamber 30.39 C / 30.29 C
+  humidity      75.25 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3290 mV  VIN 11950 mV  AFE 971 mV
+  dew margin    4.97 K
+  die temp      31.15 C
+  uptime        2964 s   seq 2964   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:07:38Z  addr 3
+  O2 (dry)      20.91 %vol
+  cell current  99.84 uA
+  tip / chamber 30.50 C / 30.37 C
+  humidity      75.32 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3290 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    4.98 K
+  die temp      30.57 C
+  uptime        2970 s   seq 2970   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:07:43Z  addr 3
+  O2 (dry)      20.92 %vol
+  cell current  99.88 uA
+  tip / chamber 30.61 C / 30.51 C
+  humidity      75.46 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3286 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    4.93 K
+  die temp      30.57 C
+  uptime        2975 s   seq 2975   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:07:49Z  addr 3
+  O2 (dry)      20.91 %vol
+  cell current  99.81 uA
+  tip / chamber 30.71 C / 30.63 C
+  humidity      75.57 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3290 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    4.89 K
+  die temp      30.57 C
+  uptime        2980 s   seq 2980   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:07:54Z  addr 3
+  O2 (dry)      20.90 %vol
+  cell current  99.79 uA
+  tip / chamber 30.84 C / 30.75 C
+  humidity      75.73 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3288 mV  VIN 11950 mV  AFE 971 mV
+  dew margin    4.87 K
+  die temp      31.15 C
+  uptime        2986 s   seq 2986   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:07:59Z  addr 3
+  O2 (dry)      20.92 %vol
+  cell current  99.88 uA
+  tip / chamber 30.93 C / 30.85 C
+  humidity      75.89 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3288 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    4.83 K
+  die temp      30.86 C
+  uptime        2991 s   seq 2991   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:08:05Z  addr 3
+  O2 (dry)      20.91 %vol
+  cell current  99.81 uA
+  tip / chamber 31.02 C / 30.94 C
+  humidity      76.05 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3290 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    4.79 K
+  die temp      31.15 C
+  uptime        2996 s   seq 2996   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:08:10Z  addr 3
+  O2 (dry)      20.93 %vol
+  cell current  99.92 uA
+  tip / chamber 31.14 C / 31.07 C
+  humidity      76.26 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3290 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    4.74 K
+  die temp      31.15 C
+  uptime        3002 s   seq 3002   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:08:15Z  addr 3
+  O2 (dry)      20.91 %vol
+  cell current  99.81 uA
+  tip / chamber 31.21 C / 31.16 C
+  humidity      76.46 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3286 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    4.68 K
+  die temp      31.15 C
+  uptime        3007 s   seq 3007   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:08:21Z  addr 3
+  O2 (dry)      20.92 %vol
+  cell current  99.89 uA
+  tip / chamber 31.31 C / 31.24 C
+  humidity      76.66 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3288 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    4.66 K
+  die temp      31.72 C
+  uptime        3012 s   seq 3012   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:08:26Z  addr 3
+  O2 (dry)      20.92 %vol
+  cell current  99.89 uA
+  tip / chamber 31.40 C / 31.35 C
+  humidity      76.92 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3288 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    4.58 K
+  die temp      32.01 C
+  uptime        3018 s   seq 3018   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:08:31Z  addr 3
+  O2 (dry)      20.92 %vol
+  cell current  99.89 uA
+  tip / chamber 31.50 C / 31.46 C
+  humidity      77.12 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3288 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    4.53 K
+  die temp      31.15 C
+  uptime        3023 s   seq 3023   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:08:37Z  addr 3
+  O2 (dry)      20.93 %vol
+  cell current  99.92 uA
+  tip / chamber 31.57 C / 31.53 C
+  humidity      77.37 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3290 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    4.48 K
+  die temp      31.15 C
+  uptime        3028 s   seq 3028   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:08:42Z  addr 3
+  O2 (dry)      20.91 %vol
+  cell current  99.83 uA
+  tip / chamber 31.67 C / 31.64 C
+  humidity      77.61 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3290 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    4.42 K
+  die temp      31.72 C
+  uptime        3034 s   seq 3034   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:08:47Z  addr 3
+  O2 (dry)      20.92 %vol
+  cell current  99.88 uA
+  tip / chamber 31.75 C / 31.72 C
+  humidity      77.87 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3290 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    4.37 K
+  die temp      31.44 C
+  uptime        3039 s   seq 3039   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:08:53Z  addr 3
+  O2 (dry)      20.92 %vol
+  cell current  99.89 uA
+  tip / chamber 31.82 C / 31.81 C
+  humidity      78.04 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3286 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    4.31 K
+  die temp      32.30 C
+  uptime        3045 s   seq 3045   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:08:58Z  addr 3
+  O2 (dry)      20.93 %vol
+  cell current  99.95 uA
+  tip / chamber 31.91 C / 31.90 C
+  humidity      78.33 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3290 mV  VIN 11950 mV  AFE 969 mV
+  dew margin    4.25 K
+  die temp      31.72 C
+  uptime        3050 s   seq 3050   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:09:04Z  addr 3
+  O2 (dry)      20.95 %vol
+  cell current  100.06 uA
+  tip / chamber 32.00 C / 31.99 C
+  humidity      78.52 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3288 mV  VIN 11950 mV  AFE 969 mV
+  dew margin    4.21 K
+  die temp      32.01 C
+  uptime        3055 s   seq 3055   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:09:09Z  addr 3
+  O2 (dry)      20.91 %vol
+  cell current  99.81 uA
+  tip / chamber 32.08 C / 32.08 C
+  humidity      78.78 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3290 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    4.15 K
+  die temp      32.01 C
+  uptime        3061 s   seq 3061   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:09:14Z  addr 3
+  O2 (dry)      20.91 %vol
+  cell current  99.81 uA
+  tip / chamber 32.16 C / 32.17 C
+  humidity      78.95 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3288 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    4.10 K
+  die temp      32.01 C
+  uptime        3066 s   seq 3066   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:09:20Z  addr 3
+  O2 (dry)      20.96 %vol
+  cell current  100.08 uA
+  tip / chamber 32.23 C / 32.24 C
+  humidity      79.13 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3288 mV  VIN 11950 mV  AFE 969 mV
+  dew margin    4.07 K
+  die temp      32.30 C
+  uptime        3071 s   seq 3071   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:09:25Z  addr 3
+  O2 (dry)      20.94 %vol
+  cell current  99.96 uA
+  tip / chamber 32.32 C / 32.32 C
+  humidity      79.36 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3286 mV  VIN 11950 mV  AFE 969 mV
+  dew margin    4.03 K
+  die temp      32.30 C
+  uptime        3077 s   seq 3077   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:09:30Z  addr 3
+  O2 (dry)      20.92 %vol
+  cell current  99.90 uA
+  tip / chamber 32.39 C / 32.40 C
+  humidity      79.53 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3290 mV  VIN 11950 mV  AFE 970 mV
+  dew margin    3.98 K
+  die temp      32.30 C
+  uptime        3082 s   seq 3082   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:09:36Z  addr 3
+  O2 (dry)      20.94 %vol
+  cell current  100.01 uA
+  tip / chamber 32.46 C / 32.48 C
+  humidity      79.68 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3288 mV  VIN 11950 mV  AFE 969 mV
+  dew margin    3.94 K
+  die temp      32.59 C
+  uptime        3087 s   seq 3087   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:09:41Z  addr 3
+  O2 (dry)      20.98 %vol
+  cell current  100.22 uA
+  tip / chamber 32.55 C / 32.59 C
+  humidity      79.88 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3288 mV  VIN 11950 mV  AFE 968 mV
+  dew margin    3.88 K
+  die temp      32.30 C
+  uptime        3093 s   seq 3093   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:09:46Z  addr 3
+  O2 (dry)      20.96 %vol
+  cell current  100.07 uA
+  tip / chamber 32.63 C / 32.65 C
+  humidity      80.04 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3294 mV  VIN 11950 mV  AFE 969 mV
+  dew margin    3.87 K
+  die temp      32.01 C
+  uptime        3098 s   seq 3098   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:09:51Z  addr 3
+  O2 (dry)      20.95 %vol
+  cell current  100.05 uA
+  tip / chamber 32.68 C / 32.70 C
+  humidity      80.19 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3288 mV  VIN 11950 mV  AFE 969 mV
+  dew margin    3.84 K
+  die temp      32.59 C
+  uptime        3103 s   seq 3103   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:09:57Z  addr 3
+  O2 (dry)      20.95 %vol
+  cell current  100.02 uA
+  tip / chamber 32.77 C / 32.79 C
+  humidity      80.37 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3290 mV  VIN 11950 mV  AFE 969 mV
+  dew margin    3.80 K
+  die temp      32.59 C
+  uptime        3109 s   seq 3109   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:10:02Z  addr 3
+  O2 (dry)      20.95 %vol
+  cell current  100.02 uA
+  tip / chamber 32.83 C / 32.88 C
+  humidity      80.51 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2492 mV  VA 3290 mV  VIN 11950 mV  AFE 969 mV
+  dew margin    3.75 K
+  die temp      32.59 C
+  uptime        3114 s   seq 3114   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:10:07Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.47 uA
+  tip / chamber 32.90 C / 32.93 C
+  humidity      80.67 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    3.73 K
+  die temp      32.59 C
+  uptime        3119 s   seq 3119   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:10:13Z  addr 3
+  O2 (dry)      20.97 %vol
+  cell current  100.16 uA
+  tip / chamber 32.98 C / 33.00 C
+  humidity      80.82 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 969 mV
+  dew margin    3.71 K
+  die temp      32.59 C
+  uptime        3125 s   seq 3125   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:10:18Z  addr 3
+  O2 (dry)      20.96 %vol
+  cell current  100.11 uA
+  tip / chamber 33.03 C / 33.06 C
+  humidity      80.98 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 970 mV
+  dew margin    3.67 K
+  die temp      33.17 C
+  uptime        3130 s   seq 3130   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:10:24Z  addr 3
+  O2 (dry)      20.98 %vol
+  cell current  100.18 uA
+  tip / chamber 33.10 C / 33.13 C
+  humidity      81.08 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 969 mV
+  dew margin    3.65 K
+  die temp      32.59 C
+  uptime        3135 s   seq 3135   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:10:29Z  addr 3
+  O2 (dry)      20.98 %vol
+  cell current  100.21 uA
+  tip / chamber 33.17 C / 33.20 C
+  humidity      81.27 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 969 mV
+  dew margin    3.61 K
+  die temp      32.59 C
+  uptime        3141 s   seq 3141   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:10:34Z  addr 3
+  O2 (dry)      20.98 %vol
+  cell current  100.23 uA
+  tip / chamber 33.23 C / 33.28 C
+  humidity      81.39 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 969 mV
+  dew margin    3.57 K
+  die temp      33.17 C
+  uptime        3146 s   seq 3146   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:10:40Z  addr 3
+  O2 (dry)      20.98 %vol
+  cell current  100.23 uA
+  tip / chamber 33.29 C / 33.34 C
+  humidity      81.52 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 969 mV
+  dew margin    3.54 K
+  die temp      33.17 C
+  uptime        3151 s   seq 3151   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:10:45Z  addr 3
+  O2 (dry)      20.99 %vol
+  cell current  100.25 uA
+  tip / chamber 33.36 C / 33.40 C
+  humidity      81.67 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 969 mV
+  dew margin    3.52 K
+  die temp      32.88 C
+  uptime        3157 s   seq 3157   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:10:50Z  addr 3
+  O2 (dry)      20.98 %vol
+  cell current  100.18 uA
+  tip / chamber 33.42 C / 33.47 C
+  humidity      81.78 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 969 mV
+  dew margin    3.49 K
+  die temp      33.17 C
+  uptime        3162 s   seq 3162   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:10:56Z  addr 3
+  O2 (dry)      20.98 %vol
+  cell current  100.22 uA
+  tip / chamber 33.47 C / 33.52 C
+  humidity      81.92 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 969 mV
+  dew margin    3.46 K
+  die temp      33.45 C
+  uptime        3167 s   seq 3167   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:11:01Z  addr 3
+  O2 (dry)      20.95 %vol
+  cell current  100.04 uA
+  tip / chamber 33.54 C / 33.56 C
+  humidity      82.03 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 970 mV
+  dew margin    3.47 K
+  die temp      33.17 C
+  uptime        3173 s   seq 3173   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:11:06Z  addr 3
+  O2 (dry)      20.99 %vol
+  cell current  100.24 uA
+  tip / chamber 33.59 C / 33.63 C
+  humidity      82.14 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 969 mV
+  dew margin    3.43 K
+  die temp      32.88 C
+  uptime        3178 s   seq 3178   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:11:12Z  addr 3
+  O2 (dry)      20.98 %vol
+  cell current  100.23 uA
+  tip / chamber 33.65 C / 33.70 C
+  humidity      82.26 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    3.40 K
+  die temp      33.45 C
+  uptime        3184 s   seq 3184   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:11:17Z  addr 3
+  O2 (dry)      20.99 %vol
+  cell current  100.28 uA
+  tip / chamber 33.71 C / 33.77 C
+  humidity      82.39 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    3.36 K
+  die temp      33.17 C
+  uptime        3189 s   seq 3189   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:11:22Z  addr 3
+  O2 (dry)      21.00 %vol
+  cell current  100.29 uA
+  tip / chamber 33.76 C / 33.80 C
+  humidity      82.48 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    3.36 K
+  die temp      33.45 C
+  uptime        3194 s   seq 3194   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:11:28Z  addr 3
+  O2 (dry)      21.00 %vol
+  cell current  100.29 uA
+  tip / chamber 33.81 C / 33.88 C
+  humidity      82.62 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3294 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    3.33 K
+  die temp      33.45 C
+  uptime        3200 s   seq 3200   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:11:33Z  addr 3
+  O2 (dry)      20.99 %vol
+  cell current  100.28 uA
+  tip / chamber 33.87 C / 33.93 C
+  humidity      82.72 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    3.29 K
+  die temp      33.17 C
+  uptime        3205 s   seq 3205   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:11:38Z  addr 3
+  O2 (dry)      20.99 %vol
+  cell current  100.26 uA
+  tip / chamber 33.92 C / 33.97 C
+  humidity      82.82 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 969 mV
+  dew margin    3.28 K
+  die temp      33.45 C
+  uptime        3210 s   seq 3210   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:11:44Z  addr 3
+  O2 (dry)      21.00 %vol
+  cell current  100.29 uA
+  tip / chamber 33.97 C / 34.03 C
+  humidity      82.94 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    3.25 K
+  die temp      33.74 C
+  uptime        3216 s   seq 3216   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:11:49Z  addr 3
+  O2 (dry)      21.00 %vol
+  cell current  100.29 uA
+  tip / chamber 34.02 C / 34.08 C
+  humidity      83.03 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    3.23 K
+  die temp      33.45 C
+  uptime        3221 s   seq 3221   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:11:54Z  addr 3
+  O2 (dry)      21.00 %vol
+  cell current  100.32 uA
+  tip / chamber 34.07 C / 34.11 C
+  humidity      83.16 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    3.22 K
+  die temp      33.74 C
+  uptime        3226 s   seq 3226   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:12:00Z  addr 3
+  O2 (dry)      21.01 %vol
+  cell current  100.39 uA
+  tip / chamber 34.11 C / 34.17 C
+  humidity      83.27 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    3.18 K
+  die temp      33.74 C
+  uptime        3232 s   seq 3232   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:12:05Z  addr 3
+  O2 (dry)      21.01 %vol
+  cell current  100.35 uA
+  tip / chamber 34.17 C / 34.21 C
+  humidity      83.37 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    3.18 K
+  die temp      34.61 C
+  uptime        3237 s   seq 3237   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:12:10Z  addr 3
+  O2 (dry)      21.02 %vol
+  cell current  100.40 uA
+  tip / chamber 34.21 C / 34.26 C
+  humidity      83.47 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    3.15 K
+  die temp      33.74 C
+  uptime        3242 s   seq 3242   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:12:16Z  addr 3
+  O2 (dry)      21.00 %vol
+  cell current  100.34 uA
+  tip / chamber 34.25 C / 34.33 C
+  humidity      83.57 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    3.10 K
+  die temp      33.74 C
+  uptime        3248 s   seq 3248   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:12:21Z  addr 3
+  O2 (dry)      21.02 %vol
+  cell current  100.42 uA
+  tip / chamber 34.29 C / 34.35 C
+  humidity      83.68 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    3.10 K
+  die temp      34.32 C
+  uptime        3253 s   seq 3253   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:12:26Z  addr 3
+  O2 (dry)      21.01 %vol
+  cell current  100.36 uA
+  tip / chamber 34.32 C / 34.41 C
+  humidity      83.82 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    3.04 K
+  die temp      33.74 C
+  uptime        3258 s   seq 3258   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:12:32Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.50 uA
+  tip / chamber 34.37 C / 34.44 C
+  humidity      83.88 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3294 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    3.05 K
+  die temp      33.45 C
+  uptime        3264 s   seq 3264   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:12:37Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.48 uA
+  tip / chamber 34.41 C / 34.49 C
+  humidity      83.99 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    3.02 K
+  die temp      33.74 C
+  uptime        3269 s   seq 3269   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:12:42Z  addr 3
+  O2 (dry)      21.02 %vol
+  cell current  100.43 uA
+  tip / chamber 34.44 C / 34.53 C
+  humidity      84.09 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    2.99 K
+  die temp      34.32 C
+  uptime        3274 s   seq 3274   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:12:47Z  addr 3
+  O2 (dry)      21.02 %vol
+  cell current  100.43 uA
+  tip / chamber 34.48 C / 34.53 C
+  humidity      84.17 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    3.01 K
+  die temp      33.74 C
+  uptime        3280 s   seq 3280   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:12:53Z  addr 3
+  O2 (dry)      21.01 %vol
+  cell current  100.38 uA
+  tip / chamber 34.51 C / 34.59 C
+  humidity      84.28 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3286 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    2.96 K
+  die temp      34.61 C
+  uptime        3285 s   seq 3285   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:12:58Z  addr 3
+  O2 (dry)      21.01 %vol
+  cell current  100.38 uA
+  tip / chamber 34.54 C / 34.61 C
+  humidity      84.40 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    2.95 K
+  die temp      34.03 C
+  uptime        3290 s   seq 3290   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:13:03Z  addr 3
+  O2 (dry)      21.02 %vol
+  cell current  100.43 uA
+  tip / chamber 34.57 C / 34.62 C
+  humidity      84.46 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    2.93 K
+  die temp      33.74 C
+  uptime        3296 s   seq 3296   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:13:09Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.46 uA
+  tip / chamber 34.60 C / 34.69 C
+  humidity      84.62 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    2.88 K
+  die temp      34.32 C
+  uptime        3301 s   seq 3301   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:13:14Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.46 uA
+  tip / chamber 34.63 C / 34.70 C
+  humidity      84.72 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    2.88 K
+  die temp      34.32 C
+  uptime        3306 s   seq 3306   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:13:19Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.49 uA
+  tip / chamber 34.66 C / 34.74 C
+  humidity      84.78 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    2.85 K
+  die temp      34.32 C
+  uptime        3312 s   seq 3312   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:13:25Z  addr 3
+  O2 (dry)      20.99 %vol
+  cell current  100.27 uA
+  tip / chamber 34.69 C / 34.77 C
+  humidity      84.92 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 969 mV
+  dew margin    2.83 K
+  die temp      34.03 C
+  uptime        3317 s   seq 3317   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:13:30Z  addr 3
+  O2 (dry)      20.99 %vol
+  cell current  100.26 uA
+  tip / chamber 34.71 C / 34.79 C
+  humidity      85.02 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 969 mV
+  dew margin    2.81 K
+  die temp      34.61 C
+  uptime        3322 s   seq 3322   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:13:35Z  addr 3
+  O2 (dry)      20.99 %vol
+  cell current  100.26 uA
+  tip / chamber 34.73 C / 34.81 C
+  humidity      85.13 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 969 mV
+  dew margin    2.78 K
+  die temp      33.74 C
+  uptime        3328 s   seq 3328   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:13:41Z  addr 3
+  O2 (dry)      20.98 %vol
+  cell current  100.18 uA
+  tip / chamber 34.75 C / 34.82 C
+  humidity      85.26 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 969 mV
+  dew margin    2.77 K
+  die temp      34.61 C
+  uptime        3333 s   seq 3333   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:13:46Z  addr 3
+  O2 (dry)      20.95 %vol
+  cell current  100.07 uA
+  tip / chamber 34.77 C / 34.87 C
+  humidity      85.39 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 970 mV
+  dew margin    2.72 K
+  die temp      34.61 C
+  uptime        3338 s   seq 3338   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:13:51Z  addr 3
+  O2 (dry)      20.92 %vol
+  cell current  99.90 uA
+  tip / chamber 34.79 C / 34.90 C
+  humidity      85.52 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 972 mV
+  dew margin    2.71 K
+  die temp      34.32 C
+  uptime        3344 s   seq 3344   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:13:57Z  addr 3
+  O2 (dry)      20.93 %vol
+  cell current  99.92 uA
+  tip / chamber 34.81 C / 34.90 C
+  humidity      85.63 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 971 mV
+  dew margin    2.68 K
+  die temp      34.32 C
+  uptime        3349 s   seq 3349   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:14:02Z  addr 3
+  O2 (dry)      20.91 %vol
+  cell current  99.82 uA
+  tip / chamber 34.82 C / 34.94 C
+  humidity      85.77 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 972 mV
+  dew margin    2.62 K
+  die temp      34.89 C
+  uptime        3354 s   seq 3354   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:14:07Z  addr 3
+  O2 (dry)      20.98 %vol
+  cell current  100.22 uA
+  tip / chamber 34.85 C / 34.94 C
+  humidity      85.92 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3286 mV  VIN 11960 mV  AFE 971 mV
+  dew margin    2.59 K
+  die temp      34.32 C
+  uptime        3360 s   seq 3360   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:14:13Z  addr 3
+  O2 (dry)      20.94 %vol
+  cell current  99.98 uA
+  tip / chamber 34.87 C / 34.96 C
+  humidity      86.14 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 971 mV
+  dew margin    2.57 K
+  die temp      34.61 C
+  uptime        3365 s   seq 3365   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:14:18Z  addr 3
+  O2 (dry)      20.96 %vol
+  cell current  100.09 uA
+  tip / chamber 34.89 C / 34.99 C
+  humidity      86.27 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 970 mV
+  dew margin    2.54 K
+  die temp      34.61 C
+  uptime        3370 s   seq 3370   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:14:23Z  addr 3
+  O2 (dry)      20.94 %vol
+  cell current  100.00 uA
+  tip / chamber 34.91 C / 35.02 C
+  humidity      86.46 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 970 mV
+  dew margin    2.49 K
+  die temp      34.32 C
+  uptime        3376 s   seq 3376   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:14:29Z  addr 3
+  O2 (dry)      20.95 %vol
+  cell current  100.03 uA
+  tip / chamber 34.93 C / 35.03 C
+  humidity      86.62 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 970 mV
+  dew margin    2.47 K
+  die temp      34.61 C
+  uptime        3381 s   seq 3381   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:14:34Z  addr 3
+  O2 (dry)      20.95 %vol
+  cell current  100.07 uA
+  tip / chamber 34.96 C / 35.06 C
+  humidity      86.73 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 970 mV
+  dew margin    2.44 K
+  die temp      34.61 C
+  uptime        3386 s   seq 3386   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:14:39Z  addr 3
+  O2 (dry)      20.96 %vol
+  cell current  100.09 uA
+  tip / chamber 34.98 C / 35.08 C
+  humidity      86.89 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 970 mV
+  dew margin    2.41 K
+  die temp      34.03 C
+  uptime        3392 s   seq 3392   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:14:45Z  addr 3
+  O2 (dry)      20.96 %vol
+  cell current  100.08 uA
+  tip / chamber 35.00 C / 35.10 C
+  humidity      87.01 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3286 mV  VIN 11960 mV  AFE 970 mV
+  dew margin    2.39 K
+  die temp      34.32 C
+  uptime        3397 s   seq 3397   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:14:50Z  addr 3
+  O2 (dry)      20.97 %vol
+  cell current  100.17 uA
+  tip / chamber 35.01 C / 35.10 C
+  humidity      87.13 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 969 mV
+  dew margin    2.37 K
+  die temp      34.32 C
+  uptime        3402 s   seq 3402   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:14:55Z  addr 3
+  O2 (dry)      20.97 %vol
+  cell current  100.13 uA
+  tip / chamber 35.03 C / 35.12 C
+  humidity      87.27 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 970 mV
+  dew margin    2.34 K
+  die temp      34.61 C
+  uptime        3408 s   seq 3408   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:15:01Z  addr 3
+  O2 (dry)      20.99 %vol
+  cell current  100.24 uA
+  tip / chamber 35.04 C / 35.14 C
+  humidity      87.38 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 969 mV
+  dew margin    2.31 K
+  die temp      34.89 C
+  uptime        3413 s   seq 3413   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:15:06Z  addr 3
+  O2 (dry)      21.00 %vol
+  cell current  100.32 uA
+  tip / chamber 35.05 C / 35.17 C
+  humidity      87.49 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    2.27 K
+  die temp      34.61 C
+  uptime        3418 s   seq 3418   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:15:11Z  addr 3
+  O2 (dry)      20.98 %vol
+  cell current  100.22 uA
+  tip / chamber 35.07 C / 35.17 C
+  humidity      87.59 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 969 mV
+  dew margin    2.27 K
+  die temp      34.61 C
+  uptime        3424 s   seq 3424   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:15:17Z  addr 3
+  O2 (dry)      20.97 %vol
+  cell current  100.13 uA
+  tip / chamber 35.07 C / 35.17 C
+  humidity      87.67 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 970 mV
+  dew margin    2.25 K
+  die temp      34.61 C
+  uptime        3429 s   seq 3429   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:15:22Z  addr 3
+  O2 (dry)      21.01 %vol
+  cell current  100.35 uA
+  tip / chamber 35.09 C / 35.17 C
+  humidity      87.76 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    2.23 K
+  die temp      34.61 C
+  uptime        3435 s   seq 3435   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:15:28Z  addr 3
+  O2 (dry)      21.00 %vol
+  cell current  100.29 uA
+  tip / chamber 35.10 C / 35.18 C
+  humidity      87.84 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    2.24 K
+  die temp      34.89 C
+  uptime        3440 s   seq 3440   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:15:33Z  addr 3
+  O2 (dry)      21.01 %vol
+  cell current  100.35 uA
+  tip / chamber 35.10 C / 35.21 C
+  humidity      87.91 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    2.20 K
+  die temp      34.61 C
+  uptime        3445 s   seq 3445   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:15:38Z  addr 3
+  O2 (dry)      21.00 %vol
+  cell current  100.32 uA
+  tip / chamber 35.11 C / 35.22 C
+  humidity      88.04 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3292 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    2.22 K
+  die temp      34.61 C
+  uptime        3451 s   seq 3451   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:15:43Z  addr 3
+  O2 (dry)      21.02 %vol
+  cell current  100.43 uA
+  tip / chamber 35.12 C / 35.20 C
+  humidity      88.11 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3286 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    2.19 K
+  die temp      34.61 C
+  uptime        3456 s   seq 3456   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:15:49Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.50 uA
+  tip / chamber 35.14 C / 35.24 C
+  humidity      88.18 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    2.15 K
+  die temp      34.89 C
+  uptime        3461 s   seq 3461   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:15:54Z  addr 3
+  O2 (dry)      21.04 %vol
+  cell current  100.51 uA
+  tip / chamber 35.14 C / 35.21 C
+  humidity      88.28 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 968 mV
+  dew margin    2.16 K
+  die temp      34.89 C
+  uptime        3467 s   seq 3467   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:15:59Z  addr 3
+  O2 (dry)      21.02 %vol
+  cell current  100.42 uA
+  tip / chamber 35.14 C / 35.23 C
+  humidity      88.39 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    2.12 K
+  die temp      34.32 C
+  uptime        3472 s   seq 3472   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:16:05Z  addr 3
+  O2 (dry)      21.02 %vol
+  cell current  100.43 uA
+  tip / chamber 35.14 C / 35.25 C
+  humidity      88.41 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    2.10 K
+  die temp      35.18 C
+  uptime        3477 s   seq 3477   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:16:10Z  addr 3
+  O2 (dry)      21.04 %vol
+  cell current  100.52 uA
+  tip / chamber 35.15 C / 35.23 C
+  humidity      88.52 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    2.10 K
+  die temp      34.03 C
+  uptime        3483 s   seq 3483   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:16:15Z  addr 3
+  O2 (dry)      21.04 %vol
+  cell current  100.51 uA
+  tip / chamber 35.15 C / 35.21 C
+  humidity      88.56 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    2.11 K
+  die temp      34.61 C
+  uptime        3488 s   seq 3488   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:16:21Z  addr 3
+  O2 (dry)      21.04 %vol
+  cell current  100.53 uA
+  tip / chamber 35.16 C / 35.25 C
+  humidity      88.65 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    2.07 K
+  die temp      34.61 C
+  uptime        3493 s   seq 3493   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:16:26Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.50 uA
+  tip / chamber 35.17 C / 35.24 C
+  humidity      88.72 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    2.07 K
+  die temp      34.89 C
+  uptime        3499 s   seq 3499   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:16:31Z  addr 3
+  O2 (dry)      21.03 %vol
+  cell current  100.48 uA
+  tip / chamber 35.17 C / 35.24 C
+  humidity      88.78 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 967 mV
+  dew margin    2.06 K
+  die temp      34.89 C
+  uptime        3504 s   seq 3504   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:16:37Z  addr 3
+  O2 (dry)      21.05 %vol
+  cell current  100.58 uA
+  tip / chamber 35.17 C / 35.24 C
+  humidity      88.84 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 966 mV
+  dew margin    2.05 K
+  die temp      35.18 C
+  uptime        3509 s   seq 3509   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:16:42Z  addr 3
+  O2 (dry)      21.05 %vol
+  cell current  100.57 uA
+  tip / chamber 35.17 C / 35.24 C
+  humidity      88.92 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 966 mV
+  dew margin    2.03 K
+  die temp      34.61 C
+  uptime        3515 s   seq 3515   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:16:47Z  addr 3
+  O2 (dry)      21.05 %vol
+  cell current  100.58 uA
+  tip / chamber 35.17 C / 35.24 C
+  humidity      88.98 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 966 mV
+  dew margin    2.02 K
+  die temp      34.61 C
+  uptime        3520 s   seq 3520   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:16:53Z  addr 3
+  O2 (dry)      21.05 %vol
+  cell current  100.57 uA
+  tip / chamber 35.17 C / 35.23 C
+  humidity      89.05 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 966 mV
+  dew margin    2.02 K
+  die temp      34.89 C
+  uptime        3525 s   seq 3525   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:16:58Z  addr 3
+  O2 (dry)      21.05 %vol
+  cell current  100.58 uA
+  tip / chamber 35.18 C / 35.24 C
+  humidity      89.13 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3296 mV  VIN 11960 mV  AFE 966 mV
+  dew margin    2.00 K
+  die temp      34.61 C
+  uptime        3531 s   seq 3531   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:17:03Z  addr 3
+  O2 (dry)      21.06 %vol
+  cell current  100.65 uA
+  tip / chamber 35.17 C / 35.22 C
+  humidity      89.15 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 966 mV
+  dew margin    2.01 K
+  die temp      34.61 C
+  uptime        3536 s   seq 3536   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:17:09Z  addr 3
+  O2 (dry)      21.07 %vol
+  cell current  100.68 uA
+  tip / chamber 35.17 C / 35.23 C
+  humidity      89.24 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3286 mV  VIN 11960 mV  AFE 966 mV
+  dew margin    1.98 K
+  die temp      34.32 C
+  uptime        3541 s   seq 3541   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:17:14Z  addr 3
+  O2 (dry)      21.07 %vol
+  cell current  100.67 uA
+  tip / chamber 35.17 C / 35.24 C
+  humidity      89.33 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 966 mV
+  dew margin    1.95 K
+  die temp      34.32 C
+  uptime        3547 s   seq 3547   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:17:19Z  addr 3
+  O2 (dry)      21.06 %vol
+  cell current  100.64 uA
+  tip / chamber 35.17 C / 35.21 C
+  humidity      89.38 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 966 mV
+  dew margin    1.97 K
+  die temp      34.61 C
+  uptime        3552 s   seq 3552   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:17:25Z  addr 3
+  O2 (dry)      21.08 %vol
+  cell current  100.73 uA
+  tip / chamber 35.17 C / 35.24 C
+  humidity      89.45 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 965 mV
+  dew margin    1.93 K
+  die temp      34.61 C
+  uptime        3557 s   seq 3557   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:17:30Z  addr 3
+  O2 (dry)      21.08 %vol
+  cell current  100.76 uA
+  tip / chamber 35.17 C / 35.26 C
+  humidity      89.53 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 965 mV
+  dew margin    1.89 K
+  die temp      34.61 C
+  uptime        3563 s   seq 3563   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:17:35Z  addr 3
+  O2 (dry)      21.08 %vol
+  cell current  100.73 uA
+  tip / chamber 35.17 C / 35.23 C
+  humidity      89.59 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 965 mV
+  dew margin    1.91 K
+  die temp      34.61 C
+  uptime        3568 s   seq 3568   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:17:41Z  addr 3
+  O2 (dry)      21.07 %vol
+  cell current  100.68 uA
+  tip / chamber 35.17 C / 35.21 C
+  humidity      89.64 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 964 mV
+  dew margin    1.88 K
+  die temp      35.18 C
+  uptime        3574 s   seq 3574   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:17:46Z  addr 3
+  O2 (dry)      21.07 %vol
+  cell current  100.70 uA
+  tip / chamber 35.17 C / 35.25 C
+  humidity      89.73 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 966 mV
+  dew margin    1.86 K
+  die temp      34.61 C
+  uptime        3579 s   seq 3579   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:17:52Z  addr 3
+  O2 (dry)      21.07 %vol
+  cell current  100.68 uA
+  tip / chamber 35.17 C / 35.24 C
+  humidity      89.79 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 966 mV
+  dew margin    1.86 K
+  die temp      34.61 C
+  uptime        3584 s   seq 3584   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:17:57Z  addr 3
+  O2 (dry)      21.09 %vol
+  cell current  100.79 uA
+  tip / chamber 35.17 C / 35.22 C
+  humidity      89.81 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 965 mV
+  dew margin    1.86 K
+  die temp      34.61 C
+  uptime        3590 s   seq 3590   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:18:02Z  addr 3
+  O2 (dry)      21.08 %vol
+  cell current  100.74 uA
+  tip / chamber 35.17 C / 35.23 C
+  humidity      89.90 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 965 mV
+  dew margin    1.85 K
+  die temp      34.61 C
+  uptime        3595 s   seq 3595   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:18:07Z  addr 3
+  O2 (dry)      21.08 %vol
+  cell current  100.74 uA
+  tip / chamber 35.17 C / 35.21 C
+  humidity      89.96 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 965 mV
+  dew margin    1.86 K
+  die temp      34.89 C
+  uptime        3600 s   seq 3600   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:18:13Z  addr 3
+  O2 (dry)      21.08 %vol
+  cell current  100.74 uA
+  tip / chamber 35.17 C / 35.20 C
+  humidity      90.04 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 965 mV
+  dew margin    1.83 K
+  die temp      34.61 C
+  uptime        3606 s   seq 3606   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:18:18Z  addr 3
+  O2 (dry)      21.09 %vol
+  cell current  100.77 uA
+  tip / chamber 35.17 C / 35.19 C
+  humidity      90.08 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 965 mV
+  dew margin    1.85 K
+  die temp      34.89 C
+  uptime        3611 s   seq 3611   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:18:23Z  addr 3
+  O2 (dry)      21.08 %vol
+  cell current  100.75 uA
+  tip / chamber 35.16 C / 35.22 C
+  humidity      90.14 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 965 mV
+  dew margin    1.80 K
+  die temp      34.89 C
+  uptime        3616 s   seq 3616   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:18:29Z  addr 3
+  O2 (dry)      21.08 %vol
+  cell current  100.76 uA
+  tip / chamber 35.16 C / 35.19 C
+  humidity      90.20 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 965 mV
+  dew margin    1.80 K
+  die temp      34.61 C
+  uptime        3622 s   seq 3622   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:18:34Z  addr 3
+  O2 (dry)      21.07 %vol
+  cell current  100.68 uA
+  tip / chamber 35.16 C / 35.18 C
+  humidity      90.26 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3286 mV  VIN 11960 mV  AFE 966 mV
+  dew margin    1.82 K
+  die temp      34.61 C
+  uptime        3627 s   seq 3627   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:18:39Z  addr 3
+  O2 (dry)      21.10 %vol
+  cell current  100.83 uA
+  tip / chamber 35.15 C / 35.19 C
+  humidity      90.31 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 965 mV
+  dew margin    1.79 K
+  die temp      35.18 C
+  uptime        3632 s   seq 3632   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:18:45Z  addr 3
+  O2 (dry)      21.10 %vol
+  cell current  100.85 uA
+  tip / chamber 35.15 C / 35.17 C
+  humidity      90.34 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 965 mV
+  dew margin    1.76 K
+  die temp      34.89 C
+  uptime        3638 s   seq 3638   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:18:50Z  addr 3
+  O2 (dry)      21.11 %vol
+  cell current  100.88 uA
+  tip / chamber 35.14 C / 35.17 C
+  humidity      90.38 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 964 mV
+  dew margin    1.78 K
+  die temp      34.89 C
+  uptime        3643 s   seq 3643   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:18:55Z  addr 3
+  O2 (dry)      21.10 %vol
+  cell current  100.84 uA
+  tip / chamber 35.14 C / 35.17 C
+  humidity      90.47 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 965 mV
+  dew margin    1.76 K
+  die temp      34.61 C
+  uptime        3648 s   seq 3648   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:19:01Z  addr 3
+  O2 (dry)      21.10 %vol
+  cell current  100.87 uA
+  tip / chamber 35.14 C / 35.14 C
+  humidity      90.50 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 964 mV
+  dew margin    1.79 K
+  die temp      34.61 C
+  uptime        3654 s   seq 3654   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:19:06Z  addr 3
+  O2 (dry)      21.12 %vol
+  cell current  100.94 uA
+  tip / chamber 35.13 C / 35.14 C
+  humidity      90.55 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 964 mV
+  dew margin    1.77 K
+  die temp      34.89 C
+  uptime        3659 s   seq 3659   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:19:11Z  addr 3
+  O2 (dry)      21.11 %vol
+  cell current  100.88 uA
+  tip / chamber 35.13 C / 35.16 C
+  humidity      90.61 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 964 mV
+  dew margin    1.74 K
+  die temp      34.32 C
+  uptime        3664 s   seq 3664   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:19:17Z  addr 3
+  O2 (dry)      21.11 %vol
+  cell current  100.89 uA
+  tip / chamber 35.11 C / 35.15 C
+  humidity      90.65 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 964 mV
+  dew margin    1.72 K
+  die temp      34.89 C
+  uptime        3670 s   seq 3670   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:19:22Z  addr 3
+  O2 (dry)      21.10 %vol
+  cell current  100.85 uA
+  tip / chamber 35.10 C / 35.14 C
+  humidity      90.71 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 965 mV
+  dew margin    1.71 K
+  die temp      34.89 C
+  uptime        3675 s   seq 3675   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:19:27Z  addr 3
+  O2 (dry)      21.11 %vol
+  cell current  100.90 uA
+  tip / chamber 35.10 C / 35.11 C
+  humidity      90.74 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 964 mV
+  dew margin    1.73 K
+  die temp      34.89 C
+  uptime        3680 s   seq 3680   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:19:33Z  addr 3
+  O2 (dry)      21.13 %vol
+  cell current  101.03 uA
+  tip / chamber 35.10 C / 35.12 C
+  humidity      90.77 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 963 mV
+  dew margin    1.71 K
+  die temp      34.61 C
+  uptime        3686 s   seq 3686   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:19:38Z  addr 3
+  O2 (dry)      21.11 %vol
+  cell current  100.91 uA
+  tip / chamber 35.10 C / 35.13 C
+  humidity      90.83 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3292 mV  VIN 11960 mV  AFE 964 mV
+  dew margin    1.69 K
+  die temp      34.03 C
+  uptime        3691 s   seq 3691   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:19:43Z  addr 3
+  O2 (dry)      21.09 %vol
+  cell current  100.79 uA
+  tip / chamber 35.09 C / 35.11 C
+  humidity      90.86 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 965 mV
+  dew margin    1.70 K
+  die temp      34.32 C
+  uptime        3696 s   seq 3696   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:19:49Z  addr 3
+  O2 (dry)      21.10 %vol
+  cell current  100.87 uA
+  tip / chamber 35.07 C / 35.10 C
+  humidity      90.92 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 964 mV
+  dew margin    1.67 K
+  die temp      34.61 C
+  uptime        3702 s   seq 3702   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:19:54Z  addr 3
+  O2 (dry)      21.11 %vol
+  cell current  100.90 uA
+  tip / chamber 35.07 C / 35.07 C
+  humidity      90.92 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 964 mV
+  dew margin    1.70 K
+  die temp      34.32 C
+  uptime        3707 s   seq 3707   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:20:00Z  addr 3
+  O2 (dry)      21.12 %vol
+  cell current  100.95 uA
+  tip / chamber 35.07 C / 35.07 C
+  humidity      90.98 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 964 mV
+  dew margin    1.69 K
+  die temp      34.32 C
+  uptime        3712 s   seq 3712   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:20:05Z  addr 3
+  O2 (dry)      21.12 %vol
+  cell current  100.98 uA
+  tip / chamber 35.04 C / 35.06 C
+  humidity      91.00 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 964 mV
+  dew margin    1.67 K
+  die temp      34.61 C
+  uptime        3718 s   seq 3718   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:20:10Z  addr 3
+  O2 (dry)      21.11 %vol
+  cell current  100.90 uA
+  tip / chamber 35.05 C / 35.06 C
+  humidity      91.05 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 964 mV
+  dew margin    1.67 K
+  die temp      34.61 C
+  uptime        3723 s   seq 3723   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:20:15Z  addr 3
+  O2 (dry)      21.11 %vol
+  cell current  100.92 uA
+  tip / chamber 35.03 C / 35.05 C
+  humidity      91.08 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 964 mV
+  dew margin    1.65 K
+  die temp      34.32 C
+  uptime        3728 s   seq 3728   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:20:21Z  addr 3
+  O2 (dry)      21.12 %vol
+  cell current  100.95 uA
+  tip / chamber 35.03 C / 35.07 C
+  humidity      91.14 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 964 mV
+  dew margin    1.62 K
+  die temp      34.89 C
+  uptime        3734 s   seq 3734   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:20:26Z  addr 3
+  O2 (dry)      21.13 %vol
+  cell current  100.99 uA
+  tip / chamber 35.02 C / 35.03 C
+  humidity      91.20 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 964 mV
+  dew margin    1.64 K
+  die temp      35.18 C
+  uptime        3739 s   seq 3739   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:20:31Z  addr 3
+  O2 (dry)      21.12 %vol
+  cell current  100.94 uA
+  tip / chamber 35.01 C / 35.02 C
+  humidity      91.19 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3288 mV  VIN 11960 mV  AFE 964 mV
+  dew margin    1.64 K
+  die temp      34.61 C
+  uptime        3744 s   seq 3744   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:20:37Z  addr 3
+  O2 (dry)      21.11 %vol
+  cell current  100.91 uA
+  tip / chamber 35.00 C / 35.01 C
+  humidity      91.25 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 964 mV
+  dew margin    1.63 K
+  die temp      34.32 C
+  uptime        3750 s   seq 3750   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:20:42Z  addr 3
+  O2 (dry)      21.12 %vol
+  cell current  100.95 uA
+  tip / chamber 35.00 C / 35.01 C
+  humidity      91.28 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 964 mV
+  dew margin    1.62 K
+  die temp      34.89 C
+  uptime        3755 s   seq 3755   fw 0x0001 hw 0x000A
+  errors        crc 0  frame 239  i2c 0  ads_fail 0  settle_restarts 1
+  faults ever   0x8001  SETTLING|HEATER_DISABLED
+2026-09-06T16:20:48Z  addr 3
+  O2 (dry)      21.12 %vol
+  cell current  100.96 uA
+  tip / chamber 34.99 C / 34.96 C
+  humidity      91.32 %RH
+  heater duty   0.00 %
+  settling      settled
+  faults        0x8000  HEATER_DISABLED
+  rails         VREF 2494 mV  VA 3290 mV  VIN 11960 mV  AFE 964 mV

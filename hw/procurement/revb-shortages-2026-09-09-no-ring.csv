@@ -1,0 +1,21 @@
+refs,mpn_or_specification,required_for_one_board,recorded_unallocated,shortage_if_verified,status
+R2 R3 R32,10R Resistor_SMD:R_0603_1608Metric,3,,,generic specification not mapped to stock
+R10 R11,4.7k Resistor_SMD:R_0603_1608Metric,2,,,generic specification not mapped to stock
+C10 C14,4.7u Capacitor_SMD:C_0603_1608Metric,2,,,generic specification not mapped to stock
+R31 R40,47R Resistor_SMD:R_0603_1608Metric,2,,,generic specification not mapped to stock
+U8,ADS1119IRTER,1,0.0,1.0,recorded stock shortage
+U1,AP63205WU-7,1,0.0,1.0,recorded stock shortage
+U15,AZ431BN-ATRG1,1,,,no catalog match
+C9,C0603C102J5GACTU,1,,,no catalog match
+C1 C7,C1206C106K3RACTU,2,,,no catalog match
+C11 C12 C13 C15 C16 C18 C19 C2 C20 C21 C25 C27 C28 C29 C30 C31 C32 C33 C34,CL05B104KO5NNNC,19,0.0,19.0,recorded stock shortage
+RH1 RH2,CRCW2512280RFKEG,2,0.0,2.0,recorded stock shortage
+Q1,DMP3130L-7,1,0.0,1.0,recorded stock shortage
+U7,LMP91000SDX/NOPB,1,0.0,1.0,recorded stock shortage
+U4,OPA2333AIDGKR,1,0.0,1.0,recorded stock shortage
+R26 R43 R44,RC0603FR-0791KL,3,,,no catalog match
+U6,STM32G071CBT7,1,,,no catalog match
+U10,TMP117AIDRVR,1,0.0,1.0,recorded stock shortage
+D7,TPD2E2U06QDBZRQ1,1,,,no catalog match
+U2 U3,TPS7A2033PDBVR,2,,,no catalog match
+U11 receptacles,3 PCB sockets; candidate 5050462-2 requires exact suffix/fit qualification,3,,,unresolved assembly qualification

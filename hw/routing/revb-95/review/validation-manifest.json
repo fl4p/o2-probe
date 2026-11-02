@@ -1,0 +1,269 @@
+{
+  "board_sha256": "2139ab97aa7dd59272d35398bdb80f01eda497574057ac22c1ef1d07b6794fc5",
+  "commands": [
+    {
+      "command": [
+        "/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli",
+        "--version"
+      ],
+      "returncode": 0,
+      "seconds": 0.155
+    },
+    {
+      "command": [
+        "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "/private/tmp/o2-revb-95/ee/hw/o2-probe/verify_revb_interfaces.py",
+        "/private/tmp/o2-revb-95/ee/hw/o2-probe/routing/revb-95/o2-probe.kicad_pcb"
+      ],
+      "returncode": 0,
+      "seconds": 0.242
+    },
+    {
+      "command": [
+        "/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/Current/bin/python3",
+        "/private/tmp/o2-revb-95/ee/hw/o2-probe/verify_revb_95.py",
+        "/private/tmp/o2-revb-95/ee/hw/o2-probe/routing/revb-95/o2-probe.kicad_pcb",
+        "/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/geometry-check.json"
+      ],
+      "returncode": 0,
+      "seconds": 0.723
+    },
+    {
+      "command": [
+        "/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/Current/bin/python3",
+        "/private/tmp/o2-revb-95/ee/hw/o2-probe/inspect_revb_board.py",
+        "/private/tmp/o2-revb-95/ee/hw/o2-probe/routing/revb-95/o2-probe.kicad_pcb",
+        "/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/board-geometry.json"
+      ],
+      "returncode": 0,
+      "seconds": 0.231
+    },
+    {
+      "command": [
+        "/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli",
+        "pcb",
+        "drc",
+        "--severity-all",
+        "--schematic-parity",
+        "--format",
+        "json",
+        "-o",
+        "/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/drc-saved-fill.json",
+        "/private/tmp/o2-revb-95/ee/hw/o2-probe/routing/revb-95/o2-probe.kicad_pcb"
+      ],
+      "returncode": 0,
+      "seconds": 3.015
+    },
+    {
+      "command": [
+        "/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli",
+        "pcb",
+        "drc",
+        "--severity-all",
+        "--schematic-parity",
+        "--refill-zones",
+        "--format",
+        "json",
+        "-o",
+        "/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/drc-refill.json",
+        "/private/tmp/o2-revb-95/ee/hw/o2-probe/routing/revb-95/o2-probe.kicad_pcb"
+      ],
+      "returncode": 0,
+      "seconds": 2.924
+    },
+    {
+      "command": [
+        "/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli",
+        "sch",
+        "erc",
+        "--severity-all",
+        "--exit-code-violations",
+        "--format",
+        "json",
+        "-o",
+        "/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/erc.json",
+        "/private/tmp/o2-revb-95/ee/hw/o2-probe/routing/revb-95/o2-probe.kicad_sch"
+      ],
+      "returncode": 0,
+      "seconds": 1.533
+    },
+    {
+      "command": [
+        "/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli",
+        "pcb",
+        "export",
+        "gerbers",
+        "-o",
+        "/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review",
+        "--layers",
+        "F.Cu,B.Cu,F.Mask,B.Mask,F.Paste,B.Paste,F.Silkscreen,B.Silkscreen,Edge.Cuts",
+        "--no-protel-ext",
+        "--check-zones",
+        "/private/tmp/o2-revb-95/ee/hw/o2-probe/routing/revb-95/o2-probe.kicad_pcb"
+      ],
+      "returncode": 0,
+      "seconds": 0.82
+    },
+    {
+      "command": [
+        "/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli",
+        "pcb",
+        "export",
+        "drill",
+        "-o",
+        "/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review",
+        "--format",
+        "excellon",
+        "--excellon-units",
+        "mm",
+        "--excellon-zeros-format",
+        "decimal",
+        "--excellon-oval-format",
+        "route",
+        "--excellon-separate-th",
+        "--generate-map",
+        "--map-format",
+        "pdf",
+        "--generate-report",
+        "--report-path",
+        "/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/o2-probe-drill-report.txt",
+        "/private/tmp/o2-revb-95/ee/hw/o2-probe/routing/revb-95/o2-probe.kicad_pcb"
+      ],
+      "returncode": 0,
+      "seconds": 0.34
+    },
+    {
+      "command": [
+        "/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli",
+        "pcb",
+        "export",
+        "pdf",
+        "-o",
+        "/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/o2-probe-assembly-front.pdf",
+        "--layers",
+        "F.Fab,F.Silkscreen,Edge.Cuts,Dwgs.User,Cmts.User",
+        "--mode-single",
+        "--black-and-white",
+        "--scale",
+        "0",
+        "--sketch-pads-on-fab-layers",
+        "--crossout-DNP-footprints-on-fab-layers",
+        "--check-zones",
+        "/private/tmp/o2-revb-95/ee/hw/o2-probe/routing/revb-95/o2-probe.kicad_pcb"
+      ],
+      "returncode": 0,
+      "seconds": 0.853
+    },
+    {
+      "command": [
+        "/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli",
+        "pcb",
+        "export",
+        "pdf",
+        "-o",
+        "/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/o2-probe-assembly-back.pdf",
+        "--layers",
+        "B.Fab,B.Silkscreen,Edge.Cuts",
+        "--mode-single",
+        "--black-and-white",
+        "--scale",
+        "0",
+        "--sketch-pads-on-fab-layers",
+        "--crossout-DNP-footprints-on-fab-layers",
+        "--check-zones",
+        "--mirror",
+        "/private/tmp/o2-revb-95/ee/hw/o2-probe/routing/revb-95/o2-probe.kicad_pcb"
+      ],
+      "returncode": 0,
+      "seconds": 0.82
+    }
+  ],
+  "elapsed_seconds": 11.761,
+  "generated_utc": "2026-09-10T07:51:36+00:00",
+  "inputs_sha256": {
+    "/Applications/KiCad/KiCad.app/Contents/SharedSupport/symbols/Connector.kicad_sym": "50b42bf755009d3d459c310182dca1c37e1ff1a01fa6ae23846b416fafffc914",
+    "/Applications/KiCad/KiCad.app/Contents/SharedSupport/symbols/Connector_Generic.kicad_sym": "b40057d620867e58e8c3d1be9ab822bba6955e76ccfc566fd0945eedcf527fd3",
+    "/Applications/KiCad/KiCad.app/Contents/SharedSupport/symbols/Device.kicad_sym": "af613124472cc646e2b272d6cd9d0de4f6defa40c2d107251f00f48665666d9a",
+    "/Applications/KiCad/KiCad.app/Contents/SharedSupport/symbols/Reference_Voltage.kicad_sym": "75cf7b69c0e639a827020830610ea1a631fe29ff7354eb8d4a66501d7529d7de",
+    "/Applications/KiCad/KiCad.app/Contents/SharedSupport/symbols/Transistor_FET.kicad_sym": "4fffc88e10091df229ea6ff032afa8ca8f1c2f3d72c8dabf25c6d31704ac6b50",
+    "/Applications/KiCad/KiCad.app/Contents/SharedSupport/symbols/power.kicad_sym": "8113f8fe90853413603d619987cc744e33dc47ff27faac19a58d7caf8c334fd0",
+    "compact_revb_95.py": "e65f27c6cd5a1ee9ac51b8125483b0022fd1d20f94137d960aa12e3d4cf2518f",
+    "critical_routes.py": "934131243b93ea9b9d1164e9f58eab8e7aac0107e42bba022cefd190ca31132b",
+    "docs/REVB-95-REVIEW.md": "9e60be607961afc9c22a36fc0a1148315d2c184070c91d6aa5b28aed23696d46",
+    "firmware/tools/pcb_netlist.py": "8180acb7a3a641fcf65f3c891b3743f6b82629fb56cbf0514d41c6ae39fc4974",
+    "gen_sch.py": "5fc07e80107ef6bcea3c07c725e513def437800c4c489a85aaedfe3c4812bc85",
+    "inspect_revb_board.py": "3de97fda3810d3803dcdf3da5dba37dd399b4d31983c160d9adb0da4bb3ce43f",
+    "make_fab.py": "a82be10cf2751d47a800dbe75aacfd64a99c3eed13e5eb6ad456240059182aef",
+    "make_fab_revb.py": "20138e5281208c520f64daf631485b09ba651b851b15c48601bd4b1bb9d81417",
+    "make_review_revb_95.py": "1c78aeffcfddaa47312f34bd4c7ab3c12a67943a189e9a49e1ef3c9f9bdfa8a9",
+    "plans/REVB-95MM.md": "66b1c9a49641419bcdaee070efaf05c29f40075bf4404113fae3c6edd8a386f7",
+    "retire_revb_ring.py": "e49667fe77e2bd38212253cb02ceeb8209d815a602b3e7313af16c8e375a06c2",
+    "revb_fab_checks.py": "4b0fc6a106cead4ec80f4c961d76bba185f95849d07855fdca4605c9caad7dbe",
+    "routing/2layer-bom39/critical_routes.py": "61c2a8697cf309c9299d4a0332cff0d0e9ca2cc2c8618cae5ef0c1df1b9ffc5c",
+    "routing/revb-95/README.md": "45be247cc0df90a0a578c63a9b6a2f3e5f14ec40bf66dce9ff08dec66da60c8f",
+    "routing/revb-95/fp-lib-table": "c789fb3e56b0028db9561efec87314d2a49f14afe6e80a1262ad139dc3c7d346",
+    "routing/revb-95/lib/o2-probe.kicad_sym": "664b9b7a0ce0d8a7b0100b1dac565f710ba565ae0ca24a2bf389caa08496b1ab",
+    "routing/revb-95/lib/o2-probe.pretty/BMP390_LGA10_DRAFT.kicad_mod": "8498892e1884ecec6b63eee0888cd93339f66c4222c4e8414c9a3372a8a83fa0",
+    "routing/revb-95/lib/o2-probe.pretty/Heater_Ring_Solder_Lands.kicad_mod": "d64f21b2ecbf3ac071dc5cb2db7867cd124d34a6265655672971bd576e211f9e",
+    "routing/revb-95/lib/o2-probe.pretty/PTC_1206_3216Metric.kicad_mod": "54ecc33724c6bf5ec0c67535534f709fecac1144696505519dc0993795651055",
+    "routing/revb-95/lib/o2-probe.pretty/Ring_Fork_Tip_DRAFT.kicad_mod": "6825a50625c83d68a8cd1971abe8ada62f8d5ef9711067ea176a0c8076d9f9f9",
+    "routing/revb-95/lib/o2-probe.pretty/SGX-OX-ROHS-Mini_ISS2.kicad_mod": "7026de8d24b4cb5b66d814327993702a098de5fbf70217901a56f1ca0a980b83",
+    "routing/revb-95/lib/o2-probe.pretty/SolderWireNoRelief_J105.kicad_mod": "bec54ee94cb61a5c23c1f34bd0f98bdac9fc7d1726b38a8b5ca541c785e5188b",
+    "routing/revb-95/lib/o2-probe.pretty/SolderWireNoRelief_J106.kicad_mod": "d7a2c1b58f7c089378d05eb8e3db353f1b45703672cafd3843ab8c623513ceff",
+    "routing/revb-95/lib/o2-probe.pretty/SolderWire_RaisedRelief_1x01.kicad_mod": "7c1f1568edd7241e67f0c0c3dd73c93895f0d5ae2fdb6248632ae12fc0eeeb24",
+    "routing/revb-95/lib/tmp117-probe.pretty/TMP117_WSON-6-1EP_2x2mm_TI.kicad_mod": "68aeebabcc55a3aaf126f3127b4b0c8ca9e8a8211cb10d75ded3f5652f9d6ddd",
+    "routing/revb-95/lib/tmp117-probe.pretty/TestPad_1.0x1.0mm.kicad_mod": "c94e43dd8116bbda0388698605516d57a95f0965c67e7c9558af5d50932ac3e7",
+    "routing/revb-95/lib/tmp117-probe.pretty/WirePad_1x04_P1.40mm.kicad_mod": "56f1146c3c92e945c06b2fe264b739e41452f2bda61cb128ed2191e2e0884add",
+    "routing/revb-95/lib/tmp117-probe.pretty/WirePad_1x04_P1.80mm.kicad_mod": "bb41d714c3ea27d9e2dd8452e6f065d386f2bce70a43107b5c1c29f84bbe8587",
+    "routing/revb-95/o2-probe.kicad_dru": "b1fe200efe5fc9d531438535ce0c1230b8972c03a14bfb571651b9448d46717a",
+    "routing/revb-95/o2-probe.kicad_pcb": "2139ab97aa7dd59272d35398bdb80f01eda497574057ac22c1ef1d07b6794fc5",
+    "routing/revb-95/o2-probe.kicad_pro": "e700a1602dc434a0e7d2aedc0dd21e118d8251adc94c2df266343612ae374b2c",
+    "routing/revb-95/o2-probe.kicad_sch": "8d589d640d86ada9f15d6bb6c83ee790d264c745da8a86488ad27648cb255e47",
+    "routing/revb-95/seed-changes.json": "2622215111873da952c738c3f815693524505f1ab7a20da94cc03e09d5f5ab68",
+    "routing/revb-95/sym-lib-table": "39fb1c168a1bd5640e5a5b58ee1782d411e58a00884cfb59b686270ebc623763",
+    "routing/revb-interfaces/o2-probe.kicad_pcb": "bb83a8df62be1491980e951d05a024fb468352b4433c94da6738f054fb4384ac",
+    "test_revb_95.py": "38e1062ff9bc3b1273be44b40c030ecf3dd39486e9c79c5f6db9b12c49e870f6",
+    "test_revb_95_provenance.py": "55a0008cf6fcd9e9825d5b6b0ebd98a175f573a347f10693de9f906873971b71",
+    "thermal_design.py": "8212d21197eb04263ee39291669ecd3300f13732667d41ed0e099e148a75f376",
+    "verify_critical.py": "c20518869874585308e4c66f7174a0a361b631180f3b453189aafcfedef523d2",
+    "verify_revb_95.py": "c9b678c133b6a4318214947f3ed185f9d27ab89c189030d5de57167317dcc8c0",
+    "verify_revb_interfaces.py": "e63c1602a52ef418034fb73770f53ba293bb71a7a81ef0508ca302faa70b2325"
+  },
+  "kicad_cli": "10.0.5",
+  "order_ready": false,
+  "purpose": "engineering review",
+  "qualification_scope": "CAD/export validation only; existing procurement, heater/input-protection and physical qualification gates remain open. J5/F3 remain optional Rev C work.",
+  "revision": "B, 95 mm candidate",
+  "validation": {
+    "NPTH_count": 8,
+    "PTH_count": 294,
+    "coordinate_quantum_mm": 0.001,
+    "copper_regions": 56,
+    "drc": {
+      "errors": 0,
+      "manual_assembly_courtyard_warnings": 16,
+      "parity": 0,
+      "silkscreen": 0,
+      "unconnected": 0
+    },
+    "drill_geometry_matches_board": true,
+    "layers": [
+      "F.Cu",
+      "B.Cu",
+      "F.Mask",
+      "B.Mask",
+      "F.Paste",
+      "B.Paste",
+      "F.Silkscreen",
+      "B.Silkscreen",
+      "Edge.Cuts"
+    ],
+    "maximum_coordinate_error_mm": 0.0005,
+    "outline_mm": [
+      20,
+      95
+    ],
+    "thermal_fill_gap_clear": true,
+    "thermal_slots": 4
+  }
+}

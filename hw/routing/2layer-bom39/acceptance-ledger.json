@@ -1,0 +1,40 @@
+{
+  "task": "AGENT-BRIEF.md two-layer routing definition of done",
+  "date": "2026-09-06",
+  "overall": "PASS",
+  "board": "o2-probe.kicad_pcb",
+  "board_sha256": "e5518b691b8e102b25d7eba50df3a84a05001f40fe1d0e0a043a1fe01b1ee3da",
+  "canonical_project_md5": "1b3814984628f69d9a377f7f18ed3125",
+  "ranking_metrics": {
+    "signal_opens": 0,
+    "gnd_pour_islands": 0,
+    "aggregate_unconnected": 0
+  },
+  "clauses": {
+    "two_copper_layers": true,
+    "zero_unconnected_items": true,
+    "zero_copper_drc_findings": true,
+    "zones_refilled_and_saved": true,
+    "route_shape_tool_run": true,
+    "independent_collision_audit_clean": true,
+    "essential_critical_copper_present_and_locked": true,
+    "exact_duplicate_copper_clean": true,
+    "visual_review_complete": true
+  },
+  "evidence": {
+    "drc": "drc-final.json",
+    "independent_collisions": "collisions-final.json",
+    "route_shape": "route-shape.json",
+    "critical_check": "critical-check.txt",
+    "exact_duplicates": "exact-duplicate-audit.json",
+    "top_render": "render-top.png",
+    "bottom_render": "render-bottom.png",
+    "top_copper_plot": "copper-top.png",
+    "bottom_copper_plot": "copper-bottom.png"
+  },
+  "non_routing_findings": {
+    "board_drc_warnings": 41,
+    "schematic_parity_warnings": 13,
+    "fabrication_release_claimed": false
+  }
+}

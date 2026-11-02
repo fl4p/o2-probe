@@ -1,0 +1,22 @@
+O2 probe procurement (BOM) audit
+netlist mode: fresh native export
+audit code sha256: cc1ed8b009177b8e9ae29a962326fba50a105325752eca0048dfa0d31ecb8f61
+schematic sha256: 283c49bcc593f68f9b8db9c5cba095b272c38943dc42f5c1e9b9100cce94a55a
+sourcing sha256: 29e5ca4c6a6014476f166624ea1faf539098de14c64df159d8af80903943fc7c
+purchase orders sha256: 9ed2e78da93cbf830e130d10e866c4a0dbd5a21e4ae514300d1e4c1921232db4
+netlist sha256: 6af61043d4a0714bbf05edcc254282d10e9036246d2bed567805b4c9f7b2d827
+components: 84; bom rows: 52
+sourcing: dnp=4, generic-stock=39, mpn=27, not-purchased=13, unsourced=1
+unsourced fitted components: 1 (J5)
+purchase orders: purchase-orders.json captured 2026-09-09T14:55:10.072651+00:00, 264 lines
+result: FAIL
+ERROR: J5 is fitted but unbuyable: value 'HEATED MEMBRANE RING' footprint 'o2-probe:Heater_Ring_Solder_Lands' has no MPN and no declared sourcing class
+ERROR: U1 needs 'AP63203WU-7' but no order has it; the orders do contain the near-identical 'AP63205WU-7' -- confirm the substitution and write it back to the schematic, or reorder
+ERROR: D8 needs 'BAT54W-G3-08' (qty 1) but it appears on no purchase order
+ERROR: C1 C7 needs 'C1206C106K3RACTU' (qty 2) but it appears on no purchase order
+ERROR: D3 needs 'PMEG4010CEH,115' (qty 1) but it appears on no purchase order
+ERROR: R26 R43 R44 needs 'RC0603FR-0791KL' but no order has it; the orders do contain the near-identical 'RC0603FR-071KL' -- confirm the substitution and write it back to the schematic, or reorder
+ERROR: U15 needs 'REF3425IDBVR' (qty 1) but it appears on no purchase order
+ERROR: U6 needs 'STM32G071CBT7' but no order has it; the orders do contain the near-identical 'STM32G071CBT6TR' -- confirm the substitution and write it back to the schematic, or reorder
+ERROR: U16 needs 'TMP302BDRLR' (qty 1) but it appears on no purchase order; the same orders carry unrelated TMP-family lines that are on no BOM row, in case one was bought in its place: TMP117MAIDRVR on PO-0001
+ERROR: D7 needs 'TPD2E2U06QDBZRQ1' (qty 1) but it appears on no purchase order

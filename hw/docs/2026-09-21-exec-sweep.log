@@ -1,0 +1,37 @@
+   ELF flash base 0x08004000
+opening a CTRL session: waiting for the node's next scheduled uplink, up to 75 s
+   invitation <invitation nonce=0x8D70 uptime=192539s flags=0x03>
+   -> SESSION_OPEN nonce=0x8D70 20 min +CLAIM_BUS
+bus claimed; the node's scheduled poll is off the pair
+verifying the flashed image at 0x0800B8F0 against firmware.elf
+   16 words identical - the probe is running THIS build
+uploading 40 bytes of stub
+sweep: 16 points from 15.00 C, step 5.00 C
+   -> SESSION_OPEN nonce=0x07EF 20 min +CLAIM_BUS
+   session renewed: 20 min, 1193 s remaining
+   EXEC OK, results at 0x2000056C
+   -> SESSION_CLOSE nonce=0x07EF
+   session closed, bus released
+
+  T (C)    firmware lnf      oracle lnf       diff      gain
+   15.00    -0.015227012    -0.015226988   -2.46e-08   0.984888
+   20.00    -0.002324559    -0.002324554   -5.24e-09   0.997678
+   25.00     0.010359678     0.010359666   +1.29e-08   1.010414
+   30.00     0.022832915     0.022832928   -1.31e-08   1.023096
+   35.00     0.035102099     0.035102137   -3.78e-08   1.035725
+   40.00     0.038362138     0.038362139   -1.11e-09   1.039107
+   45.00     0.038629644     0.038629643   +2.22e-10   1.039385
+   50.00     0.038610134     0.038610134   -1.20e-10   1.039365
+   55.00     0.038590927     0.038590925   +1.74e-09   1.039345
+   60.00     0.038572006     0.038572006   -5.26e-11   1.039326
+   65.00     0.038553368     0.038553369   -5.55e-10   1.039306
+   70.00     0.038535006     0.038535005   +1.05e-09   1.039287
+   75.00     0.038516905     0.038516907   -2.22e-09   1.039268
+   80.00     0.038513999     0.038514000   -5.68e-10   1.039265
+   85.00     0.038513999     0.038514000   -5.68e-10   1.039265
+   90.00     0.038513999     0.038514000   -5.68e-10   1.039265
+wrote /Users/fab/dev/ee/hw/o2-probe/docs/2026-09-21-exec-sweep.csv
+
+16 points, worst |firmware - oracle| = 3.776e-08 (tolerance 5.0e-06)
+the compiled law matches the independent oracle at every point
+exit 0

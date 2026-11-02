@@ -1,0 +1,403 @@
+{
+  "status": "PASS",
+  "inputs": {
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/checks/test_revb_current_process.py": "4cf125e6e3c69157128b2d5e2b1f5d18afa1bcd30927f1a7e1c5751a9e3a77a2",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/revb_current_process.kicad_dru": "8937c6fe68e0b4c2df727f54283bcf4731544972dc6eeda6007c2d158d8d8a93",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/routing/revb-current/o2-probe.kicad_pro": "25fbd981382c98984790c7a89c2d3c976478aebbbe724de0d0f674bdd2f18827"
+  },
+  "cases": [
+    {
+      "name": "round_gap_far",
+      "kind": "round_gap",
+      "value_mm": 0.05,
+      "expected_failure": true,
+      "observed_failure": true,
+      "matched_violations": [
+        {
+          "description": "Hole clearance violation (rule 'round NPTH copper clearance' clearance 0.2500 mm; actual 0.0500 mm)",
+          "items": [
+            {
+              "description": "Track [TEST] on F.Cu, length 2.0000 mm",
+              "pos": {
+                "x": 10.6,
+                "y": 9.0
+              },
+              "uuid": "f7dcb04d-19a2-4099-a677-38d5c3335bd8"
+            },
+            {
+              "description": "NPTH pad of J1",
+              "pos": {
+                "x": 10.0,
+                "y": 10.0
+              },
+              "uuid": "12db6cde-f8ae-48d5-906b-b36db117e7c7"
+            }
+          ],
+          "severity": "error",
+          "type": "hole_clearance"
+        }
+      ],
+      "native_sha256": "9fc64994e0ba175369c5f797082ad041a52f0c5699b70d3bf8b3b50637b33b6f",
+      "seconds": 3.4276962920000003
+    },
+    {
+      "name": "round_gap_below",
+      "kind": "round_gap",
+      "value_mm": 0.24,
+      "expected_failure": true,
+      "observed_failure": true,
+      "matched_violations": [
+        {
+          "description": "Hole clearance violation (rule 'round NPTH copper clearance' clearance 0.2500 mm; actual 0.2400 mm)",
+          "items": [
+            {
+              "description": "Track [TEST] on F.Cu, length 2.0000 mm",
+              "pos": {
+                "x": 10.79,
+                "y": 9.0
+              },
+              "uuid": "ef23bc89-6fd9-43c6-bfa3-d42126e7e4cb"
+            },
+            {
+              "description": "NPTH pad of J1",
+              "pos": {
+                "x": 10.0,
+                "y": 10.0
+              },
+              "uuid": "384d36fa-77b8-449a-937b-c4c85257f432"
+            }
+          ],
+          "severity": "error",
+          "type": "hole_clearance"
+        }
+      ],
+      "native_sha256": "11989fe44f5f394ea54c79e99d3c3cddd3e3f7daa7f1e37b6e054d2a55ad0b06",
+      "seconds": 2.548383084
+    },
+    {
+      "name": "round_gap_equal",
+      "kind": "round_gap",
+      "value_mm": 0.25,
+      "expected_failure": false,
+      "observed_failure": false,
+      "matched_violations": [],
+      "native_sha256": "66b94861267402ec4c15b1d29348160f3f02947191406a2b303f3c319d74c67c",
+      "seconds": 3.1001244160000008
+    },
+    {
+      "name": "round_gap_above",
+      "kind": "round_gap",
+      "value_mm": 0.26,
+      "expected_failure": false,
+      "observed_failure": false,
+      "matched_violations": [],
+      "native_sha256": "beed223167805bff8da17f9d0a5be6cf336046bd62b5050ffb003082bc83adcf",
+      "seconds": 2.8396581659999995
+    },
+    {
+      "name": "round_size_far",
+      "kind": "round_size",
+      "value_mm": 0.05,
+      "expected_failure": true,
+      "observed_failure": true,
+      "matched_violations": [
+        {
+          "description": "Hole size out of range (rule 'round NPTH minimum drill' min hole 0.5000 mm; actual 0.0500 mm)",
+          "items": [
+            {
+              "description": "NPTH pad of J1",
+              "pos": {
+                "x": 10.0,
+                "y": 10.0
+              },
+              "uuid": "5f975a26-fc26-46fc-87b1-0764e5313aa6"
+            }
+          ],
+          "severity": "error",
+          "type": "drill_out_of_range"
+        }
+      ],
+      "native_sha256": "ecb13e4ec9557eefb071ec71ad0fab098137263f7acfa73375f5fd38a499edc6",
+      "seconds": 2.599572458000001
+    },
+    {
+      "name": "round_size_below",
+      "kind": "round_size",
+      "value_mm": 0.49,
+      "expected_failure": true,
+      "observed_failure": true,
+      "matched_violations": [
+        {
+          "description": "Hole size out of range (rule 'round NPTH minimum drill' min hole 0.5000 mm; actual 0.4900 mm)",
+          "items": [
+            {
+              "description": "NPTH pad of J1",
+              "pos": {
+                "x": 10.0,
+                "y": 10.0
+              },
+              "uuid": "a1fdd742-b9aa-489a-bf2e-af287e3bbb79"
+            }
+          ],
+          "severity": "error",
+          "type": "drill_out_of_range"
+        }
+      ],
+      "native_sha256": "bf91d9a9c4eff7df084b0c00947f2cd7c22a37ae511d62f31834b3e8238ddd22",
+      "seconds": 2.277194958000001
+    },
+    {
+      "name": "round_size_equal",
+      "kind": "round_size",
+      "value_mm": 0.5,
+      "expected_failure": false,
+      "observed_failure": false,
+      "matched_violations": [],
+      "native_sha256": "cd68c71c5bc67cf89cb2330ccccf4d78a838f113836f6d0a51b4a4874e0be1ab",
+      "seconds": 2.152846084
+    },
+    {
+      "name": "round_size_above",
+      "kind": "round_size",
+      "value_mm": 0.51,
+      "expected_failure": false,
+      "observed_failure": false,
+      "matched_violations": [],
+      "native_sha256": "eb6b5cb16e0fe26660afdf592a0cc005b42bcc8b004bad892daf56fa0db556ee",
+      "seconds": 2.2836170829999993
+    },
+    {
+      "name": "slot_size_far",
+      "kind": "slot_size",
+      "value_mm": 0.05,
+      "expected_failure": true,
+      "observed_failure": true,
+      "matched_violations": [
+        {
+          "description": "Hole size out of range (rule 'NPTH minimum milling width' min hole 0.8000 mm; actual 0.0500 mm)",
+          "items": [
+            {
+              "description": "NPTH pad of J1",
+              "pos": {
+                "x": 10.0,
+                "y": 10.0
+              },
+              "uuid": "63066b11-60ca-4bee-9ef6-1bd7db747f5e"
+            }
+          ],
+          "severity": "error",
+          "type": "drill_out_of_range"
+        }
+      ],
+      "native_sha256": "f23695fd11e198028d821f392d96461b4064b781762c82fb86a9ebe47718bfc3",
+      "seconds": 2.125789375
+    },
+    {
+      "name": "slot_size_below",
+      "kind": "slot_size",
+      "value_mm": 0.79,
+      "expected_failure": true,
+      "observed_failure": true,
+      "matched_violations": [
+        {
+          "description": "Hole size out of range (rule 'NPTH minimum milling width' min hole 0.8000 mm; actual 0.7900 mm)",
+          "items": [
+            {
+              "description": "NPTH pad of J1",
+              "pos": {
+                "x": 10.0,
+                "y": 10.0
+              },
+              "uuid": "fe8eda1f-9060-42fa-bd49-acbd2c62ae03"
+            }
+          ],
+          "severity": "error",
+          "type": "drill_out_of_range"
+        }
+      ],
+      "native_sha256": "59d069cd6ed9c3413e4229c664bab1507f601f3c68d58924ae88006e899acce2",
+      "seconds": 2.0885532080000004
+    },
+    {
+      "name": "slot_size_equal",
+      "kind": "slot_size",
+      "value_mm": 0.8,
+      "expected_failure": false,
+      "observed_failure": false,
+      "matched_violations": [],
+      "native_sha256": "d504148abf41c3d9bed85b7729939416efd058d464771398084a433cd9485958",
+      "seconds": 2.279792125
+    },
+    {
+      "name": "slot_size_above",
+      "kind": "slot_size",
+      "value_mm": 0.81,
+      "expected_failure": false,
+      "observed_failure": false,
+      "matched_violations": [],
+      "native_sha256": "70391cee2644c02cc215cdae12cef78402aac176d3610b775dbc1e9be72c0a3d",
+      "seconds": 2.251201375000001
+    },
+    {
+      "name": "slot_gap_far",
+      "kind": "slot_gap",
+      "value_mm": 0.05,
+      "expected_failure": true,
+      "observed_failure": true,
+      "matched_violations": [
+        {
+          "description": "Hole clearance violation (rule 'milled NPTH copper clearance' clearance 0.3000 mm; actual 0.0500 mm)",
+          "items": [
+            {
+              "description": "Track [TEST] on F.Cu, length 2.0000 mm",
+              "pos": {
+                "x": 10.5,
+                "y": 9.0
+              },
+              "uuid": "0a005147-0705-4cc6-9441-1c709953cc0a"
+            },
+            {
+              "description": "NPTH pad of J1",
+              "pos": {
+                "x": 10.0,
+                "y": 10.0
+              },
+              "uuid": "979daf40-aa36-490e-9f78-ddf4951ed67c"
+            }
+          ],
+          "severity": "error",
+          "type": "hole_clearance"
+        }
+      ],
+      "native_sha256": "a005166c44fc1278da3e73d66c452aab190b54e2dac59184771b12d1932e7829",
+      "seconds": 2.3954004580000046
+    },
+    {
+      "name": "slot_gap_below",
+      "kind": "slot_gap",
+      "value_mm": 0.29,
+      "expected_failure": true,
+      "observed_failure": true,
+      "matched_violations": [
+        {
+          "description": "Hole clearance violation (rule 'milled NPTH copper clearance' clearance 0.3000 mm; actual 0.2900 mm)",
+          "items": [
+            {
+              "description": "Track [TEST] on F.Cu, length 2.0000 mm",
+              "pos": {
+                "x": 10.74,
+                "y": 9.0
+              },
+              "uuid": "1b22ef38-f27e-4151-b19f-4ffeebc47178"
+            },
+            {
+              "description": "NPTH pad of J1",
+              "pos": {
+                "x": 10.0,
+                "y": 10.0
+              },
+              "uuid": "9a5ce69b-5b38-4355-8a12-6e47da42b074"
+            }
+          ],
+          "severity": "error",
+          "type": "hole_clearance"
+        }
+      ],
+      "native_sha256": "45457563070319f117133cc911069ec0f64f04af8122ba7c8cf46bca859bf1c5",
+      "seconds": 2.5565000839999996
+    },
+    {
+      "name": "slot_gap_equal",
+      "kind": "slot_gap",
+      "value_mm": 0.3,
+      "expected_failure": false,
+      "observed_failure": false,
+      "matched_violations": [],
+      "native_sha256": "666c5b53390cd94e36291bc86a6ded784e02c0ead79ca66790973e5aa2da0264",
+      "seconds": 2.4516074999999944
+    },
+    {
+      "name": "slot_gap_above",
+      "kind": "slot_gap",
+      "value_mm": 0.31,
+      "expected_failure": false,
+      "observed_failure": false,
+      "matched_violations": [],
+      "native_sha256": "409e6cf1cd3023ff8440f716f646bc95989c751ea361794f7278850562a5d1aa",
+      "seconds": 2.504476167
+    },
+    {
+      "name": "annulus_far",
+      "kind": "annulus",
+      "value_mm": 0.05,
+      "expected_failure": true,
+      "observed_failure": true,
+      "matched_violations": [
+        {
+          "description": "Annular width (rule 'component PTH annular ring' min annular width 0.3000 mm; actual 0.0500 mm)",
+          "items": [
+            {
+              "description": "PTH pad 1 [TEST] of J1",
+              "pos": {
+                "x": 10.0,
+                "y": 10.0
+              },
+              "uuid": "f3bb4539-1b16-4046-8005-199af304c5af"
+            }
+          ],
+          "severity": "error",
+          "type": "annular_width"
+        }
+      ],
+      "native_sha256": "6aaa7ec719f1b97ffa02000d18c9c486a7215a4ded77898facbd5602fb1ba82f",
+      "seconds": 2.259151250000002
+    },
+    {
+      "name": "annulus_below",
+      "kind": "annulus",
+      "value_mm": 0.29,
+      "expected_failure": true,
+      "observed_failure": true,
+      "matched_violations": [
+        {
+          "description": "Annular width (rule 'component PTH annular ring' min annular width 0.3000 mm; actual 0.2900 mm)",
+          "items": [
+            {
+              "description": "PTH pad 1 [TEST] of J1",
+              "pos": {
+                "x": 10.0,
+                "y": 10.0
+              },
+              "uuid": "47b23270-dc28-413f-915d-4f37454622eb"
+            }
+          ],
+          "severity": "error",
+          "type": "annular_width"
+        }
+      ],
+      "native_sha256": "bd9cd5338e52eb40549f531847caa1752adc5bbfbda6af8184bff18385c223c2",
+      "seconds": 2.1902913329999976
+    },
+    {
+      "name": "annulus_equal",
+      "kind": "annulus",
+      "value_mm": 0.3,
+      "expected_failure": false,
+      "observed_failure": false,
+      "matched_violations": [],
+      "native_sha256": "61ad3c0921d999c210ef3eff2298cb11ca4dabb3b4e24512c4c5e9e0e8956bb8",
+      "seconds": 2.224126667
+    },
+    {
+      "name": "annulus_above",
+      "kind": "annulus",
+      "value_mm": 0.31,
+      "expected_failure": false,
+      "observed_failure": false,
+      "matched_violations": [],
+      "native_sha256": "c55f64c20eb94c0afeef64bb54e373e51042007418290ff80bc52355b2f18ce1",
+      "seconds": 2.371337957999998
+    }
+  ],
+  "seconds": 49.094901542
+}

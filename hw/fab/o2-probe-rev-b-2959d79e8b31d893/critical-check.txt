@@ -1,0 +1,1 @@
+OK: all 51 authored critical item(s) present in /private/tmp/o2-revb-no-ring/ee/hw/o2-probe/fab/.rev-b-build-nz7qh8i1/source/o2-probe.kicad_pcb and locked

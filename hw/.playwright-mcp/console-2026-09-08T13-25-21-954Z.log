@@ -1,0 +1,1 @@
+[     766ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://api.github.com/repos/grafana/grafana-foundation-sdk/releases/latest:0

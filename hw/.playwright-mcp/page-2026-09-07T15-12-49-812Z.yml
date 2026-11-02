@@ -1,0 +1,333 @@
+- generic [ref=f84e1]:
+  - generic [ref=f84e2]:
+    - banner [ref=f84e3]:
+      - generic [ref=f84e7]:
+        - link [ref=f84e12] [cursor=pointer]:
+          - /url: /
+          - img "logo" [ref=f84e13]
+        - generic [ref=f84e16]:
+          - navigation [ref=f84e20]:
+            - list [ref=f84e22]:
+              - listitem [ref=f84e23]:
+                - link "About Us" [ref=f84e24] [cursor=pointer]:
+                  - /url: javascript:void(0)
+              - listitem [ref=f84e25]:
+                - link "Webstore" [ref=f84e26] [cursor=pointer]:
+                  - /url: /webstore
+              - listitem [ref=f84e27]:
+                - link "Products" [ref=f84e28] [cursor=pointer]:
+                  - /url: javascript:void(0)
+              - listitem [ref=f84e29]:
+                - link "Downloads" [ref=f84e30] [cursor=pointer]:
+                  - /url: javascript:void(0)
+              - listitem [ref=f84e31]:
+                - link "FAQs" [ref=f84e32] [cursor=pointer]:
+                  - /url: /faqs
+              - listitem [ref=f84e33]:
+                - link "Blog" [ref=f84e34] [cursor=pointer]:
+                  - /url: /blog
+          - generic [ref=f84e35]:
+            - generic [ref=f84e38]:
+              - generic [ref=f84e39]: global-search
+              - textbox " global-search" [ref=f84e40]:
+                - /placeholder: Search...
+              - generic [ref=f84e41]:
+                - text: 
+                - generic [ref=f84e42]: global-search
+            - list [ref=f84e45]:
+              - listitem [ref=f84e46]:
+                - 'link "Call: +44 (0) 1376 556700" [ref=f84e48] [cursor=pointer]':
+                  - /url: tel://+44(0)1376556700
+    - main [ref=f84e49]:
+      - generic [ref=f84e50]:
+        - heading [level=2] [ref=f84e65]: Application Notes
+        - navigation [ref=f84e73]:
+          - list [ref=f84e74]:
+            - listitem [ref=f84e75]:
+              - link "Alphasense" [ref=f84e77] [cursor=pointer]:
+                - /url: /
+              - generic: ❯
+            - listitem [ref=f84e78]:
+              - link "Downloads" [ref=f84e80] [cursor=pointer]:
+                - /url: /downloads
+              - generic: ❯
+            - listitem [ref=f84e81]:
+              - generic [ref=f84e82]:
+                - link "Application Notes":
+                  - /url: /downloads/application-notes
+              - text: ❯
+        - generic [ref=f84e86]:
+          - generic [ref=f84e92]:
+            - generic [ref=f84e93]:
+              - generic [ref=f84e94]: global-search
+              - textbox "global-search" [ref=f84e95]:
+                - /placeholder: Search...
+              - button "button" [ref=f84e96] [cursor=pointer]
+            - generic [ref=f84e98]:
+              - text: Showing
+              - strong [ref=f84e99]: "12"
+              - text: Of
+              - strong [ref=f84e100]: "41"
+              - text: Results
+              - strong
+          - generic [ref=f84e103]:
+            - generic [ref=f84e105]:
+              - generic [ref=f84e107]:
+                - text:  
+                - generic [ref=f84e111]:
+                  - generic [ref=f84e112]:
+                    - generic [ref=f84e113]: Sensor Technology
+                    - generic [ref=f84e114]:
+                      - generic [ref=f84e115]:
+                        - checkbox "Electrochemical (Air Quality)" [ref=f84e116] [cursor=pointer]
+                        - generic [ref=f84e117] [cursor=pointer]: Electrochemical (Air Quality)
+                      - generic [ref=f84e118]:
+                        - checkbox "Electrochemical (Oxygen)" [ref=f84e119] [cursor=pointer]
+                        - generic [ref=f84e120] [cursor=pointer]: Electrochemical (Oxygen)
+                      - generic [ref=f84e121]:
+                        - checkbox "Electrochemical (Toxic)" [ref=f84e122] [cursor=pointer]
+                        - generic [ref=f84e123] [cursor=pointer]: Electrochemical (Toxic)
+                      - generic [ref=f84e124]:
+                        - checkbox "NDIR" [ref=f84e125] [cursor=pointer]
+                        - generic [ref=f84e126] [cursor=pointer]: NDIR
+                      - generic [ref=f84e127]:
+                        - checkbox "OPC" [ref=f84e128] [cursor=pointer]
+                        - generic [ref=f84e129] [cursor=pointer]: OPC
+                      - generic [ref=f84e130]:
+                        - checkbox "PID" [ref=f84e131] [cursor=pointer]
+                        - generic [ref=f84e132] [cursor=pointer]: PID
+                      - generic [ref=f84e133]:
+                        - checkbox "Utilities" [ref=f84e134] [cursor=pointer]
+                        - generic [ref=f84e135] [cursor=pointer]: Utilities
+                  - link "Reset" [ref=f84e137] [cursor=pointer]:
+                    - /url: javascript:void(0)
+              - generic [ref=f84e140]:
+                - heading "Contact Us" [level=4] [ref=f84e141]
+                - generic [ref=f84e142]:
+                  - link [ref=f84e143] [cursor=pointer]:
+                    - /url: tel:+44(0)1376556700
+                    - strong [ref=f84e144]: +44 (0) 1376 556700
+                  - link "sensors.alphasense@ametek.com" [ref=f84e145] [cursor=pointer]:
+                    - /url: mailto:sensors.alphasense@ametek.com
+            - generic [ref=f84e150]:
+              - generic [ref=f84e151]:
+                - generic [ref=f84e152]:
+                  - link "AAN 002-04 Warranty Information Download" [ref=f84e155] [cursor=pointer]:
+                    - /url: https://ametekcdn.azureedge.net/mediafiles/project/oneweb/oneweb/alphasense/products/application notes/aan_002_app-note_v0_en_1.pdf?revision:754253b4-bc39-4b89-9af3-99a797b98eeb
+                    - generic [ref=f84e157]:
+                      - heading "AAN 002-04" [level=5] [ref=f84e158]
+                      - paragraph [ref=f84e159]: Warranty Information
+                      - paragraph [ref=f84e160]: Download
+                  - link "AAN 010 Design Considerations in Gas Sampling Download" [ref=f84e163] [cursor=pointer]:
+                    - /url: https://ametekcdn.azureedge.net/mediafiles/project/oneweb/oneweb/alphasense/products/application notes/aan_010_app-note_v0_en_1.pdf?revision:e2608a41-4c25-4843-862f-12476ee9dd7f
+                    - generic [ref=f84e165]:
+                      - heading "AAN 010" [level=5] [ref=f84e166]
+                      - paragraph [ref=f84e167]: Design Considerations in Gas Sampling
+                      - paragraph [ref=f84e168]: Download
+                  - link "SDS 072-0098 O Safety Data Sheet - Oxygen Sensors Download" [ref=f84e171] [cursor=pointer]:
+                    - /url: https://ametekcdn.azureedge.net/mediafiles/project/oneweb/oneweb/alphasense/products/application notes/072-00980_app-note_v0_en_1.pdf?revision:242c5a7a-6a9b-4fa6-8e77-912407c9a2a8
+                    - generic [ref=f84e173]:
+                      - heading "SDS 072-0098 O" [level=5] [ref=f84e174]
+                      - paragraph [ref=f84e175]: Safety Data Sheet - Oxygen Sensors
+                      - paragraph [ref=f84e176]: Download
+                  - 'link "AAN 106 Humidity Extremes: Drying Out and Water Absorption Download" [ref=f84e179] [cursor=pointer]':
+                    - /url: https://ametekcdn.azureedge.net/mediafiles/project/oneweb/oneweb/alphasense/products/application notes/aan_106_app-note_v0_en_1.pdf?revision:094ffbe1-e35c-4c23-a133-8b1ac1ace303
+                    - generic [ref=f84e181]:
+                      - heading "AAN 106" [level=5] [ref=f84e182]
+                      - paragraph [ref=f84e183]: "Humidity Extremes: Drying Out and Water Absorption"
+                      - paragraph [ref=f84e184]: Download
+                  - link "AAN 306-03 Calibrating, Maintaining & Cleaning the PID-AH and PID-A1 Download" [ref=f84e187] [cursor=pointer]:
+                    - /url: https://ametekcdn.azureedge.net/mediafiles/project/oneweb/oneweb/alphasense/products/application notes/aan_306-03_app-note_v0_en_1.pdf?revision:c21595f2-c11d-46d2-b7fd-be215a32978c
+                    - generic [ref=f84e189]:
+                      - heading "AAN 306-03" [level=5] [ref=f84e190]
+                      - paragraph [ref=f84e191]: Calibrating, Maintaining & Cleaning the PID-AH and PID-A1
+                      - paragraph [ref=f84e192]: Download
+                  - link "AAN 111 Modelling Amperometric Electrochemical Gas Sensors Download" [ref=f84e195] [cursor=pointer]:
+                    - /url: https://ametekcdn.azureedge.net/mediafiles/project/oneweb/oneweb/alphasense/products/application notes/alphasense_aan_111-02_app-note_aw_en_1.pdf?revision:a041168c-ce87-484c-a9ac-2e4b3d8e86e6
+                    - generic [ref=f84e197]:
+                      - heading "AAN 111" [level=5] [ref=f84e198]
+                      - paragraph [ref=f84e199]: Modelling Amperometric Electrochemical Gas Sensors
+                      - paragraph [ref=f84e200]: Download
+                - generic [ref=f84e420]:
+                  - link "AAN 204-02 Origin of Non-Linearity and Span Download" [ref=f84e423] [cursor=pointer]:
+                    - /url: https://ametekcdn.azureedge.net/mediafiles/project/oneweb/oneweb/alphasense/products/application notes/aan_204-02_app-note_v0_en_1.pdf?revision:a19752b1-3c5a-4946-96d3-33ad78433ee3
+                    - generic [ref=f84e425]:
+                      - heading "AAN 204-02" [level=5] [ref=f84e426]
+                      - paragraph [ref=f84e427]: Origin of Non-Linearity and Span
+                      - paragraph [ref=f84e428]: Download
+                  - link "AAN 206-01 Electronic Interface for IRC-AT & IRM-AT Download" [ref=f84e431] [cursor=pointer]:
+                    - /url: https://ametekcdn.azureedge.net/mediafiles/project/oneweb/oneweb/alphasense/products/application notes/aan_206-01_app-note_v0_en_1.pdf?revision:9b01dd3d-2d5f-4859-8c94-b43a06cfa212
+                    - generic [ref=f84e433]:
+                      - heading "AAN 206-01" [level=5] [ref=f84e434]
+                      - paragraph [ref=f84e435]: Electronic Interface for IRC-AT & IRM-AT
+                      - paragraph [ref=f84e436]: Download
+                  - link "AAN 102 Warranty Information Download" [ref=f84e439] [cursor=pointer]:
+                    - /url: https://ametekcdn.azureedge.net/mediafiles/project/oneweb/oneweb/alphasense/products/application notes/aan_1021_app-note_v0_en_1.pdf?revision:fe2e5ed0-0aa6-4329-970e-5193ba5222c4
+                    - generic [ref=f84e441]:
+                      - heading "AAN 102" [level=5] [ref=f84e442]
+                      - paragraph [ref=f84e443]: Warranty Information
+                      - paragraph [ref=f84e444]: Download
+                  - link "AAN 203-04 Determination of Linearisation and Temperature Correction Coefficients Download" [ref=f84e447] [cursor=pointer]:
+                    - /url: https://ametekcdn.azureedge.net/mediafiles/project/oneweb/oneweb/alphasense/products/application notes/aan_203-04_app-note_v0_en_1.pdf?revision:fd3f5d56-5aad-455c-8e68-2941749f46f3
+                    - generic [ref=f84e449]:
+                      - heading "AAN 203-04" [level=5] [ref=f84e450]
+                      - paragraph [ref=f84e451]: Determination of Linearisation and Temperature Correction Coefficients
+                      - paragraph [ref=f84e452]: Download
+                  - link "AAN 202-04 Electronic Interface for IRC-A1 Download" [ref=f84e455] [cursor=pointer]:
+                    - /url: https://ametekcdn.azureedge.net/mediafiles/project/oneweb/oneweb/alphasense/products/application notes/aan_202-04_app-note_v0_en_1.pdf?revision:8774e97b-7a2d-4711-a663-a93ebeaa5cc5
+                    - generic [ref=f84e457]:
+                      - heading "AAN 202-04" [level=5] [ref=f84e458]
+                      - paragraph [ref=f84e459]: Electronic Interface for IRC-A1
+                      - paragraph [ref=f84e460]: Download
+                  - link "AAN 302-04 Interfacing the PID-AH and PID-A1 Download" [ref=f84e463] [cursor=pointer]:
+                    - /url: https://ametekcdn.azureedge.net/mediafiles/project/oneweb/oneweb/alphasense/products/application notes/aan_302-04_app-note_v0_en_1.pdf?revision:4ccbd9d6-6f95-48ee-9b3a-c36988377aa6
+                    - generic [ref=f84e465]:
+                      - heading "AAN 302-04" [level=5] [ref=f84e466]
+                      - paragraph [ref=f84e467]: Interfacing the PID-AH and PID-A1
+                      - paragraph [ref=f84e468]: Download
+              - link "Load More" [ref=f84e202] [cursor=pointer]:
+                - /url: javascript:void(0)
+    - contentinfo [ref=f84e203]:
+      - generic [ref=f84e204]:
+        - separator [ref=f84e210]
+        - generic [ref=f84e217]:
+          - generic [ref=f84e221]:
+            - img "box" [ref=f84e223]
+            - heading [level=4] [ref=f84e225]
+            - link "Browse Data Sheets" [ref=f84e228] [cursor=pointer]:
+              - /url: /products/view-by-target-gas
+          - generic [ref=f84e232]:
+            - img "box2" [ref=f84e234]
+            - heading [level=4] [ref=f84e236]
+            - link "Browse Application Notes" [ref=f84e239] [cursor=pointer]:
+              - /url: /downloads/application-notes
+          - generic [ref=f84e243]:
+            - img "box3" [ref=f84e245]
+            - heading [level=4] [ref=f84e247]
+            - link "Read Our FAQs" [ref=f84e250] [cursor=pointer]:
+              - /url: /faqs
+        - generic [ref=f84e256]:
+          - generic [ref=f84e258]:
+            - heading "Enquire Today" [level=4] [ref=f84e261]
+            - generic [ref=f84e265]:
+              - generic [ref=f84e266]:
+                - generic [ref=f84e267]: Name *
+                - textbox "Name *" [ref=f84e268]:
+                  - /placeholder: ""
+              - generic [ref=f84e269]:
+                - generic [ref=f84e270]: Email *
+                - textbox "Email *" [ref=f84e271]:
+                  - /placeholder: ""
+              - generic [ref=f84e272]:
+                - generic [ref=f84e273]: Message *
+                - textbox "Message *" [ref=f84e274]:
+                  - /placeholder: ""
+              - iframe [ref=f84e279]:
+                - generic [ref=f85e2]:
+                  - generic [ref=f85e3]:
+                    - checkbox "I'm not a robot" [ref=f85e7]
+                    - generic [aria-hidden] [ref=f85e11]: I'm not a robot
+                  - generic [ref=f85e12]: reCAPTCHA
+              - button "Submit" [ref=f84e281] [cursor=pointer]
+          - generic [ref=f84e283]:
+            - generic [ref=f84e286]:
+              - heading "Contact Us" [level=4] [ref=f84e287]
+              - generic [ref=f84e288]:
+                - strong [ref=f84e290]: "T:"
+                - strong [ref=f84e291]:
+                  - link "+44 (0) 1376 556700" [ref=f84e292] [cursor=pointer]:
+                    - /url: tel:+44(0)1376556700
+              - generic [ref=f84e293]:
+                - strong [ref=f84e294]: "E:"
+                - link [ref=f84e295] [cursor=pointer]:
+                  - /url: mailto:sensors.alphasense@ametek.com
+                  - strong [ref=f84e296]: sensors.alphasense@ametek.com
+            - paragraph [ref=f84e299]: Sensor Technology House 300 Avenue West Skyline 120 Great Notley, Braintree Essex CM77 7AA United Kingdom
+        - generic [ref=f84e304]:
+          - generic [ref=f84e305]:
+            - generic [ref=f84e308]:
+              - list [ref=f84e312]:
+                - listitem [ref=f84e313]:
+                  - link "Home" [ref=f84e315] [cursor=pointer]:
+                    - /url: /
+                - listitem [ref=f84e316]:
+                  - link "Downloads" [ref=f84e318] [cursor=pointer]:
+                    - /url: /downloads
+                - listitem [ref=f84e319]:
+                  - link "Purchase Terms & Conditions" [ref=f84e321] [cursor=pointer]:
+                    - /url: /legal/purchase-terms-conditions
+                - listitem [ref=f84e322]:
+                  - link "Terms of Use" [ref=f84e324] [cursor=pointer]:
+                    - /url: https://www.ametek.com/terms-of-use
+                - listitem [ref=f84e325]:
+                  - link "Privacy Policy" [ref=f84e327] [cursor=pointer]:
+                    - /url: /privacy
+                - listitem [ref=f84e328]:
+                  - link "Cookie Policy" [ref=f84e330] [cursor=pointer]:
+                    - /url: https://www.ametek.com/cookies
+                - listitem [ref=f84e331]:
+                  - link "Do Not Sell or Share My Personal Information" [ref=f84e333] [cursor=pointer]:
+                    - /url: /do-not-sell-share
+              - list [ref=f84e337]:
+                - listitem [ref=f84e338]:
+                  - link "About Us" [ref=f84e340] [cursor=pointer]:
+                    - /url: /company
+                - listitem [ref=f84e341]:
+                  - link "Application Notes" [ref=f84e343] [cursor=pointer]:
+                    - /url: /downloads/application-notes
+                - listitem [ref=f84e344]:
+                  - link "Terms & Conditions of Sale" [ref=f84e346] [cursor=pointer]:
+                    - /url: /-/media/project/oneweb/oneweb/alphasense/terms-and-conditions-of-sale-may-2026.pdf?la=en&revision=e3daa920-7279-4699-982c-e268d8e16d28&hash=BDCD29B9E99EC7993EE0D73985EFFD52
+                - listitem [ref=f84e347]:
+                  - link "Sign up for our newsletter" [ref=f84e349] [cursor=pointer]:
+                    - /url: /company/newsletter-subscription
+              - list [ref=f84e353]:
+                - listitem [ref=f84e354]:
+                  - link "Sensors" [ref=f84e356] [cursor=pointer]:
+                    - /url: /products
+                - listitem [ref=f84e357]:
+                  - link "FAQs" [ref=f84e359] [cursor=pointer]:
+                    - /url: /faqs
+                - listitem [ref=f84e360]:
+                  - link "Responsibility" [ref=f84e362] [cursor=pointer]:
+                    - /url: /company/responsibility
+                - listitem [ref=f84e363]:
+                  - link "Contact" [ref=f84e365] [cursor=pointer]:
+                    - /url: /company/contact
+            - generic [ref=f84e368]:
+              - link [ref=f84e371] [cursor=pointer]:
+                - /url: /
+                - img "logo" [ref=f84e372]
+              - list [ref=f84e375]:
+                - listitem [ref=f84e376]:
+                  - link [ref=f84e377] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/company/alphasense-ltd
+                    - img "LinkedIn Logo" [ref=f84e379]
+                - listitem [ref=f84e380]:
+                  - link [ref=f84e381] [cursor=pointer]:
+                    - /url: https://www.youtube.com
+                    - img "youtube" [ref=f84e383]
+          - generic [ref=f84e385]:
+            - img "cogdem" [ref=f84e390]
+            - img "eic" [ref=f84e395]
+            - generic [ref=f84e401]:
+              - paragraph [ref=f84e402]: Copyright © 2013-2026 Alphasense, All Rights Reserved.
+              - paragraph [ref=f84e403]: Company Registered in England and Wales. No. 03264282
+  - generic:
+    - dialog "Privacy" [ref=f84e406]:
+      - generic [ref=f84e407]:
+        - generic [ref=f84e409]:
+          - text: This site uses cookies, pixels, and similar tools (“cookies”), some of which are provided by third parties, to enable website features and functionality; measure, analyze, and improve site performance; enhance user experience; record user sessions and interactions; personalize content; and support our advertising and marketing. We and our third-party vendors may monitor, record, and access information and data, including device data, IP address and online identifiers, referring URLs and other browsing information, for these and similar purposes. By clicking Accept, you agree to such purposes. If you continue to browse our site without clicking “Accept,” or if you click “Reject,” only cookies necessary to operate and enable default website features and functionalities will be deployed. By using this site or clicking “Accept,” “Reject,” or “Manage Preferences” you acknowledge and agree to our Privacy Policy available through the link in the footer of this website,
+          - link "Cookie Policy" [ref=f84e410] [cursor=pointer]:
+            - /url: https://www.ametek.com/cookies
+          - text: ", and"
+          - link "Terms of Use" [ref=f84e411] [cursor=pointer]:
+            - /url: https://www.ametek.com/terms-of-use
+          - text: .
+        - generic [ref=f84e413]:
+          - button "Manage Preferences, Opens the preference center dialog" [ref=f84e414] [cursor=pointer]: Manage Preferences
+          - generic [ref=f84e415]:
+            - button "Reject" [ref=f84e416] [cursor=pointer]
+            - button "Accept" [ref=f84e417] [cursor=pointer]
+        - button "Close" [ref=f84e419] [cursor=pointer]
+    - text: Visit Our Preference Center to Opt-out of Cookies

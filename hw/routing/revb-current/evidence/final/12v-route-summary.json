@@ -1,0 +1,103 @@
+{
+ "routed_single": [
+  "/+12V_SW"
+ ],
+ "failed_single": [],
+ "open_single": [],
+ "failed_multipoint": [],
+ "multipoint_nets": 1,
+ "multipoint_pads_connected": 7,
+ "multipoint_pads_total": 7,
+ "multipoint_edges_routed": 1,
+ "multipoint_edges_failed": 0,
+ "ripup_success_pairs": [],
+ "rerouted_pairs": [],
+ "single_ended_target_swaps": [],
+ "layer_swaps": 0,
+ "successful": 1,
+ "failed": 0,
+ "total_time": 11.85,
+ "total_iterations": 2664155,
+ "total_vias": 5,
+ "cleanup_disconnected": [],
+ "min_clearance_used": 0.1,
+ "oracle_check": "disabled",
+ "protected_skipped": {
+  "pre-existing rip candidacy": {
+   "/ADC_WE_BUF": "locked",
+   "/ADC_RE_BUF": "locked",
+   "/CELL_CE": "locked",
+   "/CELL_RE": "locked",
+   "/CELL_WE": "locked",
+   "/BUCK_SW": "locked",
+   "/HEATER_GATE": "locked",
+   "/BUCK_BST": "locked",
+   "/LMP_C2": "locked",
+   "/LMP_C1": "locked",
+   "/TMP_CELL_EP": "locked",
+   "/GUARD_REPLICA": "locked"
+  }
+ },
+ "pad_pairs_connected": 20,
+ "pad_pairs_total": 20,
+ "power_trace_ampacity": [
+  {
+   "net": "/+12V_FUSED",
+   "bottleneck_width_mm": 0.5,
+   "bottleneck_layer": "B.Cu",
+   "copper_oz": 1.0000000000000002,
+   "max_current_a": 1.45,
+   "max_current_ipc2152_a": 1.45,
+   "temp_rise_c": 10.0,
+   "trace_length_mm": 13.2
+  },
+  {
+   "net": "/+12V_RAW",
+   "bottleneck_width_mm": 0.15,
+   "bottleneck_layer": "F.Cu",
+   "copper_oz": 1.0000000000000002,
+   "max_current_a": 0.6,
+   "max_current_ipc2152_a": 0.6,
+   "temp_rise_c": 10.0,
+   "trace_length_mm": 18.9
+  },
+  {
+   "net": "/+12V_SW",
+   "bottleneck_width_mm": 0.1,
+   "bottleneck_layer": "B.Cu",
+   "copper_oz": 1.0000000000000002,
+   "max_current_a": 0.45,
+   "max_current_ipc2152_a": 0.45,
+   "temp_rise_c": 10.0,
+   "trace_length_mm": 106.7
+  },
+  {
+   "net": "/3V3A",
+   "bottleneck_width_mm": 0.2,
+   "bottleneck_layer": "F.Cu",
+   "copper_oz": 1.0000000000000002,
+   "max_current_a": 0.74,
+   "max_current_ipc2152_a": 0.74,
+   "temp_rise_c": 10.0,
+   "trace_length_mm": 62.2
+  },
+  {
+   "net": "/3V3D",
+   "bottleneck_width_mm": 0.1,
+   "bottleneck_layer": "B.Cu",
+   "copper_oz": 1.0000000000000002,
+   "max_current_a": 0.45,
+   "max_current_ipc2152_a": 0.45,
+   "temp_rise_c": 10.0,
+   "trace_length_mm": 193.7
+  }
+ ],
+ "scope": "run",
+ "env_knobs": {
+  "KICAD_INRUN_FLOOR_SYNC": "0"
+ },
+ "finalize_excluded_nets": [
+  "/HEATER_LOW",
+  "GND"
+ ]
+}

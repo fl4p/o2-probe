@@ -1,0 +1,50 @@
+{
+  "about": "MEASURED Modbus RTU replies that broke a consumer on 2026-09-10. Read by three tests: tech/node-prototype/test/mbresync_host_test.cpp (the node resync, src/mbresync.h), ee hw/o2-probe/firmware/tools/test_serial_capture.py (o2p_update.py SerialLink, through a byte-identical copy pinned by sha256), and tech/chirpstack/test_modbus_captures.js (farm-node-decoder.js). Every entry was captured off hardware; synthetic cases live in each test and say so there. ADD captures, never edit one: an edited capture is a fixture that tests what somebody believed.",
+  "format": "raw_hex is the bytes as they arrived, space separated. frame_hex is the CRC-valid Modbus frame contained in raw_hex, or empty when there is none; every test verifies that claim rather than trusting it. slave, function, register and count describe the request that was sent, so each consumer can build it and check the reply shape against it.",
+  "captures": [
+    {
+      "id": "glitch_lead_trail_fc03",
+      "measured": "2026-09-09 23:04Z, farm-node-01 console, ~/dev/ha/farming/tech/bench/boot-20260910-010416.log lines 44, 46 and 48: three consecutive boot ping attempts in one boot, byte-identical (probe-char session, printed by its ping diagnostics). CRC of the inner 21 bytes recomputed independently by ble-spped: calc 86A8 equals got 86A8.",
+      "path": "o2-probe slave 3, RS-485 over a 10 m cable at 9600 8E1, MIKROE-989 click, node UART1, read_frame() before any resync existed",
+      "slave": 3,
+      "function": 3,
+      "register": 0,
+      "count": 8,
+      "raw_hex": "00 03 03 10 ff ff 25 7e 03 48 03 3f 1c e5 00 00 90 00 00 00 a8 86 00",
+      "frame_hex": "03 03 10 ff ff 25 7e 03 48 03 3f 1c e5 00 00 90 00 00 00 a8 86"
+    },
+    {
+      "id": "lagged_short_reply",
+      "measured": "2026-09-10 05:47:59Z, ble-spped session, o2p_update.py --status through the node USB serial relay: the second read of show_status() (R_RECV_HI x2), after its R_STATUS read had succeeded. Tool output: OSError bad CRC in reply: 030302036e40980303. The 7-byte frame is CRC-valid but carries ONE register; which earlier request it answered is not established.",
+      "path": "o2-probe, RS-485, node read_frame() with the 2026-09-10 resync, serbus relay, USB CDC, SerialLink.exchange() reading exactly 9 bytes with --timeout 1.0",
+      "slave": 3,
+      "function": 3,
+      "register": 89,
+      "count": 2,
+      "raw_hex": "03 03 02 03 6e 40 98 03 03",
+      "frame_hex": "03 03 02 03 6e 40 98"
+    },
+    {
+      "id": "lone_zero",
+      "measured": "2026-09-10 05:48:39Z, ble-spped session, o2p_update.py --status --timeout 4 through the node USB serial relay, sent immediately after the device re-enumerated with no drain; the first read (R_STATUS x1). Tool output: OSError truncated reply (1 bytes): 00. Which hop produced this byte is NOT established.",
+      "path": "same as lagged_short_reply, --timeout 4",
+      "slave": 3,
+      "function": 3,
+      "register": 80,
+      "count": 1,
+      "raw_hex": "00",
+      "frame_hex": ""
+    },
+    {
+      "id": "console_text_as_reply",
+      "measured": "2026-09-10 05:49:04Z, ble-spped session, o2p_update.py --status --timeout 3 through the node USB serial relay, within 3 s of the device re-enumerating from deep sleep and after a fixed 1.5 s drain that removed 496 bytes; the first read (R_STATUS x1). Tool output: OSError bad CRC in reply: 49204e696d424c, which is ASCII for I NimBL - the node boot log, not a reply.",
+      "path": "node USB CDC console log interleaved with the relay stream",
+      "slave": 3,
+      "function": 3,
+      "register": 80,
+      "count": 1,
+      "raw_hex": "49 20 4e 69 6d 42 4c",
+      "frame_hex": ""
+    }
+  ]
+}

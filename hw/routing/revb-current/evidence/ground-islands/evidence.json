@@ -1,0 +1,120 @@
+{
+  "uuids": [
+    "364652c5-3b2b-46c7-a3b2-318706084b0f",
+    "7fb099bf-6a0d-4ae6-9d74-2cf9dced2422"
+  ],
+  "poses": [
+    [
+      103.15,
+      94.1
+    ],
+    [
+      112.3,
+      103.2
+    ]
+  ],
+  "saved_net_identity_mismatches": [],
+  "native_pad_shape_overlap_hits": [],
+  "all_error_severity_violations": [
+    {
+      "description": "Clearance violation (netclass 'Default' clearance 0.1000 mm; actual 0.0743 mm)",
+      "items": [
+        {
+          "description": "Track [/3V3D] on F.Cu, length 2.2627 mm",
+          "pos": {
+            "x": 101.25,
+            "y": 97.575
+          },
+          "uuid": "1e5ca412-850b-477a-9fd5-1962e1010f58"
+        },
+        {
+          "description": "Via [/HEATER_PWM] on F.Cu - B.Cu",
+          "pos": {
+            "x": 101.825,
+            "y": 97.55
+          },
+          "uuid": "95f40d82-36f3-4293-b4a0-336910735ad3"
+        }
+      ],
+      "severity": "error",
+      "type": "clearance"
+    },
+    {
+      "description": "Hole clearance violation (board setup constraints hole clearance 0.2000 mm; actual 0.1743 mm)",
+      "items": [
+        {
+          "description": "Track [/3V3D] on F.Cu, length 2.2627 mm",
+          "pos": {
+            "x": 101.25,
+            "y": 97.575
+          },
+          "uuid": "1e5ca412-850b-477a-9fd5-1962e1010f58"
+        },
+        {
+          "description": "Via [/HEATER_PWM] on F.Cu - B.Cu",
+          "pos": {
+            "x": 101.825,
+            "y": 97.55
+          },
+          "uuid": "95f40d82-36f3-4293-b4a0-336910735ad3"
+        }
+      ],
+      "severity": "error",
+      "type": "hole_clearance"
+    }
+  ],
+  "all_unconnected_items": [
+    {
+      "description": "Missing connection between items",
+      "items": [
+        {
+          "description": "Track [/3V3D] on F.Cu, length 0.3000 mm",
+          "pos": {
+            "x": 115.65,
+            "y": 110.55
+          },
+          "uuid": "5f2f0e75-3cdc-45ea-ba90-f3bea4e24fae"
+        },
+        {
+          "description": "Track [/3V3D] on B.Cu, length 5.7306 mm",
+          "pos": {
+            "x": 114.3,
+            "y": 124.3
+          },
+          "uuid": "49f057a5-07f6-4b9c-9df6-bdbe56ebb08c"
+        }
+      ],
+      "severity": "error",
+      "type": "unconnected_items"
+    },
+    {
+      "description": "Missing connection between items",
+      "items": [
+        {
+          "description": "Track [/+12V_SW] on B.Cu, length 0.5185 mm",
+          "pos": {
+            "x": 108.55,
+            "y": 104.55
+          },
+          "uuid": "621bb88d-5b1a-4853-8f74-8f0a1cac4743"
+        },
+        {
+          "description": "Track [/+12V_SW] on B.Cu, length 0.3536 mm",
+          "pos": {
+            "x": 111.9,
+            "y": 121.05
+          },
+          "uuid": "dea7dc7d-4bb2-4065-afd0-0b31004f14ac"
+        }
+      ],
+      "severity": "error",
+      "type": "unconnected_items"
+    }
+  ],
+  "sha256": {
+    "apply_ground_islands.py": "d526ad82cea74b8e682993df1ffb4163f7d06ad7c7b6d91780b5e6645fad4b46",
+    "source.kicad_pcb": "a6e23c558e73a94b8794ee0fa687fd4042762b8c5d800ee513b7df7052bc6e62",
+    "candidate.kicad_pcb": "ec17d78db2322cc71fbe7a0884a594dc19788f7d78aa297ba4def9c776cd6649",
+    "drc.json": "6d8b3870456aeb4b2ed19ef28286e48d6a9dfdced6ed77dd6cd7dcb2512cd97d"
+  }
+}

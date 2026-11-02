@@ -1,0 +1,177 @@
+- generic [ref=e1]:
+  - banner [ref=e2]:
+    - link "Close" [ref=e6] [cursor=pointer]:
+      - /url: "#"
+    - generic [ref=e9]:
+      - link "Home" [ref=e10] [cursor=pointer]:
+        - /url: //www.ti.com
+        - img "Texas Instruments" [ref=e11]
+      - link "Cross-reference" [ref=e18] [cursor=pointer]:
+        - /url: //www.ti.com/cross-reference-search/en-us/
+        - generic [aria-hidden] [ref=e19]: crossReference
+    - navigation "Primary" [ref=e24]:
+      - menubar [ref=e25]:
+        - button "Menu" [ref=e26] [cursor=pointer]
+        - menuitem "Language" [ref=e28] [cursor=pointer]
+        - menuitem "My cart" [ref=e30] [cursor=pointer]
+  - main [ref=e32]:
+    - generic [ref=e35]:
+      - generic [ref=e39]:
+        - link "Home" [ref=e41] [cursor=pointer]:
+          - /url: /
+        - generic [ref=e42]:
+          - text: /
+          - link "Sensors" [ref=e43] [cursor=pointer]:
+            - /url: /product-category/sensors/overview.html
+        - generic [ref=e44]:
+          - text: /
+          - link "Specialty sensors" [ref=e45] [cursor=pointer]:
+            - /url: /product-category/sensors/specialty/overview.html
+        - generic [ref=e46]:
+          - text: /
+          - link "Signal conditioners" [ref=e47] [cursor=pointer]:
+            - /url: /product-category/sensors/specialty/signal-conditioners/overview.html
+      - generic [ref=e50]:
+        - generic [ref=e51]:
+          - heading "LMP91000" [level=1] [ref=e53]
+          - heading "Configurable AFE potentiostat for low-power electrochemical cell monitoring" [level=2] [ref=e54]
+        - link "Order now" [ref=e58] [cursor=pointer]:
+          - /url: "#order-quality"
+      - generic [ref=e61]:
+        - generic [ref=e62]: Data sheet
+        - list [ref=e65]:
+          - listitem [ref=e66]:
+            - generic [ref=e67]:
+              - link [ref=e68] [cursor=pointer]:
+                - /url: https://www.ti.com/lit/gpn/LMP91000
+                - generic [aria-hidden] [ref=e69]: document-pdfAcrobat
+              - generic [ref=e72]:
+                - 'link "LMP91000 Sensor AFE System: Configurable AFE Potentiostat for Low-Power Chemical-Sensing Applications datasheet (Rev. I)" [ref=e73] [cursor=pointer]':
+                  - /url: https://www.ti.com/lit/gpn/LMP91000
+                - generic [ref=e74]:
+                  - link "PDF" [ref=e75] [cursor=pointer]:
+                    - /url: https://www.ti.com/lit/gpn/LMP91000
+                  - generic [ref=e76]: "|"
+                  - link "HTML" [ref=e77] [cursor=pointer]:
+                    - /url: https://www.ti.com/document-viewer/LMP91000/datasheet
+    - generic [ref=e78]:
+      - heading "Product details" [level=3] [ref=e81]
+      - generic [ref=e84]:
+        - generic [ref=e86]:
+          - tablist [ref=e88]:
+            - tab "Parameters" [selected] [ref=e89] [cursor=pointer]
+            - tab "Package | Pins | Size" [ref=e90] [cursor=pointer]
+            - tab "Features" [ref=e91] [cursor=pointer]
+            - tab "Description" [ref=e92] [cursor=pointer]
+          - tabpanel "Parameters" [ref=e94]:
+            - generic [ref=e103]:
+              - generic:
+                - generic [ref=e104]:
+                  - generic:
+                    - generic [ref=e105]: Number of input channels
+                    - generic [ref=e106]: "1"
+                - generic [ref=e107]:
+                  - generic:
+                    - generic [ref=e108]: Features
+                    - generic [ref=e109]: Temp. Sensor, Transimpedance Amplifier
+                - generic [ref=e110]:
+                  - generic:
+                    - generic [ref=e111]: Operating temperature range (°C)
+                    - generic [ref=e112]: "-40 to 85"
+                - generic [ref=e113]:
+                  - generic:
+                    - generic [ref=e114]: Vs (min) (V)
+                    - generic [ref=e115]: "2.7"
+                - generic [ref=e116]:
+                  - generic:
+                    - generic [ref=e117]: Vs (max) (V)
+                    - generic [ref=e118]: "5.25"
+                - generic [ref=e119]:
+                  - generic:
+                    - generic [ref=e120]: Interface type
+                    - generic [ref=e121]: Serial I2C
+                - generic [ref=e122]:
+                  - generic:
+                    - generic [ref=e123]: Rating
+                    - generic [ref=e124]: Catalog
+        - link "Find other Signal conditioners" [ref=e126] [cursor=pointer]:
+          - /url: /product-category/sensors/specialty/signal-conditioners/products.html
+          - generic [aria-hidden] [ref=e128]: filter
+    - heading "Technical documentation" [level=3] [ref=e136]
+    - generic [ref=e137]:
+      - generic [ref=e139]:
+        - heading "Design & development" [level=3] [ref=e140]
+        - paragraph [ref=e141]: For additional terms or required resources, click any title below to view the detail page where available.
+      - link "TI's Standard Terms and Conditions for Evaluation Items apply." [ref=e146] [cursor=pointer]:
+        - /url: /legal/terms-of-sale.html
+    - generic [ref=e148]:
+      - heading "Ordering & quality" [level=3] [ref=e152]
+      - generic [ref=e153]:
+        - generic: Part number
+        - generic: TI.com inventory
+        - generic: Qty | Price ()
+        - generic: Package qty | Carrier
+        - generic: 250 | SMALL T&R
+        - generic: 4,500 | LARGE T&R
+        - generic: Package | Pins
+        - generic: WSON (NHL) | 14
+        - generic: Material type
+        - generic: ACTIVE
+        - generic: OBSOLETE
+        - generic: Lead finish/Ball material
+        - generic: MSL rating/Peak reflow
+        - generic: RoHS
+        - generic: REACH
+        - generic: Samples
+        - generic: Part number
+        - generic: TI.com inventory
+        - generic: Qty | Price ()
+        - generic: Package qty | Carrier
+        - generic: 250 | SMALL T&R
+        - generic: 4,500 | LARGE T&R
+        - generic: Package | Pins
+        - generic: WSON (NHL) | 14
+        - generic: Material type
+        - generic: ACTIVE
+        - generic: OBSOLETE
+        - generic: Lead finish/Ball material
+        - generic: MSL rating/Peak reflow
+        - generic: RoHS
+        - generic: REACH
+        - generic: Samples
+    - generic [ref=e156]:
+      - heading "Support & training" [level=3] [ref=e160]
+      - article [ref=e161]:
+        - generic [ref=e163]:
+          - heading "TI E2E™ forums with technical support from TI engineers" [level=4] [ref=e164]
+          - link "View all forum topics" [ref=e167] [cursor=pointer]:
+            - /url: https://e2e.ti.com/search?category=forum&q=LMP91000
+          - paragraph [ref=e168]:
+            - generic [ref=e169]:
+              - text: Content is provided "as is" by TI and community contributors and does not constitute TI specifications. See
+              - link "terms of use" [ref=e170] [cursor=pointer]:
+                - /url: /legal/terms-conditions/terms-of-use.html
+              - text: .
+          - paragraph [ref=e171]:
+            - text: If you have questions about quality, packaging or ordering TI products, see
+            - link "TI support" [ref=e172] [cursor=pointer]:
+              - /url: /info/customer-support.html
+            - text: .
+      - article
+      - article
+  - iframe [ref=e176]:
+    - generic [ref=f1e2]:
+      - img "Logo" [ref=f1e3]
+      - generic [ref=f1e4]: Verify you are a human (and not a bot).
+      - generic [ref=f1e6]: Reference ID 4e243e0d-abc7-11f1-9136-d6dd5d58c32e
+  - generic [ref=e180]:
+    - generic [ref=e183]:
+      - text: Die TI-Websites verwenden Cookies, um die Seitenfunktionalität und Ihre persönliche Benutzererfahrung zu verbessern. Um weitere Informationen zu erhalten oder Ihre Präferenzen zu ändern, besuchen Sie die Seite mit unserer
+      - link "Cookie-Richtlinie" [ref=e184] [cursor=pointer]:
+        - /url: https://www.ti.com/legal/terms-conditions/cookie-policy/north-america.html?dnt=1
+      - text: . Klicken Sie auf „Annehmen und Fortfahren“, um Cookies anzunehmen und zur Seite zu gelangen.
+    - generic [ref=e185]:
+      - link "Präferenzen verwalten" [ref=e186] [cursor=pointer]:
+        - /url: javascript:void(0)
+      - link "Annehmen und Fortfahren" [ref=e187] [cursor=pointer]:
+        - /url: javascript:void(0)

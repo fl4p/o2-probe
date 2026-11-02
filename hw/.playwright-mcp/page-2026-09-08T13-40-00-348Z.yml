@@ -1,0 +1,197 @@
+- generic [ref=e1]:
+  - banner [ref=e2]:
+    - link "Close" [ref=e6] [cursor=pointer]:
+      - /url: "#"
+    - generic [ref=e9]:
+      - link "Home" [ref=e10] [cursor=pointer]:
+        - /url: //www.ti.com
+        - img "Texas Instruments" [ref=e11]
+      - link "Cross-reference" [ref=e18] [cursor=pointer]:
+        - /url: //www.ti.com/cross-reference-search/en-us/
+        - generic [aria-hidden] [ref=e19]: crossReference
+    - navigation "Primary" [ref=e24]:
+      - menubar [ref=e25]:
+        - button "Menu" [ref=e26] [cursor=pointer]
+        - menuitem "Language" [ref=e28] [cursor=pointer]
+        - menuitem "My cart" [ref=e30] [cursor=pointer]
+  - main [ref=e32]:
+    - generic [ref=e35]:
+      - generic [ref=e39]:
+        - link "Home" [ref=e41] [cursor=pointer]:
+          - /url: /
+        - generic [ref=e42]:
+          - text: /
+          - link "Sensors" [ref=e43] [cursor=pointer]:
+            - /url: /product-category/sensors/overview.html
+        - generic [ref=e44]:
+          - text: /
+          - link "Temperature sensors" [ref=e45] [cursor=pointer]:
+            - /url: /product-category/sensors/temperature/overview.html
+        - generic [ref=e46]:
+          - text: /
+          - link "Digital temperature sensors" [ref=e47] [cursor=pointer]:
+            - /url: /product-category/sensors/temperature/digital/overview.html
+      - generic [ref=e50]:
+        - generic [ref=e51]:
+          - heading "TMP117" [level=1] [ref=e53]
+          - heading "0.1°C digital temperature sensor, 48-bit EEPROM, PT100/PT1000 RTD replacement" [level=2] [ref=e54]
+        - link "Order now" [ref=e58] [cursor=pointer]:
+          - /url: "#order-quality"
+      - generic [ref=e61]:
+        - generic [ref=e62]: Data sheet
+        - list [ref=e65]:
+          - listitem [ref=e66]:
+            - generic [ref=e67]:
+              - link [ref=e68] [cursor=pointer]:
+                - /url: https://www.ti.com/lit/gpn/TMP117
+                - generic [aria-hidden] [ref=e69]: document-pdfAcrobat
+              - generic [ref=e72]:
+                - link "TMP117 High-Accuracy, Low-Power, Digital Temperature Sensor With SMBus™- and I2C-Compatible Interface datasheet (Rev. D)" [ref=e73] [cursor=pointer]:
+                  - /url: https://www.ti.com/lit/gpn/TMP117
+                - generic [ref=e74]:
+                  - link "PDF" [ref=e75] [cursor=pointer]:
+                    - /url: https://www.ti.com/lit/gpn/TMP117
+                  - generic [ref=e76]: "|"
+                  - link "HTML" [ref=e77] [cursor=pointer]:
+                    - /url: https://www.ti.com/document-viewer/TMP117/datasheet
+    - generic [ref=e81]:
+      - heading "Product details" [level=3] [ref=e84]
+      - generic [ref=e87]:
+        - generic [ref=e89]:
+          - tablist [ref=e91]:
+            - tab "Parameters" [selected] [ref=e92] [cursor=pointer]
+            - tab "Package | Pins | Size" [ref=e93] [cursor=pointer]
+            - tab "Features" [ref=e94] [cursor=pointer]
+            - tab "Description" [ref=e95] [cursor=pointer]
+          - tabpanel "Parameters" [ref=e97]:
+            - generic [ref=e106]:
+              - generic:
+                - generic [ref=e107]:
+                  - generic:
+                    - generic [ref=e108]: Local sensor accuracy (max)
+                    - generic [ref=e109]: 0.1, 0.2
+                - generic [ref=e110]:
+                  - generic:
+                    - generic [ref=e111]: Type
+                    - generic [ref=e112]: Local
+                - generic [ref=e113]:
+                  - generic:
+                    - generic [ref=e114]: Operating temperature range (°C)
+                    - generic [ref=e115]: "-55 to 150"
+                - generic [ref=e116]:
+                  - generic:
+                    - generic [ref=e117]: Interface type
+                    - generic [ref=e118]: I2C, SMBus
+                - generic [ref=e119]:
+                  - generic:
+                    - generic [ref=e120]: Features
+                    - generic [ref=e121]: ALERT, EEPROM, NIST traceable, One-shot conversion
+                - generic [ref=e122]:
+                  - generic:
+                    - generic [ref=e123]: Supply current (max) (µA)
+                    - generic [ref=e124]: "5"
+                - generic [ref=e125]:
+                  - generic:
+                    - generic [ref=e126]: Temp resolution (max) (bps)
+                    - generic [ref=e127]: "16"
+                - generic [ref=e128]:
+                  - generic:
+                    - generic [ref=e129]: Remote channels (#)
+                    - generic [ref=e130]: "0"
+                - generic [ref=e131]:
+                  - generic:
+                    - generic [ref=e132]: Addresses
+                    - generic [ref=e133]: "4"
+                - generic [ref=e134]:
+                  - generic:
+                    - generic [ref=e135]: Rating
+                    - generic [ref=e136]: Catalog
+        - link "Find other Digital temperature sensors" [ref=e138] [cursor=pointer]:
+          - /url: /product-category/sensors/temperature/digital/products.html
+          - generic [aria-hidden] [ref=e140]: filter
+      - generic [ref=e154]:
+        - heading "Request more information" [level=4] [ref=e155]
+        - paragraph [ref=e156]:
+          - text: NIST calibration documentation is available.
+          - link "Request now" [ref=e157] [cursor=pointer]:
+            - /url: https://www.ti.com/drr/opn/NIST-TEMPERATURE
+    - heading "Technical documentation" [level=3] [ref=e163]
+    - generic [ref=e164]:
+      - generic [ref=e166]:
+        - heading "Design & development" [level=3] [ref=e167]
+        - paragraph [ref=e168]: For additional terms or required resources, click any title below to view the detail page where available.
+      - link "TI's Standard Terms and Conditions for Evaluation Items apply." [ref=e173] [cursor=pointer]:
+        - /url: /legal/terms-of-sale.html
+    - generic [ref=e175]:
+      - heading "Ordering & quality" [level=3] [ref=e179]
+      - generic [ref=e180]:
+        - generic: Part number
+        - generic: TI.com inventory
+        - generic: Qty | Price ()
+        - generic: Package qty | Carrier
+        - generic: 250 | SMALL T&R
+        - generic: 3,000 | LARGE T&R
+        - generic: Package | Pins
+        - generic: DSBGA (YBG) | 6
+        - generic: WSON (DRV) | 6
+        - generic: Material type
+        - generic: ACTIVE
+        - generic: OBSOLETE
+        - generic: Lead finish/Ball material
+        - generic: MSL rating/Peak reflow
+        - generic: RoHS
+        - generic: REACH
+        - generic: Samples
+        - generic: Part number
+        - generic: TI.com inventory
+        - generic: Qty | Price ()
+        - generic: Package qty | Carrier
+        - generic: 250 | SMALL T&R
+        - generic: 3,000 | LARGE T&R
+        - generic: Package | Pins
+        - generic: DSBGA (YBG) | 6
+        - generic: WSON (DRV) | 6
+        - generic: Material type
+        - generic: ACTIVE
+        - generic: OBSOLETE
+        - generic: Lead finish/Ball material
+        - generic: MSL rating/Peak reflow
+        - generic: RoHS
+        - generic: REACH
+        - generic: Samples
+    - generic [ref=e181]:
+      - heading "Support & training" [level=3] [ref=e185]
+      - article [ref=e186]:
+        - generic [ref=e188]:
+          - heading "TI E2E™ forums with technical support from TI engineers" [level=4] [ref=e189]
+          - link "View all forum topics" [ref=e192] [cursor=pointer]:
+            - /url: https://e2e.ti.com/search?category=forum&q=TMP117
+          - paragraph [ref=e193]:
+            - generic [ref=e194]:
+              - text: Content is provided "as is" by TI and community contributors and does not constitute TI specifications. See
+              - link "terms of use" [ref=e195] [cursor=pointer]:
+                - /url: /legal/terms-conditions/terms-of-use.html
+              - text: .
+          - paragraph [ref=e196]:
+            - text: If you have questions about quality, packaging or ordering TI products, see
+            - link "TI support" [ref=e197] [cursor=pointer]:
+              - /url: /info/customer-support.html
+            - text: .
+      - article
+      - article
+  - generic [ref=e204]:
+    - generic [ref=e207]:
+      - text: Die TI-Websites verwenden Cookies, um die Seitenfunktionalität und Ihre persönliche Benutzererfahrung zu verbessern. Um weitere Informationen zu erhalten oder Ihre Präferenzen zu ändern, besuchen Sie die Seite mit unserer
+      - link "Cookie-Richtlinie" [ref=e208] [cursor=pointer]:
+        - /url: https://www.ti.com/legal/terms-conditions/cookie-policy/north-america.html?dnt=1
+      - text: . Klicken Sie auf „Annehmen und Fortfahren“, um Cookies anzunehmen und zur Seite zu gelangen.
+    - generic [ref=e209]:
+      - link "Präferenzen verwalten" [ref=e210] [cursor=pointer]:
+        - /url: javascript:void(0)
+      - link "Annehmen und Fortfahren" [ref=e211] [cursor=pointer]:
+        - /url: javascript:void(0)
+  - iframe [ref=e212]:
+    - generic [ref=f1e2]:
+      - img "Logo" [ref=f1e3]
+      - generic [ref=f1e4]: Verify you are a human (and not a bot).
+      - generic [ref=f1e9]: Reference ID c921d391-ab8a-11f1-8268-0e9ec43d8a03

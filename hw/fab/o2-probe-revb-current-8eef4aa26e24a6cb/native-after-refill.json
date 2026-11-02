@@ -1,0 +1,20 @@
+{
+  "footprints": 83,
+  "inputs": {
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-current-jw7tehk0/working-source/o2-probe/o2-probe.xml": "8a565b892a669f39a4f98bf176bf96f0b8e208bcb1684dd4e203dcced8795b77",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-current-jw7tehk0/working-source/o2-probe/routing/revb-89-tmp302/o2-probe.kicad_pcb": "4520074e475656a14fe82fea1ac86e2004d09b85485ee1155a594fc5e271b303",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-current-jw7tehk0/working-source/o2-probe/routing/revb-current/evidence/final/critical-snapshot.json": "08995394a6f19c619af29e3580245f23ea0cccb594fdeba388498c756dbfe0dc",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-current-jw7tehk0/working-source/o2-probe/routing/revb-current/o2-probe.kicad_dru": "8937c6fe68e0b4c2df727f54283bcf4731544972dc6eeda6007c2d158d8d8a93",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-current-jw7tehk0/working-source/o2-probe/routing/revb-current/o2-probe.kicad_pcb": "3c24db8193af09d4d9ad07b2166c7f818885211b63b3e2af6e0c7cbec900c665",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-current-jw7tehk0/working-source/o2-probe/routing/revb-current/o2-probe.kicad_pro": "25fbd981382c98984790c7a89c2d3c976478aebbbe724de0d0f674bdd2f18827",
+    "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/fab/.revb-current-jw7tehk0/working-source/o2-probe/verify_revb_current.py": "2e600b44b2572a21a0ba59b31f44c52af5a3c8172d0176ad60d70c702a1e5404"
+  },
+  "limitations": [
+    "Does not establish native DRC/connectivity, guard shielding, filled-ground topology, thermal performance, return-current coupling or fabrication acceptance."
+  ],
+  "problems": [],
+  "protected_items": 705,
+  "scope": "native parity, outline, minimum copper dimensions and protected inventory only",
+  "seconds": 0.23817354100000004,
+  "status": "PASS"
+}

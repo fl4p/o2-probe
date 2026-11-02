@@ -1,0 +1,8 @@
+{
+  "status": "FAILED_NOT_PROMOTED",
+  "stage": "isolated schematic ERC",
+  "reason": "Root fp-lib-table omitted from source inventory; 8 footprint_link_issues",
+  "fix": "Include root fp-lib-table in exact source inventory",
+  "board_sha256": "3c24db8193af09d4d9ad07b2166c7f818885211b63b3e2af6e0c7cbec900c665",
+  "failed_erc_sha256": "db5ac43d959fcd66acf2914abc799db4b0611efa55aeed513b38faa555cc9494"
+}

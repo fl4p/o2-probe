@@ -1,0 +1,56 @@
+{
+  "native_drc_positive": {
+    "errors": 0,
+    "unconnected": 0,
+    "schematic_parity": 0,
+    "reviewed_guard_endpoint_warnings": [
+      "7a4d4b0e-2f12-4bd4-b267-16bb450f841a",
+      "89269d21-c6ed-4b39-b0a9-b4b13dbc9d4f"
+    ],
+    "manual_assembly_courtyard_warnings": 10,
+    "pairs": [
+      [
+        "D1",
+        "J101"
+      ],
+      [
+        "D1",
+        "J102"
+      ],
+      [
+        "D2",
+        "J103"
+      ],
+      [
+        "D2",
+        "J104"
+      ],
+      [
+        "J103",
+        "R2"
+      ],
+      [
+        "J104",
+        "R3"
+      ],
+      [
+        "J105",
+        "R10"
+      ],
+      [
+        "J3",
+        "TP5"
+      ],
+      [
+        "Q2",
+        "TP6"
+      ],
+      [
+        "TP3",
+        "U4"
+      ]
+    ]
+  },
+  "actual_edge_coordinate_mutation_rejected": "86 mm Gerber contour differs from exact verified native primitives",
+  "rejection_seconds": 0.0006911669988767244
+}

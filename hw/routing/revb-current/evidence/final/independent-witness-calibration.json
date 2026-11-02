@@ -1,0 +1,18 @@
+{
+  "scope": "independent native CLI persistence calibration; no final board acceptance",
+  "cases": [
+    {
+      "case": "native_positive",
+      "returncode": 0,
+      "status": "PASS",
+      "seconds": 0.564169082997978
+    },
+    {
+      "case": "missing_after_positive",
+      "returncode": 2,
+      "status": "UNVERIFIED",
+      "seconds": 0.24168762499903096
+    }
+  ],
+  "producer_sha256": "9f302291d13bc009398745617bd002ff69c74d3a7d7d27e97cf29ea22982599a"
+}

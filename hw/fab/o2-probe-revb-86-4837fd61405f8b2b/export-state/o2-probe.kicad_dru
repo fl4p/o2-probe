@@ -1,0 +1,30 @@
+(version 1)
+
+# Inherited CELL_RE track-to-track clearance: 0.25mm to every other net,
+# including GUARD_REPLICA. Pads, vias and filled zones are outside this
+# predicate; it does not establish whole-net leakage or electrical isolation.
+# Driven-guard shielding and thermal crossings need separate native geometry
+# review. Ordinary trace/spacing minima are0.10/0.10mm by user override.
+(rule "cell_re_surface_leakage"
+	(constraint clearance (min 0.25mm))
+	(condition "A.Type=='track' && B.Type=='track' && A.NetClass=='CELL_RE' && B.NetClass!='CELL_RE'"))
+
+# Process limits additional to the inherited functional CELL_RE rule.
+# User overrides: trace/spacing 0.10/0.10, via drill 0.20, annulus 0.10.
+# Generic hole/copper clearance remains 0.20. The 0.25 process constraint
+# applies to ROUND NONPLATED holes, not to every plated via barrel.
+(rule "round NPTH copper clearance"
+ (condition "A.Pad_Type == 'NPTH, mechanical' && A.Hole_Size_X == A.Hole_Size_Y")
+ (constraint hole_clearance (min 0.25mm)))
+(rule "milled NPTH copper clearance"
+ (condition "A.Pad_Type == 'NPTH, mechanical' && A.Hole_Size_X != A.Hole_Size_Y")
+ (constraint hole_clearance (min 0.30mm)))
+(rule "round NPTH minimum drill"
+ (condition "A.Pad_Type == 'NPTH, mechanical' && A.Hole_Size_X == A.Hole_Size_Y")
+ (constraint hole_size (min 0.50mm)))
+(rule "NPTH minimum milling width"
+ (condition "A.Pad_Type == 'NPTH, mechanical' && A.Hole_Size_X != A.Hole_Size_Y")
+ (constraint hole_size (min 0.80mm)))
+(rule "component PTH annular ring"
+ (condition "A.Type == 'Pad' && A.Pad_Type == 'Through-hole'")
+ (constraint annular_width (min 0.30mm)))

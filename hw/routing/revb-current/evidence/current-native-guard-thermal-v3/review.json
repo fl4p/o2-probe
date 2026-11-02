@@ -1,0 +1,3330 @@
+{
+  "scope": "diagnostic native filled-copper geometry; sample spacing <=0.025 mm; polygon chord error <=0.001 mm; no leakage/thermal performance claim",
+  "source": "/Users/fab/dev-worktrees/o2-revb-current/ee/hw/o2-probe/checks/3v3-neck/candidate.kicad_pcb",
+  "board_sha256": "e771152044d5624b2fa85d5adcc35d72188352e2b0db531a0809689a2d4f98c8",
+  "producer_sha256": "62a8fdaa42e4e08fdaf1fd45147d810870597c74fa8ec74b232234405c061319",
+  "cell_re_items": 8,
+  "cell_re_via_or_offlayer": [],
+  "samples": [
+    {
+      "at": [
+        111.5,
+        117.0
+      ],
+      "guard_copper_gap_mm": 0.369695,
+      "guard": "7a4d4b0e-2f12-4bd4-b267-16bb450f841a",
+      "foreign_copper_gap_mm": 0.6504999999999939,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:2"
+    },
+    {
+      "at": [
+        111.5,
+        117.025
+      ],
+      "guard_copper_gap_mm": 0.361089,
+      "guard": "7a4d4b0e-2f12-4bd4-b267-16bb450f841a",
+      "foreign_copper_gap_mm": 0.6754999999999997,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:2"
+    },
+    {
+      "at": [
+        111.5,
+        117.05
+      ],
+      "guard_copper_gap_mm": 0.352482,
+      "guard": "7a4d4b0e-2f12-4bd4-b267-16bb450f841a",
+      "foreign_copper_gap_mm": 0.700499999999991,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:2"
+    },
+    {
+      "at": [
+        111.5,
+        117.075
+      ],
+      "guard_copper_gap_mm": 0.343876,
+      "guard": "7a4d4b0e-2f12-4bd4-b267-16bb450f841a",
+      "foreign_copper_gap_mm": 0.7254999999999966,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:2"
+    },
+    {
+      "at": [
+        111.5,
+        117.1
+      ],
+      "guard_copper_gap_mm": 0.33527,
+      "guard": "7a4d4b0e-2f12-4bd4-b267-16bb450f841a",
+      "foreign_copper_gap_mm": 0.7504999999999882,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:2"
+    },
+    {
+      "at": [
+        111.5,
+        117.125
+      ],
+      "guard_copper_gap_mm": 0.326663,
+      "guard": "7a4d4b0e-2f12-4bd4-b267-16bb450f841a",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.15
+      ],
+      "guard_copper_gap_mm": 0.318057,
+      "guard": "7a4d4b0e-2f12-4bd4-b267-16bb450f841a",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.175
+      ],
+      "guard_copper_gap_mm": 0.30945,
+      "guard": "7a4d4b0e-2f12-4bd4-b267-16bb450f841a",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.2
+      ],
+      "guard_copper_gap_mm": 0.300844,
+      "guard": "7a4d4b0e-2f12-4bd4-b267-16bb450f841a",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.225
+      ],
+      "guard_copper_gap_mm": 0.292648,
+      "guard": "7a4d4b0e-2f12-4bd4-b267-16bb450f841a",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.25
+      ],
+      "guard_copper_gap_mm": 0.285446,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.275
+      ],
+      "guard_copper_gap_mm": 0.279278,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.3
+      ],
+      "guard_copper_gap_mm": 0.274181,
+      "guard": "7a4d4b0e-2f12-4bd4-b267-16bb450f841a",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.325
+      ],
+      "guard_copper_gap_mm": 0.270183,
+      "guard": "7a4d4b0e-2f12-4bd4-b267-16bb450f841a",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.35
+      ],
+      "guard_copper_gap_mm": 0.267309,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.375
+      ],
+      "guard_copper_gap_mm": 0.265578,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.4
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.425
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.45
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.475
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.5
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.525
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.55
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.575
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.6
+      ],
+      "guard_copper_gap_mm": 0.260235,
+      "guard": "98d097db-856e-411d-9619-d13baa0d3320",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.625
+      ],
+      "guard_copper_gap_mm": 0.25217,
+      "guard": "98d097db-856e-411d-9619-d13baa0d3320",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.65
+      ],
+      "guard_copper_gap_mm": 0.24508799999999997,
+      "guard": "98d097db-856e-411d-9619-d13baa0d3320",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.675
+      ],
+      "guard_copper_gap_mm": 0.239025,
+      "guard": "98d097db-856e-411d-9619-d13baa0d3320",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.7
+      ],
+      "guard_copper_gap_mm": 0.23401699999999998,
+      "guard": "98d097db-856e-411d-9619-d13baa0d3320",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.725
+      ],
+      "guard_copper_gap_mm": 0.230089,
+      "guard": "98d097db-856e-411d-9619-d13baa0d3320",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.75
+      ],
+      "guard_copper_gap_mm": 0.227267,
+      "guard": "98d097db-856e-411d-9619-d13baa0d3320",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.775
+      ],
+      "guard_copper_gap_mm": 0.225568,
+      "guard": "98d097db-856e-411d-9619-d13baa0d3320",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.8
+      ],
+      "guard_copper_gap_mm": 0.225001,
+      "guard": "98d097db-856e-411d-9619-d13baa0d3320",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.825
+      ],
+      "guard_copper_gap_mm": 0.225568,
+      "guard": "98d097db-856e-411d-9619-d13baa0d3320",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.85
+      ],
+      "guard_copper_gap_mm": 0.227267,
+      "guard": "98d097db-856e-411d-9619-d13baa0d3320",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.875
+      ],
+      "guard_copper_gap_mm": 0.230089,
+      "guard": "98d097db-856e-411d-9619-d13baa0d3320",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.9
+      ],
+      "guard_copper_gap_mm": 0.23401699999999998,
+      "guard": "98d097db-856e-411d-9619-d13baa0d3320",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.925
+      ],
+      "guard_copper_gap_mm": 0.239025,
+      "guard": "98d097db-856e-411d-9619-d13baa0d3320",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.95
+      ],
+      "guard_copper_gap_mm": 0.24508799999999997,
+      "guard": "98d097db-856e-411d-9619-d13baa0d3320",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        117.975
+      ],
+      "guard_copper_gap_mm": 0.25217,
+      "guard": "98d097db-856e-411d-9619-d13baa0d3320",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.0
+      ],
+      "guard_copper_gap_mm": 0.260235,
+      "guard": "98d097db-856e-411d-9619-d13baa0d3320",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.025
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.05
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.075
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.1
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.125
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.15
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.175
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.2
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.225
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.25
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.275
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.3
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.325
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.35
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.375
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.4
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.425
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.45
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.475
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.5
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.525
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.55
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.575
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.6
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.775,
+      "foreign_net": "/CELL_WE",
+      "foreign_kind": "track",
+      "foreign": "18f44e42-fb90-419b-9a7c-4b65ab24fa0b"
+    },
+    {
+      "at": [
+        111.5,
+        118.625
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.7671249893025114,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        118.65
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.7565427650080293,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        118.675
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.7465493655198238,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        118.7
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.7369696920383731,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        118.725
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.7274384141977606,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        118.75
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.71840159473408,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        118.77499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.7100157184149255,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        118.8
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.702300580200444,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        118.825
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6952751062905594,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        118.85
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6889571548920693,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        118.875
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6833633155951537,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        118.89999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.678508711838268,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        118.925
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6744068113294952,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        118.95
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.671069249500312,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        118.975
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6685056710572342,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.0
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6667235944444191,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.025
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6657283035278242,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.05
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.075
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.1
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.125
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.14999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.175
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.2
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.225
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.25
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.27499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.3
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.325
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.35
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.375
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.39999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.425
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.45
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.475
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.5
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.52499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.55
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.575
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.6
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.625
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.64999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.675
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.7
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.725
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.75
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.77499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.8
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.825
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.85
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.875
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.89999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.925
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.95
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        119.975
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.0
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.02499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.05
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.075
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.1
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.125
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.14999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.175
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.2
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.225
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.25
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.27499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.3
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.325
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.35
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.375
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.39999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.425
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.45
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.475
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.5
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.52499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.55
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.575
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.6
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.625
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.64999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.675
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.7
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.725
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.75
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.77499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.8
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.825
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.85
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.875
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.89999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.925
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.95
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        120.975
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.0
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.02499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.05
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.075
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.1
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.125
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.14999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.175
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.2
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.225
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.25
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.27499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.3
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.325
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.35
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.375
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.39999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.425
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.45
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.475
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.5
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.52499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.55
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.575
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.6
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.625
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.64999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.675
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.69999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.725
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.75
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.77499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.8
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.82499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.85
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.875
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.89999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.925
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.94999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        121.975
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.0
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.02499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.05
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.07499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.1
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.125
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.14999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.175
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.19999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.225
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.25
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.27499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.3
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.32499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.35
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.375
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.39999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.425
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.44999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.475
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.5
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.52499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.55
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.57499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.6
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.625
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.64999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.675
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.69999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.725
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.75
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.77499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.8
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.82499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.85
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.875
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.89999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.925
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.94999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        122.975
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.0
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.02499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.05
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.07499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6654999999999944,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.1
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6557123412566473,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.125
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6326152409869751,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.14999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.6095607201981361,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.175
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.5866356523235727,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.19999999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.5638549569089327,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.225
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.5412334438153045,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.25
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.5187878933763774,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.27499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.49653736947829896,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.3
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.47450358769401657,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.32499999999999
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.45271134804329927,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.35
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.4311890430941627,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.375
+      ],
+      "guard_copper_gap_mm": 0.265,
+      "guard": "6ac23fab-2412-42f7-9c7a-806958b545a6",
+      "foreign_copper_gap_mm": 0.40996925300244613,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.39999999999999
+      ],
+      "guard_copper_gap_mm": 0.260235,
+      "guard": "71bb1833-4f5c-4f05-8479-368b3ae82c71",
+      "foreign_copper_gap_mm": 0.389089439356619,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.425
+      ],
+      "guard_copper_gap_mm": 0.25217,
+      "guard": "71bb1833-4f5c-4f05-8479-368b3ae82c71",
+      "foreign_copper_gap_mm": 0.36859274878992915,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.44999999999999
+      ],
+      "guard_copper_gap_mm": 0.24508799999999997,
+      "guard": "71bb1833-4f5c-4f05-8479-368b3ae82c71",
+      "foreign_copper_gap_mm": 0.3485289343408749,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.475
+      ],
+      "guard_copper_gap_mm": 0.239025,
+      "guard": "71bb1833-4f5c-4f05-8479-368b3ae82c71",
+      "foreign_copper_gap_mm": 0.32895539611067554,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.5
+      ],
+      "guard_copper_gap_mm": 0.23401699999999998,
+      "guard": "71bb1833-4f5c-4f05-8479-368b3ae82c71",
+      "foreign_copper_gap_mm": 0.30993833086771805,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.52499999999999
+      ],
+      "guard_copper_gap_mm": 0.23009000000000002,
+      "guard": "71bb1833-4f5c-4f05-8479-368b3ae82c71",
+      "foreign_copper_gap_mm": 0.291553960079606,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.55
+      ],
+      "guard_copper_gap_mm": 0.227267,
+      "guard": "71bb1833-4f5c-4f05-8479-368b3ae82c71",
+      "foreign_copper_gap_mm": 0.27388977381978435,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.57499999999999
+      ],
+      "guard_copper_gap_mm": 0.225568,
+      "guard": "71bb1833-4f5c-4f05-8479-368b3ae82c71",
+      "foreign_copper_gap_mm": 0.2570456800671918,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        123.6
+      ],
+      "guard_copper_gap_mm": 0.225001,
+      "guard": "71bb1833-4f5c-4f05-8479-368b3ae82c71",
+      "foreign_copper_gap_mm": 0.24113488178265702,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:0"
+    },
+    {
+      "at": [
+        111.5,
+        117.0
+      ],
+      "guard_copper_gap_mm": 0.369695,
+      "guard": "7a4d4b0e-2f12-4bd4-b267-16bb450f841a",
+      "foreign_copper_gap_mm": 0.6504999999999939,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:2"
+    },
+    {
+      "at": [
+        111.5,
+        117.0
+      ],
+      "guard_copper_gap_mm": 0.369695,
+      "guard": "7a4d4b0e-2f12-4bd4-b267-16bb450f841a",
+      "foreign_copper_gap_mm": 0.6504999999999939,
+      "foreign_net": "GND",
+      "foreign_kind": "zone",
+      "foreign": "a57c766e-0eeb-5b89-8cd9-2531207fde8e:2"
+    }
+  ],
+  "foreign_closer_or_guard_out_of_reach": [],
+  "guard_connected_groups": [
+    [
+      {
+        "layer": "F.Cu",
+        "bounds": [
+          100.500787,
+          99.000787,
+          101.724306,
+          100.524306
+        ],
+        "area_mm2": 0.9651272621830154
+      },
+      {
+        "layer": "F.Cu",
+        "bounds": [
+          104.300963,
+          115.900963,
+          108.449037,
+          116.299037
+        ],
+        "area_mm2": 1.0945252918187147
+      },
+      {
+        "layer": "F.Cu",
+        "bounds": [
+          111.89,
+          116.950243,
+          112.349037,
+          123.879037
+        ],
+        "area_mm2": 2.0979072628397732
+      },
+      {
+        "layer": "F.Cu",
+        "bounds": [
+          110.750963,
+          117.250722,
+          111.149037,
+          123.799037
+        ],
+        "area_mm2": 1.9842135453539842
+      },
+      {
+        "layer": "B.Cu",
+        "bounds": [
+          101.275694,
+          100.075694,
+          104.699037,
+          116.299037
+        ],
+        "area_mm2": 5.280787398821897
+      },
+      {
+        "layer": "B.Cu",
+        "bounds": [
+          108.050963,
+          115.900963,
+          111.149037,
+          117.999037
+        ],
+        "area_mm2": 1.2473620129429048
+      },
+      {
+        "layer": "B.Cu",
+        "bounds": [
+          110.750963,
+          123.400963,
+          112.349037,
+          123.879037
+        ],
+        "area_mm2": 0.5034152003087157
+      }
+    ]
+  ],
+  "guard_interlayer_ties": [
+    [
+      104.5,
+      116.1
+    ],
+    [
+      110.95,
+      123.6
+    ],
+    [
+      101.5,
+      100.3
+    ],
+    [
+      110.95,
+      117.8
+    ],
+    [
+      112.15,
+      123.68
+    ],
+    [
+      108.25,
+      116.1
+    ]
+  ],
+  "ground_crossings_y118": [
+    {
+      "layer": "F.Cu",
+      "kind": "track",
+      "uuid": "e5c418ee-ce00-48fa-99bb-1452609f54ce",
+      "intersection_wkt": "LINESTRING (100.3 118, 100.45 118)",
+      "bounds": [
+        100.3,
+        118.0,
+        100.45,
+        118.0
+      ]
+    }
+  ],
+  "seconds": 52.942903333000004
+}

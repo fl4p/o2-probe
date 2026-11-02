@@ -1,0 +1,16 @@
+# KiCad session and recovery files
+~*.lck
+_autosave-*.kicad_pcb
+*-backups/
+
+# Python and PlatformIO build trees
+__pycache__/
+firmware/.pio/
+
+# Retain vendor datasheets locally; commit source pointers and hashes.
+literature/ce-protection/*.pdf
+
+# Persistent local validation fixtures and exploratory routing; accepted evidence
+# is copied explicitly into the reviewed candidate directory.
+/checks/
+.work/

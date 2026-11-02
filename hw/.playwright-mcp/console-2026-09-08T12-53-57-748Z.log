@@ -1,0 +1,4 @@
+[     353ms] [LOG] PX captcha: failed @ https://www.ti.com/assets/js/headerfooter/ticommon.js?single:322
+[     667ms] [LOG] double slashes found in beginning of document path; treating document path as local machine path @ https://www.ti.com/document-viewer/LMP91000/datasheet:31
+[     881ms] [LOG] unexpected request number encountered @ https://www.ti.com/document-viewer/LMP91000/datasheet:31
+[     882ms] [LOG] unexpected request number encountered @ https://www.ti.com/document-viewer/LMP91000/datasheet:31

@@ -1,0 +1,1270 @@
+{
+  "scope": "One Rev B PCB; excludes DNP, exclude_from_bom and bare lands. Does not include external cable, ring PCB, programming tooling or assembly consumables.",
+  "board_quantity": 1,
+  "catalog_queried_at_utc": "2026-09-09T14:54:12.940131+00:00",
+  "orders_queried_at_utc": "2026-09-09T14:55:10.072651+00:00",
+  "catalog_counts": {
+    "parts": 590,
+    "manufacturer_parts": 577,
+    "supplier_parts": 602
+  },
+  "source_sha256": {
+    "full_catalog_snapshot": "b28c7d28755096a8be60d1b1093a0640d95f623d58bc761bb399f732165ef65b",
+    "full_order_snapshot": "68d5af00144ef8aaa3b864d412e93c44f34b34484649c1587cd814ea0e1ac818",
+    "schematic": "cf4a8326e94bf05a8ee85b1f1fa766b544efc7005e8e83d0f8d6be933d8ff712",
+    "netlist": "378d0afee9605ae4de5bdd076ae598cd5a984ff138ba8b4b3e9011b1139e28c6",
+    "sourcing": "ae6041cb100680ac8f7660889c6e2c3b4ff826d5241ca7acc48b5e2dbc979768",
+    "inventory_identity_helper": "b33c3e364e9c38e7c83286b979aaeadd10ff1e3b0833ea7339fe2f71825ae6fb",
+    "report_calculation": "2a627c65a5051a1fcbb7dd8e7f5d2e9570a89b543db86d4b3672ef2bf134e567"
+  },
+  "method": "Exact normalized catalog identity; explicit generic value/package/specification mapping; grouped by part PK before debiting unallocated stock. On-order and historical received quantities never add to stock. No inventory mutation or reservation. Null means unverified/unmapped, never zero stock. Raw full private catalog retained outside repository; only relevant observations below.",
+  "excluded": [
+    {
+      "ref": "J3",
+      "reason": "Design Note,Sheetfile,Sheetname"
+    },
+    {
+      "ref": "J5",
+      "reason": "Design Note,Sheetfile,Sheetname"
+    },
+    {
+      "ref": "J101",
+      "reason": "Design Note,Sheetfile,Sheetname,ki_fp_filters,ki_keywords"
+    },
+    {
+      "ref": "J102",
+      "reason": "Design Note,Sheetfile,Sheetname,ki_fp_filters,ki_keywords"
+    },
+    {
+      "ref": "J103",
+      "reason": "Design Note,Sheetfile,Sheetname,ki_fp_filters,ki_keywords"
+    },
+    {
+      "ref": "J104",
+      "reason": "Design Note,Sheetfile,Sheetname,ki_fp_filters,ki_keywords"
+    },
+    {
+      "ref": "J105",
+      "reason": "Design Note,Sheetfile,Sheetname,ki_fp_filters,ki_keywords"
+    },
+    {
+      "ref": "J106",
+      "reason": "Design Note,Sheetfile,Sheetname,ki_fp_filters,ki_keywords"
+    },
+    {
+      "ref": "R4",
+      "reason": "Sheetfile,Sheetname,dnp,ki_fp_filters,ki_keywords"
+    },
+    {
+      "ref": "R39",
+      "reason": "Design Note,Sheetfile,Sheetname,dnp,ki_fp_filters,ki_keywords"
+    },
+    {
+      "ref": "TP1",
+      "reason": "Sheetfile,Sheetname,exclude_from_bom,ki_fp_filters,ki_keywords"
+    },
+    {
+      "ref": "TP2",
+      "reason": "Sheetfile,Sheetname,exclude_from_bom,ki_fp_filters,ki_keywords"
+    },
+    {
+      "ref": "TP3",
+      "reason": "Sheetfile,Sheetname,exclude_from_bom,ki_fp_filters,ki_keywords"
+    },
+    {
+      "ref": "TP4",
+      "reason": "Sheetfile,Sheetname,exclude_from_bom,ki_fp_filters,ki_keywords"
+    },
+    {
+      "ref": "TP5",
+      "reason": "Sheetfile,Sheetname,exclude_from_bom,ki_fp_filters,ki_keywords"
+    },
+    {
+      "ref": "TP6",
+      "reason": "Sheetfile,Sheetname,exclude_from_bom,ki_fp_filters,ki_keywords"
+    }
+  ],
+  "rows": [
+    {
+      "part_pk": null,
+      "mpn": null,
+      "refs": [
+        "F3"
+      ],
+      "requirements": [
+        {
+          "value": "0R FITTED",
+          "footprint": "Resistor_SMD:R_0603_1608Metric",
+          "schematic_mpn": null
+        }
+      ],
+      "quantity_per_board": 1,
+      "required": 1,
+      "physical_stock": null,
+      "unallocated_stock": null,
+      "shortage": null,
+      "status": "unresolved F3 design",
+      "purchase_order_evidence": [],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": 543,
+      "mpn": "0ZCJ0075AF2E",
+      "refs": [
+        "F1"
+      ],
+      "requirements": [
+        {
+          "value": "0.75A PTC",
+          "footprint": "o2-probe:PTC_1206_3216Metric",
+          "schematic_mpn": "0ZCJ0075AF2E"
+        }
+      ],
+      "quantity_per_board": 1,
+      "required": 1,
+      "catalog_description": "PTC RESET FUSE 16V 750MA 1206",
+      "catalog_aliases": [
+        "0ZCJ0075AF2E",
+        "5923-0ZCJ0075AF2ECT-ND"
+      ],
+      "physical_stock": 20.0,
+      "unallocated_stock": 20.0,
+      "shortage": 0,
+      "status": "recorded stock covers demand",
+      "purchase_order_evidence": [
+        {
+          "order": "PO-0012",
+          "status": "Complete",
+          "mpn": "0ZCJ0075AF2E",
+          "quantity": 20.0,
+          "received": 20.0
+        }
+      ],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": null,
+      "mpn": null,
+      "refs": [
+        "R2",
+        "R3",
+        "R32"
+      ],
+      "requirements": [
+        {
+          "value": "10R",
+          "footprint": "Resistor_SMD:R_0603_1608Metric",
+          "schematic_mpn": null
+        }
+      ],
+      "quantity_per_board": 3,
+      "required": 3,
+      "physical_stock": null,
+      "unallocated_stock": null,
+      "shortage": null,
+      "status": "generic specification not mapped to stock",
+      "purchase_order_evidence": [],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": null,
+      "mpn": null,
+      "refs": [
+        "R10",
+        "R11"
+      ],
+      "requirements": [
+        {
+          "value": "4.7k",
+          "footprint": "Resistor_SMD:R_0603_1608Metric",
+          "schematic_mpn": null
+        }
+      ],
+      "quantity_per_board": 2,
+      "required": 2,
+      "physical_stock": null,
+      "unallocated_stock": null,
+      "shortage": null,
+      "status": "generic specification not mapped to stock",
+      "purchase_order_evidence": [],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": null,
+      "mpn": null,
+      "refs": [
+        "C10",
+        "C14"
+      ],
+      "requirements": [
+        {
+          "value": "4.7u",
+          "footprint": "Capacitor_SMD:C_0603_1608Metric",
+          "schematic_mpn": null
+        }
+      ],
+      "quantity_per_board": 2,
+      "required": 2,
+      "physical_stock": null,
+      "unallocated_stock": null,
+      "shortage": null,
+      "status": "generic specification not mapped to stock",
+      "purchase_order_evidence": [],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": null,
+      "mpn": null,
+      "refs": [
+        "R31",
+        "R40"
+      ],
+      "requirements": [
+        {
+          "value": "47R",
+          "footprint": "Resistor_SMD:R_0603_1608Metric",
+          "schematic_mpn": null
+        }
+      ],
+      "quantity_per_board": 2,
+      "required": 2,
+      "physical_stock": null,
+      "unallocated_stock": null,
+      "shortage": null,
+      "status": "generic specification not mapped to stock",
+      "purchase_order_evidence": [],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": 513,
+      "mpn": "ADS1119IRTER",
+      "refs": [
+        "U8"
+      ],
+      "requirements": [
+        {
+          "value": "ADS1119IRTER",
+          "footprint": "Package_DFN_QFN:Texas_RTE0016D_WQFN-16-1EP_3x3mm_P0.5mm_EP0.8x0.8mm",
+          "schematic_mpn": "ADS1119IRTER"
+        }
+      ],
+      "quantity_per_board": 1,
+      "required": 1,
+      "catalog_description": "16-bit 1kSPS 4-ch ge neral-purpose delt A 595-ADS1119IRTET",
+      "catalog_aliases": [
+        "595-ADS1119IRTER",
+        "ADS1119IRTER"
+      ],
+      "physical_stock": 0.0,
+      "unallocated_stock": 0.0,
+      "shortage": 1.0,
+      "status": "recorded stock shortage",
+      "purchase_order_evidence": [
+        {
+          "order": "PO-0010",
+          "status": "Complete",
+          "mpn": "ADS1119IRTER",
+          "quantity": 1.0,
+          "received": 0.0
+        }
+      ],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": 413,
+      "mpn": "AO3400A",
+      "refs": [
+        "Q2"
+      ],
+      "requirements": [
+        {
+          "value": "AO3400A",
+          "footprint": "Package_TO_SOT_SMD:SOT-23",
+          "schematic_mpn": "AO3400A"
+        }
+      ],
+      "quantity_per_board": 1,
+      "required": 1,
+      "catalog_description": "N-Channel 30V 5.8A 1.4W Surface Mount SOT-23",
+      "catalog_aliases": [
+        "AO3400A",
+        "C347475"
+      ],
+      "physical_stock": 50.0,
+      "unallocated_stock": 50.0,
+      "shortage": 0,
+      "status": "recorded stock covers demand",
+      "purchase_order_evidence": [
+        {
+          "order": "PO-0005",
+          "status": "Complete",
+          "mpn": "AO3400A",
+          "quantity": 40.0,
+          "received": 40.0
+        },
+        {
+          "order": "PO-0004",
+          "status": "Complete",
+          "mpn": "AO3400A",
+          "quantity": 10.0,
+          "received": 10.0
+        }
+      ],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": 510,
+      "mpn": "AP63205WU-7",
+      "refs": [
+        "U1"
+      ],
+      "requirements": [
+        {
+          "value": "AP63205WU-7",
+          "footprint": "Package_TO_SOT_SMD:TSOT-23-6",
+          "schematic_mpn": "AP63205WU-7"
+        }
+      ],
+      "quantity_per_board": 1,
+      "required": 1,
+      "catalog_description": "DCDC Conv HV Buck TS OT26 T&R 3K",
+      "catalog_aliases": [
+        "621-AP63205WU-7",
+        "AP63205WU-7"
+      ],
+      "physical_stock": 0.0,
+      "unallocated_stock": 0.0,
+      "shortage": 1.0,
+      "status": "recorded stock shortage",
+      "purchase_order_evidence": [
+        {
+          "order": "PO-0010",
+          "status": "Complete",
+          "mpn": "AP63205WU-7",
+          "quantity": 10.0,
+          "received": 0.0
+        }
+      ],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": null,
+      "mpn": "AZ431BN-ATRG1",
+      "refs": [
+        "U15"
+      ],
+      "requirements": [
+        {
+          "value": "AZ431BN-ATRG1",
+          "footprint": "Package_TO_SOT_SMD:SOT-23",
+          "schematic_mpn": "AZ431BN-ATRG1"
+        }
+      ],
+      "quantity_per_board": 1,
+      "required": 1,
+      "physical_stock": null,
+      "unallocated_stock": null,
+      "shortage": null,
+      "status": "no catalog match",
+      "purchase_order_evidence": [],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": 546,
+      "mpn": "BZT52C10-E3-08",
+      "refs": [
+        "DZ1"
+      ],
+      "requirements": [
+        {
+          "value": "10V ZENER",
+          "footprint": "Diode_SMD:D_SOD-123",
+          "schematic_mpn": "BZT52C10-E3-08"
+        }
+      ],
+      "quantity_per_board": 1,
+      "required": 1,
+      "catalog_description": "DIODE ZENER 10V 410MW SOD123",
+      "catalog_aliases": [
+        "BZT52C10-E3-08",
+        "BZT52C10-E3-08GICT-ND"
+      ],
+      "physical_stock": 20.0,
+      "unallocated_stock": 20.0,
+      "shortage": 0,
+      "status": "recorded stock covers demand",
+      "purchase_order_evidence": [
+        {
+          "order": "PO-0012",
+          "status": "Complete",
+          "mpn": "BZT52C10-E3-08",
+          "quantity": 20.0,
+          "received": 20.0
+        }
+      ],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": null,
+      "mpn": "C0603C102J5GACTU",
+      "refs": [
+        "C9"
+      ],
+      "requirements": [
+        {
+          "value": "1n",
+          "footprint": "Capacitor_SMD:C_0603_1608Metric",
+          "schematic_mpn": "C0603C102J5GACTU"
+        }
+      ],
+      "quantity_per_board": 1,
+      "required": 1,
+      "physical_stock": null,
+      "unallocated_stock": null,
+      "shortage": null,
+      "status": "no catalog match",
+      "purchase_order_evidence": [],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": null,
+      "mpn": "C1206C106K3RACTU",
+      "refs": [
+        "C1",
+        "C7"
+      ],
+      "requirements": [
+        {
+          "value": "10u 25V X7R",
+          "footprint": "Capacitor_SMD:C_1206_3216Metric",
+          "schematic_mpn": "C1206C106K3RACTU"
+        }
+      ],
+      "quantity_per_board": 2,
+      "required": 2,
+      "physical_stock": null,
+      "unallocated_stock": null,
+      "shortage": null,
+      "status": "no catalog match",
+      "purchase_order_evidence": [],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": 512,
+      "mpn": "CL05B104KO5NNNC",
+      "refs": [
+        "C11",
+        "C12",
+        "C13",
+        "C15",
+        "C16",
+        "C18",
+        "C19",
+        "C2",
+        "C20",
+        "C21",
+        "C25",
+        "C27",
+        "C28",
+        "C29",
+        "C30",
+        "C31",
+        "C32",
+        "C33",
+        "C34"
+      ],
+      "requirements": [
+        {
+          "value": "100n",
+          "footprint": "Capacitor_SMD:C_0402_1005Metric",
+          "schematic_mpn": null
+        }
+      ],
+      "quantity_per_board": 19,
+      "required": 19,
+      "catalog_description": "100nF+/-10% 16V X7R 0402",
+      "catalog_aliases": [
+        "187-CL05B104KO5NNNC",
+        "CL05B104KO5NNNC"
+      ],
+      "physical_stock": 0.0,
+      "unallocated_stock": 0.0,
+      "shortage": 19.0,
+      "status": "recorded stock shortage",
+      "purchase_order_evidence": [
+        {
+          "order": "PO-0010",
+          "status": "Complete",
+          "mpn": "CL05B104KO5NNNC",
+          "quantity": 200.0,
+          "received": 0.0
+        }
+      ],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": 209,
+      "mpn": "CRCW0603100KFKEA",
+      "refs": [
+        "R1",
+        "R17",
+        "R29",
+        "R9"
+      ],
+      "requirements": [
+        {
+          "value": "100k",
+          "footprint": "Resistor_SMD:R_0603_1608Metric",
+          "schematic_mpn": null
+        }
+      ],
+      "quantity_per_board": 4,
+      "required": 4,
+      "catalog_description": "RES SMD 100K OHM 1% 1/10W 0603",
+      "catalog_aliases": [
+        "541-100KHCT-ND",
+        "CRCW0603100KFKEA"
+      ],
+      "physical_stock": 100.0,
+      "unallocated_stock": 100.0,
+      "shortage": 0,
+      "status": "recorded stock covers demand",
+      "purchase_order_evidence": [],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": 506,
+      "mpn": "CRCW2512280RFKEG",
+      "refs": [
+        "RH1",
+        "RH2"
+      ],
+      "requirements": [
+        {
+          "value": "280R 1W",
+          "footprint": "Resistor_SMD:R_2512_6332Metric",
+          "schematic_mpn": "CRCW2512280RFKEG"
+        }
+      ],
+      "quantity_per_board": 2,
+      "required": 2,
+      "catalog_description": "280 OHM 1%",
+      "catalog_aliases": [
+        "71-CRCW2512280RFKEG",
+        "CRCW2512280RFKEG"
+      ],
+      "physical_stock": 0.0,
+      "unallocated_stock": 0.0,
+      "shortage": 2.0,
+      "status": "recorded stock shortage",
+      "purchase_order_evidence": [
+        {
+          "order": "PO-0010",
+          "status": "Complete",
+          "mpn": "CRCW2512280RFKEG",
+          "quantity": 20.0,
+          "received": 0.0
+        }
+      ],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": 515,
+      "mpn": "DMP3130L-7",
+      "refs": [
+        "Q1"
+      ],
+      "requirements": [
+        {
+          "value": "DMP3130L",
+          "footprint": "Package_TO_SOT_SMD:SOT-23",
+          "schematic_mpn": "DMP3130L-7"
+        }
+      ],
+      "quantity_per_board": 1,
+      "required": 1,
+      "catalog_description": "30V 3.5A P-CHANNEL",
+      "catalog_aliases": [
+        "621-DMP3130L-7",
+        "DMP3130L-7"
+      ],
+      "physical_stock": 0.0,
+      "unallocated_stock": 0.0,
+      "shortage": 1.0,
+      "status": "recorded stock shortage",
+      "purchase_order_evidence": [
+        {
+          "order": "PO-0010",
+          "status": "Complete",
+          "mpn": "DMP3130L-7",
+          "quantity": 25.0,
+          "received": 0.0
+        }
+      ],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": 379,
+      "mpn": "EMK316BB7226ML-T",
+      "refs": [
+        "C3",
+        "C4"
+      ],
+      "requirements": [
+        {
+          "value": "22u",
+          "footprint": "Capacitor_SMD:C_1206_3216Metric",
+          "schematic_mpn": null
+        }
+      ],
+      "quantity_per_board": 2,
+      "required": 2,
+      "catalog_description": "CAP CER 22UF 16V X7R 1206",
+      "catalog_aliases": [
+        "587-4319-1-ND",
+        "EMK316BB7226ML-T"
+      ],
+      "physical_stock": 50.0,
+      "unallocated_stock": 50.0,
+      "shortage": 0,
+      "status": "recorded stock covers demand",
+      "purchase_order_evidence": [
+        {
+          "order": "PO-0001",
+          "status": "Complete",
+          "mpn": "EMK316BB7226ML-T",
+          "quantity": 50.0,
+          "received": 50.0
+        }
+      ],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": 381,
+      "mpn": "GRM1885C1H103JA01J",
+      "refs": [
+        "C17"
+      ],
+      "requirements": [
+        {
+          "value": "10n",
+          "footprint": "Capacitor_SMD:C_0603_1608Metric",
+          "schematic_mpn": null
+        }
+      ],
+      "quantity_per_board": 1,
+      "required": 1,
+      "catalog_description": "CAP CER 10000PF 50V C0G/NP0 0603",
+      "catalog_aliases": [
+        "490-GRM1885C1H103JA01JCT-ND",
+        "GRM1885C1H103JA01J"
+      ],
+      "physical_stock": 50.0,
+      "unallocated_stock": 50.0,
+      "shortage": 0,
+      "status": "recorded stock covers demand",
+      "purchase_order_evidence": [
+        {
+          "order": "PO-0001",
+          "status": "Complete",
+          "mpn": "GRM1885C1H103JA01J",
+          "quantity": 50.0,
+          "received": 50.0
+        }
+      ],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": 511,
+      "mpn": "LMP91000SDX/NOPB",
+      "refs": [
+        "U7"
+      ],
+      "requirements": [
+        {
+          "value": "LMP91000SD/NOPB",
+          "footprint": "Package_SON:WSON-14-1EP_4.0x4.0mm_P0.5mm_EP2.6x2.6mm",
+          "schematic_mpn": "LMP91000SDX/NOPB"
+        }
+      ],
+      "quantity_per_board": 1,
+      "required": 1,
+      "catalog_description": "Configurable AFE Pot entiostat A 926-LMP A 926-LMP91000SDE/NOPB",
+      "catalog_aliases": [
+        "926-LMP91000SDX/NOPB",
+        "LMP91000SDX/NOPB"
+      ],
+      "physical_stock": 0.0,
+      "unallocated_stock": 0.0,
+      "shortage": 1.0,
+      "status": "recorded stock shortage",
+      "purchase_order_evidence": [
+        {
+          "order": "PO-0010",
+          "status": "Complete",
+          "mpn": "LMP91000SDX/NOPB",
+          "quantity": 5.0,
+          "received": 0.0
+        }
+      ],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": 514,
+      "mpn": "OPA2333AIDGKR",
+      "refs": [
+        "U4"
+      ],
+      "requirements": [
+        {
+          "value": "OPA2333AIDGKR",
+          "footprint": "Package_SO:VSSOP-8_3x3mm_P0.65mm",
+          "schematic_mpn": "OPA2333AIDGKR"
+        }
+      ],
+      "quantity_per_board": 1,
+      "required": 1,
+      "catalog_description": "1.8V 17uA 2uV micro PWR CMOS 0-Drift A 5 A 595-OPA2333AIDGKT",
+      "catalog_aliases": [
+        "595-OPA2333AIDGKR",
+        "OPA2333AIDGKR"
+      ],
+      "physical_stock": 0.0,
+      "unallocated_stock": 0.0,
+      "shortage": 1.0,
+      "status": "recorded stock shortage",
+      "purchase_order_evidence": [
+        {
+          "order": "PO-0010",
+          "status": "Complete",
+          "mpn": "OPA2333AIDGKR",
+          "quantity": 10.0,
+          "received": 0.0
+        }
+      ],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": 217,
+      "mpn": "RC0603FR-0710KL",
+      "refs": [
+        "R18",
+        "R19",
+        "R27",
+        "R28",
+        "R8"
+      ],
+      "requirements": [
+        {
+          "value": "10k",
+          "footprint": "Resistor_SMD:R_0603_1608Metric",
+          "schematic_mpn": null
+        }
+      ],
+      "quantity_per_board": 5,
+      "required": 5,
+      "catalog_description": "RES 10K OHM 1% 1/10W 0603",
+      "catalog_aliases": [
+        "311-10.0KHRCT-ND",
+        "RC0603FR-0710KL"
+      ],
+      "physical_stock": 100.0,
+      "unallocated_stock": 100.0,
+      "shortage": 0,
+      "status": "recorded stock covers demand",
+      "purchase_order_evidence": [],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": 384,
+      "mpn": "RC0603FR-071KL",
+      "refs": [
+        "R33",
+        "R36",
+        "R37",
+        "R38",
+        "R41",
+        "R42"
+      ],
+      "requirements": [
+        {
+          "value": "1k",
+          "footprint": "Resistor_SMD:R_0603_1608Metric",
+          "schematic_mpn": null
+        },
+        {
+          "value": "1k 1%",
+          "footprint": "Resistor_SMD:R_0603_1608Metric",
+          "schematic_mpn": "RC0603FR-071KL"
+        }
+      ],
+      "quantity_per_board": 6,
+      "required": 6,
+      "catalog_description": "RES 1K OHM 1% 1/10W 0603",
+      "catalog_aliases": [
+        "311-1.00KHRCT-ND",
+        "RC0603FR-071KL"
+      ],
+      "physical_stock": 25.0,
+      "unallocated_stock": 25.0,
+      "shortage": 0,
+      "status": "recorded stock covers demand",
+      "purchase_order_evidence": [
+        {
+          "order": "PO-0001",
+          "status": "Complete",
+          "mpn": "RC0603FR-071KL",
+          "quantity": 25.0,
+          "received": 25.0
+        }
+      ],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": null,
+      "mpn": "RC0603FR-0791KL",
+      "refs": [
+        "R26",
+        "R43",
+        "R44"
+      ],
+      "requirements": [
+        {
+          "value": "91k 1%",
+          "footprint": "Resistor_SMD:R_0603_1608Metric",
+          "schematic_mpn": "RC0603FR-0791KL"
+        }
+      ],
+      "quantity_per_board": 3,
+      "required": 3,
+      "physical_stock": null,
+      "unallocated_stock": null,
+      "shortage": null,
+      "status": "no catalog match",
+      "purchase_order_evidence": [],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": 547,
+      "mpn": "RT0603BRD0747KL",
+      "refs": [
+        "R24",
+        "R25",
+        "R34",
+        "R35",
+        "R45",
+        "R7"
+      ],
+      "requirements": [
+        {
+          "value": "47k",
+          "footprint": "Resistor_SMD:R_0603_1608Metric",
+          "schematic_mpn": null
+        },
+        {
+          "value": "47k 0.1%",
+          "footprint": "Resistor_SMD:R_0603_1608Metric",
+          "schematic_mpn": "RT0603BRD0747KL"
+        }
+      ],
+      "quantity_per_board": 6,
+      "required": 6,
+      "catalog_description": "RES SMD 47K OHM 0.1% 1/10W 0603",
+      "catalog_aliases": [
+        "RT0603BRD0747KL",
+        "YAG1667CT-ND"
+      ],
+      "physical_stock": 100.0,
+      "unallocated_stock": 100.0,
+      "shortage": 0,
+      "status": "recorded stock covers demand",
+      "purchase_order_evidence": [
+        {
+          "order": "PO-0012",
+          "status": "Complete",
+          "mpn": "RT0603BRD0747KL",
+          "quantity": 100.0,
+          "received": 100.0
+        }
+      ],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": 519,
+      "mpn": "SGX-OX-ROHS-Mini",
+      "refs": [
+        "U11"
+      ],
+      "requirements": [
+        {
+          "value": "SGX-OX-ROHS-Mini",
+          "footprint": "o2-probe:SGX-OX-ROHS-Mini_ISS2",
+          "schematic_mpn": "SGX-OX-ROHS-Mini"
+        }
+      ],
+      "quantity_per_board": 1,
+      "required": 1,
+      "catalog_description": "MINI SERIESELECTRO-CHEMICAL OXYG",
+      "catalog_aliases": [
+        "1782-SGX-OX-ROHS-MINI-ND",
+        "SGX-OX-ROHS-MINI"
+      ],
+      "physical_stock": 4.0,
+      "unallocated_stock": 4.0,
+      "shortage": 0,
+      "status": "recorded stock covers demand",
+      "purchase_order_evidence": [
+        {
+          "order": "PO-0011",
+          "status": "Complete",
+          "mpn": "SGX-OX-ROHS-MINI",
+          "quantity": 2.0,
+          "received": 2.0
+        },
+        {
+          "order": "PO-0012",
+          "status": "Complete",
+          "mpn": "SGX-OX-ROHS-MINI",
+          "quantity": 2.0,
+          "received": 2.0
+        }
+      ],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": 529,
+      "mpn": "SHT45-AD1F-R2",
+      "refs": [
+        "U12"
+      ],
+      "requirements": [
+        {
+          "value": "SHT45-AD1F",
+          "footprint": "Sensor_Humidity:Sensirion_DFN-4_1.5x1.5mm_P0.8mm_SHT4x_NoCentralPad",
+          "schematic_mpn": "SHT45-AD1F-R2"
+        }
+      ],
+      "quantity_per_board": 1,
+      "required": 1,
+      "catalog_description": "DIGITAL RH/TEMP W/FILTER",
+      "catalog_aliases": [
+        "1649-SHT45-AD1F-R2CT-ND",
+        "SHT45-AD1F-R2"
+      ],
+      "physical_stock": 5.0,
+      "unallocated_stock": 5.0,
+      "shortage": 0,
+      "status": "recorded stock covers demand",
+      "purchase_order_evidence": [
+        {
+          "order": "PO-0011",
+          "status": "Complete",
+          "mpn": "SHT45-AD1F-R2",
+          "quantity": 5.0,
+          "received": 5.0
+        }
+      ],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": 530,
+      "mpn": "SM712-02HTG",
+      "refs": [
+        "D2"
+      ],
+      "requirements": [
+        {
+          "value": "SM712-02HTG",
+          "footprint": "Package_TO_SOT_SMD:SOT-23",
+          "schematic_mpn": "SM712-02HTG"
+        }
+      ],
+      "quantity_per_board": 1,
+      "required": 1,
+      "catalog_description": "TVS DIODE 12VWM 7VWM SOT23-3",
+      "catalog_aliases": [
+        "F6450CT-ND",
+        "SM712-02HTG"
+      ],
+      "physical_stock": 20.0,
+      "unallocated_stock": 20.0,
+      "shortage": 0,
+      "status": "recorded stock covers demand",
+      "purchase_order_evidence": [
+        {
+          "order": "PO-0011",
+          "status": "Complete",
+          "mpn": "SM712-02HTG",
+          "quantity": 20.0,
+          "received": 20.0
+        }
+      ],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": 531,
+      "mpn": "SMBJ15A-13-F",
+      "refs": [
+        "D1"
+      ],
+      "requirements": [
+        {
+          "value": "SMBJ15A-13-F",
+          "footprint": "Diode_SMD:D_SMB",
+          "schematic_mpn": "SMBJ15A-13-F"
+        }
+      ],
+      "quantity_per_board": 1,
+      "required": 1,
+      "catalog_description": "TVS DIODE 15VWM 24.4VC SMB",
+      "catalog_aliases": [
+        "SMBJ15A-13-F",
+        "SMBJ15A-FDICT-ND"
+      ],
+      "physical_stock": 25.0,
+      "unallocated_stock": 25.0,
+      "shortage": 0,
+      "status": "recorded stock covers demand",
+      "purchase_order_evidence": [
+        {
+          "order": "PO-0011",
+          "status": "Complete",
+          "mpn": "SMBJ15A-13-F",
+          "quantity": 25.0,
+          "received": 25.0
+        }
+      ],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": 542,
+      "mpn": "SRN6028C-4R7M",
+      "refs": [
+        "L1"
+      ],
+      "requirements": [
+        {
+          "value": "4.7u SHIELDED",
+          "footprint": "Inductor_SMD:L_6.3x6.3_H3",
+          "schematic_mpn": "SRN6028C-4R7M"
+        }
+      ],
+      "quantity_per_board": 1,
+      "required": 1,
+      "catalog_description": "FIXED IND 4.7UH 3.1A 30 MOHM SMD",
+      "catalog_aliases": [
+        "118-SRN6028C-4R7MCT-ND",
+        "SRN6028C-4R7M"
+      ],
+      "physical_stock": 10.0,
+      "unallocated_stock": 10.0,
+      "shortage": 0,
+      "status": "recorded stock covers demand",
+      "purchase_order_evidence": [
+        {
+          "order": "PO-0012",
+          "status": "Complete",
+          "mpn": "SRN6028C-4R7M",
+          "quantity": 10.0,
+          "received": 10.0
+        }
+      ],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": null,
+      "mpn": "STM32G071CBT7",
+      "refs": [
+        "U6"
+      ],
+      "requirements": [
+        {
+          "value": "STM32G071CBT7",
+          "footprint": "Package_QFP:LQFP-48_7x7mm_P0.5mm",
+          "schematic_mpn": "STM32G071CBT7"
+        }
+      ],
+      "quantity_per_board": 1,
+      "required": 1,
+      "physical_stock": null,
+      "unallocated_stock": null,
+      "shortage": null,
+      "status": "no catalog match",
+      "purchase_order_evidence": [],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": 537,
+      "mpn": "THVD1410DR",
+      "refs": [
+        "U5"
+      ],
+      "requirements": [
+        {
+          "value": "THVD1410DR",
+          "footprint": "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
+          "schematic_mpn": "THVD1410DR"
+        }
+      ],
+      "quantity_per_board": 1,
+      "required": 1,
+      "catalog_description": "IC TRANSCEIVER HALF 1/1 8SOIC",
+      "catalog_aliases": [
+        "296-THVD1410DRCT-ND",
+        "THVD1410DR"
+      ],
+      "physical_stock": 10.0,
+      "unallocated_stock": 10.0,
+      "shortage": 0,
+      "status": "recorded stock covers demand",
+      "purchase_order_evidence": [
+        {
+          "order": "PO-0011",
+          "status": "Complete",
+          "mpn": "THVD1410DR",
+          "quantity": 10.0,
+          "received": 10.0
+        }
+      ],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": 383,
+      "mpn": "TMK107B7105KA-T",
+      "refs": [
+        "C26",
+        "C5",
+        "C6",
+        "C8"
+      ],
+      "requirements": [
+        {
+          "value": "1u",
+          "footprint": "Capacitor_SMD:C_0603_1608Metric",
+          "schematic_mpn": null
+        }
+      ],
+      "quantity_per_board": 4,
+      "required": 4,
+      "catalog_description": "CAP CER 1UF 25V X7R 0603",
+      "catalog_aliases": [
+        "587-2984-1-ND",
+        "TMK107B7105KA-T"
+      ],
+      "physical_stock": 25.0,
+      "unallocated_stock": 25.0,
+      "shortage": 0,
+      "status": "recorded stock covers demand",
+      "purchase_order_evidence": [
+        {
+          "order": "PO-0001",
+          "status": "Complete",
+          "mpn": "TMK107B7105KA-T",
+          "quantity": 25.0,
+          "received": 25.0
+        }
+      ],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": 505,
+      "mpn": "TMP117AIDRVR",
+      "refs": [
+        "U10"
+      ],
+      "requirements": [
+        {
+          "value": "TMP117 CELL",
+          "footprint": "tmp117-probe:TMP117_WSON-6-1EP_2x2mm_TI",
+          "schematic_mpn": "TMP117AIDRVR"
+        }
+      ],
+      "quantity_per_board": 1,
+      "required": 1,
+      "catalog_description": "0.1 C digital temper ature sensor 48-bit A 595-TMP117AIDRVT",
+      "catalog_aliases": [
+        "595-TMP117AIDRVR",
+        "TMP117AIDRVR"
+      ],
+      "physical_stock": 0.0,
+      "unallocated_stock": 0.0,
+      "shortage": 1.0,
+      "status": "recorded stock shortage",
+      "purchase_order_evidence": [
+        {
+          "order": "PO-0010",
+          "status": "Complete",
+          "mpn": "TMP117AIDRVR",
+          "quantity": 10.0,
+          "received": 0.0
+        }
+      ],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": null,
+      "mpn": "TPD2E2U06QDBZRQ1",
+      "refs": [
+        "D7"
+      ],
+      "requirements": [
+        {
+          "value": "TPD2E2U06-Q1",
+          "footprint": "Package_TO_SOT_SMD:SOT-23",
+          "schematic_mpn": "TPD2E2U06QDBZRQ1"
+        }
+      ],
+      "quantity_per_board": 1,
+      "required": 1,
+      "physical_stock": null,
+      "unallocated_stock": null,
+      "shortage": null,
+      "status": "no catalog match",
+      "purchase_order_evidence": [],
+      "incoming_open_orders": 0
+    },
+    {
+      "part_pk": null,
+      "mpn": "TPS7A2033PDBVR",
+      "refs": [
+        "U2",
+        "U3"
+      ],
+      "requirements": [
+        {
+          "value": "TPS7A2033PDBVR",
+          "footprint": "Package_TO_SOT_SMD:SOT-23-5",
+          "schematic_mpn": "TPS7A2033PDBVR"
+        }
+      ],
+      "quantity_per_board": 2,
+      "required": 2,
+      "physical_stock": null,
+      "unallocated_stock": null,
+      "shortage": null,
+      "status": "no catalog match",
+      "purchase_order_evidence": [],
+      "incoming_open_orders": 0
+    }
+  ],
+  "assembly_requirements": [
+    {
+      "assembly": "U11 cell receptacles",
+      "quantity_per_board": 3,
+      "required": 3,
+      "approved_mpn": null,
+      "status": "exact socket suffix and fit require qualification",
+      "source": "lib/o2-probe.pretty/SGX-OX-ROHS-Mini_ISS2.kicad_mod description requires three PCB receptacles; family TE5050462, not exact suffix",
+      "candidate": {
+        "mpn": "5050462-2",
+        "part_pk": 551,
+        "catalog_description": "CONN PIN RCPT .014-.026 SOLDER",
+        "physical_stock": 10.0,
+        "unallocated_stock": 10.0,
+        "approved_equivalent": false
+      },
+      "shortage": null,
+      "note": "Required separate assembly parts, not included in 85 schematic positions. Candidate stock is not counted as qualified coverage."
+    }
+  ]
+}

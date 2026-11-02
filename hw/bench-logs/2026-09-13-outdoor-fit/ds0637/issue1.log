@@ -1,0 +1,8 @@
+status: refused   human_verified: false
+  ! upper: measured 0.22 of columns, need 0.45
+  ! upper: trace spans 0.71 of the plot, need 0.95
+  ! lower: measured 0.22 of columns, need 0.45
+  ! lower: trace spans 0.59 of the plot, need 0.95
+  ! band order: the mean is outside its bounds in 42 of 403 columns
+OVERLAY: /Users/fab/dev/ee/hw/o2-probe/bench-logs/2026-09-13-outdoor-fit/ds0637/issue1/DS-0637-SGX-OX-ROHS-Mini-Issue1-SUPERSEDED-p2-output-vs-temperature-overlay.png
+NOTE: agent review never sets human_verified -- the overlay is the review gate.

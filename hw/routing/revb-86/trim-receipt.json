@@ -1,0 +1,19 @@
+{
+  "source": "routing/revb-current/o2-probe.kicad_pcb",
+  "source_sha256": "3c24db8193af09d4d9ad07b2166c7f818885211b63b3e2af6e0c7cbec900c665",
+  "producer_sha256": "dffa0577cd7a0777a7608fdd4b739da38f72da75b2b116966c95cc9c8f1e09b3",
+  "trim_mm": 3,
+  "outline_mm": [
+    20,
+    86
+  ],
+  "modified_drawing_uuids": [
+    "42935040-3c92-56f0-85c9-ada5c91405bd",
+    "44fcae7e-d934-5b11-a976-d306df3e3d78",
+    "50cb1b95-414f-55da-86b0-24bfc55b5569",
+    "8a7edcbb-f470-5578-9193-2c238760b099",
+    "ae686e5e-e0e3-5956-a5ee-2629db626bb1",
+    "ea06dc41-11e6-594d-baab-da6250d792e7"
+  ],
+  "scope": "Top outline and CABLE annotation only; native refill and independent comparison pending"
+}

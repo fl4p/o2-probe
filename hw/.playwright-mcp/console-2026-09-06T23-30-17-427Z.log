@@ -1,0 +1,2 @@
+[    5009ms] TypeError: Cannot read properties of null (reading 'addEventListener')
+    at https://sgx.cdistore.com/products/detail/sgxoxrohsmini-sgx-sensortech/790998/:1827:48

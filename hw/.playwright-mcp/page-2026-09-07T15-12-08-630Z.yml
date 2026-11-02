@@ -1,0 +1,354 @@
+- generic [ref=f75e1]:
+  - generic [ref=f75e2]:
+    - banner [ref=f75e3]:
+      - generic [ref=f75e7]:
+        - link [ref=f75e12] [cursor=pointer]:
+          - /url: /
+          - img "logo" [ref=f75e13]
+        - generic [ref=f75e16]:
+          - navigation [ref=f75e20]:
+            - list [ref=f75e22]:
+              - listitem [ref=f75e23]:
+                - link "About Us" [ref=f75e24] [cursor=pointer]:
+                  - /url: javascript:void(0)
+              - listitem [ref=f75e25]:
+                - link "Webstore" [ref=f75e26] [cursor=pointer]:
+                  - /url: /webstore
+              - listitem [ref=f75e27]:
+                - link "Products" [ref=f75e28] [cursor=pointer]:
+                  - /url: javascript:void(0)
+              - listitem [ref=f75e29]:
+                - link "Downloads" [ref=f75e30] [cursor=pointer]:
+                  - /url: javascript:void(0)
+              - listitem [ref=f75e31]:
+                - link "FAQs" [ref=f75e32] [cursor=pointer]:
+                  - /url: /faqs
+              - listitem [ref=f75e33]:
+                - link "Blog" [ref=f75e34] [cursor=pointer]:
+                  - /url: /blog
+          - generic [ref=f75e35]:
+            - generic [ref=f75e38]:
+              - generic [ref=f75e39]: global-search
+              - textbox " global-search" [ref=f75e40]:
+                - /placeholder: Search...
+              - generic [ref=f75e41]:
+                - text: 
+                - generic [ref=f75e42]: global-search
+            - list [ref=f75e45]:
+              - listitem [ref=f75e46]:
+                - 'link "Call: +44 (0) 1376 556700" [ref=f75e48] [cursor=pointer]':
+                  - /url: tel://+44(0)1376556700
+    - main [ref=f75e49]:
+      - generic [ref=f75e50]:
+        - generic [ref=f75e55]:
+          - button "Previous" [ref=f75e56] [cursor=pointer]
+          - generic [ref=f75e58]:
+            - generic [ref=f75e67]:
+              - heading [level=2] [ref=f75e68]: Best-in-Class Particle Counting Solutions
+              - generic [ref=f75e69]: Delivering high-quality particle counts and sizing at affordable prices. High-performance counters for a wide range of air quality applications.
+            - tabpanel [ref=f75e70]:
+              - generic [ref=f75e78]:
+                - heading "The World’s First Galvanic Lead-Free Oxygen Sensor" [level=2] [ref=f75e79]
+                - generic [ref=f75e80]: Alphasense introduces the O2-A2-GLF Safety Oxygen Sensor — a breakthrough in lead-free oxygen measurement.
+            - tabpanel [aria-hidden] [ref=f75e81]:
+              - generic [ref=f75e89]:
+                - heading [level=2] [ref=f75e90]: Introducing New Advanced PID Sensors
+                - generic [ref=f75e91]: Discover the new PIDX series of Photoionization Detectors, engineered for precise VOC monitoring in demanding applications – even in changing humidity.
+            - tabpanel [aria-hidden] [ref=f75e92]:
+              - generic [ref=f75e100]:
+                - heading [level=2] [ref=f75e101]: Industry-Leading Air Quality Sensors
+                - generic [ref=f75e102]: for Fixed & Portable Gas Detection Systems. High-quality performance and minimal warranty claims.
+            - tabpanel [aria-hidden] [ref=f75e103]:
+              - generic [ref=f75e111]:
+                - heading [level=2] [ref=f75e112]: High-Quality Sensors for Gas Safety
+                - generic [ref=f75e113]: for Air Quality, Environmental Monitoring and Particle Counting. Best-in-class accuracy in PPB and PM monitoring.
+            - tabpanel [aria-hidden] [ref=f75e114]:
+              - generic [ref=f75e122]:
+                - heading [level=2] [ref=f75e123]: Best-in-Class Particle Counting Solutions
+                - generic [ref=f75e124]: Delivering high-quality particle counts and sizing at affordable prices. High-performance counters for a wide range of air quality applications.
+            - generic [ref=f75e133]:
+              - heading [level=2] [ref=f75e134]: The World’s First Galvanic Lead-Free Oxygen Sensor
+              - generic [ref=f75e135]: Alphasense introduces the O2-A2-GLF Safety Oxygen Sensor — a breakthrough in lead-free oxygen measurement.
+            - generic [ref=f75e144]:
+              - heading [level=2] [ref=f75e145]: Introducing New Advanced PID Sensors
+              - generic [ref=f75e146]: Discover the new PIDX series of Photoionization Detectors, engineered for precise VOC monitoring in demanding applications – even in changing humidity.
+            - generic [ref=f75e155]:
+              - heading [level=2] [ref=f75e156]: Industry-Leading Air Quality Sensors
+              - generic [ref=f75e157]: for Fixed & Portable Gas Detection Systems. High-quality performance and minimal warranty claims.
+            - generic [ref=f75e166]:
+              - heading [level=2] [ref=f75e167]: High-Quality Sensors for Gas Safety
+              - generic [ref=f75e168]: for Air Quality, Environmental Monitoring and Particle Counting. Best-in-class accuracy in PPB and PM monitoring.
+            - generic [ref=f75e177]:
+              - heading [level=2] [ref=f75e178]: Best-in-Class Particle Counting Solutions
+              - generic [ref=f75e179]: Delivering high-quality particle counts and sizing at affordable prices. High-performance counters for a wide range of air quality applications.
+          - button "Next" [ref=f75e180] [cursor=pointer]
+          - tablist [ref=f75e181]
+        - generic [ref=f75e182]:
+          - generic [ref=f75e188]:
+            - generic [ref=f75e189]:
+              - generic [ref=f75e192]:
+                - paragraph [ref=f75e193]:
+                  - strong [ref=f75e194]: With over 25 years’ experience in the design and manufacture of gas and particulate sensors, Alphasense is known globally as an innovative and reliable provider of a wide range of gas sensor technologies.
+                - generic [ref=f75e196]:
+                  - paragraph [ref=f75e197]:
+                    - text: At Alphasense, we supply high-quality Oxygen, CO
+                    - subscript [ref=f75e198]: "2"
+                    - text: ", toxic and flammable gas sensors to many of the world’s leading industrial OEMs."
+                  - paragraph [ref=f75e199]: If you manufacture portable or fixed industrial gas detection monitors, stack gas analysers or environmental monitoring instruments, we have the solution for your needs.
+              - generic [ref=f75e203]:
+                - heading "Why Alphasense?" [level=3] [ref=f75e205]
+                - list [ref=f75e206]:
+                  - listitem [ref=f75e207]:
+                    - img "performance" [ref=f75e209]
+                    - text: High performance
+                  - listitem [ref=f75e210]:
+                    - img "warranty" [ref=f75e212]
+                    - text: Low warranty returns
+                  - listitem [ref=f75e213]:
+                    - img "25" [ref=f75e215]
+                    - text: 25 years' experience
+            - generic [ref=f75e219]:
+              - generic [ref=f75e223]:
+                - heading [level=4] [ref=f75e225]
+                - generic [ref=f75e226]:
+                  - generic [ref=f75e227]:
+                    - heading [level=3] [ref=f75e228]:
+                      - strong [ref=f75e229]: O2‑A2‑GLF Lead‑Free Oxygen Sensor
+                    - paragraph
+                    - paragraph [ref=f75e230]:
+                      - generic [ref=f75e231]:
+                        - text: A
+                        - strong [ref=f75e232]: lead‑free, zero‑bias
+                        - text: oxygen sensor built on Alphasense’s proven
+                        - strong [ref=f75e233]: leak‑free platform
+                        - text: for a true
+                        - strong [ref=f75e234]: drop‑in replacement
+                        - text: —no redesign required.
+                        - strong [ref=f75e235]: RoHS‑compliant
+                        - text: ", stable, and built for demanding safety environments."
+                    - paragraph
+                  - link "View O2-A2-GLF Oxygen Sensor" [ref=f75e237] [cursor=pointer]:
+                    - /url: https://www.alphasense.com/products/view-by-target-gas/o2-a2-glf-oxygen-sensor
+              - generic [ref=f75e241]:
+                - heading [level=4] [ref=f75e243]
+                - generic [ref=f75e244]:
+                  - generic [ref=f75e245]:
+                    - heading [level=3] [ref=f75e246]:
+                      - strong [ref=f75e247]: 100% Leak‑Free Oxygen Sensors
+                    - paragraph
+                    - paragraph [ref=f75e248]:
+                      - generic [ref=f75e249]:
+                        - text: Built on Alphasense’s proven patent-pending leak‑free platform, these O
+                        - subscript [ref=f75e250]: "2"
+                        - text: sensors
+                        - strong [ref=f75e251]: eliminate electrolyte leaks
+                        - text: that damage instruments and shorten product life.
+                    - paragraph
+                  - link "View Oxygen Sensors" [ref=f75e253] [cursor=pointer]:
+                    - /url: https://www.alphasense.com/products/view-by-target-gas/oxygen-sensors-o2
+              - generic [ref=f75e257]:
+                - heading [level=4] [ref=f75e259]
+                - generic [ref=f75e260]:
+                  - generic [ref=f75e261]:
+                    - heading [level=3] [ref=f75e262]:
+                      - strong [ref=f75e263]: PIDx Sensors for VOC Detection
+                    - paragraph
+                    - paragraph [ref=f75e264]:
+                      - generic [ref=f75e265]:
+                        - text: Next‑generation PID technology delivering
+                        - strong [ref=f75e266]: enhanced stability
+                        - text: ","
+                        - strong [ref=f75e267]: repeatability
+                        - text: ", and"
+                        - strong [ref=f75e268]: accurate ppb‑level VOC detection
+                        - text: . Designed for
+                        - strong [ref=f75e269]: demanding air‑quality and safety applications
+                        - text: where reliability matters.
+                    - paragraph
+                  - link "View PID Sensors" [ref=f75e271] [cursor=pointer]:
+                    - /url: https://www.alphasense.com/products/view-by-target-gas/pid-sensors
+          - generic [ref=f75e277]:
+            - heading "Best-selling Alphasense products" [level=3] [ref=f75e280]
+            - generic [ref=f75e281]:
+              - button "Previous" [disabled] [ref=f75e282] [cursor=pointer]
+              - generic [ref=f75e284]:
+                - link [ref=f75e289] [cursor=pointer]:
+                  - /url: https://ametekcdn.azureedge.net/mediafiles/project/oneweb/oneweb/alphasense/products/datasheets/alphasense_o2-a2-datasheet_may26_en_1.pdf?revision:7500ee31-4a14-44b8-a0e3-10a74c29ae2e
+                  - img "Oxygen gas sensor" [ref=f75e291]
+                  - heading [level=4] [ref=f75e293]:
+                    - strong [ref=f75e294]: O2-A2
+                - link "CO-AF CO Sensor" [ref=f75e299] [cursor=pointer]:
+                  - /url: https://ametekcdn.azureedge.net/mediafiles/project/oneweb/oneweb/alphasense/products/datasheets/alphasense_co-af_datasheet_sept24_en_2.pdf?revision:f7f2682a-945b-4b09-8b27-a092fb0d08fb
+                  - heading [level=4] [ref=f75e302]:
+                    - strong [ref=f75e303]: CO-AF
+                    - text: CO Sensor
+                - link "O2-A2-GLF" [ref=f75e308] [cursor=pointer]:
+                  - /url: https://ametekcdn.azureedge.net/mediafiles/project/oneweb/oneweb/alphasense/products/datasheets/alphasense_o2-a2-glf_datasheet_en_1.pdf?revision:b3e8ffa0-1bce-4c43-b4d5-1771348e6efc
+                  - heading [level=4] [ref=f75e311]:
+                    - strong [ref=f75e312]: O2-A2-GLF
+                - link "H2S-A1 Hydrogen Sulphide Sensor" [ref=f75e317] [cursor=pointer]:
+                  - /url: https://ametekcdn.azureedge.net/mediafiles/project/oneweb/oneweb/alphasense/products/datasheets/may-26/alphasense_h2s-a1 series_datasheet_0526_en_1.pdf?revision:584906ba-e706-46d5-9237-d8ce001842d0
+                  - heading "H2S-A1 Hydrogen Sulphide Sensor" [level=4] [ref=f75e320]
+                - link [ref=f75e325] [cursor=pointer]:
+                  - /url: https://ametekcdn.azureedge.net/mediafiles/project/oneweb/oneweb/alphasense/products/datasheets/alphasense_no-a1_datasheet-jun24_en_1.pdf?revision:d6f04e70-c2a1-4d19-b505-e15f6fd2549e
+                  - heading [level=4] [ref=f75e328]: NO-A1 Nitric Oxide Sensor
+                - link [ref=f75e333] [cursor=pointer]:
+                  - /url: https://ametekcdn.azureedge.net/mediafiles/project/oneweb/oneweb/alphasense/products/datasheets/alphasense_no2-a1_datasheet_en_2.pdf?revision:104d74aa-770e-42e0-8eb2-a43356bdce2c
+                  - heading [level=4] [ref=f75e336]: NO2-A1 Nitrogen Dioxide Sensor
+                - link [ref=f75e341] [cursor=pointer]:
+                  - /url: https://ametekcdn.azureedge.net/mediafiles/project/oneweb/oneweb/alphasense/products/datasheets/alphasense_pidx-a-040_datasheet_en_2.pdf?revision:8879c671-ab87-4627-9f36-733423c8bce0
+                  - heading [level=4] [ref=f75e344]: PIDX-A-040 VOC Detector
+                - link [ref=f75e349] [cursor=pointer]:
+                  - /url: https://ametekcdn.azureedge.net/mediafiles/project/oneweb/oneweb/alphasense/products/datasheets/alphasense_opc-n3_datasheet_en_1.pdf?revision:29541b07-612a-42ba-b362-f41a48cf2e48
+                  - heading [level=4] [ref=f75e353]: OPC-N3 Particulates Sensor
+                - link [ref=f75e358] [cursor=pointer]:
+                  - /url: https://ametekcdn.azureedge.net/mediafiles/project/oneweb/oneweb/alphasense/products/datasheets/alphasense_no2-b43f_datasheet_en_4.pdf?revision:f3bc9326-53a0-44e9-a166-8a28106c7d3e
+                  - heading [level=4] [ref=f75e361]: NO2-B43F Nitrogen Dioxide Sensor
+                - link [ref=f75e366] [cursor=pointer]:
+                  - /url: https://ametekcdn.azureedge.net/mediafiles/project/oneweb/oneweb/alphasense/products/datasheets/alphasense_co-bf_datasheet_en_4.pdf?revision:59163aa6-14be-465d-b467-3fa6bb2192c2
+                  - heading [level=4] [ref=f75e369]: CO-BF Carbon Monoxide Sensor
+              - button "Next" [ref=f75e370] [cursor=pointer]
+    - contentinfo [ref=f75e371]:
+      - generic [ref=f75e372]:
+        - separator [ref=f75e378]
+        - generic [ref=f75e385]:
+          - generic [ref=f75e389]:
+            - img "box" [ref=f75e391]
+            - heading [level=4] [ref=f75e393]
+            - link "Browse Data Sheets" [ref=f75e396] [cursor=pointer]:
+              - /url: /products/view-by-target-gas
+          - generic [ref=f75e400]:
+            - img "box2" [ref=f75e402]
+            - heading [level=4] [ref=f75e404]
+            - link "Browse Application Notes" [ref=f75e407] [cursor=pointer]:
+              - /url: /downloads/application-notes
+          - generic [ref=f75e411]:
+            - img "box3" [ref=f75e413]
+            - heading [level=4] [ref=f75e415]
+            - link "Read Our FAQs" [ref=f75e418] [cursor=pointer]:
+              - /url: /faqs
+        - generic [ref=f75e424]:
+          - generic [ref=f75e426]:
+            - heading "Enquire Today" [level=4] [ref=f75e429]
+            - generic [ref=f75e433]:
+              - generic [ref=f75e434]:
+                - generic [ref=f75e435]: Name *
+                - textbox "Name *" [ref=f75e436]:
+                  - /placeholder: ""
+              - generic [ref=f75e437]:
+                - generic [ref=f75e438]: Email *
+                - textbox "Email *" [ref=f75e439]:
+                  - /placeholder: ""
+              - generic [ref=f75e440]:
+                - generic [ref=f75e441]: Message *
+                - textbox "Message *" [ref=f75e442]:
+                  - /placeholder: ""
+              - iframe [ref=f75e447]:
+                - generic [ref=f76e2]:
+                  - generic [ref=f76e3]:
+                    - checkbox "I'm not a robot" [ref=f76e7]
+                    - generic [aria-hidden] [ref=f76e11]: I'm not a robot
+                  - generic [ref=f76e12]: reCAPTCHA
+              - button "Submit" [ref=f75e449] [cursor=pointer]
+          - generic [ref=f75e451]:
+            - generic [ref=f75e454]:
+              - heading "Contact Us" [level=4] [ref=f75e455]
+              - generic [ref=f75e456]:
+                - strong [ref=f75e458]: "T:"
+                - strong [ref=f75e459]:
+                  - link "+44 (0) 1376 556700" [ref=f75e460] [cursor=pointer]:
+                    - /url: tel:+44(0)1376556700
+              - generic [ref=f75e461]:
+                - strong [ref=f75e462]: "E:"
+                - link [ref=f75e463] [cursor=pointer]:
+                  - /url: mailto:sensors.alphasense@ametek.com
+                  - strong [ref=f75e464]: sensors.alphasense@ametek.com
+            - paragraph [ref=f75e467]: Sensor Technology House 300 Avenue West Skyline 120 Great Notley, Braintree Essex CM77 7AA United Kingdom
+        - generic [ref=f75e472]:
+          - generic [ref=f75e473]:
+            - generic [ref=f75e476]:
+              - list [ref=f75e480]:
+                - listitem [ref=f75e481]:
+                  - link "Home" [ref=f75e483] [cursor=pointer]:
+                    - /url: /
+                - listitem [ref=f75e484]:
+                  - link "Downloads" [ref=f75e486] [cursor=pointer]:
+                    - /url: /downloads
+                - listitem [ref=f75e487]:
+                  - link "Purchase Terms & Conditions" [ref=f75e489] [cursor=pointer]:
+                    - /url: /legal/purchase-terms-conditions
+                - listitem [ref=f75e490]:
+                  - link "Terms of Use" [ref=f75e492] [cursor=pointer]:
+                    - /url: https://www.ametek.com/terms-of-use
+                - listitem [ref=f75e493]:
+                  - link "Privacy Policy" [ref=f75e495] [cursor=pointer]:
+                    - /url: /privacy
+                - listitem [ref=f75e496]:
+                  - link "Cookie Policy" [ref=f75e498] [cursor=pointer]:
+                    - /url: https://www.ametek.com/cookies
+                - listitem [ref=f75e499]:
+                  - link "Do Not Sell or Share My Personal Information" [ref=f75e501] [cursor=pointer]:
+                    - /url: /do-not-sell-share
+              - list [ref=f75e505]:
+                - listitem [ref=f75e506]:
+                  - link "About Us" [ref=f75e508] [cursor=pointer]:
+                    - /url: /company
+                - listitem [ref=f75e509]:
+                  - link "Application Notes" [ref=f75e511] [cursor=pointer]:
+                    - /url: /downloads/application-notes
+                - listitem [ref=f75e512]:
+                  - link "Terms & Conditions of Sale" [ref=f75e514] [cursor=pointer]:
+                    - /url: /-/media/project/oneweb/oneweb/alphasense/terms-and-conditions-of-sale-may-2026.pdf?la=en&revision=e3daa920-7279-4699-982c-e268d8e16d28&hash=BDCD29B9E99EC7993EE0D73985EFFD52
+                - listitem [ref=f75e515]:
+                  - link "Sign up for our newsletter" [ref=f75e517] [cursor=pointer]:
+                    - /url: /company/newsletter-subscription
+              - list [ref=f75e521]:
+                - listitem [ref=f75e522]:
+                  - link "Sensors" [ref=f75e524] [cursor=pointer]:
+                    - /url: /products
+                - listitem [ref=f75e525]:
+                  - link "FAQs" [ref=f75e527] [cursor=pointer]:
+                    - /url: /faqs
+                - listitem [ref=f75e528]:
+                  - link "Responsibility" [ref=f75e530] [cursor=pointer]:
+                    - /url: /company/responsibility
+                - listitem [ref=f75e531]:
+                  - link "Contact" [ref=f75e533] [cursor=pointer]:
+                    - /url: /company/contact
+            - generic [ref=f75e536]:
+              - link [ref=f75e539] [cursor=pointer]:
+                - /url: /
+                - img "logo" [ref=f75e540]
+              - list [ref=f75e543]:
+                - listitem [ref=f75e544]:
+                  - link [ref=f75e545] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/company/alphasense-ltd
+                    - img "LinkedIn Logo" [ref=f75e547]
+                - listitem [ref=f75e548]:
+                  - link [ref=f75e549] [cursor=pointer]:
+                    - /url: https://www.youtube.com
+                    - img "youtube" [ref=f75e551]
+          - generic [ref=f75e553]:
+            - img "cogdem" [ref=f75e558]
+            - img "eic" [ref=f75e563]
+            - generic [ref=f75e569]:
+              - paragraph [ref=f75e570]: Copyright © 2013-2026 Alphasense, All Rights Reserved.
+              - paragraph [ref=f75e571]: Company Registered in England and Wales. No. 03264282
+  - generic:
+    - dialog "Privacy" [ref=f75e574]:
+      - generic [ref=f75e575]:
+        - generic [ref=f75e577]:
+          - text: This site uses cookies, pixels, and similar tools (“cookies”), some of which are provided by third parties, to enable website features and functionality; measure, analyze, and improve site performance; enhance user experience; record user sessions and interactions; personalize content; and support our advertising and marketing. We and our third-party vendors may monitor, record, and access information and data, including device data, IP address and online identifiers, referring URLs and other browsing information, for these and similar purposes. By clicking Accept, you agree to such purposes. If you continue to browse our site without clicking “Accept,” or if you click “Reject,” only cookies necessary to operate and enable default website features and functionalities will be deployed. By using this site or clicking “Accept,” “Reject,” or “Manage Preferences” you acknowledge and agree to our Privacy Policy available through the link in the footer of this website,
+          - link "Cookie Policy" [ref=f75e578] [cursor=pointer]:
+            - /url: https://www.ametek.com/cookies
+          - text: ", and"
+          - link "Terms of Use" [ref=f75e579] [cursor=pointer]:
+            - /url: https://www.ametek.com/terms-of-use
+          - text: .
+        - generic [ref=f75e581]:
+          - button "Manage Preferences, Opens the preference center dialog" [ref=f75e582] [cursor=pointer]: Manage Preferences
+          - generic [ref=f75e583]:
+            - button "Reject" [ref=f75e584] [cursor=pointer]
+            - button "Accept" [ref=f75e585] [cursor=pointer]
+        - button "Close" [ref=f75e587] [cursor=pointer]
+    - text: Visit Our Preference Center to Opt-out of Cookies

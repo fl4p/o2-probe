@@ -1,0 +1,15 @@
+O2 probe procurement (BOM) audit
+schematic sha256: cf4a8326e94bf05a8ee85b1f1fa766b544efc7005e8e83d0f8d6be933d8ff712
+components: 101; bom rows: 54
+sourcing: dnp=2, generic-stock=53, mpn=31, not-purchased=14, unsourced=1
+unsourced fitted components: 1 (F3)
+purchase orders: purchase-orders.json captured 2026-09-09T14:55:10.072651+00:00, 264 lines
+result: FAIL
+ERROR: F3 is fitted but unbuyable: value '0R FITTED' footprint 'Resistor_SMD:R_0603_1608Metric' has no MPN and no declared sourcing class
+ERROR: U15 needs 'AZ431BN-ATRG1' (qty 1) but it appears on no purchase order
+ERROR: C9 needs 'C0603C102J5GACTU' but no order has it; the orders do contain the near-identical 'C0603C221J5GACTU' -- confirm the substitution and write it back to the schematic, or reorder
+ERROR: C1 C7 needs 'C1206C106K3RACTU' (qty 2) but it appears on no purchase order
+ERROR: R26 R43 R44 needs 'RC0603FR-0791KL' but no order has it; the orders do contain the near-identical 'RC0603FR-071KL' -- confirm the substitution and write it back to the schematic, or reorder
+ERROR: U6 needs 'STM32G071CBT7' but no order has it; the orders do contain the near-identical 'STM32G071CBT6TR' -- confirm the substitution and write it back to the schematic, or reorder
+ERROR: D7 needs 'TPD2E2U06QDBZRQ1' (qty 1) but it appears on no purchase order
+ERROR: U2 U3 needs 'TPS7A2033PDBVR' (qty 2) but it appears on no purchase order; the same orders carry unrelated TPS-family lines that are on no BOM row, in case one was bought in its place: TPS3840DL49DBVR on PO-0010

@@ -1,0 +1,511 @@
+# Thermal relaxation: ambient, θ and τ for the Rev A probe — 2026-09-12/13
+
+Measured overnight on the bench probe, cell #1 fitted, board in its enclosure
+with the membrane. Tool: `farming/tech/bench/o2p_theta_probe.py` (commit
+`dae2120`), raw samples in `theta-20260912.csv` (209 rows, 3 cycles).
+
+**Why.** The tip loop holds an ABSOLUTE setpoint. Fab asked for a constant +2 K
+over ambient, and Rev A cannot see ambient while heating — tip and chamber are
+one thermal node (`DT_MAX_K` is documented inert for exactly this reason). His
+proposal: cut the heater and read ambient off the cool-down. With the heater
+off, `C dT/dt = −(T − T_amb)/θ`, so **the decay asymptote is ambient** and θ
+never enters that fit; θ then comes from the steady state recorded just before
+the cut.
+
+## Results
+
+| cyc | T_amb (fit) | τ | θ | tip rise | steady duty | rms |
+|---|---|---|---|---|---|---|
+| 1 | 14.581 °C | 167.4 s | 1.099 K/%duty | 2.957 K | 2.69 % | 0.019 K |
+| 2 | 14.413 °C | 152.1 s | 0.816 K/%duty | 3.110 K | 3.81 % | 0.027 K |
+| 3 | 14.290 °C | 147.3 s | 0.849 K/%duty | 3.214 K | 3.79 % | 0.027 K |
+
+Residuals of 19–27 mK against a TMP117 LSB of 7.8 mK — the single-exponential
+tail model fits about as well as the sensor allows.
+
+**Cycle 1 is contaminated and should not be averaged in.** Its steady window
+caught the cell still soaking down from the preceding long hold, and its duty
+average (2.69 %, spread 6.02 pp over 10 samples) is not a steady state. Cycles
+2 and 3 agree closely and are the result:
+
+- **θ = 0.83 ± 0.02 K per % duty** (bench, still air, enclosure fitted)
+- **τ = 150 ± 3 s**
+
+### Ring power, from the netlist — and θ in real units
+
+The ring is **RH1 ∥ RH2, 280 R 1 W each = 140 Ω**, fed from `/+12V_SW` and
+switched to ground by Q2 (AO3400A, whose R_DS(on) is negligible against 140 Ω).
+J5 is the `HEATED MEMBRANE RING` solder land. At the measured `VIN_MON` of
+**13.092 V**:
+
+    I = 93.5 mA        P_max = V²/R = 1.224 W
+
+**Independent confirmation of the 140 Ω**: at 12.000 V that ring draws
+85.7 mA, and `heater_ctl.h` describes the load as "86 mA" — an exact match to a
+number written from the schematic, not from this calculation.
+
+So:
+
+| | cycle 2 | cycle 3 |
+|---|---|---|
+| **θ** | **66.6 K/W** | **69.3 K/W** |
+| **C = τ/θ** | 2.28 J/K | 2.13 J/K |
+
+**θ = 68 ± 2 K/W, C = 2.2 ± 0.1 J/K** for the ring-to-ambient path in still
+air, enclosure fitted. P scales with VIN², so both move with the supply.
+
+## The absolute setpoint drifted, exactly as predicted
+
+`TIP_SETPOINT` held 17.50 °C throughout. Ambient fell **14.581 → 14.290 °C**
+over the 45-minute run — an ordinary overnight room — so the commanded margin
+grew:
+
+| | cycle 1 | cycle 2 | cycle 3 |
+|---|---|---|---|
+| achieved rise | 2.957 K | 3.110 K | 3.214 K |
+
+**The 2.0 K that was set at 23:00 was 3.2 K forty-five minutes later**, from
+nothing but the room cooling. This is the direct demonstration that an absolute
+setpoint is the wrong law; it is not an argument, it is a measurement.
+
+## The cell-side TMP117 is a usable ambient reference
+
+This is the operationally important finding. `T_EXT` sits close to the fitted
+ambient and does so repeatably:
+
+| cyc | cell − T_amb, while heated | cell − T_amb, end of cut | coupling |
+|---|---|---|---|
+| 1 | +0.298 K | −0.261 K | 18.9 % |
+| 2 | **+0.101 K** | **−0.243 K** | **11.1 %** |
+| 3 | **+0.098 K** | **−0.240 K** | **10.5 %** |
+
+Cycles 2 and 3 agree to **3 mK** on the heated offset and **3 mK** on the
+settled one. Cycle 1 is again the soak-down outlier.
+
+Two numbers fall out, and they are consistent with each other:
+
+1. **The fitted asymptote is ~0.24 K above where the cell settles.** This is
+   the self-heating term the method cannot remove: with the heater off the
+   plant relaxes to `T_amb + P_idle·θ`, not to `T_amb`. It is constant to
+   ±3 mK across cycles, therefore calibratable — but it is not zero, and a
+   fitted "ambient" must not be quoted as absolute room temperature.
+2. **The cell is ~11 % coupled to the tip heater.** A 3.1 K tip rise lifts the
+   cell 0.34 K (0.27 K after subtracting the 0.07 K the room fell during the
+   cut). The two views close: `0.101 + 0.243 = 0.344 K`.
+
+### Consequence for a `T_EXT + offset` law
+
+A law of the form `setpoint = T_EXT + Δ` has a **gain error from that 11 %
+coupling**: raising the tip raises `T_EXT`, which raises the setpoint. It
+converges rather than running away —
+
+    achieved ≈ Δ / (1 − k),  k ≈ 0.11   →   Δ = 2.0 K gives ≈ 2.25 K
+
+— so a commanded 2 K lands at about 2.25 K. Scale the offset by `(1 − k)`
+(i.e. write 1.78 K to get 2.0 K) or simply accept a 12 % high margin. Either
+way it is bounded, unlike the absolute setpoint's unbounded drift with ambient.
+
+**This makes the +2 K law implementable on Rev A today**, without the
+relaxation cycles in the control path at all: `T_EXT` is the reference, and the
+heater-off measurement becomes the occasional calibration that validates it
+rather than a required step.
+
+## This closes a gap the firmware names as open
+
+`heater_ctl.h:24-31` says, in as many words:
+
+> THE PLANT GAIN IS UNKNOWN. THERMAL-BARRIER.md:5-9 gives 98 K/W (interval
+> 91-102, engineering bound 90-110 K/W) for the bare-PCB transverse path, and
+> :18 says plainly that this "is for PCB conduction only. It is not the
+> ring-to-ambient" path — which is the one that actually sets how many kelvin
+> a watt buys in wet pore gas.
+
+**That ring-to-ambient path is what the 68 K/W above measures** — in still
+bench air, which is the easy end, but it is the first number of that kind this
+project has. The gains in `heater_ctl.h` are described as "conservative
+starting points, NOT design values … exposed as holding registers precisely
+because they cannot be known until the loop runs on hardware". The loop has now
+run on hardware.
+
+## RETRACTION: "the dew law's 4 K is unreachable" was not supported
+
+Stated on 2026-09-12 evening, before this measurement: that a <1 W heater could
+not hold 4 K in a buried probe, so the dew law would pin at 100 % duty forever.
+**That rested on a guessed buried conductance of 0.2–0.5 W/K, and nothing
+measured.** The bench number gives it no support: 1.224 W at 68 K/W buys 83 K
+in still air, and the buried value is simply unknown — somewhere between that
+and the couple of K/W the guess assumed. The claim should not have been made
+with the confidence it was.
+
+What can honestly be said: **buried θ is the one number that decides the
+thermal design**, and it is one bucket of damp compost and three cycles of this
+tool away.
+
+## And PLAN.md already argued against a fixed +2 K
+
+Worth surfacing before any fixed-offset law is built, because it is the
+project's own prior decision (`heater_ctl.h:14-18`, quoting PLAN.md:300-302):
+
+> "+2 K gives only ~90-91 % RH on saturated gas; 85 % needs ~3.1-3.7 K at
+> 40-65 C — design the thermal path for a 0-4 K dT range, not a fixed 2 K." A
+> fixed offset that is right at 40 C is wrong at 65 C, and the pile spans both.
+
+An independent check of that arithmetic agrees: 2 K of superheat leaves local
+RH at ~92 % at 70 °C and ~89 % at 20 °C. So a fixed 2 K does keep liquid water
+off the membrane, but it does **not** reach the 85 % the plan targets, and the
+required ΔT genuinely does rise with temperature. **The dew-margin law's 4 K is
+the design intent, not an arbitrary number** — it sits inside the 3.1–3.7 K
+band PLAN.md asks for.
+
+This does not settle 2 K vs 4 K; it means the choice is between "keep liquid
+water off" (2 K, cheap, achievable) and "hold the RH the plan specified"
+(3–4 K, cost unknown until buried θ is measured). That is Fab's call, and it
+should be made with PLAN.md's reasoning in front of it rather than around it.
+
+## Outcome: the two laws were combined, not chosen between (FW 0x0016)
+
+Fab, 2026-09-13: *"should we combine +2k and the 4k dew margin?"* then *"lets
+do it then"*, and on the cell's rating, *"ignore the rating, we will use it out
+of spec"* - so the 79 C ceiling against the 60 C cell stops being an open
+question and becomes a deliberate out-of-spec operating point.
+
+**They were mutually exclusive before this.** `heater_ctl.c` selected one law
+per cycle - override > stored tip setpoint > dew > RH - so arming a +2 K
+setpoint would have SWITCHED THE DEW LAW OFF rather than adding to it. That is
+what the bench probe has been doing all night at its 17.50 C setpoint.
+
+Now the autonomous slot drives **`max(dew_duty, floor_duty)`**. Both laws are
+lower bounds on how hard the ring must drive, so the binding one wins and
+neither can turn the other down. Each keeps its own integrator, because the two
+run in the SAME cycle and the mode tag can only arbitrate between laws that
+take turns.
+
+### The floor is a gradient, not "+2 K over ambient"
+
+Worth stating plainly, because the request and the implementation are not the
+same sentence. **This board has no ambient sensor.** T_EXT is simultaneously
+the closest thing to ambient and the dew law's reference surface, so
+"cell minus ambient" taken from it is identically zero. What two sensors can
+state is a gradient: hold the tip 2.00 K above the cell side, i.e. never stop
+pumping heat outward past the membrane.
+
+What that buys, using this document's own numbers: at the measured **11 %
+coupling** a 2 K gradient lifts the cell only ~0.22 K over true ambient in
+still bench air; the bath data (cell gains ~0.4 K per K of tip) would make it
+~0.8 K. **So the floor is not a 2 K dew margin and must not be quoted as one.**
+It is a guarantee that heat never stops flowing outward.
+
+### What it actually covers
+
+The dew law's failure mode, from its own header: an SHT45 wetted and then
+drying reads a falsely LOW humidity, so the computed dew point drops, the
+margin looks generous, and **the law asks for zero duty while the membrane
+condenses**. No interlock fires - every reading is valid. The law is being
+lied to, and nothing inside it can tell.
+
+The floor's value is that its sensor chain is DISJOINT from the one that can
+lie: two TMP117s, no humidity, no Magnus form, no wettable sensing surface.
+
+### The cost, and the monotonicity that had to be given up
+
+**It runs continuously in a self-heating pile**, not only in wet gas: a pile
+hotter than the probe heats the cell from outside, the tip lags, and the floor
+demands duty to get back ahead. Bounded by the same 79 C ceiling and by
+HEATER_MAX_DUTY - and in saturated pore gas the dew law was going to bind
+anyway - but a buried power budget cannot be taken from the dew law alone.
+
+**The combined law is not monotonic in cell temperature**, and cannot be: a
+cell above the tip is the dew law's best case and the floor's worst. The
+guarantee that survives is that each law is monotonic in its own error and
+max() is monotonic in each argument; the test that asserted the old, stronger
+property was rescoped to the dew law and the floor got its own.
+
+### The calibration is not at risk from this reflash
+
+Fab, 2026-09-13: *"we can't loose our calibration every re-flash."* Checked
+rather than assumed:
+
+- Config lives in flash pages 62-63, OUTSIDE the run and staging slots
+  (`flash_map.h`), and `update_target.c` refuses any page outside staging. An
+  OTA install cannot reach it.
+- The only path that has ever discarded an air point is
+  `config_migrate.c`, entered when `CONFIG_LAYOUT_VERSION` changes - and since
+  v5 even that carries the air point forward.
+
+So this change was built with **compile-time constants rather than holding
+registers**. It bumps FW_VERSION 0x0015 -> 0x0016 and does NOT touch the
+record layout, so K = 437977 survives the install. Cost: **+164 bytes of flash**
+(86.1 % of the 52 KiB slot) and +4 bytes of RAM.
+
+The old standing note "the O2 config is lost on every reflash" was retired the
+same day as superseded: it generalised a single 2026-09-08 event into a
+property of all reflashes, and the flash map does not support that.
+
+**Not flashed.** The image builds and all 376 host tests pass; installing it on
+probe 3 is a probe state change and waits for Fab's word.
+
+## 2026-09-13 morning: the combined law's first run, and what it broke
+
+All readings through the keeper on probe 3, enclosure fitted, room air.
+
+### Handing over to the combined law
+
+Fab: *"disarm the setpoint, let the new law run"*. `TIP_SETPOINT` to the
+sentinel, `TIP_CONSENT` 0, committed: `CONFIG_CRC` 0xD1AA → **0xE25C**,
+`HEATER_BLOCK` 0x8000. Both laws were visible in the first minute: duty jumped
+to **83.83 %** — the gradient floor, seeing 0.1 K of tip-over-cell where it
+wants 2 K — and then fell to 5.31 % as the dew law took over.
+
+### Then the dew law ran away in a wet enclosure
+
+| read | T_TIP | T_CHAMBER | RH | T_EXT | duty |
+|---|---|---|---|---|---|
+| handover | 17.51 | 17.40 | 66.23 % | 17.53 | 0.06 % |
+| +~2 min | 24.40 | 24.66 | 65.87 % | 17.53 | 33.33 % |
+| +~5 min | **40.66** | 41.43 | **62.57 %** | **18.12** | **100.00 %** |
+
+Heating the chamber 24.66 → 41.43 °C at fixed absolute humidity should have
+dropped RH to ~25 %; it fell to 62.6 %. So water was being driven off the
+enclosure's surfaces faster than the heat diluted it, and **the gas dew point
+rose with the tip: 17.85 → 32.83 °C** (Magnus on chamber T and RH).
+
+- tip +16.26 K, dew point +14.98 K: **dTd/dT_tip ≈ 0.92**
+- cell +0.59 K for 23.2 K of tip since handover: **coupling ≈ 0.026**
+
+The actuator moved the disturbance ~35× harder than the controlled quantity.
+That loop cannot converge — not a tuning fault, a sign-of-authority fault — and
+by its own documented design it would have held the tip at the 79 °C ceiling
+indefinitely. **Correction:** the FW 0x0018 header comment and commit message
+quote "tip 24.66 → 41.43 °C, ratio 0.89"; those are the *chamber* values. The
+tip ratio is 0.92. Nothing in the logic depends on the figure.
+
+`DEW_MARGIN` (0x0014) read a comfortable **8.52 K** throughout, because it is
+*tip*-referenced — the exact blindness `DEW-MARGIN-IS-BLIND.md` documents, and
+the reason the dew law controls the *cell* side instead.
+
+### The excursion dried the enclosure
+
+After it, the gas dew point was **10.24 °C** against ~21.5 °C ambient (later
+13.88 °C). The accidental excursion was a flush, and it worked — **in room air,
+which is a sink**. Fab asked whether to flush on a timer like the SHT45's
+de-creep. Answer given, not implemented: no. A flush ends with a saturated
+interior cooling toward pile temperature, and the first surface under the dew
+point catches the water; buried in saturated pore gas there is no sink. Drying
+belongs in a **commissioning bake before burial**. What was built instead is
+below.
+
+### An uncommitted cap is lost on reflash
+
+Fab capped `HEATER_MAX_DUTY` at 10 % live during the climb (`CONFIG_CRC`
+0x246E) and did not commit it; the next install rebooted into the stored record
+and it came back **100 %**, `CONFIG_CRC` 0xE25C. That is not config loss — the
+calibration was untouched (CAL_AIR_NA 101 327 nA, DIL_ALPHA 1000, TEMPCO 0) —
+it is live state that was never persisted. Fab then: *"no more 10% cap, that's
+useless in the pile."* The cap stays off.
+
+### The runaway latch fired on its own cool-down
+
+With the cap applied the ring read **exactly 10.00 %, flat**: `HEATER_BLOCK`
+0x2100 = **RUNAWAY | BLIND**, the 50 % blind fallback clamped by the cap. Fab:
+*"this is not a runaway situation."* Correct — the tip-minus-die test was a
+*level* (> 10 K) over a *60 s* window against **τ = 150 s**, so any commanded
+excursion past the threshold latched on the way down. Fixed in **FW 0x0017**
+(`8bb8802`) with a decay discriminator: commanded heat decays from its peak, a
+stuck FET holds one. The existing 376 tests all passed against the broken
+detector; the new ones fail with the discriminator removed.
+
+Installed 0x0017, clean build `dd7b689` (`BUILD_ID` 0x4DD7B689, bit 30 the
+runtime debug flag). The keeper reported **`verify rc=1`** for an install that
+`BUILD_ID` proves succeeded — a false failure, likely the link dropping across
+the reboot; not chased. After it: `HEATER_BLOCK` **0xC000** (IDLE |
+TIP_DISARMED, no refusal), cell margin **11.32 K**, tip − T_EXT **3.11 K**,
+duty **0.00 %** — the combined law in command with both halves satisfied, for
+the first time.
+
+### FW 0x0018: detect the regime instead of fighting it
+
+`d7be806`, built and tested (388 pass), **not flashed**, codex xhigh review
+running. When a 5 K tip climb buys under 0.5 K of cell-side margin, the dew law
+withholds its demand and the gradient floor holds the tip; it clears when the
+margin meets its 4 K target or after 6 h. A single-cycle tip step over 3 K is a
+discontinuity, not a climb — the suite caught the detector reading a synthetic
+55 → 79.5 °C jump as "no authority", the same heat-we-did-not-deliver error as
+the runaway latch. **Known limit, put to the reviewer:** slow external heating
+while the law drives is still credited as its own climb. New read-only register
+**HEATER_LAW (0x0008)** publishes the law in command and the unreachable flag,
+because no existing register could tell that fallback from "both satisfied".
+
+## 2026-09-13: the 0x0018 detector failed review; rebuilt as a ceiling-dwell test (FW 0x0019)
+
+The codex xhigh review of `d7be806` ran 25 min with network, executed the
+committed controller against throwaway thermal models, and returned eight
+findings. Each was re-checked against the code before it was believed
+(`~/codex-reviews/o2p-heater-law-0x0018/final.md`). **0x0018 was never
+flashed and is superseded.**
+
+**The criterion was the wrong kind of test.** "5 K of tip rise must buy 0.5 K
+of margin" requires ≥ 10 % cell coupling, and this document measured
+**3–11 %**. Model at 9 %: it gave up after 43 s and left the cell 0.2 K under
+its dew point for 6 h, where the plain law reached a 4 K margin at a 73.7 °C
+tip. The same form never fired when the tip could not climb 5 K (a 75 °C pile
+held 79 °C for 6 h), credited slow outside heat as its own climb, and could
+clear itself on its own retreat and re-climb every ~80 min. Plus code bugs:
+detector state survived refused and blind cycles, a met target could flag,
+HEATER_LAW read DEW on a runaway-latch cycle, and the CLI, poller and doc
+checker did not know the register.
+
+**Fab chose option A: give up only at the ceiling.** FW 0x0019 (`9eb3a34`)
+declares the margin unreachable when it is short **and** the tip has sat within
+1 K of the dew law's ceiling for 600 observed seconds. At the ceiling no more
+heat is possible whatever put the tip there, so there is no attribution
+question left to get wrong. Recovery needs the margin 1 K over target held
+600 s, or the 6 h retry. Evidence is discarded across refused cycles; the
+verdict survives the dew law's own refusals, because the SHT45 de-creep refuses
+it every 8 h by default.
+
+**Stated limits.** It bounds the *time* at the ceiling, not the climb there.
+A plant that cannot reach the ceiling at full duty — a well-coupled buried
+probe — never trips it and keeps driving: power, not the cell.
+
+**Verification.** The 0x0018 tests passed teleported inputs and missed the
+physics, so the new ones run through a first-order plant (θ·P 83.2 K,
+τ 150 s). The wet-gas test's first run exposed its own assumption: the PI
+overshoots into the ceiling band, falls out and settles, and the dwell rightly
+restarts. Mutation-calibrated: a never-firing detector fails 6 tests, an
+always-firing one fails 15. 391 host tests pass; cross build 87.1 % of the slot.
+
+**Handoff.** A peer session holds Fab's instruction for a cell-referenced
+gradient ceiling (min(79 °C, T_cell + DT_MAX)). Both sides agreed that the
+ceiling lives in one function, `dew_ceiling_c100()`, which the law, the
+gradient floor and this detector all call. If the detector had kept its own
+79 °C copy, a cell + 4 K ceiling would have made it silently dormant. That
+change lands as 0x001A; one combined codex review covers 0x0019 + 0x001A before
+any install.
+
+## 2026-09-13 midday: 0x0019 and 0x001A installed, keeper verify fixed, combined review
+
+**Installs** (both verified by `tech/bench/o2p_flash.py` witnesses, calibration
+untouched: `CONFIG_CRC` 0xE25C, CAL_AIR_NA 101 327 nA throughout):
+
+| FW | commit | BUILD_ID on probe | by |
+|---|---|---|---|
+| 0x0019 | `9eb3a34` (image from clean worktree at `eccbe14`) | `0x4ECCBE14` | this session, Fab: *"flash, then review"* |
+| 0x001A | `496dd2e` — cell-referenced gradient ceiling | `0x4496DD2E` | peer session, on Fab's *"fix it, flash it"* |
+
+Both installs ran under the `o2-probe-bench` lock, handed over explicitly.
+HEATER_LAW (0x0008) gave its first hardware reading straight after 0x0019:
+**0x0004, DEW**. On 0x001A the 2 K floor held the tip at T_EXT + 2.01 K at 0 %
+duty.
+
+**The keeper's false `verify rc=1` — cause found and fixed.** It appeared on the
+0x0017, 0x0019 and 0x001A installs, each of which BUILD_ID proved good. The
+keeper log gave the cause: `running BUILD_ID 4496DD2E, expected 0496DD2E`. The
+farmgw copy of `o2p_update.py` (2026-09-11 17:49) predated `c295364` and
+compared BUILD_ID with bit 30 unmasked, so every debug build failed the check.
+On Fab's *"update farmgw"*: the diff against the repo was exactly the
+`c295364` hunks, the committed file was deployed with its md5 verified
+(`a319164…`, old copy kept as `o2p_update.py.pre-c295364`), and the keeper was
+restarted via `keeper-restart.sh` under the lock. The new serve process started
+after the deploy, so it loaded the fix. **Unproven end to end until the next
+install.** `~/blepush/o2probe-tol/o2p_update.py`, the deliberately tolerant
+variant, was left alone.
+
+**Combined codex xhigh review of `9eb3a34` + `496dd2e`**
+(`~/codex-reviews/o2p-heater-law-0x0019/final.md`). It ran on committed code
+only, 397 host tests, with the controllers driven through a first-order plant.
+Headline findings; F1 and F5 re-verified against the code:
+
+1. **P1 (`496dd2e`) — blind heating bypasses the gradient ceiling.** The
+   refusing path returns through `blind_duty()`, which never consults
+   `dew_ceiling_c100()`. During an SHT45 de-creep mask with the die under 40 °C,
+   the 50 % fallback took the tip to ~59.8 °C over a ~23 °C cell (36.6 K of
+   gradient) in the model.
+2. **P1 (`9eb3a34`) — evidence resets allow unlimited time at the ceiling.** A
+   refusal discards the dwell, so refusals more often than every 600 s (e.g.
+   one NO_TIP glitch per 500 s) keep a 75 °C probe at ≥ 78 °C for 21 562 s of
+   6 h with no verdict. The 8 h de-creep on its own does not do this.
+3. **P2 (`9eb3a34`) — the 1 K band can still give up slightly early:** it flags
+   at 3.95 K of margin where 4.00 K was reachable.
+4. **P2 (`496dd2e`) — raising DT_MAX_K does not revisit an existing verdict.**
+5. **P2 (`496dd2e`) — "buy authority back by raising DT_MAX_K" exceeds the
+   register.** Config validation rejects anything above 4.00 K, and the bench
+   probe is already at 4.00 K; the test showing 4.5 K and the 600 K fixture
+   bypass validation.
+6. **P2 — tooling:** the poller's PRIMARY / DIAG / HLAW reads are not bracketed,
+   so one CSV row can mix cycles; appending to an old CSV leaves `heater_law`
+   without a header.
+
+**Survived:** one shared ceiling function with no arithmetic defect; 0x0018's
+F2, F4, F5 and F7 fixed; no band flicker in 280 uninterrupted wet runs; retries
+re-arm correctly; first-sample and wrap handling correct; DT_MAX_K = 0 means
+DT_LIMIT and zero duty.
+
+**The design fact 0x001A makes explicit.** A gradient G warms the cell by
+kG/(1−k): at 3–11 % coupling the 4 K ceiling buys **0.12–0.49 K** and the 2 K
+floor **0.06–0.25 K**. The 4 K margin is therefore unreachable in essentially
+all near-saturated gas, and the probe lives on the floor. The floor does **not**
+guarantee a non-condensing cell: the wet model starting at 1 K margin settled
+at **−0.83 K**.
+
+## Method notes
+
+- **The cuts were genuinely free**: duty read exactly 0.00 in all 181
+  off-phase samples, verified from the CSV rather than assumed from the write.
+- The fit discards the first 0.5 τ. The plant is multi-mass — tip, chamber,
+  cell and stem — and only the tail is one exponential.
+- The fit is linear in (A, B) once τ is fixed, so it searches τ on a log grid
+  and solves the 2×2 normal equations exactly: no scipy, no local minima.
+  Checked against a synthetic exponential before touching hardware — recovers
+  `T_amb` to 1.7 mK and τ to 0.4 % under ±1 LSB dither, returns `None` for
+  n < 4, and does not invent an asymptote from flat data.
+- **Steady duty is the noisy quantity**, not temperature: spreads of 6–10
+  percentage points against means of 2.7–3.8 %. The loop is nearly bang-bang at
+  this demand, so θ's uncertainty is dominated by the duty average, not by the
+  fit. Lengthen `--pre-s` if θ needs to be tighter than ±2 %.
+- The heater was re-armed and **verified** after every cut; `TIP_CONSENT` read
+  back non-zero all three times. Nothing was committed, so the flash record
+  kept its setpoint and consent throughout.
+
+## Open
+
+- **Buried θ** — the one number that decides the thermal design.
+- Whether τ's downward trend (167 → 152 → 147 s) is real or fit noise.
+- ~~The dew law's 79 °C tip ceiling against the cell's 60 °C rating.~~ CLOSED
+  2026-09-13, Fab: *"ignore the rating, we will use it out of spec."* The
+  ceiling stands as written; the cell is knowingly operated past its rating.
+- ~~Installing FW 0x0016 on probe 3.~~ DONE 2026-09-13 on Fab's "flash it":
+  46 056 B, CRC `1EAF8F3B`, 111 s, installed and verified through the keeper.
+  **The calibration survived, measured rather than argued** — `CONFIG_CRC`
+  bit-identical at 0xD1AA and CAL_AIR_NA still 101 327 nA across the install,
+  with every other per-probe constant unmoved (`tech/bench/o2p_flash.py` in
+  farming does the before/after comparison).
+  Two things that install taught, both since fixed:
+  - the image was stamped `8AA6133D` — a DIRTY tree at `aa6133d`, i.e. no
+    reproducible provenance. A clean rebuild differs by exactly 12 bytes, the
+    build id at three sites.
+  - `--expect-build-id` could never have verified it: bit 30 is set at runtime
+    by `regmap.c` on an `O2P_DEBUG_ENABLE=1` image and never stamped by the
+    builder, so the bare equality in `o2p_update.py` failed on every image this
+    probe can run (fixed in `c295364`).
+- ~~FW 0x0016 is superseded by 0x0017.~~ DONE 2026-09-13: 0x0017 installed
+  clean (`dd7b689`, `BUILD_ID` 0x4DD7B689) — see the morning section above.
+- ~~The gradient floor and the dew law are dormant while a stored tip setpoint
+  is armed.~~ DONE 2026-09-13: setpoint returned to the sentinel on Fab's word,
+  `CONFIG_CRC` 0xE25C; the combined law is in command.
+- ~~FW 0x0018 (`d7be806`).~~ SUPERSEDED 2026-09-13 — failed codex xhigh review,
+  never flashed; replaced by 0x0019 (`9eb3a34`), see the section above.
+- ~~Slow external heating credited as the dew law's own climb.~~ GONE with the
+  climb test: 0x0019 asks no attribution question.
+- ~~FW 0x001A.~~ INSTALLED 2026-09-13 (`496dd2e`, BUILD_ID 0x4496DD2E); combined
+  review done, see the midday section.
+- **Review P1s open:** blind fallback bypasses the gradient ceiling (`496dd2e`);
+  frequent refusals defeat the dwell (`9eb3a34`).
+- The floor keeps heat flowing outward but does not keep a near-saturated cell
+  above its dew point at 3–11 % coupling; DT_MAX_K is capped at 4 K by config
+  validation. A design decision for Fab.
+- 0x0019's accepted limits: bounds time at the ceiling, not the climb; a plant
+  that cannot reach the ceiling at full duty keeps driving.
+- ~~The keeper's false `verify rc=1`.~~ CAUSE: stale farmgw `o2p_update.py` without
+  `c295364`; deployed and keeper restarted 2026-09-13 12:27. Confirm on the next install.
+- A commissioning bake to dry the enclosure before burial — proposed, not
+  specified.

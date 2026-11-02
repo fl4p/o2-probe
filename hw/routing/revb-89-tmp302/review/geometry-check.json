@@ -1,0 +1,13 @@
+{
+  "outline_mm": [
+    20,
+    89
+  ],
+  "footprints": 101,
+  "retained_footprints": 99,
+  "replaced_local_segments": 4,
+  "added_copper_items": 30,
+  "TMP302_trip_C": 85,
+  "nominal_hysteresis_C": 10,
+  "seconds": 0.17
+}

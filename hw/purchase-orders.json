@@ -1,0 +1,2401 @@
+{
+  "source": "InvenTree parts.fabi.me /api/order/po/ and /api/order/po-line/ (read-only)",
+  "captured_utc": "2026-09-09T14:55:10.072651+00:00",
+  "note": "Historical order coverage only; quantities received are not current stock. See docs/REVB-BOM-RECONCILIATION.md for current inventory and shortages.",
+  "orders": [
+    "PO-0001",
+    "PO-0002",
+    "PO-0003",
+    "PO-0004",
+    "PO-0005",
+    "PO-0006",
+    "PO-0007",
+    "PO-0008",
+    "PO-0009",
+    "PO-0010",
+    "PO-0011",
+    "PO-0012",
+    "PO-0013",
+    "PO-0014",
+    "PO-0015",
+    "PO-0016"
+  ],
+  "lines": [
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "1189-1047-ND",
+      "mpn": "100ZLJ680M16X40",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "J10125-ND",
+      "mpn": "111-0702-001",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "J10126-ND",
+      "mpn": "111-0703-001",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "1597-113990714-ND",
+      "mpn": "113990714",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "RPC6337-ND",
+      "mpn": "16FWRT375032",
+      "quantity": 25.0,
+      "received": 25.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "277-1721-ND",
+      "mpn": "1984617",
+      "quantity": 30.0,
+      "received": 30.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "A0938-ND",
+      "mpn": "35495",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "3182-3S7A_0512S1.5UP-ND",
+      "mpn": "3S7A_0512S1.5UP",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "145-50M060100N060-ND",
+      "mpn": "50M060100N060",
+      "quantity": 50.0,
+      "received": 50.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "145-50M060100P075-ND",
+      "mpn": "50M060100P075",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "2014-7.SA.B.ITE-ND",
+      "mpn": "7.SA.B.ITE",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "505-ADP7118AUJZ-2.5-R7CT-ND",
+      "mpn": "ADP7118AUJZ-2.5-R7",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "505-ADP7118AUJZ-3.3-R7CT-ND",
+      "mpn": "ADP7118AUJZ-3.3-R7",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "505-ADP7182AUJZ-2.5-R7CT-ND",
+      "mpn": "ADP7182AUJZ-2.5-R7",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "296-48477-1-ND",
+      "mpn": "ADS1262IPWR",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "1276-1033-1-ND",
+      "mpn": "CL10B104JB8NNNC",
+      "quantity": 50.0,
+      "received": 50.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "4654-CL159719-ND",
+      "mpn": "CL159719",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "4654-CL159775-ND",
+      "mpn": "CL159775",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "XC1851CT-ND",
+      "mpn": "ECS-2033-073-AU",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "587-4319-1-ND",
+      "mpn": "EMK316BB7226ML-T",
+      "quantity": 50.0,
+      "received": 50.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "490-GRM1885C1H103JA01JCT-ND",
+      "mpn": "GRM1885C1H103JA01J",
+      "quantity": 50.0,
+      "received": 50.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "490-9669-1-ND",
+      "mpn": "GRM1885C1H472JA01D",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "490-GRM3195C1H104JA05DCT-ND",
+      "mpn": "GRM3195C1H104JA05D",
+      "quantity": 50.0,
+      "received": 50.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "448-IPA050N10NM5SXKSA1-ND",
+      "mpn": "IPA050N10NM5SXKSA1",
+      "quantity": 20.0,
+      "received": 20.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "296-ISO7761DWRCT-ND",
+      "mpn": "ISO7761DWR",
+      "quantity": 4.0,
+      "received": 4.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "1772-2641-ND",
+      "mpn": "M3479-SS",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "764-MPMT10015002ATSCT-ND",
+      "mpn": "MPMT10015002ATS",
+      "quantity": 4.0,
+      "received": 4.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "811-MYBSP01206AZFT-ND",
+      "mpn": "MYBSP01206AZFT",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "296-OPA182IDRCT-ND",
+      "mpn": "OPA182IDR",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "696-PCS-0R001D1-ND",
+      "mpn": "PCS-0R001D1",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "311-1.00KHRCT-ND",
+      "mpn": "RC0603FR-071KL",
+      "quantity": 25.0,
+      "received": 25.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "13-RC0603FR-0733RLCT-ND",
+      "mpn": "RC0603FR-0733RL",
+      "quantity": 25.0,
+      "received": 25.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "455-S4B-ZR-SM4A-TFCT-ND",
+      "mpn": "S4B-ZR-SM4A-TF",
+      "quantity": 20.0,
+      "received": 20.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "2101-S93513-ND",
+      "mpn": "S93513",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "587-2984-1-ND",
+      "mpn": "TMK107B7105KA-T",
+      "quantity": 25.0,
+      "received": 25.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "296-51835-1-ND",
+      "mpn": "TMP117MAIDRVR",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "1818-VP0265840000G-ND",
+      "mpn": "VP0265840000G",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0001",
+      "order_date": "2026-08-20",
+      "sku": "455-1202-ND",
+      "mpn": "ZHR-4",
+      "quantity": 20.0,
+      "received": 20.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0002",
+      "order_date": "2026-08-21",
+      "sku": "C909787",
+      "mpn": "B1212S-1WR2",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0002",
+      "order_date": "2026-08-21",
+      "sku": "C909788",
+      "mpn": "B1212S-2WR2",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0002",
+      "order_date": "2026-08-21",
+      "sku": "C478972",
+      "mpn": "HV05-A12",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0002",
+      "order_date": "2026-08-21",
+      "sku": "C909660",
+      "mpn": "K7812-500R3",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0002",
+      "order_date": "2026-08-21",
+      "sku": "C2923819",
+      "mpn": "URB2412S-6WR3",
+      "quantity": 4.0,
+      "received": 4.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0002",
+      "order_date": "2026-08-21",
+      "sku": "C5183122",
+      "mpn": "URB2412YMD-10WR3",
+      "quantity": 4.0,
+      "received": 4.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0002",
+      "order_date": "2026-08-21",
+      "sku": "C512070",
+      "mpn": "WRB1215CS-3W",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0002",
+      "order_date": "2026-08-21",
+      "sku": "C512074",
+      "mpn": "WRB2412CS-3W",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0003",
+      "order_date": "2026-08-21",
+      "sku": "C2858578",
+      "mpn": "ALT4532M-171-T001",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0003",
+      "order_date": "2026-08-21",
+      "sku": "C2904734",
+      "mpn": "CL4532A-201",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0003",
+      "order_date": "2026-08-21",
+      "sku": "C4154983",
+      "mpn": "H0651-L",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0003",
+      "order_date": "2026-08-21",
+      "sku": "C2941371",
+      "mpn": "LT19-602",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0003",
+      "order_date": "2026-08-21",
+      "sku": "C413501",
+      "mpn": "N1342DEA-0008BQE=P3",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0003",
+      "order_date": "2026-08-21",
+      "sku": "C581397",
+      "mpn": "PE-68386NLT",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0003",
+      "order_date": "2026-08-21",
+      "sku": "C969056",
+      "mpn": "WRB2415S-3WR2",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C17539",
+      "mpn": "0805W8F2003T5E",
+      "quantity": 100.0,
+      "received": 100.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C26010",
+      "mpn": "0805W8F3301T5E",
+      "quantity": 100.0,
+      "received": 100.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C17673",
+      "mpn": "0805W8F4701T5E",
+      "quantity": 100.0,
+      "received": 100.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C17713",
+      "mpn": "0805W8F4702T5E",
+      "quantity": 100.0,
+      "received": 100.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C207030",
+      "mpn": "0997030.WXN",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C437654",
+      "mpn": "100YXJ47MT78X16",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C727081",
+      "mpn": "1N4007",
+      "quantity": 50.0,
+      "received": 50.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C9932",
+      "mpn": "ACS712ELCTR-30A-T",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C5250992",
+      "mpn": "AMS1117-3.3",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C5250993",
+      "mpn": "AMS1117-5.0",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C347475",
+      "mpn": "AO3400A",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C116600",
+      "mpn": "C116600",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C13380",
+      "mpn": "C13380",
+      "quantity": 100.0,
+      "received": 100.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C81482",
+      "mpn": "C81482",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C15972",
+      "mpn": "CL21B474KAFNNNE",
+      "quantity": 50.0,
+      "received": 50.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C170102",
+      "mpn": "CL31B225KAHNNNE",
+      "quantity": 40.0,
+      "received": 40.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C51205",
+      "mpn": "CL31B475KBHNNNE",
+      "quantity": 50.0,
+      "received": 50.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C101753",
+      "mpn": "CR0805F847R0G",
+      "quantity": 100.0,
+      "received": 100.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C395960",
+      "mpn": "DBT50G-9.5-4P",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C908659",
+      "mpn": "ES5J-SMB",
+      "quantity": 100.0,
+      "received": 100.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C701341",
+      "mpn": "ESP32-WROOM-32E-N4",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C5250896",
+      "mpn": "F11-02-05",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C2907218",
+      "mpn": "FRC0805F1000TS",
+      "quantity": 100.0,
+      "received": 100.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C49851",
+      "mpn": "INA226AIDGSR",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C2960",
+      "mpn": "IR2104STRPBF",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C707733",
+      "mpn": "KF78H-13.0-4P",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C72551",
+      "mpn": "KM477M100K25RR0VH2FP0",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C13879",
+      "mpn": "MF52A103F3950 (A1)",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C2891515",
+      "mpn": "MJD41C",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C727127",
+      "mpn": "MMBT3904",
+      "quantity": 50.0,
+      "received": 50.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C165656",
+      "mpn": "NXA 100V470 16*31.5",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C103903",
+      "mpn": "RTT051001FTP",
+      "quantity": 100.0,
+      "received": 100.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C3152173",
+      "mpn": "SC0805F1003F4ANRH",
+      "quantity": 100.0,
+      "received": 100.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C5140930",
+      "mpn": "SC0805F1502F4ANRH",
+      "quantity": 100.0,
+      "received": 100.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C5140913",
+      "mpn": "SC0805F3302F4ANRH",
+      "quantity": 100.0,
+      "received": 100.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C15874",
+      "mpn": "SS310",
+      "quantity": 30.0,
+      "received": 30.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C344201",
+      "mpn": "TCC0805X7R333K500DT",
+      "quantity": 100.0,
+      "received": 100.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C2683770",
+      "mpn": "TF2103M-TAH",
+      "quantity": 3.0,
+      "received": 3.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C3010573",
+      "mpn": "TO-220",
+      "quantity": 100.0,
+      "received": 100.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C3010574",
+      "mpn": "TO-3P",
+      "quantity": 100.0,
+      "received": 100.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C393938",
+      "mpn": "TS665CJ",
+      "quantity": 50.0,
+      "received": 50.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C965812",
+      "mpn": "XL-2012SURC",
+      "quantity": 100.0,
+      "received": 100.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C50848",
+      "mpn": "XL7005A",
+      "quantity": 35.0,
+      "received": 35.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0004",
+      "order_date": "2026-08-21",
+      "sku": "C5289430",
+      "mpn": "XRCD54-101K",
+      "quantity": 20.0,
+      "received": 20.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C38141",
+      "mpn": "0805B104K500NT",
+      "quantity": 100.0,
+      "received": 100.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C207030",
+      "mpn": "0997030.WXN",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C134092",
+      "mpn": "1054500101",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C193969",
+      "mpn": "ADS1015IDGSR",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C37593",
+      "mpn": "ADS1115IDGSR",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C5215163",
+      "mpn": "ADS131M03IPWR",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C347475",
+      "mpn": "AO3400A",
+      "quantity": 40.0,
+      "received": 40.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C2938778",
+      "mpn": "B1212S-1WR3",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C14267",
+      "mpn": "CH340G",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C19110",
+      "mpn": "CL21B225KAFNNNE",
+      "quantity": 100.0,
+      "received": 100.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C841368",
+      "mpn": "CRST037N10N",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C461817",
+      "mpn": "DESD3V3E1BL-7B",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C82891",
+      "mpn": "ESP-12F(ESP8266MOD)",
+      "quantity": 3.0,
+      "received": 3.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C2913197",
+      "mpn": "ESP32-S3-WROOM-1-N4",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C463721",
+      "mpn": "FDP027N08B-F102",
+      "quantity": 16.0,
+      "received": 16.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C3033850",
+      "mpn": "HoFL2-300A-75mV-0.2%-YS",
+      "quantity": 3.0,
+      "received": 3.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C122228",
+      "mpn": "INA180A1IDBVR",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C2057934",
+      "mpn": "INA186A5IDCKR",
+      "quantity": 4.0,
+      "received": 4.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C49851",
+      "mpn": "INA226AIDGSR",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C3278811",
+      "mpn": "IPP024N08NF2SAKMA1",
+      "quantity": 6.0,
+      "received": 6.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C2960",
+      "mpn": "IR2104STRPBF",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C152185",
+      "mpn": "IRF100B201",
+      "quantity": 16.0,
+      "received": 16.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C136319",
+      "mpn": "JFC0402-0250FS",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C2979397",
+      "mpn": "RTBS0200B075Z00",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C2979390",
+      "mpn": "RTCS0100B050Z00",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C309913",
+      "mpn": "SMAJ78CA/TR13",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C457440",
+      "mpn": "STP150N10F7",
+      "quantity": 20.0,
+      "received": 20.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C126123",
+      "mpn": "STP15810",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0005",
+      "order_date": "2026-08-21",
+      "sku": "C492610",
+      "mpn": "XF-506P",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0006",
+      "order_date": "2026-08-21",
+      "sku": "C17414",
+      "mpn": "0805W8F1002T5E",
+      "quantity": 200.0,
+      "received": 200.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0006",
+      "order_date": "2026-08-21",
+      "sku": "C2913975",
+      "mpn": "100PX470MEFC16X25",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0006",
+      "order_date": "2026-08-21",
+      "sku": "C134092",
+      "mpn": "1054500101",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0006",
+      "order_date": "2026-08-21",
+      "sku": "C105424",
+      "mpn": "920-462A2021S10108",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0006",
+      "order_date": "2026-08-21",
+      "sku": "C2912568",
+      "mpn": "B0505S-1W",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0006",
+      "order_date": "2026-08-21",
+      "sku": "C84681",
+      "mpn": "CH340C",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0006",
+      "order_date": "2026-08-21",
+      "sku": "C170101",
+      "mpn": "CL31B225KCHSNNE",
+      "quantity": 100.0,
+      "received": 100.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0006",
+      "order_date": "2026-08-21",
+      "sku": "C2867099",
+      "mpn": "CSD19505KTT",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0006",
+      "order_date": "2026-08-21",
+      "sku": "C2929094",
+      "mpn": "EG2184",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0006",
+      "order_date": "2026-08-21",
+      "sku": "C5214669",
+      "mpn": "INA228AQDGSRQ1",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0006",
+      "order_date": "2026-08-21",
+      "sku": "C2995",
+      "mpn": "IR2184STRPBF",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0006",
+      "order_date": "2026-08-21",
+      "sku": "C57883",
+      "mpn": "MCP1700T-3002E/MB",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0006",
+      "order_date": "2026-08-21",
+      "sku": "C365811",
+      "mpn": "RC100M471LO16*26TH-2A1E",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0006",
+      "order_date": "2026-08-21",
+      "sku": "C106769",
+      "mpn": "SNBS5-4",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0006",
+      "order_date": "2026-08-21",
+      "sku": "C5350022",
+      "mpn": "SS310",
+      "quantity": 200.0,
+      "received": 200.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0006",
+      "order_date": "2026-08-21",
+      "sku": "C2917160",
+      "mpn": "TF2184M-TAH",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0006",
+      "order_date": "2026-08-21",
+      "sku": "C50848",
+      "mpn": "XL7005A",
+      "quantity": 50.0,
+      "received": 50.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0007",
+      "order_date": "2026-08-21",
+      "sku": "C142687",
+      "mpn": "0287040.PXCN",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0007",
+      "order_date": "2026-08-21",
+      "sku": "C3662510",
+      "mpn": "0299060.TXN",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0007",
+      "order_date": "2026-08-21",
+      "sku": "C83528",
+      "mpn": "1N4148W-7-F",
+      "quantity": 50.0,
+      "received": 50.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0007",
+      "order_date": "2026-08-21",
+      "sku": "C395874",
+      "mpn": "DB910-9.52-2P-GN-S",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0007",
+      "order_date": "2026-08-21",
+      "sku": "C20416244",
+      "mpn": "EG3114",
+      "quantity": 20.0,
+      "received": 20.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0007",
+      "order_date": "2026-08-21",
+      "sku": "C463721",
+      "mpn": "FDP027N08B-F102",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0007",
+      "order_date": "2026-08-21",
+      "sku": "C5214669",
+      "mpn": "INA228AQDGSRQ1",
+      "quantity": 3.0,
+      "received": 3.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0007",
+      "order_date": "2026-08-21",
+      "sku": "C3007769",
+      "mpn": "IPP055N08NF2S",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0007",
+      "order_date": "2026-08-21",
+      "sku": "C2686667",
+      "mpn": "NCEP033N10",
+      "quantity": 4.0,
+      "received": 4.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0007",
+      "order_date": "2026-08-21",
+      "sku": "C13564",
+      "mpn": "NCP18XH103F03RB",
+      "quantity": 20.0,
+      "received": 20.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0007",
+      "order_date": "2026-08-21",
+      "sku": "C45351215",
+      "mpn": "SP85N01BGHTQ",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0007",
+      "order_date": "2026-08-21",
+      "sku": "C2693405",
+      "mpn": "ST15100L",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0007",
+      "order_date": "2026-08-21",
+      "sku": "C2681552",
+      "mpn": "TYPE-C 16P QTGM027",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0007",
+      "order_date": "2026-08-21",
+      "sku": "C42429303",
+      "mpn": "ZNR8040ST152M",
+      "quantity": 20.0,
+      "received": 20.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0008",
+      "order_date": "2026-08-21",
+      "sku": "C37634010",
+      "mpn": "RSEQ32-470M",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0008",
+      "order_date": "2026-08-21",
+      "sku": "C37634013",
+      "mpn": "RSEQ3635-700M",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0009",
+      "order_date": "2026-08-21",
+      "sku": "C37634010",
+      "mpn": "RSEQ32-470M",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0009",
+      "order_date": "2026-08-21",
+      "sku": "C37634011",
+      "mpn": "RSEQ3635-300M",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0009",
+      "order_date": "2026-08-21",
+      "sku": "C37634012",
+      "mpn": "RSEQ3635-460M",
+      "quantity": 3.0,
+      "received": 3.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0009",
+      "order_date": "2026-08-21",
+      "sku": "C37634013",
+      "mpn": "RSEQ3635-700M",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0010",
+      "order_date": "2026-08-31",
+      "sku": "571-0460-202-20141",
+      "mpn": "0460-202-20141",
+      "quantity": 40.0,
+      "received": 0.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0010",
+      "order_date": "2026-08-31",
+      "sku": "571-0462-201-20141",
+      "mpn": "0462-201-20141",
+      "quantity": 40.0,
+      "received": 0.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0010",
+      "order_date": "2026-08-31",
+      "sku": "816-3502-05-511",
+      "mpn": "3502-05-511",
+      "quantity": 2.0,
+      "received": 0.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0010",
+      "order_date": "2026-08-31",
+      "sku": "595-ADS1119IRTER",
+      "mpn": "ADS1119IRTER",
+      "quantity": 1.0,
+      "received": 0.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0010",
+      "order_date": "2026-08-31",
+      "sku": "621-AP63205WU-7",
+      "mpn": "AP63205WU-7",
+      "quantity": 10.0,
+      "received": 0.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0010",
+      "order_date": "2026-08-31",
+      "sku": "80-C0603C221J5G",
+      "mpn": "C0603C221J5GACTU",
+      "quantity": 100.0,
+      "received": 0.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0010",
+      "order_date": "2026-08-31",
+      "sku": "187-CL05B104KO5NNNC",
+      "mpn": "CL05B104KO5NNNC",
+      "quantity": 200.0,
+      "received": 0.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0010",
+      "order_date": "2026-08-31",
+      "sku": "71-CRCW2512280RFKEG",
+      "mpn": "CRCW2512280RFKEG",
+      "quantity": 20.0,
+      "received": 0.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0010",
+      "order_date": "2026-08-31",
+      "sku": "621-DMP3130L-7",
+      "mpn": "DMP3130L-7",
+      "quantity": 25.0,
+      "received": 0.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0010",
+      "order_date": "2026-08-31",
+      "sku": "571-DTM04-4P",
+      "mpn": "DTM04-4P",
+      "quantity": 10.0,
+      "received": 0.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0010",
+      "order_date": "2026-08-31",
+      "sku": "571-DTM06-4S",
+      "mpn": "DTM06-4S",
+      "quantity": 10.0,
+      "received": 0.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0010",
+      "order_date": "2026-08-31",
+      "sku": "926-LMP91000SDX/NOPB",
+      "mpn": "LMP91000SDX/NOPB",
+      "quantity": 5.0,
+      "received": 0.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0010",
+      "order_date": "2026-08-31",
+      "sku": "579-MCP3208CISL",
+      "mpn": "MCP3208-CI/SL",
+      "quantity": 5.0,
+      "received": 0.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0010",
+      "order_date": "2026-08-31",
+      "sku": "946-MIE1W0505BGLVH3P",
+      "mpn": "MIE1W0505BGLVH-3R-P",
+      "quantity": 25.0,
+      "received": 0.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0010",
+      "order_date": "2026-08-31",
+      "sku": "863-MMBZ15VDLT1G",
+      "mpn": "MMBZ15VDLT1G",
+      "quantity": 100.0,
+      "received": 0.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0010",
+      "order_date": "2026-08-31",
+      "sku": "595-OPA2333AIDGKR",
+      "mpn": "OPA2333AIDGKR",
+      "quantity": 10.0,
+      "received": 0.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0010",
+      "order_date": "2026-08-31",
+      "sku": "72-P2TC0603D1002LNTA",
+      "mpn": "P2TC0603D1002LNTA",
+      "quantity": 4.0,
+      "received": 0.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0010",
+      "order_date": "2026-08-31",
+      "sku": "595-SN74HC02DR",
+      "mpn": "SN74HC02DR",
+      "quantity": 10.0,
+      "received": 0.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0010",
+      "order_date": "2026-08-31",
+      "sku": "595-TMP117AIDRVR",
+      "mpn": "TMP117AIDRVR",
+      "quantity": 10.0,
+      "received": 0.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0010",
+      "order_date": "2026-08-31",
+      "sku": "595-TPS3840DL49DBVR",
+      "mpn": "TPS3840DL49DBVR",
+      "quantity": 10.0,
+      "received": 0.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0010",
+      "order_date": "2026-08-31",
+      "sku": "571-WM-4P",
+      "mpn": "WM-4P",
+      "quantity": 10.0,
+      "received": 0.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0010",
+      "order_date": "2026-08-31",
+      "sku": "571-WM-4S",
+      "mpn": "WM-4S",
+      "quantity": 10.0,
+      "received": 0.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "4616-0079737A7-ND",
+      "mpn": "0079737A7",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "1024MA-ND",
+      "mpn": "111-024-103L001",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "3224W-202ECT-ND",
+      "mpn": "3224W-1-202E",
+      "quantity": 3.0,
+      "received": 3.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "732-2094-ND",
+      "mpn": "61201021621",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "1727-74HCT11D-Q100JCT-ND",
+      "mpn": "74HCT11D-Q100J",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "1727-2836-1-ND",
+      "mpn": "74HCT14D,653",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "296-42485-1-ND",
+      "mpn": "ADS1263IPWR",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "785-1011-1-ND",
+      "mpn": "AO3416",
+      "quantity": 50.0,
+      "received": 50.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "31-AS333W5-7CT-ND",
+      "mpn": "AS333W5-7",
+      "quantity": 25.0,
+      "received": 25.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "455-B5B-XH-A-ND",
+      "mpn": "B5B-XH-A",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "448-IQDH35N03LM5ATMA1CT-ND",
+      "mpn": "IQDH35N03LM5ATMA1",
+      "quantity": 20.0,
+      "received": 20.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "296-19851-1-ND",
+      "mpn": "MAX3232ECDR",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "150-MIC4467YWM-TRCT-ND",
+      "mpn": "MIC4467YWM-TR",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "716-P2TC0603D1002LNTACT-ND",
+      "mpn": "P2TC0603D1002LNTA",
+      "quantity": 4.0,
+      "received": 4.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "716-P2TC1206D1003LNTACT-ND",
+      "mpn": "P2TC1206D1003LNTA",
+      "quantity": 12.0,
+      "received": 12.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "696-PCS-0R047D1-ND",
+      "mpn": "PCS-0R047D1",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "PEC11R-4215F-S0024-ND",
+      "mpn": "PEC11R-4215F-S0024",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "1738-SEN0601-ND",
+      "mpn": "SEN0601",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "1782-SGX-OX-ROHS-MINI-ND",
+      "mpn": "SGX-OX-ROHS-MINI",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "1649-SHT45-AD1F-R2CT-ND",
+      "mpn": "SHT45-AD1F-R2",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "F6450CT-ND",
+      "mpn": "SM712-02HTG",
+      "quantity": 20.0,
+      "received": 20.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "SMBJ15A-FDICT-ND",
+      "mpn": "SMBJ15A-13-F",
+      "quantity": 25.0,
+      "received": 25.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "497-STM32G071CBT6CT-ND",
+      "mpn": "STM32G071CBT6TR",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "296-THVD1410DRCT-ND",
+      "mpn": "THVD1410DR",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "5503-TPL903233-S5TRCT-ND",
+      "mpn": "TPL903233-S5TR",
+      "quantity": 25.0,
+      "received": 25.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0011",
+      "order_date": "2026-08-25",
+      "sku": "804-Y16902R50000Q9L-ND",
+      "mpn": "Y16902R50000Q9L",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0012",
+      "order_date": "2026-09-02",
+      "sku": "5923-0ZCJ0075AF2ECT-ND",
+      "mpn": "0ZCJ0075AF2E",
+      "quantity": 20.0,
+      "received": 20.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0012",
+      "order_date": "2026-09-02",
+      "sku": "A32382-ND",
+      "mpn": "5050462-2",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0012",
+      "order_date": "2026-09-02",
+      "sku": "296-53016-1-ND",
+      "mpn": "ADS1119IRTET",
+      "quantity": 3.0,
+      "received": 3.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0012",
+      "order_date": "2026-09-02",
+      "sku": "BZT52C10-E3-08GICT-ND",
+      "mpn": "BZT52C10-E3-08",
+      "quantity": 20.0,
+      "received": 20.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0012",
+      "order_date": "2026-09-02",
+      "sku": "490-10498-1-ND",
+      "mpn": "GRM21BC81C106KE15L",
+      "quantity": 100.0,
+      "received": 100.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0012",
+      "order_date": "2026-09-02",
+      "sku": "YAG1667CT-ND",
+      "mpn": "RT0603BRD0747KL",
+      "quantity": 100.0,
+      "received": 100.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0012",
+      "order_date": "2026-09-02",
+      "sku": "1782-SGX-OX-ROHS-MINI-ND",
+      "mpn": "SGX-OX-ROHS-MINI",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0012",
+      "order_date": "2026-09-02",
+      "sku": "5880-SMPW-U-F-ND",
+      "mpn": "SMPW-U-F",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0012",
+      "order_date": "2026-09-02",
+      "sku": "5880-SMPW-U-M-ND",
+      "mpn": "SMPW-U-M",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0012",
+      "order_date": "2026-09-02",
+      "sku": "118-SRN6028C-4R7MCT-ND",
+      "mpn": "SRN6028C-4R7M",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0012",
+      "order_date": "2026-09-02",
+      "sku": "TC2030-IDC-ND",
+      "mpn": "TC2030-IDC",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0012",
+      "order_date": "2026-09-02",
+      "sku": "TNP2.00KAACT-ND",
+      "mpn": "TNPW06032K00BEEA",
+      "quantity": 20.0,
+      "received": 20.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0013",
+      "order_date": "2026-09-08",
+      "sku": "129718",
+      "mpn": "IR2113SPBF",
+      "quantity": 8.0,
+      "received": 8.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0014",
+      "order_date": "2026-09-08",
+      "sku": "141335",
+      "mpn": "CF138T4919",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0014",
+      "order_date": "2026-09-08",
+      "sku": "161609",
+      "mpn": "CF139T4218ASL4C4kV",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0014",
+      "order_date": "2026-09-08",
+      "sku": "141336",
+      "mpn": "CF195AT4919C",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0014",
+      "order_date": "2026-09-08",
+      "sku": "133898",
+      "mpn": "CF196T4919C",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0014",
+      "order_date": "2026-09-08",
+      "sku": "178567",
+      "mpn": "CF297T2915C",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0014",
+      "order_date": "2026-09-08",
+      "sku": "174019",
+      "mpn": "KAH130-125A",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0014",
+      "order_date": "2026-09-08",
+      "sku": "163236",
+      "mpn": "KS106-125A",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0014",
+      "order_date": "2026-09-08",
+      "sku": "170619",
+      "mpn": "KS130-060A",
+      "quantity": 20.0,
+      "received": 20.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0014",
+      "order_date": "2026-09-08",
+      "sku": "165851",
+      "mpn": "KS130-075A",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0014",
+      "order_date": "2026-09-08",
+      "sku": "184496",
+      "mpn": "KS130-075AE14",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0014",
+      "order_date": "2026-09-08",
+      "sku": "163224",
+      "mpn": "KS141-125A",
+      "quantity": 4.0,
+      "received": 4.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0014",
+      "order_date": "2026-09-08",
+      "sku": "174060",
+      "mpn": "KS184-125A",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0015",
+      "order_date": "2026-09-08",
+      "sku": "141218",
+      "mpn": null,
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0015",
+      "order_date": "2026-09-08",
+      "sku": "107309",
+      "mpn": "00002960",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0015",
+      "order_date": "2026-09-08",
+      "sku": "107314",
+      "mpn": "00002987",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0015",
+      "order_date": "2026-09-08",
+      "sku": "107315",
+      "mpn": "00002988",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0015",
+      "order_date": "2026-09-08",
+      "sku": "107316",
+      "mpn": "00002989",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0015",
+      "order_date": "2026-09-08",
+      "sku": "107299",
+      "mpn": "8521/75/BU",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0015",
+      "order_date": "2026-09-08",
+      "sku": "107319",
+      "mpn": "8671/50/N",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0015",
+      "order_date": "2026-09-08",
+      "sku": "136385",
+      "mpn": "8671/75/G",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0015",
+      "order_date": "2026-09-08",
+      "sku": "107338",
+      "mpn": "8706/75/G",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0015",
+      "order_date": "2026-09-08",
+      "sku": "137544",
+      "mpn": "CF139ETD4415",
+      "quantity": 4.0,
+      "received": 4.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0015",
+      "order_date": "2026-09-08",
+      "sku": "133814",
+      "mpn": "CF139ETD4415AL0.1mmT",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0015",
+      "order_date": "2026-09-08",
+      "sku": "169969",
+      "mpn": "CF292ETD4415",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0015",
+      "order_date": "2026-09-08",
+      "sku": "165125",
+      "mpn": "CF295ETD4415",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0015",
+      "order_date": "2026-09-08",
+      "sku": "157904",
+      "mpn": "CF297ETD4415",
+      "quantity": 6.0,
+      "received": 6.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0015",
+      "order_date": "2026-09-08",
+      "sku": "169704",
+      "mpn": "CF297ETD4425",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0015",
+      "order_date": "2026-09-08",
+      "sku": "184267",
+      "mpn": "EC4345GP44",
+      "quantity": 4.0,
+      "received": 4.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0015",
+      "order_date": "2026-09-08",
+      "sku": "165647",
+      "mpn": "ETD4415clamp",
+      "quantity": 10.0,
+      "received": 10.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0015",
+      "order_date": "2026-09-08",
+      "sku": "166803",
+      "mpn": "ETD4415hp 18p 1s cF",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0015",
+      "order_date": "2026-09-08",
+      "sku": "173174",
+      "mpn": "ETD4415hp 18p 1s fF",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0015",
+      "order_date": "2026-09-08",
+      "sku": "168640",
+      "mpn": "ETD4415v 18p 1s/a bF",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0015",
+      "order_date": "2026-09-08",
+      "sku": "185185",
+      "mpn": "GP4CETD4415OL",
+      "quantity": 2.0,
+      "received": 2.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0015",
+      "order_date": "2026-09-08",
+      "sku": "174060",
+      "mpn": "KS184-125A",
+      "quantity": 1.0,
+      "received": 1.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0015",
+      "order_date": "2026-09-08",
+      "sku": "149358",
+      "mpn": "SPONA-TO220/3bila",
+      "quantity": 5.0,
+      "received": 5.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0016",
+      "order_date": "2026-09-08",
+      "sku": "176345",
+      "mpn": "KS157-075A",
+      "quantity": 4.0,
+      "received": 4.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0016",
+      "order_date": "2026-09-08",
+      "sku": "163227",
+      "mpn": "KS157-125A",
+      "quantity": 4.0,
+      "received": 4.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0016",
+      "order_date": "2026-09-08",
+      "sku": "165855",
+      "mpn": "KS184-060A",
+      "quantity": 4.0,
+      "received": 4.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0016",
+      "order_date": "2026-09-08",
+      "sku": "175006",
+      "mpn": "KS184-075A",
+      "quantity": 4.0,
+      "received": 4.0,
+      "status": "Complete"
+    },
+    {
+      "order": "PO-0016",
+      "order_date": "2026-09-08",
+      "sku": "174060",
+      "mpn": "KS184-125A",
+      "quantity": 20.0,
+      "received": 20.0,
+      "status": "Complete"
+    }
+  ]
+}

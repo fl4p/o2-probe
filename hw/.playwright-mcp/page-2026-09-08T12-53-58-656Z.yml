@@ -1,0 +1,349 @@
+- generic [ref=f14e3]:
+  - generic [ref=f14e6]:
+    - list [ref=f14e8]:
+      - listitem [ref=f14e9] [cursor=pointer]:
+        - generic [ref=f14e10]: Product
+      - listitem [ref=f14e13] [cursor=pointer]:
+        - generic [ref=f14e14]: Email
+      - listitem [ref=f14e17] [cursor=pointer]:
+        - generic [ref=f14e18]: PDF
+      - listitem [ref=f14e21] [cursor=pointer]:
+        - generic [ref=f14e22]: Order now
+    - list [ref=f14e26]:
+      - listitem [ref=f14e27]:
+        - 'heading "LMP91000 Sensor AFE System: Configurable AFE Potentiostat for Low-Power Chemical-Sensing Applications" [level=2] [ref=f14e29]'
+        - link [ref=f14e31] [cursor=pointer]:
+          - /url: ""
+  - generic [ref=f14e33]:
+    - generic [ref=f14e35]:
+      - list [ref=f14e37]:
+        - listitem [ref=f14e38]:
+          - link "CONTENTS" [ref=f14e39] [cursor=pointer]:
+            - /url: "#ti_library_viewer_contents"
+        - listitem [ref=f14e40]:
+          - link "SEARCH" [ref=f14e41] [cursor=pointer]:
+            - /url: "#ti_library_viewer_search"
+      - generic [ref=f14e42]:
+        - generic [ref=f14e43]:
+          - list [ref=f14e45]:
+            - listitem [ref=f14e46] [cursor=pointer]:
+              - generic [ref=f14e47]: "LMP91000 Sensor AFE System: Configurable AFE Potentiostat for Low-Power Chemical-Sensing Applications"
+          - list [ref=f14e49]:
+            - listitem [ref=f14e50]:
+              - link "1 Features" [ref=f14e51] [cursor=pointer]:
+                - /url: //www.ti.com/document-viewer/LMP91000/datasheet#abstract/snas50622
+            - listitem [ref=f14e52]:
+              - link "2 Applications" [ref=f14e53] [cursor=pointer]:
+                - /url: //www.ti.com/document-viewer/LMP91000/datasheet#abstract/snas50673
+            - listitem [ref=f14e54]:
+              - link "3 Description" [ref=f14e55] [cursor=pointer]:
+                - /url: //www.ti.com/document-viewer/LMP91000/datasheet#abstract/snas50619
+            - listitem [ref=f14e56]:
+              - link "4 Revision History" [ref=f14e57] [cursor=pointer]:
+                - /url: //www.ti.com/document-viewer/LMP91000/datasheet#revision_history/SNAS5062831
+            - listitem [ref=f14e58]:
+              - link "5 Pin Configuration and Functions" [ref=f14e59] [cursor=pointer]:
+                - /url: //www.ti.com/document-viewer/LMP91000/datasheet#pin_configuration_and_functions/SNAS5068158
+            - listitem [ref=f14e60]:
+              - link "6 Specifications" [ref=f14e61] [cursor=pointer]:
+                - /url: //www.ti.com/document-viewer/LMP91000/datasheet#specifications/SNAS5061276
+              - list:
+                - listitem [ref=f14e62]:
+                  - link "6.1 Absolute Maximum Ratings" [ref=f14e63] [cursor=pointer]:
+                    - /url: //www.ti.com/document-viewer/LMP91000/datasheet#specifications/SNAS5064061
+                - listitem [ref=f14e64]:
+                  - link "6.2 ESD Ratings" [ref=f14e65] [cursor=pointer]:
+                    - /url: //www.ti.com/document-viewer/LMP91000/datasheet#specifications/ESDS0004797
+                - listitem [ref=f14e66]:
+                  - link "6.3 Recommended Operating Conditions" [ref=f14e67] [cursor=pointer]:
+                    - /url: //www.ti.com/document-viewer/LMP91000/datasheet#specifications/SNAS5069522
+                - listitem [ref=f14e68]:
+                  - link "6.4 Thermal Information" [ref=f14e69] [cursor=pointer]:
+                    - /url: //www.ti.com/document-viewer/LMP91000/datasheet#specifications/SNAS5065632
+                - listitem [ref=f14e70]:
+                  - link "6.5 Electrical Characteristics" [ref=f14e71] [cursor=pointer]:
+                    - /url: //www.ti.com/document-viewer/LMP91000/datasheet#specifications/snas50654
+                - listitem [ref=f14e72]:
+                  - link "6.6 I2C Interface" [ref=f14e73] [cursor=pointer]:
+                    - /url: //www.ti.com/document-viewer/LMP91000/datasheet#specifications/snas50617172
+                - listitem [ref=f14e74]:
+                  - link "6.7 Timing Requirements" [ref=f14e75] [cursor=pointer]:
+                    - /url: //www.ti.com/document-viewer/LMP91000/datasheet#specifications/snas50621010
+                - listitem [ref=f14e76]:
+                  - link "6.8 Typical Characteristics" [ref=f14e77] [cursor=pointer]:
+                    - /url: //www.ti.com/document-viewer/LMP91000/datasheet#specifications/snas5065131
+            - listitem [ref=f14e78]:
+              - link "7 Detailed Description" [ref=f14e79] [cursor=pointer]:
+                - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/SNAS5066332
+              - list:
+                - listitem [ref=f14e80]:
+                  - link "7.1 Overview" [ref=f14e81] [cursor=pointer]:
+                    - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/SNAS5065920
+                - listitem [ref=f14e82]:
+                  - link "7.2 Functional Block Diagram" [ref=f14e83] [cursor=pointer]:
+                    - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/SNAS5069073
+                - listitem [ref=f14e84]:
+                  - link "7.3 Feature Description" [ref=f14e85] [cursor=pointer]:
+                    - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/SNAS5067686
+                  - list:
+                    - listitem [ref=f14e86]:
+                      - link "7.3.1 Potentiostat Circuitry" [ref=f14e87] [cursor=pointer]:
+                        - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/snas50618119
+                      - list:
+                        - listitem [ref=f14e88]:
+                          - link "7.3.1.1 Transimpedance Amplifier" [ref=f14e89] [cursor=pointer]:
+                            - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/SNAS5069960
+                        - listitem [ref=f14e90]:
+                          - link "7.3.1.2 Control Amplifier" [ref=f14e91] [cursor=pointer]:
+                            - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/SNAS5068434
+                        - listitem [ref=f14e92]:
+                          - link "7.3.1.3 Variable Bias" [ref=f14e93] [cursor=pointer]:
+                            - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/SNAS5066282
+                        - listitem [ref=f14e94]:
+                          - link "7.3.1.4 Internal Zero" [ref=f14e95] [cursor=pointer]:
+                            - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/SNAS5069537
+                        - listitem [ref=f14e96]:
+                          - link "7.3.1.5 Temperature Sensor" [ref=f14e97] [cursor=pointer]:
+                            - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/lit85815600
+                        - listitem [ref=f14e98]:
+                          - link "7.3.1.6 Gas Sensor Interface" [ref=f14e99] [cursor=pointer]:
+                            - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/snas50617221
+                          - list:
+                            - listitem [ref=f14e100]:
+                              - link "7.3.1.6.1 3-Lead Amperometric Cell in Potentiostat Configuration" [ref=f14e101] [cursor=pointer]:
+                                - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/snas50618740
+                            - listitem [ref=f14e102]:
+                              - link "7.3.1.6.2 2-Lead Galvanic Cell In Ground Referred Configuration" [ref=f14e103] [cursor=pointer]:
+                                - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/snas50618121
+                            - listitem [ref=f14e104]:
+                              - link "7.3.1.6.3 2-lead Galvanic Cell in Potentiostat Configuration" [ref=f14e105] [cursor=pointer]:
+                                - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/snas50618128
+                        - listitem [ref=f14e106]:
+                          - link "7.3.1.7 Timeout Feature" [ref=f14e107] [cursor=pointer]:
+                            - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/snas50618650
+                - listitem [ref=f14e108]:
+                  - link "7.4 Device Functional Modes" [ref=f14e109] [cursor=pointer]:
+                    - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/SNAS5068771
+                - listitem [ref=f14e110]:
+                  - link "7.5 Programming" [ref=f14e111] [cursor=pointer]:
+                    - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/SNAS5067580
+                  - list:
+                    - listitem [ref=f14e112]:
+                      - link "7.5.1 I2C Interface" [ref=f14e113] [cursor=pointer]:
+                        - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/snas50617215
+                    - listitem [ref=f14e114]:
+                      - link "7.5.2 Write and Read Operation" [ref=f14e115] [cursor=pointer]:
+                        - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/snas50618652
+                - listitem [ref=f14e116]:
+                  - link "7.6 Registers Maps" [ref=f14e117] [cursor=pointer]:
+                    - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/snas50610461
+                  - list:
+                    - listitem [ref=f14e118]:
+                      - link "7.6.1 STATUS -- Status Register (Address 0x00)" [ref=f14e119] [cursor=pointer]:
+                        - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/snas50610653
+                    - listitem [ref=f14e120]:
+                      - link "7.6.2 LOCK -- Protection Register (Address 0x01)" [ref=f14e121] [cursor=pointer]:
+                        - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/snas50617672
+                    - listitem [ref=f14e122]:
+                      - link "7.6.3 TIACN -- TIA Control Register (Address 0x10)" [ref=f14e123] [cursor=pointer]:
+                        - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/snas50617643
+                    - listitem [ref=f14e124]:
+                      - link "7.6.4 REFCN -- Reference Control Register (Address 0x11)" [ref=f14e125] [cursor=pointer]:
+                        - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/snas50621202
+                    - listitem [ref=f14e126]:
+                      - link "7.6.5 MODECN -- Mode Control Register (Address 0x12)" [ref=f14e127] [cursor=pointer]:
+                        - /url: //www.ti.com/document-viewer/LMP91000/datasheet#detailed_description/snas50617585
+            - listitem [ref=f14e128]:
+              - link "8 Application and Implementation" [ref=f14e129] [cursor=pointer]:
+                - /url: //www.ti.com/document-viewer/LMP91000/datasheet#application_and_implementation/SNAS5063152
+              - list:
+                - listitem [ref=f14e130]:
+                  - link "8.1 Application Information" [ref=f14e131] [cursor=pointer]:
+                    - /url: //www.ti.com/document-viewer/LMP91000/datasheet#application_and_implementation/SNAS5065198
+                  - list:
+                    - listitem [ref=f14e132]:
+                      - link "8.1.1 Connection of More Than One LMP91000 to the I2C BUS" [ref=f14e133] [cursor=pointer]:
+                        - /url: //www.ti.com/document-viewer/LMP91000/datasheet#application_and_implementation/snas50617217
+                    - listitem [ref=f14e134]:
+                      - link "8.1.2 Smart Gas Sensor Analog Front-End" [ref=f14e135] [cursor=pointer]:
+                        - /url: //www.ti.com/document-viewer/LMP91000/datasheet#application_and_implementation/snas50618981
+                    - listitem [ref=f14e136]:
+                      - link "8.1.3 Smart Gas Sensor AFES on I2C BUS" [ref=f14e137] [cursor=pointer]:
+                        - /url: //www.ti.com/document-viewer/LMP91000/datasheet#application_and_implementation/snas50618985
+                - listitem [ref=f14e138]:
+                  - link "8.2 Typical Application" [ref=f14e139] [cursor=pointer]:
+                    - /url: //www.ti.com/document-viewer/LMP91000/datasheet#application_and_implementation/SNAS5066918
+                  - list:
+                    - listitem [ref=f14e140]:
+                      - link "8.2.1 Design Requirements" [ref=f14e141] [cursor=pointer]:
+                        - /url: //www.ti.com/document-viewer/LMP91000/datasheet#application_and_implementation/SNAS5065185
+                    - listitem [ref=f14e142]:
+                      - link "8.2.2 Detailed Design Procedure" [ref=f14e143] [cursor=pointer]:
+                        - /url: //www.ti.com/document-viewer/LMP91000/datasheet#application_and_implementation/SNAS506947
+                      - list:
+                        - listitem [ref=f14e144]:
+                          - link "8.2.2.1 Sensor Test Procedure" [ref=f14e145] [cursor=pointer]:
+                            - /url: //www.ti.com/document-viewer/LMP91000/datasheet#application_and_implementation/snas5069994
+                    - listitem [ref=f14e146]:
+                      - link "8.2.3 Application Curve" [ref=f14e147] [cursor=pointer]:
+                        - /url: //www.ti.com/document-viewer/LMP91000/datasheet#application_and_implementation/SNAS5066950
+            - listitem [ref=f14e148]:
+              - link "9 Power Supply Recommendations" [ref=f14e149] [cursor=pointer]:
+                - /url: //www.ti.com/document-viewer/LMP91000/datasheet#power_supply_recommendations/SNAS5069574
+              - list:
+                - listitem [ref=f14e150]:
+                  - link "9.1 Power Consumption" [ref=f14e151] [cursor=pointer]:
+                    - /url: //www.ti.com/document-viewer/LMP91000/datasheet#power_supply_recommendations/snas50611780
+            - listitem [ref=f14e152]:
+              - link "10Layout" [ref=f14e153] [cursor=pointer]:
+                - /url: //www.ti.com/document-viewer/LMP91000/datasheet#layout/SNAS5065803
+              - list:
+                - listitem [ref=f14e154]:
+                  - link "10.1 Layout Guidelines" [ref=f14e155] [cursor=pointer]:
+                    - /url: //www.ti.com/document-viewer/LMP91000/datasheet#layout/SNAS50632
+                - listitem [ref=f14e156]:
+                  - link "10.2 Layout Example" [ref=f14e157] [cursor=pointer]:
+                    - /url: //www.ti.com/document-viewer/LMP91000/datasheet#layout/SNAS5068895
+            - listitem [ref=f14e158]:
+              - link "11Device and Documentation Support" [ref=f14e159] [cursor=pointer]:
+                - /url: //www.ti.com/document-viewer/LMP91000/datasheet#device_and_documentation_support/SNAS5065461
+              - list:
+                - listitem [ref=f14e160]:
+                  - link "11.1 Trademarks" [ref=f14e161] [cursor=pointer]:
+                    - /url: //www.ti.com/document-viewer/LMP91000/datasheet#device_and_documentation_support/device_and_documentation_support_1
+                - listitem [ref=f14e162]:
+                  - link "11.2 Electrostatic Discharge Caution" [ref=f14e163] [cursor=pointer]:
+                    - /url: //www.ti.com/document-viewer/LMP91000/datasheet#device_and_documentation_support/device_and_documentation_support_2
+                - listitem [ref=f14e164]:
+                  - link "11.3 Glossary" [ref=f14e165] [cursor=pointer]:
+                    - /url: //www.ti.com/document-viewer/LMP91000/datasheet#device_and_documentation_support/TI_Glossary
+            - listitem [ref=f14e166]:
+              - link "12Mechanical, Packaging, and Orderable Information" [ref=f14e167] [cursor=pointer]:
+                - /url: //www.ti.com/document-viewer/LMP91000/datasheet#mechanical_packaging_and_orderable_information/impnote
+            - listitem [ref=f14e168]:
+              - link "IMPORTANT NOTICE" [ref=f14e169] [cursor=pointer]:
+                - /url: //www.ti.com/document-viewer/LMP91000/datasheet#important_notice/ImpNotice001
+          - generic [ref=f14e171]:
+            - heading "Package Options" [level=4] [ref=f14e172]
+            - heading "Mechanical Data (Package|Pins)" [level=5] [ref=f14e173]
+            - list [ref=f14e174]:
+              - listitem [ref=f14e175]:
+                - text: NHL|14
+                - list [ref=f14e176]:
+                  - listitem [ref=f14e177]:
+                    - link "MPDS421" [ref=f14e178] [cursor=pointer]:
+                      - /url: //www.ti.com/lit/pdf/mpds421
+            - heading "Thermal pad, mechanical data (Package|Pins)" [level=5] [ref=f14e179]
+            - list
+            - heading "Orderable Information" [level=5] [ref=f14e180]
+            - list [ref=f14e181]:
+              - listitem [ref=f14e182]:
+                - link "snas506i_oa" [ref=f14e183] [cursor=pointer]:
+                  - /url: //www.ti.com/ods/sysadd/oa/symlink/lmp91000_oa.pdf
+              - listitem [ref=f14e184]:
+                - link "snas506i_pm" [ref=f14e185] [cursor=pointer]:
+                  - /url: //www.ti.com/ods/sysadd/pm/symlink/lmp91000_pm.pdf
+        - generic [ref=f14e186]:
+          - generic [ref=f14e190]:
+            - textbox [ref=f14e191]
+            - generic [ref=f14e192] [cursor=pointer]: search
+            - generic [ref=f14e193]: No matches found.
+          - generic [ref=f14e194]:
+            - list
+    - generic [ref=f14e196]:
+      - list [ref=f14e199]:
+        - listitem [ref=f14e200]:
+          - generic [ref=f14e201] [cursor=pointer]: Full reading width
+      - generic [ref=f14e207]:
+        - generic [ref=f14e208]:
+          - generic [ref=f14e209]: DATA SHEET
+          - 'heading "LMP91000 Sensor AFE System: Configurable AFE Potentiostat for Low-Power Chemical-Sensing Applications" [level=1] [ref=f14e210]'
+          - heading "1 Features" [level=2] [ref=f14e213]
+          - list [ref=f14e214]:
+            - listitem [ref=f14e215]:
+              - text: Typical Values, T
+              - subscript [ref=f14e216]: A
+              - text: = 25°C
+            - listitem [ref=f14e217]: Supply Voltage 2.7 V to 5.25 V
+            - listitem [ref=f14e218]: Supply Current (Average Over Time) <10 µA
+            - listitem [ref=f14e219]: Cell Conditioning Current Up to 10 mA
+            - listitem [ref=f14e220]: Reference Electrode Bias Current (85°C) 900pA (max)
+            - listitem [ref=f14e221]: Output Drive Current 750 µA
+            - listitem [ref=f14e222]: Complete Potentiostat Circuit-to-Interface to Most Chemical Cells
+            - listitem [ref=f14e223]: Programmable Cell Bias Voltage
+            - listitem [ref=f14e224]: Low-Bias Voltage Drift
+            - listitem [ref=f14e225]: Programmable TIA gain 2.75 kΩ to 350 kΩ
+            - listitem [ref=f14e226]: Sink and Source Capability
+            - listitem [ref=f14e227]:
+              - text: I
+              - superscript [ref=f14e228]: "2"
+              - text: C Compatible Digital Interface
+            - listitem [ref=f14e229]: Ambient Operating Temperature –40°C to 85°C
+            - listitem [ref=f14e230]: Package 14-Pin WSON
+            - listitem [ref=f14e231]: Supported by WEBENCH® Sensor AFE Designer
+        - generic [ref=f14e232]:
+          - heading "2 Applications" [level=2] [ref=f14e233]
+          - list [ref=f14e234]:
+            - listitem [ref=f14e235]: Chemical Species Identification
+            - listitem [ref=f14e236]: Amperometric Applications
+            - listitem [ref=f14e237]: Electrochemical Blood Glucose Meter
+        - generic [ref=f14e238]:
+          - heading "3 Description" [level=2] [ref=f14e239]
+          - paragraph [ref=f14e240]: The LMP91000 is a programmable analog front-end (AFE) for use in micro-power electrochemical sensing applications. It provides a complete signal path solution between a sensor and a microcontroller that generates an output voltage proportional to the cell current. The LMP91000’s programmability enables it to support multiple electrochemical sensors such as 3-lead toxic gas sensors and 2-lead galvanic cell sensors with a single design as opposed to the multiple discrete solutions. The LMP91000 supports gas sensitivities over a range of 0.5 nA/ppm to 9500 nA/ppm. It also allows for an easy conversion of current ranges from 5 µA to 750 µA full scale.
+          - paragraph [ref=f14e241]:
+            - text: The LMP91000’s adjustable cell bias and transimpedance amplifier (TIA) gain are programmable through the I
+            - superscript [ref=f14e242]: "2"
+            - text: C interface. The I
+            - superscript [ref=f14e243]: "2"
+            - text: C interface can also be used for sensor diagnostics. An integrated temperature sensor can be read by the user through the VOUT pin and used to provide additional signal correction in the µC or monitored to verify temperature conditions at the sensor.
+          - paragraph [ref=f14e244]: The LMP91000 is optimized for micro-power applications and operates over a voltage range of 2.7 to 5.25 V. The total current consumption can be less than 10 μA. Further power savings are possible by switching off the TIA amplifier and shorting the reference electrode to the working electrode with an internal switch.
+          - generic [ref=f14e245]:
+            - heading [level=3] [ref=f14e246]:
+              - text: Device Information
+              - superscript [ref=f14e247]:
+                - link "(1)" [ref=f14e248] [cursor=pointer]:
+                  - /url: "#DevInfoNote"
+            - table [ref=f14e249]:
+              - rowgroup [ref=f14e254]:
+                - row [ref=f14e255]:
+                  - columnheader "PART NUMBER" [ref=f14e256]
+                  - columnheader "PACKAGE" [ref=f14e257]
+                  - columnheader "BODY SIZE (NOM)" [ref=f14e258]
+              - rowgroup [ref=f14e259]:
+                - row [ref=f14e260]:
+                  - cell "LMP91000" [ref=f14e261]
+                  - cell "WSON (14)" [ref=f14e262]
+                  - cell "4.00 mm × 4.00 mm" [ref=f14e263]
+          - list [ref=f14e264]:
+            - listitem [ref=f14e265]: For all available packages, see the orderable addendum at the end of the datasheet.
+          - generic [ref=f14e267]:
+            - heading "Simplified Application Schematic" [level=3] [ref=f14e268]
+            - img "30132505.gif" [ref=f14e269]
+  - contentinfo [ref=f14e271]:
+    - link "Texas Instruments" [ref=f14e272] [cursor=pointer]:
+      - /url: //www.ti.com/
+    - paragraph [ref=f14e275]:
+      - link "© Copyright 1995-2026" [ref=f14e276] [cursor=pointer]:
+        - /url: //www.ti.com/legal/terms-conditions/copyright.html
+      - text: Texas Instruments Incorporated. All rights reserved.
+      - generic [ref=f14e277]:
+        - link "Submit documentation feedback" [ref=f14e278] [cursor=pointer]:
+          - /url: https://www.ti.com/feedbackform/techdocfeedback?litnum=SNAS506I&partnum=LMP91000
+        - text: "|"
+        - link "IMPORTANT NOTICE" [ref=f14e279] [cursor=pointer]:
+          - /url: //www.ti.com/document-viewer/LMP91000/datasheet/important_notice#ImpNotice001
+        - text: "|"
+      - link "Trademarks" [ref=f14e280] [cursor=pointer]:
+        - /url: //www.ti.com/legal/terms-conditions/trademarks.html
+      - text: "|"
+      - link "Privacy policy" [ref=f14e281] [cursor=pointer]:
+        - /url: //www.ti.com/legal/terms-conditions/privacy-policy.html
+      - text: "|"
+      - link "Cookie policy" [ref=f14e282] [cursor=pointer]:
+        - /url: //www.ti.com/legal/terms-conditions/cookie-policy.html
+      - text: "|"
+      - link "Terms of use" [ref=f14e283] [cursor=pointer]:
+        - /url: //www.ti.com/legal/terms-conditions/terms-of-use.html
+      - text: "|"
+      - link "Terms of sale" [ref=f14e284] [cursor=pointer]:
+        - /url: //www.ti.com/legal/terms-conditions/terms-of-sale.html

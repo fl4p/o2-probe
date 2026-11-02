@@ -1,0 +1,31 @@
+{
+  "gerbers": {
+    "layers": [
+      "F.Cu",
+      "B.Cu",
+      "F.Mask",
+      "B.Mask",
+      "F.Paste",
+      "B.Paste",
+      "F.Silkscreen",
+      "B.Silkscreen",
+      "Edge.Cuts"
+    ],
+    "outline_mm": [
+      20,
+      86
+    ],
+    "thermal_slots": 4,
+    "copper_regions": 36,
+    "thermal_fill_gap_clear": true,
+    "outline_matches_strict_native_primitives": true
+  },
+  "drills": {
+    "drill_geometry_matches_board": true,
+    "coordinate_quantum_mm": 0.001,
+    "maximum_coordinate_error_mm": 0.0005,
+    "PTH_count": 204,
+    "NPTH_count": 8
+  },
+  "seconds": 0.0388766249998298
+}

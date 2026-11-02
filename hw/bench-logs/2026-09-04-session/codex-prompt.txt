@@ -1,0 +1,89 @@
+You are an independent electronics reviewer. A bench bring-up has stalled and the
+current conclusion is "the LMP91000 is damaged, replace it". Before a second part is
+desoldered, attack that conclusion. Complete in ONE pass; never stop to ask.
+
+Open with an ACCESS section containing (a) the <title> of
+https://www.ti.com/lit/ds/symlink/lmp91000.pdf fetched through the browser, and (b) one
+live web result about LMP91000 failure modes or errata. If a check is blocked, mark that
+single claim `unverified` and CONTINUE - do not go offline silently.
+
+== SCOPE / TRAP ==
+Repo: /Users/fab/dev/ee/hw/o2-probe . The board on the bench is Rev A == git HEAD.
+The WORKING TREE copy of gen_sch.py is ANOTHER SESSION'S uncommitted Rev B and is NOT
+this board. Use ONLY `git show HEAD:./gen_sch.py`. Do not modify any file. Ignore all
+other uncommitted work. Reach code with grep; do not read large files end to end.
+Budget your time; emit your final sections early rather than running long.
+
+== HARDWARE (Rev A, from HEAD) ==
+U7 = LMP91000 potentiostat (WSON-14 + DAP to AGND). U11 = 3-pin cell connector.
+U8 = ADS1119 ADC. U15 = AZ431 2.5 V shunt reference -> net VREF_TRIM.
+Only three things touch the electrode nets:
+  CELL_WE : U7.12, U11.3, TP1
+  CELL_RE : U7.13, U11.2
+  CELL_CE : U7.14, U11.1, TP3
+Sensor: SGX-OX-ROHS-Mini, needs -600 mV bias, 70-130 uA in air.
+
+== MEASURED, ALL REPEATED AND STABLE ==
+VREF_TRIM 2494 mV. 3V3A 3288 mV. I2C clean, 0 errors, all 4 devices ACK.
+LMP91000 registers read back over SWD, repeatedly, after a fresh MCU reset:
+  STATUS 0x01, LOCK 0x00, TIACN 0x0c, REFCN 0xcd, MODECN 0x03
+My decode (CHECK IT): REFCN 0xcd = external ref, INTZ 67%, BIAS_SIGN negative,
+bias 24% of 2494 = 599 mV. TIACN 0x0c = TIA gain 7 kOhm, RLOAD 10 Ohm.
+MODECN 0x03 = 3-lead amperometric. Internal zero = 0.67*2494 = 1671 mV.
+
+The real cell is REMOVED. A dummy is fitted: 470k from CE pad to RE pad, 470k from RE
+pad to WE pad. Nothing else.
+
+SYMPTOM 1 - A1 does not drive CE.
+  Measured pads: CE 1674 mV, RE 1674 mV, WE 1678 mV.
+  Expected with this dummy: RE 2278, CE 2878, 1.28 uA.
+  Zero volts across the CE-RE resistor => zero current => A1 is not driving.
+  Earlier, with the real cell fitted, CE wandered in a ~30 mV band and RE drifted
+  monotonically DOWN, away from setpoint, never following CE.
+
+SYMPTOM 2 - phantom current at the TIA.
+  U7 pin 8 (VOUT) measured with a DMM = 2180 mV, i.e. 509 mV ABOVE internal zero.
+  The on-board ADC reports 2099-2120 mV on the same node (a 3% discrepancy I have
+  NOT explained - flag it if it matters).
+  509 mV / 7 kOhm = 72.7 uA apparently flowing at the WE pin.
+  But the ONLY external path is the 470k dummy with 4 mV across it = 8.5 nA.
+  Ohmmeter, power off, WE net to GND, both polarities: OL (open).
+
+HISTORY: this same board correctly produced V(RE) = 2278 mV on 2026-09-01, so it worked.
+Since then: U8 (ADS1119) was replaced; a firmware bug (DRDY pin left in analog mode) was
+found and fixed; U7 pin 14 was reworked (it looked dry); then all of U7 was reflowed.
+Neither rework changed either symptom. Board has NOT been cleaned with IPA yet.
+
+== ATTACK THESE SPECIFICALLY ==
+1) Is "U7 is internally damaged" actually forced by the evidence, or is there a
+   configuration, topology, or datasheet-behaviour explanation still open? I have been
+   wrong four times tonight (shorted cell; dead cell; open CE joint; a U4 buffer that
+   exists only in Rev B). Assume I am wrong again.
+2) Verify my register decode against the real datasheet, bit by bit. Especially:
+   does REFCN 0xcd truly select EXTERNAL reference, and if so, what does the LMP91000
+   do if the VREF pin is present but cannot source the needed current?
+3) Pins 9/10 are C1/C2, "external filter connector". Check HEAD's gen_sch.py for what
+   is populated there. Can a wrong, missing, or shorted filter stop A1 from driving
+   while leaving the TIA and INTZ working?
+4) Can ANY register state or pin condition make VOUT sit ~500 mV off INTZ with no
+   external current path? Consider: TIA gain bits selecting external resistance, the
+   shorting FET, MODECN states, an unconnected/badly-soldered DAP, MENB.
+5) Does A1 need anything we have not provided - a minimum load, a settling time, a
+   specific power-up sequence, or a write ordering (e.g. LOCK handling) that the
+   firmware may violate? Check the firmware at firmware/src/lmp91000.c against the
+   datasheet's required sequence.
+6) Is the 3% ADC-vs-DMM discrepancy on AFE_VOUT a clue (divider, input impedance,
+   ADS1119 loading) or noise?
+7) Given the board WORKED on 2026-09-01, what single event most plausibly explains
+   BOTH symptoms appearing together? Rank candidates by how well each explains the
+   full measured set, not by prior probability alone.
+
+Tag every finding (a) arithmetic error, (b) unstated assumption that happens to hold,
+or (c) real design/diagnosis defect. Cite file:line for repo claims and give a
+datasheet section/page for datasheet claims. Do not invent findings; if the
+"U7 is damaged" conclusion survives, say so plainly.
+
+END WITH EXACTLY TWO SECTIONS:
+  FINDINGS   - ranked, most consequential first
+  NEXT-TEST  - the single cheapest bench measurement that would most reduce uncertainty,
+               with the numeric result expected under each competing hypothesis.

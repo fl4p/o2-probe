@@ -1,0 +1,26 @@
+== datasheet slopes, ppm/K of the 20 C output (local derivative via 5 K secant)
+  mean  +3075@0 +2544@13 +2262@20 +2497@25 +2036@30 +1611@36  +399@45 +1183@55
+  upper +2246@0 +1353@13 +1779@20 +3323@25 +2331@30 +1687@36  +978@45 +2100@55
+  lower +3612@0 +3962@13 +1779@20 +1293@25 +1770@30 +1923@36  +201@45  +737@55
+  mean  I(35.97)/I(12.86) = 1.0530  -> mean slope +2235 ppm/K
+  upper I(35.97)/I(12.86) = 1.0500  -> mean slope +2111 ppm/K
+  lower I(35.97)/I(12.86) = 1.0557  -> mean slope +2344 ppm/K
+  T^0.75 law         ratio 1.0600  -> +2522 ppm/K
+rows 948, usable 866, dropped 82
+  run all  : T_EXT 12.86..35.97
+  run night: T_EXT 12.86..19.08
+  run day  : T_EXT 14.73..35.97
+
+== datasheet curve as g(T) on T_EXT (zero temperature parameters)
+  mean  alpha free: all rms 0.199% alpha +0.661 | N->D 0.323% off -0.085 | D->N 0.389% off -0.332 | alpha night +0.814 day +0.452
+  mean  alpha 1.0 : all rms 0.268% alpha +1.000 | N->D 0.497% off -0.260 | D->N 0.295% off +0.235
+  mean  alpha 0.8 : all rms 0.212% alpha +0.800 | N->D 0.313% off -0.062 | D->N 0.181% off +0.025
+  mean  alpha 0.5 : all rms 0.216% alpha +0.500 | N->D 0.350% off +0.263 | D->N 0.346% off -0.284
+  upper alpha free: all rms 0.323% alpha +0.567 | N->D 2.079% off +1.541 | D->N 0.336% off +0.126 | alpha night -1.082 day +0.598
+  upper alpha 1.0 : all rms 0.395% alpha +1.000 | N->D 0.596% off -0.536 | D->N 0.565% off +0.561
+  upper alpha 0.8 : all rms 0.345% alpha +0.800 | N->D 0.382% off -0.283 | D->N 0.413% off +0.344
+  upper alpha 0.5 : all rms 0.324% alpha +0.500 | N->D 0.284% off +0.114 | D->N 0.343% off +0.021
+  lower alpha free: all rms 0.298% alpha +0.711 | N->D 2.566% off -1.891 | D->N 0.763% off -0.700 | alpha night +2.618 day +0.252
+  lower alpha 1.0 : all rms 0.335% alpha +1.000 | N->D 0.630% off -0.220 | D->N 0.219% off +0.080
+  lower alpha 0.8 : all rms 0.301% alpha +0.800 | N->D 0.529% off +0.045 | D->N 0.264% off -0.127
+  lower alpha 0.5 : all rms 0.318% alpha +0.500 | N->D 0.593% off +0.372 | D->N 0.519% off -0.441

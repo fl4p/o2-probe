@@ -1,0 +1,192 @@
+{
+  "chart_kind": "sensor_output_vs_temperature",
+  "status": "refused",
+  "human_verified": false,
+  "reasons": [
+    "upper: measured 0.22 of columns, need 0.45",
+    "upper: trace spans 0.71 of the plot, need 0.95",
+    "lower: measured 0.22 of columns, need 0.45",
+    "lower: trace spans 0.59 of the plot, need 0.95",
+    "band order: the mean is outside its bounds in 42 of 403 columns"
+  ],
+  "source": {
+    "pdf": "/Users/fab/dev/ee/hw/o2-probe/datasheets/DS-0637-SGX-OX-ROHS-Mini-Issue1-SUPERSEDED.pdf",
+    "page": 2,
+    "image_rect_pt": [
+      130.598,
+      617.631,
+      464.678,
+      809.391
+    ],
+    "raster_px": [
+      892,
+      512
+    ],
+    "px_per_pt": [
+      2.67001914245405,
+      2.670004035908124
+    ],
+    "ocr_text": "%20\u00b0C Output vs Temperature \u00b0C 120.0 100.0 1 cee-+77 80.0 60.0 Mean = 40.0 20.0 0.0 -40 -30 20 -10 0 10 20 30 40 50 60 Temperature \u00b0C"
+  },
+  "x_axis": {
+    "model": "linear",
+    "m": 0.13043396484874162,
+    "b": -44.78857764120064,
+    "residual_px": 0.24710552975128833,
+    "candidate_residuals_px": {
+      "linear": 0.24710552975128833
+    },
+    "ticks": [
+      {
+        "text": "-40",
+        "value": -40.0,
+        "pixel": 36.49659863945578
+      },
+      {
+        "text": "-30",
+        "value": -30.0,
+        "pixel": 113.49798657718121
+      },
+      {
+        "text": "-10",
+        "value": -10.0,
+        "pixel": 266.5
+      },
+      {
+        "text": "0",
+        "value": 0.0,
+        "pixel": 343.49736147757255
+      },
+      {
+        "text": "10",
+        "value": 10.0,
+        "pixel": 420.4974226804124
+      },
+      {
+        "text": "20",
+        "value": 20.0,
+        "pixel": 496.50065019505854
+      },
+      {
+        "text": "30",
+        "value": 30.0,
+        "pixel": 573.4953764861294
+      },
+      {
+        "text": "40",
+        "value": 40.0,
+        "pixel": 650.0
+      },
+      {
+        "text": "50",
+        "value": 50.0,
+        "pixel": 727.0
+      },
+      {
+        "text": "60",
+        "value": 60.0,
+        "pixel": 803.0
+      }
+    ]
+  },
+  "y_axis": {
+    "model": "linear",
+    "m": -0.32586443254512903,
+    "b": 145.14382753369023,
+    "residual_px": 0.2651741099507806,
+    "candidate_residuals_px": {
+      "linear": 0.2651741099507806
+    },
+    "ticks": [
+      {
+        "text": "120.0",
+        "value": 120.0,
+        "pixel": 77.0
+      },
+      {
+        "text": "100.0",
+        "value": 100.0,
+        "pixel": 138.5
+      },
+      {
+        "text": "80.0",
+        "value": 80.0,
+        "pixel": 200.0013117621338
+      },
+      {
+        "text": "60.0",
+        "value": 60.0,
+        "pixel": 261.501630789302
+      },
+      {
+        "text": "40.0",
+        "value": 40.0,
+        "pixel": 322.4993455497382
+      },
+      {
+        "text": "20.0",
+        "value": 20.0,
+        "pixel": 384.5
+      },
+      {
+        "text": "0.0",
+        "value": 0.0,
+        "pixel": 445.0
+      }
+    ]
+  },
+  "grid_extended_ticks": {
+    "x": [],
+    "y": []
+  },
+  "rejected_ticks": [
+    {
+      "axis": "x",
+      "text": "20",
+      "text_pixel": 192.39,
+      "reason": "no gridline within 2.5 px"
+    }
+  ],
+  "plot_box_px": {
+    "x0": 36,
+    "y0": 77,
+    "x1": 804,
+    "y1": 446
+  },
+  "series_stats": {
+    "mean": {
+      "measured_fraction": 0.9597,
+      "filled_fraction": 0.9961,
+      "merged_columns": 31,
+      "occluded_columns_dropped": 25
+    },
+    "upper": {
+      "measured_fraction": 0.2237,
+      "filled_fraction": 0.7139,
+      "merged_columns": 61
+    },
+    "lower": {
+      "measured_fraction": 0.2172,
+      "filled_fraction": 0.593,
+      "merged_columns": 61
+    },
+    "bounds": {
+      "ambiguous_columns": 43
+    }
+  },
+  "checks": {
+    "band_order_violations": 42,
+    "band_order_columns": 403,
+    "anchor": {
+      "at": 20.0,
+      "expected": 100.0,
+      "residual_pct": {
+        "mean": 0.175,
+        "upper": 0.175,
+        "lower": 0.175
+      },
+      "pass": true
+    }
+  },
+  "samples": []
+}

@@ -1,0 +1,29 @@
+(version 1)
+
+# Surface leakage around the reference electrode.
+#
+# CELL_RE is budgeted against the LMP91000's +/-900 pA input current.  The
+# board's ordinary clearance is 0.15 mm, which is a MANUFACTURING number: it
+# says two conductors will not bridge, and says nothing at all about how much
+# current creeps between them across the mask.  Nothing in KiCad's default
+# rule set scores leakage, so a router will happily park a switching net
+# 0.17 mm from the reference node and DRC will call the board clean -- which is
+# exactly what happened on 2026-09-05, with /3V3D.
+#
+# Across 0.25 mm of masked FR-4 at 3.3 V a clean board leaks on the order of
+# 10 pA, comfortably inside the budget; contamination costs orders of magnitude,
+# which is what the driven guard rails are for on the long run.  This rule
+# covers the stretches the rails cannot: the approach to the cell land and the
+# detour to U4.
+#
+# TRACK-TO-TRACK ONLY, deliberately.  CELL_RE arrives at U7 pin 13 on a 0.5 mm
+# pitch row where the gap to pins 12 and 14 is 0.255 mm; a pad-inclusive rule
+# at 0.25 mm would pass today by 5 um and fail on any library revision, and no
+# clearance rule should be able to demand a different package pinout.
+#
+# GUARD_REPLICA is exempt: the guard rails sit 0.275 mm off the run BY DESIGN
+# and being the nearest copper is their entire function.  verify_critical.py
+# checks that separately, and checks that they are nearer than anything else.
+(rule "cell_re_surface_leakage"
+	(constraint clearance (min 0.25mm))
+	(condition "A.Type=='track' && B.Type=='track' && A.NetClass=='CELL_RE' && B.NetClass!='CELL_RE'"))

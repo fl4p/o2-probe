@@ -1,0 +1,62 @@
+{
+  "outline_mm": [
+    20,
+    89
+  ],
+  "rigidly_translated_footprints": [
+    "C10",
+    "C17",
+    "C18",
+    "C19",
+    "C20",
+    "C21",
+    "C25",
+    "C29",
+    "C30",
+    "C34",
+    "D7",
+    "Q2",
+    "R17",
+    "R18",
+    "R24",
+    "R25",
+    "R26",
+    "R27",
+    "R28",
+    "R29",
+    "R34",
+    "R35",
+    "R36",
+    "R37",
+    "R39",
+    "R40",
+    "R42",
+    "R43",
+    "R44",
+    "RH1",
+    "RH2",
+    "TP1",
+    "TP3",
+    "TP4",
+    "TP6",
+    "U10",
+    "U11",
+    "U12",
+    "U15",
+    "U4",
+    "U7",
+    "U8"
+  ],
+  "retained_critical_items": 49,
+  "CELL_RE_no_vias": true,
+  "new_nearby_vias_checked": 2,
+  "nearest_new_via": {
+    "net": "/I2C_SDA",
+    "xy": [
+      111.52,
+      109.405
+    ],
+    "gap_mm": 0.26500000000000057
+  },
+  "seconds": 0.547
+}

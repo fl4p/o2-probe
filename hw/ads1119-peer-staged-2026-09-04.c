@@ -1,0 +1,143 @@
+#include "ads1119.h"
+
+#include "board_pins.h"
+#include "i2c1.h"
+#include "mcu.h"
+
+#define ADS_ADDR O2P_HW_I2C_ADDR_ADS1119
+
+static uint8_t cfg_byte(uint8_t mux, uint8_t dr, bool ext_ref)
+{
+    /* GAIN stays at 1 and CM at single-shot. Gain 4 would halve the LSB but
+     * clips at VREF/4 = 625 mV, and the oxygen channel swings about 1.06 V
+     * from its 1.675 V zero - so gain 4 is unusable here, not merely
+     * unnecessary. Single-shot because the sample loop is 1 Hz: continuous
+     * conversion would keep the modulator running for nothing. */
+    return (uint8_t)(((mux & 7u) << 5) | ((dr & 3u) << 2) | (ext_ref ? 1u : 0u));
+}
+
+static o2p_ads_status_t write_cfg(uint8_t cfg)
+{
+    const uint8_t tx[2] = {O2P_ADS_CMD_WREG, cfg};
+    return (o2p_i2c1_write(ADS_ADDR, tx, 2u) == O2P_I2C_OK) ? O2P_ADS_OK : O2P_ADS_IO;
+}
+
+static o2p_ads_status_t read_cfg(uint8_t *cfg)
+{
+    const uint8_t tx = O2P_ADS_CMD_RREG_CFG;
+    return (o2p_i2c1_write_read(ADS_ADDR, &tx, 1u, cfg, 1u) == O2P_I2C_OK)
+               ? O2P_ADS_OK : O2P_ADS_IO;
+}
+
+o2p_ads_status_t o2p_ads1119_init(void)
+{
+    /* RESET pin has no GPIO on this board (R18 holds it released), so the
+     * command is the only reset available - which is why it is used first,
+     * before trusting anything the part says. */
+    const uint8_t rst = O2P_ADS_CMD_RESET;
+    if (o2p_i2c1_write(ADS_ADDR, &rst, 1u) != O2P_I2C_OK) {
+        return O2P_ADS_IO;
+    }
+    o2p_delay_ms(1u);
+
+    /* Prove the part stores configuration. A bus stub, a short, or a
+     * different device at 0x40 can all ACK an address; only an ADS1119 will
+     * hand this pattern back. Reset default is 0x00, so a non-zero pattern
+     * also proves the write took effect rather than the read returning the
+     * default. */
+    const uint8_t probe = cfg_byte(O2P_ADS_MUX_AIN1_AGND, O2P_ADS_DR_20SPS, false);
+    if (write_cfg(probe) != O2P_ADS_OK) {
+        return O2P_ADS_IO;
+    }
+    uint8_t back = 0u;
+    if (read_cfg(&back) != O2P_ADS_OK) {
+        return O2P_ADS_IO;
+    }
+    if (back != probe) {
+        return O2P_ADS_CONFIG;
+    }
+    return O2P_ADS_OK;
+}
+
+/* Conversion times, SBAS925A Table 4, plus the 28.5 tCLK start latency:
+ * 20 SPS is 50 ms, 90 SPS 11.1 ms, 330 SPS 3 ms, 1000 SPS 1 ms. Budget
+ * generously - a timeout here becomes a fault bit, not a retry storm. */
+static uint32_t conversion_timeout_ms(uint8_t dr)
+{
+    switch (dr) {
+    case O2P_ADS_DR_1000SPS: return 5u;
+    case O2P_ADS_DR_330SPS:  return 10u;
+    case O2P_ADS_DR_90SPS:   return 25u;
+    default:                 return 80u;   /* 20 SPS */
+    }
+}
+
+o2p_ads_status_t o2p_ads1119_convert(uint8_t mux, uint8_t dr, bool ext_ref,
+                                     int16_t *out_code)
+{
+    if (out_code == NULL) {
+        return O2P_ADS_IO;
+    }
+    uint8_t cfg = cfg_byte(mux, dr, ext_ref);
+    o2p_ads_status_t st = write_cfg(cfg);
+    if (st != O2P_ADS_OK) {
+        return st;
+    }
+    /* Writing the config already restarts any conversion, but START/SYNC is
+     * what actually begins one in single-shot mode. */
+    const uint8_t start = O2P_ADS_CMD_START;
+    if (o2p_i2c1_write(ADS_ADDR, &start, 1u) != O2P_I2C_OK) {
+        return O2P_ADS_IO;
+    }
+
+    /* Wait on the DRDY pin (PB1, open-drain, R19 pull-up): it falls when the
+     * result is ready. Polling the status register would work too but costs a
+     * bus transaction per poll on a bus shared with three other devices. */
+    uint32_t t0 = o2p_millis();
+    uint32_t limit = conversion_timeout_ms(dr);
+    while ((GPIOB->IDR & (1u << O2P_ADC_DRDY_PIN)) != 0u) {
+        if (o2p_elapsed(t0, limit)) {
+            return O2P_ADS_TIMEOUT;
+        }
+    }
+
+    const uint8_t rdata = O2P_ADS_CMD_RDATA;
+    uint8_t rx[2] = {0u, 0u};
+    if (o2p_i2c1_write_read(ADS_ADDR, &rdata, 1u, rx, 2u) != O2P_I2C_OK) {
+        return O2P_ADS_IO;
+    }
+    *out_code = (int16_t)(((uint16_t)rx[0] << 8) | rx[1]);
+    return O2P_ADS_OK;
+}
+
+o2p_ads_status_t o2p_ads1119_average(uint8_t mux, uint8_t dr, bool ext_ref,
+                                     unsigned n, int32_t *out_code)
+{
+    if (out_code == NULL || n == 0u || n > 64u) {
+        return O2P_ADS_IO;
+    }
+    int32_t acc = 0;
+    for (unsigned i = 0; i < n; i++) {
+        int16_t c = 0;
+        o2p_ads_status_t st = o2p_ads1119_convert(mux, dr, ext_ref, &c);
+        if (st != O2P_ADS_OK) {
+            /* Do not average what we have. Half a sample set taken before a
+             * device died is not a lower-confidence reading, it is a reading
+             * of an unknown interval. */
+            return st;
+        }
+        acc += c;
+    }
+    *out_code = acc / (int32_t)n;
+    return O2P_ADS_OK;
+}
+
+int32_t o2p_ads1119_code_to_uv(int32_t code, uint32_t vref_mv)
+{
+    /* FSR = +/-VREF at gain 1, and full scale is 2^15 codes (SBAS925A 8.4.5:
+     * 1 LSB = 2*VREF/2^16 = +FS/2^15). With VREF = 2500 mV that is 76.29 uV
+     * per code. Done in int64 so the intermediate cannot overflow: 32767 *
+     * 2500000 exceeds int32. */
+    int64_t uv = ((int64_t)code * (int64_t)vref_mv * 1000) / 32768;
+    return (int32_t)uv;
+}

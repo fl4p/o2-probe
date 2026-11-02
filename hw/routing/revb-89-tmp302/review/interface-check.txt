@@ -1,0 +1,6 @@
+PASS: 307 package pins and 101 part values match the live schematic
+SHA256 4520074e475656a14fe82fea1ac86e2004d09b85485ee1155a594fc5e271b303  /private/tmp/o2-tmp302-astra-0911/ee/hw/o2-probe/routing/revb-89-tmp302/o2-probe.kicad_pcb
+SHA256 9f4a3a5f196d2868b9a4dc9edbfe132df0f7942472423cfb55b783c96976d38e  /private/tmp/o2-tmp302-astra-0911/ee/hw/o2-probe/gen_sch.py
+SHA256 e63c1602a52ef418034fb73770f53ba293bb71a7a81ef0508ca302faa70b2325  /private/tmp/o2-tmp302-astra-0911/ee/hw/o2-probe/verify_revb_interfaces.py
+SHA256 8180acb7a3a641fcf65f3c891b3743f6b82629fb56cbf0514d41c6ae39fc4974  /private/tmp/o2-tmp302-astra-0911/ee/hw/o2-probe/firmware/tools/pcb_netlist.py
+Electrical connectivity/clearance requires a fresh KiCad DRC; bench qualification is separate.

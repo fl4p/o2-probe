@@ -1,0 +1,257 @@
+preflight
+  T_TIP         25.70 C
+  T_CHAMBER     25.57 C   (one thermal node with the tip - NOT a dT reference)
+  T_DIE         28.56 C   (across the barrier; the runaway reference)
+  RH            70.59 %
+  VIN           11960 mV  (interlock at 9000 mV)
+  VA            3288 mV
+  duty now      0.00 %
+  RH_SETPOINT   8500 (85.00 %)
+  FAULTS        0x8000  HEATER_DISABLED
+  predicted     4.00 % -> 40.9 mW -> +4.0 K at the assumed 98 K/W (tip 29.7 C); needs the chamber to start at 70 %RH
+
+square wave: 1 cycles of 600 s at 4.00 % / 600 s at 0 %, sampling every 5 s
+total 1200 s (20.0 min).  Ctrl-C restores the registers and stops.
+       0 s  on  cmd  4.00 %  applied  0.00 %  tip 25.70 C  chamber 25.57 C  die 28.3 C  RH 70.6 %  VIN 11960 mV  HEATER_DISABLED
+       6 s  on  cmd  4.00 %  applied  4.00 %  tip 25.79 C  chamber 25.68 C  die 28.6 C  RH 70.6 %  VIN 11960 mV  -
+      11 s  on  cmd  4.00 %  applied  4.00 %  tip 26.14 C  chamber 26.04 C  die 28.6 C  RH 70.5 %  VIN 11960 mV  -
+      16 s  on  cmd  4.00 %  applied  4.00 %  tip 26.42 C  chamber 26.30 C  die 28.3 C  RH 70.3 %  VIN 11960 mV  -
+      22 s  on  cmd  4.00 %  applied  4.00 %  tip 26.66 C  chamber 26.54 C  die 28.3 C  RH 70.0 %  VIN 11960 mV  -
+      27 s  on  cmd  4.00 %  applied  4.00 %  tip 26.95 C  chamber 26.81 C  die 28.3 C  RH 69.5 %  VIN 11960 mV  -
+      32 s  on  cmd  4.00 %  applied  4.00 %  tip 27.14 C  chamber 26.99 C  die 28.0 C  RH 69.1 %  VIN 11960 mV  -
+      38 s  on  cmd  4.00 %  applied  4.00 %  tip 27.34 C  chamber 27.22 C  die 28.6 C  RH 68.7 %  VIN 11960 mV  -
+      43 s  on  cmd  4.00 %  applied  4.00 %  tip 27.55 C  chamber 27.39 C  die 28.6 C  RH 68.2 %  VIN 11960 mV  -
+      48 s  on  cmd  4.00 %  applied  4.00 %  tip 27.71 C  chamber 27.54 C  die 28.3 C  RH 67.7 %  VIN 11960 mV  -
+      54 s  on  cmd  4.00 %  applied  4.00 %  tip 27.85 C  chamber 27.69 C  die 28.6 C  RH 67.3 %  VIN 11960 mV  -
+      59 s  on  cmd  4.00 %  applied  4.00 %  tip 28.03 C  chamber 27.85 C  die 28.6 C  RH 66.7 %  VIN 11950 mV  -
+      66 s  on  cmd  4.00 %  applied  4.00 %  tip 28.21 C  chamber 28.05 C  die 28.9 C  RH 66.1 %  VIN 11960 mV  -
+      72 s  on  cmd  4.00 %  applied  4.00 %  tip 28.33 C  chamber 28.19 C  die 28.6 C  RH 65.7 %  VIN 11960 mV  -
+      77 s  on  cmd  4.00 %  applied  4.00 %  tip 28.45 C  chamber 28.28 C  die 28.6 C  RH 65.3 %  VIN 11960 mV  -
+      82 s  on  cmd  4.00 %  applied  4.00 %  tip 28.57 C  chamber 28.42 C  die 28.6 C  RH 64.8 %  VIN 11960 mV  -
+      88 s  on  cmd  4.00 %  applied  4.00 %  tip 28.67 C  chamber 28.51 C  die 28.3 C  RH 64.4 %  VIN 11960 mV  -
+      93 s  on  cmd  4.00 %  applied  4.00 %  tip 28.76 C  chamber 28.57 C  die 27.7 C  RH 64.1 %  VIN 11960 mV  -
+      98 s  on  cmd  4.00 %  applied  4.00 %  tip 28.88 C  chamber 28.72 C  die 28.6 C  RH 63.7 %  VIN 11960 mV  -
+     104 s  on  cmd  4.00 %  applied  4.00 %  tip 28.96 C  chamber 28.78 C  die 28.0 C  RH 63.4 %  VIN 11960 mV  -
+     109 s  on  cmd  4.00 %  applied  4.00 %  tip 29.03 C  chamber 28.85 C  die 27.7 C  RH 63.0 %  VIN 11960 mV  -
+     114 s  on  cmd  4.00 %  applied  4.00 %  tip 29.13 C  chamber 28.97 C  die 28.6 C  RH 62.7 %  VIN 11960 mV  -
+     120 s  on  cmd  4.00 %  applied  4.00 %  tip 29.20 C  chamber 29.02 C  die 28.6 C  RH 62.4 %  VIN 11960 mV  -
+     125 s  on  cmd  4.00 %  applied  4.00 %  tip 29.27 C  chamber 29.10 C  die 28.6 C  RH 62.1 %  VIN 11960 mV  -
+     130 s  on  cmd  4.00 %  applied  4.00 %  tip 29.35 C  chamber 29.18 C  die 28.3 C  RH 61.7 %  VIN 11960 mV  -
+     136 s  on  cmd  4.00 %  applied  4.00 %  tip 29.41 C  chamber 29.24 C  die 28.6 C  RH 61.5 %  VIN 11960 mV  -
+     141 s  on  cmd  4.00 %  applied  4.00 %  tip 29.48 C  chamber 29.30 C  die 28.6 C  RH 61.1 %  VIN 11960 mV  -
+     146 s  on  cmd  4.00 %  applied  4.00 %  tip 29.53 C  chamber 29.37 C  die 28.9 C  RH 60.9 %  VIN 11960 mV  -
+     152 s  on  cmd  4.00 %  applied  4.00 %  tip 29.60 C  chamber 29.41 C  die 28.6 C  RH 60.7 %  VIN 11960 mV  -
+     157 s  on  cmd  4.00 %  applied  4.00 %  tip 29.63 C  chamber 29.44 C  die 28.3 C  RH 60.4 %  VIN 11960 mV  -
+     162 s  on  cmd  4.00 %  applied  4.00 %  tip 29.70 C  chamber 29.51 C  die 28.6 C  RH 60.1 %  VIN 11960 mV  -
+     168 s  on  cmd  4.00 %  applied  4.00 %  tip 29.74 C  chamber 29.57 C  die 28.6 C  RH 59.9 %  VIN 11960 mV  -
+   175.6  !! OSError: no reply (got 0 bytes)
+     181 s  on  cmd  4.00 %  applied  4.00 %  tip 29.86 C  chamber 29.69 C  die 28.6 C  RH 59.4 %  VIN 11960 mV  -
+     186 s  on  cmd  4.00 %  applied  4.00 %  tip 29.90 C  chamber 29.72 C  die 28.9 C  RH 59.2 %  VIN 11960 mV  -
+     192 s  on  cmd  4.00 %  applied  4.00 %  tip 29.94 C  chamber 29.77 C  die 28.9 C  RH 59.0 %  VIN 11960 mV  -
+     197 s  on  cmd  4.00 %  applied  4.00 %  tip 29.98 C  chamber 29.81 C  die 28.3 C  RH 58.8 %  VIN 11960 mV  -
+     202 s  on  cmd  4.00 %  applied  4.00 %  tip 30.03 C  chamber 29.85 C  die 28.3 C  RH 58.6 %  VIN 11960 mV  -
+     208 s  on  cmd  4.00 %  applied  4.00 %  tip 30.06 C  chamber 29.87 C  die 28.3 C  RH 58.5 %  VIN 11960 mV  -
+     213 s  on  cmd  4.00 %  applied  4.00 %  tip 30.09 C  chamber 29.91 C  die 29.1 C  RH 58.3 %  VIN 11960 mV  -
+     218 s  on  cmd  4.00 %  applied  4.00 %  tip 30.13 C  chamber 29.95 C  die 28.9 C  RH 58.1 %  VIN 11960 mV  -
+     224 s  on  cmd  4.00 %  applied  4.00 %  tip 30.16 C  chamber 29.98 C  die 28.9 C  RH 58.1 %  VIN 11960 mV  -
+     229 s  on  cmd  4.00 %  applied  4.00 %  tip 30.19 C  chamber 30.01 C  die 28.3 C  RH 57.8 %  VIN 11960 mV  -
+     234 s  on  cmd  4.00 %  applied  4.00 %  tip 30.22 C  chamber 30.06 C  die 28.6 C  RH 57.7 %  VIN 11960 mV  -
+     240 s  on  cmd  4.00 %  applied  4.00 %  tip 30.25 C  chamber 30.07 C  die 28.6 C  RH 57.6 %  VIN 11960 mV  -
+     245 s  on  cmd  4.00 %  applied  4.00 %  tip 30.29 C  chamber 30.11 C  die 28.6 C  RH 57.5 %  VIN 11960 mV  -
+     250 s  on  cmd  4.00 %  applied  4.00 %  tip 30.32 C  chamber 30.13 C  die 28.3 C  RH 57.3 %  VIN 11960 mV  -
+     256 s  on  cmd  4.00 %  applied  4.00 %  tip 30.34 C  chamber 30.17 C  die 28.6 C  RH 57.2 %  VIN 11960 mV  -
+     261 s  on  cmd  4.00 %  applied  4.00 %  tip 30.37 C  chamber 30.18 C  die 28.6 C  RH 57.1 %  VIN 11960 mV  -
+     266 s  on  cmd  4.00 %  applied  4.00 %  tip 30.39 C  chamber 30.21 C  die 29.1 C  RH 57.0 %  VIN 11960 mV  -
+     272 s  on  cmd  4.00 %  applied  4.00 %  tip 30.42 C  chamber 30.23 C  die 28.6 C  RH 56.8 %  VIN 11960 mV  -
+     277 s  on  cmd  4.00 %  applied  4.00 %  tip 30.45 C  chamber 30.27 C  die 28.9 C  RH 56.7 %  VIN 11960 mV  -
+     282 s  on  cmd  4.00 %  applied  4.00 %  tip 30.47 C  chamber 30.30 C  die 29.4 C  RH 56.6 %  VIN 11960 mV  -
+     288 s  on  cmd  4.00 %  applied  4.00 %  tip 30.50 C  chamber 30.31 C  die 28.9 C  RH 56.5 %  VIN 11960 mV  -
+     293 s  on  cmd  4.00 %  applied  4.00 %  tip 30.52 C  chamber 30.36 C  die 28.6 C  RH 56.5 %  VIN 11960 mV  -
+     298 s  on  cmd  4.00 %  applied  4.00 %  tip 30.54 C  chamber 30.36 C  die 28.3 C  RH 56.4 %  VIN 11960 mV  -
+     304 s  on  cmd  4.00 %  applied  4.00 %  tip 30.57 C  chamber 30.39 C  die 28.6 C  RH 56.2 %  VIN 11960 mV  -
+     309 s  on  cmd  4.00 %  applied  4.00 %  tip 30.59 C  chamber 30.39 C  die 28.6 C  RH 56.1 %  VIN 11960 mV  -
+     315 s  on  cmd  4.00 %  applied  4.00 %  tip 30.60 C  chamber 30.42 C  die 28.9 C  RH 56.1 %  VIN 11960 mV  -
+     320 s  on  cmd  4.00 %  applied  4.00 %  tip 30.63 C  chamber 30.44 C  die 28.6 C  RH 56.0 %  VIN 11960 mV  -
+     325 s  on  cmd  4.00 %  applied  4.00 %  tip 30.64 C  chamber 30.47 C  die 29.1 C  RH 55.9 %  VIN 11960 mV  -
+     331 s  on  cmd  4.00 %  applied  4.00 %  tip 30.66 C  chamber 30.48 C  die 28.9 C  RH 55.8 %  VIN 11960 mV  -
+     336 s  on  cmd  4.00 %  applied  4.00 %  tip 30.67 C  chamber 30.50 C  die 28.3 C  RH 55.7 %  VIN 11960 mV  -
+     341 s  on  cmd  4.00 %  applied  4.00 %  tip 30.71 C  chamber 30.52 C  die 28.9 C  RH 55.6 %  VIN 11960 mV  -
+     347 s  on  cmd  4.00 %  applied  4.00 %  tip 30.72 C  chamber 30.55 C  die 28.9 C  RH 55.6 %  VIN 11960 mV  -
+     352 s  on  cmd  4.00 %  applied  4.00 %  tip 30.74 C  chamber 30.58 C  die 28.3 C  RH 55.5 %  VIN 11960 mV  -
+     357 s  on  cmd  4.00 %  applied  4.00 %  tip 30.75 C  chamber 30.59 C  die 28.9 C  RH 55.4 %  VIN 11960 mV  -
+     363 s  on  cmd  4.00 %  applied  4.00 %  tip 30.77 C  chamber 30.59 C  die 28.6 C  RH 55.4 %  VIN 11960 mV  -
+     368 s  on  cmd  4.00 %  applied  4.00 %  tip 30.78 C  chamber 30.61 C  die 29.1 C  RH 55.3 %  VIN 11960 mV  -
+     373 s  on  cmd  4.00 %  applied  4.00 %  tip 30.80 C  chamber 30.63 C  die 28.6 C  RH 55.2 %  VIN 11960 mV  -
+     379 s  on  cmd  4.00 %  applied  4.00 %  tip 30.83 C  chamber 30.65 C  die 28.9 C  RH 55.1 %  VIN 11960 mV  -
+     384 s  on  cmd  4.00 %  applied  4.00 %  tip 30.84 C  chamber 30.66 C  die 28.6 C  RH 55.1 %  VIN 11960 mV  -
+     389 s  on  cmd  4.00 %  applied  4.00 %  tip 30.86 C  chamber 30.67 C  die 28.9 C  RH 55.0 %  VIN 11960 mV  -
+     395 s  on  cmd  4.00 %  applied  4.00 %  tip 30.87 C  chamber 30.67 C  die 28.6 C  RH 54.9 %  VIN 11960 mV  -
+     400 s  on  cmd  4.00 %  applied  4.00 %  tip 30.89 C  chamber 30.71 C  die 29.1 C  RH 54.9 %  VIN 11960 mV  -
+     405 s  on  cmd  4.00 %  applied  4.00 %  tip 30.90 C  chamber 30.73 C  die 28.6 C  RH 54.8 %  VIN 11960 mV  -
+     411 s  on  cmd  4.00 %  applied  4.00 %  tip 30.91 C  chamber 30.75 C  die 28.9 C  RH 54.7 %  VIN 11960 mV  -
+     416 s  on  cmd  4.00 %  applied  4.00 %  tip 30.93 C  chamber 30.74 C  die 28.6 C  RH 54.7 %  VIN 11960 mV  -
+     422 s  on  cmd  4.00 %  applied  4.00 %  tip 30.94 C  chamber 30.76 C  die 28.9 C  RH 54.6 %  VIN 11960 mV  -
+     428 s  on  cmd  4.00 %  applied  4.00 %  tip 30.96 C  chamber 30.79 C  die 29.4 C  RH 54.5 %  VIN 11960 mV  -
+     433 s  on  cmd  4.00 %  applied  4.00 %  tip 30.98 C  chamber 30.80 C  die 28.6 C  RH 54.5 %  VIN 11960 mV  -
+     438 s  on  cmd  4.00 %  applied  4.00 %  tip 30.99 C  chamber 30.81 C  die 28.6 C  RH 54.5 %  VIN 11960 mV  -
+     444 s  on  cmd  4.00 %  applied  4.00 %  tip 31.00 C  chamber 30.80 C  die 28.9 C  RH 54.4 %  VIN 11960 mV  -
+     449 s  on  cmd  4.00 %  applied  4.00 %  tip 31.01 C  chamber 30.83 C  die 28.9 C  RH 54.3 %  VIN 11960 mV  -
+     454 s  on  cmd  4.00 %  applied  4.00 %  tip 31.03 C  chamber 30.85 C  die 29.1 C  RH 54.3 %  VIN 11960 mV  -
+     460 s  on  cmd  4.00 %  applied  4.00 %  tip 31.04 C  chamber 30.85 C  die 28.6 C  RH 54.2 %  VIN 11960 mV  -
+     465 s  on  cmd  4.00 %  applied  4.00 %  tip 31.05 C  chamber 30.86 C  die 28.6 C  RH 54.2 %  VIN 11960 mV  -
+     470 s  on  cmd  4.00 %  applied  4.00 %  tip 31.07 C  chamber 30.88 C  die 28.9 C  RH 54.2 %  VIN 11960 mV  -
+     476 s  on  cmd  4.00 %  applied  4.00 %  tip 31.08 C  chamber 30.89 C  die 29.1 C  RH 54.1 %  VIN 11960 mV  -
+     481 s  on  cmd  4.00 %  applied  4.00 %  tip 31.09 C  chamber 30.90 C  die 29.1 C  RH 54.0 %  VIN 11960 mV  -
+     486 s  on  cmd  4.00 %  applied  4.00 %  tip 31.10 C  chamber 30.92 C  die 28.9 C  RH 54.0 %  VIN 11960 mV  -
+     492 s  on  cmd  4.00 %  applied  4.00 %  tip 31.11 C  chamber 30.93 C  die 28.6 C  RH 54.0 %  VIN 11960 mV  -
+     497 s  on  cmd  4.00 %  applied  4.00 %  tip 31.13 C  chamber 30.93 C  die 28.6 C  RH 53.9 %  VIN 11960 mV  -
+     502 s  on  cmd  4.00 %  applied  4.00 %  tip 31.14 C  chamber 30.96 C  die 28.9 C  RH 53.9 %  VIN 11960 mV  -
+     508 s  on  cmd  4.00 %  applied  4.00 %  tip 31.15 C  chamber 30.96 C  die 28.9 C  RH 53.8 %  VIN 11960 mV  -
+     513 s  on  cmd  4.00 %  applied  4.00 %  tip 31.16 C  chamber 31.00 C  die 28.6 C  RH 53.8 %  VIN 11960 mV  -
+     518 s  on  cmd  4.00 %  applied  4.00 %  tip 31.17 C  chamber 31.00 C  die 29.1 C  RH 53.7 %  VIN 11960 mV  -
+     523 s  on  cmd  4.00 %  applied  4.00 %  tip 31.18 C  chamber 30.98 C  die 29.1 C  RH 53.7 %  VIN 11960 mV  -
+     529 s  on  cmd  4.00 %  applied  4.00 %  tip 31.19 C  chamber 31.03 C  die 29.1 C  RH 53.6 %  VIN 11960 mV  -
+     534 s  on  cmd  4.00 %  applied  4.00 %  tip 31.21 C  chamber 31.01 C  die 29.1 C  RH 53.6 %  VIN 11960 mV  -
+     539 s  on  cmd  4.00 %  applied  4.00 %  tip 31.21 C  chamber 31.04 C  die 28.9 C  RH 53.6 %  VIN 11960 mV  -
+     545 s  on  cmd  4.00 %  applied  4.00 %  tip 31.22 C  chamber 31.06 C  die 29.1 C  RH 53.5 %  VIN 11960 mV  -
+     550 s  on  cmd  4.00 %  applied  4.00 %  tip 31.24 C  chamber 31.04 C  die 29.1 C  RH 53.5 %  VIN 11960 mV  -
+     555 s  on  cmd  4.00 %  applied  4.00 %  tip 31.25 C  chamber 31.06 C  die 28.9 C  RH 53.5 %  VIN 11960 mV  -
+     561 s  on  cmd  4.00 %  applied  4.00 %  tip 31.25 C  chamber 31.07 C  die 28.9 C  RH 53.4 %  VIN 11960 mV  -
+     566 s  on  cmd  4.00 %  applied  4.00 %  tip 31.26 C  chamber 31.07 C  die 28.9 C  RH 53.4 %  VIN 11960 mV  -
+     571 s  on  cmd  4.00 %  applied  4.00 %  tip 31.28 C  chamber 31.08 C  die 28.9 C  RH 53.3 %  VIN 11960 mV  -
+     577 s  on  cmd  4.00 %  applied  4.00 %  tip 31.28 C  chamber 31.11 C  die 28.9 C  RH 53.3 %  VIN 11960 mV  -
+     582 s  on  cmd  4.00 %  applied  4.00 %  tip 31.28 C  chamber 31.12 C  die 29.1 C  RH 53.2 %  VIN 11960 mV  -
+     587 s  on  cmd  4.00 %  applied  4.00 %  tip 31.30 C  chamber 31.10 C  die 28.6 C  RH 53.2 %  VIN 11960 mV  -
+     593 s  on  cmd  4.00 %  applied  4.00 %  tip 31.31 C  chamber 31.12 C  die 28.9 C  RH 53.2 %  VIN 11960 mV  -
+     598 s  on  cmd  4.00 %  applied  4.00 %  tip 31.32 C  chamber 31.12 C  die 29.1 C  RH 53.1 %  VIN 11960 mV  -
+     604 s  off cmd  0.00 %  applied  4.00 %  tip 31.32 C  chamber 31.13 C  die 29.4 C  RH 53.1 %  VIN 11960 mV  -
+     609 s  off cmd  0.00 %  applied  0.00 %  tip 31.26 C  chamber 31.04 C  die 28.9 C  RH 53.1 %  VIN 11960 mV  HEATER_DISABLED
+     614 s  off cmd  0.00 %  applied  0.00 %  tip 30.96 C  chamber 30.76 C  die 29.1 C  RH 53.1 %  VIN 11960 mV  HEATER_DISABLED
+     620 s  off cmd  0.00 %  applied  0.00 %  tip 30.65 C  chamber 30.46 C  die 29.1 C  RH 53.5 %  VIN 11960 mV  HEATER_DISABLED
+     625 s  off cmd  0.00 %  applied  0.00 %  tip 30.39 C  chamber 30.23 C  die 28.9 C  RH 53.8 %  VIN 11960 mV  HEATER_DISABLED
+     630 s  off cmd  0.00 %  applied  0.00 %  tip 30.14 C  chamber 29.96 C  die 29.1 C  RH 54.2 %  VIN 11960 mV  HEATER_DISABLED
+     636 s  off cmd  0.00 %  applied  0.00 %  tip 29.94 C  chamber 29.78 C  die 28.9 C  RH 54.7 %  VIN 11960 mV  HEATER_DISABLED
+     641 s  off cmd  0.00 %  applied  0.00 %  tip 29.76 C  chamber 29.59 C  die 28.9 C  RH 55.1 %  VIN 11960 mV  HEATER_DISABLED
+     646 s  off cmd  0.00 %  applied  0.00 %  tip 29.56 C  chamber 29.40 C  die 28.9 C  RH 55.5 %  VIN 11960 mV  HEATER_DISABLED
+     652 s  off cmd  0.00 %  applied  0.00 %  tip 29.42 C  chamber 29.24 C  die 29.1 C  RH 55.9 %  VIN 11960 mV  HEATER_DISABLED
+     657 s  off cmd  0.00 %  applied  0.00 %  tip 29.26 C  chamber 29.11 C  die 29.1 C  RH 56.3 %  VIN 11960 mV  HEATER_DISABLED
+     662 s  off cmd  0.00 %  applied  0.00 %  tip 29.10 C  chamber 28.96 C  die 29.1 C  RH 56.7 %  VIN 11960 mV  HEATER_DISABLED
+     668 s  off cmd  0.00 %  applied  0.00 %  tip 28.99 C  chamber 28.84 C  die 28.9 C  RH 57.1 %  VIN 11960 mV  HEATER_DISABLED
+     673 s  off cmd  0.00 %  applied  0.00 %  tip 28.87 C  chamber 28.72 C  die 29.1 C  RH 57.4 %  VIN 11960 mV  HEATER_DISABLED
+     678 s  off cmd  0.00 %  applied  0.00 %  tip 28.73 C  chamber 28.59 C  die 28.6 C  RH 57.8 %  VIN 11960 mV  HEATER_DISABLED
+     684 s  off cmd  0.00 %  applied  0.00 %  tip 28.65 C  chamber 28.50 C  die 29.1 C  RH 58.1 %  VIN 11960 mV  HEATER_DISABLED
+     689 s  off cmd  0.00 %  applied  0.00 %  tip 28.53 C  chamber 28.38 C  die 28.6 C  RH 58.5 %  VIN 11960 mV  HEATER_DISABLED
+     695 s  off cmd  0.00 %  applied  0.00 %  tip 28.45 C  chamber 28.30 C  die 29.1 C  RH 58.7 %  VIN 11960 mV  HEATER_DISABLED
+     700 s  off cmd  0.00 %  applied  0.00 %  tip 28.35 C  chamber 28.20 C  die 29.1 C  RH 59.1 %  VIN 11960 mV  HEATER_DISABLED
+     706 s  off cmd  0.00 %  applied  0.00 %  tip 28.28 C  chamber 28.14 C  die 28.9 C  RH 59.4 %  VIN 11960 mV  HEATER_DISABLED
+     711 s  off cmd  0.00 %  applied  0.00 %  tip 28.20 C  chamber 28.06 C  die 28.9 C  RH 59.6 %  VIN 11960 mV  HEATER_DISABLED
+     716 s  off cmd  0.00 %  applied  0.00 %  tip 28.12 C  chamber 27.98 C  die 28.9 C  RH 59.9 %  VIN 11960 mV  HEATER_DISABLED
+     722 s  off cmd  0.00 %  applied  0.00 %  tip 28.05 C  chamber 27.90 C  die 28.9 C  RH 60.1 %  VIN 11960 mV  HEATER_DISABLED
+     727 s  off cmd  0.00 %  applied  0.00 %  tip 27.99 C  chamber 27.83 C  die 29.1 C  RH 60.5 %  VIN 11960 mV  HEATER_DISABLED
+     733 s  off cmd  0.00 %  applied  0.00 %  tip 27.93 C  chamber 27.80 C  die 28.9 C  RH 60.6 %  VIN 11960 mV  HEATER_DISABLED
+     738 s  off cmd  0.00 %  applied  0.00 %  tip 27.86 C  chamber 27.72 C  die 28.9 C  RH 60.9 %  VIN 11960 mV  HEATER_DISABLED
+     744 s  off cmd  0.00 %  applied  0.00 %  tip 27.82 C  chamber 27.67 C  die 29.1 C  RH 61.1 %  VIN 11960 mV  HEATER_DISABLED
+     749 s  off cmd  0.00 %  applied  0.00 %  tip 27.76 C  chamber 27.62 C  die 29.7 C  RH 61.4 %  VIN 11960 mV  HEATER_DISABLED
+     754 s  off cmd  0.00 %  applied  0.00 %  tip 27.71 C  chamber 27.60 C  die 28.6 C  RH 61.6 %  VIN 11960 mV  HEATER_DISABLED
+     762 s  off cmd  0.00 %  applied  0.00 %  tip 27.66 C  chamber 27.50 C  die 29.1 C  RH 61.8 %  VIN 11960 mV  HEATER_DISABLED
+     767 s  off cmd  0.00 %  applied  0.00 %  tip 27.60 C  chamber 27.47 C  die 29.1 C  RH 62.0 %  VIN 11960 mV  HEATER_DISABLED
+     773 s  off cmd  0.00 %  applied  0.00 %  tip 27.57 C  chamber 27.43 C  die 28.9 C  RH 62.2 %  VIN 11960 mV  HEATER_DISABLED
+     778 s  off cmd  0.00 %  applied  0.00 %  tip 27.53 C  chamber 27.39 C  die 29.7 C  RH 62.4 %  VIN 11960 mV  HEATER_DISABLED
+     783 s  off cmd  0.00 %  applied  0.00 %  tip 27.48 C  chamber 27.37 C  die 28.9 C  RH 62.5 %  VIN 11960 mV  HEATER_DISABLED
+     789 s  off cmd  0.00 %  applied  0.00 %  tip 27.45 C  chamber 27.34 C  die 28.6 C  RH 62.7 %  VIN 11960 mV  HEATER_DISABLED
+     794 s  off cmd  0.00 %  applied  0.00 %  tip 27.42 C  chamber 27.30 C  die 28.9 C  RH 62.8 %  VIN 11960 mV  HEATER_DISABLED
+     799 s  off cmd  0.00 %  applied  0.00 %  tip 27.38 C  chamber 27.26 C  die 28.6 C  RH 63.0 %  VIN 11960 mV  HEATER_DISABLED
+     804 s  off cmd  0.00 %  applied  0.00 %  tip 27.35 C  chamber 27.23 C  die 29.1 C  RH 63.1 %  VIN 11960 mV  HEATER_DISABLED
+     810 s  off cmd  0.00 %  applied  0.00 %  tip 27.32 C  chamber 27.20 C  die 28.6 C  RH 63.2 %  VIN 11960 mV  HEATER_DISABLED
+     815 s  off cmd  0.00 %  applied  0.00 %  tip 27.29 C  chamber 27.16 C  die 28.6 C  RH 63.4 %  VIN 11960 mV  HEATER_DISABLED
+     820 s  off cmd  0.00 %  applied  0.00 %  tip 27.27 C  chamber 27.14 C  die 28.9 C  RH 63.5 %  VIN 11960 mV  HEATER_DISABLED
+     826 s  off cmd  0.00 %  applied  0.00 %  tip 27.24 C  chamber 27.11 C  die 29.4 C  RH 63.6 %  VIN 11960 mV  HEATER_DISABLED
+     831 s  off cmd  0.00 %  applied  0.00 %  tip 27.21 C  chamber 27.08 C  die 29.1 C  RH 63.8 %  VIN 11960 mV  HEATER_DISABLED
+     836 s  off cmd  0.00 %  applied  0.00 %  tip 27.18 C  chamber 27.06 C  die 28.9 C  RH 63.9 %  VIN 11960 mV  HEATER_DISABLED
+     842 s  off cmd  0.00 %  applied  0.00 %  tip 27.16 C  chamber 27.04 C  die 29.1 C  RH 64.0 %  VIN 11960 mV  HEATER_DISABLED
+     847 s  off cmd  0.00 %  applied  0.00 %  tip 27.14 C  chamber 27.02 C  die 29.1 C  RH 64.1 %  VIN 11960 mV  HEATER_DISABLED
+     852 s  off cmd  0.00 %  applied  0.00 %  tip 27.11 C  chamber 27.01 C  die 28.9 C  RH 64.3 %  VIN 11960 mV  HEATER_DISABLED
+     858 s  off cmd  0.00 %  applied  0.00 %  tip 27.09 C  chamber 26.96 C  die 29.4 C  RH 64.4 %  VIN 11960 mV  HEATER_DISABLED
+     863 s  off cmd  0.00 %  applied  0.00 %  tip 27.07 C  chamber 26.96 C  die 28.6 C  RH 64.4 %  VIN 11960 mV  HEATER_DISABLED
+     868 s  off cmd  0.00 %  applied  0.00 %  tip 27.06 C  chamber 26.94 C  die 28.9 C  RH 64.5 %  VIN 11960 mV  HEATER_DISABLED
+     874 s  off cmd  0.00 %  applied  0.00 %  tip 27.03 C  chamber 26.92 C  die 29.4 C  RH 64.7 %  VIN 11960 mV  HEATER_DISABLED
+     879 s  off cmd  0.00 %  applied  0.00 %  tip 27.02 C  chamber 26.89 C  die 28.9 C  RH 64.8 %  VIN 11960 mV  HEATER_DISABLED
+     884 s  off cmd  0.00 %  applied  0.00 %  tip 27.00 C  chamber 26.90 C  die 28.6 C  RH 64.8 %  VIN 11960 mV  HEATER_DISABLED
+     890 s  off cmd  0.00 %  applied  0.00 %  tip 26.98 C  chamber 26.85 C  die 29.1 C  RH 64.9 %  VIN 11960 mV  HEATER_DISABLED
+     895 s  off cmd  0.00 %  applied  0.00 %  tip 26.96 C  chamber 26.83 C  die 28.6 C  RH 65.0 %  VIN 11960 mV  HEATER_DISABLED
+     900 s  off cmd  0.00 %  applied  0.00 %  tip 26.95 C  chamber 26.82 C  die 28.9 C  RH 65.0 %  VIN 11960 mV  HEATER_DISABLED
+     906 s  off cmd  0.00 %  applied  0.00 %  tip 26.92 C  chamber 26.82 C  die 28.9 C  RH 65.2 %  VIN 11960 mV  HEATER_DISABLED
+     911 s  off cmd  0.00 %  applied  0.00 %  tip 26.92 C  chamber 26.82 C  die 28.6 C  RH 65.2 %  VIN 11960 mV  HEATER_DISABLED
+     916 s  off cmd  0.00 %  applied  0.00 %  tip 26.90 C  chamber 26.77 C  die 28.9 C  RH 65.3 %  VIN 11960 mV  HEATER_DISABLED
+     922 s  off cmd  0.00 %  applied  0.00 %  tip 26.89 C  chamber 26.76 C  die 28.6 C  RH 65.4 %  VIN 11960 mV  HEATER_DISABLED
+     927 s  off cmd  0.00 %  applied  0.00 %  tip 26.88 C  chamber 26.74 C  die 29.1 C  RH 65.5 %  VIN 11960 mV  HEATER_DISABLED
+     933 s  off cmd  0.00 %  applied  0.00 %  tip 26.86 C  chamber 26.76 C  die 29.4 C  RH 65.5 %  VIN 11960 mV  HEATER_DISABLED
+     938 s  off cmd  0.00 %  applied  0.00 %  tip 26.85 C  chamber 26.73 C  die 28.9 C  RH 65.6 %  VIN 11960 mV  HEATER_DISABLED
+     943 s  off cmd  0.00 %  applied  0.00 %  tip 26.84 C  chamber 26.73 C  die 28.9 C  RH 65.7 %  VIN 11960 mV  HEATER_DISABLED
+     949 s  off cmd  0.00 %  applied  0.00 %  tip 26.83 C  chamber 26.72 C  die 29.4 C  RH 65.7 %  VIN 11960 mV  HEATER_DISABLED
+     954 s  off cmd  0.00 %  applied  0.00 %  tip 26.82 C  chamber 26.71 C  die 28.9 C  RH 65.8 %  VIN 11960 mV  HEATER_DISABLED
+     959 s  off cmd  0.00 %  applied  0.00 %  tip 26.81 C  chamber 26.69 C  die 29.1 C  RH 65.8 %  VIN 11960 mV  HEATER_DISABLED
+     965 s  off cmd  0.00 %  applied  0.00 %  tip 26.79 C  chamber 26.68 C  die 28.6 C  RH 65.9 %  VIN 11960 mV  HEATER_DISABLED
+     970 s  off cmd  0.00 %  applied  0.00 %  tip 26.78 C  chamber 26.65 C  die 28.9 C  RH 66.0 %  VIN 11960 mV  HEATER_DISABLED
+     975 s  off cmd  0.00 %  applied  0.00 %  tip 26.77 C  chamber 26.63 C  die 29.4 C  RH 66.0 %  VIN 11960 mV  HEATER_DISABLED
+     981 s  off cmd  0.00 %  applied  0.00 %  tip 26.76 C  chamber 26.65 C  die 29.4 C  RH 66.1 %  VIN 11960 mV  HEATER_DISABLED
+     986 s  off cmd  0.00 %  applied  0.00 %  tip 26.75 C  chamber 26.62 C  die 28.6 C  RH 66.2 %  VIN 11960 mV  HEATER_DISABLED
+   993.9  !! OSError: no reply (got 0 bytes)
+     999 s  off cmd  0.00 %  applied  0.00 %  tip 26.72 C  chamber 26.61 C  die 29.1 C  RH 66.3 %  VIN 11960 mV  HEATER_DISABLED
+    1005 s  off cmd  0.00 %  applied  0.00 %  tip 26.71 C  chamber 26.60 C  die 29.7 C  RH 66.3 %  VIN 11960 mV  HEATER_DISABLED
+    1010 s  off cmd  0.00 %  applied  0.00 %  tip 26.70 C  chamber 26.59 C  die 28.3 C  RH 66.4 %  VIN 11960 mV  HEATER_DISABLED
+    1015 s  off cmd  0.00 %  applied  0.00 %  tip 26.70 C  chamber 26.57 C  die 29.1 C  RH 66.5 %  VIN 11960 mV  HEATER_DISABLED
+    1021 s  off cmd  0.00 %  applied  0.00 %  tip 26.68 C  chamber 26.57 C  die 29.1 C  RH 66.5 %  VIN 11960 mV  HEATER_DISABLED
+    1026 s  off cmd  0.00 %  applied  0.00 %  tip 26.68 C  chamber 26.56 C  die 28.9 C  RH 66.5 %  VIN 11960 mV  HEATER_DISABLED
+    1031 s  off cmd  0.00 %  applied  0.00 %  tip 26.67 C  chamber 26.54 C  die 28.6 C  RH 66.6 %  VIN 11960 mV  HEATER_DISABLED
+    1036 s  off cmd  0.00 %  applied  0.00 %  tip 26.66 C  chamber 26.55 C  die 28.9 C  RH 66.7 %  VIN 11960 mV  HEATER_DISABLED
+    1042 s  off cmd  0.00 %  applied  0.00 %  tip 26.65 C  chamber 26.54 C  die 28.6 C  RH 66.7 %  VIN 11960 mV  HEATER_DISABLED
+    1047 s  off cmd  0.00 %  applied  0.00 %  tip 26.64 C  chamber 26.53 C  die 28.9 C  RH 66.7 %  VIN 11960 mV  HEATER_DISABLED
+    1052 s  off cmd  0.00 %  applied  0.00 %  tip 26.64 C  chamber 26.51 C  die 28.6 C  RH 66.8 %  VIN 11960 mV  HEATER_DISABLED
+    1058 s  off cmd  0.00 %  applied  0.00 %  tip 26.63 C  chamber 26.51 C  die 28.9 C  RH 66.8 %  VIN 11960 mV  HEATER_DISABLED
+    1063 s  off cmd  0.00 %  applied  0.00 %  tip 26.63 C  chamber 26.48 C  die 29.1 C  RH 66.9 %  VIN 11960 mV  HEATER_DISABLED
+    1068 s  off cmd  0.00 %  applied  0.00 %  tip 26.61 C  chamber 26.49 C  die 28.9 C  RH 66.9 %  VIN 11960 mV  HEATER_DISABLED
+    1074 s  off cmd  0.00 %  applied  0.00 %  tip 26.60 C  chamber 26.48 C  die 28.6 C  RH 67.0 %  VIN 11960 mV  HEATER_DISABLED
+    1079 s  off cmd  0.00 %  applied  0.00 %  tip 26.60 C  chamber 26.45 C  die 29.1 C  RH 67.0 %  VIN 11960 mV  HEATER_DISABLED
+    1084 s  off cmd  0.00 %  applied  0.00 %  tip 26.59 C  chamber 26.47 C  die 28.9 C  RH 67.0 %  VIN 11960 mV  HEATER_DISABLED
+    1090 s  off cmd  0.00 %  applied  0.00 %  tip 26.58 C  chamber 26.48 C  die 28.3 C  RH 67.1 %  VIN 11960 mV  HEATER_DISABLED
+    1095 s  off cmd  0.00 %  applied  0.00 %  tip 26.57 C  chamber 26.46 C  die 28.9 C  RH 67.1 %  VIN 11960 mV  HEATER_DISABLED
+    1100 s  off cmd  0.00 %  applied  0.00 %  tip 26.57 C  chamber 26.44 C  die 28.6 C  RH 67.2 %  VIN 11960 mV  HEATER_DISABLED
+    1106 s  off cmd  0.00 %  applied  0.00 %  tip 26.56 C  chamber 26.43 C  die 28.6 C  RH 67.2 %  VIN 11960 mV  HEATER_DISABLED
+    1111 s  off cmd  0.00 %  applied  0.00 %  tip 26.55 C  chamber 26.44 C  die 28.9 C  RH 67.2 %  VIN 11960 mV  HEATER_DISABLED
+    1118 s  off cmd  0.00 %  applied  0.00 %  tip 26.54 C  chamber 26.43 C  die 28.6 C  RH 67.3 %  VIN 11960 mV  HEATER_DISABLED
+    1123 s  off cmd  0.00 %  applied  0.00 %  tip 26.53 C  chamber 26.44 C  die 28.9 C  RH 67.3 %  VIN 11960 mV  HEATER_DISABLED
+    1128 s  off cmd  0.00 %  applied  0.00 %  tip 26.53 C  chamber 26.42 C  die 29.1 C  RH 67.4 %  VIN 11960 mV  HEATER_DISABLED
+    1134 s  off cmd  0.00 %  applied  0.00 %  tip 26.53 C  chamber 26.39 C  die 28.9 C  RH 67.4 %  VIN 11960 mV  HEATER_DISABLED
+    1139 s  off cmd  0.00 %  applied  0.00 %  tip 26.52 C  chamber 26.40 C  die 29.1 C  RH 67.4 %  VIN 11960 mV  HEATER_DISABLED
+    1144 s  off cmd  0.00 %  applied  0.00 %  tip 26.51 C  chamber 26.38 C  die 29.1 C  RH 67.5 %  VIN 11960 mV  HEATER_DISABLED
+    1150 s  off cmd  0.00 %  applied  0.00 %  tip 26.51 C  chamber 26.37 C  die 29.1 C  RH 67.5 %  VIN 11960 mV  HEATER_DISABLED
+    1155 s  off cmd  0.00 %  applied  0.00 %  tip 26.50 C  chamber 26.39 C  die 28.9 C  RH 67.5 %  VIN 11960 mV  HEATER_DISABLED
+    1160 s  off cmd  0.00 %  applied  0.00 %  tip 26.49 C  chamber 26.39 C  die 28.9 C  RH 67.6 %  VIN 11960 mV  HEATER_DISABLED
+    1166 s  off cmd  0.00 %  applied  0.00 %  tip 26.50 C  chamber 26.34 C  die 28.6 C  RH 67.6 %  VIN 11960 mV  HEATER_DISABLED
+    1171 s  off cmd  0.00 %  applied  0.00 %  tip 26.49 C  chamber 26.35 C  die 28.9 C  RH 67.6 %  VIN 11960 mV  HEATER_DISABLED
+    1176 s  off cmd  0.00 %  applied  0.00 %  tip 26.48 C  chamber 26.36 C  die 28.9 C  RH 67.7 %  VIN 11960 mV  HEATER_DISABLED
+    1182 s  off cmd  0.00 %  applied  0.00 %  tip 26.47 C  chamber 26.35 C  die 28.6 C  RH 67.7 %  VIN 11960 mV  HEATER_DISABLED
+    1187 s  off cmd  0.00 %  applied  0.00 %  tip 26.47 C  chamber 26.35 C  die 29.1 C  RH 67.7 %  VIN 11960 mV  HEATER_DISABLED
+    1192 s  off cmd  0.00 %  applied  0.00 %  tip 26.46 C  chamber 26.32 C  die 28.9 C  RH 67.7 %  VIN 11960 mV  HEATER_DISABLED
+    1198 s  off cmd  0.00 %  applied  0.00 %  tip 26.46 C  chamber 26.34 C  die 28.6 C  RH 67.8 %  VIN 11960 mV  HEATER_DISABLED
+    1203 s  off cmd  0.00 %  applied  0.00 %  tip 26.46 C  chamber 26.35 C  die 28.9 C  RH 67.8 %  VIN 11960 mV  HEATER_DISABLED
+
+restored: HEATER_MAX_DUTY = 0 (read back), RH_SETPOINT = 8500 (not committed to flash)
+
+--- per half-cycle fit  T(t) = T_inf + (T_0 - T_inf) exp(-t/tau) ---
+  cycle phase   T_0     T_inf   asympt      tau     rms   applied   VIN    span/tau  quality
+      1 on     25.950  31.184  31.184       129.3  0.1113   4.00 % 11960 mV     4.6    SHORT(4.6 tau)
+      1 off    31.193  26.570  26.570       107.6  0.0835   0.00 % 11960 mV     5.6    ok
+
+  ** 1 half-cycle(s) ran for less than 5 tau. The asymptote there is EXTRAPOLATED, not observed. It is still the right estimator - the slope method got 0.57 K/% against a true 1.01 K/% - but re-run with --half >= 647 before quoting the number.
+
+--- theta = dT / P,  C = tau / theta,  P = duty * VIN^2 / 140 ohm ---
+  cycle     dT         P        theta       C        tau    baseline
+      1  +4.614 K    40.9 mW   112.9 K/W   1.15 J/K   129.3 s  ONE side (drift uncancelled)
+
+  theta    112.9 K/W   (ONE cycle - no spread, and no drift cancellation)
+  C         1.15 J/K
+  tau      129.3 s
+
+  Report theta WITH the medium: moisture, potted or bare, tubed or not, depth, aeration. It is a property of the installation, not of the board. PILE-THERMAL-TEST.md section 7 says where it goes.

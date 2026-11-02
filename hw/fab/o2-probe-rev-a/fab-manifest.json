@@ -1,0 +1,145 @@
+{
+  "drawing_layers": [
+    "F.Fab",
+    "B.Fab",
+    "F.Silkscreen",
+    "B.Silkscreen",
+    "Edge.Cuts",
+    "Dwgs.User",
+    "Cmts.User"
+  ],
+  "generated_utc": "2026-08-24T11:48:20+00:00",
+  "input": {
+    "file": "o2-probe.kicad_pcb",
+    "sha256": "983681ceff5402914c1971dbb958fbfcceb59542149f3194819cd05a8fa6d230"
+  },
+  "kicad_cli": "10.0.5",
+  "layers": [
+    "F.Cu",
+    "In1.Cu",
+    "In2.Cu",
+    "B.Cu",
+    "F.Mask",
+    "B.Mask",
+    "Edge.Cuts"
+  ],
+  "qualification_scope": "bare-board first article; not automated PCBA or production qualified",
+  "release": "o2-probe Rev A bare-board first article",
+  "schematic": {
+    "file": "o2-probe.kicad_sch",
+    "sha256": "dcba8c14316453f4035848d9e14d0879a7d5c13eab1977eea0fc2343a198d932"
+  },
+  "silkscreen_exported": false,
+  "validation": {
+    "board_native_routed_slot_contours": 4,
+    "drill_files": [
+      "o2-probe-PTH.drl",
+      "o2-probe-NPTH.drl"
+    ],
+    "edge_cuts_primitives": 22,
+    "f_cu_driven_guard_regions": 3,
+    "f_cu_guard_samples_verified": 8,
+    "gerber_layers": [
+      "o2-probe-B_Cu.gbr",
+      "o2-probe-B_Mask.gbr",
+      "o2-probe-Edge_Cuts.gbr",
+      "o2-probe-F_Cu.gbr",
+      "o2-probe-F_Mask.gbr",
+      "o2-probe-In1_Cu.gbr",
+      "o2-probe-In2_Cu.gbr"
+    ],
+    "gnd_plane_regions_across_barrier": 2,
+    "heated_island_spreader_layer": "B.Cu",
+    "heated_island_spreader_net": "/HEATER_LOW",
+    "heated_island_spreader_samples_verified": 3,
+    "npth_routed_slot_commands": true,
+    "outer_outline_primitives": 6,
+    "plotted_outline_mm": [
+      20.0,
+      107.0
+    ],
+    "ring_castellation_finished_size_mm": [
+      1.0,
+      2.0
+    ],
+    "ring_castellation_plated_slot_commands": true,
+    "ring_castellation_route_endpoints_mm": [
+      [
+        [
+          100.0,
+          -155.0
+        ],
+        [
+          100.0,
+          -156.0
+        ]
+      ],
+      [
+        [
+          120.0,
+          -155.0
+        ],
+        [
+          120.0,
+          -156.0
+        ]
+      ]
+    ],
+    "ring_castellation_tool_mm": 1.0,
+    "sgx_slot_finished_size_mm": [
+      3.0,
+      6.0
+    ],
+    "sgx_slot_route_endpoints_mm": [
+      [
+        110.0,
+        -143.8
+      ],
+      [
+        110.0,
+        -146.8
+      ]
+    ],
+    "sgx_slot_tool_mm": 3.0,
+    "side_thermal_slot_centers_mm": [
+      [
+        101.2,
+        145.0
+      ],
+      [
+        118.8,
+        145.0
+      ]
+    ],
+    "side_thermal_slot_finished_size_mm": [
+      0.8,
+      16.0
+    ],
+    "side_thermal_slot_void_samples_verified_per_layer": 6,
+    "thermal_copper_fill_gap_layers": [
+      "F.Cu",
+      "In1.Cu",
+      "In2.Cu",
+      "B.Cu"
+    ],
+    "thermal_copper_fill_gap_y_mm": [
+      133.0,
+      135.0
+    ],
+    "thermal_gap_gerber_samples_verified_per_layer": 7,
+    "thermal_slot_centers_mm": [
+      [
+        104.125,
+        134.0
+      ],
+      [
+        115.875,
+        134.0
+      ]
+    ],
+    "thermal_slot_finished_size_mm": [
+      6.75,
+      1.5
+    ]
+  }
+}

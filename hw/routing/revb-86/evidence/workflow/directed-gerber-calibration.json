@@ -1,0 +1,87 @@
+{
+  "status": "PASS_DIRECTED_CONTOUR_CALIBRATION",
+  "actual_positive": {
+    "layers": [
+      "F.Cu",
+      "B.Cu",
+      "F.Mask",
+      "B.Mask",
+      "F.Paste",
+      "B.Paste",
+      "F.Silkscreen",
+      "B.Silkscreen",
+      "Edge.Cuts"
+    ],
+    "outline_mm": [
+      20,
+      86
+    ],
+    "thermal_slots": 4,
+    "copper_regions": 36,
+    "thermal_fill_gap_clear": true,
+    "outline_matches_strict_native_primitives": true,
+    "arc_direction_and_swept_side_checked": true
+  },
+  "positive_seconds": 0.03215329199883854,
+  "negative_cases": [
+    {
+      "case": "reverse_90_to_270",
+      "rejected": true,
+      "reason": "86 mm Gerber contour differs from exact verified native primitives",
+      "seconds": 0.0019601669991970994
+    },
+    {
+      "case": "reverse_semicircle_side",
+      "rejected": true,
+      "reason": "86 mm Gerber contour differs from exact verified native primitives",
+      "seconds": 0.0020017919996462297
+    },
+    {
+      "case": "inch_edge",
+      "rejected": true,
+      "reason": "Gerber must have one unambiguous metric unit declaration: o2-probe-Edge_Cuts.gbr",
+      "seconds": 0.001864208999904804
+    },
+    {
+      "case": "duplicate_units",
+      "rejected": true,
+      "reason": "Gerber must have one unambiguous metric unit declaration: o2-probe-Edge_Cuts.gbr",
+      "seconds": 0.0018232080001325812
+    },
+    {
+      "case": "missing_units",
+      "rejected": true,
+      "reason": "Gerber must have one unambiguous metric unit declaration: o2-probe-Edge_Cuts.gbr",
+      "seconds": 0.0018078329994750675
+    },
+    {
+      "case": "unsupported_draw",
+      "rejected": true,
+      "reason": "Unsupported contour record: D03*",
+      "seconds": 0.0019721249991562217
+    },
+    {
+      "case": "unsupported_transform",
+      "rejected": true,
+      "reason": "Unsupported contour record: %SFA2B2*%",
+      "seconds": 0.001860583000961924
+    },
+    {
+      "case": "early_end",
+      "rejected": true,
+      "reason": "Wrong X2 layer or incomplete output: o2-probe-Edge_Cuts.gbr",
+      "seconds": 0.0018293749999429565
+    },
+    {
+      "case": "inch_copper",
+      "rejected": true,
+      "reason": "Gerber must have one unambiguous metric unit declaration: o2-probe-F_Cu.gbr",
+      "seconds": 0.0006332079974527005
+    }
+  ],
+  "sha256": {
+    "make_fab_revb_86.py": "d4e8ade0a7f3c887c024b53fe8f7b9d324d98e0efe0298304c2ba1db2e026320",
+    "verify_revb_86.py": "b54f810d5f85a36bf614401b9f17721286814d9459be5790b87896485119bd9a",
+    "checks/revb-86-workflow/calibrate_directed_gerbers.py": "66aeab846d06ce1c2929cc7628173d270b3df9a60a3071db6792f6919b929151"
+  }
+}

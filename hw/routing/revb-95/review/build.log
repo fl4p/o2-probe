@@ -1,0 +1,241 @@
+$ /Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli --version
+10.0.5
+
+$ /opt/homebrew/opt/python@3.14/bin/python3.14 /private/tmp/o2-revb-95/ee/hw/o2-probe/verify_revb_interfaces.py /private/tmp/o2-revb-95/ee/hw/o2-probe/routing/revb-95/o2-probe.kicad_pcb
+PASS: 299 package pins and 99 part values match the live schematic
+SHA256 2139ab97aa7dd59272d35398bdb80f01eda497574057ac22c1ef1d07b6794fc5  /private/tmp/o2-revb-95/ee/hw/o2-probe/routing/revb-95/o2-probe.kicad_pcb
+SHA256 5fc07e80107ef6bcea3c07c725e513def437800c4c489a85aaedfe3c4812bc85  /private/tmp/o2-revb-95/ee/hw/o2-probe/gen_sch.py
+SHA256 e63c1602a52ef418034fb73770f53ba293bb71a7a81ef0508ca302faa70b2325  /private/tmp/o2-revb-95/ee/hw/o2-probe/verify_revb_interfaces.py
+SHA256 8180acb7a3a641fcf65f3c891b3743f6b82629fb56cbf0514d41c6ae39fc4974  /private/tmp/o2-revb-95/ee/hw/o2-probe/firmware/tools/pcb_netlist.py
+Electrical connectivity/clearance requires a fresh KiCad DRC; bench qualification is separate.
+
+$ /Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/Current/bin/python3 /private/tmp/o2-revb-95/ee/hw/o2-probe/verify_revb_95.py /private/tmp/o2-revb-95/ee/hw/o2-probe/routing/revb-95/o2-probe.kicad_pcb /var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/geometry-check.json
+{"outline_mm": [20, 95], "rigidly_translated_footprints": ["C10", "C17", "C18", "C19", "C20", "C21", "C25", "C29", "C30", "C34", "D7", "Q2", "R17", "R18", "R24", "R25", "R26", "R27", "R28", "R29", "R34", "R35", "R36", "R37", "R39", "R40", "R42", "R43", "R44", "RH1", "RH2", "TP1", "TP3", "TP4", "TP6", "U10", "U11", "U12", "U15", "U4", "U7", "U8"], "retained_critical_items": 49, "CELL_RE_no_vias": true, "new_nearby_vias_checked": 2, "nearest_new_via": {"net": "/I2C_SDA", "xy": [111.52, 113.405], "gap_mm": 0.26500000000000057}, "seconds": 0.5}
+09:51:25 AM: Debug: Adding duplicate image handler for 'PNG file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'JPEG file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'TIFF file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'GIF file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'PNM file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'PCX file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'IFF file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'Windows icon file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'Windows cursor file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'Windows animated cursor file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'TGA file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'XPM file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'PNG file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'JPEG file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'TIFF file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'GIF file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'PNM file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'PCX file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'IFF file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'Windows icon file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'Windows cursor file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'Windows animated cursor file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'TGA file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'XPM file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'PNG file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'JPEG file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'TIFF file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'GIF file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'PNM file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'PCX file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'IFF file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'Windows icon file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'Windows cursor file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'Windows animated cursor file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'TGA file'
+09:51:25 AM: Debug: Adding duplicate image handler for 'XPM file'
+
+$ /Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/Current/bin/python3 /private/tmp/o2-revb-95/ee/hw/o2-probe/inspect_revb_board.py /private/tmp/o2-revb-95/ee/hw/o2-probe/routing/revb-95/o2-probe.kicad_pcb /var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/board-geometry.json
+09:51:26 AM: Debug: Adding duplicate image handler for 'PNG file'
+09:51:26 AM: Debug: Adding duplicate image handler for 'JPEG file'
+09:51:26 AM: Debug: Adding duplicate image handler for 'TIFF file'
+09:51:26 AM: Debug: Adding duplicate image handler for 'GIF file'
+09:51:26 AM: Debug: Adding duplicate image handler for 'PNM file'
+09:51:26 AM: Debug: Adding duplicate image handler for 'PCX file'
+09:51:26 AM: Debug: Adding duplicate image handler for 'IFF file'
+09:51:26 AM: Debug: Adding duplicate image handler for 'Windows icon file'
+09:51:26 AM: Debug: Adding duplicate image handler for 'Windows cursor file'
+09:51:26 AM: Debug: Adding duplicate image handler for 'Windows animated cursor file'
+09:51:26 AM: Debug: Adding duplicate image handler for 'TGA file'
+09:51:26 AM: Debug: Adding duplicate image handler for 'XPM file'
+
+$ /Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli pcb drc --severity-all --schematic-parity --format json -o /var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/drc-saved-fill.json /private/tmp/o2-revb-95/ee/hw/o2-probe/routing/revb-95/o2-probe.kicad_pcb
+Found 16 violations
+Found 0 unconnected items
+Found 0 schematic parity issues
+Saved DRC Report to /var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/drc-saved-fill.json
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 19: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 20: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 23: invalid constant used : monospace
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 42: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 43: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 46: invalid constant used : sans-serif
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 68: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 69: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 72: invalid constant used : serif
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 88: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 89: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 92: invalid constant used : emoji
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 108: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 109: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 112: invalid constant used : math
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 120: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 121: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 124: invalid constant used : system-ui
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 132: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 133: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 136: invalid constant used : cursive
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 144: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 145: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 148: invalid constant used : fantasy
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 156: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 157: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 160: invalid constant used : ui-sans-serif
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 168: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 169: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 172: invalid constant used : ui-serif
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 180: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 181: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 184: invalid constant used : ui-monospace
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 192: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 193: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 196: invalid constant used : ui-rounded
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 204: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 205: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 208: invalid constant used : fangsong
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-spacing.conf", line 14: invalid constant used : monospace
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/49-sansserif.conf", line 10: invalid constant used : serif
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/49-sansserif.conf", line 18: invalid constant used : sans-serif
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/49-sansserif.conf", line 26: invalid constant used : monospace
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/49-sansserif.conf", line 34: invalid constant used : emoji
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/49-sansserif.conf", line 42: invalid constant used : math
+
+$ /Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli pcb drc --severity-all --schematic-parity --refill-zones --format json -o /var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/drc-refill.json /private/tmp/o2-revb-95/ee/hw/o2-probe/routing/revb-95/o2-probe.kicad_pcb
+Found 16 violations
+Found 0 unconnected items
+Found 0 schematic parity issues
+Saved DRC Report to /var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/drc-refill.json
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 19: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 20: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 23: invalid constant used : monospace
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 42: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 43: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 46: invalid constant used : sans-serif
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 68: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 69: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 72: invalid constant used : serif
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 88: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 89: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 92: invalid constant used : emoji
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 108: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 109: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 112: invalid constant used : math
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 120: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 121: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 124: invalid constant used : system-ui
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 132: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 133: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 136: invalid constant used : cursive
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 144: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 145: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 148: invalid constant used : fantasy
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 156: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 157: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 160: invalid constant used : ui-sans-serif
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 168: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 169: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 172: invalid constant used : ui-serif
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 180: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 181: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 184: invalid constant used : ui-monospace
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 192: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 193: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 196: invalid constant used : ui-rounded
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 204: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 205: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 208: invalid constant used : fangsong
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-spacing.conf", line 14: invalid constant used : monospace
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/49-sansserif.conf", line 10: invalid constant used : serif
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/49-sansserif.conf", line 18: invalid constant used : sans-serif
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/49-sansserif.conf", line 26: invalid constant used : monospace
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/49-sansserif.conf", line 34: invalid constant used : emoji
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/49-sansserif.conf", line 42: invalid constant used : math
+
+$ /Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli sch erc --severity-all --exit-code-violations --format json -o /var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/erc.json /private/tmp/o2-revb-95/ee/hw/o2-probe/routing/revb-95/o2-probe.kicad_sch
+Found 0 violations
+Saved ERC Report to /var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/erc.json
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 19: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 20: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 23: invalid constant used : monospace
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 42: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 43: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 46: invalid constant used : sans-serif
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 68: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 69: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 72: invalid constant used : serif
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 88: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 89: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 92: invalid constant used : emoji
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 108: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 109: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 112: invalid constant used : math
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 120: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 121: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 124: invalid constant used : system-ui
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 132: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 133: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 136: invalid constant used : cursive
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 144: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 145: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 148: invalid constant used : fantasy
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 156: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 157: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 160: invalid constant used : ui-sans-serif
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 168: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 169: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 172: invalid constant used : ui-serif
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 180: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 181: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 184: invalid constant used : ui-monospace
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 192: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 193: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 196: invalid constant used : ui-rounded
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 204: invalid attribute 'xsi:nil'
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 205: invalid constant used : 
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-guessfamily.conf", line 208: invalid constant used : fangsong
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/48-spacing.conf", line 14: invalid constant used : monospace
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/49-sansserif.conf", line 10: invalid constant used : serif
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/49-sansserif.conf", line 18: invalid constant used : sans-serif
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/49-sansserif.conf", line 26: invalid constant used : monospace
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/49-sansserif.conf", line 34: invalid constant used : emoji
+Fontconfig warning: "/opt/homebrew/etc/fonts/conf.d/49-sansserif.conf", line 42: invalid constant used : math
+
+$ /Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli pcb export gerbers -o /var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review --layers F.Cu,B.Cu,F.Mask,B.Mask,F.Paste,B.Paste,F.Silkscreen,B.Silkscreen,Edge.Cuts --no-protel-ext --check-zones /private/tmp/o2-revb-95/ee/hw/o2-probe/routing/revb-95/o2-probe.kicad_pcb
+Plotted to '/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/o2-probe-F_Cu.gbr'.
+Plotted to '/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/o2-probe-B_Cu.gbr'.
+Plotted to '/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/o2-probe-F_Paste.gbr'.
+Plotted to '/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/o2-probe-B_Paste.gbr'.
+Plotted to '/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/o2-probe-F_Silkscreen.gbr'.
+Plotted to '/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/o2-probe-B_Silkscreen.gbr'.
+Plotted to '/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/o2-probe-F_Mask.gbr'.
+Plotted to '/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/o2-probe-B_Mask.gbr'.
+Plotted to '/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/o2-probe-Edge_Cuts.gbr'.
+
+$ /Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli pcb export drill -o /var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review --format excellon --excellon-units mm --excellon-zeros-format decimal --excellon-oval-format route --excellon-separate-th --generate-map --map-format pdf --generate-report --report-path /var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/o2-probe-drill-report.txt /private/tmp/o2-revb-95/ee/hw/o2-probe/routing/revb-95/o2-probe.kicad_pcb
+Created file '/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/o2-probe-PTH.drl'
+Created file '/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/o2-probe-NPTH.drl'
+Created file '/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/o2-probe-PTH-drl_map.pdf'.
+Created file '/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/o2-probe-NPTH-drl_map.pdf'.
+Done.
+
+$ /Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli pcb export pdf -o /var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/o2-probe-assembly-front.pdf --layers F.Fab,F.Silkscreen,Edge.Cuts,Dwgs.User,Cmts.User --mode-single --black-and-white --scale 0 --sketch-pads-on-fab-layers --crossout-DNP-footprints-on-fab-layers --check-zones /private/tmp/o2-revb-95/ee/hw/o2-probe/routing/revb-95/o2-probe.kicad_pcb
+Plotted to '/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/o2-probe-assembly-front.pdf'.
+Done.
+
+$ /Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli pcb export pdf -o /var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/o2-probe-assembly-back.pdf --layers B.Fab,B.Silkscreen,Edge.Cuts --mode-single --black-and-white --scale 0 --sketch-pads-on-fab-layers --crossout-DNP-footprints-on-fab-layers --check-zones --mirror /private/tmp/o2-revb-95/ee/hw/o2-probe/routing/revb-95/o2-probe.kicad_pcb
+Plotted to '/var/folders/dq/0l3glys549x48y9pbgh3075c0000gq/T/o2-95-review-eks0t7gx/review/o2-probe-assembly-back.pdf'.
+Done.
+

@@ -1,0 +1,4 @@
+19:14:47  up   31s  settle 869  seq   31  vref 2494  AFE  2116 mV  cell  -63.57 uA  O2_RAW  INVALID  O2_COMP  INVALID  F 0x9801
+19:15:48  up   92s  settle 808  seq   92  vref 2494  AFE  2114 mV  cell  -63.29 uA  O2_RAW  INVALID  O2_COMP  INVALID  F 0x9801
+19:16:49  up  153s  settle 747  seq  153  vref 2494  AFE  2110 mV  cell  -62.72 uA  O2_RAW  INVALID  O2_COMP  INVALID  F 0x9801
+19:17:50  up  214s  settle 686  seq  214  vref 2494  AFE  2111 mV  cell  -62.86 uA  O2_RAW  INVALID  O2_COMP  INVALID  F 0x9801

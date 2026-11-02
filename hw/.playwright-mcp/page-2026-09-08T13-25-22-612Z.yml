@@ -1,0 +1,1149 @@
+- generic [ref=f51e1]:
+  - link "Skip to content" [ref=f51e2] [cursor=pointer]:
+    - /url: "#lineconfigbuilder"
+  - banner [ref=f51e3]:
+    - navigation "Header" [ref=f51e4]:
+      - generic [ref=f51e5] [cursor=pointer]
+      - generic [ref=f51e9]:
+        - generic [ref=f51e10]: Grafana Foundation SDK
+        - generic:
+          - generic:
+            - generic: builder
+            - text: LineConfigBuilder
+      - generic [ref=f51e12]:
+        - radio "Switch to dark mode"
+        - radio "Switch to light mode"
+        - generic "Switch to light mode" [ref=f51e13] [cursor=pointer]
+      - dialog [ref=f51e16]:
+        - search [ref=f51e17]:
+          - generic [ref=f51e18]:
+            - textbox "Search" [ref=f51e19]
+            - navigation "Search":
+              - button "Clear"
+          - generic: Initializing search
+      - link "grafana/grafana-foundation-sdk" [ref=f51e23] [cursor=pointer]:
+        - /url: https://github.com/grafana/grafana-foundation-sdk
+  - generic [ref=f51e28]:
+    - main [ref=f51e29]:
+      - generic [ref=f51e30]:
+        - navigation "Navigation" [ref=f51e33]:
+          - generic [ref=f51e34] [cursor=pointer]:
+            - link "Grafana Foundation SDK" [ref=f51e35]:
+              - /url: ../../../..
+              - img "logo" [ref=f51e36]
+            - text: Grafana Foundation SDK
+          - list [ref=f51e37]:
+            - listitem [ref=f51e38]:
+              - link "Home" [ref=f51e39] [cursor=pointer]:
+                - /url: ../../../..
+            - listitem [ref=f51e41]:
+              - link "Go" [ref=f51e42] [cursor=pointer]:
+                - /url: ../../../../go/Installing/
+            - listitem [ref=f51e45]:
+              - link "Java" [ref=f51e46] [cursor=pointer]:
+                - /url: ../../../../java/Installing/
+            - listitem [ref=f51e49]:
+              - generic [ref=f51e50]: Php
+              - navigation "Php" [ref=f51e53]:
+                - list [ref=f51e56]:
+                  - listitem [ref=f51e57]:
+                    - link "Installing" [ref=f51e58] [cursor=pointer]:
+                      - /url: ../../../Installing/
+                  - listitem [ref=f51e60]:
+                    - link "How To" [ref=f51e61] [cursor=pointer]:
+                      - /url: ../../../How-To/building-a-dashboard/
+                  - listitem [ref=f51e64]:
+                    - link "Reference" [ref=f51e66] [cursor=pointer]:
+                      - /url: ../../
+                    - navigation [ref=f51e70]:
+                      - generic [ref=f51e71] [cursor=pointer]: Reference
+                      - list [ref=f51e73]:
+                        - listitem [ref=f51e74]:
+                          - link "Alerting" [ref=f51e75] [cursor=pointer]:
+                            - /url: ../../alerting/
+                        - listitem [ref=f51e78]:
+                          - link "Annotationslist" [ref=f51e79] [cursor=pointer]:
+                            - /url: ../../annotationslist/
+                        - listitem [ref=f51e82]:
+                          - link "Athena" [ref=f51e83] [cursor=pointer]:
+                            - /url: ../../athena/
+                        - listitem [ref=f51e86]:
+                          - link "Azuremonitor" [ref=f51e87] [cursor=pointer]:
+                            - /url: ../../azuremonitor/
+                        - listitem [ref=f51e90]:
+                          - link "Barchart" [ref=f51e91] [cursor=pointer]:
+                            - /url: ../../barchart/
+                        - listitem [ref=f51e94]:
+                          - link "Bargauge" [ref=f51e95] [cursor=pointer]:
+                            - /url: ../../bargauge/
+                        - listitem [ref=f51e98]:
+                          - link "Bigquery" [ref=f51e99] [cursor=pointer]:
+                            - /url: ../../bigquery/
+                        - listitem [ref=f51e102]:
+                          - link "Candlestick" [ref=f51e103] [cursor=pointer]:
+                            - /url: ../../candlestick/
+                        - listitem [ref=f51e106]:
+                          - link "Canvas" [ref=f51e107] [cursor=pointer]:
+                            - /url: ../../canvas/
+                        - listitem [ref=f51e110]:
+                          - link "Cloudwatch" [ref=f51e111] [cursor=pointer]:
+                            - /url: ../../cloudwatch/
+                        - listitem [ref=f51e114]:
+                          - link "Common" [ref=f51e116] [cursor=pointer]:
+                            - /url: ../
+                          - navigation [ref=f51e120]:
+                            - generic [ref=f51e121] [cursor=pointer]: Common
+                            - list [ref=f51e123]:
+                              - listitem [ref=f51e124]:
+                                - link "builder AxisConfigBuilder" [ref=f51e125] [cursor=pointer]:
+                                  - /url: ../builder-AxisConfigBuilder/
+                                  - generic [ref=f51e126]:
+                                    - generic [ref=f51e127]: builder
+                                    - text: AxisConfigBuilder
+                              - listitem [ref=f51e128]:
+                                - link "builder BarConfigBuilder" [ref=f51e129] [cursor=pointer]:
+                                  - /url: ../builder-BarConfigBuilder/
+                                  - generic [ref=f51e130]:
+                                    - generic [ref=f51e131]: builder
+                                    - text: BarConfigBuilder
+                              - listitem [ref=f51e132]:
+                                - link "builder BaseDimensionConfigBuilder" [ref=f51e133] [cursor=pointer]:
+                                  - /url: ../builder-BaseDimensionConfigBuilder/
+                                  - generic [ref=f51e134]:
+                                    - generic [ref=f51e135]: builder
+                                    - text: BaseDimensionConfigBuilder
+                              - listitem [ref=f51e136]:
+                                - link "builder ColorDimensionConfigBuilder" [ref=f51e137] [cursor=pointer]:
+                                  - /url: ../builder-ColorDimensionConfigBuilder/
+                                  - generic [ref=f51e138]:
+                                    - generic [ref=f51e139]: builder
+                                    - text: ColorDimensionConfigBuilder
+                              - listitem [ref=f51e140]:
+                                - link "builder DataQueryBuilder" [ref=f51e141] [cursor=pointer]:
+                                  - /url: ../builder-DataQueryBuilder/
+                                  - generic [ref=f51e142]:
+                                    - generic [ref=f51e143]: builder
+                                    - text: DataQueryBuilder
+                              - listitem [ref=f51e144]:
+                                - link "builder DataSourceJsonDataBuilder" [ref=f51e145] [cursor=pointer]:
+                                  - /url: ../builder-DataSourceJsonDataBuilder/
+                                  - generic [ref=f51e146]:
+                                    - generic [ref=f51e147]: builder
+                                    - text: DataSourceJsonDataBuilder
+                              - listitem [ref=f51e148]:
+                                - link "builder FillConfigBuilder" [ref=f51e149] [cursor=pointer]:
+                                  - /url: ../builder-FillConfigBuilder/
+                                  - generic [ref=f51e150]:
+                                    - generic [ref=f51e151]: builder
+                                    - text: FillConfigBuilder
+                              - listitem [ref=f51e152]:
+                                - link "builder FrameGeometrySourceBuilder" [ref=f51e153] [cursor=pointer]:
+                                  - /url: ../builder-FrameGeometrySourceBuilder/
+                                  - generic [ref=f51e154]:
+                                    - generic [ref=f51e155]: builder
+                                    - text: FrameGeometrySourceBuilder
+                              - listitem [ref=f51e156]:
+                                - link "builder GraphFieldConfigBuilder" [ref=f51e157] [cursor=pointer]:
+                                  - /url: ../builder-GraphFieldConfigBuilder/
+                                  - generic [ref=f51e158]:
+                                    - generic [ref=f51e159]: builder
+                                    - text: GraphFieldConfigBuilder
+                              - listitem [ref=f51e160]:
+                                - link "builder GraphThresholdsStyleConfigBuilder" [ref=f51e161] [cursor=pointer]:
+                                  - /url: ../builder-GraphThresholdsStyleConfigBuilder/
+                                  - generic [ref=f51e162]:
+                                    - generic [ref=f51e163]: builder
+                                    - text: GraphThresholdsStyleConfigBuilder
+                              - listitem [ref=f51e164]:
+                                - link "builder HeatmapCalculationBucketConfigBuilder" [ref=f51e165] [cursor=pointer]:
+                                  - /url: ../builder-HeatmapCalculationBucketConfigBuilder/
+                                  - generic [ref=f51e166]:
+                                    - generic [ref=f51e167]: builder
+                                    - text: HeatmapCalculationBucketConfigBuilder
+                              - listitem [ref=f51e168]:
+                                - link "builder HeatmapCalculationOptionsBuilder" [ref=f51e169] [cursor=pointer]:
+                                  - /url: ../builder-HeatmapCalculationOptionsBuilder/
+                                  - generic [ref=f51e170]:
+                                    - generic [ref=f51e171]: builder
+                                    - text: HeatmapCalculationOptionsBuilder
+                              - listitem [ref=f51e172]:
+                                - link "builder HideSeriesConfigBuilder" [ref=f51e173] [cursor=pointer]:
+                                  - /url: ../builder-HideSeriesConfigBuilder/
+                                  - generic [ref=f51e174]:
+                                    - generic [ref=f51e175]: builder
+                                    - text: HideSeriesConfigBuilder
+                              - listitem [ref=f51e176]:
+                                - link "builder HideableFieldConfigBuilder" [ref=f51e177] [cursor=pointer]:
+                                  - /url: ../builder-HideableFieldConfigBuilder/
+                                  - generic [ref=f51e178]:
+                                    - generic [ref=f51e179]: builder
+                                    - text: HideableFieldConfigBuilder
+                              - listitem [ref=f51e180]:
+                                - text: builder
+                                - link "builder LineConfigBuilder" [ref=f51e181] [cursor=pointer]:
+                                  - /url: ./
+                                  - generic [ref=f51e182]:
+                                    - generic [ref=f51e183]: builder
+                                    - text: LineConfigBuilder
+                              - listitem [ref=f51e184]:
+                                - link "builder LineStyleBuilder" [ref=f51e185] [cursor=pointer]:
+                                  - /url: ../builder-LineStyleBuilder/
+                                  - generic [ref=f51e186]:
+                                    - generic [ref=f51e187]: builder
+                                    - text: LineStyleBuilder
+                              - listitem [ref=f51e188]:
+                                - link "builder MapLayerOptionsBuilder" [ref=f51e189] [cursor=pointer]:
+                                  - /url: ../builder-MapLayerOptionsBuilder/
+                                  - generic [ref=f51e190]:
+                                    - generic [ref=f51e191]: builder
+                                    - text: MapLayerOptionsBuilder
+                              - listitem [ref=f51e192]:
+                                - link "builder OptionsWithLegendBuilder" [ref=f51e193] [cursor=pointer]:
+                                  - /url: ../builder-OptionsWithLegendBuilder/
+                                  - generic [ref=f51e194]:
+                                    - generic [ref=f51e195]: builder
+                                    - text: OptionsWithLegendBuilder
+                              - listitem [ref=f51e196]:
+                                - link "builder OptionsWithTextFormattingBuilder" [ref=f51e197] [cursor=pointer]:
+                                  - /url: ../builder-OptionsWithTextFormattingBuilder/
+                                  - generic [ref=f51e198]:
+                                    - generic [ref=f51e199]: builder
+                                    - text: OptionsWithTextFormattingBuilder
+                              - listitem [ref=f51e200]:
+                                - link "builder OptionsWithTimezonesBuilder" [ref=f51e201] [cursor=pointer]:
+                                  - /url: ../builder-OptionsWithTimezonesBuilder/
+                                  - generic [ref=f51e202]:
+                                    - generic [ref=f51e203]: builder
+                                    - text: OptionsWithTimezonesBuilder
+                              - listitem [ref=f51e204]:
+                                - link "builder OptionsWithTooltipBuilder" [ref=f51e205] [cursor=pointer]:
+                                  - /url: ../builder-OptionsWithTooltipBuilder/
+                                  - generic [ref=f51e206]:
+                                    - generic [ref=f51e207]: builder
+                                    - text: OptionsWithTooltipBuilder
+                              - listitem [ref=f51e208]:
+                                - link "builder PointsConfigBuilder" [ref=f51e209] [cursor=pointer]:
+                                  - /url: ../builder-PointsConfigBuilder/
+                                  - generic [ref=f51e210]:
+                                    - generic [ref=f51e211]: builder
+                                    - text: PointsConfigBuilder
+                              - listitem [ref=f51e212]:
+                                - link "builder ReduceDataOptionsBuilder" [ref=f51e213] [cursor=pointer]:
+                                  - /url: ../builder-ReduceDataOptionsBuilder/
+                                  - generic [ref=f51e214]:
+                                    - generic [ref=f51e215]: builder
+                                    - text: ReduceDataOptionsBuilder
+                              - listitem [ref=f51e216]:
+                                - link "builder ResourceDimensionConfigBuilder" [ref=f51e217] [cursor=pointer]:
+                                  - /url: ../builder-ResourceDimensionConfigBuilder/
+                                  - generic [ref=f51e218]:
+                                    - generic [ref=f51e219]: builder
+                                    - text: ResourceDimensionConfigBuilder
+                              - listitem [ref=f51e220]:
+                                - link "builder ScalarDimensionConfigBuilder" [ref=f51e221] [cursor=pointer]:
+                                  - /url: ../builder-ScalarDimensionConfigBuilder/
+                                  - generic [ref=f51e222]:
+                                    - generic [ref=f51e223]: builder
+                                    - text: ScalarDimensionConfigBuilder
+                              - listitem [ref=f51e224]:
+                                - link "builder ScaleDimensionConfigBuilder" [ref=f51e225] [cursor=pointer]:
+                                  - /url: ../builder-ScaleDimensionConfigBuilder/
+                                  - generic [ref=f51e226]:
+                                    - generic [ref=f51e227]: builder
+                                    - text: ScaleDimensionConfigBuilder
+                              - listitem [ref=f51e228]:
+                                - link "builder ScaleDistributionConfigBuilder" [ref=f51e229] [cursor=pointer]:
+                                  - /url: ../builder-ScaleDistributionConfigBuilder/
+                                  - generic [ref=f51e230]:
+                                    - generic [ref=f51e231]: builder
+                                    - text: ScaleDistributionConfigBuilder
+                              - listitem [ref=f51e232]:
+                                - link "builder SingleStatBaseOptionsBuilder" [ref=f51e233] [cursor=pointer]:
+                                  - /url: ../builder-SingleStatBaseOptionsBuilder/
+                                  - generic [ref=f51e234]:
+                                    - generic [ref=f51e235]: builder
+                                    - text: SingleStatBaseOptionsBuilder
+                              - listitem [ref=f51e236]:
+                                - link "builder StackableFieldConfigBuilder" [ref=f51e237] [cursor=pointer]:
+                                  - /url: ../builder-StackableFieldConfigBuilder/
+                                  - generic [ref=f51e238]:
+                                    - generic [ref=f51e239]: builder
+                                    - text: StackableFieldConfigBuilder
+                              - listitem [ref=f51e240]:
+                                - link "builder StackingConfigBuilder" [ref=f51e241] [cursor=pointer]:
+                                  - /url: ../builder-StackingConfigBuilder/
+                                  - generic [ref=f51e242]:
+                                    - generic [ref=f51e243]: builder
+                                    - text: StackingConfigBuilder
+                              - listitem [ref=f51e244]:
+                                - link "builder TableFieldOptionsBuilder" [ref=f51e245] [cursor=pointer]:
+                                  - /url: ../builder-TableFieldOptionsBuilder/
+                                  - generic [ref=f51e246]:
+                                    - generic [ref=f51e247]: builder
+                                    - text: TableFieldOptionsBuilder
+                              - listitem [ref=f51e248]:
+                                - link "builder TableFooterOptionsBuilder" [ref=f51e249] [cursor=pointer]:
+                                  - /url: ../builder-TableFooterOptionsBuilder/
+                                  - generic [ref=f51e250]:
+                                    - generic [ref=f51e251]: builder
+                                    - text: TableFooterOptionsBuilder
+                              - listitem [ref=f51e252]:
+                                - link "builder TableSortByFieldStateBuilder" [ref=f51e253] [cursor=pointer]:
+                                  - /url: ../builder-TableSortByFieldStateBuilder/
+                                  - generic [ref=f51e254]:
+                                    - generic [ref=f51e255]: builder
+                                    - text: TableSortByFieldStateBuilder
+                              - listitem [ref=f51e256]:
+                                - link "builder TextDimensionConfigBuilder" [ref=f51e257] [cursor=pointer]:
+                                  - /url: ../builder-TextDimensionConfigBuilder/
+                                  - generic [ref=f51e258]:
+                                    - generic [ref=f51e259]: builder
+                                    - text: TextDimensionConfigBuilder
+                              - listitem [ref=f51e260]:
+                                - link "builder VizLegendOptionsBuilder" [ref=f51e261] [cursor=pointer]:
+                                  - /url: ../builder-VizLegendOptionsBuilder/
+                                  - generic [ref=f51e262]:
+                                    - generic [ref=f51e263]: builder
+                                    - text: VizLegendOptionsBuilder
+                              - listitem [ref=f51e264]:
+                                - link "builder VizTextDisplayOptionsBuilder" [ref=f51e265] [cursor=pointer]:
+                                  - /url: ../builder-VizTextDisplayOptionsBuilder/
+                                  - generic [ref=f51e266]:
+                                    - generic [ref=f51e267]: builder
+                                    - text: VizTextDisplayOptionsBuilder
+                              - listitem [ref=f51e268]:
+                                - link "builder VizTooltipOptionsBuilder" [ref=f51e269] [cursor=pointer]:
+                                  - /url: ../builder-VizTooltipOptionsBuilder/
+                                  - generic [ref=f51e270]:
+                                    - generic [ref=f51e271]: builder
+                                    - text: VizTooltipOptionsBuilder
+                              - listitem [ref=f51e272]:
+                                - link "enum AxisColorMode" [ref=f51e273] [cursor=pointer]:
+                                  - /url: ../object-AxisColorMode/
+                                  - generic [ref=f51e274]:
+                                    - generic [ref=f51e275]: enum
+                                    - text: AxisColorMode
+                              - listitem [ref=f51e276]:
+                                - link "class AxisConfig" [ref=f51e277] [cursor=pointer]:
+                                  - /url: ../object-AxisConfig/
+                                  - generic [ref=f51e278]:
+                                    - generic [ref=f51e279]: class
+                                    - text: AxisConfig
+                              - listitem [ref=f51e280]:
+                                - link "enum AxisPlacement" [ref=f51e281] [cursor=pointer]:
+                                  - /url: ../object-AxisPlacement/
+                                  - generic [ref=f51e282]:
+                                    - generic [ref=f51e283]: enum
+                                    - text: AxisPlacement
+                              - listitem [ref=f51e284]:
+                                - link "enum BarAlignment" [ref=f51e285] [cursor=pointer]:
+                                  - /url: ../object-BarAlignment/
+                                  - generic [ref=f51e286]:
+                                    - generic [ref=f51e287]: enum
+                                    - text: BarAlignment
+                              - listitem [ref=f51e288]:
+                                - link "class BarConfig" [ref=f51e289] [cursor=pointer]:
+                                  - /url: ../object-BarConfig/
+                                  - generic [ref=f51e290]:
+                                    - generic [ref=f51e291]: class
+                                    - text: BarConfig
+                              - listitem [ref=f51e292]:
+                                - link "enum BarGaugeDisplayMode" [ref=f51e293] [cursor=pointer]:
+                                  - /url: ../object-BarGaugeDisplayMode/
+                                  - generic [ref=f51e294]:
+                                    - generic [ref=f51e295]: enum
+                                    - text: BarGaugeDisplayMode
+                              - listitem [ref=f51e296]:
+                                - link "enum BarGaugeNamePlacement" [ref=f51e297] [cursor=pointer]:
+                                  - /url: ../object-BarGaugeNamePlacement/
+                                  - generic [ref=f51e298]:
+                                    - generic [ref=f51e299]: enum
+                                    - text: BarGaugeNamePlacement
+                              - listitem [ref=f51e300]:
+                                - link "enum BarGaugeSizing" [ref=f51e301] [cursor=pointer]:
+                                  - /url: ../object-BarGaugeSizing/
+                                  - generic [ref=f51e302]:
+                                    - generic [ref=f51e303]: enum
+                                    - text: BarGaugeSizing
+                              - listitem [ref=f51e304]:
+                                - link "enum BarGaugeValueMode" [ref=f51e305] [cursor=pointer]:
+                                  - /url: ../object-BarGaugeValueMode/
+                                  - generic [ref=f51e306]:
+                                    - generic [ref=f51e307]: enum
+                                    - text: BarGaugeValueMode
+                              - listitem [ref=f51e308]:
+                                - link "class BaseDimensionConfig" [ref=f51e309] [cursor=pointer]:
+                                  - /url: ../object-BaseDimensionConfig/
+                                  - generic [ref=f51e310]:
+                                    - generic [ref=f51e311]: class
+                                    - text: BaseDimensionConfig
+                              - listitem [ref=f51e312]:
+                                - link "enum BigValueColorMode" [ref=f51e313] [cursor=pointer]:
+                                  - /url: ../object-BigValueColorMode/
+                                  - generic [ref=f51e314]:
+                                    - generic [ref=f51e315]: enum
+                                    - text: BigValueColorMode
+                              - listitem [ref=f51e316]:
+                                - link "enum BigValueGraphMode" [ref=f51e317] [cursor=pointer]:
+                                  - /url: ../object-BigValueGraphMode/
+                                  - generic [ref=f51e318]:
+                                    - generic [ref=f51e319]: enum
+                                    - text: BigValueGraphMode
+                              - listitem [ref=f51e320]:
+                                - link "enum BigValueJustifyMode" [ref=f51e321] [cursor=pointer]:
+                                  - /url: ../object-BigValueJustifyMode/
+                                  - generic [ref=f51e322]:
+                                    - generic [ref=f51e323]: enum
+                                    - text: BigValueJustifyMode
+                              - listitem [ref=f51e324]:
+                                - link "enum BigValueTextMode" [ref=f51e325] [cursor=pointer]:
+                                  - /url: ../object-BigValueTextMode/
+                                  - generic [ref=f51e326]:
+                                    - generic [ref=f51e327]: enum
+                                    - text: BigValueTextMode
+                              - listitem [ref=f51e328]:
+                                - link "class ColorDimensionConfig" [ref=f51e329] [cursor=pointer]:
+                                  - /url: ../object-ColorDimensionConfig/
+                                  - generic [ref=f51e330]:
+                                    - generic [ref=f51e331]: class
+                                    - text: ColorDimensionConfig
+                              - listitem [ref=f51e332]:
+                                - link "enum ComparisonOperation" [ref=f51e333] [cursor=pointer]:
+                                  - /url: ../object-ComparisonOperation/
+                                  - generic [ref=f51e334]:
+                                    - generic [ref=f51e335]: enum
+                                    - text: ComparisonOperation
+                              - listitem [ref=f51e336]:
+                                - link "class DataQuery" [ref=f51e337] [cursor=pointer]:
+                                  - /url: ../object-DataQuery/
+                                  - generic [ref=f51e338]:
+                                    - generic [ref=f51e339]: class
+                                    - text: DataQuery
+                              - listitem [ref=f51e340]:
+                                - link "class DataSourceJsonData" [ref=f51e341] [cursor=pointer]:
+                                  - /url: ../object-DataSourceJsonData/
+                                  - generic [ref=f51e342]:
+                                    - generic [ref=f51e343]: class
+                                    - text: DataSourceJsonData
+                              - listitem [ref=f51e344]:
+                                - link "class DataSourceRef" [ref=f51e345] [cursor=pointer]:
+                                  - /url: ../object-DataSourceRef/
+                                  - generic [ref=f51e346]:
+                                    - generic [ref=f51e347]: class
+                                    - text: DataSourceRef
+                              - listitem [ref=f51e348]:
+                                - link "enum DataTopic" [ref=f51e349] [cursor=pointer]:
+                                  - /url: ../object-DataTopic/
+                                  - generic [ref=f51e350]:
+                                    - generic [ref=f51e351]: enum
+                                    - text: DataTopic
+                              - listitem [ref=f51e352]:
+                                - link "enum FieldTextAlignment" [ref=f51e353] [cursor=pointer]:
+                                  - /url: ../object-FieldTextAlignment/
+                                  - generic [ref=f51e354]:
+                                    - generic [ref=f51e355]: enum
+                                    - text: FieldTextAlignment
+                              - listitem [ref=f51e356]:
+                                - link "class FillConfig" [ref=f51e357] [cursor=pointer]:
+                                  - /url: ../object-FillConfig/
+                                  - generic [ref=f51e358]:
+                                    - generic [ref=f51e359]: class
+                                    - text: FillConfig
+                              - listitem [ref=f51e360]:
+                                - link "class FrameGeometrySource" [ref=f51e361] [cursor=pointer]:
+                                  - /url: ../object-FrameGeometrySource/
+                                  - generic [ref=f51e362]:
+                                    - generic [ref=f51e363]: class
+                                    - text: FrameGeometrySource
+                              - listitem [ref=f51e364]:
+                                - link "enum FrameGeometrySourceMode" [ref=f51e365] [cursor=pointer]:
+                                  - /url: ../object-FrameGeometrySourceMode/
+                                  - generic [ref=f51e366]:
+                                    - generic [ref=f51e367]: enum
+                                    - text: FrameGeometrySourceMode
+                              - listitem [ref=f51e368]:
+                                - link "enum GraphDrawStyle" [ref=f51e369] [cursor=pointer]:
+                                  - /url: ../object-GraphDrawStyle/
+                                  - generic [ref=f51e370]:
+                                    - generic [ref=f51e371]: enum
+                                    - text: GraphDrawStyle
+                              - listitem [ref=f51e372]:
+                                - link "class GraphFieldConfig" [ref=f51e373] [cursor=pointer]:
+                                  - /url: ../object-GraphFieldConfig/
+                                  - generic [ref=f51e374]:
+                                    - generic [ref=f51e375]: class
+                                    - text: GraphFieldConfig
+                              - listitem [ref=f51e376]:
+                                - link "enum GraphGradientMode" [ref=f51e377] [cursor=pointer]:
+                                  - /url: ../object-GraphGradientMode/
+                                  - generic [ref=f51e378]:
+                                    - generic [ref=f51e379]: enum
+                                    - text: GraphGradientMode
+                              - listitem [ref=f51e380]:
+                                - link "class GraphThresholdsStyleConfig" [ref=f51e381] [cursor=pointer]:
+                                  - /url: ../object-GraphThresholdsStyleConfig/
+                                  - generic [ref=f51e382]:
+                                    - generic [ref=f51e383]: class
+                                    - text: GraphThresholdsStyleConfig
+                              - listitem [ref=f51e384]:
+                                - link "enum GraphThresholdsStyleMode" [ref=f51e385] [cursor=pointer]:
+                                  - /url: ../object-GraphThresholdsStyleMode/
+                                  - generic [ref=f51e386]:
+                                    - generic [ref=f51e387]: enum
+                                    - text: GraphThresholdsStyleMode
+                              - listitem [ref=f51e388]:
+                                - link "enum GraphTransform" [ref=f51e389] [cursor=pointer]:
+                                  - /url: ../object-GraphTransform/
+                                  - generic [ref=f51e390]:
+                                    - generic [ref=f51e391]: enum
+                                    - text: GraphTransform
+                              - listitem [ref=f51e392]:
+                                - link "class HeatmapCalculationBucketConfig" [ref=f51e393] [cursor=pointer]:
+                                  - /url: ../object-HeatmapCalculationBucketConfig/
+                                  - generic [ref=f51e394]:
+                                    - generic [ref=f51e395]: class
+                                    - text: HeatmapCalculationBucketConfig
+                              - listitem [ref=f51e396]:
+                                - link "enum HeatmapCalculationMode" [ref=f51e397] [cursor=pointer]:
+                                  - /url: ../object-HeatmapCalculationMode/
+                                  - generic [ref=f51e398]:
+                                    - generic [ref=f51e399]: enum
+                                    - text: HeatmapCalculationMode
+                              - listitem [ref=f51e400]:
+                                - link "class HeatmapCalculationOptions" [ref=f51e401] [cursor=pointer]:
+                                  - /url: ../object-HeatmapCalculationOptions/
+                                  - generic [ref=f51e402]:
+                                    - generic [ref=f51e403]: class
+                                    - text: HeatmapCalculationOptions
+                              - listitem [ref=f51e404]:
+                                - link "enum HeatmapCellLayout" [ref=f51e405] [cursor=pointer]:
+                                  - /url: ../object-HeatmapCellLayout/
+                                  - generic [ref=f51e406]:
+                                    - generic [ref=f51e407]: enum
+                                    - text: HeatmapCellLayout
+                              - listitem [ref=f51e408]:
+                                - link "class HideSeriesConfig" [ref=f51e409] [cursor=pointer]:
+                                  - /url: ../object-HideSeriesConfig/
+                                  - generic [ref=f51e410]:
+                                    - generic [ref=f51e411]: class
+                                    - text: HideSeriesConfig
+                              - listitem [ref=f51e412]:
+                                - link "class HideableFieldConfig" [ref=f51e413] [cursor=pointer]:
+                                  - /url: ../object-HideableFieldConfig/
+                                  - generic [ref=f51e414]:
+                                    - generic [ref=f51e415]: class
+                                    - text: HideableFieldConfig
+                              - listitem [ref=f51e416]:
+                                - link "enum LegendDisplayMode" [ref=f51e417] [cursor=pointer]:
+                                  - /url: ../object-LegendDisplayMode/
+                                  - generic [ref=f51e418]:
+                                    - generic [ref=f51e419]: enum
+                                    - text: LegendDisplayMode
+                              - listitem [ref=f51e420]:
+                                - link "enum LegendPlacement" [ref=f51e421] [cursor=pointer]:
+                                  - /url: ../object-LegendPlacement/
+                                  - generic [ref=f51e422]:
+                                    - generic [ref=f51e423]: enum
+                                    - text: LegendPlacement
+                              - listitem [ref=f51e424]:
+                                - link "class LineConfig" [ref=f51e425] [cursor=pointer]:
+                                  - /url: ../object-LineConfig/
+                                  - generic [ref=f51e426]:
+                                    - generic [ref=f51e427]: class
+                                    - text: LineConfig
+                              - listitem [ref=f51e428]:
+                                - link "enum LineInterpolation" [ref=f51e429] [cursor=pointer]:
+                                  - /url: ../object-LineInterpolation/
+                                  - generic [ref=f51e430]:
+                                    - generic [ref=f51e431]: enum
+                                    - text: LineInterpolation
+                              - listitem [ref=f51e432]:
+                                - link "class LineStyle" [ref=f51e433] [cursor=pointer]:
+                                  - /url: ../object-LineStyle/
+                                  - generic [ref=f51e434]:
+                                    - generic [ref=f51e435]: class
+                                    - text: LineStyle
+                              - listitem [ref=f51e436]:
+                                - link "enum LineStyleFill" [ref=f51e437] [cursor=pointer]:
+                                  - /url: ../object-LineStyleFill/
+                                  - generic [ref=f51e438]:
+                                    - generic [ref=f51e439]: enum
+                                    - text: LineStyleFill
+                              - listitem [ref=f51e440]:
+                                - link "enum LogsDedupStrategy" [ref=f51e441] [cursor=pointer]:
+                                  - /url: ../object-LogsDedupStrategy/
+                                  - generic [ref=f51e442]:
+                                    - generic [ref=f51e443]: enum
+                                    - text: LogsDedupStrategy
+                              - listitem [ref=f51e444]:
+                                - link "enum LogsSortOrder" [ref=f51e445] [cursor=pointer]:
+                                  - /url: ../object-LogsSortOrder/
+                                  - generic [ref=f51e446]:
+                                    - generic [ref=f51e447]: enum
+                                    - text: LogsSortOrder
+                              - listitem [ref=f51e448]:
+                                - link "class MapLayerOptions" [ref=f51e449] [cursor=pointer]:
+                                  - /url: ../object-MapLayerOptions/
+                                  - generic [ref=f51e450]:
+                                    - generic [ref=f51e451]: class
+                                    - text: MapLayerOptions
+                              - listitem [ref=f51e452]:
+                                - link "class OptionsWithLegend" [ref=f51e453] [cursor=pointer]:
+                                  - /url: ../object-OptionsWithLegend/
+                                  - generic [ref=f51e454]:
+                                    - generic [ref=f51e455]: class
+                                    - text: OptionsWithLegend
+                              - listitem [ref=f51e456]:
+                                - link "class OptionsWithTextFormatting" [ref=f51e457] [cursor=pointer]:
+                                  - /url: ../object-OptionsWithTextFormatting/
+                                  - generic [ref=f51e458]:
+                                    - generic [ref=f51e459]: class
+                                    - text: OptionsWithTextFormatting
+                              - listitem [ref=f51e460]:
+                                - link "class OptionsWithTimezones" [ref=f51e461] [cursor=pointer]:
+                                  - /url: ../object-OptionsWithTimezones/
+                                  - generic [ref=f51e462]:
+                                    - generic [ref=f51e463]: class
+                                    - text: OptionsWithTimezones
+                              - listitem [ref=f51e464]:
+                                - link "class OptionsWithTooltip" [ref=f51e465] [cursor=pointer]:
+                                  - /url: ../object-OptionsWithTooltip/
+                                  - generic [ref=f51e466]:
+                                    - generic [ref=f51e467]: class
+                                    - text: OptionsWithTooltip
+                              - listitem [ref=f51e468]:
+                                - link "enum PercentChangeColorMode" [ref=f51e469] [cursor=pointer]:
+                                  - /url: ../object-PercentChangeColorMode/
+                                  - generic [ref=f51e470]:
+                                    - generic [ref=f51e471]: enum
+                                    - text: PercentChangeColorMode
+                              - listitem [ref=f51e472]:
+                                - link "class PointsConfig" [ref=f51e473] [cursor=pointer]:
+                                  - /url: ../object-PointsConfig/
+                                  - generic [ref=f51e474]:
+                                    - generic [ref=f51e475]: class
+                                    - text: PointsConfig
+                              - listitem [ref=f51e476]:
+                                - link "class ReduceDataOptions" [ref=f51e477] [cursor=pointer]:
+                                  - /url: ../object-ReduceDataOptions/
+                                  - generic [ref=f51e478]:
+                                    - generic [ref=f51e479]: class
+                                    - text: ReduceDataOptions
+                              - listitem [ref=f51e480]:
+                                - link "class ResourceDimensionConfig" [ref=f51e481] [cursor=pointer]:
+                                  - /url: ../object-ResourceDimensionConfig/
+                                  - generic [ref=f51e482]:
+                                    - generic [ref=f51e483]: class
+                                    - text: ResourceDimensionConfig
+                              - listitem [ref=f51e484]:
+                                - link "enum ResourceDimensionMode" [ref=f51e485] [cursor=pointer]:
+                                  - /url: ../object-ResourceDimensionMode/
+                                  - generic [ref=f51e486]:
+                                    - generic [ref=f51e487]: enum
+                                    - text: ResourceDimensionMode
+                              - listitem [ref=f51e488]:
+                                - link "class ScalarDimensionConfig" [ref=f51e489] [cursor=pointer]:
+                                  - /url: ../object-ScalarDimensionConfig/
+                                  - generic [ref=f51e490]:
+                                    - generic [ref=f51e491]: class
+                                    - text: ScalarDimensionConfig
+                              - listitem [ref=f51e492]:
+                                - link "enum ScalarDimensionMode" [ref=f51e493] [cursor=pointer]:
+                                  - /url: ../object-ScalarDimensionMode/
+                                  - generic [ref=f51e494]:
+                                    - generic [ref=f51e495]: enum
+                                    - text: ScalarDimensionMode
+                              - listitem [ref=f51e496]:
+                                - link "class ScaleDimensionConfig" [ref=f51e497] [cursor=pointer]:
+                                  - /url: ../object-ScaleDimensionConfig/
+                                  - generic [ref=f51e498]:
+                                    - generic [ref=f51e499]: class
+                                    - text: ScaleDimensionConfig
+                              - listitem [ref=f51e500]:
+                                - link "enum ScaleDimensionMode" [ref=f51e501] [cursor=pointer]:
+                                  - /url: ../object-ScaleDimensionMode/
+                                  - generic [ref=f51e502]:
+                                    - generic [ref=f51e503]: enum
+                                    - text: ScaleDimensionMode
+                              - listitem [ref=f51e504]:
+                                - link "enum ScaleDirection" [ref=f51e505] [cursor=pointer]:
+                                  - /url: ../object-ScaleDirection/
+                                  - generic [ref=f51e506]:
+                                    - generic [ref=f51e507]: enum
+                                    - text: ScaleDirection
+                              - listitem [ref=f51e508]:
+                                - link "enum ScaleDistribution" [ref=f51e509] [cursor=pointer]:
+                                  - /url: ../object-ScaleDistribution/
+                                  - generic [ref=f51e510]:
+                                    - generic [ref=f51e511]: enum
+                                    - text: ScaleDistribution
+                              - listitem [ref=f51e512]:
+                                - link "class ScaleDistributionConfig" [ref=f51e513] [cursor=pointer]:
+                                  - /url: ../object-ScaleDistributionConfig/
+                                  - generic [ref=f51e514]:
+                                    - generic [ref=f51e515]: class
+                                    - text: ScaleDistributionConfig
+                              - listitem [ref=f51e516]:
+                                - link "enum ScaleOrientation" [ref=f51e517] [cursor=pointer]:
+                                  - /url: ../object-ScaleOrientation/
+                                  - generic [ref=f51e518]:
+                                    - generic [ref=f51e519]: enum
+                                    - text: ScaleOrientation
+                              - listitem [ref=f51e520]:
+                                - link "class SingleStatBaseOptions" [ref=f51e521] [cursor=pointer]:
+                                  - /url: ../object-SingleStatBaseOptions/
+                                  - generic [ref=f51e522]:
+                                    - generic [ref=f51e523]: class
+                                    - text: SingleStatBaseOptions
+                              - listitem [ref=f51e524]:
+                                - link "enum SortOrder" [ref=f51e525] [cursor=pointer]:
+                                  - /url: ../object-SortOrder/
+                                  - generic [ref=f51e526]:
+                                    - generic [ref=f51e527]: enum
+                                    - text: SortOrder
+                              - listitem [ref=f51e528]:
+                                - link "class StackableFieldConfig" [ref=f51e529] [cursor=pointer]:
+                                  - /url: ../object-StackableFieldConfig/
+                                  - generic [ref=f51e530]:
+                                    - generic [ref=f51e531]: class
+                                    - text: StackableFieldConfig
+                              - listitem [ref=f51e532]:
+                                - link "class StackingConfig" [ref=f51e533] [cursor=pointer]:
+                                  - /url: ../object-StackingConfig/
+                                  - generic [ref=f51e534]:
+                                    - generic [ref=f51e535]: class
+                                    - text: StackingConfig
+                              - listitem [ref=f51e536]:
+                                - link "enum StackingMode" [ref=f51e537] [cursor=pointer]:
+                                  - /url: ../object-StackingMode/
+                                  - generic [ref=f51e538]:
+                                    - generic [ref=f51e539]: enum
+                                    - text: StackingMode
+                              - listitem [ref=f51e540]:
+                                - link "class TableActionsCellOptions" [ref=f51e541] [cursor=pointer]:
+                                  - /url: ../object-TableActionsCellOptions/
+                                  - generic [ref=f51e542]:
+                                    - generic [ref=f51e543]: class
+                                    - text: TableActionsCellOptions
+                              - listitem [ref=f51e544]:
+                                - link "class TableAutoCellOptions" [ref=f51e545] [cursor=pointer]:
+                                  - /url: ../object-TableAutoCellOptions/
+                                  - generic [ref=f51e546]:
+                                    - generic [ref=f51e547]: class
+                                    - text: TableAutoCellOptions
+                              - listitem [ref=f51e548]:
+                                - link "class TableBarGaugeCellOptions" [ref=f51e549] [cursor=pointer]:
+                                  - /url: ../object-TableBarGaugeCellOptions/
+                                  - generic [ref=f51e550]:
+                                    - generic [ref=f51e551]: class
+                                    - text: TableBarGaugeCellOptions
+                              - listitem [ref=f51e552]:
+                                - link "enum TableCellBackgroundDisplayMode" [ref=f51e553] [cursor=pointer]:
+                                  - /url: ../object-TableCellBackgroundDisplayMode/
+                                  - generic [ref=f51e554]:
+                                    - generic [ref=f51e555]: enum
+                                    - text: TableCellBackgroundDisplayMode
+                              - listitem [ref=f51e556]:
+                                - link "enum TableCellDisplayMode" [ref=f51e557] [cursor=pointer]:
+                                  - /url: ../object-TableCellDisplayMode/
+                                  - generic [ref=f51e558]:
+                                    - generic [ref=f51e559]: enum
+                                    - text: TableCellDisplayMode
+                              - listitem [ref=f51e560]:
+                                - link "enum TableCellHeight" [ref=f51e561] [cursor=pointer]:
+                                  - /url: ../object-TableCellHeight/
+                                  - generic [ref=f51e562]:
+                                    - generic [ref=f51e563]: enum
+                                    - text: TableCellHeight
+                              - listitem [ref=f51e564]:
+                                - link "class TableColorTextCellOptions" [ref=f51e565] [cursor=pointer]:
+                                  - /url: ../object-TableColorTextCellOptions/
+                                  - generic [ref=f51e566]:
+                                    - generic [ref=f51e567]: class
+                                    - text: TableColorTextCellOptions
+                              - listitem [ref=f51e568]:
+                                - link "class TableColoredBackgroundCellOptions" [ref=f51e569] [cursor=pointer]:
+                                  - /url: ../object-TableColoredBackgroundCellOptions/
+                                  - generic [ref=f51e570]:
+                                    - generic [ref=f51e571]: class
+                                    - text: TableColoredBackgroundCellOptions
+                              - listitem [ref=f51e572]:
+                                - link "class TableDataLinksCellOptions" [ref=f51e573] [cursor=pointer]:
+                                  - /url: ../object-TableDataLinksCellOptions/
+                                  - generic [ref=f51e574]:
+                                    - generic [ref=f51e575]: class
+                                    - text: TableDataLinksCellOptions
+                              - listitem [ref=f51e576]:
+                                - link "class TableFieldOptions" [ref=f51e577] [cursor=pointer]:
+                                  - /url: ../object-TableFieldOptions/
+                                  - generic [ref=f51e578]:
+                                    - generic [ref=f51e579]: class
+                                    - text: TableFieldOptions
+                              - listitem [ref=f51e580]:
+                                - link "class TableFooterOptions" [ref=f51e581] [cursor=pointer]:
+                                  - /url: ../object-TableFooterOptions/
+                                  - generic [ref=f51e582]:
+                                    - generic [ref=f51e583]: class
+                                    - text: TableFooterOptions
+                              - listitem [ref=f51e584]:
+                                - link "class TableImageCellOptions" [ref=f51e585] [cursor=pointer]:
+                                  - /url: ../object-TableImageCellOptions/
+                                  - generic [ref=f51e586]:
+                                    - generic [ref=f51e587]: class
+                                    - text: TableImageCellOptions
+                              - listitem [ref=f51e588]:
+                                - link "class TableJsonViewCellOptions" [ref=f51e589] [cursor=pointer]:
+                                  - /url: ../object-TableJsonViewCellOptions/
+                                  - generic [ref=f51e590]:
+                                    - generic [ref=f51e591]: class
+                                    - text: TableJsonViewCellOptions
+                              - listitem [ref=f51e592]:
+                                - link "class TableSortByFieldState" [ref=f51e593] [cursor=pointer]:
+                                  - /url: ../object-TableSortByFieldState/
+                                  - generic [ref=f51e594]:
+                                    - generic [ref=f51e595]: class
+                                    - text: TableSortByFieldState
+                              - listitem [ref=f51e596]:
+                                - link "class TableSparklineCellOptions" [ref=f51e597] [cursor=pointer]:
+                                  - /url: ../object-TableSparklineCellOptions/
+                                  - generic [ref=f51e598]:
+                                    - generic [ref=f51e599]: class
+                                    - text: TableSparklineCellOptions
+                              - listitem [ref=f51e600]:
+                                - link "class TextDimensionConfig" [ref=f51e601] [cursor=pointer]:
+                                  - /url: ../object-TextDimensionConfig/
+                                  - generic [ref=f51e602]:
+                                    - generic [ref=f51e603]: class
+                                    - text: TextDimensionConfig
+                              - listitem [ref=f51e604]:
+                                - link "enum TextDimensionMode" [ref=f51e605] [cursor=pointer]:
+                                  - /url: ../object-TextDimensionMode/
+                                  - generic [ref=f51e606]:
+                                    - generic [ref=f51e607]: enum
+                                    - text: TextDimensionMode
+                              - listitem [ref=f51e608]:
+                                - link "scalar TimeZoneBrowser" [ref=f51e609] [cursor=pointer]:
+                                  - /url: ../object-TimeZoneBrowser/
+                                  - generic [ref=f51e610]:
+                                    - generic [ref=f51e611]: scalar
+                                    - text: TimeZoneBrowser
+                              - listitem [ref=f51e612]:
+                                - link "scalar TimeZoneUtc" [ref=f51e613] [cursor=pointer]:
+                                  - /url: ../object-TimeZoneUtc/
+                                  - generic [ref=f51e614]:
+                                    - generic [ref=f51e615]: scalar
+                                    - text: TimeZoneUtc
+                              - listitem [ref=f51e616]:
+                                - link "enum TimelineValueAlignment" [ref=f51e617] [cursor=pointer]:
+                                  - /url: ../object-TimelineValueAlignment/
+                                  - generic [ref=f51e618]:
+                                    - generic [ref=f51e619]: enum
+                                    - text: TimelineValueAlignment
+                              - listitem [ref=f51e620]:
+                                - link "enum TooltipDisplayMode" [ref=f51e621] [cursor=pointer]:
+                                  - /url: ../object-TooltipDisplayMode/
+                                  - generic [ref=f51e622]:
+                                    - generic [ref=f51e623]: enum
+                                    - text: TooltipDisplayMode
+                              - listitem [ref=f51e624]:
+                                - link "enum VariableFormatID" [ref=f51e625] [cursor=pointer]:
+                                  - /url: ../object-VariableFormatID/
+                                  - generic [ref=f51e626]:
+                                    - generic [ref=f51e627]: enum
+                                    - text: VariableFormatID
+                              - listitem [ref=f51e628]:
+                                - link "enum VisibilityMode" [ref=f51e629] [cursor=pointer]:
+                                  - /url: ../object-VisibilityMode/
+                                  - generic [ref=f51e630]:
+                                    - generic [ref=f51e631]: enum
+                                    - text: VisibilityMode
+                              - listitem [ref=f51e632]:
+                                - link "class VizLegendOptions" [ref=f51e633] [cursor=pointer]:
+                                  - /url: ../object-VizLegendOptions/
+                                  - generic [ref=f51e634]:
+                                    - generic [ref=f51e635]: class
+                                    - text: VizLegendOptions
+                              - listitem [ref=f51e636]:
+                                - link "enum VizOrientation" [ref=f51e637] [cursor=pointer]:
+                                  - /url: ../object-VizOrientation/
+                                  - generic [ref=f51e638]:
+                                    - generic [ref=f51e639]: enum
+                                    - text: VizOrientation
+                              - listitem [ref=f51e640]:
+                                - link "class VizTextDisplayOptions" [ref=f51e641] [cursor=pointer]:
+                                  - /url: ../object-VizTextDisplayOptions/
+                                  - generic [ref=f51e642]:
+                                    - generic [ref=f51e643]: class
+                                    - text: VizTextDisplayOptions
+                              - listitem [ref=f51e644]:
+                                - link "class VizTooltipOptions" [ref=f51e645] [cursor=pointer]:
+                                  - /url: ../object-VizTooltipOptions/
+                                  - generic [ref=f51e646]:
+                                    - generic [ref=f51e647]: class
+                                    - text: VizTooltipOptions
+                        - listitem [ref=f51e648]:
+                          - link "Dashboard" [ref=f51e649] [cursor=pointer]:
+                            - /url: ../../dashboard/
+                        - listitem [ref=f51e652]:
+                          - link "Dashboardlist" [ref=f51e653] [cursor=pointer]:
+                            - /url: ../../dashboardlist/
+                        - listitem [ref=f51e656]:
+                          - link "Dashboardv2" [ref=f51e657] [cursor=pointer]:
+                            - /url: ../../dashboardv2/
+                        - listitem [ref=f51e660]:
+                          - link "Dashboardv2beta1" [ref=f51e661] [cursor=pointer]:
+                            - /url: ../../dashboardv2beta1/
+                        - listitem [ref=f51e664]:
+                          - link "Datagrid" [ref=f51e665] [cursor=pointer]:
+                            - /url: ../../datagrid/
+                        - listitem [ref=f51e668]:
+                          - link "Datasource" [ref=f51e669] [cursor=pointer]:
+                            - /url: ../../datasource/
+                        - listitem [ref=f51e672]:
+                          - link "Debug" [ref=f51e673] [cursor=pointer]:
+                            - /url: ../../debug/
+                        - listitem [ref=f51e676]:
+                          - link "Elasticsearch" [ref=f51e677] [cursor=pointer]:
+                            - /url: ../../elasticsearch/
+                        - listitem [ref=f51e680]:
+                          - link "Expr" [ref=f51e681] [cursor=pointer]:
+                            - /url: ../../expr/
+                        - listitem [ref=f51e684]:
+                          - link "Folderv1" [ref=f51e685] [cursor=pointer]:
+                            - /url: ../../folderv1/
+                        - listitem [ref=f51e688]:
+                          - link "Folderv1beta1" [ref=f51e689] [cursor=pointer]:
+                            - /url: ../../folderv1beta1/
+                        - listitem [ref=f51e692]:
+                          - link "Gauge" [ref=f51e693] [cursor=pointer]:
+                            - /url: ../../gauge/
+                        - listitem [ref=f51e696]:
+                          - link "Geomap" [ref=f51e697] [cursor=pointer]:
+                            - /url: ../../geomap/
+                        - listitem [ref=f51e700]:
+                          - link "Googlecloudmonitoring" [ref=f51e701] [cursor=pointer]:
+                            - /url: ../../googlecloudmonitoring/
+                        - listitem [ref=f51e704]:
+                          - link "Grafanapyroscope" [ref=f51e705] [cursor=pointer]:
+                            - /url: ../../grafanapyroscope/
+                        - listitem [ref=f51e708]:
+                          - link "Heatmap" [ref=f51e709] [cursor=pointer]:
+                            - /url: ../../heatmap/
+                        - listitem [ref=f51e712]:
+                          - link "Histogram" [ref=f51e713] [cursor=pointer]:
+                            - /url: ../../histogram/
+                        - listitem [ref=f51e716]:
+                          - link "Librarypanel" [ref=f51e717] [cursor=pointer]:
+                            - /url: ../../librarypanel/
+                        - listitem [ref=f51e720]:
+                          - link "Logs" [ref=f51e721] [cursor=pointer]:
+                            - /url: ../../logs/
+                        - listitem [ref=f51e724]:
+                          - link "Loki" [ref=f51e725] [cursor=pointer]:
+                            - /url: ../../loki/
+                        - listitem [ref=f51e728]:
+                          - link "News" [ref=f51e729] [cursor=pointer]:
+                            - /url: ../../news/
+                        - listitem [ref=f51e732]:
+                          - link "Nodegraph" [ref=f51e733] [cursor=pointer]:
+                            - /url: ../../nodegraph/
+                        - listitem [ref=f51e736]:
+                          - link "Parca" [ref=f51e737] [cursor=pointer]:
+                            - /url: ../../parca/
+                        - listitem [ref=f51e740]:
+                          - link "Piechart" [ref=f51e741] [cursor=pointer]:
+                            - /url: ../../piechart/
+                        - listitem [ref=f51e744]:
+                          - link "Playlistv0alpha1" [ref=f51e745] [cursor=pointer]:
+                            - /url: ../../playlistv0alpha1/
+                        - listitem [ref=f51e748]:
+                          - link "Playlistv1" [ref=f51e749] [cursor=pointer]:
+                            - /url: ../../playlistv1/
+                        - listitem [ref=f51e752]:
+                          - link "Preferences" [ref=f51e753] [cursor=pointer]:
+                            - /url: ../../preferences/
+                        - listitem [ref=f51e756]:
+                          - link "Preferencesv1alpha1" [ref=f51e757] [cursor=pointer]:
+                            - /url: ../../preferencesv1alpha1/
+                        - listitem [ref=f51e760]:
+                          - link "Prometheus" [ref=f51e761] [cursor=pointer]:
+                            - /url: ../../prometheus/
+                        - listitem [ref=f51e764]:
+                          - link "Publicdashboard" [ref=f51e765] [cursor=pointer]:
+                            - /url: ../../publicdashboard/
+                        - listitem [ref=f51e768]:
+                          - link "Resource" [ref=f51e769] [cursor=pointer]:
+                            - /url: ../../resource/
+                        - listitem [ref=f51e772]:
+                          - link "Starsv1alpha1" [ref=f51e773] [cursor=pointer]:
+                            - /url: ../../starsv1alpha1/
+                        - listitem [ref=f51e776]:
+                          - link "Stat" [ref=f51e777] [cursor=pointer]:
+                            - /url: ../../stat/
+                        - listitem [ref=f51e780]:
+                          - link "Statetimeline" [ref=f51e781] [cursor=pointer]:
+                            - /url: ../../statetimeline/
+                        - listitem [ref=f51e784]:
+                          - link "Statushistory" [ref=f51e785] [cursor=pointer]:
+                            - /url: ../../statushistory/
+                        - listitem [ref=f51e788]:
+                          - link "Table" [ref=f51e789] [cursor=pointer]:
+                            - /url: ../../table/
+                        - listitem [ref=f51e792]:
+                          - link "Team" [ref=f51e793] [cursor=pointer]:
+                            - /url: ../../team/
+                        - listitem [ref=f51e796]:
+                          - link "Tempo" [ref=f51e797] [cursor=pointer]:
+                            - /url: ../../tempo/
+                        - listitem [ref=f51e800]:
+                          - link "Testdata" [ref=f51e801] [cursor=pointer]:
+                            - /url: ../../testdata/
+                        - listitem [ref=f51e804]:
+                          - link "Text" [ref=f51e805] [cursor=pointer]:
+                            - /url: ../../text/
+                        - listitem [ref=f51e808]:
+                          - link "Timeseries" [ref=f51e809] [cursor=pointer]:
+                            - /url: ../../timeseries/
+                        - listitem [ref=f51e812]:
+                          - link "Trend" [ref=f51e813] [cursor=pointer]:
+                            - /url: ../../trend/
+                        - listitem [ref=f51e816]:
+                          - link "Units" [ref=f51e817] [cursor=pointer]:
+                            - /url: ../../units/
+                        - listitem [ref=f51e820]:
+                          - link "Xychart" [ref=f51e821] [cursor=pointer]:
+                            - /url: ../../xychart/
+                  - listitem [ref=f51e824]:
+                    - link "Examples" [ref=f51e825] [cursor=pointer]:
+                      - /url: ../../../Examples/
+            - listitem [ref=f51e827]:
+              - link "Python" [ref=f51e828] [cursor=pointer]:
+                - /url: ../../../../python/Installing/
+            - listitem [ref=f51e831]:
+              - link "Typescript" [ref=f51e832] [cursor=pointer]:
+                - /url: ../../../../typescript/Installing/
+        - navigation "Table of contents" [ref=f51e838]:
+          - list [ref=f51e840]:
+            - listitem [ref=f51e841]:
+              - link "Constructor" [ref=f51e842] [cursor=pointer]:
+                - /url: "#constructor"
+            - listitem [ref=f51e844]:
+              - link "Methods" [ref=f51e845] [cursor=pointer]:
+                - /url: "#methods"
+              - navigation "Methods" [ref=f51e847]:
+                - list [ref=f51e848]:
+                  - listitem [ref=f51e849]:
+                    - link "build" [ref=f51e850] [cursor=pointer]:
+                      - /url: "#build"
+                  - listitem [ref=f51e852]:
+                    - link "lineColor" [ref=f51e853] [cursor=pointer]:
+                      - /url: "#linecolor"
+                  - listitem [ref=f51e855]:
+                    - link "lineInterpolation" [ref=f51e856] [cursor=pointer]:
+                      - /url: "#lineinterpolation"
+                  - listitem [ref=f51e858]:
+                    - link "lineStyle" [ref=f51e859] [cursor=pointer]:
+                      - /url: "#linestyle"
+                  - listitem [ref=f51e861]:
+                    - link "lineWidth" [ref=f51e862] [cursor=pointer]:
+                      - /url: "#linewidth"
+                  - listitem [ref=f51e864]:
+                    - link "spanNulls" [ref=f51e865] [cursor=pointer]:
+                      - /url: "#spannulls"
+            - listitem [ref=f51e867]:
+              - link "See also" [ref=f51e868] [cursor=pointer]:
+                - /url: "#see-also"
+        - article [ref=f51e871]:
+          - heading "builder LineConfigBuilder 🔗" [level=1] [ref=f51e872]:
+            - generic [ref=f51e873]: builder
+            - text: LineConfigBuilder
+            - link "🔗" [ref=f51e874] [cursor=pointer]:
+              - /url: "#lineconfigbuilder"
+          - paragraph [ref=f51e875]: TODO docs
+          - heading [level=2] [ref=f51e876]:
+            - text: Constructor
+            - link "🔗" [ref=f51e877] [cursor=pointer]:
+              - /url: "#constructor"
+          - generic [ref=f51e879]:
+            - navigation [ref=f51e880]:
+              - button "Copy to clipboard" [ref=f51e881] [cursor=pointer]
+            - code [ref=f51e882]: new LineConfigBuilder()
+          - heading [level=2] [ref=f51e883]:
+            - text: Methods
+            - link "🔗" [ref=f51e884] [cursor=pointer]:
+              - /url: "#methods"
+          - heading "method build 🔗" [level=3] [ref=f51e885]:
+            - generic [ref=f51e886]: method
+            - text: build
+            - link "🔗" [ref=f51e887] [cursor=pointer]:
+              - /url: "#build"
+          - paragraph [ref=f51e888]: Builds the object.
+          - generic [ref=f51e890]:
+            - navigation [ref=f51e891]:
+              - button "Copy to clipboard" [ref=f51e892] [cursor=pointer]
+            - code [ref=f51e893]: build()
+          - heading "method lineColor 🔗" [level=3] [ref=f51e894]:
+            - generic [ref=f51e895]: method
+            - text: lineColor
+            - link "🔗" [ref=f51e896] [cursor=pointer]:
+              - /url: "#linecolor"
+          - generic [ref=f51e898]:
+            - navigation [ref=f51e899]:
+              - button "Copy to clipboard" [ref=f51e900] [cursor=pointer]
+            - code [ref=f51e901]: lineColor(string $lineColor)
+          - heading "method lineInterpolation 🔗" [level=3] [ref=f51e902]:
+            - generic [ref=f51e903]: method
+            - text: lineInterpolation
+            - link "🔗" [ref=f51e904] [cursor=pointer]:
+              - /url: "#lineinterpolation"
+          - generic [ref=f51e906]:
+            - navigation [ref=f51e907]:
+              - button "Copy to clipboard" [ref=f51e908] [cursor=pointer]
+            - code [ref=f51e909]: lineInterpolation(\Grafana\Foundation\Common\LineInterpolation $lineInterpolation)
+          - heading "method lineStyle 🔗" [level=3] [ref=f51e910]:
+            - generic [ref=f51e911]: method
+            - text: lineStyle
+            - link "🔗" [ref=f51e912] [cursor=pointer]:
+              - /url: "#linestyle"
+          - paragraph [ref=f51e913]: "@param \\Grafana\\Foundation\\Cog\\Builder<\\Grafana\\Foundation\\Common\\LineStyle> $lineStyle"
+          - generic [ref=f51e915]:
+            - navigation [ref=f51e916]:
+              - button "Copy to clipboard" [ref=f51e917] [cursor=pointer]
+            - code [ref=f51e918]: lineStyle(\Grafana\Foundation\Cog\Builder $lineStyle)
+          - heading "method lineWidth 🔗" [level=3] [ref=f51e919]:
+            - generic [ref=f51e920]: method
+            - text: lineWidth
+            - link "🔗" [ref=f51e921] [cursor=pointer]:
+              - /url: "#linewidth"
+          - generic [ref=f51e923]:
+            - navigation [ref=f51e924]:
+              - button "Copy to clipboard" [ref=f51e925] [cursor=pointer]
+            - code [ref=f51e926]: lineWidth(float $lineWidth)
+          - heading "method spanNulls 🔗" [level=3] [ref=f51e927]:
+            - generic [ref=f51e928]: method
+            - text: spanNulls
+            - link "🔗" [ref=f51e929] [cursor=pointer]:
+              - /url: "#spannulls"
+          - paragraph [ref=f51e930]: Indicate if null values should be treated as gaps or connected.
+          - paragraph [ref=f51e931]: When the value is a number, it represents the maximum delta in the
+          - paragraph [ref=f51e932]: X axis that should be considered connected. For timeseries, this is milliseconds
+          - paragraph [ref=f51e933]: "@param bool|float $spanNulls"
+          - generic [ref=f51e935]:
+            - navigation [ref=f51e936]:
+              - button "Copy to clipboard" [ref=f51e937] [cursor=pointer]
+            - code [ref=f51e938]: spanNulls($spanNulls)
+          - heading [level=2] [ref=f51e939]:
+            - text: See also
+            - link "🔗" [ref=f51e940] [cursor=pointer]:
+              - /url: "#see-also"
+          - list [ref=f51e941]:
+            - listitem [ref=f51e942]:
+              - generic [ref=f51e943]: class
+              - link "LineConfig" [ref=f51e944] [cursor=pointer]:
+                - /url: ../object-LineConfig/
+      - button "Back to top"
+    - contentinfo [ref=f51e945]:
+      - generic [ref=f51e948]:
+        - text: Made with
+        - link "Material for MkDocs" [ref=f51e949] [cursor=pointer]:
+          - /url: https://squidfunk.github.io/mkdocs-material/

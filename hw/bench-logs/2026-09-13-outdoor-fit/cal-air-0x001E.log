@@ -1,0 +1,48 @@
+
+fw_version 30   build_id 0x4B6AD5BD
+FAULTS       0x0000 (none)
+FAULTS_EVER  0x0001 = SETTLING
+SETTLE_S     0 (seconds REMAINING; 0 = settled)
+CAL_STATE    0x0006 = NO_ZERO | BIAS_UNVERIFIED
+O2_COMP      20.71 %vol
+O2_RAW       103.03 uA
+T_CHAMBER    39.14 C   RH 29.37 %
+ASSUMED_P_HPA 930 hPa   DIL_ALPHA 1.000   TEMPCO 0 ppm/K
+CAL_AIR_NA   101327   CAL_ZERO_NA 0   CAL_AIR_FRAC 0.20654  CAL_P_HPA 930
+
+predicted air fraction: p_w 20.66 hPa, dilution 0.97778, alpha-scaled 0.97778 -> c_air 0.20481
+
+sampling the cell for 120 s before taking the point
+       1 s    102.94 uA
+      13 s    102.96 uA
+      24 s    102.98 uA
+      35 s    102.97 uA
+      46 s    103.04 uA
+      57 s    103.00 uA
+      69 s    103.00 uA
+      80 s    103.03 uA
+      91 s    103.05 uA
+     102 s    102.98 uA
+     113 s    103.02 uA
+n=11  mean 103.00 uA  spread 0.11 % of mean (limit 1.00 %)
+
+writing CAL_TRIGGER (0xCA11)
+writing COMMIT alongside it (deferred until the cal completes, regmap.c:1167)
+   CMD_RESULT cal=OK commit=OK
+
+-- after -------------------------------------------------
+CAL_AIR_NA   102966 nA
+CAL_ZERO_NA  0 nA
+CAL_AIR_FRAC 0.20472  (20.472 %vol wet)
+CAL_TEMP     37.71 C   CAL_P_HPA 930 hPa
+FAULTS       0x0000 (none)
+CAL_STATE    0x0006 = NO_ZERO | BIAS_UNVERIFIED
+O2_COMP      20.95 %vol
+CONFIG_CRC   0xAB3D
+
+=== K for the backfill, derived exactly as o2.c:264 does ===
+K = (102966 - 0) / ln(1/(1 - 0.20472)) = 102966 / 0.22906 = 449513.4 nA
+
+backfill with:
+  python3 o2p_backfill_dry.py --k 449513.4 --p-hpa 930 --alpha 1.000 --dry-run
+exit 0

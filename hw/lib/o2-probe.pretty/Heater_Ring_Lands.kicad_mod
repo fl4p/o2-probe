@@ -1,0 +1,94 @@
+(footprint "Heater_Ring_Lands"
+	(version 20240108)
+	(generator "pcbnew")
+	(layer "B.Cu")
+	(descr "Two ring lands at the front edge for the dry-side heated membrane carrier ring, each present on FRONT AND BACK copper. Plain SMD rectangles - no drills, no castellations, no plated slots. All four pads are number 1: one HEATER_LOW node, so the ring is a heat spreader and never a conductor. The back lands sit in the HEATED_ISLAND_SPREADER pour; a via at each land ties the front land down to it.")
+	(tags "heater ring hand solder membrane smd land")
+	(property "Reference" "J5"
+		(at 0 2.9 0)
+		(layer "B.Fab")
+		(hide yes)
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.12)
+			)
+			(justify mirror)
+		)
+	)
+	(property "Value" "HEATED MEMBRANE RING"
+		(at 0 4.1 0)
+		(layer "B.Fab")
+		(hide yes)
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.12)
+			)
+			(justify mirror)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(attr smd exclude_from_pos_files)
+	(duplicate_pad_numbers_are_jumpers no)
+	(fp_rect
+		(start -9.75 -1.1)
+		(end -6.75 1.1)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(fill no)
+		(layer "B.CrtYd")
+		)
+	(fp_rect
+		(start 6.75 -1.1)
+		(end 9.75 1.1)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(fill no)
+		(layer "B.CrtYd")
+		)
+	(pad "1" smd rect
+		(at -8.25 0)
+		(size 2.8 2)
+		(layers "F.Cu" "F.Mask")
+		)
+	(pad "1" smd rect
+		(at -8.25 0)
+		(size 2.8 2)
+		(layers "B.Cu" "B.Mask")
+		)
+	(pad "1" smd rect
+		(at 8.25 0)
+		(size 2.8 2)
+		(layers "F.Cu" "F.Mask")
+		)
+	(pad "1" smd rect
+		(at 8.25 0)
+		(size 2.8 2)
+		(layers "B.Cu" "B.Mask")
+		)
+	(embedded_fonts no)
+)
