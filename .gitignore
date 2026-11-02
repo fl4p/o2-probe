@@ -59,3 +59,11 @@ cad/reviews/EXITED
 # Editor/slicer backups and KiCad autosaves anywhere in the tree.
 _autosave-*
 *.bambu-bak
+
+# Videos (print timelapses, bench recordings): too large for a public clone.
+*.avi
+*.mp4
+*.mov
+*.mkv
+*.webm
+*.m4v
