@@ -140,7 +140,7 @@ the pressure test, not inspection, decide whether the fixture is sound.
 
 ## Enclosure material
 
-Decision 2026-09-02, recorded in [`../MEMBRANE.md`](../MEMBRANE.md) under
+Decision 2026-09-02, recorded in [`../docs/MEMBRANE.md`](../docs/MEMBRANE.md) under
 *Enclosure material: printed ASA*: **bought tube for the potted body, printed
 ASA for the head** that carries the keyed cartridges, guard stand-offs and drain
 wells. A fully printed body is allowed for prototypes only. The models here are
@@ -342,7 +342,7 @@ An exploded view hides the carrier inside the cap. Rendered with
    recover this and remains unpriced.
 4. The end face only drains if the probe goes in roughly level; a
    downward-tilted insertion turns it into the upward-facing pocket
-   `../MEMBRANE.md` forbids.
+   `../docs/MEMBRANE.md` forbids.
 
 ## Looking at any of it — `tools/view.py`
 

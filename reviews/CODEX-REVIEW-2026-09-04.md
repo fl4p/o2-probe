@@ -17,9 +17,9 @@
    | 50% | 16.18 | 24.08 | 60.19 | 26.97 |
    | 100% | 28.53 | 42.46 | **106.14** | 47.55 |
 
-   The 15/40/60 W and 7/20/30/50 Ah rounded rows are otherwise coherent. A 100 W panel provides about 2.36×, not 2.5×, at 100% duty. [POWER.md:114](POWER.md:114)
+   The 15/40/60 W and 7/20/30/50 Ah rounded rows are otherwise coherent. A 100 W panel provides about 2.36×, not 2.5×, at 100% duty. [POWER.md:114](../docs/POWER.md:114)
 
-3. **(b) unstated assumption that happens to hold — 0.70 and 2.5 are coherent only under a particular interpretation.** `H(i)_m` already accounts for the 70° plane, so 0.70 must be described as an end-to-end harvest/charging/wiring factor, not an “MPPT/tilt” derate. It is plausibly conservative. With a 2.5× panel, the nominal surplus is `1.5E/day`, so a seven-day `7E` deficit recharges in about **4.7 design-average clear days**. That implicit recovery target makes 2.5 coherent. Worst-of-19 weather plus a recovery/snow reserve is not intrinsically double-counting, but snow, soiling and recharge cannot each consume the full same margin simultaneously. [POWER.md:114](POWER.md:114)
+3. **(b) unstated assumption that happens to hold — 0.70 and 2.5 are coherent only under a particular interpretation.** `H(i)_m` already accounts for the 70° plane, so 0.70 must be described as an end-to-end harvest/charging/wiring factor, not an “MPPT/tilt” derate. It is plausibly conservative. With a 2.5× panel, the nominal surplus is `1.5E/day`, so a seven-day `7E` deficit recharges in about **4.7 design-average clear days**. That implicit recovery target makes 2.5 coherent. Worst-of-19 weather plus a recovery/snow reserve is not intrinsically double-counting, but snow, soiling and recharge cannot each consume the full same margin simultaneously. [POWER.md:114](../docs/POWER.md:114)
 
 4. **(c) real design defect — monthly PVGIS totals do not establish uninterrupted winter operation.** The PVGIS field, December minimum and mean are correctly read, but `H(i)_m` contains no daily sequence or snow-cover outage. Therefore “carries … through the worst December” is stronger than the analysis: a month can have adequate total energy while containing a battery-exhausting dark or snow-covered run. A daily simulation or explicit outage scenario is required for that claim. [POWER.md:94](POWER.md:94), [POWER.md:127](POWER.md:127)
 

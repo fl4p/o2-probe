@@ -68,7 +68,7 @@ def migrate():
   if replace:
    if f:pose=(*xy(f.GetPosition()),f.GetOrientationDegrees(),f.GetLayer()==p.B_Cu);path=f.GetPath();b.RemoveNative(f)
    else:pose=poses[ref];path=p.KIID_PATH('/'+c.findtext('tstamps'))
-   lib=ROOT/'lib/o2-probe.pretty' if nick=='o2-probe' else ROOT.parent/'tmp117-probe/lib/tmp117-probe.pretty' if nick=='tmp117-probe' else Path('/Applications/KiCad/KiCad.app/Contents/SharedSupport/footprints')/(nick+'.pretty')
+   lib=ROOT/'lib/o2-probe.pretty' if nick=='o2-probe' else ROOT/'lib/tmp117-probe.pretty' if nick=='tmp117-probe' else Path('/Applications/KiCad/KiCad.app/Contents/SharedSupport/footprints')/(nick+'.pretty')
    f=p.FootprintLoad(str(lib),item)
    if f is None:raise ValueError(libid)
    b.Add(f);f.SetFPID(p.LIB_ID(nick,item));f.SetReference(ref);f.SetPosition(pt(*pose[:2]));f.SetPath(path)

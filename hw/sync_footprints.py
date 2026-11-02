@@ -25,7 +25,7 @@ except ImportError:
 HERE = Path(__file__).resolve().parent
 KICAD_FP = Path("/Applications/KiCad/KiCad.app/Contents/SharedSupport/footprints")
 PROJECT_FP = HERE / "lib" / "o2-probe.pretty"
-TMP117_FP = HERE.parent / "tmp117-probe" / "lib" / "tmp117-probe.pretty"
+TMP117_FP = HERE / "lib" / "tmp117-probe.pretty"
 
 
 def library_path(nickname: str) -> Path:

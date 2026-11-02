@@ -1,14 +1,4 @@
-# ---------------------------------------------------------------------------
-# Electronics half (repo root: KiCad project, firmware/)
-# ---------------------------------------------------------------------------
-
-# KiCad session and recovery files
-~*.lck
-_autosave-*.kicad_pcb
-*-backups/
-
-# PlatformIO build tree
-firmware/.pio/
+# Electronics (hw/) and firmware (hw/firmware/) carry their own .gitignore files.
 
 # ---------------------------------------------------------------------------
 # Mechanical half (cad/)
@@ -53,6 +43,7 @@ cad/p1p-stream.log
 # Both halves
 # ---------------------------------------------------------------------------
 __pycache__/
+.DS_Store
 
 # Playwright MCP scratch output -- page snapshots and console logs dropped in the
 # CWD by any browser-using agent session. Megabytes, regenerated constantly, and

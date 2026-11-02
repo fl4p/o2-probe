@@ -389,7 +389,7 @@ prototype-exploded: body-tube
 # mesh, so never --render. The STL comes from KiCad 10's own exporter; rebuild
 # it with `make board-mesh` when the board changes.
 KICAD_CLI ?= /Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli
-HW := /Users/fab/dev/ee/hw/o2-probe
+HW := $(CURDIR)/../hw
 
 .PHONY: board-mesh
 board-mesh: | $(OUT)

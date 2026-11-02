@@ -74,7 +74,7 @@ def source_inventory(snapshot):
     paths += [HERE/x for x in ('o2-probe.xml', 'o2-probe.kicad_sch', 'sym-lib-table', 'fp-lib-table')]
     paths += [HERE/CANDIDATE/'fp-lib-table']
     paths += sorted(p for p in (HERE/'lib').rglob('*') if p.is_file())
-    external = HERE.parent/'tmp117-probe/lib/tmp117-probe.pretty'
+    external = HERE/'lib/tmp117-probe.pretty'
     paths += sorted(p for p in external.rglob('*') if p.is_file())
     if not external.is_dir() or not any(p.is_file() for p in external.iterdir()):
         raise ValueError('Required TMP117 source footprint library missing')

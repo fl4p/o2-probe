@@ -467,7 +467,8 @@ leak observation.
 
 Arms 2 and 3 test open questions rather than the film: whether the weld densifies
 the edge zone and moves local WEP or airflow (asked of Porex 2026-08-27, answer
-outstanding — see [PMV15T-REPLY-2026-08-27.txt](PMV15T-REPLY-2026-08-27.txt)),
+outstanding — see our 2026-08-27 reply to Porex, `PMV15T-REPLY-2026-08-27.txt`, kept
+with the private vendor correspondence),
 and whether the groove seal holds without a bypass path
 (§ [Membrane perimeter gasket sourced](#membrane-perimeter-gasket-sourced-2026-09-03)).
 

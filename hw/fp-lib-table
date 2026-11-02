@@ -1,4 +1,4 @@
 (fp_lib_table
   (lib (name "o2-probe")(type "KiCad")(uri "${KIPRJMOD}/lib/o2-probe.pretty")(options "")(descr "O2 probe project footprints"))
-  (lib (name "tmp117-probe")(type "KiCad")(uri "${KIPRJMOD}/../tmp117-probe/lib/tmp117-probe.pretty")(options "")(descr "Reviewed TMP117 footprint reused from adjacent project"))
+  (lib (name "tmp117-probe")(type "KiCad")(uri "${KIPRJMOD}/lib/tmp117-probe.pretty")(options "")(descr "Reviewed TMP117 footprint reused from adjacent project"))
 )

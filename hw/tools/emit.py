@@ -1,5 +1,5 @@
 import pickle, uuid, pathlib, route
-PCB='/Users/fab/dev/ee/hw/o2-probe/routing/revb-86-ring/o2-probe.kicad_pcb'
+PCB=str(__import__('pathlib').Path(__file__).resolve().parent.parent/'routing/revb-86-ring/o2-probe.kicad_pcb')
 W=0.15; VIA_D=0.4; VIA_DR=0.2
 routes=pickle.load(open('routes.pkl','rb'))
 # Snap every run's endpoints onto the via centres, so a track always lands on
