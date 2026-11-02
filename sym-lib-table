@@ -1,3 +1,0 @@
-(sym_lib_table
-  (lib (name "o2-probe")(type "KiCad")(uri "${KIPRJMOD}/lib/o2-probe.kicad_sym")(options "")(descr "Generated O2 probe project symbols"))
-)
