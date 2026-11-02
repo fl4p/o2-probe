@@ -416,6 +416,13 @@ board-in-body: monobody body-section board-mesh | $(OUT)
 		-D 'part="section"' -o $(OUT)/board-in-body.png o2_probe_board_in_body.scad
 	python3 tools/board_clearance.py
 
+# The README picture: the same section, turned to face the cut.
+.PHONY: readme-render
+readme-render: monobody body-section board-mesh | $(OUT)
+	$(OPENSCAD) --viewall --autocenter --projection=p --imgsize=1400,1600 \
+		--camera=0,0,0,68,0,205,0 --colorscheme=Tomorrow \
+		-D 'part="section"' -o ../docs/img/probe-assembled-section.png o2_probe_board_in_body.scad
+
 # Local three.js viewer: the printed body with the real KiCad board inside it.
 # Every surface is DoubleSide, so nothing vanishes when you rotate past it --
 # which is the one thing OpenSCAD's preview will not do. Served over http

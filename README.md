@@ -10,6 +10,15 @@ saturated and a buried probe conducts heat outward, so every surface sits
 below the dew point. The cell, however, is rated 15–90 %RH *non-condensing*.
 Most of this design exists to keep the membrane dry.
 
+<img src="docs/img/probe-assembled-section.png" width="380" align="right"
+     alt="The assembled probe: the PCB inside the printed one-piece body, half the body cut away, with the cable-end cap at the bottom">
+
+*Right: the assembled probe, with half of the printed one-piece body (the
+"monobody") cut away. The board is the 107 mm Rev A layout, as KiCad
+exports it in 3D. Parts with no KiCad 3D model are red blocks drawn in by
+hand. The cable-end cap is at the bottom. Rebuild it with
+`make -C cad readme-render`.*
+
 **View the board in the browser:**
 [Rev B PCB and schematic in KiCanvas](https://kicanvas.org/?github=https%3A%2F%2Fgithub.com%2Ffl4p%2Fo2-probe%2Ftree%2Fmain%2Fhw%2Frouting%2Frevb-86)
 
