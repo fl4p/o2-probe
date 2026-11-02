@@ -50,7 +50,7 @@ try:
  run('failed_native_export',d,'UNVERIFIED',export=True);assert not (d/'o2-probe.xml').exists() and not (d/'o2-probe-bom.csv').exists()
  d=fixture('midrun_source_change');(d/'driver.py').write_text('import audit_bom as a\noriginal=a.diff_purchase_orders\ndef changed(*args):\n original(*args)\n with a.SOURCING.open("a") as f:f.write(" ")\na.diff_purchase_orders=changed\nraise SystemExit(a.main())\n');report=run('midrun_source_change',d,'FAIL',driver=True);assert 'input changed during evaluation' in report
  # Compare the former implementation on the same genuine DNP-property fixture.
- old=subprocess.run(['git','show','HEAD:ee/hw/o2-probe/audit_bom.py'],cwd=ROOT,text=True,capture_output=True,check=True).stdout
+ old=subprocess.run(['git','show','HEAD:./audit_bom.py'],cwd=ROOT,text=True,capture_output=True,check=True).stdout
  d=fixture('legacy_numeric_dnp');(d/'audit_bom.py').write_text(old);report=run('legacy_numeric_dnp',d,'FAIL');assert 'DNP mismatch' in report
  assert sha(CODE)==r['audit_sha256'];r.update(status='PASS',seconds=time.monotonic()-start);save()
 except Exception as e:r.update(status='FAIL',error=repr(e),seconds=time.monotonic()-start);save();raise

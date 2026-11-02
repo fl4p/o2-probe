@@ -65,8 +65,10 @@ SRC = FW / "src"
 # The fabricated Rev A first article. Pinned by commit, verified by content.
 # 16b5a606 is the netlist whose gerbers were manufactured - it is the board on
 # the bench, and the one every probe built to date was made from.
-REV_A_COMMIT = "16b5a606"
-REV_A_PATH = "ee/hw/o2-probe/o2-probe.kicad_pcb"
+# The tree moved out of the ~/dev monorepo on 2026-11-02; 16b5a606 there is
+# 65299c44 here (same board bytes, guarded by REV_A_SHA256 below).
+REV_A_COMMIT = "65299c44"
+REV_A_PATH = "hw/o2-probe.kicad_pcb"
 REV_A_SHA256 = "983681ce"  # prefix; full value asserted below on first run
 
 # Nets that mean "this pad is an electrode buffer". Named explicitly rather
