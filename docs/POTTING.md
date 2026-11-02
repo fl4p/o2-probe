@@ -198,7 +198,7 @@ already written down.
 |---|---|---|
 | vendor tag | tough, flexible, thermally conductive, FR | sea-water resistant, low water absorption |
 | Shore | **A75 / D25** | A85 |
-| thermal conductivity | **0.45 W/m·K** | 0.25 |
+| thermal conductivity | **0.78 W/m·K** [1] | 0.25 |
 | temperature range | −40 to **+130 °C** | −60 to +125 |
 | short term (30 min) | **+155 °C** | +130 |
 | exotherm (100 ml, Ø49.4 mm) | **< 35 °C** | < 50 °C |
@@ -209,6 +209,7 @@ already written down.
 | volume resistivity | 10¹⁴ Ω·cm | **10¹⁵** |
 | usable life / gel (20–23 °C) | **40 / 90 min** | 20 / 60 min |
 | mix ratio by weight | 5.21:1 | **3.64:1** |
+| mix ratio by volume | 3.88:1 [1] | not on sheet |
 | cured density | 1.54 g/ml | **1.18** |
 | elongation at break | not measured | **200 %** |
 | UL94 | V-0 | none |
@@ -232,6 +233,20 @@ Four things fall out of this table that could not be guessed:
    10¹⁴ Ω·cm is a decade — but our leak is a *surface* path, which is CTI, and
    both figures are astronomically above anything that matters here. Do not
    trade CTI away for it.
+
+**[1] Corrected 2026-09-07 from the current TDS** (issue 18 May 2023,
+`macdermidalpha.com/sites/default/files/2025-01/Electrolube-UR5604-PTC-TDS-GL-EN-18May2023.pdf`,
+reached at fetch-ladder rung 5 through the browser extension after rungs 1–4 were
+refused). The 0.45 W/m·K figure above came from the older Farnell-mirrored sheet;
+the current issue states **0.78**, which strengthens §7's thermal argument. It
+also states a **volume** mix ratio of 3.88:1, which is far easier to batch by hand
+than 5.21:1 by weight — the "awkward mix ratio" objection below is weaker than it
+was written.
+
+**Also on the 2023 issue: the "Contains No Halogens" line is gone.** Point 3 below
+rests on the older sheet. The current sheet carries no halogen or ionic-content
+statement at all, so §3.3's ionic question is now the *only* route to that claim —
+re-ask it, do not cite the old sheet as settled.
 
 **Lead candidate: UR5604.** It wins on the two properties that map directly onto
 this design's actual failure mode, and its 40 min usable / 90 min gel life is
@@ -264,6 +279,58 @@ to Electrolube directly, together with:
   content, which is what the sub-µA leakage claim actually rests on;
 - adhesion data to FR-4 soldermask and to the tube stock once §9.3 fixes it.
 
+### 3.3b UR5118 — found 2026-09-07, and it answers §3.3's hardest question
+
+Reaching Electrolube's own site (rung 5) surfaced a product neither the Farnell
+catalogue nor the brochure put in front of us: **UR5118, "Highly Water Resistant,
+RF Polyurethane Resin"**, TDS issue 03 February 2022. On the two properties this
+design actually turns on it is not close:
+
+| | **UR5118** | UR5604 |
+|---|---|---|
+| **Halide content** | **4 ppm, stated** | not stated on the 2023 issue |
+| **Sulphur content** | **≤ 1 ppm, stated** | not stated |
+| volume resistivity | **10¹⁸ Ω·cm** | 10¹⁴ |
+| **CTE** | **~150 ppm @ 0 °C, stated** | not stated |
+| water absorption | ≤ 0.5 % | < 0.5 % / < 1 % |
+| temperature range | −60 to +125 (short term +130) | −40 to +130 (short term +155) |
+| Shore | A80 @23 °C, **A40 @100 °C** | A75 / D25 |
+| cured density | **0.99 g/mL** | 1.54 |
+| thermal conductivity | 0.2 W/m·K | **0.78** |
+| CTI | **not stated** | **> 600 V** |
+| UL94 | not stated | **V-0** |
+| usable life / gel @20 °C | 25–30 / 40–45 min | **40 / 90 min** |
+| mix ratio (weight / volume) | 2.77:1 / 3.66:1 | 5.21:1 / 3.88:1 |
+| cure @23 °C | 36 h | 24 h |
+
+**Why this matters enough to reopen §3.** Two of §3.3's four open questions are
+answered on this sheet and only on this sheet:
+
+- **Ionic content.** §3.3 asks Electrolube to confirm that "no halogens" extends
+  to total ionic/extractable content, "which is what the sub-µA leakage claim
+  actually rests on". UR5118 puts a number on it — 4 ppm halides, ≤1 ppm sulphur.
+  For a board whose RE node is guarded because it carries hundreds of nA, a
+  measured ionic figure beats an absent one, and the UR5604 sheet's halogen line
+  has since disappeared (see [1]).
+- **CTE.** §4's 1.5 mm axial-creep budget is built on "ΔCTE ≈ 100 ppm/K
+  [unverified, class figures]". UR5118 states ~150 ppm. §4 can stop guessing.
+
+**What it costs.** Thermal conductivity drops 0.78 → 0.2 W/m·K, which spends
+directly against §7's argument that potting couples the AFE to the tube wall; CTI
+is unstated where UR5604 states >600 V, and §3.2 called CTI "the single most
+relevant number on either sheet"; and there is no UL94 rating on the sheet.
+
+**This is not a decision to make in a research note.** It is a genuine
+three-way trade — ionic cleanliness and resistivity against thermal conductivity
+and CTI — on a compound that is about to be ordered three packs deep. It belongs
+in the same message to Electrolube as §3.3, phrased as: *given a sub-µA guarded
+electrode, 75 °C, condensing, NH₃/H₂S service in a 28 mm tube, which of UR5604
+and UR5118 do you recommend, and what is UR5118's CTI?*
+
+Until that is answered **UR5604 remains the specified compound** — it is sourced,
+priced, in stock and already reasoned about. UR5118 is not yet price-checked or
+confirmed available in a 250 g resin pack.
+
 ### 3.4 Ordering
 
 | | order code | pack | price (ex VAT) |
@@ -274,7 +341,15 @@ to Electrolube directly, together with:
 
 At 71 g/probe (§4), three probes need 213 g — so a single 250 g pack covers the
 run with no margin for a practice pour, the leakage coupon, or one failure.
-**Buy 2 × 250 g.** A 5 kg kit exists (simpex.ch) but is only worth it with bulk
+**Buy 2 × 250 g.**
+
+**Verified on the Farnell DE product page, 2026-09-07** (headed browser, the page
+403s to plain curl): € 27,14 ex VAT at 1+, **789 in stock** — but the
+**manufacturer's standard lead time is 18 weeks**. Stock today is not stock in
+two months, and a re-order lands after the pour window. That argues for **3 ×
+250 g, not 2**: the marginal €27 is nothing against an 18-week wait for a failed
+pour. Pack is a 250 g mixing bag, black, UL94 V-0, shelf life 12 months, −40 to
++130 °C, cured density 1.54 g/ml (resin 1.62, hardener 1.21). A 5 kg kit exists (simpex.ch) but is only worth it with bulk
 mixing gear.
 
 **The resin-pack format is a real process advantage and partly replaces a vacuum
@@ -510,6 +585,10 @@ compound for the thermal conductivity if the junction budget is tight — but no
 that filled compounds are stiffer and more abrasive, which trades against §4.
 
 ## 8. Sequence
+
+**The coating step below is specified in `COATING.md`** (chemistry, product,
+masking list, cure-before-pour rule, and the peel coupon that decides whether the
+potted zone gets coated too).
 
 ```
 build → clean → bake → conformal-coat gas zone (apertures clear)
