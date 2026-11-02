@@ -49,3 +49,13 @@ __pycache__/
 # CWD by any browser-using agent session. Megabytes, regenerated constantly, and
 # nothing ever reads it back.
 .playwright-mcp/
+
+# Agent review runs: pid files, exit markers and multi-MB raw transcripts.
+# Runtime, not evidence; a review that matters gets written up as a .md.
+.review-runs/
+reviews/codex-*/
+cad/reviews/EXITED
+
+# Editor/slicer backups and KiCad autosaves anywhere in the tree.
+_autosave-*
+*.bambu-bak
