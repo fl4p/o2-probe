@@ -26,11 +26,11 @@ Older review records retain the original filenames; the table below locates them
   and CLI-refilled copper have zero opens. Five inherited footprint-parity
   findings, assembly warnings, thermal verification and fabrication exports
   remain release work. See its [validation record](../../../routing/revb-interfaces/README.md)
-  and [FAB-READINESS.md](../../../FAB-READINESS.md).
+  and [FAB-READINESS.md](../../FAB-READINESS.md).
 - CE series resistance, D7 pinout/MPN and CE routing are implemented; physical
   compliance, leakage and ESD qualification remain open. The heater interface,
-  F3 and input-stage protection also remain open. See [DESIGN.md](../../../DESIGN.md) and
-  [AFE decision review](../../../REVIEW-2026-09-04-AFE-DECISIONS.md).
+  F3 and input-stage protection also remain open. See [DESIGN.md](../../DESIGN.md) and
+  [AFE decision review](../../REVIEW-2026-09-04-AFE-DECISIONS.md).
 - Unselected alternatives and sourcing questions in the BOM record are not
   approved changes: retain the VREF monitor; deleting the AZ431 requires the
   proposed noise study; capacitor MPN selection remains a sourcing task.

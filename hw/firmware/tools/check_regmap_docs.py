@@ -26,7 +26,7 @@ REGMAP = os.path.join(FW, "src", "regmap.h")
 UPDATE = os.path.join(FW, "src", "update.h")
 
 # Prose copies, relative to the firmware directory.
-DOCS = ["FIRMWARE.md", os.path.join("..", "DESIGN.md")]
+DOCS = ["FIRMWARE.md", os.path.join("..", "docs", "DESIGN.md")]
 
 
 # The debug blocks are compiled out of a nodebug build, but they are still wire

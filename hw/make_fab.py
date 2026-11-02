@@ -577,7 +577,8 @@ def main() -> int:
                    "ASSEMBLY-EXCEPTIONS.md", "pcb-audit.rpt",
                    "schematic-audit.rpt", "erc.rpt", "pcb-drc-release.json",
                    "pcb-drc-warnings.json", "bom-audit.rpt", "o2-probe-bom.csv"):
-        shutil.copy2(HERE / source, TEMP / source)
+        src = HERE / "docs" / source if source.endswith(".md") else HERE / source
+        shutil.copy2(src, TEMP / source)
 
     silkscreen_exported = check_silkscreen_policy(LAYERS, SILKSCREEN_WAIVER)
 
