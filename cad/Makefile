@@ -253,12 +253,19 @@ head-end-asa: | $(OUT)
 # `tube` and `cap` must each come out as ONE closed solid (CGAL "Volumes: 2");
 # `dam` is deliberately two halves and reads 3, so it is gated separately.
 BODY := o2_probe_body_tube.scad
+# The body model is keyed on the radial ring too, and until 2026-09-09 it was
+# rendered without RING and so always drew the DEFAULT ring's tube. That is what
+# let the monobody break: the head was built for ors116787 and the tube for
+# onhand-22x2, they disagreed on cav_board_len by 0.4 mm, and the union opened a
+# gap at the joint. Every body render takes it now, so the two halves of a
+# monobody are always cut for the same ring.
+BODY_PROV := -D 'radial_ring="$(RING)"'
 
 .PHONY: body-tube
 body-tube: | $(OUT)
 	@for p in tube cap; do \
 		$(OPENSCAD) --hardwarnings -D "part=\"$$p\"" \
-			-o $(OUT)/body-$$p.stl $(BODY) 2>$(OUT)/.b-$$p.log || \
+			-o $(OUT)/body-$$p.stl $(BODY_PROV) $(BODY) 2>$(OUT)/.b-$$p.log || \
 			{ cat $(OUT)/.b-$$p.log; exit 1; }; \
 		v=`sed -n 's/.*Volumes: *\([0-9]*\).*/\1/p' $(OUT)/.b-$$p.log | tail -1`; \
 		if [ "$$v" != "2" ]; then \
@@ -274,13 +281,13 @@ body-tube: | $(OUT)
 	@# as-is starts that roof in mid-air. body-cap-print.stl is the one that goes
 	@# on a plate; body-cap.stl stays for the assembly views.
 	@$(OPENSCAD) --hardwarnings -D 'part="cap-print"' -o $(OUT)/body-cap-print.stl \
-		$(BODY) 2>$(OUT)/.b-capp.log || { cat $(OUT)/.b-capp.log; exit 1; }
+		$(BODY_PROV) $(BODY) 2>$(OUT)/.b-capp.log || { cat $(OUT)/.b-capp.log; exit 1; }
 	@v=`sed -n 's/.*Volumes: *\([0-9]*\).*/\1/p' $(OUT)/.b-capp.log | tail -1`; \
 	 if [ "$$v" != "2" ]; then \
 		echo "FAIL cap-print: $$v volumes, expected 2"; exit 1; \
 	 fi; rm -f $(OUT)/.b-capp.log
 	@$(OPENSCAD) --hardwarnings -D 'part="dam"' -o $(OUT)/body-dam.stl \
-		$(BODY) 2>$(OUT)/.b-dam.log || { cat $(OUT)/.b-dam.log; exit 1; }
+		$(BODY_PROV) $(BODY) 2>$(OUT)/.b-dam.log || { cat $(OUT)/.b-dam.log; exit 1; }
 	@v=`sed -n 's/.*Volumes: *\([0-9]*\).*/\1/p' $(OUT)/.b-dam.log | tail -1`; \
 	 if [ "$$v" != "3" ]; then \
 		echo "FAIL dam: $$v volumes, expected 3 (two halves)"; exit 1; \
@@ -313,7 +320,7 @@ body-tube: | $(OUT)
 	$(OPENSCAD) --viewall --autocenter --projection=p --imgsize=1500,1100 \
 		--camera=0,0,0,68,0,32,0 --colorscheme=Tomorrow \
 		-D 'part="assembly"' -D exploded=true \
-		-o $(OUT)/body-tube-preview.png $(BODY)
+		-o $(OUT)/body-tube-preview.png $(BODY_PROV) $(BODY)
 
 # The wire-end grip is a printed friction fit, and no arithmetic sets it: it is
 # this printer's XY undersize plus the ASA's shrink plus the real board edge.
@@ -322,7 +329,7 @@ body-tube: | $(OUT)
 .PHONY: fit-coupon
 fit-coupon: | $(OUT)
 	$(OPENSCAD) --hardwarnings -D 'part="fit-coupon"' \
-		-o $(OUT)/body-fit-coupon.stl $(BODY) 2>$(OUT)/.b-coup.log || \
+		-o $(OUT)/body-fit-coupon.stl $(BODY_PROV) $(BODY) 2>$(OUT)/.b-coup.log || \
 		{ cat $(OUT)/.b-coup.log; exit 1; }
 	@# One closed solid per rung -- they are separate parts on one plate.
 	@v=`sed -n 's/.*Volumes: *\([0-9]*\).*/\1/p' $(OUT)/.b-coup.log | tail -1`; \
@@ -335,7 +342,7 @@ fit-coupon: | $(OUT)
 	python3 tools/grip_check.py coupon
 	$(OPENSCAD) --viewall --autocenter --projection=p --imgsize=1500,700 \
 		--colorscheme=Tomorrow -D 'part="fit-coupon"' \
-		-o $(OUT)/body-fit-coupon-preview.png $(BODY)
+		-o $(OUT)/body-fit-coupon-preview.png $(BODY_PROV) $(BODY)
 
 # The WHOLE probe, exploded and labelled -- head stack, board, cell, and the
 # prototype-1 printed body. It imports the body STLs, so body-tube runs first.

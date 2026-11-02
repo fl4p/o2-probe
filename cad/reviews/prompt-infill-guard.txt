@@ -1,0 +1,81 @@
+Adversarially review UNCOMMITTED work in three repos. Do not modify any file.
+Complete in one pass; never stop to ask. Budget your own time; emit FINDINGS and
+SURVIVED early rather than running long. Reach code with grep, not by reading
+large files end to end.
+
+The Playwright MCP tools are the browser surface for this run; Codex's own Browser
+skill does not apply. Open with an ACCESS section: the <title> of
+https://wiki.bambulab.com/en/x1/manual/parameter and one live shell result
+(`git -C /Users/fab/dev/ha/farming/compostlab/o2-probe diff --stat`). If one check
+is blocked, mark that single claim `unverified` and continue; never go offline
+silently.
+
+CONTEXT, USE, STAKES. An O2 probe is potted and buried in a compost windrow for
+months. Its head end is a membrane clamp: a printed ASA retainer disc, 3.32 mm
+thick, bolted on EIGHT M2 screws through a printed carrier onto a printed
+unibody head, squeezing a 17 x 2.0 EPDM O-ring onto a gas-permeable membrane.
+Printed on a Bambu P1P, ASA, 0.12 mm layers, 4 walls at 0.60 mm.
+
+THE EVENT. The assembly passed a 12 h submerged leak test on 2026-09-12. By
+2026-09-30 the retainer disc had DEFORMED, locally, "along the screws" (the
+owner's words). Diagnosis reached here: the shared OrcaSlicer process profile
+sets sparse_infill_density = 15% crosshatch, and the plate's own feature map
+showed five consecutive layers (z 0.80..1.28, 0.6 mm) with sparse infill and NO
+internal solid -- the only structure between the screw-head bearing face and the
+O-ring sealing land. Called bearing crush.
+
+THE CHANGES TO REVIEW:
+1) /Users/fab/dev/ha/farming/compostlab/o2-probe/cad/print.sh -- per-part
+   overrides now add "sparse_infill_density":"100%" for retainer, carrier, cap,
+   cap-fit and monobody.
+2) same repo, cad/tools/seal_check.sh -- a new guard: `pct` helper, an
+   eq sparse_infill_density 100% for clamped parts, an independent assertion that
+   the plate contains NO `; FEATURE: Sparse infill`, and a >=25% floor for
+   non-clamped coupons. Also a comment claiming skin_infill_density and
+   skeleton_infill_density are INERT while sparse_infill_pattern is crosshatch.
+3) /Users/fab/dev/ee/p1p -- .claude/skills/p1p/SKILL.md rules 12c/12d/12e and a
+   new section in doc/gastight-and-watertight.md ("A clamped part is not a
+   sealing wall"). Note that repo has OTHER uncommitted work (rules 5b-5d, 12-12b,
+   doc/levelling-faults.md, doc/machine-state.md, bin/p1p-telemetry-log,
+   doc/bed-cooldown-as-a-leakage-proxy.md) which is OUT OF SCOPE.
+4) /Users/fab/dev/ha/farming/compostlab/o2-probe/cad/PRINTING-HEAD-END.md and
+   cad/print-archive/README.md -- the leak-test record.
+
+ATTACK THESE SPECIFICALLY:
+1) IS 100 % INFILL THE RIGHT FIX, OR A MUTE BUTTON? Bearing crush under a screw
+   head in a 3.3 mm thermoplastic disc: does raising infill density change the
+   governing quantity, or is the real lever bearing AREA (washer / counterbore),
+   disc thickness, or torque/creep? Quantify if you can: M2 screw head bearing
+   area vs ASA compressive yield (~45-55 MPa) and the seating torque needed for
+   ~25 % squeeze on a 2.0 mm EPDM cord. If 100 % infill is cosmetic against that
+   load, say so plainly -- that is the most useful finding available here.
+2) IS THE GUARD SATISFIABLE? It asserts the ABSENCE of `; FEATURE: Sparse infill`
+   on five parts. Verified here for retainer and cap (Orca converts to internal
+   solid at 100 %). Is there any geometry or Orca behaviour that emits sparse
+   infill anyway at 100 % -- minimum_sparse_infill_area, infill_combination,
+   locked patterns, a modifier? A guard that cannot pass blocks all printing.
+3) THE MONOBODY TRADE. 100 % is justified as "nearly free" because the r5 plate
+   had sparse infill in only 53 layers of 1113 (tube wall is walls-only, 4 x 0.60
+   = 2.40 mm). Three ASA towers ALREADY FELL OVER at ~z 106-114 and shrinkage
+   stress is the suspected cause; ~/dev/ee/p1p/doc/gastight-and-watertight.md caps
+   sparse infill at <=50 % for that reason. Is "53 of 1113" a sound basis for
+   exempting this part from its own ceiling, or does concentrating 100 % infill in
+   the HEAD -- the top 7 mm, the largest cross-section, printed last and coolest
+   -- make toppling MORE likely, not less?
+4) THE INERT-KEYS CLAIM. Verify that skin_infill_density / skeleton_infill_density
+   have no effect while sparse_infill_pattern = crosshatch. If they are live, the
+   guard has a hole and the comment is worse than silence.
+5) GUARD REVIEW CHECKLIST. Fail-closed on a missing/malformed
+   sparse_infill_density? Monotonic (does a worse value ever pass)? Does the new
+   >=25 % floor now fail every previously-passing coupon plate, and is that
+   stated? Does `pct`'s regex accept things it should not, or reject "100"?
+   Is the feature-absence check fooled by a `; FEATURE:` line inside a comment
+   block or an object-name?
+6) THE RECORD'S HONESTY. PRINTING-HEAD-END.md claims the tested retainer is `R6`
+   on the owner's hedged recall, not a read mark. Is any downstream conclusion
+   written as firmer than that? Does any doc claim the leak test validates the
+   clamp?
+
+Tag each finding (a) arithmetic error, (b) unstated assumption that happens to
+hold, or (c) real design defect. Cite file:line. Do not invent findings; if a
+claim survives, say so plainly. End with FINDINGS and SURVIVED sections.

@@ -127,7 +127,29 @@ body_dir = "exports";       // where those STLs live, relative to the build cwd
 // the fastener went to M2 and it returned to its 2.0 floor. Overall probe length
 // never changed. tools/interface_check.py compares these against the body model
 // and caught the drift both times -- run it after ANY fastener change.
-body_tube_len = monolithic ? 124.0 : 127.0;   // o2_probe_body_tube.scad, tube_len
+// NO LONGER A LITERAL. It was `monolithic ? 124.0 : 127.0`, and on 2026-09-09
+// that pair of numbers was found to be the whole monobody failure under
+// radial_ring="ors116787": there the head correctly SOLVES cav_board_len to 2.4
+// (the O24 x 1.5 shortens spigot_len 5.3 -> 4.6, so the retainer screws need
+// more material behind the end face), which makes the right tube 123.6 -- while
+// this line went on saying 124.0 and the union opened a 0.4 mm gap at the joint.
+// The Makefile's volume gate caught it as "3 volumes, expected 2".
+//
+// The board is a FIXED 107 mm and its tail a fixed 22, so every millimetre the
+// head's cavity gains has to come out of the tube. That is one identity, written
+// in the body model as tube_len, and both files now compute it instead of one
+// deriving it and the other remembering the answer:
+//
+//     tube_len = board_len - cav_board_len + tail_len - (monolithic ? socket_len : 0)
+//
+// Only the two fixed lengths are duplicated here; cav_board_len and socket_len
+// are this file's own. THE ASSIGNMENT ITSELF IS FURTHER DOWN, immediately after
+// cav_board_len, and that placement is load-bearing rather than tidy: OpenSCAD
+// does NOT resolve a forward reference at top level -- `a = b + 1; b = 41;`
+// echoes `a=undef`, measured 2026-09-09, with no warning. Defined up here it
+// would silently place the tube at undef.
+body_board_len = 107.0;     // o2_probe_body_tube.scad, board_len
+body_tail_len  = 22.0;      // o2_probe_body_tube.scad, tail_len
 // The tube's BORE, and it is load-bearing here rather than decorative: with the
 // cell standing on the board, this is the hole the can has to go down, and the
 // assert that says so lives in this file because cell_seated_h does. Ø27.2 =
@@ -1060,6 +1082,11 @@ cell_disp = PI * pow(cell_d/2, 2) * cell_h;
 cav_clear_len = cell_axial_len;          // guard_gap is OUTSIDE the membrane
 has_neck = cav_clear_len > 0;
 cav_board_len = max(2.0, fast_hole_h + 2.0 - cav_clear_len - spigot_len);
+// The tube's length, DERIVED from the line above -- see the long note at
+// body_board_len. It has to sit here, after cav_board_len, because a forward
+// reference resolves to undef in OpenSCAD without complaining.
+body_tube_len = body_board_len - cav_board_len + body_tail_len
+              - (monolithic ? socket_len : 0);
 // Now counts the spigot bore and the flare stack as well, because a bore-only
 // figure understates: it passed at 2.68 cm3 while the mesh measured 5.81.
 // The clamped core is ONE frustum through the whole flange, spigot bore to
@@ -1579,7 +1606,8 @@ echo(str("GAS PATH membrane -> cell face: ", flange_t, " (flange core) + ",
 // KEEP THE SPELLING STABLE -- the parser matches on it.
 echo(str("INTERFACE board_tip_z ", board_tip_z, " head_len ", head_len,
          " well_z ", well_z, " cav_board_len ", cav_board_len,
-         " socket_len ", socket_len, " joint ", joint));
+         " socket_len ", socket_len, " body_tube_len ", body_tube_len,
+         " joint ", joint));
 echo(str("bore ", bore_d, "; head OD ", head_od, "; cap OD ", cap_od,
          " mm -- widest point of the probe"));
 echo(str("window dia ", window_d, " -> ", PI*pow(window_d/2,2), " mm2 free area"));
@@ -2337,8 +2365,18 @@ module body_stack(e) {
     // which is also the order it is fitted in.
     color("MediumPurple")
         translate([0, 0, tube_seat_z - dam_drop]) import(str(body_dir, "/body-dam.stl", convexity=10));
-    // The cable-end seal: the SAME ORS116787 24 x 1.5 EPDM as the carrier's
-    // ring, now RADIAL on the cap's spigot rather than a 28 x 2 face seal. It
+    // The cable-end seal: a 22 x 2, and it is NOT the carrier's ring. This
+    // comment said "the SAME ORS116787 24 x 1.5 EPDM as the carrier's ring"
+    // until 2026-09-09, and it had been wrong since the cable end went from a
+    // O27.3 counterbore to a O25.7 COLLAR -- a bore that size takes a 22 x 2.
+    // The GEOMETRY below was right the whole time (it draws on body_seal_id 22.0
+    // and body_seal_cord 2.0, which interface_check.py compares against the tube);
+    // only the prose named a ring the model does not draw. That is the same
+    // failure as the membrane bed's gasket_id, where an echo named ORS116731
+    // beside a diameter nobody sells: a part number printed next to geometry it
+    // does not describe is worse than no part number, because it survives being
+    // read. Line 139 above already carried the correction; this one did not.
+    // Now RADIAL on the cap's spigot rather than a 28 x 2 face seal. It
     // is drawn on the groove root, not on the tube's end face, because that is
     // where it sits -- and the change is not cosmetic: a radial seal supplies
     // no axial preload, so it is no longer the spring that holds the bayonet

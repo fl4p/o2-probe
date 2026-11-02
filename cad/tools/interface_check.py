@@ -190,13 +190,9 @@ def cavity_mesh(joint):
     return v
 
 
-def body_head_cavity(joint):
-    """The body's copy, written as a ternary on `joint`."""
-    m = re.search(r'^head_cavity\s*=\s*\(joint == "monolithic"\)\s*\?\s*'
-                  r'([\d.]+)\s*:\s*([\d.]+)\s*;', open(BODY).read(), re.M)
-    if not m:
-        return None
-    return float(m.group(1) if joint == 'monolithic' else m.group(2))
+def body_head_cavity(joint, ring):
+    """The body's copy, a table keyed on the ring with a column per joint."""
+    return body_table('head_cavity', ring, 1 if joint == 'monolithic' else 2)
 
 
 def scalar(path, name):
@@ -208,11 +204,55 @@ def scalar(path, name):
     return float(m.group(1)) if m else None
 
 
-def body_tube_len(joint):
+def prov_ring():
+    """Which radial ring the Makefile is building, read off the ASA flags.
+
+    Everything below that is keyed on the ring has to be resolved for the SAME
+    ring the head is rendered with, or this file compares one ring's tube against
+    another ring's head and reports a drift that is really its own."""
+    for tok in PROV:
+        m = re.match(r'radial_ring="?([^"]*)"?$', tok)
+        if m:
+            return m.group(1)
+    return None
+
+
+def body_table(name, ring, col=1):
+    """One row of a `name_by_ring = [ ["ring", a, b], ... ];` table in the body.
+
+    cav_board_len and head_cavity stopped being single literals on 2026-09-09:
+    both are set by the head's cav_board_len, which the radial ring moves, so a
+    single value could only ever be right for one ring -- and this check could
+    only ever pass for that one. Resolving the table here is what extends the
+    comparison to every ring instead of the default.
+    """
+    if ring is None:
+        return None
+    src = open(BODY).read()
+    m = re.search(r'^%s\s*=\s*\[(.*?)\];' % re.escape(name + '_by_ring'),
+                  src, re.M | re.S)
+    if not m:
+        return None
+    for row in re.finditer(r'\["([^"]+)"\s*,([^\]]*)\]', m.group(1)):
+        if row.group(1) != ring:
+            continue
+        vals = [v.strip() for v in row.group(2).split(',') if v.strip()]
+        try:
+            return float(vals[col - 1])
+        except (IndexError, ValueError):
+            return None
+    return None
+
+
+def body_cav_board_len(ring):
+    return body_table('cav_board_len', ring)
+
+
+def body_tube_len(joint, ring):
     """The body model derives it; recompute the same way rather than parsing a
     value that is not written down as one."""
     bl = scalar(BODY, 'board_len')
-    cav = scalar(BODY, 'cav_board_len')
+    cav = body_cav_board_len(ring)
     tail = scalar(BODY, 'tail_len')
     sock = scalar(BODY, 'head_socket_len')
     if None in (bl, cav, tail, sock):
@@ -238,15 +278,21 @@ def ternary(path, name, joint):
 
 
 def head_tube_len(joint):
-    """The head writes it as a ternary on `monolithic`."""
-    m = re.search(r'^body_tube_len\s*=\s*monolithic\s*\?\s*([\d.]+)\s*:\s*([\d.]+)\s*;',
-                  open(HEAD).read(), re.M)
-    if not m:
-        return None
-    return float(m.group(1) if joint == 'monolithic' else m.group(2))
+    """The head DERIVES it now, so it comes off the INTERFACE echo.
+
+    It used to be `body_tube_len = monolithic ? 124.0 : 127.0` and this function
+    read those two literals. That pair was the monobody failure under ors116787:
+    the head solves cav_board_len to 2.4 there and the right tube is 123.6, while
+    the literal went on saying 124.0 and the union opened a 0.4 mm gap. The head
+    now computes the same identity the body does -- which means a regex can no
+    longer see it, exactly as happened to cav_board_len, and for the same reason
+    the value moves to a render."""
+    return head_interface('body_tube_len', joint)
 
 
 def main():
+    ring = prov_ring()
+    print("  radial_ring %s (from the Makefile's ASA flags)" % ring)
     checks = [
         ("tube_id",
          (lambda od, w: None if None in (od, w) else od - 2 * w)(
@@ -261,15 +307,15 @@ def main():
         ("head_socket_len",
          scalar(BODY, 'head_socket_len'), ternary(HEAD, 'socket_len', 'monolithic')),
         ("cav_board_len",
-         scalar(BODY, 'cav_board_len'), head_interface('cav_board_len')),
+         body_cav_board_len(ring), head_interface('cav_board_len')),
         ("board_t",
          scalar(BODY, 'board_t'), scalar(HEAD, 'board_t')),
         ("board_w",
          scalar(BODY, 'board_w'), scalar(HEAD, 'board_w')),
         ("tube_len (monolithic)",
-         body_tube_len('monolithic'), head_tube_len('monolithic')),
+         body_tube_len('monolithic', ring), head_tube_len('monolithic')),
         ("tube_len (bonded)",
-         body_tube_len('bonded'), head_tube_len('bonded')),
+         body_tube_len('bonded', ring), head_tube_len('bonded')),
     ]
     # groove_root is derived in the body and hardcoded in the head for drawing.
     root = None
@@ -322,7 +368,7 @@ def main():
     # rounding means the literal has gone stale, which is the whole failure this
     # check exists to catch.
     for j in ('bonded', 'monolithic'):
-        checks.append(("head_cavity (%s)" % j, body_head_cavity(j),
+        checks.append(("head_cavity (%s)" % j, body_head_cavity(j, ring),
                        cavity_mesh(j), 1.0))
 
     bad = 0

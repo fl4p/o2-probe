@@ -87,7 +87,43 @@ head_socket_len = 3.0;      // o2_probe_head_end.scad, socket_len (monolithic)
 // tools/interface_check.py reads the head's value out of a render (the INTERFACE
 // echo) rather than by regex on the source, because a max() is not regex-readable
 // -- and it is the thing that caught this copy stale both times. Run it.
-cav_board_len   = 2.0;      // o2_probe_head_end.scad, cav_board_len (SOLVED there)
+// IT IS KEYED ON THE RADIAL RING, and until 2026-09-09 it was a single 2.0 for
+// every ring. That is what made the monobody unbuildable under ors116787:
+// spigot_len is set by the ring's cord, the Ø24 x 1.5 takes it 5.3 -> 4.6, and
+// the max() above then lifts cav_board_len to 2.4 so the retainer screws still
+// have fast_hole_h + 2 of material behind the end face.
+//
+// Read 2.4 into the old single constant and the tube shortens 124 -> 123.6 --
+// which is CORRECT, and was reverted on 2026-09-08 as if it were the bug,
+// because the head was still holding 124.0 as a literal and the union opened a
+// 0.4 mm gap ("3 volumes, expected 2"). The head now derives that length from
+// its own cav_board_len, so the two agree at 123.6 and the joint closes. The
+// finding recorded here as "a REAL CONFLICT between the two models" was really
+// one identity written down twice, once as arithmetic and once as an answer.
+//
+// A single value could only ever be right for ONE ring, so interface_check.py
+// could only ever pass for one -- the default. Keyed, it is checked under
+// whatever RING the Makefile is building, which is the point of the check.
+//
+// THESE ARE COPIES OF A SOLVED VALUE, not choices. To add a ring: build the head
+// with it and read cav_board_len off the INTERFACE echo.
+radial_ring = "onhand-22x2";        // o2_probe_head_end.scad, radial_ring
+cav_board_len_by_ring = [
+//   ring             cav_board_len   why
+    ["onhand-22x2",   2.0],  // spigot_len 5.3 -> the 2.0 floor binds, not the screws
+    ["onhand-20x2",   2.0],  // same cord; the head REFUSES to render on this ring
+                             // anyway (groove root under the 1.2 mm floor), so the
+                             // entry is here for completeness, not for use
+    ["ors116787",     2.4],  // spigot_len 4.6 -> the retainer screws bind
+];
+cav_board_len = let (m = [for (r = cav_board_len_by_ring) if (r[0] == radial_ring) r[1]])
+    len(m) == 1 ? m[0]
+    : assert(false, str("no cav_board_len for radial_ring '", radial_ring,
+                        "'. It is SOLVED in o2_probe_head_end.scad; build the ",
+                        "head with this ring and read it off the INTERFACE echo, ",
+                        "do not guess -- tube_len depends on it and a wrong value ",
+                        "opens a gap at the monobody joint. Known: ",
+                        [for (r = cav_board_len_by_ring) r[0]])) 0;
 
 // HOW THE HEAD JOINS.
 //   "bonded"      the production joint: this tube slides 14 mm into the head's
@@ -282,6 +318,32 @@ tail_len = 22.0;
 //
 // EPDM is the one part that is established, and it is not negotiable: ammonia
 // attacks fluoroelastomers.
+// TRIED AND REFUSED 2026-09-09: the ors116787 24 x 1.5 cannot seal this end.
+// Fab asked for one ring across the whole probe and this was built for it, at
+// every bore the rules allow. It fails TWICE, on independent grounds, and
+// neither is the collar the note above argues:
+//
+//   1. INSTALL STRETCH. A 24.0 ring carries a +/-0.25 ID band of its own. Any
+//      root that reaches 15% squeeze in a bore above O27.2 stretches the low-ID
+//      corner past the 5% rule -- 5.77% at 7fd21c0's O27.3 root of 25.0299 --
+//      and the rules still do not overlap at the BEST root there (-0.33 points)
+//      or at O27.25 (-0.14). Only O27.2 overlaps, by +0.06 points printed.
+//   2. THE MOUTH WALL, at that one surviving bore. The O-ring lead-in is sized
+//      on the ring's worst corner (measured on the bench; a cone sized on the
+//      DRAWN bore was still 0.05 mm short), and a 24 x 1.5 on a 24.80 root
+//      reaches O27.83. The relief opens the mouth to O28.53 in a O32 tube and
+//      leaves 1.73 mm of wall where the cap is pushed on and twisted by hand,
+//      under the 1.80 floor of three whole 0.60 extrusion loops. EVERY root in
+//      the feasible window fails it: 1.7327 best-margin, 1.7379 lowest, 1.6995
+//      printed. Short by 0.06 mm, with no root anywhere that recovers it.
+//
+// So the one-ring probe is not available at O32 OD. Not a sourcing decision and
+// not a preference: the ring is too fat for the tube once the lead-in it needs
+// is cut for it. One ring at this end would need a WIDER TUBE -- a different
+// probe, and the head end would have to move with it.
+//
+// The 22 x 2 stands. Its worst-corner ring reaches O26.892, the mouth opens to
+// O27.592, and 2.20 mm of wall is left, comfortably over the floor.
 seal_id   = 22.0;
 seal_cord = 2.0;
 // THESE STAY undef. MEASURING THE RING IS NOT AN AVAILABLE MOVE -- Fab ruled it
@@ -427,6 +489,16 @@ cable_bore_finish = "reamed";
 // THE TUBE PRINTED 2026-09-06 IS DRAWN O25.5. Ream it to 25.7 anyway: that is
 // 0.2 mm more stock on diameter, a normal ream allowance, and more stock gives
 // a cleaner reamed surface, not a worse one. Later prints carry 25.7 as drawn.
+// STILL O25.7, and the collar with it -- see the refusal recorded at seal_id.
+// A one-ring cable end was built at O27.2 on 2026-09-09 and does not close.
+//
+// One thing that attempt DID settle, and it corrects the note below: the
+// collar / counterbore / plain-bore distinction is about what is DRAWN, not
+// about whether the reamer finds stock. A printed bore comes out undersize --
+// 0.2 mm on radius, measured on MONO-R2's O25.7 collar -- so a reamer cutting a
+// nominally equal printed hole removes ~0.2 mm of radius everywhere, exactly as
+// it would in a collar or a counterbore. The three shapes are drawing decisions
+// about wall thickness and printability, and the asserts below now say so.
 cable_bore_d   = 25.7;      // H7, +0.021/0, ISO 286-2 18-30 band
 cable_bore_len = 12.0;      // reamed depth = collar length
 // 45 degrees, so it is self-supporting whichever way the tube is laid on the
@@ -444,6 +516,10 @@ spigot_id  = 17.5;
 //   "printed"   as it comes off the printer, +/-0.09 (seven readings on printed
 //               ASA carriers, o2_probe_head_end.scad carrier_tol)
 //   "machined"  turned to size, +/-0.05
+// PRINTED. Briefly set to "machined" on 2026-09-09 while a 24 x 1.5 cable end
+// was being tried, because that ring needed the tighter root band to have any
+// margin at all. The 22 x 2 does not -- it holds +/-0.09 with a 0.103 mm root
+// window -- so the lathe operation buys nothing here and is not taken.
 cap_fab = "printed";
 // "CATALOGUE" IS A CLAIM THIS RING HAS NOT EARNED -- see the provenance note
 // above. It is left here because it is the least-flattering assumption
@@ -982,8 +1058,18 @@ assert(cap_end_t <= gland_wall_max + 1e-9,
 mate_bore = undef;                       // undef => mate with this file's own bore
 mate_bore_tol = 0.05;                    // half-spread of YOUR readings, not a guess
 seal_bore = is_undef(mate_bore) ? cable_bore_d : mate_bore;
-assert(seal_bore > 22.5 && seal_bore < tube_id,
-       str("mate_bore ", seal_bore, " is not a plausible cable-end bore"));
+// THE BOUND USED TO BE `seal_bore < tube_id`, which encoded the COLLAR and
+// nothing else: it was added with 56407da, and it would have refused 7fd21c0's
+// own O27.3 counterbore as implausible. What this assert is actually for is a
+// MEASURED number -- mate_bore, read off a finished tube with a bore gauge --
+// so the real question is whether the reading is near the bore the tube was
+// drawn at. Half a millimetre away is a mis-measurement or the wrong tube, in
+// either direction, and that is what it now says.
+assert(seal_bore > 22.5 && abs(seal_bore - cable_bore_d) <= 0.5,
+       str("mate_bore ", seal_bore, " is not a plausible cable-end bore: the ",
+           "tube is drawn ", cable_bore_d, ", and a reading ",
+           abs(seal_bore - cable_bore_d),
+           " mm from that is a mis-measurement or a different tube"));
 
 spigot_od   = seal_bore - carrier_fit;
 // seal_squeeze is the SIZING BASIS, not the achieved squeeze. It sets the root;
@@ -1325,15 +1411,27 @@ assert(groove_wall >= 2.4,
 // reamer finds stock: the sealing bore must be smaller than the as-printed
 // feature it is cut into. For a COLLAR that feature is the collar itself, so
 // the sense inverts.
-assert(cable_bore_d < tube_id,
-       str("the seal bore ", cable_bore_d, " is not smaller than the ", tube_id,
-           " tube bore -- this is a COLLAR, so there is no collar to ream. If a ",
-           "counterbore is what is wanted, that is a different part; do not just ",
-           "flip this assert back."));
-assert(collar_lead > 0.2,
+// THREE SHAPES, not two, and the shape is DERIVED from where the drawn bore
+// sits relative to tube_id rather than chosen. This assert used to read
+// `cable_bore_d > tube_id` ("the sealing counterbore is not larger than the
+// tube bore"), was inverted to `< tube_id` for the collar, and each spelling
+// was the construction of the day written down as a law. Both excluded the
+// third case -- bore EQUAL to tube_id, no added and no removed material --
+// which is where a 24 x 1.5 has to sit (see cable_bore_d).
+cable_end = (cable_bore_d < tube_id) ? "collar"
+          : (cable_bore_d > tube_id) ? "counterbore" : "bore";
+// A collar has to be thick enough to be a feature; a counterbore has to be deep
+// enough to be one. The plain bore has neither requirement -- there is nothing
+// standing proud to be too thin -- and its stock comes from the print being
+// undersize, which is asserted where that undersize is declared.
+assert(cable_end != "collar" || collar_lead > 0.2,
        str("the collar only stands ", collar_lead,
            " mm proud of the bore -- below one extrusion width there is no ",
            "sealing land, only a printed artefact"));
+assert(cable_end != "counterbore" || cable_bore_d - tube_id >= 0.4,
+       str("the counterbore is only ", (cable_bore_d - tube_id)/2,
+           " mm deep on radius -- that is not a step, it is the bore with a ",
+           "different name. Draw it at tube_id and call it a plain bore."));
 // The collar is where the tube is THICKEST, not thinnest -- it adds material
 // inward -- but say so in a number rather than trusting the prose.
 collar_wall = (tube_od - cable_bore_d)/2;
@@ -1397,7 +1495,23 @@ board_diag  = sqrt(pow(board_w, 2) + pow(board_swept, 2));
 // Re-measured 2026-09-06 with the Makefile's ASA flags, both joints, two
 // independent mesh readers (tools/stlvol.py and interface_check.mesh_volume)
 // agreeing to 0.1 mm3.
-head_cavity = (joint == "monolithic") ? 4367.1 : 2928.5;   // mm3, MESH
+// AND KEYED ON THE RING as well as the joint, for the same reason cav_board_len
+// is: the ring moves cav_board_len, cav_board_len moves the cavity. Under
+// ors116787 both figures are 8.34 mm3 larger. Two joints x three rings, so the
+// table is written out rather than computed -- these are MESH MEASUREMENTS, and
+// arithmetic that predicted them would just be the guess this table replaced.
+head_cavity_by_ring = [
+//   ring             monolithic  bonded     mm3, MESH
+    ["onhand-22x2",   4367.1,     2928.5 ],
+    ["onhand-20x2",   4367.1,     2928.5 ],  // head does not render on this ring
+    ["ors116787",     4375.4,     2936.8 ],
+];
+head_cavity = let (m = [for (r = head_cavity_by_ring) if (r[0] == radial_ring) r])
+    len(m) == 1 ? (joint == "monolithic" ? m[0][1] : m[0][2])
+    : assert(false, str("no head_cavity for radial_ring '", radial_ring,
+                        "'. interface_check.py renders the head's cavity and ",
+                        "weighs it against this table; add the ring by reading ",
+                        "the two numbers off that check, not by scaling.")) 0;
 tube_bore_area = PI*pow(tube_id/2, 2);
 tube_gas_board = tube_bore_area * board_in_tube - board_w*board_t*board_in_tube;
 tube_gas_tail  = tube_bore_area * tail_len;
