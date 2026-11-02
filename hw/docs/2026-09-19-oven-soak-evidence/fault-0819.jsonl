@@ -1,0 +1,16 @@
+{"metric":{"__name__":"gas_cell_ua","device":"farm-node-01","application":"steingrubenhof","dev_eui":"34b7dafffe5b84e0","probe":"3"},"values":[97.72,97.63],"timestamps":[1789798746449,1789798874458]}
+
+{"metric":{"__name__":"gas_t_ext_c","device":"farm-node-01","application":"steingrubenhof","dev_eui":"34b7dafffe5b84e0","probe":"3"},"values":[20.87,20.88],"timestamps":[1789798746449,1789798874458]}
+
+{"metric":{"__name__":"gas_t_chamber_c","device":"farm-node-01","application":"steingrubenhof","dev_eui":"34b7dafffe5b84e0","probe":"3"},"values":[22.8,22.88],"timestamps":[1789798746449,1789798874458]}
+
+{"metric":{"__name__":"gas_t_afe_c","device":"farm-node-01","application":"steingrubenhof","dev_eui":"34b7dafffe5b84e0","probe":"3"},"values":[21.81,21.81],"timestamps":[1789798746449,1789798874458]}
+
+{"metric":{"__name__":"gas_rh_chamber_pct","device":"farm-node-01","application":"steingrubenhof","dev_eui":"34b7dafffe5b84e0","probe":"3"},"values":[66.35,66.35],"timestamps":[1789798746449,1789798874458]}
+
+{"metric":{"__name__":"gas_faults","device":"farm-node-01","application":"steingrubenhof","dev_eui":"34b7dafffe5b84e0","probe":"3"},"values":[2049,2049],"timestamps":[1789798746449,1789798874458]}
+
+{"metric":{"__name__":"gas_settle_s","device":"farm-node-01","application":"steingrubenhof","dev_eui":"34b7dafffe5b84e0","probe":"3"},"values":[813,685],"timestamps":[1789798746449,1789798874458]}
+
+{"metric":{"__name__":"gas_heater_duty_pct","device":"farm-node-01","application":"steingrubenhof","dev_eui":"34b7dafffe5b84e0","probe":"3"},"values":[1.81,1.83],"timestamps":[1789798746449,1789798874458]}
+

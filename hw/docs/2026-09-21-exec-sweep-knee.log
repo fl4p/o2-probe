@@ -1,0 +1,59 @@
+   ELF flash base 0x08004000
+opening a CTRL session: waiting for the node's next scheduled uplink, up to 75 s
+   invitation <invitation nonce=0xC7CC uptime=193002s flags=0x43>
+   -> SESSION_OPEN nonce=0xC7CC 20 min +CLAIM_BUS
+   the node uplinked again, still holding the claim it already had before this SESSION_OPEN - that says nothing about this request, so this is a plain no-answer. Taking the next invitation.
+   no ACK after 0 s; retrying against the next invitation. Not evidence the node did nothing - see _wait_for_ack()
+   invitation <invitation nonce=0xA653 uptime=193122s flags=0x43>
+   -> SESSION_OPEN nonce=0xA653 20 min +CLAIM_BUS
+   the node uplinked again with no ACK for this nonce; taking the new invitation instead of waiting out the remaining 89 s. NOT established which happened: the downlink missed the node's window, the node discarded it, or it acted and the ACK was lost
+   no ACK after 1 s; retrying against the next invitation. Not evidence the node did nothing - see _wait_for_ack()
+   invitation <invitation nonce=0x2BC3 uptime=193204s flags=0x03>
+   -> SESSION_OPEN nonce=0x2BC3 20 min +CLAIM_BUS
+bus claimed; the node's scheduled poll is off the pair
+verifying the flashed image at 0x0800B8F0 against firmware.elf
+   16 words identical - the probe is running THIS build
+uploading 40 bytes of stub
+sweep: 16 points from 34.50 C, step 0.50 C
+   -> SESSION_OPEN nonce=0xC85D 20 min +CLAIM_BUS
+   session renewed: 20 min, 1195 s remaining
+   EXEC OK, results at 0x2000056C
+   -> SESSION_CLOSE nonce=0xC85D
+   session closed, bus released
+Traceback (most recent call last):
+  File "/Users/fab/dev/ha/farming/tech/chirpstack/o2p_exec_sweep.py", line 327, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/Users/fab/dev/ha/farming/tech/chirpstack/o2p_exec_sweep.py", line 282, in main
+    words = peek_words(bus, res_addr, n)
+  File "/Users/fab/dev/ha/farming/tech/chirpstack/o2p_exec_sweep.py", line 127, in peek_words
+    hdr = C.read_confirmed(bus, REG_PEEKW_STATUS, 2)
+  File "/Users/fab/dev/ha/farming/tech/chirpstack/o2p_lorawan_cmd.py", line 180, in read_confirmed
+    second = read_retry(bus, reg, count)
+  File "/Users/fab/dev/ha/farming/tech/chirpstack/o2p_lorawan_cmd.py", line 152, in read_retry
+    return bus.read(reg, count)
+           ~~~~~~~~^^^^^^^^^^^^
+  File "/Users/fab/dev/ee/hw/o2-probe/firmware/tools/o2p_update.py", line 745, in read
+    return self._read_once(addr, count)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Users/fab/dev/ee/hw/o2-probe/firmware/tools/o2p_update.py", line 795, in _read_once
+    rsp = self._txn(struct.pack(">BHH", 3, addr, count), 5 + 2 * count)
+  File "/Users/fab/dev/ee/hw/o2-probe/firmware/tools/o2p_update.py", line 687, in _txn
+    rsp = self.link.exchange(self._adu(pdu), expect_len)
+  File "/Users/fab/dev/ha/farming/tech/chirpstack/o2p_ctrl.py", line 1302, in exchange
+    return self.link.exchange(*args, **kw)
+           ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Users/fab/dev/ha/farming/tech/chirpstack/o2p_lorawan_link.py", line 495, in exchange
+    got = self.uplink.wait(
+        timeout=max(0.1, min(remaining, 5.0,
+                             next_resend - time.monotonic())))
+  File "/Users/fab/dev/ha/farming/tech/chirpstack/o2p_lorawan_link.py", line 220, in wait
+    return self._q.get(timeout=timeout)
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/queue.py", line 210, in get
+    self.not_empty.wait(remaining)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/threading.py", line 373, in wait
+    gotit = waiter.acquire(True, timeout)
+KeyboardInterrupt
+exit 130
